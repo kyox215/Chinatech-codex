@@ -1,0 +1,50 @@
+---
+description: 业务组件与 shadcn 用法速查
+globs: src/components/**,src/routes/**
+---
+
+# 组件速查
+
+## shadcn 原子组件（src/components/ui/*）
+
+- **不要直接修改源文件**（除非新增 variant）。
+- 需要新风格时用 `cva` 在调用处组合 className，或在 `ui/button.tsx` 里加新 `variant`（如 `premium`）。
+- 已就绪：button / card / dialog / sheet / sidebar / tooltip / dropdown-menu / table / badge / input / select / tabs / sonner（Toast）等。
+
+## 业务工具类（src/styles.css）
+
+| 类 | 用途 |
+|---|---|
+| `glass-card` | 默认卡片容器（已含背景/边框/阴影/伪元素高光） |
+| `glass-strong` | 更强的玻璃质感弹层 |
+| `gradient-text` | 文本品牌渐变 |
+| `gradient-border` | 卡片渐变描边 |
+| `glow-brand` | 品牌光晕 box-shadow |
+| `shine` | 悬停时扫光 |
+
+## 业务复用组件
+
+| 组件 | 用途 |
+|---|---|
+| `<AnimatedNumber value={…}/>` | 所有数字 KPI、计数、金额 |
+| `<Sparkline data color height/>` | KPI 卡内迷你趋势图，`color` 必须传 token |
+| `<StatusBadge status/>` (orders/badges) | 工单状态徽标（自动配色） |
+| `<MoneyText amount/>` (orders/badges) | 金额渲染（¥ + tabular-nums） |
+| `<CommandPalette/>` | 全局 ⌘K，新页面要在其中注册 |
+| `<ThemeToggle/>` | 亮 / 暗切换，已挂在 AppBar |
+| `<ComingSoon title/>` | 占位页 |
+| `<BackgroundOrbs/>` | 背景渐变球，只在 root 用一次 |
+
+## 数据获取
+
+```tsx
+const { data = [] } = useQuery({
+  queryKey: ["orders", filters],
+  queryFn: () => listOrders(filters),
+});
+```
+mock API 在 `src/lib/mock/api.ts`。真实 API 用 `createServerFn`，文件命名 `*.functions.ts`，放 `src/lib/`。
+
+## 图标
+
+`lucide-react`，统一 `size-4`（按钮内）/ `size-3.5`（小徽标）/ `size-5`（独立）。

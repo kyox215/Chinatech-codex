@@ -1,0 +1,40 @@
+---
+description: TanStack Start / Router / Query 技术栈硬性约定
+alwaysApply: true
+---
+
+# 技术栈约定
+
+## 路由
+
+- 文件位于 `src/routes/`，**扁平点号命名**：`orders.$id.tsx` → `/orders/:id`。
+- 根布局只有 `src/routes/__root.tsx`，**禁止** `_app/`、`app/layout.tsx`。
+- 不编辑 `src/routeTree.gen.ts`（自动生成）。
+- 导航统一 `@tanstack/react-router`：`Link` / `useNavigate` / `useRouterState` / `useRouter` / `Outlet`。**不引入** `react-router-dom`。
+- 路径不带尾斜杠：`to="/orders"` ✓，`to="/orders/"` ✗。
+
+## 数据
+
+- 客户端用 `@tanstack/react-query`，`QueryClient` 已在 `__root.tsx` 提供。
+- `queryKey` 格式：`["resource", filters]`。
+- mock 数据：`src/lib/mock/api.ts`、`src/lib/mock/fixtures.ts`、`src/lib/mock/enums.ts`。
+
+## 服务端逻辑
+
+- 用 `createServerFn`，文件命名 `*.functions.ts`，放 `src/lib/`（不要放 `src/server/`）。
+- 副作用 / API key 在 `.handler()` 内读取 `process.env`。
+- HTTP webhook / cron 走 `src/routes/api/public/*`，必须验签。
+
+## 错误 / 404
+
+- 已在 `__root.tsx` 配置 `notFoundComponent` + `errorComponent`，沿用统一样式。
+- 含 loader 的路由要本地再配 `errorComponent` + `notFoundComponent`。
+
+## 后端
+
+需要数据库 / 鉴权 / 文件存储 / 邮件 / AI 时使用 **Lovable Cloud**（默认），不要直接接其他平台。
+
+## 验收
+
+- 每次改动后浏览器自查 `/`、`/orders`、当前修改的页面在亮 + 暗主题、桌面 + 750px 移动端均无 hidden bug。
+- 不手动跑 `tsc` / `npm run build`（CI 自动）。

@@ -1,0 +1,47 @@
+---
+description: 应用外壳结构（侧栏 + AppBar + 内容区）
+alwaysApply: true
+---
+
+# 应用外壳
+
+`src/routes/__root.tsx` 已固定，**不要再包一层 Sidebar / Header**。新页面只写 `<main>` 里的内容。
+
+```tsx
+<SidebarProvider>
+  <AppSidebar/>                     // 桌面常驻 / 移动 Sheet，实色
+  <SidebarInset className="relative isolate min-h-svh">
+    <BackgroundOrbs/>               // z-index -1，只在内容区
+    <AppBar onOpenCommand={…}/>     // sticky top-0 z-30
+    <main><RouteTransition><Outlet/></RouteTransition></main>
+  </SidebarInset>
+</SidebarProvider>
+```
+
+## 内容容器（每个页面都用）
+
+```tsx
+<div className="mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6">
+  …页面内容…
+</div>
+```
+
+## 侧栏规则
+
+- 组件：`src/components/app-sidebar.tsx`（`collapsible="icon"`）
+- **实色**：禁止 `bg-transparent` / `backdrop-blur*`
+- 激活态：`bg-sidebar-accent text-sidebar-accent-foreground` + 左侧 2px 渐变指示条（`collapsible=icon` 时变为底部居中 4px 圆点）
+- 新增导航：编辑 `app-sidebar.tsx` 的 `nav` 数组 + 同步在 `command-palette.tsx` 注册
+- 移动端通过 Sheet 弹出；触发器在 `AppBar` 的 `<SidebarTrigger/>`
+
+## 顶部条 AppBar
+
+- 左：SidebarTrigger（移动端 `Menu`、桌面 `PanelLeft`）+ 面包屑（`useCrumbs`，新增路由要在 `labels` 字典中加映射）
+- 右：⌘K 搜索按钮 → `CommandPalette`、`ThemeToggle`、通知、门店切换、新建 CTA
+
+## 响应式断点
+
+- 移动 < `sm` (640)：单列、Sheet 侧栏、隐藏面包屑
+- `sm` ~ `lg`：双列 KPI / 紧凑表格
+- `lg` (1024) +：三列图表、侧栏常驻、显示门店 chip
+- 内容最大宽度 `max-w-7xl` (1280)

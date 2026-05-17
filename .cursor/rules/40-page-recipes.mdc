@@ -1,0 +1,98 @@
+---
+description: 三套页面骨架配方（Dashboard / 列表 / 详情）
+globs: src/routes/**
+---
+
+# 页面骨架配方
+
+每个新页面必须：
+1. 套用下方一种配方
+2. 配独立 `head()` meta（title / description / og:*）
+3. 包在 `<div className="mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6">` 中
+4. 入场动画用 `@/lib/motion` 的 `stagger` + `fadeUp`
+
+## 通用路由模板
+
+```tsx
+import { createFileRoute } from "@tanstack/react-router";
+
+export const Route = createFileRoute("/reports")({
+  head: () => ({
+    meta: [
+      { title: "报表 — RepairDesk" },
+      { name: "description", content: "门店经营报表与趋势分析" },
+      { property: "og:title", content: "报表 — RepairDesk" },
+      { property: "og:description", content: "门店经营报表与趋势分析" },
+    ],
+  }),
+  component: ReportsPage,
+});
+```
+
+## 配方 1 · Dashboard / 概览
+
+参考 `src/routes/index.tsx`。结构：
+
+```
+Hero greeting (左标题 + 右 CTA)
+KPI grid     (sm:grid-cols-2 lg:grid-cols-4，使用 glass-card + AnimatedNumber + Sparkline)
+图表行       (grid lg:grid-cols-3，主图占 2 列)
+列表卡片     (glass-card + divide-y)
+```
+
+## 配方 2 · 列表 / 表格
+
+```tsx
+<div className="mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6">
+  {/* 标题栏 */}
+  <header className="flex items-end justify-between">
+    <h1 className="font-display text-2xl">客户</h1>
+    <Button style={{ background: "var(--gradient-brand)" }}>新建</Button>
+  </header>
+
+  {/* 筛选条 */}
+  <div className="glass-card flex flex-wrap items-center gap-2 p-3">
+    <Input placeholder="搜索…" className="max-w-xs"/>
+    <Select>…</Select>
+  </div>
+
+  {/* 表格 / 列表 */}
+  <div className="glass-card overflow-hidden">
+    <Table>…</Table>
+  </div>
+</div>
+```
+
+空态：`<ComingSoon/>` 风格的居中卡片，含图标 + 文案 + CTA。
+
+## 配方 3 · 详情 / 表单
+
+```tsx
+<div className="mx-auto max-w-7xl grid gap-6 px-3 py-6 sm:px-6 lg:grid-cols-[1fr_320px]">
+  <section className="glass-card p-6 space-y-6">…主信息…</section>
+  <aside className="space-y-4">
+    <div className="glass-card p-4">…操作…</div>
+    <div className="glass-card p-4">…历史…</div>
+  </aside>
+</div>
+```
+
+## 加载 / 错误 / 空态
+
+```tsx
+{isLoading && <Skeleton className="h-32 w-full"/>}
+{isError   && <p className="text-status-danger-foreground">{error.message}</p>}
+{empty     && <div className="glass-card p-8 text-center text-muted-foreground">暂无数据</div>}
+```
+
+## 入场动画
+
+```tsx
+import { motion } from "framer-motion";
+import { fadeUp, stagger } from "@/lib/motion";
+
+<motion.div variants={stagger(0.06)} initial="hidden" animate="show">
+  <motion.div variants={fadeUp}>…</motion.div>
+  <motion.div variants={fadeUp}>…</motion.div>
+</motion.div>
+```

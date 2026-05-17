@@ -1,0 +1,35 @@
+---
+description: 动效与无障碍规则
+alwaysApply: true
+---
+
+# 动效
+
+- 所有 framer-motion variants 从 `@/lib/motion` 导入：`fadeUp` / `scaleIn` / `stagger(gap)` / `cardHover` / `pageTransition` / `ease`。**不自造 variants**。
+- 入场动画 ≤ 400ms，hover 反馈 ≤ 200ms。
+- 列表用 `stagger(0.04~0.06)` + `fadeUp`。
+- 卡片悬停：`whileHover={{ y: -2 or -3 }}`。
+- 路由切换由 `RouteTransition` 统一处理，不要在页面内再加 `AnimatePresence`。
+- 全局 CSS 已处理 `prefers-reduced-motion`；自写 JS 动画也要尊重该偏好。
+
+# 无障碍
+
+- 文本对比度 ≥ WCAG AA，背景与 `*-foreground` 必须成对。
+- 所有图标按钮带 `aria-label`，侧栏菜单项带 `tooltip={title}`。
+- 焦点环：`focus-visible:ring-2 focus-visible:ring-ring`（shadcn 默认已含）。
+- 表单元素带 `<Label htmlFor>`，错误消息用 `aria-describedby`。
+- 键盘可达：Sheet/Dialog 正确 `aria-modal`，⌘K 全局快捷键已就绪。
+- 图片 `alt` 必填；装饰性图标 `aria-hidden`。
+
+# SEO（每个路由必填）
+
+```ts
+head: () => ({
+  meta: [
+    { title: "页名 — RepairDesk" },           // < 60 字
+    { name: "description", content: "…" },     // < 160 字
+    { property: "og:title", content: "…" },
+    { property: "og:description", content: "…" },
+  ],
+})
+```

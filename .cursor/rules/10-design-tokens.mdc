@@ -1,0 +1,66 @@
+---
+description: 颜色 / 字体 / 圆角 / 阴影 / 动画 设计令牌使用规则
+alwaysApply: true
+---
+
+# 设计令牌（src/styles.css 是唯一来源）
+
+## 表面层级（从底到顶）
+
+| Token | 用途 |
+|---|---|
+| `bg-background` | 页面最底层（已带渐变 orbs） |
+| `bg-surface` / `bg-surface-muted` | 通用次级表面 |
+| `bg-card` + `text-card-foreground` | 卡片容器（≈ `glass-card` 工具类） |
+| `bg-popover` + `text-popover-foreground` | 弹层 / 下拉 |
+| `bg-sidebar` + `text-sidebar-foreground` | 侧栏（**实色**） |
+
+## 文本
+
+`text-foreground`（主） / `text-muted-foreground`（次） / `text-{primary,destructive,...}-foreground`（必须与对应背景成对使用）。
+
+## 状态色（成对使用）
+
+`bg-status-{neutral|info|progress|warn|success|danger}` + `text-status-*-foreground`。例：
+```tsx
+<span className="rounded-md bg-status-success px-2 py-0.5 text-xs text-status-success-foreground">+18.2%</span>
+```
+
+## 品牌
+
+| Token | 何时用 |
+|---|---|
+| `var(--color-brand-violet)` / `var(--color-brand-cyan)` | 图表色、自定义渐变端点 |
+| `var(--gradient-brand)` | 主 CTA 按钮、品牌图标背景、强调指示条、`gradient-text` |
+| `var(--gradient-brand-soft)` | 低饱和品牌底色 |
+| `gradient-text` 工具类 | 标题中需要强调的关键词 |
+| `gradient-border` 工具类 | 卡片渐变描边 |
+
+## 阴影 / 光晕
+
+- `shadow-[var(--shadow-glass)]` → 卡片
+- `shadow-[var(--shadow-elevated)]` → 浮层
+- `shadow-[var(--glow-brand)]` → 主按钮 hover / focus
+- 自定义阴影允许带 alpha（颜色阴影本身不是"透明背景"）
+
+## 圆角
+
+`rounded-{sm,md,lg,xl,2xl}` 全部映射到 `--radius-*` 阶梯。圆形头像/状态点用 `rounded-full`。
+
+## 字体
+
+```html
+<h1 className="font-display text-3xl tracking-tight">…</h1>
+<p  className="text-sm">…</p>
+<span className="font-mono tabular-nums">¥1,234</span>
+```
+
+## ✅ Do / ❌ Don't
+
+| ❌ Don't | ✅ Do |
+|---|---|
+| `bg-white text-black` | `bg-card text-card-foreground` |
+| `bg-[#7c3aed]` | `style={{ background: "var(--gradient-brand)" }}` |
+| `text-gray-500` | `text-muted-foreground` |
+| `bg-green-500/10 text-green-400` | `bg-status-success text-status-success-foreground` |
+| 在侧栏上 `backdrop-blur-xl` | 让侧栏继承 `bg-sidebar`（实色） |

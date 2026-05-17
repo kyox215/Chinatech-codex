@@ -1,0 +1,41 @@
+---
+description: RepairDesk 项目总览与设计强约束（红线）
+alwaysApply: true
+---
+
+# RepairDesk · 项目总览
+
+维修工单后台。技术栈：**TanStack Start v1 + React 19 + Vite 7 + Tailwind v4 + shadcn/ui + framer-motion + TanStack Query**。设计语言：**深色玻璃拟物 + 紫青品牌渐变 + 富微交互**。
+
+## 红线（违反即视为 Bug）
+
+1. **不写死颜色**。禁止 `text-white`、`bg-black`、任意 hex/rgb，统一走 `src/styles.css` 中的语义 token（`bg-card text-card-foreground` 等）。
+2. **侧栏与移动 Sheet 必须实色**。禁止在侧栏上使用 `backdrop-blur*` 或带 alpha 的背景；`box-shadow` 可带 alpha。
+3. **品牌渐变只用一种**：`var(--gradient-brand)`（紫 → 青）。不另造紫青组合。
+4. **字体只用三套**：`font-sans` (Inter) / `font-display` (Space Grotesk) / `font-mono` (JetBrains Mono)。标题用 `font-display`，数字用 `tabular-nums` 或 `font-mono`。
+5. **默认深色主题**。亮色仅作切换适配，不得新增第三套主题或改变品牌色调。
+6. **不修改** `src/components/ui/*` 中的 shadcn 原子组件。需要变体时通过 `cva` 在调用处组合，或在原文件加新 `variant`。
+7. **不引入** `react-router-dom`、`next/*`，路由统一 `@tanstack/react-router`。
+8. **不编辑** `src/routeTree.gen.ts`（自动生成）。
+
+## 项目结构速记
+
+```
+src/
+  routes/           扁平点号文件路由（不要建 _app/）
+  components/
+    ui/             shadcn 原子组件（勿改）
+    app-sidebar.tsx 侧栏
+    app-bar.tsx     顶部条
+    background-orbs.tsx
+    command-palette.tsx
+  lib/
+    motion.ts       动画 variants 单一来源
+    mock/api.ts     mock 数据接口
+    utils.ts        cn()
+  styles.css        所有设计 token 的唯一来源
+```
+
+## 工作流
+
+修改 UI 之前先读：`10-design-tokens.mdc`（颜色 token）、`20-layout-shell.mdc`（外壳结构）、`40-page-recipes.mdc`（页面骨架）。
