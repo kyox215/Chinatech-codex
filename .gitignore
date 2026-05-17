@@ -15,6 +15,7 @@ dist-ssr
 .tanstack/**
 tsconfig.tsbuildinfo
 .nitro
+.vercel/
 *.local
 
 # Wrangler / Cloudflare
