@@ -22,7 +22,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useQuery } from "@tanstack/react-query";
-import { listOrders } from "@/lib/mock/api";
+import { listOrders } from "@/lib/repairdesk/api";
 
 type StaticCommandPath =
   | "/"

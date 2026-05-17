@@ -88,7 +88,7 @@ export function validateOrderTransition(
 export function getCommonValidTargets(currents: RepairOrderStatus[]): RepairOrderStatus[] {
   if (!currents.length) return [];
   const sets = currents.map((c) => new Set(NEXT[c] ?? []));
-  return repairOrderStatus.filter((t) => sets.every((s) => s.has(t) && t !== currents[0]));
+  return repairOrderStatus.filter((t) => sets.every((s) => s.has(t)) && !currents.includes(t));
 }
 
 // ---- Overdue helpers -------------------------------------------------------

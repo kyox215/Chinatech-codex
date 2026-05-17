@@ -37,14 +37,14 @@ import { toast } from "sonner";
 
 import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
 import {
-  allTechnicians,
   batchTransition,
+  getRepairDeskOptions,
   getOrderStats,
   listOrders,
-  suppliers,
   transitionOrder,
   type OrderListFilters,
-} from "@/lib/mock/api";
+  type RepairDeskOptions,
+} from "@/lib/repairdesk/api";
 import {
   repairOrderStatus,
   repairOrderType,
@@ -77,10 +77,12 @@ const tabs: { key: string; label: string; statuses?: RepairOrderStatus[] }[] = [
 function FiltersPanel({
   filters,
   setFilters,
+  options,
   onClose,
 }: {
   filters: OrderListFilters;
   setFilters: (f: OrderListFilters) => void;
+  options: RepairDeskOptions;
   onClose?: () => void;
 }) {
   const toggle = <K extends keyof OrderListFilters>(key: K, value: string) => {
@@ -172,7 +174,7 @@ function FiltersPanel({
 
           <FilterGroup label="技师">
             <div className="space-y-1.5">
-              {allTechnicians.map((t) => (
+              {options.technicians.map((t) => (
                 <label
                   key={t}
                   className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
@@ -189,7 +191,7 @@ function FiltersPanel({
 
           <FilterGroup label="外修供应商">
             <div className="space-y-1.5">
-              {suppliers.map((s) => (
+              {options.suppliers.map((s) => (
                 <label
                   key={s.id}
                   className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
@@ -273,6 +275,11 @@ function OrdersListPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["orders", effectiveFilters],
     queryFn: () => listOrders(effectiveFilters),
+  });
+
+  const { data: options = { suppliers: [], technicians: [] } } = useQuery({
+    queryKey: ["repairdesk-options"],
+    queryFn: () => getRepairDeskOptions(),
   });
 
   const { data: stats } = useQuery({
@@ -400,6 +407,7 @@ function OrdersListPage() {
               <FiltersPanel
                 filters={filters}
                 setFilters={setFilters}
+                options={options}
                 onClose={() => setMobileFiltersOpen(false)}
               />
             </SheetContent>

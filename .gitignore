@@ -16,6 +16,9 @@ dist-ssr
 tsconfig.tsbuildinfo
 .nitro
 .vercel/
+.env
+.env.*
+!.env.example
 *.local
 
 # Wrangler / Cloudflare

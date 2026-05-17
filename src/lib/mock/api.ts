@@ -18,9 +18,11 @@ import {
 } from "./fixtures";
 import type { RepairOrderStatus, RepairOrderType } from "./enums";
 import {
+  ORDER_STATUS_ALLOWED_FOR_CREATE,
   getStatusListSortIndex,
   isApprovalOverdue,
   isPickupOverdue,
+  normalizeInitialOrderStatus,
   validateOrderTransition,
 } from "./workflow";
 
@@ -183,8 +185,11 @@ export async function batchTransition(ids: string[], to: RepairOrderStatus) {
 
 // POST /api/orders/[id]/payment
 export async function recordPayment(id: string, amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  if (o.balance_amount <= 0 || o.is_paid) throw new Error("该工单已结清");
+  if (amount > o.balance_amount) throw new Error("收款金额不能超过未结清尾款");
   o.balance_amount = Math.max(0, o.balance_amount - amount);
   if (o.balance_amount === 0) o.is_paid = true;
   o.updated_at = new Date().toISOString();
@@ -197,10 +202,12 @@ export async function sendNotification(
   body: string,
   channel: "whatsapp" | "sms" = "whatsapp",
 ) {
+  const message = body.trim();
+  if (!message) throw new Error("通知内容不能为空");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   o.updated_at = new Date().toISOString();
-  return { ok: true, id: `msg_${Date.now()}`, channel, body };
+  return { ok: true, id: `msg_${Date.now()}`, channel, body: message };
 }
 
 // GET /api/customers/suggest?q=
@@ -245,13 +252,23 @@ export interface CreateOrderInput {
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<{ id: string }> {
+  const status = normalizeInitialOrderStatus(input.status);
+  if (!ORDER_STATUS_ALLOWED_FOR_CREATE.includes(status)) throw new Error("初始状态不合法");
+  if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
+  if (!input.technician_name.trim()) throw new Error("技师不能为空");
+  if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
+
   let customer = input.customer_id ? getCustomer(input.customer_id) : undefined;
+  if (input.customer_id && !customer) throw new Error("读取客户失败");
   if (!customer) {
+    if (!input.customer_name?.trim() || !input.customer_phone?.trim()) {
+      throw new Error("客户姓名和手机号不能为空");
+    }
     customer = {
       id: `cus_new_${Date.now()}`,
-      name: input.customer_name ?? "未命名客户",
+      name: input.customer_name.trim(),
       phone_raw: (input.customer_phone ?? "").replace(/\D/g, ""),
-      phone_e164: input.customer_phone ?? "",
+      phone_e164: input.customer_phone.trim(),
       contact_phones: [],
       consent_marketing: false,
       consent_sms: true,
@@ -259,40 +276,51 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
     customers.push(customer);
   }
   let device = input.device_id ? getDevice(input.device_id) : undefined;
+  if (input.device_id && !device) throw new Error("读取设备失败");
+  if (device && device.customer_id !== customer.id) throw new Error("设备不属于当前客户");
   if (!device) {
+    if (!input.device_brand?.trim() || !input.device_model?.trim()) {
+      throw new Error("设备品牌和型号不能为空");
+    }
     device = {
       id: `dev_new_${Date.now()}`,
       customer_id: customer.id,
-      brand: input.device_brand ?? "—",
-      model: input.device_model ?? "—",
-      serial_or_imei: input.device_imei ?? "",
-      device_notes: input.device_notes,
+      brand: input.device_brand.trim(),
+      model: input.device_model.trim(),
+      serial_or_imei: input.device_imei?.trim() ?? "",
+      device_notes: input.device_notes?.trim() || undefined,
     };
     devices.push(device);
   }
-  const quotation = input.fault_prices.reduce((s, f) => s + (f.price || 0), 0);
+  const validFaults = input.fault_prices
+    .filter((item) => item.name.trim() && Number(item.price) > 0)
+    .map((item) => ({ ...item, name: item.name.trim(), price: Number(item.price) }));
+  const quotation = validFaults.reduce((s, f) => s + (f.price || 0), 0);
   const deposit = input.deposit_amount ?? 0;
+  if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
+  if (deposit > quotation) throw new Error("押金不能超过总报价");
   const id = `ord_new_${Date.now()}`;
   const seq = orders.length + 1;
   const now = new Date().toISOString();
+  const balance = Math.max(0, quotation - deposit);
   const newOrder: RepairOrder = {
     id,
     public_no: `R${(2026000 + seq).toString().padStart(7, "0")}`,
     order_type: input.order_type,
-    status: input.status,
+    status,
     customer_id: customer.id,
     device_id: device.id,
     issue_description: input.issue_description,
     quotation_amount: quotation,
     deposit_amount: deposit,
-    balance_amount: Math.max(0, quotation - deposit),
-    is_paid: false,
+    balance_amount: balance,
+    is_paid: balance === 0,
     approval_status: "pending",
     technician_name: input.technician_name,
     internal_tag: input.internal_tag,
     warranty_text: "90天质保",
     contact_phones: customer.contact_phones,
-    fault_prices: input.fault_prices,
+    fault_prices: validFaults,
     created_at: now,
     updated_at: now,
   };

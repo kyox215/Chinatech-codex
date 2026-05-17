@@ -15,10 +15,15 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { allTechnicians, createOrder, getCustomerDevices, searchCustomers } from "@/lib/mock/api";
+import {
+  createOrder,
+  getCustomerDevices,
+  getRepairDeskOptions,
+  searchCustomers,
+} from "@/lib/repairdesk/api";
 import { repairOrderType, statusMeta } from "@/lib/mock/enums";
 import { ORDER_STATUS_ALLOWED_FOR_CREATE, normalizeInitialOrderStatus } from "@/lib/mock/workflow";
-import type { Customer, FaultPriceItem } from "@/lib/mock/fixtures";
+import type { Customer, FaultPriceItem } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/orders/new")({
@@ -59,21 +64,36 @@ const initialForm: FormState = {
   imei: "",
   deviceNotes: "",
   issue: "",
-  technician: allTechnicians[0] ?? "",
+  technician: "",
   internalTag: "",
   deposit: 0,
   faults: [{ name: "", price: 0 }],
 };
 
+const fallbackTechnicians = ["陈师傅", "李工", "王师傅", "周工", "黄师傅"];
+
 function NewOrderPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(initialForm);
+  const { data: options = { suppliers: [], technicians: [] } } = useQuery({
+    queryKey: ["repairdesk-options"],
+    queryFn: () => getRepairDeskOptions(),
+  });
+  const technicianOptions = options.technicians.length ? options.technicians : fallbackTechnicians;
 
   const total = useMemo(
     () => form.faults.reduce((s, f) => s + (Number(f.price) || 0), 0),
     [form.faults],
   );
+
+  useEffect(() => {
+    if (!form.technician && technicianOptions[0]) {
+      setForm((current) =>
+        current.technician ? current : { ...current, technician: technicianOptions[0] },
+      );
+    }
+  }, [form.technician, technicianOptions]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -97,6 +117,7 @@ function NewOrderPage() {
     onSuccess: ({ id }) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["order-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["repairdesk-options"] });
       toast.success("工单已创建");
       navigate({ to: "/orders/$id", params: { id } });
     },
@@ -273,7 +294,7 @@ function NewOrderPage() {
                   <SelectValue placeholder="选择技师" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allTechnicians.map((t) => (
+                  {technicianOptions.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
                     </SelectItem>

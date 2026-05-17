@@ -14,7 +14,7 @@ import {
 import { ArrowUpRight, ClipboardList, Clock, DollarSign, Wrench } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { listOrders } from "@/lib/mock/api";
+import { listOrders } from "@/lib/repairdesk/api";
 import { MoneyText, StatusBadge } from "@/components/orders/badges";
 import { statusGroups, statusMeta } from "@/lib/mock/enums";
 import { AnimatedNumber } from "@/components/animated-number";

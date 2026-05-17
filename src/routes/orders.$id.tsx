@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
@@ -52,7 +52,7 @@ import {
   PhoneText,
   StatusBadge,
 } from "@/components/orders/badges";
-import { getOrder, recordPayment, sendNotification, transitionOrder } from "@/lib/mock/api";
+import { getOrder, recordPayment, sendNotification, transitionOrder } from "@/lib/repairdesk/api";
 import { statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { getNextActions } from "@/lib/mock/workflow";
 import { fadeUp, stagger } from "@/lib/motion";
@@ -437,10 +437,21 @@ function OrderDetailPage() {
                     </Field>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" className="gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => setNotifyOpen(true)}
+                    >
                       <Send className="size-3.5" /> 发送审批
                     </Button>
-                    <Button size="sm" variant="outline" className="gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      disabled={order.is_paid || order.balance_amount <= 0}
+                      onClick={() => setPayOpen(true)}
+                    >
                       <CreditCard className="size-3.5" /> 收款
                     </Button>
                   </div>
@@ -547,7 +558,7 @@ function OrderDetailPage() {
                     size="sm"
                     variant="outline"
                     className="h-7 gap-1 text-xs"
-                    onClick={() => toast.success("已生成 WhatsApp 通知草稿")}
+                    onClick={() => setNotifyOpen(true)}
                   >
                     <MessageCircle className="size-3" /> 发送通知
                   </Button>
@@ -619,8 +630,8 @@ function OrderDetailPage() {
         open={payOpen}
         onOpenChange={setPayOpen}
         balance={order.balance_amount}
-        onPay={async (amount) => {
-          await recordPayment(id, amount);
+        onPay={async (amount, method) => {
+          await recordPayment(id, amount, method);
           toast.success(`已收款 ¥${amount.toLocaleString("zh-CN")}`);
           invalidate();
         }}
@@ -650,6 +661,11 @@ function NotifyDialog({
   const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
   const [body, setBody] = useState(defaultBody);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) setBody(defaultBody);
+  }, [defaultBody, open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -718,7 +734,7 @@ function PaymentDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   balance: number;
-  onPay: (amount: number) => Promise<void>;
+  onPay: (amount: number, method: string) => Promise<void>;
 }) {
   const [amount, setAmount] = useState(balance);
   const [method, setMethod] = useState("微信");
@@ -778,7 +794,7 @@ function PaymentDialog({
             onClick={async () => {
               setBusy(true);
               try {
-                await onPay(amount);
+                await onPay(amount, method);
                 onOpenChange(false);
               } finally {
                 setBusy(false);
