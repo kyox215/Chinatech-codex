@@ -184,13 +184,13 @@ export interface ExampleCardProps {
 
 组件不得直接访问数据库。边界如下：
 
-| 层                          | 可以做什么                                    |
-| --------------------------- | --------------------------------------------- |
-| `src/server/*`              | Supabase service role、数据库 join、业务校验  |
-| `src/lib/repairdesk/api.ts` | createServerFn facade、client/server 同构入口 |
-| route page                  | `useQuery` / `useMutation` / invalidate       |
-| container component         | 局部 query/mutation，必须清楚 query key       |
-| presentational component    | 只展示 props                                  |
+| 层                          | 可以做什么                                        |
+| --------------------------- | ------------------------------------------------- |
+| `src/server/*`              | Supabase service role、数据库 join、业务校验      |
+| `src/lib/repairdesk/api.ts` | Next Route Handler facade、client/server 同构入口 |
+| route page                  | `useQuery` / `useMutation` / invalidate           |
+| container component         | 局部 query/mutation，必须清楚 query key           |
+| presentational component    | 只展示 props                                      |
 
 新增业务能力时，先扩展 `src/lib/repairdesk/types.ts` 和 API facade，再接 UI。
 
@@ -232,7 +232,7 @@ export function ExampleSummaryCard({
 ### 11.2 业务列表项
 
 ```tsx
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { componentList } from "@/lib/component-patterns";
 import { MoneyText, StatusBadge } from "@/components/orders/badges";
 
@@ -252,7 +252,7 @@ export function OrderResultItem({
   status,
 }: OrderResultItemProps) {
   return (
-    <Link to="/orders/$id" params={{ id }} className={componentList.itemInteractive}>
+    <Link href={`/orders/${id}`} className={componentList.itemInteractive}>
       <div className="min-w-0">
         <div className={componentList.itemTitle}>{publicNo}</div>
         <div className={componentList.itemMeta}>{customerName}</div>

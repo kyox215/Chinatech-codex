@@ -1,4 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell, Plus, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +19,7 @@ const labels: Record<string, string> = {
 };
 
 export function AppHeader() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname() ?? "/";
   const segments = pathname.split("/").filter(Boolean);
 
   return (
@@ -25,7 +28,7 @@ export function AppHeader() {
       <Separator orientation="vertical" className="mx-1 h-5 bg-border/60" />
       <nav className="flex min-w-0 items-center gap-1.5 text-sm">
         <Link
-          to="/"
+          href="/"
           className="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
         >
           <Sparkles className="size-3.5 opacity-70" />
@@ -42,7 +45,7 @@ export function AppHeader() {
                 <span className="truncate font-medium">{label}</span>
               ) : (
                 <Link
-                  to={href}
+                  href={href}
                   className="truncate text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {label}
@@ -77,7 +80,7 @@ export function AppHeader() {
             backgroundSize: "180% 100%",
           }}
         >
-          <Link to="/orders/new">
+          <Link href="/orders/new">
             <Plus className="size-4" />
             <span className="hidden sm:inline">新建工单</span>
           </Link>

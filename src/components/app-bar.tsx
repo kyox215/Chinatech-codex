@@ -1,4 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
 import { Bell, Plus, Search, Store } from "lucide-react";
@@ -19,7 +22,7 @@ const labels: Record<string, string> = {
 };
 
 function useCrumbs() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname() ?? "/";
   const segs = pathname.split("/").filter(Boolean);
   if (segs.length === 0) return [{ label: "概览", href: "/" }];
   return segs.map((seg, i) => ({
@@ -51,7 +54,10 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
               {i === crumbs.length - 1 ? (
                 <span className="truncate font-medium">{c.label}</span>
               ) : (
-                <Link to={c.href} className="truncate text-muted-foreground hover:text-foreground">
+                <Link
+                  href={c.href}
+                  className="truncate text-muted-foreground hover:text-foreground"
+                >
                   {c.label}
                 </Link>
               )}
@@ -97,7 +103,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
           className="hidden h-9 gap-1.5 border-0 text-white shadow-[0_4px_20px_-6px_oklch(0.7_0.2_285_/_0.6)] sm:inline-flex"
           style={{ background: "var(--gradient-brand)" }}
         >
-          <Link to="/orders/new">
+          <Link href="/orders/new">
             <Plus className="size-4" />
             <span className="hidden md:inline">新建</span>
           </Link>

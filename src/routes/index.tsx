@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -21,16 +23,6 @@ import { AnimatedNumber } from "@/components/animated-number";
 import { Sparkline } from "@/components/sparkline";
 import { fadeUp, stagger } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "概览 — RepairDesk" },
-      { name: "description", content: "门店当日维修工单与营收概览" },
-    ],
-  }),
-  component: Dashboard,
-});
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -57,7 +49,7 @@ const weekRevenue = [
   { day: "周日", v: 4800 },
 ];
 
-function Dashboard() {
+export default function Dashboard() {
   const { data = [] } = useQuery({
     queryKey: ["orders", {}],
     queryFn: () => listOrders(),
@@ -114,7 +106,7 @@ function Dashboard() {
             className="h-10 gap-1.5 border-0 text-white shadow-[0_8px_28px_-10px_oklch(0.7_0.2_285_/_0.7)]"
             style={{ background: "var(--gradient-brand)" }}
           >
-            <Link to="/orders/new">
+            <Link href="/orders/new">
               <ArrowUpRight className="size-4" />
               新建工单
             </Link>
@@ -293,7 +285,7 @@ function Dashboard() {
         <div className="flex items-center justify-between border-b border-border/40 px-5 py-3">
           <h2 className="font-display text-base font-semibold">最新工单</h2>
           <Button variant="ghost" size="sm" className="gap-1 text-xs" asChild>
-            <Link to="/orders">
+            <Link href="/orders">
               查看全部 <ArrowUpRight className="size-3" />
             </Link>
           </Button>
@@ -307,8 +299,7 @@ function Dashboard() {
           {recent.map((o) => (
             <motion.li key={o.id} variants={fadeUp}>
               <Link
-                to="/orders/$id"
-                params={{ id: o.id }}
+                href={`/orders/${o.id}`}
                 className="group relative flex items-center justify-between gap-3 px-5 py-3 text-sm transition-colors hover:bg-accent/30"
               >
                 <span

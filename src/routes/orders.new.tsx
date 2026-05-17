@@ -1,4 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Plus, Trash2, UserSearch } from "lucide-react";
@@ -25,16 +28,6 @@ import { repairOrderType, statusMeta } from "@/lib/mock/enums";
 import { ORDER_STATUS_ALLOWED_FOR_CREATE, normalizeInitialOrderStatus } from "@/lib/mock/workflow";
 import type { Customer, FaultPriceItem } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/orders/new")({
-  head: () => ({
-    meta: [
-      { title: "新建工单 — RepairDesk" },
-      { name: "description", content: "录入新工单：客户、设备、故障与报价" },
-    ],
-  }),
-  component: NewOrderPage,
-});
 
 interface FormState {
   type: "quick_repair" | "dropoff_repair";
@@ -72,8 +65,8 @@ const initialForm: FormState = {
 
 const fallbackTechnicians = ["陈师傅", "李工", "王师傅", "周工", "黄师傅"];
 
-function NewOrderPage() {
-  const navigate = useNavigate();
+export default function NewOrderPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(initialForm);
   const { data: options = { suppliers: [], technicians: [] } } = useQuery({
@@ -119,7 +112,7 @@ function NewOrderPage() {
       queryClient.invalidateQueries({ queryKey: ["order-stats"] });
       queryClient.invalidateQueries({ queryKey: ["repairdesk-options"] });
       toast.success("工单已创建");
-      navigate({ to: "/orders/$id", params: { id } });
+      router.push(`/orders/${id}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -136,7 +129,7 @@ function NewOrderPage() {
     <div className="mx-auto max-w-3xl px-3 py-4 sm:px-6">
       <div className="mb-4 flex items-center gap-2">
         <Button variant="ghost" size="sm" className="gap-1.5" asChild>
-          <Link to="/orders">
+          <Link href="/orders">
             <ArrowLeft className="size-4" /> 返回
           </Link>
         </Button>
@@ -399,7 +392,7 @@ function NewOrderPage() {
           </div>
           <div className="flex gap-2 sm:justify-end">
             <Button variant="ghost" type="button" asChild>
-              <Link to="/orders">取消</Link>
+              <Link href="/orders">取消</Link>
             </Button>
             <Button type="submit" disabled={!valid || create.isPending}>
               {create.isPending ? "创建中…" : "创建工单"}

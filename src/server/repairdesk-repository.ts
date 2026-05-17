@@ -56,15 +56,16 @@ function stringArray(value: unknown): string[] {
 function faultPrices(value: unknown): FaultPriceItem[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => {
+    .map((item): FaultPriceItem | undefined => {
       if (!item || typeof item !== "object") return undefined;
       const row = item as DbRecord;
       const name = requiredString(row.name);
       const price = money(row.price);
       if (!name) return undefined;
-      return { name, price, note: maybeString(row.note) };
+      const note = maybeString(row.note);
+      return note ? { name, price, note } : { name, price };
     })
-    .filter((item): item is FaultPriceItem => Boolean(item));
+    .filter((item): item is FaultPriceItem => item !== undefined);
 }
 
 function customerFromRow(row: unknown): Customer | undefined {

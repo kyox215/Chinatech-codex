@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "next/navigation";
 import {
   Boxes,
   ClipboardList,
@@ -40,7 +40,7 @@ export function CommandPalette({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data = [] } = useQuery({
     queryKey: ["orders", {}],
     queryFn: () => listOrders(),
@@ -49,12 +49,12 @@ export function CommandPalette({
 
   const go = (to: StaticCommandPath) => {
     onOpenChange(false);
-    navigate({ to });
+    router.push(to);
   };
 
   const goOrder = (id: string) => {
     onOpenChange(false);
-    navigate({ to: "/orders/$id", params: { id } });
+    router.push(`/orders/${id}`);
   };
 
   const toggleTheme = () => {

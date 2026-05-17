@@ -1,5 +1,7 @@
+"use client";
+
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -54,16 +56,6 @@ import {
 } from "@/lib/mock/enums";
 import { getCommonValidTargets, getNextActions } from "@/lib/mock/workflow";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/orders/")({
-  head: () => ({
-    meta: [
-      { title: "工单 — RepairDesk" },
-      { name: "description", content: "查看与管理所有维修工单" },
-    ],
-  }),
-  component: OrdersListPage,
-});
 
 const tabs: { key: string; label: string; statuses?: RepairOrderStatus[] }[] = [
   { key: "all", label: "全部" },
@@ -256,7 +248,7 @@ function KpiPill({ label, value, accent }: { label: string; value: number; accen
   );
 }
 
-function OrdersListPage() {
+export default function OrdersListPage() {
   const [tab, setTab] = useState("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
   const [selected, setSelected] = useState<string[]>([]);
@@ -506,8 +498,7 @@ function OrdersListPage() {
                         </td>
                         <td className="px-3 py-2.5">
                           <Link
-                            to="/orders/$id"
-                            params={{ id: o.id }}
+                            href={`/orders/${o.id}`}
                             className="font-mono text-xs font-medium text-primary hover:underline"
                           >
                             {o.public_no}
@@ -570,9 +561,7 @@ function OrdersListPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-52">
                                   <DropdownMenuItem asChild>
-                                    <Link to="/orders/$id" params={{ id: o.id }}>
-                                      查看详情
-                                    </Link>
+                                    <Link href={`/orders/${o.id}`}>查看详情</Link>
                                   </DropdownMenuItem>
                                   {next.primary && (
                                     <>
@@ -627,8 +616,7 @@ function OrdersListPage() {
               {data.map((o) => (
                 <motion.div key={o.id} variants={fadeUp}>
                   <Link
-                    to="/orders/$id"
-                    params={{ id: o.id }}
+                    href={`/orders/${o.id}`}
                     className="glass-card group relative block overflow-hidden p-3 transition-transform active:scale-[0.99]"
                   >
                     <span

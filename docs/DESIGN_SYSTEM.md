@@ -34,8 +34,8 @@
 4. 字体只用三套（display / sans / mono）。
 5. 默认深色，不新增第三套主题。
 6. 不修改 `src/components/ui/*` shadcn 原子组件源文件（除非新增 variant）。
-7. 路由统一 `@tanstack/react-router`，禁止 `react-router-dom`、`next/*`。
-8. 不编辑 `src/routeTree.gen.ts`。
+7. 路由统一 Next.js App Router，禁止重新引入 TanStack Router/Start 或 `react-router-dom`。
+8. 不新增 Vite/TanStack 启动入口。
 
 ## 3. 设计令牌
 
@@ -82,7 +82,7 @@
 
 ## 4. 应用外壳
 
-`src/routes/__root.tsx` 已固定，新页面只写 `<main>` 内的内容。
+`src/app/layout.tsx` 与 `src/app/providers.tsx` 已固定，新页面只写主内容。
 
 ```
 SidebarProvider
@@ -90,7 +90,7 @@ SidebarProvider
 └─ SidebarInset
    ├─ BackgroundOrbs       z-index -1
    ├─ AppBar               sticky top-0 z-30
-   └─ main / RouteTransition / Outlet
+   └─ main / children
 ```
 
 **内容容器统一**：
@@ -144,17 +144,20 @@ SidebarProvider
 ### 6.1 路由模板
 
 ```tsx
-export const Route = createFileRoute("/reports")({
-  head: () => ({
-    meta: [
-      { title: "报表 — RepairDesk" },
-      { name: "description", content: "门店经营报表与趋势分析" },
-      { property: "og:title", content: "报表 — RepairDesk" },
-      { property: "og:description", content: "门店经营报表与趋势分析" },
-    ],
-  }),
-  component: ReportsPage,
-});
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "报表",
+  description: "门店经营报表与趋势分析",
+  openGraph: {
+    title: "报表 — RepairDesk",
+    description: "门店经营报表与趋势分析",
+  },
+};
+
+export default function ReportsPage() {
+  return <ReportsClient />;
+}
 ```
 
 ### 6.2 配方 A · Dashboard
@@ -214,16 +217,16 @@ KPI grid            sm:grid-cols-2 lg:grid-cols-4，glass-card + AnimatedNumber 
 - 所有 framer-motion variants 从 `@/lib/motion` 导入：`fadeUp` / `scaleIn` / `stagger(gap)` / `cardHover` / `pageTransition`。
 - 入场 ≤ 400ms，hover ≤ 200ms。
 - 列表用 `stagger(0.04~0.06)` + `fadeUp`；卡片 `whileHover={{ y: -2 }}`。
-- 路由切换由 `RouteTransition` 统一管，不要在页面内再加 `AnimatePresence`。
+- 页面内只为局部内容使用 `AnimatePresence`，不要重复创建全局 shell。
 - 全局已处理 `prefers-reduced-motion`。
 - 文本对比度 ≥ WCAG AA；图标按钮带 `aria-label`；侧栏菜单带 `tooltip`；图片 `alt` 必填。
 
 ## 8. 技术栈约定
 
-- TanStack Start v1 + React 19 + Vite 7 + Tailwind v4。
-- 路由：`src/routes/`，扁平点号命名，根布局唯一 `__root.tsx`。
-- 服务端：通过 `createServerFn` 暴露安全 facade，Supabase service role 只允许在 `src/server/*` 使用。
-- 公共 API：如新增 `src/routes/api/public/*`，必须验签并显式限流。
+- Next.js App Router + React 19 + Tailwind v4。
+- 路由：`src/app/`，根布局唯一 `layout.tsx`，客户端 shell 在 `providers.tsx`。
+- 服务端：通过 Next Route Handlers / Server Components 暴露安全 facade，Supabase service role 只允许在 `src/server/*` 使用。
+- 公共 API：如新增 `src/app/api/public/*`，必须验签并显式限流。
 - 后端能力（DB / Auth / Storage）默认走 Supabase；前端只使用 publishable key 或 server function，不暴露 service role key。
 
 ## 9. 截图基线

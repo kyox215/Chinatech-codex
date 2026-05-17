@@ -1,4 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
 import {
@@ -29,7 +32,7 @@ export const navItems = [
 ];
 
 export function TopNav({ onOpenCommand }: { onOpenCommand: () => void }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname() ?? "/";
   const isActive = (url: string, exact?: boolean) =>
     exact
       ? pathname === url
@@ -53,7 +56,7 @@ export function TopNav({ onOpenCommand }: { onOpenCommand: () => void }) {
     >
       <div className="mx-auto flex h-full w-full max-w-7xl items-center gap-2 px-4 md:px-6 lg:px-8">
         {/* Brand */}
-        <Link to="/" className="flex shrink-0 items-center gap-2">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           <span
             className="grid size-8 place-items-center rounded-lg text-white shadow-[0_4px_18px_-6px_oklch(0.7_0.2_285_/_0.7)]"
             style={{ background: "var(--gradient-brand)" }}
@@ -72,7 +75,7 @@ export function TopNav({ onOpenCommand }: { onOpenCommand: () => void }) {
             return (
               <Link
                 key={it.url}
-                to={it.url}
+                href={it.url}
                 className={cn(
                   "relative rounded-md px-3 py-1.5 text-sm transition-colors",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
@@ -139,7 +142,7 @@ export function TopNav({ onOpenCommand }: { onOpenCommand: () => void }) {
           className="hidden h-9 gap-1.5 border-0 text-white shadow-[0_4px_20px_-6px_oklch(0.7_0.2_285_/_0.6)] sm:inline-flex"
           style={{ background: "var(--gradient-brand)" }}
         >
-          <Link to="/orders/new">
+          <Link href="/orders/new">
             <Plus className="size-4" />
             <span className="hidden md:inline">新建</span>
           </Link>

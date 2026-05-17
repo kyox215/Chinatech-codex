@@ -154,3 +154,15 @@ export interface RepairDeskOptions {
   suppliers: Supplier[];
   technicians: string[];
 }
+
+export interface BatchTransitionResult {
+  ok: boolean;
+  count: number;
+  failures: { id: string; reason: string }[];
+}
+
+export interface PaymentResult {
+  ok: boolean;
+  balance: number;
+  is_paid: boolean;
+}

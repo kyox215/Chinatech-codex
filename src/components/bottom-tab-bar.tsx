@@ -1,10 +1,13 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { navItems } from "./top-nav";
 import { cn } from "@/lib/utils";
 
 export function BottomTabBar() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname() ?? "/";
   const items = navItems.slice(0, 5);
   const isActive = (url: string, exact?: boolean) =>
     exact ? pathname === url : pathname === url || pathname.startsWith(url + "/");
@@ -20,7 +23,7 @@ export function BottomTabBar() {
           return (
             <li key={it.url}>
               <Link
-                to={it.url}
+                href={it.url}
                 className={cn(
                   "relative flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] transition-colors",
                   active ? "text-foreground" : "text-muted-foreground",

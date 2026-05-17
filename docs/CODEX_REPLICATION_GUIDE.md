@@ -4,12 +4,12 @@
 
 ## 技术栈（必须严格一致）
 
-- **框架**: TanStack Start v1 + React 19 + Vite 7
+- **框架**: Next.js App Router + React 19
 - **样式**: Tailwind CSS v4（通过 `src/styles.css` 的 `@import "tailwindcss"` + `@theme` 配置，**不要**用 tailwind.config.js）
 - **UI 组件**: shadcn/ui (new-york style, Radix + Tailwind)，位于 `src/components/ui/*`
 - **动效**: framer-motion，全部 variants 从 `@/lib/motion` 导入
 - **数据**: @tanstack/react-query + `@/lib/repairdesk/api`（Supabase 为主，mock fallback 在 `src/lib/mock/api.ts`）
-- **路由**: 扁平点号命名，如 `orders.$id.tsx` → `/orders/:id`
+- **路由**: `src/app` App Router，如 `orders/[id]/page.tsx` → `/orders/:id`
 - **图标**: lucide-react
 
 ## 安装
@@ -18,24 +18,25 @@
 bun install
 # 或
 npm install
-bun dev
+npm run dev
 ```
 
 关键依赖（见 package.json）：
-`@tanstack/react-router @tanstack/react-start @tanstack/react-query @supabase/supabase-js framer-motion lucide-react clsx tailwind-merge class-variance-authority @radix-ui/react-* sonner cmdk date-fns zod`
+`next @tanstack/react-query @supabase/supabase-js @supabase/ssr framer-motion lucide-react clsx tailwind-merge class-variance-authority @radix-ui/react-* sonner cmdk date-fns zod`
 
 ## 目录结构
 
 ```
 src/
-├── routes/                # TanStack 文件路由
-│   ├── __root.tsx         # 唯一根布局（含 QueryClient/Theme/Sidebar）
-│   ├── index.tsx          # 首页 Dashboard
-│   ├── orders.tsx         # /orders 布局（Outlet）
-│   ├── orders.index.tsx   # 工单列表
-│   ├── orders.$id.tsx     # 工单详情
-│   ├── orders.new.tsx     # 新建工单
-│   ├── customers/inventory/messages/settings.tsx
+├── app/                   # Next.js App Router
+│   ├── layout.tsx         # 根布局
+│   ├── providers.tsx      # QueryClient/Sidebar/AppBar/CommandPalette
+│   ├── page.tsx           # 首页 Dashboard
+│   ├── orders/page.tsx    # 工单列表
+│   ├── orders/[id]/page.tsx
+│   ├── orders/new/page.tsx
+│   └── api/repairdesk/[...path]/route.ts
+├── routes/                # 迁移后的页面 client bodies
 ├── components/
 │   ├── ui/                # shadcn 组件（勿改基础结构）
 │   ├── orders/badges.tsx  # 15 态工单状态徽章
@@ -52,7 +53,7 @@ src/
 │   └── mock/              # fallback fixtures / enums / workflow
 ├── server/                # Supabase admin client + RepairDesk repository
 ├── styles.css             # ★ 设计 token 唯一来源（oklch）
-└── router.tsx
+└── proxy.ts               # Supabase SSR session refresh
 docs/                      # 设计文档
 AGENTS.md                  # Codex 页面生成硬规则
 ```
@@ -109,7 +110,7 @@ import { fadeUp, stagger, cardHover, pageTransition, ease } from "@/lib/motion";
 
 ### 7. SEO
 
-每个路由必须 `head() { meta: [{title<60}, {description<160}, og:* ] }`。
+每个路由必须导出 `metadata`，至少包含 `title` 与 `description`。
 
 ## 工单工作流（15 态状态机）
 
@@ -134,7 +135,7 @@ import { fadeUp, stagger, cardHover, pageTransition, ease } from "@/lib/motion";
 - [ ] 亮 + 暗主题切换正常
 - [ ] 402px / 768px / 1280px 三档无溢出
 - [ ] 无硬编码颜色 / 字体
-- [ ] 所有路由含 `head()` meta
+- [ ] 所有路由含 `metadata`
 - [ ] 工单列表 KPI 可点击过滤、批量转态合法、详情主按钮根据状态变化
 - [ ] 新建工单：客户搜索自动填充、故障价目动态算总价/定金/尾款
 - [ ] `prefers-reduced-motion` 下动画收敛
@@ -144,5 +145,5 @@ import { fadeUp, stagger, cardHover, pageTransition, ease } from "@/lib/motion";
 1. 解压本 zip 到空目录
 2. `bun install && bun dev`
 3. 让 Codex 读取 `AGENTS.md`、`docs/UI_PAGE_GENERATION_DECLARATION.md`、`docs/COMPONENT_GENERATION_DECLARATION.md` 与 `docs/*.md` 作为系统提示
-4. 严禁修改 `src/routeTree.gen.ts`（自动生成）
-5. 新页面遵循"扁平点号 + head() + Outlet 父布局"约定
+4. 严禁重新引入 TanStack Router/Start 或 Vite 入口
+5. 新页面遵循 Next.js App Router + `metadata` + 根布局约定

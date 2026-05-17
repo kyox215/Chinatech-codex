@@ -1,5 +1,7 @@
+"use client";
+
 import { useEffect, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import {
@@ -58,16 +60,6 @@ import { getNextActions } from "@/lib/mock/workflow";
 import { fadeUp, stagger } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/orders/$id")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `工单 ${params.id} — RepairDesk` },
-      { name: "description", content: "工单详情、报价、时间线与通知" },
-    ],
-  }),
-  component: OrderDetailPage,
-});
-
 const tabs = [
   { key: "overview", label: "概览" },
   { key: "timeline", label: "时间线" },
@@ -78,8 +70,7 @@ const tabs = [
 
 type TabKey = (typeof tabs)[number]["key"];
 
-function OrderDetailPage() {
-  const { id } = Route.useParams();
+export default function OrderDetailPage({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("overview");
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -133,7 +124,7 @@ function OrderDetailPage() {
       >
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-xs">
-            <Link to="/orders">
+            <Link href="/orders">
               <ArrowLeft className="size-3.5" /> 返回列表
             </Link>
           </Button>
@@ -150,8 +141,7 @@ function OrderDetailPage() {
               <OrderTypeBadge type={order.order_type} />
               {order.original_order_id && (
                 <Link
-                  to="/orders/$id"
-                  params={{ id: order.original_order_id }}
+                  href={`/orders/${order.original_order_id}`}
                   className="inline-flex items-center gap-1 rounded border bg-status-warn px-1.5 py-0.5 text-xs text-status-warn-foreground hover:underline"
                 >
                   <Wrench className="size-3" /> 返修来源

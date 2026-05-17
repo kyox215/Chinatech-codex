@@ -1,4 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ClipboardList,
@@ -36,7 +39,7 @@ const nav = [
 ];
 
 export function AppSidebar() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname() ?? "/";
   const { isMobile, setOpenMobile } = useSidebar();
   const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
   const handleNav = () => {
@@ -82,7 +85,7 @@ export function AppSidebar() {
                         active && "text-sidebar-accent-foreground",
                       )}
                     >
-                      <Link to={item.url} onClick={handleNav}>
+                      <Link href={item.url} onClick={handleNav}>
                         {active && (
                           <motion.span
                             layoutId="nav-indicator"
