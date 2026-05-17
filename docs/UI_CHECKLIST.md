@@ -49,6 +49,7 @@
 ## 数据 & 后端
 
 - [ ] 客户端数据用 `@tanstack/react-query`，`queryKey` 格式 `["resource", filters]`
-- [ ] 服务端逻辑用 `createServerFn`，文件名 `*.functions.ts`
+- [ ] 页面通过 `@/lib/repairdesk/api` 访问数据，不直接导入 `src/server/*`
+- [ ] Supabase service role 只在服务端使用，未进入浏览器 bundle
 - [ ] webhook / cron 在 `/api/public/*` 且已验签
-- [ ] 需要的后端能力走 Lovable Cloud
+- [ ] 需要的 DB / Auth / Storage 后端能力走 Supabase

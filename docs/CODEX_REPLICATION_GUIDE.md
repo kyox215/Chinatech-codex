@@ -1,6 +1,6 @@
 # RepairDesk — Codex 1:1 复刻指南
 
-本包用于让 Codex 完整复刻当前项目。包含全部源码、UI 组件、路由、mock 数据、设计文档与 .cursor 规则。
+本包用于让 Codex 完整复刻当前项目。包含全部源码、UI 组件、路由、Supabase 接入、mock fallback、设计文档与页面生成声明。
 
 ## 技术栈（必须严格一致）
 
@@ -8,7 +8,7 @@
 - **样式**: Tailwind CSS v4（通过 `src/styles.css` 的 `@import "tailwindcss"` + `@theme` 配置，**不要**用 tailwind.config.js）
 - **UI 组件**: shadcn/ui (new-york style, Radix + Tailwind)，位于 `src/components/ui/*`
 - **动效**: framer-motion，全部 variants 从 `@/lib/motion` 导入
-- **数据**: @tanstack/react-query（mock 在 `src/lib/mock/api.ts`）
+- **数据**: @tanstack/react-query + `@/lib/repairdesk/api`（Supabase 为主，mock fallback 在 `src/lib/mock/api.ts`）
 - **路由**: 扁平点号命名，如 `orders.$id.tsx` → `/orders/:id`
 - **图标**: lucide-react
 
@@ -22,7 +22,7 @@ bun dev
 ```
 
 关键依赖（见 package.json）：
-`@tanstack/react-router @tanstack/react-start @tanstack/react-query framer-motion lucide-react clsx tailwind-merge class-variance-authority @radix-ui/react-* sonner cmdk date-fns zod`
+`@tanstack/react-router @tanstack/react-start @tanstack/react-query @supabase/supabase-js framer-motion lucide-react clsx tailwind-merge class-variance-authority @radix-ui/react-* sonner cmdk date-fns zod`
 
 ## 目录结构
 
@@ -40,17 +40,21 @@ src/
 │   ├── ui/                # shadcn 组件（勿改基础结构）
 │   ├── orders/badges.tsx  # 15 态工单状态徽章
 │   ├── app-sidebar.tsx    # 桌面侧栏 260px
-│   ├── app-header.tsx     # 顶部栏（含 ⌘K）
+│   ├── app-bar.tsx        # 顶部栏（含 ⌘K）
 │   ├── bottom-tab-bar.tsx # 移动底栏
 │   ├── animated-number.tsx / sparkline.tsx / background-orbs.tsx
 ├── lib/
 │   ├── motion.ts          # fadeUp/scaleIn/stagger/cardHover/pageTransition/ease
+│   ├── ui-patterns.ts     # 页面生成可复用布局/表面/表格/表单声明
+│   ├── component-patterns.ts # 组件生成可复用卡片/列表/表单/弹层声明
 │   ├── utils.ts           # cn()
-│   └── mock/              # api.ts / fixtures.ts / enums.ts / workflow.ts
+│   ├── repairdesk/        # API facade / shared business types
+│   └── mock/              # fallback fixtures / enums / workflow
+├── server/                # Supabase admin client + RepairDesk repository
 ├── styles.css             # ★ 设计 token 唯一来源（oklch）
 └── router.tsx
-.cursor/rules/             # 6 份硬性规则（Codex 也读取）
 docs/                      # 设计文档
+AGENTS.md                  # Codex 页面生成硬规则
 ```
 
 ## UI 设计规范（强制）
@@ -64,27 +68,27 @@ docs/                      # 设计文档
 - 文字：`text-foreground` / `text-muted-foreground`
 - 主色：`bg-primary text-primary-foreground`
 - 边框：`border-border` / `border-border/60`
-- 状态：`--status-pending|inProgress|repaired|delivered|cancelled|warning`
-- 渐变：`bg-[image:var(--gradient-brand)]`（violet→cyan）
-- 阴影：`shadow-[var(--shadow-elegant)]`、玻璃高光用 `inset` 写法
+- 状态：`bg-status-{neutral|info|progress|warn|success|danger}` + `text-status-*-foreground`
+- 渐变：`var(--gradient-brand)` 或 `gradient-text`（violet→cyan）
+- 阴影：`--shadow-glass` / `--shadow-elevated` / `--shadow-card`
 
 ### 2. 字体
 
 - 标题：Space Grotesk
 - 正文：Inter
 - 等宽：JetBrains Mono
-（已在 styles.css 引入；勿换 Poppins/Roboto）
+  （已在 styles.css 引入；勿换 Poppins/Roboto）
 
 ### 3. 圆角与间距
 
-- 基础半径 14px（`--radius`）；卡片 `rounded-2xl`，控件 `rounded-xl`
-- 卡片边框 `border-border/60`，hover `hover:-translate-y-0.5 transition`
-- 容器 padding：桌面 `p-6`，移动 `p-4`
+- 基础半径 `--radius`；卡片默认 `glass-card`，控件默认跟随 shadcn variant
+- 卡片边框和背景使用 token，不写死透明色
+- 页面容器优先 import `pageShell` from `@/lib/ui-patterns`
 
 ### 4. 布局骨架
 
-- 桌面 `grid-cols-[260px_1fr]`；移动 fallback 单列 + 底部 Tab
-- 全局背景使用 `<BackgroundOrbs />` 渐隐光斑
+- 根布局已包含 `AppSidebar` + `AppBar` + `BackgroundOrbs`
+- 新页面只写主内容，移动优先，桌面用 `sm:` / `md:` / `lg:`
 - 路由切换 `RouteTransition` 统一处理，**不要** 在页面内再套 `AnimatePresence`
 
 ### 5. 动效（≤400ms enter / ≤200ms hover）
@@ -92,6 +96,7 @@ docs/                      # 设计文档
 ```ts
 import { fadeUp, stagger, cardHover, pageTransition, ease } from "@/lib/motion";
 ```
+
 - 列表 `stagger(0.04~0.06) + fadeUp`
 - 卡片 `whileHover={{ y: -2 }}`
 - 尊重 `prefers-reduced-motion`
@@ -109,6 +114,7 @@ import { fadeUp, stagger, cardHover, pageTransition, ease } from "@/lib/motion";
 ## 工单工作流（15 态状态机）
 
 见 `src/lib/mock/workflow.ts`：
+
 - `getNextActions(status)` → 当前合法的下一步
 - `validateOrderTransition(from, to)` → 校验
 - `isOverdueApproval` / `isOverdueDelivery` → KPI 倒计时
@@ -120,7 +126,7 @@ import { fadeUp, stagger, cardHover, pageTransition, ease } from "@/lib/motion";
 2. **样式**：必须只用 token；`rounded-2xl border border-border/60 bg-card`
 3. **交互**：复用 `cardHover` / `fadeUp`，不自造 variants
 4. **状态色**：复用 `--status-*` 或在 `orders/badges.tsx` 模式上扩展
-5. **a11y**：Label + aria-* + 键盘可达
+5. **a11y**：Label + aria-\* + 键盘可达
 6. **响应式**：默认移动优先，桌面用 `md: / lg:`
 
 ## 验收清单
@@ -137,7 +143,6 @@ import { fadeUp, stagger, cardHover, pageTransition, ease } from "@/lib/motion";
 
 1. 解压本 zip 到空目录
 2. `bun install && bun dev`
-3. 让 Codex 读取 `.cursor/rules/*.mdc` 与 `docs/*.md` 作为系统提示
+3. 让 Codex 读取 `AGENTS.md`、`docs/UI_PAGE_GENERATION_DECLARATION.md`、`docs/COMPONENT_GENERATION_DECLARATION.md` 与 `docs/*.md` 作为系统提示
 4. 严禁修改 `src/routeTree.gen.ts`（自动生成）
 5. 新页面遵循"扁平点号 + head() + Outlet 父布局"约定
-
