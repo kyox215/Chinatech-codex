@@ -246,7 +246,9 @@ export const customerTags: CustomerTag[] = [
 
 export const customerTagAssignments = customers.flatMap((customer, index) => {
   const assigned = [customerTags[index % customerTags.length]];
-  if (index % 4 === 0) assigned.push(customerTags[1]);
+  if (index % 4 === 0 && !assigned.some((tag) => tag.id === customerTags[1].id)) {
+    assigned.push(customerTags[1]);
+  }
   return assigned.map((tag) => ({ customer_id: customer.id, tag_id: tag.id }));
 });
 
