@@ -150,6 +150,22 @@ export interface CreateOrderInput {
   deposit_amount?: number;
 }
 
+export interface UpdateOrderInput {
+  customer_name: string;
+  customer_phone: string;
+  device_brand: string;
+  device_model: string;
+  device_imei?: string;
+  device_notes?: string;
+  issue_description: string;
+  diagnosis_result?: string;
+  technician_name: string;
+  internal_tag?: string;
+  warranty_text?: string;
+  fault_prices: FaultPriceItem[];
+  deposit_amount?: number;
+}
+
 export interface RepairDeskOptions {
   suppliers: Supplier[];
   technicians: string[];

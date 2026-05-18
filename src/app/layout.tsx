@@ -13,12 +13,19 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1a1330",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className="dark" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{document.documentElement.classList.toggle("dark",localStorage.getItem("repairdesk-theme")==="dark")}catch(e){}`,
+          }}
+        />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

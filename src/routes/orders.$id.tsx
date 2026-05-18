@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
   Bell,
@@ -15,9 +16,11 @@ import {
   Package,
   Pencil,
   Phone,
+  Plus,
   Printer,
   Send,
   Signature,
+  Trash2,
   Wrench,
   XCircle,
 } from "lucide-react";
@@ -46,6 +49,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { ImeiScannerField } from "@/components/imei-scanner-field";
 
 import {
   ApprovalBadge,
@@ -54,7 +58,16 @@ import {
   PhoneText,
   StatusBadge,
 } from "@/components/orders/badges";
-import { getOrder, recordPayment, sendNotification, transitionOrder } from "@/lib/repairdesk/api";
+import {
+  getOrder,
+  recordPayment,
+  sendNotification,
+  transitionOrder,
+  updateOrder,
+  type FaultPriceItem,
+  type OrderDetail,
+  type UpdateOrderInput,
+} from "@/lib/repairdesk/api";
 import { statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { getNextActions } from "@/lib/mock/workflow";
 import { fadeUp, stagger } from "@/lib/motion";
@@ -76,6 +89,8 @@ export default function OrderDetailPage({ id }: { id: string }) {
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [orderUrl, setOrderUrl] = useState("");
   const { scrollY } = useScroll();
   const heroPad = useTransform(scrollY, [0, 120], [24, 10]);
   const heroTitleScale = useTransform(scrollY, [0, 120], [1, 0.86]);
@@ -92,11 +107,25 @@ export default function OrderDetailPage({ id }: { id: string }) {
     queryClient.invalidateQueries({ queryKey: ["order-stats"] });
   };
 
+  useEffect(() => {
+    setOrderUrl(window.location.href);
+  }, [id]);
+
   const transition = useMutation({
     mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) =>
       transitionOrder(id, vars.to, { reason: vars.reason }),
     onSuccess: (_r, vars) => {
       toast.success(`已流转为「${statusMeta[vars.to].label}」`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: (input: UpdateOrderInput) => updateOrder(id, input),
+    onSuccess: () => {
+      toast.success("工单已更新");
+      setEditOpen(false);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -229,7 +258,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
               className="h-8 gap-1.5"
               onClick={() => window.print()}
             >
-              <Printer className="size-3.5" /> 打印
+              <Printer className="size-3.5" /> 打印受理单
             </Button>
             <Button size="sm" variant="outline" className="h-8 gap-1.5">
               <Package className="size-3.5" /> 转库存
@@ -312,7 +341,12 @@ export default function OrderDetailPage({ id }: { id: string }) {
                 <Card className="p-5">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold">客户与设备</h3>
-                    <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 text-xs"
+                      onClick={() => setEditOpen(true)}
+                    >
                       <Pencil className="size-3" /> 编辑
                     </Button>
                   </div>
@@ -357,7 +391,17 @@ export default function OrderDetailPage({ id }: { id: string }) {
 
               <motion.div variants={fadeUp}>
                 <Card className="p-5">
-                  <h3 className="mb-3 text-sm font-semibold">故障与诊断</h3>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">故障与诊断</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 text-xs"
+                      onClick={() => setEditOpen(true)}
+                    >
+                      <Pencil className="size-3" /> 编辑
+                    </Button>
+                  </div>
                   <div className="space-y-3 text-sm">
                     <Field label="故障描述">{order.issue_description}</Field>
                     <Field label="诊断结果">
@@ -633,6 +677,403 @@ export default function OrderDetailPage({ id }: { id: string }) {
           await transition.mutateAsync({ to: "cancelled", reason });
         }}
       />
+      <EditOrderDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        data={data}
+        busy={update.isPending}
+        onSave={(input) => update.mutateAsync(input)}
+      />
+      <RepairOrderPrintSheet data={data} orderUrl={orderUrl} />
+    </div>
+  );
+}
+
+function buildEditForm(data: OrderDetail): UpdateOrderInput {
+  const { order, customer, device } = data;
+  return {
+    customer_name: customer?.name ?? order.customer_name,
+    customer_phone: customer?.phone_e164 ?? order.customer_phone,
+    device_brand: device?.brand ?? "",
+    device_model: device?.model ?? "",
+    device_imei: device?.serial_or_imei ?? order.device_imei,
+    device_notes: device?.device_notes ?? "",
+    issue_description: order.issue_description,
+    diagnosis_result: order.diagnosis_result ?? "",
+    technician_name: order.technician_name,
+    internal_tag: order.internal_tag ?? "",
+    warranty_text: order.warranty_text ?? "",
+    fault_prices: order.fault_prices.length ? order.fault_prices : [{ name: "", price: 0 }],
+    deposit_amount: order.deposit_amount,
+  };
+}
+
+function EditOrderDialog({
+  open,
+  onOpenChange,
+  data,
+  busy,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  data: OrderDetail;
+  busy: boolean;
+  onSave: (input: UpdateOrderInput) => Promise<unknown>;
+}) {
+  const [form, setForm] = useState<UpdateOrderInput>(() => buildEditForm(data));
+
+  useEffect(() => {
+    if (open) setForm(buildEditForm(data));
+  }, [data, open]);
+
+  const quotation = useMemo(
+    () => form.fault_prices.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
+    [form.fault_prices],
+  );
+  const paidAmount = Math.max(
+    0,
+    data.order.quotation_amount - data.order.deposit_amount - data.order.balance_amount,
+  );
+  const nextBalance = Math.max(0, quotation - Number(form.deposit_amount ?? 0) - paidAmount);
+  const canSave =
+    form.customer_name.trim() &&
+    form.customer_phone.trim() &&
+    form.device_brand.trim() &&
+    form.device_model.trim() &&
+    form.issue_description.trim() &&
+    form.technician_name.trim() &&
+    Number(form.deposit_amount ?? 0) <= quotation;
+
+  const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
+    const next = [...form.fault_prices];
+    next[index] = { ...next[index], ...patch };
+    setForm({ ...form, fault_prices: next });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>编辑工单</DialogTitle>
+          <DialogDescription>编辑当前工单关联的客户、设备、故障、报价和押金。</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="rounded-md border p-3">
+            <h4 className="mb-3 text-sm font-semibold">客户信息</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <EditField label="客户姓名" required>
+                <Input
+                  value={form.customer_name}
+                  onChange={(event) => setForm({ ...form, customer_name: event.target.value })}
+                />
+              </EditField>
+              <EditField label="手机号" required>
+                <Input
+                  value={form.customer_phone}
+                  onChange={(event) => setForm({ ...form, customer_phone: event.target.value })}
+                  className="font-mono"
+                />
+              </EditField>
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3">
+            <h4 className="mb-3 text-sm font-semibold">设备信息</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <EditField label="品牌" required>
+                <Input
+                  value={form.device_brand}
+                  onChange={(event) => setForm({ ...form, device_brand: event.target.value })}
+                />
+              </EditField>
+              <EditField label="型号" required>
+                <Input
+                  value={form.device_model}
+                  onChange={(event) => setForm({ ...form, device_model: event.target.value })}
+                />
+              </EditField>
+              <EditField label="IMEI / 序列号">
+                <ImeiScannerField
+                  value={form.device_imei ?? ""}
+                  onChange={(device_imei) => setForm({ ...form, device_imei })}
+                  placeholder="支持摄像头扫码"
+                />
+              </EditField>
+              <EditField label="设备备注">
+                <Input
+                  value={form.device_notes ?? ""}
+                  onChange={(event) => setForm({ ...form, device_notes: event.target.value })}
+                />
+              </EditField>
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3">
+            <h4 className="mb-3 text-sm font-semibold">故障与诊断</h4>
+            <div className="space-y-3">
+              <EditField label="故障描述" required>
+                <Textarea
+                  rows={3}
+                  value={form.issue_description}
+                  onChange={(event) => setForm({ ...form, issue_description: event.target.value })}
+                />
+              </EditField>
+              <EditField label="诊断结果">
+                <Textarea
+                  rows={3}
+                  value={form.diagnosis_result ?? ""}
+                  onChange={(event) => setForm({ ...form, diagnosis_result: event.target.value })}
+                />
+              </EditField>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <EditField label="技师" required>
+                  <Input
+                    value={form.technician_name}
+                    onChange={(event) => setForm({ ...form, technician_name: event.target.value })}
+                  />
+                </EditField>
+                <EditField label="内部标签">
+                  <Input
+                    value={form.internal_tag ?? ""}
+                    onChange={(event) => setForm({ ...form, internal_tag: event.target.value })}
+                  />
+                </EditField>
+                <EditField label="质保">
+                  <Input
+                    value={form.warranty_text ?? ""}
+                    onChange={(event) => setForm({ ...form, warranty_text: event.target.value })}
+                  />
+                </EditField>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold">报价与押金</h4>
+              <span className="text-xs text-muted-foreground">
+                报价 ¥{quotation.toLocaleString("zh-CN")}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {form.fault_prices.map((item, index) => (
+                <div
+                  key={index}
+                  className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)_36px]"
+                >
+                  <Input
+                    value={item.name}
+                    onChange={(event) => patchFault(index, { name: event.target.value })}
+                    placeholder="项目"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    value={item.price}
+                    onChange={(event) => patchFault(index, { price: Number(event.target.value) })}
+                    className="font-mono"
+                    placeholder="金额"
+                  />
+                  <Input
+                    value={item.note ?? ""}
+                    onChange={(event) => patchFault(index, { note: event.target.value })}
+                    placeholder="备注"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={form.fault_prices.length === 1}
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        fault_prices: form.fault_prices.filter(
+                          (_, itemIndex) => itemIndex !== index,
+                        ),
+                      })
+                    }
+                    aria-label="删除报价项目"
+                  >
+                    <Trash2 className="size-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    fault_prices: [...form.fault_prices, { name: "", price: 0 }],
+                  })
+                }
+              >
+                <Plus className="size-3.5" /> 添加项目
+              </Button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <EditField label="押金">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.deposit_amount ?? 0}
+                  onChange={(event) =>
+                    setForm({ ...form, deposit_amount: Number(event.target.value) })
+                  }
+                  className="font-mono"
+                />
+              </EditField>
+              <EditField label="已付金额">
+                <Input
+                  value={paidAmount.toString()}
+                  readOnly
+                  className="bg-surface-muted font-mono"
+                />
+              </EditField>
+              <EditField label="新尾款">
+                <Input
+                  value={nextBalance.toString()}
+                  readOnly
+                  className="bg-surface-muted font-mono"
+                />
+              </EditField>
+            </div>
+            {Number(form.deposit_amount ?? 0) > quotation && (
+              <p className="mt-2 text-xs text-destructive">押金不能超过总报价。</p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            取消
+          </Button>
+          <Button
+            disabled={busy || !canSave}
+            onClick={() =>
+              onSave({
+                ...form,
+                fault_prices: form.fault_prices.filter(
+                  (item) => item.name.trim() && Number(item.price) > 0,
+                ),
+              })
+            }
+          >
+            {busy ? "保存中…" : "保存修改"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">
+        {label} {required && <span className="text-destructive">*</span>}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl: string }) {
+  const { order, customer, device } = data;
+  return (
+    <section className="repair-print-sheet">
+      <div className="repair-print-header">
+        <div>
+          <h1>Scheda di riparazione</h1>
+          <p>Ordine {order.public_no}</p>
+        </div>
+        <div className="repair-print-qr">
+          <QRCodeSVG value={orderUrl || order.public_no} size={82} includeMargin />
+          <span>Apri scheda</span>
+        </div>
+      </div>
+
+      <div className="repair-print-grid">
+        <PrintItem label="Cliente" value={customer?.name ?? order.customer_name} />
+        <PrintItem label="Telefono" value={customer?.phone_e164 ?? order.customer_phone} />
+        <PrintItem
+          label="Dispositivo"
+          value={`${device?.brand ?? ""} ${device?.model ?? ""}`.trim() || order.device_label}
+        />
+        <PrintItem label="IMEI / Seriale" value={device?.serial_or_imei ?? order.device_imei} />
+        <PrintItem label="Data" value={new Date(order.created_at).toLocaleDateString("it-IT")} />
+        <PrintItem label="Tecnico" value={order.technician_name} />
+      </div>
+
+      <PrintBlock label="Problema segnalato">{order.issue_description}</PrintBlock>
+      <PrintBlock label="Diagnosi">{order.diagnosis_result || "Da completare"}</PrintBlock>
+
+      <table className="repair-print-table">
+        <thead>
+          <tr>
+            <th>Voce</th>
+            <th>Note</th>
+            <th>Importo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {order.fault_prices.map((item, index) => (
+            <tr key={`${item.name}-${index}`}>
+              <td>{item.name}</td>
+              <td>{item.note || ""}</td>
+              <td>¥{item.price.toLocaleString("zh-CN")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="repair-print-totals">
+        <PrintItem
+          label="Preventivo"
+          value={`¥${order.quotation_amount.toLocaleString("zh-CN")}`}
+        />
+        <PrintItem label="Acconto" value={`¥${order.deposit_amount.toLocaleString("zh-CN")}`} />
+        <PrintItem label="Saldo" value={`¥${order.balance_amount.toLocaleString("zh-CN")}`} />
+      </div>
+
+      <div className="repair-print-signatures">
+        <div>
+          <span>Firma cliente</span>
+        </div>
+        <div>
+          <span>Firma operatore</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PrintItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="repair-print-item">
+      <span>{label}</span>
+      <strong>{value || "-"}</strong>
+    </div>
+  );
+}
+
+function PrintBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="repair-print-block">
+      <span>{label}</span>
+      <p>{children}</p>
     </div>
   );
 }
@@ -880,6 +1321,8 @@ function renderEvent(type: string, payload: Record<string, unknown>) {
       return `收款 ¥${payload.amount}（${payload.method}）`;
     case "message_sent":
       return "已发送通知";
+    case "note":
+      return payload.action === "order_updated" ? "工单信息已更新" : "备注";
     default:
       return type;
   }

@@ -224,18 +224,16 @@
   }
 
   body {
-    background-image:
-      radial-gradient(circle at 12% -10%, oklch(0.7 0.2 285 / 0.28), transparent 45%),
-      radial-gradient(circle at 92% 0%, oklch(0.78 0.16 200 / 0.22), transparent 45%),
-      radial-gradient(circle at 50% 110%, oklch(0.65 0.22 320 / 0.18), transparent 50%);
+    background-image: none;
     background-attachment: fixed;
     min-height: 100svh;
   }
 
-  :root:not(.dark) body {
+  .dark body {
     background-image:
-      radial-gradient(circle at 12% -10%, oklch(0.55 0.2 285 / 0.12), transparent 45%),
-      radial-gradient(circle at 92% 0%, oklch(0.6 0.16 200 / 0.1), transparent 45%);
+      radial-gradient(circle at 12% -10%, oklch(0.7 0.2 285 / 0.28), transparent 45%),
+      radial-gradient(circle at 92% 0%, oklch(0.78 0.16 200 / 0.22), transparent 45%),
+      radial-gradient(circle at 50% 110%, oklch(0.65 0.22 320 / 0.18), transparent 50%);
   }
 
   .font-mono,
@@ -404,6 +402,158 @@
   }
   50% {
     transform: translate3d(40px, -30px, 0) scale(1.05);
+  }
+}
+
+.repair-print-sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .repair-print-sheet,
+  .repair-print-sheet * {
+    visibility: visible !important;
+  }
+
+  .repair-print-sheet {
+    display: block !important;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    background: #fff;
+    color: #000;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    line-height: 1.35;
+  }
+
+  .repair-print-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18mm;
+    border-bottom: 1px solid #111;
+    padding-bottom: 6mm;
+  }
+
+  .repair-print-header h1 {
+    margin: 0;
+    font-size: 24pt;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .repair-print-header p {
+    margin: 2mm 0 0;
+    font-size: 12pt;
+  }
+
+  .repair-print-qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5mm;
+    font-size: 8pt;
+  }
+
+  .repair-print-grid,
+  .repair-print-totals {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4mm;
+    margin-top: 6mm;
+  }
+
+  .repair-print-item,
+  .repair-print-block {
+    break-inside: avoid;
+  }
+
+  .repair-print-item span,
+  .repair-print-block span {
+    display: block;
+    color: #444;
+    font-size: 8pt;
+    text-transform: uppercase;
+  }
+
+  .repair-print-item strong {
+    display: block;
+    margin-top: 1mm;
+    font-size: 11pt;
+    font-weight: 700;
+  }
+
+  .repair-print-block {
+    margin-top: 6mm;
+    border: 1px solid #bbb;
+    padding: 3mm;
+  }
+
+  .repair-print-block p {
+    margin: 1.5mm 0 0;
+    min-height: 14mm;
+  }
+
+  .repair-print-table {
+    width: 100%;
+    margin-top: 6mm;
+    border-collapse: collapse;
+    break-inside: avoid;
+  }
+
+  .repair-print-table th,
+  .repair-print-table td {
+    border: 1px solid #999;
+    padding: 2.5mm;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .repair-print-table th {
+    background: #f2f2f2;
+    font-size: 8pt;
+    text-transform: uppercase;
+  }
+
+  .repair-print-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .repair-print-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18mm;
+    margin-top: 18mm;
+  }
+
+  .repair-print-signatures div {
+    height: 18mm;
+    border-bottom: 1px solid #111;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .repair-print-signatures span {
+    transform: translateY(5mm);
+    color: #444;
+    font-size: 9pt;
   }
 }
 

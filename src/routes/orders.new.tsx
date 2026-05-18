@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { toast } from "sonner";
 import {
   createOrder,
@@ -212,11 +213,10 @@ export default function NewOrderPage() {
               />
             </FormItem>
             <FormItem label="IMEI / 序列号">
-              <Input
+              <ImeiScannerField
                 value={form.imei}
-                onChange={(e) => setForm({ ...form, imei: e.target.value })}
-                placeholder="可选"
-                className="font-mono"
+                onChange={(imei) => setForm({ ...form, imei })}
+                placeholder="可选，支持摄像头扫码"
               />
             </FormItem>
             <FormItem label="设备备注">

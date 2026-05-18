@@ -12,8 +12,10 @@ import {
   searchCustomers,
   sendNotification,
   transitionOrder,
+  updateOrder,
   type CreateOrderInput,
   type OrderListFilters,
+  type UpdateOrderInput,
 } from "@/lib/repairdesk/api";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +66,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return ok(await createOrder(body as unknown as CreateOrderInput));
       case "order/get":
         return ok(await getOrder(String(body.id ?? "")));
+      case "order/update":
+        return ok(
+          await updateOrder(
+            String(body.id ?? ""),
+            (body.input ?? {}) as unknown as UpdateOrderInput,
+          ),
+        );
       case "order/transition":
         return ok(
           await transitionOrder(String(body.id ?? ""), body.to as RepairOrderStatus, {

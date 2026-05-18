@@ -14,9 +14,11 @@ import {
   type Customer,
   type Device,
   type FaultPriceItem,
+  type OrderEvent,
   type RepairOrder,
 } from "./fixtures";
 import type { RepairOrderStatus, RepairOrderType } from "./enums";
+import type { UpdateOrderInput } from "@/lib/repairdesk/types";
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
   getStatusListSortIndex,
@@ -47,6 +49,8 @@ export interface OrderListItem extends RepairOrder {
   approval_overdue: boolean;
   pickup_overdue: boolean;
 }
+
+const extraEvents: OrderEvent[] = [];
 
 function decorate(o: RepairOrder): OrderListItem {
   const c = getCustomer(o.customer_id);
@@ -144,7 +148,9 @@ export async function getOrder(id: string) {
     customer: getCustomer(o.customer_id),
     device: getDevice(o.device_id),
     supplier: getSupplier(o.supplier_id),
-    events: getEvents(o.id),
+    events: [...extraEvents.filter((event) => event.order_id === o.id), ...getEvents(o.id)].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    ),
     messages: getMessages(o.id),
   };
 }
@@ -194,6 +200,79 @@ export async function recordPayment(id: string, amount: number) {
   if (o.balance_amount === 0) o.is_paid = true;
   o.updated_at = new Date().toISOString();
   return { ok: true, balance: o.balance_amount, is_paid: o.is_paid };
+}
+
+export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {
+  const o = orders.find((x) => x.id === id);
+  if (!o) throw new Error("工单不存在");
+
+  const customer = getCustomer(o.customer_id);
+  const device = getDevice(o.device_id);
+  if (!customer || !device) throw new Error("工单缺少客户或设备关联");
+
+  const customerName = input.customer_name.trim();
+  const customerPhone = input.customer_phone.trim();
+  const deviceBrand = input.device_brand.trim();
+  const deviceModel = input.device_model.trim();
+  const issueDescription = input.issue_description.trim();
+  const technicianName = input.technician_name.trim();
+  if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
+  if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
+  if (!issueDescription) throw new Error("故障描述不能为空");
+  if (!technicianName) throw new Error("技师不能为空");
+
+  const validFaults = input.fault_prices
+    .filter((item) => item.name.trim() && Number(item.price) > 0)
+    .map((item) => ({
+      name: item.name.trim(),
+      price: Number(item.price),
+      ...(item.note?.trim() ? { note: item.note.trim() } : {}),
+    }));
+  const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
+  const deposit = Number(input.deposit_amount ?? 0);
+  if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
+  if (deposit > quotation) throw new Error("押金不能超过总报价");
+
+  const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
+  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const now = new Date().toISOString();
+
+  customer.name = customerName;
+  customer.phone_e164 = customerPhone;
+  customer.phone_raw = customerPhone.replace(/\D/g, "");
+
+  device.brand = deviceBrand;
+  device.model = deviceModel;
+  device.serial_or_imei = input.device_imei?.trim() ?? "";
+  device.device_notes = input.device_notes?.trim() || undefined;
+
+  o.issue_description = issueDescription;
+  o.diagnosis_result = input.diagnosis_result?.trim() || undefined;
+  o.technician_name = technicianName;
+  o.internal_tag = input.internal_tag?.trim() || undefined;
+  o.warranty_text = input.warranty_text?.trim() || undefined;
+  o.quotation_amount = quotation;
+  o.deposit_amount = deposit;
+  o.balance_amount = nextBalance;
+  o.is_paid = nextBalance === 0;
+  o.fault_prices = validFaults;
+  o.updated_at = now;
+
+  extraEvents.unshift({
+    id: `evt_update_${Date.now()}`,
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "order_updated",
+      quotation_amount: quotation,
+      deposit_amount: deposit,
+      balance_amount: nextBalance,
+    },
+    operator_name: "前台",
+    created_at: now,
+  });
+
+  return { ok: true };
 }
 
 // POST /api/orders/[id]/notify

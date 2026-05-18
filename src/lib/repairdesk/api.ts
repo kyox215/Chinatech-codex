@@ -10,6 +10,7 @@ import type {
   BatchTransitionResult,
   PaymentResult,
   RepairDeskOptions,
+  UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 
 export type {
@@ -24,6 +25,7 @@ export type {
   BatchTransitionResult,
   PaymentResult,
   RepairDeskOptions,
+  UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 
 async function source() {
@@ -130,6 +132,11 @@ export async function getCustomerDevices(customerId: string): Promise<Device[]> 
 export async function createOrder(input: CreateOrderInput): Promise<{ id: string }> {
   if (isServerRuntime()) return (await source()).createOrder(input);
   return postJson<{ id: string }>("orders/create", input);
+}
+
+export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {
+  if (isServerRuntime()) return (await source()).updateOrder(id, input);
+  return postJson<{ ok: boolean }>("order/update", { id, input });
 }
 
 export async function getRepairDeskOptions(): Promise<RepairDeskOptions> {

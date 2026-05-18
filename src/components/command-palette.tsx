@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/command";
 import { useQuery } from "@tanstack/react-query";
 import { listOrders } from "@/lib/repairdesk/api";
+import { toggleThemePreference } from "@/lib/theme";
 
 type StaticCommandPath =
   | "/"
@@ -58,7 +59,7 @@ export function CommandPalette({
   };
 
   const toggleTheme = () => {
-    document.documentElement.classList.toggle("dark");
+    toggleThemePreference();
     onOpenChange(false);
   };
 

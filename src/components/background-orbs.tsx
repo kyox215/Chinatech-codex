@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 export function BackgroundOrbs() {
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div className="pointer-events-none fixed inset-0 -z-10 hidden overflow-hidden dark:block">
       <motion.div
         aria-hidden
         className="absolute -top-40 -left-32 size-[520px] rounded-full opacity-60 blur-[120px]"

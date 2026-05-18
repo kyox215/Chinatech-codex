@@ -22,6 +22,7 @@ import type {
   RepairDeskOptions,
   RepairOrder,
   Supplier,
+  UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 
 type DbRecord = Record<string, unknown>;
@@ -388,6 +389,111 @@ export async function recordPayment(id: string, amount: number, method = "微信
   fail(eventError, "写入收款时间线失败");
 
   return { ok: true, balance: nextBalance, is_paid: nextBalance === 0 };
+}
+
+export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {
+  const customerName = input.customer_name.trim();
+  const customerPhone = input.customer_phone.trim();
+  const deviceBrand = input.device_brand.trim();
+  const deviceModel = input.device_model.trim();
+  const issueDescription = input.issue_description.trim();
+  const technicianName = input.technician_name.trim();
+
+  if (!id) throw new Error("工单 ID 不能为空");
+  if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
+  if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
+  if (!issueDescription) throw new Error("故障描述不能为空");
+  if (!technicianName) throw new Error("技师不能为空");
+
+  const validFaults = input.fault_prices
+    .filter((item) => item.name.trim() && Number(item.price) > 0)
+    .map((item) => ({
+      name: item.name.trim(),
+      price: Number(item.price),
+      ...(item.note?.trim() ? { note: item.note.trim() } : {}),
+    }));
+  const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
+  const deposit = Number(input.deposit_amount ?? 0);
+  if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
+  if (deposit > quotation) throw new Error("押金不能超过总报价");
+
+  const supabase = getSupabaseAdmin();
+  const { data: current, error: readError } = await supabase
+    .from("repair_orders")
+    .select("id,customer_id,device_id,quotation_amount,deposit_amount,balance_amount")
+    .eq("id", id)
+    .single();
+  fail(readError, "读取工单失败");
+
+  const currentRow = current as DbRecord;
+  const customerId = requiredString(currentRow.customer_id);
+  const deviceId = requiredString(currentRow.device_id);
+  if (!customerId || !deviceId) throw new Error("工单缺少客户或设备关联");
+
+  const oldQuotation = money(currentRow.quotation_amount);
+  const oldDeposit = money(currentRow.deposit_amount);
+  const oldBalance = money(currentRow.balance_amount);
+  const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
+  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const now = new Date().toISOString();
+
+  const { error: customerError } = await supabase
+    .from("customers")
+    .update({
+      name: customerName,
+      phone_e164: customerPhone,
+      phone_raw: customerPhone.replace(/\D/g, ""),
+      updated_at: now,
+    })
+    .eq("id", customerId);
+  fail(customerError, "更新客户失败");
+
+  const { error: deviceError } = await supabase
+    .from("devices")
+    .update({
+      brand: deviceBrand,
+      model: deviceModel,
+      serial_or_imei: input.device_imei?.trim() ?? "",
+      device_notes: input.device_notes?.trim() || null,
+      updated_at: now,
+    })
+    .eq("id", deviceId);
+  fail(deviceError, "更新设备失败");
+
+  const { error: orderError } = await supabase
+    .from("repair_orders")
+    .update({
+      issue_description: issueDescription,
+      diagnosis_result: input.diagnosis_result?.trim() || null,
+      technician_name: technicianName,
+      internal_tag: input.internal_tag?.trim() || null,
+      warranty_text: input.warranty_text?.trim() || null,
+      quotation_amount: quotation,
+      deposit_amount: deposit,
+      balance_amount: nextBalance,
+      is_paid: nextBalance === 0,
+      fault_prices: validFaults,
+      updated_at: now,
+    })
+    .eq("id", id);
+  fail(orderError, "更新工单失败");
+
+  const { error: eventError } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "order_updated",
+      quotation_amount: quotation,
+      deposit_amount: deposit,
+      balance_amount: nextBalance,
+    },
+    operator_name: "前台",
+    created_at: now,
+  });
+  fail(eventError, "写入更新时间线失败");
+
+  return { ok: true };
 }
 
 export async function sendNotification(
