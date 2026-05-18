@@ -14,9 +14,11 @@ import {
   type Customer,
   type Device,
   type FaultPriceItem,
+  type MessageLog,
   type OrderEvent,
   type RepairOrder,
 } from "./fixtures";
+import { CURRENCY_CODE } from "@/lib/money";
 import type { RepairOrderStatus, RepairOrderType } from "./enums";
 import type { UpdateOrderInput } from "@/lib/repairdesk/types";
 import {
@@ -51,6 +53,7 @@ export interface OrderListItem extends RepairOrder {
 }
 
 const extraEvents: OrderEvent[] = [];
+const extraMessages: MessageLog[] = [];
 
 function decorate(o: RepairOrder): OrderListItem {
   const c = getCustomer(o.customer_id);
@@ -151,7 +154,10 @@ export async function getOrder(id: string) {
     events: [...extraEvents.filter((event) => event.order_id === o.id), ...getEvents(o.id)].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     ),
-    messages: getMessages(o.id),
+    messages: [
+      ...extraMessages.filter((message) => message.order_id === o.id),
+      ...getMessages(o.id),
+    ].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()),
   };
 }
 
@@ -226,6 +232,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
     .map((item) => ({
       name: item.name.trim(),
       price: Number(item.price),
+      currency_code: CURRENCY_CODE,
       ...(item.note?.trim() ? { note: item.note.trim() } : {}),
     }));
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
@@ -256,6 +263,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   o.balance_amount = nextBalance;
   o.is_paid = nextBalance === 0;
   o.fault_prices = validFaults;
+  o.currency_code = CURRENCY_CODE;
   o.updated_at = now;
 
   extraEvents.unshift({
@@ -267,6 +275,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       quotation_amount: quotation,
       deposit_amount: deposit,
       balance_amount: nextBalance,
+      currency_code: CURRENCY_CODE,
     },
     operator_name: "前台",
     created_at: now,
@@ -285,8 +294,66 @@ export async function sendNotification(
   if (!message) throw new Error("通知内容不能为空");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
-  o.updated_at = new Date().toISOString();
-  return { ok: true, id: `msg_${Date.now()}`, channel, body: message };
+  const now = new Date().toISOString();
+  const messageId = `msg_${Date.now()}`;
+  o.updated_at = now;
+  extraMessages.unshift({
+    id: messageId,
+    order_id: id,
+    channel,
+    message_body: message,
+    status: "sent",
+    sent_at: now,
+  });
+  extraEvents.unshift({
+    id: `evt_message_${Date.now()}`,
+    order_id: id,
+    event_type: "message_sent",
+    payload: { channel, message_id: messageId },
+    operator_name: "前台",
+    created_at: now,
+  });
+  return { ok: true, id: messageId, channel, body: message };
+}
+
+export async function sendApprovalRequest(id: string, body: string) {
+  const message = body.trim();
+  if (!message) throw new Error("审批内容不能为空");
+  const o = orders.find((x) => x.id === id);
+  if (!o) throw new Error("工单不存在");
+  const now = new Date().toISOString();
+  const messageId = `msg_approval_${Date.now()}`;
+  const transition = validateOrderTransition(o.status, "waiting_approval");
+  const from = o.status;
+  const statusChanged = transition.ok;
+  if (statusChanged) o.status = "waiting_approval";
+  o.approval_status = "pending";
+  o.approval_sent_at = now;
+  o.updated_at = now;
+  extraMessages.unshift({
+    id: messageId,
+    order_id: id,
+    channel: "whatsapp",
+    message_body: message,
+    status: "sent",
+    sent_at: now,
+  });
+  extraEvents.unshift({
+    id: `evt_approval_${Date.now()}`,
+    order_id: id,
+    event_type: "approval_sent",
+    payload: {
+      channel: "whatsapp",
+      message_id: messageId,
+      from,
+      to: statusChanged ? "waiting_approval" : from,
+      status_changed: statusChanged,
+      currency_code: CURRENCY_CODE,
+    },
+    operator_name: "前台",
+    created_at: now,
+  });
+  return { ok: true, id: messageId, channel: "whatsapp" as const, body: message, statusChanged };
 }
 
 // GET /api/customers/suggest?q=
@@ -374,7 +441,12 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
   }
   const validFaults = input.fault_prices
     .filter((item) => item.name.trim() && Number(item.price) >= 0)
-    .map((item) => ({ ...item, name: item.name.trim(), price: Number(item.price) }));
+    .map((item) => ({
+      ...item,
+      name: item.name.trim(),
+      price: Number(item.price),
+      currency_code: CURRENCY_CODE,
+    }));
   const quotation = validFaults.reduce((s, f) => s + (f.price || 0), 0);
   const deposit = input.deposit_amount ?? 0;
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
@@ -394,6 +466,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
     quotation_amount: quotation,
     deposit_amount: deposit,
     balance_amount: balance,
+    currency_code: CURRENCY_CODE,
     is_paid: balance === 0,
     approval_status: "pending",
     technician_name: input.technician_name,

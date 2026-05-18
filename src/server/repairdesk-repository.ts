@@ -8,6 +8,7 @@ import {
 } from "@/lib/mock/workflow";
 import { getSupabaseAdmin } from "@/server/supabase";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import { CURRENCY_CODE } from "@/lib/money";
 import type {
   CreateOrderInput,
   Customer,
@@ -64,7 +65,9 @@ function faultPrices(value: unknown): FaultPriceItem[] {
       const price = money(row.price);
       if (!name) return undefined;
       const note = maybeString(row.note);
-      return note ? { name, price, note } : { name, price };
+      return note
+        ? { name, price, currency_code: CURRENCY_CODE, note }
+        : { name, price, currency_code: CURRENCY_CODE };
     })
     .filter((item): item is FaultPriceItem => item !== undefined);
 }
@@ -121,6 +124,7 @@ function orderFromRow(row: DbRecord): RepairOrder {
     quotation_amount: money(row.quotation_amount),
     deposit_amount: money(row.deposit_amount),
     balance_amount: money(row.balance_amount),
+    currency_code: CURRENCY_CODE,
     is_paid: Boolean(row.is_paid),
     approval_status: row.approval_status as RepairOrder["approval_status"],
     approval_sent_at: maybeString(row.approval_sent_at),
@@ -382,7 +386,7 @@ export async function recordPayment(id: string, amount: number, method = "微信
     id: crypto.randomUUID(),
     order_id: id,
     event_type: "payment",
-    payload: { amount, method, balance: nextBalance },
+    payload: { amount, method, balance: nextBalance, currency_code: CURRENCY_CODE },
     operator_name: "前台",
     created_at: now,
   });
@@ -410,6 +414,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
     .map((item) => ({
       name: item.name.trim(),
       price: Number(item.price),
+      currency_code: CURRENCY_CODE,
       ...(item.note?.trim() ? { note: item.note.trim() } : {}),
     }));
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
@@ -473,6 +478,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       balance_amount: nextBalance,
       is_paid: nextBalance === 0,
       fault_prices: validFaults,
+      currency_code: CURRENCY_CODE,
       updated_at: now,
     })
     .eq("id", id);
@@ -487,6 +493,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       quotation_amount: quotation,
       deposit_amount: deposit,
       balance_amount: nextBalance,
+      currency_code: CURRENCY_CODE,
     },
     operator_name: "前台",
     created_at: now,
@@ -535,6 +542,66 @@ export async function sendNotification(
   return { ok: true, id: messageId, channel, body: message };
 }
 
+export async function sendApprovalRequest(id: string, body: string) {
+  const message = body.trim();
+  if (!id) throw new Error("工单 ID 不能为空");
+  if (!message) throw new Error("审批内容不能为空");
+
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const messageId = crypto.randomUUID();
+
+  const { data: current, error: readError } = await supabase
+    .from("repair_orders")
+    .select("id,status")
+    .eq("id", id)
+    .single();
+  fail(readError, "读取工单失败");
+
+  const from = (current as DbRecord).status as RepairOrderStatus;
+  const transition = validateOrderTransition(from, "waiting_approval");
+  const statusChanged = transition.ok;
+  const update: DbRecord = {
+    approval_sent_at: now,
+    approval_status: "pending",
+    updated_at: now,
+  };
+  if (statusChanged) update.status = "waiting_approval";
+
+  const { error: messageError } = await supabase.from("message_logs").insert({
+    id: messageId,
+    order_id: id,
+    channel: "whatsapp",
+    message_body: message,
+    status: "sent",
+    sent_at: now,
+  });
+  fail(messageError, "写入审批通知失败");
+
+  const [{ error: updateError }, { error: eventError }] = await Promise.all([
+    supabase.from("repair_orders").update(update).eq("id", id),
+    supabase.from("order_events").insert({
+      id: crypto.randomUUID(),
+      order_id: id,
+      event_type: "approval_sent",
+      payload: {
+        channel: "whatsapp",
+        message_id: messageId,
+        from,
+        to: statusChanged ? "waiting_approval" : from,
+        status_changed: statusChanged,
+        currency_code: CURRENCY_CODE,
+      },
+      operator_name: "前台",
+      created_at: now,
+    }),
+  ]);
+  fail(updateError, "更新审批状态失败");
+  fail(eventError, "写入审批时间线失败");
+
+  return { ok: true, id: messageId, channel: "whatsapp" as const, body: message, statusChanged };
+}
+
 export async function searchCustomers(q: string, limit = 6): Promise<Customer[]> {
   const query = q.trim().toLowerCase();
   if (!query) return [];
@@ -579,6 +646,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
     .map((item) => ({
       name: item.name.trim(),
       price: Number(item.price),
+      currency_code: CURRENCY_CODE,
       ...(item.note?.trim() ? { note: item.note.trim() } : {}),
     }));
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
@@ -662,6 +730,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
       quotation_amount: quotation,
       deposit_amount: deposit,
       balance_amount: balance,
+      currency_code: CURRENCY_CODE,
       is_paid: balance === 0,
       approval_status: "pending",
       technician_name: input.technician_name.trim(),

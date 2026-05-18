@@ -59,6 +59,7 @@ import {
 import type { Customer, FaultPriceItem } from "@/lib/repairdesk/api";
 import { repairOrderType, statusMeta } from "@/lib/mock/enums";
 import { ORDER_STATUS_ALLOWED_FOR_CREATE, normalizeInitialOrderStatus } from "@/lib/mock/workflow";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 interface SelectedFault extends FaultPriceItem {
@@ -732,9 +733,9 @@ export default function NewOrderPage() {
             <div className="text-sm text-muted-foreground">
               合计{" "}
               <span className="font-display text-lg font-semibold text-foreground">
-                €{total.toFixed(2)}
+                {formatMoney(total)}
               </span>
-              <span className="ml-2">定金 €{form.deposit.toFixed(2)}</span>
+              <span className="ml-2">定金 {formatMoney(form.deposit)}</span>
             </div>
             <Button type="submit" disabled={!valid || create.isPending} className="gap-1.5">
               <Banknote className="size-4" />
@@ -918,7 +919,7 @@ function MoneyRow({ label, value, strong }: { label: string; value: number; stro
           strong && "font-display text-2xl font-semibold text-foreground",
         )}
       >
-        €{value.toFixed(2)}
+        {formatMoney(value)}
       </span>
     </div>
   );

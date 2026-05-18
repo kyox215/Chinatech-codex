@@ -10,6 +10,7 @@ import {
   listOrders,
   recordPayment,
   searchCustomers,
+  sendApprovalRequest,
   sendNotification,
   transitionOrder,
   updateOrder,
@@ -99,6 +100,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             body.channel === "sms" ? "sms" : "whatsapp",
           ),
         );
+      case "order/approval-request":
+        return ok(await sendApprovalRequest(String(body.id ?? ""), String(body.body ?? "")));
       case "customers/search":
         return ok(await searchCustomers(String(body.q ?? ""), Number(body.limit ?? 6)));
       case "customers/devices":

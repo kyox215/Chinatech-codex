@@ -7,6 +7,7 @@ import {
   type RepairOrderStatus,
   type RepairOrderType,
 } from "@/lib/mock/enums";
+import { formatMoney } from "@/lib/money";
 
 type Tone = "neutral" | "info" | "progress" | "warn" | "success" | "danger";
 
@@ -93,11 +94,7 @@ export function ApprovalBadge({ status }: { status: ApprovalStatus }) {
 }
 
 export function MoneyText({ amount, className }: { amount: number; className?: string }) {
-  return (
-    <span className={cn("font-mono tabular-nums", className)}>
-      ¥{amount.toLocaleString("zh-CN")}
-    </span>
-  );
+  return <span className={cn("font-mono tabular-nums", className)}>{formatMoney(amount)}</span>;
 }
 
 export function PhoneText({ value }: { value: string }) {

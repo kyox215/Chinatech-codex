@@ -1,4 +1,5 @@
 import type { ApprovalStatus, RepairOrderStatus, RepairOrderType } from "@/lib/mock/enums";
+import type { CurrencyCode } from "@/lib/money";
 
 export interface Customer {
   id: string;
@@ -30,6 +31,7 @@ export interface Supplier {
 export interface FaultPriceItem {
   name: string;
   price: number;
+  currency_code?: CurrencyCode;
   note?: string;
 }
 
@@ -45,6 +47,7 @@ export interface RepairOrder {
   quotation_amount: number;
   deposit_amount: number;
   balance_amount: number;
+  currency_code: CurrencyCode;
   is_paid: boolean;
   approval_status: ApprovalStatus;
   approval_sent_at?: string;

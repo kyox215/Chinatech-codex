@@ -23,6 +23,7 @@ import { AnimatedNumber } from "@/components/animated-number";
 import { Sparkline } from "@/components/sparkline";
 import { fadeUp, stagger } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -194,6 +195,7 @@ export default function Dashboard() {
                 />
                 <Tooltip
                   cursor={{ stroke: "oklch(1 0 0 / 0.1)" }}
+                  formatter={(value) => [formatMoney(Number(value)), "营收"]}
                   contentStyle={{
                     background: "oklch(0.22 0.03 270 / 0.9)",
                     border: "1px solid oklch(1 0 0 / 0.1)",
@@ -374,14 +376,7 @@ function KpiCard({
         </div>
       </div>
       <div className="relative mt-2 font-display text-3xl font-semibold tracking-tight tabular-nums">
-        {isMoney ? (
-          <>
-            <span className="text-base text-muted-foreground">¥</span>
-            <AnimatedNumber value={value} />
-          </>
-        ) : (
-          <AnimatedNumber value={value} />
-        )}
+        {isMoney ? formatMoney(value) : <AnimatedNumber value={value} />}
       </div>
       <p className="relative mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
       <div className="relative mt-3 -mb-1">

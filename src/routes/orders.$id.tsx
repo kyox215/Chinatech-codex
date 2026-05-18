@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   Bell,
@@ -60,6 +60,7 @@ import {
 import {
   getOrder,
   recordPayment,
+  sendApprovalRequest,
   sendNotification,
   transitionOrder,
   updateOrder,
@@ -68,6 +69,7 @@ import {
   type UpdateOrderInput,
 } from "@/lib/repairdesk/api";
 import { statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
+import { formatMoney } from "@/lib/money";
 import { getNextActions } from "@/lib/mock/workflow";
 import { fadeUp, stagger } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -86,14 +88,11 @@ export default function OrderDetailPage({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("overview");
   const [notifyOpen, setNotifyOpen] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [orderUrl, setOrderUrl] = useState("");
-  const { scrollY } = useScroll();
-  const heroPad = useTransform(scrollY, [0, 120], [24, 10]);
-  const heroTitleScale = useTransform(scrollY, [0, 120], [1, 0.86]);
-  const subtitleOpacity = useTransform(scrollY, [0, 80], [1, 0]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["order", id],
@@ -130,6 +129,16 @@ export default function OrderDetailPage({ id }: { id: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const approval = useMutation({
+    mutationFn: (body: string) => sendApprovalRequest(id, body),
+    onSuccess: () => {
+      toast.success("审批消息已记录，并已打开 WhatsApp");
+      setApprovalOpen(false);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading || !data) {
     return (
       <div className="mx-auto max-w-4xl space-y-3 px-4 pb-12 pt-4 md:px-6">
@@ -145,11 +154,8 @@ export default function OrderDetailPage({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6">
-      {/* Hero (sticky, scroll-collapse) */}
-      <motion.div
-        style={{ paddingTop: heroPad, paddingBottom: heroPad }}
-        className="glass-card sticky top-[64px] z-20 mb-6 px-5 md:top-[64px]"
-      >
+      {/* Hero */}
+      <div className="glass-card mb-6 px-5 py-5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-xs">
             <Link href="/orders">
@@ -160,7 +166,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
           <span>工单详情</span>
         </div>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-          <motion.div style={{ scale: heroTitleScale, originX: 0 }} className="min-w-0">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-display text-2xl font-semibold tracking-tight gradient-text md:text-3xl">
                 {order.public_no}
@@ -176,13 +182,10 @@ export default function OrderDetailPage({ id }: { id: string }) {
                 </Link>
               )}
             </div>
-            <motion.div
-              style={{ opacity: subtitleOpacity }}
-              className="mt-1 truncate text-sm text-muted-foreground"
-            >
+            <div className="mt-1 truncate text-sm text-muted-foreground">
               {device?.brand} {device?.model} · {customer?.name} · 技师 {order.technician_name}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <div className="text-right">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
@@ -196,9 +199,9 @@ export default function OrderDetailPage({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Action chips (horizontal scroll on mobile) */}
-        <div className="-mx-5 mt-3 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex items-center gap-2 whitespace-nowrap">
+        {/* Action chips */}
+        <div className="mt-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-max items-center gap-2 md:min-w-0 md:flex-wrap">
             {next.primary && (
               <Button
                 size="sm"
@@ -289,7 +292,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
             </DropdownMenu>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Segmented Tabs */}
       <div className="mb-4 -mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -474,7 +477,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
                       size="sm"
                       variant="outline"
                       className="gap-1.5"
-                      onClick={() => setNotifyOpen(true)}
+                      onClick={() => setApprovalOpen(true)}
                     >
                       <Send className="size-3.5" /> 发送审批
                     </Button>
@@ -659,13 +662,21 @@ export default function OrderDetailPage({ id }: { id: string }) {
           invalidate();
         }}
       />
+      <ApprovalRequestDialog
+        open={approvalOpen}
+        onOpenChange={setApprovalOpen}
+        data={data}
+        orderUrl={orderUrl}
+        busy={approval.isPending}
+        onConfirm={(body) => approval.mutateAsync(body)}
+      />
       <PaymentDialog
         open={payOpen}
         onOpenChange={setPayOpen}
         balance={order.balance_amount}
         onPay={async (amount, method) => {
           await recordPayment(id, amount, method);
-          toast.success(`已收款 ¥${amount.toLocaleString("zh-CN")}`);
+          toast.success(`已收款 ${formatMoney(amount)}`);
           invalidate();
         }}
       />
@@ -852,9 +863,7 @@ function EditOrderDialog({
           <div className="rounded-md border p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h4 className="text-sm font-semibold">报价与押金</h4>
-              <span className="text-xs text-muted-foreground">
-                报价 ¥{quotation.toLocaleString("zh-CN")}
-              </span>
+              <span className="text-xs text-muted-foreground">报价 {formatMoney(quotation)}</span>
             </div>
             <div className="space-y-2">
               {form.fault_prices.map((item, index) => (
@@ -1246,10 +1255,7 @@ function toItalianWarranty(value?: string) {
 }
 
 function formatEuro(amount: number) {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(Number(amount) || 0);
+  return formatMoney(Number(amount) || 0);
 }
 
 function formatItalianDateTime(value: string) {
@@ -1260,6 +1266,113 @@ function formatItalianDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function buildApprovalMessage(data: OrderDetail, orderUrl: string) {
+  const { order, customer, device } = data;
+  const customerName = customer?.name || order.customer_name || "Cliente";
+  const deviceLabel =
+    `${device?.brand ?? ""} ${device?.model ?? ""}`.trim() || order.device_label || "Dispositivo";
+  const items = order.fault_prices.length
+    ? order.fault_prices
+        .map((item) => `- ${translateFaultName(item.name)}: ${formatMoney(item.price)}`)
+        .join("\n")
+    : "- Intervento da confermare";
+
+  return [
+    `Gentile ${customerName},`,
+    "",
+    `le inviamo il preventivo per la riparazione del dispositivo ${deviceLabel}.`,
+    `Numero ordine: ${order.public_no}`,
+    "",
+    "Interventi previsti:",
+    items,
+    "",
+    `Totale preventivo: ${formatMoney(order.quotation_amount)}`,
+    `Acconto: ${formatMoney(order.deposit_amount)}`,
+    `Saldo da pagare: ${formatMoney(order.balance_amount)}`,
+    orderUrl ? `Link ordine: ${orderUrl}` : null,
+    "",
+    "La preghiamo di confermare se desidera procedere con la riparazione.",
+    "Grazie,",
+    "ChinaTech",
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
+}
+
+function whatsAppUrl(phone: string, body: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  return `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
+}
+
+function ApprovalRequestDialog({
+  open,
+  onOpenChange,
+  data,
+  orderUrl,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  data: OrderDetail;
+  orderUrl: string;
+  busy: boolean;
+  onConfirm: (body: string) => Promise<unknown>;
+}) {
+  const [body, setBody] = useState(() => buildApprovalMessage(data, orderUrl));
+  const phone = data.customer?.phone_e164 || data.order.customer_phone;
+  const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
+
+  useEffect(() => {
+    if (open) setBody(buildApprovalMessage(data, orderUrl));
+  }, [data, open, orderUrl]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>预览 WhatsApp 审批消息</DialogTitle>
+          <DialogDescription>
+            内容将以意大利语发送给客户。确认后会打开 WhatsApp，并记录到通知历史。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>WhatsApp</span>
+            <span className="font-mono">{phone || "缺少电话号码"}</span>
+          </div>
+          <Textarea
+            rows={12}
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            className="font-mono text-xs leading-relaxed"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            取消
+          </Button>
+          <Button
+            disabled={busy || !body.trim() || !canOpenWhatsApp}
+            onClick={async () => {
+              const url = whatsAppUrl(phone, body.trim());
+              if (!url) {
+                toast.error("客户电话号码不可用于 WhatsApp");
+                return;
+              }
+              window.open(url, "_blank", "noopener,noreferrer");
+              await onConfirm(body.trim());
+            }}
+          >
+            <Send className="mr-1.5 size-3.5" /> 确认并打开 WhatsApp
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function NotifyDialog({
@@ -1365,7 +1478,7 @@ function PaymentDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>登记收款</DialogTitle>
-          <DialogDescription>未结清尾款 ¥{balance.toLocaleString("zh-CN")}</DialogDescription>
+          <DialogDescription>未结清尾款 {formatMoney(balance)}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -1498,11 +1611,13 @@ function renderEvent(type: string, payload: Record<string, unknown>) {
     case "status_changed":
       return `状态变更：${statusMeta[payload.from as keyof typeof statusMeta]?.label ?? payload.from} → ${statusMeta[payload.to as keyof typeof statusMeta]?.label ?? payload.to}`;
     case "quoted":
-      return `提交报价 ¥${payload.amount}`;
+      return `提交报价 ${formatMoney(Number(payload.amount ?? 0))}`;
+    case "approval_sent":
+      return payload.status_changed ? "已发送审批并进入待审批" : "已发送审批消息";
     case "approval_result":
       return `客户审批${payload.result === "approved" ? "通过" : "拒绝"}`;
     case "payment":
-      return `收款 ¥${payload.amount}（${payload.method}）`;
+      return `收款 ${formatMoney(Number(payload.amount ?? 0))}（${payload.method}）`;
     case "message_sent":
       return "已发送通知";
     case "note":

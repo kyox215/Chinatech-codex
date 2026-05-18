@@ -4,6 +4,7 @@ import {
   type RepairOrderStatus,
   type RepairOrderType,
 } from "./enums";
+import type { CurrencyCode } from "@/lib/money";
 
 export interface Customer {
   id: string;
@@ -35,6 +36,7 @@ export interface Supplier {
 export interface FaultPriceItem {
   name: string;
   price: number;
+  currency_code?: CurrencyCode;
   note?: string;
 }
 
@@ -50,6 +52,7 @@ export interface RepairOrder {
   quotation_amount: number;
   deposit_amount: number;
   balance_amount: number;
+  currency_code: CurrencyCode;
   is_paid: boolean;
   approval_status: ApprovalStatus;
   approval_sent_at?: string;
@@ -210,9 +213,15 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
         : "pending";
 
   const fault_prices: FaultPriceItem[] = [
-    { name: "屏幕总成", price: Math.round(quotation * 0.7), note: "原厂品质" },
+    {
+      name: "屏幕总成",
+      price: Math.round(quotation * 0.7),
+      currency_code: "EUR",
+      note: "原厂品质",
+    },
   ];
-  if (i % 2 === 0) fault_prices.push({ name: "人工", price: Math.round(quotation * 0.3) });
+  if (i % 2 === 0)
+    fault_prices.push({ name: "人工", price: Math.round(quotation * 0.3), currency_code: "EUR" });
 
   return {
     id: `ord_${i + 1}`,
@@ -226,6 +235,7 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     quotation_amount: quotation,
     deposit_amount: deposit,
     balance_amount: quotation - deposit - (isPaid ? quotation - deposit : 0),
+    currency_code: "EUR",
     is_paid: isPaid,
     approval_status: approval,
     approval_sent_at: approval !== "pending" || status === "waiting_approval" ? created : undefined,
@@ -281,7 +291,7 @@ export function getEvents(orderId: string): OrderEvent[] {
       id: `${orderId}_e3`,
       order_id: orderId,
       event_type: "quoted",
-      payload: { amount: o.quotation_amount },
+      payload: { amount: o.quotation_amount, currency_code: "EUR" },
       operator_name: o.technician_name,
       created_at: new Date(t + 90 * 60_000).toISOString(),
     },
@@ -300,7 +310,7 @@ export function getEvents(orderId: string): OrderEvent[] {
       id: `${orderId}_e5`,
       order_id: orderId,
       event_type: "payment",
-      payload: { amount: o.quotation_amount, method: "微信" },
+      payload: { amount: o.quotation_amount, currency_code: "EUR", method: "微信" },
       operator_name: "前台 小赵",
       created_at: new Date(t + 240 * 60_000).toISOString(),
     });

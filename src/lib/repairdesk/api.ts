@@ -119,6 +119,11 @@ export async function sendNotification(id: string, body: string, channel: "whats
   return postJson("order/notification", { id, body, channel });
 }
 
+export async function sendApprovalRequest(id: string, body: string) {
+  if (isServerRuntime()) return (await source()).sendApprovalRequest(id, body);
+  return postJson("order/approval-request", { id, body });
+}
+
 export async function searchCustomers(q: string, limit = 6): Promise<Customer[]> {
   if (isServerRuntime()) return (await source()).searchCustomers(q, limit);
   return postJson<Customer[]>("customers/search", { q, limit });
