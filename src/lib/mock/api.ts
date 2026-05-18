@@ -222,7 +222,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   if (!technicianName) throw new Error("技师不能为空");
 
   const validFaults = input.fault_prices
-    .filter((item) => item.name.trim() && Number(item.price) > 0)
+    .filter((item) => item.name.trim() && Number(item.price) >= 0)
     .map((item) => ({
       name: item.name.trim(),
       price: Number(item.price),
@@ -326,6 +326,7 @@ export interface CreateOrderInput {
   issue_description: string;
   technician_name: string;
   internal_tag?: string;
+  warranty_text?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
 }
@@ -372,7 +373,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
     devices.push(device);
   }
   const validFaults = input.fault_prices
-    .filter((item) => item.name.trim() && Number(item.price) > 0)
+    .filter((item) => item.name.trim() && Number(item.price) >= 0)
     .map((item) => ({ ...item, name: item.name.trim(), price: Number(item.price) }));
   const quotation = validFaults.reduce((s, f) => s + (f.price || 0), 0);
   const deposit = input.deposit_amount ?? 0;
@@ -397,7 +398,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
     approval_status: "pending",
     technician_name: input.technician_name,
     internal_tag: input.internal_tag,
-    warranty_text: "90天质保",
+    warranty_text: input.warranty_text?.trim() || "6个月",
     contact_phones: customer.contact_phones,
     fault_prices: validFaults,
     created_at: now,

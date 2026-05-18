@@ -146,6 +146,7 @@ export interface CreateOrderInput {
   issue_description: string;
   technician_name: string;
   internal_tag?: string;
+  warranty_text?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
 }

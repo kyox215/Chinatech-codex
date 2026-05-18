@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
-import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
   Bell,
@@ -992,90 +991,275 @@ function EditField({
 
 function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl: string }) {
   const { order, customer, device } = data;
+  const deviceBrand = device?.brand || order.device_label.split(" ")[0] || "-";
+  const deviceModel =
+    device?.model ||
+    order.device_label.replace(deviceBrand, "").trim() ||
+    order.device_label ||
+    "-";
+  const faultRows = order.fault_prices.length
+    ? order.fault_prices
+    : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
+
   return (
-    <section className="repair-print-sheet">
-      <div className="repair-print-header">
-        <div>
-          <h1>Scheda di riparazione</h1>
-          <p>Ordine {order.public_no}</p>
+    <section className="repair-print-sheet" aria-hidden="true">
+      <div className="repair-print-page">
+        <div className="repair-print-left">
+          <header className="repair-print-store">
+            <h2>ChinaTech</h2>
+            <p>Viale Vittorio Veneto, 7, Floridia (SR) 96014</p>
+            <h1>ORDINE DI RIPARAZIONE</h1>
+            <p>Documento per il cliente</p>
+          </header>
+
+          <div className="repair-print-meta">
+            <PrintMeta label="Numero ordine" value={order.public_no} />
+            <PrintMeta label="Data" value={formatItalianDateTime(order.created_at)} />
+            <PrintMeta label="Cliente" value={customer?.name ?? order.customer_name} />
+            <PrintMeta label="Telefono" value={customer?.phone_e164 ?? order.customer_phone} />
+          </div>
+
+          <PrintSection title="Dispositivo">
+            <PrintLine label="Marca" value={deviceBrand} />
+            <PrintLine label="Modello" value={deviceModel} />
+            <PrintLine label="IMEI / Seriale" value={device?.serial_or_imei ?? order.device_imei} />
+            {device?.device_notes && (
+              <PrintLine label="Note dispositivo" value={device.device_notes} />
+            )}
+          </PrintSection>
+
+          <PrintSection title="Intervento richiesto">
+            <table className="repair-print-table">
+              <thead>
+                <tr>
+                  <th>Descrizione</th>
+                  <th>Importo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {faultRows.map((item, index) => (
+                  <tr key={`${item.name}-${index}`}>
+                    <td>
+                      <strong>{translateFaultName(item.name)}</strong>
+                      {"note" in item && item.note ? <span>{item.note}</span> : null}
+                    </td>
+                    <td>{item.price > 0 ? formatEuro(item.price) : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <PrintParagraph label="Problema segnalato" value={order.issue_description} />
+            <PrintParagraph label="Diagnosi" value={order.diagnosis_result || "Da completare"} />
+          </PrintSection>
+
+          <PrintSection title="Importi (EUR)">
+            <PrintLine label="Totale ordine" value={formatEuro(order.quotation_amount)} />
+            <PrintLine label="Acconto" value={formatEuro(order.deposit_amount)} />
+            <PrintLine label="Saldo dovuto" value={formatEuro(order.balance_amount)} />
+          </PrintSection>
+
+          <PrintSection title="Servizio">
+            <PrintLine label="Tecnico" value={order.technician_name} />
+            <PrintLine label="Tipo ordine" value={orderTypeItalian[order.order_type]} />
+            <PrintLine label="Stato" value={statusItalian[order.status]} />
+            <PrintLine label="Durata garanzia" value={toItalianWarranty(order.warranty_text)} />
+            <PrintLine label="Etichette accessori" value={order.internal_tag || "-"} />
+            {orderUrl && <PrintLine label="Link scheda" value={orderUrl} />}
+          </PrintSection>
         </div>
-        <div className="repair-print-qr">
-          <QRCodeSVG value={orderUrl || order.public_no} size={82} includeMargin />
-          <span>Apri scheda</span>
-        </div>
-      </div>
 
-      <div className="repair-print-grid">
-        <PrintItem label="Cliente" value={customer?.name ?? order.customer_name} />
-        <PrintItem label="Telefono" value={customer?.phone_e164 ?? order.customer_phone} />
-        <PrintItem
-          label="Dispositivo"
-          value={`${device?.brand ?? ""} ${device?.model ?? ""}`.trim() || order.device_label}
-        />
-        <PrintItem label="IMEI / Seriale" value={device?.serial_or_imei ?? order.device_imei} />
-        <PrintItem label="Data" value={new Date(order.created_at).toLocaleDateString("it-IT")} />
-        <PrintItem label="Tecnico" value={order.technician_name} />
-      </div>
+        <aside className="repair-print-right">
+          <header>
+            <h2>GARANZIA E INFORMAZIONI NEGOZIO</h2>
+            <p>ChinaTech</p>
+            <p>Viale Vittorio Veneto, 7, Floridia (SR) 96014</p>
+          </header>
 
-      <PrintBlock label="Problema segnalato">{order.issue_description}</PrintBlock>
-      <PrintBlock label="Diagnosi">{order.diagnosis_result || "Da completare"}</PrintBlock>
+          <section className="repair-print-warranty">
+            <h3>Termini di garanzia</h3>
+            <ul>
+              <li>
+                La garanzia copre esclusivamente difetti di materiale o lavorazione relativi ai
+                componenti sostituiti o alla riparazione effettuata.
+              </li>
+              <li>
+                Non sono coperti danni da uso improprio o negligenza, cadute, urti, piegature,
+                pressione sul dispositivo, ingresso di liquidi o corrosione.
+              </li>
+              <li>
+                Sono esclusi tentativi di riparazione da terzi dopo il nostro intervento e danni
+                estetici preesistenti non oggetto della riparazione.
+              </li>
+              <li>
+                Rotture successive di vetro touchscreen/LCD, ammaccature o crepe dovute a incidenti
+                o uso non corretto non sono coperte.
+              </li>
+              <li>
+                La garanzia non include software, account, dati personali, accessori non riparati da
+                noi o componenti non sostituiti.
+              </li>
+              <li>
+                Eventuali reclami devono essere segnalati tempestivamente in negozio presentando
+                questo documento e il dispositivo.
+              </li>
+            </ul>
+          </section>
 
-      <table className="repair-print-table">
-        <thead>
-          <tr>
-            <th>Voce</th>
-            <th>Note</th>
-            <th>Importo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {order.fault_prices.map((item, index) => (
-            <tr key={`${item.name}-${index}`}>
-              <td>{item.name}</td>
-              <td>{item.note || ""}</td>
-              <td>¥{item.price.toLocaleString("zh-CN")}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="repair-print-totals">
-        <PrintItem
-          label="Preventivo"
-          value={`¥${order.quotation_amount.toLocaleString("zh-CN")}`}
-        />
-        <PrintItem label="Acconto" value={`¥${order.deposit_amount.toLocaleString("zh-CN")}`} />
-        <PrintItem label="Saldo" value={`¥${order.balance_amount.toLocaleString("zh-CN")}`} />
-      </div>
-
-      <div className="repair-print-signatures">
-        <div>
-          <span>Firma cliente</span>
-        </div>
-        <div>
-          <span>Firma operatore</span>
-        </div>
+          <footer className="repair-print-footer">
+            <div className="repair-print-signature">
+              <span>Firma cliente</span>
+            </div>
+            <p>
+              Conservare questo documento per eventuali garanzie. I dati personali sono trattati
+              secondo la normativa vigente.
+            </p>
+          </footer>
+        </aside>
       </div>
     </section>
   );
 }
 
-function PrintItem({ label, value }: { label: string; value: React.ReactNode }) {
+function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="repair-print-item">
-      <span>{label}</span>
+    <section className="repair-print-section">
+      <h2>{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function PrintMeta({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <span>{label}:</span>
       <strong>{value || "-"}</strong>
     </div>
   );
 }
 
-function PrintBlock({ label, children }: { label: string; children: React.ReactNode }) {
+function PrintLine({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="repair-print-block">
-      <span>{label}</span>
-      <p>{children}</p>
-    </div>
+    <p className="repair-print-line">
+      <strong>{label}:</strong> <span>{value || "-"}</span>
+    </p>
   );
+}
+
+function PrintParagraph({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <p className="repair-print-paragraph">
+      <strong>{label}:</strong> {value}
+    </p>
+  );
+}
+
+const orderTypeItalian = {
+  quick_repair: "Riparazione rapida",
+  dropoff_repair: "Riparazione in negozio",
+} as const;
+
+const statusItalian: Record<RepairOrderStatus, string> = {
+  new: "Nuovo",
+  rework: "Rientro in garanzia",
+  mail_in_progress: "Spedizione in corso",
+  diagnosing: "In diagnosi",
+  quoted: "Preventivo emesso",
+  waiting_approval: "In attesa di approvazione",
+  parts_ordered: "Ricambi ordinati",
+  parts_arrived: "Ricambi arrivati",
+  repairing: "In riparazione",
+  repaired: "Riparato",
+  notified: "Cliente avvisato",
+  unfixed_pickup: "Ritiro senza riparazione",
+  waiting_pickup: "In attesa di ritiro",
+  completed: "Completato",
+  cancelled: "Annullato",
+};
+
+const faultItalianTerms: Record<string, string> = {
+  屏幕: "Display",
+  外屏碎裂: "Vetro esterno rotto",
+  内屏漏液: "LCD danneggiato",
+  触摸失灵: "Touch non funzionante",
+  电池: "Batteria",
+  健康度低: "Salute batteria bassa",
+  耗电快: "Consumo rapido",
+  鼓包: "Batteria gonfia",
+  尾插: "Connettore di ricarica",
+  接口松动: "Porta allentata",
+  无法充电: "Non carica",
+  清洁尾插: "Pulizia connettore",
+  摄像头: "Fotocamera",
+  前摄异常: "Fotocamera frontale",
+  后摄异常: "Fotocamera posteriore",
+  镜头破损: "Lente danneggiata",
+  进水: "Danni da liquido",
+  清洁检测: "Pulizia e diagnosi",
+  主板腐蚀: "Ossidazione scheda",
+  主板: "Scheda madre",
+  不开机: "Non si accende",
+  无服务: "Nessun servizio",
+  短路: "Corto circuito",
+  系统: "Sistema",
+  刷机恢复: "Ripristino software",
+  资料迁移: "Trasferimento dati",
+  账户问题: "Problema account",
+  后盖: "Cover posteriore",
+  玻璃破裂: "Vetro posteriore rotto",
+  中框变形: "Telaio deformato",
+  "面容/指纹": "Face ID / Impronta",
+  面容异常: "Face ID non funzionante",
+  指纹异常: "Impronta non funzionante",
+  扬声器: "Altoparlante",
+  声音小: "Volume basso",
+  杂音: "Rumore",
+  麦克风: "Microfono",
+  无声: "Audio assente",
+  通话杂音: "Rumore in chiamata",
+  按键: "Tasti",
+  电源键: "Tasto accensione",
+  音量键: "Tasti volume",
+  静音键: "Tasto silenzioso",
+  不细分: "",
+};
+
+function translateFaultName(name: string) {
+  const direct = faultItalianTerms[name.trim()];
+  if (direct) return direct;
+  const parts = name
+    .split(/\s*[-/]\s*/)
+    .map((part) => faultItalianTerms[part.trim()] ?? part.trim())
+    .filter(Boolean);
+  return parts.length ? Array.from(new Set(parts)).join(" - ") : name;
+}
+
+function toItalianWarranty(value?: string) {
+  const text = value?.trim();
+  if (!text || text === "无保修") return "Nessuna garanzia";
+  if (text.includes("12")) return "12 mesi sulla parte riparata/sostituita";
+  if (text.includes("6")) return "6 mesi sulla parte riparata/sostituita";
+  if (text.includes("3")) return "3 mesi sulla parte riparata/sostituita";
+  if (text.includes("90")) return "90 giorni sulla parte riparata/sostituita";
+  return text;
+}
+
+function formatEuro(amount: number) {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(Number(amount) || 0);
+}
+
+function formatItalianDateTime(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function NotifyDialog({

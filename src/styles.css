@@ -412,7 +412,7 @@
 @media print {
   @page {
     size: A4;
-    margin: 12mm;
+    margin: 8mm;
   }
 
   html,
@@ -435,125 +435,189 @@
     position: absolute;
     inset: 0 auto auto 0;
     width: 100%;
+    min-height: 100%;
     background: #fff;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 11pt;
-    line-height: 1.35;
+    font-size: 9.4pt;
+    line-height: 1.24;
   }
 
-  .repair-print-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 18mm;
-    border-bottom: 1px solid #111;
-    padding-bottom: 6mm;
+  .repair-print-page {
+    display: grid;
+    min-height: calc(297mm - 16mm);
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid #d4d4d4;
   }
 
-  .repair-print-header h1 {
+  .repair-print-left,
+  .repair-print-right {
+    padding: 4mm;
+  }
+
+  .repair-print-left {
+    border-right: 1px dashed #9a9a9a;
+  }
+
+  .repair-print-store,
+  .repair-print-right header {
+    border-bottom: 1px solid #c8c8c8;
+    padding-bottom: 2mm;
+  }
+
+  .repair-print-store h2,
+  .repair-print-right h2 {
     margin: 0;
-    font-size: 24pt;
-    font-weight: 700;
+    font-size: 12pt;
+    font-weight: 800;
     letter-spacing: 0;
   }
 
-  .repair-print-header p {
-    margin: 2mm 0 0;
+  .repair-print-store h1 {
+    margin: 1.5mm 0 0;
     font-size: 12pt;
+    font-weight: 800;
+    letter-spacing: 0;
   }
 
-  .repair-print-qr {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.5mm;
-    font-size: 8pt;
-  }
-
-  .repair-print-grid,
-  .repair-print-totals {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4mm;
-    margin-top: 6mm;
-  }
-
-  .repair-print-item,
-  .repair-print-block {
-    break-inside: avoid;
-  }
-
-  .repair-print-item span,
-  .repair-print-block span {
-    display: block;
+  .repair-print-store p,
+  .repair-print-right p {
+    margin: 0.5mm 0 0;
     color: #444;
-    font-size: 8pt;
-    text-transform: uppercase;
+    font-size: 8.2pt;
   }
 
-  .repair-print-item strong {
-    display: block;
-    margin-top: 1mm;
-    font-size: 11pt;
+  .repair-print-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5mm 7mm;
+    border-bottom: 1px solid #ddd;
+    padding: 2mm 0;
+  }
+
+  .repair-print-meta div,
+  .repair-print-line {
+    display: flex;
+    gap: 2mm;
+    margin: 0.8mm 0;
+  }
+
+  .repair-print-meta span,
+  .repair-print-line strong {
+    flex: 0 0 auto;
+    color: #444;
     font-weight: 700;
   }
 
-  .repair-print-block {
-    margin-top: 6mm;
-    border: 1px solid #bbb;
-    padding: 3mm;
+  .repair-print-meta strong,
+  .repair-print-line span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 400;
   }
 
-  .repair-print-block p {
-    margin: 1.5mm 0 0;
-    min-height: 14mm;
+  .repair-print-section {
+    break-inside: avoid;
+    border-bottom: 1px solid #ddd;
+    padding: 2mm 0;
+  }
+
+  .repair-print-section h2,
+  .repair-print-warranty h3 {
+    margin: 0 0 1.4mm;
+    font-size: 10pt;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .repair-print-paragraph {
+    margin: 2mm 0 0;
+    color: #333;
+    font-size: 8.6pt;
   }
 
   .repair-print-table {
     width: 100%;
-    margin-top: 6mm;
     border-collapse: collapse;
     break-inside: avoid;
   }
 
   .repair-print-table th,
   .repair-print-table td {
-    border: 1px solid #999;
-    padding: 2.5mm;
+    border-bottom: 1px solid #ddd;
+    padding: 1.5mm 0;
     text-align: left;
     vertical-align: top;
   }
 
   .repair-print-table th {
-    background: #f2f2f2;
-    font-size: 8pt;
-    text-transform: uppercase;
+    color: #444;
+    font-size: 8.2pt;
+    font-weight: 400;
   }
 
+  .repair-print-table td strong,
+  .repair-print-table td span {
+    display: block;
+  }
+
+  .repair-print-table td span {
+    margin-top: 0.5mm;
+    color: #555;
+    font-size: 8pt;
+  }
+
+  .repair-print-table th:last-child,
   .repair-print-table td:last-child {
     text-align: right;
     white-space: nowrap;
   }
 
-  .repair-print-signatures {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18mm;
-    margin-top: 18mm;
-  }
-
-  .repair-print-signatures div {
-    height: 18mm;
-    border-bottom: 1px solid #111;
+  .repair-print-right {
     display: flex;
-    align-items: flex-end;
+    min-height: 100%;
+    flex-direction: column;
   }
 
-  .repair-print-signatures span {
-    transform: translateY(5mm);
-    color: #444;
-    font-size: 9pt;
+  .repair-print-warranty {
+    padding-top: 2mm;
+  }
+
+  .repair-print-warranty ul {
+    margin: 0;
+    padding-left: 4mm;
+  }
+
+  .repair-print-warranty li {
+    margin: 1.2mm 0;
+    padding-left: 1mm;
+    color: #333;
+    font-size: 7.8pt;
+  }
+
+  .repair-print-footer {
+    margin-top: auto;
+  }
+
+  .repair-print-signature {
+    display: flex;
+    height: 24mm;
+    align-items: flex-end;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #111;
+    font-weight: 800;
+  }
+
+  .repair-print-signature span {
+    transform: translateY(-17mm);
+  }
+
+  .repair-print-footer p {
+    border-top: 1px solid #ddd;
+    margin-top: 3mm;
+    padding-top: 2mm;
+    color: #555;
+    font-size: 7.6pt;
   }
 }
 
