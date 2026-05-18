@@ -8,6 +8,14 @@ import type {
   OrderListItem,
   OrderStats,
   BatchTransitionResult,
+  CustomerCreateInput,
+  CustomerDetail,
+  CustomerDeviceInput,
+  CustomerFollowupInput,
+  CustomerListFilters,
+  CustomerListResult,
+  CustomerMessageInput,
+  CustomerUpdateInput,
   PaymentResult,
   RepairDeskOptions,
   UpdateOrderInput,
@@ -23,6 +31,18 @@ export type {
   OrderListItem,
   OrderStats,
   BatchTransitionResult,
+  CustomerCreateInput,
+  CustomerDetail,
+  CustomerDeviceInput,
+  CustomerFollowupInput,
+  CustomerInteraction,
+  CustomerListFilters,
+  CustomerListItem,
+  CustomerListResult,
+  CustomerMessageInput,
+  CustomerStats,
+  CustomerTag,
+  CustomerUpdateInput,
   PaymentResult,
   RepairDeskOptions,
   UpdateOrderInput,
@@ -132,6 +152,79 @@ export async function searchCustomers(q: string, limit = 6): Promise<Customer[]>
 export async function getCustomerDevices(customerId: string): Promise<Device[]> {
   if (isServerRuntime()) return (await source()).getCustomerDevices(customerId);
   return postJson<Device[]>("customers/devices", { customerId });
+}
+
+export async function listCustomers(
+  filters: CustomerListFilters = {},
+): Promise<CustomerListResult> {
+  if (isServerRuntime()) return (await source()).listCustomers(filters);
+  return postJson<CustomerListResult>("customers/list", filters);
+}
+
+export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
+  if (isServerRuntime()) return (await source()).getCustomerDetail(id);
+  return postJson<CustomerDetail>("customer/get", { id });
+}
+
+export async function createCustomer(input: CustomerCreateInput): Promise<{ id: string }> {
+  if (isServerRuntime()) return (await source()).createCustomer(input);
+  return postJson<{ id: string }>("customer/create", { input });
+}
+
+export async function updateCustomer(
+  id: string,
+  input: CustomerUpdateInput,
+): Promise<{ ok: boolean }> {
+  if (isServerRuntime()) return (await source()).updateCustomer(id, input);
+  return postJson<{ ok: boolean }>("customer/update", { id, input });
+}
+
+export async function upsertCustomerDevice(
+  customerId: string,
+  input: CustomerDeviceInput,
+): Promise<{ id: string }> {
+  if (isServerRuntime()) return (await source()).upsertCustomerDevice(customerId, input);
+  return postJson<{ id: string }>("customer/device/upsert", { customerId, input });
+}
+
+export async function deleteCustomerDevice(
+  customerId: string,
+  deviceId: string,
+): Promise<{ ok: boolean }> {
+  if (isServerRuntime()) return (await source()).deleteCustomerDevice(customerId, deviceId);
+  return postJson<{ ok: boolean }>("customer/device/delete", { customerId, deviceId });
+}
+
+export async function setCustomerTags(
+  customerId: string,
+  tagIds: string[],
+): Promise<{ ok: boolean }> {
+  if (isServerRuntime()) return (await source()).setCustomerTags(customerId, tagIds);
+  return postJson<{ ok: boolean }>("customer/tags/update", { customerId, tagIds });
+}
+
+export async function createCustomerFollowup(
+  customerId: string,
+  input: CustomerFollowupInput,
+): Promise<{ id: string }> {
+  if (isServerRuntime()) return (await source()).createCustomerFollowup(customerId, input);
+  return postJson<{ id: string }>("customer/followup/create", { customerId, input });
+}
+
+export async function completeCustomerFollowup(
+  customerId: string,
+  followupId: string,
+): Promise<{ ok: boolean }> {
+  if (isServerRuntime()) return (await source()).completeCustomerFollowup(customerId, followupId);
+  return postJson<{ ok: boolean }>("customer/followup/complete", { customerId, followupId });
+}
+
+export async function sendCustomerMessage(
+  customerId: string,
+  input: CustomerMessageInput,
+): Promise<{ ok: boolean; id: string }> {
+  if (isServerRuntime()) return (await source()).sendCustomerMessage(customerId, input);
+  return postJson<{ ok: boolean; id: string }>("customer/message", { customerId, input });
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<{ id: string }> {

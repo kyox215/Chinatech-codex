@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -52,11 +52,12 @@ import { toast } from "sonner";
 
 import {
   createOrder,
+  getCustomerDetail,
   getCustomerDevices,
   getRepairDeskOptions,
   searchCustomers,
 } from "@/lib/repairdesk/api";
-import type { Customer, FaultPriceItem } from "@/lib/repairdesk/api";
+import type { Customer, Device, FaultPriceItem } from "@/lib/repairdesk/api";
 import { repairOrderType, statusMeta } from "@/lib/mock/enums";
 import { ORDER_STATUS_ALLOWED_FOR_CREATE, normalizeInitialOrderStatus } from "@/lib/mock/workflow";
 import { formatMoney } from "@/lib/money";
@@ -269,6 +270,8 @@ export default function NewOrderPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(initialForm);
+  const [knownDevices, setKnownDevices] = useState<Device[]>([]);
+  const [queryPrefilled, setQueryPrefilled] = useState(false);
   const { data: options = { suppliers: [], technicians: [] } } = useQuery({
     queryKey: ["repairdesk-options"],
     queryFn: () => getRepairDeskOptions(),
@@ -291,6 +294,118 @@ export default function NewOrderPage() {
       );
     }
   }, [form.technician, technicianOptions]);
+
+  const applyCustomerPick = useCallback(
+    (customer: Customer, devices: Device[], preferredDeviceId?: string) => {
+      setKnownDevices(devices);
+      const selectedDevice =
+        (preferredDeviceId && devices.find((device) => device.id === preferredDeviceId)) ||
+        (devices.length === 1 ? devices[0] : undefined);
+
+      setForm((current) => ({
+        ...current,
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone_e164,
+        ...(selectedDevice
+          ? {
+              deviceId: selectedDevice.id,
+              brand: selectedDevice.brand,
+              model: selectedDevice.model,
+              imei: selectedDevice.serial_or_imei,
+              deviceNotes: selectedDevice.device_notes ?? "",
+            }
+          : devices.length > 1
+            ? {
+                deviceId: undefined,
+                brand: "",
+                model: "",
+                imei: "",
+                deviceNotes: "",
+              }
+            : {}),
+      }));
+
+      return selectedDevice;
+    },
+    [],
+  );
+
+  const selectKnownDevice = (deviceId: string) => {
+    if (deviceId === "new") {
+      setForm((current) => ({
+        ...current,
+        deviceId: undefined,
+        brand: "",
+        model: "",
+        imei: "",
+        deviceNotes: "",
+      }));
+      return;
+    }
+
+    const device = knownDevices.find((item) => item.id === deviceId);
+    if (!device) return;
+    setForm((current) => ({
+      ...current,
+      deviceId: device.id,
+      brand: device.brand,
+      model: device.model,
+      imei: device.serial_or_imei,
+      deviceNotes: device.device_notes ?? "",
+    }));
+  };
+
+  const handlePickCustomer = useCallback(
+    async (customer: Customer, preferredDeviceId?: string) => {
+      const devices = await getCustomerDevices(customer.id);
+      const selectedDevice = applyCustomerPick(customer, devices, preferredDeviceId);
+      toast.success(
+        selectedDevice
+          ? `已带入 ${customer.name} 的设备：${selectedDevice.brand} ${selectedDevice.model}`
+          : devices.length > 1
+            ? `已选择客户 ${customer.name}，请选择本次维修设备`
+            : `已选择客户 ${customer.name}`,
+      );
+    },
+    [applyCustomerPick],
+  );
+
+  useEffect(() => {
+    if (queryPrefilled) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const customerId = params.get("customerId");
+    if (!customerId) {
+      setQueryPrefilled(true);
+      return;
+    }
+
+    let active = true;
+    const preferredDeviceId = params.get("deviceId") ?? undefined;
+    getCustomerDetail(customerId)
+      .then((detail) => {
+        if (!active) return;
+        const selectedDevice = applyCustomerPick(
+          detail.customer,
+          detail.devices,
+          preferredDeviceId,
+        );
+        toast.success(
+          selectedDevice
+            ? `已从客户档案带入：${detail.customer.name} / ${selectedDevice.brand} ${selectedDevice.model}`
+            : `已从客户档案带入：${detail.customer.name}`,
+        );
+      })
+      .catch((error: Error) => toast.error(error.message))
+      .finally(() => {
+        if (active) setQueryPrefilled(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [applyCustomerPick, queryPrefilled]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -322,6 +437,8 @@ export default function NewOrderPage() {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["order-stats"] });
       queryClient.invalidateQueries({ queryKey: ["repairdesk-options"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-detail"] });
       toast.success("工单已创建");
       router.push(`/orders/${id}`);
     },
@@ -416,29 +533,17 @@ export default function NewOrderPage() {
               <FormItem label="电话" required>
                 <CustomerPhoneLookup
                   value={form.customerPhone}
-                  onChange={(customerPhone) =>
-                    setForm({ ...form, customerPhone, customerId: undefined })
-                  }
-                  onPick={async (customer) => {
-                    const devices = await getCustomerDevices(customer.id);
-                    const device = devices[0];
-                    setForm((current) => ({
-                      ...current,
-                      customerId: customer.id,
-                      customerName: customer.name,
-                      customerPhone: customer.phone_e164,
-                      deviceId: device?.id,
-                      brand: device?.brand ?? current.brand,
-                      model: device?.model ?? current.model,
-                      imei: device?.serial_or_imei ?? current.imei,
-                      deviceNotes: device?.device_notes ?? current.deviceNotes,
-                    }));
-                    toast.success(
-                      device
-                        ? `已带入 ${customer.name} 的设备：${device.brand} ${device.model}`
-                        : `已选择客户 ${customer.name}`,
-                    );
+                  selectedCustomerId={form.customerId}
+                  onChange={(customerPhone) => {
+                    setKnownDevices([]);
+                    setForm({
+                      ...form,
+                      customerPhone,
+                      customerId: undefined,
+                      deviceId: undefined,
+                    });
                   }}
+                  onPick={(customer) => handlePickCustomer(customer)}
                 />
               </FormItem>
               <FormItem label="姓名">
@@ -458,6 +563,26 @@ export default function NewOrderPage() {
                 <option key={brand} value={brand} />
               ))}
             </datalist>
+            {form.customerId && knownDevices.length > 1 && (
+              <div className="mb-3">
+                <FormItem label="选择客户设备">
+                  <Select value={form.deviceId ?? "new"} onValueChange={selectKnownDevice}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="请选择本次维修设备" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">新设备 / 本次手动录入</SelectItem>
+                      {knownDevices.map((device) => (
+                        <SelectItem key={device.id} value={device.id}>
+                          {device.brand} {device.model}
+                          {device.serial_or_imei ? ` · ${device.serial_or_imei}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
               <FormItem label="品牌" required>
                 <Input
@@ -483,7 +608,7 @@ export default function NewOrderPage() {
               <FormItem label="IMEI / 序列号">
                 <ImeiScannerField
                   value={form.imei}
-                  onChange={(imei) => setForm({ ...form, imei })}
+                  onChange={(imei) => setForm({ ...form, imei, deviceId: undefined })}
                   placeholder="可选"
                 />
               </FormItem>
@@ -492,7 +617,9 @@ export default function NewOrderPage() {
               <FormItem label="设备备注">
                 <Input
                   value={form.deviceNotes}
-                  onChange={(event) => setForm({ ...form, deviceNotes: event.target.value })}
+                  onChange={(event) =>
+                    setForm({ ...form, deviceNotes: event.target.value, deviceId: undefined })
+                  }
                   placeholder="外观、随机器材、缺失说明"
                 />
               </FormItem>
@@ -750,10 +877,12 @@ export default function NewOrderPage() {
 
 function CustomerPhoneLookup({
   value,
+  selectedCustomerId,
   onChange,
   onPick,
 }: {
   value: string;
+  selectedCustomerId?: string;
   onChange: (value: string) => void;
   onPick: (customer: Customer) => void | Promise<void>;
 }) {
@@ -764,6 +893,23 @@ function CustomerPhoneLookup({
     enabled: value.trim().length > 0,
     staleTime: 30_000,
   });
+  const normalizedPhone = value.replace(/\D/g, "");
+  const exactCustomer = useMemo(
+    () =>
+      normalizedPhone
+        ? data.find(
+            (customer) =>
+              customer.phone_raw === normalizedPhone || customer.phone_e164 === value.trim(),
+          )
+        : undefined,
+    [data, normalizedPhone, value],
+  );
+
+  useEffect(() => {
+    if (!exactCustomer || exactCustomer.id === selectedCustomerId) return;
+    void onPick(exactCustomer);
+    setOpen(false);
+  }, [exactCustomer, onPick, selectedCustomerId]);
 
   useEffect(() => {
     setOpen(value.trim().length > 0 && data.length > 0);

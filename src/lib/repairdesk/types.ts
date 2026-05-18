@@ -9,7 +9,13 @@ export interface Customer {
   contact_phones: string[];
   consent_marketing: boolean;
   consent_sms: boolean;
+  email?: string;
+  preferred_channel?: "whatsapp" | "sms";
+  language?: "it" | "zh" | "en";
   notes?: string;
+  marketing_notes?: string;
+  last_contacted_at?: string;
+  blacklisted_at?: string;
 }
 
 export interface Device {
@@ -33,6 +39,13 @@ export interface FaultPriceItem {
   price: number;
   currency_code?: CurrencyCode;
   note?: string;
+}
+
+export interface DeviceSnapshot {
+  brand: string;
+  model: string;
+  serial_or_imei: string;
+  device_notes?: string;
 }
 
 export interface RepairOrder {
@@ -63,6 +76,7 @@ export interface RepairOrder {
   original_order_id?: string;
   contact_phones: string[];
   fault_prices: FaultPriceItem[];
+  device_snapshot?: DeviceSnapshot;
   customer_signature?: string;
   created_at: string;
   updated_at: string;
@@ -135,6 +149,88 @@ export interface OrderDetail {
   messages: MessageLog[];
 }
 
+export interface CustomerTag {
+  id: string;
+  name: string;
+  color: string;
+  description?: string;
+}
+
+export interface CustomerInteraction {
+  id: string;
+  customer_id: string;
+  order_id?: string;
+  channel: "whatsapp" | "sms";
+  direction: "outbound" | "inbound" | "note";
+  message_body: string;
+  status: "sent" | "delivered" | "read" | "failed";
+  operator_name: string;
+  created_at: string;
+}
+
+export interface CustomerFollowup {
+  id: string;
+  customer_id: string;
+  order_id?: string;
+  title: string;
+  note?: string;
+  due_at: string;
+  owner_name?: string;
+  status: "open" | "done" | "cancelled";
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerListFilters {
+  search?: string;
+  tagIds?: string[];
+  marketing?: "all" | "allowed" | "blocked";
+  followup?: "all" | "due" | "overdue";
+}
+
+export interface CustomerListItem extends Customer {
+  tags: CustomerTag[];
+  device_count: number;
+  order_count: number;
+  total_spent: number;
+  unpaid_amount: number;
+  last_order_at?: string;
+  next_followup_at?: string;
+  latest_device_label?: string;
+  device_search_text?: string;
+}
+
+export interface CustomerStats {
+  total: number;
+  repeat: number;
+  dueFollowups: number;
+  marketable: number;
+}
+
+export interface CustomerListResult {
+  customers: CustomerListItem[];
+  tags: CustomerTag[];
+  stats: CustomerStats;
+}
+
+export interface CustomerDetail {
+  customer: Customer;
+  devices: Device[];
+  orders: OrderListItem[];
+  tags: CustomerTag[];
+  interactions: CustomerInteraction[];
+  followups: CustomerFollowup[];
+  stats: {
+    order_count: number;
+    total_spent: number;
+    unpaid_amount: number;
+    device_count: number;
+    last_order_at?: string;
+    next_followup_at?: string;
+  };
+}
+
 export interface CreateOrderInput {
   customer_id?: string;
   device_id?: string;
@@ -168,6 +264,44 @@ export interface UpdateOrderInput {
   warranty_text?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
+}
+
+export interface CustomerUpdateInput {
+  name: string;
+  phone_e164: string;
+  email?: string;
+  contact_phones?: string[];
+  consent_marketing?: boolean;
+  consent_sms?: boolean;
+  preferred_channel?: "whatsapp" | "sms";
+  language?: "it" | "zh" | "en";
+  notes?: string;
+  marketing_notes?: string;
+  blacklisted?: boolean;
+}
+
+export type CustomerCreateInput = CustomerUpdateInput;
+
+export interface CustomerDeviceInput {
+  id?: string;
+  brand: string;
+  model: string;
+  serial_or_imei?: string;
+  device_notes?: string;
+}
+
+export interface CustomerFollowupInput {
+  order_id?: string;
+  title: string;
+  note?: string;
+  due_at: string;
+  owner_name?: string;
+}
+
+export interface CustomerMessageInput {
+  channel: "whatsapp" | "sms";
+  body: string;
+  order_id?: string;
 }
 
 export interface RepairDeskOptions {

@@ -14,7 +14,13 @@ export interface Customer {
   contact_phones: string[];
   consent_marketing: boolean;
   consent_sms: boolean;
+  email?: string;
+  preferred_channel?: "whatsapp" | "sms";
+  language?: "it" | "zh" | "en";
   notes?: string;
+  marketing_notes?: string;
+  last_contacted_at?: string;
+  blacklisted_at?: string;
 }
 
 export interface Device {
@@ -38,6 +44,13 @@ export interface FaultPriceItem {
   price: number;
   currency_code?: CurrencyCode;
   note?: string;
+}
+
+export interface DeviceSnapshot {
+  brand: string;
+  model: string;
+  serial_or_imei: string;
+  device_notes?: string;
 }
 
 export interface RepairOrder {
@@ -68,6 +81,7 @@ export interface RepairOrder {
   original_order_id?: string;
   contact_phones: string[];
   fault_prices: FaultPriceItem[];
+  device_snapshot?: DeviceSnapshot;
   customer_signature?: string;
   created_at: string;
   updated_at: string;
@@ -99,6 +113,39 @@ export interface MessageLog {
   status: "sent" | "delivered" | "read" | "failed";
   sent_at: string;
   opened_at?: string;
+}
+
+export interface CustomerTag {
+  id: string;
+  name: string;
+  color: string;
+  description?: string;
+}
+
+export interface CustomerInteraction {
+  id: string;
+  customer_id: string;
+  order_id?: string;
+  channel: "whatsapp" | "sms";
+  direction: "outbound" | "inbound" | "note";
+  message_body: string;
+  status: "sent" | "delivered" | "read" | "failed";
+  operator_name: string;
+  created_at: string;
+}
+
+export interface CustomerFollowup {
+  id: string;
+  customer_id: string;
+  order_id?: string;
+  title: string;
+  note?: string;
+  due_at: string;
+  owner_name?: string;
+  status: "open" | "done" | "cancelled";
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const technicians = ["陈师傅", "李工", "王师傅", "周工", "黄师傅"];
@@ -169,6 +216,10 @@ export const customers: Customer[] = customerNames.map((name, i) => {
     contact_phones: i % 5 === 0 ? [`+86${pad(13900000000 + i, 11)}`] : [],
     consent_marketing: i % 3 !== 0,
     consent_sms: true,
+    preferred_channel: "whatsapp",
+    language: "it",
+    email: i % 4 === 0 ? `cliente${i + 1}@example.com` : undefined,
+    notes: i % 6 === 0 ? "VIP客户，优先通知维修进度。" : undefined,
   };
 });
 
@@ -184,6 +235,51 @@ customers.forEach((c, i) => {
     device_notes: i % 4 === 0 ? "外壳有划痕" : undefined,
   });
 });
+
+export const customerTags: CustomerTag[] = [
+  { id: "tag_vip", name: "VIP", color: "#8b5cf6", description: "高价值客户" },
+  { id: "tag_repeat", name: "复购", color: "#10b981", description: "多次维修客户" },
+  { id: "tag_business", name: "企业", color: "#0ea5e9", description: "企业或批量客户" },
+  { id: "tag_price_sensitive", name: "价格敏感", color: "#f59e0b" },
+  { id: "tag_followup", name: "需回访", color: "#ef4444" },
+];
+
+export const customerTagAssignments = customers.flatMap((customer, index) => {
+  const assigned = [customerTags[index % customerTags.length]];
+  if (index % 4 === 0) assigned.push(customerTags[1]);
+  return assigned.map((tag) => ({ customer_id: customer.id, tag_id: tag.id }));
+});
+
+export const customerInteractions: CustomerInteraction[] = customers
+  .slice(0, 8)
+  .map((customer, index) => ({
+    id: `ci_${index + 1}`,
+    customer_id: customer.id,
+    channel: "whatsapp",
+    direction: "outbound",
+    message_body: `Gentile ${customer.name}, grazie per aver scelto ChinaTech. Restiamo a disposizione per assistenza.`,
+    status: "sent",
+    operator_name: "前台",
+    created_at: new Date(Date.now() - index * 86_400_000).toISOString(),
+  }));
+
+export const customerFollowups: CustomerFollowup[] = customers
+  .slice(0, 10)
+  .map((customer, index) => {
+    const now = Date.now();
+    return {
+      id: `cf_${index + 1}`,
+      customer_id: customer.id,
+      title: index % 2 === 0 ? "维修后满意度回访" : "报价确认跟进",
+      note: index % 2 === 0 ? "确认设备使用情况和保修说明。" : "提醒客户确认维修报价。",
+      due_at: new Date(now + (index - 3) * 86_400_000).toISOString(),
+      owner_name: technicians[index % technicians.length],
+      status: index % 7 === 0 ? "done" : "open",
+      completed_at: index % 7 === 0 ? new Date(now - index * 3_600_000).toISOString() : undefined,
+      created_at: new Date(now - index * 86_400_000).toISOString(),
+      updated_at: new Date(now - index * 3_600_000).toISOString(),
+    };
+  });
 
 const baseDate = new Date("2026-05-01T09:00:00+08:00").getTime();
 
@@ -250,6 +346,12 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     original_order_id: status === "rework" ? `ord_${((i + 5) % 40) + 1}` : undefined,
     contact_phones: customer.contact_phones,
     fault_prices,
+    device_snapshot: {
+      brand: device.brand,
+      model: device.model,
+      serial_or_imei: device.serial_or_imei,
+      ...(device.device_notes ? { device_notes: device.device_notes } : {}),
+    },
     customer_signature: ["completed", "delivered"].includes(status) ? "data:signed" : undefined,
     created_at: created,
     updated_at: created,

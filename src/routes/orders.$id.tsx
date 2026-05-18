@@ -103,6 +103,8 @@ export default function OrderDetailPage({ id }: { id: string }) {
     queryClient.invalidateQueries({ queryKey: ["order", id] });
     queryClient.invalidateQueries({ queryKey: ["orders"] });
     queryClient.invalidateQueries({ queryKey: ["order-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["customer-detail"] });
   };
 
   useEffect(() => {
@@ -151,6 +153,12 @@ export default function OrderDetailPage({ id }: { id: string }) {
   }
   const { order, customer, device, supplier, events, messages } = data;
   const next = getNextActions(order.status);
+  const deviceBrand = order.device_snapshot?.brand || device?.brand || "";
+  const deviceModel = order.device_snapshot?.model || device?.model || "";
+  const deviceLabel = `${deviceBrand} ${deviceModel}`.trim() || order.device_label;
+  const deviceImei =
+    order.device_snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei || "";
+  const deviceNotes = order.device_snapshot?.device_notes || device?.device_notes;
 
   return (
     <div className="mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6">
@@ -183,7 +191,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
               )}
             </div>
             <div className="mt-1 truncate text-sm text-muted-foreground">
-              {device?.brand} {device?.model} · {customer?.name} · 技师 {order.technician_name}
+              {deviceLabel} · {customer?.name ?? order.customer_name} · 技师 {order.technician_name}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -375,15 +383,13 @@ export default function OrderDetailPage({ id }: { id: string }) {
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">设备</div>
-                      <div className="mt-1 text-sm font-medium">
-                        {device?.brand} {device?.model}
-                      </div>
+                      <div className="mt-1 text-sm font-medium">{deviceLabel}</div>
                       <div className="mt-1 font-mono text-xs text-muted-foreground">
-                        IMEI {device?.serial_or_imei}
+                        IMEI {deviceImei || "-"}
                       </div>
-                      {device?.device_notes && (
+                      {deviceNotes && (
                         <div className="mt-1 text-xs text-muted-foreground">
-                          备注：{device.device_notes}
+                          备注：{deviceNotes}
                         </div>
                       )}
                     </div>
@@ -701,13 +707,14 @@ export default function OrderDetailPage({ id }: { id: string }) {
 
 function buildEditForm(data: OrderDetail): UpdateOrderInput {
   const { order, customer, device } = data;
+  const snapshot = order.device_snapshot;
   return {
     customer_name: customer?.name ?? order.customer_name,
     customer_phone: customer?.phone_e164 ?? order.customer_phone,
-    device_brand: device?.brand ?? "",
-    device_model: device?.model ?? "",
-    device_imei: device?.serial_or_imei ?? order.device_imei,
-    device_notes: device?.device_notes ?? "",
+    device_brand: snapshot?.brand ?? device?.brand ?? "",
+    device_model: snapshot?.model ?? device?.model ?? "",
+    device_imei: snapshot?.serial_or_imei ?? order.device_imei ?? device?.serial_or_imei,
+    device_notes: snapshot?.device_notes ?? device?.device_notes ?? "",
     issue_description: order.issue_description,
     diagnosis_result: order.diagnosis_result ?? "",
     technician_name: order.technician_name,
@@ -766,7 +773,9 @@ function EditOrderDialog({
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>编辑工单</DialogTitle>
-          <DialogDescription>编辑当前工单关联的客户、设备、故障、报价和押金。</DialogDescription>
+          <DialogDescription>
+            编辑客户档案和当前工单快照；设备档案请在客户详情页维护。
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -1000,12 +1009,16 @@ function EditField({
 
 function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl: string }) {
   const { order, customer, device } = data;
-  const deviceBrand = device?.brand || order.device_label.split(" ")[0] || "-";
+  const snapshot = order.device_snapshot;
+  const deviceBrand = snapshot?.brand || device?.brand || order.device_label.split(" ")[0] || "-";
   const deviceModel =
+    snapshot?.model ||
     device?.model ||
     order.device_label.replace(deviceBrand, "").trim() ||
     order.device_label ||
     "-";
+  const deviceImei = snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei;
+  const deviceNotes = snapshot?.device_notes || device?.device_notes;
   const faultRows = order.fault_prices.length
     ? order.fault_prices
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
@@ -1031,10 +1044,8 @@ function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl
           <PrintSection title="Dispositivo">
             <PrintLine label="Marca" value={deviceBrand} />
             <PrintLine label="Modello" value={deviceModel} />
-            <PrintLine label="IMEI / Seriale" value={device?.serial_or_imei ?? order.device_imei} />
-            {device?.device_notes && (
-              <PrintLine label="Note dispositivo" value={device.device_notes} />
-            )}
+            <PrintLine label="IMEI / Seriale" value={deviceImei || "-"} />
+            {deviceNotes && <PrintLine label="Note dispositivo" value={deviceNotes} />}
           </PrintSection>
 
           <PrintSection title="Intervento richiesto">
@@ -1272,7 +1283,11 @@ function buildApprovalMessage(data: OrderDetail, orderUrl: string) {
   const { order, customer, device } = data;
   const customerName = customer?.name || order.customer_name || "Cliente";
   const deviceLabel =
-    `${device?.brand ?? ""} ${device?.model ?? ""}`.trim() || order.device_label || "Dispositivo";
+    `${order.device_snapshot?.brand ?? device?.brand ?? ""} ${
+      order.device_snapshot?.model ?? device?.model ?? ""
+    }`.trim() ||
+    order.device_label ||
+    "Dispositivo";
   const items = order.fault_prices.length
     ? order.fault_prices
         .map((item) => `- ${translateFaultName(item.name)}: ${formatMoney(item.price)}`)
