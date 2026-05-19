@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { InventoryScreen } from "@/features/inventory";
 
 export default function InventoryPage() {
-  return <ComingSoon title="库存管理" />;
+  return <InventoryScreen />;
 }

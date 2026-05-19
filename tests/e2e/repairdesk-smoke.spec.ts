@@ -12,3 +12,8 @@ test("customers route loads", async ({ page }) => {
   await page.goto("/customers");
   await expect(page.getByText("客户").first()).toBeVisible();
 });
+
+test("inventory route loads", async ({ page }) => {
+  await page.goto("/inventory");
+  await expect(page.getByText("配件与库存").first()).toBeVisible();
+});
