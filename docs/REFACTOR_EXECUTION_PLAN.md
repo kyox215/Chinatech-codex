@@ -179,8 +179,8 @@ Prevent `src/lib/mock/api.ts` from continuing to grow as the project expands.
 
 ## Current Execution Status
 
-- Step 0: in progress
-- Step 1: pending
+- Step 0: complete (`f6618fd`)
+- Step 1: complete
 - Step 2: pending
 - Step 3: pending
 - Step 4: pending
