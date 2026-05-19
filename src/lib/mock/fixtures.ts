@@ -414,7 +414,7 @@ export function getEvents(orderId: string): OrderEvent[] {
       id: `${orderId}_e5`,
       order_id: orderId,
       event_type: "payment",
-      payload: { amount: o.quotation_amount, currency_code: "EUR", method: "微信" },
+      payload: { amount: o.quotation_amount, currency_code: "EUR", method: "现金" },
       operator_name: "前台 小赵",
       created_at: new Date(t + 240 * 60_000).toISOString(),
     });

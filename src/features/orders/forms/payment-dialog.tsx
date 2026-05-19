@@ -29,7 +29,7 @@ export function PaymentDialog({
   onPay: (amount: number, method: string) => Promise<void>;
 }) {
   const [amount, setAmount] = useState(balance);
-  const [method, setMethod] = useState("微信");
+  const [method, setMethod] = useState("现金");
   const [busy, setBusy] = useState(false);
   return (
     <Dialog
@@ -59,7 +59,7 @@ export function PaymentDialog({
           <div>
             <Label className="text-xs">支付方式</Label>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {["微信", "支付宝", "现金", "银行卡"].map((m) => (
+              {["现金", "刷卡"].map((m) => (
                 <button
                   key={m}
                   type="button"

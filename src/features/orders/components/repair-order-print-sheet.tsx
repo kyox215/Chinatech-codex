@@ -8,6 +8,7 @@ import {
   statusItalian,
   toItalianWarranty,
   translateFaultName,
+  translatePrintableText,
 } from "@/features/orders/model/order-italian";
 
 export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl: string }) {
@@ -48,7 +49,9 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
             <PrintLine label="Marca" value={deviceBrand} />
             <PrintLine label="Modello" value={deviceModel} />
             <PrintLine label="IMEI / Seriale" value={deviceImei || "-"} />
-            {deviceNotes && <PrintLine label="Note dispositivo" value={deviceNotes} />}
+            {deviceNotes && (
+              <PrintLine label="Note dispositivo" value={translatePrintableText(deviceNotes)} />
+            )}
           </PrintSection>
 
           <PrintSection title="Intervento richiesto">
@@ -64,15 +67,23 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
                   <tr key={`${item.name}-${index}`}>
                     <td>
                       <strong>{translateFaultName(item.name)}</strong>
-                      {"note" in item && item.note ? <span>{item.note}</span> : null}
+                      {"note" in item && item.note ? (
+                        <span>{translatePrintableText(item.note)}</span>
+                      ) : null}
                     </td>
                     <td>{item.price > 0 ? formatEuro(item.price) : "-"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <PrintParagraph label="Problema segnalato" value={order.issue_description} />
-            <PrintParagraph label="Diagnosi" value={order.diagnosis_result || "Da completare"} />
+            <PrintParagraph
+              label="Problema segnalato"
+              value={translatePrintableText(order.issue_description)}
+            />
+            <PrintParagraph
+              label="Diagnosi"
+              value={translatePrintableText(order.diagnosis_result) || "Da completare"}
+            />
           </PrintSection>
 
           <PrintSection title="Importi (EUR)">
@@ -86,7 +97,10 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
             <PrintLine label="Tipo ordine" value={orderTypeItalian[order.order_type]} />
             <PrintLine label="Stato" value={statusItalian[order.status]} />
             <PrintLine label="Durata garanzia" value={toItalianWarranty(order.warranty_text)} />
-            <PrintLine label="Etichette accessori" value={order.internal_tag || "-"} />
+            <PrintLine
+              label="Etichette accessori"
+              value={translatePrintableText(order.internal_tag) || "-"}
+            />
             {orderUrl && <PrintLine label="Link scheda" value={orderUrl} />}
           </PrintSection>
         </div>

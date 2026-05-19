@@ -71,6 +71,64 @@ const faultItalianTerms: Record<string, string> = {
   不细分: "",
 };
 
+const printableTextItalianTerms: Record<string, string> = {
+  故障: "guasto",
+  故障描述: "descrizione del guasto",
+  故障备注: "note sul guasto",
+  其他问题: "altro problema",
+  详细描述: "descrizione dettagliata",
+  检测: "diagnosi",
+  检测中: "in diagnosi",
+  诊断: "diagnosi",
+  报价: "preventivo",
+  审批: "approvazione",
+  待审批: "in attesa di approvazione",
+  维修: "riparazione",
+  已完成: "completato",
+  已取消: "annullato",
+  已结清: "saldato",
+  未结清: "da saldare",
+  无: "nessuno",
+  暂无: "nessuno",
+  无备注: "nessuna nota",
+  未填写: "non indicato",
+  可选: "facoltativo",
+  原厂: "qualita originale",
+  品质: "qualita",
+  屏幕总成: "gruppo display",
+  屏幕: "display",
+  外屏: "vetro esterno",
+  内屏: "LCD",
+  电池: "batteria",
+  尾插: "connettore di ricarica",
+  摄像头: "fotocamera",
+  主板: "scheda madre",
+  系统: "sistema",
+  后盖: "cover posteriore",
+  面容: "Face ID",
+  指纹: "impronta",
+  扬声器: "altoparlante",
+  麦克风: "microfono",
+  按键: "tasti",
+  进水: "danni da liquido",
+  不开机: "non si accende",
+  无法充电: "non carica",
+  接口松动: "porta allentata",
+  外屏碎裂: "vetro esterno rotto",
+  内屏漏液: "LCD danneggiato",
+  触摸失灵: "touch non funzionante",
+  清洁检测: "pulizia e diagnosi",
+  资料迁移: "trasferimento dati",
+  账户问题: "problema account",
+  手机壳: "cover telefono",
+  保护膜: "pellicola protettiva",
+  充电器: "caricatore",
+  数据线: "cavo dati",
+  SIM卡: "scheda SIM",
+  快修: "riparazione rapida",
+  送修: "riparazione in negozio",
+};
+
 export function translateFaultName(name: string) {
   const direct = faultItalianTerms[name.trim()];
   if (direct) return direct;
@@ -79,6 +137,29 @@ export function translateFaultName(name: string) {
     .map((part) => faultItalianTerms[part.trim()] ?? part.trim())
     .filter(Boolean);
   return parts.length ? Array.from(new Set(parts)).join(" - ") : name;
+}
+
+export function translatePrintableText(value?: string) {
+  const text = value?.trim();
+  if (!text) return "";
+  const direct = printableTextItalianTerms[text] ?? faultItalianTerms[text];
+  if (direct !== undefined) return direct || "";
+
+  let translated = text;
+  const entries = Object.entries({ ...printableTextItalianTerms, ...faultItalianTerms }).sort(
+    ([a], [b]) => b.length - a.length,
+  );
+  for (const [source, target] of entries) {
+    if (!source || target === undefined) continue;
+    translated = translated.replaceAll(source, target);
+  }
+  return translated
+    .replace(/[，、]/g, ", ")
+    .replace(/。/g, ".")
+    .replace(/（/g, "(")
+    .replace(/）/g, ")")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function toItalianWarranty(value?: string) {

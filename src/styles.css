@@ -411,8 +411,8 @@
 
 @media print {
   @page {
-    size: A4;
-    margin: 8mm;
+    size: A5 landscape;
+    margin: 6mm;
   }
 
   html,
@@ -439,20 +439,28 @@
     background: #fff;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 9.4pt;
-    line-height: 1.24;
+    font-size: 7.2pt;
+    line-height: 1.16;
   }
 
   .repair-print-page {
     display: grid;
-    min-height: calc(297mm - 16mm);
+    width: calc(210mm - 12mm);
+    min-height: calc(148mm - 12mm);
     grid-template-columns: 1fr 1fr;
     border: 1px solid #d4d4d4;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .repair-print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
   }
 
   .repair-print-left,
   .repair-print-right {
-    padding: 4mm;
+    padding: 2.6mm;
   }
 
   .repair-print-left {
@@ -462,44 +470,44 @@
   .repair-print-store,
   .repair-print-right header {
     border-bottom: 1px solid #c8c8c8;
-    padding-bottom: 2mm;
+    padding-bottom: 1.2mm;
   }
 
   .repair-print-store h2,
   .repair-print-right h2 {
     margin: 0;
-    font-size: 12pt;
+    font-size: 8.4pt;
     font-weight: 800;
     letter-spacing: 0;
   }
 
   .repair-print-store h1 {
-    margin: 1.5mm 0 0;
-    font-size: 12pt;
+    margin: 0.8mm 0 0;
+    font-size: 8.8pt;
     font-weight: 800;
     letter-spacing: 0;
   }
 
   .repair-print-store p,
   .repair-print-right p {
-    margin: 0.5mm 0 0;
+    margin: 0.35mm 0 0;
     color: #444;
-    font-size: 8.2pt;
+    font-size: 6.2pt;
   }
 
   .repair-print-meta {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.5mm 7mm;
+    gap: 0.8mm 4mm;
     border-bottom: 1px solid #ddd;
-    padding: 2mm 0;
+    padding: 1.2mm 0;
   }
 
   .repair-print-meta div,
   .repair-print-line {
     display: flex;
-    gap: 2mm;
-    margin: 0.8mm 0;
+    gap: 1.2mm;
+    margin: 0.45mm 0;
   }
 
   .repair-print-meta span,
@@ -519,21 +527,21 @@
   .repair-print-section {
     break-inside: avoid;
     border-bottom: 1px solid #ddd;
-    padding: 2mm 0;
+    padding: 1.1mm 0;
   }
 
   .repair-print-section h2,
   .repair-print-warranty h3 {
-    margin: 0 0 1.4mm;
-    font-size: 10pt;
+    margin: 0 0 0.7mm;
+    font-size: 7.2pt;
     font-weight: 800;
     letter-spacing: 0;
   }
 
   .repair-print-paragraph {
-    margin: 2mm 0 0;
+    margin: 0.8mm 0 0;
     color: #333;
-    font-size: 8.6pt;
+    font-size: 6.4pt;
   }
 
   .repair-print-table {
@@ -545,14 +553,14 @@
   .repair-print-table th,
   .repair-print-table td {
     border-bottom: 1px solid #ddd;
-    padding: 1.5mm 0;
+    padding: 0.75mm 0;
     text-align: left;
     vertical-align: top;
   }
 
   .repair-print-table th {
     color: #444;
-    font-size: 8.2pt;
+    font-size: 6.1pt;
     font-weight: 400;
   }
 
@@ -562,9 +570,9 @@
   }
 
   .repair-print-table td span {
-    margin-top: 0.5mm;
+    margin-top: 0.25mm;
     color: #555;
-    font-size: 8pt;
+    font-size: 5.9pt;
   }
 
   .repair-print-table th:last-child,
@@ -580,19 +588,19 @@
   }
 
   .repair-print-warranty {
-    padding-top: 2mm;
+    padding-top: 1.1mm;
   }
 
   .repair-print-warranty ul {
     margin: 0;
-    padding-left: 4mm;
+    padding-left: 3mm;
   }
 
   .repair-print-warranty li {
-    margin: 1.2mm 0;
-    padding-left: 1mm;
+    margin: 0.55mm 0;
+    padding-left: 0.6mm;
     color: #333;
-    font-size: 7.8pt;
+    font-size: 5.4pt;
   }
 
   .repair-print-footer {
@@ -601,7 +609,7 @@
 
   .repair-print-signature {
     display: flex;
-    height: 24mm;
+    height: 14mm;
     align-items: flex-end;
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #111;
@@ -609,15 +617,15 @@
   }
 
   .repair-print-signature span {
-    transform: translateY(-17mm);
+    transform: translateY(-9mm);
   }
 
   .repair-print-footer p {
     border-top: 1px solid #ddd;
-    margin-top: 3mm;
-    padding-top: 2mm;
+    margin-top: 1.5mm;
+    padding-top: 1mm;
     color: #555;
-    font-size: 7.6pt;
+    font-size: 5.6pt;
   }
 }
 

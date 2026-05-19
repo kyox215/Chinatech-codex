@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -38,6 +38,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
+import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
 import {
   batchTransition,
   getRepairDeskOptions,
@@ -45,6 +46,7 @@ import {
   listOrders,
   transitionOrder,
   type OrderListFilters,
+  type OrderListItem,
   type RepairDeskOptions,
 } from "@/lib/repairdesk/api";
 import {
@@ -252,6 +254,7 @@ export default function OrdersListPage() {
   const [tab, setTab] = useState("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
   const [selected, setSelected] = useState<string[]>([]);
+  const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -316,6 +319,21 @@ export default function OrdersListPage() {
 
   const setOverdueFilter = (kind: OrderListFilters["overdue"]) =>
     setFilters((f) => ({ ...f, overdue: f.overdue === kind ? undefined : kind }));
+
+  useEffect(() => {
+    const cleanupPrint = () => setPrintOrders([]);
+    window.addEventListener("afterprint", cleanupPrint);
+    return () => window.removeEventListener("afterprint", cleanupPrint);
+  }, []);
+
+  const printRows = (rows: OrderListItem[]) => {
+    if (!rows.length) {
+      toast.error("没有可打印的工单");
+      return;
+    }
+    setPrintOrders(rows);
+    window.requestAnimationFrame(() => window.print());
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6 lg:px-8">
@@ -589,9 +607,7 @@ export default function OrdersListPage() {
                                     </>
                                   )}
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => toast("打印工单 " + o.public_no)}
-                                  >
+                                  <DropdownMenuItem onClick={() => printRows([o])}>
                                     <Printer className="mr-2 size-3.5" /> 打印
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -702,7 +718,14 @@ export default function OrdersListPage() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button size="sm" variant="outline" className="gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() =>
+                  printRows((data ?? []).filter((order) => selected.includes(order.id)))
+                }
+              >
                 <Printer className="size-3.5" /> 打印
               </Button>
               <Button
@@ -716,6 +739,7 @@ export default function OrdersListPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      <OrderListPrintSheet orders={printOrders} />
     </div>
   );
 }

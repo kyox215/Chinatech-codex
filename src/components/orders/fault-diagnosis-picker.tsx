@@ -286,7 +286,7 @@ export function FaultDiagnosisPicker({
   };
 
   return (
-    <div className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-3", className)}>
+    <div className={cn("grid grid-cols-2 gap-2 md:grid-cols-3", className)}>
       {faultGroups.map((group) => (
         <FaultCategoryButton
           key={group.key}
@@ -327,25 +327,30 @@ function FaultCategoryButton({
         <button
           type="button"
           className={cn(
-            "flex min-h-16 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+            "flex min-h-11 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
             active.length
               ? "border-primary bg-primary/10 text-primary"
               : "border-border/70 bg-surface hover:bg-accent",
           )}
         >
-          <span className="flex min-w-0 items-center gap-3">
-            <Icon className="size-5 shrink-0" />
+          <span className="flex min-w-0 items-center gap-2">
+            <Icon className="size-4 shrink-0" />
             <span className="min-w-0">
-              <span className="block truncate text-base font-medium">{group.label}</span>
+              <span className="block truncate text-sm font-medium leading-5">{group.label}</span>
               {active.length > 1 && (
-                <span className="block text-xs text-primary/80">{active.length} 项</span>
+                <span className="block text-[11px] leading-3 text-primary/80">
+                  {active.length} 项
+                </span>
               )}
             </span>
           </span>
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72 rounded-2xl p-2 shadow-elevated">
+      <DropdownMenuContent
+        align="start"
+        className="w-[min(18rem,calc(100vw-2rem))] rounded-xl p-1.5 shadow-elevated"
+      >
         {group.options.map((option) => {
           const key = faultKey(group, option);
           const checked = active.some((item) => item.key === key);
@@ -357,21 +362,21 @@ function FaultCategoryButton({
                 onToggle(option);
               }}
               className={cn(
-                "min-h-12 gap-3 rounded-xl px-3 text-base",
+                "min-h-10 gap-2 rounded-lg px-2.5 py-1.5 text-sm",
                 checked && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
               )}
             >
               <span
                 className={cn(
-                  "grid size-5 shrink-0 place-items-center rounded-md border border-border/70 bg-background text-transparent",
+                  "grid size-4 shrink-0 place-items-center rounded border border-border/70 bg-background text-transparent",
                   checked && "border-primary bg-primary text-primary-foreground",
                 )}
               >
-                <Check className="size-3.5" />
+                <Check className="size-3" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate">{option.label}</span>
-                <span className="block truncate text-xs text-muted-foreground">
+                <span className="block truncate font-medium leading-5">{option.label}</span>
+                <span className="block truncate text-[11px] leading-4 text-muted-foreground">
                   {option.italian}
                 </span>
               </span>
@@ -380,9 +385,9 @@ function FaultCategoryButton({
         })}
         {active.length > 0 && (
           <>
-            <DropdownMenuSeparator className="my-2" />
+            <DropdownMenuSeparator className="my-1.5" />
             <DropdownMenuItem
-              className="min-h-10 rounded-xl px-3 text-destructive focus:text-destructive"
+              className="min-h-9 rounded-lg px-2.5 text-sm text-destructive focus:text-destructive"
               onSelect={(event) => {
                 event.preventDefault();
                 onClear();

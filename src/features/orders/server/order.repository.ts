@@ -203,7 +203,7 @@ export async function batchTransition(ids: string[], to: RepairOrderStatus) {
   return { ok: failures.length === 0, count, failures };
 }
 
-export async function recordPayment(id: string, amount: number, method = "微信") {
+export async function recordPayment(id: string, amount: number, method = "现金") {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
 
   const supabase = getSupabaseAdmin();

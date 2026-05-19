@@ -69,8 +69,8 @@ async function source() {
       suppliers: mock.suppliers,
       technicians: mock.allTechnicians,
     }),
-    recordPayment: async (id: string, amount: number, _method?: string) =>
-      mock.recordPayment(id, amount),
+    recordPayment: async (id: string, amount: number, method?: string) =>
+      mock.recordPayment(id, amount, method),
   };
 }
 

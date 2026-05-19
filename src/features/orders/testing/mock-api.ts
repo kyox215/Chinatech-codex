@@ -153,7 +153,7 @@ export async function batchTransition(ids: string[], to: RepairOrderStatus) {
 }
 
 // POST /api/orders/[id]/payment
-export async function recordPayment(id: string, amount: number) {
+export async function recordPayment(id: string, amount: number, method = "现金") {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
@@ -161,7 +161,16 @@ export async function recordPayment(id: string, amount: number) {
   if (amount > o.balance_amount) throw new Error("收款金额不能超过未结清尾款");
   o.balance_amount = Math.max(0, o.balance_amount - amount);
   if (o.balance_amount === 0) o.is_paid = true;
-  o.updated_at = new Date().toISOString();
+  const now = new Date().toISOString();
+  o.updated_at = now;
+  extraEvents.unshift({
+    id: `event_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: id,
+    event_type: "payment",
+    payload: { amount, method, balance: o.balance_amount, currency_code: CURRENCY_CODE },
+    operator_name: "前台",
+    created_at: now,
+  });
   return { ok: true, balance: o.balance_amount, is_paid: o.is_paid };
 }
 
