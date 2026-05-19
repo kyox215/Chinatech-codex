@@ -35,6 +35,8 @@
   "ignoreIssues": {
     "src/components/ui/**": ["exports", "types"],
     "src/components/imei-scanner-field.tsx": ["exports"],
+    "src/features/customers/testing/mock-api.ts": ["exports"],
+    "src/features/orders/testing/mock-api.ts": ["exports"],
     "src/lib/mock/api.ts": ["exports", "types"],
     "src/lib/mock/enums.ts": ["exports"],
     "src/lib/mock/fixtures.ts": ["types"],
