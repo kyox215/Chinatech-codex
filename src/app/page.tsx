@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Dashboard from "@/routes/index";
+import { DashboardScreen } from "@/features/dashboard/screens/dashboard-screen";
 
 export const metadata: Metadata = {
   title: "概览",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <Dashboard />;
+  return <DashboardScreen />;
 }

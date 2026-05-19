@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import InventoryPage from "@/routes/inventory";
+import { InventoryScreen } from "@/features/inventory/screens/inventory-screen";
 
 export const metadata: Metadata = {
   title: "库存",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <InventoryPage />;
+  return <InventoryScreen />;
 }

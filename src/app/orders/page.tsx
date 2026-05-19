@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import OrdersListPage from "@/routes/orders.index";
+import { OrderListScreen } from "@/features/orders/screens/order-list-screen";
 
 export const metadata: Metadata = {
   title: "工单",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <OrdersListPage />;
+  return <OrderListScreen />;
 }

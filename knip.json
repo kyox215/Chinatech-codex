@@ -1,0 +1,48 @@
+{
+  "entry": ["src/app/**/*.{ts,tsx}", "src/features/**/index.ts", "scripts/*.ts"],
+  "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", ".storybook/**/*.{ts,tsx}", "scripts/*.ts"],
+  "ignoreFiles": [
+    "src/components/ui/**",
+    "src/routes/**",
+    "src/components/app-header.tsx",
+    "src/components/bottom-tab-bar.tsx",
+    "src/components/top-nav.tsx",
+    "src/entities/**/index.ts",
+    "src/features/**/server/*.ts",
+    "src/shared/**/index.ts",
+    "src/shared/config/routes.ts",
+    "src/lib/component-patterns.ts",
+    "src/lib/error-capture.ts",
+    "src/lib/error-page.ts",
+    "src/utils/supabase/*.ts"
+  ],
+  "ignoreDependencies": [
+    "@hookform/resolvers",
+    "@radix-ui/react-.*",
+    "@testing-library/react",
+    "@testing-library/user-event",
+    "date-fns",
+    "embla-carousel-react",
+    "input-otp",
+    "msw",
+    "qrcode.react",
+    "react-day-picker",
+    "react-hook-form",
+    "react-resizable-panels",
+    "tailwindcss",
+    "tw-animate-css",
+    "vaul"
+  ],
+  "ignoreIssues": {
+    "src/components/ui/**": ["exports", "types"],
+    "src/components/imei-scanner-field.tsx": ["exports"],
+    "src/lib/mock/api.ts": ["exports", "types"],
+    "src/lib/mock/enums.ts": ["exports"],
+    "src/lib/mock/fixtures.ts": ["types"],
+    "src/lib/money.ts": ["exports"],
+    "src/lib/motion.ts": ["exports"],
+    "src/lib/theme.ts": ["exports"],
+    "src/lib/ui-patterns.ts": ["exports"],
+    "src/server/api/repairdesk-schemas.ts": ["exports"]
+  }
+}

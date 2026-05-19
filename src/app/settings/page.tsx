@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import SettingsPage from "@/routes/settings";
+import { SettingsScreen } from "@/features/settings/screens/settings-screen";
 
 export const metadata: Metadata = {
   title: "设置",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <SettingsPage />;
+  return <SettingsScreen />;
 }

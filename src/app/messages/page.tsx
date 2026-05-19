@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import MessagesPage from "@/routes/messages";
+import { MessagesScreen } from "@/features/messages/screens/messages-screen";
 
 export const metadata: Metadata = {
   title: "消息模板",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <MessagesPage />;
+  return <MessagesScreen />;
 }

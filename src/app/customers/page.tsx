@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import CustomersPage from "@/routes/customers";
+import { CustomerListScreen } from "@/features/customers/screens/customer-list-screen";
 
 export const metadata: Metadata = {
   title: "客户",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <CustomersPage />;
+  return <CustomerListScreen />;
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import CustomerDetailPage from "@/routes/customers.$id";
+import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -15,5 +15,5 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function Page({ params }: PageProps) {
   const { id } = await params;
-  return <CustomerDetailPage id={id} />;
+  return <CustomerDetailScreen id={id} />;
 }
