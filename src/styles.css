@@ -421,21 +421,14 @@
     color: #000 !important;
   }
 
-  body * {
-    visibility: hidden !important;
-  }
-
-  .repair-print-sheet,
-  .repair-print-sheet * {
-    visibility: visible !important;
+  body.has-repair-print > :not(.repair-print-sheet) {
+    display: none !important;
   }
 
   .repair-print-sheet {
     display: block !important;
-    position: absolute;
-    inset: 0 auto auto 0;
+    position: static !important;
     width: 100%;
-    min-height: 100%;
     background: #fff;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
@@ -445,10 +438,14 @@
 
   .repair-print-page {
     display: grid;
+    box-sizing: border-box;
     width: calc(210mm - 12mm);
-    min-height: calc(148mm - 12mm);
+    height: calc(148mm - 12mm);
     grid-template-columns: 1fr 1fr;
+    overflow: hidden;
     border: 1px solid #d4d4d4;
+    page-break-inside: avoid;
+    break-inside: avoid;
     page-break-after: always;
     break-after: page;
   }
