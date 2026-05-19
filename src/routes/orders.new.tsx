@@ -4,40 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Banknote,
-  Battery,
-  Camera,
-  Check,
-  ChevronDown,
-  Cpu,
-  Droplets,
-  Mic,
-  Plus,
-  ReceiptText,
-  ScanLine,
-  Search,
-  Settings,
-  Smartphone,
-  Trash2,
-  Volume2,
-  X,
-  Zap,
-} from "lucide-react";
+import { ArrowLeft, Banknote, Check, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
+import {
+  FaultDiagnosisPicker,
+  toFaultPriceItems,
+  type SelectedFault,
+} from "@/components/orders/fault-diagnosis-picker";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -63,12 +39,6 @@ import { ORDER_STATUS_ALLOWED_FOR_CREATE, normalizeInitialOrderStatus } from "@/
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-interface SelectedFault extends FaultPriceItem {
-  key: string;
-  categoryKey: string;
-  categoryLabel: string;
-}
-
 interface FormState {
   type: "quick_repair" | "dropoff_repair";
   status: ReturnType<typeof normalizeInitialOrderStatus>;
@@ -87,21 +57,6 @@ interface FormState {
   deposit: number;
   faults: SelectedFault[];
 }
-
-type FaultOption = {
-  key: string;
-  label: string;
-  italian: string;
-  price: number;
-};
-
-type FaultGroup = {
-  key: string;
-  label: string;
-  italian: string;
-  icon: React.ComponentType<{ className?: string }>;
-  options: FaultOption[];
-};
 
 const initialForm: FormState = {
   type: "quick_repair",
@@ -123,148 +78,6 @@ const initialForm: FormState = {
 const fallbackTechnicians = ["陈师傅", "李工", "王师傅", "周工", "黄师傅"];
 const brandSuggestions = ["Apple", "Samsung", "Huawei", "Xiaomi", "OPPO", "Vivo", "Honor"];
 const warrantyOptions = ["无保修", "3个月", "6个月", "12个月"];
-
-const faultGroups: FaultGroup[] = [
-  {
-    key: "display",
-    label: "屏幕",
-    italian: "Display",
-    icon: Smartphone,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Display", price: 0 },
-      { key: "glass", label: "外屏碎裂", italian: "Vetro esterno rotto", price: 0 },
-      { key: "lcd", label: "内屏漏液", italian: "LCD danneggiato", price: 0 },
-      { key: "touch", label: "触摸失灵", italian: "Touch non funzionante", price: 0 },
-    ],
-  },
-  {
-    key: "battery",
-    label: "电池",
-    italian: "Batteria",
-    icon: Battery,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Batteria", price: 0 },
-      { key: "health", label: "健康度低", italian: "Salute batteria bassa", price: 0 },
-      { key: "drain", label: "耗电快", italian: "Consumo rapido", price: 0 },
-      { key: "swollen", label: "鼓包", italian: "Batteria gonfia", price: 0 },
-    ],
-  },
-  {
-    key: "charging",
-    label: "尾插",
-    italian: "Connettore di ricarica",
-    icon: Zap,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Connettore di ricarica", price: 0 },
-      { key: "loose", label: "接口松动", italian: "Porta allentata", price: 0 },
-      { key: "no-charge", label: "无法充电", italian: "Non carica", price: 0 },
-      { key: "clean", label: "清洁尾插", italian: "Pulizia connettore", price: 0 },
-    ],
-  },
-  {
-    key: "camera",
-    label: "摄像头",
-    italian: "Fotocamera",
-    icon: Camera,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Fotocamera", price: 0 },
-      { key: "front", label: "前摄异常", italian: "Fotocamera frontale", price: 0 },
-      { key: "rear", label: "后摄异常", italian: "Fotocamera posteriore", price: 0 },
-      { key: "lens", label: "镜头破损", italian: "Lente danneggiata", price: 0 },
-    ],
-  },
-  {
-    key: "liquid",
-    label: "进水",
-    italian: "Danni da liquido",
-    icon: Droplets,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Danni da liquido", price: 0 },
-      { key: "cleaning", label: "清洁检测", italian: "Pulizia e diagnosi", price: 0 },
-      { key: "corrosion", label: "主板腐蚀", italian: "Ossidazione scheda", price: 0 },
-    ],
-  },
-  {
-    key: "mainboard",
-    label: "主板",
-    italian: "Scheda madre",
-    icon: Cpu,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Scheda madre", price: 0 },
-      { key: "no-power", label: "不开机", italian: "Non si accende", price: 0 },
-      { key: "baseband", label: "无服务", italian: "Nessun servizio", price: 0 },
-      { key: "short", label: "短路", italian: "Corto circuito", price: 0 },
-    ],
-  },
-  {
-    key: "system",
-    label: "系统",
-    italian: "Sistema",
-    icon: Settings,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Sistema", price: 0 },
-      { key: "restore", label: "刷机恢复", italian: "Ripristino software", price: 0 },
-      { key: "data", label: "资料迁移", italian: "Trasferimento dati", price: 0 },
-      { key: "account", label: "账户问题", italian: "Problema account", price: 0 },
-    ],
-  },
-  {
-    key: "back-cover",
-    label: "后盖",
-    italian: "Cover posteriore",
-    icon: Smartphone,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Cover posteriore", price: 0 },
-      { key: "glass", label: "玻璃破裂", italian: "Vetro posteriore rotto", price: 0 },
-      { key: "frame", label: "中框变形", italian: "Telaio deformato", price: 0 },
-    ],
-  },
-  {
-    key: "face",
-    label: "面容/指纹",
-    italian: "Face ID / Impronta",
-    icon: ScanLine,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Face ID / Impronta", price: 0 },
-      { key: "face-id", label: "面容异常", italian: "Face ID non funzionante", price: 0 },
-      { key: "fingerprint", label: "指纹异常", italian: "Impronta non funzionante", price: 0 },
-    ],
-  },
-  {
-    key: "speaker",
-    label: "扬声器",
-    italian: "Altoparlante",
-    icon: Volume2,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Altoparlante", price: 0 },
-      { key: "low", label: "声音小", italian: "Volume basso", price: 0 },
-      { key: "noise", label: "杂音", italian: "Rumore", price: 0 },
-    ],
-  },
-  {
-    key: "microphone",
-    label: "麦克风",
-    italian: "Microfono",
-    icon: Mic,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Microfono", price: 0 },
-      { key: "no-sound", label: "无声", italian: "Audio assente", price: 0 },
-      { key: "noise", label: "通话杂音", italian: "Rumore in chiamata", price: 0 },
-    ],
-  },
-  {
-    key: "button",
-    label: "按键",
-    italian: "Tasti",
-    icon: Smartphone,
-    options: [
-      { key: "unspecified", label: "不细分", italian: "Tasti", price: 0 },
-      { key: "power", label: "电源键", italian: "Tasto accensione", price: 0 },
-      { key: "volume", label: "音量键", italian: "Tasti volume", price: 0 },
-      { key: "silent", label: "静音键", italian: "Tasto silenzioso", price: 0 },
-    ],
-  },
-];
 
 export default function NewOrderPage() {
   const router = useRouter();
@@ -424,13 +237,7 @@ export default function NewOrderPage() {
         technician_name: form.technician,
         internal_tag: form.internalTag || undefined,
         warranty_text: form.warrantyText || undefined,
-        fault_prices: form.faults
-          .filter((item) => item.name.trim())
-          .map(({ name, price, note }) => ({
-            name: name.trim(),
-            price: Number(price) || 0,
-            ...(note?.trim() ? { note: note.trim() } : {}),
-          })),
+        fault_prices: toFaultPriceItems(form.faults.filter((item) => item.name.trim())),
         deposit_amount: form.deposit,
       }),
     onSuccess: ({ id }) => {
@@ -452,31 +259,6 @@ export default function NewOrderPage() {
     form.technician.trim() &&
     (form.faults.length > 0 || form.issue.trim()) &&
     form.deposit <= total;
-
-  const toggleFault = (group: FaultGroup, option: FaultOption) => {
-    const key = `${group.key}:${option.key}`;
-    const exists = form.faults.some((item) => item.key === key);
-    if (exists) {
-      setForm({ ...form, faults: form.faults.filter((item) => item.key !== key) });
-      return;
-    }
-
-    const name = option.key === "unspecified" ? group.label : `${group.label} - ${option.label}`;
-    setForm({
-      ...form,
-      faults: [
-        ...form.faults,
-        {
-          key,
-          categoryKey: group.key,
-          categoryLabel: group.label,
-          name,
-          price: option.price,
-          note: option.italian,
-        },
-      ],
-    });
-  };
 
   const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
     const next = [...form.faults];
@@ -631,22 +413,10 @@ export default function NewOrderPage() {
               <Search className="size-5 text-muted-foreground" />
               <h2 className="text-xl font-semibold">故障诊断</h2>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {faultGroups.map((group) => (
-                <FaultCategoryButton
-                  key={group.key}
-                  group={group}
-                  selected={form.faults}
-                  onToggle={toggleFault}
-                  onClear={() =>
-                    setForm({
-                      ...form,
-                      faults: form.faults.filter((item) => item.categoryKey !== group.key),
-                    })
-                  }
-                />
-              ))}
-            </div>
+            <FaultDiagnosisPicker
+              selected={form.faults}
+              onChange={(faults) => setForm({ ...form, faults })}
+            />
             <div className="mt-6">
               <FormItem label="故障备注 / 其他问题">
                 <Textarea
@@ -949,84 +719,6 @@ function CustomerPhoneLookup({
         </ul>
       )}
     </div>
-  );
-}
-
-function FaultCategoryButton({
-  group,
-  selected,
-  onToggle,
-  onClear,
-}: {
-  group: FaultGroup;
-  selected: SelectedFault[];
-  onToggle: (group: FaultGroup, option: FaultOption) => void;
-  onClear: () => void;
-}) {
-  const active = selected.filter((item) => item.categoryKey === group.key);
-  const Icon = group.icon;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "flex min-h-16 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
-            active.length
-              ? "border-primary bg-primary/10 text-primary"
-              : "border-border/70 bg-surface hover:bg-accent",
-          )}
-        >
-          <span className="flex min-w-0 items-center gap-3">
-            <Icon className="size-5 shrink-0" />
-            <span className="truncate text-base font-medium">{group.label}</span>
-          </span>
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>
-          <span>{group.label}</span>
-          <span className="ml-2 text-xs font-normal text-muted-foreground">{group.italian}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {group.options.map((option) => {
-          const key = `${group.key}:${option.key}`;
-          const checked = selected.some((item) => item.key === key);
-          return (
-            <DropdownMenuCheckboxItem
-              key={option.key}
-              checked={checked}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={() => onToggle(group, option)}
-              className="gap-2"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">{option.label}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {option.italian}
-                </span>
-              </span>
-            </DropdownMenuCheckboxItem>
-          );
-        })}
-        {active.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onSelect={(event) => {
-                event.preventDefault();
-                onClear();
-              }}
-            >
-              取消选择
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

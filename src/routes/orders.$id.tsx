@@ -58,6 +58,11 @@ import {
   StatusBadge,
 } from "@/components/orders/badges";
 import {
+  FaultDiagnosisPicker,
+  normalizeFaultPrices,
+  toFaultPriceItems,
+} from "@/components/orders/fault-diagnosis-picker";
+import {
   getOrder,
   recordPayment,
   sendApprovalRequest,
@@ -748,6 +753,10 @@ function EditOrderDialog({
     () => form.fault_prices.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
     [form.fault_prices],
   );
+  const selectedFaults = useMemo(
+    () => normalizeFaultPrices(form.fault_prices),
+    [form.fault_prices],
+  );
   const paidAmount = Math.max(
     0,
     data.order.quotation_amount - data.order.deposit_amount - data.order.balance_amount,
@@ -832,6 +841,15 @@ function EditOrderDialog({
           <div className="rounded-md border p-3">
             <h4 className="mb-3 text-sm font-semibold">故障与诊断</h4>
             <div className="space-y-3">
+              <div>
+                <div className="mb-2 text-xs text-muted-foreground">维修故障选项</div>
+                <FaultDiagnosisPicker
+                  selected={selectedFaults}
+                  onChange={(faults) =>
+                    setForm({ ...form, fault_prices: toFaultPriceItems(faults) })
+                  }
+                />
+              </div>
               <EditField label="故障描述" required>
                 <Textarea
                   rows={3}
