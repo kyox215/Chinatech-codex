@@ -182,6 +182,6 @@ Prevent `src/lib/mock/api.ts` from continuing to grow as the project expands.
 - Step 0: complete (`f6618fd`)
 - Step 1: complete (`7642bb8`)
 - Step 2: complete (`35d318f`)
-- Step 3: complete
-- Step 4: pending
+- Step 3: complete (`700821c`)
+- Step 4: complete
 - Step 5: pending

@@ -8,7 +8,6 @@
     "src/components/bottom-tab-bar.tsx",
     "src/components/top-nav.tsx",
     "src/entities/**/index.ts",
-    "src/features/**/server/*.ts",
     "src/shared/**/index.ts",
     "src/shared/config/routes.ts",
     "src/lib/component-patterns.ts",

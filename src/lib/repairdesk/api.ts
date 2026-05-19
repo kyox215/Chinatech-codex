@@ -55,7 +55,11 @@ export type {
 async function source() {
   const { hasSupabaseConfig } = await import("@/server/supabase");
   if (hasSupabaseConfig()) {
-    return import("@/server/repairdesk-repository");
+    const [orders, customers] = await Promise.all([
+      import("@/features/orders/server/order.service"),
+      import("@/features/customers/server/customer.service"),
+    ]);
+    return { ...orders, ...customers };
   }
 
   const mock = await import("@/lib/mock/api");

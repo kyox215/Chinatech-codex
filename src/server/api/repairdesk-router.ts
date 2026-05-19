@@ -3,29 +3,31 @@ import { z } from "zod";
 
 import {
   batchTransition,
-  completeCustomerFollowup,
-  createCustomer,
-  createCustomerFollowup,
   createOrder,
-  deleteCustomerDevice,
-  getCustomerDevices,
-  getCustomerDetail,
   getOrder,
   getOrderStats,
   getRepairDeskOptions,
-  listCustomers,
   listOrders,
   recordPayment,
-  searchCustomers,
   sendApprovalRequest,
-  sendCustomerMessage,
   sendNotification,
-  setCustomerTags,
   transitionOrder,
-  updateCustomer,
   updateOrder,
+} from "@/features/orders/server/order.service";
+import {
+  completeCustomerFollowup,
+  createCustomer,
+  createCustomerFollowup,
+  deleteCustomerDevice,
+  getCustomerDevices,
+  getCustomerDetail,
+  listCustomers,
+  searchCustomers,
+  sendCustomerMessage,
+  setCustomerTags,
+  updateCustomer,
   upsertCustomerDevice,
-} from "@/lib/repairdesk/api";
+} from "@/features/customers/server/customer.service";
 import {
   approvalRequestBodySchema,
   batchTransitionBodySchema,

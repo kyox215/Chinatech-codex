@@ -1,0 +1,270 @@
+import { isApprovalOverdue, isPickupOverdue } from "@/lib/mock/workflow";
+import { CURRENCY_CODE } from "@/lib/money";
+import { getSupabaseAdmin } from "@/server/supabase";
+import type {
+  Customer,
+  CustomerFollowup,
+  CustomerInteraction,
+  CustomerTag,
+  Device,
+  DeviceSnapshot,
+  FaultPriceItem,
+  MessageLog,
+  OrderEvent,
+  OrderListItem,
+  RepairOrder,
+  Supplier,
+} from "@/lib/repairdesk/types";
+
+export type DbRecord = Record<string, unknown>;
+
+export const ORDER_SELECT = `
+  *,
+  customer:customers!repair_orders_customer_id_fkey(*),
+  device:devices!repair_orders_device_id_fkey(*),
+  supplier:suppliers!repair_orders_supplier_id_fkey(*)
+`;
+
+export function fail(error: { message: string } | null | undefined, context: string) {
+  if (error) throw new Error(`${context}: ${error.message}`);
+}
+
+export function maybeString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+export function requiredString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+export function money(value: unknown): number {
+  return Number(value ?? 0);
+}
+
+export function phoneRaw(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+export function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+function faultPrices(value: unknown): FaultPriceItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item): FaultPriceItem | undefined => {
+      if (!item || typeof item !== "object") return undefined;
+      const row = item as DbRecord;
+      const name = requiredString(row.name);
+      const price = money(row.price);
+      if (!name) return undefined;
+      const note = maybeString(row.note);
+      return note
+        ? { name, price, currency_code: CURRENCY_CODE, note }
+        : { name, price, currency_code: CURRENCY_CODE };
+    })
+    .filter((item): item is FaultPriceItem => item !== undefined);
+}
+
+export function customerFromRow(row: unknown): Customer | undefined {
+  if (!row || typeof row !== "object") return undefined;
+  const r = row as DbRecord;
+  return {
+    id: requiredString(r.id),
+    name: requiredString(r.name),
+    phone_e164: requiredString(r.phone_e164),
+    phone_raw: requiredString(r.phone_raw),
+    contact_phones: stringArray(r.contact_phones),
+    consent_marketing: Boolean(r.consent_marketing),
+    consent_sms: Boolean(r.consent_sms),
+    email: maybeString(r.email),
+    preferred_channel:
+      r.preferred_channel === "sms" || r.preferred_channel === "whatsapp"
+        ? r.preferred_channel
+        : "whatsapp",
+    language: r.language === "zh" || r.language === "en" || r.language === "it" ? r.language : "it",
+    notes: maybeString(r.notes),
+    marketing_notes: maybeString(r.marketing_notes),
+    last_contacted_at: maybeString(r.last_contacted_at),
+    blacklisted_at: maybeString(r.blacklisted_at),
+  };
+}
+
+export function deviceFromRow(row: unknown): Device | undefined {
+  if (!row || typeof row !== "object") return undefined;
+  const r = row as DbRecord;
+  return {
+    id: requiredString(r.id),
+    customer_id: requiredString(r.customer_id),
+    brand: requiredString(r.brand),
+    model: requiredString(r.model),
+    serial_or_imei: requiredString(r.serial_or_imei),
+    device_notes: maybeString(r.device_notes),
+  };
+}
+
+export function supplierFromRow(row: unknown): Supplier | undefined {
+  if (!row || typeof row !== "object") return undefined;
+  const r = row as DbRecord;
+  return {
+    id: requiredString(r.id),
+    name: requiredString(r.name),
+    short_name: requiredString(r.short_name),
+    color: requiredString(r.color),
+  };
+}
+
+function deviceSnapshotFromRow(value: unknown): DeviceSnapshot | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as DbRecord;
+  const brand = requiredString(row.brand);
+  const model = requiredString(row.model);
+  if (!brand && !model) return undefined;
+  return {
+    brand,
+    model,
+    serial_or_imei: requiredString(row.serial_or_imei),
+    device_notes: maybeString(row.device_notes),
+  };
+}
+
+export function snapshotFromDevice(device: Device): DeviceSnapshot {
+  return {
+    brand: device.brand,
+    model: device.model,
+    serial_or_imei: device.serial_or_imei,
+    ...(device.device_notes ? { device_notes: device.device_notes } : {}),
+  };
+}
+
+export function tagFromRow(row: unknown): CustomerTag | undefined {
+  if (!row || typeof row !== "object") return undefined;
+  const r = row as DbRecord;
+  const id = requiredString(r.id);
+  const name = requiredString(r.name);
+  if (!id || !name) return undefined;
+  return {
+    id,
+    name,
+    color: requiredString(r.color) || "#6366f1",
+    description: maybeString(r.description),
+  };
+}
+
+export function interactionFromRow(row: DbRecord): CustomerInteraction {
+  return {
+    id: requiredString(row.id),
+    customer_id: requiredString(row.customer_id),
+    order_id: maybeString(row.order_id),
+    channel: row.channel as CustomerInteraction["channel"],
+    direction: row.direction as CustomerInteraction["direction"],
+    message_body: requiredString(row.message_body),
+    status: row.status as CustomerInteraction["status"],
+    operator_name: requiredString(row.operator_name) || "前台",
+    created_at: requiredString(row.created_at),
+  };
+}
+
+export function followupFromRow(row: DbRecord): CustomerFollowup {
+  return {
+    id: requiredString(row.id),
+    customer_id: requiredString(row.customer_id),
+    order_id: maybeString(row.order_id),
+    title: requiredString(row.title),
+    note: maybeString(row.note),
+    due_at: requiredString(row.due_at),
+    owner_name: maybeString(row.owner_name),
+    status: row.status as CustomerFollowup["status"],
+    completed_at: maybeString(row.completed_at),
+    created_at: requiredString(row.created_at),
+    updated_at: requiredString(row.updated_at),
+  };
+}
+
+export function orderFromRow(row: DbRecord): RepairOrder {
+  return {
+    id: requiredString(row.id),
+    public_no: requiredString(row.public_no),
+    order_type: row.order_type as RepairOrder["order_type"],
+    status: row.status as RepairOrder["status"],
+    customer_id: requiredString(row.customer_id),
+    device_id: requiredString(row.device_id),
+    issue_description: requiredString(row.issue_description),
+    diagnosis_result: maybeString(row.diagnosis_result),
+    quotation_amount: money(row.quotation_amount),
+    deposit_amount: money(row.deposit_amount),
+    balance_amount: money(row.balance_amount),
+    currency_code: CURRENCY_CODE,
+    is_paid: Boolean(row.is_paid),
+    approval_status: row.approval_status as RepairOrder["approval_status"],
+    approval_sent_at: maybeString(row.approval_sent_at),
+    approval_confirmed_at: maybeString(row.approval_confirmed_at),
+    technician_name: requiredString(row.technician_name),
+    internal_tag: maybeString(row.internal_tag),
+    warranty_text: maybeString(row.warranty_text),
+    completed_at: maybeString(row.completed_at),
+    delivered_at: maybeString(row.delivered_at),
+    pause_reason: maybeString(row.pause_reason),
+    cancel_reason: maybeString(row.cancel_reason),
+    supplier_id: maybeString(row.supplier_id),
+    original_order_id: maybeString(row.original_order_id),
+    contact_phones: stringArray(row.contact_phones),
+    fault_prices: faultPrices(row.fault_prices),
+    device_snapshot: deviceSnapshotFromRow(row.device_snapshot),
+    customer_signature: maybeString(row.customer_signature),
+    created_at: requiredString(row.created_at),
+    updated_at: requiredString(row.updated_at),
+  };
+}
+
+export function decorate(row: DbRecord): OrderListItem {
+  const order = orderFromRow(row);
+  const customer = customerFromRow(row.customer);
+  const device = deviceFromRow(row.device);
+  const supplier = supplierFromRow(row.supplier);
+  const snapshot = order.device_snapshot ?? (device ? snapshotFromDevice(device) : undefined);
+  const deviceLabel = snapshot ? `${snapshot.brand} ${snapshot.model}`.trim() : "-";
+
+  return {
+    ...order,
+    customer_name: customer?.name ?? "-",
+    customer_phone: customer?.phone_e164 ?? "",
+    device_label: deviceLabel || "-",
+    device_imei: snapshot?.serial_or_imei ?? device?.serial_or_imei ?? "",
+    supplier_name: supplier?.name,
+    supplier_color: supplier?.color,
+    approval_overdue: isApprovalOverdue(order),
+    pickup_overdue: isPickupOverdue(order),
+  };
+}
+
+export function eventFromRow(row: DbRecord): OrderEvent {
+  const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
+  return {
+    id: requiredString(row.id),
+    order_id: requiredString(row.order_id),
+    event_type: row.event_type as OrderEvent["event_type"],
+    payload: payload as Record<string, unknown>,
+    operator_name: requiredString(row.operator_name),
+    created_at: requiredString(row.created_at),
+  };
+}
+
+export function messageFromRow(row: DbRecord): MessageLog {
+  return {
+    id: requiredString(row.id),
+    order_id: requiredString(row.order_id),
+    channel: row.channel as MessageLog["channel"],
+    message_body: requiredString(row.message_body),
+    status: row.status as MessageLog["status"],
+    sent_at: requiredString(row.sent_at),
+    opened_at: maybeString(row.opened_at),
+  };
+}
+
+export async function fetchOrderRows(): Promise<DbRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from("repair_orders").select(ORDER_SELECT);
+  fail(error, "读取工单失败");
+  return (data ?? []) as DbRecord[];
+}
