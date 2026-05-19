@@ -15,9 +15,11 @@ import type {
   OrderListFilters,
   OrderListItem,
   OrderStats,
+  OrderWhatsappTemplateKind,
   RepairDeskOptions,
   Supplier,
   UpdateOrderInput,
+  WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import {
@@ -341,6 +343,111 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   return { ok: true };
 }
 
+async function writeWhatsappMessage({
+  id,
+  body,
+  templateKind,
+  eventType,
+  transitionTo,
+  allowInvalidTransition = false,
+  markApprovalPending = false,
+}: {
+  id: string;
+  body: string;
+  templateKind: OrderWhatsappTemplateKind;
+  eventType: "message_sent" | "approval_sent";
+  transitionTo?: RepairOrderStatus;
+  allowInvalidTransition?: boolean;
+  markApprovalPending?: boolean;
+}): Promise<WhatsappNotificationResult> {
+  const message = body.trim();
+  if (!id) throw new Error("工单 ID 不能为空");
+  if (!message) throw new Error("通知内容不能为空");
+
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const messageId = crypto.randomUUID();
+
+  const { data: current, error: readError } = await supabase
+    .from("repair_orders")
+    .select("id,status")
+    .eq("id", id)
+    .single();
+  fail(readError, "读取工单失败");
+
+  const from = (current as DbRecord).status as RepairOrderStatus;
+  let statusChanged = false;
+  let to: RepairOrderStatus | undefined;
+
+  if (transitionTo) {
+    const transition = validateOrderTransition(from, transitionTo);
+    if (!transition.ok) {
+      if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
+    } else {
+      statusChanged = true;
+      to = transitionTo;
+    }
+  }
+
+  const update: DbRecord = { updated_at: now };
+  if (markApprovalPending) {
+    update.approval_sent_at = now;
+    update.approval_status = "pending";
+  }
+  if (statusChanged && to) {
+    update.status = to;
+    if (to === "completed") update.completed_at = now;
+    if (to === "waiting_approval") update.approval_sent_at = now;
+  }
+
+  const payload: Record<string, unknown> = {
+    channel: "whatsapp",
+    message_id: messageId,
+    template_kind: templateKind,
+    status_changed: statusChanged,
+    currency_code: CURRENCY_CODE,
+  };
+  if (transitionTo) {
+    payload.from = from;
+    payload.to = statusChanged && to ? to : from;
+  }
+
+  const { error: messageError } = await supabase.from("message_logs").insert({
+    id: messageId,
+    order_id: id,
+    channel: "whatsapp",
+    message_body: message,
+    status: "sent",
+    sent_at: now,
+  });
+  fail(messageError, "写入 WhatsApp 通知失败");
+
+  const [{ error: updateError }, { error: eventError }] = await Promise.all([
+    supabase.from("repair_orders").update(update).eq("id", id),
+    supabase.from("order_events").insert({
+      id: crypto.randomUUID(),
+      order_id: id,
+      event_type: eventType,
+      payload,
+      operator_name: "前台",
+      created_at: now,
+    }),
+  ]);
+  fail(updateError, "更新工单通知状态失败");
+  fail(eventError, "写入通知时间线失败");
+
+  return {
+    ok: true,
+    id: messageId,
+    channel: "whatsapp",
+    body: message,
+    template_kind: templateKind,
+    statusChanged,
+    from,
+    to,
+  };
+}
+
 export async function sendNotification(
   id: string,
   body: string,
@@ -380,64 +487,31 @@ export async function sendNotification(
   return { ok: true, id: messageId, channel, body: message };
 }
 
-export async function sendApprovalRequest(id: string, body: string) {
-  const message = body.trim();
-  if (!id) throw new Error("工单 ID 不能为空");
-  if (!message) throw new Error("审批内容不能为空");
-
-  const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
-  const messageId = crypto.randomUUID();
-
-  const { data: current, error: readError } = await supabase
-    .from("repair_orders")
-    .select("id,status")
-    .eq("id", id)
-    .single();
-  fail(readError, "读取工单失败");
-
-  const from = (current as DbRecord).status as RepairOrderStatus;
-  const transition = validateOrderTransition(from, "waiting_approval");
-  const statusChanged = transition.ok;
-  const update: DbRecord = {
-    approval_sent_at: now,
-    approval_status: "pending",
-    updated_at: now,
-  };
-  if (statusChanged) update.status = "waiting_approval";
-
-  const { error: messageError } = await supabase.from("message_logs").insert({
-    id: messageId,
-    order_id: id,
-    channel: "whatsapp",
-    message_body: message,
-    status: "sent",
-    sent_at: now,
+export async function sendWhatsappNotification(
+  id: string,
+  body: string,
+  templateKind: OrderWhatsappTemplateKind,
+  transitionTo?: RepairOrderStatus,
+) {
+  return writeWhatsappMessage({
+    id,
+    body,
+    templateKind,
+    eventType: "message_sent",
+    transitionTo,
   });
-  fail(messageError, "写入审批通知失败");
+}
 
-  const [{ error: updateError }, { error: eventError }] = await Promise.all([
-    supabase.from("repair_orders").update(update).eq("id", id),
-    supabase.from("order_events").insert({
-      id: crypto.randomUUID(),
-      order_id: id,
-      event_type: "approval_sent",
-      payload: {
-        channel: "whatsapp",
-        message_id: messageId,
-        from,
-        to: statusChanged ? "waiting_approval" : from,
-        status_changed: statusChanged,
-        currency_code: CURRENCY_CODE,
-      },
-      operator_name: "前台",
-      created_at: now,
-    }),
-  ]);
-  fail(updateError, "更新审批状态失败");
-  fail(eventError, "写入审批时间线失败");
-
-  return { ok: true, id: messageId, channel: "whatsapp" as const, body: message, statusChanged };
+export async function sendApprovalRequest(id: string, body: string) {
+  return writeWhatsappMessage({
+    id,
+    body,
+    templateKind: "approval_request",
+    eventType: "approval_sent",
+    transitionTo: "waiting_approval",
+    allowInvalidTransition: true,
+    markApprovalPending: true,
+  });
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<{ id: string }> {

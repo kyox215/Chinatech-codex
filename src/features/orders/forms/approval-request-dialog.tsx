@@ -14,52 +14,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { formatMoney } from "@/lib/money";
 import type { OrderDetail } from "@/lib/repairdesk/api";
-import { translateFaultName } from "@/features/orders/model/order-italian";
-
-function buildApprovalMessage(data: OrderDetail, orderUrl: string) {
-  const { order, customer, device } = data;
-  const customerName = customer?.name || order.customer_name || "Cliente";
-  const deviceLabel =
-    `${order.device_snapshot?.brand ?? device?.brand ?? ""} ${
-      order.device_snapshot?.model ?? device?.model ?? ""
-    }`.trim() ||
-    order.device_label ||
-    "Dispositivo";
-  const items = order.fault_prices.length
-    ? order.fault_prices
-        .map((item) => `- ${translateFaultName(item.name)}: ${formatMoney(item.price)}`)
-        .join("\n")
-    : "- Intervento da confermare";
-
-  return [
-    `Gentile ${customerName},`,
-    "",
-    `le inviamo il preventivo per la riparazione del dispositivo ${deviceLabel}.`,
-    `Numero ordine: ${order.public_no}`,
-    "",
-    "Interventi previsti:",
-    items,
-    "",
-    `Totale preventivo: ${formatMoney(order.quotation_amount)}`,
-    `Acconto: ${formatMoney(order.deposit_amount)}`,
-    `Saldo da pagare: ${formatMoney(order.balance_amount)}`,
-    orderUrl ? `Link ordine: ${orderUrl}` : null,
-    "",
-    "La preghiamo di confermare se desidera procedere con la riparazione.",
-    "Grazie,",
-    "ChinaTech",
-  ]
-    .filter((line): line is string => line !== null)
-    .join("\n");
-}
-
-function whatsAppUrl(phone: string, body: string) {
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) return "";
-  return `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
-}
+import {
+  buildOrderWhatsappMessage,
+  buildWhatsAppUrl,
+} from "@/features/orders/model/order-message-templates";
 
 export function ApprovalRequestDialog({
   open,
@@ -76,12 +35,14 @@ export function ApprovalRequestDialog({
   busy: boolean;
   onConfirm: (body: string) => Promise<unknown>;
 }) {
-  const [body, setBody] = useState(() => buildApprovalMessage(data, orderUrl));
+  const [body, setBody] = useState(() =>
+    buildOrderWhatsappMessage(data, "approval_request", orderUrl),
+  );
   const phone = data.customer?.phone_e164 || data.order.customer_phone;
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
 
   useEffect(() => {
-    if (open) setBody(buildApprovalMessage(data, orderUrl));
+    if (open) setBody(buildOrderWhatsappMessage(data, "approval_request", orderUrl));
   }, [data, open, orderUrl]);
 
   return (
@@ -112,7 +73,7 @@ export function ApprovalRequestDialog({
           <Button
             disabled={busy || !body.trim() || !canOpenWhatsApp}
             onClick={async () => {
-              const url = whatsAppUrl(phone, body.trim());
+              const url = buildWhatsAppUrl(phone, body.trim());
               if (!url) {
                 toast.error("客户电话号码不可用于 WhatsApp");
                 return;

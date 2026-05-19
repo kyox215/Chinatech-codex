@@ -9,6 +9,7 @@ export {
   recordPayment,
   sendApprovalRequest,
   sendNotification,
+  sendWhatsappNotification,
   transitionOrder,
   updateOrder,
 } from "@/features/orders/testing/mock-api";

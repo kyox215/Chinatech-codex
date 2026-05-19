@@ -7,6 +7,7 @@ import type {
   OrderListFilters,
   OrderListItem,
   OrderStats,
+  OrderWhatsappTemplateKind,
   BatchTransitionResult,
   CustomerCreateInput,
   CustomerDetail,
@@ -19,6 +20,7 @@ import type {
   PaymentResult,
   RepairDeskOptions,
   UpdateOrderInput,
+  WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 
 export type {
@@ -32,6 +34,7 @@ export type {
   OrderListFilters,
   OrderListItem,
   OrderStats,
+  OrderWhatsappTemplateKind,
   BatchTransitionResult,
   CustomerCreateInput,
   CustomerDetail,
@@ -50,6 +53,7 @@ export type {
   RepairOrder,
   RepairDeskOptions,
   UpdateOrderInput,
+  WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 
 async function source() {
@@ -145,6 +149,23 @@ export async function recordPayment(
 export async function sendNotification(id: string, body: string, channel: "whatsapp" | "sms") {
   if (isServerRuntime()) return (await source()).sendNotification(id, body, channel);
   return postJson("order/notification", { id, body, channel });
+}
+
+export async function sendWhatsappNotification(
+  id: string,
+  body: string,
+  templateKind: OrderWhatsappTemplateKind,
+  transitionTo?: RepairOrderStatus,
+): Promise<WhatsappNotificationResult> {
+  if (isServerRuntime()) {
+    return (await source()).sendWhatsappNotification(id, body, templateKind, transitionTo);
+  }
+  return postJson<WhatsappNotificationResult>("order/whatsapp-notification", {
+    id,
+    body,
+    template_kind: templateKind,
+    transition_to: transitionTo,
+  });
 }
 
 export async function sendApprovalRequest(id: string, body: string) {

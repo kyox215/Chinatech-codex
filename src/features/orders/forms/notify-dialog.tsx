@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Send } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,60 +14,110 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { statusMeta } from "@/lib/mock/enums";
+import type { OrderDetail, OrderWhatsappTemplateKind } from "@/lib/repairdesk/api";
+import {
+  buildOrderWhatsappMessage,
+  buildWhatsAppUrl,
+  getDefaultOrderWhatsappTemplateKind,
+  getOrderWhatsappTransition,
+  orderWhatsappTemplateOptions,
+} from "@/features/orders/model/order-message-templates";
 
 export function NotifyDialog({
   open,
   onOpenChange,
-  defaultBody,
-  onSend,
+  data,
+  orderUrl,
+  busy,
+  onConfirm,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  defaultBody: string;
-  onSend: (channel: "whatsapp" | "sms", body: string) => Promise<void>;
+  data: OrderDetail;
+  orderUrl: string;
+  busy: boolean;
+  onConfirm: (input: {
+    body: string;
+    templateKind: OrderWhatsappTemplateKind;
+    transitionTo?: OrderDetail["order"]["status"];
+  }) => Promise<unknown>;
 }) {
-  const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
-  const [body, setBody] = useState(defaultBody);
-  const [busy, setBusy] = useState(false);
+  const defaultKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
+  const [templateKind, setTemplateKind] = useState<OrderWhatsappTemplateKind>(defaultKind);
+  const [body, setBody] = useState(() => buildOrderWhatsappMessage(data, defaultKind, orderUrl));
+  const phone = data.customer?.phone_e164 || data.order.customer_phone;
+  const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
+  const transitionTo = getOrderWhatsappTransition(data.order.status, templateKind);
 
   useEffect(() => {
-    if (open) setBody(defaultBody);
-  }, [defaultBody, open]);
+    if (!open) return;
+    const nextKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
+    setTemplateKind(nextKind);
+    setBody(buildOrderWhatsappMessage(data, nextKind, orderUrl));
+  }, [data, open, orderUrl]);
+
+  const updateTemplate = (kind: OrderWhatsappTemplateKind) => {
+    setTemplateKind(kind);
+    setBody(buildOrderWhatsappMessage(data, kind, orderUrl));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>发送客户通知</DialogTitle>
-          <DialogDescription>选择通道并编辑通知内容。</DialogDescription>
+          <DialogTitle>预览 WhatsApp 通知</DialogTitle>
+          <DialogDescription>
+            内容将以意大利语发送给客户。确认后会打开 WhatsApp，并记录到通知历史。
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="flex gap-2">
-            {(["whatsapp", "sms"] as const).map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setChannel(c)}
-                className={cn(
-                  "rounded-md border px-3 py-1.5 text-xs transition-colors",
-                  channel === c
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "bg-surface hover:bg-accent",
-                )}
+          <div className="grid gap-3 sm:grid-cols-[1fr_1.3fr]">
+            <div>
+              <Label className="text-xs">通知类型</Label>
+              <Select
+                value={templateKind}
+                onValueChange={(value) => updateTemplate(value as OrderWhatsappTemplateKind)}
               >
-                {c === "whatsapp" ? "WhatsApp" : "短信"}
-              </button>
-            ))}
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {orderWhatsappTemplateOptions.map((option) => (
+                    <SelectItem key={option.kind} value={option.kind}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">WhatsApp</Label>
+              <div className="mt-1 rounded-md border bg-surface-muted px-3 py-2 font-mono text-xs">
+                {phone || "缺少电话号码"}
+              </div>
+            </div>
           </div>
+          {transitionTo && (
+            <div className="rounded-md border border-status-warn-foreground/20 bg-status-warn px-3 py-2 text-xs text-status-warn-foreground">
+              确认发送后将同步流转为「{statusMeta[transitionTo].label}」。
+            </div>
+          )}
           <div>
             <Label className="text-xs">通知内容</Label>
             <Textarea
-              rows={5}
+              rows={12}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="mt-1 font-mono text-xs"
+              className="mt-1 font-mono text-xs leading-relaxed"
             />
           </div>
         </div>
@@ -75,18 +126,19 @@ export function NotifyDialog({
             取消
           </Button>
           <Button
-            disabled={busy || !body.trim()}
+            disabled={busy || !body.trim() || !canOpenWhatsApp}
             onClick={async () => {
-              setBusy(true);
-              try {
-                await onSend(channel, body.trim());
-                onOpenChange(false);
-              } finally {
-                setBusy(false);
+              const url = buildWhatsAppUrl(phone, body.trim());
+              if (!url || !canOpenWhatsApp) {
+                toast.error("客户电话号码不可用于 WhatsApp");
+                return;
               }
+              window.open(url, "_blank", "noopener,noreferrer");
+              await onConfirm({ body: body.trim(), templateKind, transitionTo });
+              onOpenChange(false);
             }}
           >
-            <Send className="mr-1.5 size-3.5" /> 发送
+            <Send className="mr-1.5 size-3.5" /> 确认并打开 WhatsApp
           </Button>
         </DialogFooter>
       </DialogContent>

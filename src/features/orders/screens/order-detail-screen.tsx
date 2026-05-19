@@ -13,7 +13,7 @@ import {
   getOrder,
   recordPayment,
   sendApprovalRequest,
-  sendNotification,
+  sendWhatsappNotification,
   transitionOrder,
   updateOrder,
   type UpdateOrderInput,
@@ -95,6 +95,23 @@ export function OrderDetailScreen({ id }: { id: string }) {
     onSuccess: () => {
       toast.success("审批消息已记录，并已打开 WhatsApp");
       setApprovalOpen(false);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const whatsappNotification = useMutation({
+    mutationFn: (input: {
+      body: string;
+      templateKind: Parameters<typeof sendWhatsappNotification>[2];
+      transitionTo?: RepairOrderStatus;
+    }) => sendWhatsappNotification(id, input.body, input.templateKind, input.transitionTo),
+    onSuccess: (result) => {
+      toast.success(
+        result.statusChanged && result.to
+          ? `WhatsApp 已记录，并已流转为「${statusMeta[result.to].label}」`
+          : "WhatsApp 通知已记录",
+      );
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -255,12 +272,10 @@ export function OrderDetailScreen({ id }: { id: string }) {
       <NotifyDialog
         open={notifyOpen}
         onOpenChange={setNotifyOpen}
-        defaultBody={`您好 ${customer?.name ?? ""}，您的工单 ${order.public_no} 状态：${statusMeta[order.status].label}。如有疑问请联系门店。`}
-        onSend={async (channel, body) => {
-          await sendNotification(id, body, channel);
-          toast.success("通知已发送");
-          invalidate();
-        }}
+        data={data}
+        orderUrl={orderUrl}
+        busy={whatsappNotification.isPending}
+        onConfirm={(input) => whatsappNotification.mutateAsync(input)}
       />
       <ApprovalRequestDialog
         open={approvalOpen}
@@ -314,7 +329,9 @@ function renderEvent(type: string, payload: Record<string, unknown>) {
     case "payment":
       return `收款 ${formatMoney(Number(payload.amount ?? 0))}（${payload.method}）`;
     case "message_sent":
-      return "已发送通知";
+      return payload.status_changed
+        ? `已发送 WhatsApp 通知并流转：${statusMeta[payload.from as keyof typeof statusMeta]?.label ?? payload.from} → ${statusMeta[payload.to as keyof typeof statusMeta]?.label ?? payload.to}`
+        : "已发送 WhatsApp 通知";
     case "note":
       return payload.action === "order_updated" ? "工单信息已更新" : "备注";
     default:

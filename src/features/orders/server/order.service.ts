@@ -8,6 +8,7 @@ export {
   recordPayment,
   sendApprovalRequest,
   sendNotification,
+  sendWhatsappNotification,
   transitionOrder,
   updateOrder,
 } from "./order.repository";

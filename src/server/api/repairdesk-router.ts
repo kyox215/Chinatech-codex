@@ -11,6 +11,7 @@ import {
   recordPayment,
   sendApprovalRequest,
   sendNotification,
+  sendWhatsappNotification,
   transitionOrder,
   updateOrder,
 } from "@/features/orders/server/order.service";
@@ -49,6 +50,7 @@ import {
   paymentBodySchema,
   transitionOrderBodySchema,
   updateOrderBodySchema,
+  whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
 
 function ok(data: unknown) {
@@ -149,6 +151,15 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       case "order/notification": {
         const { id, body: messageBody, channel } = notificationBodySchema.parse(body);
         return ok(await sendNotification(id, messageBody, channel));
+      }
+      case "order/whatsapp-notification": {
+        const {
+          id,
+          body: messageBody,
+          template_kind,
+          transition_to,
+        } = whatsappNotificationBodySchema.parse(body);
+        return ok(await sendWhatsappNotification(id, messageBody, template_kind, transition_to));
       }
       case "order/approval-request": {
         const { id, body: messageBody } = approvalRequestBodySchema.parse(body);

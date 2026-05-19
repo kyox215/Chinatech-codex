@@ -10,6 +10,7 @@ import type {
   CustomerMessageInput,
   CustomerUpdateInput,
   OrderListFilters,
+  OrderWhatsappTemplateKind,
   UpdateOrderInput,
 } from "@/lib/repairdesk/api";
 
@@ -17,6 +18,15 @@ const optionalText = z.string().optional();
 const repairOrderStatusSchema = z.string().min(1) as z.ZodType<RepairOrderStatus>;
 const repairOrderTypeSchema = z.string().min(1) as z.ZodType<RepairOrderType>;
 const approvalStatusSchema = z.string().min(1) as z.ZodType<ApprovalStatus>;
+const orderWhatsappTemplateKindSchema = z.enum([
+  "approval_request",
+  "pickup_ready",
+  "unfixed_pickup",
+  "parts_update",
+  "repair_status",
+  "cancelled",
+  "completed",
+]) satisfies z.ZodType<OrderWhatsappTemplateKind>;
 
 export const idBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
@@ -119,6 +129,13 @@ export const notificationBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   body: z.string(),
   channel: z.enum(["whatsapp", "sms"]).default("whatsapp"),
+});
+
+export const whatsappNotificationBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  body: z.string(),
+  template_kind: orderWhatsappTemplateKindSchema,
+  transition_to: repairOrderStatusSchema.optional(),
 });
 
 export const approvalRequestBodySchema = z.object({

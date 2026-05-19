@@ -110,6 +110,26 @@ export interface MessageLog {
   opened_at?: string;
 }
 
+export type OrderWhatsappTemplateKind =
+  | "approval_request"
+  | "pickup_ready"
+  | "unfixed_pickup"
+  | "parts_update"
+  | "repair_status"
+  | "cancelled"
+  | "completed";
+
+export interface WhatsappNotificationResult {
+  ok: boolean;
+  id: string;
+  channel: "whatsapp";
+  body: string;
+  template_kind: OrderWhatsappTemplateKind;
+  statusChanged: boolean;
+  from?: RepairOrderStatus;
+  to?: RepairOrderStatus;
+}
+
 export interface OrderListFilters {
   search?: string;
   statuses?: RepairOrderStatus[];

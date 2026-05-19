@@ -3,8 +3,10 @@ import type {
   CreateOrderInput,
   OrderListFilters,
   OrderListItem,
+  OrderWhatsappTemplateKind,
   RepairOrder,
   UpdateOrderInput,
+  WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import {
@@ -283,20 +285,52 @@ export async function sendNotification(
   return { ok: true, id: messageId, channel, body: message };
 }
 
-export async function sendApprovalRequest(id: string, body: string) {
+function writeMockWhatsappMessage({
+  id,
+  body,
+  templateKind,
+  eventType,
+  transitionTo,
+  allowInvalidTransition = false,
+  markApprovalPending = false,
+}: {
+  id: string;
+  body: string;
+  templateKind: OrderWhatsappTemplateKind;
+  eventType: "message_sent" | "approval_sent";
+  transitionTo?: RepairOrderStatus;
+  allowInvalidTransition?: boolean;
+  markApprovalPending?: boolean;
+}): WhatsappNotificationResult {
   const message = body.trim();
-  if (!message) throw new Error("审批内容不能为空");
+  if (!message) throw new Error("通知内容不能为空");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   const now = new Date().toISOString();
-  const messageId = `msg_approval_${Date.now()}`;
-  const transition = validateOrderTransition(o.status, "waiting_approval");
+  const messageId = `msg_whatsapp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const from = o.status;
-  const statusChanged = transition.ok;
-  if (statusChanged) o.status = "waiting_approval";
-  o.approval_status = "pending";
-  o.approval_sent_at = now;
+  let statusChanged = false;
+  let to: RepairOrderStatus | undefined;
+
+  if (transitionTo) {
+    const transition = validateOrderTransition(from, transitionTo);
+    if (!transition.ok) {
+      if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
+    } else {
+      statusChanged = true;
+      to = transitionTo;
+      o.status = to;
+      if (to === "completed") o.completed_at = now;
+      if (to === "waiting_approval") o.approval_sent_at = now;
+    }
+  }
+
+  if (markApprovalPending) {
+    o.approval_status = "pending";
+    o.approval_sent_at = now;
+  }
   o.updated_at = now;
+
   extraMessages.unshift({
     id: messageId,
     order_id: id,
@@ -306,21 +340,57 @@ export async function sendApprovalRequest(id: string, body: string) {
     sent_at: now,
   });
   extraEvents.unshift({
-    id: `evt_approval_${Date.now()}`,
+    id: `evt_whatsapp_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     order_id: id,
-    event_type: "approval_sent",
+    event_type: eventType,
     payload: {
       channel: "whatsapp",
       message_id: messageId,
-      from,
-      to: statusChanged ? "waiting_approval" : from,
+      template_kind: templateKind,
       status_changed: statusChanged,
       currency_code: CURRENCY_CODE,
+      ...(transitionTo ? { from, to: statusChanged && to ? to : from } : {}),
     },
     operator_name: "前台",
     created_at: now,
   });
-  return { ok: true, id: messageId, channel: "whatsapp" as const, body: message, statusChanged };
+  return {
+    ok: true,
+    id: messageId,
+    channel: "whatsapp",
+    body: message,
+    template_kind: templateKind,
+    statusChanged,
+    from,
+    to,
+  };
+}
+
+export async function sendWhatsappNotification(
+  id: string,
+  body: string,
+  templateKind: OrderWhatsappTemplateKind,
+  transitionTo?: RepairOrderStatus,
+) {
+  return writeMockWhatsappMessage({
+    id,
+    body,
+    templateKind,
+    eventType: "message_sent",
+    transitionTo,
+  });
+}
+
+export async function sendApprovalRequest(id: string, body: string) {
+  return writeMockWhatsappMessage({
+    id,
+    body,
+    templateKind: "approval_request",
+    eventType: "approval_sent",
+    transitionTo: "waiting_approval",
+    allowInvalidTransition: true,
+    markApprovalPending: true,
+  });
 }
 
 // GET /api/customers/suggest?q=
