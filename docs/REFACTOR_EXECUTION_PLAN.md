@@ -126,12 +126,12 @@ Move customer CRM screens from route files into `features/customers`.
 ### Components To Extract
 
 - `CustomerHero`
-- `CustomerDevicesTab`
-- `CustomerOrdersTab`
-- `CustomerMessagesTab`
-- `CustomerMarketingTab`
-- `CustomerFollowupsTab`
-- `CustomerTimelineTab`
+- `CustomerDevicesPanel`
+- `CustomerOrdersPanel`
+- `CustomerMessagesPanel`
+- `CustomerMarketingPanel`
+- `CustomerFollowupsPanel`
+- `CustomerTimelinePanel`
 
 ### Acceptance
 
@@ -181,7 +181,7 @@ Prevent `src/lib/mock/api.ts` from continuing to grow as the project expands.
 
 - Step 0: complete (`f6618fd`)
 - Step 1: complete (`7642bb8`)
-- Step 2: complete
-- Step 3: pending
+- Step 2: complete (`35d318f`)
+- Step 3: complete
 - Step 4: pending
 - Step 5: pending

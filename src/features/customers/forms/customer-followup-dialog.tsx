@@ -1,0 +1,118 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
+import type { CustomerFollowupInput, OrderListItem } from "@/lib/repairdesk/api";
+
+export function CustomerFollowupDialog({
+  open,
+  onOpenChange,
+  busy,
+  orders,
+  selectedOrderId,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  busy: boolean;
+  orders: OrderListItem[];
+  selectedOrderId?: string;
+  onSave: (input: CustomerFollowupInput) => Promise<unknown>;
+}) {
+  const defaultDueAt = useMemo(
+    () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 16),
+    [],
+  );
+  const [form, setForm] = useState<CustomerFollowupInput>({
+    title: "维修后满意度回访",
+    due_at: defaultDueAt,
+    owner_name: "",
+    note: "",
+  });
+  useEffect(() => {
+    if (open) {
+      setForm({
+        title: "维修后满意度回访",
+        due_at: defaultDueAt,
+        owner_name: "",
+        note: "",
+        order_id: selectedOrderId,
+      });
+    }
+  }, [defaultDueAt, open, selectedOrderId]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>添加回访任务</DialogTitle>
+          <DialogDescription>用于售后满意度、报价确认或取机提醒。</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <CustomerFormField label="标题" required>
+            <Input
+              value={form.title}
+              onChange={(event) => setForm({ ...form, title: event.target.value })}
+            />
+          </CustomerFormField>
+          <CustomerFormField label="关联工单">
+            <select
+              value={form.order_id ?? ""}
+              onChange={(event) => setForm({ ...form, order_id: event.target.value || undefined })}
+              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">不关联</option>
+              {orders.map((order) => (
+                <option key={order.id} value={order.id}>
+                  {order.public_no} · {order.device_label}
+                </option>
+              ))}
+            </select>
+          </CustomerFormField>
+          <CustomerFormField label="到期时间" required>
+            <Input
+              type="datetime-local"
+              value={form.due_at}
+              onChange={(event) => setForm({ ...form, due_at: event.target.value })}
+            />
+          </CustomerFormField>
+          <CustomerFormField label="负责人">
+            <Input
+              value={form.owner_name ?? ""}
+              onChange={(event) => setForm({ ...form, owner_name: event.target.value })}
+            />
+          </CustomerFormField>
+          <CustomerFormField label="备注">
+            <Textarea
+              rows={3}
+              value={form.note ?? ""}
+              onChange={(event) => setForm({ ...form, note: event.target.value })}
+            />
+          </CustomerFormField>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            取消
+          </Button>
+          <Button
+            disabled={busy || !form.title.trim() || !form.due_at}
+            onClick={() => onSave(form)}
+          >
+            {busy ? "创建中…" : "创建回访"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
