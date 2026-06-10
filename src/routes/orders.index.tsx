@@ -43,7 +43,7 @@ import {
   batchTransition,
   getRepairDeskOptions,
   getOrderStats,
-  listOrders,
+  listOrdersPage,
   transitionOrder,
   type OrderListFilters,
   type OrderListItem,
@@ -67,6 +67,8 @@ const tabs: { key: string; label: string; statuses?: RepairOrderStatus[] }[] = [
   { key: "completed", label: "已完成", statuses: statusGroups.completed },
   { key: "cancelled", label: "已取消", statuses: statusGroups.cancelled },
 ];
+
+const ORDER_LIST_PAGE_SIZE = 50;
 
 function FiltersPanel({
   filters,
@@ -253,6 +255,7 @@ function KpiPill({ label, value, accent }: { label: string; value: number; accen
 export default function OrdersListPage() {
   const [tab, setTab] = useState("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -267,9 +270,14 @@ export default function OrdersListPage() {
     };
   }, [filters, tab]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["orders", effectiveFilters],
-    queryFn: () => listOrders(effectiveFilters),
+  const {
+    data: listResult,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: ["orders", "page", effectiveFilters, page, ORDER_LIST_PAGE_SIZE],
+    queryFn: () => listOrdersPage({ ...effectiveFilters, page, pageSize: ORDER_LIST_PAGE_SIZE }),
+    staleTime: 15_000,
   });
 
   const { data: options = { suppliers: [], technicians: [] } } = useQuery({
@@ -281,6 +289,10 @@ export default function OrdersListPage() {
     queryKey: ["order-stats"],
     queryFn: () => getOrderStats(),
   });
+
+  const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
+  const totalOrders = listResult?.total ?? stats?.total ?? 0;
+  const pageCount = listResult?.pageCount ?? 1;
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -308,17 +320,22 @@ export default function OrdersListPage() {
     },
   });
 
-  const allSelected = (data?.length ?? 0) > 0 && selected.length === data?.length;
+  const allSelected = data.length > 0 && selected.length === data.length;
 
   // Targets allowed across ALL selected rows (for bulk dropdown).
   const bulkTargets = useMemo(() => {
-    if (!selected.length || !data) return [] as RepairOrderStatus[];
+    if (!selected.length) return [] as RepairOrderStatus[];
     const currents = data.filter((o) => selected.includes(o.id)).map((o) => o.status);
     return getCommonValidTargets(currents);
   }, [selected, data]);
 
   const setOverdueFilter = (kind: OrderListFilters["overdue"]) =>
     setFilters((f) => ({ ...f, overdue: f.overdue === kind ? undefined : kind }));
+
+  useEffect(() => {
+    setPage(1);
+    setSelected([]);
+  }, [effectiveFilters]);
 
   useEffect(() => {
     const cleanupPrint = () => setPrintOrders([]);
@@ -351,8 +368,13 @@ export default function OrdersListPage() {
           <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight md:text-4xl">
             <span className="gradient-text">工单</span>
             <span className="ml-2 align-middle text-base font-normal text-muted-foreground">
-              共 {data?.length ?? 0} 条
+              共 {totalOrders} 条
             </span>
+            {isFetching && !isLoading && (
+              <span className="ml-2 align-middle text-xs font-normal text-muted-foreground">
+                更新中
+              </span>
+            )}
           </h1>
         </motion.div>
         <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-2">
@@ -395,7 +417,7 @@ export default function OrdersListPage() {
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={filters.search ?? ""}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined })}
               placeholder="搜索工单号、客户姓名、电话或 IMEI"
               className="h-9 border-border/60 bg-surface/60 pl-8 backdrop-blur transition-all focus-visible:border-primary/50 focus-visible:shadow-[0_0_0_4px_oklch(0.7_0.2_285_/_0.18)]"
             />
@@ -446,7 +468,7 @@ export default function OrdersListPage() {
               <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
-        ) : !data?.length ? (
+        ) : !data.length ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -464,25 +486,37 @@ export default function OrdersListPage() {
         ) : (
           <>
             {/* Desktop table */}
-            <div className="glass-card hidden overflow-hidden md:block">
-              <table className="w-full text-sm">
+            <div className="glass-card hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[1180px] table-fixed text-[13px]">
+                <colgroup>
+                  <col className="w-9" />
+                  <col className="w-[210px]" />
+                  <col className="w-[190px]" />
+                  <col className="w-[170px]" />
+                  <col />
+                  <col className="w-[126px]" />
+                  <col className="w-[104px]" />
+                  <col className="w-[116px]" />
+                  <col className="w-[112px]" />
+                  <col className="w-9" />
+                </colgroup>
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b border-border/40">
-                    <th className="w-10 px-4 py-2.5">
+                    <th className="px-3 py-2">
                       <Checkbox
                         checked={allSelected}
                         onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
                       />
                     </th>
-                    <th className="px-3 py-2.5 text-left font-medium">工单号</th>
-                    <th className="px-3 py-2.5 text-left font-medium">客户</th>
-                    <th className="px-3 py-2.5 text-left font-medium">设备</th>
-                    <th className="px-3 py-2.5 text-left font-medium">故障</th>
-                    <th className="px-3 py-2.5 text-left font-medium">状态</th>
-                    <th className="px-3 py-2.5 text-right font-medium">报价</th>
-                    <th className="px-3 py-2.5 text-left font-medium">技师</th>
-                    <th className="px-3 py-2.5 text-left font-medium">创建</th>
-                    <th className="w-10 px-3 py-2.5"></th>
+                    <th className="px-2 py-2 text-left font-medium">工单号</th>
+                    <th className="px-2 py-2 text-left font-medium">客户</th>
+                    <th className="px-2 py-2 text-left font-medium">设备</th>
+                    <th className="px-2 py-2 text-left font-medium">故障</th>
+                    <th className="px-2 py-2 text-left font-medium">状态</th>
+                    <th className="px-2 py-2 text-right font-medium">报价</th>
+                    <th className="px-2 py-2 text-left font-medium">技师</th>
+                    <th className="px-2 py-2 text-left font-medium">创建</th>
+                    <th className="px-2 py-2"></th>
                   </tr>
                 </thead>
                 <motion.tbody variants={stagger(0.025)} initial="hidden" animate="show">
@@ -493,11 +527,11 @@ export default function OrdersListPage() {
                         key={o.id}
                         variants={fadeUp}
                         className={cn(
-                          "group relative border-b border-border/30 transition-colors hover:bg-accent/30",
+                          "group relative border-b border-border/30 align-top transition-colors hover:bg-accent/30",
                           checked && "bg-accent/40",
                         )}
                       >
-                        <td className="relative px-4 py-2.5">
+                        <td className="relative px-3 py-2">
                           <span
                             className={cn(
                               "absolute inset-y-0 left-0 w-[2px] origin-top transition-transform duration-300",
@@ -514,60 +548,76 @@ export default function OrdersListPage() {
                             }
                           />
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="min-w-0 px-2 py-2">
                           <Link
                             href={`/orders/${o.id}`}
-                            className="font-mono text-xs font-medium text-primary hover:underline"
+                            className="block truncate font-mono text-xs font-medium leading-5 text-primary hover:underline"
+                            title={o.public_no}
                           >
                             {o.public_no}
                           </Link>
-                          <div className="mt-0.5 flex items-center gap-1">
+                          <div className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden">
                             <OrderTypeBadge type={o.order_type} />
                             {o.internal_tag && (
-                              <span className="rounded border border-status-warn-foreground/20 bg-status-warn px-1 py-0.5 text-[10px] text-status-warn-foreground">
+                              <span
+                                className="min-w-0 truncate whitespace-nowrap rounded border border-status-warn-foreground/20 bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground"
+                                title={o.internal_tag}
+                              >
                                 {o.internal_tag}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5">
-                          <div className="font-medium">{o.customer_name}</div>
-                          <PhoneText value={o.customer_phone} />
+                        <td className="min-w-0 px-2 py-2">
+                          <div className="truncate font-medium leading-5" title={o.customer_name}>
+                            {o.customer_name}
+                          </div>
+                          <PhoneText value={o.customer_phone} className="block truncate" />
                         </td>
-                        <td className="px-3 py-2.5">
-                          <div>{o.device_label}</div>
+                        <td className="min-w-0 px-2 py-2">
+                          <div className="truncate leading-5" title={o.device_label}>
+                            {o.device_label}
+                          </div>
                           <div className="font-mono text-[11px] text-muted-foreground">
                             {o.device_imei.slice(-8)}
                           </div>
                         </td>
-                        <td className="max-w-[260px] truncate px-3 py-2.5 text-muted-foreground">
+                        <td
+                          className="truncate px-2 py-2 leading-5 text-muted-foreground"
+                          title={o.issue_description}
+                        >
                           {o.issue_description}
                         </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex flex-col items-start gap-1">
+                        <td className="px-2 py-2">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1">
                             <StatusBadge status={o.status} />
                             {(o.approval_overdue || o.pickup_overdue) && (
-                              <span className="inline-flex items-center gap-1 rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30">
+                              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30">
                                 <AlertTriangle className="size-2.5" />
                                 {o.approval_overdue ? "报价超期" : "取件超期"}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <MoneyText amount={o.quotation_amount} />
-                          <div className="text-[11px] text-muted-foreground">
+                        <td className="px-2 py-2 text-right">
+                          <MoneyText amount={o.quotation_amount} className="whitespace-nowrap" />
+                          <div className="whitespace-nowrap text-[11px] text-muted-foreground">
                             {o.is_paid ? "已结清" : "未结清"}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">{o.technician_name}</td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
+                        <td
+                          className="truncate px-2 py-2 text-muted-foreground"
+                          title={o.technician_name}
+                        >
+                          {o.technician_name}
+                        </td>
+                        <td className="px-2 py-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1 whitespace-nowrap">
                             <Clock className="size-3" />
                             {new Date(o.created_at).toLocaleDateString("zh-CN")}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-2 py-2">
                           {(() => {
                             const next = getNextActions(o.status);
                             return (
@@ -633,46 +683,70 @@ export default function OrdersListPage() {
                 <motion.div key={o.id} variants={fadeUp}>
                   <Link
                     href={`/orders/${o.id}`}
-                    className="glass-card group relative block overflow-hidden p-3 transition-transform active:scale-[0.99]"
+                    className="glass-card group relative block overflow-hidden px-3 py-2.5 transition-transform active:scale-[0.99]"
                   >
                     <span
                       aria-hidden
                       className="absolute inset-y-0 left-0 w-[3px]"
                       style={{ background: "var(--gradient-brand)" }}
                     />
-                    <div className="flex items-start justify-between gap-2 pl-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-medium text-primary">
+                    <div className="space-y-1.5 pl-2">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                          <span className="truncate font-mono text-xs font-medium text-primary">
                             {o.public_no}
                           </span>
-                          <OrderTypeBadge type={o.order_type} />
+                          <OrderTypeBadge type={o.order_type} className="text-[11px]" />
+                          {o.internal_tag && (
+                            <span className="truncate whitespace-nowrap rounded border border-status-warn-foreground/20 bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground">
+                              {o.internal_tag}
+                            </span>
+                          )}
                         </div>
-                        <div className="mt-1 truncate text-sm font-medium">
-                          {o.customer_name}
-                          <span className="ml-1.5 text-xs text-muted-foreground">
-                            · {o.device_label}
-                          </span>
+                        <StatusBadge status={o.status} />
+                      </div>
+
+                      <div className="grid min-w-0 grid-cols-[1fr_auto] items-start gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium leading-5">
+                            {o.customer_name || "-"}
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              · {o.device_label}
+                            </span>
+                          </div>
+                          <PhoneText value={o.customer_phone} className="block truncate" />
                         </div>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <PhoneText value={o.customer_phone} />
+                        <div className="text-right">
+                          <MoneyText
+                            amount={o.quotation_amount}
+                            className="text-sm font-semibold"
+                          />
+                          <div className="text-[10px] leading-4 text-muted-foreground">
+                            {o.is_paid ? "已结清" : "未结清"}
+                          </div>
                         </div>
                       </div>
-                      <StatusBadge status={o.status} />
-                    </div>
-                    <div className="mt-2 line-clamp-1 pl-2 text-xs text-muted-foreground">
-                      {o.issue_description}
-                    </div>
-                    <div className="mt-2 flex items-center justify-between pl-2 text-xs">
-                      <span className="text-muted-foreground">
-                        {o.technician_name} · {new Date(o.created_at).toLocaleDateString("zh-CN")}
-                      </span>
-                      <MoneyText amount={o.quotation_amount} className="font-semibold" />
+
+                      <div className="flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="min-w-0 truncate">{o.issue_description}</span>
+                        <span className="shrink-0 whitespace-nowrap">
+                          {o.technician_name || "-"} ·{" "}
+                          {new Date(o.created_at).toLocaleDateString("zh-CN")}
+                        </span>
+                      </div>
                     </div>
                   </Link>
                 </motion.div>
               ))}
             </motion.div>
+            <PaginationBar
+              page={page}
+              pageCount={pageCount}
+              pageSize={ORDER_LIST_PAGE_SIZE}
+              total={totalOrders}
+              visible={data.length}
+              onPageChange={setPage}
+            />
           </>
         )}
       </div>
@@ -722,9 +796,7 @@ export default function OrdersListPage() {
                 size="sm"
                 variant="outline"
                 className="gap-1.5"
-                onClick={() =>
-                  printRows((data ?? []).filter((order) => selected.includes(order.id)))
-                }
+                onClick={() => printRows(data.filter((order) => selected.includes(order.id)))}
               >
                 <Printer className="size-3.5" /> 打印
               </Button>
@@ -740,6 +812,56 @@ export default function OrdersListPage() {
         )}
       </AnimatePresence>
       <OrderListPrintSheet orders={printOrders} />
+    </div>
+  );
+}
+
+function PaginationBar({
+  page,
+  pageCount,
+  pageSize,
+  total,
+  visible,
+  onPageChange,
+}: {
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  total: number;
+  visible: number;
+  onPageChange: (page: number) => void;
+}) {
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(total, (page - 1) * pageSize + visible);
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        显示 {start}-{end} / {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          disabled={page <= 1}
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+        >
+          上一页
+        </Button>
+        <span className="min-w-16 text-center tabular-nums">
+          {page} / {pageCount}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          disabled={page >= pageCount}
+          onClick={() => onPageChange(Math.min(pageCount, page + 1))}
+        >
+          下一页
+        </Button>
+      </div>
     </div>
   );
 }
