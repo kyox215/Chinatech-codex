@@ -5,6 +5,7 @@ export {
   getOrderStats,
   getRepairDeskOptions,
   listOrders,
+  listOrdersPage,
   recordPayment,
   sendApprovalRequest,
   sendNotification,
