@@ -6,6 +6,8 @@ import type {
   OrderDetail,
   OrderListFilters,
   OrderListItem,
+  OrderListPageInput,
+  OrderListResult,
   OrderStats,
   OrderWhatsappTemplateKind,
   BatchTransitionResult,
@@ -33,6 +35,8 @@ export type {
   OrderEvent,
   OrderListFilters,
   OrderListItem,
+  OrderListPageInput,
+  OrderListResult,
   OrderStats,
   OrderWhatsappTemplateKind,
   BatchTransitionResult,
@@ -108,6 +112,11 @@ function postJson<T>(path: string, body: unknown): Promise<T> {
 export async function listOrders(filters: OrderListFilters = {}): Promise<OrderListItem[]> {
   if (isServerRuntime()) return (await source()).listOrders(filters);
   return postJson<OrderListItem[]>("orders/list", filters);
+}
+
+export async function listOrdersPage(input: OrderListPageInput = {}): Promise<OrderListResult> {
+  if (isServerRuntime()) return (await source()).listOrdersPage(input);
+  return postJson<OrderListResult>("orders/list-page", input);
 }
 
 export async function getOrderStats(): Promise<OrderStats> {
