@@ -26,7 +26,7 @@ export function CancelDialog({
   const [busy, setBusy] = useState(false);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[min(520px,calc(100vw-24px))] max-w-[calc(100vw-24px)] p-4 sm:p-5">
         <DialogHeader>
           <DialogTitle>取消工单</DialogTitle>
           <DialogDescription>请填写取消原因，便于事后追溯。</DialogDescription>
@@ -37,7 +37,7 @@ export function CancelDialog({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             返回
           </Button>

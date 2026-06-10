@@ -11,6 +11,8 @@ import type {
   CustomerUpdateInput,
   OrderListFilters,
   OrderWhatsappTemplateKind,
+  PatchOrderFinanceInput,
+  PatchOrderInput,
   UpdateOrderInput,
 } from "@/lib/repairdesk/api";
 
@@ -113,6 +115,49 @@ export const updateOrderInputSchema = z
 export const updateOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: updateOrderInputSchema,
+});
+
+export const patchOrderChangesSchema = z
+  .object({
+    customer_name: optionalText,
+    customer_phone: optionalText,
+    device_brand: optionalText,
+    device_model: optionalText,
+    device_imei: optionalText,
+    device_notes: optionalText,
+    issue_description: optionalText,
+    diagnosis_result: optionalText,
+    technician_name: optionalText,
+    accessory_notes: optionalText,
+    warranty_text: optionalText,
+  })
+  .strict();
+
+export const patchOrderInputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    changes: patchOrderChangesSchema.refine((changes) => Object.keys(changes).length > 0, {
+      message: "没有可保存的字段",
+    }),
+  })
+  .strict() satisfies z.ZodType<PatchOrderInput>;
+
+export const patchOrderFinanceInputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    fault_prices: z.array(faultPriceItemSchema),
+    deposit_amount: z.coerce.number().optional(),
+  })
+  .strict() satisfies z.ZodType<PatchOrderFinanceInput>;
+
+export const patchOrderBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: patchOrderInputSchema,
+});
+
+export const patchOrderFinanceBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: patchOrderFinanceInputSchema,
 });
 
 export const transitionOrderBodySchema = z.object({

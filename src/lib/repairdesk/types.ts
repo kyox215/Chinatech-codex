@@ -302,6 +302,36 @@ export interface UpdateOrderInput {
   deposit_amount?: number;
 }
 
+export interface PatchOrderChanges {
+  customer_name?: string;
+  customer_phone?: string;
+  device_brand?: string;
+  device_model?: string;
+  device_imei?: string;
+  device_notes?: string;
+  issue_description?: string;
+  diagnosis_result?: string;
+  technician_name?: string;
+  accessory_notes?: string;
+  warranty_text?: string;
+}
+
+export interface PatchOrderInput {
+  expected_updated_at: string;
+  changes: PatchOrderChanges;
+}
+
+export interface PatchOrderFinanceInput {
+  expected_updated_at: string;
+  fault_prices: FaultPriceItem[];
+  deposit_amount?: number;
+}
+
+export interface PatchOrderResult {
+  ok: boolean;
+  updated_at: string;
+}
+
 export interface CustomerUpdateInput {
   name: string;
   phone_e164: string;

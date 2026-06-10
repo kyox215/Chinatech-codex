@@ -6,11 +6,22 @@
  */
 
 export const pageShell = {
-  wide: "mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6",
-  list: "mx-auto max-w-7xl px-4 pt-6 md:px-6 lg:px-8",
-  detail: "mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6",
-  form: "mx-auto max-w-3xl px-3 py-4 sm:px-6",
-  split: "mx-auto grid max-w-7xl gap-6 px-3 py-6 sm:px-6 lg:grid-cols-[1fr_320px]",
+  safe: "w-full min-w-0 max-w-full overflow-x-hidden",
+  wide: "mx-auto w-full min-w-0 max-w-7xl space-y-6 overflow-x-hidden px-3 py-6 sm:px-6",
+  list: "mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden px-3 pt-5 sm:px-4 md:px-6 lg:px-8",
+  detail: "mx-auto w-full min-w-0 max-w-4xl overflow-x-hidden px-4 pb-12 pt-4 md:px-6",
+  form: "mx-auto w-full min-w-0 max-w-3xl overflow-x-hidden px-3 py-4 sm:px-6",
+  split:
+    "mx-auto grid w-full min-w-0 max-w-7xl gap-6 overflow-x-hidden px-3 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px]",
+} as const;
+
+export const layoutGuards = {
+  noPageOverflow: "w-full min-w-0 max-w-full overflow-x-hidden",
+  flexChild: "min-w-0",
+  truncateCell: "min-w-0 truncate",
+  wrapRow: "flex min-w-0 flex-wrap items-center gap-2",
+  responsiveDialog:
+    "w-[min(960px,calc(100vw-24px))] max-h-[90vh] max-w-[calc(100vw-24px)] overflow-y-auto",
 } as const;
 
 export const pageHeader = {
@@ -47,12 +58,21 @@ export const controls = {
 export const dataDisplay = {
   kpiGrid: "grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
   chartGrid: "grid gap-4 lg:grid-cols-3",
-  tableWrap: "glass-card hidden overflow-hidden md:block",
-  table: "w-full text-sm",
+  tableWrap: "glass-card hidden min-w-0 overflow-hidden lg:block",
+  table: "w-full min-w-0 text-sm",
   tableHead: "text-xs text-muted-foreground",
   tableRow: "border-b border-border/30 transition-colors hover:bg-accent/30",
   mobileCardList: "space-y-3 md:hidden",
   number: "font-mono tabular-nums",
+} as const;
+
+export const density = {
+  toolbarCompact: "flex min-w-0 flex-wrap items-center gap-2",
+  tableDense: "w-full min-w-0 text-xs",
+  rowDense: "border-b border-border/30 px-2 py-1.5",
+  cardDense: "rounded-lg border bg-card px-3 py-2",
+  metaDense: "truncate text-[11px] leading-4 text-muted-foreground",
+  valueDense: "truncate text-xs font-medium leading-5",
 } as const;
 
 export const formLayout = {

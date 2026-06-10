@@ -4,6 +4,8 @@ import type { CreateOrderInput } from "@/lib/repairdesk/types";
 import {
   createOrder,
   getOrder,
+  patchOrder,
+  patchOrderFinance,
   sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
@@ -104,6 +106,68 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(event?.payload).toMatchObject({
       template_kind: "approval_request",
       to: "waiting_approval",
+    });
+  });
+});
+
+describe("mock order inline editing workflow", () => {
+  it("patches ordinary fields and rejects stale versions", async () => {
+    const id = await createMockOrder();
+    const before = await getOrder(id);
+
+    const result = await patchOrder(id, {
+      expected_updated_at: before.order.updated_at,
+      changes: {
+        customer_name: "Cliente Aggiornato",
+        device_model: "iPhone Inline",
+        accessory_notes: "SIM card",
+      },
+    });
+
+    const after = await getOrder(id);
+    expect(result.updated_at).toBe(after.order.updated_at);
+    expect(after.order.customer_name).toBe("Cliente Aggiornato");
+    expect(after.order.device_label).toContain("iPhone Inline");
+    expect(after.order.accessory_notes).toBe("SIM card");
+    const patchEvent = after.events.find((event) => event.payload.action === "order_patched");
+    expect(patchEvent?.payload).toMatchObject({
+      action: "order_patched",
+    });
+
+    await expect(
+      patchOrder(id, {
+        expected_updated_at: "2000-01-01T00:00:00.000Z",
+        changes: { issue_description: "旧页面覆盖" },
+      }),
+    ).rejects.toThrow("工单已被更新");
+  });
+
+  it("updates finance only through the finance patch flow", async () => {
+    const id = await createMockOrder();
+    const before = await getOrder(id);
+
+    await patchOrderFinance(id, {
+      expected_updated_at: before.order.updated_at,
+      fault_prices: [
+        { name: "屏幕", price: 100 },
+        { name: "电池", price: 50 },
+      ],
+      deposit_amount: 30,
+    });
+
+    const after = await getOrder(id);
+    expect(after.order.quotation_amount).toBe(150);
+    expect(after.order.deposit_amount).toBe(30);
+    expect(after.order.balance_amount).toBe(120);
+    expect(after.order.is_paid).toBe(false);
+    const financeEvent = after.events.find(
+      (event) => event.payload.action === "order_finance_updated",
+    );
+    expect(financeEvent?.payload).toMatchObject({
+      action: "order_finance_updated",
+      quotation_amount: 150,
+      deposit_amount: 30,
+      balance_amount: 120,
     });
   });
 });

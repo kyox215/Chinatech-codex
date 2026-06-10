@@ -78,7 +78,7 @@ export function EditOrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[min(820px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-y-auto p-4 sm:p-5">
         <DialogHeader>
           <DialogTitle>编辑工单</DialogTitle>
           <DialogDescription>
@@ -86,10 +86,10 @@ export function EditOrderDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="rounded-md border p-3">
+        <div className="min-w-0 space-y-3">
+          <div className="min-w-0 rounded-md border p-3">
             <h4 className="mb-3 text-sm font-semibold">客户信息</h4>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <EditField label="客户姓名" required>
                 <Input
                   value={form.customer_name}
@@ -106,9 +106,9 @@ export function EditOrderDialog({
             </div>
           </div>
 
-          <div className="rounded-md border p-3">
+          <div className="min-w-0 rounded-md border p-3">
             <h4 className="mb-3 text-sm font-semibold">设备信息</h4>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <EditField label="品牌" required>
                 <Input
                   value={form.device_brand}
@@ -137,9 +137,9 @@ export function EditOrderDialog({
             </div>
           </div>
 
-          <div className="rounded-md border p-3">
+          <div className="min-w-0 rounded-md border p-3">
             <h4 className="mb-3 text-sm font-semibold">故障与诊断</h4>
-            <div className="space-y-3">
+            <div className="min-w-0 space-y-3">
               <div>
                 <div className="mb-2 text-xs text-muted-foreground">维修故障选项</div>
                 <FaultDiagnosisPicker
@@ -163,32 +163,12 @@ export function EditOrderDialog({
                   onChange={(event) => setForm({ ...form, diagnosis_result: event.target.value })}
                 />
               </EditField>
-              <div className="grid gap-3 sm:grid-cols-4">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-3">
                 <EditField label="技师" required>
                   <Input
                     value={form.technician_name}
                     onChange={(event) => setForm({ ...form, technician_name: event.target.value })}
                   />
-                </EditField>
-                <EditField label="优先标签">
-                  <Select
-                    value={form.internal_tag || "none"}
-                    onValueChange={(internal_tag) =>
-                      setForm({
-                        ...form,
-                        internal_tag: internal_tag === "none" ? "" : internal_tag,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="无" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">无</SelectItem>
-                      <SelectItem value="VIP">VIP</SelectItem>
-                      <SelectItem value="加急">加急</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </EditField>
                 <EditField label="客户留存备注">
                   <Input
@@ -207,8 +187,8 @@ export function EditOrderDialog({
             </div>
           </div>
 
-          <div className="rounded-md border p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 rounded-md border p-3">
+            <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-3">
               <h4 className="text-sm font-semibold">报价与押金</h4>
               <span className="text-xs text-muted-foreground">报价 {formatMoney(quotation)}</span>
             </div>
@@ -216,7 +196,7 @@ export function EditOrderDialog({
               {form.fault_prices.map((item, index) => (
                 <div
                   key={index}
-                  className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)_36px]"
+                  className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_112px_minmax(0,1fr)_36px]"
                 >
                   <Input
                     value={item.name}
@@ -270,7 +250,7 @@ export function EditOrderDialog({
                 <Plus className="size-3.5" /> 添加项目
               </Button>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-3">
               <EditField label="押金">
                 <Input
                   type="number"
@@ -303,7 +283,7 @@ export function EditOrderDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

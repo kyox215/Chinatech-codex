@@ -10,6 +10,7 @@ Use these rules when generating or editing pages in this repository.
 - Keep `src/app/*` thin: route files should import `features/*/screens` and avoid business logic.
 - Put new order/customer business UI under `src/features/*`, shared pure helpers under `src/shared/lib`, and cross-feature entity rules under `src/entities/*`.
 - Read `docs/ARCHITECTURE.md` before large feature work or refactors.
+- Read `docs/RESPONSIVE_DENSITY_PLAN.md` before changing layouts, tables, dialogs, lists, or mobile behavior.
 - Use `@/lib/repairdesk/api` for app data. Do not import `src/server/*` into client components.
 - Prefer feature query key factories such as `ordersKeys` and `customersKeys` for React Query caches.
 - Reuse `src/components/ui/*` for controls and `src/components/orders/badges.tsx` for order status/type/money/phone rendering.

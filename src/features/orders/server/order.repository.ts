@@ -18,6 +18,9 @@ import type {
   OrderListResult,
   OrderStats,
   OrderWhatsappTemplateKind,
+  PatchOrderFinanceInput,
+  PatchOrderInput,
+  PatchOrderResult,
   RepairDeskOptions,
   Supplier,
   UpdateOrderInput,
@@ -347,6 +350,129 @@ export async function recordPayment(id: string, amount: number, method = "现金
   return { ok: true, balance: nextBalance, is_paid: nextBalance === 0 };
 }
 
+type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
+
+const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
+  customer_name: "客户姓名",
+  customer_phone: "手机号",
+  device_brand: "设备品牌",
+  device_model: "设备型号",
+  device_imei: "IMEI/序列号",
+  device_notes: "设备备注",
+  issue_description: "故障描述",
+  diagnosis_result: "诊断结果",
+  technician_name: "技师",
+  accessory_notes: "留存备注",
+  warranty_text: "质保",
+};
+
+function normalizeFaultPriceInput(input: PatchOrderFinanceInput["fault_prices"]) {
+  return input.map((item) => {
+    const name = item.name.trim();
+    const price = Number(item.price);
+    if (!name) throw new Error("报价项目名称不能为空");
+    if (!Number.isFinite(price) || price < 0) throw new Error("报价金额不能为负数");
+    return {
+      name,
+      price,
+      currency_code: CURRENCY_CODE,
+      ...(item.note?.trim() ? { note: item.note.trim() } : {}),
+    };
+  });
+}
+
+function snapshotFromRecord(value: unknown, device?: DeviceSnapshot): DeviceSnapshot {
+  const row =
+    value && typeof value === "object" && !Array.isArray(value) ? (value as DbRecord) : {};
+  return {
+    brand: requiredString(row.brand) || device?.brand || "",
+    model: requiredString(row.model) || device?.model || "",
+    serial_or_imei: requiredString(row.serial_or_imei) || device?.serial_or_imei || "",
+    device_notes: maybeString(row.device_notes) ?? device?.device_notes,
+  };
+}
+
+async function updateVersionedOrderRow({
+  supabase,
+  id,
+  expectedUpdatedAt,
+  update,
+  context,
+}: {
+  supabase: SupabaseAdmin;
+  id: string;
+  expectedUpdatedAt: string;
+  update: DbRecord;
+  context: string;
+}) {
+  const { data, error } = await supabase
+    .from("repair_orders")
+    .update(update)
+    .eq("id", id)
+    .eq("updated_at", expectedUpdatedAt)
+    .select("updated_at")
+    .maybeSingle();
+
+  fail(error, context);
+  if (!data) throw new Error("工单已被更新，请刷新后再试");
+  return requiredString((data as DbRecord).updated_at);
+}
+
+async function writeMergedPatchEvent(
+  supabase: SupabaseAdmin,
+  orderId: string,
+  changedFields: string[],
+  now: string,
+) {
+  const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const { data: previous, error: previousError } = await supabase
+    .from("order_events")
+    .select("id,payload")
+    .eq("order_id", orderId)
+    .eq("event_type", "note")
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  fail(previousError, "读取编辑时间线失败");
+
+  const previousPayload =
+    previous && typeof (previous as DbRecord).payload === "object"
+      ? ((previous as DbRecord).payload as Record<string, unknown>)
+      : undefined;
+
+  if (previous && previousPayload?.action === "order_patched") {
+    const existingFields = Array.isArray(previousPayload.changed_fields)
+      ? previousPayload.changed_fields.filter((field): field is string => typeof field === "string")
+      : [];
+    const payload = {
+      ...previousPayload,
+      changed_fields: Array.from(new Set([...existingFields, ...changedFields])),
+      currency_code: CURRENCY_CODE,
+    };
+    const { error } = await supabase
+      .from("order_events")
+      .update({ payload, created_at: now })
+      .eq("id", requiredString((previous as DbRecord).id));
+    fail(error, "更新时间线失败");
+    return;
+  }
+
+  const { error } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    order_id: orderId,
+    event_type: "note",
+    payload: {
+      action: "order_patched",
+      changed_fields: changedFields,
+      currency_code: CURRENCY_CODE,
+    },
+    operator_name: "前台",
+    created_at: now,
+  });
+  fail(error, "写入编辑时间线失败");
+}
+
 export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {
   const customerName = input.customer_name.trim();
   const customerPhone = input.customer_phone.trim();
@@ -454,6 +580,189 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   fail(eventError, "写入更新时间线失败");
 
   return { ok: true };
+}
+
+export async function patchOrder(id: string, input: PatchOrderInput): Promise<PatchOrderResult> {
+  if (!id) throw new Error("工单 ID 不能为空");
+  if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
+
+  const changeEntries = Object.entries(input.changes).filter(
+    ([, value]) => value !== undefined,
+  ) as [keyof PatchOrderInput["changes"], string][];
+  if (changeEntries.length === 0) throw new Error("没有可保存的字段");
+
+  const supabase = getSupabaseAdmin();
+  const { data: current, error: readError } = await supabase
+    .from("repair_orders")
+    .select("id,customer_id,device_id,updated_at,device_snapshot,device:devices(*)")
+    .eq("id", id)
+    .single();
+  fail(readError, "读取工单失败");
+
+  const currentRow = current as DbRecord;
+  if (requiredString(currentRow.updated_at) !== input.expected_updated_at) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
+
+  const customerId = requiredString(currentRow.customer_id);
+  if (!customerId) throw new Error("工单缺少客户关联");
+
+  const device = deviceFromRow(currentRow.device);
+  const nextSnapshot = snapshotFromRecord(
+    currentRow.device_snapshot,
+    device ? snapshotFromDevice(device) : undefined,
+  );
+  const orderUpdate: DbRecord = {};
+  const customerUpdate: DbRecord = {};
+  const changedFields: string[] = [];
+
+  for (const [field, rawValue] of changeEntries) {
+    const value = rawValue.trim();
+    changedFields.push(PATCH_FIELD_LABELS[field]);
+
+    switch (field) {
+      case "customer_name":
+        if (!value) throw new Error("客户姓名不能为空");
+        customerUpdate.name = value;
+        break;
+      case "customer_phone":
+        if (!value) throw new Error("手机号不能为空");
+        customerUpdate.phone_e164 = value;
+        customerUpdate.phone_raw = phoneRaw(value);
+        break;
+      case "device_brand":
+        if (!value) throw new Error("设备品牌不能为空");
+        nextSnapshot.brand = value;
+        break;
+      case "device_model":
+        if (!value) throw new Error("设备型号不能为空");
+        nextSnapshot.model = value;
+        break;
+      case "device_imei":
+        nextSnapshot.serial_or_imei = value;
+        break;
+      case "device_notes":
+        nextSnapshot.device_notes = value || undefined;
+        break;
+      case "issue_description":
+        if (!value) throw new Error("故障描述不能为空");
+        orderUpdate.issue_description = value;
+        break;
+      case "diagnosis_result":
+        orderUpdate.diagnosis_result = value || null;
+        break;
+      case "technician_name":
+        if (!value) throw new Error("技师不能为空");
+        orderUpdate.technician_name = value;
+        break;
+      case "accessory_notes": {
+        const tagInput = normalizeOrderTagInput({ accessoryNotes: value });
+        orderUpdate.accessory_notes = tagInput.accessoryNotes || null;
+        break;
+      }
+      case "warranty_text":
+        orderUpdate.warranty_text = value || null;
+        break;
+    }
+  }
+
+  if (
+    changeEntries.some(([field]) =>
+      ["device_brand", "device_model", "device_imei", "device_notes"].includes(field),
+    )
+  ) {
+    if (!nextSnapshot.brand || !nextSnapshot.model) throw new Error("设备品牌和型号不能为空");
+    orderUpdate.device_snapshot = nextSnapshot;
+  }
+
+  const now = new Date().toISOString();
+  orderUpdate.updated_at = now;
+  const updatedAt = await updateVersionedOrderRow({
+    supabase,
+    id,
+    expectedUpdatedAt: input.expected_updated_at,
+    update: orderUpdate,
+    context: "更新工单失败",
+  });
+
+  if (Object.keys(customerUpdate).length > 0) {
+    customerUpdate.updated_at = now;
+    const { error: customerError } = await supabase
+      .from("customers")
+      .update(customerUpdate)
+      .eq("id", customerId);
+    fail(customerError, "更新客户失败");
+  }
+
+  await writeMergedPatchEvent(supabase, id, changedFields, now);
+  return { ok: true, updated_at: updatedAt };
+}
+
+export async function patchOrderFinance(
+  id: string,
+  input: PatchOrderFinanceInput,
+): Promise<PatchOrderResult> {
+  if (!id) throw new Error("工单 ID 不能为空");
+  if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
+
+  const validFaults = normalizeFaultPriceInput(input.fault_prices);
+  const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
+  const deposit = Number(input.deposit_amount ?? 0);
+  if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
+  if (deposit > quotation) throw new Error("押金不能超过总报价");
+
+  const supabase = getSupabaseAdmin();
+  const { data: current, error: readError } = await supabase
+    .from("repair_orders")
+    .select("id,updated_at,quotation_amount,deposit_amount,balance_amount")
+    .eq("id", id)
+    .single();
+  fail(readError, "读取工单失败");
+
+  const currentRow = current as DbRecord;
+  if (requiredString(currentRow.updated_at) !== input.expected_updated_at) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
+
+  const oldQuotation = money(currentRow.quotation_amount);
+  const oldDeposit = money(currentRow.deposit_amount);
+  const oldBalance = money(currentRow.balance_amount);
+  const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
+  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const now = new Date().toISOString();
+  const updatedAt = await updateVersionedOrderRow({
+    supabase,
+    id,
+    expectedUpdatedAt: input.expected_updated_at,
+    update: {
+      quotation_amount: quotation,
+      deposit_amount: deposit,
+      balance_amount: nextBalance,
+      is_paid: nextBalance === 0,
+      fault_prices: validFaults,
+      currency_code: CURRENCY_CODE,
+      updated_at: now,
+    },
+    context: "更新财务失败",
+  });
+
+  const { error: eventError } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "order_finance_updated",
+      quotation_amount: quotation,
+      deposit_amount: deposit,
+      balance_amount: nextBalance,
+      currency_code: CURRENCY_CODE,
+    },
+    operator_name: "前台",
+    created_at: now,
+  });
+  fail(eventError, "写入财务时间线失败");
+
+  return { ok: true, updated_at: updatedAt };
 }
 
 async function writeWhatsappMessage({

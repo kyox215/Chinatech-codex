@@ -17,21 +17,24 @@ export function NewOrderFaultDiagnosisSection({
   setForm: Dispatch<SetStateAction<NewOrderFormState>>;
 }) {
   return (
-    <Card className="h-fit border-border/70 p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-3">
-        <Search className="size-5 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">故障诊断</h2>
+    <Card className="h-fit min-w-0 border-border/70 p-2.5 shadow-sm sm:p-4">
+      <div className="mb-2 flex min-w-0 items-center gap-2">
+        <Search className="size-3.5 text-muted-foreground sm:size-4" />
+        <h2 className="text-sm font-semibold sm:text-base">故障诊断</h2>
       </div>
       <FaultDiagnosisPicker
         selected={form.faults}
         onChange={(faults) => setForm({ ...form, faults })}
+        className="gap-1.5 sm:gap-2"
+        density="compact"
       />
-      <div className="mt-6">
+      <div className="mt-2 sm:mt-4">
         <FormItem label="故障备注 / 其他问题">
           <Textarea
             value={form.issue}
             onChange={(event) => setForm({ ...form, issue: event.target.value })}
-            rows={4}
+            rows={3}
+            className="min-h-16 text-[13px] sm:min-h-20 sm:text-sm"
             placeholder="详细描述故障情况..."
           />
         </FormItem>

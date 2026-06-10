@@ -7,6 +7,8 @@ export {
   getOrderStats,
   listOrders,
   listOrdersPage,
+  patchOrder,
+  patchOrderFinance,
   recordPayment,
   sendApprovalRequest,
   sendNotification,

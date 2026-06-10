@@ -39,12 +39,12 @@ export function PaymentDialog({
         if (v) setAmount(balance);
       }}
     >
-      <DialogContent>
+      <DialogContent className="w-[min(520px,calc(100vw-24px))] max-w-[calc(100vw-24px)] p-4 sm:p-5">
         <DialogHeader>
           <DialogTitle>登记收款</DialogTitle>
           <DialogDescription>未结清尾款 {formatMoney(balance)}</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <div>
             <Label className="text-xs">收款金额</Label>
             <Input
@@ -77,7 +77,7 @@ export function PaymentDialog({
             </div>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

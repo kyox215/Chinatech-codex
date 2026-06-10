@@ -53,7 +53,7 @@ export function CustomerPhoneLookup({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="输入电话搜索客户"
-        className="font-mono"
+        className="h-8 font-mono text-[13px] sm:h-9 sm:text-sm"
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onFocus={() => value && data.length > 0 && setOpen(true)}
       />
@@ -63,7 +63,7 @@ export function CustomerPhoneLookup({
             <li key={customer.id}>
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-accent sm:py-2 sm:text-sm"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   void onPick(customer);

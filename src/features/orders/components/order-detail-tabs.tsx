@@ -19,8 +19,8 @@ export function OrderDetailTabs<T extends string>({
   onChange: (tab: T) => void;
 }) {
   return (
-    <div className="mb-4 -mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="inline-flex items-center gap-0.5 rounded-lg border border-border/60 bg-surface/60 p-1 backdrop-blur">
+    <div className="mb-2 min-w-0 max-w-full sm:mb-3">
+      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-lg border border-border/60 bg-surface/60 p-0.5 backdrop-blur sm:flex-wrap sm:p-1">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
           return (
@@ -28,7 +28,7 @@ export function OrderDetailTabs<T extends string>({
               key={tab.key}
               onClick={() => onChange(tab.key)}
               className={cn(
-                "relative rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                "relative shrink-0 rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs",
                 active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >

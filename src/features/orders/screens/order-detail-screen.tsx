@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
@@ -11,20 +11,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   getOrder,
+  patchOrder,
+  patchOrderFinance,
   recordPayment,
   sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
-  updateOrder,
-  type UpdateOrderInput,
+  type PatchOrderFinanceInput,
+  type PatchOrderInput,
 } from "@/lib/repairdesk/api";
 import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
 import { OrderDetailTabs } from "@/features/orders/components/order-detail-tabs";
 import { OrderHero } from "@/features/orders/components/order-hero";
-import { OrderOverviewTab } from "@/features/orders/components/order-overview-tab";
+import {
+  OrderKeyInfoCard,
+  OrderOverviewTab,
+} from "@/features/orders/components/order-overview-tab";
 import { ApprovalRequestDialog } from "@/features/orders/forms/approval-request-dialog";
 import { CancelDialog } from "@/features/orders/forms/cancel-dialog";
-import { EditOrderDialog } from "@/features/orders/forms/edit-order-dialog";
 import { NotifyDialog } from "@/features/orders/forms/notify-dialog";
 import { PaymentDialog } from "@/features/orders/forms/payment-dialog";
 import { statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
@@ -35,10 +39,8 @@ import { cn } from "@/lib/utils";
 
 const tabs = [
   { key: "overview", label: "概览" },
-  { key: "timeline", label: "时间线" },
-  { key: "messages", label: "通知" },
-  { key: "attachments", label: "附件" },
-  { key: "inventory", label: "库存关联" },
+  { key: "records", label: "记录" },
+  { key: "assets", label: "附件库存" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -56,25 +58,30 @@ export function OrderDetailScreen({
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [orderUrl, setOrderUrl] = useState("");
+  const latestUpdatedAtRef = useRef("");
+  const patchQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const { data, isLoading } = useQuery({
     queryKey: ["order", id],
     queryFn: () => getOrder(id),
   });
 
-  const invalidate = () => {
+  const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["order", id] });
     queryClient.invalidateQueries({ queryKey: ["orders"] });
     queryClient.invalidateQueries({ queryKey: ["order-stats"] });
     queryClient.invalidateQueries({ queryKey: ["customers"] });
     queryClient.invalidateQueries({ queryKey: ["customer-detail"] });
-  };
+  }, [id, queryClient]);
 
   useEffect(() => {
     setOrderUrl(window.location.href);
   }, [id]);
+
+  useEffect(() => {
+    if (data?.order.updated_at) latestUpdatedAtRef.current = data.order.updated_at;
+  }, [data?.order.updated_at]);
 
   const transition = useMutation({
     mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) =>
@@ -86,15 +93,49 @@ export function OrderDetailScreen({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const update = useMutation({
-    mutationFn: (input: UpdateOrderInput) => updateOrder(id, input),
+  const patch = useMutation({
+    mutationFn: (input: PatchOrderInput) => patchOrder(id, input),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const financePatch = useMutation({
+    mutationFn: (input: PatchOrderFinanceInput) => patchOrderFinance(id, input),
     onSuccess: () => {
-      toast.success("工单已更新");
-      setEditOpen(false);
+      toast.success("财务已更新");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const patchFields = useCallback(
+    (changes: PatchOrderInput["changes"]) => {
+      const run = async () => {
+        const result = await patch.mutateAsync({
+          expected_updated_at: latestUpdatedAtRef.current,
+          changes,
+        });
+        latestUpdatedAtRef.current = result.updated_at;
+        invalidate();
+        return result;
+      };
+      const next = patchQueueRef.current.then(run, run);
+      patchQueueRef.current = next.catch(() => undefined);
+      return next;
+    },
+    [patch, invalidate],
+  );
+
+  const patchFinance = useCallback(
+    async (input: Omit<PatchOrderFinanceInput, "expected_updated_at">) => {
+      const result = await financePatch.mutateAsync({
+        ...input,
+        expected_updated_at: latestUpdatedAtRef.current,
+      });
+      latestUpdatedAtRef.current = result.updated_at;
+      return result;
+    },
+    [financePatch],
+  );
 
   const approval = useMutation({
     mutationFn: (body: string) => sendApprovalRequest(id, body),
@@ -127,8 +168,10 @@ export function OrderDetailScreen({
     return (
       <div
         className={cn(
-          "space-y-3",
-          surface === "page" ? "mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6" : "p-4",
+          "min-w-0 max-w-full space-y-3 overflow-x-hidden",
+          surface === "page"
+            ? "mx-auto w-full max-w-5xl px-2.5 pb-10 pt-3 sm:px-4 sm:pb-12 sm:pt-4 md:px-6"
+            : "w-full px-2 py-2 sm:px-4 sm:py-3",
         )}
       >
         <Skeleton className="h-32 w-full" />
@@ -151,7 +194,10 @@ export function OrderDetailScreen({
   return (
     <div
       className={cn(
-        surface === "page" ? "mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6" : "px-4 pb-4 pt-3 md:px-5",
+        "min-w-0 max-w-full overflow-x-hidden",
+        surface === "page"
+          ? "mx-auto w-full max-w-5xl px-2.5 pb-10 pt-3 sm:px-4 sm:pb-12 sm:pt-4 md:px-6"
+          : "w-full px-2 pb-2 pt-2 sm:px-4 sm:pb-3 sm:pt-3 md:px-5",
       )}
     >
       <OrderHero
@@ -178,52 +224,33 @@ export function OrderDetailScreen({
           initial="hidden"
           animate="show"
           exit={{ opacity: 0, y: -4 }}
-          className="space-y-4"
+          className="min-w-0 space-y-2 sm:space-y-3"
         >
           {tab === "overview" && (
             <OrderOverviewTab
               order={order}
               customer={customer}
-              supplier={supplier}
-              deviceLabel={deviceLabel}
+              deviceBrand={deviceBrand}
+              deviceModel={deviceModel}
               deviceImei={deviceImei}
               deviceNotes={deviceNotes}
               accessoryNotes={accessoryNotes}
-              onEdit={() => setEditOpen(true)}
+              onPatch={patchFields}
+              onFinanceSave={patchFinance}
+              financeBusy={financePatch.isPending}
               onApproval={() => setApprovalOpen(true)}
               onPay={() => setPayOpen(true)}
+              onNotify={() => setNotifyOpen(true)}
+              onPrint={() => window.print()}
             />
           )}
 
-          {tab === "timeline" && (
-            <motion.div variants={fadeUp}>
-              <Card className="p-5">
-                <h3 className="mb-4 text-sm font-semibold">时间线</h3>
-                <ol className="relative space-y-5 border-l border-border/60 pl-5">
-                  {events.map((e, idx) => (
-                    <motion.li key={e.id} variants={fadeUp} className="group relative">
-                      <span
-                        className="absolute -left-[26px] top-1 grid size-4 place-items-center rounded-full ring-4 ring-background transition-shadow group-hover:shadow-[0_0_0_6px_oklch(0.7_0.2_285_/_0.18)]"
-                        style={{
-                          background:
-                            idx === 0 ? "var(--gradient-brand)" : "oklch(0.7 0.2 285 / 0.6)",
-                        }}
-                      />
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(e.created_at).toLocaleString("zh-CN")} · {e.operator_name}
-                      </div>
-                      <div className="text-sm">{renderEvent(e.event_type, e.payload)}</div>
-                    </motion.li>
-                  ))}
-                </ol>
-              </Card>
-            </motion.div>
-          )}
+          {tab === "records" && (
+            <motion.div variants={fadeUp} className="min-w-0 space-y-2 sm:space-y-3">
+              <OrderKeyInfoCard order={order} supplier={supplier} />
 
-          {tab === "messages" && (
-            <motion.div variants={fadeUp}>
-              <Card className="p-5">
-                <div className="mb-3 flex items-center justify-between">
+              <Card className="min-w-0 overflow-hidden p-3 sm:p-4">
+                <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 sm:mb-3">
                   <h3 className="text-sm font-semibold">通知历史</h3>
                   <Button
                     size="sm"
@@ -235,14 +262,17 @@ export function OrderDetailScreen({
                   </Button>
                 </div>
                 {messages.length === 0 ? (
-                  <div className="rounded-md border border-dashed p-8 text-center text-xs text-muted-foreground">
+                  <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground sm:p-6">
                     暂无通知记录
                   </div>
                 ) : (
                   <ul className="space-y-2">
                     {messages.map((m) => (
-                      <li key={m.id} className="rounded-md border bg-surface-muted/40 p-3 text-xs">
-                        <div className="flex items-center justify-between">
+                      <li
+                        key={m.id}
+                        className="min-w-0 rounded-md border bg-surface-muted/40 p-2.5 text-xs sm:p-3"
+                      >
+                        <div className="flex min-w-0 items-center justify-between gap-2">
                           <span className="font-medium">
                             {m.channel === "whatsapp" ? "WhatsApp" : "短信"}
                           </span>
@@ -257,7 +287,9 @@ export function OrderDetailScreen({
                             {m.status === "read" ? "已读" : m.status}
                           </span>
                         </div>
-                        <p className="mt-1 text-muted-foreground">{m.message_body}</p>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
+                          {m.message_body}
+                        </p>
                         <p className="mt-2 text-[10px] text-muted-foreground/70">
                           {new Date(m.sent_at).toLocaleString("zh-CN")}
                         </p>
@@ -266,21 +298,52 @@ export function OrderDetailScreen({
                   </ul>
                 )}
               </Card>
-            </motion.div>
-          )}
 
-          {tab === "attachments" && (
-            <motion.div variants={fadeUp}>
-              <Card className="p-8 text-center text-sm text-muted-foreground">
-                附件功能即将上线。
+              <Card className="min-w-0 overflow-hidden p-3 sm:p-4">
+                <h3 className="mb-2 text-sm font-semibold sm:mb-3">时间线</h3>
+                {events.length === 0 ? (
+                  <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground sm:p-6">
+                    暂无时间线记录
+                  </div>
+                ) : (
+                  <ol className="relative min-w-0 space-y-3 border-l border-border/60 pl-4 sm:space-y-4 sm:pl-5">
+                    {events.map((e, idx) => (
+                      <motion.li key={e.id} variants={fadeUp} className="group relative min-w-0">
+                        <span
+                          className="absolute -left-[26px] top-1 grid size-4 place-items-center rounded-full ring-4 ring-background transition-shadow group-hover:shadow-[0_0_0_6px_oklch(0.7_0.2_285_/_0.18)]"
+                          style={{
+                            background:
+                              idx === 0 ? "var(--gradient-brand)" : "oklch(0.7 0.2 285 / 0.6)",
+                          }}
+                        />
+                        <div className="break-words text-xs text-muted-foreground">
+                          {new Date(e.created_at).toLocaleString("zh-CN")} · {e.operator_name}
+                        </div>
+                        <div className="break-words text-sm">
+                          {renderEvent(e.event_type, e.payload)}
+                        </div>
+                      </motion.li>
+                    ))}
+                  </ol>
+                )}
               </Card>
             </motion.div>
           )}
 
-          {tab === "inventory" && (
+          {tab === "assets" && (
             <motion.div variants={fadeUp}>
-              <Card className="p-8 text-center text-sm text-muted-foreground">
-                暂无与该工单关联的库存记录。
+              <Card className="min-w-0 overflow-hidden p-3 sm:p-4">
+                <h3 className="mb-3 text-sm font-semibold">附件库存</h3>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2 sm:gap-3">
+                  <section className="min-w-0 rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground sm:p-6">
+                    <div className="font-medium text-foreground">附件</div>
+                    <p className="mt-1">附件功能即将上线。</p>
+                  </section>
+                  <section className="min-w-0 rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground sm:p-6">
+                    <div className="font-medium text-foreground">库存关联</div>
+                    <p className="mt-1">暂无与该工单关联的库存记录。</p>
+                  </section>
+                </div>
               </Card>
             </motion.div>
           )}
@@ -320,13 +383,6 @@ export function OrderDetailScreen({
           await transition.mutateAsync({ to: "cancelled", reason });
         }}
       />
-      <EditOrderDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        data={data}
-        busy={update.isPending}
-        onSave={(input) => update.mutateAsync(input)}
-      />
       <RepairOrderPrintSheet data={data} orderUrl={orderUrl} />
     </div>
   );
@@ -351,7 +407,15 @@ function renderEvent(type: string, payload: Record<string, unknown>) {
         ? `已发送 WhatsApp 通知并流转：${statusMeta[payload.from as keyof typeof statusMeta]?.label ?? payload.from} → ${statusMeta[payload.to as keyof typeof statusMeta]?.label ?? payload.to}`
         : "已发送 WhatsApp 通知";
     case "note":
-      return payload.action === "order_updated" ? "工单信息已更新" : "备注";
+      if (payload.action === "order_updated") return "工单信息已更新";
+      if (payload.action === "order_patched") {
+        const fields = Array.isArray(payload.changed_fields)
+          ? payload.changed_fields.filter((field): field is string => typeof field === "string")
+          : [];
+        return fields.length ? `工单资料已更新：${fields.join("、")}` : "工单资料已更新";
+      }
+      if (payload.action === "order_finance_updated") return "工单财务已更新";
+      return "备注";
     default:
       return type;
   }

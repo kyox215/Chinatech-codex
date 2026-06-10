@@ -221,12 +221,15 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {
     background-image: none;
     background-attachment: fixed;
     min-height: 100svh;
+    width: 100%;
   }
 
   .dark body {

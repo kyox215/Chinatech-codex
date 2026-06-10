@@ -6,6 +6,9 @@ import type {
   OrderListPageInput,
   OrderListResult,
   OrderWhatsappTemplateKind,
+  PatchOrderFinanceInput,
+  PatchOrderInput,
+  PatchOrderResult,
   RepairOrder,
   UpdateOrderInput,
   WhatsappNotificationResult,
@@ -193,6 +196,74 @@ export async function recordPayment(id: string, amount: number, method = "现金
   return { ok: true, balance: o.balance_amount, is_paid: o.is_paid };
 }
 
+const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
+  customer_name: "客户姓名",
+  customer_phone: "手机号",
+  device_brand: "设备品牌",
+  device_model: "设备型号",
+  device_imei: "IMEI/序列号",
+  device_notes: "设备备注",
+  issue_description: "故障描述",
+  diagnosis_result: "诊断结果",
+  technician_name: "技师",
+  accessory_notes: "留存备注",
+  warranty_text: "质保",
+};
+
+function normalizeFaultPriceInput(input: PatchOrderFinanceInput["fault_prices"]) {
+  return input.map((item) => {
+    const name = item.name.trim();
+    const price = Number(item.price);
+    if (!name) throw new Error("报价项目名称不能为空");
+    if (!Number.isFinite(price) || price < 0) throw new Error("报价金额不能为负数");
+    return {
+      name,
+      price,
+      currency_code: CURRENCY_CODE,
+      ...(item.note?.trim() ? { note: item.note.trim() } : {}),
+    };
+  });
+}
+
+function writeMergedPatchEvent(orderId: string, changedFields: string[], now: string) {
+  const cutoff = Date.now() - 5 * 60 * 1000;
+  const previous = extraEvents.find(
+    (event) =>
+      event.order_id === orderId &&
+      event.event_type === "note" &&
+      event.payload.action === "order_patched" &&
+      new Date(event.created_at).getTime() >= cutoff,
+  );
+
+  if (previous) {
+    const existingFields = Array.isArray(previous.payload.changed_fields)
+      ? previous.payload.changed_fields.filter(
+          (field): field is string => typeof field === "string",
+        )
+      : [];
+    previous.payload = {
+      ...previous.payload,
+      changed_fields: Array.from(new Set([...existingFields, ...changedFields])),
+      currency_code: CURRENCY_CODE,
+    };
+    previous.created_at = now;
+    return;
+  }
+
+  extraEvents.unshift({
+    id: `evt_patch_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: orderId,
+    event_type: "note",
+    payload: {
+      action: "order_patched",
+      changed_fields: changedFields,
+      currency_code: CURRENCY_CODE,
+    },
+    operator_name: "前台",
+    created_at: now,
+  });
+}
+
 export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
@@ -275,6 +346,139 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   });
 
   return { ok: true };
+}
+
+export async function patchOrder(id: string, input: PatchOrderInput): Promise<PatchOrderResult> {
+  const o = orders.find((x) => x.id === id);
+  if (!o) throw new Error("工单不存在");
+  if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
+  if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
+
+  const entries = Object.entries(input.changes).filter(([, value]) => value !== undefined) as [
+    keyof PatchOrderInput["changes"],
+    string,
+  ][];
+  if (entries.length === 0) throw new Error("没有可保存的字段");
+
+  const customer = getCustomer(o.customer_id);
+  const device = getDevice(o.device_id);
+  if (!customer || !device) throw new Error("工单缺少客户或设备关联");
+
+  const nextSnapshot = {
+    brand: o.device_snapshot?.brand || device.brand,
+    model: o.device_snapshot?.model || device.model,
+    serial_or_imei: o.device_snapshot?.serial_or_imei || device.serial_or_imei,
+    device_notes: o.device_snapshot?.device_notes || device.device_notes,
+  };
+  const changedFields: string[] = [];
+
+  for (const [field, rawValue] of entries) {
+    const value = rawValue.trim();
+    changedFields.push(PATCH_FIELD_LABELS[field]);
+    switch (field) {
+      case "customer_name":
+        if (!value) throw new Error("客户姓名不能为空");
+        customer.name = value;
+        break;
+      case "customer_phone":
+        if (!value) throw new Error("手机号不能为空");
+        customer.phone_e164 = value;
+        customer.phone_raw = phoneRaw(value);
+        break;
+      case "device_brand":
+        if (!value) throw new Error("设备品牌不能为空");
+        nextSnapshot.brand = value;
+        break;
+      case "device_model":
+        if (!value) throw new Error("设备型号不能为空");
+        nextSnapshot.model = value;
+        break;
+      case "device_imei":
+        nextSnapshot.serial_or_imei = value;
+        break;
+      case "device_notes":
+        nextSnapshot.device_notes = value || undefined;
+        break;
+      case "issue_description":
+        if (!value) throw new Error("故障描述不能为空");
+        o.issue_description = value;
+        break;
+      case "diagnosis_result":
+        o.diagnosis_result = value || undefined;
+        break;
+      case "technician_name":
+        if (!value) throw new Error("技师不能为空");
+        o.technician_name = value;
+        break;
+      case "accessory_notes": {
+        const tagInput = normalizeOrderTagInput({ accessoryNotes: value });
+        o.accessory_notes = tagInput.accessoryNotes;
+        break;
+      }
+      case "warranty_text":
+        o.warranty_text = value || undefined;
+        break;
+    }
+  }
+
+  if (
+    entries.some(([field]) =>
+      ["device_brand", "device_model", "device_imei", "device_notes"].includes(field),
+    )
+  ) {
+    if (!nextSnapshot.brand || !nextSnapshot.model) throw new Error("设备品牌和型号不能为空");
+    o.device_snapshot = nextSnapshot;
+  }
+
+  const now = new Date().toISOString();
+  o.updated_at = now;
+  writeMergedPatchEvent(id, changedFields, now);
+  return { ok: true, updated_at: now };
+}
+
+export async function patchOrderFinance(
+  id: string,
+  input: PatchOrderFinanceInput,
+): Promise<PatchOrderResult> {
+  const o = orders.find((x) => x.id === id);
+  if (!o) throw new Error("工单不存在");
+  if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
+  if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
+
+  const validFaults = normalizeFaultPriceInput(input.fault_prices);
+  const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
+  const deposit = Number(input.deposit_amount ?? 0);
+  if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
+  if (deposit > quotation) throw new Error("押金不能超过总报价");
+
+  const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
+  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const now = new Date().toISOString();
+
+  o.quotation_amount = quotation;
+  o.deposit_amount = deposit;
+  o.balance_amount = nextBalance;
+  o.is_paid = nextBalance === 0;
+  o.fault_prices = validFaults;
+  o.currency_code = CURRENCY_CODE;
+  o.updated_at = now;
+
+  extraEvents.unshift({
+    id: `evt_finance_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "order_finance_updated",
+      quotation_amount: quotation,
+      deposit_amount: deposit,
+      balance_amount: nextBalance,
+      currency_code: CURRENCY_CODE,
+    },
+    operator_name: "前台",
+    created_at: now,
+  });
+
+  return { ok: true, updated_at: now };
 }
 
 // POST /api/orders/[id]/notify

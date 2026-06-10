@@ -47,17 +47,17 @@ export function ApprovalRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] w-[min(680px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-y-auto p-4 sm:p-5">
         <DialogHeader>
           <DialogTitle>预览 WhatsApp 审批消息</DialogTitle>
           <DialogDescription>
             内容将以意大利语发送给客户。确认后会打开 WhatsApp，并记录到通知历史。
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>WhatsApp</span>
-            <span className="font-mono">{phone || "缺少电话号码"}</span>
+            <span className="min-w-0 truncate font-mono">{phone || "缺少电话号码"}</span>
           </div>
           <Textarea
             rows={12}
@@ -66,7 +66,7 @@ export function ApprovalRequestDialog({
             className="font-mono text-xs leading-relaxed"
           />
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

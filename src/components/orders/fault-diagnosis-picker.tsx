@@ -246,10 +246,12 @@ export function FaultDiagnosisPicker({
   selected,
   onChange,
   className,
+  density = "default",
 }: {
   selected: SelectedFault[];
   onChange: (items: SelectedFault[]) => void;
   className?: string;
+  density?: "default" | "compact";
 }) {
   const setGroupSelection = (group: FaultGroup, option: FaultOption) => {
     const key = faultKey(group, option);
@@ -276,23 +278,40 @@ export function FaultDiagnosisPicker({
     ]);
   };
 
-  const ensureMainSelected = (group: FaultGroup) => {
-    const active = selected.some((item) => item.categoryKey === group.key);
-    if (!active) setGroupSelection(group, group.options[0]);
-  };
-
   const clearGroup = (group: FaultGroup) => {
     onChange(selected.filter((item) => item.categoryKey !== group.key));
   };
 
+  const toggleMainSelection = (group: FaultGroup) => {
+    const active = selected.filter((item) => item.categoryKey === group.key);
+    const mainKey = faultKey(group, group.options[0]);
+    const mainOnly = active.length === 1 && active[0]?.key === mainKey;
+
+    if (mainOnly) {
+      clearGroup(group);
+      return;
+    }
+
+    setGroupSelection(group, group.options[0]);
+  };
+
+  const compact = density === "compact";
+
   return (
-    <div className={cn("grid grid-cols-2 gap-2 md:grid-cols-3", className)}>
+    <div
+      className={cn(
+        "grid min-w-0 gap-1.5",
+        compact ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-3",
+        className,
+      )}
+    >
       {faultGroups.map((group) => (
         <FaultCategoryButton
           key={group.key}
           group={group}
           selected={selected}
-          onOpen={() => ensureMainSelected(group)}
+          density={density}
+          onMainToggle={() => toggleMainSelection(group)}
           onToggle={(option) => setGroupSelection(group, option)}
           onClear={() => clearGroup(group)}
         />
@@ -304,52 +323,77 @@ export function FaultDiagnosisPicker({
 function FaultCategoryButton({
   group,
   selected,
-  onOpen,
+  density,
+  onMainToggle,
   onToggle,
   onClear,
 }: {
   group: FaultGroup;
   selected: SelectedFault[];
-  onOpen: () => void;
+  density: "default" | "compact";
+  onMainToggle: () => void;
   onToggle: (option: FaultOption) => void;
   onClear: () => void;
 }) {
   const active = selected.filter((item) => item.categoryKey === group.key);
   const Icon = group.icon;
+  const compact = density === "compact";
 
   return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (open) onOpen();
-      }}
-    >
-      <DropdownMenuTrigger asChild>
+    <DropdownMenu>
+      <div
+        className={cn(
+          "grid min-w-0 overflow-hidden rounded-lg border text-left transition-colors",
+          compact
+            ? "min-h-8 grid-cols-[minmax(0,1fr)_1.65rem]"
+            : "min-h-10 grid-cols-[minmax(0,1fr)_2rem]",
+          active.length
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-border/70 bg-surface hover:bg-accent",
+        )}
+      >
         <button
           type="button"
+          aria-pressed={active.length > 0}
+          onClick={onMainToggle}
           className={cn(
-            "flex min-h-11 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
-            active.length
-              ? "border-primary bg-primary/10 text-primary"
-              : "border-border/70 bg-surface hover:bg-accent",
+            "flex min-w-0 items-center gap-1.5 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            compact ? "min-h-8 px-1.5 py-1" : "min-h-10 px-2 py-1.5",
           )}
         >
-          <span className="flex min-w-0 items-center gap-2">
-            <Icon className="size-4 shrink-0" />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium leading-5">{group.label}</span>
-              {active.length > 1 && (
-                <span className="block text-[11px] leading-3 text-primary/80">
-                  {active.length} 项
-                </span>
+          <Icon className={compact ? "size-3.5 shrink-0" : "size-4 shrink-0"} />
+          <span className="min-w-0">
+            <span
+              className={cn(
+                "block truncate font-medium",
+                compact ? "text-[11px] leading-4" : "text-[13px] leading-5",
               )}
+            >
+              {group.label}
             </span>
+            {!compact && active.length > 1 && (
+              <span className="block text-[11px] leading-3 text-primary/80">
+                {active.length} 项
+              </span>
+            )}
           </span>
-          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
-      </DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`展开${group.label}细分选项`}
+            className={cn(
+              "grid h-full place-items-center border-l border-border/60 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              active.length && "border-primary/20 text-primary/75 hover:text-primary",
+            )}
+          >
+            <ChevronDown className={compact ? "size-3.5" : "size-4"} />
+          </button>
+        </DropdownMenuTrigger>
+      </div>
       <DropdownMenuContent
         align="start"
-        className="w-[min(18rem,calc(100vw-2rem))] rounded-xl p-1.5 shadow-elevated"
+        className="w-[min(17rem,calc(100vw-24px))] rounded-xl bg-popover p-1.5 shadow-elevated"
       >
         {group.options.map((option) => {
           const key = faultKey(group, option);
@@ -362,7 +406,7 @@ function FaultCategoryButton({
                 onToggle(option);
               }}
               className={cn(
-                "min-h-10 gap-2 rounded-lg px-2.5 py-1.5 text-sm",
+                "min-h-9 gap-2 rounded-lg px-2.5 py-1.5 text-sm",
                 checked && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
               )}
             >

@@ -103,10 +103,21 @@ export const componentForm = {
 
 export const componentOverlay = {
   content: "glass-strong border-border text-popover-foreground",
+  responsiveContent:
+    "glass-strong w-[min(960px,calc(100vw-24px))] max-h-[90vh] max-w-[calc(100vw-24px)] overflow-y-auto border-border text-popover-foreground",
   header: "space-y-1.5",
   title: "font-display text-lg font-semibold tracking-tight",
   description: "text-sm text-muted-foreground",
   footer: "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+} as const;
+
+export const componentDensity = {
+  compactPanel: "glass-card p-3 sm:p-4",
+  denseRow: "grid min-w-0 items-center gap-2 px-3 py-2",
+  denseMeta: "truncate text-[11px] leading-4 text-muted-foreground",
+  denseValue: "truncate text-xs font-medium leading-5 text-foreground",
+  denseCell: "min-w-0 px-2 py-1.5",
+  denseAction: "inline-flex size-7 shrink-0 items-center justify-center rounded-md",
 } as const;
 
 export const componentAction = {

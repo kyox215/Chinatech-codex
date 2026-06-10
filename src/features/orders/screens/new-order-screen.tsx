@@ -26,8 +26,18 @@ import {
   initialNewOrderForm,
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
+import { layoutGuards, pageHeader } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 
-export function NewOrderScreen() {
+export function NewOrderScreen({
+  surface = "page",
+  onCreated,
+  onCancel,
+}: {
+  surface?: "page" | "dialog";
+  onCreated?: (id: string) => void;
+  onCancel?: () => void;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
@@ -183,7 +193,6 @@ export function NewOrderScreen() {
         device_notes: form.deviceNotes || undefined,
         issue_description: issueDescription,
         technician_name: form.technician,
-        internal_tag: form.internalTag || undefined,
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         fault_prices: toFaultPriceItems(form.faults.filter((item) => item.name.trim())),
@@ -196,7 +205,11 @@ export function NewOrderScreen() {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.invalidateQueries({ queryKey: ["customer-detail"] });
       toast.success("工单已创建");
-      router.push(`/orders/${id}`);
+      if (onCreated) {
+        onCreated(id);
+      } else {
+        router.push(`/orders/${id}`);
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -233,7 +246,14 @@ export function NewOrderScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6">
+    <div
+      className={cn(
+        layoutGuards.noPageOverflow,
+        surface === "dialog"
+          ? "w-full px-2 py-2 sm:px-4 sm:py-3"
+          : "mx-auto max-w-7xl px-3 py-3 sm:px-5 lg:px-6",
+      )}
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -243,41 +263,65 @@ export function NewOrderScreen() {
           }
           create.mutate();
         }}
-        className="pb-24"
+        className="min-w-0 pb-16 sm:pb-20"
       >
-        <div className="mb-5 flex items-start justify-between gap-4 border-b border-border/60 pb-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">新建维修订单</h1>
-            <p className="mt-1 text-sm text-muted-foreground">填写客户和设备信息以创建新工单</p>
+        <div className="mb-2 flex min-w-0 items-start justify-between gap-2 border-b border-border/60 pb-2 sm:mb-3 sm:gap-3 sm:pb-3">
+          <div className="min-w-0">
+            <h1
+              className={cn(
+                pageHeader.compactTitle,
+                surface === "dialog" && "text-xl leading-6 sm:text-2xl sm:leading-8",
+              )}
+            >
+              新建维修订单
+            </h1>
+            <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">
+              填写客户和设备信息以创建新工单
+            </p>
           </div>
-          <Button variant="outline" size="icon" className="size-11 rounded-full" asChild>
-            <Link href="/orders" aria-label="关闭">
-              <X className="size-5" />
-            </Link>
-          </Button>
+          {surface === "page" && (
+            <Button variant="outline" size="icon" className="size-9 shrink-0 rounded-full" asChild>
+              <Link href="/orders" aria-label="关闭">
+                <X className="size-4" />
+              </Link>
+            </Button>
+          )}
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.95fr)_minmax(430px,1.2fr)_minmax(320px,0.95fr)]">
-          <NewOrderCustomerDeviceSection
-            form={form}
-            setForm={setForm}
-            knownDevices={knownDevices}
-            onClearKnownDevices={() => setKnownDevices([])}
-            onPickCustomer={(customer) => handlePickCustomer(customer)}
-            onSelectKnownDevice={selectKnownDevice}
-          />
+        <div
+          className={cn(
+            "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-2",
+            surface === "dialog"
+              ? "xl:grid-cols-[minmax(280px,0.95fr)_minmax(420px,1.2fr)_minmax(310px,0.95fr)]"
+              : "xl:grid-cols-[minmax(280px,0.95fr)_minmax(420px,1.2fr)_minmax(310px,0.95fr)]",
+          )}
+        >
+          <div className="min-w-0">
+            <NewOrderCustomerDeviceSection
+              form={form}
+              setForm={setForm}
+              knownDevices={knownDevices}
+              onClearKnownDevices={() => setKnownDevices([])}
+              onPickCustomer={(customer) => handlePickCustomer(customer)}
+              onSelectKnownDevice={selectKnownDevice}
+            />
+          </div>
 
-          <NewOrderFaultDiagnosisSection form={form} setForm={setForm} />
+          <div className="min-w-0">
+            <NewOrderFaultDiagnosisSection form={form} setForm={setForm} />
+          </div>
 
-          <NewOrderQuotationSection
-            form={form}
-            setForm={setForm}
-            total={total}
-            balance={balance}
-            technicianOptions={technicianOptions}
-            onPatchFault={patchFault}
-            onAddCustomFault={addCustomFault}
-          />
+          <div className="min-w-0 lg:col-span-2 xl:col-span-1">
+            <NewOrderQuotationSection
+              form={form}
+              setForm={setForm}
+              total={total}
+              balance={balance}
+              technicianOptions={technicianOptions}
+              onPatchFault={patchFault}
+              onAddCustomFault={addCustomFault}
+            />
+          </div>
         </div>
 
         <NewOrderSubmitBar
@@ -285,6 +329,7 @@ export function NewOrderScreen() {
           deposit={form.deposit}
           valid={Boolean(valid)}
           pending={create.isPending}
+          onCancel={onCancel}
         />
       </form>
     </div>

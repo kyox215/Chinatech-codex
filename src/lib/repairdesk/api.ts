@@ -10,6 +10,9 @@ import type {
   OrderListResult,
   OrderStats,
   OrderWhatsappTemplateKind,
+  PatchOrderFinanceInput,
+  PatchOrderInput,
+  PatchOrderResult,
   BatchTransitionResult,
   CustomerCreateInput,
   CustomerDetail,
@@ -39,6 +42,9 @@ export type {
   OrderListResult,
   OrderStats,
   OrderWhatsappTemplateKind,
+  PatchOrderFinanceInput,
+  PatchOrderInput,
+  PatchOrderResult,
   BatchTransitionResult,
   CustomerCreateInput,
   CustomerDetail,
@@ -273,6 +279,19 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
 export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {
   if (isServerRuntime()) return (await source()).updateOrder(id, input);
   return postJson<{ ok: boolean }>("order/update", { id, input });
+}
+
+export async function patchOrder(id: string, input: PatchOrderInput): Promise<PatchOrderResult> {
+  if (isServerRuntime()) return (await source()).patchOrder(id, input);
+  return postJson<PatchOrderResult>("order/patch", { id, input });
+}
+
+export async function patchOrderFinance(
+  id: string,
+  input: PatchOrderFinanceInput,
+): Promise<PatchOrderResult> {
+  if (isServerRuntime()) return (await source()).patchOrderFinance(id, input);
+  return postJson<PatchOrderResult>("order/finance", { id, input });
 }
 
 export async function getRepairDeskOptions(): Promise<RepairDeskOptions> {

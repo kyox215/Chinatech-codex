@@ -33,9 +33,9 @@ export function NewOrderCustomerDeviceSection({
   onSelectKnownDevice: (deviceId: string) => void;
 }) {
   return (
-    <Card className="h-fit border-border/70 p-4 shadow-sm">
+    <Card className="h-fit min-w-0 border-border/70 p-2.5 shadow-sm sm:p-4">
       <SectionHeading title="客户信息" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-1 2xl:grid-cols-2">
         <FormItem label="电话" required>
           <CustomerPhoneLookup
             value={form.customerPhone}
@@ -58,12 +58,13 @@ export function NewOrderCustomerDeviceSection({
             onChange={(event) =>
               setForm({ ...form, customerName: event.target.value, customerId: undefined })
             }
+            className="h-8 sm:h-9"
             placeholder="客户姓名（可选）"
           />
         </FormItem>
       </div>
 
-      <SectionHeading title="设备信息" className="mt-7" />
+      <SectionHeading title="设备信息" className="mt-3 sm:mt-4" />
       <datalist id="repair-brand-suggestions">
         {brandSuggestions.map((brand) => (
           <option key={brand} value={brand} />
@@ -73,7 +74,7 @@ export function NewOrderCustomerDeviceSection({
         <div className="mb-3">
           <FormItem label="选择客户设备">
             <Select value={form.deviceId ?? "new"} onValueChange={onSelectKnownDevice}>
-              <SelectTrigger>
+              <SelectTrigger className="h-8 sm:h-9">
                 <SelectValue placeholder="请选择本次维修设备" />
               </SelectTrigger>
               <SelectContent>
@@ -89,7 +90,7 @@ export function NewOrderCustomerDeviceSection({
           </FormItem>
         </div>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-1 2xl:grid-cols-2">
         <FormItem label="品牌" required>
           <Input
             list="repair-brand-suggestions"
@@ -97,6 +98,7 @@ export function NewOrderCustomerDeviceSection({
             onChange={(event) =>
               setForm({ ...form, brand: event.target.value, deviceId: undefined })
             }
+            className="h-8 sm:h-9"
             placeholder="选择品牌"
           />
         </FormItem>
@@ -106,26 +108,29 @@ export function NewOrderCustomerDeviceSection({
             onChange={(event) =>
               setForm({ ...form, model: event.target.value, deviceId: undefined })
             }
+            className="h-8 sm:h-9"
             placeholder="例如：iPhone 13"
           />
         </FormItem>
       </div>
-      <div className="mt-3">
+      <div className="mt-2 sm:mt-3">
         <FormItem label="IMEI / 序列号">
           <ImeiScannerField
             value={form.imei}
             onChange={(imei) => setForm({ ...form, imei, deviceId: undefined })}
             placeholder="可选"
+            density="compact"
           />
         </FormItem>
       </div>
-      <div className="mt-3">
+      <div className="mt-2 sm:mt-3">
         <FormItem label="设备备注">
           <Input
             value={form.deviceNotes}
             onChange={(event) =>
               setForm({ ...form, deviceNotes: event.target.value, deviceId: undefined })
             }
+            className="h-8 sm:h-9"
             placeholder="外观、机身状态、缺失说明"
           />
         </FormItem>

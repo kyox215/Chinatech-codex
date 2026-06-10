@@ -9,6 +9,8 @@ import {
   getRepairDeskOptions,
   listOrders,
   listOrdersPage,
+  patchOrder,
+  patchOrderFinance,
   recordPayment,
   sendApprovalRequest,
   sendNotification,
@@ -49,6 +51,8 @@ import {
   notificationBodySchema,
   orderListFiltersSchema,
   orderListPageInputSchema,
+  patchOrderBodySchema,
+  patchOrderFinanceBodySchema,
   paymentBodySchema,
   transitionOrderBodySchema,
   updateOrderBodySchema,
@@ -70,6 +74,8 @@ const supabaseSource = {
   listCustomers,
   listOrders,
   listOrdersPage,
+  patchOrder,
+  patchOrderFinance,
   recordPayment,
   searchCustomers,
   sendApprovalRequest,
@@ -183,6 +189,14 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       case "order/update": {
         const { id, input } = updateOrderBodySchema.parse(body);
         return ok(await api.updateOrder(id, input));
+      }
+      case "order/patch": {
+        const { id, input } = patchOrderBodySchema.parse(body);
+        return ok(await api.patchOrder(id, input));
+      }
+      case "order/finance": {
+        const { id, input } = patchOrderFinanceBodySchema.parse(body);
+        return ok(await api.patchOrderFinance(id, input));
       }
       case "order/transition": {
         const { id, to, reason } = transitionOrderBodySchema.parse(body);

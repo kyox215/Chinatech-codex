@@ -14,8 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type CommitSource = "manual" | "paste" | "scan" | "clear";
+type ImeiScannerFieldDensity = "default" | "compact";
 
 export function normalizeImeiIdentifier(value: string) {
   const withoutCommonSeparators = value.trim().replace(/[\s\-:：_.,/\\|]+/g, "");
@@ -31,16 +33,19 @@ export function ImeiScannerField({
   value,
   onChange,
   placeholder = "扫描或输入 IMEI / 序列号",
+  density = "default",
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  density?: ImeiScannerFieldDensity;
 }) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [warning, setWarning] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const compact = density === "compact";
 
   const stopScanner = useCallback(() => {
     controlsRef.current?.stop();
@@ -122,13 +127,13 @@ export function ImeiScannerField({
   }, [commitValue, scannerOpen, stopScanner]);
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex gap-2">
+    <div className={cn("space-y-1.5", compact && "space-y-1")}>
+      <div className={cn("flex gap-2", compact && "gap-1.5")}>
         <Input
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}
           placeholder={placeholder}
-          className="font-mono"
+          className={cn("font-mono", compact && "h-7 text-[13px]")}
           inputMode="text"
           autoComplete="off"
         />
@@ -136,17 +141,17 @@ export function ImeiScannerField({
           type="button"
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className={cn("shrink-0", compact && "size-7")}
           onClick={() => setScannerOpen(true)}
           aria-label="摄像头扫码录入 IMEI"
         >
-          <Camera className="size-4" />
+          <Camera className={compact ? "size-3.5" : "size-4"} />
         </Button>
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className={cn("shrink-0", compact && "size-7")}
           onClick={async () => {
             try {
               const text = await navigator.clipboard.readText();
@@ -157,18 +162,18 @@ export function ImeiScannerField({
           }}
           aria-label="粘贴 IMEI"
         >
-          <ClipboardPaste className="size-4" />
+          <ClipboardPaste className={compact ? "size-3.5" : "size-4"} />
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="shrink-0"
+          className={cn("shrink-0", compact && "size-7")}
           onClick={() => commitValue("", "clear")}
           disabled={!value}
           aria-label="清空 IMEI"
         >
-          <X className="size-4" />
+          <X className={compact ? "size-3.5" : "size-4"} />
         </Button>
       </div>
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}
