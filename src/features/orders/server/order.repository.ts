@@ -14,6 +14,8 @@ import type {
   OrderDetail,
   OrderListFilters,
   OrderListItem,
+  OrderListPageInput,
+  OrderListResult,
   OrderStats,
   OrderWhatsappTemplateKind,
   RepairDeskOptions,
@@ -23,6 +25,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import {
+  ORDER_LIST_SELECT,
   ORDER_SELECT,
   type DbRecord,
   customerFromRow,
@@ -87,18 +90,92 @@ function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
   });
 }
 
+function normalizePageInput(input: OrderListPageInput = {}) {
+  const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
+  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
+  return { page, pageSize };
+}
+
 export async function listOrders(filters: OrderListFilters = {}): Promise<OrderListItem[]> {
   return filterOrders((await fetchOrderRows()).map(decorate), filters);
 }
 
-export async function getOrderStats(): Promise<OrderStats> {
-  const orders = (await fetchOrderRows()).map((row) => orderFromRow(row));
+export async function listOrdersPage(input: OrderListPageInput = {}): Promise<OrderListResult> {
+  const { page, pageSize } = normalizePageInput(input);
+  const filters: OrderListFilters = {
+    search: input.search,
+    statuses: input.statuses,
+    types: input.types,
+    technicians: input.technicians,
+    supplierIds: input.supplierIds,
+    paid: input.paid,
+    overdue: input.overdue,
+  };
+
+  if (filters.search?.trim() || filters.overdue) {
+    const all = filterOrders((await fetchOrderRows()).map(decorate), filters);
+    const start = (page - 1) * pageSize;
+    return {
+      items: all.slice(start, start + pageSize),
+      total: all.length,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  let query = supabase
+    .from("repair_orders")
+    .select(ORDER_LIST_SELECT, { count: "exact" })
+    .order("updated_at", { ascending: false })
+    .range(from, to);
+
+  if (filters.statuses?.length) query = query.in("status", filters.statuses);
+  if (filters.types?.length) query = query.in("order_type", filters.types);
+  if (filters.technicians?.length) query = query.in("technician_name", filters.technicians);
+  if (filters.supplierIds?.length) query = query.in("supplier_id", filters.supplierIds);
+  if (filters.paid && filters.paid !== "all") query = query.eq("is_paid", filters.paid === "paid");
+
+  const { data, error, count } = await query;
+  fail(error, "读取工单失败");
+
+  const total = count ?? 0;
   return {
-    total: orders.length,
-    today: orders.filter((o) => new Date(o.created_at).toDateString() === new Date().toDateString())
-      .length,
-    inProgress: orders.filter((o) =>
-      [
+    items: ((data ?? []) as DbRecord[]).map(decorate),
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+export async function getOrderStats(): Promise<OrderStats> {
+  const supabase = getSupabaseAdmin();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const approvalCutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+  const pickupCutoff = new Date(Date.now() - 5 * 86400 * 1000).toISOString();
+
+  const [
+    totalResult,
+    todayResult,
+    inProgressResult,
+    unpaidResult,
+    approvalOverdueResult,
+    pickupOverdueResult,
+  ] = await Promise.all([
+    supabase.from("repair_orders").select("id", { count: "exact", head: true }),
+    supabase
+      .from("repair_orders")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", today.toISOString()),
+    supabase
+      .from("repair_orders")
+      .select("id", { count: "exact", head: true })
+      .in("status", [
         "new",
         "rework",
         "mail_in_progress",
@@ -107,11 +184,39 @@ export async function getOrderStats(): Promise<OrderStats> {
         "parts_ordered",
         "parts_arrived",
         "repairing",
-      ].includes(o.status),
-    ).length,
-    unpaid: orders.filter((o) => !o.is_paid).length,
-    approvalOverdue: orders.filter((o) => isApprovalOverdue(o)).length,
-    pickupOverdue: orders.filter((o) => isPickupOverdue(o)).length,
+      ]),
+    supabase
+      .from("repair_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("is_paid", false),
+    supabase
+      .from("repair_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "waiting_approval")
+      .lt("approval_sent_at", approvalCutoff),
+    supabase
+      .from("repair_orders")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["repaired", "notified", "unfixed_pickup", "waiting_pickup"])
+      .or(
+        `completed_at.lt.${pickupCutoff},and(completed_at.is.null,updated_at.lt.${pickupCutoff})`,
+      ),
+  ]);
+
+  fail(totalResult.error, "统计工单总数失败");
+  fail(todayResult.error, "统计今日工单失败");
+  fail(inProgressResult.error, "统计进行中工单失败");
+  fail(unpaidResult.error, "统计未结清工单失败");
+  fail(approvalOverdueResult.error, "统计报价超期工单失败");
+  fail(pickupOverdueResult.error, "统计取件超期工单失败");
+
+  return {
+    total: totalResult.count ?? 0,
+    today: todayResult.count ?? 0,
+    inProgress: inProgressResult.count ?? 0,
+    unpaid: unpaidResult.count ?? 0,
+    approvalOverdue: approvalOverdueResult.count ?? 0,
+    pickupOverdue: pickupOverdueResult.count ?? 0,
   };
 }
 
