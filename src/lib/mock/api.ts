@@ -6,6 +6,7 @@ export {
   getOrder,
   getOrderStats,
   listOrders,
+  listOrdersPage,
   recordPayment,
   sendApprovalRequest,
   sendNotification,
@@ -31,4 +32,10 @@ export {
 
 export { allTechnicians, customers, devices, suppliers } from "@/lib/mock/state";
 
-export type { CreateOrderInput, OrderListFilters, OrderListItem } from "@/lib/repairdesk/types";
+export type {
+  CreateOrderInput,
+  OrderListFilters,
+  OrderListItem,
+  OrderListPageInput,
+  OrderListResult,
+} from "@/lib/repairdesk/types";
