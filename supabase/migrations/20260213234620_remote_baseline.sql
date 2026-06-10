@@ -1,0 +1,3 @@
+-- Remote baseline migration already present in the linked Supabase project.
+-- Keep this file so Supabase CLI migration history stays aligned without
+-- rewriting the remote migration table.
