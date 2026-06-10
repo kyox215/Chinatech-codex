@@ -20,9 +20,51 @@ export type DbRecord = Record<string, unknown>;
 
 export const ORDER_SELECT = `
   *,
-  customer:customers!repair_orders_customer_id_fkey(*),
-  device:devices!repair_orders_device_id_fkey(*),
-  supplier:suppliers!repair_orders_supplier_id_fkey(*)
+  customer:customers(*),
+  device:devices(*),
+  supplier:suppliers(*)
+`;
+
+const ORDER_LIST_PAGE_SIZE = 1000;
+
+const ORDER_LIST_COLUMNS = `
+  id,
+  public_no,
+  order_type,
+  status,
+  customer_id,
+  device_id,
+  issue_description,
+  diagnosis_result,
+  quotation_amount,
+  deposit_amount,
+  balance_amount,
+  currency_code,
+  is_paid,
+  approval_status,
+  approval_sent_at,
+  approval_confirmed_at,
+  technician_name,
+  internal_tag,
+  warranty_text,
+  completed_at,
+  delivered_at,
+  pause_reason,
+  cancel_reason,
+  supplier_id,
+  original_order_id,
+  contact_phones,
+  fault_prices,
+  device_snapshot,
+  created_at,
+  updated_at
+`;
+
+export const ORDER_LIST_SELECT = `
+  ${ORDER_LIST_COLUMNS},
+  customer:customers(*),
+  device:devices(*),
+  supplier:suppliers(*)
 `;
 
 export function fail(error: { message: string } | null | undefined, context: string) {
@@ -264,7 +306,22 @@ export function messageFromRow(row: DbRecord): MessageLog {
 
 export async function fetchOrderRows(): Promise<DbRecord[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from("repair_orders").select(ORDER_SELECT);
-  fail(error, "读取工单失败");
-  return (data ?? []) as DbRecord[];
+  const rows: DbRecord[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("repair_orders")
+      .select(ORDER_LIST_SELECT)
+      .range(from, from + ORDER_LIST_PAGE_SIZE - 1);
+    fail(error, "读取工单失败");
+
+    const batch = (data ?? []) as DbRecord[];
+    rows.push(...batch);
+
+    if (batch.length < ORDER_LIST_PAGE_SIZE) break;
+    from += ORDER_LIST_PAGE_SIZE;
+  }
+
+  return rows;
 }
