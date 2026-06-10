@@ -20,9 +20,6 @@ begin
   end if;
 end $$;
 
-create unique index if not exists customers_phone_raw_unique_idx
-  on public.customers (phone_raw);
-
 alter table public.repair_orders
   add column if not exists device_snapshot jsonb not null default '{}'::jsonb;
 
@@ -61,7 +58,7 @@ create table if not exists public.customer_tags (
 );
 
 create table if not exists public.customer_tag_assignments (
-  customer_id text not null,
+  customer_id uuid not null,
   tag_id text not null,
   created_at timestamptz not null default now(),
   primary key (customer_id, tag_id),
@@ -75,8 +72,8 @@ create table if not exists public.customer_tag_assignments (
 
 create table if not exists public.customer_interactions (
   id text primary key,
-  customer_id text not null,
-  order_id text,
+  customer_id uuid not null,
+  order_id uuid,
   channel public.message_channel not null,
   direction text not null default 'outbound',
   message_body text not null,
@@ -95,8 +92,8 @@ create table if not exists public.customer_interactions (
 
 create table if not exists public.customer_followups (
   id text primary key,
-  customer_id text not null,
-  order_id text,
+  customer_id uuid not null,
+  order_id uuid,
   title text not null,
   note text,
   due_at timestamptz not null,
@@ -127,6 +124,10 @@ create index if not exists customer_followups_status_due_idx
   on public.customer_followups (status, due_at asc);
 create index if not exists repair_orders_device_snapshot_gin_idx
   on public.repair_orders using gin (device_snapshot);
+
+create index if not exists customers_phone_raw_lookup_idx
+  on public.customers (phone_raw)
+  where phone_raw is not null and phone_raw <> '';
 
 alter table public.customer_tags enable row level security;
 alter table public.customer_tag_assignments enable row level security;
