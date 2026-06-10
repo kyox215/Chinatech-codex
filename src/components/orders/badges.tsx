@@ -44,7 +44,7 @@ function Pill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium leading-none ring-1 ring-inset",
         toneClass[tone],
         className,
       )}
@@ -80,9 +80,14 @@ export function StatusBadge({
   );
 }
 
-export function OrderTypeBadge({ type }: { type: RepairOrderType }) {
+export function OrderTypeBadge({ type, className }: { type: RepairOrderType; className?: string }) {
   return (
-    <span className="inline-flex items-center rounded-md border border-border/60 bg-surface-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border/60 bg-surface-muted px-1.5 py-0.5 text-xs leading-none text-muted-foreground",
+        className,
+      )}
+    >
       {orderTypeMeta[type].label}
     </span>
   );
@@ -97,6 +102,10 @@ export function MoneyText({ amount, className }: { amount: number; className?: s
   return <span className={cn("font-mono tabular-nums", className)}>{formatMoney(amount)}</span>;
 }
 
-export function PhoneText({ value }: { value: string }) {
-  return <span className="font-mono text-xs tabular-nums text-muted-foreground">{value}</span>;
+export function PhoneText({ value, className }: { value: string; className?: string }) {
+  return (
+    <span className={cn("font-mono text-xs tabular-nums text-muted-foreground", className)}>
+      {value}
+    </span>
+  );
 }
