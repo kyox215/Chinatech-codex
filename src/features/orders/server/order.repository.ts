@@ -24,6 +24,7 @@ import type {
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import {
   ORDER_LIST_SELECT,
   ORDER_SELECT,
@@ -391,6 +392,10 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   const oldBalance = money(currentRow.balance_amount);
   const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const tagInput = normalizeOrderTagInput({
+    internalTag: input.internal_tag,
+    accessoryNotes: input.accessory_notes,
+  });
   const now = new Date().toISOString();
 
   const { error: customerError } = await supabase
@@ -410,7 +415,8 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       issue_description: issueDescription,
       diagnosis_result: input.diagnosis_result?.trim() || null,
       technician_name: technicianName,
-      internal_tag: input.internal_tag?.trim() || null,
+      internal_tag: tagInput.internalTag || null,
+      accessory_notes: tagInput.accessoryNotes || null,
       warranty_text: input.warranty_text?.trim() || null,
       quotation_amount: quotation,
       deposit_amount: deposit,
@@ -438,6 +444,8 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       quotation_amount: quotation,
       deposit_amount: deposit,
       balance_amount: nextBalance,
+      internal_tag: tagInput.internalTag,
+      accessory_notes: tagInput.accessoryNotes,
       currency_code: CURRENCY_CODE,
     },
     operator_name: "前台",
@@ -723,6 +731,10 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
 
   const id = crypto.randomUUID();
   const balance = Math.max(0, quotation - deposit);
+  const tagInput = normalizeOrderTagInput({
+    internalTag: input.internal_tag,
+    accessoryNotes: input.accessory_notes,
+  });
   const { data: inserted, error: orderError } = await supabase
     .from("repair_orders")
     .insert({
@@ -739,7 +751,8 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
       is_paid: balance === 0,
       approval_status: "pending",
       technician_name: input.technician_name.trim(),
-      internal_tag: input.internal_tag?.trim() || null,
+      internal_tag: tagInput.internalTag || null,
+      accessory_notes: tagInput.accessoryNotes || null,
       warranty_text: input.warranty_text?.trim() || "6个月",
       contact_phones: customerContactPhones,
       fault_prices: validFaults,

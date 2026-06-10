@@ -184,6 +184,7 @@ export function NewOrderScreen() {
         issue_description: issueDescription,
         technician_name: form.technician,
         internal_tag: form.internalTag || undefined,
+        accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         fault_prices: toFaultPriceItems(form.faults.filter((item) => item.name.trim())),
         deposit_amount: form.deposit,

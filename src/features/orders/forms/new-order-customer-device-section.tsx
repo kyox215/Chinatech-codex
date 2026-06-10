@@ -126,7 +126,7 @@ export function NewOrderCustomerDeviceSection({
             onChange={(event) =>
               setForm({ ...form, deviceNotes: event.target.value, deviceId: undefined })
             }
-            placeholder="外观、随机器材、缺失说明"
+            placeholder="外观、机身状态、缺失说明"
           />
         </FormItem>
       </div>

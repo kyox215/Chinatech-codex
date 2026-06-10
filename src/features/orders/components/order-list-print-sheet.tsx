@@ -92,8 +92,8 @@ export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
                 <PrintLine label="Stato" value={statusItalian[order.status]} />
                 <PrintLine label="Garanzia" value={toItalianWarranty(order.warranty_text)} />
                 <PrintLine
-                  label="Etichette accessori"
-                  value={translatePrintableText(order.internal_tag) || "-"}
+                  label="Accessori consegnati"
+                  value={translatePrintableText(order.accessory_notes) || "-"}
                 />
               </PrintSection>
 

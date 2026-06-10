@@ -18,6 +18,7 @@ export function OrderOverviewTab({
   deviceLabel,
   deviceImei,
   deviceNotes,
+  accessoryNotes,
   onEdit,
   onApproval,
   onPay,
@@ -28,6 +29,7 @@ export function OrderOverviewTab({
   deviceLabel: string;
   deviceImei: string;
   deviceNotes?: string;
+  accessoryNotes?: string;
   onEdit: () => void;
   onApproval: () => void;
   onPay: () => void;
@@ -75,7 +77,10 @@ export function OrderOverviewTab({
                 IMEI {deviceImei || "-"}
               </div>
               {deviceNotes && (
-                <div className="mt-1 text-xs text-muted-foreground">备注：{deviceNotes}</div>
+                <div className="mt-1 text-xs text-muted-foreground">设备备注：{deviceNotes}</div>
+              )}
+              {accessoryNotes && (
+                <div className="mt-1 text-xs text-muted-foreground">留存备注：{accessoryNotes}</div>
               )}
             </div>
           </div>
@@ -101,13 +106,7 @@ export function OrderOverviewTab({
               {order.diagnosis_result ?? <span className="text-muted-foreground">尚未填写</span>}
             </Field>
             <div className="flex flex-wrap gap-4 text-xs">
-              {order.internal_tag && (
-                <Field label="内部标签">
-                  <span className="rounded bg-status-warn px-1.5 py-0.5 text-status-warn-foreground">
-                    {order.internal_tag}
-                  </span>
-                </Field>
-              )}
+              {order.internal_tag && <Field label="优先标签">{order.internal_tag}</Field>}
               {order.warranty_text && <Field label="质保">{order.warranty_text}</Field>}
             </div>
           </div>

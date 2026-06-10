@@ -66,7 +66,8 @@ export function InventoryScreen() {
         order.device_label,
         order.device_imei,
         order.issue_description,
-        order.internal_tag,
+        order.accessory_notes,
+        order.fault_prices.map((item) => item.name).join(" "),
         order.supplier_name,
       ]
         .filter(Boolean)
@@ -131,7 +132,7 @@ export function InventoryScreen() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索工单号、客户、设备、IMEI、配件标签或供应商"
+              placeholder="搜索工单号、客户、设备、IMEI、维修项目或供应商"
               className={controls.searchInput}
             />
           </div>
@@ -194,7 +195,7 @@ export function InventoryScreen() {
                   <th className="px-4 py-2.5 text-left font-medium">工单</th>
                   <th className="px-3 py-2.5 text-left font-medium">客户</th>
                   <th className="px-3 py-2.5 text-left font-medium">设备 / IMEI</th>
-                  <th className="px-3 py-2.5 text-left font-medium">配件标签</th>
+                  <th className="px-3 py-2.5 text-left font-medium">维修项目 / 留存备注</th>
                   <th className="px-3 py-2.5 text-left font-medium">供应商</th>
                   <th className="px-3 py-2.5 text-right font-medium">尾款</th>
                   <th className="px-3 py-2.5 text-left font-medium">操作</th>
@@ -267,7 +268,9 @@ function InventoryTableRow({ order }: { order: OrderListItem }) {
         </div>
       </td>
       <td className="max-w-[220px] px-3 py-3 text-xs text-muted-foreground">
-        {order.internal_tag || order.issue_description}
+        {order.accessory_notes ||
+          order.fault_prices.map((item) => item.name).join("、") ||
+          order.issue_description}
       </td>
       <td className="px-3 py-3">
         {order.supplier_name ? (
@@ -312,7 +315,14 @@ function InventoryMobileCard({ order }: { order: OrderListItem }) {
         <StatusBadge status={order.status} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <Info label="配件标签" value={order.internal_tag || order.issue_description} />
+        <Info
+          label="留存备注"
+          value={
+            order.accessory_notes ||
+            order.fault_prices.map((item) => item.name).join("、") ||
+            order.issue_description
+          }
+        />
         <Info label="供应商" value={order.supplier_name || "未关联"} />
         <Info label="电话" value={order.customer_phone} mono />
         <Info label="尾款" value={<MoneyText amount={order.balance_amount} />} />

@@ -33,6 +33,7 @@ import {
   orders,
   phoneRaw,
 } from "@/lib/mock/state";
+import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 
 export async function listOrders(filters: OrderListFilters = {}): Promise<OrderListItem[]> {
   let result = orders.map(decorate);
@@ -226,6 +227,10 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
 
   const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const tagInput = normalizeOrderTagInput({
+    internalTag: input.internal_tag,
+    accessoryNotes: input.accessory_notes,
+  });
   const now = new Date().toISOString();
 
   customer.name = customerName;
@@ -235,7 +240,8 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   o.issue_description = issueDescription;
   o.diagnosis_result = input.diagnosis_result?.trim() || undefined;
   o.technician_name = technicianName;
-  o.internal_tag = input.internal_tag?.trim() || undefined;
+  o.internal_tag = tagInput.internalTag;
+  o.accessory_notes = tagInput.accessoryNotes;
   o.warranty_text = input.warranty_text?.trim() || undefined;
   o.quotation_amount = quotation;
   o.deposit_amount = deposit;
@@ -260,6 +266,8 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       quotation_amount: quotation,
       deposit_amount: deposit,
       balance_amount: nextBalance,
+      internal_tag: tagInput.internalTag,
+      accessory_notes: tagInput.accessoryNotes,
       currency_code: CURRENCY_CODE,
     },
     operator_name: "前台",
@@ -473,6 +481,10 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
   const seq = orders.length + 1;
   const now = new Date().toISOString();
   const balance = Math.max(0, quotation - deposit);
+  const tagInput = normalizeOrderTagInput({
+    internalTag: input.internal_tag,
+    accessoryNotes: input.accessory_notes,
+  });
   const newOrder: RepairOrder = {
     id,
     public_no: `R${(2026000 + seq).toString().padStart(7, "0")}`,
@@ -488,7 +500,8 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
     is_paid: balance === 0,
     approval_status: "pending",
     technician_name: input.technician_name,
-    internal_tag: input.internal_tag,
+    internal_tag: tagInput.internalTag,
+    accessory_notes: tagInput.accessoryNotes,
     warranty_text: input.warranty_text?.trim() || "6个月",
     contact_phones: customer.contact_phones,
     fault_prices: validFaults,

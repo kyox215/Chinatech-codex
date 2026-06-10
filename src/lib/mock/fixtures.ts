@@ -72,6 +72,7 @@ export interface RepairOrder {
   approval_confirmed_at?: string;
   technician_name: string;
   internal_tag?: string;
+  accessory_notes?: string;
   warranty_text?: string;
   completed_at?: string;
   delivered_at?: string;
@@ -340,6 +341,7 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     approval_confirmed_at: approval === "approved" ? created : undefined,
     technician_name: rand(technicians, i),
     internal_tag: i % 5 === 0 ? "VIP" : i % 7 === 0 ? "加急" : undefined,
+    accessory_notes: i % 9 === 0 ? "SIM卡托、手机壳" : undefined,
     warranty_text: "90天质保",
     completed_at: status === "completed" ? created : undefined,
     delivered_at: status === "completed" && i % 2 === 0 ? created : undefined,

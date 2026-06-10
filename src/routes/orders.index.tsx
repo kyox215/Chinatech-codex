@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -20,6 +20,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import {
   DropdownMenu,
@@ -39,6 +46,7 @@ import { toast } from "sonner";
 
 import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
+import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen";
 import {
   batchTransition,
   getRepairDeskOptions,
@@ -258,6 +266,7 @@ export default function OrdersListPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -350,6 +359,12 @@ export default function OrdersListPage() {
     }
     setPrintOrders(rows);
     window.requestAnimationFrame(() => window.print());
+  };
+
+  const openDetail = (id: string) => setDetailOrderId(id);
+
+  const stopRowClick = (event: SyntheticEvent) => {
+    event.stopPropagation();
   };
 
   return (
@@ -526,12 +541,21 @@ export default function OrdersListPage() {
                       <motion.tr
                         key={o.id}
                         variants={fadeUp}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openDetail(o.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openDetail(o.id);
+                          }
+                        }}
                         className={cn(
-                          "group relative border-b border-border/30 align-top transition-colors hover:bg-accent/30",
+                          "group relative cursor-pointer border-b border-border/30 align-top transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                           checked && "bg-accent/40",
                         )}
                       >
-                        <td className="relative px-3 py-2">
+                        <td className="relative px-3 py-2" onClick={stopRowClick}>
                           <span
                             className={cn(
                               "absolute inset-y-0 left-0 w-[2px] origin-top transition-transform duration-300",
@@ -549,13 +573,12 @@ export default function OrdersListPage() {
                           />
                         </td>
                         <td className="min-w-0 px-2 py-2">
-                          <Link
-                            href={`/orders/${o.id}`}
-                            className="block truncate font-mono text-xs font-medium leading-5 text-primary hover:underline"
+                          <span
+                            className="block truncate font-mono text-xs font-medium leading-5 text-primary"
                             title={o.public_no}
                           >
                             {o.public_no}
-                          </Link>
+                          </span>
                           <div className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden">
                             <OrderTypeBadge type={o.order_type} />
                             {o.internal_tag && (
@@ -567,6 +590,14 @@ export default function OrdersListPage() {
                               </span>
                             )}
                           </div>
+                          {o.accessory_notes && (
+                            <div
+                              className="mt-0.5 truncate text-[11px] text-muted-foreground"
+                              title={o.accessory_notes}
+                            >
+                              备注：{o.accessory_notes}
+                            </div>
+                          )}
                         </td>
                         <td className="min-w-0 px-2 py-2">
                           <div className="truncate font-medium leading-5" title={o.customer_name}>
@@ -617,7 +648,7 @@ export default function OrdersListPage() {
                             {new Date(o.created_at).toLocaleDateString("zh-CN")}
                           </div>
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-2" onClick={stopRowClick}>
                           {(() => {
                             const next = getNextActions(o.status);
                             return (
@@ -690,49 +721,48 @@ export default function OrdersListPage() {
                       className="absolute inset-y-0 left-0 w-[3px]"
                       style={{ background: "var(--gradient-brand)" }}
                     />
-                    <div className="space-y-1.5 pl-2">
-                      <div className="flex min-w-0 items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                          <span className="truncate font-mono text-xs font-medium text-primary">
-                            {o.public_no}
+                    <div className="grid min-w-0 grid-cols-[64px_minmax(0,1fr)_76px] gap-2 pl-2">
+                      <div className="flex min-w-0 flex-col items-start gap-1">
+                        <StatusBadge status={o.status} className="max-w-full text-[10px]" />
+                        <OrderTypeBadge type={o.order_type} className="text-[10px]" />
+                        {o.internal_tag && (
+                          <span className="max-w-full truncate whitespace-nowrap rounded bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground">
+                            {o.internal_tag}
                           </span>
-                          <OrderTypeBadge type={o.order_type} className="text-[11px]" />
-                          {o.internal_tag && (
-                            <span className="truncate whitespace-nowrap rounded border border-status-warn-foreground/20 bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground">
-                              {o.internal_tag}
-                            </span>
-                          )}
-                        </div>
-                        <StatusBadge status={o.status} />
+                        )}
                       </div>
 
-                      <div className="grid min-w-0 grid-cols-[1fr_auto] items-start gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium leading-5">
-                            {o.customer_name || "-"}
-                            <span className="ml-1 text-xs font-normal text-muted-foreground">
-                              · {o.device_label}
-                            </span>
-                          </div>
-                          <PhoneText value={o.customer_phone} className="block truncate" />
+                      <div className="min-w-0">
+                        <div className="truncate font-mono text-xs font-medium text-primary">
+                          {o.public_no}
                         </div>
-                        <div className="text-right">
-                          <MoneyText
-                            amount={o.quotation_amount}
-                            className="text-sm font-semibold"
-                          />
-                          <div className="text-[10px] leading-4 text-muted-foreground">
-                            {o.is_paid ? "已结清" : "未结清"}
-                          </div>
+                        <div className="truncate text-sm font-medium leading-5">
+                          {o.customer_name || "-"}
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">
+                            · {o.device_label}
+                          </span>
                         </div>
+                        <PhoneText value={o.customer_phone} className="block truncate" />
+                        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {o.issue_description}
+                        </div>
+                        {o.accessory_notes && (
+                          <div className="truncate text-xs text-muted-foreground">
+                            备注：{o.accessory_notes}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span className="min-w-0 truncate">{o.issue_description}</span>
-                        <span className="shrink-0 whitespace-nowrap">
-                          {o.technician_name || "-"} ·{" "}
+                      <div className="text-right">
+                        <MoneyText amount={o.quotation_amount} className="text-sm font-semibold" />
+                        <div className="text-[10px] leading-4 text-muted-foreground">
+                          {o.is_paid ? "已结清" : "未结清"}
+                        </div>
+                        <div className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                          {o.technician_name || "-"}
+                          <br />
                           {new Date(o.created_at).toLocaleDateString("zh-CN")}
-                        </span>
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -812,6 +842,18 @@ export default function OrdersListPage() {
         )}
       </AnimatePresence>
       <OrderListPrintSheet orders={printOrders} />
+      <Dialog
+        open={Boolean(detailOrderId)}
+        onOpenChange={(open) => !open && setDetailOrderId(null)}
+      >
+        <DialogContent className="max-h-[90vh] max-w-[1120px] overflow-y-auto p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>工单详情</DialogTitle>
+            <DialogDescription>在弹窗中查看和处理当前工单详情。</DialogDescription>
+          </DialogHeader>
+          {detailOrderId && <OrderDetailScreen id={detailOrderId} surface="dialog" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

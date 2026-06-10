@@ -43,6 +43,7 @@ export function OrderHero({
   onPay,
   onPrint,
   onCancel,
+  showBackLink = true,
 }: {
   order: OrderDetail["order"];
   customerName?: string;
@@ -54,16 +55,21 @@ export function OrderHero({
   onPay: () => void;
   onPrint: () => void;
   onCancel: () => void;
+  showBackLink?: boolean;
 }) {
   return (
     <div className="glass-card mb-6 px-5 py-5">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-xs">
-          <Link href="/orders">
-            <ArrowLeft className="size-3.5" /> 返回列表
-          </Link>
-        </Button>
-        <span className="opacity-50">/</span>
+        {showBackLink && (
+          <>
+            <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-xs">
+              <Link href="/orders">
+                <ArrowLeft className="size-3.5" /> 返回列表
+              </Link>
+            </Button>
+            <span className="opacity-50">/</span>
+          </>
+        )}
         <span>工单详情</span>
       </div>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">

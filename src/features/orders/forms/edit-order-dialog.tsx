@@ -19,6 +19,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { EditField } from "@/features/orders/forms/edit-field";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
@@ -156,17 +163,38 @@ export function EditOrderDialog({
                   onChange={(event) => setForm({ ...form, diagnosis_result: event.target.value })}
                 />
               </EditField>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-4">
                 <EditField label="技师" required>
                   <Input
                     value={form.technician_name}
                     onChange={(event) => setForm({ ...form, technician_name: event.target.value })}
                   />
                 </EditField>
-                <EditField label="内部标签">
+                <EditField label="优先标签">
+                  <Select
+                    value={form.internal_tag || "none"}
+                    onValueChange={(internal_tag) =>
+                      setForm({
+                        ...form,
+                        internal_tag: internal_tag === "none" ? "" : internal_tag,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="无" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">无</SelectItem>
+                      <SelectItem value="VIP">VIP</SelectItem>
+                      <SelectItem value="加急">加急</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </EditField>
+                <EditField label="客户留存备注">
                   <Input
-                    value={form.internal_tag ?? ""}
-                    onChange={(event) => setForm({ ...form, internal_tag: event.target.value })}
+                    value={form.accessory_notes ?? ""}
+                    onChange={(event) => setForm({ ...form, accessory_notes: event.target.value })}
+                    placeholder="SIM卡托、手机壳、充电器"
                   />
                 </EditField>
                 <EditField label="质保">

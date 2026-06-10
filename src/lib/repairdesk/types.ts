@@ -67,6 +67,7 @@ export interface RepairOrder {
   approval_confirmed_at?: string;
   technician_name: string;
   internal_tag?: string;
+  accessory_notes?: string;
   warranty_text?: string;
   completed_at?: string;
   delivered_at?: string;
@@ -278,6 +279,7 @@ export interface CreateOrderInput {
   issue_description: string;
   technician_name: string;
   internal_tag?: string;
+  accessory_notes?: string;
   warranty_text?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
@@ -294,6 +296,7 @@ export interface UpdateOrderInput {
   diagnosis_result?: string;
   technician_name: string;
   internal_tag?: string;
+  accessory_notes?: string;
   warranty_text?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;

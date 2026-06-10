@@ -100,8 +100,8 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
               <PrintLine label="Stato" value={statusItalian[order.status]} />
               <PrintLine label="Durata garanzia" value={toItalianWarranty(order.warranty_text)} />
               <PrintLine
-                label="Etichette accessori"
-                value={translatePrintableText(order.internal_tag) || "-"}
+                label="Accessori consegnati"
+                value={translatePrintableText(order.accessory_notes) || "-"}
               />
               {orderUrl && <PrintLine label="Link scheda" value={orderUrl} />}
             </PrintSection>

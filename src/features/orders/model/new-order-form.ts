@@ -15,6 +15,7 @@ export interface NewOrderFormState {
   issue: string;
   technician: string;
   internalTag: string;
+  accessoryNotes: string;
   warrantyText: string;
   deposit: number;
   faults: SelectedFault[];
@@ -32,6 +33,7 @@ export const initialNewOrderForm: NewOrderFormState = {
   issue: "",
   technician: "",
   internalTag: "",
+  accessoryNotes: "",
   warrantyText: "6个月",
   deposit: 0,
   faults: [],

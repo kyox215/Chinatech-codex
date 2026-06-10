@@ -43,7 +43,13 @@ const tabs = [
 
 type TabKey = (typeof tabs)[number]["key"];
 
-export function OrderDetailScreen({ id }: { id: string }) {
+export function OrderDetailScreen({
+  id,
+  surface = "page",
+}: {
+  id: string;
+  surface?: "page" | "dialog";
+}) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("overview");
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -119,7 +125,12 @@ export function OrderDetailScreen({ id }: { id: string }) {
 
   if (isLoading || !data) {
     return (
-      <div className="mx-auto max-w-4xl space-y-3 px-4 pb-12 pt-4 md:px-6">
+      <div
+        className={cn(
+          "space-y-3",
+          surface === "page" ? "mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6" : "p-4",
+        )}
+      >
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-9 w-72" />
         <Skeleton className="h-44 w-full" />
@@ -135,9 +146,14 @@ export function OrderDetailScreen({ id }: { id: string }) {
   const deviceImei =
     order.device_snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei || "";
   const deviceNotes = order.device_snapshot?.device_notes || device?.device_notes;
+  const accessoryNotes = order.accessory_notes;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6">
+    <div
+      className={cn(
+        surface === "page" ? "mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6" : "px-4 pb-4 pt-3 md:px-5",
+      )}
+    >
       <OrderHero
         order={order}
         customerName={customer?.name}
@@ -149,6 +165,7 @@ export function OrderDetailScreen({ id }: { id: string }) {
         onPay={() => setPayOpen(true)}
         onPrint={() => window.print()}
         onCancel={() => setCancelOpen(true)}
+        showBackLink={surface === "page"}
       />
 
       <OrderDetailTabs tabs={tabs} activeTab={tab} onChange={setTab} />
@@ -171,6 +188,7 @@ export function OrderDetailScreen({ id }: { id: string }) {
               deviceLabel={deviceLabel}
               deviceImei={deviceImei}
               deviceNotes={deviceNotes}
+              accessoryNotes={accessoryNotes}
               onEdit={() => setEditOpen(true)}
               onApproval={() => setApprovalOpen(true)}
               onPay={() => setPayOpen(true)}

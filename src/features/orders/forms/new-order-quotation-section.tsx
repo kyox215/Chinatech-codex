@@ -171,13 +171,32 @@ export function NewOrderQuotationSection({
           </FormItem>
         </div>
 
-        <FormItem label="配件标签">
-          <Input
-            value={form.internalTag}
-            onChange={(event) => setForm({ ...form, internalTag: event.target.value })}
-            placeholder="如：SIM卡，手机壳"
-          />
-        </FormItem>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormItem label="优先标签">
+            <Select
+              value={form.internalTag || "none"}
+              onValueChange={(internalTag) =>
+                setForm({ ...form, internalTag: internalTag === "none" ? "" : internalTag })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="无" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">无</SelectItem>
+                <SelectItem value="VIP">VIP</SelectItem>
+                <SelectItem value="加急">加急</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormItem>
+          <FormItem label="客户留存备注">
+            <Input
+              value={form.accessoryNotes}
+              onChange={(event) => setForm({ ...form, accessoryNotes: event.target.value })}
+              placeholder="如：SIM卡托、手机壳、充电器"
+            />
+          </FormItem>
+        </div>
 
         <div className="grid gap-2">
           <div className="text-xs font-medium text-muted-foreground">工单类型</div>

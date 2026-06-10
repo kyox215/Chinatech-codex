@@ -14,6 +14,7 @@ export function buildEditForm(data: OrderDetail): UpdateOrderInput {
     diagnosis_result: order.diagnosis_result ?? "",
     technician_name: order.technician_name,
     internal_tag: order.internal_tag ?? "",
+    accessory_notes: order.accessory_notes ?? "",
     warranty_text: order.warranty_text ?? "",
     fault_prices: order.fault_prices.length ? order.fault_prices : [{ name: "", price: 0 }],
     deposit_amount: order.deposit_amount,
