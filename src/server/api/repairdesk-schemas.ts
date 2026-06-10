@@ -48,6 +48,11 @@ export const orderListFiltersSchema = z
   })
   .passthrough() satisfies z.ZodType<OrderListFilters>;
 
+export const orderListPageInputSchema = orderListFiltersSchema.extend({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
+});
+
 export const customerListFiltersSchema = z
   .object({
     search: optionalText,
