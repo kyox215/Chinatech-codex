@@ -140,6 +140,11 @@ export interface OrderListFilters {
   overdue?: "approval" | "pickup" | "any";
 }
 
+export interface OrderListPageInput extends OrderListFilters {
+  page?: number;
+  pageSize?: number;
+}
+
 export interface OrderListItem extends RepairOrder {
   customer_name: string;
   customer_phone: string;
@@ -149,6 +154,14 @@ export interface OrderListItem extends RepairOrder {
   supplier_color?: string;
   approval_overdue: boolean;
   pickup_overdue: boolean;
+}
+
+export interface OrderListResult {
+  items: OrderListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
 }
 
 export interface OrderStats {
