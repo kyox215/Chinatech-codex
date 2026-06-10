@@ -3,6 +3,8 @@ import type {
   CreateOrderInput,
   OrderListFilters,
   OrderListItem,
+  OrderListPageInput,
+  OrderListResult,
   OrderWhatsappTemplateKind,
   RepairOrder,
   UpdateOrderInput,
@@ -75,6 +77,20 @@ export async function listOrders(filters: OrderListFilters = {}): Promise<OrderL
     if (d !== 0) return d;
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
   });
+}
+
+export async function listOrdersPage(input: OrderListPageInput = {}): Promise<OrderListResult> {
+  const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
+  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
+  const all = await listOrders(input);
+  const start = (page - 1) * pageSize;
+  return {
+    items: all.slice(start, start + pageSize),
+    total: all.length,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
+  };
 }
 
 // Used to compute KPIs without re-running filters on the same dataset.
