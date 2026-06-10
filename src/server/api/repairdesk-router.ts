@@ -8,6 +8,7 @@ import {
   getOrderStats,
   getRepairDeskOptions,
   listOrders,
+  listOrdersPage,
   recordPayment,
   sendApprovalRequest,
   sendNotification,
@@ -47,6 +48,7 @@ import {
   idBodySchema,
   notificationBodySchema,
   orderListFiltersSchema,
+  orderListPageInputSchema,
   paymentBodySchema,
   transitionOrderBodySchema,
   updateOrderBodySchema,
@@ -88,6 +90,8 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
     switch (path) {
       case "orders/list":
         return ok(await listOrders(orderListFiltersSchema.parse(body)));
+      case "orders/list-page":
+        return ok(await listOrdersPage(orderListPageInputSchema.parse(body)));
       case "customers/list":
         return ok(await listCustomers(customerListFiltersSchema.parse(body)));
       case "orders/create":
