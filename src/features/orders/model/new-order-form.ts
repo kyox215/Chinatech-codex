@@ -1,9 +1,9 @@
 import type { SelectedFault } from "@/components/orders/fault-diagnosis-picker";
-import type { normalizeInitialOrderStatus } from "@/lib/mock/workflow";
+import type { RepairOrderStatus } from "@/lib/mock/enums";
 
 export interface NewOrderFormState {
   type: "quick_repair" | "dropoff_repair";
-  status: ReturnType<typeof normalizeInitialOrderStatus>;
+  status: RepairOrderStatus;
   customerId?: string;
   customerName: string;
   customerPhone: string;
@@ -13,10 +13,11 @@ export interface NewOrderFormState {
   imei: string;
   deviceNotes: string;
   issue: string;
-  technician: string;
   internalTag: string;
   accessoryNotes: string;
   warrantyText: string;
+  warrantyMonths: number;
+  warrantyChangeReason: string;
   deposit: number;
   faults: SelectedFault[];
 }
@@ -31,14 +32,13 @@ export const initialNewOrderForm: NewOrderFormState = {
   imei: "",
   deviceNotes: "",
   issue: "",
-  technician: "",
   internalTag: "",
   accessoryNotes: "",
   warrantyText: "6个月",
+  warrantyMonths: 6,
+  warrantyChangeReason: "",
   deposit: 0,
   faults: [],
 };
 
-export const fallbackTechnicians = ["陈师傅", "李工", "王师傅", "周工", "黄师傅"];
 export const brandSuggestions = ["Apple", "Samsung", "Huawei", "Xiaomi", "OPPO", "Vivo", "Honor"];
-export const warrantyOptions = ["无保修", "3个月", "6个月", "12个月"];

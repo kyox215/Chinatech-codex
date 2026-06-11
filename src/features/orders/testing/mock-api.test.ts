@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CreateOrderInput } from "@/lib/repairdesk/types";
+import type { CreateOrderInput, PatchOrderInput, UpdateOrderInput } from "@/lib/repairdesk/types";
 import {
   createOrder,
   getOrder,
@@ -10,26 +10,29 @@ import {
   sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
+  updateOrder,
 } from "./mock-api";
 
 let seq = 0;
 
-async function createMockOrder(input: Partial<CreateOrderInput> = {}) {
+async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator = "Chen") {
   seq += 1;
-  const result = await createOrder({
-    customer_name: `Cliente Test ${seq}`,
-    customer_phone: `+39333000${String(seq).padStart(4, "0")}`,
-    device_brand: "Apple",
-    device_model: `iPhone Test ${seq}`,
-    device_imei: `TESTIMEI${seq}`,
-    order_type: "quick_repair",
-    status: "new",
-    issue_description: "屏幕碎裂",
-    technician_name: "Chen",
-    fault_prices: [{ name: "屏幕", price: 120, note: "原厂 品质" }],
-    deposit_amount: 20,
-    ...input,
-  });
+  const result = await createOrder(
+    {
+      customer_name: `Cliente Test ${seq}`,
+      customer_phone: `+39333000${String(seq).padStart(4, "0")}`,
+      device_brand: "Apple",
+      device_model: `iPhone Test ${seq}`,
+      device_imei: `TESTIMEI${seq}`,
+      order_type: "quick_repair",
+      status: "new",
+      issue_description: "屏幕碎裂",
+      fault_prices: [{ name: "屏幕", price: 120, note: "原厂 品质" }],
+      deposit_amount: 20,
+      ...input,
+    },
+    operator,
+  );
   return result.id;
 }
 
@@ -112,6 +115,18 @@ describe("mock order WhatsApp notification workflow", () => {
 });
 
 describe("mock order inline editing workflow", () => {
+  it("assigns technician from the creator account and ignores client spoofing", async () => {
+    const id = await createMockOrder(
+      { technician_name: "Spoofed Tech" } as Partial<CreateOrderInput> & {
+        technician_name: string;
+      },
+      "ALESSIO",
+    );
+
+    const detail = await getOrder(id);
+    expect(detail.order.technician_name).toBe("ALESSIO");
+  });
+
   it("stores backup phones from multi-phone order creation and finds them in search", async () => {
     const id = await createMockOrder({
       customer_phone: "+39 366 100 200 / +39 366 300 400",
@@ -155,6 +170,49 @@ describe("mock order inline editing workflow", () => {
         changes: { issue_description: "旧页面覆盖" },
       }),
     ).rejects.toThrow("工单已被更新");
+  });
+
+  it("rejects technician changes through inline patching", async () => {
+    const id = await createMockOrder({}, "Original Tech");
+    const before = await getOrder(id);
+
+    await expect(
+      patchOrder(id, {
+        expected_updated_at: before.order.updated_at,
+        changes: { technician_name: "Other Tech" } as unknown as PatchOrderInput["changes"],
+      }),
+    ).rejects.toThrow("不可通过快速编辑修改");
+
+    const after = await getOrder(id);
+    expect(after.order.technician_name).toBe("Original Tech");
+  });
+
+  it("does not change technician during full order edits", async () => {
+    const id = await createMockOrder({}, "Original Tech");
+    const before = await getOrder(id);
+
+    await updateOrder(
+      id,
+      {
+        customer_name: "Cliente Editato",
+        customer_phone: before.order.customer_phone,
+        device_brand: "Samsung",
+        device_model: "A54",
+        device_imei: before.order.device_imei,
+        issue_description: "Display rotto",
+        diagnosis_result: "Display da sostituire",
+        accessory_notes: "SIM card",
+        warranty_text: "6个月",
+        fault_prices: [{ name: "Display", price: 140 }],
+        deposit_amount: 20,
+        technician_name: "Other Tech",
+      } as UpdateOrderInput & { technician_name: string },
+      "Editing Operator",
+    );
+
+    const after = await getOrder(id);
+    expect(after.order.customer_name).toBe("Cliente Editato");
+    expect(after.order.technician_name).toBe("Original Tech");
   });
 
   it("updates finance only through the finance patch flow", async () => {

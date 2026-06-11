@@ -3,19 +3,25 @@ import { z } from "zod";
 
 import {
   batchTransition,
+  createOrderWorkflowStatus,
   createOrder,
   getOrder,
   getOrderStats,
   getRepairDeskOptions,
+  listOrderWorkflow,
   listOrders,
   listOrdersPage,
   patchOrder,
   patchOrderFinance,
   recordPayment,
+  reorderOrderWorkflowStatuses,
   sendApprovalRequest,
   sendNotification,
   sendWhatsappNotification,
+  setOrderWorkflowStatusEnabled,
   transitionOrder,
+  updateOrderWorkflowStatus,
+  updateOrderWorkflowTransitions,
   updateOrder,
 } from "@/features/orders/server/order.service";
 import {
@@ -26,6 +32,7 @@ import {
   getCustomerDevices,
   getCustomerDetail,
   listCustomers,
+  listCustomersPage,
   searchCustomers,
   sendCustomerMessage,
   setCustomerTags,
@@ -81,6 +88,7 @@ import {
   customerFollowupCreateBodySchema,
   customerIdBodySchema,
   customerListFiltersSchema,
+  customerListPageInputSchema,
   customerMessageBodySchema,
   customerSearchBodySchema,
   customerTagsUpdateBodySchema,
@@ -102,6 +110,11 @@ import {
   onboardingRequestBodySchema,
   orderListFiltersSchema,
   orderListPageInputSchema,
+  orderWorkflowStatusCreateBodySchema,
+  orderWorkflowStatusEnabledBodySchema,
+  orderWorkflowStatusReorderBodySchema,
+  orderWorkflowStatusUpdateBodySchema,
+  orderWorkflowTransitionsUpdateBodySchema,
   patchOrderBodySchema,
   patchOrderFinanceBodySchema,
   paymentBodySchema,
@@ -123,6 +136,7 @@ const supabaseSource = {
   createCustomerFollowup,
   createInventoryIntake,
   createOrder,
+  createOrderWorkflowStatus,
   createStore,
   deleteCustomerDevice,
   getCustomerDevices,
@@ -138,9 +152,11 @@ const supabaseSource = {
   importElectronicsCsvPreview,
   inviteStoreMember,
   listCustomers,
+  listCustomersPage,
   listInventoryItems,
   listInventoryItemsPage,
   listMessageTemplates,
+  listOrderWorkflow,
   listOrders,
   listOrdersPage,
   listPlatformOnboardingRequests,
@@ -150,6 +166,7 @@ const supabaseSource = {
   recordInventoryCheck,
   recordInventoryTransaction,
   recordPayment,
+  reorderOrderWorkflowStatuses,
   renderMessageTemplatePreview,
   resetMessageTemplate,
   rejectOnboardingRequest,
@@ -159,6 +176,7 @@ const supabaseSource = {
   sendNotification,
   sendWhatsappNotification,
   sellInventoryItem,
+  setOrderWorkflowStatusEnabled,
   setCustomerTags,
   submitOnboardingRequest,
   switchActiveStore,
@@ -168,6 +186,8 @@ const supabaseSource = {
   updateInventoryItem,
   updateMessageTemplate,
   updateOrder,
+  updateOrderWorkflowStatus,
+  updateOrderWorkflowTransitions,
   updateStoreSettings,
   upsertCustomerDevice,
 };
@@ -246,6 +266,8 @@ export async function handleRepairDeskGet(path: string) {
         return ok(await api.listPlatformOnboardingRequests(actor));
       case "order-stats":
         return ok(await api.getOrderStats(actor));
+      case "order-workflow":
+        return ok(await api.listOrderWorkflow(actor));
       case "options":
         return ok(await api.getRepairDeskOptions(actor));
       case "inventory/stats":
@@ -289,6 +311,8 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok(await api.listOrdersPage(orderListPageInputSchema.parse(body), actor));
       case "customers/list":
         return ok(await api.listCustomers(customerListFiltersSchema.parse(body), actor));
+      case "customers/list-page":
+        return ok(await api.listCustomersPage(customerListPageInputSchema.parse(body), actor));
       case "inventory/list":
         return ok(await api.listInventoryItems(inventoryListFiltersSchema.parse(body), actor));
       case "inventory/list-page":
@@ -388,6 +412,51 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok(
           await auditGeneric(actor, "transition", "repair_order", "batch", { ids, to }, () =>
             api.batchTransition(ids, to, actor),
+          ),
+        );
+      }
+      case "order-workflow/status/create": {
+        const { input } = orderWorkflowStatusCreateBodySchema.parse(body);
+        return ok(
+          await auditGeneric(actor, "create", "order_workflow_status", "new", input, () =>
+            api.createOrderWorkflowStatus(input, actor),
+          ),
+        );
+      }
+      case "order-workflow/status/update": {
+        const { id, input } = orderWorkflowStatusUpdateBodySchema.parse(body);
+        return ok(
+          await auditGeneric(actor, "update", "order_workflow_status", id, input, () =>
+            api.updateOrderWorkflowStatus(id, input, actor),
+          ),
+        );
+      }
+      case "order-workflow/status/reorder": {
+        const input = orderWorkflowStatusReorderBodySchema.parse(body);
+        return ok(
+          await auditGeneric(actor, "reorder", "order_workflow_status", "batch", input, () =>
+            api.reorderOrderWorkflowStatuses(input, actor),
+          ),
+        );
+      }
+      case "order-workflow/status/enabled": {
+        const input = orderWorkflowStatusEnabledBodySchema.parse(body);
+        return ok(
+          await auditGeneric(actor, "update", "order_workflow_status", input.id, input, () =>
+            api.setOrderWorkflowStatusEnabled(input, actor),
+          ),
+        );
+      }
+      case "order-workflow/transitions/update": {
+        const input = orderWorkflowTransitionsUpdateBodySchema.parse(body);
+        return ok(
+          await auditGeneric(
+            actor,
+            "update",
+            "order_workflow_transition",
+            input.from_status_code,
+            input,
+            () => api.updateOrderWorkflowTransitions(input, actor),
           ),
         );
       }

@@ -19,16 +19,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
+import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { EditField } from "@/features/orders/forms/edit-field";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
+import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
+import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
 import type { FaultPriceItem, OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
 
@@ -67,7 +64,8 @@ export function EditOrderDialog({
     form.device_brand.trim() &&
     form.device_model.trim() &&
     form.issue_description.trim() &&
-    form.technician_name.trim() &&
+    (!warrantyReasonRequired(form.warranty_months ?? 6, 6) ||
+      form.warranty_change_reason?.trim()) &&
     Number(form.deposit_amount ?? 0) <= quotation;
 
   const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
@@ -78,7 +76,9 @@ export function EditOrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[min(820px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-y-auto p-4 sm:p-5">
+      <DialogContent
+        className={`${componentOverlay.modalLg} max-h-[calc(100svh-24px)] overflow-y-auto p-4 sm:p-5`}
+      >
         <DialogHeader>
           <DialogTitle>编辑工单</DialogTitle>
           <DialogDescription>
@@ -164,23 +164,35 @@ export function EditOrderDialog({
                 />
               </EditField>
               <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-                <EditField label="技师" required>
-                  <Input
-                    value={form.technician_name}
-                    onChange={(event) => setForm({ ...form, technician_name: event.target.value })}
-                  />
+                <EditField label="技师">
+                  <div
+                    className="flex h-10 min-w-0 items-center rounded-md border border-border/70 bg-surface-muted/25 px-3 text-sm font-medium"
+                    title={data.order.technician_name || "—"}
+                  >
+                    <span className="truncate">{data.order.technician_name || "—"}</span>
+                  </div>
                 </EditField>
                 <EditField label="客户留存备注">
-                  <Input
+                  <AccessoryNotesPicker
                     value={form.accessory_notes ?? ""}
-                    onChange={(event) => setForm({ ...form, accessory_notes: event.target.value })}
-                    placeholder="SIM卡托、手机壳、充电器"
+                    onChange={(accessory_notes) => setForm({ ...form, accessory_notes })}
+                    compact
                   />
                 </EditField>
                 <EditField label="质保">
-                  <Input
-                    value={form.warranty_text ?? ""}
-                    onChange={(event) => setForm({ ...form, warranty_text: event.target.value })}
+                  <WarrantyPicker
+                    valueMonths={form.warranty_months}
+                    valueText={form.warranty_text}
+                    reason={form.warranty_change_reason}
+                    compact
+                    onChange={(warranty) =>
+                      setForm({
+                        ...form,
+                        warranty_months: warranty.warranty_months,
+                        warranty_text: warranty.warranty_text,
+                        warranty_change_reason: warranty.warranty_change_reason,
+                      })
+                    }
                   />
                 </EditField>
               </div>

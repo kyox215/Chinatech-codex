@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils";
 import {
   approvalMeta,
+  getStatusMeta,
   orderTypeMeta,
-  statusMeta,
   type ApprovalStatus,
   type RepairOrderStatus,
   type RepairOrderType,
+  type StatusTone,
 } from "@/lib/mock/enums";
 import { formatMoney } from "@/lib/money";
 
@@ -67,15 +68,19 @@ function Pill({
 
 export function StatusBadge({
   status,
+  label,
+  tone,
   className,
 }: {
   status: RepairOrderStatus;
+  label?: string;
+  tone?: StatusTone;
   className?: string;
 }) {
-  const m = statusMeta[status];
+  const m = getStatusMeta(status);
   return (
-    <Pill tone={m.tone} className={className}>
-      {m.label}
+    <Pill tone={tone ?? m.tone} className={className}>
+      {label ?? m.label}
     </Pill>
   );
 }

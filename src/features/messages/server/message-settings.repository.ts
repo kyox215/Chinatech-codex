@@ -13,6 +13,11 @@ import {
   templateIdForStore,
   withStoreSettingsDefaults,
 } from "@/features/messages/model/message-template-defaults";
+import {
+  formatWarrantyText,
+  normalizeWarrantyMonths,
+  parseWarrantyMonths,
+} from "@/features/orders/model/order-warranty";
 
 const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -52,6 +57,7 @@ export async function getStoreSettings(storeId = DEFAULT_STORE_ID): Promise<Stor
       store_whatsapp: defaults.store_whatsapp,
       store_email: defaults.store_email,
       default_order_warranty_text: defaults.default_order_warranty_text,
+      default_order_warranty_months: defaults.default_order_warranty_months,
       default_inventory_warranty_months: defaults.default_inventory_warranty_months,
       print_footer: defaults.print_footer,
       message_signature: defaults.message_signature,
@@ -190,15 +196,21 @@ export async function resetMessageTemplateRow(
 }
 
 function sanitizeStoreSettingsInput(input: StoreSettingsUpdateInput) {
+  const defaultOrderWarrantyMonths = normalizeWarrantyMonths(
+    input.default_order_warranty_months ??
+      parseWarrantyMonths(
+        input.default_order_warranty_text,
+        DEFAULT_STORE_SETTINGS.default_order_warranty_months,
+      ),
+  );
   return {
     store_name: (input.store_name ?? DEFAULT_STORE_SETTINGS.store_name).trim(),
     store_address: (input.store_address ?? DEFAULT_STORE_SETTINGS.store_address).trim(),
     store_phone: (input.store_phone ?? "").trim(),
     store_whatsapp: (input.store_whatsapp ?? "").trim(),
     store_email: (input.store_email ?? "").trim(),
-    default_order_warranty_text: (
-      input.default_order_warranty_text ?? DEFAULT_STORE_SETTINGS.default_order_warranty_text
-    ).trim(),
+    default_order_warranty_text: formatWarrantyText(defaultOrderWarrantyMonths),
+    default_order_warranty_months: defaultOrderWarrantyMonths,
     default_inventory_warranty_months: Math.max(
       0,
       Math.floor(
@@ -241,6 +253,7 @@ function storeSettingsFromRow(row: DbRecord): StoreSettings {
     store_whatsapp: String(row.store_whatsapp ?? ""),
     store_email: String(row.store_email ?? ""),
     default_order_warranty_text: String(row.default_order_warranty_text ?? ""),
+    default_order_warranty_months: Number(row.default_order_warranty_months ?? 6),
     default_inventory_warranty_months: Number(row.default_inventory_warranty_months ?? 12),
     print_footer: String(row.print_footer ?? ""),
     message_signature: String(row.message_signature ?? ""),

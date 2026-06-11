@@ -17,7 +17,7 @@ describe("order tag classification", () => {
       }),
     ).toEqual({
       internalTag: undefined,
-      accessoryNotes: "充电器；SIM卡托 手机壳",
+      accessoryNotes: "充电器、SIM卡托 手机壳",
     });
   });
 

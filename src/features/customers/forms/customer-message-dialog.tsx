@@ -20,9 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CustomerSegmented } from "@/features/customers/forms/customer-filters";
+import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerMessageInput } from "@/lib/repairdesk/api";
 import { normalizePhoneRaw } from "@/shared/lib/phone";
+
+const customerMessageChannels = [
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "sms", label: "SMS" },
+] as const;
 
 export function CustomerMessageDialog({
   open,
@@ -54,25 +59,32 @@ export function CustomerMessageDialog({
   }, [data, open, appOrigin]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>预览客户消息</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={componentOverlay.responsiveContent}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>预览客户消息</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
             客户可见内容使用意大利语。确认后打开对应通道并记录联系历史。
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <CustomerSegmented
+        <div className="min-w-0 space-y-3">
+          <Select
             value={channel}
-            options={[
-              ["whatsapp", "WhatsApp"],
-              ["sms", "SMS"],
-            ]}
-            onChange={(value) => setChannel(value as "whatsapp" | "sms")}
-          />
+            onValueChange={(value) => setChannel(value as "whatsapp" | "sms")}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {customerMessageChannels.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {phoneOptions.length > 1 ? (
             <Select value={phone} onValueChange={setPhone}>
-              <SelectTrigger className="font-mono text-xs">
+              <SelectTrigger className="min-w-0 font-mono text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -84,7 +96,7 @@ export function CustomerMessageDialog({
               </SelectContent>
             </Select>
           ) : (
-            <div className="rounded-md border bg-surface-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+            <div className="truncate rounded-md border bg-surface-muted px-3 py-2 font-mono text-xs text-muted-foreground">
               {phone || "缺少电话号码"}
             </div>
           )}
@@ -95,7 +107,7 @@ export function CustomerMessageDialog({
             className="font-mono text-xs"
           />
         </div>
-        <DialogFooter>
+        <DialogFooter className={componentOverlay.footer}>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

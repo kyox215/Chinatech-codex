@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { Bell, Plus, Search, Store } from "lucide-react";
+import { Bell, Plus, Search, ShieldCheck, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { cn } from "@/lib/utils";
 
 const labels: Record<string, string> = {
@@ -40,7 +41,9 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const crumbs = useCrumbs();
   const pathname = usePathname() ?? "/";
   const router = useRouter();
+  const shell = useStoreShellContext();
   const isOrdersList = pathname === "/orders";
+  const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
 
   const handleNewOrder = () => {
     if (isOrdersList) {
@@ -101,14 +104,26 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
           <Bell className="size-4" />
         </Button>
 
-        <button
-          type="button"
-          className="hidden h-9 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs lg:inline-flex"
+        {shell.isPlatformAdmin ? (
+          <Link
+            href="/platform"
+            className="hidden h-9 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground lg:inline-flex"
+          >
+            <ShieldCheck className="size-3.5 text-primary" />
+            <span className="font-medium">平台</span>
+          </Link>
+        ) : null}
+
+        <Link
+          href="/settings"
+          className="hidden h-9 max-w-44 min-w-0 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground lg:inline-flex"
         >
           <Store className="size-3.5 text-muted-foreground" />
-          <span className="font-medium">华强北旗舰店</span>
-          <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_oklch(0.78_0.18_145)]" />
-        </button>
+          <span className="min-w-0 truncate font-medium">{activeStoreName}</span>
+          {shell.activeStore ? (
+            <span className="size-1.5 shrink-0 rounded-full bg-status-success-foreground" />
+          ) : null}
+        </Link>
 
         <Button
           type="button"

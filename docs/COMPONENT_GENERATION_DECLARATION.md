@@ -172,10 +172,25 @@ export interface ExampleCardProps {
 - 状态不能只靠颜色表达，至少有文本、图标或圆点。
 - 焦点态不能被移除。
 
+### 8.1 Dialog / Sheet / Popover 生成标准
+
+- 默认复用 `src/components/ui/*` 的 `Dialog`、`Sheet`、`Popover`，不要自造 Portal、Overlay 或关闭按钮。
+- `Dialog` 用于桌面详情、确认、新建/编辑；`Sheet` 用于移动筛选、接近全屏流程或侧向辅助面板；`Popover` 只承载轻量菜单、筛选、日期/状态选择，不放长表单或详情页。
+- `Dialog` / `Sheet` 必须包含 title 和 description；视觉隐藏时使用 `sr-only`。`PopoverTrigger` 必须有可访问名称，内容无可见标题时补 `aria-label` 或 `aria-labelledby`。
+- 内容 class 复用 `componentOverlay.content`、`componentOverlay.responsiveContent` 或 `surfaces.popover`；所有浮层限制在 `max-w-[calc(100vw-24px)]` 内，移动 Sheet 接近全屏时使用 `h-[calc(100svh-16px)]`。
+- 弹层内部使用 compact density，长表单 footer 可 sticky；mutation pending 时禁用主操作并保留关闭/取消路径。
+- 额外使用 framer-motion 包裹浮层时，`Dialog` / `Popover` 使用 `overlayTransition`，`Sheet` 使用 `sheetTransition`，不要写散落 spring。
+- 工单详情这类复杂业务 Dialog 使用 `componentOverlay.detailWorkspace` + `detailWorkspace.orderDetailGrid`，外壳必须固定工作面尺寸，Tab 内容不得改变 Dialog 宽高；小表单 Dialog 保持单层容器，不把工作面三列 pattern 用到确认框。
+- 录入人、技师、创建人等归属字段只能只读展示，组件不得新增输入框、Select、inline edit 或 patch payload 来修改它们。
+- 金额输入组件必须以 string draft 驱动输入框，保存前通过共享 helper 转为 number；不要用 `Number(event.target.value)` 直接控制金额输入。
+
 ## 9. 动效声明
 
 - 入场动画用 `fadeUp` / `scaleIn` / `stagger`。
 - 卡片 hover 用 `whileHover={{ y: -2 }}` 或 `cardHover`。
+- Tab、segmented control、导航激活指示器使用 `indicatorSpring`。
+- 批量操作条、底部浮动操作条使用 `floatingBar`。
+- KPI / metric 数字计数默认使用 `metricCountDuration`。
 - 不在组件内部包全局路由 `AnimatePresence`。
 - 列表条目 stagger 间隔 `0.025` 到 `0.06`。
 - 动效不影响布局尺寸，不制造文本重排。

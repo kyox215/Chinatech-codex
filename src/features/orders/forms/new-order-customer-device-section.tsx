@@ -16,6 +16,8 @@ import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-look
 import { FormItem, SectionHeading } from "@/features/orders/forms/new-order-fields";
 import { brandSuggestions, type NewOrderFormState } from "@/features/orders/model/new-order-form";
 import type { Customer, Device } from "@/lib/repairdesk/api";
+import { detailWorkspace } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 
 export function NewOrderCustomerDeviceSection({
   form,
@@ -24,6 +26,7 @@ export function NewOrderCustomerDeviceSection({
   onClearKnownDevices,
   onPickCustomer,
   onSelectKnownDevice,
+  surface = "page",
 }: {
   form: NewOrderFormState;
   setForm: Dispatch<SetStateAction<NewOrderFormState>>;
@@ -31,9 +34,18 @@ export function NewOrderCustomerDeviceSection({
   onClearKnownDevices: () => void;
   onPickCustomer: (customer: Customer) => void | Promise<void>;
   onSelectKnownDevice: (deviceId: string) => void;
+  surface?: "page" | "dialog";
 }) {
+  const shellClass = cn(
+    "h-fit min-w-0",
+    surface === "dialog"
+      ? detailWorkspace.flatPanel
+      : "glass-card border-border/70 p-2.5 shadow-sm sm:p-4",
+  );
+  const Shell = surface === "dialog" ? "section" : Card;
+
   return (
-    <Card className="h-fit min-w-0 border-border/70 p-2.5 shadow-sm sm:p-4">
+    <Shell className={shellClass}>
       <SectionHeading title="客户信息" />
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-1 2xl:grid-cols-2">
         <FormItem label="电话" required>
@@ -135,6 +147,6 @@ export function NewOrderCustomerDeviceSection({
           />
         </FormItem>
       </div>
-    </Card>
+    </Shell>
   );
 }

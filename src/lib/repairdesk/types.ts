@@ -1,4 +1,9 @@
-import type { ApprovalStatus, RepairOrderStatus, RepairOrderType } from "@/lib/mock/enums";
+import type {
+  ApprovalStatus,
+  RepairOrderStatus,
+  RepairOrderType,
+  StatusTone,
+} from "@/lib/mock/enums";
 import type { CurrencyCode } from "@/lib/money";
 
 export interface Customer {
@@ -32,6 +37,98 @@ export interface Supplier {
   name: string;
   short_name: string;
   color: string;
+}
+
+export type OrderWorkflowBucket =
+  | "intake"
+  | "diagnosing"
+  | "quote"
+  | "parts"
+  | "repair"
+  | "pickup"
+  | "done"
+  | "cancelled"
+  | "custom";
+
+export type OrderWorkflowTone = StatusTone;
+
+export interface OrderWorkflowStatus {
+  id: string;
+  store_id: string;
+  code: RepairOrderStatus;
+  label: string;
+  short_label: string;
+  tone: OrderWorkflowTone;
+  bucket: OrderWorkflowBucket;
+  sort_order: number;
+  enabled: boolean;
+  show_in_order_filters: boolean;
+  allowed_for_create: boolean;
+  is_default_create_status: boolean;
+  is_system: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderWorkflowTransition {
+  id: string;
+  store_id: string;
+  from_status_code: RepairOrderStatus;
+  to_status_code: RepairOrderStatus;
+  is_primary: boolean;
+  sort_order: number;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderWorkflow {
+  statuses: OrderWorkflowStatus[];
+  transitions: OrderWorkflowTransition[];
+}
+
+export interface OrderWorkflowStatusCreateInput {
+  code: string;
+  label: string;
+  short_label?: string;
+  tone: OrderWorkflowTone;
+  bucket: OrderWorkflowBucket;
+  sort_order?: number;
+  enabled?: boolean;
+  show_in_order_filters?: boolean;
+  allowed_for_create?: boolean;
+  is_default_create_status?: boolean;
+}
+
+export interface OrderWorkflowStatusUpdateInput {
+  label?: string;
+  short_label?: string;
+  tone?: OrderWorkflowTone;
+  bucket?: OrderWorkflowBucket;
+  sort_order?: number;
+  enabled?: boolean;
+  show_in_order_filters?: boolean;
+  allowed_for_create?: boolean;
+  is_default_create_status?: boolean;
+}
+
+export interface OrderWorkflowStatusReorderInput {
+  items: { id: string; sort_order: number }[];
+}
+
+export interface OrderWorkflowStatusEnabledInput {
+  id: string;
+  enabled: boolean;
+}
+
+export interface OrderWorkflowTransitionsUpdateInput {
+  from_status_code: RepairOrderStatus;
+  transitions: {
+    to_status_code: RepairOrderStatus;
+    enabled: boolean;
+    is_primary?: boolean;
+    sort_order?: number;
+  }[];
 }
 
 export interface FaultPriceItem {
@@ -69,6 +166,10 @@ export interface RepairOrder {
   internal_tag?: string;
   accessory_notes?: string;
   warranty_text?: string;
+  warranty_months?: number;
+  warranty_change_reason?: string;
+  warranty_changed_by?: string;
+  warranty_changed_at?: string;
   completed_at?: string;
   delivered_at?: string;
   pause_reason?: string;
@@ -223,6 +324,11 @@ export interface CustomerListFilters {
   followup?: "all" | "due" | "overdue";
 }
 
+export interface CustomerListPageInput extends CustomerListFilters {
+  page?: number;
+  pageSize?: number;
+}
+
 export interface CustomerListItem extends Customer {
   tags: CustomerTag[];
   device_count: number;
@@ -244,6 +350,16 @@ export interface CustomerStats {
 
 export interface CustomerListResult {
   customers: CustomerListItem[];
+  tags: CustomerTag[];
+  stats: CustomerStats;
+}
+
+export interface CustomerListPageResult {
+  items: CustomerListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
   tags: CustomerTag[];
   stats: CustomerStats;
 }
@@ -277,10 +393,11 @@ export interface CreateOrderInput {
   order_type: RepairOrderType;
   status: RepairOrderStatus;
   issue_description: string;
-  technician_name: string;
   internal_tag?: string;
   accessory_notes?: string;
   warranty_text?: string;
+  warranty_months?: number;
+  warranty_change_reason?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
 }
@@ -294,10 +411,11 @@ export interface UpdateOrderInput {
   device_notes?: string;
   issue_description: string;
   diagnosis_result?: string;
-  technician_name: string;
   internal_tag?: string;
   accessory_notes?: string;
   warranty_text?: string;
+  warranty_months?: number;
+  warranty_change_reason?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
 }
@@ -311,7 +429,6 @@ export interface PatchOrderChanges {
   device_notes?: string;
   issue_description?: string;
   diagnosis_result?: string;
-  technician_name?: string;
   accessory_notes?: string;
   warranty_text?: string;
 }
@@ -868,6 +985,7 @@ export interface StoreSettings {
   store_whatsapp: string;
   store_email: string;
   default_order_warranty_text: string;
+  default_order_warranty_months: number;
   default_inventory_warranty_months: number;
   print_footer: string;
   message_signature: string;
@@ -883,6 +1001,7 @@ export interface StoreSettingsUpdateInput {
   store_whatsapp?: string;
   store_email?: string;
   default_order_warranty_text?: string;
+  default_order_warranty_months?: number;
   default_inventory_warranty_months?: number;
   print_footer?: string;
   message_signature?: string;

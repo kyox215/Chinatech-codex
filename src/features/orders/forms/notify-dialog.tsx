@@ -22,8 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { statusMeta } from "@/lib/mock/enums";
-import type { OrderDetail, OrderWhatsappTemplateKind } from "@/lib/repairdesk/api";
+import { componentOverlay } from "@/lib/component-patterns";
+import type { OrderDetail, OrderWhatsappTemplateKind, OrderWorkflow } from "@/lib/repairdesk/api";
+import { getWorkflowStatusLabel } from "@/features/orders/model/order-workflow";
 import {
   buildOrderWhatsappMessage,
   buildWhatsAppUrl,
@@ -37,6 +38,7 @@ export function NotifyDialog({
   open,
   onOpenChange,
   data,
+  workflow,
   orderUrl,
   busy,
   onConfirm,
@@ -44,6 +46,7 @@ export function NotifyDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   data: OrderDetail;
+  workflow?: OrderWorkflow;
   orderUrl: string;
   busy: boolean;
   onConfirm: (input: {
@@ -75,7 +78,9 @@ export function NotifyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[min(680px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-y-auto p-4 sm:p-5">
+      <DialogContent
+        className={`${componentOverlay.modalMd} max-h-[calc(100svh-24px)] overflow-y-auto p-4 sm:p-5`}
+      >
         <DialogHeader>
           <DialogTitle>预览 WhatsApp 通知</DialogTitle>
           <DialogDescription>
@@ -126,7 +131,7 @@ export function NotifyDialog({
           </div>
           {transitionTo && (
             <div className="rounded-md border border-status-warn-foreground/20 bg-status-warn px-3 py-2 text-xs text-status-warn-foreground">
-              确认发送后将同步流转为「{statusMeta[transitionTo].label}」。
+              确认发送后将同步流转为「{getWorkflowStatusLabel(workflow, transitionTo)}」。
             </div>
           )}
           <div>

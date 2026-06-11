@@ -102,9 +102,26 @@ export const componentForm = {
 } as const;
 
 export const componentOverlay = {
-  content: "glass-strong border-border text-popover-foreground",
+  content:
+    "border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] text-popover-foreground shadow-[var(--shadow-overlay)]",
   responsiveContent:
-    "glass-strong w-[min(960px,calc(100vw-24px))] max-h-[90vh] max-w-[calc(100vw-24px)] overflow-y-auto border-border text-popover-foreground",
+    "w-[min(960px,calc(100vw-24px))] max-h-[calc(100svh-24px)] max-w-[calc(100vw-24px)] overflow-y-auto border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] text-popover-foreground shadow-[var(--shadow-overlay)]",
+  modalSm: "w-[min(520px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  modalMd: "w-[min(680px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  modalLg: "w-[min(860px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  modalWide: "w-[min(1240px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  detailWorkspace:
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1180px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+  formWorkspace:
+    "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1240px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+  body: "min-w-0 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4",
+  section:
+    "min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3",
+  flatSection:
+    "min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 shadow-none",
+  sheetPanel: "h-full min-w-0 overflow-y-auto bg-[var(--surface-workspace-strong)] text-foreground",
+  popoverContent:
+    "max-w-[calc(100vw-24px)] border-[var(--border-panel)] bg-popover text-popover-foreground shadow-[var(--shadow-overlay)]",
   header: "space-y-1.5",
   title: "font-display text-lg font-semibold tracking-tight",
   description: "text-sm text-muted-foreground",

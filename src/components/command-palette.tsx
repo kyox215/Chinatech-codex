@@ -25,6 +25,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { listOrders } from "@/lib/repairdesk/api";
 import { toggleThemePreference } from "@/lib/theme";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 
 type StaticCommandPath =
   | "/"
@@ -45,6 +46,7 @@ export function CommandPalette({
   onOpenChange: (v: boolean) => void;
 }) {
   const router = useRouter();
+  const shell = useStoreShellContext();
   const { data = [] } = useQuery({
     queryKey: ["orders", {}],
     queryFn: () => listOrders(),
@@ -93,9 +95,11 @@ export function CommandPalette({
           <CommandItem onSelect={() => go("/messages")}>
             <MessageSquare className="mr-2 size-4" /> 消息模板
           </CommandItem>
-          <CommandItem onSelect={() => go("/platform")}>
-            <ShieldCheck className="mr-2 size-4" /> 平台审批
-          </CommandItem>
+          {shell.isPlatformAdmin ? (
+            <CommandItem onSelect={() => go("/platform")}>
+              <ShieldCheck className="mr-2 size-4" /> 平台审批
+            </CommandItem>
+          ) : null}
           <CommandItem onSelect={() => go("/settings")}>
             <Settings className="mr-2 size-4" /> 设置
           </CommandItem>

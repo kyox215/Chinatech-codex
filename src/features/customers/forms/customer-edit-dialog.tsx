@@ -13,11 +13,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
-import { CustomerSegmented } from "@/features/customers/forms/customer-filters";
+import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerUpdateInput } from "@/lib/repairdesk/api";
+
+const customerChannelOptions = [
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "sms", label: "SMS" },
+] as const;
 
 export function CustomerEditDialog({
   open,
@@ -39,13 +51,15 @@ export function CustomerEditDialog({
   const canSave = form.name.trim() && form.phone_e164.trim();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>编辑客户</DialogTitle>
-          <DialogDescription>客户姓名和联系方式会实时联动到相关工单显示。</DialogDescription>
+      <DialogContent className={componentOverlay.responsiveContent}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>编辑客户</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
+            客户姓名和联系方式会实时联动到相关工单显示。
+          </DialogDescription>
         </DialogHeader>
         <CustomerFields form={form} setForm={setForm} />
-        <DialogFooter>
+        <DialogFooter className={componentOverlay.footer}>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>
@@ -83,7 +97,7 @@ function CustomerFields({
   setForm: (input: CustomerUpdateInput) => void;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid min-w-0 gap-3 sm:grid-cols-2">
       <CustomerFormField label="姓名" required>
         <Input
           value={form.name}
@@ -114,16 +128,23 @@ function CustomerFields({
         />
       </CustomerFormField>
       <CustomerFormField label="首选通道">
-        <CustomerSegmented
+        <Select
           value={form.preferred_channel ?? "whatsapp"}
-          options={[
-            ["whatsapp", "WhatsApp"],
-            ["sms", "SMS"],
-          ]}
-          onChange={(preferred_channel) =>
+          onValueChange={(preferred_channel) =>
             setForm({ ...form, preferred_channel: preferred_channel as "whatsapp" | "sms" })
           }
-        />
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {customerChannelOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </CustomerFormField>
       <div className="sm:col-span-2">
         <CustomerFormField label="客户备注">
@@ -143,21 +164,21 @@ function CustomerFields({
           />
         </CustomerFormField>
       </div>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex min-w-0 items-center gap-2 text-sm">
         <Checkbox
           checked={form.consent_marketing ?? false}
           onCheckedChange={(checked) => setForm({ ...form, consent_marketing: Boolean(checked) })}
         />
         允许营销触达
       </label>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex min-w-0 items-center gap-2 text-sm">
         <Checkbox
           checked={form.consent_sms ?? false}
           onCheckedChange={(checked) => setForm({ ...form, consent_sms: Boolean(checked) })}
         />
         允许短信通知
       </label>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex min-w-0 items-center gap-2 text-sm">
         <Checkbox
           checked={form.blacklisted ?? false}
           onCheckedChange={(checked) => setForm({ ...form, blacklisted: Boolean(checked) })}

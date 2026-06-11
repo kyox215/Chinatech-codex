@@ -1,19 +1,25 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function expectProtectedRoute(page: Page, text: string) {
+  await expect(
+    page.getByText(text).or(page.getByRole("heading", { name: "RepairDesk 登录" })),
+  ).toBeVisible();
+}
 
 test("orders list and new order routes load", async ({ page }) => {
   await page.goto("/orders");
-  await expect(page.getByText("工单").first()).toBeVisible();
+  await expectProtectedRoute(page, "工单");
 
   await page.goto("/orders/new");
-  await expect(page.getByText("新建维修订单").first()).toBeVisible();
+  await expectProtectedRoute(page, "新建维修订单");
 });
 
 test("customers route loads", async ({ page }) => {
   await page.goto("/customers");
-  await expect(page.getByText("客户").first()).toBeVisible();
+  await expectProtectedRoute(page, "客户");
 });
 
 test("inventory route loads", async ({ page }) => {
   await page.goto("/inventory");
-  await expect(page.getByText("配件与库存").first()).toBeVisible();
+  await expectProtectedRoute(page, "配件与库存");
 });

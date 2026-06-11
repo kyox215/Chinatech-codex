@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Check,
+  GitBranch,
   Mail,
   MessageSquare,
   Phone,
@@ -18,6 +22,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,15 +35,31 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import { ordersKeys } from "@/features/orders/api/query-keys";
+import { formatWarrantyText, ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
+import {
+  getOrderWorkflowBucketLabel,
+  getWorkflowStatuses,
+} from "@/features/orders/model/order-workflow";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import {
   createStore,
+  createOrderWorkflowStatus,
   getStoreMembers,
   getStoreContext,
   getStoreSettings,
   inviteStoreMember,
+  listOrderWorkflow,
+  reorderOrderWorkflowStatuses,
   switchStore,
+  updateOrderWorkflowStatus,
+  updateOrderWorkflowTransitions,
   updateStoreSettings,
+  type OrderWorkflow,
+  type OrderWorkflowBucket,
+  type OrderWorkflowStatusCreateInput,
+  type OrderWorkflowTone,
+  type OrderWorkflowTransitionsUpdateInput,
   type StoreInviteInput,
   type StoreSettings,
 } from "@/lib/repairdesk/api";
@@ -53,6 +74,7 @@ type SettingsDraft = Pick<
   | "store_whatsapp"
   | "store_email"
   | "default_order_warranty_text"
+  | "default_order_warranty_months"
   | "default_inventory_warranty_months"
   | "print_footer"
   | "message_signature"
@@ -71,6 +93,11 @@ export function SettingsScreen() {
   const storeMembersQuery = useQuery({
     queryKey: storesKeys.members,
     queryFn: getStoreMembers,
+  });
+  const workflowQuery = useQuery({
+    queryKey: ordersKeys.workflow(),
+    queryFn: listOrderWorkflow,
+    staleTime: 60_000,
   });
   const settingsData = settingsQuery.data;
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
@@ -129,6 +156,46 @@ export function SettingsScreen() {
       await queryClient.invalidateQueries({ queryKey: storesKeys.members });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "邀请失败"),
+  });
+  const createWorkflowStatusMutation = useMutation({
+    mutationFn: createOrderWorkflowStatus,
+    onSuccess: async () => {
+      toast.success("状态已新增");
+      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "新增状态失败"),
+  });
+  const updateWorkflowStatusMutation = useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: Parameters<typeof updateOrderWorkflowStatus>[1];
+    }) => updateOrderWorkflowStatus(id, input),
+    onSuccess: async () => {
+      toast.success("状态已保存");
+      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "保存状态失败"),
+  });
+  const reorderWorkflowStatusesMutation = useMutation({
+    mutationFn: reorderOrderWorkflowStatuses,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "排序失败"),
+  });
+  const updateWorkflowTransitionsMutation = useMutation({
+    mutationFn: updateOrderWorkflowTransitions,
+    onSuccess: async () => {
+      toast.success("流转关系已保存");
+      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "保存流转关系失败"),
   });
 
   if (settingsQuery.isLoading || !draft) {
@@ -208,6 +275,27 @@ export function SettingsScreen() {
             inviteMemberMutation.mutate({ ...inviteDraft, email });
           }}
         />
+        <OrderWorkflowSection
+          workflow={workflowQuery.data}
+          isLoading={workflowQuery.isLoading}
+          isError={workflowQuery.isError}
+          errorMessage={
+            workflowQuery.error instanceof Error
+              ? workflowQuery.error.message
+              : "状态流配置暂时不可用"
+          }
+          onRetry={() => void workflowQuery.refetch()}
+          isSaving={
+            createWorkflowStatusMutation.isPending ||
+            updateWorkflowStatusMutation.isPending ||
+            reorderWorkflowStatusesMutation.isPending ||
+            updateWorkflowTransitionsMutation.isPending
+          }
+          onCreateStatus={(input) => createWorkflowStatusMutation.mutate(input)}
+          onUpdateStatus={(id, input) => updateWorkflowStatusMutation.mutate({ id, input })}
+          onReorder={(items) => reorderWorkflowStatusesMutation.mutate({ items })}
+          onUpdateTransitions={(input) => updateWorkflowTransitionsMutation.mutate(input)}
+        />
 
         <section className={formLayout.section}>
           <SectionTitle icon={Store} title="店铺资料" />
@@ -255,14 +343,33 @@ export function SettingsScreen() {
         <section className={formLayout.section}>
           <SectionTitle icon={Settings2} title="默认规则" />
           <div className={formLayout.grid}>
-            <Field label="维修默认保修文本" htmlFor="order-warranty">
-              <Input
-                id="order-warranty"
-                value={draft.default_order_warranty_text}
-                onChange={(event) =>
-                  setDraftField(setDraft, "default_order_warranty_text", event.target.value)
-                }
-              />
+            <Field label="维修默认质保" htmlFor="order-warranty">
+              <Select
+                value={String(draft.default_order_warranty_months)}
+                onValueChange={(value) => {
+                  const months = Number(value);
+                  setDraft((current) =>
+                    current
+                      ? {
+                          ...current,
+                          default_order_warranty_months: months,
+                          default_order_warranty_text: formatWarrantyText(months),
+                        }
+                      : current,
+                  );
+                }}
+              >
+                <SelectTrigger id="order-warranty">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_WARRANTY_OPTIONS.map((option) => (
+                    <SelectItem key={option.months} value={String(option.months)}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="二手库存默认保修月数" htmlFor="inventory-warranty">
               <Input
@@ -330,6 +437,435 @@ const roleLabels: Record<string, string> = {
   sales: "销售",
   viewer: "只读",
 };
+
+const workflowToneOptions: { value: OrderWorkflowTone; label: string }[] = [
+  { value: "neutral", label: "中性" },
+  { value: "info", label: "信息" },
+  { value: "progress", label: "进行" },
+  { value: "warn", label: "提醒" },
+  { value: "success", label: "完成" },
+  { value: "danger", label: "异常" },
+];
+
+const workflowBucketOptions: { value: OrderWorkflowBucket; label: string }[] = [
+  "intake",
+  "diagnosing",
+  "quote",
+  "parts",
+  "repair",
+  "pickup",
+  "done",
+  "cancelled",
+  "custom",
+].map((value) => {
+  const bucket = value as OrderWorkflowBucket;
+  return { value: bucket, label: getOrderWorkflowBucketLabel(bucket) };
+});
+
+function defaultNewStatusDraft(): OrderWorkflowStatusCreateInput {
+  return {
+    code: "",
+    label: "",
+    short_label: "",
+    tone: "progress",
+    bucket: "custom",
+    enabled: true,
+    show_in_order_filters: true,
+    allowed_for_create: false,
+    is_default_create_status: false,
+  };
+}
+
+function OrderWorkflowSection({
+  workflow,
+  isLoading,
+  isError,
+  errorMessage,
+  onRetry,
+  isSaving,
+  onCreateStatus,
+  onUpdateStatus,
+  onReorder,
+  onUpdateTransitions,
+}: {
+  workflow?: OrderWorkflow;
+  isLoading: boolean;
+  isError: boolean;
+  errorMessage: string;
+  onRetry: () => void;
+  isSaving: boolean;
+  onCreateStatus: (input: OrderWorkflowStatusCreateInput) => void;
+  onUpdateStatus: (id: string, input: Parameters<typeof updateOrderWorkflowStatus>[1]) => void;
+  onReorder: (items: { id: string; sort_order: number }[]) => void;
+  onUpdateTransitions: (input: OrderWorkflowTransitionsUpdateInput) => void;
+}) {
+  const statuses = useMemo(() => getWorkflowStatuses(workflow), [workflow]);
+  const [newStatus, setNewStatus] = useState<OrderWorkflowStatusCreateInput>(defaultNewStatusDraft);
+  const [fromStatusCode, setFromStatusCode] = useState("");
+  const transitions = workflow?.transitions ?? [];
+
+  useEffect(() => {
+    if (fromStatusCode && statuses.some((status) => status.code === fromStatusCode)) return;
+    setFromStatusCode(statuses[0]?.code ?? "");
+  }, [fromStatusCode, statuses]);
+
+  const moveStatus = (index: number, direction: -1 | 1) => {
+    const next = [...statuses];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    onReorder(
+      next.map((status, itemIndex) => ({ id: status.id, sort_order: (itemIndex + 1) * 10 })),
+    );
+  };
+
+  const updateTransitionTarget = (
+    toStatusCode: string,
+    patch: { enabled?: boolean; is_primary?: boolean },
+  ) => {
+    if (!fromStatusCode) return;
+    const nextTransitions = statuses
+      .filter((status) => status.code !== fromStatusCode)
+      .map((status, index) => {
+        const current = transitions.find(
+          (transition) =>
+            transition.from_status_code === fromStatusCode &&
+            transition.to_status_code === status.code,
+        );
+        const isTarget = status.code === toStatusCode;
+        const enabled = isTarget
+          ? (patch.enabled ?? current?.enabled ?? false)
+          : Boolean(current?.enabled);
+        return {
+          to_status_code: status.code,
+          enabled,
+          is_primary: isTarget
+            ? Boolean(enabled && (patch.is_primary ?? current?.is_primary))
+            : Boolean(enabled && current?.is_primary && !patch.is_primary),
+          sort_order: current?.sort_order ?? (index + 1) * 10,
+        };
+      });
+    onUpdateTransitions({ from_status_code: fromStatusCode, transitions: nextTransitions });
+  };
+
+  return (
+    <section className={formLayout.section}>
+      <SectionTitle icon={GitBranch} title="工单状态流" />
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : isError ? (
+        <div className="rounded-md border border-status-danger-foreground/25 bg-status-danger/10 p-3">
+          <div className="flex min-w-0 items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-danger-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold">状态流未加载</div>
+              <p className="mt-1 break-words text-xs text-muted-foreground">
+                当前不能编辑工单状态流。请先确认数据库迁移已应用，或稍后重试。
+                {errorMessage ? ` ${errorMessage}` : ""}
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" className="h-8" onClick={onRetry}>
+              重试
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid gap-2 rounded-md border border-border/60 bg-surface-muted/30 p-2 md:grid-cols-[9rem_minmax(0,1fr)_7rem_8rem_6rem_auto]">
+            <Input
+              value={newStatus.code}
+              onChange={(event) =>
+                setNewStatus((current) => ({
+                  ...current,
+                  code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
+                }))
+              }
+              placeholder="status_code"
+              className="h-8 text-xs"
+            />
+            <Input
+              value={newStatus.label}
+              onChange={(event) =>
+                setNewStatus((current) => ({ ...current, label: event.target.value }))
+              }
+              placeholder="状态名称"
+              className="h-8 text-xs"
+            />
+            <Input
+              value={newStatus.short_label}
+              onChange={(event) =>
+                setNewStatus((current) => ({ ...current, short_label: event.target.value }))
+              }
+              placeholder="短标签"
+              className="h-8 text-xs"
+            />
+            <Select
+              value={newStatus.bucket}
+              onValueChange={(bucket) =>
+                setNewStatus((current) => ({
+                  ...current,
+                  bucket: bucket as OrderWorkflowBucket,
+                }))
+              }
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {workflowBucketOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={newStatus.tone}
+              onValueChange={(tone) =>
+                setNewStatus((current) => ({ ...current, tone: tone as OrderWorkflowTone }))
+              }
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {workflowToneOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isSaving || !newStatus.code.trim() || !newStatus.label.trim()}
+              onClick={() => {
+                onCreateStatus(newStatus);
+                setNewStatus(defaultNewStatusDraft());
+              }}
+            >
+              <Plus className="mr-1.5 size-3.5" /> 新增状态
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            {statuses.map((status, index) => (
+              <div
+                key={status.id}
+                className="grid gap-2 rounded-md border border-border/60 bg-surface/60 p-2 md:grid-cols-[auto_8.5rem_5.5rem_7.5rem_6rem_repeat(4,auto)_auto]"
+              >
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    disabled={isSaving || index === 0}
+                    onClick={() => moveStatus(index, -1)}
+                    aria-label="上移状态"
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    disabled={isSaving || index === statuses.length - 1}
+                    onClick={() => moveStatus(index, 1)}
+                    aria-label="下移状态"
+                  >
+                    <ArrowDown className="size-3.5" />
+                  </Button>
+                </div>
+                <Input
+                  defaultValue={status.label}
+                  className="h-8 text-xs"
+                  onBlur={(event) => {
+                    const label = event.target.value.trim();
+                    if (label && label !== status.label) onUpdateStatus(status.id, { label });
+                  }}
+                />
+                <Input
+                  defaultValue={status.short_label}
+                  className="h-8 text-xs"
+                  onBlur={(event) => {
+                    const shortLabel = event.target.value.trim();
+                    if (shortLabel !== status.short_label)
+                      onUpdateStatus(status.id, { short_label: shortLabel });
+                  }}
+                />
+                <Select
+                  value={status.bucket}
+                  onValueChange={(bucket) =>
+                    onUpdateStatus(status.id, { bucket: bucket as OrderWorkflowBucket })
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workflowBucketOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={status.tone}
+                  onValueChange={(tone) =>
+                    onUpdateStatus(status.id, { tone: tone as OrderWorkflowTone })
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workflowToneOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <WorkflowCheck
+                  label="启用"
+                  checked={status.enabled}
+                  disabled={isSaving || status.is_default_create_status}
+                  onChange={(checked) => onUpdateStatus(status.id, { enabled: checked })}
+                />
+                <WorkflowCheck
+                  label="列表"
+                  checked={status.show_in_order_filters}
+                  disabled={isSaving}
+                  onChange={(checked) =>
+                    onUpdateStatus(status.id, { show_in_order_filters: checked })
+                  }
+                />
+                <WorkflowCheck
+                  label="新建"
+                  checked={status.allowed_for_create}
+                  disabled={isSaving || status.is_default_create_status}
+                  onChange={(checked) => onUpdateStatus(status.id, { allowed_for_create: checked })}
+                />
+                <WorkflowCheck
+                  label="默认"
+                  checked={status.is_default_create_status}
+                  disabled={isSaving || status.is_default_create_status || !status.enabled}
+                  onChange={(checked) =>
+                    checked && onUpdateStatus(status.id, { is_default_create_status: true })
+                  }
+                />
+                <div className="flex min-w-0 items-center justify-end gap-2">
+                  <code className="truncate rounded bg-surface-muted px-1.5 py-1 text-[10px] text-muted-foreground">
+                    {status.code}
+                  </code>
+                  {status.is_system ? (
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      系统
+                    </Badge>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-md border border-border/60 bg-surface-muted/30 p-3">
+            <div className="mb-3 grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+              <Field label="来源状态" htmlFor="workflow-from-status">
+                <Select value={fromStatusCode} onValueChange={setFromStatusCode}>
+                  <SelectTrigger id="workflow-from-status" className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((status) => (
+                      <SelectItem key={status.code} value={status.code}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <p className="text-xs text-muted-foreground">
+                勾选允许从该状态流转到的目标状态；“主”会成为列表和详情的推荐下一步。
+              </p>
+            </div>
+            <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              {statuses
+                .filter((status) => status.code !== fromStatusCode)
+                .map((status) => {
+                  const transition = transitions.find(
+                    (item) =>
+                      item.from_status_code === fromStatusCode &&
+                      item.to_status_code === status.code,
+                  );
+                  const enabled = Boolean(transition?.enabled);
+                  return (
+                    <div
+                      key={status.code}
+                      className="flex min-w-0 items-center justify-between gap-2 rounded-md border bg-surface px-2 py-1.5"
+                    >
+                      <Checkbox
+                        checked={enabled}
+                        disabled={isSaving}
+                        onCheckedChange={(checked) =>
+                          updateTransitionTarget(status.code, { enabled: Boolean(checked) })
+                        }
+                      />
+                      <span className="min-w-0 flex-1 truncate text-xs">{status.label}</span>
+                      <Button
+                        type="button"
+                        variant={transition?.is_primary ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 px-2 text-[11px]"
+                        disabled={isSaving || !enabled}
+                        onClick={() =>
+                          updateTransitionTarget(status.code, {
+                            enabled: true,
+                            is_primary: true,
+                          })
+                        }
+                      >
+                        主
+                      </Button>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function WorkflowCheck({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Checkbox
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={(value) => onChange(Boolean(value))}
+      />
+      {label}
+    </label>
+  );
+}
 
 function StoreMembersSection({
   members,
@@ -614,6 +1150,7 @@ function toDraft(settings: StoreSettings): SettingsDraft {
     store_whatsapp: settings.store_whatsapp,
     store_email: settings.store_email,
     default_order_warranty_text: settings.default_order_warranty_text,
+    default_order_warranty_months: settings.default_order_warranty_months,
     default_inventory_warranty_months: settings.default_inventory_warranty_months,
     print_footer: settings.print_footer,
     message_signature: settings.message_signature,

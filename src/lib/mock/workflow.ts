@@ -1,12 +1,12 @@
 // Order status workflow helpers — mirrors lib/domain/order-status.ts in production.
 // All helpers are pure & UI-bounded; safe to share between list / detail / bulk actions.
 
-import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "./enums";
+import { getStatusMeta, repairOrderStatus, type RepairOrderStatus } from "./enums";
 import type { RepairOrder } from "./fixtures";
 
 // Display order on lists — workflow-first then by updated_at desc.
-const STATUS_SORT_INDEX: Record<RepairOrderStatus, number> = (() => {
-  const map = {} as Record<RepairOrderStatus, number>;
+const STATUS_SORT_INDEX: Record<string, number> = (() => {
+  const map = {} as Record<string, number>;
   repairOrderStatus.forEach((s, i) => (map[s] = i));
   return map;
 })();
@@ -31,7 +31,7 @@ export function normalizeInitialOrderStatus(s?: string): RepairOrderStatus {
 // ---- Transition graph ------------------------------------------------------
 // Keys = current status. Value = ordered list of plausible next statuses.
 // Order matters: the FIRST entry is treated as the "primary / recommended" next step.
-const NEXT: Record<RepairOrderStatus, RepairOrderStatus[]> = {
+export const DEFAULT_ORDER_WORKFLOW_TRANSITIONS: Record<string, RepairOrderStatus[]> = {
   new: ["diagnosing", "quoted", "repairing", "cancelled"],
   rework: ["diagnosing", "repairing", "cancelled"],
   mail_in_progress: ["diagnosing", "cancelled"],
@@ -52,7 +52,7 @@ const NEXT: Record<RepairOrderStatus, RepairOrderStatus[]> = {
 export interface NextAction {
   to: RepairOrderStatus;
   label: string;
-  tone: (typeof statusMeta)[RepairOrderStatus]["tone"];
+  tone: ReturnType<typeof getStatusMeta>["tone"];
   isPrimary: boolean;
 }
 
@@ -60,11 +60,11 @@ export function getNextActions(current: RepairOrderStatus): {
   primary?: NextAction;
   secondary: NextAction[];
 } {
-  const targets = NEXT[current] ?? [];
+  const targets = DEFAULT_ORDER_WORKFLOW_TRANSITIONS[current] ?? [];
   const all: NextAction[] = targets.map((to, i) => ({
     to,
-    label: statusMeta[to].label,
-    tone: statusMeta[to].tone,
+    label: getStatusMeta(to).label,
+    tone: getStatusMeta(to).tone,
     isPrimary: i === 0,
   }));
   return { primary: all[0], secondary: all.slice(1) };
@@ -75,11 +75,11 @@ export function validateOrderTransition(
   to: RepairOrderStatus,
 ): { ok: boolean; reason?: string } {
   if (from === to) return { ok: false, reason: "目标状态与当前一致" };
-  const allowed = NEXT[from] ?? [];
+  const allowed = DEFAULT_ORDER_WORKFLOW_TRANSITIONS[from] ?? [];
   if (!allowed.includes(to))
     return {
       ok: false,
-      reason: `「${statusMeta[from].label}」不能直接流转到「${statusMeta[to].label}」`,
+      reason: `「${getStatusMeta(from).label}」不能直接流转到「${getStatusMeta(to).label}」`,
     };
   return { ok: true };
 }
@@ -87,7 +87,7 @@ export function validateOrderTransition(
 // Targets that are valid for ALL given current statuses — used by bulk action.
 export function getCommonValidTargets(currents: RepairOrderStatus[]): RepairOrderStatus[] {
   if (!currents.length) return [];
-  const sets = currents.map((c) => new Set(NEXT[c] ?? []));
+  const sets = currents.map((c) => new Set(DEFAULT_ORDER_WORKFLOW_TRANSITIONS[c] ?? []));
   return repairOrderStatus.filter((t) => sets.every((s) => s.has(t)) && !currents.includes(t));
 }
 

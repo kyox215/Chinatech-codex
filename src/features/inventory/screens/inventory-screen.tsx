@@ -66,6 +66,7 @@ import {
   brandGradientStyle,
   controls,
   dataDisplay,
+  density,
   formLayout,
   layoutGuards,
   pageHeader,
@@ -183,8 +184,8 @@ export function InventoryScreen() {
       </motion.div>
 
       <section className={cn(surfaces.toolbar, "mb-4")}>
-        <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          <div className="relative flex-1">
+        <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -227,8 +228,8 @@ export function InventoryScreen() {
         </div>
       ) : (
         <>
-          <div className={cn(dataDisplay.tableWrap, "lg:block")}>
-            <Table className="table-fixed text-xs">
+          <div className="glass-card hidden min-w-0 max-w-full overflow-hidden lg:block">
+            <Table className={cn(density.tableDense, "min-w-[920px] table-fixed")}>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[118px]">编号 / 状态</TableHead>
@@ -289,9 +290,9 @@ export function InventoryScreen() {
 
 function InventoryTableRow({ item, onSelect }: { item: InventoryListItem; onSelect: () => void }) {
   return (
-    <TableRow className="cursor-pointer" onClick={onSelect}>
+    <TableRow className="h-12 cursor-pointer" onClick={onSelect}>
       <TableCell>
-        <div className="font-mono font-semibold text-primary">{item.public_no}</div>
+        <div className="truncate font-mono font-semibold text-primary">{item.public_no}</div>
         <InventoryStatusBadge status={item.status} className="mt-1" />
       </TableCell>
       <TableCell className="min-w-0">
@@ -319,7 +320,7 @@ function InventoryTableRow({ item, onSelect }: { item: InventoryListItem; onSele
           }
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="min-w-0">
         <div className="truncate">
           外观 {gradeLabel(item.cosmetic_grade)} · 功能 {gradeLabel(item.functional_grade)}
         </div>

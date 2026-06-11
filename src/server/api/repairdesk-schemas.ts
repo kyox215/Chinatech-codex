@@ -7,6 +7,7 @@ import type {
   CustomerDeviceInput,
   CustomerFollowupInput,
   CustomerListFilters,
+  CustomerListPageInput,
   CustomerMessageInput,
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
@@ -20,6 +21,11 @@ import type {
   OnboardingRequestInput,
   SellInventoryItemInput,
   OrderListFilters,
+  OrderWorkflowStatusCreateInput,
+  OrderWorkflowStatusEnabledInput,
+  OrderWorkflowStatusReorderInput,
+  OrderWorkflowStatusUpdateInput,
+  OrderWorkflowTransitionsUpdateInput,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
@@ -34,6 +40,30 @@ const optionalText = z.string().optional();
 const repairOrderStatusSchema = z.string().min(1) as z.ZodType<RepairOrderStatus>;
 const repairOrderTypeSchema = z.string().min(1) as z.ZodType<RepairOrderType>;
 const approvalStatusSchema = z.string().min(1) as z.ZodType<ApprovalStatus>;
+const orderWorkflowStatusCodeSchema = z
+  .string()
+  .min(2, "状态代码至少 2 个字符")
+  .max(48, "状态代码不能超过 48 个字符")
+  .regex(/^[a-z][a-z0-9_]*$/, "状态代码只能使用小写字母、数字和下划线，并以字母开头");
+const orderWorkflowToneSchema = z.enum([
+  "neutral",
+  "info",
+  "progress",
+  "warn",
+  "success",
+  "danger",
+]);
+const orderWorkflowBucketSchema = z.enum([
+  "intake",
+  "diagnosing",
+  "quote",
+  "parts",
+  "repair",
+  "pickup",
+  "done",
+  "cancelled",
+  "custom",
+]);
 const inventoryItemStatusSchema = z.enum([
   "intake",
   "evaluating",
@@ -109,6 +139,71 @@ export const orderListPageInputSchema = orderListFiltersSchema.extend({
   pageSize: z.coerce.number().int().positive().max(100).optional(),
 });
 
+export const orderWorkflowStatusCreateBodySchema = z.object({
+  input: z
+    .object({
+      code: orderWorkflowStatusCodeSchema,
+      label: z.string().trim().min(1, "状态名称不能为空").max(24, "状态名称不能超过 24 个字符"),
+      short_label: z.string().trim().max(8, "短标签不能超过 8 个字符").optional(),
+      tone: orderWorkflowToneSchema,
+      bucket: orderWorkflowBucketSchema,
+      sort_order: z.coerce.number().int().optional(),
+      enabled: z.boolean().optional(),
+      show_in_order_filters: z.boolean().optional(),
+      allowed_for_create: z.boolean().optional(),
+      is_default_create_status: z.boolean().optional(),
+    })
+    .strict() satisfies z.ZodType<OrderWorkflowStatusCreateInput>,
+});
+
+export const orderWorkflowStatusUpdateBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: z
+    .object({
+      label: z
+        .string()
+        .trim()
+        .min(1, "状态名称不能为空")
+        .max(24, "状态名称不能超过 24 个字符")
+        .optional(),
+      short_label: z.string().trim().max(8, "短标签不能超过 8 个字符").optional(),
+      tone: orderWorkflowToneSchema.optional(),
+      bucket: orderWorkflowBucketSchema.optional(),
+      sort_order: z.coerce.number().int().optional(),
+      enabled: z.boolean().optional(),
+      show_in_order_filters: z.boolean().optional(),
+      allowed_for_create: z.boolean().optional(),
+      is_default_create_status: z.boolean().optional(),
+    })
+    .strict() satisfies z.ZodType<OrderWorkflowStatusUpdateInput>,
+});
+
+export const orderWorkflowStatusReorderBodySchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      sort_order: z.coerce.number().int(),
+    }),
+  ),
+}) satisfies z.ZodType<OrderWorkflowStatusReorderInput>;
+
+export const orderWorkflowStatusEnabledBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  enabled: z.boolean(),
+}) satisfies z.ZodType<OrderWorkflowStatusEnabledInput>;
+
+export const orderWorkflowTransitionsUpdateBodySchema = z.object({
+  from_status_code: repairOrderStatusSchema,
+  transitions: z.array(
+    z.object({
+      to_status_code: repairOrderStatusSchema,
+      enabled: z.boolean(),
+      is_primary: z.boolean().optional(),
+      sort_order: z.coerce.number().int().optional(),
+    }),
+  ),
+}) satisfies z.ZodType<OrderWorkflowTransitionsUpdateInput>;
+
 export const customerListFiltersSchema = z
   .object({
     search: optionalText,
@@ -117,6 +212,11 @@ export const customerListFiltersSchema = z
     followup: z.enum(["all", "due", "overdue"]).optional(),
   })
   .passthrough() satisfies z.ZodType<CustomerListFilters>;
+
+export const customerListPageInputSchema = customerListFiltersSchema.extend({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
+}) satisfies z.ZodType<CustomerListPageInput>;
 
 export const inventoryListFiltersSchema = z
   .object({
@@ -147,10 +247,11 @@ export const createOrderSchema = z
     order_type: repairOrderTypeSchema,
     status: repairOrderStatusSchema,
     issue_description: z.string(),
-    technician_name: z.string(),
     internal_tag: optionalText,
     accessory_notes: optionalText,
     warranty_text: optionalText,
+    warranty_months: z.coerce.number().optional(),
+    warranty_change_reason: optionalText,
     fault_prices: z.array(faultPriceItemSchema),
     deposit_amount: z.coerce.number().optional(),
   })
@@ -166,10 +267,11 @@ export const updateOrderInputSchema = z
     device_notes: optionalText,
     issue_description: z.string(),
     diagnosis_result: optionalText,
-    technician_name: z.string(),
     internal_tag: optionalText,
     accessory_notes: optionalText,
     warranty_text: optionalText,
+    warranty_months: z.coerce.number().optional(),
+    warranty_change_reason: optionalText,
     fault_prices: z.array(faultPriceItemSchema),
     deposit_amount: z.coerce.number().optional(),
   })
@@ -190,7 +292,6 @@ export const patchOrderChangesSchema = z
     device_notes: optionalText,
     issue_description: optionalText,
     diagnosis_result: optionalText,
-    technician_name: optionalText,
     accessory_notes: optionalText,
     warranty_text: optionalText,
   })
@@ -475,6 +576,7 @@ export const storeSettingsUpdateInputSchema = z
     store_whatsapp: optionalText,
     store_email: optionalText,
     default_order_warranty_text: optionalText,
+    default_order_warranty_months: z.coerce.number().int().nonnegative().optional(),
     default_inventory_warranty_months: z.coerce.number().int().nonnegative().optional(),
     print_footer: optionalText,
     message_signature: optionalText,

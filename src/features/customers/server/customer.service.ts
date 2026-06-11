@@ -6,6 +6,7 @@ export {
   getCustomerDetail,
   getCustomerDevices,
   listCustomers,
+  listCustomersPage,
   searchCustomers,
   sendCustomerMessage,
   setCustomerTags,

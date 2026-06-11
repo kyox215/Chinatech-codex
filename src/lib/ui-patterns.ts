@@ -21,7 +21,36 @@ export const layoutGuards = {
   truncateCell: "min-w-0 truncate",
   wrapRow: "flex min-w-0 flex-wrap items-center gap-2",
   responsiveDialog:
-    "w-[min(960px,calc(100vw-24px))] max-h-[90vh] max-w-[calc(100vw-24px)] overflow-y-auto",
+    "w-[min(960px,calc(100vw-24px))] max-h-[calc(100svh-24px)] max-w-[calc(100vw-24px)] overflow-y-auto",
+} as const;
+
+export const overlayShell = {
+  modalSm: "w-[min(520px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  modalMd: "w-[min(680px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  modalLg: "w-[min(860px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  modalWide: "w-[min(1240px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
+  scroll: "max-h-[calc(100svh-24px)] overflow-y-auto",
+  body: "min-w-0 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4",
+  detailWorkspace:
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1180px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+  formWorkspace:
+    "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1240px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+} as const;
+
+export const detailWorkspace = {
+  root: "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace)] shadow-[var(--shadow-workspace)]",
+  body: "min-w-0 overflow-y-auto p-2 sm:p-3 md:p-4",
+  flatHero:
+    "mb-2 min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-2 sm:mb-3 sm:px-4 sm:py-3",
+  flatPanel:
+    "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2.5 shadow-none sm:p-3",
+  densePanel:
+    "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2 shadow-none",
+  flatPanelMuted:
+    "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 shadow-none sm:p-3",
+  compactDetailGrid: "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
+  orderDetailGrid:
+    "lg:grid-cols-[minmax(220px,0.9fr)_minmax(300px,1.15fr)_minmax(240px,0.85fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(360px,1.15fr)_minmax(280px,0.9fr)]",
 } as const;
 
 export const pageHeader = {
@@ -59,10 +88,12 @@ export const dataDisplay = {
   kpiGrid: "hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4",
   chartGrid: "grid gap-4 lg:grid-cols-3",
   tableWrap: "glass-card hidden min-w-0 overflow-hidden lg:block",
+  denseTableWrap: "glass-card hidden min-w-0 overflow-x-auto overflow-y-hidden lg:block",
   table: "w-full min-w-0 text-sm",
   tableHead: "text-xs text-muted-foreground",
   tableRow: "border-b border-border/30 transition-colors hover:bg-accent/30",
   mobileCardList: "space-y-3 md:hidden",
+  tabletCardList: "space-y-3 lg:hidden",
   number: "font-mono tabular-nums",
 } as const;
 

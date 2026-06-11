@@ -77,6 +77,10 @@ const ORDER_LIST_COLUMNS = `
   internal_tag,
   accessory_notes,
   warranty_text,
+  warranty_months,
+  warranty_change_reason,
+  warranty_changed_by,
+  warranty_changed_at,
   completed_at,
   delivered_at,
   pause_reason,
@@ -275,6 +279,15 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     internal_tag: maybeString(row.internal_tag),
     accessory_notes: maybeString(row.accessory_notes),
     warranty_text: maybeString(row.warranty_text),
+    warranty_months:
+      typeof row.warranty_months === "number"
+        ? row.warranty_months
+        : row.warranty_months === undefined || row.warranty_months === null
+          ? undefined
+          : Number(row.warranty_months),
+    warranty_change_reason: maybeString(row.warranty_change_reason),
+    warranty_changed_by: maybeString(row.warranty_changed_by),
+    warranty_changed_at: maybeString(row.warranty_changed_at),
     completed_at: maybeString(row.completed_at),
     delivered_at: maybeString(row.delivered_at),
     pause_reason: maybeString(row.pause_reason),

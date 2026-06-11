@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KeyRound, Loader2, LogIn, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +14,12 @@ import { getOnboardingStatus } from "@/lib/repairdesk/api";
 import { createClient } from "@/utils/supabase/client";
 import { brandGradientStyle, controls } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_REMEMBER_LOGIN,
+  persistBrowserAuthPreference,
+  readRememberLoginPreference,
+} from "@/features/auth/model/auth-persistence";
+import { resolvePostLoginPath } from "@/features/auth/model/post-login-redirect";
 
 export function LoginScreen() {
   const router = useRouter();
@@ -22,11 +29,17 @@ export function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [rememberMe, setRememberMe] = useState(DEFAULT_REMEMBER_LOGIN);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setRememberMe(readRememberLoginPreference());
+  }, []);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
+    persistBrowserAuthPreference(rememberMe);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -40,19 +53,14 @@ export function LoginScreen() {
     }
 
     const status = await getOnboardingStatus().catch(() => null);
-    if (status && !status.activeStore) {
-      router.replace(status.isPlatformAdmin ? "/platform" : "/onboarding");
-      router.refresh();
-      return;
-    }
-
-    router.replace(next.startsWith("/") ? next : "/");
+    router.replace(resolvePostLoginPath(status, next));
     router.refresh();
   }
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
+    persistBrowserAuthPreference(rememberMe);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -107,6 +115,7 @@ export function LoginScreen() {
                 onEmailChange={setEmail}
                 onPasswordChange={setPassword}
               />
+              <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
               <SubmitButton isSubmitting={isSubmitting} icon="login">
                 登录
               </SubmitButton>
@@ -132,6 +141,7 @@ export function LoginScreen() {
                 onPasswordChange={setPassword}
                 passwordAutoComplete="new-password"
               />
+              <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
               <SubmitButton isSubmitting={isSubmitting} icon="register">
                 注册并继续申请
               </SubmitButton>
@@ -140,6 +150,27 @@ export function LoginScreen() {
         </Tabs>
       </section>
     </main>
+  );
+}
+
+function RememberLoginCheckbox({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox
+        id="remember-login"
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+      />
+      <Label htmlFor="remember-login" className="cursor-pointer text-sm font-normal">
+        记住登录状态
+      </Label>
+    </div>
   );
 }
 

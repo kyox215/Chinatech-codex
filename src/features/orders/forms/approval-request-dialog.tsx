@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { componentOverlay } from "@/lib/component-patterns";
 import type { OrderDetail } from "@/lib/repairdesk/api";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import {
@@ -58,7 +59,9 @@ export function ApprovalRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[min(680px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-y-auto p-4 sm:p-5">
+      <DialogContent
+        className={`${componentOverlay.modalMd} max-h-[calc(100svh-24px)] overflow-y-auto p-4 sm:p-5`}
+      >
         <DialogHeader>
           <DialogTitle>预览 WhatsApp 审批消息</DialogTitle>
           <DialogDescription>

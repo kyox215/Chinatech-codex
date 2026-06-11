@@ -74,6 +74,10 @@ export interface RepairOrder {
   internal_tag?: string;
   accessory_notes?: string;
   warranty_text?: string;
+  warranty_months?: number;
+  warranty_change_reason?: string;
+  warranty_changed_by?: string;
+  warranty_changed_at?: string;
   completed_at?: string;
   delivered_at?: string;
   pause_reason?: string;

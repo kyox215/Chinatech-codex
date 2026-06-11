@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+  type SyntheticEvent,
+} from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,6 +20,7 @@ import {
   MoreHorizontal,
   Plus,
   Printer,
+  RefreshCw,
   Search,
   SlidersHorizontal,
   X,
@@ -37,9 +45,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { fadeUp, stagger } from "@/lib/motion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { fadeUp, floatingBar, indicatorSpring, stagger } from "@/lib/motion";
 import { AnimatedNumber } from "@/components/animated-number";
 import { density, layoutGuards, pageShell } from "@/lib/ui-patterns";
+import { componentOverlay } from "@/lib/component-patterns";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -54,51 +70,58 @@ import {
   batchTransition,
   getRepairDeskOptions,
   getOrderStats,
+  listOrderWorkflow,
   listOrdersPage,
   transitionOrder,
   type OrderListFilters,
   type OrderListItem,
   type RepairDeskOptions,
 } from "@/lib/repairdesk/api";
+import { repairOrderType, type RepairOrderStatus } from "@/lib/mock/enums";
 import {
-  repairOrderStatus,
-  repairOrderType,
-  statusGroups,
-  statusMeta,
-  type RepairOrderStatus,
-} from "@/lib/mock/enums";
-import { getCommonValidTargets, getNextActions } from "@/lib/mock/workflow";
+  getCommonWorkflowTargets,
+  getOrderListStatusGroups,
+  getOrderListSubStatusTabs,
+  getWorkflowNextActions,
+  getWorkflowStatus,
+  getWorkflowStatusLabel,
+  getWorkflowStatuses,
+  type OrderListStatusGroupKey,
+  type OrderListStatusTab,
+} from "@/features/orders/model/order-workflow";
+import { ordersKeys } from "@/features/orders/api/query-keys";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { cn } from "@/lib/utils";
-
-const tabs: { key: string; label: string; statuses?: RepairOrderStatus[] }[] = [
-  { key: "all", label: "全部" },
-  { key: "in_progress", label: "进行中", statuses: statusGroups.in_progress },
-  { key: "awaiting_approval", label: "待审批", statuses: statusGroups.awaiting_approval },
-  { key: "awaiting_pickup", label: "待取机", statuses: statusGroups.awaiting_pickup },
-  { key: "completed", label: "已完成", statuses: statusGroups.completed },
-  { key: "cancelled", label: "已取消", statuses: statusGroups.cancelled },
-];
 
 const ORDER_LIST_PAGE_SIZE = 50;
 const orderTableGrid =
   "grid grid-cols-[34px_minmax(0,1.35fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.25fr)_82px_88px_82px_34px] items-stretch";
 
+type ActiveFilterChip = {
+  key: string;
+  label: string;
+};
+
 function FiltersPanel({
   filters,
   setFilters,
   options,
+  statuses,
   onClose,
+  onStatusFilterChange,
 }: {
   filters: OrderListFilters;
-  setFilters: (f: OrderListFilters) => void;
+  setFilters: Dispatch<SetStateAction<OrderListFilters>>;
   options: RepairDeskOptions;
+  statuses: { code: RepairOrderStatus; label: string }[];
   onClose?: () => void;
+  onStatusFilterChange?: () => void;
 }) {
   const toggle = <K extends keyof OrderListFilters>(key: K, value: string) => {
     const arr = (filters[key] as string[] | undefined) ?? [];
     const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
     setFilters({ ...filters, [key]: next });
+    if (key === "statuses") onStatusFilterChange?.();
   };
 
   return (
@@ -111,7 +134,10 @@ function FiltersPanel({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setFilters({ search: filters.search })}
+          onClick={() => {
+            setFilters({ search: filters.search });
+            onStatusFilterChange?.();
+          }}
           className="h-7 text-xs"
         >
           重置
@@ -121,12 +147,12 @@ function FiltersPanel({
         <div className="space-y-6 p-4">
           <FilterGroup label="工单状态">
             <div className="flex flex-wrap gap-1.5">
-              {repairOrderStatus.map((s) => {
-                const active = filters.statuses?.includes(s);
+              {statuses.map((status) => {
+                const active = filters.statuses?.includes(status.code);
                 return (
                   <button
-                    key={s}
-                    onClick={() => toggle("statuses", s)}
+                    key={status.code}
+                    onClick={() => toggle("statuses", status.code)}
                     className={cn(
                       "rounded-md border px-2 py-1 text-xs transition-colors",
                       active
@@ -134,7 +160,7 @@ function FiltersPanel({
                         : "bg-surface hover:bg-accent",
                     )}
                   >
-                    {statusMeta[s].label}
+                    {status.label}
                   </button>
                 );
               })}
@@ -295,8 +321,60 @@ function OverdueFilterChip({
   );
 }
 
+function EmptyOrdersState({
+  hasActiveFilters,
+  onClearFilters,
+}: {
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="mx-auto mt-16 flex max-w-sm flex-col items-center justify-center text-center"
+    >
+      <div
+        className="mb-4 grid size-16 place-items-center rounded-2xl text-white shadow-[0_8px_28px_-8px_oklch(0.7_0.2_285_/_0.6)]"
+        style={{ background: "var(--gradient-brand)" }}
+      >
+        <Search className="size-7" />
+      </div>
+      <h3 className="font-display text-lg font-semibold">
+        {hasActiveFilters ? "暂无符合条件的工单" : "暂无工单"}
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {hasActiveFilters
+          ? "当前有筛选条件生效，可以清除后再查看。"
+          : "新建第一张维修工单后会显示在这里。"}
+      </p>
+      {hasActiveFilters && (
+        <Button variant="outline" size="sm" className="mt-3 h-8" onClick={onClearFilters}>
+          清除全部筛选
+        </Button>
+      )}
+    </motion.div>
+  );
+}
+
+function OrdersErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="mx-auto mt-16 flex max-w-lg flex-col items-center justify-center rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 px-4 py-5 text-center">
+      <div className="mb-3 grid size-12 place-items-center rounded-full bg-status-danger/15 text-status-danger-foreground">
+        <AlertTriangle className="size-6" />
+      </div>
+      <h3 className="font-display text-lg font-semibold">工单加载失败</h3>
+      <p className="mt-1 max-w-md break-words text-sm text-muted-foreground">{message}</p>
+      <Button variant="outline" size="sm" className="mt-3 h-8 gap-1.5" onClick={onRetry}>
+        <RefreshCw className="size-3.5" /> 重试
+      </Button>
+    </div>
+  );
+}
+
 export default function OrdersListPage() {
-  const [tab, setTab] = useState("all");
+  const [statusGroup, setStatusGroup] = useState<OrderListStatusGroupKey>("all");
+  const [statusCode, setStatusCode] = useState<string>("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
@@ -306,19 +384,49 @@ export default function OrdersListPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  const {
+    data: workflow,
+    isError: workflowIsError,
+    error: workflowError,
+  } = useQuery({
+    queryKey: ordersKeys.workflow(),
+    queryFn: () => listOrderWorkflow(),
+    staleTime: 60_000,
+  });
+  const statusGroups = useMemo(() => getOrderListStatusGroups(workflow), [workflow]);
+  const statusSubTabs = useMemo(
+    () => getOrderListSubStatusTabs(workflow, statusGroup),
+    [workflow, statusGroup],
+  );
+  const workflowStatuses = useMemo(
+    () =>
+      getWorkflowStatuses(workflow).map((status) => ({ code: status.code, label: status.label })),
+    [workflow],
+  );
+
   const effectiveFilters = useMemo<OrderListFilters>(() => {
-    const tabConf = tabs.find((t) => t.key === tab);
+    const activeGroup = statusGroups.find((group) => group.key === statusGroup);
+    const groupStatuses =
+      activeGroup && activeGroup.key !== "all"
+        ? activeGroup.statuses.map((status) => status.code)
+        : undefined;
+    const subStatus = statusCode !== "all" ? [statusCode as RepairOrderStatus] : undefined;
     return {
       ...filters,
       statuses:
-        filters.statuses && filters.statuses.length > 0 ? filters.statuses : tabConf?.statuses,
+        filters.statuses && filters.statuses.length > 0
+          ? filters.statuses
+          : (subStatus ?? groupStatuses),
     };
-  }, [filters, tab]);
+  }, [filters, statusCode, statusGroup, statusGroups]);
 
   const {
     data: listResult,
     isLoading,
     isFetching,
+    isError: listIsError,
+    error: listError,
+    refetch: refetchOrders,
   } = useQuery({
     queryKey: ["orders", "page", effectiveFilters, page, ORDER_LIST_PAGE_SIZE],
     queryFn: () => listOrdersPage({ ...effectiveFilters, page, pageSize: ORDER_LIST_PAGE_SIZE }),
@@ -336,10 +444,75 @@ export default function OrdersListPage() {
   });
 
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
-  const totalOrders = listResult?.total ?? stats?.total ?? 0;
+  const totalOrders = listIsError ? (stats?.total ?? 0) : (listResult?.total ?? stats?.total ?? 0);
   const pageCount = listResult?.pageCount ?? 1;
   const approvalOverdue = stats?.approvalOverdue ?? 0;
   const pickupOverdue = stats?.pickupOverdue ?? 0;
+  const listErrorMessage =
+    listError instanceof Error ? listError.message : "请检查网络、登录状态或数据库迁移。";
+  const workflowErrorMessage =
+    workflowError instanceof Error ? workflowError.message : "状态流配置暂时不可用。";
+
+  const activeFilterChips = useMemo<ActiveFilterChip[]>(() => {
+    const chips: ActiveFilterChip[] = [];
+    const statusLabels = new Map(workflowStatuses.map((status) => [status.code, status.label]));
+    const activeGroup = statusGroups.find((group) => group.key === statusGroup);
+
+    if (filters.search?.trim()) chips.push({ key: "search", label: `搜索：${filters.search}` });
+    if (filters.statuses?.length) {
+      filters.statuses.forEach((status) =>
+        chips.push({
+          key: `status:${status}`,
+          label: `状态：${statusLabels.get(status) ?? status}`,
+        }),
+      );
+    } else if (statusCode !== "all") {
+      chips.push({
+        key: "substatus",
+        label: `状态：${statusLabels.get(statusCode as RepairOrderStatus) ?? statusCode}`,
+      });
+    } else if (statusGroup !== "all") {
+      chips.push({ key: "phase", label: `阶段：${activeGroup?.label ?? statusGroup}` });
+    }
+    filters.types?.forEach((type) =>
+      chips.push({
+        key: `type:${type}`,
+        label: `类型：${type === "quick_repair" ? "快修" : "送修"}`,
+      }),
+    );
+    if (filters.paid && filters.paid !== "all") {
+      chips.push({ key: "paid", label: `付款：${filters.paid === "paid" ? "已结清" : "未结清"}` });
+    }
+    filters.technicians?.forEach((technician) =>
+      chips.push({ key: `technician:${technician}`, label: `技师：${technician}` }),
+    );
+    const supplierLabels = new Map(
+      options.suppliers.map((supplier) => [supplier.id, supplier.short_name]),
+    );
+    filters.supplierIds?.forEach((supplierId) =>
+      chips.push({
+        key: `supplier:${supplierId}`,
+        label: `外修：${supplierLabels.get(supplierId) ?? supplierId}`,
+      }),
+    );
+    if (filters.overdue) {
+      chips.push({
+        key: "overdue",
+        label:
+          filters.overdue === "approval"
+            ? "报价超期"
+            : filters.overdue === "pickup"
+              ? "取件超期"
+              : "超期",
+      });
+    }
+
+    return chips;
+  }, [filters, options.suppliers, statusCode, statusGroup, statusGroups, workflowStatuses]);
+  const hasActiveFilters = activeFilterChips.length > 0;
+  const isPageOutOfRange = Boolean(
+    listResult && listResult.total > 0 && !listResult.items.length && page > pageCount,
+  );
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -349,7 +522,7 @@ export default function OrdersListPage() {
   const transition = useMutation({
     mutationFn: ({ id, to }: { id: string; to: RepairOrderStatus }) => transitionOrder(id, to),
     onSuccess: (_r, vars) => {
-      toast.success(`已流转为「${statusMeta[vars.to].label}」`);
+      toast.success(`已流转为「${getWorkflowStatusLabel(workflow, vars.to)}」`);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -359,7 +532,7 @@ export default function OrdersListPage() {
     mutationFn: ({ ids, to }: { ids: string[]; to: RepairOrderStatus }) => batchTransition(ids, to),
     onSuccess: (r, vars) => {
       toast.success(
-        `已将 ${r.count} 条流转为「${statusMeta[vars.to].label}」` +
+        `已将 ${r.count} 条流转为「${getWorkflowStatusLabel(workflow, vars.to)}」` +
           (r.failures.length ? `（${r.failures.length} 条失败）` : ""),
       );
       setSelected([]);
@@ -373,16 +546,98 @@ export default function OrdersListPage() {
   const bulkTargets = useMemo(() => {
     if (!selected.length) return [] as RepairOrderStatus[];
     const currents = data.filter((o) => selected.includes(o.id)).map((o) => o.status);
-    return getCommonValidTargets(currents);
-  }, [selected, data]);
+    return getCommonWorkflowTargets(workflow, currents);
+  }, [selected, data, workflow]);
 
   const setOverdueFilter = (kind: OrderListFilters["overdue"]) =>
     setFilters((f) => ({ ...f, overdue: f.overdue === kind ? undefined : kind }));
+
+  const clearAllFilters = () => {
+    setStatusGroup("all");
+    setStatusCode("all");
+    setFilters({});
+    setPage(1);
+  };
+
+  const removeFilterChip = (key: string) => {
+    if (key === "phase") {
+      setStatusGroup("all");
+      setStatusCode("all");
+      return;
+    }
+    if (key === "substatus") {
+      setStatusCode("all");
+      return;
+    }
+    setFilters((current) => {
+      if (key === "search") return { ...current, search: undefined };
+      if (key === "paid") return { ...current, paid: undefined };
+      if (key === "overdue") return { ...current, overdue: undefined };
+      if (key.startsWith("status:")) {
+        const status = key.slice("status:".length);
+        return { ...current, statuses: current.statuses?.filter((item) => item !== status) };
+      }
+      if (key.startsWith("type:")) {
+        const type = key.slice("type:".length);
+        return { ...current, types: current.types?.filter((item) => item !== type) };
+      }
+      if (key.startsWith("technician:")) {
+        const technician = key.slice("technician:".length);
+        return {
+          ...current,
+          technicians: current.technicians?.filter((item) => item !== technician),
+        };
+      }
+      if (key.startsWith("supplier:")) {
+        const supplierId = key.slice("supplier:".length);
+        return {
+          ...current,
+          supplierIds: current.supplierIds?.filter((item) => item !== supplierId),
+        };
+      }
+      return current;
+    });
+  };
+
+  const resetWorkflowFilters = () => {
+    setStatusGroup("all");
+    setStatusCode("all");
+  };
+
+  const handleStatusGroupChange = (nextGroup: string) => {
+    setStatusGroup(nextGroup as OrderListStatusGroupKey);
+    setStatusCode("all");
+    setFilters((current) => ({ ...current, statuses: undefined, overdue: undefined }));
+    setPage(1);
+  };
+
+  const handleStatusCodeChange = (nextStatus: string) => {
+    setStatusCode(nextStatus);
+    setFilters((current) => ({ ...current, statuses: undefined, overdue: undefined }));
+    setPage(1);
+  };
 
   useEffect(() => {
     setPage(1);
     setSelected([]);
   }, [effectiveFilters]);
+
+  useEffect(() => {
+    if (!statusGroups.some((group) => group.key === statusGroup)) {
+      setStatusGroup("all");
+      setStatusCode("all");
+    }
+  }, [statusGroup, statusGroups]);
+
+  useEffect(() => {
+    if (statusSubTabs.some((item) => item.key === statusCode)) return;
+    setStatusCode("all");
+  }, [statusCode, statusSubTabs]);
+
+  useEffect(() => {
+    if (!listResult || listResult.total <= 0 || page <= listResult.pageCount) return;
+    setPage(listResult.pageCount);
+  }, [listResult, page]);
 
   useEffect(() => {
     const cleanupPrint = () => setPrintOrders([]);
@@ -432,7 +687,7 @@ export default function OrdersListPage() {
           <h1 className="mt-0.5 font-display text-3xl font-semibold tracking-tight md:text-4xl">
             <span className="gradient-text">工单</span>
             <span className="ml-2 whitespace-nowrap align-middle text-base font-normal text-muted-foreground">
-              共{totalOrders}条
+              {listIsError ? `统计${totalOrders}条` : `共${totalOrders}条`}
             </span>
             {isFetching && !isLoading && (
               <span className="ml-2 align-middle text-xs font-normal text-muted-foreground">
@@ -503,7 +758,9 @@ export default function OrdersListPage() {
                 filters={filters}
                 setFilters={setFilters}
                 options={options}
+                statuses={workflowStatuses}
                 onClose={() => setMobileFiltersOpen(false)}
+                onStatusFilterChange={resetWorkflowFilters}
               />
             </SheetContent>
           </Sheet>
@@ -526,7 +783,14 @@ export default function OrdersListPage() {
         </div>
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <SegmentedTabs value={tab} onChange={setTab} />
+            <OrderStatusFilterControls
+              groups={statusGroups.map((group) => ({ key: group.key, label: group.label }))}
+              subTabs={statusSubTabs}
+              groupValue={statusGroup}
+              statusValue={statusCode}
+              onGroupChange={handleStatusGroupChange}
+              onStatusChange={handleStatusCodeChange}
+            />
             {(approvalOverdue > 0 || pickupOverdue > 0) && (
               <div className="flex min-w-0 flex-wrap items-center gap-1">
                 {approvalOverdue > 0 && (
@@ -552,31 +816,53 @@ export default function OrdersListPage() {
             选中 <span className="text-foreground">{selected.length}</span>
           </span>
         </div>
+        {workflowIsError && (
+          <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-status-warning-foreground/25 bg-status-warning/10 px-2.5 py-2 text-xs text-status-warning-foreground">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">
+              状态流未加载，正在使用默认状态。{workflowErrorMessage}
+            </span>
+          </div>
+        )}
+        {activeFilterChips.length > 0 && (
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">当前筛选</span>
+            {activeFilterChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => removeFilterChip(chip.key)}
+                className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-border/60 bg-surface/70 px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                title="点击移除此筛选"
+              >
+                <span className="truncate">{chip.label}</span>
+                <X className="size-3 shrink-0" />
+              </button>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={clearAllFilters}
+            >
+              清除全部
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* List */}
       <div className="pb-8">
-        {isLoading ? (
+        {isLoading || isPageOutOfRange ? (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
+        ) : listIsError ? (
+          <OrdersErrorState message={listErrorMessage} onRetry={() => void refetchOrders()} />
         ) : !data.length ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mx-auto mt-16 flex max-w-sm flex-col items-center justify-center text-center"
-          >
-            <div
-              className="mb-4 grid size-16 place-items-center rounded-2xl text-white shadow-[0_8px_28px_-8px_oklch(0.7_0.2_285_/_0.6)]"
-              style={{ background: "var(--gradient-brand)" }}
-            >
-              <Search className="size-7" />
-            </div>
-            <h3 className="font-display text-lg font-semibold">暂无符合条件的工单</h3>
-            <p className="mt-1 text-sm text-muted-foreground">试试调整搜索词或重置筛选条件。</p>
-          </motion.div>
+          <EmptyOrdersState hasActiveFilters={hasActiveFilters} onClearFilters={clearAllFilters} />
         ) : (
           <>
             {/* Desktop table */}
@@ -703,7 +989,12 @@ export default function OrdersListPage() {
                         </div>
                         <div className="min-w-0 px-2 py-1.5">
                           <div className="flex min-w-0 flex-col items-start gap-1">
-                            <StatusBadge status={o.status} className="max-w-full text-[10px]" />
+                            <StatusBadge
+                              status={o.status}
+                              label={getWorkflowStatus(workflow, o.status)?.label}
+                              tone={getWorkflowStatus(workflow, o.status)?.tone}
+                              className="max-w-full text-[10px]"
+                            />
                             {(o.approval_overdue || o.pickup_overdue) && (
                               <span className="inline-flex max-w-full shrink-0 items-center gap-1 truncate whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30">
                                 <AlertTriangle className="size-2.5 shrink-0" />
@@ -729,7 +1020,7 @@ export default function OrdersListPage() {
                         </div>
                         <div className="px-1.5 py-1.5" onClick={stopRowClick}>
                           {(() => {
-                            const next = getNextActions(o.status);
+                            const next = getWorkflowNextActions(workflow, o.status);
                             return (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -802,7 +1093,12 @@ export default function OrdersListPage() {
                     />
                     <div className="grid min-w-0 grid-cols-[58px_minmax(0,1fr)_74px] gap-2 pl-2 sm:grid-cols-[72px_minmax(0,1fr)_88px]">
                       <div className="flex min-w-0 flex-col items-start gap-1">
-                        <StatusBadge status={o.status} className="max-w-full text-[10px]" />
+                        <StatusBadge
+                          status={o.status}
+                          label={getWorkflowStatus(workflow, o.status)?.label}
+                          tone={getWorkflowStatus(workflow, o.status)?.tone}
+                          className="max-w-full text-[10px]"
+                        />
                         <OrderTypeBadge type={o.order_type} className="text-[10px]" />
                       </div>
 
@@ -860,13 +1156,13 @@ export default function OrdersListPage() {
       <AnimatePresence>
         {selected.length > 0 && (
           <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            variants={floatingBar}
+            initial="hidden"
+            animate="show"
+            exit="exit"
             className="pointer-events-none fixed bottom-20 left-0 right-0 z-30 flex justify-center px-3 md:bottom-6"
           >
-            <div className="glass-strong pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl px-2 py-2 shadow-elevated">
+            <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-2 py-2 shadow-[var(--shadow-overlay)]">
               <Button
                 variant="ghost"
                 size="icon"
@@ -892,7 +1188,7 @@ export default function OrdersListPage() {
                   <DropdownMenuSeparator />
                   {bulkTargets.map((s) => (
                     <DropdownMenuItem key={s} onClick={() => bulk.mutate({ ids: selected, to: s })}>
-                      {statusMeta[s].label}
+                      {getWorkflowStatusLabel(workflow, s)}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -918,7 +1214,7 @@ export default function OrdersListPage() {
       </AnimatePresence>
       <OrderListPrintSheet orders={printOrders} />
       <Dialog open={newOrderOpen} onOpenChange={setNewOrderOpen}>
-        <DialogContent className="max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-y-auto p-0 sm:max-h-[92vh] sm:w-[min(1240px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]">
+        <DialogContent className={componentOverlay.formWorkspace}>
           <DialogHeader className="sr-only">
             <DialogTitle>新建维修订单</DialogTitle>
             <DialogDescription>在弹窗中填写客户、设备、故障与报价信息。</DialogDescription>
@@ -934,7 +1230,7 @@ export default function OrdersListPage() {
         open={Boolean(detailOrderId)}
         onOpenChange={(open) => !open && setDetailOrderId(null)}
       >
-        <DialogContent className="max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-y-auto p-0 sm:max-h-[90vh] sm:w-[min(1120px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]">
+        <DialogContent className={componentOverlay.detailWorkspace}>
           <DialogHeader className="sr-only">
             <DialogTitle>工单详情</DialogTitle>
             <DialogDescription>在弹窗中查看和处理当前工单详情。</DialogDescription>
@@ -996,9 +1292,92 @@ function PaginationBar({
   );
 }
 
-function SegmentedTabs({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function OrderStatusFilterControls({
+  groups,
+  subTabs,
+  groupValue,
+  statusValue,
+  onGroupChange,
+  onStatusChange,
+}: {
+  groups: { key: string; label: string }[];
+  subTabs: OrderListStatusTab[];
+  groupValue: string;
+  statusValue: string;
+  onGroupChange: (value: string) => void;
+  onStatusChange: (value: string) => void;
+}) {
+  const showSubTabs = groupValue !== "all" && subTabs.length > 1;
+
   return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-0.5 rounded-lg border border-border/60 bg-surface/60 p-1 backdrop-blur">
+    <div className="min-w-0 flex-1">
+      <div className="hidden min-w-0 flex-col gap-1.5 sm:flex">
+        <SegmentedTabs
+          tabs={groups}
+          value={groupValue}
+          onChange={onGroupChange}
+          layoutId="orders-status-group-indicator"
+        />
+        {showSubTabs && (
+          <SegmentedTabs
+            tabs={subTabs}
+            value={statusValue}
+            onChange={onStatusChange}
+            layoutId="orders-status-sub-indicator"
+            variant="secondary"
+          />
+        )}
+      </div>
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:hidden">
+        <Select value={groupValue} onValueChange={onGroupChange}>
+          <SelectTrigger className="h-8 min-w-0 text-xs">
+            <SelectValue placeholder="阶段" />
+          </SelectTrigger>
+          <SelectContent className="max-w-[calc(100vw-24px)]">
+            {groups.map((group) => (
+              <SelectItem key={group.key} value={group.key}>
+                {group.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusValue} onValueChange={onStatusChange} disabled={groupValue === "all"}>
+          <SelectTrigger className="h-8 min-w-0 text-xs">
+            <SelectValue placeholder="状态" />
+          </SelectTrigger>
+          <SelectContent className="max-w-[calc(100vw-24px)]">
+            {subTabs.map((status) => (
+              <SelectItem key={status.key} value={status.key}>
+                {status.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+function SegmentedTabs({
+  tabs,
+  value,
+  onChange,
+  layoutId = "orders-tab-indicator",
+  variant = "primary",
+}: {
+  tabs: { key: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  layoutId?: string;
+  variant?: "primary" | "secondary";
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 max-w-full flex-wrap items-center gap-0.5 border border-border/60 bg-surface/60 backdrop-blur",
+        variant === "secondary" ? "rounded-md p-0.5" : "rounded-lg p-1",
+      )}
+    >
       {tabs.map((t) => {
         const active = value === t.key;
         return (
@@ -1006,20 +1385,21 @@ function SegmentedTabs({ value, onChange }: { value: string; onChange: (v: strin
             key={t.key}
             onClick={() => onChange(t.key)}
             className={cn(
-              "relative whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition-colors",
+              "relative whitespace-nowrap rounded-md font-medium transition-colors",
+              variant === "secondary" ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {active && (
               <motion.span
-                layoutId="orders-tab-indicator"
+                layoutId={layoutId}
                 className="absolute inset-0 -z-10 rounded-md"
                 style={{
                   background:
                     "linear-gradient(120deg, oklch(0.7 0.2 285 / 0.25), oklch(0.78 0.16 200 / 0.18))",
                   boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.08)",
                 }}
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                transition={indicatorSpring}
               />
             )}
             {t.label}

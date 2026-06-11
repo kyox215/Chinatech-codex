@@ -108,6 +108,7 @@ export function buildStoreTemplateContext(settings?: Partial<StoreSettings> | nu
     message_signature: store.message_signature,
     print_footer: store.print_footer,
     default_order_warranty_text: store.default_order_warranty_text,
+    default_order_warranty_months: String(store.default_order_warranty_months),
     default_inventory_warranty_months: String(store.default_inventory_warranty_months),
   };
 }

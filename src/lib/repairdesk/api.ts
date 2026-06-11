@@ -4,6 +4,13 @@ import type {
   Customer,
   Device,
   OrderDetail,
+  OrderWorkflow,
+  OrderWorkflowStatus,
+  OrderWorkflowStatusCreateInput,
+  OrderWorkflowStatusEnabledInput,
+  OrderWorkflowStatusReorderInput,
+  OrderWorkflowStatusUpdateInput,
+  OrderWorkflowTransitionsUpdateInput,
   OrderListFilters,
   OrderListItem,
   OrderListPageInput,
@@ -19,6 +26,8 @@ import type {
   CustomerDeviceInput,
   CustomerFollowupInput,
   CustomerListFilters,
+  CustomerListPageInput,
+  CustomerListPageResult,
   CustomerListResult,
   CustomerMessageInput,
   CustomerUpdateInput,
@@ -63,6 +72,16 @@ export type {
   MessageLog,
   OrderDetail,
   OrderEvent,
+  OrderWorkflow,
+  OrderWorkflowBucket,
+  OrderWorkflowStatus,
+  OrderWorkflowStatusCreateInput,
+  OrderWorkflowStatusEnabledInput,
+  OrderWorkflowStatusReorderInput,
+  OrderWorkflowStatusUpdateInput,
+  OrderWorkflowTone,
+  OrderWorkflowTransition,
+  OrderWorkflowTransitionsUpdateInput,
   OrderListFilters,
   OrderListItem,
   OrderListPageInput,
@@ -81,6 +100,8 @@ export type {
   CustomerInteraction,
   CustomerListFilters,
   CustomerListItem,
+  CustomerListPageInput,
+  CustomerListPageResult,
   CustomerListResult,
   CustomerMessageInput,
   CustomerStats,
@@ -323,6 +344,41 @@ export async function getOrderStats(): Promise<OrderStats> {
   return requestJson<OrderStats>("order-stats");
 }
 
+export async function listOrderWorkflow(): Promise<OrderWorkflow> {
+  return requestJson<OrderWorkflow>("order-workflow");
+}
+
+export async function createOrderWorkflowStatus(
+  input: OrderWorkflowStatusCreateInput,
+): Promise<OrderWorkflowStatus> {
+  return postJson<OrderWorkflowStatus>("order-workflow/status/create", { input });
+}
+
+export async function updateOrderWorkflowStatus(
+  id: string,
+  input: OrderWorkflowStatusUpdateInput,
+): Promise<OrderWorkflowStatus> {
+  return postJson<OrderWorkflowStatus>("order-workflow/status/update", { id, input });
+}
+
+export async function reorderOrderWorkflowStatuses(
+  input: OrderWorkflowStatusReorderInput,
+): Promise<OrderWorkflow> {
+  return postJson<OrderWorkflow>("order-workflow/status/reorder", input);
+}
+
+export async function setOrderWorkflowStatusEnabled(
+  input: OrderWorkflowStatusEnabledInput,
+): Promise<OrderWorkflowStatus> {
+  return postJson<OrderWorkflowStatus>("order-workflow/status/enabled", input);
+}
+
+export async function updateOrderWorkflowTransitions(
+  input: OrderWorkflowTransitionsUpdateInput,
+): Promise<OrderWorkflow> {
+  return postJson<OrderWorkflow>("order-workflow/transitions/update", input);
+}
+
 export async function getOrder(id: string): Promise<OrderDetail> {
   return postJson<OrderDetail>("order/get", { id });
 }
@@ -384,6 +440,12 @@ export async function listCustomers(
   filters: CustomerListFilters = {},
 ): Promise<CustomerListResult> {
   return postJson<CustomerListResult>("customers/list", filters);
+}
+
+export async function listCustomersPage(
+  input: CustomerListPageInput = {},
+): Promise<CustomerListPageResult> {
+  return postJson<CustomerListPageResult>("customers/list-page", input);
 }
 
 export async function getCustomerDetail(id: string): Promise<CustomerDetail> {

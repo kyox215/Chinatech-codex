@@ -1,8 +1,13 @@
 import type { OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
+import { parseWarrantyMonths, formatWarrantyText } from "@/features/orders/model/order-warranty";
 
-export function buildEditForm(data: OrderDetail): UpdateOrderInput {
+export function buildEditForm(data: OrderDetail, defaultWarrantyMonths = 6): UpdateOrderInput {
   const { order, customer, device } = data;
   const snapshot = order.device_snapshot;
+  const warrantyMonths =
+    typeof order.warranty_months === "number"
+      ? order.warranty_months
+      : parseWarrantyMonths(order.warranty_text, defaultWarrantyMonths);
   return {
     customer_name: customer?.name ?? order.customer_name,
     customer_phone: customer?.phone_e164 ?? order.customer_phone,
@@ -12,10 +17,11 @@ export function buildEditForm(data: OrderDetail): UpdateOrderInput {
     device_notes: snapshot?.device_notes ?? device?.device_notes ?? "",
     issue_description: order.issue_description,
     diagnosis_result: order.diagnosis_result ?? "",
-    technician_name: order.technician_name,
     internal_tag: order.internal_tag ?? "",
     accessory_notes: order.accessory_notes ?? "",
-    warranty_text: order.warranty_text ?? "",
+    warranty_text: order.warranty_text ?? formatWarrantyText(warrantyMonths),
+    warranty_months: warrantyMonths,
+    warranty_change_reason: order.warranty_change_reason ?? "",
     fault_prices: order.fault_prices.length ? order.fault_prices : [{ name: "", price: 0 }],
     deposit_amount: order.deposit_amount,
   };

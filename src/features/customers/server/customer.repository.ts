@@ -8,6 +8,8 @@ import type {
   CustomerFollowupInput,
   CustomerListFilters,
   CustomerListItem,
+  CustomerListPageInput,
+  CustomerListPageResult,
   CustomerListResult,
   CustomerMessageInput,
   CustomerStats,
@@ -27,6 +29,7 @@ import {
   fetchOrderRows,
   followupFromRow,
   interactionFromRow,
+  ORDER_LIST_SELECT,
   operatorNameFromActor,
   phoneRaw,
   requiredString,
@@ -203,6 +206,12 @@ function filterCustomers(customers: CustomerListItem[], filters: CustomerListFil
   });
 }
 
+function normalizeCustomerPageInput(input: CustomerListPageInput = {}) {
+  const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
+  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
+  return { page, pageSize };
+}
+
 export async function listCustomers(
   filters: CustomerListFilters = {},
   actor?: AuditActor,
@@ -272,12 +281,34 @@ export async function listCustomers(
   return { customers: filterCustomers(items, filters), tags, stats };
 }
 
+export async function listCustomersPage(
+  input: CustomerListPageInput = {},
+  actor?: AuditActor,
+): Promise<CustomerListPageResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const { page, pageSize } = normalizeCustomerPageInput(input);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("repairdesk_customer_list_page", {
+    p_store_id: storeId,
+    p_search: input.search?.trim() || null,
+    p_tag_ids: input.tagIds?.length ? input.tagIds : null,
+    p_marketing: input.marketing ?? "all",
+    p_followup: input.followup ?? "all",
+    p_page: page,
+    p_page_size: pageSize,
+  });
+  fail(error, "读取客户分页失败");
+
+  return data as CustomerListPageResult;
+}
+
 export async function getCustomerDetail(id: string, actor?: AuditActor): Promise<CustomerDetail> {
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const [
     { data: customerRow, error: customerError },
     { data: deviceRows, error: deviceError },
+    { data: orderRows, error: orderError },
     { data: interactionRows, error: interactionError },
     { data: followupRows, error: followupError },
   ] = await Promise.all([
@@ -288,6 +319,12 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
       .eq("store_id", storeId)
       .eq("customer_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("repair_orders")
+      .select(ORDER_LIST_SELECT)
+      .eq("store_id", storeId)
+      .eq("customer_id", id)
+      .order("updated_at", { ascending: false }),
     supabase
       .from("customer_interactions")
       .select("*")
@@ -303,6 +340,7 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
   ]);
   fail(customerError, "读取客户详情失败");
   fail(deviceError, "读取客户设备失败");
+  fail(orderError, "读取客户工单失败");
   fail(interactionError, "读取客户联系记录失败");
   fail(followupError, "读取客户回访失败");
 
@@ -313,9 +351,7 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
     .filter((device): device is Device => Boolean(device));
   const interactions = ((interactionRows ?? []) as DbRecord[]).map(interactionFromRow);
   const followups = ((followupRows ?? []) as DbRecord[]).map(followupFromRow);
-  const orders = (await fetchOrderRows(storeId))
-    .map(decorate)
-    .filter((order) => order.customer_id === id);
+  const orders = ((orderRows ?? []) as DbRecord[]).map(decorate);
   const allTags = await fetchCustomerTags(storeId);
   const assignments = (await fetchCustomerTagAssignments(storeId)).filter(
     (assignment) => assignment.customer_id === id,

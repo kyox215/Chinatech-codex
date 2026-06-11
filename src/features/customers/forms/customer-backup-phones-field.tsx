@@ -40,9 +40,9 @@ export function CustomerBackupPhonesField({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       {visiblePhones.map((phone, index) => (
-        <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
+        <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
           <Input
             value={phone}
             onChange={(event) => updatePhone(index, event.target.value)}

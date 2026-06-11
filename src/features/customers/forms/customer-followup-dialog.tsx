@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
+import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerFollowupInput, OrderListItem } from "@/lib/repairdesk/api";
 
 export function CustomerFollowupDialog({
@@ -54,12 +55,14 @@ export function CustomerFollowupDialog({
   }, [defaultDueAt, open, selectedOrderId]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>添加回访任务</DialogTitle>
-          <DialogDescription>用于售后满意度、报价确认或取机提醒。</DialogDescription>
+      <DialogContent className={componentOverlay.responsiveContent}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>添加回访任务</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
+            用于售后满意度、报价确认或取机提醒。
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <CustomerFormField label="标题" required>
             <Input
               value={form.title}
@@ -101,7 +104,7 @@ export function CustomerFollowupDialog({
             />
           </CustomerFormField>
         </div>
-        <DialogFooter>
+        <DialogFooter className={componentOverlay.footer}>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

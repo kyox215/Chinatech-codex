@@ -7,6 +7,8 @@ import type {
   CustomerFollowupInput,
   CustomerListFilters,
   CustomerListItem,
+  CustomerListPageInput,
+  CustomerListPageResult,
   CustomerListResult,
   CustomerMessageInput,
   CustomerStats,
@@ -194,6 +196,30 @@ export async function listCustomers(
       .length,
   };
   return { customers: filterCustomerItems(items, filters), tags: customerTags, stats };
+}
+
+function normalizeCustomerPageInput(input: CustomerListPageInput = {}) {
+  const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
+  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
+  return { page, pageSize };
+}
+
+export async function listCustomersPage(
+  input: CustomerListPageInput = {},
+  actor?: AuditActor,
+): Promise<CustomerListPageResult> {
+  const { page, pageSize } = normalizeCustomerPageInput(input);
+  const { customers: filtered, tags, stats } = await listCustomers(input, actor);
+  const start = (page - 1) * pageSize;
+  return {
+    items: filtered.slice(start, start + pageSize),
+    total: filtered.length,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(filtered.length / pageSize)),
+    tags,
+    stats,
+  };
 }
 
 export async function getCustomerDetail(id: string, _actor?: AuditActor): Promise<CustomerDetail> {

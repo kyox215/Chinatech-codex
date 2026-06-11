@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
+import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDeviceInput, Device } from "@/lib/repairdesk/api";
 
 export function CustomerDeviceDialog({
@@ -48,14 +49,16 @@ export function CustomerDeviceDialog({
   }, [device, open]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{device ? "编辑设备" : "添加设备"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={componentOverlay.responsiveContent}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>
+            {device ? "编辑设备" : "添加设备"}
+          </DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
             设备档案用于新建工单预填；历史工单仍保留创建时快照。
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <CustomerFormField label="品牌" required>
             <Input
               value={form.brand}
@@ -82,7 +85,7 @@ export function CustomerDeviceDialog({
             />
           </CustomerFormField>
         </div>
-        <DialogFooter>
+        <DialogFooter className={componentOverlay.footer}>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

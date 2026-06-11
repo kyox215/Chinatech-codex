@@ -354,13 +354,13 @@ function KpiCard({
   return (
     <motion.div
       variants={fadeUp}
-      whileHover={{ y: -3 }}
+      whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
       className="glass-card group relative overflow-hidden p-4"
     >
       <span
         aria-hidden
-        className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full opacity-50 blur-2xl transition-opacity duration-300 group-hover:opacity-80"
+        className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full opacity-25 blur-2xl transition-opacity duration-200 group-hover:opacity-35"
         style={{ background: `radial-gradient(circle, ${color}, transparent 70%)` }}
       />
       <div className="relative flex items-center justify-between">

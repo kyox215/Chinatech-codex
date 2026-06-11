@@ -21,6 +21,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   store_whatsapp: "",
   store_email: "",
   default_order_warranty_text: "6个月",
+  default_order_warranty_months: 6,
   default_inventory_warranty_months: 12,
   print_footer: "Grazie per aver scelto ChinaTech.",
   message_signature: "ChinaTech - Viale Vittorio Veneto, 7, Floridia (SR)",
@@ -45,6 +46,7 @@ export const MESSAGE_TEMPLATE_VARIABLES = [
   { name: "store_name", label: "店铺名" },
   { name: "store_address", label: "店铺地址" },
   { name: "message_signature", label: "消息签名" },
+  { name: "default_order_warranty_months", label: "维修默认质保月数" },
   { name: "latest_order_line", label: "客户最近工单行" },
   { name: "device_count", label: "客户设备数量" },
   { name: "customer_url", label: "客户链接" },
@@ -265,6 +267,9 @@ export function withStoreSettingsDefaults(settings?: Partial<StoreSettings> | nu
     ...settings,
     id: settings?.id || DEFAULT_STORE_SETTINGS.id,
     store_id: settings?.store_id,
+    default_order_warranty_months:
+      settings?.default_order_warranty_months ??
+      DEFAULT_STORE_SETTINGS.default_order_warranty_months,
     default_inventory_warranty_months:
       settings?.default_inventory_warranty_months ??
       DEFAULT_STORE_SETTINGS.default_inventory_warranty_months,

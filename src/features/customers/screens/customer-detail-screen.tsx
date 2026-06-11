@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { customersKeys } from "@/features/customers/api/query-keys";
 import {
   CustomerFollowupsPanel,
   CustomerMarketingPanel,
@@ -38,6 +39,8 @@ import {
   type CustomerUpdateInput,
   type Device,
 } from "@/lib/repairdesk/api";
+import { pageShell } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 
 const tabs = [
   { key: "overview", label: "概览" },
@@ -64,8 +67,9 @@ export function CustomerDetailScreen({ id }: { id: string }) {
   const [orderUrl, setOrderUrl] = useState("");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["customer-detail", id],
+    queryKey: customersKeys.detail(id),
     queryFn: () => getCustomerDetail(id),
+    staleTime: 60_000,
   });
 
   useEffect(() => {
@@ -73,8 +77,8 @@ export function CustomerDetailScreen({ id }: { id: string }) {
   }, []);
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["customer-detail", id] });
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: customersKeys.detail(id) });
+    queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
     queryClient.invalidateQueries({ queryKey: ["orders"] });
   };
 
@@ -149,9 +153,14 @@ export function CustomerDetailScreen({ id }: { id: string }) {
 
   if (isLoading || !data) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4 px-4 pb-12 pt-4 md:px-6">
+      <div
+        className={cn(
+          pageShell.safe,
+          "mx-auto max-w-5xl space-y-4 px-3 pb-12 pt-4 sm:px-4 md:px-6",
+        )}
+      >
         <Skeleton className="h-36 w-full" />
-        <Skeleton className="h-10 w-96" />
+        <Skeleton className="h-10 w-full sm:w-96" />
         <Skeleton className="h-64 w-full" />
       </div>
     );
@@ -160,7 +169,7 @@ export function CustomerDetailScreen({ id }: { id: string }) {
   const { customer, devices, orders, followups, interactions } = data;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-12 pt-4 md:px-6">
+    <div className={cn(pageShell.safe, "mx-auto max-w-5xl px-3 pb-12 pt-4 sm:px-4 md:px-6")}>
       <CustomerHero
         data={data}
         onMessage={() => setMessageOpen(true)}

@@ -8,16 +8,28 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
+import { detailWorkspace } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 
 export function NewOrderFaultDiagnosisSection({
   form,
   setForm,
+  surface = "page",
 }: {
   form: NewOrderFormState;
   setForm: Dispatch<SetStateAction<NewOrderFormState>>;
+  surface?: "page" | "dialog";
 }) {
+  const shellClass = cn(
+    "h-fit min-w-0",
+    surface === "dialog"
+      ? detailWorkspace.flatPanel
+      : "glass-card border-border/70 p-2.5 shadow-sm sm:p-4",
+  );
+  const Shell = surface === "dialog" ? "section" : Card;
+
   return (
-    <Card className="h-fit min-w-0 border-border/70 p-2.5 shadow-sm sm:p-4">
+    <Shell className={shellClass}>
       <div className="mb-2 flex min-w-0 items-center gap-2">
         <Search className="size-3.5 text-muted-foreground sm:size-4" />
         <h2 className="text-sm font-semibold sm:text-base">故障诊断</h2>
@@ -39,6 +51,6 @@ export function NewOrderFaultDiagnosisSection({
           />
         </FormItem>
       </div>
-    </Card>
+    </Shell>
   );
 }

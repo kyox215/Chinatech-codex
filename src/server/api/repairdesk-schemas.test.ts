@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   createOrderSchema,
+  customerListPageInputSchema,
   customerSearchBodySchema,
   onboardingRequestBodySchema,
+  patchOrderInputSchema,
   paymentBodySchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
@@ -18,6 +20,14 @@ describe("repairdesk API schemas", () => {
 
   it("applies customer search defaults", () => {
     expect(customerSearchBodySchema.parse({})).toEqual({ q: "", limit: 6 });
+  });
+
+  it("coerces and caps customer page input", () => {
+    expect(customerListPageInputSchema.parse({ page: "2", pageSize: "75" })).toMatchObject({
+      page: 2,
+      pageSize: 75,
+    });
+    expect(() => customerListPageInputSchema.parse({ pageSize: 101 })).toThrow();
   });
 
   it("accepts WhatsApp notification template metadata", () => {
@@ -39,8 +49,16 @@ describe("repairdesk API schemas", () => {
       createOrderSchema.parse({
         order_type: "normal",
         status: "new",
-        technician_name: "Chen",
         fault_prices: [],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects technician changes in inline order patches", () => {
+    expect(() =>
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { technician_name: "Chen" },
       }),
     ).toThrow();
   });

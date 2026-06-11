@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerTag } from "@/lib/repairdesk/api";
 
 export function CustomerTagsDialog({
@@ -55,27 +56,29 @@ export function CustomerTagsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>管理客户标签</DialogTitle>
-          <DialogDescription>标签会用于客户筛选和营销分群。</DialogDescription>
+      <DialogContent className={componentOverlay.responsiveContent}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>管理客户标签</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
+            标签会用于客户筛选和营销分群。
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           {allTags.map((tag) => (
             <label
               key={tag.id}
-              className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm"
+              className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md border p-2 text-sm"
             >
               <Checkbox
                 checked={selected.includes(tag.id)}
                 onCheckedChange={() => toggle(tag.id)}
               />
               <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
-              {tag.name}
+              <span className="min-w-0 truncate">{tag.name}</span>
             </label>
           ))}
         </div>
-        <DialogFooter>
+        <DialogFooter className={componentOverlay.footer}>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

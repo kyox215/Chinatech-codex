@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 
+import { indicatorSpring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 export type OrderDetailTab<T extends string = string> = {
@@ -41,7 +42,7 @@ export function OrderDetailTabs<T extends string>({
                       "linear-gradient(120deg, oklch(0.7 0.2 285 / 0.25), oklch(0.78 0.16 200 / 0.18))",
                     boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.08)",
                   }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  transition={indicatorSpring}
                 />
               )}
               {tab.label}

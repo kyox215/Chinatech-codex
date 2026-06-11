@@ -154,6 +154,8 @@ document.documentElement.scrollWidth <= window.innerWidth
 "w-[min(1120px,calc(100vw-32px))] max-h-[90vh] overflow-y-auto";
 ```
 
+工单详情弹窗属于沉浸式工作面，外壳必须固定为 viewport-safe 高度，切换概览、记录、附件库存时不改变 Dialog 尺寸；桌面概览区必须使用 `detailWorkspace.orderDetailGrid`：客户信息、设备故障、报价处理三列同屏；低于桌面宽度时自动降为两列或单列，不能产生页面级横向滚动。
+
 编辑/新建弹窗桌面建议：
 
 ```tsx
@@ -173,6 +175,14 @@ document.documentElement.scrollWidth <= window.innerWidth
 - 列表 hover 或首屏可见行允许预取详情数据，但不能一次性预取整页所有详情。
 - 弹窗内 mutation 成功后 invalidate 当前详情、列表和统计 query。
 - 弹窗内容使用 compact density，避免在弹窗内出现二级横向滚动。
+
+生成标准：
+
+- 桌面详情、确认、新建/编辑优先 `Dialog`；移动筛选、侧向辅助面板和接近全屏流程优先 `Sheet`；轻量菜单、筛选和选择器使用 `Popover`。
+- `Dialog` / `Sheet` 必须有 title 和 description；`Popover` 触发器必须有可访问名称。
+- 所有浮层内容使用 `componentOverlay.*` 或 `surfaces.popover`，不在页面内临时拼接一套浮层 class。
+- framer-motion 浮层动效从 `@/lib/motion` 取：`overlayTransition` 用于 `Dialog` / `Popover`，`sheetTransition` 用于 `Sheet`，`floatingBar` 用于底部批量操作条。
+- 激活指示器统一使用 `indicatorSpring`，不要写散落的 `stiffness` / `damping`。
 
 ## Density System
 
@@ -217,6 +227,18 @@ document.documentElement.scrollWidth <= window.innerWidth
 ## Shared Pattern Updates
 
 第一阶段需要扩展可复用声明，后续页面只能复用这些声明，不再手写散落 class。
+
+### `src/lib/motion.ts`
+
+计划新增或统一复用：
+
+```ts
+indicatorSpring = { type: "spring", stiffness: 400, damping: 32 };
+overlayTransition = { duration: 0.2, ease };
+sheetTransition = { type: "spring", stiffness: 380, damping: 30 };
+floatingBar = { hidden, show, exit };
+metricCountDuration = 1.1;
+```
 
 ### `src/lib/ui-patterns.ts`
 
@@ -336,11 +358,15 @@ componentOverlay.responsiveDialog = "w-[min(960px,calc(100vw-24px))] max-h-[90vh
 - `OrderDetailScreen` 支持 `surface="page" | "dialog"` 的响应式 class。
 - `OrderHero` 操作区使用 flex wrap。
 - Tabs 容器增加 `max-w-full overflow-hidden`。
-- 卡片 grid 使用 `grid-cols-1 lg:grid-cols-2`，每列 `min-w-0`。
+- 弹窗概览 grid 使用 `detailWorkspace.orderDetailGrid`：移动单列、平板两列、桌面三列，每列 `min-w-0`。
+- 技师 / 录入人只读展示，新建与编辑入口不得提供选择器或 inline edit。
+- 报价金额编辑使用 string draft + shared normalizer，空金额不自动显示为 `0`，总报价、尾款和保存 payload 必须同源计算。
 
 ### Acceptance
 
 - 详情弹窗在 1024 宽度内不横向滚动。
+- 详情弹窗在 1024、1280、1440 宽度下客户、设备、报价三列同屏。
+- 详情弹窗切换到附件库存等短内容 Tab 后，Dialog 外壳宽高不变。
 - 独立详情页在 390 宽度下单列。
 - 所有金额保持 `€` 在前。
 
@@ -432,19 +458,19 @@ npm run test
 npm run build
 ```
 
-### Browser Viewports
+### Viewport Verification Matrix
 
 使用 Playwright 或手动截图验证：
 
-| Viewport    | 用途              |
-| ----------- | ----------------- |
-| 390 x 844   | iPhone 常用宽度   |
-| 430 x 932   | 大屏手机          |
-| 768 x 1024  | iPad / 小平板     |
-| 1024 x 768  | 窄桌面 / 平板横屏 |
-| 1280 x 800  | 常见笔记本        |
-| 1440 x 900  | 标准桌面          |
-| 1600 x 1000 | 高分辨率桌面      |
+| Viewport    | 用途              | 必验内容                           |
+| ----------- | ----------------- | ---------------------------------- |
+| 390 x 844   | iPhone 常用宽度   | 单列卡片、底部动作、接近全屏 Sheet |
+| 430 x 932   | 大屏手机          | 长文本截断、表单键盘安全区         |
+| 768 x 1024  | iPad / 小平板     | 双列降级、工具栏换行、弹层宽度     |
+| 1024 x 768  | 窄桌面 / 平板横屏 | dense 表格、桌面详情 Dialog        |
+| 1280 x 800  | 常见笔记本        | 高密度列表、批量操作条             |
+| 1440 x 900  | 标准桌面          | 完整工具栏、详情分栏               |
+| 1600 x 1000 | 高分辨率桌面      | 最大宽度约束，不无限拉伸           |
 
 ### Automatic Overflow Check
 

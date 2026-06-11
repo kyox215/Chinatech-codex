@@ -14,8 +14,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
-import { cn } from "@/lib/utils";
+
+const paymentMethods = ["现金", "刷卡"] as const;
 
 export function PaymentDialog({
   open,
@@ -39,7 +48,7 @@ export function PaymentDialog({
         if (v) setAmount(balance);
       }}
     >
-      <DialogContent className="w-[min(520px,calc(100vw-24px))] max-w-[calc(100vw-24px)] p-4 sm:p-5">
+      <DialogContent className={`${componentOverlay.modalSm} p-4 sm:p-5`}>
         <DialogHeader>
           <DialogTitle>登记收款</DialogTitle>
           <DialogDescription>未结清尾款 {formatMoney(balance)}</DialogDescription>
@@ -58,23 +67,18 @@ export function PaymentDialog({
           </div>
           <div>
             <Label className="text-xs">支付方式</Label>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {["现金", "刷卡"].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMethod(m)}
-                  className={cn(
-                    "rounded-md border px-2 py-1 text-xs",
-                    method === m
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "bg-surface hover:bg-accent",
-                  )}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+            <Select value={method} onValueChange={setMethod}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter className="gap-2 sm:gap-2">

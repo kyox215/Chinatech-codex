@@ -1,3 +1,5 @@
+import { normalizeAccessoryNotes } from "./order-accessory-notes";
+
 const accessoryPattern =
   /(sim|卡托|卡槽|取卡针|卡针|手机壳|保护壳|壳|充电器|充电头|数据线|充电线|耳机|盒子|包装|保护膜|scheda|caricatore|cavo|cover|custodia|accessori)/i;
 
@@ -29,11 +31,11 @@ export function normalizeOrderTagInput(input: {
   accessoryNotes?: string | null;
 }) {
   const rawTag = cleanText(input.internalTag);
-  const accessoryNotes = cleanText(input.accessoryNotes);
+  const accessoryNotes = normalizeAccessoryNotes(input.accessoryNotes);
   const priorityTag = classifyPriorityTag(rawTag);
   const tagLooksLikeAccessory = rawTag ? accessoryPattern.test(rawTag) : false;
   const nextAccessoryNotes = tagLooksLikeAccessory
-    ? joinNotes(accessoryNotes, rawTag)
+    ? normalizeAccessoryNotes(joinNotes(accessoryNotes, rawTag))
     : accessoryNotes || undefined;
 
   return {

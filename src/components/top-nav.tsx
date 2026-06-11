@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Store,
   Users,
@@ -20,9 +21,17 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { cn } from "@/lib/utils";
 
-export const navItems = [
+type NavItem = {
+  title: string;
+  url: string;
+  icon: typeof Sparkles;
+  exact?: boolean;
+};
+
+export const navItems: NavItem[] = [
   { title: "概览", url: "/", icon: Sparkles, exact: true },
   { title: "工单", url: "/orders", icon: ClipboardList },
   { title: "客户", url: "/customers", icon: Users },
@@ -31,8 +40,15 @@ export const navItems = [
   { title: "设置", url: "/settings", icon: Settings },
 ];
 
+const platformNavItem: NavItem = { title: "平台审批", url: "/platform", icon: ShieldCheck };
+
 export function TopNav({ onOpenCommand }: { onOpenCommand: () => void }) {
   const pathname = usePathname() ?? "/";
+  const shell = useStoreShellContext();
+  const visibleNavItems = shell.isPlatformAdmin
+    ? [...navItems.slice(0, -1), platformNavItem, navItems[navItems.length - 1]]
+    : navItems;
+  const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
   const isActive = (url: string, exact?: boolean) =>
     exact
       ? pathname === url
@@ -70,7 +86,7 @@ export function TopNav({ onOpenCommand }: { onOpenCommand: () => void }) {
 
         {/* Primary nav (desktop) */}
         <nav className="ml-4 hidden items-center gap-0.5 md:flex">
-          {navItems.map((it) => {
+          {visibleNavItems.map((it) => {
             const active = isActive(it.url, it.exact);
             return (
               <Link
@@ -126,15 +142,16 @@ export function TopNav({ onOpenCommand }: { onOpenCommand: () => void }) {
           <Bell className="size-4" />
         </Button>
 
-        {/* Store switcher */}
-        <button
-          type="button"
-          className="hidden h-9 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs backdrop-blur lg:inline-flex"
+        <Link
+          href="/settings"
+          className="hidden h-9 max-w-44 min-w-0 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs backdrop-blur transition-colors hover:bg-accent hover:text-accent-foreground lg:inline-flex"
         >
           <Store className="size-3.5 text-muted-foreground" />
-          <span className="font-medium">华强北旗舰店</span>
-          <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_oklch(0.78_0.18_145)]" />
-        </button>
+          <span className="min-w-0 truncate font-medium">{activeStoreName}</span>
+          {shell.activeStore ? (
+            <span className="size-1.5 shrink-0 rounded-full bg-status-success-foreground" />
+          ) : null}
+        </Link>
 
         <Button
           asChild

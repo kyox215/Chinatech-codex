@@ -3,8 +3,6 @@ import {
   getStatusListSortIndex,
   isApprovalOverdue,
   isPickupOverdue,
-  normalizeInitialOrderStatus,
-  validateOrderTransition,
 } from "@/lib/mock/workflow";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CURRENCY_CODE } from "@/lib/money";
@@ -18,6 +16,14 @@ import type {
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderWorkflow,
+  OrderWorkflowStatus,
+  OrderWorkflowStatusCreateInput,
+  OrderWorkflowStatusEnabledInput,
+  OrderWorkflowStatusReorderInput,
+  OrderWorkflowStatusUpdateInput,
+  OrderWorkflowTransition,
+  OrderWorkflowTransitionsUpdateInput,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
@@ -29,6 +35,13 @@ import type {
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import {
+  formatWarrantyText,
+  normalizeWarrantyMonths,
+  normalizeWarrantyPayload,
+  parseWarrantyMonths,
+  warrantyReasonRequired,
+} from "@/features/orders/model/order-warranty";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   ORDER_LIST_SELECT,
@@ -51,6 +64,7 @@ import {
   stringArray,
   supplierFromRow,
 } from "@/server/repairdesk-shared";
+import { assertStaffRole } from "@/server/auth-context";
 
 function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
   let result = rows;
@@ -96,6 +110,152 @@ function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
     if (statusSort !== 0) return statusSort;
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
   });
+}
+
+function workflowStatusFromRow(row: DbRecord): OrderWorkflowStatus {
+  return {
+    id: requiredString(row.id),
+    store_id: requiredString(row.store_id),
+    code: requiredString(row.code),
+    label: requiredString(row.label),
+    short_label: maybeString(row.short_label) || requiredString(row.label),
+    tone: (maybeString(row.tone) || "neutral") as OrderWorkflowStatus["tone"],
+    bucket: (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"],
+    sort_order: Number(row.sort_order ?? 0),
+    enabled: Boolean(row.enabled),
+    show_in_order_filters: Boolean(row.show_in_order_filters),
+    allowed_for_create: Boolean(row.allowed_for_create),
+    is_default_create_status: Boolean(row.is_default_create_status),
+    is_system: Boolean(row.is_system),
+    created_at: requiredString(row.created_at),
+    updated_at: requiredString(row.updated_at),
+  };
+}
+
+function workflowTransitionFromRow(row: DbRecord): OrderWorkflowTransition {
+  return {
+    id: requiredString(row.id),
+    store_id: requiredString(row.store_id),
+    from_status_code: requiredString(row.from_status_code),
+    to_status_code: requiredString(row.to_status_code),
+    is_primary: Boolean(row.is_primary),
+    sort_order: Number(row.sort_order ?? 0),
+    enabled: Boolean(row.enabled),
+    created_at: requiredString(row.created_at),
+    updated_at: requiredString(row.updated_at),
+  };
+}
+
+async function readWorkflowStatuses(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+) {
+  const { data, error } = await supabase
+    .from("order_workflow_statuses")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("sort_order", { ascending: true })
+    .order("label", { ascending: true });
+  fail(error, "读取工单状态流失败");
+  return ((data ?? []) as DbRecord[]).map(workflowStatusFromRow);
+}
+
+async function readWorkflowTransitions(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+) {
+  const { data, error } = await supabase
+    .from("order_workflow_transitions")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("from_status_code", { ascending: true })
+    .order("sort_order", { ascending: true });
+  fail(error, "读取工单流转关系失败");
+  return ((data ?? []) as DbRecord[]).map(workflowTransitionFromRow);
+}
+
+async function readWorkflowStatusLabel(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  code: string,
+) {
+  const { data, error } = await supabase
+    .from("order_workflow_statuses")
+    .select("label")
+    .eq("store_id", storeId)
+    .eq("code", code)
+    .maybeSingle();
+  fail(error, "读取状态名称失败");
+  return maybeString((data as DbRecord | null)?.label) || code;
+}
+
+async function validateConfiguredOrderTransition(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  from: RepairOrderStatus,
+  to: RepairOrderStatus,
+) {
+  if (from === to) return { ok: false, reason: "目标状态与当前一致" };
+
+  const { data: target, error: targetError } = await supabase
+    .from("order_workflow_statuses")
+    .select("code,label,enabled")
+    .eq("store_id", storeId)
+    .eq("code", to)
+    .maybeSingle();
+  fail(targetError, "读取目标状态失败");
+  if (!target) return { ok: false, reason: "目标状态不存在" };
+
+  const { data: transition, error } = await supabase
+    .from("order_workflow_transitions")
+    .select("enabled")
+    .eq("store_id", storeId)
+    .eq("from_status_code", from)
+    .eq("to_status_code", to)
+    .maybeSingle();
+  fail(error, "检查状态流转失败");
+  if (!transition || !(transition as DbRecord).enabled) {
+    const fromLabel = await readWorkflowStatusLabel(supabase, storeId, from);
+    const toLabel = maybeString((target as DbRecord).label) || to;
+    return { ok: false, reason: `「${fromLabel}」不能直接流转到「${toLabel}」` };
+  }
+  return { ok: true };
+}
+
+async function resolveInitialOrderStatus(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  requested: RepairOrderStatus,
+) {
+  const { data: requestedStatus, error } = await supabase
+    .from("order_workflow_statuses")
+    .select("code,allowed_for_create,enabled")
+    .eq("store_id", storeId)
+    .eq("code", requested)
+    .maybeSingle();
+  fail(error, "检查初始状态失败");
+
+  if (requestedStatus) {
+    const row = requestedStatus as DbRecord;
+    if (Boolean(row.enabled) && Boolean(row.allowed_for_create)) return requiredString(row.code);
+    throw new Error("初始状态不允许用于新建工单");
+  }
+
+  const { data: defaultStatus, error: defaultError } = await supabase
+    .from("order_workflow_statuses")
+    .select("code")
+    .eq("store_id", storeId)
+    .eq("enabled", true)
+    .eq("allowed_for_create", true)
+    .order("is_default_create_status", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  fail(defaultError, "读取默认初始状态失败");
+
+  if (defaultStatus) return requiredString((defaultStatus as DbRecord).code);
+  if (ORDER_STATUS_ALLOWED_FOR_CREATE.includes(requested)) return requested;
+  throw new Error("店铺没有可用于新建工单的状态");
 }
 
 function mergeContactPhones(existing: string[], incoming: string[], primaryRaw: string) {
@@ -293,6 +453,227 @@ export async function getOrderStats(actor?: AuditActor): Promise<OrderStats> {
   };
 }
 
+export async function listOrderWorkflow(actor?: AuditActor): Promise<OrderWorkflow> {
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const [statuses, transitions] = await Promise.all([
+    readWorkflowStatuses(supabase, storeId),
+    readWorkflowTransitions(supabase, storeId),
+  ]);
+  return { statuses, transitions };
+}
+
+export async function createOrderWorkflowStatus(
+  input: OrderWorkflowStatusCreateInput,
+  actor?: AuditActor,
+): Promise<OrderWorkflowStatus> {
+  assertStaffRole(actor ?? { displayName: "系统", isSystem: true }, ["owner", "manager"]);
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const code = input.code.trim().toLowerCase();
+  const label = input.label.trim();
+  const isDefault = Boolean(input.is_default_create_status);
+  const enabled = input.enabled ?? true;
+
+  const sortOrder =
+    input.sort_order ??
+    (await readWorkflowStatuses(supabase, storeId)).reduce(
+      (max, status) => Math.max(max, status.sort_order),
+      0,
+    ) + 10;
+
+  if (isDefault) {
+    const { error } = await supabase
+      .from("order_workflow_statuses")
+      .update({ is_default_create_status: false, updated_at: now, updated_by: actor?.id ?? null })
+      .eq("store_id", storeId);
+    fail(error, "更新默认状态失败");
+  }
+
+  const { data, error } = await supabase
+    .from("order_workflow_statuses")
+    .insert({
+      id: crypto.randomUUID(),
+      store_id: storeId,
+      code,
+      label,
+      short_label: input.short_label?.trim() || label.slice(0, 4),
+      tone: input.tone,
+      bucket: input.bucket,
+      sort_order: sortOrder,
+      enabled: isDefault ? true : enabled,
+      show_in_order_filters: input.show_in_order_filters ?? true,
+      allowed_for_create: isDefault ? true : (input.allowed_for_create ?? false),
+      is_default_create_status: isDefault,
+      is_system: false,
+      created_by: actor?.id ?? null,
+      updated_by: actor?.id ?? null,
+      created_at: now,
+      updated_at: now,
+    })
+    .select("*")
+    .single();
+  fail(error, "创建工单状态失败");
+  return workflowStatusFromRow(data as DbRecord);
+}
+
+export async function updateOrderWorkflowStatus(
+  id: string,
+  input: OrderWorkflowStatusUpdateInput,
+  actor?: AuditActor,
+): Promise<OrderWorkflowStatus> {
+  assertStaffRole(actor ?? { displayName: "系统", isSystem: true }, ["owner", "manager"]);
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+
+  const { data: current, error: readError } = await supabase
+    .from("order_workflow_statuses")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .single();
+  fail(readError, "读取状态失败");
+  const currentStatus = workflowStatusFromRow(current as DbRecord);
+  if (currentStatus.is_default_create_status && input.enabled === false) {
+    throw new Error("默认新建状态不能停用");
+  }
+  if (currentStatus.is_default_create_status && input.is_default_create_status === false) {
+    throw new Error("请先把另一个状态设为默认新建状态");
+  }
+
+  const now = new Date().toISOString();
+  if (input.is_default_create_status) {
+    const { error } = await supabase
+      .from("order_workflow_statuses")
+      .update({ is_default_create_status: false, updated_at: now, updated_by: actor?.id ?? null })
+      .eq("store_id", storeId)
+      .neq("id", id);
+    fail(error, "更新默认状态失败");
+  }
+
+  const update: DbRecord = { updated_at: now, updated_by: actor?.id ?? null };
+  if (input.label !== undefined) update.label = input.label.trim();
+  if (input.short_label !== undefined) update.short_label = input.short_label.trim();
+  if (input.tone !== undefined) update.tone = input.tone;
+  if (input.bucket !== undefined) update.bucket = input.bucket;
+  if (input.sort_order !== undefined) update.sort_order = input.sort_order;
+  if (input.enabled !== undefined)
+    update.enabled = input.is_default_create_status ? true : input.enabled;
+  if (input.show_in_order_filters !== undefined)
+    update.show_in_order_filters = input.show_in_order_filters;
+  if (input.allowed_for_create !== undefined)
+    update.allowed_for_create = input.is_default_create_status ? true : input.allowed_for_create;
+  if (input.is_default_create_status !== undefined) {
+    update.is_default_create_status = input.is_default_create_status;
+    if (input.is_default_create_status) {
+      update.enabled = true;
+      update.allowed_for_create = true;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("order_workflow_statuses")
+    .update(update)
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .select("*")
+    .single();
+  fail(error, "保存状态失败");
+  return workflowStatusFromRow(data as DbRecord);
+}
+
+export async function reorderOrderWorkflowStatuses(
+  input: OrderWorkflowStatusReorderInput,
+  actor?: AuditActor,
+): Promise<OrderWorkflow> {
+  assertStaffRole(actor ?? { displayName: "系统", isSystem: true }, ["owner", "manager"]);
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  for (const item of input.items) {
+    const { error } = await supabase
+      .from("order_workflow_statuses")
+      .update({ sort_order: item.sort_order, updated_at: now, updated_by: actor?.id ?? null })
+      .eq("store_id", storeId)
+      .eq("id", item.id);
+    fail(error, "更新状态排序失败");
+  }
+
+  return listOrderWorkflow(actor);
+}
+
+export async function setOrderWorkflowStatusEnabled(
+  input: OrderWorkflowStatusEnabledInput,
+  actor?: AuditActor,
+): Promise<OrderWorkflowStatus> {
+  return updateOrderWorkflowStatus(input.id, { enabled: input.enabled }, actor);
+}
+
+export async function updateOrderWorkflowTransitions(
+  input: OrderWorkflowTransitionsUpdateInput,
+  actor?: AuditActor,
+): Promise<OrderWorkflow> {
+  assertStaffRole(actor ?? { displayName: "系统", isSystem: true }, ["owner", "manager"]);
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const statuses = await readWorkflowStatuses(supabase, storeId);
+  const from = statuses.find((status) => status.code === input.from_status_code);
+  if (!from) throw new Error("来源状态不存在");
+
+  const byTarget = new Map(input.transitions.map((item) => [item.to_status_code, item]));
+  const enabledTargets = statuses
+    .filter((status) => status.code !== from.code)
+    .map((status, index) => {
+      const requested = byTarget.get(status.code);
+      return {
+        to_status_code: status.code,
+        enabled: Boolean(requested?.enabled),
+        is_primary: Boolean(requested?.enabled && requested?.is_primary),
+        sort_order: requested?.sort_order ?? (index + 1) * 10,
+      };
+    });
+  const primaryIndex = enabledTargets.findIndex((target) => target.enabled && target.is_primary);
+  const firstEnabledIndex = enabledTargets.findIndex((target) => target.enabled);
+  enabledTargets.forEach((target, index) => {
+    target.is_primary =
+      target.enabled && (primaryIndex >= 0 ? index === primaryIndex : index === firstEnabledIndex);
+  });
+
+  const { error: disableError } = await supabase
+    .from("order_workflow_transitions")
+    .update({ enabled: false, is_primary: false, updated_at: now, updated_by: actor?.id ?? null })
+    .eq("store_id", storeId)
+    .eq("from_status_code", from.code);
+  fail(disableError, "更新流转关系失败");
+
+  const rows = enabledTargets.map((target) => ({
+    id: crypto.randomUUID(),
+    store_id: storeId,
+    from_status_code: from.code,
+    to_status_code: target.to_status_code,
+    enabled: target.enabled,
+    is_primary: target.is_primary,
+    sort_order: target.sort_order,
+    created_by: actor?.id ?? null,
+    updated_by: actor?.id ?? null,
+    created_at: now,
+    updated_at: now,
+  }));
+
+  if (rows.length) {
+    const { error } = await supabase.from("order_workflow_transitions").upsert(rows, {
+      onConflict: "store_id,from_status_code,to_status_code",
+      ignoreDuplicates: false,
+    });
+    fail(error, "保存流转关系失败");
+  }
+
+  return listOrderWorkflow(actor);
+}
+
 export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDetail> {
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
@@ -353,7 +734,7 @@ export async function transitionOrder(
   fail(readError, "读取当前状态失败");
 
   const from = (current as DbRecord).status as RepairOrderStatus;
-  const validation = validateOrderTransition(from, to);
+  const validation = await validateConfiguredOrderTransition(supabase, storeId, from, to);
   if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
 
   const now = new Date().toISOString();
@@ -451,6 +832,31 @@ export async function recordPayment(
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
+async function readDefaultOrderWarrantyMonths(supabase: SupabaseAdmin, storeId: string) {
+  const { data, error } = await supabase
+    .from("store_settings")
+    .select("default_order_warranty_months,default_order_warranty_text")
+    .eq("store_id", storeId)
+    .maybeSingle();
+  if (error) return 6;
+  const row = data as DbRecord | null;
+  if (!row) return 6;
+  if (
+    row.default_order_warranty_months !== undefined &&
+    row.default_order_warranty_months !== null
+  ) {
+    return normalizeWarrantyMonths(Number(row.default_order_warranty_months));
+  }
+  return parseWarrantyMonths(maybeString(row.default_order_warranty_text), 6);
+}
+
+function currentWarrantyMonths(row: DbRecord, defaultMonths: number) {
+  if (row.warranty_months !== undefined && row.warranty_months !== null) {
+    return normalizeWarrantyMonths(Number(row.warranty_months), defaultMonths);
+  }
+  return parseWarrantyMonths(maybeString(row.warranty_text), defaultMonths);
+}
+
 const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   customer_name: "客户姓名",
   customer_phone: "手机号",
@@ -460,7 +866,6 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_notes: "设备备注",
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
-  technician_name: "技师",
   accessory_notes: "留存备注",
   warranty_text: "质保",
 };
@@ -592,13 +997,11 @@ export async function updateOrder(
   const deviceBrand = input.device_brand.trim();
   const deviceModel = input.device_model.trim();
   const issueDescription = input.issue_description.trim();
-  const technicianName = input.technician_name.trim();
 
   if (!id) throw new Error("工单 ID 不能为空");
   if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
-  if (!technicianName) throw new Error("技师不能为空");
 
   const validFaults = input.fault_prices
     .filter((item) => item.name.trim() && Number(item.price) >= 0)
@@ -617,7 +1020,7 @@ export async function updateOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      "id,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,customer:customers(contact_phones)",
+      "id,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,warranty_text,warranty_months,warranty_change_reason,customer:customers(contact_phones)",
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -657,6 +1060,19 @@ export async function updateOrder(
     accessoryNotes: input.accessory_notes,
   });
   const now = new Date().toISOString();
+  const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
+  const warranty = normalizeWarrantyPayload({
+    warranty_months: input.warranty_months,
+    warranty_text: input.warranty_text,
+    warranty_change_reason: input.warranty_change_reason,
+    defaultWarrantyMonths,
+  });
+  const previousWarrantyMonths = currentWarrantyMonths(currentRow, defaultWarrantyMonths);
+  const previousWarrantyReason = maybeString(currentRow.warranty_change_reason);
+  const warrantyChanged =
+    previousWarrantyMonths !== warranty.warranty_months ||
+    (previousWarrantyReason ?? "") !== (warranty.warranty_change_reason ?? "");
+  const actorId = typeof operator === "string" ? undefined : operator.id;
 
   const { error: customerError } = await supabase
     .from("customers")
@@ -676,10 +1092,14 @@ export async function updateOrder(
     .update({
       issue_description: issueDescription,
       diagnosis_result: input.diagnosis_result?.trim() || null,
-      technician_name: technicianName,
       internal_tag: tagInput.internalTag || null,
       accessory_notes: tagInput.accessoryNotes || null,
-      warranty_text: input.warranty_text?.trim() || null,
+      warranty_text: warranty.warranty_text,
+      warranty_months: warranty.warranty_months,
+      warranty_change_reason: warranty.warranty_change_reason ?? null,
+      ...(warrantyChanged
+        ? { warranty_changed_by: actorId ?? null, warranty_changed_at: now }
+        : {}),
       contact_phones: customerContactPhones,
       quotation_amount: quotation,
       deposit_amount: deposit,
@@ -711,12 +1131,35 @@ export async function updateOrder(
       balance_amount: nextBalance,
       internal_tag: tagInput.internalTag,
       accessory_notes: tagInput.accessoryNotes,
+      warranty_months: warranty.warranty_months,
+      warranty_text: warranty.warranty_text,
       currency_code: CURRENCY_CODE,
     },
     operator_name: operatorName,
     created_at: now,
   });
   fail(eventError, "写入更新时间线失败");
+
+  if (warrantyChanged) {
+    const { error } = await supabase.from("order_events").insert({
+      id: crypto.randomUUID(),
+      store_id: storeId,
+      order_id: id,
+      event_type: "note",
+      payload: {
+        action: "warranty_changed",
+        from_months: previousWarrantyMonths,
+        from_text: formatWarrantyText(previousWarrantyMonths),
+        to_months: warranty.warranty_months,
+        to_text: warranty.warranty_text,
+        reason: warranty.warranty_change_reason ?? null,
+        default_months: defaultWarrantyMonths,
+      },
+      operator_name: operatorName,
+      created_at: now,
+    });
+    fail(error, "写入质保变更时间线失败");
+  }
 
   return { ok: true };
 }
@@ -731,10 +1174,11 @@ export async function patchOrder(
   if (!id) throw new Error("工单 ID 不能为空");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
 
-  const changeEntries = Object.entries(input.changes).filter(
-    ([, value]) => value !== undefined,
-  ) as [keyof PatchOrderInput["changes"], string][];
+  const changeEntries = Object.entries(input.changes).filter(([, value]) => value !== undefined);
   if (changeEntries.length === 0) throw new Error("没有可保存的字段");
+  const unsupportedField = changeEntries.find(([field]) => !(field in PATCH_FIELD_LABELS))?.[0];
+  if (unsupportedField) throw new Error(`${unsupportedField} 不可通过快速编辑修改`);
+  const editableEntries = changeEntries as [keyof PatchOrderInput["changes"], string][];
 
   const supabase = getSupabaseAdmin();
   const { data: current, error: readError } = await supabase
@@ -768,7 +1212,7 @@ export async function patchOrder(
   const customerUpdate: DbRecord = {};
   const changedFields: string[] = [];
 
-  for (const [field, rawValue] of changeEntries) {
+  for (const [field, rawValue] of editableEntries) {
     const value = rawValue.trim();
     changedFields.push(PATCH_FIELD_LABELS[field]);
 
@@ -821,10 +1265,6 @@ export async function patchOrder(
       case "diagnosis_result":
         orderUpdate.diagnosis_result = value || null;
         break;
-      case "technician_name":
-        if (!value) throw new Error("技师不能为空");
-        orderUpdate.technician_name = value;
-        break;
       case "accessory_notes": {
         const tagInput = normalizeOrderTagInput({ accessoryNotes: value });
         orderUpdate.accessory_notes = tagInput.accessoryNotes || null;
@@ -837,7 +1277,7 @@ export async function patchOrder(
   }
 
   if (
-    changeEntries.some(([field]) =>
+    editableEntries.some(([field]) =>
       ["device_brand", "device_model", "device_imei", "device_notes"].includes(field),
     )
   ) {
@@ -985,7 +1425,12 @@ async function writeWhatsappMessage({
   let to: RepairOrderStatus | undefined;
 
   if (transitionTo) {
-    const transition = validateOrderTransition(from, transitionTo);
+    const transition = await validateConfiguredOrderTransition(
+      supabase,
+      storeId,
+      from,
+      transitionTo,
+    );
     if (!transition.ok) {
       if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
     } else {
@@ -1151,10 +1596,8 @@ export async function createOrder(
 ): Promise<{ id: string }> {
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   const operatorName = operatorNameFromActor(operator);
-  const status = normalizeInitialOrderStatus(input.status);
-  if (!ORDER_STATUS_ALLOWED_FOR_CREATE.includes(status)) throw new Error("初始状态不合法");
+  const technicianName = operatorName.trim() || "前台";
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
-  if (!input.technician_name.trim()) throw new Error("技师不能为空");
 
   const validFaults = input.fault_prices
     .filter((item) => item.name.trim() && Number(item.price) >= 0)
@@ -1171,7 +1614,20 @@ export async function createOrder(
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
 
   const supabase = getSupabaseAdmin();
+  const status = await resolveInitialOrderStatus(supabase, storeId, input.status);
   const now = new Date().toISOString();
+  const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
+  const warranty = normalizeWarrantyPayload({
+    warranty_months: input.warranty_months,
+    warranty_text: input.warranty_text,
+    warranty_change_reason: input.warranty_change_reason,
+    defaultWarrantyMonths,
+  });
+  const warrantyChangedFromDefault = warrantyReasonRequired(
+    warranty.warranty_months,
+    defaultWarrantyMonths,
+  );
+  const actorId = typeof operator === "string" ? undefined : operator.id;
 
   let customerId = input.customer_id;
   let customerContactPhones: string[] = [];
@@ -1311,10 +1767,14 @@ export async function createOrder(
       currency_code: CURRENCY_CODE,
       is_paid: balance === 0,
       approval_status: "pending",
-      technician_name: input.technician_name.trim(),
+      technician_name: technicianName,
       internal_tag: tagInput.internalTag || null,
       accessory_notes: tagInput.accessoryNotes || null,
-      warranty_text: input.warranty_text?.trim() || "6个月",
+      warranty_text: warranty.warranty_text,
+      warranty_months: warranty.warranty_months,
+      warranty_change_reason: warranty.warranty_change_reason ?? null,
+      warranty_changed_by: warrantyChangedFromDefault ? (actorId ?? null) : null,
+      warranty_changed_at: warrantyChangedFromDefault ? now : null,
       contact_phones: customerContactPhones,
       fault_prices: validFaults,
       device_snapshot: deviceSnapshot,
@@ -1331,7 +1791,12 @@ export async function createOrder(
     store_id: storeId,
     order_id: orderId,
     event_type: "created",
-    payload: { type: input.order_type },
+    payload: {
+      type: input.order_type,
+      warranty_months: warranty.warranty_months,
+      warranty_text: warranty.warranty_text,
+      warranty_change_reason: warranty.warranty_change_reason ?? null,
+    },
     operator_name: operatorName,
     created_at: now,
   });

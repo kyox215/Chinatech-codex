@@ -92,6 +92,8 @@
     0 20px 40px -20px oklch(0 0 0 / 0.5);
   --shadow-elevated: 0 1px 0 oklch(1 0 0 / 0.06) inset, 0 12px 40px -12px oklch(0 0 0 / 0.5);
   --shadow-card: 0 1px 0 oklch(1 0 0 / 0.04) inset;
+  --shadow-overlay: 0 1px 0 oklch(1 0 0 / 0.05) inset, 0 18px 48px -28px oklch(0 0 0 / 0.42);
+  --shadow-workspace: 0 1px 0 oklch(1 0 0 / 0.08) inset, 0 24px 70px -42px oklch(0 0 0 / 0.4);
 
   --animate-fade-up: fade-up 0.4s ease-out both;
   --animate-scale-in: scale-in 0.25s ease-out both;
@@ -155,6 +157,13 @@
   --sidebar-accent-foreground: oklch(0.32 0.14 285);
   --sidebar-border: oklch(0.9 0.01 265);
   --sidebar-ring: oklch(0.55 0.2 285);
+
+  --overlay-scrim: oklch(0.18 0.025 265 / 0.42);
+  --surface-workspace: oklch(0.995 0.002 247 / 0.94);
+  --surface-workspace-strong: oklch(1 0 0 / 0.98);
+  --surface-panel: oklch(1 0 0 / 0.72);
+  --surface-panel-muted: oklch(0.97 0.006 247 / 0.72);
+  --border-panel: oklch(0.88 0.012 255 / 0.78);
 }
 
 .dark {
@@ -208,6 +217,13 @@
   --sidebar-accent-foreground: oklch(0.96 0.04 285);
   --sidebar-border: oklch(0.28 0.04 270);
   --sidebar-ring: oklch(0.74 0.18 285);
+
+  --overlay-scrim: oklch(0.08 0.02 270 / 0.58);
+  --surface-workspace: oklch(0.18 0.03 270 / 0.9);
+  --surface-workspace-strong: oklch(0.19 0.03 270 / 0.96);
+  --surface-panel: oklch(1 0 0 / 0.055);
+  --surface-panel-muted: oklch(1 0 0 / 0.035);
+  --border-panel: oklch(1 0 0 / 0.09);
 }
 
 @layer base {

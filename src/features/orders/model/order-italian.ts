@@ -1,12 +1,11 @@
 import { formatMoney } from "@/lib/money";
-import type { RepairOrderStatus } from "@/lib/mock/enums";
 
 export const orderTypeItalian = {
   quick_repair: "Riparazione rapida",
   dropoff_repair: "Riparazione in negozio",
 } as const;
 
-export const statusItalian: Record<RepairOrderStatus, string> = {
+export const statusItalian: Record<string, string> = {
   new: "Nuovo",
   rework: "Rientro in garanzia",
   mail_in_progress: "Spedizione in corso",
@@ -23,6 +22,10 @@ export const statusItalian: Record<RepairOrderStatus, string> = {
   completed: "Completato",
   cancelled: "Annullato",
 };
+
+export function getStatusItalian(status: string) {
+  return statusItalian[status] ?? status;
+}
 
 const faultItalianTerms: Record<string, string> = {
   屏幕: "Display",
@@ -165,6 +168,8 @@ export function translatePrintableText(value?: string) {
 export function toItalianWarranty(value?: string) {
   const text = value?.trim();
   if (!text || text === "无保修") return "Nessuna garanzia";
+  if (text.includes("两年") || text.includes("24"))
+    return "24 mesi sulla parte riparata/sostituita";
   if (text.includes("12")) return "12 mesi sulla parte riparata/sostituita";
   if (text.includes("6")) return "6 mesi sulla parte riparata/sostituita";
   if (text.includes("3")) return "3 mesi sulla parte riparata/sostituita";

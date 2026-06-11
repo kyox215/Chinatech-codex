@@ -26,6 +26,7 @@ import {
 } from "@/lib/repairdesk/api";
 import { brandGradientStyle, controls, formLayout, pageHeader, pageShell } from "@/lib/ui-patterns";
 import { createClient } from "@/utils/supabase/client";
+import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-persistence";
 import { platformKeys } from "@/features/platform/api/query-keys";
 
 export function OnboardingScreen() {
@@ -58,6 +59,7 @@ export function OnboardingScreen() {
 
   const signOut = async () => {
     await createClient().auth.signOut();
+    clearBrowserAuthPersistenceCookie();
     router.replace("/login");
     router.refresh();
   };

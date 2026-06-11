@@ -18,6 +18,10 @@ import {
   extractTemplateVariables,
   renderTemplate,
 } from "@/features/messages/model/template-renderer";
+import {
+  formatWarrantyText,
+  normalizeWarrantyMonths,
+} from "@/features/orders/model/order-warranty";
 
 let storeSettings = withStoreSettingsDefaults({
   ...DEFAULT_STORE_SETTINGS,
@@ -40,9 +44,14 @@ export async function updateStoreSettings(
   _actor?: AuditActor,
 ): Promise<StoreSettings> {
   const now = new Date().toISOString();
+  const defaultOrderWarrantyMonths = normalizeWarrantyMonths(
+    input.default_order_warranty_months ?? storeSettings.default_order_warranty_months,
+  );
   storeSettings = withStoreSettingsDefaults({
     ...storeSettings,
     ...input,
+    default_order_warranty_months: defaultOrderWarrantyMonths,
+    default_order_warranty_text: formatWarrantyText(defaultOrderWarrantyMonths),
     default_inventory_warranty_months:
       input.default_inventory_warranty_months ?? storeSettings.default_inventory_warranty_months,
     updated_at: now,

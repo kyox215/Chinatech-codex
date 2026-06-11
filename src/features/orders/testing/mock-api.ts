@@ -6,6 +6,14 @@ import type {
   OrderListItem,
   OrderListPageInput,
   OrderListResult,
+  OrderWorkflow,
+  OrderWorkflowStatus,
+  OrderWorkflowStatusCreateInput,
+  OrderWorkflowStatusEnabledInput,
+  OrderWorkflowStatusReorderInput,
+  OrderWorkflowStatusUpdateInput,
+  OrderWorkflowTransition,
+  OrderWorkflowTransitionsUpdateInput,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
@@ -14,15 +22,14 @@ import type {
   UpdateOrderInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
-import type { RepairOrderStatus } from "@/lib/mock/enums";
+import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
+  DEFAULT_ORDER_WORKFLOW_TRANSITIONS,
   getStatusListSortIndex,
   isApprovalOverdue,
   isPickupOverdue,
-  normalizeInitialOrderStatus,
-  validateOrderTransition,
 } from "@/lib/mock/workflow";
 import {
   customers,
@@ -38,11 +45,74 @@ import {
   orders,
 } from "@/lib/mock/state";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import {
+  formatWarrantyText,
+  normalizeWarrantyPayload,
+  parseWarrantyMonths,
+  warrantyReasonRequired,
+} from "@/features/orders/model/order-warranty";
 
 type MockOperator = string | AuditActor;
 
 function operatorName(operator: MockOperator = "前台") {
   return typeof operator === "string" ? operator : operator.displayName;
+}
+
+const mockStoreId = "mock-store";
+let workflowStatuses: OrderWorkflowStatus[] = repairOrderStatus.map((code, index) => ({
+  id: `mock-status-${code}`,
+  store_id: mockStoreId,
+  code,
+  label: statusMeta[code]?.label ?? code,
+  short_label: statusMeta[code]?.shortLabel ?? statusMeta[code]?.label ?? code,
+  tone: statusMeta[code]?.tone ?? "neutral",
+  bucket:
+    code === "cancelled"
+      ? "cancelled"
+      : code === "completed"
+        ? "done"
+        : ["repaired", "notified", "waiting_pickup", "unfixed_pickup"].includes(code)
+          ? "pickup"
+          : ["parts_ordered", "parts_arrived"].includes(code)
+            ? "parts"
+            : code === "repairing"
+              ? "repair"
+              : ["quoted", "waiting_approval"].includes(code)
+                ? "quote"
+                : code === "diagnosing"
+                  ? "diagnosing"
+                  : "intake",
+  sort_order: (index + 1) * 10,
+  enabled: true,
+  show_in_order_filters: ["new", "rework", "mail_in_progress", "diagnosing"].includes(code),
+  allowed_for_create: ORDER_STATUS_ALLOWED_FOR_CREATE.includes(code),
+  is_default_create_status: code === "new",
+  is_system: true,
+  created_at: new Date(0).toISOString(),
+  updated_at: new Date(0).toISOString(),
+}));
+
+let workflowTransitions: OrderWorkflowTransition[] = Object.entries(
+  DEFAULT_ORDER_WORKFLOW_TRANSITIONS,
+).flatMap(([from, targets]) =>
+  targets.map((to, index) => ({
+    id: `mock-transition-${from}-${to}`,
+    store_id: mockStoreId,
+    from_status_code: from,
+    to_status_code: to,
+    is_primary: index === 0,
+    sort_order: (index + 1) * 10,
+    enabled: true,
+    created_at: new Date(0).toISOString(),
+    updated_at: new Date(0).toISOString(),
+  })),
+);
+
+function cloneWorkflow(): OrderWorkflow {
+  return {
+    statuses: workflowStatuses.map((status) => ({ ...status })),
+    transitions: workflowTransitions.map((transition) => ({ ...transition })),
+  };
 }
 
 function mergeContactPhones(existing: string[], incoming: string[], primaryRaw: string) {
@@ -170,6 +240,148 @@ export async function getOrderStats(_actor?: AuditActor) {
   };
 }
 
+export async function listOrderWorkflow(_actor?: AuditActor): Promise<OrderWorkflow> {
+  return cloneWorkflow();
+}
+
+export async function createOrderWorkflowStatus(
+  input: OrderWorkflowStatusCreateInput,
+  _actor?: AuditActor,
+): Promise<OrderWorkflowStatus> {
+  const code = input.code.trim().toLowerCase();
+  if (workflowStatuses.some((status) => status.code === code)) throw new Error("状态代码已存在");
+  const now = new Date().toISOString();
+  if (input.is_default_create_status) {
+    workflowStatuses = workflowStatuses.map((status) => ({
+      ...status,
+      is_default_create_status: false,
+    }));
+  }
+  const label = input.label.trim();
+  const status: OrderWorkflowStatus = {
+    id: crypto.randomUUID(),
+    store_id: mockStoreId,
+    code,
+    label,
+    short_label: input.short_label?.trim() || label.slice(0, 4),
+    tone: input.tone,
+    bucket: input.bucket,
+    sort_order:
+      input.sort_order ?? Math.max(0, ...workflowStatuses.map((item) => item.sort_order)) + 10,
+    enabled: input.is_default_create_status ? true : (input.enabled ?? true),
+    show_in_order_filters: input.show_in_order_filters ?? true,
+    allowed_for_create: input.is_default_create_status ? true : (input.allowed_for_create ?? false),
+    is_default_create_status: Boolean(input.is_default_create_status),
+    is_system: false,
+    created_at: now,
+    updated_at: now,
+  };
+  workflowStatuses = [...workflowStatuses, status].sort((a, b) => a.sort_order - b.sort_order);
+  return { ...status };
+}
+
+export async function updateOrderWorkflowStatus(
+  id: string,
+  input: OrderWorkflowStatusUpdateInput,
+  _actor?: AuditActor,
+): Promise<OrderWorkflowStatus> {
+  const current = workflowStatuses.find((status) => status.id === id);
+  if (!current) throw new Error("状态不存在");
+  if (current.is_default_create_status && input.enabled === false) {
+    throw new Error("默认新建状态不能停用");
+  }
+  if (current.is_default_create_status && input.is_default_create_status === false) {
+    throw new Error("请先把另一个状态设为默认新建状态");
+  }
+  if (input.is_default_create_status) {
+    workflowStatuses = workflowStatuses.map((status) => ({
+      ...status,
+      is_default_create_status: false,
+    }));
+  }
+  const now = new Date().toISOString();
+  workflowStatuses = workflowStatuses.map((status) =>
+    status.id === id
+      ? {
+          ...status,
+          ...input,
+          enabled: input.is_default_create_status ? true : (input.enabled ?? status.enabled),
+          allowed_for_create: input.is_default_create_status
+            ? true
+            : (input.allowed_for_create ?? status.allowed_for_create),
+          is_default_create_status:
+            input.is_default_create_status ?? status.is_default_create_status,
+          updated_at: now,
+        }
+      : status,
+  );
+  return { ...workflowStatuses.find((status) => status.id === id)! };
+}
+
+export async function reorderOrderWorkflowStatuses(
+  input: OrderWorkflowStatusReorderInput,
+  _actor?: AuditActor,
+): Promise<OrderWorkflow> {
+  const orderById = new Map(input.items.map((item) => [item.id, item.sort_order]));
+  workflowStatuses = workflowStatuses
+    .map((status) => ({
+      ...status,
+      sort_order: orderById.get(status.id) ?? status.sort_order,
+      updated_at: orderById.has(status.id) ? new Date().toISOString() : status.updated_at,
+    }))
+    .sort((a, b) => a.sort_order - b.sort_order);
+  return cloneWorkflow();
+}
+
+export async function setOrderWorkflowStatusEnabled(
+  input: OrderWorkflowStatusEnabledInput,
+  actor?: AuditActor,
+): Promise<OrderWorkflowStatus> {
+  return updateOrderWorkflowStatus(input.id, { enabled: input.enabled }, actor);
+}
+
+export async function updateOrderWorkflowTransitions(
+  input: OrderWorkflowTransitionsUpdateInput,
+  _actor?: AuditActor,
+): Promise<OrderWorkflow> {
+  const from = workflowStatuses.find((status) => status.code === input.from_status_code);
+  if (!from) throw new Error("来源状态不存在");
+  const byTarget = new Map(input.transitions.map((item) => [item.to_status_code, item]));
+  const targets = workflowStatuses
+    .filter((status) => status.code !== from.code)
+    .map((status, index) => ({
+      to_status_code: status.code,
+      enabled: Boolean(byTarget.get(status.code)?.enabled),
+      is_primary: Boolean(
+        byTarget.get(status.code)?.enabled && byTarget.get(status.code)?.is_primary,
+      ),
+      sort_order: byTarget.get(status.code)?.sort_order ?? (index + 1) * 10,
+    }));
+  const primaryIndex = targets.findIndex((target) => target.enabled && target.is_primary);
+  const firstEnabledIndex = targets.findIndex((target) => target.enabled);
+  const now = new Date().toISOString();
+  workflowTransitions = workflowTransitions.filter(
+    (transition) => transition.from_status_code !== from.code,
+  );
+  workflowTransitions = [
+    ...workflowTransitions,
+    ...targets.map((target, index) => ({
+      id: `mock-transition-${from.code}-${target.to_status_code}`,
+      store_id: mockStoreId,
+      from_status_code: from.code,
+      to_status_code: target.to_status_code,
+      enabled: target.enabled,
+      is_primary:
+        target.enabled &&
+        (primaryIndex >= 0 ? index === primaryIndex : index === firstEnabledIndex),
+      sort_order: target.sort_order,
+      created_at: now,
+      updated_at: now,
+    })),
+  ];
+  return cloneWorkflow();
+}
+
 // GET /api/orders/[id]
 export async function getOrder(id: string, _actor?: AuditActor) {
   const o = orders.find((x) => x.id === id);
@@ -197,8 +409,18 @@ export async function transitionOrder(
 ) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
-  const v = validateOrderTransition(o.status, to);
-  if (!v.ok) throw new Error(v.reason ?? "状态流转不合法");
+  const allowed = workflowTransitions.some(
+    (transition) =>
+      transition.from_status_code === o.status &&
+      transition.to_status_code === to &&
+      transition.enabled,
+  );
+  if (!allowed) {
+    const fromLabel =
+      workflowStatuses.find((status) => status.code === o.status)?.label ?? o.status;
+    const toLabel = workflowStatuses.find((status) => status.code === to)?.label ?? to;
+    throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
+  }
   const from = o.status;
   o.status = to;
   o.updated_at = new Date().toISOString();
@@ -263,7 +485,6 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_notes: "设备备注",
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
-  technician_name: "技师",
   accessory_notes: "留存备注",
   warranty_text: "质保",
 };
@@ -346,11 +567,9 @@ export async function updateOrder(
   const deviceBrand = input.device_brand.trim();
   const deviceModel = input.device_model.trim();
   const issueDescription = input.issue_description.trim();
-  const technicianName = input.technician_name.trim();
   if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
-  if (!technicianName) throw new Error("技师不能为空");
 
   const validFaults = input.fault_prices
     .filter((item) => item.name.trim() && Number(item.price) >= 0)
@@ -372,6 +591,20 @@ export async function updateOrder(
     accessoryNotes: input.accessory_notes,
   });
   const now = new Date().toISOString();
+  const warranty = normalizeWarrantyPayload({
+    warranty_months: input.warranty_months,
+    warranty_text: input.warranty_text,
+    warranty_change_reason: input.warranty_change_reason,
+    defaultWarrantyMonths: 6,
+  });
+  const previousWarrantyMonths =
+    typeof o.warranty_months === "number"
+      ? o.warranty_months
+      : parseWarrantyMonths(o.warranty_text, 6);
+  const previousWarrantyReason = o.warranty_change_reason;
+  const warrantyChanged =
+    previousWarrantyMonths !== warranty.warranty_months ||
+    (previousWarrantyReason ?? "") !== (warranty.warranty_change_reason ?? "");
   const phoneBook = normalizePhoneBook(customerPhone, customer.contact_phones);
   if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
   const customerContactPhones = mergeContactPhones(
@@ -388,10 +621,15 @@ export async function updateOrder(
 
   o.issue_description = issueDescription;
   o.diagnosis_result = input.diagnosis_result?.trim() || undefined;
-  o.technician_name = technicianName;
   o.internal_tag = tagInput.internalTag;
   o.accessory_notes = tagInput.accessoryNotes;
-  o.warranty_text = input.warranty_text?.trim() || undefined;
+  o.warranty_text = warranty.warranty_text;
+  o.warranty_months = warranty.warranty_months;
+  o.warranty_change_reason = warranty.warranty_change_reason;
+  if (warrantyChanged) {
+    o.warranty_changed_by = typeof operator === "string" ? undefined : operator.id;
+    o.warranty_changed_at = now;
+  }
   o.contact_phones = customerContactPhones;
   o.quotation_amount = quotation;
   o.deposit_amount = deposit;
@@ -418,11 +656,32 @@ export async function updateOrder(
       balance_amount: nextBalance,
       internal_tag: tagInput.internalTag,
       accessory_notes: tagInput.accessoryNotes,
+      warranty_months: warranty.warranty_months,
+      warranty_text: warranty.warranty_text,
       currency_code: CURRENCY_CODE,
     },
     operator_name: operatorName(operator),
     created_at: now,
   });
+
+  if (warrantyChanged) {
+    extraEvents.unshift({
+      id: `evt_warranty_${Date.now()}`,
+      order_id: id,
+      event_type: "note",
+      payload: {
+        action: "warranty_changed",
+        from_months: previousWarrantyMonths,
+        from_text: formatWarrantyText(previousWarrantyMonths),
+        to_months: warranty.warranty_months,
+        to_text: warranty.warranty_text,
+        reason: warranty.warranty_change_reason ?? null,
+        default_months: 6,
+      },
+      operator_name: operatorName(operator),
+      created_at: now,
+    });
+  }
 
   return { ok: true };
 }
@@ -437,10 +696,10 @@ export async function patchOrder(
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
 
-  const entries = Object.entries(input.changes).filter(([, value]) => value !== undefined) as [
-    keyof PatchOrderInput["changes"],
-    string,
-  ][];
+  const rawEntries = Object.entries(input.changes).filter(([, value]) => value !== undefined);
+  const unsupportedField = rawEntries.find(([field]) => !(field in PATCH_FIELD_LABELS))?.[0];
+  if (unsupportedField) throw new Error(`${unsupportedField} 不可通过快速编辑修改`);
+  const entries = rawEntries as [keyof PatchOrderInput["changes"], string][];
   if (entries.length === 0) throw new Error("没有可保存的字段");
 
   const customer = getCustomer(o.customer_id);
@@ -500,10 +759,6 @@ export async function patchOrder(
         break;
       case "diagnosis_result":
         o.diagnosis_result = value || undefined;
-        break;
-      case "technician_name":
-        if (!value) throw new Error("技师不能为空");
-        o.technician_name = value;
         break;
       case "accessory_notes": {
         const tagInput = normalizeOrderTagInput({ accessoryNotes: value });
@@ -640,9 +895,19 @@ function writeMockWhatsappMessage({
   let to: RepairOrderStatus | undefined;
 
   if (transitionTo) {
-    const transition = validateOrderTransition(from, transitionTo);
-    if (!transition.ok) {
-      if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
+    const allowed = workflowTransitions.some(
+      (transition) =>
+        transition.from_status_code === from &&
+        transition.to_status_code === transitionTo &&
+        transition.enabled,
+    );
+    if (!allowed) {
+      if (!allowInvalidTransition) {
+        const fromLabel = workflowStatuses.find((status) => status.code === from)?.label ?? from;
+        const toLabel =
+          workflowStatuses.find((status) => status.code === transitionTo)?.label ?? transitionTo;
+        throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
+      }
     } else {
       statusChanged = true;
       to = transitionTo;
@@ -730,12 +995,15 @@ export async function sendApprovalRequest(
 // GET /api/customers/suggest?q=
 export async function createOrder(
   input: CreateOrderInput,
-  _operator: MockOperator = "前台",
+  operator: MockOperator = "前台",
 ): Promise<{ id: string }> {
-  const status = normalizeInitialOrderStatus(input.status);
-  if (!ORDER_STATUS_ALLOWED_FOR_CREATE.includes(status)) throw new Error("初始状态不合法");
+  const requestedStatus = workflowStatuses.find((status) => status.code === input.status);
+  const status =
+    requestedStatus?.enabled && requestedStatus.allowed_for_create
+      ? requestedStatus.code
+      : workflowStatuses.find((item) => item.enabled && item.is_default_create_status)?.code;
+  if (!status) throw new Error("店铺没有可用于新建工单的状态");
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
-  if (!input.technician_name.trim()) throw new Error("技师不能为空");
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
 
   let customer = input.customer_id ? getCustomer(input.customer_id) : undefined;
@@ -815,6 +1083,13 @@ export async function createOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
+  const warranty = normalizeWarrantyPayload({
+    warranty_months: input.warranty_months,
+    warranty_text: input.warranty_text,
+    warranty_change_reason: input.warranty_change_reason,
+    defaultWarrantyMonths: 6,
+  });
+  const warrantyChangedFromDefault = warrantyReasonRequired(warranty.warranty_months, 6);
   const newOrder: RepairOrder = {
     id,
     public_no: `R${(2026000 + seq).toString().padStart(7, "0")}`,
@@ -829,10 +1104,15 @@ export async function createOrder(
     currency_code: CURRENCY_CODE,
     is_paid: balance === 0,
     approval_status: "pending",
-    technician_name: input.technician_name,
+    technician_name: operatorName(operator),
     internal_tag: tagInput.internalTag,
     accessory_notes: tagInput.accessoryNotes,
-    warranty_text: input.warranty_text?.trim() || "6个月",
+    warranty_text: warranty.warranty_text,
+    warranty_months: warranty.warranty_months,
+    warranty_change_reason: warranty.warranty_change_reason,
+    warranty_changed_by:
+      warrantyChangedFromDefault && typeof operator !== "string" ? operator.id : undefined,
+    warranty_changed_at: warrantyChangedFromDefault ? now : undefined,
     contact_phones: customerContactPhones,
     fault_prices: validFaults,
     device_snapshot: {

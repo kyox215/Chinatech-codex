@@ -22,25 +22,28 @@ export function CustomerMessagesPanel({
   onMessage: () => void;
 }) {
   return (
-    <Card className="p-5">
-      <div className="mb-4 flex items-center justify-between">
+    <Card className="min-w-0 p-3 sm:p-4">
+      <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">联系记录</h2>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onMessage}>
           <Send className="size-3.5" /> 发送消息
         </Button>
       </div>
-      <div className="space-y-2">
+      <div className="min-w-0 space-y-2">
         {interactions.length ? (
           interactions.map((interaction) => (
-            <div key={interaction.id} className="rounded-md border bg-surface-muted/30 p-3 text-sm">
-              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                <span>
+            <div
+              key={interaction.id}
+              className="min-w-0 rounded-md border bg-surface-muted/30 p-3 text-sm"
+            >
+              <div className="flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span className="min-w-0 truncate">
                   {interaction.channel === "whatsapp" ? "WhatsApp" : "SMS"} ·{" "}
                   {interaction.operator_name}
                 </span>
-                <span>{formatCustomerDateTime(interaction.created_at)}</span>
+                <span className="shrink-0">{formatCustomerDateTime(interaction.created_at)}</span>
               </div>
-              <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+              <p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">
                 {interaction.message_body}
               </p>
             </div>
@@ -61,14 +64,14 @@ export function CustomerMarketingPanel({
   onManageTags: () => void;
 }) {
   return (
-    <Card className="p-5">
-      <div className="mb-4 flex items-center justify-between">
+    <Card className="min-w-0 p-3 sm:p-4">
+      <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">营销画像</h2>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onManageTags}>
           <Tags className="size-3.5" /> 管理标签
         </Button>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
         <CustomerInfoBlock
           label="营销许可"
           value={customer.consent_marketing && !customer.blacklisted_at ? "可营销" : "不可营销"}
@@ -110,23 +113,25 @@ export function CustomerFollowupsPanel({
   onComplete: (followupId: string) => void;
 }) {
   return (
-    <Card className="p-5">
-      <div className="mb-4 flex items-center justify-between">
+    <Card className="min-w-0 p-3 sm:p-4">
+      <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">回访任务</h2>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onAdd}>
           <Plus className="size-3.5" /> 添加回访
         </Button>
       </div>
-      <div className="space-y-2">
+      <div className="min-w-0 space-y-2">
         {followups.length ? (
           followups.map((item) => (
             <div
               key={item.id}
-              className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex min-w-0 flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{item.title}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="min-w-0 truncate font-medium" title={item.title}>
+                    {item.title}
+                  </span>
                   <Badge variant={item.status === "done" ? "secondary" : "outline"}>
                     {item.status === "done"
                       ? "已完成"
@@ -138,7 +143,9 @@ export function CustomerFollowupsPanel({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {formatCustomerDateTime(item.due_at)} · {item.owner_name || "未分配"}
                 </p>
-                {item.note && <p className="mt-1 text-sm text-muted-foreground">{item.note}</p>}
+                {item.note && (
+                  <p className="mt-1 break-words text-sm text-muted-foreground">{item.note}</p>
+                )}
               </div>
               {item.status === "open" && (
                 <Button
@@ -162,7 +169,7 @@ export function CustomerFollowupsPanel({
 
 export function CustomerTimelinePanel({ data }: { data: CustomerDetail }) {
   return (
-    <Card className="p-5">
+    <Card className="min-w-0 p-3 sm:p-4">
       <h2 className="mb-4 text-sm font-semibold">客户时间线</h2>
       <CustomerTimelineList data={data} />
     </Card>

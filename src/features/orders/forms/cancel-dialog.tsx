@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { componentOverlay } from "@/lib/component-patterns";
 
 export function CancelDialog({
   open,
@@ -26,7 +27,7 @@ export function CancelDialog({
   const [busy, setBusy] = useState(false);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(520px,calc(100vw-24px))] max-w-[calc(100vw-24px)] p-4 sm:p-5">
+      <DialogContent className={`${componentOverlay.modalSm} p-4 sm:p-5`}>
         <DialogHeader>
           <DialogTitle>取消工单</DialogTitle>
           <DialogDescription>请填写取消原因，便于事后追溯。</DialogDescription>

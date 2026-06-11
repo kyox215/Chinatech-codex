@@ -28,10 +28,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-hidden">
+        <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
           <BackgroundOrbs />
           <AppBar onOpenCommand={() => setOpen(true)} />
-          <main className="min-w-0 max-w-full flex-1 overflow-x-hidden">{children}</main>
+          <main className="min-w-0 max-w-full flex-1 overflow-x-clip">{children}</main>
         </SidebarInset>
       </SidebarProvider>
       <CommandPalette open={open} onOpenChange={setOpen} />

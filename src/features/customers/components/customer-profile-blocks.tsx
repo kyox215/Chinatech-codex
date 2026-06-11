@@ -10,11 +10,12 @@ import type { CustomerDetail, CustomerTag, Device, OrderListItem } from "@/lib/r
 export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
   if (!tags.length) return <span className="text-xs text-muted-foreground">无标签</span>;
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex min-w-0 flex-wrap gap-1">
       {tags.map((tag) => (
         <span
           key={tag.id}
-          className="rounded border px-1.5 py-0.5 text-[11px]"
+          title={tag.name}
+          className="max-w-24 truncate rounded border px-1.5 py-0.5 text-[11px]"
           style={{ borderColor: tag.color, color: tag.color }}
         >
           {tag.name}
@@ -26,18 +27,18 @@ export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
 
 export function CustomerMetric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-md bg-surface-muted/40 p-3">
+    <div className="min-w-0 rounded-md bg-surface-muted/40 p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-display text-xl font-semibold">{value}</div>
+      <div className="mt-1 min-w-0 truncate font-display text-xl font-semibold">{value}</div>
     </div>
   );
 }
 
 export function CustomerInfoBlock({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm">{value}</div>
+      <div className="mt-1 break-words text-sm">{value}</div>
     </div>
   );
 }
@@ -56,20 +57,20 @@ export function CustomerDeviceCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="rounded-md border p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-medium">
+    <div className="min-w-0 rounded-md border p-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate font-medium" title={`${device.brand} ${device.model}`}>
             {device.brand} {device.model}
           </div>
-          <div className="mt-1 font-mono text-xs text-muted-foreground">
+          <div className="mt-1 truncate font-mono text-xs text-muted-foreground">
             {device.serial_or_imei || "无 IMEI"}
           </div>
         </div>
-        <Smartphone className="size-5 text-muted-foreground" />
+        <Smartphone className="size-5 shrink-0 text-muted-foreground" />
       </div>
       {device.device_notes && (
-        <p className="mt-2 text-sm text-muted-foreground">{device.device_notes}</p>
+        <p className="mt-2 break-words text-sm text-muted-foreground">{device.device_notes}</p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
@@ -102,21 +103,25 @@ export function CustomerOrderRow({
   onFollowup: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 flex-1">
         <Link
           href={`/orders/${order.id}`}
-          className="font-mono text-xs font-medium text-primary hover:underline"
+          className="block truncate font-mono text-xs font-medium text-primary hover:underline"
         >
           {order.public_no}
         </Link>
-        <div className="mt-1 font-medium">{order.device_label}</div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-1 truncate font-medium" title={order.device_label}>
+          {order.device_label}
+        </div>
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <StatusBadge status={order.status} />
-          <span>{order.issue_description}</span>
+          <span className="min-w-0 max-w-full truncate" title={order.issue_description}>
+            {order.issue_description}
+          </span>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <MoneyText amount={order.quotation_amount} />
         {order.status === "completed" && (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onFollowup}>
@@ -154,12 +159,14 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
 
   if (!items.length) return <CustomerEmptyLine text="暂无动态" />;
   return (
-    <ol className="space-y-4 border-l border-border/60 pl-4">
+    <ol className="min-w-0 space-y-4 border-l border-border/60 pl-4">
       {items.map((item) => (
-        <li key={item.id} className="relative">
+        <li key={item.id} className="relative min-w-0">
           <span className="absolute -left-[21px] top-1 size-3 rounded-full bg-primary ring-4 ring-background" />
           <div className="text-xs text-muted-foreground">{formatCustomerDateTime(item.at)}</div>
-          <div className="text-sm font-medium">{item.title}</div>
+          <div className="truncate text-sm font-medium" title={item.title}>
+            {item.title}
+          </div>
           <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{item.body}</p>
         </li>
       ))}

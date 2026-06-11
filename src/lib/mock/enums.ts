@@ -1,5 +1,5 @@
-// Aligned with Postgres enums in repair_orders schema.
-// DO NOT add new values — all status values are bounded by repair_order_status.
+// Default workflow values seeded into order_workflow_statuses.
+// Stores can add their own status codes after the workflow migration.
 
 export const repairOrderStatus = [
   "new",
@@ -18,7 +18,8 @@ export const repairOrderStatus = [
   "completed",
   "cancelled",
 ] as const;
-export type RepairOrderStatus = (typeof repairOrderStatus)[number];
+export type DefaultRepairOrderStatus = (typeof repairOrderStatus)[number];
+export type RepairOrderStatus = string;
 
 export const repairOrderType = ["quick_repair", "dropoff_repair"] as const;
 export type RepairOrderType = (typeof repairOrderType)[number];
@@ -26,25 +27,35 @@ export type RepairOrderType = (typeof repairOrderType)[number];
 export const approvalStatus = ["pending", "approved", "rejected"] as const;
 export type ApprovalStatus = (typeof approvalStatus)[number];
 
-type StatusTone = "neutral" | "info" | "progress" | "warn" | "success" | "danger";
+export type StatusTone = "neutral" | "info" | "progress" | "warn" | "success" | "danger";
 
-export const statusMeta: Record<RepairOrderStatus, { label: string; tone: StatusTone }> = {
-  new: { label: "新建", tone: "info" },
-  rework: { label: "返修", tone: "warn" },
-  mail_in_progress: { label: "邮寄中", tone: "info" },
-  diagnosing: { label: "检测中", tone: "progress" },
-  quoted: { label: "已报价", tone: "progress" },
-  waiting_approval: { label: "待审批", tone: "warn" },
-  parts_ordered: { label: "配件已订", tone: "progress" },
-  parts_arrived: { label: "配件已到", tone: "progress" },
-  repairing: { label: "维修中", tone: "progress" },
-  repaired: { label: "已修复", tone: "success" },
-  notified: { label: "已通知", tone: "success" },
-  unfixed_pickup: { label: "未修取机", tone: "danger" },
-  waiting_pickup: { label: "待取机", tone: "warn" },
-  completed: { label: "已完成", tone: "success" },
-  cancelled: { label: "已取消", tone: "neutral" },
-};
+export const statusMeta: Record<string, { label: string; shortLabel?: string; tone: StatusTone }> =
+  {
+    new: { label: "新建", tone: "info" },
+    rework: { label: "返修", tone: "warn" },
+    mail_in_progress: { label: "邮寄中", tone: "info" },
+    diagnosing: { label: "检测中", tone: "progress" },
+    quoted: { label: "已报价", tone: "progress" },
+    waiting_approval: { label: "待审批", tone: "warn" },
+    parts_ordered: { label: "配件已订", tone: "progress" },
+    parts_arrived: { label: "配件已到", tone: "progress" },
+    repairing: { label: "维修中", tone: "progress" },
+    repaired: { label: "已修复", tone: "success" },
+    notified: { label: "已通知", tone: "success" },
+    unfixed_pickup: { label: "未修取机", tone: "danger" },
+    waiting_pickup: { label: "待取机", tone: "warn" },
+    completed: { label: "已完成", tone: "success" },
+    cancelled: { label: "已取消", tone: "neutral" },
+  };
+
+export function getStatusMeta(status: RepairOrderStatus | undefined) {
+  if (status && statusMeta[status]) return statusMeta[status];
+  return {
+    label: status || "未知状态",
+    shortLabel: status || "未知",
+    tone: "neutral" as StatusTone,
+  };
+}
 
 export const orderTypeMeta: Record<RepairOrderType, { label: string }> = {
   quick_repair: { label: "快修" },

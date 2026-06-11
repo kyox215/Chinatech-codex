@@ -21,13 +21,7 @@ import {
   rejectOnboardingRequest,
   type OnboardingRequest,
 } from "@/lib/repairdesk/api";
-import {
-  brandGradientStyle,
-  controls,
-  dataDisplay,
-  pageHeader,
-  pageShell,
-} from "@/lib/ui-patterns";
+import { brandGradientStyle, controls, density, pageHeader, pageShell } from "@/lib/ui-patterns";
 import { platformKeys } from "@/features/platform/api/query-keys";
 
 const roleLabels: Record<string, string> = {
@@ -68,7 +62,7 @@ export function PlatformAdminScreen() {
   return (
     <div className={pageShell.list}>
       <header className={pageHeader.root}>
-        <div>
+        <div className="min-w-0">
           <p className={pageHeader.eyebrow}>平台管理 / 审批</p>
           <h1 className={pageHeader.title}>
             <span className="gradient-text">账号与店铺审批</span>
@@ -112,16 +106,16 @@ export function PlatformAdminScreen() {
           <div className="p-8 text-center text-sm text-muted-foreground">暂无待审核申请。</div>
         ) : (
           <>
-            <div className="hidden lg:block">
-              <Table>
+            <div className="hidden min-w-0 max-w-full overflow-hidden lg:block">
+              <Table className={`${density.tableDense} min-w-[760px] table-fixed`}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>申请人</TableHead>
-                    <TableHead>类型</TableHead>
+                    <TableHead className="w-[190px]">申请人</TableHead>
+                    <TableHead className="w-[104px]">类型</TableHead>
                     <TableHead>目标</TableHead>
-                    <TableHead>角色</TableHead>
-                    <TableHead>时间</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+                    <TableHead className="w-[88px]">角色</TableHead>
+                    <TableHead className="w-[104px]">时间</TableHead>
+                    <TableHead className="w-[148px] text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,7 +131,7 @@ export function PlatformAdminScreen() {
                 </TableBody>
               </Table>
             </div>
-            <div className={dataDisplay.mobileCardList}>
+            <div className="space-y-2 lg:hidden">
               {requests.map((request) => (
                 <RequestCard
                   key={request.id}
@@ -177,7 +171,7 @@ function RequestRow({
 }) {
   return (
     <TableRow>
-      <TableCell>
+      <TableCell className="min-w-0">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{request.display_name || request.email}</p>
           <p className="truncate text-xs text-muted-foreground">{request.email}</p>
@@ -186,13 +180,15 @@ function RequestRow({
       <TableCell>
         <RequestTypeBadge request={request} />
       </TableCell>
-      <TableCell className="max-w-xs truncate">{requestTarget(request)}</TableCell>
-      <TableCell>{roleLabels[request.requested_role] ?? request.requested_role}</TableCell>
+      <TableCell className="min-w-0 truncate">{requestTarget(request)}</TableCell>
+      <TableCell className="truncate">
+        {roleLabels[request.requested_role] ?? request.requested_role}
+      </TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">
         {formatDate(request.created_at)}
       </TableCell>
       <TableCell>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-1.5">
           <Button
             size="sm"
             className={controls.brandButton}
@@ -225,8 +221,8 @@ function RequestCard({
   onReject: () => void;
 }) {
   return (
-    <article className="rounded-lg border bg-card p-3">
-      <div className="flex items-start justify-between gap-3">
+    <article className="min-w-0 rounded-lg border bg-card p-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{request.display_name || request.email}</p>
           <p className="truncate text-xs text-muted-foreground">{request.email}</p>
@@ -238,7 +234,7 @@ function RequestCard({
         <p>角色：{roleLabels[request.requested_role] ?? request.requested_role}</p>
         <p>{formatDate(request.created_at)}</p>
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <Button
           size="sm"
           className={controls.brandButton}

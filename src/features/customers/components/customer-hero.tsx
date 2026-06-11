@@ -7,8 +7,9 @@ import { PhoneText } from "@/components/orders/badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CustomerDetailTagList } from "@/features/customers/components/customer-profile-blocks";
-import { brandGradientStyle } from "@/lib/ui-patterns";
+import { brandGradientStyle, controls } from "@/lib/ui-patterns";
 import type { CustomerDetail } from "@/lib/repairdesk/api";
+import { cn } from "@/lib/utils";
 
 export function CustomerHero({
   data,
@@ -23,8 +24,8 @@ export function CustomerHero({
 }) {
   const { customer } = data;
   return (
-    <div className="glass-card mb-6 p-5">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="glass-card mb-4 min-w-0 max-w-full p-3 sm:mb-6 sm:p-4">
+      <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
         <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-xs">
           <Link href="/customers">
             <ArrowLeft className="size-3.5" /> 返回客户
@@ -33,10 +34,12 @@ export function CustomerHero({
         <span className="opacity-50">/</span>
         <span>客户详情</span>
       </div>
-      <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-3xl font-semibold tracking-tight">{customer.name}</h1>
+      <div className="mt-3 flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="min-w-0 max-w-full truncate font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+              {customer.name}
+            </h1>
             {customer.blacklisted_at && <Badge variant="destructive">黑名单</Badge>}
             {customer.consent_marketing && !customer.blacklisted_at ? (
               <Badge className="bg-status-success text-status-success-foreground">可营销</Badge>
@@ -44,16 +47,24 @@ export function CustomerHero({
               <Badge variant="secondary">不可营销</Badge>
             )}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <PhoneText value={customer.phone_e164} />
-            {customer.email && <span>{customer.email}</span>}
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <PhoneText value={customer.phone_e164} className="max-w-full truncate" />
+            {customer.email && (
+              <span className="min-w-0 max-w-full truncate" title={customer.email}>
+                {customer.email}
+              </span>
+            )}
             <span>{customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}</span>
           </div>
           {customer.contact_phones.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               <span>备用号码</span>
               {customer.contact_phones.map((phone) => (
-                <span key={phone} className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono">
+                <span
+                  key={phone}
+                  className="max-w-36 truncate rounded-md bg-surface-muted px-1.5 py-0.5 font-mono"
+                  title={phone}
+                >
                   {phone}
                 </span>
               ))}
@@ -63,8 +74,12 @@ export function CustomerHero({
             <CustomerDetailTagList tags={data.tags} />
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild className="gap-1.5 border-0 text-white" style={brandGradientStyle}>
+        <div className="flex min-w-0 flex-wrap gap-2">
+          <Button
+            asChild
+            className={cn("gap-1.5", controls.brandButton)}
+            style={brandGradientStyle}
+          >
             <Link href={`/orders/new?customerId=${customer.id}`}>
               <Wrench className="size-4" /> 新建工单
             </Link>
