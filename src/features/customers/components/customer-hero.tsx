@@ -49,6 +49,16 @@ export function CustomerHero({
             {customer.email && <span>{customer.email}</span>}
             <span>{customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}</span>
           </div>
+          {customer.contact_phones.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span>备用号码</span>
+              {customer.contact_phones.map((phone) => (
+                <span key={phone} className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono">
+                  {phone}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="mt-3">
             <CustomerDetailTagList tags={data.tags} />
           </div>

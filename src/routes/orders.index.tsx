@@ -266,6 +266,35 @@ function KpiPill({ label, value, accent }: { label: string; value: number; accen
   );
 }
 
+function OverdueFilterChip({
+  label,
+  value,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-medium transition-colors",
+        active
+          ? "border-status-danger-foreground/40 bg-status-danger/15 text-status-danger-foreground"
+          : "border-border/60 bg-surface/70 text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
+    >
+      <AlertTriangle className="size-3" />
+      <span>{label}</span>
+      <span className="font-mono tabular-nums">{value}</span>
+    </button>
+  );
+}
+
 export default function OrdersListPage() {
   const [tab, setTab] = useState("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
@@ -309,6 +338,8 @@ export default function OrdersListPage() {
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
   const totalOrders = listResult?.total ?? stats?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
+  const approvalOverdue = stats?.approvalOverdue ?? 0;
+  const pickupOverdue = stats?.pickupOverdue ?? 0;
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -392,13 +423,13 @@ export default function OrdersListPage() {
         variants={stagger(0.05)}
         initial="hidden"
         animate="show"
-        className="mb-5 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+        className="mb-3 flex min-w-0 flex-col gap-2 sm:mb-5 sm:flex-row sm:items-end sm:justify-between sm:gap-3"
       >
         <motion.div variants={fadeUp} className="min-w-0">
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
             工作台 / 工单
           </p>
-          <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight md:text-4xl">
+          <h1 className="mt-0.5 font-display text-3xl font-semibold tracking-tight md:text-4xl">
             <span className="gradient-text">工单</span>
             <span className="ml-2 whitespace-nowrap align-middle text-base font-normal text-muted-foreground">
               共{totalOrders}条
@@ -412,12 +443,12 @@ export default function OrdersListPage() {
         </motion.div>
         <motion.div
           variants={fadeUp}
-          className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:grid-cols-none sm:flex sm:flex-wrap sm:items-center sm:justify-end"
+          className="hidden min-w-0 flex-wrap items-center justify-end gap-2 sm:flex"
         >
           <KpiPill label="今日新建" value={stats?.today ?? 0} accent="oklch(0.7 0.2 285)" />
           <KpiPill label="进行中" value={stats?.inProgress ?? 0} accent="oklch(0.78 0.16 200)" />
           <KpiPill label="未结清" value={stats?.unpaid ?? 0} accent="oklch(0.78 0.18 75)" />
-          {(stats?.approvalOverdue ?? 0) > 0 && (
+          {approvalOverdue > 0 && (
             <button
               onClick={() => setOverdueFilter("approval")}
               className={cn(
@@ -425,14 +456,10 @@ export default function OrdersListPage() {
                 filters.overdue === "approval" && "scale-105",
               )}
             >
-              <KpiPill
-                label="报价超期"
-                value={stats!.approvalOverdue}
-                accent="oklch(0.7 0.22 30)"
-              />
+              <KpiPill label="报价超期" value={approvalOverdue} accent="oklch(0.7 0.22 30)" />
             </button>
           )}
-          {(stats?.pickupOverdue ?? 0) > 0 && (
+          {pickupOverdue > 0 && (
             <button
               onClick={() => setOverdueFilter("pickup")}
               className={cn(
@@ -440,14 +467,14 @@ export default function OrdersListPage() {
                 filters.overdue === "pickup" && "scale-105",
               )}
             >
-              <KpiPill label="取件超期" value={stats!.pickupOverdue} accent="oklch(0.72 0.2 50)" />
+              <KpiPill label="取件超期" value={pickupOverdue} accent="oklch(0.72 0.2 50)" />
             </button>
           )}
         </motion.div>
       </motion.div>
 
       {/* Toolbar */}
-      <div className="glass-card mb-4 flex min-w-0 flex-col gap-3 overflow-hidden p-3">
+      <div className="glass-card mb-4 flex min-w-0 flex-col gap-2 overflow-hidden p-2.5 sm:gap-3 sm:p-3">
         <div className={cn(layoutGuards.wrapRow, "items-stretch")}>
           <div className="relative min-w-0 flex-[1_1_260px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -498,7 +525,29 @@ export default function OrdersListPage() {
           </Button>
         </div>
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <SegmentedTabs value={tab} onChange={setTab} />
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <SegmentedTabs value={tab} onChange={setTab} />
+            {(approvalOverdue > 0 || pickupOverdue > 0) && (
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                {approvalOverdue > 0 && (
+                  <OverdueFilterChip
+                    label="报价超期"
+                    value={approvalOverdue}
+                    active={filters.overdue === "approval"}
+                    onClick={() => setOverdueFilter("approval")}
+                  />
+                )}
+                {pickupOverdue > 0 && (
+                  <OverdueFilterChip
+                    label="取件超期"
+                    value={pickupOverdue}
+                    active={filters.overdue === "pickup"}
+                    onClick={() => setOverdueFilter("pickup")}
+                  />
+                )}
+              </div>
+            )}
+          </div>
           <span className="hidden text-xs text-muted-foreground sm:inline">
             选中 <span className="text-foreground">{selected.length}</span>
           </span>

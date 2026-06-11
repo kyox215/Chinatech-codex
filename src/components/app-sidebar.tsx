@@ -33,7 +33,7 @@ const nav = [
   { title: "概览", url: "/", icon: Wrench },
   { title: "工单", url: "/orders", icon: ClipboardList },
   { title: "客户", url: "/customers", icon: Users },
-  { title: "库存", url: "/inventory", icon: Boxes },
+  { title: "回收库存", url: "/inventory", icon: Boxes },
   { title: "消息模板", url: "/messages", icon: MessageSquare },
   { title: "设置", url: "/settings", icon: Settings },
 ];

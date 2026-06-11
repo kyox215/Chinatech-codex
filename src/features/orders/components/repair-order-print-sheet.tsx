@@ -10,6 +10,7 @@ import {
   translateFaultName,
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
+import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 
 export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl: string }) {
@@ -24,6 +25,8 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
     "-";
   const deviceImei = snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei;
   const deviceNotes = snapshot?.device_notes || device?.device_notes;
+  const phoneOptions = getOrderContactPhoneOptions(data);
+  const alternatePhones = phoneOptions.slice(1).join(" / ");
   const faultRows = order.fault_prices.length
     ? order.fault_prices
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
@@ -45,6 +48,9 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
               <PrintMeta label="Data" value={formatItalianDateTime(order.created_at)} />
               <PrintMeta label="Cliente" value={customer?.name ?? order.customer_name} />
               <PrintMeta label="Telefono" value={customer?.phone_e164 ?? order.customer_phone} />
+              {alternatePhones && (
+                <PrintMeta label="Telefono alternativo" value={alternatePhones} />
+              )}
             </div>
 
             <PrintSection title="Dispositivo">

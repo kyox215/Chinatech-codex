@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { searchCustomers, type Customer } from "@/lib/repairdesk/api";
+import { normalizePhoneRaw, primaryPhoneRaw, splitPhoneCandidates } from "@/shared/lib/phone";
 
 export function CustomerPhoneLookup({
   value,
@@ -25,16 +26,19 @@ export function CustomerPhoneLookup({
     enabled: value.trim().length > 0,
     staleTime: 30_000,
   });
-  const normalizedPhone = value.replace(/\D/g, "");
+  const normalizedPhone = primaryPhoneRaw(value);
+  const hasMultiplePhones = splitPhoneCandidates(value).length > 1;
   const exactCustomer = useMemo(
     () =>
-      normalizedPhone
+      normalizedPhone && !hasMultiplePhones
         ? data.find(
             (customer) =>
-              customer.phone_raw === normalizedPhone || customer.phone_e164 === value.trim(),
+              customer.phone_raw === normalizedPhone ||
+              customer.phone_e164 === value.trim() ||
+              customer.contact_phones.some((phone) => normalizePhoneRaw(phone) === normalizedPhone),
           )
         : undefined,
-    [data, normalizedPhone, value],
+    [data, hasMultiplePhones, normalizedPhone, value],
   );
 
   useEffect(() => {

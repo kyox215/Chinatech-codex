@@ -1,5 +1,6 @@
 import { CURRENCY_CODE } from "@/lib/money";
 import type { OrderListItem } from "@/lib/repairdesk/types";
+import { primaryPhoneRaw } from "@/shared/lib/phone";
 
 import {
   customers,
@@ -47,7 +48,7 @@ export const dynamicTagAssignments: { customer_id: string; tag_id: string }[] = 
 export const tagOverrides = new Set<string>();
 
 export function phoneRaw(value: string) {
-  return value.replace(/\D/g, "");
+  return primaryPhoneRaw(value);
 }
 
 export function decorate(order: RepairOrder): OrderListItem {

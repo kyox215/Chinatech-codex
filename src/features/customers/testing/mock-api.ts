@@ -1,4 +1,5 @@
 import type {
+  AuditActor,
   Customer,
   CustomerCreateInput,
   CustomerDetail,
@@ -15,6 +16,7 @@ import type {
   OrderListItem,
 } from "@/lib/repairdesk/types";
 import { listOrders } from "@/features/orders/testing/mock-api";
+import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   customerFollowups,
   customerInteractions,
@@ -31,20 +33,34 @@ import {
   tagOverrides,
 } from "@/lib/mock/state";
 
-export async function searchCustomers(q: string, limit = 6): Promise<Customer[]> {
+type MockOperator = string | AuditActor;
+
+function operatorName(operator: MockOperator = "前台") {
+  return typeof operator === "string" ? operator : operator.displayName;
+}
+
+export async function searchCustomers(
+  q: string,
+  limit = 6,
+  _actor?: AuditActor,
+): Promise<Customer[]> {
   const s = q.trim().toLowerCase();
   if (!s) return [];
   return customers
     .filter(
       (c) =>
         c.name.toLowerCase().includes(s) ||
-        c.phone_e164.toLowerCase().includes(s) ||
-        c.phone_raw.includes(s),
+        phoneMatches(c.phone_e164, s) ||
+        c.phone_raw.includes(phoneRaw(s) || s) ||
+        c.contact_phones.some((phone) => phoneMatches(phone, s)),
     )
     .slice(0, limit);
 }
 
-export async function getCustomerDevices(customerId: string): Promise<Device[]> {
+export async function getCustomerDevices(
+  customerId: string,
+  _actor?: AuditActor,
+): Promise<Device[]> {
   return devices.filter((d) => d.customer_id === customerId);
 }
 
@@ -126,8 +142,9 @@ function filterCustomerItems(items: CustomerListItem[], filters: CustomerListFil
     result = result.filter(
       (customer) =>
         customer.name.toLowerCase().includes(q) ||
-        customer.phone_e164.toLowerCase().includes(q) ||
+        phoneMatches(customer.phone_e164, q) ||
         customer.phone_raw.includes(raw || q) ||
+        customer.contact_phones.some((phone) => phoneMatches(phone, q)) ||
         customer.email?.toLowerCase().includes(q) ||
         customer.latest_device_label?.toLowerCase().includes(q) ||
         customer.device_search_text?.includes(q),
@@ -163,6 +180,7 @@ function filterCustomerItems(items: CustomerListItem[], filters: CustomerListFil
 
 export async function listCustomers(
   filters: CustomerListFilters = {},
+  _actor?: AuditActor,
 ): Promise<CustomerListResult> {
   const items = await Promise.all(customers.map(buildCustomerItem));
   const stats: CustomerStats = {
@@ -178,7 +196,7 @@ export async function listCustomers(
   return { customers: filterCustomerItems(items, filters), tags: customerTags, stats };
 }
 
-export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
+export async function getCustomerDetail(id: string, _actor?: AuditActor): Promise<CustomerDetail> {
   const customer = getCustomer(id);
   if (!customer) throw new Error("客户不存在");
   const customerOrders = (await listOrders()).filter((order) => order.customer_id === id);
@@ -199,15 +217,28 @@ export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
 }
 
 function applyCustomerInput(customer: Customer, input: CustomerUpdateInput) {
-  if (!input.name.trim() || !input.phone_e164.trim()) throw new Error("客户姓名和手机号不能为空");
-  const raw = phoneRaw(input.phone_e164);
-  const duplicate = customers.find((item) => item.id !== customer.id && item.phone_raw === raw);
+  const phoneBook = normalizePhoneBook(
+    input.phone_e164,
+    input.contact_phones ?? [],
+    input.promote_contact_phone,
+  );
+  if (!input.name.trim() || !phoneBook.primary) throw new Error("客户姓名和手机号不能为空");
+  if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
+  const duplicate = customers.find(
+    (item) => item.id !== customer.id && item.phone_raw === phoneBook.primaryRaw,
+  );
   if (duplicate) throw new Error("该手机号已存在客户档案");
+  const backupConflict = customers.find(
+    (item) =>
+      item.id !== customer.id &&
+      phoneBook.contacts.some((phone) => item.phone_raw === normalizePhoneRaw(phone)),
+  );
+  if (backupConflict) throw new Error("备用号码已属于其他客户档案，请先确认客户资料");
   customer.name = input.name.trim();
-  customer.phone_e164 = input.phone_e164.trim();
-  customer.phone_raw = raw;
+  customer.phone_e164 = phoneBook.primary;
+  customer.phone_raw = phoneBook.primaryRaw;
   customer.email = input.email?.trim() || undefined;
-  customer.contact_phones = input.contact_phones ?? [];
+  customer.contact_phones = phoneBook.contacts;
   customer.consent_marketing = Boolean(input.consent_marketing);
   customer.consent_sms = input.consent_sms ?? true;
   customer.preferred_channel = input.preferred_channel ?? "whatsapp";
@@ -217,7 +248,10 @@ function applyCustomerInput(customer: Customer, input: CustomerUpdateInput) {
   customer.blacklisted_at = input.blacklisted ? new Date().toISOString() : undefined;
 }
 
-export async function createCustomer(input: CustomerCreateInput): Promise<{ id: string }> {
+export async function createCustomer(
+  input: CustomerCreateInput,
+  _actor?: AuditActor,
+): Promise<{ id: string }> {
   const id = `cus_new_${Date.now()}`;
   const customer: Customer = {
     id,
@@ -238,6 +272,7 @@ export async function createCustomer(input: CustomerCreateInput): Promise<{ id: 
 export async function updateCustomer(
   id: string,
   input: CustomerUpdateInput,
+  _actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
   const customer = getCustomer(id);
   if (!customer) throw new Error("客户不存在");
@@ -248,6 +283,7 @@ export async function updateCustomer(
 export async function upsertCustomerDevice(
   customerId: string,
   input: CustomerDeviceInput,
+  _actor?: AuditActor,
 ): Promise<{ id: string }> {
   const customer = getCustomer(customerId);
   if (!customer) throw new Error("客户不存在");
@@ -274,6 +310,7 @@ export async function upsertCustomerDevice(
 export async function deleteCustomerDevice(
   customerId: string,
   deviceId: string,
+  _actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
   const index = devices.findIndex(
     (device) => device.id === deviceId && device.customer_id === customerId,
@@ -288,6 +325,7 @@ export async function deleteCustomerDevice(
 export async function setCustomerTags(
   customerId: string,
   tagIds: string[],
+  _actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
   tagOverrides.add(customerId);
   for (let index = dynamicTagAssignments.length - 1; index >= 0; index--) {
@@ -303,6 +341,7 @@ export async function setCustomerTags(
 export async function createCustomerFollowup(
   customerId: string,
   input: CustomerFollowupInput,
+  _actor?: AuditActor,
 ): Promise<{ id: string }> {
   if (!input.title.trim()) throw new Error("回访标题不能为空");
   const id = `cf_new_${Date.now()}`;
@@ -325,6 +364,7 @@ export async function createCustomerFollowup(
 export async function completeCustomerFollowup(
   customerId: string,
   followupId: string,
+  _actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
   const followup = allCustomerFollowups().find(
     (item) => item.id === followupId && item.customer_id === customerId,
@@ -339,6 +379,7 @@ export async function completeCustomerFollowup(
 export async function sendCustomerMessage(
   customerId: string,
   input: CustomerMessageInput,
+  operator: MockOperator = "前台",
 ): Promise<{ ok: boolean; id: string }> {
   const customer = getCustomer(customerId);
   if (!customer) throw new Error("客户不存在");
@@ -353,7 +394,7 @@ export async function sendCustomerMessage(
     direction: "outbound",
     message_body: input.body.trim(),
     status: "sent",
-    operator_name: "前台",
+    operator_name: operatorName(operator),
     created_at: now,
   });
   customer.last_contacted_at = now;

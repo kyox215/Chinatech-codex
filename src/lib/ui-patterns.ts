@@ -56,7 +56,7 @@ export const controls = {
 } as const;
 
 export const dataDisplay = {
-  kpiGrid: "grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
+  kpiGrid: "hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4",
   chartGrid: "grid gap-4 lg:grid-cols-3",
   tableWrap: "glass-card hidden min-w-0 overflow-hidden lg:block",
   table: "w-full min-w-0 text-sm",

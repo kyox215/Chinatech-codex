@@ -31,6 +31,12 @@ export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
                 <PrintMeta label="Data" value={formatItalianDateTime(order.created_at)} />
                 <PrintMeta label="Cliente" value={order.customer_name} />
                 <PrintMeta label="Telefono" value={order.customer_phone} />
+                {order.contact_phones.length > 0 && (
+                  <PrintMeta
+                    label="Telefono alternativo"
+                    value={order.contact_phones.join(" / ")}
+                  />
+                )}
               </div>
 
               <PrintSection title="Dispositivo">

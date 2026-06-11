@@ -13,8 +13,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { OrderDetail } from "@/lib/repairdesk/api";
+import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import {
   buildOrderWhatsappMessage,
   buildWhatsAppUrl,
@@ -38,11 +46,14 @@ export function ApprovalRequestDialog({
   const [body, setBody] = useState(() =>
     buildOrderWhatsappMessage(data, "approval_request", orderUrl),
   );
-  const phone = data.customer?.phone_e164 || data.order.customer_phone;
+  const phoneOptions = getOrderContactPhoneOptions(data);
+  const [phone, setPhone] = useState(phoneOptions[0] ?? "");
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
 
   useEffect(() => {
-    if (open) setBody(buildOrderWhatsappMessage(data, "approval_request", orderUrl));
+    if (!open) return;
+    setBody(buildOrderWhatsappMessage(data, "approval_request", orderUrl));
+    setPhone(getOrderContactPhoneOptions(data)[0] ?? "");
   }, [data, open, orderUrl]);
 
   return (
@@ -57,7 +68,22 @@ export function ApprovalRequestDialog({
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>WhatsApp</span>
-            <span className="min-w-0 truncate font-mono">{phone || "缺少电话号码"}</span>
+            {phoneOptions.length > 1 ? (
+              <Select value={phone} onValueChange={setPhone}>
+                <SelectTrigger className="h-8 w-[min(280px,100%)] font-mono text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {phoneOptions.map((option, index) => (
+                    <SelectItem key={option} value={option}>
+                      {index === 0 ? "主号码" : "备用号码"} · {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <span className="min-w-0 truncate font-mono">{phone || "缺少电话号码"}</span>
+            )}
           </div>
           <Textarea
             rows={12}

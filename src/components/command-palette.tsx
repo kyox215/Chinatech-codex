@@ -31,6 +31,7 @@ type StaticCommandPath =
   | "/orders/new"
   | "/customers"
   | "/inventory"
+  | "/inventory?new=1"
   | "/messages"
   | "/settings";
 
@@ -82,7 +83,10 @@ export function CommandPalette({
             <Users className="mr-2 size-4" /> 客户
           </CommandItem>
           <CommandItem onSelect={() => go("/inventory")}>
-            <Boxes className="mr-2 size-4" /> 库存
+            <Boxes className="mr-2 size-4" /> 回收库存
+          </CommandItem>
+          <CommandItem onSelect={() => go("/inventory?new=1")}>
+            <Plus className="mr-2 size-4" /> 新增回收
           </CommandItem>
           <CommandItem onSelect={() => go("/messages")}>
             <MessageSquare className="mr-2 size-4" /> 消息模板

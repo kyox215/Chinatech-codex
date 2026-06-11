@@ -1,7 +1,9 @@
 import { isApprovalOverdue, isPickupOverdue } from "@/lib/mock/workflow";
 import { CURRENCY_CODE } from "@/lib/money";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { primaryPhoneRaw } from "@/shared/lib/phone";
 import type {
+  AuditActor,
   Customer,
   CustomerFollowup,
   CustomerInteraction,
@@ -18,6 +20,32 @@ import type {
 
 export type DbRecord = Record<string, unknown>;
 
+export const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
+
+export function storeIdFromActor(actor?: Pick<AuditActor, "storeId"> | string | null) {
+  if (!actor) return DEFAULT_STORE_ID;
+  if (typeof actor === "string") return actor || DEFAULT_STORE_ID;
+  return actor?.storeId || DEFAULT_STORE_ID;
+}
+
+export function requireStoreIdFromActor(
+  actor?: Pick<AuditActor, "storeId" | "isSystem"> | string | null,
+  context = "当前操作",
+) {
+  const storeId = typeof actor === "string" ? actor : actor?.storeId;
+  if (storeId) return storeId;
+  throw new Error(`${context}缺少店铺上下文，请重新登录后再试`);
+}
+
+export function operatorNameFromActor(
+  actor?: Pick<AuditActor, "displayName"> | string | null,
+  fallback = "前台",
+) {
+  if (!actor) return fallback;
+  if (typeof actor === "string") return actor.trim() || fallback;
+  return actor?.displayName || fallback;
+}
+
 export const ORDER_SELECT = `
   *,
   customer:customers(*),
@@ -29,6 +57,7 @@ const ORDER_LIST_PAGE_SIZE = 1000;
 
 const ORDER_LIST_COLUMNS = `
   id,
+  store_id,
   public_no,
   order_type,
   status,
@@ -85,7 +114,7 @@ export function money(value: unknown): number {
 }
 
 export function phoneRaw(value: string): string {
-  return value.replace(/\D/g, "");
+  return primaryPhoneRaw(value);
 }
 
 export function stringArray(value: unknown): string[] {
@@ -306,7 +335,7 @@ export function messageFromRow(row: DbRecord): MessageLog {
   };
 }
 
-export async function fetchOrderRows(): Promise<DbRecord[]> {
+export async function fetchOrderRows(storeId = DEFAULT_STORE_ID): Promise<DbRecord[]> {
   const supabase = getSupabaseAdmin();
   const rows: DbRecord[] = [];
   let from = 0;
@@ -315,6 +344,7 @@ export async function fetchOrderRows(): Promise<DbRecord[]> {
     const { data, error } = await supabase
       .from("repair_orders")
       .select(ORDER_LIST_SELECT)
+      .eq("store_id", storeId)
       .range(from, from + ORDER_LIST_PAGE_SIZE - 1);
     fail(error, "读取工单失败");
 

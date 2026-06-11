@@ -4,6 +4,7 @@ import type { CreateOrderInput } from "@/lib/repairdesk/types";
 import {
   createOrder,
   getOrder,
+  listOrders,
   patchOrder,
   patchOrderFinance,
   sendApprovalRequest,
@@ -111,6 +112,20 @@ describe("mock order WhatsApp notification workflow", () => {
 });
 
 describe("mock order inline editing workflow", () => {
+  it("stores backup phones from multi-phone order creation and finds them in search", async () => {
+    const id = await createMockOrder({
+      customer_phone: "+39 366 100 200 / +39 366 300 400",
+    });
+
+    const detail = await getOrder(id);
+    expect(detail.customer?.phone_e164).toBe("+39 366 100 200");
+    expect(detail.order.customer_phone).toBe("+39 366 100 200");
+    expect(detail.order.contact_phones).toEqual(["+39 366 300 400"]);
+
+    const matches = await listOrders({ search: "+39 366 300 400" });
+    expect(matches.some((order) => order.id === id)).toBe(true);
+  });
+
   it("patches ordinary fields and rejects stale versions", async () => {
     const id = await createMockOrder();
     const before = await getOrder(id);

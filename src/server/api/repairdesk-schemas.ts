@@ -9,10 +9,22 @@ import type {
   CustomerListFilters,
   CustomerMessageInput,
   CustomerUpdateInput,
+  CreateInventoryIntakeInput,
+  InventoryItemStatus,
+  InventoryListFilters,
+  InventoryQualityCheckInput,
+  InventoryTransactionInput,
+  MessageTemplatePreviewInput,
+  MessageTemplateUpdateInput,
+  SellInventoryItemInput,
   OrderListFilters,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
+  StoreCreateInput,
+  StoreInviteInput,
+  StoreSettingsUpdateInput,
+  UpdateInventoryItemInput,
   UpdateOrderInput,
 } from "@/lib/repairdesk/api";
 
@@ -20,6 +32,46 @@ const optionalText = z.string().optional();
 const repairOrderStatusSchema = z.string().min(1) as z.ZodType<RepairOrderStatus>;
 const repairOrderTypeSchema = z.string().min(1) as z.ZodType<RepairOrderType>;
 const approvalStatusSchema = z.string().min(1) as z.ZodType<ApprovalStatus>;
+const inventoryItemStatusSchema = z.enum([
+  "intake",
+  "evaluating",
+  "offer_made",
+  "purchased",
+  "data_wipe",
+  "refurbishing",
+  "ready_for_sale",
+  "listed",
+  "reserved",
+  "sold",
+  "cancelled",
+  "returned",
+  "recycled",
+]) satisfies z.ZodType<InventoryItemStatus>;
+const inventoryCheckStatusSchema = z.enum(["unchecked", "pass", "fail", "unknown"]);
+const inventoryCosmeticGradeSchema = z.enum([
+  "unknown",
+  "new",
+  "mint",
+  "good",
+  "fair",
+  "poor",
+  "for_parts",
+]);
+const inventoryFunctionalGradeSchema = z.enum([
+  "untested",
+  "passed",
+  "needs_repair",
+  "failed",
+  "for_parts",
+]);
+const inventoryTransactionTypeSchema = z.enum([
+  "buyback_payment",
+  "sale_payment",
+  "refund",
+  "repair_cost",
+  "fee",
+  "adjustment",
+]);
 const orderWhatsappTemplateKindSchema = z.enum([
   "approval_request",
   "pickup_ready",
@@ -63,6 +115,15 @@ export const customerListFiltersSchema = z
     followup: z.enum(["all", "due", "overdue"]).optional(),
   })
   .passthrough() satisfies z.ZodType<CustomerListFilters>;
+
+export const inventoryListFiltersSchema = z
+  .object({
+    search: optionalText,
+    statuses: z.array(inventoryItemStatusSchema).optional(),
+    categories: z.array(z.string()).optional(),
+    saleChannel: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<InventoryListFilters>;
 
 export const faultPriceItemSchema = z.object({
   name: z.string(),
@@ -206,6 +267,7 @@ const customerInputBaseSchema = z
     phone_e164: z.string(),
     email: optionalText,
     contact_phones: z.array(z.string()).optional(),
+    promote_contact_phone: optionalText,
     consent_marketing: z.boolean().optional(),
     consent_sms: z.boolean().optional(),
     preferred_channel: z.enum(["whatsapp", "sms"]).optional(),
@@ -283,4 +345,194 @@ export const customerMessageBodySchema = z.object({
   input: customerMessageInputSchema,
 });
 
-export { approvalStatusSchema };
+export const inventoryIntakeInputSchema = z
+  .object({
+    customer_id: optionalText,
+    customer_name: optionalText,
+    customer_phone: optionalText,
+    category: optionalText,
+    brand: z.string().min(1, "缺少品牌"),
+    model: z.string().min(1, "缺少型号"),
+    color: optionalText,
+    storage_capacity: optionalText,
+    serial_or_imei: optionalText,
+    buyback_price: z.coerce.number().optional(),
+    list_price: z.coerce.number().optional(),
+    deposit_amount: z.coerce.number().optional(),
+    payment_method: optionalText,
+    notes: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<CreateInventoryIntakeInput>;
+
+export const inventoryIntakeCreateBodySchema = z.object({
+  input: inventoryIntakeInputSchema,
+});
+
+export const inventoryUpdateInputSchema = z
+  .object({
+    category: optionalText,
+    brand: optionalText,
+    model: optionalText,
+    color: optionalText,
+    storage_capacity: optionalText,
+    serial_or_imei: optionalText,
+    buyback_price: z.coerce.number().optional(),
+    list_price: z.coerce.number().optional(),
+    sale_price: z.coerce.number().optional(),
+    deposit_amount: z.coerce.number().optional(),
+    repair_cost_amount: z.coerce.number().optional(),
+    fees_amount: z.coerce.number().optional(),
+    payment_method: optionalText,
+    sale_channel: optionalText,
+    warranty_months: z.coerce.number().int().nonnegative().optional(),
+    notes: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<UpdateInventoryItemInput>;
+
+export const inventoryUpdateBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: inventoryUpdateInputSchema,
+});
+
+export const inventoryTransitionBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  to: inventoryItemStatusSchema,
+  reason: optionalText,
+});
+
+export const inventoryQualityCheckInputSchema = z
+  .object({
+    screen_status: inventoryCheckStatusSchema.optional(),
+    touch_status: inventoryCheckStatusSchema.optional(),
+    camera_status: inventoryCheckStatusSchema.optional(),
+    buttons_status: inventoryCheckStatusSchema.optional(),
+    ports_status: inventoryCheckStatusSchema.optional(),
+    speaker_status: inventoryCheckStatusSchema.optional(),
+    microphone_status: inventoryCheckStatusSchema.optional(),
+    wifi_status: inventoryCheckStatusSchema.optional(),
+    bluetooth_status: inventoryCheckStatusSchema.optional(),
+    cellular_status: inventoryCheckStatusSchema.optional(),
+    battery_health: z.coerce.number().min(0).max(100).optional(),
+    cosmetic_grade: inventoryCosmeticGradeSchema.optional(),
+    functional_grade: inventoryFunctionalGradeSchema.optional(),
+    imei_check_status: inventoryCheckStatusSchema.optional(),
+    activation_lock_status: inventoryCheckStatusSchema.optional(),
+    data_wipe_status: inventoryCheckStatusSchema.optional(),
+    notes: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<InventoryQualityCheckInput>;
+
+export const inventoryQualityCheckBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: inventoryQualityCheckInputSchema,
+});
+
+export const inventoryTransactionInputSchema = z
+  .object({
+    transaction_type: inventoryTransactionTypeSchema,
+    amount: z.coerce.number().nonnegative(),
+    method: optionalText,
+    note: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<InventoryTransactionInput>;
+
+export const inventoryTransactionBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: inventoryTransactionInputSchema,
+});
+
+export const inventorySellInputSchema = z
+  .object({
+    buyer_customer_id: optionalText,
+    buyer_name: optionalText,
+    buyer_phone: optionalText,
+    sale_price: z.coerce.number().nonnegative(),
+    deposit_amount: z.coerce.number().nonnegative().optional(),
+    payment_method: optionalText,
+    sale_channel: optionalText,
+    warranty_months: z.coerce.number().int().nonnegative().optional(),
+    sold_at: optionalText,
+    notes: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<SellInventoryItemInput>;
+
+export const inventorySellBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: inventorySellInputSchema,
+});
+
+export const electronicsCsvImportBodySchema = z.object({
+  csvContent: z.string().min(1, "缺少 CSV 内容"),
+});
+
+export const storeSettingsUpdateInputSchema = z
+  .object({
+    store_name: optionalText,
+    store_address: optionalText,
+    store_phone: optionalText,
+    store_whatsapp: optionalText,
+    store_email: optionalText,
+    default_order_warranty_text: optionalText,
+    default_inventory_warranty_months: z.coerce.number().int().nonnegative().optional(),
+    print_footer: optionalText,
+    message_signature: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<StoreSettingsUpdateInput>;
+
+export const storeSettingsUpdateBodySchema = z.object({
+  input: storeSettingsUpdateInputSchema,
+});
+
+export const storeCreateInputSchema = z
+  .object({
+    name: z.string().min(2, "店铺名称至少需要 2 个字符").max(80, "店铺名称不能超过 80 个字符"),
+    timezone: optionalText,
+    currency_code: z.literal("EUR").optional(),
+  })
+  .passthrough() satisfies z.ZodType<StoreCreateInput>;
+
+export const storeCreateBodySchema = z.object({
+  input: storeCreateInputSchema,
+});
+
+export const storeSwitchBodySchema = z.object({
+  storeId: z.string().uuid("店铺 id 不正确"),
+});
+
+export const storeInviteInputSchema = z
+  .object({
+    email: z.string().email("邮箱格式不正确"),
+    role: z.enum(["manager", "technician", "sales", "viewer"]),
+  })
+  .passthrough() satisfies z.ZodType<StoreInviteInput>;
+
+export const storeInviteBodySchema = z.object({
+  input: storeInviteInputSchema,
+});
+
+export const messageTemplateUpdateInputSchema = z
+  .object({
+    label: optionalText,
+    body_template: optionalText,
+    enabled: z.boolean().optional(),
+  })
+  .passthrough() satisfies z.ZodType<MessageTemplateUpdateInput>;
+
+export const messageTemplateUpdateBodySchema = z.object({
+  id: z.string().min(1, "缺少模板 id"),
+  input: messageTemplateUpdateInputSchema,
+});
+
+export const messageTemplateResetBodySchema = z.object({
+  id: z.string().min(1, "缺少模板 id"),
+});
+
+export const messageTemplatePreviewBodySchema = z
+  .object({
+    templateId: optionalText,
+    bodyTemplate: optionalText,
+    context: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough() satisfies z.ZodType<MessageTemplatePreviewInput>;
+
+export { approvalStatusSchema, inventoryItemStatusSchema };

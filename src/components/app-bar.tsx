@@ -16,7 +16,7 @@ const labels: Record<string, string> = {
   "": "概览",
   orders: "工单",
   customers: "客户",
-  inventory: "库存",
+  inventory: "回收库存",
   messages: "消息模板",
   settings: "设置",
   new: "新建",

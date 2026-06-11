@@ -1,1 +1,9 @@
-export { normalizePhoneRaw, samePhoneRaw } from "@/shared/lib/phone";
+export {
+  normalizePhoneRaw,
+  normalizePhoneBook,
+  phoneMatches,
+  primaryPhone,
+  primaryPhoneRaw,
+  samePhoneRaw,
+  splitPhoneCandidates,
+} from "@/shared/lib/phone";

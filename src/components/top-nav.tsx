@@ -26,7 +26,7 @@ export const navItems = [
   { title: "概览", url: "/", icon: Sparkles, exact: true },
   { title: "工单", url: "/orders", icon: ClipboardList },
   { title: "客户", url: "/customers", icon: Users },
-  { title: "库存", url: "/inventory", icon: Boxes },
+  { title: "回收库存", url: "/inventory", icon: Boxes },
   { title: "消息", url: "/messages", icon: MessageSquare },
   { title: "设置", url: "/settings", icon: Settings },
 ];

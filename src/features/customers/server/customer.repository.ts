@@ -1,4 +1,5 @@
 import type {
+  AuditActor,
   Customer,
   CustomerCreateInput,
   CustomerDetail,
@@ -16,6 +17,7 @@ import type {
   OrderListItem,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   type DbRecord,
   customerFromRow,
@@ -25,17 +27,28 @@ import {
   fetchOrderRows,
   followupFromRow,
   interactionFromRow,
+  operatorNameFromActor,
   phoneRaw,
   requiredString,
+  requireStoreIdFromActor,
   tagFromRow,
 } from "@/server/repairdesk-shared";
 
-export async function searchCustomers(q: string, limit = 6): Promise<Customer[]> {
+export async function searchCustomers(
+  q: string,
+  limit = 6,
+  actor?: AuditActor,
+): Promise<Customer[]> {
+  const storeId = requireStoreIdFromActor(actor);
   const query = q.trim().toLowerCase();
   if (!query) return [];
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from("customers").select("*").limit(200);
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("store_id", storeId)
+    .limit(200);
   fail(error, "搜索客户失败");
 
   return ((data ?? []) as DbRecord[])
@@ -44,17 +57,23 @@ export async function searchCustomers(q: string, limit = 6): Promise<Customer[]>
     .filter(
       (customer) =>
         customer.name.toLowerCase().includes(query) ||
-        customer.phone_e164.toLowerCase().includes(query) ||
-        customer.phone_raw.includes(query),
+        phoneMatches(customer.phone_e164, query) ||
+        customer.phone_raw.includes(phoneRaw(query) || query) ||
+        customer.contact_phones.some((phone) => phoneMatches(phone, query)),
     )
     .slice(0, limit);
 }
 
-export async function getCustomerDevices(customerId: string): Promise<Device[]> {
+export async function getCustomerDevices(
+  customerId: string,
+  actor?: AuditActor,
+): Promise<Device[]> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("devices")
     .select("*")
+    .eq("store_id", storeId)
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false });
   fail(error, "读取客户设备失败");
@@ -62,11 +81,12 @@ export async function getCustomerDevices(customerId: string): Promise<Device[]> 
     .map(deviceFromRow)
     .filter((device): device is Device => Boolean(device));
 }
-async function fetchCustomerTags(): Promise<CustomerTag[]> {
+async function fetchCustomerTags(storeId: string): Promise<CustomerTag[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("customer_tags")
     .select("*")
+    .eq("store_id", storeId)
     .order("name", { ascending: true });
   fail(error, "读取客户标签失败");
   return ((data ?? []) as DbRecord[])
@@ -74,9 +94,14 @@ async function fetchCustomerTags(): Promise<CustomerTag[]> {
     .filter((tag): tag is CustomerTag => Boolean(tag));
 }
 
-async function fetchCustomerTagAssignments(): Promise<{ customer_id: string; tag_id: string }[]> {
+async function fetchCustomerTagAssignments(
+  storeId: string,
+): Promise<{ customer_id: string; tag_id: string }[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from("customer_tag_assignments").select("*");
+  const { data, error } = await supabase
+    .from("customer_tag_assignments")
+    .select("*")
+    .eq("store_id", storeId);
   fail(error, "读取客户标签绑定失败");
   return ((data ?? []) as DbRecord[]).map((row) => ({
     customer_id: requiredString(row.customer_id),
@@ -142,8 +167,9 @@ function filterCustomers(customers: CustomerListItem[], filters: CustomerListFil
     result = result.filter(
       (customer) =>
         customer.name.toLowerCase().includes(query) ||
-        customer.phone_e164.toLowerCase().includes(query) ||
+        phoneMatches(customer.phone_e164, query) ||
         customer.phone_raw.includes(raw || query) ||
+        customer.contact_phones.some((phone) => phoneMatches(phone, query)) ||
         customer.email?.toLowerCase().includes(query) ||
         customer.latest_device_label?.toLowerCase().includes(query) ||
         customer.device_search_text?.includes(query),
@@ -179,16 +205,26 @@ function filterCustomers(customers: CustomerListItem[], filters: CustomerListFil
 
 export async function listCustomers(
   filters: CustomerListFilters = {},
+  actor?: AuditActor,
 ): Promise<CustomerListResult> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const [
     { data: customerRows, error: customerError },
     { data: deviceRows, error: deviceError },
     { data: followupRows, error: followupError },
   ] = await Promise.all([
-    supabase.from("customers").select("*").limit(1000),
-    supabase.from("devices").select("*").order("created_at", { ascending: false }),
-    supabase.from("customer_followups").select("*").order("due_at", { ascending: true }),
+    supabase.from("customers").select("*").eq("store_id", storeId).limit(1000),
+    supabase
+      .from("devices")
+      .select("*")
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("customer_followups")
+      .select("*")
+      .eq("store_id", storeId)
+      .order("due_at", { ascending: true }),
   ]);
   fail(customerError, "读取客户失败");
   fail(deviceError, "读取客户设备失败");
@@ -201,9 +237,9 @@ export async function listCustomers(
     .map(deviceFromRow)
     .filter((device): device is Device => Boolean(device));
   const followups = ((followupRows ?? []) as DbRecord[]).map(followupFromRow);
-  const orders = (await fetchOrderRows()).map(decorate);
-  const tags = await fetchCustomerTags();
-  const assignments = await fetchCustomerTagAssignments();
+  const orders = (await fetchOrderRows(storeId)).map(decorate);
+  const tags = await fetchCustomerTags(storeId);
+  const assignments = await fetchCustomerTagAssignments(storeId);
 
   const items = customers.map((customer) => {
     const customerDevices = devices.filter((device) => device.customer_id === customer.id);
@@ -236,7 +272,8 @@ export async function listCustomers(
   return { customers: filterCustomers(items, filters), tags, stats };
 }
 
-export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
+export async function getCustomerDetail(id: string, actor?: AuditActor): Promise<CustomerDetail> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const [
     { data: customerRow, error: customerError },
@@ -244,20 +281,23 @@ export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
     { data: interactionRows, error: interactionError },
     { data: followupRows, error: followupError },
   ] = await Promise.all([
-    supabase.from("customers").select("*").eq("id", id).single(),
+    supabase.from("customers").select("*").eq("store_id", storeId).eq("id", id).single(),
     supabase
       .from("devices")
       .select("*")
+      .eq("store_id", storeId)
       .eq("customer_id", id)
       .order("created_at", { ascending: false }),
     supabase
       .from("customer_interactions")
       .select("*")
+      .eq("store_id", storeId)
       .eq("customer_id", id)
       .order("created_at", { ascending: false }),
     supabase
       .from("customer_followups")
       .select("*")
+      .eq("store_id", storeId)
       .eq("customer_id", id)
       .order("due_at", { ascending: true }),
   ]);
@@ -273,9 +313,11 @@ export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
     .filter((device): device is Device => Boolean(device));
   const interactions = ((interactionRows ?? []) as DbRecord[]).map(interactionFromRow);
   const followups = ((followupRows ?? []) as DbRecord[]).map(followupFromRow);
-  const orders = (await fetchOrderRows()).map(decorate).filter((order) => order.customer_id === id);
-  const allTags = await fetchCustomerTags();
-  const assignments = (await fetchCustomerTagAssignments()).filter(
+  const orders = (await fetchOrderRows(storeId))
+    .map(decorate)
+    .filter((order) => order.customer_id === id);
+  const allTags = await fetchCustomerTags(storeId);
+  const assignments = (await fetchCustomerTagAssignments(storeId)).filter(
     (assignment) => assignment.customer_id === id,
   );
   const tags = assignments
@@ -299,16 +341,19 @@ export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
 }
 
 function customerPayload(input: CustomerUpdateInput, now: string) {
-  const phone = input.phone_e164.trim();
-  if (!input.name.trim() || !phone) throw new Error("客户姓名和手机号不能为空");
-  const raw = phoneRaw(phone);
-  if (!raw) throw new Error("手机号格式不正确");
+  const phoneBook = normalizePhoneBook(
+    input.phone_e164,
+    input.contact_phones ?? [],
+    input.promote_contact_phone,
+  );
+  if (!input.name.trim() || !phoneBook.primary) throw new Error("客户姓名和手机号不能为空");
+  if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
   return {
     name: input.name.trim(),
-    phone_e164: phone,
-    phone_raw: raw,
+    phone_e164: phoneBook.primary,
+    phone_raw: phoneBook.primaryRaw,
     email: input.email?.trim() || null,
-    contact_phones: input.contact_phones ?? [],
+    contact_phones: phoneBook.contacts,
     consent_marketing: Boolean(input.consent_marketing),
     consent_sms: input.consent_sms ?? true,
     preferred_channel: input.preferred_channel ?? "whatsapp",
@@ -320,13 +365,52 @@ function customerPayload(input: CustomerUpdateInput, now: string) {
   };
 }
 
-export async function createCustomer(input: CustomerCreateInput): Promise<{ id: string }> {
+async function assertCustomerPhoneAvailable(
+  storeId: string,
+  primaryRaw: string,
+  contactPhones: string[],
+  excludeId?: string,
+) {
+  const raws = Array.from(
+    new Set([
+      primaryRaw,
+      ...contactPhones.map((phone) => normalizePhoneRaw(phone)).filter(Boolean),
+    ]),
+  );
+  if (raws.length === 0) return;
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id,name,phone_raw")
+    .eq("store_id", storeId)
+    .in("phone_raw", raws);
+  fail(error, "检查客户手机号失败");
+
+  const conflicts = ((data ?? []) as DbRecord[]).filter(
+    (row) => requiredString(row.id) !== excludeId,
+  );
+  if (conflicts.length === 0) return;
+
+  const primaryConflict = conflicts.find((row) => requiredString(row.phone_raw) === primaryRaw);
+  if (primaryConflict) throw new Error("该手机号已存在客户档案");
+  throw new Error("备用号码已属于其他客户档案，请先确认客户资料");
+}
+
+export async function createCustomer(
+  input: CustomerCreateInput,
+  actor?: AuditActor,
+): Promise<{ id: string }> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
+  const payload = customerPayload(input, now);
+  await assertCustomerPhoneAvailable(storeId, payload.phone_raw, payload.contact_phones);
   const { error } = await supabase.from("customers").insert({
     id,
-    ...customerPayload(input, now),
+    store_id: storeId,
+    ...payload,
     created_at: now,
   });
   fail(error, "创建客户失败");
@@ -336,12 +420,17 @@ export async function createCustomer(input: CustomerCreateInput): Promise<{ id: 
 export async function updateCustomer(
   id: string,
   input: CustomerUpdateInput,
+  actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
+  const payload = customerPayload(input, now);
+  await assertCustomerPhoneAvailable(storeId, payload.phone_raw, payload.contact_phones, id);
   const { error } = await supabase
     .from("customers")
-    .update(customerPayload(input, now))
+    .update(payload)
+    .eq("store_id", storeId)
     .eq("id", id);
   fail(error, "更新客户失败");
   return { ok: true };
@@ -350,7 +439,9 @@ export async function updateCustomer(
 export async function upsertCustomerDevice(
   customerId: string,
   input: CustomerDeviceInput,
+  actor?: AuditActor,
 ): Promise<{ id: string }> {
+  const storeId = requireStoreIdFromActor(actor);
   const brand = input.brand.trim();
   const model = input.model.trim();
   if (!brand || !model) throw new Error("设备品牌和型号不能为空");
@@ -359,6 +450,7 @@ export async function upsertCustomerDevice(
   const id = input.id ?? crypto.randomUUID();
   const payload = {
     id,
+    store_id: storeId,
     customer_id: customerId,
     brand,
     model,
@@ -370,6 +462,7 @@ export async function upsertCustomerDevice(
     const { error } = await supabase
       .from("devices")
       .update(payload)
+      .eq("store_id", storeId)
       .eq("id", input.id)
       .eq("customer_id", customerId);
     fail(error, "保存客户设备失败");
@@ -383,11 +476,14 @@ export async function upsertCustomerDevice(
 export async function deleteCustomerDevice(
   customerId: string,
   deviceId: string,
+  actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const { data: orders, error: readError } = await supabase
     .from("repair_orders")
     .select("id")
+    .eq("store_id", storeId)
     .eq("device_id", deviceId)
     .limit(1);
   fail(readError, "检查设备工单失败");
@@ -395,6 +491,7 @@ export async function deleteCustomerDevice(
   const { error } = await supabase
     .from("devices")
     .delete()
+    .eq("store_id", storeId)
     .eq("id", deviceId)
     .eq("customer_id", customerId);
   fail(error, "删除设备失败");
@@ -404,17 +501,21 @@ export async function deleteCustomerDevice(
 export async function setCustomerTags(
   customerId: string,
   tagIds: string[],
+  actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const cleanIds = Array.from(new Set(tagIds.filter(Boolean)));
   const { error: deleteError } = await supabase
     .from("customer_tag_assignments")
     .delete()
+    .eq("store_id", storeId)
     .eq("customer_id", customerId);
   fail(deleteError, "清理客户标签失败");
   if (cleanIds.length) {
     const { error } = await supabase.from("customer_tag_assignments").insert(
       cleanIds.map((tagId) => ({
+        store_id: storeId,
         customer_id: customerId,
         tag_id: tagId,
       })),
@@ -427,7 +528,9 @@ export async function setCustomerTags(
 export async function createCustomerFollowup(
   customerId: string,
   input: CustomerFollowupInput,
+  actor?: AuditActor,
 ): Promise<{ id: string }> {
+  const storeId = requireStoreIdFromActor(actor);
   if (!input.title.trim()) throw new Error("回访标题不能为空");
   const due = new Date(input.due_at);
   if (Number.isNaN(due.getTime())) throw new Error("回访时间不正确");
@@ -436,6 +539,7 @@ export async function createCustomerFollowup(
   const id = crypto.randomUUID();
   const { error } = await supabase.from("customer_followups").insert({
     id,
+    store_id: storeId,
     customer_id: customerId,
     order_id: input.order_id || null,
     title: input.title.trim(),
@@ -453,12 +557,15 @@ export async function createCustomerFollowup(
 export async function completeCustomerFollowup(
   customerId: string,
   followupId: string,
+  actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
+  const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("customer_followups")
     .update({ status: "done", completed_at: now, updated_at: now })
+    .eq("store_id", storeId)
     .eq("id", followupId)
     .eq("customer_id", customerId);
   fail(error, "完成回访失败");
@@ -468,7 +575,10 @@ export async function completeCustomerFollowup(
 export async function sendCustomerMessage(
   customerId: string,
   input: CustomerMessageInput,
+  operator: string | AuditActor = "前台",
 ): Promise<{ ok: boolean; id: string }> {
+  const storeId = requireStoreIdFromActor(operator);
+  const operatorName = operatorNameFromActor(operator);
   const body = input.body.trim();
   if (!body) throw new Error("消息内容不能为空");
   const supabase = getSupabaseAdmin();
@@ -476,19 +586,21 @@ export async function sendCustomerMessage(
   const id = crypto.randomUUID();
   const { error: insertError } = await supabase.from("customer_interactions").insert({
     id,
+    store_id: storeId,
     customer_id: customerId,
     order_id: input.order_id || null,
     channel: input.channel,
     direction: "outbound",
     message_body: body,
     status: "sent",
-    operator_name: "前台",
+    operator_name: operatorName,
     created_at: now,
   });
   fail(insertError, "记录客户消息失败");
   const { error: updateError } = await supabase
     .from("customers")
     .update({ last_contacted_at: now, updated_at: now })
+    .eq("store_id", storeId)
     .eq("id", customerId);
   fail(updateError, "更新客户联系时间失败");
   return { ok: true, id };

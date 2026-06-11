@@ -32,6 +32,38 @@ export {
   upsertCustomerDevice,
 } from "@/features/customers/testing/mock-api";
 
+export {
+  applyElectronicsCsvImport,
+  createInventoryIntake,
+  getInventoryItem,
+  getInventoryStats,
+  importElectronicsCsvPreview,
+  listInventoryItems,
+  listInventoryItemsPage,
+  recordInventoryCheck,
+  recordInventoryTransaction,
+  sellInventoryItem,
+  transitionInventoryItem,
+  updateInventoryItem,
+} from "@/features/inventory/testing/mock-api";
+
+export {
+  getStoreSettings,
+  listMessageTemplates,
+  renderMessageTemplatePreview,
+  resetMessageTemplate,
+  updateMessageTemplate,
+  updateStoreSettings,
+} from "@/features/messages/testing/mock-api";
+
+export {
+  createStore,
+  getStoreContext,
+  inviteStoreMember,
+  listStoreMembers,
+  switchActiveStore,
+} from "@/features/stores/testing/mock-api";
+
 export { allTechnicians, customers, devices, suppliers } from "@/lib/mock/state";
 
 export type {

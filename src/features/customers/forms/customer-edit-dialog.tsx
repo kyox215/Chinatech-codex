@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
 import { CustomerSegmented } from "@/features/customers/forms/customer-filters";
 import type { CustomerDetail, CustomerUpdateInput } from "@/lib/repairdesk/api";
@@ -96,6 +97,16 @@ function CustomerFields({
           className="font-mono"
         />
       </CustomerFormField>
+      <div className="sm:col-span-2">
+        <CustomerFormField label="备用联系电话">
+          <CustomerBackupPhonesField
+            primaryPhone={form.phone_e164}
+            phones={form.contact_phones ?? []}
+            onPrimaryPhoneChange={(phone_e164) => setForm({ ...form, phone_e164 })}
+            onPhonesChange={(contact_phones) => setForm({ ...form, contact_phones })}
+          />
+        </CustomerFormField>
+      </div>
       <CustomerFormField label="邮箱">
         <Input
           value={form.email ?? ""}

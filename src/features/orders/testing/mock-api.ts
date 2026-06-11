@@ -1,5 +1,6 @@
 import { CURRENCY_CODE } from "@/lib/money";
 import type {
+  AuditActor,
   CreateOrderInput,
   OrderListFilters,
   OrderListItem,
@@ -14,6 +15,7 @@ import type {
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
   getStatusListSortIndex,
@@ -34,11 +36,54 @@ import {
   getMessages,
   getSupplier,
   orders,
-  phoneRaw,
 } from "@/lib/mock/state";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 
-export async function listOrders(filters: OrderListFilters = {}): Promise<OrderListItem[]> {
+type MockOperator = string | AuditActor;
+
+function operatorName(operator: MockOperator = "前台") {
+  return typeof operator === "string" ? operator : operator.displayName;
+}
+
+function mergeContactPhones(existing: string[], incoming: string[], primaryRaw: string) {
+  const result: string[] = [];
+  const seen = new Set<string>(primaryRaw ? [primaryRaw] : []);
+  for (const phone of [...existing, ...incoming]) {
+    const raw = normalizePhoneRaw(phone);
+    if (!raw || seen.has(raw)) continue;
+    seen.add(raw);
+    result.push(phone.trim());
+  }
+  return result;
+}
+
+function assertCustomerPhoneAvailable(
+  customerId: string,
+  primaryRaw: string,
+  contactPhones: string[],
+) {
+  const raws = new Set([
+    primaryRaw,
+    ...contactPhones.map((phone) => normalizePhoneRaw(phone)).filter(Boolean),
+  ]);
+  const conflicts = customers.filter(
+    (customer) => customer.id !== customerId && raws.has(customer.phone_raw),
+  );
+  if (conflicts.length === 0) return;
+  if (conflicts.some((customer) => customer.phone_raw === primaryRaw)) {
+    throw new Error("该手机号已存在客户档案");
+  }
+  throw new Error("备用号码已属于其他客户档案，请先确认客户资料");
+}
+
+function mockId(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+export async function listOrders(
+  filters: OrderListFilters = {},
+  _actor?: AuditActor,
+): Promise<OrderListItem[]> {
   let result = orders.map(decorate);
   const q = filters.search?.trim().toLowerCase();
   if (q) {
@@ -46,7 +91,8 @@ export async function listOrders(filters: OrderListFilters = {}): Promise<OrderL
       (o) =>
         o.public_no.toLowerCase().includes(q) ||
         o.customer_name.toLowerCase().includes(q) ||
-        o.customer_phone.toLowerCase().includes(q) ||
+        phoneMatches(o.customer_phone, q) ||
+        o.contact_phones.some((phone) => phoneMatches(phone, q)) ||
         o.device_imei.toLowerCase().includes(q) ||
         o.device_label.toLowerCase().includes(q),
     );
@@ -83,10 +129,13 @@ export async function listOrders(filters: OrderListFilters = {}): Promise<OrderL
   });
 }
 
-export async function listOrdersPage(input: OrderListPageInput = {}): Promise<OrderListResult> {
+export async function listOrdersPage(
+  input: OrderListPageInput = {},
+  actor?: AuditActor,
+): Promise<OrderListResult> {
   const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
   const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
-  const all = await listOrders(input);
+  const all = await listOrders(input, actor);
   const start = (page - 1) * pageSize;
   return {
     items: all.slice(start, start + pageSize),
@@ -98,7 +147,7 @@ export async function listOrdersPage(input: OrderListPageInput = {}): Promise<Or
 }
 
 // Used to compute KPIs without re-running filters on the same dataset.
-export async function getOrderStats() {
+export async function getOrderStats(_actor?: AuditActor) {
   return {
     total: orders.length,
     today: orders.filter((o) => new Date(o.created_at).toDateString() === new Date().toDateString())
@@ -122,7 +171,7 @@ export async function getOrderStats() {
 }
 
 // GET /api/orders/[id]
-export async function getOrder(id: string) {
+export async function getOrder(id: string, _actor?: AuditActor) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   return {
@@ -144,7 +193,7 @@ export async function getOrder(id: string) {
 export async function transitionOrder(
   id: string,
   to: RepairOrderStatus,
-  opts: { reason?: string; operator?: string } = {},
+  opts: { reason?: string; operator?: MockOperator; storeId?: string } = {},
 ) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
@@ -160,12 +209,16 @@ export async function transitionOrder(
 }
 
 // POST /api/orders/batch-transition
-export async function batchTransition(ids: string[], to: RepairOrderStatus) {
+export async function batchTransition(
+  ids: string[],
+  to: RepairOrderStatus,
+  operator: MockOperator = "前台",
+) {
   let count = 0;
   const failures: { id: string; reason: string }[] = [];
   for (const id of ids) {
     try {
-      await transitionOrder(id, to);
+      await transitionOrder(id, to, { operator });
       count++;
     } catch (e) {
       failures.push({ id, reason: (e as Error).message });
@@ -175,7 +228,12 @@ export async function batchTransition(ids: string[], to: RepairOrderStatus) {
 }
 
 // POST /api/orders/[id]/payment
-export async function recordPayment(id: string, amount: number, method = "现金") {
+export async function recordPayment(
+  id: string,
+  amount: number,
+  method = "现金",
+  operator: MockOperator = "前台",
+) {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
@@ -190,7 +248,7 @@ export async function recordPayment(id: string, amount: number, method = "现金
     order_id: id,
     event_type: "payment",
     payload: { amount, method, balance: o.balance_amount, currency_code: CURRENCY_CODE },
-    operator_name: "前台",
+    operator_name: operatorName(operator),
     created_at: now,
   });
   return { ok: true, balance: o.balance_amount, is_paid: o.is_paid };
@@ -225,7 +283,13 @@ function normalizeFaultPriceInput(input: PatchOrderFinanceInput["fault_prices"])
   });
 }
 
-function writeMergedPatchEvent(orderId: string, changedFields: string[], now: string) {
+function writeMergedPatchEvent(
+  orderId: string,
+  changedFields: string[],
+  now: string,
+  operator: MockOperator,
+) {
+  const name = operatorName(operator);
   const cutoff = Date.now() - 5 * 60 * 1000;
   const previous = extraEvents.find(
     (event) =>
@@ -247,6 +311,7 @@ function writeMergedPatchEvent(orderId: string, changedFields: string[], now: st
       currency_code: CURRENCY_CODE,
     };
     previous.created_at = now;
+    previous.operator_name = name;
     return;
   }
 
@@ -259,12 +324,16 @@ function writeMergedPatchEvent(orderId: string, changedFields: string[], now: st
       changed_fields: changedFields,
       currency_code: CURRENCY_CODE,
     },
-    operator_name: "前台",
+    operator_name: name,
     created_at: now,
   });
 }
 
-export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {
+export async function updateOrder(
+  id: string,
+  input: UpdateOrderInput,
+  operator: MockOperator = "前台",
+): Promise<{ ok: boolean }> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
 
@@ -303,10 +372,19 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
     accessoryNotes: input.accessory_notes,
   });
   const now = new Date().toISOString();
+  const phoneBook = normalizePhoneBook(customerPhone, customer.contact_phones);
+  if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
+  const customerContactPhones = mergeContactPhones(
+    customer.contact_phones,
+    phoneBook.contacts,
+    phoneBook.primaryRaw,
+  );
+  assertCustomerPhoneAvailable(customer.id, phoneBook.primaryRaw, customerContactPhones);
 
   customer.name = customerName;
-  customer.phone_e164 = customerPhone;
-  customer.phone_raw = customerPhone.replace(/\D/g, "");
+  customer.phone_e164 = phoneBook.primary;
+  customer.phone_raw = phoneBook.primaryRaw;
+  customer.contact_phones = customerContactPhones;
 
   o.issue_description = issueDescription;
   o.diagnosis_result = input.diagnosis_result?.trim() || undefined;
@@ -314,6 +392,7 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
   o.internal_tag = tagInput.internalTag;
   o.accessory_notes = tagInput.accessoryNotes;
   o.warranty_text = input.warranty_text?.trim() || undefined;
+  o.contact_phones = customerContactPhones;
   o.quotation_amount = quotation;
   o.deposit_amount = deposit;
   o.balance_amount = nextBalance;
@@ -341,14 +420,18 @@ export async function updateOrder(id: string, input: UpdateOrderInput): Promise<
       accessory_notes: tagInput.accessoryNotes,
       currency_code: CURRENCY_CODE,
     },
-    operator_name: "前台",
+    operator_name: operatorName(operator),
     created_at: now,
   });
 
   return { ok: true };
 }
 
-export async function patchOrder(id: string, input: PatchOrderInput): Promise<PatchOrderResult> {
+export async function patchOrder(
+  id: string,
+  input: PatchOrderInput,
+  operator: MockOperator = "前台",
+): Promise<PatchOrderResult> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
@@ -382,8 +465,20 @@ export async function patchOrder(id: string, input: PatchOrderInput): Promise<Pa
         break;
       case "customer_phone":
         if (!value) throw new Error("手机号不能为空");
-        customer.phone_e164 = value;
-        customer.phone_raw = phoneRaw(value);
+        {
+          const phoneBook = normalizePhoneBook(value, customer.contact_phones);
+          if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
+          const contactPhones = mergeContactPhones(
+            customer.contact_phones,
+            phoneBook.contacts,
+            phoneBook.primaryRaw,
+          );
+          assertCustomerPhoneAvailable(customer.id, phoneBook.primaryRaw, contactPhones);
+          customer.phone_e164 = phoneBook.primary;
+          customer.phone_raw = phoneBook.primaryRaw;
+          customer.contact_phones = contactPhones;
+          o.contact_phones = contactPhones;
+        }
         break;
       case "device_brand":
         if (!value) throw new Error("设备品牌不能为空");
@@ -432,13 +527,14 @@ export async function patchOrder(id: string, input: PatchOrderInput): Promise<Pa
 
   const now = new Date().toISOString();
   o.updated_at = now;
-  writeMergedPatchEvent(id, changedFields, now);
+  writeMergedPatchEvent(id, changedFields, now, operator);
   return { ok: true, updated_at: now };
 }
 
 export async function patchOrderFinance(
   id: string,
   input: PatchOrderFinanceInput,
+  operator: MockOperator = "前台",
 ): Promise<PatchOrderResult> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
@@ -474,7 +570,7 @@ export async function patchOrderFinance(
       balance_amount: nextBalance,
       currency_code: CURRENCY_CODE,
     },
-    operator_name: "前台",
+    operator_name: operatorName(operator),
     created_at: now,
   });
 
@@ -486,6 +582,7 @@ export async function sendNotification(
   id: string,
   body: string,
   channel: "whatsapp" | "sms" = "whatsapp",
+  operator: MockOperator = "前台",
 ) {
   const message = body.trim();
   if (!message) throw new Error("通知内容不能为空");
@@ -507,7 +604,7 @@ export async function sendNotification(
     order_id: id,
     event_type: "message_sent",
     payload: { channel, message_id: messageId },
-    operator_name: "前台",
+    operator_name: operatorName(operator),
     created_at: now,
   });
   return { ok: true, id: messageId, channel, body: message };
@@ -519,6 +616,7 @@ function writeMockWhatsappMessage({
   templateKind,
   eventType,
   transitionTo,
+  operator = "前台",
   allowInvalidTransition = false,
   markApprovalPending = false,
 }: {
@@ -527,6 +625,7 @@ function writeMockWhatsappMessage({
   templateKind: OrderWhatsappTemplateKind;
   eventType: "message_sent" | "approval_sent";
   transitionTo?: RepairOrderStatus;
+  operator?: MockOperator;
   allowInvalidTransition?: boolean;
   markApprovalPending?: boolean;
 }): WhatsappNotificationResult {
@@ -579,7 +678,7 @@ function writeMockWhatsappMessage({
       currency_code: CURRENCY_CODE,
       ...(transitionTo ? { from, to: statusChanged && to ? to : from } : {}),
     },
-    operator_name: "前台",
+    operator_name: operatorName(operator),
     created_at: now,
   });
   return {
@@ -599,6 +698,7 @@ export async function sendWhatsappNotification(
   body: string,
   templateKind: OrderWhatsappTemplateKind,
   transitionTo?: RepairOrderStatus,
+  operator: MockOperator = "前台",
 ) {
   return writeMockWhatsappMessage({
     id,
@@ -606,23 +706,32 @@ export async function sendWhatsappNotification(
     templateKind,
     eventType: "message_sent",
     transitionTo,
+    operator,
   });
 }
 
-export async function sendApprovalRequest(id: string, body: string) {
+export async function sendApprovalRequest(
+  id: string,
+  body: string,
+  operator: MockOperator = "前台",
+) {
   return writeMockWhatsappMessage({
     id,
     body,
     templateKind: "approval_request",
     eventType: "approval_sent",
     transitionTo: "waiting_approval",
+    operator,
     allowInvalidTransition: true,
     markApprovalPending: true,
   });
 }
 
 // GET /api/customers/suggest?q=
-export async function createOrder(input: CreateOrderInput): Promise<{ id: string }> {
+export async function createOrder(
+  input: CreateOrderInput,
+  _operator: MockOperator = "前台",
+): Promise<{ id: string }> {
   const status = normalizeInitialOrderStatus(input.status);
   if (!ORDER_STATUS_ALLOWED_FOR_CREATE.includes(status)) throw new Error("初始状态不合法");
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
@@ -631,25 +740,42 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
 
   let customer = input.customer_id ? getCustomer(input.customer_id) : undefined;
   if (input.customer_id && !customer) throw new Error("读取客户失败");
+  let customerContactPhones = customer?.contact_phones ?? [];
+  if (customer && input.customer_phone?.trim()) {
+    const phoneBook = normalizePhoneBook(input.customer_phone, customer.contact_phones);
+    const primaryRaw = phoneBook.primaryRaw || customer.phone_raw;
+    customerContactPhones = mergeContactPhones(
+      customer.contact_phones,
+      phoneBook.contacts,
+      primaryRaw,
+    );
+    customer.contact_phones = customerContactPhones;
+  }
   if (!customer) {
     if (!input.customer_name?.trim() || !input.customer_phone?.trim()) {
       throw new Error("客户姓名和手机号不能为空");
     }
-    const raw = phoneRaw(input.customer_phone);
+    const phoneBook = normalizePhoneBook(input.customer_phone);
+    const raw = phoneBook.primaryRaw;
+    if (!raw) throw new Error("手机号格式不正确");
     customer = customers.find((item) => item.phone_raw === raw);
     if (!customer) {
       customer = {
-        id: `cus_new_${Date.now()}`,
+        id: mockId("cus_new"),
         name: input.customer_name.trim(),
         phone_raw: raw,
-        phone_e164: input.customer_phone.trim(),
-        contact_phones: [],
+        phone_e164: phoneBook.primary,
+        contact_phones: phoneBook.contacts,
         consent_marketing: false,
         consent_sms: true,
         preferred_channel: "whatsapp",
         language: "it",
       };
       customers.push(customer);
+      customerContactPhones = phoneBook.contacts;
+    } else {
+      customerContactPhones = mergeContactPhones(customer.contact_phones, phoneBook.contacts, raw);
+      customer.contact_phones = customerContactPhones;
     }
   }
   let device = input.device_id ? getDevice(input.device_id) : undefined;
@@ -660,7 +786,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
       throw new Error("设备品牌和型号不能为空");
     }
     device = {
-      id: `dev_new_${Date.now()}`,
+      id: mockId("dev_new"),
       customer_id: customer.id,
       brand: input.device_brand.trim(),
       model: input.device_model.trim(),
@@ -681,7 +807,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
   const deposit = input.deposit_amount ?? 0;
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
   if (deposit > quotation) throw new Error("押金不能超过总报价");
-  const id = `ord_new_${Date.now()}`;
+  const id = mockId("ord_new");
   const seq = orders.length + 1;
   const now = new Date().toISOString();
   const balance = Math.max(0, quotation - deposit);
@@ -707,7 +833,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
     internal_tag: tagInput.internalTag,
     accessory_notes: tagInput.accessoryNotes,
     warranty_text: input.warranty_text?.trim() || "6个月",
-    contact_phones: customer.contact_phones,
+    contact_phones: customerContactPhones,
     fault_prices: validFaults,
     device_snapshot: {
       brand: device.brand,

@@ -26,7 +26,7 @@ import { CustomerFilters } from "@/features/customers/forms/customer-filters";
 import { CustomerFormDialog } from "@/features/customers/forms/customer-form-dialog";
 import { defaultCustomerForm } from "@/features/customers/model/customer-list";
 import { fadeUp, stagger } from "@/lib/motion";
-import { brandGradientStyle, pageHeader, pageShell } from "@/lib/ui-patterns";
+import { brandGradientStyle, dataDisplay, pageHeader, pageShell } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 export function CustomerListScreen() {
@@ -71,7 +71,7 @@ export function CustomerListScreen() {
         variants={stagger(0.05)}
         initial="hidden"
         animate="show"
-        className="mb-5 space-y-4"
+        className="mb-4 space-y-3 sm:mb-5 sm:space-y-4"
       >
         <div className={pageHeader.root}>
           <motion.div variants={fadeUp}>
@@ -95,7 +95,7 @@ export function CustomerListScreen() {
           </motion.div>
         </div>
 
-        <motion.div variants={fadeUp} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.div variants={fadeUp} className={dataDisplay.kpiGrid}>
           <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
           <CustomerKpiCard icon={ArrowUpRight} label="复购客户" value={stats?.repeat ?? 0} />
           <CustomerKpiCard icon={Bell} label="待回访" value={stats?.dueFollowups ?? 0} />

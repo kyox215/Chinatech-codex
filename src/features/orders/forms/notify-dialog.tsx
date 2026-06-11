@@ -31,6 +31,7 @@ import {
   getOrderWhatsappTransition,
   orderWhatsappTemplateOptions,
 } from "@/features/orders/model/order-message-templates";
+import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 
 export function NotifyDialog({
   open,
@@ -52,9 +53,10 @@ export function NotifyDialog({
   }) => Promise<unknown>;
 }) {
   const defaultKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
+  const phoneOptions = getOrderContactPhoneOptions(data);
   const [templateKind, setTemplateKind] = useState<OrderWhatsappTemplateKind>(defaultKind);
   const [body, setBody] = useState(() => buildOrderWhatsappMessage(data, defaultKind, orderUrl));
-  const phone = data.customer?.phone_e164 || data.order.customer_phone;
+  const [phone, setPhone] = useState(phoneOptions[0] ?? "");
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
   const transitionTo = getOrderWhatsappTransition(data.order.status, templateKind);
 
@@ -63,6 +65,7 @@ export function NotifyDialog({
     const nextKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
     setTemplateKind(nextKind);
     setBody(buildOrderWhatsappMessage(data, nextKind, orderUrl));
+    setPhone(getOrderContactPhoneOptions(data)[0] ?? "");
   }, [data, open, orderUrl]);
 
   const updateTemplate = (kind: OrderWhatsappTemplateKind) => {
@@ -101,9 +104,24 @@ export function NotifyDialog({
             </div>
             <div>
               <Label className="text-xs">WhatsApp</Label>
-              <div className="mt-1 min-w-0 truncate rounded-md border bg-surface-muted px-3 py-2 font-mono text-xs">
-                {phone || "缺少电话号码"}
-              </div>
+              {phoneOptions.length > 1 ? (
+                <Select value={phone} onValueChange={setPhone}>
+                  <SelectTrigger className="mt-1 font-mono text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {phoneOptions.map((option, index) => (
+                      <SelectItem key={option} value={option}>
+                        {index === 0 ? "主号码" : "备用号码"} · {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="mt-1 min-w-0 truncate rounded-md border bg-surface-muted px-3 py-2 font-mono text-xs">
+                  {phone || "缺少电话号码"}
+                </div>
+              )}
             </div>
           </div>
           {transitionTo && (

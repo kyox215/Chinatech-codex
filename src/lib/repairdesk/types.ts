@@ -337,6 +337,7 @@ export interface CustomerUpdateInput {
   phone_e164: string;
   email?: string;
   contact_phones?: string[];
+  promote_contact_phone?: string;
   consent_marketing?: boolean;
   consent_sms?: boolean;
   preferred_channel?: "whatsapp" | "sms";
@@ -385,4 +386,477 @@ export interface PaymentResult {
   ok: boolean;
   balance: number;
   is_paid: boolean;
+}
+
+export type StaffRole = "owner" | "manager" | "technician" | "sales" | "viewer";
+export type StaffStatus = "active" | "inactive";
+export type StoreRole = StaffRole;
+export type StoreStatus = "active" | "suspended" | "deleted";
+export type StorePlan = "starter" | "pro" | "enterprise";
+export type StoreMembershipStatus = "active" | "invited" | "inactive";
+
+export interface Store {
+  id: string;
+  name: string;
+  slug: string;
+  owner_user_id?: string;
+  status: StoreStatus;
+  plan: StorePlan;
+  timezone: string;
+  currency_code: CurrencyCode;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreMembership {
+  id: string;
+  store_id: string;
+  user_id: string;
+  email: string;
+  display_name?: string;
+  role: StoreRole;
+  status: StoreMembershipStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreMember {
+  id: string;
+  user_id: string;
+  email: string;
+  display_name?: string;
+  role: StoreRole;
+  status: StoreMembershipStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreInvitation {
+  id: string;
+  email: string;
+  role: StoreRole;
+  status: StoreMembershipStatus;
+  invited_by?: string;
+  accepted_at?: string;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreMembersResult {
+  members: StoreMember[];
+  invitations: StoreInvitation[];
+}
+
+export interface StoreInviteInput {
+  email: string;
+  role: Exclude<StoreRole, "owner">;
+}
+
+export interface ActorStoreMembership {
+  id: string;
+  name: string;
+  slug: string;
+  role: StoreRole;
+  status: StoreMembershipStatus;
+}
+
+export interface StoreContext {
+  activeStore?: ActorStoreMembership;
+  stores: ActorStoreMembership[];
+}
+
+export interface StoreCreateInput {
+  name: string;
+  timezone?: string;
+  currency_code?: CurrencyCode;
+}
+
+export interface StaffProfile {
+  id: string;
+  email: string;
+  display_name: string;
+  role: StaffRole;
+  status: StaffStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditActor {
+  id?: string;
+  email?: string;
+  displayName: string;
+  role?: StaffRole;
+  storeId?: string;
+  storeName?: string;
+  storeRole?: StoreRole;
+  stores?: ActorStoreMembership[];
+  isSystem?: boolean;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id?: string;
+  actor_email?: string;
+  actor_name: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  before_data?: Record<string, unknown>;
+  after_data?: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export type InventoryItemStatus =
+  | "intake"
+  | "evaluating"
+  | "offer_made"
+  | "purchased"
+  | "data_wipe"
+  | "refurbishing"
+  | "ready_for_sale"
+  | "listed"
+  | "reserved"
+  | "sold"
+  | "cancelled"
+  | "returned"
+  | "recycled";
+
+export type InventoryCosmeticGrade =
+  | "unknown"
+  | "new"
+  | "mint"
+  | "good"
+  | "fair"
+  | "poor"
+  | "for_parts";
+
+export type InventoryFunctionalGrade =
+  | "untested"
+  | "passed"
+  | "needs_repair"
+  | "failed"
+  | "for_parts";
+
+export type InventoryCheckStatus = "unchecked" | "pass" | "fail" | "unknown";
+
+export type InventoryTransactionType =
+  | "buyback_payment"
+  | "sale_payment"
+  | "refund"
+  | "repair_cost"
+  | "fee"
+  | "adjustment";
+
+export interface InventoryItem {
+  id: string;
+  public_no: string;
+  status: InventoryItemStatus;
+  source_type: string;
+  source_ref?: string;
+  legacy_source?: string;
+  customer_id?: string;
+  buyer_customer_id?: string;
+  category: string;
+  brand: string;
+  model: string;
+  color?: string;
+  storage_capacity?: string;
+  serial_or_imei?: string;
+  imei_check_status: InventoryCheckStatus;
+  activation_lock_status: InventoryCheckStatus;
+  data_wipe_status: InventoryCheckStatus;
+  cosmetic_grade: InventoryCosmeticGrade;
+  functional_grade: InventoryFunctionalGrade;
+  battery_health?: number;
+  buyback_price: number;
+  list_price: number;
+  sale_price: number;
+  deposit_amount: number;
+  repair_cost_amount: number;
+  fees_amount: number;
+  currency_code: CurrencyCode;
+  payment_method?: string;
+  sale_channel?: string;
+  warranty_months: number;
+  warranty_until?: string;
+  purchased_at?: string;
+  listed_at?: string;
+  sold_at?: string;
+  returned_at?: string;
+  recycled_at?: string;
+  cancelled_at?: string;
+  notes?: string;
+  legacy_payload: Record<string, unknown>;
+  created_by?: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryListItem extends InventoryItem {
+  customer_name?: string;
+  customer_phone?: string;
+  buyer_name?: string;
+  buyer_phone?: string;
+  item_label: string;
+  profit: number;
+}
+
+export interface InventoryListFilters {
+  search?: string;
+  statuses?: InventoryItemStatus[];
+  categories?: string[];
+  saleChannel?: string;
+}
+
+export interface InventoryListResult {
+  items: InventoryListItem[];
+  total: number;
+}
+
+export interface InventoryStats {
+  total: number;
+  inPipeline: number;
+  readyOrListed: number;
+  reserved: number;
+  sold: number;
+  buybackCost: number;
+  listedValue: number;
+  realizedProfit: number;
+}
+
+export interface InventoryQualityCheck {
+  id: string;
+  item_id: string;
+  screen_status: InventoryCheckStatus;
+  touch_status: InventoryCheckStatus;
+  camera_status: InventoryCheckStatus;
+  buttons_status: InventoryCheckStatus;
+  ports_status: InventoryCheckStatus;
+  speaker_status: InventoryCheckStatus;
+  microphone_status: InventoryCheckStatus;
+  wifi_status: InventoryCheckStatus;
+  bluetooth_status: InventoryCheckStatus;
+  cellular_status: InventoryCheckStatus;
+  battery_health?: number;
+  cosmetic_grade: InventoryCosmeticGrade;
+  functional_grade: InventoryFunctionalGrade;
+  imei_check_status: InventoryCheckStatus;
+  activation_lock_status: InventoryCheckStatus;
+  data_wipe_status: InventoryCheckStatus;
+  notes?: string;
+  checked_by?: string;
+  checked_at: string;
+  created_at: string;
+}
+
+export interface InventoryTransaction {
+  id: string;
+  item_id: string;
+  transaction_type: InventoryTransactionType;
+  amount: number;
+  currency_code: CurrencyCode;
+  method?: string;
+  note?: string;
+  actor_id?: string;
+  created_at: string;
+}
+
+export interface InventoryEvent {
+  id: string;
+  item_id: string;
+  event_type: string;
+  from_status?: InventoryItemStatus;
+  to_status?: InventoryItemStatus;
+  payload: Record<string, unknown>;
+  operator_user_id?: string;
+  operator_name: string;
+  operator_email?: string;
+  created_at: string;
+}
+
+export interface InventoryDetail {
+  item: InventoryListItem;
+  customer?: Customer;
+  buyer?: Customer;
+  checks: InventoryQualityCheck[];
+  transactions: InventoryTransaction[];
+  events: InventoryEvent[];
+}
+
+export interface CreateInventoryIntakeInput {
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  category?: string;
+  brand: string;
+  model: string;
+  color?: string;
+  storage_capacity?: string;
+  serial_or_imei?: string;
+  buyback_price?: number;
+  list_price?: number;
+  deposit_amount?: number;
+  payment_method?: string;
+  notes?: string;
+}
+
+export interface UpdateInventoryItemInput {
+  category?: string;
+  brand?: string;
+  model?: string;
+  color?: string;
+  storage_capacity?: string;
+  serial_or_imei?: string;
+  buyback_price?: number;
+  list_price?: number;
+  sale_price?: number;
+  deposit_amount?: number;
+  repair_cost_amount?: number;
+  fees_amount?: number;
+  payment_method?: string;
+  sale_channel?: string;
+  warranty_months?: number;
+  notes?: string;
+}
+
+export interface InventoryTransitionInput {
+  to: InventoryItemStatus;
+  reason?: string;
+}
+
+export interface InventoryQualityCheckInput {
+  screen_status?: InventoryCheckStatus;
+  touch_status?: InventoryCheckStatus;
+  camera_status?: InventoryCheckStatus;
+  buttons_status?: InventoryCheckStatus;
+  ports_status?: InventoryCheckStatus;
+  speaker_status?: InventoryCheckStatus;
+  microphone_status?: InventoryCheckStatus;
+  wifi_status?: InventoryCheckStatus;
+  bluetooth_status?: InventoryCheckStatus;
+  cellular_status?: InventoryCheckStatus;
+  battery_health?: number;
+  cosmetic_grade?: InventoryCosmeticGrade;
+  functional_grade?: InventoryFunctionalGrade;
+  imei_check_status?: InventoryCheckStatus;
+  activation_lock_status?: InventoryCheckStatus;
+  data_wipe_status?: InventoryCheckStatus;
+  notes?: string;
+}
+
+export interface InventoryTransactionInput {
+  transaction_type: InventoryTransactionType;
+  amount: number;
+  method?: string;
+  note?: string;
+}
+
+export interface SellInventoryItemInput {
+  buyer_customer_id?: string;
+  buyer_name?: string;
+  buyer_phone?: string;
+  sale_price: number;
+  deposit_amount?: number;
+  payment_method?: string;
+  sale_channel?: string;
+  warranty_months?: number;
+  sold_at?: string;
+  notes?: string;
+}
+
+export interface ElectronicsImportWarning {
+  row: number;
+  field: string;
+  message: string;
+  value?: string;
+}
+
+export interface ElectronicsImportReport {
+  totalRows: number;
+  importedRows: number;
+  itemCount: number;
+  customerCount: number;
+  transactionCount: number;
+  eventCount: number;
+  totalBuyback: number;
+  totalListPrice: number;
+  totalSalePrice: number;
+  warnings: ElectronicsImportWarning[];
+}
+
+export interface ElectronicsImportPreview {
+  items: Record<string, unknown>[];
+  customers: Record<string, unknown>[];
+  transactions: Record<string, unknown>[];
+  events: Record<string, unknown>[];
+  report: ElectronicsImportReport;
+}
+
+export type MessageTemplateDomain = "order" | "customer";
+export type MessageTemplateChannel = "whatsapp" | "sms";
+export type MessageTemplateLanguage = "it" | "zh" | "en";
+
+export interface StoreSettings {
+  id: string;
+  store_id?: string;
+  store_name: string;
+  store_address: string;
+  store_phone: string;
+  store_whatsapp: string;
+  store_email: string;
+  default_order_warranty_text: string;
+  default_inventory_warranty_months: number;
+  print_footer: string;
+  message_signature: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreSettingsUpdateInput {
+  store_name?: string;
+  store_address?: string;
+  store_phone?: string;
+  store_whatsapp?: string;
+  store_email?: string;
+  default_order_warranty_text?: string;
+  default_inventory_warranty_months?: number;
+  print_footer?: string;
+  message_signature?: string;
+}
+
+export interface MessageTemplate {
+  id: string;
+  store_id?: string;
+  domain: MessageTemplateDomain;
+  kind: string;
+  channel: MessageTemplateChannel;
+  language: MessageTemplateLanguage;
+  label: string;
+  body_template: string;
+  enabled: boolean;
+  sort_order: number;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MessageTemplateUpdateInput {
+  label?: string;
+  body_template?: string;
+  enabled?: boolean;
+}
+
+export interface MessageTemplatePreviewInput {
+  templateId?: string;
+  bodyTemplate?: string;
+  context?: Record<string, unknown>;
+}
+
+export interface MessageTemplatePreviewResult {
+  body: string;
+  variables: string[];
 }

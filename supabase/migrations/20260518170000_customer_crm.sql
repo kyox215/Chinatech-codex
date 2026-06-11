@@ -58,7 +58,7 @@ create table if not exists public.customer_tags (
 );
 
 create table if not exists public.customer_tag_assignments (
-  customer_id uuid not null,
+  customer_id text not null,
   tag_id text not null,
   created_at timestamptz not null default now(),
   primary key (customer_id, tag_id),
@@ -72,8 +72,8 @@ create table if not exists public.customer_tag_assignments (
 
 create table if not exists public.customer_interactions (
   id text primary key,
-  customer_id uuid not null,
-  order_id uuid,
+  customer_id text not null,
+  order_id text,
   channel public.message_channel not null,
   direction text not null default 'outbound',
   message_body text not null,
@@ -92,8 +92,8 @@ create table if not exists public.customer_interactions (
 
 create table if not exists public.customer_followups (
   id text primary key,
-  customer_id uuid not null,
-  order_id uuid,
+  customer_id text not null,
+  order_id text,
   title text not null,
   note text,
   due_at timestamptz not null,
