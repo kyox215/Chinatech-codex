@@ -16,6 +16,8 @@ import type {
   InventoryTransactionInput,
   MessageTemplatePreviewInput,
   MessageTemplateUpdateInput,
+  OnboardingDecisionInput,
+  OnboardingRequestInput,
   SellInventoryItemInput,
   OrderListFilters,
   OrderWhatsappTemplateKind,
@@ -509,6 +511,42 @@ export const storeInviteInputSchema = z
 export const storeInviteBodySchema = z.object({
   input: storeInviteInputSchema,
 });
+
+export const onboardingRequestInputSchema = z
+  .object({
+    request_type: z.enum(["create_store", "join_store"]),
+    desired_store_name: optionalText,
+    target_store_id: optionalText,
+    requested_role: z.enum(["manager", "technician", "sales", "viewer"]).optional(),
+  })
+  .passthrough()
+  .superRefine((input, ctx) => {
+    if (input.request_type === "create_store" && !input.desired_store_name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["desired_store_name"],
+        message: "请填写要创建的店铺名称",
+      });
+    }
+    if (input.request_type === "join_store" && !input.target_store_id?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["target_store_id"],
+        message: "请选择要加入的店铺",
+      });
+    }
+  }) satisfies z.ZodType<OnboardingRequestInput>;
+
+export const onboardingRequestBodySchema = z.object({
+  input: onboardingRequestInputSchema,
+});
+
+export const onboardingDecisionBodySchema = z
+  .object({
+    id: z.string().uuid("申请 id 不正确"),
+    note: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<OnboardingDecisionInput>;
 
 export const messageTemplateUpdateInputSchema = z
   .object({

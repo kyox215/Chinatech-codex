@@ -15,7 +15,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const { open, setOpen } = useCommandPalette();
   const pathname = usePathname();
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/onboarding") {
     return (
       <QueryClientProvider client={queryClient}>
         {children}

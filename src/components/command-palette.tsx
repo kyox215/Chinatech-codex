@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Plus,
   Settings,
+  ShieldCheck,
   Sparkles,
   Sun,
   Users,
@@ -33,6 +34,7 @@ type StaticCommandPath =
   | "/inventory"
   | "/inventory?new=1"
   | "/messages"
+  | "/platform"
   | "/settings";
 
 export function CommandPalette({
@@ -90,6 +92,9 @@ export function CommandPalette({
           </CommandItem>
           <CommandItem onSelect={() => go("/messages")}>
             <MessageSquare className="mr-2 size-4" /> 消息模板
+          </CommandItem>
+          <CommandItem onSelect={() => go("/platform")}>
+            <ShieldCheck className="mr-2 size-4" /> 平台审批
           </CommandItem>
           <CommandItem onSelect={() => go("/settings")}>
             <Settings className="mr-2 size-4" /> 设置

@@ -7,6 +7,8 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isRepairDeskApi = pathname.startsWith("/api/repairdesk");
   const isLoginPage = pathname === "/login";
+  const isOnboardingPage = pathname === "/onboarding";
+  const isAuthPage = isLoginPage || isOnboardingPage;
   const isPublicAsset =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -49,10 +51,17 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.json({ error: "未登录或登录已过期" }, { status: 401 });
   }
 
-  if (!isPublicAsset && !isRepairDeskApi && !isLoginPage && !isAuthenticated) {
+  if (!isPublicAsset && !isRepairDeskApi && !isAuthPage && !isAuthenticated) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (isOnboardingPage && !isAuthenticated) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("next", "/onboarding");
     return NextResponse.redirect(loginUrl);
   }
 

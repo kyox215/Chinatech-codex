@@ -9,6 +9,7 @@ import {
   Boxes,
   MessageSquare,
   Settings,
+  ShieldCheck,
   Wrench,
   ChevronsUpDown,
   Store,
@@ -35,6 +36,7 @@ const nav = [
   { title: "客户", url: "/customers", icon: Users },
   { title: "回收库存", url: "/inventory", icon: Boxes },
   { title: "消息模板", url: "/messages", icon: MessageSquare },
+  { title: "平台审批", url: "/platform", icon: ShieldCheck },
   { title: "设置", url: "/settings", icon: Settings },
 ];
 

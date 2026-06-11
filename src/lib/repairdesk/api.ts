@@ -39,6 +39,10 @@ import type {
   MessageTemplatePreviewInput,
   MessageTemplatePreviewResult,
   MessageTemplateUpdateInput,
+  OnboardingDecisionInput,
+  OnboardingRequest,
+  OnboardingRequestInput,
+  OnboardingStatus,
   RepairDeskOptions,
   StoreContext,
   StoreCreateInput,
@@ -109,6 +113,12 @@ export type {
   MessageTemplatePreviewInput,
   MessageTemplatePreviewResult,
   MessageTemplateUpdateInput,
+  OnboardingDecisionInput,
+  OnboardingRequest,
+  OnboardingRequestInput,
+  OnboardingRequestStatus,
+  OnboardingRequestType,
+  OnboardingStatus,
   RepairOrder,
   RepairDeskOptions,
   SellInventoryItemInput,
@@ -209,6 +219,32 @@ export async function getStoreSettings(): Promise<StoreSettings> {
 
 export async function getStoreContext(): Promise<StoreContext> {
   return requestJson<StoreContext>("stores/context");
+}
+
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
+  return requestJson<OnboardingStatus>("onboarding/status");
+}
+
+export async function submitOnboardingRequest(
+  input: OnboardingRequestInput,
+): Promise<OnboardingRequest> {
+  return postJson<OnboardingRequest>("onboarding/request", { input });
+}
+
+export async function listPlatformOnboardingRequests(): Promise<OnboardingRequest[]> {
+  return requestJson<OnboardingRequest[]>("platform/onboarding/requests");
+}
+
+export async function approveOnboardingRequest(
+  input: OnboardingDecisionInput,
+): Promise<OnboardingRequest> {
+  return postJson<OnboardingRequest>("platform/onboarding/approve", input);
+}
+
+export async function rejectOnboardingRequest(
+  input: OnboardingDecisionInput,
+): Promise<OnboardingRequest> {
+  return postJson<OnboardingRequest>("platform/onboarding/reject", input);
 }
 
 export async function getStoreMembers(): Promise<StoreMembersResult> {

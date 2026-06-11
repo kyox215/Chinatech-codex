@@ -45,4 +45,19 @@ describe("tenant guardrails", () => {
     expect(sql).toContain("add_store_member_select_policy('repair_orders'");
     expect(sql).toContain("add_store_member_select_policy('audit_logs'");
   });
+
+  it("keeps platform admin data separate from store-scoped tenant data", () => {
+    const sql = readFileSync(
+      resolve(
+        process.cwd(),
+        "supabase/migrations/20260611080254_platform_onboarding_approvals.sql",
+      ),
+      "utf8",
+    );
+
+    expect(sql).toContain("create table if not exists public.platform_admins");
+    expect(sql).toContain("create table if not exists public.onboarding_requests");
+    expect(sql).toContain("create table if not exists public.platform_audit_logs");
+    expect(sql).not.toContain("alter table public.repair_orders");
+  });
 });

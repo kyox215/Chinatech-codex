@@ -18,6 +18,7 @@ const labels: Record<string, string> = {
   customers: "客户",
   inventory: "回收库存",
   messages: "消息模板",
+  platform: "平台审批",
   settings: "设置",
   new: "新建",
 };

@@ -394,6 +394,9 @@ export type StoreRole = StaffRole;
 export type StoreStatus = "active" | "suspended" | "deleted";
 export type StorePlan = "starter" | "pro" | "enterprise";
 export type StoreMembershipStatus = "active" | "invited" | "inactive";
+export type PlatformAdminStatus = "active" | "inactive";
+export type OnboardingRequestType = "create_store" | "join_store";
+export type OnboardingRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Store {
   id: string;
@@ -472,6 +475,62 @@ export interface StoreCreateInput {
   currency_code?: CurrencyCode;
 }
 
+export interface PlatformAdmin {
+  user_id: string;
+  email: string;
+  display_name?: string;
+  status: PlatformAdminStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingStoreOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface OnboardingRequest {
+  id: string;
+  requester_user_id: string;
+  email: string;
+  display_name?: string;
+  request_type: OnboardingRequestType;
+  desired_store_name?: string;
+  target_store_id?: string;
+  target_store_name?: string;
+  requested_role: StoreRole;
+  status: OnboardingRequestStatus;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  decision_note?: string;
+  resulting_store_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingStatus {
+  email?: string;
+  displayName: string;
+  isPlatformAdmin: boolean;
+  activeStore?: ActorStoreMembership;
+  stores: ActorStoreMembership[];
+  requests: OnboardingRequest[];
+  availableStores: OnboardingStoreOption[];
+}
+
+export interface OnboardingRequestInput {
+  request_type: OnboardingRequestType;
+  desired_store_name?: string;
+  target_store_id?: string;
+  requested_role?: Exclude<StoreRole, "owner">;
+}
+
+export interface OnboardingDecisionInput {
+  id: string;
+  note?: string;
+}
+
 export interface StaffProfile {
   id: string;
   email: string;
@@ -487,6 +546,7 @@ export interface AuditActor {
   email?: string;
   displayName: string;
   role?: StaffRole;
+  isPlatformAdmin?: boolean;
   storeId?: string;
   storeName?: string;
   storeRole?: StoreRole;

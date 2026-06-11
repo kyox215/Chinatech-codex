@@ -61,6 +61,13 @@ import {
   listStoreMembers,
   switchActiveStore,
 } from "@/features/stores/server/store.service";
+import {
+  approveOnboardingRequest,
+  getOnboardingStatus,
+  listPlatformOnboardingRequests,
+  rejectOnboardingRequest,
+  submitOnboardingRequest,
+} from "@/features/platform/server/platform.service";
 import { getRequestActor, UnauthorizedError, ForbiddenError } from "@/server/auth-context";
 import { writeAuditLog } from "@/server/audit";
 import {
@@ -91,6 +98,8 @@ import {
   messageTemplateResetBodySchema,
   messageTemplateUpdateBodySchema,
   notificationBodySchema,
+  onboardingDecisionBodySchema,
+  onboardingRequestBodySchema,
   orderListFiltersSchema,
   orderListPageInputSchema,
   patchOrderBodySchema,
@@ -108,6 +117,7 @@ import {
 const supabaseSource = {
   batchTransition,
   completeCustomerFollowup,
+  approveOnboardingRequest,
   applyElectronicsCsvImport,
   createCustomer,
   createCustomerFollowup,
@@ -119,6 +129,7 @@ const supabaseSource = {
   getCustomerDetail,
   getInventoryItem,
   getInventoryStats,
+  getOnboardingStatus,
   getOrder,
   getOrderStats,
   getRepairDeskOptions,
@@ -132,6 +143,7 @@ const supabaseSource = {
   listMessageTemplates,
   listOrders,
   listOrdersPage,
+  listPlatformOnboardingRequests,
   listStoreMembers,
   patchOrder,
   patchOrderFinance,
@@ -140,6 +152,7 @@ const supabaseSource = {
   recordPayment,
   renderMessageTemplatePreview,
   resetMessageTemplate,
+  rejectOnboardingRequest,
   searchCustomers,
   sendApprovalRequest,
   sendCustomerMessage,
@@ -147,6 +160,7 @@ const supabaseSource = {
   sendWhatsappNotification,
   sellInventoryItem,
   setCustomerTags,
+  submitOnboardingRequest,
   switchActiveStore,
   transitionInventoryItem,
   transitionOrder,
@@ -169,6 +183,33 @@ async function source() {
       suppliers: mock.suppliers,
       technicians: mock.allTechnicians,
     }),
+    getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => ({
+      email: actor.email,
+      displayName: actor.displayName,
+      isPlatformAdmin: Boolean(actor.isPlatformAdmin),
+      activeStore: actor.storeId
+        ? {
+            id: actor.storeId,
+            name: actor.storeName || "Mock Store",
+            slug: "mock-store",
+            role: actor.storeRole ?? actor.role ?? "owner",
+            status: "active" as const,
+          }
+        : undefined,
+      stores: actor.stores ?? [],
+      requests: [],
+      availableStores: [],
+    }),
+    submitOnboardingRequest: async () => {
+      throw new Error("Mock 模式暂不支持注册申请");
+    },
+    listPlatformOnboardingRequests: async () => [],
+    approveOnboardingRequest: async () => {
+      throw new Error("Mock 模式暂不支持平台审批");
+    },
+    rejectOnboardingRequest: async () => {
+      throw new Error("Mock 模式暂不支持平台审批");
+    },
   };
 }
 
@@ -196,9 +237,13 @@ function fail(error: unknown) {
 
 export async function handleRepairDeskGet(path: string) {
   try {
-    const actor = await getRequestActor();
+    const actor = await getRequestActor(true, { allowPendingStore: allowsPendingStore(path) });
     const api = await source();
     switch (path) {
+      case "onboarding/status":
+        return ok(await api.getOnboardingStatus(actor));
+      case "platform/onboarding/requests":
+        return ok(await api.listPlatformOnboardingRequests(actor));
       case "order-stats":
         return ok(await api.getOrderStats(actor));
       case "options":
@@ -223,9 +268,21 @@ export async function handleRepairDeskGet(path: string) {
 
 export async function handleRepairDeskPost(path: string, body: unknown) {
   try {
-    const actor = await getRequestActor();
+    const actor = await getRequestActor(true, { allowPendingStore: allowsPendingStore(path) });
     const api = await source();
     switch (path) {
+      case "onboarding/request": {
+        const { input } = onboardingRequestBodySchema.parse(body);
+        return ok(await api.submitOnboardingRequest(input, actor));
+      }
+      case "platform/onboarding/approve":
+        return ok(
+          await api.approveOnboardingRequest(onboardingDecisionBodySchema.parse(body), actor),
+        );
+      case "platform/onboarding/reject":
+        return ok(
+          await api.rejectOnboardingRequest(onboardingDecisionBodySchema.parse(body), actor),
+        );
       case "orders/list":
         return ok(await api.listOrders(orderListFiltersSchema.parse(body), actor));
       case "orders/list-page":
@@ -438,6 +495,10 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
   } catch (error) {
     return fail(error);
   }
+}
+
+function allowsPendingStore(path: string) {
+  return path.startsWith("onboarding/") || path.startsWith("platform/");
 }
 
 async function auditGeneric<T>(
