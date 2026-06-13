@@ -12,8 +12,15 @@ import {
 
 describe("repairdesk API schemas", () => {
   it("coerces payment amounts", () => {
-    expect(paymentBodySchema.parse({ id: "R1", amount: "25.5" })).toMatchObject({
+    expect(
+      paymentBodySchema.parse({
+        id: "R1",
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        amount: "25.5",
+      }),
+    ).toMatchObject({
       id: "R1",
+      expected_updated_at: "2026-06-11T00:00:00.000Z",
       amount: 25.5,
     });
   });

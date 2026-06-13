@@ -40,9 +40,9 @@ src/
 ├── components/
 │   ├── ui/                # shadcn 组件（勿改基础结构）
 │   ├── orders/badges.tsx  # 15 态工单状态徽章
-│   ├── app-sidebar.tsx    # 桌面侧栏 260px
-│   ├── app-bar.tsx        # 顶部栏（含 ⌘K）
-│   ├── bottom-tab-bar.tsx # 移动底栏
+│   ├── app-sidebar.tsx    # 桌面固定侧栏 / 移动抽屉侧栏
+│   ├── app-bar.tsx        # 顶部栏（菜单、店铺、搜索、⌘K）
+│   ├── mobile-workspace-dock.tsx # 移动悬浮快捷操作，不是底部导航
 │   ├── animated-number.tsx / sparkline.tsx / background-orbs.tsx
 ├── lib/
 │   ├── motion.ts          # fadeUp/scaleIn/stagger/cardHover/pageTransition/ease
@@ -70,7 +70,7 @@ AGENTS.md                  # Codex 页面生成硬规则
 - 主色：`bg-primary text-primary-foreground`
 - 边框：`border-border` / `border-border/60`
 - 状态：`bg-status-{neutral|info|progress|warn|success|danger}` + `text-status-*-foreground`
-- 渐变：`var(--gradient-brand)` 或 `gradient-text`（violet→cyan）
+- 渐变：`var(--gradient-brand)` 或 `gradient-text`（RepairOS 科技蓝）
 - 阴影：`--shadow-glass` / `--shadow-elevated` / `--shadow-card`
 
 ### 2. 字体
@@ -88,8 +88,9 @@ AGENTS.md                  # Codex 页面生成硬规则
 
 ### 4. 布局骨架
 
-- 根布局已包含 `AppSidebar` + `AppBar` + `BackgroundOrbs`
+- 根布局已包含 `AppSidebar` + `AppBar` + `MobileWorkspaceDock`
 - 新页面只写主内容，移动优先，桌面用 `sm:` / `md:` / `lg:`
+- 移动端导航统一使用侧边栏抽屉，禁止重新添加底部 Tab/底部模块导航。
 - 路由切换 `RouteTransition` 统一处理，**不要** 在页面内再套 `AnimatePresence`
 
 ### 5. 动效（≤400ms enter / ≤200ms hover）

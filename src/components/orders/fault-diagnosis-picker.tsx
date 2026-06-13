@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { componentOverlay, toneClasses } from "@/lib/component-patterns";
 import type { FaultPriceItem } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 
@@ -393,7 +394,11 @@ function FaultCategoryButton({
       </div>
       <DropdownMenuContent
         align="start"
-        className="w-[min(17rem,calc(100vw-24px))] rounded-xl bg-popover p-1.5 shadow-elevated"
+        collisionPadding={12}
+        className={cn(
+          componentOverlay.popoverContent,
+          "w-[min(16rem,calc(100vw-24px))] rounded-[var(--radius-lg)] p-1 shadow-[var(--shadow-card)]",
+        )}
       >
         {group.options.map((option) => {
           const key = faultKey(group, option);
@@ -406,21 +411,35 @@ function FaultCategoryButton({
                 onToggle(option);
               }}
               className={cn(
-                "min-h-9 gap-2 rounded-lg px-2.5 py-1.5 text-sm",
+                "gap-1.5 rounded-md px-2 py-1 outline-none",
+                compact ? "min-h-8 text-xs" : "min-h-9 gap-2 px-2.5 py-1.5 text-[13px]",
                 checked && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
               )}
             >
               <span
                 className={cn(
-                  "grid size-4 shrink-0 place-items-center rounded border border-border/70 bg-background text-transparent",
+                  "grid shrink-0 place-items-center rounded border border-[var(--border-panel)] bg-background text-transparent",
+                  compact ? "size-3.5" : "size-4",
                   checked && "border-primary bg-primary text-primary-foreground",
                 )}
               >
-                <Check className="size-3" />
+                <Check className={compact ? "size-2.5" : "size-3"} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium leading-5">{option.label}</span>
-                <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+                <span
+                  className={cn(
+                    "block truncate font-medium",
+                    compact ? "text-[11px] leading-4" : "text-[13px] leading-5",
+                  )}
+                >
+                  {option.label}
+                </span>
+                <span
+                  className={cn(
+                    "block truncate text-muted-foreground",
+                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+                  )}
+                >
                   {option.italian}
                 </span>
               </span>
@@ -431,7 +450,12 @@ function FaultCategoryButton({
           <>
             <DropdownMenuSeparator className="my-1.5" />
             <DropdownMenuItem
-              className="min-h-9 rounded-lg px-2.5 text-sm text-destructive focus:text-destructive"
+              className={cn(
+                "min-h-8 rounded-md px-2 py-1 text-xs",
+                !compact && "min-h-9 px-2.5 text-[13px]",
+                toneClasses.danger.foreground,
+                "focus:bg-status-danger focus:text-status-danger-foreground",
+              )}
               onSelect={(event) => {
                 event.preventDefault();
                 onClear();

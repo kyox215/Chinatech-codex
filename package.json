@@ -21,6 +21,7 @@
     "knip": "knip",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "db:seed": "tsx scripts/seed-supabase.ts",
+    "db:reset-demo": "tsx scripts/reset-repairdesk-demo-data.ts",
     "db:ensure-owner-admin": "tsx scripts/ensure-owner-admin.ts",
     "db:import:seatable": "tsx scripts/import-seatable-riparazione.ts",
     "format": "prettier --write ."

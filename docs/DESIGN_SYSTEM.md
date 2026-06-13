@@ -19,21 +19,21 @@
 
 ## 1. 设计哲学
 
-- **定位**：维修工单后台，高频操作 + 富微交互。
-- **风格**：深色玻璃拟物（默认）+ 紫青品牌渐变 + 大量微动效。亮色主题为辅。
+- **定位**：维修工单后台，高频操作 + 单手移动操作。
+- **风格**：RepairOS Compact，浅色 SaaS 工具面、白色紧凑卡片、弱边框、轻阴影。
 - **字体**：`Space Grotesk`（display）/ `Inter`（body）/ `JetBrains Mono`（数字、代码）。
-- **色调**：紫 `oklch(0.7 0.2 285)` → 青 `oklch(0.82 0.13 200)` 的线性渐变是品牌身份的唯一来源。
+- **色调**：科技蓝 `#315CFF` 是品牌主色，`var(--gradient-brand)` 只用于主 CTA、品牌图标和强调指示条。
 
 ## 2. 红线约束
 
 > 违反任意一条都视为 Bug，必须修复。
 
 1. 不写死颜色。所有颜色必须经由 `src/styles.css` 中的语义 token。
-2. 侧栏与移动 Sheet **完全不透明**：禁止 `backdrop-blur*` 与带 alpha 的背景。`box-shadow` 可带 alpha。
+2. 侧栏与移动导航抽屉 **完全不透明**：禁止 `backdrop-blur*` 与带 alpha 的背景。阴影必须走 token。
 3. 品牌渐变只用 `var(--gradient-brand)`。
 4. 字体只用三套（display / sans / mono）。
-5. 默认深色，不新增第三套主题。
-6. 不修改 `src/components/ui/*` shadcn 原子组件源文件（除非新增 variant）。
+5. 默认浅色 RepairOS Compact，暗色主题只作为辅助可切换模式。
+6. `src/components/ui/*` 保持 Radix/shadcn 语义结构，样式必须使用 token 和共享声明。
 7. 路由统一 Next.js App Router，禁止重新引入 TanStack Router/Start 或 `react-router-dom`。
 8. 不新增 Vite/TanStack 启动入口。
 
@@ -45,7 +45,7 @@
 
 | Token                                    | 场景                        |
 | ---------------------------------------- | --------------------------- |
-| `bg-background`                          | 页面底层（含全局渐变 orbs） |
+| `bg-background`                          | 页面底层（平面浅色背景） |
 | `bg-surface` / `bg-surface-muted`        | 通用次级表面                |
 | `bg-card` + `text-card-foreground`       | 卡片                        |
 | `bg-popover` + `text-popover-foreground` | 弹层                        |
@@ -61,7 +61,7 @@
 | --------------------------------------------- | --------------------------------------------- |
 | `var(--gradient-brand)`                       | 主 CTA、品牌图标、强调指示条、`gradient-text` |
 | `var(--gradient-brand-soft)`                  | 低饱和品牌底色                                |
-| `--color-brand-violet` / `--color-brand-cyan` | 图表色                                        |
+| `--color-brand-violet` / `--color-brand-cyan` | 图表色（主序列当前映射为科技蓝）             |
 | `gradient-text` 工具类                        | 文本品牌渐变                                  |
 | `gradient-border` 工具类                      | 渐变描边                                      |
 
@@ -88,15 +88,15 @@
 SidebarProvider
 ├─ AppSidebar              侧栏（实色，桌面常驻 / 移动 Sheet）
 └─ SidebarInset
-   ├─ BackgroundOrbs       z-index -1
    ├─ AppBar               sticky top-0 z-30
+   ├─ MobileWorkspaceDock  移动悬浮快捷操作
    └─ main / children
 ```
 
 **内容容器统一**：
 
 ```tsx
-<div className="mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6">…</div>
+<div className={pageShell.list}>…</div>
 ```
 
 **响应式断点**：
@@ -132,7 +132,7 @@ SidebarProvider
 | `<CommandPalette/>`              | 全局 ⌘K（新增页面需注册）    |
 | `<ThemeToggle/>`                 | 亮/暗切换                    |
 | `<ComingSoon title/>`            | 占位页                       |
-| `<BackgroundOrbs/>`              | 背景渐变球（仅 root 用一次） |
+| `<MobileWorkspaceDock/>`         | 移动端悬浮快捷操作（全局只挂一次） |
 
 ### 5.3 数据 & 图标
 
@@ -165,22 +165,22 @@ export default function ReportsPage() {
 参考 `src/routes/index.tsx`：
 
 ```
-Hero greeting       左标题 + 右主 CTA（var(--gradient-brand)）
-KPI grid            sm:grid-cols-2 lg:grid-cols-4，glass-card + AnimatedNumber + Sparkline
-图表行              grid lg:grid-cols-3，主图占 2 列
-列表卡片            glass-card + divide-y
+紧凑上下文          日期 / 班次 / 主 CTA
+KPI strip           移动 2-3 个小指标，桌面 4 个紧凑卡
+业务区              今日任务 / 快捷模块 / 最新工单
+列表卡片            RepairOS Compact 高密度业务卡片
 ```
 
 ### 6.3 配方 B · 列表 / 表格
 
 ```tsx
-<div className="mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6">
-  <header className="flex items-end justify-between">
+<div className={pageShell.list}>
+  <header className={pageHeader.root}>
     <h1 className="font-display text-2xl">客户</h1>
     <Button style={{ background: "var(--gradient-brand)" }}>新建</Button>
   </header>
-  <div className="glass-card flex flex-wrap items-center gap-2 p-3">…筛选…</div>
-  <div className="glass-card overflow-hidden">
+  <div className={surfaces.toolbar}>…筛选…</div>
+  <div className={dataDisplay.denseTableWrap}>
     <Table>…</Table>
   </div>
 </div>
@@ -189,8 +189,8 @@ KPI grid            sm:grid-cols-2 lg:grid-cols-4，glass-card + AnimatedNumber 
 ### 6.4 配方 C · 详情 / 表单
 
 ```tsx
-<div className="mx-auto max-w-7xl grid gap-6 px-3 py-6 sm:px-6 lg:grid-cols-[1fr_320px]">
-  <section className="glass-card p-6 space-y-6">…主信息…</section>
+<div className={pageShell.split}>
+  <section className={surfaces.section}>…主信息…</section>
   <aside className="space-y-4">
     <div className="glass-card p-4">…操作…</div>
     <div className="glass-card p-4">…历史…</div>

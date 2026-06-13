@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { QRCodeSVG } from "qrcode.react";
 
 import type { OrderDetail } from "@/lib/repairdesk/api";
 import {
@@ -11,6 +12,7 @@ import {
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
+import { getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 
 export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl: string }) {
@@ -30,6 +32,7 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
   const faultRows = order.fault_prices.length
     ? order.fault_prices
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
+  const taskUrl = getOrderTaskUrl(order.id, getPrintOrigin(orderUrl));
 
   return (
     <PrintPortal>
@@ -120,6 +123,15 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
               <p>Viale Vittorio Veneto, 7, Floridia (SR) 96014</p>
             </header>
 
+            <section className="repair-print-task-qr">
+              <QRCodeSVG value={taskUrl} size={92} marginSize={2} />
+              <div>
+                <h3>SCAN TASK</h3>
+                <p>Scansiona per aprire la scheda operativa interna.</p>
+                <strong>{order.public_no}</strong>
+              </div>
+            </section>
+
             <section className="repair-print-warranty">
               <h3>Termini di garanzia</h3>
               <ul>
@@ -164,6 +176,15 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
       </section>
     </PrintPortal>
   );
+}
+
+function getPrintOrigin(value: string) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    if (typeof window !== "undefined") return window.location.origin;
+    return undefined;
+  }
 }
 
 function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {

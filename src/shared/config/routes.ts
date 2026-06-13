@@ -3,6 +3,7 @@ export const appRoutes = {
   orders: "/orders",
   newOrder: "/orders/new",
   orderDetail: (id: string) => `/orders/${id}`,
+  orderTask: (id: string) => `/orders/${id}/task`,
   customers: "/customers",
   customerDetail: (id: string) => `/customers/${id}`,
   inventory: "/inventory",

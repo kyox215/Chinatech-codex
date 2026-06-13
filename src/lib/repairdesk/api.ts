@@ -4,7 +4,10 @@ import type {
   Customer,
   Device,
   OrderDetail,
+  OrderApprovalFlowStatus,
+  OrderExceptionStatus,
   OrderWorkflow,
+  OrderWorkflowStatusCode,
   OrderWorkflowStatus,
   OrderWorkflowStatusCreateInput,
   OrderWorkflowStatusEnabledInput,
@@ -16,6 +19,9 @@ import type {
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderNotifyStatus,
+  OrderPartsStatus,
+  OrderPaymentStatus,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
@@ -72,8 +78,11 @@ export type {
   MessageLog,
   OrderDetail,
   OrderEvent,
+  OrderApprovalFlowStatus,
+  OrderExceptionStatus,
   OrderWorkflow,
   OrderWorkflowBucket,
+  OrderWorkflowStatusCode,
   OrderWorkflowStatus,
   OrderWorkflowStatusCreateInput,
   OrderWorkflowStatusEnabledInput,
@@ -87,6 +96,9 @@ export type {
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderNotifyStatus,
+  OrderPartsStatus,
+  OrderPaymentStatus,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
@@ -402,8 +414,14 @@ export async function recordPayment(
   id: string,
   amount: number,
   method?: string,
+  expectedUpdatedAt?: string,
 ): Promise<PaymentResult> {
-  return postJson<PaymentResult>("order/payment", { id, amount, method });
+  return postJson<PaymentResult>("order/payment", {
+    id,
+    amount,
+    method,
+    expected_updated_at: expectedUpdatedAt,
+  });
 }
 
 export async function sendNotification(id: string, body: string, channel: "whatsapp" | "sms") {
@@ -415,17 +433,19 @@ export async function sendWhatsappNotification(
   body: string,
   templateKind: OrderWhatsappTemplateKind,
   transitionTo?: RepairOrderStatus,
+  recipientPhone?: string,
 ): Promise<WhatsappNotificationResult> {
   return postJson<WhatsappNotificationResult>("order/whatsapp-notification", {
     id,
     body,
     template_kind: templateKind,
     transition_to: transitionTo,
+    recipient_phone: recipientPhone,
   });
 }
 
-export async function sendApprovalRequest(id: string, body: string) {
-  return postJson("order/approval-request", { id, body });
+export async function sendApprovalRequest(id: string, body: string, recipientPhone?: string) {
+  return postJson("order/approval-request", { id, body, recipient_phone: recipientPhone });
 }
 
 export async function searchCustomers(q: string, limit = 6): Promise<Customer[]> {

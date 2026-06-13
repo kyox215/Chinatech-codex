@@ -106,6 +106,8 @@ export const componentOverlay = {
     "border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] text-popover-foreground shadow-[var(--shadow-overlay)]",
   responsiveContent:
     "w-[min(960px,calc(100vw-24px))] max-h-[calc(100svh-24px)] max-w-[calc(100vw-24px)] overflow-y-auto border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] text-popover-foreground shadow-[var(--shadow-overlay)]",
+  formContent:
+    "w-[min(760px,calc(100vw-24px))] max-h-[calc(100svh-24px)] max-w-[calc(100vw-24px)] overflow-y-auto border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] text-popover-foreground shadow-[var(--shadow-overlay)]",
   modalSm: "w-[min(520px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
   modalMd: "w-[min(680px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
   modalLg: "w-[min(860px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
@@ -120,6 +122,8 @@ export const componentOverlay = {
   flatSection:
     "min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 shadow-none",
   sheetPanel: "h-full min-w-0 overflow-y-auto bg-[var(--surface-workspace-strong)] text-foreground",
+  bottomSheet:
+    "max-h-[calc(100svh-4rem)] overflow-hidden rounded-t-[var(--radius-lg)] px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3",
   popoverContent:
     "max-w-[calc(100vw-24px)] border-[var(--border-panel)] bg-popover text-popover-foreground shadow-[var(--shadow-overlay)]",
   header: "space-y-1.5",

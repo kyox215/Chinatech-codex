@@ -6,6 +6,8 @@ import { Bell, Edit3, Smartphone, Trash2, Wrench } from "lucide-react";
 import { MoneyText, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import type { CustomerDetail, CustomerTag, Device, OrderListItem } from "@/lib/repairdesk/api";
+import { repairOs } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 
 export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
   if (!tags.length) return <span className="text-xs text-muted-foreground">无标签</span>;
@@ -27,9 +29,11 @@ export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
 
 export function CustomerMetric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="min-w-0 rounded-md bg-surface-muted/40 p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 min-w-0 truncate font-display text-xl font-semibold">{value}</div>
+    <div className="min-w-0 rounded-2xl border border-[var(--border-panel)] bg-surface-muted/40 px-2.5 py-2">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="mt-1 min-w-0 truncate font-mono text-lg font-semibold tabular-nums">
+        {value}
+      </div>
     </div>
   );
 }
@@ -57,7 +61,7 @@ export function CustomerDeviceCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="min-w-0 rounded-md border p-3">
+    <div className={cn(repairOs.businessCardDense, "grid-cols-[minmax(0,1fr)]")}>
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate font-medium" title={`${device.brand} ${device.model}`}>
@@ -72,7 +76,7 @@ export function CustomerDeviceCard({
       {device.device_notes && (
         <p className="mt-2 break-words text-sm text-muted-foreground">{device.device_notes}</p>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-1.5">
         <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
           <Link href={`/orders/new?customerId=${customerId}&deviceId=${device.id}`}>
             <Wrench className="size-3.5" /> 新建工单
@@ -103,7 +107,7 @@ export function CustomerOrderRow({
   onFollowup: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-w-0 flex-col gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 py-2 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
         <Link
           href={`/orders/${order.id}`}
@@ -159,7 +163,7 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
 
   if (!items.length) return <CustomerEmptyLine text="暂无动态" />;
   return (
-    <ol className="min-w-0 space-y-4 border-l border-border/60 pl-4">
+    <ol className="min-w-0 space-y-3 border-l border-border/60 pl-4">
       {items.map((item) => (
         <li key={item.id} className="relative min-w-0">
           <span className="absolute -left-[21px] top-1 size-3 rounded-full bg-primary ring-4 ring-background" />
@@ -167,7 +171,7 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
           <div className="truncate text-sm font-medium" title={item.title}>
             {item.title}
           </div>
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{item.body}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</p>
         </li>
       ))}
     </ol>
@@ -176,7 +180,7 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
 
 export function CustomerEmptyLine({ text }: { text: string }) {
   return (
-    <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+    <div className="rounded-2xl border border-dashed border-[var(--border-panel)] p-6 text-center text-sm text-muted-foreground">
       {text}
     </div>
   );

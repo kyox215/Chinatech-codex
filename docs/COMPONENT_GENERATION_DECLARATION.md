@@ -178,11 +178,22 @@ export interface ExampleCardProps {
 - `Dialog` 用于桌面详情、确认、新建/编辑；`Sheet` 用于移动筛选、接近全屏流程或侧向辅助面板；`Popover` 只承载轻量菜单、筛选、日期/状态选择，不放长表单或详情页。
 - `Dialog` / `Sheet` 必须包含 title 和 description；视觉隐藏时使用 `sr-only`。`PopoverTrigger` 必须有可访问名称，内容无可见标题时补 `aria-label` 或 `aria-labelledby`。
 - 内容 class 复用 `componentOverlay.content`、`componentOverlay.responsiveContent` 或 `surfaces.popover`；所有浮层限制在 `max-w-[calc(100vw-24px)]` 内，移动 Sheet 接近全屏时使用 `h-[calc(100svh-16px)]`。
+- 底部表单 Sheet 使用 `componentOverlay.bottomSheet`，表单 body 自己负责 `overflow-y-auto`，不要在业务页面手写 `max-h` / safe-area padding。
 - 弹层内部使用 compact density，长表单 footer 可 sticky；mutation pending 时禁用主操作并保留关闭/取消路径。
 - 额外使用 framer-motion 包裹浮层时，`Dialog` / `Popover` 使用 `overlayTransition`，`Sheet` 使用 `sheetTransition`，不要写散落 spring。
 - 工单详情这类复杂业务 Dialog 使用 `componentOverlay.detailWorkspace` + `detailWorkspace.orderDetailGrid`，外壳必须固定工作面尺寸，Tab 内容不得改变 Dialog 宽高；小表单 Dialog 保持单层容器，不把工作面三列 pattern 用到确认框。
 - 录入人、技师、创建人等归属字段只能只读展示，组件不得新增输入框、Select、inline edit 或 patch payload 来修改它们。
 - 金额输入组件必须以 string draft 驱动输入框，保存前通过共享 helper 转为 number；不要用 `Number(event.target.value)` 直接控制金额输入。
+- 工单状态流转入口必须先读取工作流配置；涉及取消、未修取机、返修等异常/结束分支时，必须复用 `OrderTransitionReasonSelector` 和 `order-transition-reasons.ts` 的预设原因，禁止新增裸 textarea 或让用户完全手写原因。
+
+### 8.2 RepairOS Compact 业务卡片密度
+
+- 移动列表默认使用 `repairOs.businessCardDense` 或 `RepairOsBusinessCard` 搭配该 class；只有详情预览或低频设置项可以使用更宽松的 `repairOs.businessCard`。
+- KPI 小卡优先使用 `repairOs.metricCard` / `repairOs.metricCardDense`，不要在业务页面继续手写 `glass-card p-4`。
+- 移动详情和任务页面默认使用 RepairOS Floating Card 组件语言：顶部使用 `repairOs.mobileFloatingHeader*`，正文信息块使用 `repairOs.mobileInfoCard`。
+- 新增移动详情组件不得手写固定顶部的 `border-b`、整屏白色顶栏或散落 `pt-[calc(env(safe-area-inset-top)...)]`；这些必须来自 `repairOs.mobileFloatingPage` 和 `repairOs.mobileFloatingHeaderShell`。
+- Floating Card 内部保持高密度：标题 `text-xs` 到 `text-sm`，辅助信息 `text-[9px]` 到 `text-[11px]`，图标尺寸优先 `size-3` / `size-3.5` / `size-4`。
+- 新增或调整 `OrderMobileCard`、`RepairOsBusinessCard` 等移动订单列表组件时，必须复用或镜像订单详情页小卡片的层级契约：`MobileSectionTitle` 式标签、`PaymentLine` 式左右行、`MoneyText` 金额、`min-w-0/truncate/shrink-0` 溢出控制；重复超过两处时先沉淀到 `src/lib/ui-patterns.ts` 或 `src/lib/component-patterns.ts`。订单列表富摘要卡允许一屏 3-4 张，支付主金额可用 `text-base`，但客户、设备、维修、支付不得全部拆成 bordered panel；支付摘要必须是中性分组 + 行式金额，不能整块按状态染色；重点色只服务于状态、异常、下一步、维修主项和支付风险。
 
 ## 9. 动效声明
 

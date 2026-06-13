@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { InventoryScreen } from "@/features/inventory/screens/inventory-screen";
 
 export const metadata: Metadata = {
-  title: "回收库存",
-  description: "手机回收、检测、上架和售卖闭环",
+  title: "库存商品",
+  description: "配件、翻新机、商品和库存流水",
 };
 
 export default function Page() {

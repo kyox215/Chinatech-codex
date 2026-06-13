@@ -5,6 +5,14 @@ import {
   type RepairOrderType,
 } from "./enums";
 import type { CurrencyCode } from "@/lib/money";
+import type {
+  OrderApprovalFlowStatus,
+  OrderExceptionStatus,
+  OrderNotifyStatus,
+  OrderPartsStatus,
+  OrderPaymentStatus,
+  OrderWorkflowStatusCode,
+} from "@/lib/repairdesk/types";
 
 export interface Customer {
   id: string;
@@ -58,6 +66,13 @@ export interface RepairOrder {
   public_no: string;
   order_type: RepairOrderType;
   status: RepairOrderStatus;
+  legacy_status?: RepairOrderStatus;
+  workflow_status?: OrderWorkflowStatusCode;
+  exception_status?: OrderExceptionStatus;
+  payment_status?: OrderPaymentStatus;
+  approval_flow_status?: OrderApprovalFlowStatus;
+  parts_status?: OrderPartsStatus;
+  notify_status?: OrderNotifyStatus;
   customer_id: string;
   device_id: string;
   issue_description: string;

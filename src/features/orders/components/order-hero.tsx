@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   Bell,
   Check,
+  Clock3,
   MoreHorizontal,
   Pencil,
   Printer,
@@ -27,7 +27,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderDetail, OrderWorkflow } from "@/lib/repairdesk/api";
-import { getWorkflowStatus, getWorkflowStatuses } from "@/features/orders/model/order-workflow";
+import {
+  orderExceptionMeta,
+  orderWorkflowMeta,
+  orderWorkflowStatuses,
+  workflowStatusFromLegacyStatus,
+} from "@/features/orders/model/canonical-order-status";
+import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -44,9 +50,11 @@ export function OrderHero({
   workflow,
   transitionPending,
   onTransition,
+  onOpenTransitionSheet,
   onNotify,
   onPrint,
   onCancel,
+  canCancel = false,
   onEdit,
   onSaveEdit,
   onCancelEdit,
@@ -63,9 +71,11 @@ export function OrderHero({
   workflow?: OrderWorkflow;
   transitionPending: boolean;
   onTransition: (to: RepairOrderStatus) => void;
+  onOpenTransitionSheet?: () => void;
   onNotify: () => void;
   onPrint: () => void;
   onCancel: () => void;
+  canCancel?: boolean;
   onEdit: () => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
@@ -75,23 +85,8 @@ export function OrderHero({
   showBackLink?: boolean;
   surface?: "page" | "dialog";
 }) {
-  const [pageScrolled, setPageScrolled] = useState(false);
-
-  useEffect(() => {
-    if (surface !== "page") return;
-
-    const handleScroll = () => setPageScrolled(window.scrollY > 8);
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [surface]);
-
-  const pageHeroStyle =
-    surface === "page"
-      ? ({
-          "--order-hero-top": pageScrolled ? "0px" : "3.5rem",
-        } as CSSProperties)
-      : undefined;
+  const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
+  const exceptionStatus = order.exception_status;
 
   return (
     <div
@@ -99,10 +94,9 @@ export function OrderHero({
       className={cn(
         "sticky z-20 min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]/95 shadow-[var(--shadow-workspace)] backdrop-blur-xl",
         surface === "dialog"
-          ? cn(detailWorkspace.flatHero, "top-0 mb-1.5 py-1.5")
-          : "top-0 mb-1.5 px-1.5 py-1 max-md:fixed max-md:left-2.5 max-md:right-2.5 max-md:top-[var(--order-hero-top)] max-md:z-40 sm:mb-2 sm:px-2.5 sm:py-1.5",
+          ? cn(detailWorkspace.flatHero, "top-0 mb-3 py-1.5")
+          : "top-12 mb-3 px-1.5 py-1 sm:top-14 sm:mb-3 sm:px-2.5 sm:py-1.5",
       )}
-      style={pageHeroStyle}
     >
       <div className="hidden min-w-0 items-center gap-1 text-[11px] text-muted-foreground sm:flex">
         {showBackLink && (
@@ -129,9 +123,16 @@ export function OrderHero({
             </span>
             <StatusBadge
               status={order.status}
-              label={getWorkflowStatus(workflow, order.status)?.label}
-              tone={getWorkflowStatus(workflow, order.status)?.tone}
+              label={orderWorkflowMeta[workflowStatus].label}
+              tone={orderWorkflowMeta[workflowStatus].tone}
             />
+            {exceptionStatus && (
+              <StatusBadge
+                status={order.status}
+                label={orderExceptionMeta[exceptionStatus].shortLabel}
+                tone={orderExceptionMeta[exceptionStatus].tone}
+              />
+            )}
             <OrderTypeBadge type={order.order_type} />
             {order.original_order_id && (
               <Link
@@ -180,6 +181,16 @@ export function OrderHero({
             <Bell className="size-3.5" />
             通知
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 px-2 text-xs"
+            disabled={transitionPending || (!next.primary && next.secondary.length === 0)}
+            onClick={() => onOpenTransitionSheet?.()}
+          >
+            <Clock3 className="size-3.5" />
+            流转
+          </Button>
           <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs" onClick={onPrint}>
             <Printer className="size-3.5" />
             打印
@@ -209,9 +220,11 @@ export function OrderHero({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
+                disabled={!canCancel}
                 onClick={onCancel}
               >
-                <XCircle className="mr-2 size-3.5" /> 取消工单
+                <XCircle className="mr-2 size-3.5" />
+                {canCancel ? "取消工单" : "当前状态不可取消"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -219,7 +232,7 @@ export function OrderHero({
       </div>
 
       <OrderStatusFlow
-        current={order.status}
+        current={workflowStatus}
         workflow={workflow}
         next={next}
         pending={transitionPending}
@@ -236,39 +249,18 @@ function OrderStatusFlow({
   pending,
   onTransition,
 }: {
-  current: RepairOrderStatus;
+  current: OrderWorkflowStatusCode;
   workflow?: OrderWorkflow;
   next: NextAction;
   pending: boolean;
   onTransition: (to: RepairOrderStatus) => void;
 }) {
-  const allNext = [next.primary, ...next.secondary].filter(
-    (action): action is NonNullable<typeof action> => Boolean(action),
-  );
-  const allStatuses = getWorkflowStatuses(workflow);
-  const currentStatus = allStatuses.find((status) => status.code === current);
-  const flowStatuses = allStatuses.filter(
-    (status) =>
-      status.bucket !== "cancelled" &&
-      status.enabled &&
-      (status.bucket !== "custom" || status.code === current),
-  );
-  if (currentStatus && !flowStatuses.some((status) => status.code === current)) {
-    flowStatuses.push(currentStatus);
-    flowStatuses.sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
-  }
-  const currentIndex =
-    currentStatus?.bucket === "cancelled" || current === "cancelled"
-      ? -1
-      : flowStatuses.findIndex((status) => status.code === current);
-
-  if (currentStatus?.bucket === "cancelled" || current === "cancelled") {
-    return (
-      <div className="mt-2 rounded-md border border-border/60 bg-surface-muted/30 px-2 py-1.5 text-xs text-muted-foreground">
-        当前工单已取消，可在更多操作中重新处理。
-      </div>
-    );
-  }
+  void workflow;
+  void next;
+  void pending;
+  void onTransition;
+  const flowStatuses = orderWorkflowStatuses;
+  const currentIndex = flowStatuses.findIndex((status) => status === current);
 
   const progressRatio = currentIndex <= 0 ? 0 : currentIndex / Math.max(1, flowStatuses.length - 1);
   const trackInset = `calc(100% / ${Math.max(1, flowStatuses.length * 2)})`;
@@ -292,10 +284,9 @@ function OrderStatusFlow({
           style={{ gridTemplateColumns: `repeat(${flowStatuses.length}, minmax(0, 1fr))` }}
         >
           {flowStatuses.map((status, index) => {
+            const meta = orderWorkflowMeta[status];
             const isCurrent = index === currentIndex;
             const isPast = currentIndex >= 0 && index < currentIndex;
-            const target = allNext.find((action) => action.to === status.code);
-            const clickable = Boolean(target) && !isCurrent;
             const content = (
               <>
                 <span
@@ -305,7 +296,6 @@ function OrderStatusFlow({
                     isPast && "border-primary bg-primary text-primary-foreground",
                     isCurrent && "border-primary bg-primary text-primary-foreground",
                     !isPast && !isCurrent && "border-border bg-surface-muted text-muted-foreground",
-                    clickable && !isCurrent && "border-primary/50 text-primary",
                   )}
                 >
                   {isPast ? <Check className="size-2.5" /> : index + 1}
@@ -313,33 +303,17 @@ function OrderStatusFlow({
                 <span
                   className={cn(
                     "mt-1 min-w-0 truncate text-[10px] leading-none text-muted-foreground",
-                    (isPast || isCurrent || clickable) && "text-foreground",
-                    clickable && "text-primary",
+                    (isPast || isCurrent) && "text-foreground",
                   )}
                 >
-                  {status.short_label || status.label}
+                  {meta.shortLabel}
                 </span>
               </>
             );
 
-            if (clickable && target) {
-              return (
-                <button
-                  key={status.code}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => onTransition(target.to)}
-                  className="group flex min-w-0 flex-col items-center px-0.5 text-center font-medium outline-none transition-opacity hover:opacity-85 focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
-                  title={`流转到${target.label}`}
-                >
-                  {content}
-                </button>
-              );
-            }
-
             return (
               <div
-                key={status.code}
+                key={status}
                 className={cn(
                   "flex min-w-0 flex-col items-center px-0.5 text-center font-medium",
                   !isPast && !isCurrent && "text-muted-foreground",

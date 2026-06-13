@@ -40,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { RepairOsChipRow, RepairOsMetricStrip, RepairOsModuleHeader } from "@/shared/ui";
 import {
   getInventoryNextStatuses,
   inventoryStatusMeta,
@@ -61,6 +62,7 @@ import {
   type InventoryQualityCheckInput,
   type SellInventoryItemInput,
 } from "@/lib/repairdesk/api";
+import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp, stagger } from "@/lib/motion";
 import {
   brandGradientStyle,
@@ -68,9 +70,8 @@ import {
   dataDisplay,
   density,
   formLayout,
-  layoutGuards,
-  pageHeader,
   pageShell,
+  repairOs,
   surfaces,
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -94,6 +95,11 @@ const statusFilters: StatusFilter[] = [
 const checkOptions = ["unchecked", "pass", "fail", "unknown"] as const;
 const cosmeticOptions = ["unknown", "new", "mint", "good", "fair", "poor", "for_parts"] as const;
 const functionalOptions = ["untested", "passed", "needs_repair", "failed", "for_parts"] as const;
+const compactInventoryInputClass = "h-8 text-sm sm:h-9";
+const compactInventoryTextareaClass = "min-h-20 text-sm";
+const compactInventorySelectClass =
+  "h-8 rounded-md border border-[var(--border-panel)] bg-background px-2 text-sm text-foreground sm:h-9";
+const compactInventoryGrid = "grid gap-2.5 sm:grid-cols-2";
 
 export function InventoryScreen() {
   const queryClient = useQueryClient();
@@ -133,39 +139,58 @@ export function InventoryScreen() {
   }
 
   return (
-    <div className={pageShell.list}>
+    <div className={cn(pageShell.list, "pb-8 pt-3 sm:pt-5")}>
       <motion.div
         variants={stagger(0.05)}
         initial="hidden"
         animate="show"
-        className="mb-4 space-y-4"
+        className="mb-3 space-y-3 sm:mb-5 sm:space-y-4"
       >
-        <div className={pageHeader.root}>
-          <motion.div variants={fadeUp}>
-            <p className={pageHeader.eyebrow}>RepairDesk / 回收库存</p>
-            <h1 className={pageHeader.title}>
-              <span className="gradient-text">回收库存</span>
-              <span className="ml-2 align-middle text-base font-normal text-muted-foreground">
-                共 {items.length} 台
-              </span>
-            </h1>
-            <p className={pageHeader.subtitle}>
-              从收机、检测、资料清除、整备上架到售出，保留每一步员工操作记录。
-            </p>
-          </motion.div>
-          <motion.div variants={fadeUp} className={pageHeader.actions}>
-            <Button variant="outline" className="gap-2" onClick={() => setAction("import")}>
-              <FileUp className="size-4" /> 导入电子产品
-            </Button>
-            <Button
-              className={cn("gap-2", controls.brandButton)}
-              style={brandGradientStyle}
-              onClick={() => setIntakeOpen(true)}
-            >
-              <Plus className="size-4" /> 新增回收
-            </Button>
-          </motion.div>
-        </div>
+        <motion.div variants={fadeUp}>
+          <RepairOsModuleHeader
+            action={
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="h-9 gap-2" onClick={() => setAction("import")}>
+                  <FileUp className="size-4" /> 导入电子产品
+                </Button>
+                <Button
+                  className={cn("h-9 gap-2", controls.brandButton)}
+                  style={brandGradientStyle}
+                  onClick={() => setIntakeOpen(true)}
+                >
+                  <Plus className="size-4" /> 新增入库
+                </Button>
+              </div>
+            }
+          />
+        </motion.div>
+
+        <motion.div variants={fadeUp} className="sm:hidden">
+          <RepairOsMetricStrip
+            metrics={[
+              {
+                label: "库存",
+                value: statsLoading ? "-" : (stats?.total ?? 0),
+                hint: "全部商品",
+                icon: Layers3,
+              },
+              {
+                label: "整备中",
+                value: stats?.inPipeline ?? 0,
+                hint: "检测/清除",
+                icon: ClipboardCheck,
+                tone: "amber",
+              },
+              {
+                label: "待售",
+                value: stats?.readyOrListed ?? 0,
+                hint: "可销售",
+                icon: ShoppingBag,
+                tone: "green",
+              },
+            ]}
+          />
+        </motion.div>
 
         <motion.div variants={fadeUp} className={dataDisplay.kpiGrid}>
           <InventoryKpi
@@ -183,7 +208,12 @@ export function InventoryScreen() {
         </motion.div>
       </motion.div>
 
-      <section className={cn(surfaces.toolbar, "mb-4")}>
+      <section
+        className={cn(
+          repairOs.toolbar,
+          "mb-3 flex-col items-stretch gap-2 sm:mb-4 sm:gap-3 sm:p-3",
+        )}
+      >
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -191,25 +221,17 @@ export function InventoryScreen() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="搜索编号、客户、型号、IMEI、备注"
-              className={controls.searchInput}
+              className="h-8 border-0 bg-transparent pl-8 text-sm shadow-none focus-visible:ring-0 sm:h-9 sm:border-border/60 sm:bg-surface/60 sm:shadow-sm"
             />
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {statusFilters.map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setStatus(value)}
-              className={cn(
-                controls.segmentedButton,
-                status === value ? controls.segmentedActive : controls.segmentedInactive,
-              )}
-            >
-              {value === "all" ? "全部" : inventoryStatusMeta[value].shortLabel}
-            </button>
-          ))}
-        </div>
+        <RepairOsChipRow
+          chips={statusFilters.map((value) => ({
+            label: value === "all" ? "全部" : inventoryStatusMeta[value].shortLabel,
+            active: status === value,
+            onClick: () => setStatus(value),
+          }))}
+        />
       </section>
 
       {isLoading ? (
@@ -221,9 +243,9 @@ export function InventoryScreen() {
       ) : items.length === 0 ? (
         <div className={surfaces.empty}>
           <DatabaseZap className="mb-3 size-9 text-muted-foreground" />
-          <h3 className="font-display text-lg font-semibold">暂无回收库存</h3>
+          <h3 className="font-display text-lg font-semibold">暂无库存商品</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            新增一台客户交来的设备，开始闭环跟踪。
+            新增一台设备或商品，开始检测、整备和售卖跟踪。
           </p>
         </div>
       ) : (
@@ -253,7 +275,7 @@ export function InventoryScreen() {
             </Table>
           </div>
 
-          <div className="space-y-3 lg:hidden">
+          <div className="space-y-2 lg:hidden">
             {items.map((item) => (
               <InventoryMobileCard
                 key={item.id}
@@ -343,19 +365,40 @@ function InventoryMobileCard({
     <button
       type="button"
       onClick={onSelect}
-      className="glass-card grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-3 p-3 text-left active:scale-[0.99]"
+      className={cn(
+        repairOs.businessCardDense,
+        "w-full text-left transition-transform active:scale-[0.99]",
+      )}
     >
-      <InventoryStatusBadge status={item.status} className="mt-0.5" />
       <div className="min-w-0">
-        <div className="font-mono text-xs font-semibold text-primary">{item.public_no}</div>
-        <div className="truncate font-medium">{item.item_label}</div>
-        <div className="truncate text-xs text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="font-mono text-[11px] font-semibold text-primary">{item.public_no}</span>
+          <InventoryStatusBadge status={item.status} className="text-[10px]" />
+        </div>
+        <div className={cn(repairOs.cardTitle, "mt-1")}>{item.item_label}</div>
+        <div className={repairOs.cardMeta}>
           {item.customer_name || "-"} · {item.serial_or_imei || "无 IMEI"}
         </div>
+        <div className={repairOs.cardMeta}>
+          外观 {gradeLabel(item.cosmetic_grade)} · 功能 {gradeLabel(item.functional_grade)}
+        </div>
       </div>
-      <div className="text-right text-xs">
-        <MoneyText amount={item.sale_price || item.list_price || item.buyback_price} />
-        <div className="mt-1 text-muted-foreground">{item.battery_health ?? "-"}%</div>
+      <div className="flex min-w-[4.75rem] flex-col items-end text-right text-xs">
+        <MoneyText
+          amount={item.sale_price || item.list_price || item.buyback_price}
+          className={repairOs.cardAmount}
+        />
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          电池 {item.battery_health ?? "-"}%
+        </div>
+        <div
+          className={cn(
+            "mt-1 text-[11px]",
+            item.profit >= 0 ? "text-status-success-foreground" : "text-status-danger-foreground",
+          )}
+        >
+          利润 <MoneyText amount={item.profit} />
+        </div>
       </div>
     </button>
   );
@@ -378,10 +421,12 @@ function InventoryDetailDialog({
 
   return (
     <Dialog open={Boolean(id)} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(layoutGuards.responsiveDialog, "gap-4")}>
-        <DialogHeader>
-          <DialogTitle>{data?.item.public_no ?? "库存详情"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={cn(componentOverlay.responsiveContent, "gap-3 p-3 sm:p-4")}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>
+            {data?.item.public_no ?? "库存详情"}
+          </DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
             {data?.item.item_label ?? "读取商品检测、财务和时间线"}
           </DialogDescription>
         </DialogHeader>
@@ -407,18 +452,18 @@ function InventoryDetailBody({
 }) {
   const item = data.item;
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <InventoryStatusBadge status={item.status} />
-        <Button size="sm" variant="outline" onClick={() => onAction("transition")}>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => onAction("transition")}>
           推进状态
         </Button>
-        <Button size="sm" variant="outline" onClick={() => onAction("check")}>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => onAction("check")}>
           登记检测
         </Button>
         <Button
           size="sm"
-          className={cn("gap-2", controls.brandButton)}
+          className={cn("h-8 gap-2", controls.brandButton)}
           style={brandGradientStyle}
           onClick={() => onAction("sell")}
         >
@@ -426,15 +471,15 @@ function InventoryDetailBody({
         </Button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-2 md:grid-cols-3">
         <InfoBox label="回收价" value={<MoneyText amount={item.buyback_price} />} />
         <InfoBox label="挂牌价" value={<MoneyText amount={item.list_price} />} />
         <InfoBox label="利润" value={<MoneyText amount={item.profit} />} />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <section className={surfaces.section}>
-          <h3 className="mb-3 text-sm font-semibold">商品</h3>
+      <div className="grid gap-2 md:grid-cols-2">
+        <section className={componentOverlay.flatSection}>
+          <h3 className="mb-2 text-sm font-semibold">商品</h3>
           <InfoGrid
             rows={[
               ["类别", item.category],
@@ -445,8 +490,8 @@ function InventoryDetailBody({
             ]}
           />
         </section>
-        <section className={surfaces.section}>
-          <h3 className="mb-3 text-sm font-semibold">检测</h3>
+        <section className={componentOverlay.flatSection}>
+          <h3 className="mb-2 text-sm font-semibold">检测</h3>
           <InfoGrid
             rows={[
               ["外观", gradeLabel(item.cosmetic_grade)],
@@ -460,8 +505,8 @@ function InventoryDetailBody({
         </section>
       </div>
 
-      <section className={surfaces.section}>
-        <h3 className="mb-3 text-sm font-semibold">时间线</h3>
+      <section className={componentOverlay.flatSection}>
+        <h3 className="mb-2 text-sm font-semibold">时间线</h3>
         <div className="space-y-2">
           {data.events.slice(0, 8).map((event) => (
             <div
@@ -501,7 +546,7 @@ function IntakeDialog({
   const mutation = useMutation({
     mutationFn: createInventoryIntake,
     onSuccess: ({ id }) => {
-      toast.success("已创建回收记录");
+      toast.success("已创建库存记录");
       onDone(id);
       onOpenChange(false);
     },
@@ -515,15 +560,15 @@ function IntakeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(860px,calc(100vw-24px))] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>新增回收</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={cn(componentOverlay.responsiveContent, "gap-3 p-3 sm:p-4")}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>新增入库</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
             登记客户交来的设备，后续检测、清除、上架和售出都会进入时间线。
           </DialogDescription>
         </DialogHeader>
-        <form className={formLayout.stack} onSubmit={handleSubmit}>
-          <div className={formLayout.grid}>
+        <form className="space-y-3 pb-16" onSubmit={handleSubmit}>
+          <div className={compactInventoryGrid}>
             <Field name="customer_name" label="客户姓名" required />
             <Field name="customer_phone" label="客户电话" required />
             <Field name="brand" label="品牌" required />
@@ -538,16 +583,23 @@ function IntakeDialog({
           </div>
           <div className={formLayout.field}>
             <Label htmlFor="notes">备注</Label>
-            <Textarea id="notes" name="notes" rows={3} />
+            <Textarea id="notes" name="notes" className={compactInventoryTextareaClass} />
           </div>
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogFooter className={componentOverlay.footer}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => onOpenChange(false)}
+            >
               取消
             </Button>
             <Button
               type="submit"
+              size="sm"
               disabled={mutation.isPending}
-              className={controls.brandButton}
+              className={cn("h-8", controls.brandButton)}
               style={brandGradientStyle}
             >
               创建
@@ -634,7 +686,7 @@ function InventoryActionDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(760px,calc(100vw-24px))] max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn(componentOverlay.formContent, "gap-3 p-3 sm:p-4")}>
         {action === "transition" ? (
           <ActionForm
             title="推进状态"
@@ -660,7 +712,7 @@ function InventoryActionDialog({
         ) : null}
         {action === "check" ? (
           <ActionForm title="登记检测" description={currentItem.item_label} onSubmit={handleCheck}>
-            <div className={formLayout.grid}>
+            <div className={compactInventoryGrid}>
               <SelectField
                 name="cosmetic_grade"
                 label="外观等级"
@@ -703,7 +755,7 @@ function InventoryActionDialog({
         ) : null}
         {action === "sell" ? (
           <ActionForm title="登记售出" description={currentItem.item_label} onSubmit={handleSell}>
-            <div className={formLayout.grid}>
+            <div className={compactInventoryGrid}>
               <Field name="buyer_name" label="买家姓名" />
               <Field name="buyer_phone" label="买家电话" />
               <Field
@@ -759,16 +811,20 @@ function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(860px,calc(100vw-24px))] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>导入 SeaTable 电子产品</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={cn(componentOverlay.responsiveContent, "gap-3 p-3 sm:p-4")}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>导入 SeaTable 电子产品</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
             粘贴 `电子产品` 表导出的 CSV，先预览字段映射再应用。
           </DialogDescription>
         </DialogHeader>
-        <Textarea value={csv} onChange={(event) => setCsv(event.target.value)} rows={8} />
+        <Textarea
+          value={csv}
+          onChange={(event) => setCsv(event.target.value)}
+          className="min-h-48 text-sm"
+        />
         {preview ? (
-          <div className="rounded-md border border-border/60 bg-surface-muted p-3 text-sm">
+          <div className={cn(componentOverlay.flatSection, "text-sm")}>
             <div>
               识别 {preview.report.itemCount} 台，客户 {preview.report.customerCount} 个，流水{" "}
               {preview.report.transactionCount} 条。
@@ -781,10 +837,12 @@ function ImportDialog({
             </div>
           </div>
         ) : null}
-        <DialogFooter className="gap-2">
+        <DialogFooter className={componentOverlay.footer}>
           <Button
             type="button"
             variant="outline"
+            size="sm"
+            className="h-8"
             onClick={() => previewMutation.mutate(csv)}
             disabled={!csv.trim() || previewMutation.isPending}
           >
@@ -792,6 +850,8 @@ function ImportDialog({
           </Button>
           <Button
             type="button"
+            size="sm"
+            className="h-8"
             onClick={() => applyMutation.mutate(csv)}
             disabled={!preview || applyMutation.isPending}
           >
@@ -815,10 +875,12 @@ function ActionForm({
   children: React.ReactNode;
 }) {
   return (
-    <form className="space-y-4" onSubmit={onSubmit}>
-      <DialogHeader>
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+    <form className="space-y-3 pb-12" onSubmit={onSubmit}>
+      <DialogHeader className={componentOverlay.header}>
+        <DialogTitle className={componentOverlay.title}>{title}</DialogTitle>
+        <DialogDescription className={componentOverlay.description}>
+          {description}
+        </DialogDescription>
       </DialogHeader>
       {children}
     </form>
@@ -874,18 +936,21 @@ function InventoryStatusBadge({
 
 function InfoBox({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-border/60 bg-surface-muted p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-display text-xl font-semibold">{value}</div>
+    <div className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">{value}</div>
     </div>
   );
 }
 
 function InfoGrid({ rows }: { rows: [string, React.ReactNode][] }) {
   return (
-    <dl className="grid gap-2 text-sm">
+    <dl className="grid gap-1.5 text-xs sm:text-sm">
       {rows.map(([label, value]) => (
-        <div key={label} className="grid grid-cols-[96px_minmax(0,1fr)] gap-3">
+        <div
+          key={label}
+          className="grid grid-cols-[76px_minmax(0,1fr)] gap-2 sm:grid-cols-[88px_minmax(0,1fr)]"
+        >
           <dt className="text-muted-foreground">{label}</dt>
           <dd className="min-w-0 break-words">{value}</dd>
         </div>
@@ -904,7 +969,13 @@ function Field(
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </Label>
-      <Input id={name} name={name} required={required} {...inputProps} />
+      <Input
+        id={name}
+        name={name}
+        required={required}
+        className={compactInventoryInputClass}
+        {...inputProps}
+      />
     </div>
   );
 }
@@ -913,7 +984,7 @@ function TextAreaField({ name, label }: { name: string; label: string }) {
   return (
     <div className={formLayout.field}>
       <Label htmlFor={name}>{label}</Label>
-      <Textarea id={name} name={name} rows={3} />
+      <Textarea id={name} name={name} className={compactInventoryTextareaClass} />
     </div>
   );
 }
@@ -932,11 +1003,7 @@ function SelectField<T extends string>({
   return (
     <div className={formLayout.field}>
       <Label htmlFor={name}>{label}</Label>
-      <select
-        id={name}
-        name={name}
-        className="h-9 rounded-md border border-border/60 bg-surface/60 px-2 text-sm text-foreground"
-      >
+      <select id={name} name={name} className={compactInventorySelectClass}>
         {options.map((value) => (
           <option key={value} value={value}>
             {optionLabel(value)}

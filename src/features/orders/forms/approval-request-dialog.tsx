@@ -27,6 +27,7 @@ import { getOrderContactPhoneOptions } from "@/features/orders/model/order-conta
 import {
   buildOrderWhatsappMessage,
   buildWhatsAppUrl,
+  replaceOrderWhatsappRecipientPhone,
 } from "@/features/orders/model/order-message-templates";
 
 export function ApprovalRequestDialog({
@@ -42,20 +43,33 @@ export function ApprovalRequestDialog({
   data: OrderDetail;
   orderUrl: string;
   busy: boolean;
-  onConfirm: (body: string) => Promise<unknown>;
+  onConfirm: (input: { body: string; recipientPhone?: string }) => Promise<unknown>;
 }) {
-  const [body, setBody] = useState(() =>
-    buildOrderWhatsappMessage(data, "approval_request", orderUrl),
-  );
   const phoneOptions = getOrderContactPhoneOptions(data);
-  const [phone, setPhone] = useState(phoneOptions[0] ?? "");
+  const defaultPhone = phoneOptions[0] ?? "";
+  const [body, setBody] = useState(() =>
+    buildOrderWhatsappMessage(data, "approval_request", orderUrl, {
+      recipientPhone: defaultPhone,
+    }),
+  );
+  const [phone, setPhone] = useState(defaultPhone);
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
 
   useEffect(() => {
     if (!open) return;
-    setBody(buildOrderWhatsappMessage(data, "approval_request", orderUrl));
-    setPhone(getOrderContactPhoneOptions(data)[0] ?? "");
+    const nextPhone = getOrderContactPhoneOptions(data)[0] ?? "";
+    setBody(
+      buildOrderWhatsappMessage(data, "approval_request", orderUrl, {
+        recipientPhone: nextPhone,
+      }),
+    );
+    setPhone(nextPhone);
   }, [data, open, orderUrl]);
+
+  const updatePhone = (nextPhone: string) => {
+    setPhone(nextPhone);
+    setBody((current) => replaceOrderWhatsappRecipientPhone(current, nextPhone));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,7 +86,7 @@ export function ApprovalRequestDialog({
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>WhatsApp</span>
             {phoneOptions.length > 1 ? (
-              <Select value={phone} onValueChange={setPhone}>
+              <Select value={phone} onValueChange={updatePhone}>
                 <SelectTrigger className="h-8 w-[min(280px,100%)] font-mono text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -108,7 +122,7 @@ export function ApprovalRequestDialog({
                 return;
               }
               window.open(url, "_blank", "noopener,noreferrer");
-              await onConfirm(body.trim());
+              await onConfirm({ body: body.trim(), recipientPhone: phone.trim() || undefined });
             }}
           >
             <Send className="mr-1.5 size-3.5" /> 确认并打开 WhatsApp

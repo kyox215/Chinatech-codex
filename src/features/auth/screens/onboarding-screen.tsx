@@ -24,7 +24,7 @@ import {
   submitOnboardingRequest,
   type OnboardingRequestInput,
 } from "@/lib/repairdesk/api";
-import { brandGradientStyle, controls, formLayout, pageHeader, pageShell } from "@/lib/ui-patterns";
+import { brandGradientStyle, controls, formLayout, pageShell } from "@/lib/ui-patterns";
 import { createClient } from "@/utils/supabase/client";
 import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-persistence";
 import { platformKeys } from "@/features/platform/api/query-keys";
@@ -118,15 +118,8 @@ export function OnboardingScreen() {
   return (
     <main className="min-h-svh bg-background px-3 py-6 sm:px-6">
       <div className={pageShell.form}>
-        <header className={pageHeader.root}>
-          <div>
-            <p className={pageHeader.eyebrow}>RepairDesk / 账号开通</p>
-            <h1 className={pageHeader.compactTitle}>店铺访问申请</h1>
-            <p className={pageHeader.subtitle}>
-              {status?.email || "当前账号"} · {status?.displayName}
-            </p>
-          </div>
-          <div className={pageHeader.actions}>
+        <header className="flex min-w-0 justify-end">
+          <div className="flex flex-wrap items-center gap-2">
             {canEnter && (
               <Button
                 className={controls.brandButton}

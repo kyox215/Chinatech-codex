@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildOrderWhatsappMessage,
   getDefaultOrderWhatsappTemplateKind,
+  getOrderWhatsappTransition,
   orderWhatsappTemplateOptions,
+  replaceOrderWhatsappRecipientPhone,
 } from "@/features/orders/model/order-message-templates";
 import { getOrder, listOrders } from "@/features/orders/testing/mock-api";
 
@@ -26,5 +28,30 @@ describe("order WhatsApp message templates", () => {
     expect(getDefaultOrderWhatsappTemplateKind("waiting_approval")).toBe("approval_request");
     expect(getDefaultOrderWhatsappTemplateKind("repaired")).toBe("pickup_ready");
     expect(getDefaultOrderWhatsappTemplateKind("unfixed_pickup")).toBe("unfixed_pickup");
+  });
+
+  it("keeps the selected recipient phone in the editable message body", async () => {
+    const [order] = await listOrders();
+    const detail = await getOrder(order.id);
+
+    const message = buildOrderWhatsappMessage(
+      detail,
+      "repair_status",
+      "https://example.com/order",
+      {
+        recipientPhone: "+39 333 111 2222",
+      },
+    );
+    const updated = replaceOrderWhatsappRecipientPhone(message, "+39 333 999 0000");
+
+    expect(message).toContain("Telefono cliente: +39 333 111 2222");
+    expect(updated).toContain("Telefono cliente: +39 333 999 0000");
+    expect(updated).not.toContain("Telefono cliente: +39 333 111 2222");
+  });
+
+  it("uses status-safe notification transitions", () => {
+    expect(getOrderWhatsappTransition("quoted", "approval_request")).toBe("waiting_approval");
+    expect(getOrderWhatsappTransition("repaired", "pickup_ready")).toBe("notified");
+    expect(getOrderWhatsappTransition("new", "approval_request")).toBeUndefined();
   });
 });

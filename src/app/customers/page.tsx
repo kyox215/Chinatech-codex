@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { CustomerListScreen } from "@/features/customers/screens/customer-list-screen";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <CustomerListScreen />;
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">正在加载客户...</div>}>
+      <CustomerListScreen />
+    </Suspense>
+  );
 }

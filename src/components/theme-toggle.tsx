@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   applyThemePreference,
   getThemePreference,
@@ -8,7 +9,7 @@ import {
   type ThemePreference,
 } from "@/lib/theme";
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const [theme, setTheme] = useState<ThemePreference>("light");
 
   useEffect(() => {
@@ -30,7 +31,13 @@ export function ThemeToggle() {
   };
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggle} className="size-9" aria-label="切换主题">
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggle}
+      className={cn("size-9", className)}
+      aria-label="切换主题"
+    >
       {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </Button>
   );

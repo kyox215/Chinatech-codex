@@ -1,4 +1,5 @@
 import type { OrderListItem } from "@/lib/repairdesk/api";
+import { QRCodeSVG } from "qrcode.react";
 import {
   formatEuro,
   formatItalianDateTime,
@@ -8,6 +9,7 @@ import {
   translateFaultName,
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
+import { getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 
 export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
@@ -86,6 +88,19 @@ export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
                 <p>Documento generato dal gestionale ChinaTech</p>
               </header>
 
+              <section className="repair-print-task-qr">
+                <QRCodeSVG
+                  value={getOrderTaskUrl(order.id, getPrintOrigin())}
+                  size={92}
+                  marginSize={2}
+                />
+                <div>
+                  <h3>SCAN TASK</h3>
+                  <p>Scansiona per aprire la scheda operativa interna.</p>
+                  <strong>{order.public_no}</strong>
+                </div>
+              </section>
+
               <PrintSection title="Importi (EUR)">
                 <PrintLine label="Totale ordine" value={formatEuro(order.quotation_amount)} />
                 <PrintLine label="Acconto" value={formatEuro(order.deposit_amount)} />
@@ -118,6 +133,11 @@ export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
       </section>
     </PrintPortal>
   );
+}
+
+function getPrintOrigin() {
+  if (typeof window !== "undefined") return window.location.origin;
+  return undefined;
 }
 
 function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {

@@ -31,6 +31,9 @@ const customerChannelOptions = [
   { value: "sms", label: "SMS" },
 ] as const;
 
+const compactInputClass = "h-8 text-sm sm:h-9";
+const compactTextareaClass = "min-h-20 text-sm";
+
 export function CustomerFormDialog({
   open,
   onOpenChange,
@@ -55,16 +58,17 @@ export function CustomerFormDialog({
   const canSave = form.name.trim() && form.phone_e164.trim();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.responsiveContent}>
+      <DialogContent className={componentOverlay.formContent}>
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>{title}</DialogTitle>
           <DialogDescription className={componentOverlay.description}>
             手机号会作为客户唯一身份，用于新建订单自动复用客户。
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
           <CustomerFormField label="姓名" required>
             <Input
+              className={compactInputClass}
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
             />
@@ -73,7 +77,7 @@ export function CustomerFormDialog({
             <Input
               value={form.phone_e164}
               onChange={(event) => setForm({ ...form, phone_e164: event.target.value })}
-              className="font-mono"
+              className={`${compactInputClass} font-mono`}
             />
           </CustomerFormField>
           <div className="sm:col-span-2">
@@ -88,6 +92,7 @@ export function CustomerFormDialog({
           </div>
           <CustomerFormField label="邮箱">
             <Input
+              className={compactInputClass}
               value={form.email ?? ""}
               onChange={(event) => setForm({ ...form, email: event.target.value })}
             />
@@ -99,7 +104,7 @@ export function CustomerFormDialog({
                 setForm({ ...form, preferred_channel: preferred_channel as "whatsapp" | "sms" })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className={compactInputClass}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -114,18 +119,18 @@ export function CustomerFormDialog({
           <div className="sm:col-span-2">
             <CustomerFormField label="客户备注">
               <Textarea
+                className={compactTextareaClass}
                 value={form.notes ?? ""}
                 onChange={(event) => setForm({ ...form, notes: event.target.value })}
-                rows={3}
               />
             </CustomerFormField>
           </div>
           <div className="sm:col-span-2">
             <CustomerFormField label="营销备注">
               <Textarea
+                className={compactTextareaClass}
                 value={form.marketing_notes ?? ""}
                 onChange={(event) => setForm({ ...form, marketing_notes: event.target.value })}
-                rows={3}
               />
             </CustomerFormField>
           </div>

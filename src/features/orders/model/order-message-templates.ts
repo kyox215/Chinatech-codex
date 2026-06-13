@@ -38,6 +38,7 @@ export function getOrderWhatsappTransition(
   status: RepairOrderStatus,
   kind: OrderWhatsappTemplateKind,
 ): RepairOrderStatus | undefined {
+  if (status === "quoted" && kind === "approval_request") return "waiting_approval";
   if (status === "repaired" && kind === "pickup_ready") return "notified";
   return undefined;
 }
@@ -52,8 +53,9 @@ export function buildOrderWhatsappMessage(
   data: OrderDetail,
   kind: OrderWhatsappTemplateKind,
   orderUrl: string,
+  options: { recipientPhone?: string } = {},
 ) {
-  const ctx = getTemplateContext(data, orderUrl);
+  const ctx = getTemplateContext(data, orderUrl, options);
 
   const lines = (() => {
     switch (kind) {
@@ -63,6 +65,7 @@ export function buildOrderWhatsappMessage(
           "",
           `le inviamo il preventivo per la riparazione del dispositivo ${ctx.deviceLabel}.`,
           `Numero ordine: ${ctx.publicNo}`,
+          ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
           "",
           "Interventi previsti:",
           ctx.faultLines,
@@ -82,8 +85,9 @@ export function buildOrderWhatsappMessage(
           "",
           `il dispositivo ${ctx.deviceLabel} e pronto per il ritiro.`,
           `Numero ordine: ${ctx.publicNo}`,
+          ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
           `Stato: ${statusItalian[ctx.status]}`,
-          ctx.balance > 0 ? `Saldo da pagare: ${formatEuro(ctx.balance)}` : "Pagamento: saldato",
+          ...ctx.financeLines,
           "",
           "Puo passare in negozio per il ritiro.",
           "ChinaTech - Viale Vittorio Veneto, 7, Floridia (SR)",
@@ -94,9 +98,10 @@ export function buildOrderWhatsappMessage(
           "",
           `la diagnosi del dispositivo ${ctx.deviceLabel} e stata completata.`,
           `Numero ordine: ${ctx.publicNo}`,
+          ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
           "Al momento il dispositivo non verra riparato.",
           ctx.diagnosis ? `Diagnosi: ${ctx.diagnosis}` : null,
-          ctx.balance > 0 ? `Importo da saldare: ${formatEuro(ctx.balance)}` : null,
+          ...ctx.financeLines,
           "",
           "Puo passare in negozio per il ritiro.",
           "ChinaTech",
@@ -107,7 +112,9 @@ export function buildOrderWhatsappMessage(
           "",
           `aggiornamento per il dispositivo ${ctx.deviceLabel}.`,
           `Numero ordine: ${ctx.publicNo}`,
+          ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
           `Stato attuale: ${statusItalian[ctx.status]}`,
+          ...ctx.financeLines,
           "",
           ctx.status === "parts_arrived"
             ? "I ricambi sono arrivati e procederemo con la riparazione."
@@ -119,6 +126,7 @@ export function buildOrderWhatsappMessage(
           `Gentile ${ctx.customerName},`,
           "",
           `l'ordine ${ctx.publicNo} per il dispositivo ${ctx.deviceLabel} e stato annullato.`,
+          ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
           ctx.cancelReason ? `Motivo: ${ctx.cancelReason}` : null,
           "",
           "Per qualsiasi chiarimento puo contattarci.",
@@ -130,7 +138,8 @@ export function buildOrderWhatsappMessage(
           "",
           `l'ordine ${ctx.publicNo} risulta completato.`,
           `Dispositivo: ${ctx.deviceLabel}`,
-          ctx.balance > 0 ? `Saldo residuo: ${formatEuro(ctx.balance)}` : "Pagamento: saldato",
+          ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
+          ...ctx.financeLines,
           "",
           "Grazie per aver scelto ChinaTech.",
         ];
@@ -141,7 +150,9 @@ export function buildOrderWhatsappMessage(
           "",
           `aggiornamento per il dispositivo ${ctx.deviceLabel}.`,
           `Numero ordine: ${ctx.publicNo}`,
+          ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
           `Stato attuale: ${statusItalian[ctx.status]}`,
+          ...ctx.financeLines,
           ctx.issue ? `Problema segnalato: ${ctx.issue}` : null,
           ctx.diagnosis ? `Diagnosi: ${ctx.diagnosis}` : null,
           ctx.orderUrl ? `Link ordine: ${ctx.orderUrl}` : null,
@@ -155,7 +166,36 @@ export function buildOrderWhatsappMessage(
   return lines.filter((line): line is string => line !== null).join("\n");
 }
 
-function getTemplateContext(data: OrderDetail, orderUrl: string) {
+export function replaceOrderWhatsappRecipientPhone(body: string, recipientPhone: string) {
+  const phone = recipientPhone.trim();
+  const lines = body.split("\n");
+  const existingIndex = lines.findIndex((line) => line.startsWith("Telefono cliente:"));
+
+  if (!phone) {
+    if (existingIndex >= 0) lines.splice(existingIndex, 1);
+    return lines.join("\n");
+  }
+
+  const nextLine = `Telefono cliente: ${phone}`;
+  if (existingIndex >= 0) {
+    lines[existingIndex] = nextLine;
+    return lines.join("\n");
+  }
+
+  const orderLineIndex = lines.findIndex((line) => line.startsWith("Numero ordine:"));
+  if (orderLineIndex >= 0) {
+    lines.splice(orderLineIndex + 1, 0, nextLine);
+    return lines.join("\n");
+  }
+
+  return [nextLine, body].join("\n");
+}
+
+function getTemplateContext(
+  data: OrderDetail,
+  orderUrl: string,
+  options: { recipientPhone?: string } = {},
+) {
   const { order, customer, device } = data;
   const snapshot = order.device_snapshot;
   const brand = snapshot?.brand || device?.brand || "";
@@ -170,6 +210,16 @@ function getTemplateContext(data: OrderDetail, orderUrl: string) {
         })
         .join("\n")
     : `- ${translatePrintableText(order.issue_description) || "Intervento da confermare"}`;
+  const financeLines =
+    order.quotation_amount > 0
+      ? [
+          `Totale preventivo: ${formatEuro(order.quotation_amount)}`,
+          order.deposit_amount > 0 ? `Acconto: ${formatEuro(order.deposit_amount)}` : null,
+          order.balance_amount > 0
+            ? `Saldo da pagare: ${formatEuro(order.balance_amount)}`
+            : "Pagamento: saldato",
+        ].filter((line): line is string => line !== null)
+      : [];
 
   return {
     publicNo: order.public_no,
@@ -183,6 +233,8 @@ function getTemplateContext(data: OrderDetail, orderUrl: string) {
     quotation: order.quotation_amount,
     deposit: order.deposit_amount,
     balance: order.balance_amount,
+    financeLines,
     orderUrl,
+    recipientPhone: options.recipientPhone?.trim() ?? "",
   };
 }

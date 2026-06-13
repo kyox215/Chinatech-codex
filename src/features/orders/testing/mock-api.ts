@@ -8,6 +8,7 @@ import type {
   OrderListResult,
   OrderWorkflow,
   OrderWorkflowStatus,
+  OrderWorkflowStatusCode,
   OrderWorkflowStatusCreateInput,
   OrderWorkflowStatusEnabledInput,
   OrderWorkflowStatusReorderInput,
@@ -45,6 +46,16 @@ import {
   orders,
 } from "@/lib/mock/state";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
+import {
+  approvalFlowStatusFromLegacyStatus,
+  legacyStatusFromWorkflowStatus,
+  notifyStatusFromLegacyStatus,
+  orderWorkflowStatuses,
+  partsStatusFromLegacyStatus,
+  paymentStatusFromMoney,
+  workflowStatusFromLegacyStatus,
+} from "@/features/orders/model/canonical-order-status";
 import {
   formatWarrantyText,
   normalizeWarrantyPayload,
@@ -150,6 +161,45 @@ function mockId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
+function createWorkflowCounts(): Record<OrderWorkflowStatusCode | "all", number> {
+  return {
+    all: 0,
+    intake: 0,
+    diagnosis: 0,
+    quote: 0,
+    parts: 0,
+    repair: 0,
+    pickup: 0,
+    closed: 0,
+  };
+}
+
+function countWorkflowRows(rows: OrderListItem[]) {
+  const counts = createWorkflowCounts();
+  for (const row of rows) {
+    const workflowStatus = row.workflow_status ?? workflowStatusFromLegacyStatus(row.status);
+    counts.all += 1;
+    counts[workflowStatus] += 1;
+  }
+  return counts;
+}
+
+function filtersForWorkflowCounts(filters: OrderListFilters): OrderListFilters {
+  return { ...filters, workflowStatuses: undefined };
+}
+
+function assertCanonicalWorkflowTransition(
+  from: OrderWorkflowStatusCode,
+  to: OrderWorkflowStatusCode,
+) {
+  if (from === to) return;
+  const fromIndex = orderWorkflowStatuses.indexOf(from);
+  const toIndex = orderWorkflowStatuses.indexOf(to);
+  if (fromIndex < 0 || toIndex < 0 || toIndex !== fromIndex + 1) {
+    throw new Error("主流程只能按顺序推进");
+  }
+}
+
 export async function listOrders(
   filters: OrderListFilters = {},
   _actor?: AuditActor,
@@ -169,6 +219,34 @@ export async function listOrders(
   }
   if (filters.statuses?.length) {
     result = result.filter((o) => filters.statuses!.includes(o.status));
+  }
+  if (filters.workflowStatuses?.length) {
+    result = result.filter((o) =>
+      filters.workflowStatuses!.includes(
+        o.workflow_status ?? workflowStatusFromLegacyStatus(o.status),
+      ),
+    );
+  }
+  if (filters.exceptionStatuses?.length) {
+    result = result.filter(
+      (o) => o.exception_status && filters.exceptionStatuses!.includes(o.exception_status),
+    );
+  }
+  if (filters.paymentStatuses?.length) {
+    result = result.filter(
+      (o) => o.payment_status && filters.paymentStatuses!.includes(o.payment_status),
+    );
+  }
+  if (filters.partsStatuses?.length) {
+    result = result.filter(
+      (o) => o.parts_status && filters.partsStatuses!.includes(o.parts_status),
+    );
+  }
+  if (filters.approvalFlowStatuses?.length) {
+    result = result.filter(
+      (o) =>
+        o.approval_flow_status && filters.approvalFlowStatuses!.includes(o.approval_flow_status),
+    );
   }
   if (filters.types?.length) {
     result = result.filter((o) => filters.types!.includes(o.order_type));
@@ -206,6 +284,9 @@ export async function listOrdersPage(
   const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
   const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
   const all = await listOrders(input, actor);
+  const workflowCounts = countWorkflowRows(
+    await listOrders(filtersForWorkflowCounts(input), actor),
+  );
   const start = (page - 1) * pageSize;
   return {
     items: all.slice(start, start + pageSize),
@@ -213,6 +294,7 @@ export async function listOrdersPage(
     page,
     pageSize,
     pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
+    workflowCounts,
   };
 }
 
@@ -409,25 +491,80 @@ export async function transitionOrder(
 ) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  const canonicalRequest = orderWorkflowStatuses.includes(to as never);
+  const workflowFrom = o.workflow_status ?? workflowStatusFromLegacyStatus(o.status);
+  const workflowTo = canonicalRequest ? (to as never) : workflowStatusFromLegacyStatus(to);
+  const legacyTo = canonicalRequest ? legacyStatusFromWorkflowStatus(workflowTo) : to;
+  const cleanReason = opts.reason?.trim();
+  if (canonicalRequest) {
+    assertCanonicalWorkflowTransition(workflowFrom, workflowTo);
+  }
+  const targetStatus = workflowStatuses.find((status) => status.code === legacyTo);
+  if (targetStatus && !targetStatus.enabled) {
+    throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
+  }
   const allowed = workflowTransitions.some(
     (transition) =>
       transition.from_status_code === o.status &&
-      transition.to_status_code === to &&
+      transition.to_status_code === legacyTo &&
       transition.enabled,
   );
-  if (!allowed) {
+  if (!allowed && !canonicalRequest) {
     const fromLabel =
       workflowStatuses.find((status) => status.code === o.status)?.label ?? o.status;
-    const toLabel = workflowStatuses.find((status) => status.code === to)?.label ?? to;
+    const toLabel = workflowStatuses.find((status) => status.code === legacyTo)?.label ?? legacyTo;
     throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
   }
+  if (orderTransitionRequiresReason(legacyTo) && !cleanReason) {
+    const label = workflowStatuses.find((status) => status.code === legacyTo)?.label ?? legacyTo;
+    throw new Error(`流转到「${label}」需要填写原因`);
+  }
+  if (legacyTo === "completed" && (!o.is_paid || o.balance_amount > 0)) {
+    throw new Error("工单仍有未结清尾款，不能直接结案");
+  }
   const from = o.status;
-  o.status = to;
-  o.updated_at = new Date().toISOString();
-  if (to === "cancelled" && opts.reason) o.cancel_reason = opts.reason;
-  if (to === "completed") o.completed_at = o.updated_at;
-  if (to === "waiting_approval") o.approval_sent_at = o.updated_at;
-  return { ok: true, from, to };
+  const now = new Date().toISOString();
+  o.status = legacyTo;
+  o.workflow_status = workflowTo;
+  o.exception_status =
+    legacyTo === "cancelled"
+      ? "cancelled"
+      : legacyTo === "rework"
+        ? "rework"
+        : legacyTo === "unfixed_pickup"
+          ? "returned_unfixed"
+          : undefined;
+  o.approval_flow_status = approvalFlowStatusFromLegacyStatus(legacyTo);
+  o.parts_status = partsStatusFromLegacyStatus(legacyTo);
+  o.notify_status = notifyStatusFromLegacyStatus(legacyTo);
+  o.updated_at = now;
+  if (legacyTo === "cancelled") o.cancel_reason = cleanReason || "未填写";
+  if (legacyTo === "unfixed_pickup" && cleanReason) {
+    o.diagnosis_result = buildMockTransitionDiagnosisResult(o.diagnosis_result, cleanReason);
+  }
+  if (legacyTo === "completed") o.completed_at = o.updated_at;
+  if (legacyTo === "waiting_approval") o.approval_sent_at = o.updated_at;
+  extraEvents.unshift({
+    id: `evt_status_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: id,
+    event_type: "status_changed",
+    payload: {
+      from,
+      to: legacyTo,
+      workflow_from: workflowFrom,
+      workflow_to: workflowTo,
+      reason: cleanReason,
+    },
+    operator_name: operatorName(opts.operator),
+    created_at: now,
+  });
+  return { ok: true, from, to: legacyTo };
+}
+
+function buildMockTransitionDiagnosisResult(current: string | undefined, reason: string) {
+  const cleanReason = reason.trim();
+  if (!current?.trim() || current.trim() === cleanReason) return cleanReason;
+  return `${current.trim()}\n处理结论：${cleanReason}`;
 }
 
 // POST /api/orders/batch-transition
@@ -455,14 +592,22 @@ export async function recordPayment(
   amount: number,
   method = "现金",
   operator: MockOperator = "前台",
+  expectedUpdatedAt?: string,
 ) {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  if (!expectedUpdatedAt) throw new Error("缺少工单版本时间");
+  if (o.updated_at !== expectedUpdatedAt) throw new Error("工单已被更新，请刷新后再试");
   if (o.balance_amount <= 0 || o.is_paid) throw new Error("该工单已结清");
   if (amount > o.balance_amount) throw new Error("收款金额不能超过未结清尾款");
   o.balance_amount = Math.max(0, o.balance_amount - amount);
   if (o.balance_amount === 0) o.is_paid = true;
+  o.payment_status = paymentStatusFromMoney({
+    isPaid: o.is_paid,
+    depositAmount: amount,
+    balanceAmount: o.balance_amount,
+  });
   const now = new Date().toISOString();
   o.updated_at = now;
   extraEvents.unshift({
@@ -473,7 +618,7 @@ export async function recordPayment(
     operator_name: operatorName(operator),
     created_at: now,
   });
-  return { ok: true, balance: o.balance_amount, is_paid: o.is_paid };
+  return { ok: true, balance: o.balance_amount, is_paid: o.is_paid, updated_at: now };
 }
 
 const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
@@ -557,6 +702,8 @@ export async function updateOrder(
 ): Promise<{ ok: boolean }> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
+  if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
 
   const customer = getCustomer(o.customer_id);
   const device = getDevice(o.device_id);
@@ -635,6 +782,11 @@ export async function updateOrder(
   o.deposit_amount = deposit;
   o.balance_amount = nextBalance;
   o.is_paid = nextBalance === 0;
+  o.payment_status = paymentStatusFromMoney({
+    isPaid: nextBalance === 0,
+    depositAmount: deposit,
+    balanceAmount: nextBalance,
+  });
   o.fault_prices = validFaults;
   o.currency_code = CURRENCY_CODE;
   o.device_snapshot = {
@@ -810,6 +962,11 @@ export async function patchOrderFinance(
   o.deposit_amount = deposit;
   o.balance_amount = nextBalance;
   o.is_paid = nextBalance === 0;
+  o.payment_status = paymentStatusFromMoney({
+    isPaid: nextBalance === 0,
+    depositAmount: deposit,
+    balanceAmount: nextBalance,
+  });
   o.fault_prices = validFaults;
   o.currency_code = CURRENCY_CODE;
   o.updated_at = now;
@@ -872,6 +1029,7 @@ function writeMockWhatsappMessage({
   eventType,
   transitionTo,
   operator = "前台",
+  recipientPhone,
   allowInvalidTransition = false,
   markApprovalPending = false,
 }: {
@@ -881,10 +1039,12 @@ function writeMockWhatsappMessage({
   eventType: "message_sent" | "approval_sent";
   transitionTo?: RepairOrderStatus;
   operator?: MockOperator;
+  recipientPhone?: string;
   allowInvalidTransition?: boolean;
   markApprovalPending?: boolean;
 }): WhatsappNotificationResult {
   const message = body.trim();
+  const cleanRecipientPhone = recipientPhone?.trim();
   if (!message) throw new Error("通知内容不能为空");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
@@ -895,6 +1055,10 @@ function writeMockWhatsappMessage({
   let to: RepairOrderStatus | undefined;
 
   if (transitionTo) {
+    const targetStatus = workflowStatuses.find((status) => status.code === transitionTo);
+    if (targetStatus && !targetStatus.enabled) {
+      throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
+    }
     const allowed = workflowTransitions.some(
       (transition) =>
         transition.from_status_code === from &&
@@ -909,9 +1073,24 @@ function writeMockWhatsappMessage({
         throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
       }
     } else {
+      if (transitionTo === "completed" && (!o.is_paid || o.balance_amount > 0)) {
+        throw new Error("工单仍有未结清尾款，不能直接结案");
+      }
       statusChanged = true;
       to = transitionTo;
       o.status = to;
+      o.workflow_status = workflowStatusFromLegacyStatus(to);
+      o.exception_status =
+        to === "cancelled"
+          ? "cancelled"
+          : to === "rework"
+            ? "rework"
+            : to === "unfixed_pickup"
+              ? "returned_unfixed"
+              : undefined;
+      o.approval_flow_status = approvalFlowStatusFromLegacyStatus(to, o.approval_status);
+      o.parts_status = partsStatusFromLegacyStatus(to);
+      o.notify_status = notifyStatusFromLegacyStatus(to);
       if (to === "completed") o.completed_at = now;
       if (to === "waiting_approval") o.approval_sent_at = now;
     }
@@ -920,7 +1099,9 @@ function writeMockWhatsappMessage({
   if (markApprovalPending) {
     o.approval_status = "pending";
     o.approval_sent_at = now;
+    o.approval_flow_status = "waiting_customer";
   }
+  if (!markApprovalPending) o.notify_status = "sent";
   o.updated_at = now;
 
   extraMessages.unshift({
@@ -941,6 +1122,7 @@ function writeMockWhatsappMessage({
       template_kind: templateKind,
       status_changed: statusChanged,
       currency_code: CURRENCY_CODE,
+      ...(cleanRecipientPhone ? { recipient_phone: cleanRecipientPhone } : {}),
       ...(transitionTo ? { from, to: statusChanged && to ? to : from } : {}),
     },
     operator_name: operatorName(operator),
@@ -952,6 +1134,7 @@ function writeMockWhatsappMessage({
     channel: "whatsapp",
     body: message,
     template_kind: templateKind,
+    recipient_phone: cleanRecipientPhone,
     statusChanged,
     from,
     to,
@@ -964,6 +1147,7 @@ export async function sendWhatsappNotification(
   templateKind: OrderWhatsappTemplateKind,
   transitionTo?: RepairOrderStatus,
   operator: MockOperator = "前台",
+  recipientPhone?: string,
 ) {
   return writeMockWhatsappMessage({
     id,
@@ -972,6 +1156,7 @@ export async function sendWhatsappNotification(
     eventType: "message_sent",
     transitionTo,
     operator,
+    recipientPhone,
   });
 }
 
@@ -979,6 +1164,7 @@ export async function sendApprovalRequest(
   id: string,
   body: string,
   operator: MockOperator = "前台",
+  recipientPhone?: string,
 ) {
   return writeMockWhatsappMessage({
     id,
@@ -987,6 +1173,7 @@ export async function sendApprovalRequest(
     eventType: "approval_sent",
     transitionTo: "waiting_approval",
     operator,
+    recipientPhone,
     allowInvalidTransition: true,
     markApprovalPending: true,
   });
@@ -998,10 +1185,12 @@ export async function createOrder(
   operator: MockOperator = "前台",
 ): Promise<{ id: string }> {
   const requestedStatus = workflowStatuses.find((status) => status.code === input.status);
+  if (requestedStatus && (!requestedStatus.enabled || !requestedStatus.allowed_for_create)) {
+    throw new Error(`「${requestedStatus.label}」不能作为新建工单状态`);
+  }
   const status =
-    requestedStatus?.enabled && requestedStatus.allowed_for_create
-      ? requestedStatus.code
-      : workflowStatuses.find((item) => item.enabled && item.is_default_create_status)?.code;
+    requestedStatus?.code ??
+    workflowStatuses.find((item) => item.enabled && item.is_default_create_status)?.code;
   if (!status) throw new Error("店铺没有可用于新建工单的状态");
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
@@ -1095,6 +1284,17 @@ export async function createOrder(
     public_no: `R${(2026000 + seq).toString().padStart(7, "0")}`,
     order_type: input.order_type,
     status,
+    legacy_status: status,
+    workflow_status: workflowStatusFromLegacyStatus(status),
+    exception_status: undefined,
+    payment_status: paymentStatusFromMoney({
+      isPaid: balance === 0,
+      depositAmount: deposit,
+      balanceAmount: balance,
+    }),
+    approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
+    parts_status: partsStatusFromLegacyStatus(status),
+    notify_status: notifyStatusFromLegacyStatus(status),
     customer_id: customer.id,
     device_id: device.id,
     issue_description: input.issue_description,

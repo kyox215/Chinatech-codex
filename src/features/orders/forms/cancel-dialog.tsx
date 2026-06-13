@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { getDefaultOrderTransitionReason } from "@/features/orders/model/order-transition-reasons";
 import { componentOverlay } from "@/lib/component-patterns";
 
 export function CancelDialog({
@@ -23,20 +24,26 @@ export function CancelDialog({
   onOpenChange: (v: boolean) => void;
   onConfirm: (reason: string) => Promise<void>;
 }) {
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(() => getDefaultOrderTransitionReason("cancelled"));
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) setReason(getDefaultOrderTransitionReason("cancelled"));
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={`${componentOverlay.modalSm} p-4 sm:p-5`}>
         <DialogHeader>
           <DialogTitle>取消工单</DialogTitle>
-          <DialogDescription>请填写取消原因，便于事后追溯。</DialogDescription>
+          <DialogDescription>选择一个常见原因，也可以改成更准确的说明。</DialogDescription>
         </DialogHeader>
-        <Textarea
-          rows={4}
-          placeholder="例如：客户主动放弃维修 / 备件无货 / 报价过高"
+        <OrderTransitionReasonSelector
+          target="cancelled"
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          onChange={setReason}
+          disabled={busy}
+          compact
         />
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

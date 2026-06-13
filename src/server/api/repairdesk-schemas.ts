@@ -40,6 +40,37 @@ const optionalText = z.string().optional();
 const repairOrderStatusSchema = z.string().min(1) as z.ZodType<RepairOrderStatus>;
 const repairOrderTypeSchema = z.string().min(1) as z.ZodType<RepairOrderType>;
 const approvalStatusSchema = z.string().min(1) as z.ZodType<ApprovalStatus>;
+const canonicalWorkflowStatusSchema = z.enum([
+  "intake",
+  "diagnosis",
+  "quote",
+  "parts",
+  "repair",
+  "pickup",
+  "closed",
+]);
+const orderExceptionStatusSchema = z.enum([
+  "cancelled",
+  "unrepairable",
+  "returned_unfixed",
+  "rework",
+  "waiting_customer",
+  "paused",
+]);
+const orderPaymentStatusSchema = z.enum(["unpaid", "partial", "paid", "refunded"]);
+const orderPartsStatusSchema = z.enum([
+  "not_required",
+  "needed",
+  "ordered",
+  "arrived",
+  "out_of_stock",
+]);
+const orderApprovalFlowStatusSchema = z.enum([
+  "not_required",
+  "waiting_customer",
+  "approved",
+  "rejected",
+]);
 const orderWorkflowStatusCodeSchema = z
   .string()
   .min(2, "状态代码至少 2 个字符")
@@ -126,6 +157,11 @@ export const orderListFiltersSchema = z
   .object({
     search: optionalText,
     statuses: z.array(repairOrderStatusSchema).optional(),
+    workflowStatuses: z.array(canonicalWorkflowStatusSchema).optional(),
+    exceptionStatuses: z.array(orderExceptionStatusSchema).optional(),
+    paymentStatuses: z.array(orderPaymentStatusSchema).optional(),
+    partsStatuses: z.array(orderPartsStatusSchema).optional(),
+    approvalFlowStatuses: z.array(orderApprovalFlowStatusSchema).optional(),
     types: z.array(repairOrderTypeSchema).optional(),
     technicians: z.array(z.string()).optional(),
     supplierIds: z.array(z.string()).optional(),
@@ -255,10 +291,11 @@ export const createOrderSchema = z
     fault_prices: z.array(faultPriceItemSchema),
     deposit_amount: z.coerce.number().optional(),
   })
-  .passthrough() satisfies z.ZodType<CreateOrderInput>;
+  .strip() satisfies z.ZodType<CreateOrderInput>;
 
 export const updateOrderInputSchema = z
   .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
     customer_name: z.string(),
     customer_phone: z.string(),
     device_brand: z.string(),
@@ -275,7 +312,7 @@ export const updateOrderInputSchema = z
     fault_prices: z.array(faultPriceItemSchema),
     deposit_amount: z.coerce.number().optional(),
   })
-  .passthrough() satisfies z.ZodType<UpdateOrderInput>;
+  .strip() satisfies z.ZodType<UpdateOrderInput>;
 
 export const updateOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
@@ -337,6 +374,7 @@ export const batchTransitionBodySchema = z.object({
 
 export const paymentBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
+  expected_updated_at: z.string().min(1, "缺少版本时间"),
   amount: z.coerce.number(),
   method: optionalText,
 });
@@ -352,11 +390,13 @@ export const whatsappNotificationBodySchema = z.object({
   body: z.string(),
   template_kind: orderWhatsappTemplateKindSchema,
   transition_to: repairOrderStatusSchema.optional(),
+  recipient_phone: optionalText,
 });
 
 export const approvalRequestBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   body: z.string(),
+  recipient_phone: optionalText,
 });
 
 export const customerSearchBodySchema = z.object({
@@ -459,6 +499,9 @@ export const inventoryIntakeInputSchema = z
     color: optionalText,
     storage_capacity: optionalText,
     serial_or_imei: optionalText,
+    quoted_offer: z.coerce.number().optional(),
+    quote_expires_at: optionalText,
+    quote_payload: z.record(z.string(), z.unknown()).optional(),
     buyback_price: z.coerce.number().optional(),
     list_price: z.coerce.number().optional(),
     deposit_amount: z.coerce.number().optional(),

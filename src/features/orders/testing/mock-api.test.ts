@@ -7,6 +7,7 @@ import {
   listOrders,
   patchOrder,
   patchOrderFinance,
+  recordPayment,
   sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
@@ -48,6 +49,32 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(after.messages).toHaveLength(before.messages.length);
   });
 
+  it("records transition reasons and turns unfixed pickup reasons into diagnosis conclusions", async () => {
+    const id = await createMockOrder();
+    const beforePatch = await getOrder(id);
+    await patchOrder(id, {
+      expected_updated_at: beforePatch.order.updated_at,
+      changes: { diagnosis_result: "初步检测：主板异常" },
+    });
+    await transitionOrder(id, "diagnosing");
+
+    await transitionOrder(id, "unfixed_pickup", {
+      reason: "维修风险过高，客户确认不继续维修并取回设备。",
+    });
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("unfixed_pickup");
+    expect(detail.order.diagnosis_result).toContain("处理结论：维修风险过高");
+    const event = detail.events.find(
+      (item) => item.event_type === "status_changed" && item.payload.to === "unfixed_pickup",
+    );
+    expect(event?.payload).toMatchObject({
+      to: "unfixed_pickup",
+      reason: "维修风险过高，客户确认不继续维修并取回设备。",
+    });
+    expect(detail.messages).toHaveLength(0);
+  });
+
   it("moves repaired orders to notified after pickup WhatsApp is sent", async () => {
     const id = await createMockOrder();
     await transitionOrder(id, "diagnosing");
@@ -59,6 +86,8 @@ describe("mock order WhatsApp notification workflow", () => {
       "Il dispositivo e pronto.",
       "pickup_ready",
       "notified",
+      "Chen",
+      "+39 333 123 4567",
     );
 
     const detail = await getOrder(id);
@@ -75,8 +104,10 @@ describe("mock order WhatsApp notification workflow", () => {
     );
     expect(event?.payload).toMatchObject({
       template_kind: "pickup_ready",
+      recipient_phone: "+39 333 123 4567",
       to: "notified",
     });
+    expect(result.recipient_phone).toBe("+39 333 123 4567");
   });
 
   it("rejects invalid notification-driven transitions before writing a message", async () => {
@@ -91,6 +122,26 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.messages.some((message) => message.message_body === "Messaggio non valido")).toBe(
       false,
     );
+  });
+
+  it("requires reasons for exception transitions", async () => {
+    const id = await createMockOrder();
+
+    await expect(transitionOrder(id, "cancelled")).rejects.toThrow("需要填写原因");
+    await transitionOrder(id, "cancelled", { reason: "客户主动取消本次维修。" });
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("cancelled");
+    expect(detail.order.cancel_reason).toBe("客户主动取消本次维修。");
+  });
+
+  it("does not complete an unpaid order", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "repairing");
+    await transitionOrder(id, "repaired");
+
+    await expect(transitionOrder(id, "completed")).rejects.toThrow("未结清尾款");
   });
 
   it("moves quoted orders to waiting approval through approval WhatsApp", async () => {
@@ -194,6 +245,7 @@ describe("mock order inline editing workflow", () => {
     await updateOrder(
       id,
       {
+        expected_updated_at: before.order.updated_at,
         customer_name: "Cliente Editato",
         customer_phone: before.order.customer_phone,
         device_brand: "Samsung",
@@ -213,6 +265,39 @@ describe("mock order inline editing workflow", () => {
     const after = await getOrder(id);
     expect(after.order.customer_name).toBe("Cliente Editato");
     expect(after.order.technician_name).toBe("Original Tech");
+  });
+
+  it("uses optimistic locking for full edits and payments", async () => {
+    const id = await createMockOrder();
+    const before = await getOrder(id);
+
+    await expect(
+      updateOrder(
+        id,
+        {
+          expected_updated_at: "2000-01-01T00:00:00.000Z",
+          customer_name: before.order.customer_name,
+          customer_phone: before.order.customer_phone,
+          device_brand: "Apple",
+          device_model: "iPhone",
+          issue_description: before.order.issue_description,
+          fault_prices: before.order.fault_prices,
+          deposit_amount: before.order.deposit_amount,
+        },
+        "Editing Operator",
+      ),
+    ).rejects.toThrow("工单已被更新");
+
+    await expect(recordPayment(id, 10, "现金", "Cashier")).rejects.toThrow("缺少工单版本时间");
+    await expect(
+      recordPayment(id, 10, "现金", "Cashier", "2000-01-01T00:00:00.000Z"),
+    ).rejects.toThrow("工单已被更新");
+
+    const result = await recordPayment(id, 10, "现金", "Cashier", before.order.updated_at);
+    const after = await getOrder(id);
+    expect(result.updated_at).toBe(after.order.updated_at);
+    expect(after.order.balance_amount).toBe(before.order.balance_amount - 10);
+    expect(after.order.payment_status).toBe("partial");
   });
 
   it("updates finance only through the finance patch flow", async () => {

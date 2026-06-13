@@ -21,7 +21,7 @@
 
 - `SidebarProvider` + `AppSidebar`
 - `SidebarInset`
-- `BackgroundOrbs`
+- 平面 RepairOS 工作台背景
 - `AppBar`
 - `CommandPalette`
 - `Toaster`
@@ -52,6 +52,8 @@
 8. 数字金额必须用 `MoneyText` 或 `font-mono tabular-nums`。
 9. 工单状态、审批状态、类型徽章必须复用 `StatusBadge`、`ApprovalBadge`、`OrderTypeBadge`。
 10. Loading 用 `Skeleton`，错误用 `text-status-danger-foreground`，空态用 `glass-card`。
+11. 新增移动业务页面必须遵守 RepairOS Compact 标准：mobile-first、浅色背景、白色紧凑卡片、科技蓝主色、统一侧边栏抽屉、高密度业务卡片，不做大 Banner 和营销式 hero。详细标准见 [`REPAIROS_COMPACT_ARCHITECTURE.md`](./REPAIROS_COMPACT_ARCHITECTURE.md)。
+12. 本地开发环境不得注册或保留 PWA service worker 缓存；预览必须始终读取当前源码，避免旧 shell 干扰 UI 验收。
 
 ## 3. 页面布局声明
 
@@ -61,16 +63,39 @@
 import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-patterns";
 ```
 
-### 3.1 Dashboard / 概览页
+### 3.1 RepairOS Compact 移动业务页
 
-使用 `pageShell.wide`，结构固定：
+用于订单管理、客户管理、回收管理、库存商品、设置等移动优先页面。优先使用 `repairOs.mobilePage`、`repairOs.metricStrip`、`repairOs.chipRow`、`repairOs.businessCard`。
 
-1. Hero：左侧日期/标题/说明，右侧主 CTA。
-2. KPI：`dataDisplay.kpiGrid`，数字用 `AnimatedNumber`。
-3. 图表：`dataDisplay.chartGrid`，主图占两列。
-4. 最近列表：`glass-card` + `divide-y` 或 Table。
+结构固定：
 
-### 3.2 列表 / 管理页
+1. 桌面端可保留紧凑标题；移动端不重复模块标题，不做大 hero。
+2. 搜索/扫码/筛选工具条高度控制在 44px 左右。
+3. KPI 使用 2-3 个小卡片，不占满首屏。
+4. 状态筛选使用横向 chips。
+5. 主体使用高密度业务卡片，一屏目标 4-7 条。
+6. 桌面端使用固定侧边栏；移动端使用同一套侧边栏抽屉，默认收纳，由 AppBar 左侧菜单按钮打开。
+7. 移动端禁止再新增底部模块导航，避免与侧边栏重复；导航项统一来自 `src/shared/config/navigation.ts`。
+8. 移动端进入模块后，不再重复显示页面内部大标题区；内容从 KPI、工具条、chips 或业务卡片开始。
+9. 扫码和拍照作为全局工具，由悬浮 `+` 或模块工具条触发。
+10. 移动端悬浮 `+` 和快捷操作 Sheet 必须复用 `repairOs.floatingAction`、`repairOs.quickSheet`、`repairOs.quickAction*`；第一项展示当前模块主动作，其余才是扫码、拍照、搜索等全局工具。
+11. 移动端详情页和高频工作流页面必须使用 RepairOS Floating Card：`repairOs.mobileFloatingPage` + `repairOs.mobileFloatingHeader*` + `repairOs.mobileInfoCard`，顶部是一张圆角悬浮工作卡，不再使用整屏横线分割的固定顶栏。
+12. Floating Card 顶部卡必须承载“返回 / 页面标题 / 状态上下文 / 主编号 / 当前步骤或进度”；正文第一张卡与顶部卡保留 6-10px 间距，禁止重叠。
+13. 移动订单列表卡片的字号和层级必须以订单详情页“设备信息 / 维修项目与报价 / 支付信息”小卡片为标尺：区块标签 `text-[9px]` 到 `text-[10px]`，正文行 `text-[11px]` 到 `text-xs`，主编号 `text-sm font-semibold`；支付摘要里的主金额可用 `text-base font-semibold`，其他金额仍保持 `text-[9px]` 到 `text-[10px]`。订单列表允许“富摘要模式”，一屏目标 3-4 张，内部最多使用一个维修项目中性色块和一个支付摘要中性色块；禁止把客户、设备、维修、支付都做成独立 bordered panel。颜色只用于状态、异常、下一步、维修主项和支付风险；支付区域不得整块按状态染红/染绿，必须像订单详情页支付卡一样只给状态 pill、尾款等关键值着色。
+
+### 3.2 Dashboard / 概览页
+
+概览页也遵守 RepairOS Compact。使用 `pageShell.list` + `repairOs.adminSection`，不要做大 Hero、营销式欢迎区或大面积图表。
+
+结构固定：
+
+1. 顶部只放紧凑上下文卡：日期 / 班次 / 主 CTA。
+2. KPI 使用 3 个移动小卡或桌面 4 个紧凑卡，数字用 `AnimatedNumber` / `MoneyText`。
+3. 主内容优先是“今日任务 / 快捷模块 / 最新工单”，保持业务可操作。
+4. 最近工单使用高密度业务卡片，不用宽松表格。
+5. 图表只能作为后续分析区使用，不得占据首屏核心区域。
+
+### 3.3 列表 / 管理页
 
 使用 `pageShell.list`，结构固定：
 
@@ -81,7 +106,7 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 5. Mobile：卡片列表。
 6. Batch action：只在选中数据时出现，动作必须由业务工作流校验。
 
-### 3.3 详情页
+### 3.4 详情页
 
 使用 `pageShell.detail` 或 `pageShell.split`，结构固定：
 
@@ -93,7 +118,7 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 
 复杂业务详情以弹窗打开时必须使用沉浸式工作面结构。工单详情弹窗使用固定工作面尺寸，切换 Tab 不改变 Dialog 外壳宽高；Hero 和 Tabs 固定在上方，内容区独立滚动。桌面概览区使用 `detailWorkspace.orderDetailGrid`，保持“客户信息 / 设备故障 / 报价处理”三列同屏；移动和平板按声明自动降列，不在业务组件里手写大尺寸 Dialog grid class。
 
-### 3.4 新建 / 编辑表单页
+### 3.5 新建 / 编辑表单页
 
 使用 `pageShell.form`，结构固定：
 
@@ -108,7 +133,9 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 
 金额编辑必须使用 string draft 管理输入框，再通过纯 helper 统一转换为 number。禁止直接用 `Number(event.target.value)` 绑定可清空的金额输入，避免空值被强制显示为 `0`。
 
-### 3.5 沉浸式工作区
+工单状态流转不得只提供一个立即执行按钮。移动端和高频详情页必须先展示可用流转分支；取消、未修取机、返修等需要追溯的分支必须提供预设原因选择和可编辑说明，并把原因写入时间线。
+
+### 3.6 沉浸式工作区
 
 用于排班、看板、报价、诊断、库存盘点等高频操作页。首屏必须直接呈现可操作工作区，不做营销式 hero、说明卡或装饰性分屏。
 
@@ -124,17 +151,18 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 
 `src/lib/ui-patterns.ts` 已提供以下声明：
 
-| 导出                 | 用途                                                 |
-| -------------------- | ---------------------------------------------------- |
-| `pageShell`          | 页面最大宽度、padding、详情/表单/列表容器            |
-| `pageHeader`         | 页面标题区、eyebrow、title、subtitle、actions        |
-| `surfaces`           | `glass-card`、toolbar、sticky action、empty、popover |
-| `controls`           | 品牌按钮、搜索框、分段按钮                           |
-| `dataDisplay`        | KPI grid、chart grid、table、mobile cards、number    |
-| `formLayout`         | form stack、section、grid、field、label              |
-| `stateBlocks`        | skeleton/error/empty/muted help                      |
-| `iconSizes`          | 统一图标尺寸                                         |
-| `brandGradientStyle` | 品牌渐变 style 对象                                  |
+| 导出                 | 用途                                                               |
+| -------------------- | ------------------------------------------------------------------ |
+| `pageShell`          | 页面最大宽度、padding、详情/表单/列表容器                          |
+| `pageHeader`         | 页面标题区、eyebrow、title、subtitle、actions                      |
+| `surfaces`           | `glass-card`、toolbar、sticky action、empty、popover               |
+| `controls`           | 品牌按钮、搜索框、分段按钮                                         |
+| `dataDisplay`        | KPI grid、chart grid、table、mobile cards、number                  |
+| `formLayout`         | form stack、section、grid、field、label                            |
+| `repairOs`           | RepairOS Compact 移动页、Floating Card、KPI、chips、高密度业务卡片 |
+| `stateBlocks`        | skeleton/error/empty/muted help                                    |
+| `iconSizes`          | 统一图标尺寸                                                       |
+| `brandGradientStyle` | 品牌渐变 style 对象                                                |
 
 示例：
 

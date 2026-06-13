@@ -24,7 +24,7 @@ export function NewOrderFaultDiagnosisSection({
     "h-fit min-w-0",
     surface === "dialog"
       ? detailWorkspace.flatPanel
-      : "glass-card border-border/70 p-2.5 shadow-sm sm:p-4",
+      : cn(detailWorkspace.densePanel, "bg-card shadow-[var(--shadow-card)] sm:p-3"),
   );
   const Shell = surface === "dialog" ? "section" : Card;
 

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_STORE_ID,
+  isMissingRepairOrderColumnError,
   requireStoreIdFromActor,
   storeIdFromActor,
 } from "@/server/repairdesk-shared";
@@ -28,6 +29,20 @@ describe("tenant guardrails", () => {
       expect(source, file).toContain("requireStoreIdFromActor");
       expect(source, file).not.toMatch(/\bstoreIdFromActor\s*\(/);
     }
+  });
+
+  it("treats Supabase schema-cache missing repair_orders columns as legacy schema fallback", () => {
+    expect(
+      isMissingRepairOrderColumnError({
+        message:
+          "Could not find the 'approval_flow_status' column of 'repair_orders' in the schema cache",
+      }),
+    ).toBe(true);
+    expect(
+      isMissingRepairOrderColumnError({
+        message: "column repair_orders.approval_flow_status does not exist",
+      }),
+    ).toBe(true);
   });
 
   it("keeps membership-based RLS policies in the tenant hardening migration", () => {

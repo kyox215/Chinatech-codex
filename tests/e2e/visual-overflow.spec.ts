@@ -13,6 +13,7 @@ const routes = [
   "/orders",
   "/orders/new",
   "/customers",
+  "/buyback",
   "/inventory",
   "/messages",
   "/settings",

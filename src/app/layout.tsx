@@ -8,6 +8,17 @@ export const metadata: Metadata = {
     template: "%s — RepairDesk",
   },
   description: "现代化手机维修接单管理后台",
+  applicationName: "RepairDesk",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "RepairDesk",
+  },
+  icons: {
+    icon: "/icons/repairdesk-icon.svg",
+    apple: "/icons/repairdesk-icon.svg",
+  },
 };
 
 export const viewport: Viewport = {

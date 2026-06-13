@@ -3,8 +3,11 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type CSSProperties,
   type Dispatch,
+  type Ref,
   type SetStateAction,
   type SyntheticEvent,
 } from "react";
@@ -17,18 +20,19 @@ import {
   Clock,
   Download,
   Filter,
+  ListChecks,
   MoreHorizontal,
   Plus,
   Printer,
   RefreshCw,
   Search,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Dialog,
   DialogContent,
@@ -45,16 +49,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { fadeUp, floatingBar, indicatorSpring, stagger } from "@/lib/motion";
-import { AnimatedNumber } from "@/components/animated-number";
-import { density, layoutGuards, pageShell } from "@/lib/ui-patterns";
+import {
+  brandGradientStyle,
+  controls,
+  density,
+  layoutGuards,
+  repairOs,
+  stateBlocks,
+} from "@/lib/ui-patterns";
 import { componentOverlay } from "@/lib/component-patterns";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,13 +66,13 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
+import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
 import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen";
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
 import {
   batchTransition,
   getRepairDeskOptions,
-  getOrderStats,
   listOrderWorkflow,
   listOrdersPage,
   transitionOrder,
@@ -80,22 +83,36 @@ import {
 import { repairOrderType, type RepairOrderStatus } from "@/lib/mock/enums";
 import {
   getCommonWorkflowTargets,
-  getOrderListStatusGroups,
-  getOrderListSubStatusTabs,
   getWorkflowNextActions,
-  getWorkflowStatus,
   getWorkflowStatusLabel,
   getWorkflowStatuses,
-  type OrderListStatusGroupKey,
   type OrderListStatusTab,
 } from "@/features/orders/model/order-workflow";
+import {
+  orderExceptionMeta,
+  orderWorkflowMeta,
+  orderWorkflowStatuses,
+  workflowStatusFromLegacyStatus,
+} from "@/features/orders/model/canonical-order-status";
+import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { cn } from "@/lib/utils";
 
 const ORDER_LIST_PAGE_SIZE = 50;
-const orderTableGrid =
-  "grid grid-cols-[34px_minmax(0,1.35fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.25fr)_82px_88px_82px_34px] items-stretch";
+const orderQueueGrid =
+  "grid grid-cols-[34px_minmax(150px,1.05fr)_minmax(160px,1fr)_minmax(180px,1.2fr)_minmax(150px,0.95fr)_96px_96px_76px_34px] items-stretch";
+
+const orderStageHints: Record<OrderWorkflowStatusCode | "all", string> = {
+  all: "全部客户队列",
+  intake: "刚收机/待受理",
+  diagnosis: "检测诊断中",
+  quote: "报价待确认",
+  parts: "订件/等到货",
+  repair: "维修执行中",
+  pickup: "通知/待取机",
+  closed: "已完成归档",
+};
 
 type ActiveFilterChip = {
   key: string;
@@ -126,25 +143,55 @@ function FiltersPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="size-4" />
-          <span className="text-sm font-semibold">高级筛选</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setFilters({ search: filters.search });
-            onStatusFilterChange?.();
-          }}
-          className="h-7 text-xs"
-        >
-          重置
-        </Button>
-      </div>
       <ScrollArea className="flex-1">
-        <div className="space-y-6 p-4">
+        <div className="space-y-6 p-4 pt-5">
+          <FilterGroup label="主流程">
+            <div className="flex flex-wrap gap-1.5">
+              {orderWorkflowStatuses.map((status) => {
+                const active = filters.workflowStatuses?.includes(status);
+                return (
+                  <button
+                    key={status}
+                    onClick={() => {
+                      toggle("workflowStatuses", status);
+                      onStatusFilterChange?.();
+                    }}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-xs transition-colors",
+                      active
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "bg-surface hover:bg-accent",
+                    )}
+                  >
+                    {orderWorkflowMeta[status].label}
+                  </button>
+                );
+              })}
+            </div>
+          </FilterGroup>
+
+          <FilterGroup label="异常">
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(orderExceptionMeta).map(([status, meta]) => {
+                const active = filters.exceptionStatuses?.includes(status as never);
+                return (
+                  <button
+                    key={status}
+                    onClick={() => toggle("exceptionStatuses", status)}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-xs transition-colors",
+                      active
+                        ? "border-status-danger-foreground/40 bg-status-danger/15 text-status-danger-foreground"
+                        : "bg-surface hover:bg-accent",
+                    )}
+                  >
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+          </FilterGroup>
+
           <FilterGroup label="工单状态">
             <div className="flex flex-wrap gap-1.5">
               {statuses.map((status) => {
@@ -245,7 +292,16 @@ function FiltersPanel({
         </div>
       </ScrollArea>
       {onClose && (
-        <div className="border-t p-3">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-t p-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setFilters({ search: filters.search });
+              onStatusFilterChange?.();
+            }}
+          >
+            重置
+          </Button>
           <Button className="w-full" onClick={onClose}>
             应用筛选
           </Button>
@@ -266,61 +322,6 @@ function FilterGroup({ label, children }: { label: string; children: React.React
   );
 }
 
-function KpiPill({ label, value, accent }: { label: string; value: number; accent: string }) {
-  return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      className="glass-card group relative min-w-[104px] overflow-hidden px-3 py-2"
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-6 -top-6 size-16 rounded-full opacity-50 blur-2xl transition-opacity group-hover:opacity-80"
-        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
-      />
-      <div className="relative flex min-w-0 items-center gap-3">
-        <span className="size-1.5 rounded-full" style={{ background: accent }} />
-        <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-            {label}
-          </div>
-          <div className="font-display text-lg font-semibold tabular-nums leading-none">
-            <AnimatedNumber value={value} />
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function OverdueFilterChip({
-  label,
-  value,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-medium transition-colors",
-        active
-          ? "border-status-danger-foreground/40 bg-status-danger/15 text-status-danger-foreground"
-          : "border-border/60 bg-surface/70 text-muted-foreground hover:bg-accent hover:text-foreground",
-      )}
-    >
-      <AlertTriangle className="size-3" />
-      <span>{label}</span>
-      <span className="font-mono tabular-nums">{value}</span>
-    </button>
-  );
-}
-
 function EmptyOrdersState({
   hasActiveFilters,
   onClearFilters,
@@ -334,10 +335,7 @@ function EmptyOrdersState({
       animate={{ opacity: 1, scale: 1 }}
       className="mx-auto mt-16 flex max-w-sm flex-col items-center justify-center text-center"
     >
-      <div
-        className="mb-4 grid size-16 place-items-center rounded-2xl text-white shadow-[0_8px_28px_-8px_oklch(0.7_0.2_285_/_0.6)]"
-        style={{ background: "var(--gradient-brand)" }}
-      >
+      <div className={stateBlocks.emptyIcon} style={brandGradientStyle}>
         <Search className="size-7" />
       </div>
       <h3 className="font-display text-lg font-semibold">
@@ -372,8 +370,213 @@ function OrdersErrorState({ message, onRetry }: { message: string; onRetry: () =
   );
 }
 
+function MobileOrdersFloatingHeader({
+  groups,
+  groupValue,
+  filters,
+  setFilters,
+  totalOrders,
+  activeFilterChips,
+  mobileFiltersOpen,
+  setMobileFiltersOpen,
+  options,
+  statuses,
+  workflowIsError,
+  workflowErrorMessage,
+  onGroupChange,
+  onStatusFilterChange,
+  onRemoveFilterChip,
+  onClearAllFilters,
+  onCreateOrder,
+  headerRef,
+}: {
+  groups: { key: string; label: string; count: number; hint?: string }[];
+  groupValue: string;
+  filters: OrderListFilters;
+  setFilters: Dispatch<SetStateAction<OrderListFilters>>;
+  totalOrders: number;
+  activeFilterChips: ActiveFilterChip[];
+  mobileFiltersOpen: boolean;
+  setMobileFiltersOpen: (open: boolean) => void;
+  options: RepairDeskOptions;
+  statuses: { code: RepairOrderStatus; label: string }[];
+  workflowIsError: boolean;
+  workflowErrorMessage: string;
+  onGroupChange: (value: string) => void;
+  onStatusFilterChange: () => void;
+  onRemoveFilterChip: (key: string) => void;
+  onClearAllFilters: () => void;
+  onCreateOrder: () => void;
+  headerRef?: Ref<HTMLDivElement>;
+}) {
+  const activeGroup = groups.find((group) => group.key === groupValue);
+  const activeFilterCount = activeFilterChips.length;
+
+  return (
+    <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
+      <section className={repairOs.mobileFloatingHeaderCard}>
+        <header className={repairOs.mobileFloatingHeaderNav}>
+          <SidebarTrigger className="size-7 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
+          <div className="min-w-0 text-center">
+            <p className="truncate text-sm font-semibold leading-5">订单管理</p>
+            <p className="truncate text-[9px] leading-3 text-muted-foreground">
+              {activeGroup?.label ?? "全部"} · 共 {totalOrders} 条
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="icon"
+            className="size-7 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
+            style={brandGradientStyle}
+            onClick={onCreateOrder}
+            aria-label="新建工单"
+          >
+            <Plus className="size-4" />
+          </Button>
+        </header>
+
+        <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] gap-1.5">
+            <div className={cn(repairOs.searchBar, "h-8 rounded-xl px-2 shadow-none")}>
+              <Search className="size-3.5 shrink-0 text-muted-foreground" />
+              <Input
+                value={filters.search ?? ""}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    search: event.target.value || undefined,
+                  }))
+                }
+                placeholder="搜索订单、客户、手机"
+                className={cn(repairOs.searchInput, "h-7 text-xs")}
+              />
+            </div>
+
+            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="relative size-8 rounded-xl bg-card"
+                  aria-label="筛选订单"
+                >
+                  <Filter className="size-3.5" />
+                  {activeFilterCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold leading-4 text-primary-foreground">
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full max-w-sm p-0">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>筛选</SheetTitle>
+                </SheetHeader>
+                <FiltersPanel
+                  filters={filters}
+                  setFilters={setFilters}
+                  options={options}
+                  statuses={statuses}
+                  onClose={() => setMobileFiltersOpen(false)}
+                  onStatusFilterChange={onStatusFilterChange}
+                />
+              </SheetContent>
+            </Sheet>
+          </div>
+
+          <div className="min-w-0 overflow-x-auto pb-0.5" aria-label="流程分组">
+            <div className="relative grid min-w-[430px] grid-cols-8">
+              <span
+                aria-hidden
+                className="absolute left-[calc(100%/16)] right-[calc(100%/16)] top-3 h-px bg-border"
+              />
+              {groups.map((group) => {
+                const active = groupValue === group.key;
+                const isAll = group.key === "all";
+                const workflowKey = group.key as OrderWorkflowStatusCode;
+                const shortLabel =
+                  (isAll ? "全" : orderWorkflowMeta[workflowKey]?.shortLabel) ??
+                  group.label.slice(0, 1);
+
+                return (
+                  <button
+                    key={group.key}
+                    type="button"
+                    onClick={() => onGroupChange(group.key)}
+                    className="relative z-10 grid min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
+                    aria-pressed={active}
+                  >
+                    <span
+                      className={cn(
+                        "grid size-6 place-items-center rounded-full border text-[11px] font-semibold leading-none transition-colors",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-none"
+                          : "border-border bg-surface-muted text-muted-foreground",
+                      )}
+                    >
+                      {shortLabel}
+                    </span>
+                    <span
+                      className={cn(
+                        "flex max-w-full items-center justify-center gap-0.5 truncate text-[9px] leading-3",
+                        active ? "font-semibold text-primary" : "text-muted-foreground",
+                      )}
+                    >
+                      <span className="truncate">{group.label}</span>
+                      <span
+                        className={cn(
+                          "font-mono text-[9px] tabular-nums",
+                          active ? "text-primary" : "text-muted-foreground",
+                        )}
+                      >
+                        {group.count}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {activeFilterChips.length > 0 ? (
+            <div className="flex min-w-0 snap-x gap-1 overflow-x-auto pb-0.5">
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => onRemoveFilterChip(chip.key)}
+                  className="inline-flex h-6 max-w-[180px] shrink-0 snap-start items-center gap-1 rounded-full border border-[var(--border-panel)] bg-surface-muted px-2 text-[10px] font-medium text-muted-foreground"
+                  title="点击移除此筛选"
+                >
+                  <span className="truncate">{chip.label}</span>
+                  <X className="size-2.5 shrink-0" />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={onClearAllFilters}
+                className="h-6 shrink-0 rounded-full px-2 text-[10px] font-medium text-primary"
+              >
+                清除
+              </button>
+            </div>
+          ) : null}
+
+          {workflowIsError ? (
+            <div className="flex min-w-0 items-center gap-1 rounded-md border border-status-warning-foreground/25 bg-status-warning/10 px-2 py-1 text-[10px] text-status-warning-foreground">
+              <AlertTriangle className="size-3 shrink-0" />
+              <span className="min-w-0 truncate">状态流未加载：{workflowErrorMessage}</span>
+            </div>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function OrdersListPage() {
-  const [statusGroup, setStatusGroup] = useState<OrderListStatusGroupKey>("all");
+  const [statusGroup, setStatusGroup] = useState<"all" | OrderWorkflowStatusCode>("all");
   const [statusCode, setStatusCode] = useState<string>("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
   const [page, setPage] = useState(1);
@@ -382,7 +585,35 @@ export default function OrdersListPage() {
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    document.body.dataset.mobileWorkspaceActive = "true";
+    return () => {
+      delete document.body.dataset.mobileWorkspaceActive;
+    };
+  }, []);
+
+  useEffect(() => {
+    const header = mobileHeaderRef.current;
+    if (!header) return;
+
+    const updateHeight = () => {
+      setMobileHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(header);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, []);
 
   const {
     data: workflow,
@@ -393,10 +624,9 @@ export default function OrdersListPage() {
     queryFn: () => listOrderWorkflow(),
     staleTime: 60_000,
   });
-  const statusGroups = useMemo(() => getOrderListStatusGroups(workflow), [workflow]);
-  const statusSubTabs = useMemo(
-    () => getOrderListSubStatusTabs(workflow, statusGroup),
-    [workflow, statusGroup],
+  const statusSubTabs = useMemo<OrderListStatusTab[]>(
+    () => [{ key: "all", label: "全部状态" }],
+    [],
   );
   const workflowStatuses = useMemo(
     () =>
@@ -405,25 +635,15 @@ export default function OrdersListPage() {
   );
 
   const effectiveFilters = useMemo<OrderListFilters>(() => {
-    const activeGroup = statusGroups.find((group) => group.key === statusGroup);
-    const groupStatuses =
-      activeGroup && activeGroup.key !== "all"
-        ? activeGroup.statuses.map((status) => status.code)
-        : undefined;
-    const subStatus = statusCode !== "all" ? [statusCode as RepairOrderStatus] : undefined;
     return {
       ...filters,
-      statuses:
-        filters.statuses && filters.statuses.length > 0
-          ? filters.statuses
-          : (subStatus ?? groupStatuses),
+      workflowStatuses: statusGroup === "all" ? filters.workflowStatuses : [statusGroup],
     };
-  }, [filters, statusCode, statusGroup, statusGroups]);
+  }, [filters, statusGroup]);
 
   const {
     data: listResult,
     isLoading,
-    isFetching,
     isError: listIsError,
     error: listError,
     refetch: refetchOrders,
@@ -438,16 +658,26 @@ export default function OrdersListPage() {
     queryFn: () => getRepairDeskOptions(),
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["order-stats"],
-    queryFn: () => getOrderStats(),
-  });
-
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
-  const totalOrders = listIsError ? (stats?.total ?? 0) : (listResult?.total ?? stats?.total ?? 0);
+  const totalOrders = listResult?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
-  const approvalOverdue = stats?.approvalOverdue ?? 0;
-  const pickupOverdue = stats?.pickupOverdue ?? 0;
+  const statusGroups = useMemo(
+    () => [
+      {
+        key: "all" as const,
+        label: "全部",
+        count: listResult?.workflowCounts?.all ?? 0,
+        hint: orderStageHints.all,
+      },
+      ...orderWorkflowStatuses.map((status) => ({
+        key: status,
+        label: orderWorkflowMeta[status].shortLabel,
+        count: listResult?.workflowCounts?.[status] ?? 0,
+        hint: orderStageHints[status],
+      })),
+    ],
+    [listResult?.workflowCounts],
+  );
   const listErrorMessage =
     listError instanceof Error ? listError.message : "请检查网络、登录状态或数据库迁移。";
   const workflowErrorMessage =
@@ -466,14 +696,30 @@ export default function OrdersListPage() {
           label: `状态：${statusLabels.get(status) ?? status}`,
         }),
       );
+    } else if (filters.workflowStatuses?.length) {
+      filters.workflowStatuses.forEach((status) =>
+        chips.push({
+          key: `workflow:${status}`,
+          label: `流程：${orderWorkflowMeta[status].label}`,
+        }),
+      );
     } else if (statusCode !== "all") {
       chips.push({
         key: "substatus",
         label: `状态：${statusLabels.get(statusCode as RepairOrderStatus) ?? statusCode}`,
       });
     } else if (statusGroup !== "all") {
-      chips.push({ key: "phase", label: `阶段：${activeGroup?.label ?? statusGroup}` });
+      chips.push({
+        key: "phase",
+        label: `流程：${activeGroup?.label ?? orderWorkflowMeta[statusGroup].label}`,
+      });
     }
+    filters.exceptionStatuses?.forEach((status) =>
+      chips.push({
+        key: `exception:${status}`,
+        label: `异常：${orderExceptionMeta[status].label}`,
+      }),
+    );
     filters.types?.forEach((type) =>
       chips.push({
         key: `type:${type}`,
@@ -549,9 +795,6 @@ export default function OrdersListPage() {
     return getCommonWorkflowTargets(workflow, currents);
   }, [selected, data, workflow]);
 
-  const setOverdueFilter = (kind: OrderListFilters["overdue"]) =>
-    setFilters((f) => ({ ...f, overdue: f.overdue === kind ? undefined : kind }));
-
   const clearAllFilters = () => {
     setStatusGroup("all");
     setStatusCode("all");
@@ -576,6 +819,20 @@ export default function OrdersListPage() {
       if (key.startsWith("status:")) {
         const status = key.slice("status:".length);
         return { ...current, statuses: current.statuses?.filter((item) => item !== status) };
+      }
+      if (key.startsWith("workflow:")) {
+        const status = key.slice("workflow:".length);
+        return {
+          ...current,
+          workflowStatuses: current.workflowStatuses?.filter((item) => item !== status),
+        };
+      }
+      if (key.startsWith("exception:")) {
+        const status = key.slice("exception:".length);
+        return {
+          ...current,
+          exceptionStatuses: current.exceptionStatuses?.filter((item) => item !== status),
+        };
       }
       if (key.startsWith("type:")) {
         const type = key.slice("type:".length);
@@ -605,9 +862,14 @@ export default function OrdersListPage() {
   };
 
   const handleStatusGroupChange = (nextGroup: string) => {
-    setStatusGroup(nextGroup as OrderListStatusGroupKey);
+    setStatusGroup(nextGroup as "all" | OrderWorkflowStatusCode);
     setStatusCode("all");
-    setFilters((current) => ({ ...current, statuses: undefined, overdue: undefined }));
+    setFilters((current) => ({
+      ...current,
+      statuses: undefined,
+      workflowStatuses: undefined,
+      overdue: undefined,
+    }));
     setPage(1);
   };
 
@@ -671,65 +933,61 @@ export default function OrdersListPage() {
     event.stopPropagation();
   };
 
+  const statusGroupItems = statusGroups.map((group) => ({
+    key: group.key,
+    label: group.label,
+    count: group.count,
+    hint: group.hint,
+  }));
+
   return (
-    <div className={cn(pageShell.list, "pb-8")}>
-      {/* Hero */}
-      <motion.div
-        variants={stagger(0.05)}
-        initial="hidden"
-        animate="show"
-        className="mb-3 flex min-w-0 flex-col gap-2 sm:mb-5 sm:flex-row sm:items-end sm:justify-between sm:gap-3"
-      >
-        <motion.div variants={fadeUp} className="min-w-0">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
-            工作台 / 工单
-          </p>
-          <h1 className="mt-0.5 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-            <span className="gradient-text">工单</span>
-            <span className="ml-2 whitespace-nowrap align-middle text-base font-normal text-muted-foreground">
-              {listIsError ? `统计${totalOrders}条` : `共${totalOrders}条`}
-            </span>
-            {isFetching && !isLoading && (
-              <span className="ml-2 align-middle text-xs font-normal text-muted-foreground">
-                更新中
-              </span>
-            )}
-          </h1>
-        </motion.div>
-        <motion.div
-          variants={fadeUp}
-          className="hidden min-w-0 flex-wrap items-center justify-end gap-2 sm:flex"
-        >
-          <KpiPill label="今日新建" value={stats?.today ?? 0} accent="oklch(0.7 0.2 285)" />
-          <KpiPill label="进行中" value={stats?.inProgress ?? 0} accent="oklch(0.78 0.16 200)" />
-          <KpiPill label="未结清" value={stats?.unpaid ?? 0} accent="oklch(0.78 0.18 75)" />
-          {approvalOverdue > 0 && (
-            <button
-              onClick={() => setOverdueFilter("approval")}
-              className={cn(
-                "transition-transform hover:-translate-y-0.5",
-                filters.overdue === "approval" && "scale-105",
-              )}
-            >
-              <KpiPill label="报价超期" value={approvalOverdue} accent="oklch(0.7 0.22 30)" />
-            </button>
-          )}
-          {pickupOverdue > 0 && (
-            <button
-              onClick={() => setOverdueFilter("pickup")}
-              className={cn(
-                "transition-transform hover:-translate-y-0.5",
-                filters.overdue === "pickup" && "scale-105",
-              )}
-            >
-              <KpiPill label="取件超期" value={pickupOverdue} accent="oklch(0.72 0.2 50)" />
-            </button>
-          )}
-        </motion.div>
-      </motion.div>
+    <div
+      className={cn(repairOs.mobileListFloatingPage, "md:pb-8")}
+      style={
+        {
+          "--orders-mobile-header-offset": `${mobileHeaderHeight + 8}px`,
+        } as CSSProperties
+      }
+    >
+      <MobileOrdersFloatingHeader
+        headerRef={mobileHeaderRef}
+        groups={statusGroupItems}
+        groupValue={statusGroup}
+        filters={filters}
+        setFilters={setFilters}
+        totalOrders={totalOrders}
+        activeFilterChips={activeFilterChips}
+        mobileFiltersOpen={mobileFiltersOpen}
+        setMobileFiltersOpen={setMobileFiltersOpen}
+        options={options}
+        statuses={workflowStatuses}
+        workflowIsError={workflowIsError}
+        workflowErrorMessage={workflowErrorMessage}
+        onGroupChange={handleStatusGroupChange}
+        onStatusFilterChange={resetWorkflowFilters}
+        onRemoveFilterChip={removeFilterChip}
+        onClearAllFilters={clearAllFilters}
+        onCreateOrder={() => setNewOrderOpen(true)}
+      />
+
+      <div className="hidden md:block">
+        <OrderStatusFilterControls
+          groups={statusGroupItems}
+          subTabs={statusSubTabs}
+          groupValue={statusGroup}
+          statusValue={statusCode}
+          onGroupChange={handleStatusGroupChange}
+          onStatusChange={handleStatusCodeChange}
+        />
+      </div>
 
       {/* Toolbar */}
-      <div className="glass-card mb-4 flex min-w-0 flex-col gap-2 overflow-hidden p-2.5 sm:gap-3 sm:p-3">
+      <div
+        className={cn(
+          repairOs.mobileInfoCard,
+          "mb-4 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 sm:gap-3 sm:p-3 md:flex",
+        )}
+      >
         <div className={cn(layoutGuards.wrapRow, "items-stretch")}>
           <div className="relative min-w-0 flex-[1_1_260px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -737,7 +995,7 @@ export default function OrdersListPage() {
               value={filters.search ?? ""}
               onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined })}
               placeholder="搜索工单号、客户姓名、电话或 IMEI"
-              className="h-9 border-border/60 bg-surface/60 pl-8 backdrop-blur transition-all focus-visible:border-primary/50 focus-visible:shadow-[0_0_0_4px_oklch(0.7_0.2_285_/_0.18)]"
+              className={controls.searchInput}
             />
           </div>
           <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
@@ -774,47 +1032,12 @@ export default function OrdersListPage() {
           <Button
             type="button"
             size="sm"
-            className="h-9 gap-1.5 border-0 text-primary-foreground shadow-[0_4px_20px_-6px_oklch(0.7_0.2_285_/_0.6)]"
-            style={{ background: "var(--gradient-brand)" }}
+            className={cn("hidden h-9 gap-1.5 lg:inline-flex", controls.brandButton)}
+            style={brandGradientStyle}
             onClick={() => setNewOrderOpen(true)}
           >
-            <Plus className="size-3.5" /> 新建
+            <Plus className="size-3.5" /> 新建工单
           </Button>
-        </div>
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <OrderStatusFilterControls
-              groups={statusGroups.map((group) => ({ key: group.key, label: group.label }))}
-              subTabs={statusSubTabs}
-              groupValue={statusGroup}
-              statusValue={statusCode}
-              onGroupChange={handleStatusGroupChange}
-              onStatusChange={handleStatusCodeChange}
-            />
-            {(approvalOverdue > 0 || pickupOverdue > 0) && (
-              <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {approvalOverdue > 0 && (
-                  <OverdueFilterChip
-                    label="报价超期"
-                    value={approvalOverdue}
-                    active={filters.overdue === "approval"}
-                    onClick={() => setOverdueFilter("approval")}
-                  />
-                )}
-                {pickupOverdue > 0 && (
-                  <OverdueFilterChip
-                    label="取件超期"
-                    value={pickupOverdue}
-                    active={filters.overdue === "pickup"}
-                    onClick={() => setOverdueFilter("pickup")}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            选中 <span className="text-foreground">{selected.length}</span>
-          </span>
         </div>
         {workflowIsError && (
           <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-status-warning-foreground/25 bg-status-warning/10 px-2.5 py-2 text-xs text-status-warning-foreground">
@@ -854,7 +1077,7 @@ export default function OrdersListPage() {
       {/* List */}
       <div className="pb-8">
         {isLoading || isPageOutOfRange ? (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}
@@ -865,212 +1088,238 @@ export default function OrdersListPage() {
           <EmptyOrdersState hasActiveFilters={hasActiveFilters} onClearFilters={clearAllFilters} />
         ) : (
           <>
-            {/* Desktop table */}
-            <div className="glass-card hidden min-w-0 overflow-hidden lg:block">
-              <div role="table" className={cn(density.tableDense, "text-[12px]")}>
-                <div
-                  role="row"
-                  className={cn(
-                    orderTableGrid,
-                    "border-b border-border/40 bg-surface/40 text-muted-foreground",
-                  )}
-                >
-                  <div className="px-3 py-2">
-                    <Checkbox
-                      checked={allSelected}
-                      onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
-                    />
+            {/* Desktop work queue */}
+            <div className="hidden min-w-0 lg:block">
+              <div className="mb-2 flex min-w-0 items-center justify-between gap-2 px-1">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">工单工作队列</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    点击任意工单查看详情，勾选后可批量流转。
                   </div>
-                  <div className="min-w-0 px-2 py-2 text-left font-medium">工单号</div>
-                  <div className="min-w-0 px-2 py-2 text-left font-medium">客户</div>
-                  <div className="min-w-0 px-2 py-2 text-left font-medium">设备</div>
-                  <div className="min-w-0 px-2 py-2 text-left font-medium">故障</div>
-                  <div className="px-2 py-2 text-left font-medium">状态</div>
-                  <div className="px-2 py-2 text-right font-medium">报价</div>
-                  <div className="px-2 py-2 text-left font-medium">创建/技师</div>
-                  <div className="px-2 py-2" />
                 </div>
-                <motion.div
-                  role="rowgroup"
-                  variants={stagger(0.025)}
-                  initial="hidden"
-                  animate="show"
-                >
-                  {data.map((o) => {
-                    const checked = selected.includes(o.id);
-                    return (
-                      <motion.div
-                        key={o.id}
-                        variants={fadeUp}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => openDetail(o.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openDetail(o.id);
-                          }
-                        }}
+                <span className="text-xs text-muted-foreground">
+                  选中 <span className="text-foreground">{selected.length}</span>
+                </span>
+              </div>
+              <div
+                className={cn(
+                  orderQueueGrid,
+                  "mb-1 rounded-lg border border-border/40 bg-surface/45 px-1 text-[11px] font-medium text-muted-foreground",
+                )}
+              >
+                <div className="px-2 py-1.5" onClick={stopRowClick}>
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
+                  />
+                </div>
+                <div className="min-w-0 px-2 py-1.5">工单</div>
+                <div className="min-w-0 px-2 py-1.5">客户</div>
+                <div className="min-w-0 px-2 py-1.5">设备 / 故障</div>
+                <div className="min-w-0 px-2 py-1.5">状态提醒</div>
+                <div className="px-2 py-1.5 text-right">金额</div>
+                <div className="px-2 py-1.5">时间 / 技师</div>
+                <div className="px-2 py-1.5">类型</div>
+                <div className="px-2 py-1.5" />
+              </div>
+              <motion.div
+                role="list"
+                variants={stagger(0.025)}
+                initial="hidden"
+                animate="show"
+                className="space-y-1.5"
+              >
+                {data.map((o) => {
+                  const checked = selected.includes(o.id);
+                  const next = getWorkflowNextActions(workflow, o.status);
+                  const workflowStatus =
+                    o.workflow_status ?? workflowStatusFromLegacyStatus(o.status);
+                  const exceptionStatus = o.exception_status;
+                  return (
+                    <motion.div
+                      key={o.id}
+                      variants={fadeUp}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openDetail(o.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openDetail(o.id);
+                        }
+                      }}
+                      className={cn(
+                        orderQueueGrid,
+                        "group relative min-w-0 cursor-pointer overflow-hidden rounded-lg border border-border/55 bg-surface/80 text-xs shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent/25 hover:shadow-[var(--shadow-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                        checked && "border-primary/35 bg-primary/10",
+                      )}
+                    >
+                      <span
+                        aria-hidden
                         className={cn(
-                          orderTableGrid,
-                          "group relative min-w-0 cursor-pointer border-b border-border/30 text-xs transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                          checked && "bg-accent/40",
+                          "absolute inset-y-0 left-0 w-[3px] transition-opacity",
+                          checked ? "opacity-100" : "opacity-80",
                         )}
-                      >
-                        <div
-                          className="relative flex items-center px-3 py-1.5"
-                          onClick={stopRowClick}
+                        style={brandGradientStyle}
+                      />
+                      <div className="flex items-center px-2 py-2 pl-3" onClick={stopRowClick}>
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) =>
+                            setSelected((prev) =>
+                              v ? [...prev, o.id] : prev.filter((x) => x !== o.id),
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="min-w-0 px-2 py-2">
+                        <span
+                          className="block truncate font-mono text-[11px] font-semibold leading-4 text-primary"
+                          title={o.public_no}
                         >
-                          <span
-                            className={cn(
-                              "absolute inset-y-0 left-0 w-[2px] origin-top transition-transform duration-300",
-                              checked ? "scale-y-100" : "scale-y-0 group-hover:scale-y-100",
-                            )}
-                            style={{ background: "var(--gradient-brand)" }}
-                          />
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) =>
-                              setSelected((prev) =>
-                                v ? [...prev, o.id] : prev.filter((x) => x !== o.id),
-                              )
-                            }
-                          />
-                        </div>
-                        <div className="min-w-0 px-2 py-1.5">
-                          <span
-                            className="block truncate font-mono text-[11px] font-medium leading-4 text-primary"
-                            title={o.public_no}
+                          {o.public_no}
+                        </span>
+                        {o.accessory_notes ? (
+                          <div
+                            className={cn(density.metaDense, "mt-0.5")}
+                            title={o.accessory_notes}
                           >
-                            {o.public_no}
-                          </span>
-                          <div className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden">
-                            <OrderTypeBadge
-                              type={o.order_type}
-                              className="max-w-full text-[10px]"
-                            />
+                            留存：{o.accessory_notes}
                           </div>
-                          {o.accessory_notes && (
-                            <div
-                              className={cn(density.metaDense, "mt-0.5")}
-                              title={o.accessory_notes}
-                            >
-                              备注：{o.accessory_notes}
-                            </div>
-                          )}
+                        ) : (
+                          <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                            无留存备注
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 px-2 py-2">
+                        <div className="truncate font-semibold leading-4" title={o.customer_name}>
+                          {o.customer_name || "-"}
                         </div>
-                        <div className="min-w-0 px-2 py-1.5">
-                          <div className="truncate font-medium leading-4" title={o.customer_name}>
-                            {o.customer_name || "-"}
-                          </div>
-                          <PhoneText
-                            value={o.customer_phone}
-                            className="block truncate text-[11px] leading-4"
-                          />
-                        </div>
-                        <div className="min-w-0 px-2 py-1.5">
-                          <div className="truncate leading-4" title={o.device_label}>
-                            {o.device_label || "-"}
-                          </div>
-                          {o.device_imei && (
-                            <div
-                              className="truncate font-mono text-[11px] leading-4 text-muted-foreground"
-                              title={o.device_imei}
-                            >
-                              {o.device_imei.slice(-10)}
-                            </div>
-                          )}
+                        <PhoneText
+                          value={o.customer_phone}
+                          className="block truncate text-[11px] leading-4"
+                        />
+                      </div>
+                      <div className="min-w-0 px-2 py-2">
+                        <div className="truncate font-medium leading-4" title={o.device_label}>
+                          {o.device_label || "-"}
                         </div>
                         <div
-                          className="min-w-0 truncate px-2 py-1.5 leading-4 text-muted-foreground"
+                          className="truncate text-[11px] leading-4 text-muted-foreground"
                           title={o.issue_description}
                         >
                           {o.issue_description || "-"}
                         </div>
-                        <div className="min-w-0 px-2 py-1.5">
-                          <div className="flex min-w-0 flex-col items-start gap-1">
+                        {o.device_imei && (
+                          <div
+                            className="truncate font-mono text-[10px] leading-4 text-muted-foreground"
+                            title={o.device_imei}
+                          >
+                            IMEI {o.device_imei.slice(-10)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 px-2 py-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1">
+                          <StatusBadge
+                            status={o.status}
+                            label={orderWorkflowMeta[workflowStatus].label}
+                            tone={orderWorkflowMeta[workflowStatus].tone}
+                            className="max-w-full text-[10px]"
+                          />
+                          {exceptionStatus && (
                             <StatusBadge
                               status={o.status}
-                              label={getWorkflowStatus(workflow, o.status)?.label}
-                              tone={getWorkflowStatus(workflow, o.status)?.tone}
+                              label={orderExceptionMeta[exceptionStatus].shortLabel}
+                              tone={orderExceptionMeta[exceptionStatus].tone}
                               className="max-w-full text-[10px]"
                             />
-                            {(o.approval_overdue || o.pickup_overdue) && (
-                              <span className="inline-flex max-w-full shrink-0 items-center gap-1 truncate whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30">
-                                <AlertTriangle className="size-2.5 shrink-0" />
-                                {o.approval_overdue ? "报价超期" : "取件超期"}
-                              </span>
+                          )}
+                          {(o.approval_overdue || o.pickup_overdue) && (
+                            <span className="inline-flex max-w-full shrink-0 items-center gap-1 truncate whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30">
+                              <AlertTriangle className="size-2.5 shrink-0" />
+                              {o.approval_overdue ? "报价超期" : "取件超期"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 truncate text-[11px] leading-4 text-muted-foreground">
+                          {next.primary ? `下一步：${next.primary.label}` : "暂无推荐流转"}
+                        </div>
+                      </div>
+                      <div className="min-w-0 px-2 py-2 text-right">
+                        <MoneyText
+                          amount={o.quotation_amount}
+                          className="whitespace-nowrap text-sm font-semibold"
+                        />
+                        <div
+                          className={cn(
+                            "whitespace-nowrap text-[11px] leading-4",
+                            o.is_paid ? "text-status-success-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {o.is_paid ? "已结清" : "未结清"}
+                        </div>
+                      </div>
+                      <div className="min-w-0 px-2 py-2 text-[11px] text-muted-foreground">
+                        <div className="flex min-w-0 items-center gap-1 whitespace-nowrap">
+                          <Clock className="size-3 shrink-0" />
+                          {new Date(o.created_at).toLocaleDateString("zh-CN")}
+                        </div>
+                        <div className="truncate leading-4" title={o.technician_name}>
+                          {o.technician_name || "-"}
+                        </div>
+                      </div>
+                      <div className="min-w-0 px-2 py-2">
+                        <OrderTypeBadge type={o.order_type} className="max-w-full text-[10px]" />
+                      </div>
+                      <div className="px-1.5 py-2" onClick={stopRowClick}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="size-7">
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/orders/${o.id}`}>查看详情</Link>
+                            </DropdownMenuItem>
+                            {next.primary && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                  下一步
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    transition.mutate({ id: o.id, to: next.primary!.to })
+                                  }
+                                  className="font-medium text-primary"
+                                >
+                                  <ArrowRight className="mr-2 size-3.5" />
+                                  {next.primary.label}
+                                </DropdownMenuItem>
+                                {next.secondary.map((a) => (
+                                  <DropdownMenuItem
+                                    key={a.to}
+                                    onClick={() => transition.mutate({ id: o.id, to: a.to })}
+                                  >
+                                    {a.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </>
                             )}
-                          </div>
-                        </div>
-                        <div className="min-w-0 px-2 py-1.5 text-right">
-                          <MoneyText amount={o.quotation_amount} className="whitespace-nowrap" />
-                          <div className="whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
-                            {o.is_paid ? "已结清" : "未结清"}
-                          </div>
-                        </div>
-                        <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground">
-                          <div className="flex min-w-0 items-center gap-1 whitespace-nowrap">
-                            <Clock className="size-3 shrink-0" />
-                            {new Date(o.created_at).toLocaleDateString("zh-CN")}
-                          </div>
-                          <div className="truncate leading-4" title={o.technician_name}>
-                            {o.technician_name || "-"}
-                          </div>
-                        </div>
-                        <div className="px-1.5 py-1.5" onClick={stopRowClick}>
-                          {(() => {
-                            const next = getWorkflowNextActions(workflow, o.status);
-                            return (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="size-7">
-                                    <MoreHorizontal className="size-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-52">
-                                  <DropdownMenuItem asChild>
-                                    <Link href={`/orders/${o.id}`}>查看详情</Link>
-                                  </DropdownMenuItem>
-                                  {next.primary && (
-                                    <>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                                        下一步
-                                      </DropdownMenuLabel>
-                                      <DropdownMenuItem
-                                        onClick={() =>
-                                          transition.mutate({ id: o.id, to: next.primary!.to })
-                                        }
-                                        className="font-medium text-primary"
-                                      >
-                                        <ArrowRight className="mr-2 size-3.5" />
-                                        {next.primary.label}
-                                      </DropdownMenuItem>
-                                      {next.secondary.map((a) => (
-                                        <DropdownMenuItem
-                                          key={a.to}
-                                          onClick={() => transition.mutate({ id: o.id, to: a.to })}
-                                        >
-                                          {a.label}
-                                        </DropdownMenuItem>
-                                      ))}
-                                    </>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => printRows([o])}>
-                                    <Printer className="mr-2 size-3.5" /> 打印
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            );
-                          })()}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </motion.div>
-              </div>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => printRows([o])}>
+                              <Printer className="mr-2 size-3.5" /> 打印
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
             </div>
 
             {/* Mobile and tablet cards */}
@@ -1078,65 +1327,11 @@ export default function OrdersListPage() {
               variants={stagger(0.04)}
               initial="hidden"
               animate="show"
-              className="space-y-2 lg:hidden"
+              className="space-y-1.5 lg:hidden"
             >
-              {data.map((o) => (
-                <motion.div key={o.id} variants={fadeUp}>
-                  <Link
-                    href={`/orders/${o.id}`}
-                    className="glass-card group relative block min-w-0 overflow-hidden px-3 py-2.5 transition-transform active:scale-[0.99]"
-                  >
-                    <span
-                      aria-hidden
-                      className="absolute inset-y-0 left-0 w-[3px]"
-                      style={{ background: "var(--gradient-brand)" }}
-                    />
-                    <div className="grid min-w-0 grid-cols-[58px_minmax(0,1fr)_74px] gap-2 pl-2 sm:grid-cols-[72px_minmax(0,1fr)_88px]">
-                      <div className="flex min-w-0 flex-col items-start gap-1">
-                        <StatusBadge
-                          status={o.status}
-                          label={getWorkflowStatus(workflow, o.status)?.label}
-                          tone={getWorkflowStatus(workflow, o.status)?.tone}
-                          className="max-w-full text-[10px]"
-                        />
-                        <OrderTypeBadge type={o.order_type} className="text-[10px]" />
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="truncate font-mono text-xs font-medium text-primary">
-                          {o.public_no}
-                        </div>
-                        <div className="truncate text-sm font-medium leading-5">
-                          {o.customer_name || "-"}
-                          <span className="ml-1 text-xs font-normal text-muted-foreground">
-                            · {o.device_label}
-                          </span>
-                        </div>
-                        <PhoneText value={o.customer_phone} className="block truncate" />
-                        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {o.issue_description}
-                        </div>
-                        {o.accessory_notes && (
-                          <div className="truncate text-xs text-muted-foreground">
-                            备注：{o.accessory_notes}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0 text-right">
-                        <MoneyText amount={o.quotation_amount} className="text-sm font-semibold" />
-                        <div className="text-[10px] leading-4 text-muted-foreground">
-                          {o.is_paid ? "已结清" : "未结清"}
-                        </div>
-                        <div className="mt-1 truncate text-[10px] leading-4 text-muted-foreground">
-                          {o.technician_name || "-"}
-                        </div>
-                        <div className="truncate text-[10px] leading-4 text-muted-foreground">
-                          {new Date(o.created_at).toLocaleDateString("zh-CN")}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
+              {data.map((order) => (
+                <motion.div key={order.id} variants={fadeUp}>
+                  <OrderMobileCard order={order} />
                 </motion.div>
               ))}
             </motion.div>
@@ -1201,11 +1396,7 @@ export default function OrdersListPage() {
               >
                 <Printer className="size-3.5" /> 打印
               </Button>
-              <Button
-                size="sm"
-                className="border-0 text-white"
-                style={{ background: "var(--gradient-brand)" }}
-              >
+              <Button size="sm" className={controls.brandButton} style={brandGradientStyle}>
                 发送通知
               </Button>
             </div>
@@ -1300,7 +1491,7 @@ function OrderStatusFilterControls({
   onGroupChange,
   onStatusChange,
 }: {
-  groups: { key: string; label: string }[];
+  groups: { key: string; label: string; count: number; hint?: string }[];
   subTabs: OrderListStatusTab[];
   groupValue: string;
   statusValue: string;
@@ -1308,104 +1499,150 @@ function OrderStatusFilterControls({
   onStatusChange: (value: string) => void;
 }) {
   const showSubTabs = groupValue !== "all" && subTabs.length > 1;
+  const activeGroup = groups.find((group) => group.key === groupValue);
 
   return (
-    <div className="min-w-0 flex-1">
-      <div className="hidden min-w-0 flex-col gap-1.5 sm:flex">
-        <SegmentedTabs
-          tabs={groups}
-          value={groupValue}
-          onChange={onGroupChange}
-          layoutId="orders-status-group-indicator"
-        />
+    <div className={cn(repairOs.mobileInfoCard, "p-2.5 sm:p-3")}>
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <ListChecks className="size-3.5" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold">流程分组</div>
+            <div className="truncate text-[11px] text-muted-foreground">
+              {groupValue === "all"
+                ? "按客户当前所处阶段查看工单"
+                : `当前：${activeGroup?.label ?? groupValue} · ${activeGroup?.count ?? 0} 条`}
+            </div>
+          </div>
+        </div>
+        <span className="hidden text-[11px] text-muted-foreground sm:inline">
+          点击阶段查看对应客户
+        </span>
+      </div>
+
+      <div className="hidden min-w-0 gap-1.5 sm:grid sm:grid-cols-4 lg:grid-cols-8">
+        {groups.map((group, index) => {
+          const active = groupValue === group.key;
+          const isAll = group.key === "all";
+          const workflowKey = group.key as OrderWorkflowStatusCode;
+          const tone = isAll ? "neutral" : orderWorkflowMeta[workflowKey]?.tone;
+          return (
+            <button
+              key={group.key}
+              type="button"
+              onClick={() => onGroupChange(group.key)}
+              className={cn(
+                "relative min-w-0 overflow-hidden rounded-lg border px-2.5 py-2 text-left transition-all",
+                active
+                  ? "border-primary/40 bg-primary/10 text-foreground shadow-[var(--shadow-card)]"
+                  : "border-border/50 bg-surface/65 text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+              )}
+            >
+              {active && (
+                <motion.span
+                  layoutId="orders-flow-stage-card"
+                  className="absolute inset-x-0 top-0 h-0.5"
+                  style={brandGradientStyle}
+                  transition={indicatorSpring}
+                />
+              )}
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="block truncate text-xs font-semibold">{group.label}</span>
+                  <span className="mt-0.5 block truncate text-[10px] leading-4 text-muted-foreground">
+                    {group.hint ?? "当前阶段"}
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold tabular-nums",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : tone === "success"
+                        ? "bg-status-success text-status-success-foreground"
+                        : tone === "warn"
+                          ? "bg-status-warn text-status-warn-foreground"
+                          : tone === "progress"
+                            ? "bg-status-progress text-status-progress-foreground"
+                            : "bg-surface-muted",
+                  )}
+                >
+                  {isAll ? "全" : index}
+                </span>
+              </div>
+              <div className="mt-1 flex items-end justify-between gap-2">
+                <span className="font-mono text-lg font-semibold leading-none tabular-nums text-foreground">
+                  {group.count}
+                </span>
+                <span className="text-[10px] leading-none text-muted-foreground">条</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex min-w-0 snap-x gap-1.5 overflow-x-auto pb-1 sm:hidden">
+        {groups.map((group) => {
+          const active = groupValue === group.key;
+          return (
+            <button
+              key={group.key}
+              type="button"
+              onClick={() => onGroupChange(group.key)}
+              className={cn(
+                "inline-flex h-9 shrink-0 snap-start items-center gap-2 rounded-full border px-2.5 text-xs font-medium transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)]",
+              )}
+            >
+              <span>{group.label}</span>
+              <span
+                className={cn(
+                  "font-mono text-[10px] font-semibold leading-none tabular-nums",
+                  active
+                    ? "border-l border-primary-foreground/35 pl-2 text-primary-foreground"
+                    : "rounded-full bg-surface-muted px-1.5 py-0.5 text-foreground",
+                )}
+              >
+                {group.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <AnimatePresence initial={false}>
         {showSubTabs && (
-          <SegmentedTabs
-            tabs={subTabs}
-            value={statusValue}
-            onChange={onStatusChange}
-            layoutId="orders-status-sub-indicator"
-            variant="secondary"
-          />
-        )}
-      </div>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:hidden">
-        <Select value={groupValue} onValueChange={onGroupChange}>
-          <SelectTrigger className="h-8 min-w-0 text-xs">
-            <SelectValue placeholder="阶段" />
-          </SelectTrigger>
-          <SelectContent className="max-w-[calc(100vw-24px)]">
-            {groups.map((group) => (
-              <SelectItem key={group.key} value={group.key}>
-                {group.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusValue} onValueChange={onStatusChange} disabled={groupValue === "all"}>
-          <SelectTrigger className="h-8 min-w-0 text-xs">
-            <SelectValue placeholder="状态" />
-          </SelectTrigger>
-          <SelectContent className="max-w-[calc(100vw-24px)]">
-            {subTabs.map((status) => (
-              <SelectItem key={status.key} value={status.key}>
-                {status.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-}
-
-function SegmentedTabs({
-  tabs,
-  value,
-  onChange,
-  layoutId = "orders-tab-indicator",
-  variant = "primary",
-}: {
-  tabs: { key: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-  layoutId?: string;
-  variant?: "primary" | "secondary";
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 max-w-full flex-wrap items-center gap-0.5 border border-border/60 bg-surface/60 backdrop-blur",
-        variant === "secondary" ? "rounded-md p-0.5" : "rounded-lg p-1",
-      )}
-    >
-      {tabs.map((t) => {
-        const active = value === t.key;
-        return (
-          <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
-            className={cn(
-              "relative whitespace-nowrap rounded-md font-medium transition-colors",
-              variant === "secondary" ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
-              active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="mt-2 hidden min-w-0 flex-wrap items-center gap-1.5 sm:flex"
           >
-            {active && (
-              <motion.span
-                layoutId={layoutId}
-                className="absolute inset-0 -z-10 rounded-md"
-                style={{
-                  background:
-                    "linear-gradient(120deg, oklch(0.7 0.2 285 / 0.25), oklch(0.78 0.16 200 / 0.18))",
-                  boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.08)",
-                }}
-                transition={indicatorSpring}
-              />
-            )}
-            {t.label}
-          </button>
-        );
-      })}
+            {subTabs.map((status) => {
+              const active = statusValue === status.key;
+              return (
+                <button
+                  key={status.key}
+                  type="button"
+                  onClick={() => onStatusChange(status.key)}
+                  className={cn(
+                    "relative h-7 min-w-0 rounded-md border px-2.5 text-xs font-medium transition-colors",
+                    active
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border/50 bg-surface/70 text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  {status.label}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -11,25 +11,16 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { appShell, brandGradientStyle, controls } from "@/lib/ui-patterns";
+import { routeLabels } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
-
-const labels: Record<string, string> = {
-  "": "概览",
-  orders: "工单",
-  customers: "客户",
-  inventory: "回收库存",
-  messages: "消息模板",
-  platform: "平台审批",
-  settings: "设置",
-  new: "新建",
-};
 
 function useCrumbs() {
   const pathname = usePathname() ?? "/";
   const segs = pathname.split("/").filter(Boolean);
   if (segs.length === 0) return [{ label: "概览", href: "/" }];
   return segs.map((seg, i) => ({
-    label: labels[seg] ?? decodeURIComponent(seg),
+    label: routeLabels[seg] ?? decodeURIComponent(seg),
     href: "/" + segs.slice(0, i + 1).join("/"),
   }));
 }
@@ -43,6 +34,8 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const router = useRouter();
   const shell = useStoreShellContext();
   const isOrdersList = pathname === "/orders";
+  const isMobileWorkspaceRoute =
+    isOrdersList || pathname === "/orders/new" || /^\/orders\/[^/]+(?:\/task)?$/.test(pathname);
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
 
   const handleNewOrder = () => {
@@ -55,15 +48,26 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
 
   return (
     <motion.header
+      data-app-bar="true"
       className={cn(
-        "sticky top-0 z-30 flex h-14 w-full min-w-0 max-w-full items-center overflow-hidden border-b backdrop-blur-xl backdrop-saturate-150 transition-colors",
-        scrolled ? "border-border/50 bg-background/70" : "border-transparent bg-background/30",
+        appShell.topBar,
+        isMobileWorkspaceRoute && "max-md:hidden",
+        scrolled ? "shadow-[var(--shadow-card)]" : "shadow-none",
       )}
     >
       <div className="flex h-full w-full min-w-0 items-center gap-2 px-3 md:px-5">
-        <SidebarTrigger className="size-9" />
+        <SidebarTrigger className="size-10 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 
-        <nav className="ml-1 hidden min-w-0 shrink items-center gap-1.5 text-sm sm:flex">
+        <div className="min-w-0 flex-1 md:hidden">
+          <p className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70">
+            RepairDesk
+          </p>
+          <p className="truncate text-sm font-semibold leading-5 text-foreground">
+            {activeStoreName}
+          </p>
+        </div>
+
+        <nav className="ml-1 hidden min-w-0 shrink items-center gap-1.5 text-sm md:flex">
           {crumbs.map((c, i) => (
             <span key={c.href} className="flex items-center gap-1.5 truncate">
               {i > 0 && <span className="text-muted-foreground/40">/</span>}
@@ -84,7 +88,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
         <button
           type="button"
           onClick={onOpenCommand}
-          className="ml-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center rounded-md border border-border/50 bg-surface/60 text-muted-foreground transition-colors hover:text-foreground md:w-56 md:shrink md:justify-start md:gap-2 md:px-3 lg:w-64 xl:w-80"
+          className="ml-0 flex size-10 min-w-0 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:text-foreground md:ml-auto md:h-9 md:w-56 md:shrink md:justify-start md:gap-2 md:rounded-md md:bg-surface/60 md:px-3 md:shadow-none lg:w-64 xl:w-80"
         >
           <Search className="size-4" />
           <span className="hidden min-w-0 truncate text-sm md:inline">搜索工单、客户…</span>
@@ -93,7 +97,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
           </kbd>
         </button>
 
-        <ThemeToggle />
+        <ThemeToggle className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 
         <Button
           variant="ghost"
@@ -128,8 +132,8 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
         <Button
           type="button"
           size="sm"
-          className="hidden h-9 gap-1.5 border-0 text-white shadow-[0_4px_20px_-6px_oklch(0.7_0.2_285_/_0.6)] sm:inline-flex"
-          style={{ background: "var(--gradient-brand)" }}
+          className={cn("hidden h-9 gap-1.5 sm:inline-flex", controls.brandButton)}
+          style={brandGradientStyle}
           onClick={handleNewOrder}
         >
           <Plus className="size-4" />

@@ -168,6 +168,8 @@ export async function createInventoryIntake(
     now,
   );
   const id = crypto.randomUUID();
+  const legacyPayload = input.quote_payload ?? {};
+  const buybackQuotePayload = recordOrEmpty(legacyPayload.buyback_quote);
   const payload = {
     id,
     store_id: storeId,
@@ -187,6 +189,18 @@ export async function createInventoryIntake(
     currency_code: CURRENCY_CODE,
     payment_method: nullable(input.payment_method),
     notes: nullable(input.notes),
+    legacy_payload: {
+      ...legacyPayload,
+      ...(input.quoted_offer !== undefined || input.quote_expires_at
+        ? {
+            buyback_quote: {
+              ...buybackQuotePayload,
+              final_offer: money(input.quoted_offer),
+              quote_expires_at: input.quote_expires_at ?? null,
+            },
+          }
+        : {}),
+    },
     created_by: actor.id ?? null,
     updated_by: actor.id ?? null,
     created_at: now,
@@ -970,4 +984,11 @@ function asRecord(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return { value };
+}
+
+function recordOrEmpty(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
 }

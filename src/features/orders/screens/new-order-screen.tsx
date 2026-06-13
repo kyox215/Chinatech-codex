@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import {
+  ArrowLeft,
+  Banknote,
+  CheckCircle2,
+  ClipboardList,
+  CircleAlert,
+  Smartphone,
+  X,
+} from "lucide-react";
 
 import { toFaultPriceItems } from "@/components/orders/fault-diagnosis-picker";
 import { Button } from "@/components/ui/button";
@@ -32,7 +40,8 @@ import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { platformKeys } from "@/features/platform/api/query-keys";
-import { detailWorkspace, layoutGuards, pageHeader } from "@/lib/ui-patterns";
+import { formatMoney } from "@/lib/money";
+import { detailWorkspace, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 export function NewOrderScreen({
@@ -49,6 +58,15 @@ export function NewOrderScreen({
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
   const [knownDevices, setKnownDevices] = useState<Device[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
+
+  useEffect(() => {
+    if (surface !== "page") return;
+    document.body.dataset.mobileWorkspaceActive = "true";
+    return () => {
+      delete document.body.dataset.mobileWorkspaceActive;
+    };
+  }, [surface]);
+
   const { data: onboardingStatus } = useQuery({
     queryKey: platformKeys.onboardingStatus,
     queryFn: getOnboardingStatus,
@@ -74,6 +92,7 @@ export function NewOrderScreen({
   );
   const defaultCreateStatus =
     createStatuses.find((status) => status.is_default_create_status) ?? createStatuses[0];
+  const selectedCreateStatus = createStatuses.find((status) => status.code === form.status);
 
   useEffect(() => {
     if (!storeSettings) return;
@@ -190,7 +209,17 @@ export function NewOrderScreen({
 
     const params = new URLSearchParams(window.location.search);
     const customerId = params.get("customerId");
+    const prefillIdentifier = params.get("imei") ?? params.get("serial") ?? "";
+
+    const applyPrefillIdentifier = () => {
+      if (!prefillIdentifier) return;
+      setForm((current) =>
+        current.imei ? current : { ...current, imei: prefillIdentifier, deviceId: undefined },
+      );
+    };
+
     if (!customerId) {
+      applyPrefillIdentifier();
       setQueryPrefilled(true);
       return;
     }
@@ -210,6 +239,7 @@ export function NewOrderScreen({
             ? `已从客户档案带入：${detail.customer.name} / ${selectedDevice.brand} ${selectedDevice.model}`
             : `已从客户档案带入：${detail.customer.name}`,
         );
+        applyPrefillIdentifier();
       })
       .catch((error: Error) => toast.error(error.message))
       .finally(() => {
@@ -296,9 +326,20 @@ export function NewOrderScreen({
         layoutGuards.noPageOverflow,
         surface === "dialog"
           ? cn(detailWorkspace.root, "max-h-[calc(100svh-16px)] sm:max-h-[calc(100svh-32px)]")
-          : "mx-auto max-w-7xl px-3 py-3 sm:px-5 lg:px-6",
+          : cn(repairOs.mobilePage, "px-2 pt-0 sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-3 lg:px-6"),
       )}
     >
+      {surface === "page" ? (
+        <NewOrderMobileHeader
+          form={form}
+          total={total}
+          balance={balance}
+          operatorName={operatorName}
+          statusLabel={selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status}
+          valid={Boolean(valid)}
+        />
+      ) : null}
+
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -316,25 +357,13 @@ export function NewOrderScreen({
           create.mutate();
         }}
         className={cn(
-          "min-w-0 pb-16 sm:pb-20",
+          "min-w-0 pb-20 sm:pb-20",
+          surface === "page" && "pt-[calc(env(safe-area-inset-top)+5.8rem)] md:pt-0",
           surface === "dialog" &&
             "max-h-[calc(100svh-16px)] overflow-y-auto p-2 sm:max-h-[calc(100svh-32px)] sm:p-3 md:p-4",
         )}
       >
-        <div className="mb-2 flex min-w-0 items-start justify-between gap-2 border-b border-border/60 pb-2 sm:mb-3 sm:gap-3 sm:pb-3">
-          <div className="min-w-0">
-            <h1
-              className={cn(
-                pageHeader.compactTitle,
-                surface === "dialog" && "text-xl leading-6 sm:text-2xl sm:leading-8",
-              )}
-            >
-              新建维修订单
-            </h1>
-            <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">
-              填写客户和设备信息以创建新工单
-            </p>
-          </div>
+        <div className="mb-2 hidden min-w-0 justify-end gap-2 md:flex md:mb-3">
           {surface === "page" && (
             <Button variant="outline" size="icon" className="size-9 shrink-0 rounded-full" asChild>
               <Link href="/orders" aria-label="关闭">
@@ -346,7 +375,7 @@ export function NewOrderScreen({
 
         <div
           className={cn(
-            "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-2",
+            "grid min-w-0 gap-1.5 sm:gap-3 lg:grid-cols-2",
             surface === "dialog"
               ? "xl:grid-cols-[minmax(280px,0.95fr)_minmax(420px,1.2fr)_minmax(310px,0.95fr)]"
               : "xl:grid-cols-[minmax(280px,0.95fr)_minmax(420px,1.2fr)_minmax(310px,0.95fr)]",
@@ -392,6 +421,92 @@ export function NewOrderScreen({
           onCancel={onCancel}
         />
       </form>
+    </div>
+  );
+}
+
+function NewOrderMobileHeader({
+  form,
+  total,
+  balance,
+  operatorName,
+  statusLabel,
+  valid,
+}: {
+  form: NewOrderFormState;
+  total: number;
+  balance: number;
+  operatorName: string;
+  statusLabel: string;
+  valid: boolean;
+}) {
+  const customerText = form.customerName.trim() || form.customerPhone.trim() || "客户待填";
+  const deviceText = [form.brand.trim(), form.model.trim()].filter(Boolean).join(" ") || "设备待填";
+  const issueText =
+    form.issue.trim() ||
+    form.faults
+      .map((item) => item.name)
+      .filter(Boolean)
+      .join("，") ||
+    "故障待填";
+
+  return (
+    <div className="fixed inset-x-0 top-0 z-40 border-b border-[var(--border-panel)] bg-background/95 shadow-[0_8px_24px_color-mix(in_oklch,var(--foreground)_6%,transparent)] backdrop-blur-xl md:hidden">
+      <div className="mx-auto max-w-[430px] px-2 pb-1.5 pt-[calc(env(safe-area-inset-top)+0.25rem)]">
+        <header className="flex min-w-0 items-center justify-between gap-2">
+          <Button asChild variant="ghost" size="icon" className="size-7 rounded-lg">
+            <Link href="/orders" aria-label="返回工单列表">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+          <div className="min-w-0 text-center">
+            <p className="truncate text-xs font-semibold leading-4">新建工单</p>
+            <p className="truncate text-[9px] leading-3 text-muted-foreground">{operatorName}</p>
+          </div>
+          <span
+            className={cn(
+              "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
+              valid
+                ? "bg-status-success text-status-success-foreground"
+                : "bg-status-warn text-status-warn-foreground",
+            )}
+          >
+            {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
+            {valid ? "可创建" : "待补全"}
+          </span>
+        </header>
+
+        <section className="mt-1 rounded-lg border border-[var(--border-panel)] bg-card/95 p-1.5 shadow-[var(--shadow-card)]">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1">
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-semibold leading-4">{customerText}</p>
+              <p className="truncate text-[9px] leading-3 text-muted-foreground">{issueText}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="font-mono text-[11px] font-semibold leading-4 text-primary">
+                {formatMoney(total)}
+              </p>
+              <p className="text-[9px] leading-3 text-muted-foreground">
+                应收 {formatMoney(balance)}
+              </p>
+            </div>
+          </div>
+          <div className="mt-1 grid min-w-0 grid-cols-3 gap-1 text-[9px] leading-3 text-muted-foreground">
+            <span className="inline-flex min-w-0 items-center gap-1 rounded bg-[var(--surface-panel-muted)] px-1.5 py-0.5">
+              <Smartphone className="size-3 shrink-0 text-primary" />
+              <span className="truncate">{deviceText}</span>
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1 rounded bg-[var(--surface-panel-muted)] px-1.5 py-0.5">
+              <ClipboardList className="size-3 shrink-0 text-primary" />
+              <span className="truncate">{statusLabel}</span>
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1 rounded bg-[var(--surface-panel-muted)] px-1.5 py-0.5">
+              <Banknote className="size-3 shrink-0 text-primary" />
+              <span className="truncate">定金 {formatMoney(form.deposit)}</span>
+            </span>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

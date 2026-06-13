@@ -16,6 +16,7 @@ import type {
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderWorkflowStatusCode,
   OrderWorkflow,
   OrderWorkflowStatus,
   OrderWorkflowStatusCreateInput,
@@ -35,6 +36,16 @@ import type {
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
+import {
+  approvalFlowStatusFromLegacyStatus,
+  legacyStatusFromWorkflowStatus,
+  notifyStatusFromLegacyStatus,
+  orderWorkflowStatuses,
+  partsStatusFromLegacyStatus,
+  paymentStatusFromMoney,
+  workflowStatusFromLegacyStatus,
+} from "@/features/orders/model/canonical-order-status";
 import {
   formatWarrantyText,
   normalizeWarrantyMonths,
@@ -53,6 +64,7 @@ import {
   eventFromRow,
   fail,
   fetchOrderRows,
+  isMissingRepairOrderColumnError,
   maybeString,
   messageFromRow,
   money,
@@ -83,6 +95,34 @@ function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
   if (filters.statuses?.length) {
     result = result.filter((o) => filters.statuses!.includes(o.status));
   }
+  if (filters.workflowStatuses?.length) {
+    result = result.filter((o) =>
+      filters.workflowStatuses!.includes(
+        o.workflow_status ?? workflowStatusFromLegacyStatus(o.status),
+      ),
+    );
+  }
+  if (filters.exceptionStatuses?.length) {
+    result = result.filter(
+      (o) => o.exception_status && filters.exceptionStatuses!.includes(o.exception_status),
+    );
+  }
+  if (filters.paymentStatuses?.length) {
+    result = result.filter(
+      (o) => o.payment_status && filters.paymentStatuses!.includes(o.payment_status),
+    );
+  }
+  if (filters.partsStatuses?.length) {
+    result = result.filter(
+      (o) => o.parts_status && filters.partsStatuses!.includes(o.parts_status),
+    );
+  }
+  if (filters.approvalFlowStatuses?.length) {
+    result = result.filter(
+      (o) =>
+        o.approval_flow_status && filters.approvalFlowStatuses!.includes(o.approval_flow_status),
+    );
+  }
   if (filters.types?.length) {
     result = result.filter((o) => filters.types!.includes(o.order_type));
   }
@@ -106,10 +146,86 @@ function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
   }
 
   return result.sort((a, b) => {
+    const workflowSort =
+      orderWorkflowStatuses.indexOf(a.workflow_status ?? workflowStatusFromLegacyStatus(a.status)) -
+      orderWorkflowStatuses.indexOf(b.workflow_status ?? workflowStatusFromLegacyStatus(b.status));
+    if (workflowSort !== 0) return workflowSort;
     const statusSort = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
     if (statusSort !== 0) return statusSort;
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
   });
+}
+
+function createWorkflowCounts(): Record<OrderWorkflowStatusCode | "all", number> {
+  return {
+    all: 0,
+    intake: 0,
+    diagnosis: 0,
+    quote: 0,
+    parts: 0,
+    repair: 0,
+    pickup: 0,
+    closed: 0,
+  };
+}
+
+function countWorkflowRows(rows: OrderListItem[]) {
+  const counts = createWorkflowCounts();
+  for (const row of rows) {
+    const workflowStatus = row.workflow_status ?? workflowStatusFromLegacyStatus(row.status);
+    counts.all += 1;
+    counts[workflowStatus] += 1;
+  }
+  return counts;
+}
+
+function filtersForWorkflowCounts(filters: OrderListFilters): OrderListFilters {
+  return { ...filters, workflowStatuses: undefined };
+}
+
+async function readWorkflowCountsFromSupabase(storeId: string, filters: OrderListFilters) {
+  const supabase = getSupabaseAdmin();
+
+  const readCount = async (workflowStatus?: OrderWorkflowStatusCode) => {
+    let query = supabase
+      .from("repair_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("store_id", storeId);
+
+    if (filters.statuses?.length) query = query.in("status", filters.statuses);
+    if (workflowStatus) query = query.eq("workflow_status", workflowStatus);
+    if (filters.exceptionStatuses?.length) {
+      query = query.in("exception_status", filters.exceptionStatuses);
+    }
+    if (filters.paymentStatuses?.length) {
+      query = query.in("payment_status", filters.paymentStatuses);
+    }
+    if (filters.partsStatuses?.length) query = query.in("parts_status", filters.partsStatuses);
+    if (filters.approvalFlowStatuses?.length) {
+      query = query.in("approval_flow_status", filters.approvalFlowStatuses);
+    }
+    if (filters.types?.length) query = query.in("order_type", filters.types);
+    if (filters.technicians?.length) query = query.in("technician_name", filters.technicians);
+    if (filters.supplierIds?.length) query = query.in("supplier_id", filters.supplierIds);
+    if (filters.paid && filters.paid !== "all") {
+      query = query.eq("is_paid", filters.paid === "paid");
+    }
+
+    const { error, count } = await query;
+    fail(error, "读取流程阶段数量失败");
+    return count ?? 0;
+  };
+
+  const [all, ...stageCounts] = await Promise.all([
+    readCount(),
+    ...orderWorkflowStatuses.map((status) => readCount(status)),
+  ]);
+  const counts = createWorkflowCounts();
+  counts.all = all;
+  orderWorkflowStatuses.forEach((status, index) => {
+    counts[status] = stageCounts[index] ?? 0;
+  });
+  return counts;
 }
 
 function workflowStatusFromRow(row: DbRecord): OrderWorkflowStatus {
@@ -189,6 +305,42 @@ async function readWorkflowStatusLabel(
   return maybeString((data as DbRecord | null)?.label) || code;
 }
 
+function isCanonicalWorkflowStatus(status: string): status is OrderWorkflowStatusCode {
+  return orderWorkflowStatuses.includes(status as OrderWorkflowStatusCode);
+}
+
+function assertCanonicalWorkflowTransition(
+  from: OrderWorkflowStatusCode,
+  to: OrderWorkflowStatusCode,
+) {
+  if (from === to) return;
+  const fromIndex = orderWorkflowStatuses.indexOf(from);
+  const toIndex = orderWorkflowStatuses.indexOf(to);
+  if (fromIndex < 0 || toIndex < 0 || toIndex !== fromIndex + 1) {
+    throw new Error("主流程只能按顺序推进");
+  }
+}
+
+function deriveCanonicalUpdateFromLegacyStatus(status: RepairOrderStatus, now: string) {
+  const workflowStatus = workflowStatusFromLegacyStatus(status);
+  return {
+    workflow_status: workflowStatus,
+    exception_status:
+      status === "cancelled"
+        ? "cancelled"
+        : status === "rework"
+          ? "rework"
+          : status === "unfixed_pickup"
+            ? "returned_unfixed"
+            : null,
+    approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
+    parts_status: partsStatusFromLegacyStatus(status),
+    notify_status: status === "completed" ? "sent" : notifyStatusFromLegacyStatus(status),
+    ...(workflowStatus === "closed" || status === "completed" ? { completed_at: now } : {}),
+    ...(status === "waiting_approval" ? { approval_sent_at: now } : {}),
+  };
+}
+
 async function validateConfiguredOrderTransition(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   storeId: string,
@@ -205,6 +357,10 @@ async function validateConfiguredOrderTransition(
     .maybeSingle();
   fail(targetError, "读取目标状态失败");
   if (!target) return { ok: false, reason: "目标状态不存在" };
+  if (!(target as DbRecord).enabled) {
+    const toLabel = maybeString((target as DbRecord).label) || to;
+    return { ok: false, reason: `「${toLabel}」已停用，不能流转到该状态` };
+  }
 
   const { data: transition, error } = await supabase
     .from("order_workflow_transitions")
@@ -311,6 +467,23 @@ function normalizePageInput(input: OrderListPageInput = {}) {
   return { page, pageSize };
 }
 
+function deriveOrderStatsFromRows(rows: OrderListItem[]): OrderStats {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+  return {
+    total: rows.length,
+    today: rows.filter((order) => new Date(order.created_at).getTime() >= todayMs).length,
+    inProgress: rows.filter(
+      (order) =>
+        (order.workflow_status ?? workflowStatusFromLegacyStatus(order.status)) !== "closed",
+    ).length,
+    unpaid: rows.filter((order) => !order.is_paid).length,
+    approvalOverdue: rows.filter((order) => order.approval_overdue).length,
+    pickupOverdue: rows.filter((order) => order.pickup_overdue).length,
+  };
+}
+
 export async function listOrders(
   filters: OrderListFilters = {},
   actor?: AuditActor,
@@ -328,6 +501,11 @@ export async function listOrdersPage(
   const filters: OrderListFilters = {
     search: input.search,
     statuses: input.statuses,
+    workflowStatuses: input.workflowStatuses,
+    exceptionStatuses: input.exceptionStatuses,
+    paymentStatuses: input.paymentStatuses,
+    partsStatuses: input.partsStatuses,
+    approvalFlowStatuses: input.approvalFlowStatuses,
     types: input.types,
     technicians: input.technicians,
     supplierIds: input.supplierIds,
@@ -336,7 +514,9 @@ export async function listOrdersPage(
   };
 
   if (filters.search?.trim() || filters.overdue) {
-    const all = filterOrders((await fetchOrderRows(storeId)).map(decorate), filters);
+    const rows = (await fetchOrderRows(storeId)).map(decorate);
+    const all = filterOrders(rows, filters);
+    const workflowCounts = countWorkflowRows(filterOrders(rows, filtersForWorkflowCounts(filters)));
     const start = (page - 1) * pageSize;
     return {
       items: all.slice(start, start + pageSize),
@@ -344,6 +524,7 @@ export async function listOrdersPage(
       page,
       pageSize,
       pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
+      workflowCounts,
     };
   }
 
@@ -358,21 +539,55 @@ export async function listOrdersPage(
     .range(from, to);
 
   if (filters.statuses?.length) query = query.in("status", filters.statuses);
+  if (filters.workflowStatuses?.length) {
+    query = query.in("workflow_status", filters.workflowStatuses);
+  }
+  if (filters.exceptionStatuses?.length) {
+    query = query.in("exception_status", filters.exceptionStatuses);
+  }
+  if (filters.paymentStatuses?.length) {
+    query = query.in("payment_status", filters.paymentStatuses);
+  }
+  if (filters.partsStatuses?.length) {
+    query = query.in("parts_status", filters.partsStatuses);
+  }
+  if (filters.approvalFlowStatuses?.length) {
+    query = query.in("approval_flow_status", filters.approvalFlowStatuses);
+  }
   if (filters.types?.length) query = query.in("order_type", filters.types);
   if (filters.technicians?.length) query = query.in("technician_name", filters.technicians);
   if (filters.supplierIds?.length) query = query.in("supplier_id", filters.supplierIds);
   if (filters.paid && filters.paid !== "all") query = query.eq("is_paid", filters.paid === "paid");
 
   const { data, error, count } = await query;
+  if (error && isMissingRepairOrderColumnError(error)) {
+    const rows = (await fetchOrderRows(storeId)).map(decorate);
+    const all = filterOrders(rows, filters);
+    const workflowCounts = countWorkflowRows(filterOrders(rows, filtersForWorkflowCounts(filters)));
+    const start = (page - 1) * pageSize;
+    return {
+      items: all.slice(start, start + pageSize),
+      total: all.length,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
+      workflowCounts,
+    };
+  }
   fail(error, "读取工单失败");
 
   const total = count ?? 0;
+  const workflowCounts = await readWorkflowCountsFromSupabase(
+    storeId,
+    filtersForWorkflowCounts(filters),
+  );
   return {
     items: ((data ?? []) as DbRecord[]).map(decorate),
     total,
     page,
     pageSize,
     pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    workflowCounts,
   };
 }
 
@@ -405,16 +620,7 @@ export async function getOrderStats(actor?: AuditActor): Promise<OrderStats> {
       .from("repair_orders")
       .select("id", { count: "exact", head: true })
       .eq("store_id", storeId)
-      .in("status", [
-        "new",
-        "rework",
-        "mail_in_progress",
-        "diagnosing",
-        "quoted",
-        "parts_ordered",
-        "parts_arrived",
-        "repairing",
-      ]),
+      .in("workflow_status", ["intake", "diagnosis", "quote", "parts", "repair", "pickup"]),
     supabase
       .from("repair_orders")
       .select("id", { count: "exact", head: true })
@@ -424,17 +630,29 @@ export async function getOrderStats(actor?: AuditActor): Promise<OrderStats> {
       .from("repair_orders")
       .select("id", { count: "exact", head: true })
       .eq("store_id", storeId)
-      .eq("status", "waiting_approval")
+      .eq("approval_flow_status", "waiting_customer")
       .lt("approval_sent_at", approvalCutoff),
     supabase
       .from("repair_orders")
       .select("id", { count: "exact", head: true })
       .eq("store_id", storeId)
-      .in("status", ["repaired", "notified", "unfixed_pickup", "waiting_pickup"])
+      .eq("workflow_status", "pickup")
       .or(
         `completed_at.lt.${pickupCutoff},and(completed_at.is.null,updated_at.lt.${pickupCutoff})`,
       ),
   ]);
+
+  const statErrors = [
+    totalResult.error,
+    todayResult.error,
+    inProgressResult.error,
+    unpaidResult.error,
+    approvalOverdueResult.error,
+    pickupOverdueResult.error,
+  ];
+  if (statErrors.some(isMissingRepairOrderColumnError)) {
+    return deriveOrderStatsFromRows((await fetchOrderRows(storeId)).map(decorate));
+  }
 
   fail(totalResult.error, "统计工单总数失败");
   fail(todayResult.error, "统计今日工单失败");
@@ -725,43 +943,83 @@ export async function transitionOrder(
   );
   const operatorName = operatorNameFromActor(opts.operator, "系统");
   const supabase = getSupabaseAdmin();
-  const { data: current, error: readError } = await supabase
-    .from("repair_orders")
-    .select("id,status")
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .single();
-  fail(readError, "读取当前状态失败");
+  const currentRow = await readOrderStatusRow(supabase, storeId, id);
+  const from = currentRow.status as RepairOrderStatus;
+  const workflowFrom =
+    (maybeString(currentRow.workflow_status) as OrderWorkflowStatusCode | undefined) ??
+    workflowStatusFromLegacyStatus(from);
+  const canonicalRequest = isCanonicalWorkflowStatus(to);
+  const workflowTo = canonicalRequest ? to : workflowStatusFromLegacyStatus(to);
+  const legacyTo = canonicalRequest
+    ? legacyStatusFromWorkflowStatus(workflowTo, {
+        partsStatus: maybeString(currentRow.parts_status) as never,
+        exceptionStatus: maybeString(currentRow.exception_status) as never,
+      })
+    : to;
+  const cleanReason = opts.reason?.trim();
 
-  const from = (current as DbRecord).status as RepairOrderStatus;
-  const validation = await validateConfiguredOrderTransition(supabase, storeId, from, to);
-  if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
+  if (canonicalRequest) {
+    assertCanonicalWorkflowTransition(workflowFrom, workflowTo);
+  } else {
+    const validation = await validateConfiguredOrderTransition(supabase, storeId, from, to);
+    if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
+  }
+  if (orderTransitionRequiresReason(legacyTo) && !cleanReason) {
+    throw new Error(
+      `流转到「${await readWorkflowStatusLabel(supabase, storeId, legacyTo)}」需要填写原因`,
+    );
+  }
+  if (legacyTo === "completed" && (!currentRow.is_paid || money(currentRow.balance_amount) > 0)) {
+    throw new Error("工单仍有未结清尾款，不能直接结案");
+  }
 
   const now = new Date().toISOString();
-  const update: DbRecord = { status: to, updated_at: now };
-  if (to === "cancelled") update.cancel_reason = opts.reason ?? "未填写";
-  if (to === "completed") update.completed_at = now;
-  if (to === "waiting_approval") update.approval_sent_at = now;
+  const update: DbRecord = {
+    status: legacyTo,
+    updated_at: now,
+    ...deriveCanonicalUpdateFromLegacyStatus(legacyTo, now),
+    workflow_status: workflowTo,
+  };
+  if (legacyTo === "cancelled") update.cancel_reason = cleanReason || "未填写";
+  if (legacyTo === "unfixed_pickup" && cleanReason) {
+    update.diagnosis_result = buildTransitionDiagnosisResult(
+      maybeString(currentRow.diagnosis_result),
+      cleanReason,
+    );
+  }
 
-  const { error: updateError } = await supabase
-    .from("repair_orders")
-    .update(update)
-    .eq("store_id", storeId)
-    .eq("id", id);
-  fail(updateError, "更新工单状态失败");
+  await updateOrderRow({
+    supabase,
+    id,
+    storeId,
+    update,
+    context: "更新工单状态失败",
+  });
 
   const { error: eventError } = await supabase.from("order_events").insert({
     id: crypto.randomUUID(),
     store_id: storeId,
     order_id: id,
     event_type: "status_changed",
-    payload: { from, to, reason: opts.reason },
+    payload: {
+      from,
+      to: legacyTo,
+      workflow_from: workflowFrom,
+      workflow_to: workflowTo,
+      reason: cleanReason,
+    },
     operator_name: operatorName,
     created_at: now,
   });
   fail(eventError, "写入状态时间线失败");
 
-  return { ok: true, from, to };
+  return { ok: true, from, to: legacyTo };
+}
+
+function buildTransitionDiagnosisResult(current: string | undefined, reason: string) {
+  const cleanReason = reason.trim();
+  if (!current?.trim() || current.trim() === cleanReason) return cleanReason;
+  return `${current.trim()}\n处理结论：${cleanReason}`;
 }
 
 export async function batchTransition(
@@ -789,32 +1047,50 @@ export async function recordPayment(
   amount: number,
   method = "现金",
   operator: string | AuditActor = "前台",
+  expectedUpdatedAt?: string,
 ) {
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   const operatorName = operatorNameFromActor(operator);
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
+  if (!expectedUpdatedAt) throw new Error("缺少工单版本时间");
 
   const supabase = getSupabaseAdmin();
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
-    .select("balance_amount,is_paid")
+    .select("updated_at,balance_amount,is_paid")
     .eq("store_id", storeId)
     .eq("id", id)
     .single();
   fail(readError, "读取尾款失败");
 
-  const balance = money((current as DbRecord).balance_amount);
-  if (balance <= 0 || (current as DbRecord).is_paid) throw new Error("该工单已结清");
+  const currentRow = current as DbRecord;
+  if (requiredString(currentRow.updated_at) !== expectedUpdatedAt) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
+  const balance = money(currentRow.balance_amount);
+  if (balance <= 0 || currentRow.is_paid) throw new Error("该工单已结清");
   if (amount > balance) throw new Error("收款金额不能超过未结清尾款");
 
   const nextBalance = Math.max(0, balance - amount);
+  const isPaid = nextBalance === 0;
   const now = new Date().toISOString();
-  const { error: updateError } = await supabase
-    .from("repair_orders")
-    .update({ balance_amount: nextBalance, is_paid: nextBalance === 0, updated_at: now })
-    .eq("store_id", storeId)
-    .eq("id", id);
-  fail(updateError, "登记收款失败");
+  const updatedAt = await updateVersionedOrderRow({
+    supabase,
+    id,
+    storeId,
+    expectedUpdatedAt,
+    context: "登记收款失败",
+    update: {
+      balance_amount: nextBalance,
+      is_paid: isPaid,
+      payment_status: paymentStatusFromMoney({
+        isPaid,
+        depositAmount: amount,
+        balanceAmount: nextBalance,
+      }),
+      updated_at: now,
+    },
+  });
 
   const { error: eventError } = await supabase.from("order_events").insert({
     id: crypto.randomUUID(),
@@ -827,10 +1103,116 @@ export async function recordPayment(
   });
   fail(eventError, "写入收款时间线失败");
 
-  return { ok: true, balance: nextBalance, is_paid: nextBalance === 0 };
+  return { ok: true, balance: nextBalance, is_paid: nextBalance === 0, updated_at: updatedAt };
 }
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
+
+const CANONICAL_ORDER_WRITE_FIELDS = [
+  "workflow_status",
+  "exception_status",
+  "payment_status",
+  "approval_flow_status",
+  "parts_status",
+  "notify_status",
+] as const;
+
+function stripCanonicalOrderWriteFields(row: DbRecord) {
+  const stripped: DbRecord = {};
+  let removed = false;
+  for (const [key, value] of Object.entries(row)) {
+    if ((CANONICAL_ORDER_WRITE_FIELDS as readonly string[]).includes(key)) {
+      removed = true;
+      continue;
+    }
+    stripped[key] = value;
+  }
+  return { stripped, removed };
+}
+
+async function readOrderStatusRow(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  id: string,
+  context = "读取当前状态失败",
+) {
+  const canonical = await supabase
+    .from("repair_orders")
+    .select(
+      "id,status,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,approval_status",
+    )
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .single();
+  if (!canonical.error || !isMissingRepairOrderColumnError(canonical.error)) {
+    fail(canonical.error, context);
+    return canonical.data as DbRecord;
+  }
+
+  const legacy = await supabase
+    .from("repair_orders")
+    .select("id,status,balance_amount,is_paid,approval_status")
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .single();
+  fail(legacy.error, context);
+  return legacy.data as DbRecord;
+}
+
+async function updateOrderRow({
+  supabase,
+  id,
+  storeId,
+  update,
+  context,
+}: {
+  supabase: SupabaseAdmin;
+  id: string;
+  storeId: string;
+  update: DbRecord;
+  context: string;
+}) {
+  const { error } = await supabase
+    .from("repair_orders")
+    .update(update)
+    .eq("store_id", storeId)
+    .eq("id", id);
+  if (error && isMissingRepairOrderColumnError(error)) {
+    const { stripped, removed } = stripCanonicalOrderWriteFields(update);
+    if (removed) {
+      const retry = await supabase
+        .from("repair_orders")
+        .update(stripped)
+        .eq("store_id", storeId)
+        .eq("id", id);
+      fail(retry.error, context);
+      return;
+    }
+  }
+  fail(error, context);
+}
+
+async function insertOrderRow({
+  supabase,
+  row,
+  context,
+}: {
+  supabase: SupabaseAdmin;
+  row: DbRecord;
+  context: string;
+}) {
+  const { data, error } = await supabase.from("repair_orders").insert(row).select("id").single();
+  if (error && isMissingRepairOrderColumnError(error)) {
+    const { stripped, removed } = stripCanonicalOrderWriteFields(row);
+    if (removed) {
+      const retry = await supabase.from("repair_orders").insert(stripped).select("id").single();
+      fail(retry.error, context);
+      return retry.data as DbRecord;
+    }
+  }
+  fail(error, context);
+  return data as DbRecord;
+}
 
 async function readDefaultOrderWarrantyMonths(supabase: SupabaseAdmin, storeId: string) {
   const { data, error } = await supabase
@@ -920,6 +1302,23 @@ async function updateVersionedOrderRow({
     .select("updated_at")
     .maybeSingle();
 
+  if (error && isMissingRepairOrderColumnError(error)) {
+    const { stripped, removed } = stripCanonicalOrderWriteFields(update);
+    if (removed) {
+      const retry = await supabase
+        .from("repair_orders")
+        .update(stripped)
+        .eq("store_id", storeId)
+        .eq("id", id)
+        .eq("updated_at", expectedUpdatedAt)
+        .select("updated_at")
+        .maybeSingle();
+      fail(retry.error, context);
+      if (!retry.data) throw new Error("工单已被更新，请刷新后再试");
+      return requiredString((retry.data as DbRecord).updated_at);
+    }
+  }
+
   fail(error, context);
   if (!data) throw new Error("工单已被更新，请刷新后再试");
   return requiredString((data as DbRecord).updated_at);
@@ -999,6 +1398,7 @@ export async function updateOrder(
   const issueDescription = input.issue_description.trim();
 
   if (!id) throw new Error("工单 ID 不能为空");
+  if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
@@ -1020,7 +1420,7 @@ export async function updateOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      "id,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,warranty_text,warranty_months,warranty_change_reason,customer:customers(contact_phones)",
+      "id,updated_at,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,warranty_text,warranty_months,warranty_change_reason,customer:customers(contact_phones)",
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -1028,6 +1428,9 @@ export async function updateOrder(
   fail(readError, "读取工单失败");
 
   const currentRow = current as DbRecord;
+  if (requiredString(currentRow.updated_at) !== input.expected_updated_at) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
   const customerId = requiredString(currentRow.customer_id);
   const deviceId = requiredString(currentRow.device_id);
   if (!customerId || !deviceId) throw new Error("工单缺少客户或设备关联");
@@ -1074,22 +1477,13 @@ export async function updateOrder(
     (previousWarrantyReason ?? "") !== (warranty.warranty_change_reason ?? "");
   const actorId = typeof operator === "string" ? undefined : operator.id;
 
-  const { error: customerError } = await supabase
-    .from("customers")
-    .update({
-      name: customerName,
-      phone_e164: phoneBook.primary,
-      phone_raw: phoneBook.primaryRaw,
-      contact_phones: customerContactPhones,
-      updated_at: now,
-    })
-    .eq("store_id", storeId)
-    .eq("id", customerId);
-  fail(customerError, "更新客户失败");
-
-  const { error: orderError } = await supabase
-    .from("repair_orders")
-    .update({
+  await updateVersionedOrderRow({
+    supabase,
+    id,
+    storeId,
+    expectedUpdatedAt: input.expected_updated_at,
+    context: "更新工单失败",
+    update: {
       issue_description: issueDescription,
       diagnosis_result: input.diagnosis_result?.trim() || null,
       internal_tag: tagInput.internalTag || null,
@@ -1105,6 +1499,11 @@ export async function updateOrder(
       deposit_amount: deposit,
       balance_amount: nextBalance,
       is_paid: nextBalance === 0,
+      payment_status: paymentStatusFromMoney({
+        isPaid: nextBalance === 0,
+        depositAmount: deposit,
+        balanceAmount: nextBalance,
+      }),
       fault_prices: validFaults,
       currency_code: CURRENCY_CODE,
       device_snapshot: {
@@ -1114,10 +1513,21 @@ export async function updateOrder(
         ...(input.device_notes?.trim() ? { device_notes: input.device_notes.trim() } : {}),
       },
       updated_at: now,
+    },
+  });
+
+  const { error: customerError } = await supabase
+    .from("customers")
+    .update({
+      name: customerName,
+      phone_e164: phoneBook.primary,
+      phone_raw: phoneBook.primaryRaw,
+      contact_phones: customerContactPhones,
+      updated_at: now,
     })
     .eq("store_id", storeId)
-    .eq("id", id);
-  fail(orderError, "更新工单失败");
+    .eq("id", customerId);
+  fail(customerError, "更新客户失败");
 
   const { error: eventError } = await supabase.from("order_events").insert({
     id: crypto.randomUUID(),
@@ -1356,6 +1766,11 @@ export async function patchOrderFinance(
       deposit_amount: deposit,
       balance_amount: nextBalance,
       is_paid: nextBalance === 0,
+      payment_status: paymentStatusFromMoney({
+        isPaid: nextBalance === 0,
+        depositAmount: deposit,
+        balanceAmount: nextBalance,
+      }),
       fault_prices: validFaults,
       currency_code: CURRENCY_CODE,
       updated_at: now,
@@ -1391,6 +1806,7 @@ async function writeWhatsappMessage({
   transitionTo,
   operator = "前台",
   storeId,
+  recipientPhone,
   allowInvalidTransition = false,
   markApprovalPending = false,
 }: {
@@ -1401,10 +1817,12 @@ async function writeWhatsappMessage({
   transitionTo?: RepairOrderStatus;
   operator?: string;
   storeId: string;
+  recipientPhone?: string;
   allowInvalidTransition?: boolean;
   markApprovalPending?: boolean;
 }): Promise<WhatsappNotificationResult> {
   const message = body.trim();
+  const cleanRecipientPhone = recipientPhone?.trim();
   if (!id) throw new Error("工单 ID 不能为空");
   if (!message) throw new Error("通知内容不能为空");
 
@@ -1412,15 +1830,8 @@ async function writeWhatsappMessage({
   const now = new Date().toISOString();
   const messageId = crypto.randomUUID();
 
-  const { data: current, error: readError } = await supabase
-    .from("repair_orders")
-    .select("id,status")
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .single();
-  fail(readError, "读取工单失败");
-
-  const from = (current as DbRecord).status as RepairOrderStatus;
+  const current = await readOrderStatusRow(supabase, storeId, id, "读取工单失败");
+  const from = current.status as RepairOrderStatus;
   let statusChanged = false;
   let to: RepairOrderStatus | undefined;
 
@@ -1434,18 +1845,23 @@ async function writeWhatsappMessage({
     if (!transition.ok) {
       if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
     } else {
+      if (transitionTo === "completed" && (!current.is_paid || money(current.balance_amount) > 0)) {
+        throw new Error("工单仍有未结清尾款，不能直接结案");
+      }
       statusChanged = true;
       to = transitionTo;
     }
   }
 
-  const update: DbRecord = { updated_at: now };
+  const update: DbRecord = { updated_at: now, notify_status: "sent" };
   if (markApprovalPending) {
     update.approval_sent_at = now;
     update.approval_status = "pending";
+    update.approval_flow_status = "waiting_customer";
   }
   if (statusChanged && to) {
     update.status = to;
+    Object.assign(update, deriveCanonicalUpdateFromLegacyStatus(to, now));
     if (to === "completed") update.completed_at = now;
     if (to === "waiting_approval") update.approval_sent_at = now;
   }
@@ -1456,6 +1872,7 @@ async function writeWhatsappMessage({
     template_kind: templateKind,
     status_changed: statusChanged,
     currency_code: CURRENCY_CODE,
+    ...(cleanRecipientPhone ? { recipient_phone: cleanRecipientPhone } : {}),
   };
   if (transitionTo) {
     payload.from = from;
@@ -1473,19 +1890,23 @@ async function writeWhatsappMessage({
   });
   fail(messageError, "写入 WhatsApp 通知失败");
 
-  const [{ error: updateError }, { error: eventError }] = await Promise.all([
-    supabase.from("repair_orders").update(update).eq("store_id", storeId).eq("id", id),
-    supabase.from("order_events").insert({
-      id: crypto.randomUUID(),
-      store_id: storeId,
-      order_id: id,
-      event_type: eventType,
-      payload,
-      operator_name: operator,
-      created_at: now,
-    }),
-  ]);
-  fail(updateError, "更新工单通知状态失败");
+  await updateOrderRow({
+    supabase,
+    id,
+    storeId,
+    update,
+    context: "更新工单通知状态失败",
+  });
+
+  const { error: eventError } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    store_id: storeId,
+    order_id: id,
+    event_type: eventType,
+    payload,
+    operator_name: operator,
+    created_at: now,
+  });
   fail(eventError, "写入通知时间线失败");
 
   return {
@@ -1494,6 +1915,7 @@ async function writeWhatsappMessage({
     channel: "whatsapp",
     body: message,
     template_kind: templateKind,
+    recipient_phone: cleanRecipientPhone,
     statusChanged,
     from,
     to,
@@ -1534,19 +1956,23 @@ export async function sendNotification(
   });
   fail(messageError, "写入通知历史失败");
 
-  const [{ error: updateError }, { error: eventError }] = await Promise.all([
-    supabase.from("repair_orders").update({ updated_at: now }).eq("store_id", storeId).eq("id", id),
-    supabase.from("order_events").insert({
-      id: crypto.randomUUID(),
-      store_id: storeId,
-      order_id: id,
-      event_type: "message_sent",
-      payload: { channel, message_id: messageId },
-      operator_name: operatorName,
-      created_at: now,
-    }),
-  ]);
-  fail(updateError, "更新工单通知时间失败");
+  await updateOrderRow({
+    supabase,
+    id,
+    storeId,
+    update: { notify_status: "sent", updated_at: now },
+    context: "更新工单通知时间失败",
+  });
+
+  const { error: eventError } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    store_id: storeId,
+    order_id: id,
+    event_type: "message_sent",
+    payload: { channel, message_id: messageId },
+    operator_name: operatorName,
+    created_at: now,
+  });
   fail(eventError, "写入通知时间线失败");
 
   return { ok: true, id: messageId, channel, body: message };
@@ -1558,6 +1984,7 @@ export async function sendWhatsappNotification(
   templateKind: OrderWhatsappTemplateKind,
   transitionTo?: RepairOrderStatus,
   operator: string | AuditActor = "前台",
+  recipientPhone?: string,
 ) {
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   return writeWhatsappMessage({
@@ -1568,6 +1995,7 @@ export async function sendWhatsappNotification(
     transitionTo,
     operator: operatorNameFromActor(operator),
     storeId,
+    recipientPhone,
   });
 }
 
@@ -1575,6 +2003,7 @@ export async function sendApprovalRequest(
   id: string,
   body: string,
   operator: string | AuditActor = "前台",
+  recipientPhone?: string,
 ) {
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   return writeWhatsappMessage({
@@ -1585,6 +2014,7 @@ export async function sendApprovalRequest(
     transitionTo: "waiting_approval",
     operator: operatorNameFromActor(operator),
     storeId,
+    recipientPhone,
     allowInvalidTransition: true,
     markApprovalPending: true,
   });
@@ -1747,17 +2177,30 @@ export async function createOrder(
 
   const id = crypto.randomUUID();
   const balance = Math.max(0, quotation - deposit);
+  const workflowStatus = workflowStatusFromLegacyStatus(status);
+  const canonicalDefaults = deriveCanonicalUpdateFromLegacyStatus(status, now);
   const tagInput = normalizeOrderTagInput({
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
-  const { data: inserted, error: orderError } = await supabase
-    .from("repair_orders")
-    .insert({
+  const inserted = await insertOrderRow({
+    supabase,
+    context: "创建工单失败",
+    row: {
       id,
       store_id: storeId,
       order_type: input.order_type,
       status,
+      workflow_status: workflowStatus,
+      exception_status: canonicalDefaults.exception_status,
+      payment_status: paymentStatusFromMoney({
+        isPaid: balance === 0,
+        depositAmount: deposit,
+        balanceAmount: balance,
+      }),
+      approval_flow_status: canonicalDefaults.approval_flow_status,
+      parts_status: canonicalDefaults.parts_status,
+      notify_status: canonicalDefaults.notify_status,
       customer_id: customerId,
       device_id: deviceId,
       issue_description: input.issue_description.trim(),
@@ -1780,10 +2223,8 @@ export async function createOrder(
       device_snapshot: deviceSnapshot,
       created_at: now,
       updated_at: now,
-    })
-    .select("id")
-    .single();
-  fail(orderError, "创建工单失败");
+    },
+  });
 
   const orderId = requiredString((inserted as DbRecord).id);
   const { error: eventError } = await supabase.from("order_events").insert({

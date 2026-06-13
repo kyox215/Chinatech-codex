@@ -128,12 +128,17 @@ export function ImeiScannerField({
 
   return (
     <div className={cn("space-y-1.5", compact && "space-y-1")}>
-      <div className={cn("flex gap-2", compact && "gap-1.5")}>
+      <div
+        className={cn(
+          "flex gap-2",
+          compact && "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-1.5",
+        )}
+      >
         <Input
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}
           placeholder={placeholder}
-          className={cn("font-mono", compact && "h-7 text-[13px]")}
+          className={cn("font-mono", compact && "h-7 min-w-0 text-[13px]")}
           inputMode="text"
           autoComplete="off"
         />
@@ -184,7 +189,7 @@ export function ImeiScannerField({
             <DialogTitle>摄像头扫码录入</DialogTitle>
             <DialogDescription>对准 IMEI 条码或序列号二维码，识别后会自动写入。</DialogDescription>
           </DialogHeader>
-          <div className="overflow-hidden rounded-md border bg-black">
+          <div className="overflow-hidden rounded-md border bg-[var(--capture-preview)]">
             <video ref={videoRef} className="aspect-[4/3] w-full object-cover" muted playsInline />
           </div>
           <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">

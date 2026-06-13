@@ -42,6 +42,7 @@ import {
   getWorkflowStatuses,
 } from "@/features/orders/model/order-workflow";
 import { storesKeys } from "@/features/stores/api/query-keys";
+import { RepairOsMetricStrip, RepairOsModuleHeader } from "@/shared/ui";
 import {
   createStore,
   createOrderWorkflowStatus,
@@ -64,7 +65,7 @@ import {
   type StoreSettings,
 } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
-import { brandGradientStyle, formLayout, pageHeader, pageShell, surfaces } from "@/lib/ui-patterns";
+import { brandGradientStyle, formLayout, pageShell, repairOs, surfaces } from "@/lib/ui-patterns";
 
 type SettingsDraft = Pick<
   StoreSettings,
@@ -204,7 +205,7 @@ export function SettingsScreen() {
 
   if (settingsQuery.isError) {
     return (
-      <main className={pageShell.form}>
+      <main className={pageShell.list}>
         <section className={surfaces.empty}>
           <Settings2 className="mb-3 size-8 text-status-danger-foreground" />
           <p className="text-sm text-status-danger-foreground">读取系统设置失败</p>
@@ -216,29 +217,44 @@ export function SettingsScreen() {
     );
   }
 
+  const storeCount = storeContextQuery.data?.stores.length ?? 0;
+  const memberCount = storeMembersQuery.data?.members.length ?? 0;
+  const workflowStatusCount = getWorkflowStatuses(workflowQuery.data).length;
+
   return (
-    <main className={pageShell.form}>
-      <header className={pageHeader.root}>
-        <div>
-          <p className={pageHeader.eyebrow}>RepairDesk / Settings</p>
-          <h1 className={pageHeader.compactTitle}>
-            <span className="gradient-text">系统设置</span>
-          </h1>
-          <p className={pageHeader.subtitle}>店铺资料、默认规则和输出签名。</p>
-        </div>
-        <div className={pageHeader.actions}>
-          <Button
-            style={brandGradientStyle}
-            disabled={!hasChanges || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
-          >
-            <Check className="mr-1.5 size-3.5" /> 保存设置
-          </Button>
-        </div>
-      </header>
+    <main className={cn(pageShell.list, "pb-28 pt-3 sm:pt-5")}>
+      <div className="space-y-3">
+        <RepairOsModuleHeader
+          action={
+            <Button
+              size="sm"
+              className="h-8 shrink-0 gap-1.5 border-0 text-primary-foreground sm:h-9"
+              style={brandGradientStyle}
+              disabled={!hasChanges || saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
+              <Check className="size-3.5" /> 保存
+            </Button>
+          }
+        />
+
+        <RepairOsMetricStrip
+          metrics={[
+            { label: "店铺", value: storeCount, hint: "可切换", icon: Store, tone: "blue" },
+            { label: "成员", value: memberCount, hint: "权限", icon: Users, tone: "green" },
+            {
+              label: "状态流",
+              value: workflowStatusCount,
+              hint: "工单",
+              icon: GitBranch,
+              tone: "amber",
+            },
+          ]}
+        />
+      </div>
 
       <form
-        className={cn(formLayout.stack, "mt-5")}
+        className={cn(formLayout.stack, "mt-3 space-y-2.5 sm:mt-4 sm:space-y-3 lg:space-y-3")}
         onSubmit={(event) => {
           event.preventDefault();
           if (hasChanges && !saveMutation.isPending) saveMutation.mutate();
@@ -297,12 +313,13 @@ export function SettingsScreen() {
           onUpdateTransitions={(input) => updateWorkflowTransitionsMutation.mutate(input)}
         />
 
-        <section className={formLayout.section}>
+        <section className={repairOs.adminSection}>
           <SectionTitle icon={Store} title="店铺资料" />
           <div className={formLayout.grid}>
             <Field label="店铺名" htmlFor="store-name">
               <Input
                 id="store-name"
+                className={compactControlClass}
                 value={draft.store_name}
                 onChange={(event) => setDraftField(setDraft, "store_name", event.target.value)}
               />
@@ -311,6 +328,7 @@ export function SettingsScreen() {
               <Input
                 id="store-email"
                 type="email"
+                className={compactControlClass}
                 value={draft.store_email}
                 onChange={(event) => setDraftField(setDraft, "store_email", event.target.value)}
               />
@@ -318,6 +336,7 @@ export function SettingsScreen() {
             <Field label="电话" htmlFor="store-phone" icon={Phone}>
               <Input
                 id="store-phone"
+                className={compactControlClass}
                 value={draft.store_phone}
                 onChange={(event) => setDraftField(setDraft, "store_phone", event.target.value)}
               />
@@ -325,6 +344,7 @@ export function SettingsScreen() {
             <Field label="WhatsApp" htmlFor="store-whatsapp" icon={MessageSquare}>
               <Input
                 id="store-whatsapp"
+                className={compactControlClass}
                 value={draft.store_whatsapp}
                 onChange={(event) => setDraftField(setDraft, "store_whatsapp", event.target.value)}
               />
@@ -334,13 +354,14 @@ export function SettingsScreen() {
             <Textarea
               id="store-address"
               rows={3}
+              className={compactTextareaClass}
               value={draft.store_address}
               onChange={(event) => setDraftField(setDraft, "store_address", event.target.value)}
             />
           </Field>
         </section>
 
-        <section className={formLayout.section}>
+        <section className={repairOs.adminSection}>
           <SectionTitle icon={Settings2} title="默认规则" />
           <div className={formLayout.grid}>
             <Field label="维修默认质保" htmlFor="order-warranty">
@@ -359,7 +380,7 @@ export function SettingsScreen() {
                   );
                 }}
               >
-                <SelectTrigger id="order-warranty">
+                <SelectTrigger id="order-warranty" className={compactControlClass}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -376,6 +397,7 @@ export function SettingsScreen() {
                 id="inventory-warranty"
                 type="number"
                 min={0}
+                className={compactControlClass}
                 value={draft.default_inventory_warranty_months}
                 onChange={(event) =>
                   setDraftField(
@@ -389,13 +411,14 @@ export function SettingsScreen() {
           </div>
         </section>
 
-        <section className={formLayout.section}>
+        <section className={repairOs.adminSection}>
           <SectionTitle icon={Printer} title="输出配置" />
           <div className="space-y-3">
             <Field label="打印页脚" htmlFor="print-footer">
               <Textarea
                 id="print-footer"
                 rows={3}
+                className={compactTextareaClass}
                 value={draft.print_footer}
                 onChange={(event) => setDraftField(setDraft, "print_footer", event.target.value)}
               />
@@ -404,6 +427,7 @@ export function SettingsScreen() {
               <Textarea
                 id="message-signature"
                 rows={3}
+                className={compactTextareaClass}
                 value={draft.message_signature}
                 onChange={(event) =>
                   setDraftField(setDraft, "message_signature", event.target.value)
@@ -413,11 +437,13 @@ export function SettingsScreen() {
           </div>
         </section>
 
-        <div className={formLayout.section}>
+        <div className={repairOs.adminSection}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">模板预览和客户通知会使用当前店铺资料。</p>
             <Button
               type="submit"
+              size="sm"
+              className="h-8 gap-1.5"
               style={brandGradientStyle}
               disabled={!hasChanges || saveMutation.isPending}
             >
@@ -461,6 +487,9 @@ const workflowBucketOptions: { value: OrderWorkflowBucket; label: string }[] = [
   const bucket = value as OrderWorkflowBucket;
   return { value: bucket, label: getOrderWorkflowBucketLabel(bucket) };
 });
+
+const compactControlClass = "h-8 text-sm sm:h-9";
+const compactTextareaClass = "min-h-20 text-sm";
 
 function defaultNewStatusDraft(): OrderWorkflowStatusCreateInput {
   return {
@@ -549,7 +578,7 @@ function OrderWorkflowSection({
   };
 
   return (
-    <section className={formLayout.section}>
+    <section className={repairOs.adminSection}>
       <SectionTitle icon={GitBranch} title="工单状态流" />
       {isLoading ? (
         <div className="space-y-3">
@@ -654,122 +683,46 @@ function OrderWorkflowSection({
 
           <div className="space-y-2">
             {statuses.map((status, index) => (
-              <div
-                key={status.id}
-                className="grid gap-2 rounded-md border border-border/60 bg-surface/60 p-2 md:grid-cols-[auto_8.5rem_5.5rem_7.5rem_6rem_repeat(4,auto)_auto]"
-              >
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7"
-                    disabled={isSaving || index === 0}
-                    onClick={() => moveStatus(index, -1)}
-                    aria-label="上移状态"
-                  >
-                    <ArrowUp className="size-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7"
-                    disabled={isSaving || index === statuses.length - 1}
-                    onClick={() => moveStatus(index, 1)}
-                    aria-label="下移状态"
-                  >
-                    <ArrowDown className="size-3.5" />
-                  </Button>
-                </div>
-                <Input
-                  defaultValue={status.label}
-                  className="h-8 text-xs"
-                  onBlur={(event) => {
-                    const label = event.target.value.trim();
-                    if (label && label !== status.label) onUpdateStatus(status.id, { label });
-                  }}
-                />
-                <Input
-                  defaultValue={status.short_label}
-                  className="h-8 text-xs"
-                  onBlur={(event) => {
-                    const shortLabel = event.target.value.trim();
-                    if (shortLabel !== status.short_label)
-                      onUpdateStatus(status.id, { short_label: shortLabel });
-                  }}
-                />
-                <Select
-                  value={status.bucket}
-                  onValueChange={(bucket) =>
-                    onUpdateStatus(status.id, { bucket: bucket as OrderWorkflowBucket })
-                  }
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workflowBucketOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={status.tone}
-                  onValueChange={(tone) =>
-                    onUpdateStatus(status.id, { tone: tone as OrderWorkflowTone })
-                  }
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workflowToneOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <WorkflowCheck
-                  label="启用"
-                  checked={status.enabled}
-                  disabled={isSaving || status.is_default_create_status}
-                  onChange={(checked) => onUpdateStatus(status.id, { enabled: checked })}
-                />
-                <WorkflowCheck
-                  label="列表"
-                  checked={status.show_in_order_filters}
-                  disabled={isSaving}
-                  onChange={(checked) =>
-                    onUpdateStatus(status.id, { show_in_order_filters: checked })
-                  }
-                />
-                <WorkflowCheck
-                  label="新建"
-                  checked={status.allowed_for_create}
-                  disabled={isSaving || status.is_default_create_status}
-                  onChange={(checked) => onUpdateStatus(status.id, { allowed_for_create: checked })}
-                />
-                <WorkflowCheck
-                  label="默认"
-                  checked={status.is_default_create_status}
-                  disabled={isSaving || status.is_default_create_status || !status.enabled}
-                  onChange={(checked) =>
-                    checked && onUpdateStatus(status.id, { is_default_create_status: true })
-                  }
-                />
-                <div className="flex min-w-0 items-center justify-end gap-2">
-                  <code className="truncate rounded bg-surface-muted px-1.5 py-1 text-[10px] text-muted-foreground">
-                    {status.code}
-                  </code>
-                  {status.is_system ? (
-                    <Badge variant="outline" className="shrink-0 text-[10px]">
-                      系统
-                    </Badge>
-                  ) : null}
+              <div key={status.id}>
+                <details className="rounded-lg border border-[var(--border-panel)] bg-card p-2 md:hidden">
+                  <summary className="flex min-w-0 cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{status.label}</span>
+                      <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                        {status.code}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <Badge variant="outline" className="text-[10px]">
+                        {getOrderWorkflowBucketLabel(status.bucket)}
+                      </Badge>
+                      {status.is_system ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          系统
+                        </Badge>
+                      ) : null}
+                    </span>
+                  </summary>
+                  <div className="mt-2 grid gap-2">
+                    <WorkflowStatusFields
+                      status={status}
+                      index={index}
+                      total={statuses.length}
+                      isSaving={isSaving}
+                      onMove={moveStatus}
+                      onUpdateStatus={onUpdateStatus}
+                    />
+                  </div>
+                </details>
+                <div className="hidden gap-2 rounded-md border border-border/60 bg-surface/60 p-2 md:grid md:grid-cols-[auto_8.5rem_5.5rem_7.5rem_6rem_repeat(4,auto)_auto]">
+                  <WorkflowStatusFields
+                    status={status}
+                    index={index}
+                    total={statuses.length}
+                    isSaving={isSaving}
+                    onMove={moveStatus}
+                    onUpdateStatus={onUpdateStatus}
+                  />
                 </div>
               </div>
             ))}
@@ -844,6 +797,139 @@ function OrderWorkflowSection({
   );
 }
 
+type WorkflowStatusItem = ReturnType<typeof getWorkflowStatuses>[number];
+
+function WorkflowStatusFields({
+  status,
+  index,
+  total,
+  isSaving,
+  onMove,
+  onUpdateStatus,
+}: {
+  status: WorkflowStatusItem;
+  index: number;
+  total: number;
+  isSaving: boolean;
+  onMove: (index: number, direction: -1 | 1) => void;
+  onUpdateStatus: (id: string, input: Parameters<typeof updateOrderWorkflowStatus>[1]) => void;
+}) {
+  return (
+    <>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          disabled={isSaving || index === 0}
+          onClick={() => onMove(index, -1)}
+          aria-label="上移状态"
+        >
+          <ArrowUp className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          disabled={isSaving || index === total - 1}
+          onClick={() => onMove(index, 1)}
+          aria-label="下移状态"
+        >
+          <ArrowDown className="size-3.5" />
+        </Button>
+      </div>
+      <Input
+        defaultValue={status.label}
+        className="h-8 text-xs"
+        onBlur={(event) => {
+          const label = event.target.value.trim();
+          if (label && label !== status.label) onUpdateStatus(status.id, { label });
+        }}
+      />
+      <Input
+        defaultValue={status.short_label}
+        className="h-8 text-xs"
+        onBlur={(event) => {
+          const shortLabel = event.target.value.trim();
+          if (shortLabel !== status.short_label) {
+            onUpdateStatus(status.id, { short_label: shortLabel });
+          }
+        }}
+      />
+      <Select
+        value={status.bucket}
+        onValueChange={(bucket) =>
+          onUpdateStatus(status.id, { bucket: bucket as OrderWorkflowBucket })
+        }
+      >
+        <SelectTrigger className="h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {workflowBucketOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={status.tone}
+        onValueChange={(tone) => onUpdateStatus(status.id, { tone: tone as OrderWorkflowTone })}
+      >
+        <SelectTrigger className="h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {workflowToneOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <WorkflowCheck
+        label="启用"
+        checked={status.enabled}
+        disabled={isSaving || status.is_default_create_status}
+        onChange={(checked) => onUpdateStatus(status.id, { enabled: checked })}
+      />
+      <WorkflowCheck
+        label="列表"
+        checked={status.show_in_order_filters}
+        disabled={isSaving}
+        onChange={(checked) => onUpdateStatus(status.id, { show_in_order_filters: checked })}
+      />
+      <WorkflowCheck
+        label="新建"
+        checked={status.allowed_for_create}
+        disabled={isSaving || status.is_default_create_status}
+        onChange={(checked) => onUpdateStatus(status.id, { allowed_for_create: checked })}
+      />
+      <WorkflowCheck
+        label="默认"
+        checked={status.is_default_create_status}
+        disabled={isSaving || status.is_default_create_status || !status.enabled}
+        onChange={(checked) =>
+          checked && onUpdateStatus(status.id, { is_default_create_status: true })
+        }
+      />
+      <div className="flex min-w-0 items-center justify-end gap-2">
+        <code className="truncate rounded bg-surface-muted px-1.5 py-1 text-[10px] text-muted-foreground">
+          {status.code}
+        </code>
+        {status.is_system ? (
+          <Badge variant="outline" className="shrink-0 text-[10px]">
+            系统
+          </Badge>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 function WorkflowCheck({
   label,
   checked,
@@ -891,7 +977,7 @@ function StoreMembersSection({
   onInvite: () => void;
 }) {
   return (
-    <section className={formLayout.section}>
+    <section id="settings-members" className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
       <SectionTitle icon={Users} title="成员权限" />
       {isLoading ? (
         <div className="space-y-3">
@@ -899,12 +985,13 @@ function StoreMembersSection({
           <Skeleton className="h-20 w-full" />
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_auto]">
+        <div className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_12rem_auto]">
             <Field label="员工邮箱" htmlFor="invite-email">
               <Input
                 id="invite-email"
                 type="email"
+                className={compactControlClass}
                 value={inviteDraft.email}
                 onChange={(event) =>
                   onInviteDraftChange((current) => ({ ...current, email: event.target.value }))
@@ -927,7 +1014,7 @@ function StoreMembersSection({
                   }))
                 }
               >
-                <SelectTrigger id="invite-role">
+                <SelectTrigger id="invite-role" className={compactControlClass}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -943,6 +1030,8 @@ function StoreMembersSection({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
                 disabled={isInviting || inviteDraft.email.trim().length < 3}
                 onClick={onInvite}
               >
@@ -953,17 +1042,17 @@ function StoreMembersSection({
 
           <div className="grid gap-2">
             {members.map((member) => (
-              <div
-                key={member.id}
-                className="flex min-h-12 flex-col justify-center gap-1 rounded-md border border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-              >
+              <div key={member.id} className={cn(repairOs.businessCardDense, "block sm:flex")}>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {member.display_name || member.email}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">{member.email}</p>
                 </div>
-                <Badge variant={member.role === "owner" ? "default" : "outline"}>
+                <Badge
+                  variant={member.role === "owner" ? "default" : "outline"}
+                  className="mt-1 text-[10px] sm:mt-0"
+                >
                   {roleLabels[member.role] ?? member.role}
                 </Badge>
               </div>
@@ -975,7 +1064,10 @@ function StoreMembersSection({
               {invitations.map((invitation) => (
                 <div
                   key={invitation.id}
-                  className="flex min-h-11 flex-col justify-center gap-1 rounded-md border border-dashed border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  className={cn(
+                    repairOs.businessCardDense,
+                    "block border-dashed sm:flex sm:items-center sm:justify-between",
+                  )}
                 >
                   <p className="truncate text-sm">{invitation.email}</p>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1018,7 +1110,7 @@ function StoreManagementSection({
   onCreateStore: () => void;
 }) {
   return (
-    <section className={formLayout.section}>
+    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
       <SectionTitle icon={Store} title="店铺管理" />
       {isLoading ? (
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -1026,14 +1118,14 @@ function StoreManagementSection({
           <Skeleton className="h-10 w-full" />
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="grid gap-2 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <Field label="当前店铺" htmlFor="active-store">
             <Select
               value={activeStoreId}
               onValueChange={onSwitchStore}
               disabled={isSwitching || stores.length === 0}
             >
-              <SelectTrigger id="active-store">
+              <SelectTrigger id="active-store" className={compactControlClass}>
                 <SelectValue placeholder="选择店铺" />
               </SelectTrigger>
               <SelectContent>
@@ -1049,6 +1141,7 @@ function StoreManagementSection({
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 id="new-store"
+                className={compactControlClass}
                 value={newStoreName}
                 onChange={(event) => onNewStoreNameChange(event.target.value)}
                 onKeyDown={(event) => {
@@ -1061,6 +1154,8 @@ function StoreManagementSection({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
                 disabled={isCreating || newStoreName.trim().length < 2}
                 onClick={onCreateStore}
               >
@@ -1088,10 +1183,10 @@ function StoreManagementSection({
 
 function SectionTitle({ icon: Icon, title }: { icon: typeof Store; title: string }) {
   return (
-    <div className={formLayout.sectionHeader}>
+    <div className={repairOs.adminSectionHeader}>
       <div className="flex items-center gap-2">
         <Icon className="size-4 text-primary" />
-        <h2 className={formLayout.sectionTitle}>{title}</h2>
+        <h2 className={repairOs.adminSectionTitle}>{title}</h2>
       </div>
     </div>
   );
@@ -1125,18 +1220,23 @@ function Field({
 
 function SettingsLoading() {
   return (
-    <main className={pageShell.form}>
-      <div className={pageHeader.root}>
+    <main className={cn(pageShell.list, "pb-28 pt-3 sm:pt-5")}>
+      <div>
         <div>
           <Skeleton className="h-3 w-40" />
-          <Skeleton className="mt-3 h-8 w-44" />
+          <Skeleton className="mt-3 h-7 w-44" />
           <Skeleton className="mt-2 h-4 w-72" />
         </div>
       </div>
-      <div className="mt-5 space-y-4">
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-52 w-full" />
+      <div className="mt-3 grid min-w-0 grid-cols-3 gap-2">
+        <Skeleton className="h-[58px] w-full rounded-lg" />
+        <Skeleton className="h-[58px] w-full rounded-lg" />
+        <Skeleton className="h-[58px] w-full rounded-lg" />
+      </div>
+      <div className="mt-3 space-y-2.5 sm:space-y-3">
+        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-28 w-full rounded-lg" />
+        <Skeleton className="h-40 w-full rounded-lg" />
       </div>
     </main>
   );

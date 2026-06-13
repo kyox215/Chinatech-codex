@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { repairOs } from "@/lib/ui-patterns";
 
 export type CustomerDetailTab<T extends string = string> = {
   key: T;
@@ -15,18 +16,13 @@ export function CustomerDetailTabs<T extends string>({
   onChange: (tab: T) => void;
 }) {
   return (
-    <div className="mb-4 -mx-1 max-w-full overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="inline-flex min-w-0 items-center gap-0.5 rounded-lg border border-border/60 bg-surface/60 p-1">
+    <div className="mb-3 max-w-full overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="inline-flex min-w-0 items-center gap-1.5">
         {tabs.map((item) => (
           <button
             key={item.key}
             onClick={() => onChange(item.key)}
-            className={cn(
-              "whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              activeTab === item.key
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
+            className={cn(repairOs.chip, activeTab === item.key && repairOs.chipActive)}
           >
             {item.label}
           </button>

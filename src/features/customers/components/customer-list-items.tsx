@@ -3,9 +3,9 @@ import { ArrowUpRight } from "lucide-react";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { formatCustomerDate } from "@/features/customers/model/customer-list";
-import { brandGradientStyle, density } from "@/lib/ui-patterns";
+import { RepairOsBusinessCard, RepairOsBadge } from "@/shared/ui";
+import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { CustomerListItem, CustomerTag } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 
@@ -19,18 +19,18 @@ export function CustomerKpiCard({
   value: number;
 }) {
   return (
-    <div className="glass-card flex items-center justify-between p-4">
-      <div>
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-          {label}
+    <div className={cn(repairOs.metricCardDense, "flex items-center justify-between gap-3")}>
+      <div className="min-w-0">
+        <div className={repairOs.metricLabel}>{label}</div>
+        <div className="mt-1 font-mono text-lg font-semibold leading-none tabular-nums">
+          {value}
         </div>
-        <div className="mt-1 font-display text-2xl font-semibold tabular-nums">{value}</div>
       </div>
       <div
-        className="grid size-9 place-items-center rounded-md text-primary-foreground"
+        className="grid size-8 shrink-0 place-items-center rounded-md text-primary-foreground"
         style={brandGradientStyle}
       >
-        <Icon className="size-4" />
+        <Icon className="size-3.5" />
       </div>
     </div>
   );
@@ -108,40 +108,59 @@ export function CustomerMobileCard({
 }) {
   const followup = customer.next_followup_at ? formatCustomerDate(customer.next_followup_at) : "—";
   return (
-    <Card
-      className={cn(density.cardDense, "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3")}
+    <RepairOsBusinessCard
+      className={cn(repairOs.businessCardDense, "transition-transform active:scale-[0.99]")}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
-    >
-      <div className="w-16 min-w-0">
-        <CustomerTagList tags={customer.tags.slice(0, 1)} />
-      </div>
-      <div className="min-w-0">
-        <div className="min-w-0">
-          <Link
-            href={`/customers/${customer.id}`}
-            title={customer.name}
-            className="block truncate text-sm font-semibold hover:text-primary"
+      trailing={
+        <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">
+          <MoneyText amount={customer.total_spent} className={repairOs.cardAmount} />
+          <span
+            className={cn(
+              "mt-0.5 max-w-24 truncate text-[11px] leading-4",
+              customer.unpaid_amount > 0 ? "text-status-warn-foreground" : "text-muted-foreground",
+            )}
           >
-            {customer.name}
-          </Link>
-          <PhoneText value={customer.phone_e164} className="mt-0.5 block truncate" />
+            {customer.unpaid_amount > 0 ? "有未结清" : followup}
+          </span>
+          <Button asChild variant="ghost" size="icon" className="mt-0.5 size-7">
+            <Link href={`/customers/${customer.id}`} aria-label="查看客户">
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          </Button>
         </div>
-        <div className="mt-1 truncate text-xs text-muted-foreground">
-          {customer.latest_device_label ?? "暂无设备"} · {customer.device_count} 台设备 ·{" "}
-          {customer.order_count} 个工单
-        </div>
+      }
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <Link
+          href={`/customers/${customer.id}`}
+          title={customer.name}
+          className={cn(repairOs.cardTitle, "hover:text-primary")}
+        >
+          {customer.name}
+        </Link>
+        {customer.tags[0] ? (
+          <RepairOsBadge
+            className="max-w-20 border bg-card"
+            style={{ borderColor: customer.tags[0].color, color: customer.tags[0].color }}
+          >
+            <span className="truncate">{customer.tags[0].name}</span>
+          </RepairOsBadge>
+        ) : (
+          <RepairOsBadge className="bg-status-neutral text-status-neutral-foreground">
+            普通
+          </RepairOsBadge>
+        )}
       </div>
-      <div className="flex min-w-[5.5rem] flex-col items-end text-right text-xs">
-        <MoneyText amount={customer.total_spent} />
-        <span className="mt-1 max-w-24 truncate text-[11px] text-muted-foreground">{followup}</span>
-        <Button asChild variant="ghost" size="icon" className="mt-1 size-7">
-          <Link href={`/customers/${customer.id}`} aria-label="查看客户">
-            <ArrowUpRight className="size-3.5" />
-          </Link>
-        </Button>
-      </div>
-    </Card>
+      <PhoneText value={customer.phone_e164} className="block truncate text-[11px] leading-4" />
+      <p className={repairOs.cardMeta}>
+        {customer.latest_device_label ?? "暂无设备"} · {customer.device_count} 台设备 ·{" "}
+        {customer.order_count} 个工单
+      </p>
+      {customer.next_followup_at ? (
+        <p className={cn(repairOs.cardMeta, "text-status-warn-foreground")}>回访 {followup}</p>
+      ) : null}
+    </RepairOsBusinessCard>
   );
 }
 

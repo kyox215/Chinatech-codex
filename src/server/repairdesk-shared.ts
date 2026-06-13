@@ -1,5 +1,12 @@
 import { isApprovalOverdue, isPickupOverdue } from "@/lib/mock/workflow";
 import { CURRENCY_CODE } from "@/lib/money";
+import {
+  approvalFlowStatusFromLegacyStatus,
+  notifyStatusFromLegacyStatus,
+  partsStatusFromLegacyStatus,
+  paymentStatusFromMoney,
+  workflowStatusFromLegacyStatus,
+} from "@/features/orders/model/canonical-order-status";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { primaryPhoneRaw } from "@/shared/lib/phone";
 import type {
@@ -55,7 +62,7 @@ export const ORDER_SELECT = `
 
 const ORDER_LIST_PAGE_SIZE = 1000;
 
-const ORDER_LIST_COLUMNS = `
+const ORDER_LIST_BASE_COLUMNS = `
   id,
   store_id,
   public_no,
@@ -94,6 +101,20 @@ const ORDER_LIST_COLUMNS = `
   updated_at
 `;
 
+const ORDER_LIST_CANONICAL_COLUMNS = `
+  workflow_status,
+  exception_status,
+  payment_status,
+  approval_flow_status,
+  parts_status,
+  notify_status
+`;
+
+const ORDER_LIST_COLUMNS = `
+  ${ORDER_LIST_BASE_COLUMNS},
+  ${ORDER_LIST_CANONICAL_COLUMNS}
+`;
+
 export const ORDER_LIST_SELECT = `
   ${ORDER_LIST_COLUMNS},
   customer:customers(*),
@@ -101,8 +122,24 @@ export const ORDER_LIST_SELECT = `
   supplier:suppliers(*)
 `;
 
+export const ORDER_LIST_LEGACY_SELECT = `
+  ${ORDER_LIST_BASE_COLUMNS},
+  customer:customers(*),
+  device:devices(*),
+  supplier:suppliers(*)
+`;
+
 export function fail(error: { message: string } | null | undefined, context: string) {
   if (error) throw new Error(`${context}: ${error.message}`);
+}
+
+export function isMissingRepairOrderColumnError(error: { message: string } | null | undefined) {
+  const message = error?.message;
+  return Boolean(
+    message &&
+    (/column repair_orders\.[a-z_]+ does not exist/i.test(message) ||
+      /Could not find the '[a-z_]+' column of 'repair_orders' in the schema cache/i.test(message)),
+  );
 }
 
 export function maybeString(value: unknown): string | undefined {
@@ -258,11 +295,43 @@ export function followupFromRow(row: DbRecord): CustomerFollowup {
 }
 
 export function orderFromRow(row: DbRecord): RepairOrder {
+  const status = row.status as RepairOrder["status"];
+  const paymentStatus = paymentStatusFromMoney({
+    isPaid: Boolean(row.is_paid),
+    depositAmount: money(row.deposit_amount),
+    balanceAmount: money(row.balance_amount),
+  });
   return {
     id: requiredString(row.id),
     public_no: requiredString(row.public_no),
     order_type: row.order_type as RepairOrder["order_type"],
-    status: row.status as RepairOrder["status"],
+    status,
+    legacy_status: (maybeString(row.legacy_status) as RepairOrder["legacy_status"]) ?? status,
+    workflow_status:
+      (maybeString(row.workflow_status) as RepairOrder["workflow_status"]) ??
+      workflowStatusFromLegacyStatus(status),
+    exception_status:
+      (maybeString(row.exception_status) as RepairOrder["exception_status"]) ??
+      (status === "cancelled"
+        ? "cancelled"
+        : status === "rework"
+          ? "rework"
+          : status === "unfixed_pickup"
+            ? "returned_unfixed"
+            : maybeString(row.pause_reason)
+              ? "paused"
+              : undefined),
+    payment_status:
+      (maybeString(row.payment_status) as RepairOrder["payment_status"]) ?? paymentStatus,
+    approval_flow_status:
+      (maybeString(row.approval_flow_status) as RepairOrder["approval_flow_status"]) ??
+      approvalFlowStatusFromLegacyStatus(status, maybeString(row.approval_status)),
+    parts_status:
+      (maybeString(row.parts_status) as RepairOrder["parts_status"]) ??
+      partsStatusFromLegacyStatus(status),
+    notify_status:
+      (maybeString(row.notify_status) as RepairOrder["notify_status"]) ??
+      notifyStatusFromLegacyStatus(status),
     customer_id: requiredString(row.customer_id),
     device_id: requiredString(row.device_id),
     issue_description: requiredString(row.issue_description),
@@ -352,16 +421,25 @@ export async function fetchOrderRows(storeId = DEFAULT_STORE_ID): Promise<DbReco
   const supabase = getSupabaseAdmin();
   const rows: DbRecord[] = [];
   let from = 0;
+  let select = ORDER_LIST_SELECT;
+  let retriedLegacySelect = false;
 
   while (true) {
     const { data, error } = await supabase
       .from("repair_orders")
-      .select(ORDER_LIST_SELECT)
+      .select(select)
       .eq("store_id", storeId)
       .range(from, from + ORDER_LIST_PAGE_SIZE - 1);
+    if (error && !retriedLegacySelect && isMissingRepairOrderColumnError(error)) {
+      rows.length = 0;
+      from = 0;
+      select = ORDER_LIST_LEGACY_SELECT;
+      retriedLegacySelect = true;
+      continue;
+    }
     fail(error, "读取工单失败");
 
-    const batch = (data ?? []) as DbRecord[];
+    const batch = (data ?? []) as unknown as DbRecord[];
     rows.push(...batch);
 
     if (batch.length < ORDER_LIST_PAGE_SIZE) break;

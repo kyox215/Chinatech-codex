@@ -19,6 +19,11 @@ test("customers route loads", async ({ page }) => {
   await expectProtectedRoute(page, "客户");
 });
 
+test("buyback route loads", async ({ page }) => {
+  await page.goto("/buyback");
+  await expectProtectedRoute(page, "回收管理");
+});
+
 test("inventory route loads", async ({ page }) => {
   await page.goto("/inventory");
   await expectProtectedRoute(page, "配件与库存");

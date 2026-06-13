@@ -37,15 +37,16 @@ export function PaymentDialog({
   balance: number;
   onPay: (amount: number, method: string) => Promise<void>;
 }) {
-  const [amount, setAmount] = useState(balance);
+  const [amountText, setAmountText] = useState(() => formatPaymentDraft(balance));
   const [method, setMethod] = useState("现金");
   const [busy, setBusy] = useState(false);
+  const amount = parsePaymentAmount(amountText);
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
         onOpenChange(v);
-        if (v) setAmount(balance);
+        if (v) setAmountText(formatPaymentDraft(balance));
       }}
     >
       <DialogContent className={`${componentOverlay.modalSm} p-4 sm:p-5`}>
@@ -57,12 +58,12 @@ export function PaymentDialog({
           <div>
             <Label className="text-xs">收款金额</Label>
             <Input
-              type="number"
-              min={0}
-              max={balance}
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
+              type="text"
+              inputMode="decimal"
+              value={amountText}
+              onChange={(e) => setAmountText(e.target.value)}
               className="mt-1 font-mono"
+              placeholder="0"
             />
           </div>
           <div>
@@ -86,8 +87,9 @@ export function PaymentDialog({
             取消
           </Button>
           <Button
-            disabled={busy || amount <= 0 || amount > balance}
+            disabled={busy || amount === undefined || amount <= 0 || amount > balance}
             onClick={async () => {
+              if (amount === undefined) return;
               setBusy(true);
               try {
                 await onPay(amount, method);
@@ -103,4 +105,15 @@ export function PaymentDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function formatPaymentDraft(value: number) {
+  return Number.isFinite(value) && value > 0 ? String(value) : "";
+}
+
+function parsePaymentAmount(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return undefined;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : undefined;
 }

@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { componentOverlay } from "@/lib/component-patterns";
+import { repairOs } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 import type { CustomerDetail, CustomerTag } from "@/lib/repairdesk/api";
 
 export function CustomerTagsDialog({
@@ -33,11 +35,11 @@ export function CustomerTagsDialog({
     const known = new Map<string, CustomerTag>();
     data.tags.forEach((tag) => known.set(tag.id, tag));
     const defaults: CustomerTag[] = [
-      { id: "tag_vip", name: "VIP", color: "#8b5cf6" },
-      { id: "tag_repeat", name: "复购", color: "#10b981" },
-      { id: "tag_business", name: "企业", color: "#0ea5e9" },
-      { id: "tag_price_sensitive", name: "价格敏感", color: "#f59e0b" },
-      { id: "tag_followup", name: "需回访", color: "#ef4444" },
+      { id: "tag_vip", name: "VIP", color: "var(--primary)" },
+      { id: "tag_repeat", name: "复购", color: "var(--status-success-foreground)" },
+      { id: "tag_business", name: "企业", color: "var(--status-info-foreground)" },
+      { id: "tag_price_sensitive", name: "价格敏感", color: "var(--status-warn-foreground)" },
+      { id: "tag_followup", name: "需回访", color: "var(--status-danger-foreground)" },
     ];
     defaults.forEach((tag) => {
       if (!known.has(tag.id)) known.set(tag.id, tag);
@@ -56,7 +58,7 @@ export function CustomerTagsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.responsiveContent}>
+      <DialogContent className={componentOverlay.formContent}>
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>管理客户标签</DialogTitle>
           <DialogDescription className={componentOverlay.description}>
@@ -67,7 +69,10 @@ export function CustomerTagsDialog({
           {allTags.map((tag) => (
             <label
               key={tag.id}
-              className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md border p-2 text-sm"
+              className={cn(
+                repairOs.businessCardDense,
+                "grid-cols-[auto_auto_minmax(0,1fr)] cursor-pointer items-center gap-2 text-sm",
+              )}
             >
               <Checkbox
                 checked={selected.includes(tag.id)}

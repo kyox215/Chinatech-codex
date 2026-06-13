@@ -31,6 +31,7 @@ import {
   getDefaultOrderWhatsappTemplateKind,
   getOrderWhatsappTransition,
   orderWhatsappTemplateOptions,
+  replaceOrderWhatsappRecipientPhone,
 } from "@/features/orders/model/order-message-templates";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 
@@ -52,28 +53,38 @@ export function NotifyDialog({
   onConfirm: (input: {
     body: string;
     templateKind: OrderWhatsappTemplateKind;
+    recipientPhone?: string;
     transitionTo?: OrderDetail["order"]["status"];
   }) => Promise<unknown>;
 }) {
   const defaultKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
   const phoneOptions = getOrderContactPhoneOptions(data);
+  const defaultPhone = phoneOptions[0] ?? "";
   const [templateKind, setTemplateKind] = useState<OrderWhatsappTemplateKind>(defaultKind);
-  const [body, setBody] = useState(() => buildOrderWhatsappMessage(data, defaultKind, orderUrl));
-  const [phone, setPhone] = useState(phoneOptions[0] ?? "");
+  const [body, setBody] = useState(() =>
+    buildOrderWhatsappMessage(data, defaultKind, orderUrl, { recipientPhone: defaultPhone }),
+  );
+  const [phone, setPhone] = useState(defaultPhone);
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
   const transitionTo = getOrderWhatsappTransition(data.order.status, templateKind);
 
   useEffect(() => {
     if (!open) return;
     const nextKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
+    const nextPhone = getOrderContactPhoneOptions(data)[0] ?? "";
     setTemplateKind(nextKind);
-    setBody(buildOrderWhatsappMessage(data, nextKind, orderUrl));
-    setPhone(getOrderContactPhoneOptions(data)[0] ?? "");
+    setBody(buildOrderWhatsappMessage(data, nextKind, orderUrl, { recipientPhone: nextPhone }));
+    setPhone(nextPhone);
   }, [data, open, orderUrl]);
 
   const updateTemplate = (kind: OrderWhatsappTemplateKind) => {
     setTemplateKind(kind);
-    setBody(buildOrderWhatsappMessage(data, kind, orderUrl));
+    setBody(buildOrderWhatsappMessage(data, kind, orderUrl, { recipientPhone: phone }));
+  };
+
+  const updatePhone = (nextPhone: string) => {
+    setPhone(nextPhone);
+    setBody((current) => replaceOrderWhatsappRecipientPhone(current, nextPhone));
   };
 
   return (
@@ -110,7 +121,7 @@ export function NotifyDialog({
             <div>
               <Label className="text-xs">WhatsApp</Label>
               {phoneOptions.length > 1 ? (
-                <Select value={phone} onValueChange={setPhone}>
+                <Select value={phone} onValueChange={updatePhone}>
                   <SelectTrigger className="mt-1 font-mono text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -157,7 +168,12 @@ export function NotifyDialog({
                 return;
               }
               window.open(url, "_blank", "noopener,noreferrer");
-              await onConfirm({ body: body.trim(), templateKind, transitionTo });
+              await onConfirm({
+                body: body.trim(),
+                templateKind,
+                recipientPhone: phone.trim() || undefined,
+                transitionTo,
+              });
               onOpenChange(false);
             }}
           >

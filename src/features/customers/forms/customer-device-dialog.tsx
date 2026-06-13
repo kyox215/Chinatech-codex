@@ -16,6 +16,8 @@ import { CustomerFormField } from "@/features/customers/forms/customer-form-fiel
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDeviceInput, Device } from "@/lib/repairdesk/api";
 
+const compactInputClass = "h-8 text-sm sm:h-9";
+
 export function CustomerDeviceDialog({
   open,
   onOpenChange,
@@ -49,7 +51,7 @@ export function CustomerDeviceDialog({
   }, [device, open]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.responsiveContent}>
+      <DialogContent className={componentOverlay.formContent}>
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>
             {device ? "编辑设备" : "添加设备"}
@@ -58,15 +60,17 @@ export function CustomerDeviceDialog({
             设备档案用于新建工单预填；历史工单仍保留创建时快照。
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
           <CustomerFormField label="品牌" required>
             <Input
+              className={compactInputClass}
               value={form.brand}
               onChange={(event) => setForm({ ...form, brand: event.target.value })}
             />
           </CustomerFormField>
           <CustomerFormField label="型号" required>
             <Input
+              className={compactInputClass}
               value={form.model}
               onChange={(event) => setForm({ ...form, model: event.target.value })}
             />
@@ -75,11 +79,12 @@ export function CustomerDeviceDialog({
             <Input
               value={form.serial_or_imei ?? ""}
               onChange={(event) => setForm({ ...form, serial_or_imei: event.target.value })}
-              className="font-mono"
+              className={`${compactInputClass} font-mono`}
             />
           </CustomerFormField>
           <CustomerFormField label="设备备注">
             <Input
+              className={compactInputClass}
               value={form.device_notes ?? ""}
               onChange={(event) => setForm({ ...form, device_notes: event.target.value })}
             />

@@ -461,10 +461,10 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       }
       case "order/payment": {
-        const { id, amount, method } = paymentBodySchema.parse(body);
+        const { id, amount, method, expected_updated_at } = paymentBodySchema.parse(body);
         return ok(
           await auditGeneric(actor, "payment", "repair_order", id, { amount, method }, () =>
-            api.recordPayment(id, amount, method, actor),
+            api.recordPayment(id, amount, method, actor, expected_updated_at),
           ),
         );
       }
@@ -478,14 +478,22 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           body: messageBody,
           template_kind,
           transition_to,
+          recipient_phone,
         } = whatsappNotificationBodySchema.parse(body);
         return ok(
-          await api.sendWhatsappNotification(id, messageBody, template_kind, transition_to, actor),
+          await api.sendWhatsappNotification(
+            id,
+            messageBody,
+            template_kind,
+            transition_to,
+            actor,
+            recipient_phone,
+          ),
         );
       }
       case "order/approval-request": {
-        const { id, body: messageBody } = approvalRequestBodySchema.parse(body);
-        return ok(await api.sendApprovalRequest(id, messageBody, actor));
+        const { id, body: messageBody, recipient_phone } = approvalRequestBodySchema.parse(body);
+        return ok(await api.sendApprovalRequest(id, messageBody, actor, recipient_phone));
       }
       case "customers/search": {
         const { q, limit } = customerSearchBodySchema.parse(body);

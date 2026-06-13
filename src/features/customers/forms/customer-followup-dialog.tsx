@@ -17,6 +17,9 @@ import { CustomerFormField } from "@/features/customers/forms/customer-form-fiel
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerFollowupInput, OrderListItem } from "@/lib/repairdesk/api";
 
+const compactInputClass = "h-8 text-sm sm:h-9";
+const compactTextareaClass = "min-h-20 text-sm";
+
 export function CustomerFollowupDialog({
   open,
   onOpenChange,
@@ -55,16 +58,17 @@ export function CustomerFollowupDialog({
   }, [defaultDueAt, open, selectedOrderId]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.responsiveContent}>
+      <DialogContent className={componentOverlay.formContent}>
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>添加回访任务</DialogTitle>
           <DialogDescription className={componentOverlay.description}>
             用于售后满意度、报价确认或取机提醒。
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-3">
+        <div className="min-w-0 space-y-2.5">
           <CustomerFormField label="标题" required>
             <Input
+              className={compactInputClass}
               value={form.title}
               onChange={(event) => setForm({ ...form, title: event.target.value })}
             />
@@ -73,7 +77,7 @@ export function CustomerFollowupDialog({
             <select
               value={form.order_id ?? ""}
               onChange={(event) => setForm({ ...form, order_id: event.target.value || undefined })}
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-8 w-full rounded-md border border-[var(--border-panel)] bg-background px-3 text-sm sm:h-9"
             >
               <option value="">不关联</option>
               {orders.map((order) => (
@@ -85,6 +89,7 @@ export function CustomerFollowupDialog({
           </CustomerFormField>
           <CustomerFormField label="到期时间" required>
             <Input
+              className={compactInputClass}
               type="datetime-local"
               value={form.due_at}
               onChange={(event) => setForm({ ...form, due_at: event.target.value })}
@@ -92,13 +97,14 @@ export function CustomerFollowupDialog({
           </CustomerFormField>
           <CustomerFormField label="负责人">
             <Input
+              className={compactInputClass}
               value={form.owner_name ?? ""}
               onChange={(event) => setForm({ ...form, owner_name: event.target.value })}
             />
           </CustomerFormField>
           <CustomerFormField label="备注">
             <Textarea
-              rows={3}
+              className={compactTextareaClass}
               value={form.note ?? ""}
               onChange={(event) => setForm({ ...form, note: event.target.value })}
             />

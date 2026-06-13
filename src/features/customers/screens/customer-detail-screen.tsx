@@ -153,15 +153,10 @@ export function CustomerDetailScreen({ id }: { id: string }) {
 
   if (isLoading || !data) {
     return (
-      <div
-        className={cn(
-          pageShell.safe,
-          "mx-auto max-w-5xl space-y-4 px-3 pb-12 pt-4 sm:px-4 md:px-6",
-        )}
-      >
-        <Skeleton className="h-36 w-full" />
-        <Skeleton className="h-10 w-full sm:w-96" />
-        <Skeleton className="h-64 w-full" />
+      <div className={cn(pageShell.list, "space-y-3 pb-8 pt-3 sm:pt-5")}>
+        <Skeleton className="h-28 w-full rounded-2xl" />
+        <Skeleton className="h-9 w-full rounded-full sm:w-96" />
+        <Skeleton className="h-56 w-full rounded-2xl" />
       </div>
     );
   }
@@ -169,7 +164,7 @@ export function CustomerDetailScreen({ id }: { id: string }) {
   const { customer, devices, orders, followups, interactions } = data;
 
   return (
-    <div className={cn(pageShell.safe, "mx-auto max-w-5xl px-3 pb-12 pt-4 sm:px-4 md:px-6")}>
+    <div className={cn(pageShell.list, "pb-8 pt-3 sm:pt-5")}>
       <CustomerHero
         data={data}
         onMessage={() => setMessageOpen(true)}

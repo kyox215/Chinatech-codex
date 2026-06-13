@@ -21,8 +21,10 @@ import {
   rejectOnboardingRequest,
   type OnboardingRequest,
 } from "@/lib/repairdesk/api";
-import { brandGradientStyle, controls, density, pageHeader, pageShell } from "@/lib/ui-patterns";
+import { RepairOsMetricStrip, RepairOsModuleHeader } from "@/shared/ui";
+import { brandGradientStyle, controls, density, pageShell, repairOs } from "@/lib/ui-patterns";
 import { platformKeys } from "@/features/platform/api/query-keys";
+import { cn } from "@/lib/utils";
 
 const roleLabels: Record<string, string> = {
   owner: "店主",
@@ -58,38 +60,56 @@ export function PlatformAdminScreen() {
   });
 
   const requests = requestsQuery.data ?? [];
+  const createStoreCount = requests.filter(
+    (request) => request.request_type === "create_store",
+  ).length;
+  const joinStoreCount = requests.length - createStoreCount;
 
   return (
-    <div className={pageShell.list}>
-      <header className={pageHeader.root}>
-        <div className="min-w-0">
-          <p className={pageHeader.eyebrow}>平台管理 / 审批</p>
-          <h1 className={pageHeader.title}>
-            <span className="gradient-text">账号与店铺审批</span>
-          </h1>
-          <p className={pageHeader.subtitle}>平台管理员只处理开通申请，不进入各店铺业务数据。</p>
-        </div>
-        <div className={pageHeader.actions}>
-          <Badge variant="outline" className="gap-1.5">
-            <ShieldCheck className="size-3.5" />
-            平台管理员
+    <div className={cn(pageShell.list, "pb-8 pt-3 sm:pt-5")}>
+      <div className="space-y-3">
+        <RepairOsModuleHeader
+          action={
+            <Badge variant="outline" className="gap-1.5">
+              <ShieldCheck className="size-3.5" />
+              平台管理员
+            </Badge>
+          }
+        />
+
+        <RepairOsMetricStrip
+          metrics={[
+            { label: "待审核", value: requests.length, hint: "全部申请", icon: ShieldCheck },
+            {
+              label: "创建店铺",
+              value: createStoreCount,
+              hint: "新门店",
+              icon: Store,
+              tone: "green",
+            },
+            {
+              label: "加入店铺",
+              value: joinStoreCount,
+              hint: "成员加入",
+              icon: UserPlus,
+              tone: "amber",
+            },
+          ]}
+        />
+      </div>
+
+      <section className={cn(repairOs.adminSection, "mt-3 overflow-hidden p-0")}>
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-[var(--border-panel)] px-3 py-2.5">
+          <div className="min-w-0">
+            <h2 className={repairOs.adminSectionTitle}>待处理申请</h2>
+            <p className="truncate text-[11px] text-muted-foreground">
+              审核后账号才可进入对应店铺工作台
+            </p>
+          </div>
+          <Badge variant="secondary" className="shrink-0 font-mono text-[11px]">
+            {requests.length}
           </Badge>
         </div>
-      </header>
-
-      <section className="mt-5 grid gap-3 sm:grid-cols-3">
-        <Metric label="待审核" value={requests.length} />
-        <Metric
-          label="创建店铺"
-          value={requests.filter((request) => request.request_type === "create_store").length}
-        />
-        <Metric
-          label="加入店铺"
-          value={requests.filter((request) => request.request_type === "join_store").length}
-        />
-      </section>
-
-      <section className="glass-card mt-5 overflow-hidden">
         {requestsQuery.isLoading ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-10 w-full" />
@@ -103,7 +123,7 @@ export function PlatformAdminScreen() {
               : "读取审批列表失败"}
           </div>
         ) : requests.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">暂无待审核申请。</div>
+          <div className="p-5 text-center text-sm text-muted-foreground">暂无待审核申请。</div>
         ) : (
           <>
             <div className="hidden min-w-0 max-w-full overflow-hidden lg:block">
@@ -131,7 +151,7 @@ export function PlatformAdminScreen() {
                 </TableBody>
               </Table>
             </div>
-            <div className="space-y-2 lg:hidden">
+            <div className="space-y-1.5 p-2 lg:hidden">
               {requests.map((request) => (
                 <RequestCard
                   key={request.id}
@@ -145,15 +165,6 @@ export function PlatformAdminScreen() {
           </>
         )}
       </section>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="glass-card p-3">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70">{label}</p>
-      <p className="mt-2 font-display text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
@@ -221,32 +232,40 @@ function RequestCard({
   onReject: () => void;
 }) {
   return (
-    <article className="min-w-0 rounded-lg border bg-card p-3">
-      <div className="flex min-w-0 items-start justify-between gap-3">
+    <article className={cn(repairOs.businessCardDense, "grid-cols-[minmax(0,1fr)] gap-1.5 py-2")}>
+      <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{request.display_name || request.email}</p>
-          <p className="truncate text-xs text-muted-foreground">{request.email}</p>
+          <p className={repairOs.cardTitle}>{request.display_name || request.email}</p>
+          <p className="truncate text-[11px] leading-4 text-muted-foreground">{request.email}</p>
         </div>
         <RequestTypeBadge request={request} />
       </div>
-      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+      <div className="grid min-w-0 gap-0.5 text-[11px] leading-4 text-muted-foreground">
         <p className="truncate">目标：{requestTarget(request)}</p>
-        <p>角色：{roleLabels[request.requested_role] ?? request.requested_role}</p>
-        <p>{formatDate(request.created_at)}</p>
+        <p className="truncate">
+          角色：{roleLabels[request.requested_role] ?? request.requested_role} ·{" "}
+          {formatDate(request.created_at)}
+        </p>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         <Button
           size="sm"
-          className={controls.brandButton}
+          className={cn("h-8 gap-1.5", controls.brandButton)}
           style={brandGradientStyle}
           disabled={isBusy}
           onClick={onApprove}
         >
-          <CheckCircle2 className="size-4" />
+          <CheckCircle2 className="size-3.5" />
           批准
         </Button>
-        <Button size="sm" variant="outline" disabled={isBusy} onClick={onReject}>
-          <XCircle className="size-4" />
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5"
+          disabled={isBusy}
+          onClick={onReject}
+        >
+          <XCircle className="size-3.5" />
           拒绝
         </Button>
       </div>

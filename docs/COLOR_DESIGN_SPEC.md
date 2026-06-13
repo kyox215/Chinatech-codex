@@ -3,7 +3,7 @@
 > 单一可信来源：`src/styles.css`。所有组件**禁止**写死颜色（hex / rgb / `text-white` / `bg-black` 等），一律使用本规范中的语义令牌。
 >
 > 主题：双主题（亮 `:root` / 暗 `.dark`）。色彩空间：`oklch`。
-> 品牌叙事：玻璃拟态深色基底 + 紫(violet)→青(cyan) 品牌渐变。
+> 品牌叙事：RepairOS Compact 浅色 SaaS 工具面 + 科技蓝 `#315CFF` 主色。
 
 ---
 
@@ -25,23 +25,23 @@
 
 | 令牌 | 暗色 | 亮色 | 备注 |
 |---|---|---|---|
-| `--primary` | `oklch(0.74 0.18 285)` | `oklch(0.55 0.2 285)` | 主操作色（紫） |
-| `--primary-foreground` | `oklch(0.16 0.03 270)` | `oklch(0.99 0.005 247)` | 配对文本 |
+| `--primary` | `#315CFF` | `#315CFF` | 主操作色（科技蓝） |
+| `--primary-foreground` | `oklch(0.99 0.005 247)` | `oklch(0.99 0.005 247)` | 配对文本 |
 | `--secondary` | `oklch(1 0 0 / 0.06)` | `oklch(0.965 0.008 247)` | 次级按钮 |
-| `--accent` | `oklch(0.74 0.18 285 / 0.18)` | `oklch(0.95 0.02 285)` | 选中/高亮 |
-| `--accent-foreground` | `oklch(0.92 0.06 285)` | `oklch(0.28 0.06 285)` | 配对 |
+| `--accent` | `color-mix(in oklch, #315CFF 18%, transparent)` | `color-mix(in oklch, #315CFF 8%, white)` | 选中/高亮 |
+| `--accent-foreground` | `oklch(0.92 0.06 260)` | `#315CFF` | 配对 |
 | `--destructive` | `oklch(0.68 0.2 22)` | `oklch(0.6 0.21 22)` | 危险操作 |
 | `--border` | `oklch(1 0 0 / 0.08)` | `oklch(0.92 0.008 255)` | 描边 |
 | `--input` | `oklch(1 0 0 / 0.1)` | `oklch(0.94 0.008 255)` | 输入框边/底 |
-| `--ring` | `oklch(0.74 0.18 285)` | `oklch(0.55 0.2 285)` | 焦点环 |
+| `--ring` | `#315CFF` | `#315CFF` | 焦点环 |
 
 ### 1.3 品牌色与渐变
 
 | 令牌 | 值 | 用途 |
 |---|---|---|
-| `--color-brand-violet` | `oklch(0.7 0.2 285)` | 图表/自定义渐变端点 |
-| `--color-brand-cyan` | `oklch(0.82 0.13 200)` | 图表/自定义渐变端点 |
-| `--gradient-brand` | `linear-gradient(135deg, violet, cyan)` | 主 CTA、品牌图标背景、强调指示条、`gradient-text` |
+| `--color-brand-violet` | `#315CFF` | 图表/品牌主序列 |
+| `--color-brand-cyan` | `oklch(0.82 0.13 200)` | 图表/品牌辅助序列 |
+| `--gradient-brand` | `linear-gradient(135deg, #315CFF, oklch(0.82 0.13 220))` | 主 CTA、品牌图标背景、强调指示条、`gradient-text` |
 | `--gradient-brand-soft` | 同上 18% alpha | 低饱和品牌底色 |
 | `--gradient-surface` | `linear-gradient(180deg, oklch(1 0 0/.06), .02)` | 玻璃面默认渐变 |
 
@@ -53,7 +53,7 @@
 |---|---|---|---|
 | `neutral` | `oklch(1 0 0/.06)` / `oklch(0.78 0.02 257)` | `oklch(0.95 0.005 257)` / `oklch(0.36 0.02 257)` | 草稿、未分类 |
 | `info` | `oklch(0.55 0.18 245/.2)` / `oklch(0.85 0.12 240)` | `oklch(0.94 0.04 240)` / `oklch(0.38 0.16 250)` | 已确认、已支付 |
-| `progress` | `oklch(0.7 0.2 285/.2)` / `oklch(0.88 0.12 285)` | `oklch(0.93 0.06 285)` / `oklch(0.38 0.18 285)` | 处理中、配送中 |
+| `progress` | `color-mix(in oklch, #315CFF 22%, transparent)` / `oklch(0.86 0.09 260)` | `color-mix(in oklch, #315CFF 12%, white)` / `#315CFF` | 处理中、配送中 |
 | `warn` | `oklch(0.7 0.18 70/.22)` / `oklch(0.88 0.14 75)` | `oklch(0.95 0.07 80)` / `oklch(0.42 0.14 60)` | 待支付、风险 |
 | `success` | `oklch(0.7 0.16 160/.2)` / `oklch(0.86 0.13 160)` | `oklch(0.94 0.06 160)` / `oklch(0.38 0.13 160)` | 已完成、达成 |
 | `danger` | `oklch(0.65 0.2 22/.22)` / `oklch(0.88 0.13 22)` | `oklch(0.94 0.05 22)` / `oklch(0.45 0.18 22)` | 取消、退款、失败 |
@@ -62,7 +62,7 @@
 
 | 令牌 | 值 | 推荐用途 |
 |---|---|---|
-| `--color-chart-1` | `oklch(0.7 0.2 285)` 紫 | 主序列 |
+| `--color-chart-1` | `#315CFF` | 主序列 |
 | `--color-chart-2` | `oklch(0.82 0.13 200)` 青 | 对比序列 |
 | `--color-chart-3` | `oklch(0.78 0.16 320)` 品红 | 第三序列 |
 | `--color-chart-4` | `oklch(0.78 0.18 145)` 绿 | 正向 |
@@ -74,9 +74,9 @@
 |---|---|---|
 | `--sidebar` | `oklch(0.16 0.03 270)` | `oklch(0.99 0.004 265)` |
 | `--sidebar-foreground` | `oklch(0.92 0.01 247)` | `oklch(0.28 0.03 265)` |
-| `--sidebar-primary` | `oklch(0.74 0.18 285)` | `oklch(0.55 0.2 285)` |
-| `--sidebar-accent` | `oklch(0.26 0.07 280)` | `oklch(0.95 0.04 285)` |
-| `--sidebar-accent-foreground` | `oklch(0.96 0.04 285)` | `oklch(0.32 0.14 285)` |
+| `--sidebar-primary` | `#315CFF` | `#315CFF` |
+| `--sidebar-accent` | `color-mix(in oklch, #315CFF 20%, transparent)` | `color-mix(in oklch, #315CFF 9%, white)` |
+| `--sidebar-accent-foreground` | `oklch(0.92 0.06 260)` | `#315CFF` |
 | `--sidebar-border` | `oklch(0.28 0.04 270)` | `oklch(0.9 0.01 265)` |
 | `--sidebar-ring` | `oklch(0.74 0.18 285)` | `oklch(0.55 0.2 285)` |
 
@@ -177,7 +177,7 @@
 - 容器：`bg-popover text-popover-foreground` + `glass-strong`
 - 描边：`border-border`
 - 阴影：`shadow-[var(--shadow-elevated)]`
-- 遮罩：`bg-background/60 backdrop-blur-sm`
+- 遮罩：`bg-[var(--overlay-scrim)]`
 
 ### 3.8 Sidebar
 
@@ -194,7 +194,7 @@
 
 ### 3.10 AppBar / TopNav
 
-- 背景：`bg-background/70 backdrop-blur-xl border-b border-border`
+- 背景：`bg-background/95 border-b border-[var(--border-panel)]`，桌面可轻微 `backdrop-blur-xl`
 - Logo / 品牌字：`gradient-text font-display`
 - 面包屑当前项：`text-foreground`，其它：`text-muted-foreground`
 
@@ -217,10 +217,10 @@
 - 跌幅 −：`text-status-danger-foreground bg-status-danger`
 - 单位：`text-muted-foreground text-sm`
 
-### 3.14 BackgroundOrbs
+### 3.14 App Background
 
-- 径向渐变：紫 28% / 青 22% / 品红 18%（见 `body` 背景规则）
-- 亮色减弱至 12% / 10%
+- 默认浅色平面背景，不使用装饰性 orbs 或大面积渐变背景。
+- 业务页面优先白色紧凑卡片、弱边框和轻阴影。
 
 ---
 
@@ -229,7 +229,7 @@
 | ❌ Don't | ✅ Do |
 |---|---|
 | `bg-white text-black` | `bg-card text-card-foreground` |
-| `bg-[#7c3aed]` | `style={{ background: "var(--gradient-brand)" }}` |
+| `bg-[#7c3aed]` | `style={{ background: "var(--gradient-brand)" }}` 或 `bg-primary text-primary-foreground` |
 | `text-gray-500` | `text-muted-foreground` |
 | `bg-green-500/10 text-green-400` | `bg-status-success text-status-success-foreground` |
 | 在侧栏上 `backdrop-blur-xl` | 让侧栏继承 `bg-sidebar`（实色） |

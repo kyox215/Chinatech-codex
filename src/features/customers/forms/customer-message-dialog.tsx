@@ -29,6 +29,8 @@ const customerMessageChannels = [
   { value: "sms", label: "SMS" },
 ] as const;
 
+const compactControlClass = "h-8 text-sm sm:h-9";
+
 export function CustomerMessageDialog({
   open,
   onOpenChange,
@@ -59,19 +61,19 @@ export function CustomerMessageDialog({
   }, [data, open, appOrigin]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.responsiveContent}>
+      <DialogContent className={componentOverlay.formContent}>
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>预览客户消息</DialogTitle>
           <DialogDescription className={componentOverlay.description}>
             客户可见内容使用意大利语。确认后打开对应通道并记录联系历史。
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-3">
+        <div className="min-w-0 space-y-2.5">
           <Select
             value={channel}
             onValueChange={(value) => setChannel(value as "whatsapp" | "sms")}
           >
-            <SelectTrigger>
+            <SelectTrigger className={compactControlClass}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -84,7 +86,7 @@ export function CustomerMessageDialog({
           </Select>
           {phoneOptions.length > 1 ? (
             <Select value={phone} onValueChange={setPhone}>
-              <SelectTrigger className="min-w-0 font-mono text-xs">
+              <SelectTrigger className="h-8 min-w-0 font-mono text-xs sm:h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -96,15 +98,14 @@ export function CustomerMessageDialog({
               </SelectContent>
             </Select>
           ) : (
-            <div className="truncate rounded-md border bg-surface-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+            <div className="flex h-8 items-center truncate rounded-md border border-[var(--border-panel)] bg-surface-muted px-3 font-mono text-xs text-muted-foreground sm:h-9">
               {phone || "缺少电话号码"}
             </div>
           )}
           <Textarea
-            rows={10}
             value={body}
             onChange={(event) => setBody(event.target.value)}
-            className="font-mono text-xs"
+            className="min-h-56 font-mono text-xs leading-relaxed sm:min-h-64"
           />
         </div>
         <DialogFooter className={componentOverlay.footer}>

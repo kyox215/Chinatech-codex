@@ -39,6 +39,31 @@ export interface Supplier {
   color: string;
 }
 
+export type OrderWorkflowStatusCode =
+  | "intake"
+  | "diagnosis"
+  | "quote"
+  | "parts"
+  | "repair"
+  | "pickup"
+  | "closed";
+
+export type OrderExceptionStatus =
+  | "cancelled"
+  | "unrepairable"
+  | "returned_unfixed"
+  | "rework"
+  | "waiting_customer"
+  | "paused";
+
+export type OrderPaymentStatus = "unpaid" | "partial" | "paid" | "refunded";
+
+export type OrderApprovalFlowStatus = "not_required" | "waiting_customer" | "approved" | "rejected";
+
+export type OrderPartsStatus = "not_required" | "needed" | "ordered" | "arrived" | "out_of_stock";
+
+export type OrderNotifyStatus = "not_sent" | "sent" | "contacted";
+
 export type OrderWorkflowBucket =
   | "intake"
   | "diagnosing"
@@ -150,6 +175,13 @@ export interface RepairOrder {
   public_no: string;
   order_type: RepairOrderType;
   status: RepairOrderStatus;
+  legacy_status?: RepairOrderStatus;
+  workflow_status?: OrderWorkflowStatusCode;
+  exception_status?: OrderExceptionStatus;
+  payment_status?: OrderPaymentStatus;
+  approval_flow_status?: OrderApprovalFlowStatus;
+  parts_status?: OrderPartsStatus;
+  notify_status?: OrderNotifyStatus;
   customer_id: string;
   device_id: string;
   issue_description: string;
@@ -227,6 +259,7 @@ export interface WhatsappNotificationResult {
   channel: "whatsapp";
   body: string;
   template_kind: OrderWhatsappTemplateKind;
+  recipient_phone?: string;
   statusChanged: boolean;
   from?: RepairOrderStatus;
   to?: RepairOrderStatus;
@@ -235,6 +268,11 @@ export interface WhatsappNotificationResult {
 export interface OrderListFilters {
   search?: string;
   statuses?: RepairOrderStatus[];
+  workflowStatuses?: OrderWorkflowStatusCode[];
+  exceptionStatuses?: OrderExceptionStatus[];
+  paymentStatuses?: OrderPaymentStatus[];
+  partsStatuses?: OrderPartsStatus[];
+  approvalFlowStatuses?: OrderApprovalFlowStatus[];
   types?: RepairOrderType[];
   technicians?: string[];
   supplierIds?: string[];
@@ -264,6 +302,7 @@ export interface OrderListResult {
   page: number;
   pageSize: number;
   pageCount: number;
+  workflowCounts: Record<OrderWorkflowStatusCode | "all", number>;
 }
 
 export interface OrderStats {
@@ -403,6 +442,7 @@ export interface CreateOrderInput {
 }
 
 export interface UpdateOrderInput {
+  expected_updated_at: string;
   customer_name: string;
   customer_phone: string;
   device_brand: string;
@@ -503,6 +543,7 @@ export interface PaymentResult {
   ok: boolean;
   balance: number;
   is_paid: boolean;
+  updated_at?: string;
 }
 
 export type StaffRole = "owner" | "manager" | "technician" | "sales" | "viewer";
@@ -873,6 +914,9 @@ export interface CreateInventoryIntakeInput {
   color?: string;
   storage_capacity?: string;
   serial_or_imei?: string;
+  quoted_offer?: number;
+  quote_expires_at?: string;
+  quote_payload?: Record<string, unknown>;
   buyback_price?: number;
   list_price?: number;
   deposit_amount?: number;

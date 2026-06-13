@@ -5,10 +5,12 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppBar } from "@/components/app-bar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { BackgroundOrbs } from "@/components/background-orbs";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
+import { MobileWorkspaceDock } from "@/components/mobile-workspace-dock";
+import { PwaServiceWorker } from "@/components/pwa-service-worker";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { appShell } from "@/lib/ui-patterns";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -19,6 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         {children}
+        <PwaServiceWorker />
         <Toaster />
       </QueryClientProvider>
     );
@@ -29,11 +32,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-          <BackgroundOrbs />
           <AppBar onOpenCommand={() => setOpen(true)} />
-          <main className="min-w-0 max-w-full flex-1 overflow-x-clip">{children}</main>
+          <main className={appShell.content}>{children}</main>
+          <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
         </SidebarInset>
       </SidebarProvider>
+      <PwaServiceWorker />
       <CommandPalette open={open} onOpenChange={setOpen} />
       <Toaster />
     </QueryClientProvider>

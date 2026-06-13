@@ -5,18 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  Check,
-  ClipboardList,
-  Users,
-  Boxes,
-  MessageSquare,
-  Settings,
-  ShieldCheck,
-  Wrench,
-  ChevronsUpDown,
-  Store,
-} from "lucide-react";
+import { Check, Wrench, ChevronsUpDown, Store, Settings, ShieldCheck } from "lucide-react";
 
 import {
   Sidebar,
@@ -43,18 +32,10 @@ import { switchStore } from "@/lib/repairdesk/api";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { indicatorSpring } from "@/lib/motion";
+import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
+import { platformNavItem, workspaceNavItems } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
-
-const mainNav = [
-  { title: "概览", url: "/", icon: Wrench },
-  { title: "工单", url: "/orders", icon: ClipboardList },
-  { title: "客户", url: "/customers", icon: Users },
-  { title: "回收库存", url: "/inventory", icon: Boxes },
-  { title: "消息模板", url: "/messages", icon: MessageSquare },
-  { title: "设置", url: "/settings", icon: Settings },
-];
-
-const platformNav = { title: "平台审批", url: "/platform", icon: ShieldCheck };
 
 export function AppSidebar() {
   const pathname = usePathname() ?? "/";
@@ -64,8 +45,8 @@ export function AppSidebar() {
   const { isMobile, setOpenMobile } = useSidebar();
   const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
   const nav = shell.isPlatformAdmin
-    ? [...mainNav.slice(0, -1), platformNav, mainNav[mainNav.length - 1]]
-    : mainNav;
+    ? [...workspaceNavItems.slice(0, -1), platformNavItem, workspaceNavItems.at(-1)!]
+    : workspaceNavItems;
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
   const activeStoreMeta = shell.activeStore
     ? `${shell.activeStore.role} · 在线`
@@ -91,31 +72,33 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border/50">
-        <div className="flex items-center gap-2 px-2 py-1.5">
+    <Sidebar collapsible="icon" className={appShell.sidebar}>
+      <SidebarHeader className={appShell.sidebarHeader}>
+        <div className={appShell.sidebarBrand}>
           <div
-            className="relative flex size-8 items-center justify-center rounded-lg text-white shadow-[0_2px_10px_-2px_oklch(0.55_0.2_285_/_0.5)]"
-            style={{ background: "var(--gradient-brand)" }}
+            className="relative flex size-8 shrink-0 items-center justify-center rounded-lg text-primary-foreground shadow-[var(--shadow-action)]"
+            style={brandGradientStyle}
           >
             <Wrench className="size-4" />
           </div>
           <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-display text-sm font-semibold tracking-tight">
+            <span className="truncate font-display text-sm font-semibold leading-5 tracking-tight">
               RepairDesk
             </span>
-            <span className="truncate text-[11px] text-muted-foreground">维修工单后台</span>
+            <span className="truncate text-[11px] leading-4 text-muted-foreground">
+              ChinaTech 工作台
+            </span>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-            主导航
+      <SidebarContent className="gap-0 px-2 py-2 group-data-[collapsible=icon]:px-1.5">
+        <SidebarGroup className="p-0">
+          <SidebarGroupLabel className="h-7 px-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">
+            工作区
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {nav.map((item) => {
                 const active = isActive(item.url);
                 return (
@@ -125,28 +108,37 @@ export function AppSidebar() {
                       isActive={active}
                       tooltip={item.title}
                       className={cn(
-                        "relative overflow-hidden transition-colors",
-                        active && "text-sidebar-accent-foreground",
+                        "relative h-9 rounded-xl px-2.5 text-[13px] transition-colors group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-xl",
+                        active
+                          ? "border border-primary/20 bg-primary/10 text-primary shadow-[var(--shadow-card)] hover:bg-primary/10 hover:text-primary"
+                          : "border border-transparent text-sidebar-foreground/75 hover:border-[var(--border-panel)] hover:bg-card hover:text-foreground",
                       )}
                     >
                       <Link href={item.url} onClick={handleNav}>
                         {active && (
                           <motion.span
                             layoutId="nav-indicator"
-                            className="absolute inset-0 -z-10 rounded-md bg-sidebar-accent"
-                            transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                            className="absolute inset-0 rounded-lg bg-primary/10"
+                            transition={indicatorSpring}
                           />
                         )}
                         {active && (
                           <motion.span
                             layoutId="nav-bar"
-                            className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full group-data-[collapsible=icon]:left-1/2 group-data-[collapsible=icon]:top-auto group-data-[collapsible=icon]:bottom-1 group-data-[collapsible=icon]:h-1 group-data-[collapsible=icon]:w-4 group-data-[collapsible=icon]:-translate-x-1/2 group-data-[collapsible=icon]:translate-y-0"
-                            style={{ background: "var(--gradient-brand)" }}
-                            transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                            className="absolute left-1 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full group-data-[collapsible=icon]:hidden"
+                            style={brandGradientStyle}
+                            transition={indicatorSpring}
                           />
                         )}
-                        <item.icon />
-                        <span>{item.title}</span>
+                        <item.icon
+                          className={cn(
+                            "relative z-10 size-4 shrink-0",
+                            active ? "text-primary" : "text-muted-foreground",
+                          )}
+                        />
+                        <span className="relative z-10 truncate group-data-[collapsible=icon]:hidden">
+                          {item.title}
+                        </span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -157,31 +149,41 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/50">
+      <SidebarFooter className={appShell.sidebarFooter}>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" tooltip={activeStoreName}>
-                  <div className="relative flex size-8 items-center justify-center rounded-md bg-sidebar-accent text-sidebar-accent-foreground">
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip={activeStoreName}
+                  className="h-[52px] rounded-xl border border-[var(--border-panel)] bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/60 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none"
+                >
+                  <div className="relative flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Store className="size-4" />
                     {shell.activeStore ? (
                       <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-status-success-foreground ring-2 ring-background" />
                     ) : null}
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-col text-left">
-                    <span className="truncate text-sm font-medium">{activeStoreName}</span>
-                    <span className="truncate text-[11px] text-muted-foreground">
+                  <div className="flex min-w-0 flex-1 flex-col text-left group-data-[collapsible=icon]:hidden">
+                    <span className="truncate text-sm font-semibold leading-5">
+                      {activeStoreName}
+                    </span>
+                    <span className="truncate text-[11px] leading-4 text-muted-foreground">
                       {activeStoreMeta}
                     </span>
                   </div>
-                  <ChevronsUpDown className="size-4 text-muted-foreground" />
+                  <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                side="right"
-                align="end"
-                className="w-64 max-w-[calc(100vw-24px)]"
+                side={isMobile ? "top" : "right"}
+                align={isMobile ? "start" : "end"}
+                sideOffset={isMobile ? 8 : 4}
+                className={cn(
+                  "max-w-[calc(100vw-24px)]",
+                  isMobile ? "w-[var(--radix-dropdown-menu-trigger-width)] min-w-[14rem]" : "w-64",
+                )}
               >
                 <DropdownMenuLabel>店铺</DropdownMenuLabel>
                 {shell.stores.length > 0 ? (
@@ -196,7 +198,7 @@ export function AppSidebar() {
                     >
                       <Store className="size-4" />
                       <span className="min-w-0 flex-1 truncate">{store.name}</span>
-                      <span className="text-[10px] uppercase text-muted-foreground">
+                      <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
                         {store.role}
                       </span>
                       {store.id === shell.activeStore?.id ? <Check className="size-4" /> : null}

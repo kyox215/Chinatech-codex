@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -38,14 +39,15 @@ import { CustomerFilters } from "@/features/customers/forms/customer-filters";
 import { CustomerFormDialog } from "@/features/customers/forms/customer-form-dialog";
 import { defaultCustomerForm } from "@/features/customers/model/customer-list";
 import { fadeUp, stagger } from "@/lib/motion";
+import { RepairOsChipRow, RepairOsMetricStrip, RepairOsModuleHeader } from "@/shared/ui";
 import {
   brandGradientStyle,
   controls,
   dataDisplay,
   density,
   layoutGuards,
-  pageHeader,
   pageShell,
+  repairOs,
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +67,7 @@ function useDebouncedValue<T>(value: T, delay: number) {
 
 export function CustomerListScreen() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [baseFilters, setBaseFilters] = useState<CustomerListFilters>({
     marketing: "all",
     followup: "all",
@@ -74,6 +77,10 @@ export function CustomerListScreen() {
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "1") setCreateOpen(true);
+  }, [searchParams]);
 
   const filters = useMemo<CustomerListFilters>(() => {
     const search = debouncedSearch.trim();
@@ -151,34 +158,48 @@ export function CustomerListScreen() {
   }, [baseFilters]);
 
   return (
-    <div className={pageShell.list}>
+    <div className={cn(pageShell.list, "pb-8 pt-3 sm:pt-5")}>
       <motion.div
         variants={stagger(0.05)}
         initial="hidden"
         animate="show"
-        className="mb-4 space-y-3 sm:mb-5 sm:space-y-4"
+        className="mb-3 space-y-3 sm:mb-5 sm:space-y-4"
       >
-        <div className={pageHeader.root}>
-          <motion.div variants={fadeUp} className={layoutGuards.flexChild}>
-            <p className={pageHeader.eyebrow}>CRM / 客户管理</p>
-            <h1 className={pageHeader.title}>
-              <span className="gradient-text">客户</span>
-              <span className="ml-2 align-middle text-base font-normal text-muted-foreground">
-                共 {stats?.total ?? 0} 位
-              </span>
-            </h1>
-            <p className={pageHeader.subtitle}>客户资料、设备、历史工单、营销标签与回访任务。</p>
-          </motion.div>
-          <motion.div variants={fadeUp} className={pageHeader.actions}>
-            <Button
-              className={cn("gap-1.5", controls.brandButton)}
-              style={brandGradientStyle}
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus className="size-4" /> 新建客户
-            </Button>
-          </motion.div>
-        </div>
+        <motion.div variants={fadeUp}>
+          <RepairOsModuleHeader
+            action={
+              <Button
+                className={cn("h-9 gap-1.5", controls.brandButton)}
+                style={brandGradientStyle}
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="size-4" /> 新建客户
+              </Button>
+            }
+          />
+        </motion.div>
+
+        <motion.div variants={fadeUp} className="sm:hidden">
+          <RepairOsMetricStrip
+            metrics={[
+              { label: "总客户", value: stats?.total ?? 0, hint: "全部档案", icon: Users },
+              {
+                label: "待回访",
+                value: stats?.dueFollowups ?? 0,
+                hint: "今日/逾期",
+                icon: Bell,
+                tone: "amber",
+              },
+              {
+                label: "可营销",
+                value: stats?.marketable ?? 0,
+                hint: "已授权",
+                icon: Mail,
+                tone: "green",
+              },
+            ]}
+          />
+        </motion.div>
 
         <motion.div variants={fadeUp} className={dataDisplay.kpiGrid}>
           <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
@@ -188,7 +209,13 @@ export function CustomerListScreen() {
         </motion.div>
       </motion.div>
 
-      <div className={cn("glass-card mb-4 flex flex-col gap-3 p-3", layoutGuards.noPageOverflow)}>
+      <div
+        className={cn(
+          repairOs.toolbar,
+          "mb-3 flex-col items-stretch gap-2 sm:mb-4 sm:gap-3 sm:p-3",
+          layoutGuards.noPageOverflow,
+        )}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -196,7 +223,7 @@ export function CustomerListScreen() {
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
               placeholder="搜索姓名、电话、邮箱或设备"
-              className="h-9 border-border/60 bg-surface/60 pl-8"
+              className="h-8 border-0 bg-transparent pl-8 pr-14 text-sm shadow-none focus-visible:ring-0 sm:h-9 sm:border-border/60 sm:bg-surface/60 sm:shadow-sm"
             />
             {isFetching && (
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
@@ -206,7 +233,7 @@ export function CustomerListScreen() {
           </div>
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+              <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 sm:h-9">
                 <Filter className="size-3.5" /> 筛选
                 {activeFilterCount > 0 && <Badge variant="secondary">{activeFilterCount}</Badge>}
               </Button>
@@ -227,36 +254,20 @@ export function CustomerListScreen() {
             </SheetContent>
           </Sheet>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {(["all", "allowed", "blocked"] as const).map((value) => (
-            <button
-              key={value}
-              onClick={() => updateFilters({ ...baseFilters, marketing: value })}
-              className={cn(
-                "rounded-md border px-2 py-1 text-xs transition-colors",
-                (baseFilters.marketing ?? "all") === value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "bg-surface hover:bg-accent",
-              )}
-            >
-              {value === "all" ? "全部营销状态" : value === "allowed" ? "可营销" : "不可营销"}
-            </button>
-          ))}
-          {(["all", "due", "overdue"] as const).map((value) => (
-            <button
-              key={value}
-              onClick={() => updateFilters({ ...baseFilters, followup: value })}
-              className={cn(
-                "rounded-md border px-2 py-1 text-xs transition-colors",
-                (baseFilters.followup ?? "all") === value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "bg-surface hover:bg-accent",
-              )}
-            >
-              {value === "all" ? "全部回访" : value === "due" ? "今天到期" : "已逾期"}
-            </button>
-          ))}
-        </div>
+        <RepairOsChipRow
+          chips={[
+            ...(["all", "allowed", "blocked"] as const).map((value) => ({
+              label: value === "all" ? "全部营销" : value === "allowed" ? "可营销" : "不可营销",
+              active: (baseFilters.marketing ?? "all") === value,
+              onClick: () => updateFilters({ ...baseFilters, marketing: value }),
+            })),
+            ...(["all", "due", "overdue"] as const).map((value) => ({
+              label: value === "all" ? "全部回访" : value === "due" ? "今天到期" : "已逾期",
+              active: (baseFilters.followup ?? "all") === value,
+              onClick: () => updateFilters({ ...baseFilters, followup: value }),
+            })),
+          ]}
+        />
       </div>
 
       {isPending ? (
@@ -266,10 +277,10 @@ export function CustomerListScreen() {
           ))}
         </div>
       ) : customers.length === 0 ? (
-        <div className="glass-card mx-auto mt-16 max-w-sm p-8 text-center">
+        <div className="mx-auto mt-8 max-w-sm rounded-lg border border-[var(--border-panel)] bg-card p-5 text-center shadow-[var(--shadow-card)]">
           <Search className="mx-auto size-8 text-muted-foreground" />
-          <h3 className="mt-3 font-display text-lg font-semibold">暂无符合条件的客户</h3>
-          <p className="mt-1 text-sm text-muted-foreground">试试调整筛选条件，或新建客户档案。</p>
+          <h3 className="mt-3 text-base font-semibold">暂无符合条件的客户</h3>
+          <p className="mt-1 text-xs text-muted-foreground">调整筛选条件，或新建客户档案。</p>
         </div>
       ) : (
         <>

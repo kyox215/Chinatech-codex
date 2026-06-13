@@ -5,6 +5,7 @@ import {
   ClipboardList,
   MessageSquare,
   Plus,
+  Recycle,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -32,6 +33,7 @@ type StaticCommandPath =
   | "/orders"
   | "/orders/new"
   | "/customers"
+  | "/buyback"
   | "/inventory"
   | "/inventory?new=1"
   | "/messages"
@@ -84,10 +86,13 @@ export function CommandPalette({
             <Plus className="mr-2 size-4" /> 新建工单
           </CommandItem>
           <CommandItem onSelect={() => go("/customers")}>
-            <Users className="mr-2 size-4" /> 客户
+            <Users className="mr-2 size-4" /> 客户管理
+          </CommandItem>
+          <CommandItem onSelect={() => go("/buyback")}>
+            <Recycle className="mr-2 size-4" /> 回收管理
           </CommandItem>
           <CommandItem onSelect={() => go("/inventory")}>
-            <Boxes className="mr-2 size-4" /> 回收库存
+            <Boxes className="mr-2 size-4" /> 库存商品
           </CommandItem>
           <CommandItem onSelect={() => go("/inventory?new=1")}>
             <Plus className="mr-2 size-4" /> 新增回收

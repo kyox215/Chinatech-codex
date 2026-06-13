@@ -47,12 +47,13 @@ export function CustomerBackupPhonesField({
             value={phone}
             onChange={(event) => updatePhone(index, event.target.value)}
             placeholder="备用联系电话"
-            className="font-mono"
+            className="h-8 font-mono text-sm sm:h-9"
           />
           <Button
             type="button"
             variant="outline"
             size="icon"
+            className="size-8 sm:size-9"
             aria-label="设为主号码"
             onClick={() => promotePhone(index)}
             disabled={!phone.trim()}
@@ -63,6 +64,7 @@ export function CustomerBackupPhonesField({
             type="button"
             variant="outline"
             size="icon"
+            className="size-8 sm:size-9"
             aria-label="删除备用号码"
             onClick={() => removePhone(index)}
             disabled={phones.length === 0 && !phone.trim()}
