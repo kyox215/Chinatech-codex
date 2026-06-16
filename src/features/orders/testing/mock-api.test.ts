@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CreateOrderInput, PatchOrderInput, UpdateOrderInput } from "@/lib/repairdesk/types";
 import {
   createOrder,
+  decideOrderApproval,
   getOrder,
   listOrders,
   patchOrder,
@@ -12,6 +13,7 @@ import {
   sendWhatsappNotification,
   transitionOrder,
   updateOrder,
+  uploadOrderAttachment,
 } from "./mock-api";
 
 let seq = 0;
@@ -73,6 +75,40 @@ describe("mock order WhatsApp notification workflow", () => {
       reason: "维修风险过高，客户确认不继续维修并取回设备。",
     });
     expect(detail.messages).toHaveLength(0);
+  });
+
+  it("persists uploaded attachments into order detail and timeline", async () => {
+    const id = await createMockOrder();
+
+    const result = await uploadOrderAttachment(
+      id,
+      {
+        kind: "fault_photo",
+        file_name: "fault.jpg",
+        mime_type: "image/jpeg",
+        file_size: 4,
+        data_base64: "ZmFrZQ==",
+        note: "屏幕破裂照片",
+      },
+      { id: "staff-1", displayName: "ALESSIO", storeId: "mock-store", role: "technician" },
+    );
+
+    const detail = await getOrder(id);
+    expect(detail.attachments[0]).toMatchObject({
+      id: result.attachment.id,
+      kind: "fault_photo",
+      file_name: "fault.jpg",
+      uploaded_by: "ALESSIO",
+    });
+    expect(detail.attachments[0].signed_url).toContain("data:image/jpeg;base64");
+    expect(
+      detail.events.some(
+        (event) =>
+          event.event_type === "note" &&
+          event.payload.action === "attachment_uploaded" &&
+          event.payload.attachment_id === result.attachment.id,
+      ),
+    ).toBe(true);
   });
 
   it("moves repaired orders to notified after pickup WhatsApp is sent", async () => {
@@ -162,6 +198,56 @@ describe("mock order WhatsApp notification workflow", () => {
       template_kind: "approval_request",
       to: "waiting_approval",
     });
+  });
+
+  it("records customer approval and moves the order into repair", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+
+    const result = await decideOrderApproval(id, {
+      decision: "approved",
+      next_status: "repairing",
+      reason: "客户 WhatsApp 确认同意报价。",
+    });
+
+    const detail = await getOrder(id);
+    expect(result).toMatchObject({
+      decision: "approved",
+      to: "repairing",
+      approval_flow_status: "approved",
+    });
+    expect(detail.order.status).toBe("repairing");
+    expect(detail.order.approval_status).toBe("approved");
+    expect(detail.order.approval_flow_status).toBe("approved");
+    expect(
+      detail.events.some(
+        (event) => event.event_type === "approval_result" && event.payload.result === "approved",
+      ),
+    ).toBe(true);
+  });
+
+  it("requires a reason when the customer rejects the quote", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+
+    await expect(decideOrderApproval(id, { decision: "rejected" })).rejects.toThrow("需要填写原因");
+
+    await decideOrderApproval(id, {
+      decision: "rejected",
+      next_status: "unfixed_pickup",
+      reason: "维修风险过高，客户确认不继续维修并取回设备。",
+    });
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("unfixed_pickup");
+    expect(detail.order.approval_status).toBe("rejected");
+    expect(detail.order.approval_flow_status).toBe("rejected");
+    expect(detail.order.exception_status).toBe("returned_unfixed");
+    expect(detail.order.diagnosis_result).toContain("维修风险过高");
   });
 });
 

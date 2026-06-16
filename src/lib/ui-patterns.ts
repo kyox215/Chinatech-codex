@@ -118,14 +118,15 @@ export const repairOs = {
     "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-3 pb-20 pt-3 sm:max-w-2xl md:max-w-7xl md:px-5 lg:px-6",
   mobileListFloatingPage:
     "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 pb-24 pt-[var(--orders-mobile-header-offset,10rem)] sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-5 lg:px-6",
-  mobileFloatingPage: "min-w-0 space-y-1.5 pb-20 pt-[calc(env(safe-area-inset-top)+9.25rem)]",
+  mobileFloatingPage:
+    "min-w-0 space-y-1.5 pb-20 pt-[var(--repair-os-mobile-floating-offset,calc(env(safe-area-inset-top)+10.75rem))]",
   mobileListHeaderShell:
     "fixed inset-x-0 top-0 z-40 bg-background/75 px-2 pb-2 pt-[calc(env(safe-area-inset-top)+0.35rem)] backdrop-blur-xl md:hidden",
   mobileFloatingHeaderShell:
     "fixed inset-x-0 top-0 z-40 bg-background/75 px-2 pb-2 pt-[calc(env(safe-area-inset-top)+0.35rem)] backdrop-blur-xl md:hidden",
   mobileFloatingHeaderCard:
     "mx-auto min-w-0 max-w-[430px] overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card/95 px-2.5 pb-1.5 pt-1.5 shadow-[var(--shadow-card)]",
-  mobileFloatingHeaderNav: "grid min-w-0 grid-cols-[28px_minmax(0,1fr)_28px] items-center gap-2",
+  mobileFloatingHeaderNav: "grid min-w-0 grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2",
   mobileFloatingHeaderBody: "mt-1.5 min-w-0 border-t border-[var(--border-panel)] pt-1.5",
   mobileInfoCard:
     "min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]",

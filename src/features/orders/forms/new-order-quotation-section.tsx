@@ -4,7 +4,6 @@ import type { Dispatch, SetStateAction } from "react";
 import { Plus, ReceiptText, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -15,18 +14,17 @@ import {
 } from "@/components/ui/select";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
-import { FormItem, MoneyRow } from "@/features/orders/forms/new-order-fields";
+import { FormItem, SectionHeading } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
 import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
-import { detailWorkspace } from "@/lib/ui-patterns";
+import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 export function NewOrderQuotationSection({
   form,
   setForm,
   total,
-  balance,
   operatorName,
   onPatchFault,
   onAddCustomFault,
@@ -37,7 +35,6 @@ export function NewOrderQuotationSection({
   form: NewOrderFormState;
   setForm: Dispatch<SetStateAction<NewOrderFormState>>;
   total: number;
-  balance: number;
   operatorName: string;
   onPatchFault: (index: number, patch: Partial<FaultPriceItem>) => void;
   onAddCustomFault: () => void;
@@ -46,49 +43,60 @@ export function NewOrderQuotationSection({
   surface?: "page" | "dialog";
 }) {
   const shellClass = cn(
-    "h-fit min-w-0",
-    surface === "dialog"
-      ? detailWorkspace.flatPanel
-      : cn(detailWorkspace.densePanel, "bg-card shadow-[var(--shadow-card)] sm:p-3"),
+    "h-fit min-w-0 p-2 sm:p-3",
+    surface === "dialog" ? detailWorkspace.flatPanel : repairOs.mobileInfoCard,
   );
-  const Shell = surface === "dialog" ? "section" : Card;
+  const Shell = "section";
+  const controlClass =
+    "h-8 rounded-lg border-0 bg-[var(--surface-panel-muted)] text-base leading-none shadow-none focus-visible:ring-1 md:text-[13px]";
+  const moneyInputValue = (value: number) => (value === 0 ? "" : String(value));
+  const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
 
   return (
     <Shell className={shellClass}>
-      <div className="mb-2 flex min-w-0 items-center gap-2 sm:mb-3">
-        <ReceiptText className="size-3.5 text-muted-foreground sm:size-4" />
-        <h2 className="text-sm font-semibold sm:text-base">报价 & 服务</h2>
-      </div>
+      <SectionHeading
+        icon={ReceiptText}
+        title="报价与服务"
+        className="sm:mb-3"
+        action={
+          <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
+            {form.faults.length} 项
+          </span>
+        }
+      />
 
-      <div>
-        <div className="mb-1.5 text-[11px] font-medium text-muted-foreground sm:mb-2 sm:text-xs">
-          按项报价
+      <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1.5">
+        <div className="mb-1 px-0.5 text-[9px] font-medium leading-3 text-muted-foreground sm:text-[11px]">
+          报价项目
         </div>
         <div className="min-w-0 space-y-1.5 sm:space-y-2">
           {form.faults.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border/70 bg-surface-muted/40 p-2.5 text-xs text-muted-foreground sm:rounded-lg sm:p-3">
-              从左侧故障诊断选择项目后，可在这里输入价格。
+            <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-background/60 px-2 py-3 text-center text-[10px] leading-4 text-muted-foreground sm:p-4 sm:text-xs">
+              从左侧故障诊断选择项目后，可在这里输入价格
             </div>
           ) : (
             form.faults.map((item, index) => (
               <div
                 key={item.key}
-                className="grid min-w-0 grid-cols-[minmax(0,1fr)_84px_28px] items-center gap-1.5 rounded-md border border-border/70 bg-surface-muted/20 p-1.5 sm:grid-cols-[minmax(0,1fr)_96px_32px] sm:rounded-lg sm:p-2"
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)_78px_24px] items-center gap-1 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 sm:grid-cols-[minmax(0,1fr)_96px_32px] sm:gap-1.5 sm:p-2"
               >
                 {item.categoryKey === "custom" ? (
                   <Input
                     value={item.name}
                     onChange={(event) => onPatchFault(index, { name: event.target.value })}
-                    className="h-8 text-[13px] sm:h-9 sm:text-sm"
+                    className={cn(controlClass, "px-2")}
                     placeholder="自定义项目"
                   />
                 ) : (
                   <div className="min-w-0">
-                    <div className="truncate text-[13px] font-medium leading-4" title={item.name}>
+                    <div
+                      className="truncate text-[10px] font-medium leading-4 sm:text-[11px]"
+                      title={item.name}
+                    >
                       {item.name}
                     </div>
                     <div
-                      className="truncate text-[11px] leading-4 text-muted-foreground"
+                      className="truncate text-[9px] leading-3 text-muted-foreground"
                       title={item.note}
                     >
                       {item.note}
@@ -96,16 +104,18 @@ export function NewOrderQuotationSection({
                   </div>
                 )}
                 <div className="relative min-w-0">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                     €
                   </span>
                   <Input
                     type="number"
                     min={0}
                     step="0.01"
-                    value={item.price}
-                    onChange={(event) => onPatchFault(index, { price: Number(event.target.value) })}
-                    className="h-8 pl-7 font-mono text-[13px] sm:h-9 sm:pl-8 sm:text-sm"
+                    value={moneyInputValue(Number(item.price) || 0)}
+                    onChange={(event) =>
+                      onPatchFault(index, { price: parseMoneyDraft(event.target.value) })
+                    }
+                    className={cn(controlClass, "pl-5 font-mono sm:pl-8")}
                     placeholder="0"
                   />
                 </div>
@@ -113,7 +123,7 @@ export function NewOrderQuotationSection({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="size-7 shrink-0 sm:size-8"
+                  className="size-6 shrink-0 sm:size-8"
                   onClick={() =>
                     setForm({
                       ...form,
@@ -122,7 +132,7 @@ export function NewOrderQuotationSection({
                   }
                   aria-label="删除报价项目"
                 >
-                  <Trash2 className="size-3.5 text-muted-foreground sm:size-4" />
+                  <Trash2 className="size-3 text-muted-foreground sm:size-4" />
                 </Button>
               </div>
             ))
@@ -131,7 +141,7 @@ export function NewOrderQuotationSection({
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 gap-1.5 text-xs sm:h-8"
+            className="h-8 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none sm:h-8 sm:text-xs"
             onClick={onAddCustomFault}
           >
             <Plus className="size-3.5" /> 添加自定义项目
@@ -139,12 +149,11 @@ export function NewOrderQuotationSection({
         </div>
       </div>
 
-      <div className="my-3 border-t border-border/70 sm:my-4" />
+      <div className="my-1.5 border-t border-[var(--border-panel)] sm:my-3" />
 
-      <div className="min-w-0 space-y-2 sm:space-y-3">
-        <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2">
-          <MoneyRow label="总金额" value={total} strong />
-          <FormItem label="定金">
+      <div className="min-w-0 space-y-1.5 sm:space-y-3">
+        <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 sm:gap-3">
+          <FormItem label="定金" mobileLabel="sr-only">
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                 €
@@ -153,28 +162,33 @@ export function NewOrderQuotationSection({
                 type="number"
                 min={0}
                 step="0.01"
-                value={form.deposit}
-                onChange={(event) => setForm({ ...form, deposit: Number(event.target.value) })}
-                className="h-8 pl-6 font-mono text-[13px] sm:h-9 sm:pl-8 sm:text-sm"
+                value={moneyInputValue(form.deposit)}
+                onChange={(event) =>
+                  setForm({ ...form, deposit: parseMoneyDraft(event.target.value) })
+                }
+                className={cn(controlClass, "pl-5 font-mono sm:pl-8")}
+                placeholder="0"
               />
             </div>
           </FormItem>
-          <MoneyRow label="应收" value={balance} strong />
+          <div className="hidden min-w-0 items-center rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[10px] leading-4 text-muted-foreground sm:flex">
+            合计由底部结算条集中显示：{total.toFixed(2)}
+          </div>
         </div>
         <p className="hidden text-xs text-muted-foreground sm:block">
           保存时由服务端按总金额与定金自动写入余额。
         </p>
 
-        <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
-          <FormItem label="录入账号">
+        <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:gap-3">
+          <FormItem label="录入账号" mobileLabel="sr-only">
             <div
-              className="flex h-8 min-w-0 items-center rounded-md border border-border/70 bg-surface-muted/25 px-2 text-[13px] font-medium sm:h-9 sm:px-3 sm:text-sm"
+              className="flex h-8 min-w-0 items-center rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 text-[11px] font-medium sm:h-9 sm:px-3 sm:text-sm"
               title={operatorName || "当前登录账号"}
             >
               <span className="truncate">{operatorName || "当前登录账号"}</span>
             </div>
           </FormItem>
-          <FormItem label="保修">
+          <FormItem label="保修" mobileLabel="sr-only">
             <WarrantyPicker
               valueMonths={form.warrantyMonths}
               valueText={form.warrantyText}
@@ -193,7 +207,7 @@ export function NewOrderQuotationSection({
           </FormItem>
         </div>
 
-        <FormItem label="客户留存备注">
+        <FormItem label="客户留存备注" mobileLabel="sr-only">
           <AccessoryNotesPicker
             value={form.accessoryNotes}
             onChange={(accessoryNotes) => setForm({ ...form, accessoryNotes })}
@@ -201,14 +215,16 @@ export function NewOrderQuotationSection({
           />
         </FormItem>
 
-        <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
+        <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:gap-3">
           <div className="grid gap-1.5">
-            <div className="text-[11px] font-medium text-muted-foreground sm:text-xs">工单类型</div>
+            <div className="text-[10px] font-medium leading-3 text-muted-foreground sm:text-xs">
+              工单类型
+            </div>
             <Select
               value={form.type}
               onValueChange={(type) => setForm({ ...form, type: type as RepairOrderType })}
             >
-              <SelectTrigger className="h-8 text-xs sm:h-9">
+              <SelectTrigger className="h-7 text-xs sm:h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -221,12 +237,12 @@ export function NewOrderQuotationSection({
             </Select>
           </div>
 
-          <FormItem label="初始状态">
+          <FormItem label="初始状态" mobileLabel="sr-only">
             <Select
               value={form.status}
               onValueChange={(value) => setForm({ ...form, status: value })}
             >
-              <SelectTrigger className="h-8 sm:h-9">
+              <SelectTrigger className="h-7 sm:h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

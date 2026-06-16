@@ -248,11 +248,15 @@ export function FaultDiagnosisPicker({
   onChange,
   className,
   density = "default",
+  appearance = "outlined",
+  compactColumns = "auto",
 }: {
   selected: SelectedFault[];
   onChange: (items: SelectedFault[]) => void;
   className?: string;
   density?: "default" | "compact";
+  appearance?: "outlined" | "quiet";
+  compactColumns?: "auto" | 3;
 }) {
   const setGroupSelection = (group: FaultGroup, option: FaultOption) => {
     const key = faultKey(group, option);
@@ -301,8 +305,12 @@ export function FaultDiagnosisPicker({
   return (
     <div
       className={cn(
-        "grid min-w-0 gap-1.5",
-        compact ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-3",
+        "grid min-w-0",
+        compact
+          ? compactColumns === 3
+            ? "grid-cols-3 gap-1.5"
+            : "grid-cols-3 gap-1.5 min-[390px]:grid-cols-4"
+          : "grid-cols-2 gap-1.5 sm:grid-cols-3",
         className,
       )}
     >
@@ -312,6 +320,7 @@ export function FaultDiagnosisPicker({
           group={group}
           selected={selected}
           density={density}
+          appearance={appearance}
           onMainToggle={() => toggleMainSelection(group)}
           onToggle={(option) => setGroupSelection(group, option)}
           onClear={() => clearGroup(group)}
@@ -325,6 +334,7 @@ function FaultCategoryButton({
   group,
   selected,
   density,
+  appearance,
   onMainToggle,
   onToggle,
   onClear,
@@ -332,6 +342,7 @@ function FaultCategoryButton({
   group: FaultGroup;
   selected: SelectedFault[];
   density: "default" | "compact";
+  appearance: "outlined" | "quiet";
   onMainToggle: () => void;
   onToggle: (option: FaultOption) => void;
   onClear: () => void;
@@ -339,18 +350,25 @@ function FaultCategoryButton({
   const active = selected.filter((item) => item.categoryKey === group.key);
   const Icon = group.icon;
   const compact = density === "compact";
+  const quiet = appearance === "quiet";
 
   return (
     <DropdownMenu>
       <div
         className={cn(
-          "grid min-w-0 overflow-hidden rounded-lg border text-left transition-colors",
-          compact
-            ? "min-h-8 grid-cols-[minmax(0,1fr)_1.65rem]"
-            : "min-h-10 grid-cols-[minmax(0,1fr)_2rem]",
-          active.length
-            ? "border-primary bg-primary/10 text-primary"
-            : "border-border/70 bg-surface hover:bg-accent",
+          "grid min-w-0 overflow-hidden border text-left transition-colors",
+          compact && quiet
+            ? "min-h-9 grid-cols-[minmax(0,1fr)_1.5rem] rounded-lg"
+            : compact
+              ? "min-h-7 grid-cols-[minmax(0,1fr)_1.25rem] rounded-md"
+              : "min-h-10 grid-cols-[minmax(0,1fr)_2rem] rounded-lg",
+          quiet
+            ? active.length
+              ? "border-primary/35 bg-primary/10 text-primary ring-1 ring-inset ring-primary/10"
+              : "border-[var(--border-panel)] bg-card text-foreground shadow-[var(--shadow-card)] hover:bg-accent/30"
+            : active.length
+              ? "border-primary/45 bg-primary/5 text-foreground ring-1 ring-inset ring-primary/10"
+              : "border-[var(--border-panel)] bg-card hover:bg-accent",
         )}
       >
         <button
@@ -358,16 +376,33 @@ function FaultCategoryButton({
           aria-pressed={active.length > 0}
           onClick={onMainToggle}
           className={cn(
-            "flex min-w-0 items-center gap-1.5 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            compact ? "min-h-8 px-1.5 py-1" : "min-h-10 px-2 py-1.5",
+            "flex min-w-0 items-center text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            compact && quiet
+              ? "min-h-9 gap-1 px-1.5 py-1"
+              : compact
+                ? "min-h-7 gap-1 px-1 py-0.5"
+                : "min-h-10 gap-1.5 px-2 py-1.5",
           )}
         >
-          <Icon className={compact ? "size-3.5 shrink-0" : "size-4 shrink-0"} />
+          <Icon
+            className={cn(
+              compact && quiet
+                ? "size-3.5 shrink-0"
+                : compact
+                  ? "size-3 shrink-0"
+                  : "size-4 shrink-0",
+              active.length ? "text-primary" : "text-muted-foreground",
+            )}
+          />
           <span className="min-w-0">
             <span
               className={cn(
                 "block truncate font-medium",
-                compact ? "text-[11px] leading-4" : "text-[13px] leading-5",
+                compact && quiet
+                  ? "text-[10px] leading-4"
+                  : compact
+                    ? "text-[9px] leading-3"
+                    : "text-[13px] leading-5",
               )}
             >
               {group.label}
@@ -384,11 +419,14 @@ function FaultCategoryButton({
             type="button"
             aria-label={`展开${group.label}细分选项`}
             className={cn(
-              "grid h-full place-items-center border-l border-border/60 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              active.length && "border-primary/20 text-primary/75 hover:text-primary",
+              "grid h-full place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              quiet && "border-[var(--border-panel)] hover:bg-accent/30",
+              active.length && "border-primary/20 text-primary/70 hover:text-primary",
             )}
           >
-            <ChevronDown className={compact ? "size-3.5" : "size-4"} />
+            <ChevronDown
+              className={compact && quiet ? "size-3.5" : compact ? "size-3" : "size-4"}
+            />
           </button>
         </DropdownMenuTrigger>
       </div>
@@ -429,7 +467,7 @@ function FaultCategoryButton({
                 <span
                   className={cn(
                     "block truncate font-medium",
-                    compact ? "text-[11px] leading-4" : "text-[13px] leading-5",
+                    compact ? "text-[10px] leading-4" : "text-[13px] leading-5",
                   )}
                 >
                   {option.label}
@@ -437,7 +475,7 @@ function FaultCategoryButton({
                 <span
                   className={cn(
                     "block truncate text-muted-foreground",
-                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+                    compact ? "text-[9px] leading-3" : "text-[11px] leading-4",
                   )}
                 >
                   {option.italian}

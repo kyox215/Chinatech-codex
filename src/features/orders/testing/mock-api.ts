@@ -6,6 +6,11 @@ import type {
   OrderListItem,
   OrderListPageInput,
   OrderListResult,
+  OrderApprovalDecisionInput,
+  OrderApprovalDecisionResult,
+  OrderAttachment,
+  OrderAttachmentUploadInput,
+  OrderAttachmentUploadResult,
   OrderWorkflow,
   OrderWorkflowStatus,
   OrderWorkflowStatusCode,
@@ -70,6 +75,7 @@ function operatorName(operator: MockOperator = "前台") {
 }
 
 const mockStoreId = "mock-store";
+let extraAttachments: OrderAttachment[] = [];
 let workflowStatuses: OrderWorkflowStatus[] = repairOrderStatus.map((code, index) => ({
   id: `mock-status-${code}`,
   store_id: mockStoreId,
@@ -480,7 +486,60 @@ export async function getOrder(id: string, _actor?: AuditActor) {
       ...extraMessages.filter((message) => message.order_id === o.id),
       ...getMessages(o.id),
     ].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()),
+    attachments: extraAttachments
+      .filter((attachment) => attachment.order_id === o.id)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
   };
+}
+
+export async function uploadOrderAttachment(
+  id: string,
+  input: OrderAttachmentUploadInput,
+  actor?: AuditActor,
+): Promise<OrderAttachmentUploadResult> {
+  const o = orders.find((x) => x.id === id);
+  if (!o) throw new Error("工单不存在");
+  if (input.file_size > 8 * 1024 * 1024) throw new Error("附件不能超过 8MB");
+  if (!input.mime_type.startsWith("image/") && input.mime_type !== "application/pdf") {
+    throw new Error("仅支持图片或 PDF");
+  }
+
+  const now = new Date().toISOString();
+  const attachment: OrderAttachment = {
+    id: mockId("att"),
+    store_id: mockStoreId,
+    order_id: id,
+    kind: input.kind,
+    file_name: input.file_name,
+    mime_type: input.mime_type,
+    file_size: input.file_size,
+    storage_bucket: "mock-order-attachments",
+    storage_path: `${mockStoreId}/${id}/${input.file_name}`,
+    signed_url: `data:${input.mime_type};base64,${input.data_base64}`,
+    note: input.note,
+    uploaded_by: operatorName(actor) || "前台",
+    created_at: now,
+    updated_at: now,
+  };
+
+  extraAttachments = [attachment, ...extraAttachments];
+  extraEvents.unshift({
+    id: mockId("evt"),
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "attachment_uploaded",
+      attachment_id: attachment.id,
+      kind: attachment.kind,
+      file_name: attachment.file_name,
+      mime_type: attachment.mime_type,
+      file_size: attachment.file_size,
+    },
+    operator_name: attachment.uploaded_by || "前台",
+    created_at: now,
+  });
+
+  return { attachment };
 }
 
 // POST /api/orders/[id]/transition
@@ -565,6 +624,106 @@ function buildMockTransitionDiagnosisResult(current: string | undefined, reason:
   const cleanReason = reason.trim();
   if (!current?.trim() || current.trim() === cleanReason) return cleanReason;
   return `${current.trim()}\n处理结论：${cleanReason}`;
+}
+
+const APPROVAL_APPROVED_TARGETS = ["repairing", "parts_ordered"] as const;
+const APPROVAL_REJECTED_TARGETS = ["unfixed_pickup", "cancelled"] as const;
+
+export async function decideOrderApproval(
+  id: string,
+  input: OrderApprovalDecisionInput,
+  operator: MockOperator = "前台",
+): Promise<OrderApprovalDecisionResult> {
+  const o = orders.find((x) => x.id === id);
+  if (!o) throw new Error("工单不存在");
+  const from = o.status;
+  const currentApprovalFlow =
+    o.approval_flow_status ?? approvalFlowStatusFromLegacyStatus(o.status, o.approval_status);
+  const cleanReason = input.reason?.trim();
+  if (
+    currentApprovalFlow !== "waiting_customer" &&
+    !(from === "quoted" && o.approval_status === "pending")
+  ) {
+    throw new Error("当前工单不在客户审批阶段");
+  }
+
+  const target =
+    input.next_status ?? (input.decision === "approved" ? "repairing" : "unfixed_pickup");
+  const allowedTargets =
+    input.decision === "approved" ? APPROVAL_APPROVED_TARGETS : APPROVAL_REJECTED_TARGETS;
+  if (!(allowedTargets as readonly string[]).includes(target)) {
+    throw new Error(
+      input.decision === "approved"
+        ? "客户同意后只能进入维修或订件流程"
+        : "客户拒绝后只能进入未修取机或取消流程",
+    );
+  }
+  if (input.decision === "rejected" && !cleanReason) {
+    throw new Error("客户拒绝报价需要填写原因");
+  }
+  const targetStatus = workflowStatuses.find((status) => status.code === target);
+  if (!targetStatus) throw new Error("目标状态不存在");
+  if (!targetStatus.enabled) {
+    throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
+  }
+
+  if (input.decision === "approved") {
+    const allowed = workflowTransitions.some(
+      (transition) =>
+        transition.from_status_code === from &&
+        transition.to_status_code === target &&
+        transition.enabled,
+    );
+    if (!allowed) {
+      const fromLabel = workflowStatuses.find((status) => status.code === from)?.label ?? from;
+      const toLabel = targetStatus.label;
+      throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
+    }
+  }
+
+  const now = new Date().toISOString();
+  o.status = target;
+  o.workflow_status = workflowStatusFromLegacyStatus(target);
+  o.exception_status =
+    target === "cancelled"
+      ? "cancelled"
+      : target === "unfixed_pickup"
+        ? "returned_unfixed"
+        : undefined;
+  o.approval_status = input.decision;
+  o.approval_flow_status = input.decision;
+  o.approval_confirmed_at = now;
+  o.parts_status = partsStatusFromLegacyStatus(target);
+  o.notify_status = notifyStatusFromLegacyStatus(target);
+  o.updated_at = now;
+  if (target === "cancelled") o.cancel_reason = cleanReason || "客户拒绝报价";
+  if (target === "unfixed_pickup") {
+    o.diagnosis_result = buildMockTransitionDiagnosisResult(
+      o.diagnosis_result,
+      cleanReason || "客户拒绝报价并取回设备",
+    );
+  }
+  extraEvents.unshift({
+    id: `evt_approval_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: id,
+    event_type: "approval_result",
+    payload: {
+      result: input.decision,
+      from,
+      to: target,
+      reason: cleanReason,
+      approval_flow_status: input.decision,
+    },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  return {
+    ok: true,
+    decision: input.decision,
+    from,
+    to: target,
+    approval_flow_status: input.decision,
+  };
 }
 
 // POST /api/orders/batch-transition

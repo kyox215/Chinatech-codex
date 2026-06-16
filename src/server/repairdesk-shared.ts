@@ -19,6 +19,7 @@ import type {
   DeviceSnapshot,
   FaultPriceItem,
   MessageLog,
+  OrderAttachment,
   OrderEvent,
   OrderListItem,
   RepairOrder,
@@ -414,6 +415,26 @@ export function messageFromRow(row: DbRecord): MessageLog {
     status: row.status as MessageLog["status"],
     sent_at: requiredString(row.sent_at),
     opened_at: maybeString(row.opened_at),
+  };
+}
+
+export function attachmentFromRow(row: DbRecord): OrderAttachment {
+  return {
+    id: requiredString(row.id),
+    store_id: requiredString(row.store_id),
+    order_id: requiredString(row.order_id),
+    kind: (maybeString(row.kind) || "other") as OrderAttachment["kind"],
+    file_name: requiredString(row.file_name),
+    mime_type: requiredString(row.mime_type),
+    file_size: Number(row.file_size ?? 0),
+    storage_bucket: requiredString(row.storage_bucket),
+    storage_path: requiredString(row.storage_path),
+    public_url: maybeString(row.public_url),
+    signed_url: maybeString(row.signed_url),
+    note: maybeString(row.note),
+    uploaded_by: maybeString(row.uploaded_by),
+    created_at: requiredString(row.created_at),
+    updated_at: requiredString(row.updated_at),
   };
 }
 

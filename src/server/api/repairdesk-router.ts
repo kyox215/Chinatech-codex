@@ -5,6 +5,7 @@ import {
   batchTransition,
   createOrderWorkflowStatus,
   createOrder,
+  decideOrderApproval,
   getOrder,
   getOrderStats,
   getRepairDeskOptions,
@@ -23,6 +24,7 @@ import {
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateOrder,
+  uploadOrderAttachment,
 } from "@/features/orders/server/order.service";
 import {
   completeCustomerFollowup,
@@ -33,6 +35,7 @@ import {
   getCustomerDetail,
   listCustomers,
   listCustomersPage,
+  searchCustomerIntakeCandidates,
   searchCustomers,
   sendCustomerMessage,
   setCustomerTags,
@@ -78,6 +81,7 @@ import {
 import { getRequestActor, UnauthorizedError, ForbiddenError } from "@/server/auth-context";
 import { writeAuditLog } from "@/server/audit";
 import {
+  approvalDecisionBodySchema,
   approvalRequestBodySchema,
   batchTransitionBodySchema,
   createOrderSchema,
@@ -87,6 +91,7 @@ import {
   customerFollowupCompleteBodySchema,
   customerFollowupCreateBodySchema,
   customerIdBodySchema,
+  customerIntakeSearchBodySchema,
   customerListFiltersSchema,
   customerListPageInputSchema,
   customerMessageBodySchema,
@@ -108,6 +113,7 @@ import {
   notificationBodySchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
+  orderAttachmentUploadBodySchema,
   orderListFiltersSchema,
   orderListPageInputSchema,
   orderWorkflowStatusCreateBodySchema,
@@ -138,6 +144,7 @@ const supabaseSource = {
   createOrder,
   createOrderWorkflowStatus,
   createStore,
+  decideOrderApproval,
   deleteCustomerDevice,
   getCustomerDevices,
   getCustomerDetail,
@@ -171,6 +178,7 @@ const supabaseSource = {
   resetMessageTemplate,
   rejectOnboardingRequest,
   searchCustomers,
+  searchCustomerIntakeCandidates,
   sendApprovalRequest,
   sendCustomerMessage,
   sendNotification,
@@ -189,6 +197,7 @@ const supabaseSource = {
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateStoreSettings,
+  uploadOrderAttachment,
   upsertCustomerDevice,
 };
 
@@ -399,6 +408,14 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           ),
         );
       }
+      case "order/attachment/upload": {
+        const { id, input } = orderAttachmentUploadBodySchema.parse(body);
+        return ok(
+          await auditGeneric(actor, "upload", "order_attachment", id, input, () =>
+            api.uploadOrderAttachment(id, input, actor),
+          ),
+        );
+      }
       case "order/transition": {
         const { id, to, reason } = transitionOrderBodySchema.parse(body);
         return ok(
@@ -495,9 +512,21 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         const { id, body: messageBody, recipient_phone } = approvalRequestBodySchema.parse(body);
         return ok(await api.sendApprovalRequest(id, messageBody, actor, recipient_phone));
       }
+      case "order/approval-decision": {
+        const { id, input } = approvalDecisionBodySchema.parse(body);
+        return ok(
+          await auditGeneric(actor, "update", "repair_order_approval", id, input, () =>
+            api.decideOrderApproval(id, input, actor),
+          ),
+        );
+      }
       case "customers/search": {
         const { q, limit } = customerSearchBodySchema.parse(body);
         return ok(await api.searchCustomers(q, limit, actor));
+      }
+      case "customers/intake-search": {
+        const { q, limit, deviceLimit } = customerIntakeSearchBodySchema.parse(body);
+        return ok(await api.searchCustomerIntakeCandidates(q, limit, deviceLimit, actor));
       }
       case "customers/devices": {
         const { customerId } = customerIdBodySchema.parse(body);

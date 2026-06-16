@@ -5,6 +5,8 @@ import type {
   CustomerDetail,
   CustomerDeviceInput,
   CustomerFollowupInput,
+  CustomerHistoryDeviceCandidate,
+  CustomerIntakeCandidate,
   CustomerListFilters,
   CustomerListItem,
   CustomerListPageInput,
@@ -47,16 +49,173 @@ export async function searchCustomers(
   _actor?: AuditActor,
 ): Promise<Customer[]> {
   const s = q.trim().toLowerCase();
+  const raw = phoneRaw(s);
   if (!s) return [];
+  if (s.length < 2 && raw.length < 3) return [];
+  const resultLimit = Math.min(12, Math.max(1, Math.floor(Number(limit) || 6)));
   return customers
     .filter(
       (c) =>
         c.name.toLowerCase().includes(s) ||
         phoneMatches(c.phone_e164, s) ||
-        c.phone_raw.includes(phoneRaw(s) || s) ||
+        c.phone_raw.includes(raw || s) ||
         c.contact_phones.some((phone) => phoneMatches(phone, s)),
     )
-    .slice(0, limit);
+    .sort((a, b) => customerSearchRank(a, s, raw) - customerSearchRank(b, s, raw))
+    .slice(0, resultLimit);
+}
+
+export async function searchCustomerIntakeCandidates(
+  q: string,
+  limit = 6,
+  deviceLimit = 4,
+  _actor?: AuditActor,
+): Promise<CustomerIntakeCandidate[]> {
+  const matches = await searchCustomers(q, limit, _actor);
+  const resultDeviceLimit = Math.min(8, Math.max(1, Math.floor(Number(deviceLimit) || 4)));
+  return matches.map((customer) => ({
+    customer,
+    exactMatch: isExactCustomerIntakeMatch(customer, q),
+    historyDevices: buildHistoryDeviceCandidates(customer.id)
+      .sort(compareHistoryDeviceCandidates)
+      .slice(0, resultDeviceLimit),
+  }));
+}
+
+function isExactCustomerIntakeMatch(customer: Customer, q: string) {
+  const raw = phoneRaw(q);
+  if (!raw) return false;
+  return (
+    customer.phone_raw === raw ||
+    normalizePhoneRaw(customer.phone_e164) === raw ||
+    customer.contact_phones.some((phone) => normalizePhoneRaw(phone) === raw)
+  );
+}
+
+function buildHistoryDeviceCandidates(customerId: string) {
+  const byKey = new Map<string, CustomerHistoryDeviceCandidate>();
+
+  for (const device of devices.filter((item) => item.customer_id === customerId)) {
+    upsertHistoryDeviceCandidate(byKey, {
+      id: `device:${device.id}`,
+      customer_id: customerId,
+      source: "customer_device",
+      device_id: device.id,
+      brand: device.brand,
+      model: device.model,
+      serial_or_imei: device.serial_or_imei,
+      device_notes: device.device_notes,
+    });
+  }
+
+  for (const order of orders.filter((item) => item.customer_id === customerId)) {
+    const device = devices.find((item) => item.id === order.device_id);
+    const snapshot =
+      order.device_snapshot ??
+      (device
+        ? {
+            brand: device.brand,
+            model: device.model,
+            serial_or_imei: device.serial_or_imei,
+            device_notes: device.device_notes,
+          }
+        : undefined);
+    if (!snapshot?.brand && !snapshot?.model) continue;
+    upsertHistoryDeviceCandidate(byKey, {
+      id: `order:${order.id}`,
+      customer_id: customerId,
+      source: "order_history",
+      device_id: device?.id,
+      brand: snapshot.brand,
+      model: snapshot.model,
+      serial_or_imei: snapshot.serial_or_imei,
+      device_notes: snapshot.device_notes,
+      last_seen_at: order.created_at,
+      order_id: order.id,
+      order_public_no: order.public_no,
+    });
+  }
+
+  return [...byKey.values()];
+}
+
+function historyDeviceKey(
+  candidate: Pick<CustomerHistoryDeviceCandidate, "brand" | "model" | "serial_or_imei">,
+) {
+  return [candidate.brand, candidate.model, candidate.serial_or_imei]
+    .map((value) => value.trim().toLowerCase())
+    .join("|");
+}
+
+function upsertHistoryDeviceCandidate(
+  byKey: Map<string, CustomerHistoryDeviceCandidate>,
+  candidate: CustomerHistoryDeviceCandidate,
+) {
+  const brand = candidate.brand.trim();
+  const model = candidate.model.trim();
+  if (!brand && !model) return;
+  const normalizedCandidate = {
+    ...candidate,
+    brand,
+    model,
+    serial_or_imei: candidate.serial_or_imei.trim(),
+  };
+  const key = historyDeviceKey(normalizedCandidate);
+  const existing = byKey.get(key);
+  byKey.set(key, mergeHistoryDeviceCandidate(existing, normalizedCandidate));
+}
+
+function mergeHistoryDeviceCandidate(
+  existing: CustomerHistoryDeviceCandidate | undefined,
+  candidate: CustomerHistoryDeviceCandidate,
+) {
+  if (!existing) return candidate;
+  const candidateIsNewer = compareDate(candidate.last_seen_at, existing.last_seen_at) > 0;
+  if (existing.source === "customer_device" && candidate.source === "order_history") {
+    return {
+      ...existing,
+      last_seen_at: candidateIsNewer ? candidate.last_seen_at : existing.last_seen_at,
+      order_id: candidate.order_id ?? existing.order_id,
+      order_public_no: candidate.order_public_no ?? existing.order_public_no,
+    };
+  }
+  if (existing.source === "order_history" && candidate.source === "customer_device") {
+    return {
+      ...candidate,
+      last_seen_at: candidateIsNewer ? candidate.last_seen_at : existing.last_seen_at,
+      order_id: existing.order_id,
+      order_public_no: existing.order_public_no,
+    };
+  }
+  return candidateIsNewer ? candidate : existing;
+}
+
+function compareHistoryDeviceCandidates(
+  a: CustomerHistoryDeviceCandidate,
+  b: CustomerHistoryDeviceCandidate,
+) {
+  const time = compareDate(b.last_seen_at, a.last_seen_at);
+  if (time !== 0) return time;
+  if (a.source !== b.source) return a.source === "customer_device" ? -1 : 1;
+  return `${a.brand} ${a.model}`.localeCompare(`${b.brand} ${b.model}`, "zh-CN");
+}
+
+function compareDate(a?: string, b?: string) {
+  return new Date(a ?? 0).getTime() - new Date(b ?? 0).getTime();
+}
+
+function customerSearchRank(customer: Customer, query: string, raw: string) {
+  const name = customer.name.toLowerCase();
+  if (raw) {
+    if (customer.phone_raw === raw) return 0;
+    if (customer.phone_raw.startsWith(raw)) return 1;
+    if (customer.phone_raw.includes(raw)) return 2;
+    if (customer.contact_phones.some((phone) => phoneMatches(phone, query))) return 3;
+  }
+  if (name === query) return 4;
+  if (name.startsWith(query)) return 5;
+  if (name.includes(query)) return 6;
+  return 99;
 }
 
 export async function getCustomerDevices(

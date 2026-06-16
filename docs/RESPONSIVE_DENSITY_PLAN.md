@@ -89,6 +89,7 @@ document.documentElement.scrollWidth <= window.innerWidth
 - 页面正文通过 `repairOs.mobileFloatingPage` 预留顶部空间，首张正文卡不得被置顶卡遮挡。
 - 悬浮工作卡和正文卡使用同一边框、圆角、阴影系统，减少层级割裂。
 - 390px 验收时必须确认 `scrollWidth <= innerWidth`，并确认顶部卡与正文第一卡之间有 6-10px 间距。
+- 具体字号、卡片、颜色重点、金额编辑、扫码/拍照、历史入口和底部操作条必须按 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md) 执行；当前移动订单详情页是标准样板。
 
 ## Breakpoints
 
@@ -136,6 +137,15 @@ document.documentElement.scrollWidth <= window.innerWidth
 | 状态          | `StatusBadge`，不换行但允许缩小字号 |
 
 禁止让长文本使用默认宽度撑开页面。
+
+### Mobile Input Zoom Guard
+
+iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动放大页面。移动端可以继续使用高密度标签、说明文案和卡片字号，但真实可编辑控件必须保持 `16px` 以上：
+
+- `input`、`textarea`、`select`、`contenteditable` 在 `< 768px` 下由 `src/styles.css` 全局保证 `font-size: 16px`。
+- 新增移动端表单时不要用 `!text-xs`、`!text-[11px]` 等方式覆盖可编辑控件字号。
+- 高密度金额、报价、IMEI 等移动输入如果视觉上需要小字号，必须使用局部外层缩放或等价组件模式，真实可编辑元素仍保持 `16px` 以上。
+- 不通过 `user-scalable=no` 或 `maximum-scale=1` 禁止用户手动缩放；项目只阻止键盘触发的自动放大。
 
 ### Actions
 
@@ -231,6 +241,7 @@ document.documentElement.scrollWidth <= window.innerWidth
 - 每个文本字段 `truncate`
 - 右侧数字不换行
 - 移动订单列表卡片采用订单详情小卡片密度：紧凑模式一屏 4-7 张，富摘要模式一屏 3-4 张。富摘要模式可使用 `p-2.5/p-3`、`gap-2`、`space-y-2`，标签 9-10px，正文 11-12px，主编号 14px，支付摘要主金额 16px；金额集中在支付信息区域右对齐、等宽数字、不换行。列表卡内部最多一个维修项目淡色块和一个支付摘要淡色块，不得把客户、设备、维修、支付都做成独立 bordered panel。
+- 移动详情页的卡片密度以 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md) 为准；列表卡可以更压缩，但字号、金额层级和语义色不得与详情页冲突。
 
 ## Shared Pattern Updates
 

@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
+import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import { EditField } from "@/features/orders/forms/edit-field";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
@@ -97,10 +98,20 @@ export function EditOrderDialog({
                 />
               </EditField>
               <EditField label="手机号" required>
-                <Input
+                <CustomerPhoneLookup
                   value={form.customer_phone}
-                  onChange={(event) => setForm({ ...form, customer_phone: event.target.value })}
+                  selectedCustomerId={data.customer?.id}
+                  autoPickExact={false}
+                  placeholder="搜索或输入主电话"
                   className="font-mono"
+                  onChange={(customer_phone) => setForm({ ...form, customer_phone })}
+                  onPick={(customer) =>
+                    setForm({
+                      ...form,
+                      customer_name: customer.name,
+                      customer_phone: customer.phone_e164,
+                    })
+                  }
                 />
               </EditField>
             </div>

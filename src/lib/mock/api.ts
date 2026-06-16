@@ -4,6 +4,7 @@ export {
   batchTransition,
   createOrder,
   createOrderWorkflowStatus,
+  decideOrderApproval,
   getOrder,
   getOrderStats,
   listOrderWorkflow,
@@ -21,6 +22,7 @@ export {
   updateOrder,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
+  uploadOrderAttachment,
 } from "@/features/orders/testing/mock-api";
 
 export {
@@ -32,6 +34,7 @@ export {
   getCustomerDevices,
   listCustomers,
   listCustomersPage,
+  searchCustomerIntakeCandidates,
   searchCustomers,
   sendCustomerMessage,
   setCustomerTags,

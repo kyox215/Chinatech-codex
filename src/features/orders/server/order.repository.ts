@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
   getStatusListSortIndex,
@@ -16,6 +18,11 @@ import type {
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderApprovalDecisionInput,
+  OrderApprovalDecisionResult,
+  OrderAttachment,
+  OrderAttachmentUploadInput,
+  OrderAttachmentUploadResult,
   OrderWorkflowStatusCode,
   OrderWorkflow,
   OrderWorkflowStatus,
@@ -58,6 +65,7 @@ import {
   ORDER_LIST_SELECT,
   ORDER_SELECT,
   type DbRecord,
+  attachmentFromRow,
   customerFromRow,
   decorate,
   deviceFromRow,
@@ -376,6 +384,26 @@ async function validateConfiguredOrderTransition(
     return { ok: false, reason: `「${fromLabel}」不能直接流转到「${toLabel}」` };
   }
   return { ok: true };
+}
+
+async function assertWorkflowTargetEnabled(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  code: RepairOrderStatus,
+) {
+  const { data, error } = await supabase
+    .from("order_workflow_statuses")
+    .select("label,enabled")
+    .eq("store_id", storeId)
+    .eq("code", code)
+    .maybeSingle();
+  fail(error, "读取目标状态失败");
+  if (!data) throw new Error("目标状态不存在");
+  const row = data as DbRecord;
+  if (!row.enabled) {
+    const label = maybeString(row.label) || code;
+    throw new Error(`「${label}」已停用，不能流转到该状态`);
+  }
 }
 
 async function resolveInitialOrderStatus(
@@ -903,24 +931,36 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
     .single();
   fail(orderError, "读取工单详情失败");
 
-  const [{ data: eventRows, error: eventError }, { data: messageRows, error: messageError }] =
-    await Promise.all([
-      supabase
-        .from("order_events")
-        .select("*")
-        .eq("store_id", storeId)
-        .eq("order_id", id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("message_logs")
-        .select("*")
-        .eq("store_id", storeId)
-        .eq("order_id", id)
-        .order("sent_at", { ascending: false }),
-    ]);
+  const [
+    { data: eventRows, error: eventError },
+    { data: messageRows, error: messageError },
+    { data: attachmentRows, error: attachmentError },
+  ] = await Promise.all([
+    supabase
+      .from("order_events")
+      .select("*")
+      .eq("store_id", storeId)
+      .eq("order_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("message_logs")
+      .select("*")
+      .eq("store_id", storeId)
+      .eq("order_id", id)
+      .order("sent_at", { ascending: false }),
+    supabase
+      .from("order_attachments")
+      .select("*")
+      .eq("store_id", storeId)
+      .eq("order_id", id)
+      .order("created_at", { ascending: false }),
+  ]);
 
   fail(eventError, "读取时间线失败");
   fail(messageError, "读取通知历史失败");
+  if (attachmentError && !isMissingOrderAttachmentsTableError(attachmentError)) {
+    fail(attachmentError, "读取工单附件失败");
+  }
 
   const row = orderRow as DbRecord;
   return {
@@ -930,7 +970,81 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
     supplier: supplierFromRow(row.supplier),
     events: ((eventRows ?? []) as DbRecord[]).map(eventFromRow),
     messages: ((messageRows ?? []) as DbRecord[]).map(messageFromRow),
+    attachments: attachmentError
+      ? []
+      : await attachSignedUrls(supabase, (attachmentRows ?? []) as DbRecord[]),
   };
+}
+
+export async function uploadOrderAttachment(
+  id: string,
+  input: OrderAttachmentUploadInput,
+  actor?: AuditActor,
+): Promise<OrderAttachmentUploadResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const operatorName = operatorNameFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  await readOrderStatusRow(supabase, storeId, id, "读取工单失败");
+
+  const bytes = attachmentPayloadFromInput(input);
+  const attachmentId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const safeName = sanitizeAttachmentFileName(input.file_name);
+  const extension = extensionFromAttachment(input);
+  const storagePath = `${storeId}/${id}/${attachmentId}.${extension}`;
+  const bucket = ORDER_ATTACHMENT_BUCKET;
+
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, bytes, {
+    contentType: input.mime_type,
+    upsert: false,
+  });
+  fail(uploadError, "上传工单附件失败");
+
+  const row = {
+    id: attachmentId,
+    store_id: storeId,
+    order_id: id,
+    kind: normalizeAttachmentKind(input.kind),
+    file_name: safeName,
+    mime_type: input.mime_type,
+    file_size: bytes.byteLength,
+    storage_bucket: bucket,
+    storage_path: storagePath,
+    note: input.note?.trim() || null,
+    uploaded_by: operatorName,
+    created_at: now,
+    updated_at: now,
+  };
+
+  const { data, error } = await supabase.from("order_attachments").insert(row).select("*").single();
+  if (error) {
+    await supabase.storage
+      .from(bucket)
+      .remove([storagePath])
+      .catch(() => undefined);
+    fail(error, "保存工单附件失败");
+  }
+
+  const { error: eventError } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    store_id: storeId,
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "attachment_uploaded",
+      attachment_id: attachmentId,
+      kind: row.kind,
+      file_name: safeName,
+      mime_type: input.mime_type,
+      file_size: bytes.byteLength,
+    },
+    operator_name: operatorName,
+    created_at: now,
+  });
+  fail(eventError, "写入附件操作记录失败");
+
+  const [attachment] = await attachSignedUrls(supabase, [data as DbRecord]);
+  return { attachment };
 }
 
 export async function transitionOrder(
@@ -1042,6 +1156,106 @@ export async function batchTransition(
   return { ok: failures.length === 0, count, failures };
 }
 
+const APPROVAL_APPROVED_TARGETS = ["repairing", "parts_ordered"] as const;
+const APPROVAL_REJECTED_TARGETS = ["unfixed_pickup", "cancelled"] as const;
+
+export async function decideOrderApproval(
+  id: string,
+  input: OrderApprovalDecisionInput,
+  operator: string | AuditActor = "前台",
+): Promise<OrderApprovalDecisionResult> {
+  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
+  const operatorName = operatorNameFromActor(operator);
+  const supabase = getSupabaseAdmin();
+  const currentRow = await readOrderStatusRow(supabase, storeId, id, "读取审批状态失败");
+  const from = currentRow.status as RepairOrderStatus;
+  const currentApprovalFlow =
+    maybeString(currentRow.approval_flow_status) ??
+    approvalFlowStatusFromLegacyStatus(from, maybeString(currentRow.approval_status));
+  const cleanReason = input.reason?.trim();
+
+  if (
+    currentApprovalFlow !== "waiting_customer" &&
+    !(from === "quoted" && maybeString(currentRow.approval_status) === "pending")
+  ) {
+    throw new Error("当前工单不在客户审批阶段");
+  }
+
+  const defaultTarget = input.decision === "approved" ? "repairing" : "unfixed_pickup";
+  const target = input.next_status ?? defaultTarget;
+  const allowedTargets =
+    input.decision === "approved" ? APPROVAL_APPROVED_TARGETS : APPROVAL_REJECTED_TARGETS;
+  if (!(allowedTargets as readonly string[]).includes(target)) {
+    throw new Error(
+      input.decision === "approved"
+        ? "客户同意后只能进入维修或订件流程"
+        : "客户拒绝后只能进入未修取机或取消流程",
+    );
+  }
+  if (input.decision === "rejected" && !cleanReason) {
+    throw new Error("客户拒绝报价需要填写原因");
+  }
+
+  if (input.decision === "approved") {
+    const validation = await validateConfiguredOrderTransition(supabase, storeId, from, target);
+    if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
+  } else {
+    await assertWorkflowTargetEnabled(supabase, storeId, target);
+  }
+
+  const now = new Date().toISOString();
+  const update: DbRecord = {
+    status: target,
+    updated_at: now,
+    ...deriveCanonicalUpdateFromLegacyStatus(target, now),
+    approval_status: input.decision,
+    approval_flow_status: input.decision,
+    approval_confirmed_at: now,
+  };
+  if (input.decision === "rejected" && target === "cancelled") {
+    update.cancel_reason = cleanReason || "客户拒绝报价";
+  }
+  if (input.decision === "rejected" && target === "unfixed_pickup") {
+    update.diagnosis_result = buildTransitionDiagnosisResult(
+      maybeString(currentRow.diagnosis_result),
+      cleanReason || "客户拒绝报价并取回设备",
+    );
+  }
+
+  await updateOrderRow({
+    supabase,
+    id,
+    storeId,
+    update,
+    context: "更新客户审批结果失败",
+  });
+
+  const { error: eventError } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    store_id: storeId,
+    order_id: id,
+    event_type: "approval_result",
+    payload: {
+      result: input.decision,
+      from,
+      to: target,
+      reason: cleanReason,
+      approval_flow_status: input.decision,
+    },
+    operator_name: operatorName,
+    created_at: now,
+  });
+  fail(eventError, "写入审批结果时间线失败");
+
+  return {
+    ok: true,
+    decision: input.decision,
+    from,
+    to: target,
+    approval_flow_status: input.decision,
+  };
+}
+
 export async function recordPayment(
   id: string,
   amount: number,
@@ -1108,6 +1322,94 @@ export async function recordPayment(
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
+const ORDER_ATTACHMENT_BUCKET = "repairdesk-order-attachments";
+const ORDER_ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
+const ORDER_ATTACHMENT_KINDS = [
+  "device_front",
+  "device_back",
+  "screen_on",
+  "fault_photo",
+  "signature",
+  "other",
+] as const;
+const ORDER_ATTACHMENT_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
+
+function isMissingOrderAttachmentsTableError(error: { message: string } | null | undefined) {
+  const message = error?.message;
+  if (!message || !/order_attachments/i.test(message)) {
+    return false;
+  }
+  return (
+    /does not exist/i.test(message) ||
+    /schema cache/i.test(message) ||
+    /Could not find/i.test(message)
+  );
+}
+
+function normalizeAttachmentKind(kind: string): OrderAttachment["kind"] {
+  return (ORDER_ATTACHMENT_KINDS as readonly string[]).includes(kind)
+    ? (kind as OrderAttachment["kind"])
+    : "other";
+}
+
+function sanitizeAttachmentFileName(fileName: string) {
+  const trimmed = fileName
+    .trim()
+    .replace(/[^\w.\-()\s]/g, "_")
+    .replace(/\s+/g, " ");
+  return trimmed.slice(0, 160) || `attachment-${Date.now()}`;
+}
+
+function extensionFromAttachment(
+  input: Pick<OrderAttachmentUploadInput, "file_name" | "mime_type">,
+) {
+  const nameExtension = input.file_name.match(/\.([a-z0-9]{2,8})$/i)?.[1]?.toLowerCase();
+  if (nameExtension) return nameExtension;
+  if (input.mime_type === "image/jpeg") return "jpg";
+  if (input.mime_type === "image/png") return "png";
+  if (input.mime_type === "image/webp") return "webp";
+  if (input.mime_type === "image/heic") return "heic";
+  if (input.mime_type === "image/heif") return "heif";
+  if (input.mime_type === "application/pdf") return "pdf";
+  return "bin";
+}
+
+function attachmentPayloadFromInput(input: OrderAttachmentUploadInput) {
+  if (!ORDER_ATTACHMENT_MIME_TYPES.has(input.mime_type)) {
+    throw new Error("仅支持 JPG、PNG、WebP、HEIC 或 PDF 附件");
+  }
+  const bytes = Buffer.from(input.data_base64, "base64");
+  if (bytes.byteLength === 0) throw new Error("附件内容为空");
+  if (bytes.byteLength > ORDER_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 8MB");
+  if (input.file_size > ORDER_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 8MB");
+  return bytes;
+}
+
+async function attachSignedUrls(
+  supabase: SupabaseAdmin,
+  rows: DbRecord[] | null | undefined,
+): Promise<OrderAttachment[]> {
+  const attachments = (rows ?? []).map(attachmentFromRow);
+  return Promise.all(
+    attachments.map(async (attachment) => {
+      if (attachment.public_url || !attachment.storage_path) return attachment;
+      const bucket = attachment.storage_bucket || ORDER_ATTACHMENT_BUCKET;
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(attachment.storage_path, 60 * 60);
+      if (error || !data?.signedUrl) return attachment;
+      return { ...attachment, signed_url: data.signedUrl };
+    }),
+  );
+}
+
 const CANONICAL_ORDER_WRITE_FIELDS = [
   "workflow_status",
   "exception_status",
@@ -1139,7 +1441,7 @@ async function readOrderStatusRow(
   const canonical = await supabase
     .from("repair_orders")
     .select(
-      "id,status,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,approval_status",
+      "id,status,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,approval_status,approval_flow_status",
     )
     .eq("store_id", storeId)
     .eq("id", id)

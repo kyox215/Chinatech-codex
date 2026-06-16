@@ -82,6 +82,7 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 11. 移动端详情页和高频工作流页面必须使用 RepairOS Floating Card：`repairOs.mobileFloatingPage` + `repairOs.mobileFloatingHeader*` + `repairOs.mobileInfoCard`，顶部是一张圆角悬浮工作卡，不再使用整屏横线分割的固定顶栏。
 12. Floating Card 顶部卡必须承载“返回 / 页面标题 / 状态上下文 / 主编号 / 当前步骤或进度”；正文第一张卡与顶部卡保留 6-10px 间距，禁止重叠。
 13. 移动订单列表卡片的字号和层级必须以订单详情页“设备信息 / 维修项目与报价 / 支付信息”小卡片为标尺：区块标签 `text-[9px]` 到 `text-[10px]`，正文行 `text-[11px]` 到 `text-xs`，主编号 `text-sm font-semibold`；支付摘要里的主金额可用 `text-base font-semibold`，其他金额仍保持 `text-[9px]` 到 `text-[10px]`。订单列表允许“富摘要模式”，一屏目标 3-4 张，内部最多使用一个维修项目中性色块和一个支付摘要中性色块；禁止把客户、设备、维修、支付都做成独立 bordered panel。颜色只用于状态、异常、下一步、维修主项和支付风险；支付区域不得整块按状态染红/染绿，必须像订单详情页支付卡一样只给状态 pill、尾款等关键值着色。
+14. 新增或重构移动详情、任务、报价、收款、扫码、拍照、历史记录页面前必须阅读 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)。移动订单详情页是当前项目的设计源头；除非该标准同步更新，否则不得新增另一套顶部、卡片、字号、金额编辑或底部操作语言。
 
 ### 3.2 Dashboard / 概览页
 
@@ -118,6 +119,8 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 
 复杂业务详情以弹窗打开时必须使用沉浸式工作面结构。工单详情弹窗使用固定工作面尺寸，切换 Tab 不改变 Dialog 外壳宽高；Hero 和 Tabs 固定在上方，内容区独立滚动。桌面概览区使用 `detailWorkspace.orderDetailGrid`，保持“客户信息 / 设备故障 / 报价处理”三列同屏；移动和平板按声明自动降列，不在业务组件里手写大尺寸 Dialog grid class。
 
+移动端详情页必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)：顶部悬浮工作卡动态测量高度并给正文让位；正文第一张卡与顶部保持 6-10px 间距；卡片标题、字段、金额和操作按钮字号按订单详情页执行；维修项目与报价、支付信息、历史记录、扫码/拍照入口都必须走同一套数据与交互边界。
+
 ### 3.5 新建 / 编辑表单页
 
 使用 `pageShell.form`，结构固定：
@@ -134,6 +137,14 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 金额编辑必须使用 string draft 管理输入框，再通过纯 helper 统一转换为 number。禁止直接用 `Number(event.target.value)` 绑定可清空的金额输入，避免空值被强制显示为 `0`。
 
 工单状态流转不得只提供一个立即执行按钮。移动端和高频详情页必须先展示可用流转分支；取消、未修取机、返修等需要追溯的分支必须提供预设原因选择和可编辑说明，并把原因写入时间线。
+
+工单主维修流程只表达“收机 / 检测 / 报价 / 配件 / 维修 / 取机 / 结案”。邮寄中、外修、通知状态、配件状态、客户审批状态、异常状态必须作为辅助状态标签或独立处理面板展示，禁止把这些沟通/物流/异常状态混成主流程节点。
+
+报价审批必须使用正式的客户审批处理面板：客户同意后选择进入维修或订件，客户拒绝后选择未修取机或取消，并强制填写拒绝原因。审批处理只记录结果和推进状态，不自动发送 WhatsApp；发送消息仍走通知/审批消息入口。
+
+设备照片、签名和取件凭证不得只作为本地草稿存在。生产功能必须通过 `@/lib/repairdesk/api` 写入订单附件，并在订单详情中从 `OrderDetail.attachments` 渲染；服务端负责私有存储、签名地址和时间线记录。
+
+移动订单详情必须提供明确的“历史记录 / 操作记录”入口，展示最近一次操作并可打开完整时间线 Sheet。桌面详情继续使用“记录”Tab；新增流程不能把状态、收款、通知、附件上传等追溯信息隐藏在菜单深处。
 
 ### 3.6 沉浸式工作区
 

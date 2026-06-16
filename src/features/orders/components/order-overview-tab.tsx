@@ -24,6 +24,7 @@ import {
 } from "@/features/orders/components/accessory-notes-picker";
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
+import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import {
   FaultDiagnosisPicker,
   normalizeFaultPrices,
@@ -186,6 +187,8 @@ export function OrderFinanceDock({
   onFinanceDraftChange,
   editError,
   onApproval,
+  onApprovalDecision,
+  approvalDecisionAvailable = false,
   onPay,
   onNotify,
   onPrint,
@@ -197,6 +200,8 @@ export function OrderFinanceDock({
   onFinanceDraftChange: (draft: FinanceDraftState) => void;
   editError?: string;
   onApproval: () => void;
+  onApprovalDecision?: () => void;
+  approvalDecisionAvailable?: boolean;
   onPay: () => void;
   onNotify: () => void;
   onPrint: () => void;
@@ -225,6 +230,10 @@ export function OrderFinanceDock({
     onApproval: () => {
       setOpen(false);
       onApproval();
+    },
+    onApprovalDecision: () => {
+      setOpen(false);
+      onApprovalDecision?.();
     },
     onPay: () => {
       setOpen(false);
@@ -323,7 +332,11 @@ export function OrderFinanceDock({
             )}
 
             <Separator className="my-3" />
-            <FinanceActions order={order} {...actionHandlers} />
+            <FinanceActions
+              order={order}
+              approvalDecisionAvailable={approvalDecisionAvailable}
+              {...actionHandlers}
+            />
           </div>
 
           <DrawerFooter className="pt-2">
@@ -443,7 +456,7 @@ function MobileCoreInfoPanel({
           </InfoField>
         </section>
 
-        <CustomerPhoneField order={order} customer={customer} />
+        <CustomerPhoneField order={order} customer={customer} edit={edit} />
         <BackupPhones order={order} />
 
         <Separator className="my-2 sm:my-3" />
@@ -548,7 +561,7 @@ function CustomerPanel({
           </InfoField>
         </section>
 
-        <CustomerPhoneField order={order} customer={customer} />
+        <CustomerPhoneField order={order} customer={customer} edit={edit} />
         <BackupPhones order={order} />
 
         <Separator className="my-2 sm:my-3" />
@@ -583,11 +596,36 @@ function CustomerNameField({
 function CustomerPhoneField({
   order,
   customer,
+  edit,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
+  edit: OrderEditContext | null;
 }) {
-  const value = order.customer_phone ?? customer?.phone_e164 ?? "";
+  const value = edit?.draft.customer_phone ?? order.customer_phone ?? customer?.phone_e164 ?? "";
+  if (edit) {
+    return (
+      <InfoField label="主电话 *" tone="soft">
+        <CustomerPhoneLookup
+          value={value}
+          selectedCustomerId={customer?.id}
+          autoPickExact={false}
+          placeholder="搜索或输入主电话"
+          className="h-7 rounded-md bg-card text-base sm:h-8 sm:text-sm"
+          onChange={(customer_phone) => patchDraft(edit, { customer_phone })}
+          onPick={(pickedCustomer) =>
+            patchDraft(edit, {
+              customer_name: pickedCustomer.name,
+              customer_phone: pickedCustomer.phone_e164,
+            })
+          }
+        />
+        <p className="mt-1 text-[10px] leading-3 text-muted-foreground">
+          选择结果会带入姓名和电话；不会改变工单归属客户。
+        </p>
+      </InfoField>
+    );
+  }
   return (
     <InfoField label="主电话" tone="soft">
       <PhoneContactMenu phone={value} />
@@ -979,18 +1017,37 @@ function FinanceDisplay({ order }: { order: OrderDetail["order"] }) {
 function FinanceActions({
   order,
   onApproval,
+  onApprovalDecision,
+  approvalDecisionAvailable,
   onPay,
   onNotify,
   onPrint,
 }: {
   order: OrderDetail["order"];
   onApproval: () => void;
+  onApprovalDecision?: () => void;
+  approvalDecisionAvailable: boolean;
   onPay: () => void;
   onNotify: () => void;
   onPrint: () => void;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-4 sm:gap-2">
+    <div
+      className={cn(
+        "grid min-w-0 grid-cols-2 gap-1.5 sm:gap-2",
+        approvalDecisionAvailable ? "sm:grid-cols-5" : "sm:grid-cols-4",
+      )}
+    >
+      {approvalDecisionAvailable ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 border-status-success-foreground/25 bg-status-success/55 px-2 text-xs text-status-success-foreground hover:bg-status-success"
+          onClick={onApprovalDecision}
+        >
+          <CheckCircle2 className="size-3.5" /> 审批处理
+        </Button>
+      ) : null}
       <Button
         size="sm"
         variant="outline"

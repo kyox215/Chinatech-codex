@@ -26,7 +26,8 @@ describe("repairdesk API schemas", () => {
   });
 
   it("applies customer search defaults", () => {
-    expect(customerSearchBodySchema.parse({})).toEqual({ q: "", limit: 6 });
+    expect(customerSearchBodySchema.parse({})).toEqual({ q: "", limit: 8 });
+    expect(() => customerSearchBodySchema.parse({ q: "333", limit: 13 })).toThrow();
   });
 
   it("coerces and caps customer page input", () => {

@@ -6,6 +6,8 @@ import type {
   CustomerDeviceInput,
   CustomerFollowup,
   CustomerFollowupInput,
+  CustomerHistoryDeviceCandidate,
+  CustomerIntakeCandidate,
   CustomerListFilters,
   CustomerListItem,
   CustomerListPageInput,
@@ -34,6 +36,7 @@ import {
   phoneRaw,
   requiredString,
   requireStoreIdFromActor,
+  snapshotFromDevice,
   tagFromRow,
 } from "@/server/repairdesk-shared";
 
@@ -43,28 +46,265 @@ export async function searchCustomers(
   actor?: AuditActor,
 ): Promise<Customer[]> {
   const storeId = requireStoreIdFromActor(actor);
-  const query = q.trim().toLowerCase();
+  const rawQuery = q.trim();
+  const query = rawQuery.toLowerCase();
   if (!query) return [];
+  const resultLimit = Math.min(12, Math.max(1, Math.floor(Number(limit) || 6)));
+  const phoneTerm = phoneRaw(query);
+  const canSearchPhone = phoneTerm.length >= 3;
+  if (query.length < 2 && !canSearchPhone) return [];
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("store_id", storeId)
-    .limit(200);
-  fail(error, "搜索客户失败");
+  const selectFields = "id,name,phone_e164,phone_raw,contact_phones,updated_at";
+  const queries = [
+    ...(canSearchPhone
+      ? [
+          supabase
+            .from("customers")
+            .select(selectFields)
+            .eq("store_id", storeId)
+            .eq("phone_raw", phoneTerm)
+            .limit(resultLimit),
+          supabase
+            .from("customers")
+            .select(selectFields)
+            .eq("store_id", storeId)
+            .ilike("phone_raw", `${phoneTerm}%`)
+            .order("updated_at", { ascending: false })
+            .limit(resultLimit * 2),
+          supabase
+            .from("customers")
+            .select(selectFields)
+            .eq("store_id", storeId)
+            .ilike("phone_raw", `%${phoneTerm}%`)
+            .order("updated_at", { ascending: false })
+            .limit(resultLimit * 2),
+        ]
+      : []),
+    ...(query.length >= 2
+      ? [
+          supabase
+            .from("customers")
+            .select(selectFields)
+            .eq("store_id", storeId)
+            .ilike("name", `%${rawQuery}%`)
+            .order("updated_at", { ascending: false })
+            .limit(resultLimit * 2),
+        ]
+      : []),
+    ...(canSearchPhone
+      ? [
+          supabase
+            .from("customers")
+            .select(selectFields)
+            .eq("store_id", storeId)
+            .order("updated_at", { ascending: false })
+            .limit(80),
+        ]
+      : []),
+  ];
 
-  return ((data ?? []) as DbRecord[])
-    .map(customerFromRow)
-    .filter((customer): customer is Customer => Boolean(customer))
-    .filter(
-      (customer) =>
-        customer.name.toLowerCase().includes(query) ||
-        phoneMatches(customer.phone_e164, query) ||
-        customer.phone_raw.includes(phoneRaw(query) || query) ||
-        customer.contact_phones.some((phone) => phoneMatches(phone, query)),
-    )
-    .slice(0, limit);
+  const settled = await Promise.all(queries);
+  const rows: DbRecord[] = [];
+  for (const result of settled) {
+    fail(result.error, "搜索客户失败");
+    rows.push(...(((result.data ?? []) as DbRecord[]) ?? []));
+  }
+
+  const unique = new Map<string, { customer: Customer; updatedAt: string; rank: number }>();
+  for (const row of rows) {
+    const customer = customerFromRow(row);
+    if (!customer) continue;
+    const rank = customerSearchRank(customer, query, phoneTerm);
+    if (rank >= 99) continue;
+    const updatedAt = requiredString(row.updated_at);
+    const current = unique.get(customer.id);
+    if (
+      !current ||
+      rank < current.rank ||
+      (rank === current.rank && updatedAt > current.updatedAt)
+    ) {
+      unique.set(customer.id, { customer, updatedAt, rank });
+    }
+  }
+
+  return [...unique.values()]
+    .sort((a, b) => a.rank - b.rank || b.updatedAt.localeCompare(a.updatedAt))
+    .map((item) => item.customer)
+    .slice(0, resultLimit);
+}
+
+export async function searchCustomerIntakeCandidates(
+  q: string,
+  limit = 6,
+  deviceLimit = 4,
+  actor?: AuditActor,
+): Promise<CustomerIntakeCandidate[]> {
+  const customers = await searchCustomers(q, limit, actor);
+  if (!customers.length) return [];
+
+  const storeId = requireStoreIdFromActor(actor);
+  const customerIds = customers.map((customer) => customer.id);
+  const resultDeviceLimit = Math.min(8, Math.max(1, Math.floor(Number(deviceLimit) || 4)));
+  const supabase = getSupabaseAdmin();
+  const [{ data: deviceRows, error: deviceError }, { data: orderRows, error: orderError }] =
+    await Promise.all([
+      supabase
+        .from("devices")
+        .select("*")
+        .eq("store_id", storeId)
+        .in("customer_id", customerIds)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("repair_orders")
+        .select(ORDER_LIST_SELECT)
+        .eq("store_id", storeId)
+        .in("customer_id", customerIds)
+        .order("created_at", { ascending: false })
+        .limit(customerIds.length * resultDeviceLimit * 8),
+    ]);
+  fail(deviceError, "读取客户历史设备失败");
+  fail(orderError, "读取客户历史工单设备失败");
+
+  const byCustomer = new Map<string, Map<string, CustomerHistoryDeviceCandidate>>();
+
+  for (const row of ((deviceRows ?? []) as DbRecord[]) ?? []) {
+    const device = deviceFromRow(row);
+    if (!device || !customerIds.includes(device.customer_id)) continue;
+    upsertHistoryDeviceCandidate(byCustomer, {
+      id: `device:${device.id}`,
+      customer_id: device.customer_id,
+      source: "customer_device",
+      device_id: device.id,
+      brand: device.brand,
+      model: device.model,
+      serial_or_imei: device.serial_or_imei,
+      device_notes: device.device_notes,
+      last_seen_at: requiredString(row.updated_at) || requiredString(row.created_at),
+    });
+  }
+
+  for (const row of ((orderRows ?? []) as DbRecord[]) ?? []) {
+    const order = decorate(row);
+    if (!customerIds.includes(order.customer_id)) continue;
+    const relatedDevice = deviceFromRow(row.device);
+    const snapshot =
+      order.device_snapshot ?? (relatedDevice ? snapshotFromDevice(relatedDevice) : undefined);
+    if (!snapshot?.brand && !snapshot?.model) continue;
+    upsertHistoryDeviceCandidate(byCustomer, {
+      id: `order:${order.id}`,
+      customer_id: order.customer_id,
+      source: "order_history",
+      device_id: relatedDevice?.id,
+      brand: snapshot.brand,
+      model: snapshot.model,
+      serial_or_imei: snapshot.serial_or_imei,
+      device_notes: snapshot.device_notes,
+      last_seen_at: order.created_at,
+      order_id: order.id,
+      order_public_no: order.public_no,
+    });
+  }
+
+  return customers.map((customer) => ({
+    customer,
+    exactMatch: isExactCustomerIntakeMatch(customer, q),
+    historyDevices: [...(byCustomer.get(customer.id)?.values() ?? [])]
+      .sort(compareHistoryDeviceCandidates)
+      .slice(0, resultDeviceLimit),
+  }));
+}
+
+function isExactCustomerIntakeMatch(customer: Customer, q: string) {
+  const raw = phoneRaw(q);
+  if (!raw) return false;
+  return (
+    customer.phone_raw === raw ||
+    normalizePhoneRaw(customer.phone_e164) === raw ||
+    customer.contact_phones.some((phone) => normalizePhoneRaw(phone) === raw)
+  );
+}
+
+function historyDeviceKey(
+  candidate: Pick<CustomerHistoryDeviceCandidate, "brand" | "model" | "serial_or_imei">,
+) {
+  return [candidate.brand, candidate.model, candidate.serial_or_imei]
+    .map((value) => value.trim().toLowerCase())
+    .join("|");
+}
+
+function upsertHistoryDeviceCandidate(
+  byCustomer: Map<string, Map<string, CustomerHistoryDeviceCandidate>>,
+  candidate: CustomerHistoryDeviceCandidate,
+) {
+  const brand = candidate.brand.trim();
+  const model = candidate.model.trim();
+  if (!brand && !model) return;
+  const normalizedCandidate = {
+    ...candidate,
+    brand,
+    model,
+    serial_or_imei: candidate.serial_or_imei.trim(),
+  };
+  const customerMap =
+    byCustomer.get(candidate.customer_id) ?? new Map<string, CustomerHistoryDeviceCandidate>();
+  const key = historyDeviceKey(normalizedCandidate);
+  const existing = customerMap.get(key);
+  customerMap.set(key, mergeHistoryDeviceCandidate(existing, normalizedCandidate));
+  byCustomer.set(candidate.customer_id, customerMap);
+}
+
+function mergeHistoryDeviceCandidate(
+  existing: CustomerHistoryDeviceCandidate | undefined,
+  candidate: CustomerHistoryDeviceCandidate,
+) {
+  if (!existing) return candidate;
+  const candidateIsNewer = compareDate(candidate.last_seen_at, existing.last_seen_at) > 0;
+  if (existing.source === "customer_device" && candidate.source === "order_history") {
+    return {
+      ...existing,
+      last_seen_at: candidateIsNewer ? candidate.last_seen_at : existing.last_seen_at,
+      order_id: candidate.order_id ?? existing.order_id,
+      order_public_no: candidate.order_public_no ?? existing.order_public_no,
+    };
+  }
+  if (existing.source === "order_history" && candidate.source === "customer_device") {
+    return {
+      ...candidate,
+      last_seen_at: candidateIsNewer ? candidate.last_seen_at : existing.last_seen_at,
+      order_id: existing.order_id,
+      order_public_no: existing.order_public_no,
+    };
+  }
+  return candidateIsNewer ? candidate : existing;
+}
+
+function compareHistoryDeviceCandidates(
+  a: CustomerHistoryDeviceCandidate,
+  b: CustomerHistoryDeviceCandidate,
+) {
+  const time = compareDate(b.last_seen_at, a.last_seen_at);
+  if (time !== 0) return time;
+  if (a.source !== b.source) return a.source === "customer_device" ? -1 : 1;
+  return `${a.brand} ${a.model}`.localeCompare(`${b.brand} ${b.model}`, "zh-CN");
+}
+
+function compareDate(a?: string, b?: string) {
+  return new Date(a ?? 0).getTime() - new Date(b ?? 0).getTime();
+}
+
+function customerSearchRank(customer: Customer, query: string, phoneTerm: string) {
+  const name = customer.name.toLowerCase();
+  if (phoneTerm) {
+    if (customer.phone_raw === phoneTerm) return 0;
+    if (customer.phone_raw.startsWith(phoneTerm)) return 1;
+    if (customer.phone_raw.includes(phoneTerm)) return 2;
+    if (customer.contact_phones.some((phone) => phoneMatches(phone, query))) return 3;
+  }
+  if (name === query) return 4;
+  if (name.startsWith(query)) return 5;
+  if (name.includes(query)) return 6;
+  return 99;
 }
 
 export async function getCustomerDevices(

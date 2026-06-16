@@ -3,6 +3,7 @@ import type {
   CreateOrderInput,
   Customer,
   Device,
+  CustomerIntakeCandidate,
   OrderDetail,
   OrderApprovalFlowStatus,
   OrderExceptionStatus,
@@ -19,6 +20,10 @@ import type {
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderApprovalDecisionInput,
+  OrderApprovalDecisionResult,
+  OrderAttachmentUploadInput,
+  OrderAttachmentUploadResult,
   OrderNotifyStatus,
   OrderPartsStatus,
   OrderPaymentStatus,
@@ -73,6 +78,8 @@ import type {
 export type {
   CreateOrderInput,
   Customer,
+  CustomerHistoryDeviceCandidate,
+  CustomerIntakeCandidate,
   Device,
   FaultPriceItem,
   MessageLog,
@@ -96,6 +103,12 @@ export type {
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderApprovalDecisionInput,
+  OrderApprovalDecisionResult,
+  OrderAttachment,
+  OrderAttachmentKind,
+  OrderAttachmentUploadInput,
+  OrderAttachmentUploadResult,
   OrderNotifyStatus,
   OrderPartsStatus,
   OrderPaymentStatus,
@@ -448,8 +461,34 @@ export async function sendApprovalRequest(id: string, body: string, recipientPho
   return postJson("order/approval-request", { id, body, recipient_phone: recipientPhone });
 }
 
+export async function decideOrderApproval(
+  id: string,
+  input: OrderApprovalDecisionInput,
+): Promise<OrderApprovalDecisionResult> {
+  return postJson<OrderApprovalDecisionResult>("order/approval-decision", { id, input });
+}
+
+export async function uploadOrderAttachment(
+  id: string,
+  input: OrderAttachmentUploadInput,
+): Promise<OrderAttachmentUploadResult> {
+  return postJson<OrderAttachmentUploadResult>("order/attachment/upload", { id, input });
+}
+
 export async function searchCustomers(q: string, limit = 6): Promise<Customer[]> {
   return postJson<Customer[]>("customers/search", { q, limit });
+}
+
+export async function searchCustomerIntakeCandidates(
+  q: string,
+  limit = 6,
+  deviceLimit = 4,
+): Promise<CustomerIntakeCandidate[]> {
+  return postJson<CustomerIntakeCandidate[]>("customers/intake-search", {
+    q,
+    limit,
+    deviceLimit,
+  });
 }
 
 export async function getCustomerDevices(customerId: string): Promise<Device[]> {

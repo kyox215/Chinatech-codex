@@ -2,17 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Banknote,
-  CheckCircle2,
-  ClipboardList,
-  CircleAlert,
-  Smartphone,
-  X,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardList, CircleAlert, X } from "lucide-react";
 
 import { toFaultPriceItems } from "@/components/orders/fault-diagnosis-picker";
 import { Button } from "@/components/ui/button";
@@ -21,12 +13,16 @@ import { toast } from "sonner";
 import {
   createOrder,
   getCustomerDetail,
-  getCustomerDevices,
   listOrderWorkflow,
   getOnboardingStatus,
   getStoreSettings,
 } from "@/lib/repairdesk/api";
-import type { Customer, Device, FaultPriceItem } from "@/lib/repairdesk/api";
+import type {
+  CustomerDetail,
+  CustomerHistoryDeviceCandidate,
+  CustomerIntakeCandidate,
+  FaultPriceItem,
+} from "@/lib/repairdesk/api";
 import { NewOrderCustomerDeviceSection } from "@/features/orders/forms/new-order-customer-device-section";
 import { NewOrderFaultDiagnosisSection } from "@/features/orders/forms/new-order-fault-diagnosis-section";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
@@ -40,7 +36,6 @@ import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { platformKeys } from "@/features/platform/api/query-keys";
-import { formatMoney } from "@/lib/money";
 import { detailWorkspace, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -56,8 +51,11 @@ export function NewOrderScreen({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
-  const [knownDevices, setKnownDevices] = useState<Device[]>([]);
+  const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
+  const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
+    "calc(env(safe-area-inset-top) + 5.5rem)",
+  );
 
   useEffect(() => {
     if (surface !== "page") return;
@@ -123,85 +121,58 @@ export function NewOrderScreen({
     () => form.faults.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
     [form.faults],
   );
-  const balance = Math.max(0, total - form.deposit);
   const faultSummary = form.faults.map((item) => item.name).join("，");
   const issueDescription =
     form.issue.trim() || faultSummary || "客户未补充故障描述，按所选故障项目检测。";
 
-  const applyCustomerPick = useCallback(
-    (customer: Customer, devices: Device[], preferredDeviceId?: string) => {
-      setKnownDevices(devices);
-      const selectedDevice =
-        (preferredDeviceId && devices.find((device) => device.id === preferredDeviceId)) ||
-        (devices.length === 1 ? devices[0] : undefined);
-
-      setForm((current) => ({
-        ...current,
-        customerId: customer.id,
-        customerName: customer.name,
-        customerPhone: customer.phone_e164,
-        ...(selectedDevice
-          ? {
-              deviceId: selectedDevice.id,
-              brand: selectedDevice.brand,
-              model: selectedDevice.model,
-              imei: selectedDevice.serial_or_imei,
-              deviceNotes: selectedDevice.device_notes ?? "",
-            }
-          : devices.length > 1
-            ? {
-                deviceId: undefined,
-                brand: "",
-                model: "",
-                imei: "",
-                deviceNotes: "",
-              }
-            : {}),
-      }));
-
-      return selectedDevice;
-    },
-    [],
-  );
-
-  const selectKnownDevice = (deviceId: string) => {
-    if (deviceId === "new") {
-      setForm((current) => ({
-        ...current,
-        deviceId: undefined,
-        brand: "",
-        model: "",
-        imei: "",
-        deviceNotes: "",
-      }));
-      return;
-    }
-
-    const device = knownDevices.find((item) => item.id === deviceId);
-    if (!device) return;
+  const selectHistoryDevice = useCallback((device: CustomerHistoryDeviceCandidate) => {
     setForm((current) => ({
       ...current,
-      deviceId: device.id,
+      deviceId: device.source === "customer_device" ? device.device_id : undefined,
       brand: device.brand,
       model: device.model,
       imei: device.serial_or_imei,
       deviceNotes: device.device_notes ?? "",
     }));
-  };
+  }, []);
 
-  const handlePickCustomer = useCallback(
-    async (customer: Customer, preferredDeviceId?: string) => {
-      const devices = await getCustomerDevices(customer.id);
-      const selectedDevice = applyCustomerPick(customer, devices, preferredDeviceId);
-      toast.success(
-        selectedDevice
-          ? `已带入 ${customer.name} 的设备：${selectedDevice.brand} ${selectedDevice.model}`
-          : devices.length > 1
-            ? `已选择客户 ${customer.name}，请选择本次维修设备`
-            : `已选择客户 ${customer.name}`,
-      );
+  const handlePickCustomer = useCallback((candidate: CustomerIntakeCandidate) => {
+    setHistoryDevices(candidate.historyDevices);
+    setForm((current) => ({
+      ...current,
+      customerId: candidate.customer.id,
+      customerName: candidate.customer.name,
+      customerPhone: candidate.customer.phone_e164,
+      deviceId: undefined,
+      brand: "",
+      model: "",
+      imei: "",
+      deviceNotes: "",
+    }));
+    toast.success(
+      candidate.historyDevices.length
+        ? `已选择客户 ${candidate.customer.name}，请选择历史维修型号`
+        : `已选择客户 ${candidate.customer.name}`,
+    );
+  }, []);
+
+  const handlePickHistoryDevice = useCallback(
+    (candidate: CustomerIntakeCandidate, device: CustomerHistoryDeviceCandidate) => {
+      setHistoryDevices(candidate.historyDevices);
+      setForm((current) => ({
+        ...current,
+        customerId: candidate.customer.id,
+        customerName: candidate.customer.name,
+        customerPhone: candidate.customer.phone_e164,
+        deviceId: device.source === "customer_device" ? device.device_id : undefined,
+        brand: device.brand,
+        model: device.model,
+        imei: device.serial_or_imei,
+        deviceNotes: device.device_notes ?? "",
+      }));
+      toast.success(`已带入 ${device.brand} ${device.model}`);
     },
-    [applyCustomerPick],
+    [],
   );
 
   useEffect(() => {
@@ -229,11 +200,35 @@ export function NewOrderScreen({
     getCustomerDetail(customerId)
       .then((detail) => {
         if (!active) return;
-        const selectedDevice = applyCustomerPick(
-          detail.customer,
-          detail.devices,
-          preferredDeviceId,
-        );
+        const candidates = buildHistoryDevicesFromDetail(detail);
+        const selectedDevice = preferredDeviceId
+          ? candidates.find((device) => device.device_id === preferredDeviceId)
+          : undefined;
+        setHistoryDevices(candidates);
+        setForm((current) => ({
+          ...current,
+          customerId: detail.customer.id,
+          customerName: detail.customer.name,
+          customerPhone: detail.customer.phone_e164,
+          ...(selectedDevice
+            ? {
+                deviceId:
+                  selectedDevice.source === "customer_device"
+                    ? selectedDevice.device_id
+                    : undefined,
+                brand: selectedDevice.brand,
+                model: selectedDevice.model,
+                imei: selectedDevice.serial_or_imei,
+                deviceNotes: selectedDevice.device_notes ?? "",
+              }
+            : {
+                deviceId: undefined,
+                brand: "",
+                model: "",
+                imei: "",
+                deviceNotes: "",
+              }),
+        }));
         toast.success(
           selectedDevice
             ? `已从客户档案带入：${detail.customer.name} / ${selectedDevice.brand} ${selectedDevice.model}`
@@ -249,7 +244,7 @@ export function NewOrderScreen({
     return () => {
       active = false;
     };
-  }, [applyCustomerPick, queryPrefilled]);
+  }, [queryPrefilled]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -263,7 +258,6 @@ export function NewOrderScreen({
         device_brand: form.brand,
         device_model: form.model,
         device_imei: form.imei,
-        device_notes: form.deviceNotes || undefined,
         issue_description: issueDescription,
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
@@ -320,23 +314,35 @@ export function NewOrderScreen({
     });
   };
 
+  const handleFloatingHeaderHeight = useCallback((height: number) => {
+    setFloatingHeaderOffset(`${Math.ceil(height)}px`);
+  }, []);
+
   return (
     <div
       className={cn(
         layoutGuards.noPageOverflow,
         surface === "dialog"
           ? cn(detailWorkspace.root, "max-h-[calc(100svh-16px)] sm:max-h-[calc(100svh-32px)]")
-          : cn(repairOs.mobilePage, "px-2 pt-0 sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-3 lg:px-6"),
+          : "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-3 lg:px-6",
       )}
+      style={
+        surface === "page"
+          ? ({
+              "--repair-os-mobile-floating-offset": floatingHeaderOffset,
+            } as CSSProperties)
+          : undefined
+      }
     >
       {surface === "page" ? (
         <NewOrderMobileHeader
           form={form}
-          total={total}
-          balance={balance}
           operatorName={operatorName}
           statusLabel={selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status}
           valid={Boolean(valid)}
+          total={total}
+          defaultWarrantyMonths={defaultWarrantyMonths}
+          onHeightChange={handleFloatingHeaderHeight}
         />
       ) : null}
 
@@ -357,10 +363,14 @@ export function NewOrderScreen({
           create.mutate();
         }}
         className={cn(
-          "min-w-0 pb-20 sm:pb-20",
-          surface === "page" && "pt-[calc(env(safe-area-inset-top)+5.8rem)] md:pt-0",
+          "min-w-0 pb-32 sm:pb-20",
+          surface === "page" &&
+            cn(
+              repairOs.mobileFloatingPage,
+              "pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:pb-20 md:pt-0",
+            ),
           surface === "dialog" &&
-            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 sm:max-h-[calc(100svh-32px)] sm:p-3 md:p-4",
+            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-12 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-12 md:p-4 md:pt-12",
         )}
       >
         <div className="mb-2 hidden min-w-0 justify-end gap-2 md:flex md:mb-3">
@@ -385,10 +395,11 @@ export function NewOrderScreen({
             <NewOrderCustomerDeviceSection
               form={form}
               setForm={setForm}
-              knownDevices={knownDevices}
-              onClearKnownDevices={() => setKnownDevices([])}
-              onPickCustomer={(customer) => handlePickCustomer(customer)}
-              onSelectKnownDevice={selectKnownDevice}
+              historyDevices={historyDevices}
+              onClearCustomerContext={() => setHistoryDevices([])}
+              onPickCustomer={handlePickCustomer}
+              onPickHistoryDevice={handlePickHistoryDevice}
+              onSelectHistoryDevice={selectHistoryDevice}
               surface={surface}
             />
           </div>
@@ -402,7 +413,6 @@ export function NewOrderScreen({
               form={form}
               setForm={setForm}
               total={total}
-              balance={balance}
               operatorName={operatorName}
               onPatchFault={patchFault}
               onAddCustomFault={addCustomFault}
@@ -425,35 +435,182 @@ export function NewOrderScreen({
   );
 }
 
+function buildHistoryDevicesFromDetail(detail: CustomerDetail) {
+  const byKey = new Map<string, CustomerHistoryDeviceCandidate>();
+
+  for (const device of detail.devices) {
+    upsertHistoryDeviceCandidate(byKey, {
+      id: `device:${device.id}`,
+      customer_id: detail.customer.id,
+      source: "customer_device",
+      device_id: device.id,
+      brand: device.brand,
+      model: device.model,
+      serial_or_imei: device.serial_or_imei,
+      device_notes: device.device_notes,
+    });
+  }
+
+  for (const order of detail.orders) {
+    const fallback = splitDeviceLabel(order.device_label);
+    const snapshot = order.device_snapshot ?? fallback;
+    if (!snapshot?.brand && !snapshot?.model) continue;
+    upsertHistoryDeviceCandidate(byKey, {
+      id: `order:${order.id}`,
+      customer_id: detail.customer.id,
+      source: "order_history",
+      device_id: detail.devices.some((device) => device.id === order.device_id)
+        ? order.device_id
+        : undefined,
+      brand: snapshot.brand,
+      model: snapshot.model,
+      serial_or_imei: snapshot.serial_or_imei || order.device_imei || "",
+      device_notes: snapshot.device_notes,
+      last_seen_at: order.created_at,
+      order_id: order.id,
+      order_public_no: order.public_no,
+    });
+  }
+
+  return [...byKey.values()].sort(compareHistoryDeviceCandidates).slice(0, 8);
+}
+
+function splitDeviceLabel(deviceLabel: string) {
+  const normalized = deviceLabel.trim();
+  if (!normalized || normalized === "-") return undefined;
+  const [brand = "", ...modelParts] = normalized.split(/\s+/);
+  return {
+    brand,
+    model: modelParts.join(" "),
+    serial_or_imei: "",
+    device_notes: undefined,
+  };
+}
+
+function historyDeviceKey(
+  candidate: Pick<CustomerHistoryDeviceCandidate, "brand" | "model" | "serial_or_imei">,
+) {
+  return [candidate.brand, candidate.model, candidate.serial_or_imei]
+    .map((value) => value.trim().toLowerCase())
+    .join("|");
+}
+
+function upsertHistoryDeviceCandidate(
+  byKey: Map<string, CustomerHistoryDeviceCandidate>,
+  candidate: CustomerHistoryDeviceCandidate,
+) {
+  const brand = candidate.brand.trim();
+  const model = candidate.model.trim();
+  if (!brand && !model) return;
+  const normalizedCandidate = {
+    ...candidate,
+    brand,
+    model,
+    serial_or_imei: candidate.serial_or_imei.trim(),
+  };
+  const key = historyDeviceKey(normalizedCandidate);
+  const existing = byKey.get(key);
+  byKey.set(key, mergeHistoryDeviceCandidate(existing, normalizedCandidate));
+}
+
+function mergeHistoryDeviceCandidate(
+  existing: CustomerHistoryDeviceCandidate | undefined,
+  candidate: CustomerHistoryDeviceCandidate,
+) {
+  if (!existing) return candidate;
+  const candidateIsNewer = compareDate(candidate.last_seen_at, existing.last_seen_at) > 0;
+  if (existing.source === "customer_device" && candidate.source === "order_history") {
+    return {
+      ...existing,
+      last_seen_at: candidateIsNewer ? candidate.last_seen_at : existing.last_seen_at,
+      order_id: candidate.order_id ?? existing.order_id,
+      order_public_no: candidate.order_public_no ?? existing.order_public_no,
+    };
+  }
+  if (existing.source === "order_history" && candidate.source === "customer_device") {
+    return {
+      ...candidate,
+      last_seen_at: candidateIsNewer ? candidate.last_seen_at : existing.last_seen_at,
+      order_id: existing.order_id,
+      order_public_no: existing.order_public_no,
+    };
+  }
+  return candidateIsNewer ? candidate : existing;
+}
+
+function compareHistoryDeviceCandidates(
+  a: CustomerHistoryDeviceCandidate,
+  b: CustomerHistoryDeviceCandidate,
+) {
+  const time = compareDate(b.last_seen_at, a.last_seen_at);
+  if (time !== 0) return time;
+  if (a.source !== b.source) return a.source === "customer_device" ? -1 : 1;
+  return `${a.brand} ${a.model}`.localeCompare(`${b.brand} ${b.model}`, "zh-CN");
+}
+
+function compareDate(a?: string, b?: string) {
+  return new Date(a ?? 0).getTime() - new Date(b ?? 0).getTime();
+}
+
 function NewOrderMobileHeader({
   form,
-  total,
-  balance,
   operatorName,
   statusLabel,
   valid,
+  total,
+  defaultWarrantyMonths,
+  onHeightChange,
 }: {
   form: NewOrderFormState;
-  total: number;
-  balance: number;
   operatorName: string;
   statusLabel: string;
   valid: boolean;
+  total: number;
+  defaultWarrantyMonths: number;
+  onHeightChange?: (height: number) => void;
 }) {
-  const customerText = form.customerName.trim() || form.customerPhone.trim() || "客户待填";
-  const deviceText = [form.brand.trim(), form.model.trim()].filter(Boolean).join(" ") || "设备待填";
-  const issueText =
-    form.issue.trim() ||
-    form.faults
-      .map((item) => item.name)
-      .filter(Boolean)
-      .join("，") ||
-    "故障待填";
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const customerReady = Boolean(form.customerPhone.trim());
+  const deviceReady = Boolean(form.brand.trim() && form.model.trim());
+  const diagnosisReady = Boolean(form.issue.trim() || form.faults.length > 0);
+  const warrantyReady =
+    !warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
+    Boolean(form.warrantyChangeReason.trim());
+  const missingItems = [
+    !customerReady ? "客户电话" : null,
+    !form.brand.trim() ? "设备品牌" : null,
+    !form.model.trim() ? "设备型号" : null,
+    !diagnosisReady ? "故障诊断" : null,
+    form.deposit > total ? "定金金额" : null,
+    !warrantyReady ? "质保原因" : null,
+  ].filter(Boolean);
+  const helperText = valid
+    ? `资料已补全，创建后进入「${statusLabel}」。`
+    : `还差：${missingItems.join("、") || "必填资料"}`;
+
+  useEffect(() => {
+    const node = shellRef.current;
+    if (!node || !onHeightChange) return;
+
+    const update = () => {
+      onHeightChange(node.getBoundingClientRect().height);
+    };
+
+    update();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", update);
+      return () => window.removeEventListener("resize", update);
+    }
+
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onHeightChange]);
 
   return (
-    <div className="fixed inset-x-0 top-0 z-40 border-b border-[var(--border-panel)] bg-background/95 shadow-[0_8px_24px_color-mix(in_oklch,var(--foreground)_6%,transparent)] backdrop-blur-xl md:hidden">
-      <div className="mx-auto max-w-[430px] px-2 pb-1.5 pt-[calc(env(safe-area-inset-top)+0.25rem)]">
-        <header className="flex min-w-0 items-center justify-between gap-2">
+    <div ref={shellRef} className={repairOs.mobileFloatingHeaderShell}>
+      <section className={cn(repairOs.mobileFloatingHeaderCard, "px-2.5 pb-2")}>
+        <header className={repairOs.mobileFloatingHeaderNav}>
           <Button asChild variant="ghost" size="icon" className="size-7 rounded-lg">
             <Link href="/orders" aria-label="返回工单列表">
               <ArrowLeft className="size-4" />
@@ -476,37 +633,27 @@ function NewOrderMobileHeader({
           </span>
         </header>
 
-        <section className="mt-1 rounded-lg border border-[var(--border-panel)] bg-card/95 p-1.5 shadow-[var(--shadow-card)]">
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1">
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-semibold leading-4">{customerText}</p>
-              <p className="truncate text-[9px] leading-3 text-muted-foreground">{issueText}</p>
-            </div>
-            <div className="shrink-0 text-right">
-              <p className="font-mono text-[11px] font-semibold leading-4 text-primary">
-                {formatMoney(total)}
-              </p>
-              <p className="text-[9px] leading-3 text-muted-foreground">
-                应收 {formatMoney(balance)}
-              </p>
-            </div>
-          </div>
-          <div className="mt-1 grid min-w-0 grid-cols-3 gap-1 text-[9px] leading-3 text-muted-foreground">
-            <span className="inline-flex min-w-0 items-center gap-1 rounded bg-[var(--surface-panel-muted)] px-1.5 py-0.5">
-              <Smartphone className="size-3 shrink-0 text-primary" />
-              <span className="truncate">{deviceText}</span>
-            </span>
-            <span className="inline-flex min-w-0 items-center gap-1 rounded bg-[var(--surface-panel-muted)] px-1.5 py-0.5">
-              <ClipboardList className="size-3 shrink-0 text-primary" />
-              <span className="truncate">{statusLabel}</span>
-            </span>
-            <span className="inline-flex min-w-0 items-center gap-1 rounded bg-[var(--surface-panel-muted)] px-1.5 py-0.5">
-              <Banknote className="size-3 shrink-0 text-primary" />
-              <span className="truncate">定金 {formatMoney(form.deposit)}</span>
+        <div className={cn(repairOs.mobileFloatingHeaderBody, "mt-1.5 pt-1.5")}>
+          <div
+            className={cn(
+              "flex min-w-0 items-start gap-1.5 rounded-lg px-2 py-1.5 text-[10px] leading-4",
+              valid
+                ? "bg-status-success/45 text-status-success-foreground"
+                : "bg-[var(--surface-panel-muted)] text-muted-foreground",
+            )}
+          >
+            <ClipboardList
+              className={cn(
+                "mt-0.5 size-3.5 shrink-0",
+                valid ? "text-status-success-foreground" : "text-primary",
+              )}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="line-clamp-2">{helperText}</span>
             </span>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

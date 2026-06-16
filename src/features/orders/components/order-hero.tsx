@@ -28,11 +28,11 @@ import {
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderDetail, OrderWorkflow } from "@/lib/repairdesk/api";
 import {
-  orderExceptionMeta,
   orderWorkflowMeta,
   orderWorkflowStatuses,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
+import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -86,7 +86,7 @@ export function OrderHero({
   surface?: "page" | "dialog";
 }) {
   const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
-  const exceptionStatus = order.exception_status;
+  const sideBadges = getOrderSideStatusBadges(order);
 
   return (
     <div
@@ -126,13 +126,15 @@ export function OrderHero({
               label={orderWorkflowMeta[workflowStatus].label}
               tone={orderWorkflowMeta[workflowStatus].tone}
             />
-            {exceptionStatus && (
+            {sideBadges.map((badge) => (
               <StatusBadge
+                key={badge.key}
                 status={order.status}
-                label={orderExceptionMeta[exceptionStatus].shortLabel}
-                tone={orderExceptionMeta[exceptionStatus].tone}
+                label={badge.label}
+                tone={badge.tone}
+                className="max-w-[9rem] truncate"
               />
-            )}
+            ))}
             <OrderTypeBadge type={order.order_type} />
             {order.original_order_id && (
               <Link

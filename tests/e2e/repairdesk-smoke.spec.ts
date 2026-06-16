@@ -11,7 +11,7 @@ test("orders list and new order routes load", async ({ page }) => {
   await expectProtectedRoute(page, "工单");
 
   await page.goto("/orders/new");
-  await expectProtectedRoute(page, "新建维修订单");
+  await expectProtectedRoute(page, "新建工单");
 });
 
 test("customers route loads", async ({ page }) => {

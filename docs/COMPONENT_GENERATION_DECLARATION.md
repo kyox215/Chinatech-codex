@@ -185,14 +185,18 @@ export interface ExampleCardProps {
 - 录入人、技师、创建人等归属字段只能只读展示，组件不得新增输入框、Select、inline edit 或 patch payload 来修改它们。
 - 金额输入组件必须以 string draft 驱动输入框，保存前通过共享 helper 转为 number；不要用 `Number(event.target.value)` 直接控制金额输入。
 - 工单状态流转入口必须先读取工作流配置；涉及取消、未修取机、返修等异常/结束分支时，必须复用 `OrderTransitionReasonSelector` 和 `order-transition-reasons.ts` 的预设原因，禁止新增裸 textarea 或让用户完全手写原因。
+- 订单附件组件只能通过 `@/lib/repairdesk/api` 的附件接口上传和读取，不直接在客户端创建 Supabase client、不暴露 service role、不把照片长期保存在本地 state 作为业务结果；上传成功后必须 invalidate 当前详情并在 UI 中显示已保存状态。
 
 ### 8.2 RepairOS Compact 业务卡片密度
 
 - 移动列表默认使用 `repairOs.businessCardDense` 或 `RepairOsBusinessCard` 搭配该 class；只有详情预览或低频设置项可以使用更宽松的 `repairOs.businessCard`。
 - KPI 小卡优先使用 `repairOs.metricCard` / `repairOs.metricCardDense`，不要在业务页面继续手写 `glass-card p-4`。
 - 移动详情和任务页面默认使用 RepairOS Floating Card 组件语言：顶部使用 `repairOs.mobileFloatingHeader*`，正文信息块使用 `repairOs.mobileInfoCard`。
+- 移动详情、任务、报价、收款、扫码、拍照和历史记录组件必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)。订单详情页的“客户信息 / 设备信息 / 维修项目与报价 / 支付信息”是移动卡片字号、间距、色彩强调和信息层级的基准。
 - 新增移动详情组件不得手写固定顶部的 `border-b`、整屏白色顶栏或散落 `pt-[calc(env(safe-area-inset-top)...)]`；这些必须来自 `repairOs.mobileFloatingPage` 和 `repairOs.mobileFloatingHeaderShell`。
 - Floating Card 内部保持高密度：标题 `text-xs` 到 `text-sm`，辅助信息 `text-[9px]` 到 `text-[11px]`，图标尺寸优先 `size-3` / `size-3.5` / `size-4`。
+- 移动金额/报价输入必须从一开始就是白色高密度可编辑格，不允许先显示蓝色或灰色摘要行再切换成另一个输入态；真实 input 字号保持 `16px` 以上，视觉密度通过局部缩放和固定高度处理。
+- 状态色只用于当前流程、异常、风险金额、主动作和关键 badge；支付、维修、客户、设备等普通信息卡保持中性背景。
 - 新增或调整 `OrderMobileCard`、`RepairOsBusinessCard` 等移动订单列表组件时，必须复用或镜像订单详情页小卡片的层级契约：`MobileSectionTitle` 式标签、`PaymentLine` 式左右行、`MoneyText` 金额、`min-w-0/truncate/shrink-0` 溢出控制；重复超过两处时先沉淀到 `src/lib/ui-patterns.ts` 或 `src/lib/component-patterns.ts`。订单列表富摘要卡允许一屏 3-4 张，支付主金额可用 `text-base`，但客户、设备、维修、支付不得全部拆成 bordered panel；支付摘要必须是中性分组 + 行式金额，不能整块按状态染色；重点色只服务于状态、异常、下一步、维修主项和支付风险。
 
 ## 9. 动效声明

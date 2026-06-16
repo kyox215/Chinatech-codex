@@ -1,6 +1,6 @@
 # RepairDesk 设计系统
 
-> 本文档面向视觉系统；AI/页面生成约束见 [`UI_PAGE_GENERATION_DECLARATION.md`](./UI_PAGE_GENERATION_DECLARATION.md)，组件生成约束见 [`COMPONENT_GENERATION_DECLARATION.md`](./COMPONENT_GENERATION_DECLARATION.md)，仓库根目录的 `AGENTS.md` 会给 Codex 读取。
+> 本文档面向视觉系统；AI/页面生成约束见 [`UI_PAGE_GENERATION_DECLARATION.md`](./UI_PAGE_GENERATION_DECLARATION.md)，组件生成约束见 [`COMPONENT_GENERATION_DECLARATION.md`](./COMPONENT_GENERATION_DECLARATION.md)，移动详情页标准见 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)，仓库根目录的 `AGENTS.md` 会给 Codex 读取。
 > **修改 UI 风格请同步更新本文档、`src/lib/ui-patterns.ts`、`src/lib/component-patterns.ts` 与声明文档**，避免漂移。
 
 ## 目录
@@ -21,6 +21,7 @@
 
 - **定位**：维修工单后台，高频操作 + 单手移动操作。
 - **风格**：RepairOS Compact，浅色 SaaS 工具面、白色紧凑卡片、弱边框、轻阴影。
+- **移动详情源头**：当前订单详情页 `/orders/[id]`。新增移动详情、任务、报价、收款、扫码、拍照和历史记录页面必须沿用它的 Floating Card 顶部、白色高密度卡片、轻状态色和底部高频操作条。
 - **字体**：`Space Grotesk`（display）/ `Inter`（body）/ `JetBrains Mono`（数字、代码）。
 - **色调**：科技蓝 `#315CFF` 是品牌主色，`var(--gradient-brand)` 只用于主 CTA、品牌图标和强调指示条。
 

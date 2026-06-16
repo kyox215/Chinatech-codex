@@ -26,6 +26,8 @@ import type {
   OrderWorkflowStatusReorderInput,
   OrderWorkflowStatusUpdateInput,
   OrderWorkflowTransitionsUpdateInput,
+  OrderApprovalDecisionInput,
+  OrderAttachmentUploadInput,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
@@ -144,9 +146,43 @@ const orderWhatsappTemplateKindSchema = z.enum([
   "cancelled",
   "completed",
 ]) satisfies z.ZodType<OrderWhatsappTemplateKind>;
+const orderAttachmentKindSchema = z.enum([
+  "device_front",
+  "device_back",
+  "screen_on",
+  "fault_photo",
+  "signature",
+  "other",
+]);
+const orderAttachmentMimeTypeSchema = z.enum([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
 
 export const idBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
+});
+
+export const orderAttachmentUploadBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: z
+    .object({
+      kind: orderAttachmentKindSchema,
+      file_name: z.string().trim().min(1, "文件名不能为空").max(180, "文件名不能超过 180 个字符"),
+      mime_type: orderAttachmentMimeTypeSchema,
+      file_size: z.coerce
+        .number()
+        .int()
+        .positive("文件大小无效")
+        .max(8 * 1024 * 1024, "附件不能超过 8MB"),
+      data_base64: z.string().min(1, "缺少附件内容"),
+      note: z.string().trim().max(200, "备注不能超过 200 个字符").optional(),
+    })
+    .strict() satisfies z.ZodType<OrderAttachmentUploadInput>,
 });
 
 export const customerIdBodySchema = z.object({
@@ -399,9 +435,26 @@ export const approvalRequestBodySchema = z.object({
   recipient_phone: optionalText,
 });
 
+export const approvalDecisionBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: z
+    .object({
+      decision: z.enum(["approved", "rejected"]),
+      next_status: repairOrderStatusSchema.optional(),
+      reason: optionalText,
+    })
+    .strict() satisfies z.ZodType<OrderApprovalDecisionInput>,
+});
+
 export const customerSearchBodySchema = z.object({
-  q: z.string().default(""),
-  limit: z.coerce.number().int().positive().max(50).default(6),
+  q: z.string().max(80).default(""),
+  limit: z.coerce.number().int().positive().max(12).default(8),
+});
+
+export const customerIntakeSearchBodySchema = z.object({
+  q: z.string().max(80).default(""),
+  limit: z.coerce.number().int().positive().max(12).default(8),
+  deviceLimit: z.coerce.number().int().positive().max(8).default(4),
 });
 
 const customerInputBaseSchema = z

@@ -34,18 +34,26 @@ export function ImeiScannerField({
   onChange,
   placeholder = "扫描或输入 IMEI / 序列号",
   density = "default",
+  showPaste = true,
+  startScannerToken,
+  appearance = "outlined",
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   density?: ImeiScannerFieldDensity;
+  showPaste?: boolean;
+  startScannerToken?: number;
+  appearance?: "outlined" | "quiet";
 }) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [warning, setWarning] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const lastStartScannerTokenRef = useRef(startScannerToken);
   const compact = density === "compact";
+  const quiet = appearance === "quiet";
 
   const stopScanner = useCallback(() => {
     controlsRef.current?.stop();
@@ -126,59 +134,84 @@ export function ImeiScannerField({
     };
   }, [commitValue, scannerOpen, stopScanner]);
 
+  useEffect(() => {
+    if (startScannerToken === undefined) return;
+    if (lastStartScannerTokenRef.current === startScannerToken) return;
+    lastStartScannerTokenRef.current = startScannerToken;
+    setScannerOpen(true);
+  }, [startScannerToken]);
+
   return (
     <div className={cn("space-y-1.5", compact && "space-y-1")}>
       <div
         className={cn(
           "flex gap-2",
-          compact && "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-1.5",
+          compact &&
+            (showPaste
+              ? "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5"
+              : "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"),
         )}
       >
         <Input
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}
           placeholder={placeholder}
-          className={cn("font-mono", compact && "h-7 min-w-0 text-[13px]")}
+          className={cn(
+            "font-mono",
+            compact &&
+              "h-8 min-w-0 text-base placeholder:text-base md:text-[13px] md:placeholder:text-[13px]",
+            compact && quiet && "border-0 bg-transparent px-0 shadow-none focus-visible:ring-0",
+          )}
           inputMode="text"
           autoComplete="off"
         />
         <Button
           type="button"
-          variant="outline"
+          variant={quiet ? "ghost" : "outline"}
           size="icon"
-          className={cn("shrink-0", compact && "size-7")}
+          className={cn(
+            "shrink-0",
+            compact && "size-8",
+            quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
+          )}
           onClick={() => setScannerOpen(true)}
           aria-label="摄像头扫码录入 IMEI"
         >
-          <Camera className={compact ? "size-3.5" : "size-4"} />
+          <Camera className="size-4" />
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className={cn("shrink-0", compact && "size-7")}
-          onClick={async () => {
-            try {
-              const text = await navigator.clipboard.readText();
-              commitValue(text, "paste");
-            } catch {
-              toast.error("无法读取剪贴板，请手动粘贴");
-            }
-          }}
-          aria-label="粘贴 IMEI"
-        >
-          <ClipboardPaste className={compact ? "size-3.5" : "size-4"} />
-        </Button>
+        {showPaste ? (
+          <Button
+            type="button"
+            variant={quiet ? "ghost" : "outline"}
+            size="icon"
+            className={cn(
+              "shrink-0",
+              compact && "size-8",
+              quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
+            )}
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText();
+                commitValue(text, "paste");
+              } catch {
+                toast.error("无法读取剪贴板，请手动粘贴");
+              }
+            }}
+            aria-label="粘贴 IMEI"
+          >
+            <ClipboardPaste className="size-4" />
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className={cn("shrink-0", compact && "size-7")}
+          className={cn("shrink-0", compact && "size-8")}
           onClick={() => commitValue("", "clear")}
           disabled={!value}
           aria-label="清空 IMEI"
         >
-          <X className={compact ? "size-3.5" : "size-4"} />
+          <X className="size-4" />
         </Button>
       </div>
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}

@@ -1,6 +1,7 @@
 export {
   batchTransition,
   createOrder,
+  decideOrderApproval,
   getOrder,
   getOrderStats,
   getRepairDeskOptions,
@@ -10,6 +11,7 @@ export {
   patchOrder,
   patchOrderFinance,
   recordPayment,
+  uploadOrderAttachment,
   createOrderWorkflowStatus,
   reorderOrderWorkflowStatuses,
   sendApprovalRequest,

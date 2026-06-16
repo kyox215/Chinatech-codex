@@ -1,6 +1,7 @@
 export {
   batchTransition,
   createOrder,
+  decideOrderApproval,
   getOrder,
   getOrderStats,
   getRepairDeskOptions,
@@ -20,6 +21,8 @@ export type {
   CreateOrderInput,
   FaultPriceItem,
   MessageLog,
+  OrderApprovalDecisionInput,
+  OrderApprovalDecisionResult,
   OrderDetail,
   OrderEvent,
   OrderListFilters,

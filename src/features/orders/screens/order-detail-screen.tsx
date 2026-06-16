@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,6 +25,7 @@ import {
   MoreVertical,
   Phone,
   Plus,
+  Printer,
   ReceiptText,
   Save,
   ScanLine,
@@ -28,7 +37,7 @@ import {
   WalletCards,
 } from "lucide-react";
 
-import { ImeiScannerField } from "@/components/imei-scanner-field";
+import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import {
   FaultDiagnosisPicker,
@@ -40,10 +49,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -53,8 +68,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
+  decideOrderApproval,
   getOrder,
   getStoreSettings,
   listOrderWorkflow,
@@ -65,8 +82,16 @@ import {
   sendWhatsappNotification,
   transitionOrder,
   updateOrder,
+  uploadOrderAttachment,
   type UpdateOrderInput,
 } from "@/lib/repairdesk/api";
+import {
+  CameraCaptureSheet,
+  attachmentKindLabels,
+  formatAttachmentSize,
+  revokeAttachmentDraft,
+  type AttachmentDraft,
+} from "@/features/capture";
 import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
 import { OrderDetailTabs } from "@/features/orders/components/order-detail-tabs";
 import { OrderHero } from "@/features/orders/components/order-hero";
@@ -92,6 +117,7 @@ import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
 } from "@/features/orders/model/order-transition-reasons";
+import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { componentOverlay } from "@/lib/component-patterns";
@@ -110,7 +136,15 @@ import {
 import { fadeUp, stagger } from "@/lib/motion";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import type { OrderDetail, OrderWorkflow, StoreSettings } from "@/lib/repairdesk/types";
+import type {
+  OrderApprovalDecisionInput,
+  OrderAttachment,
+  OrderAttachmentUploadInput,
+  OrderDetail,
+  OrderWorkflow,
+  PatchOrderChanges,
+  StoreSettings,
+} from "@/lib/repairdesk/types";
 
 const tabs = [
   { key: "overview", label: "概览" },
@@ -133,6 +167,7 @@ export function OrderDetailScreen({
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
   const [orderUrl, setOrderUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -153,9 +188,16 @@ export function OrderDetailScreen({
     };
   }, []);
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    error: detailError,
+    isError: detailIsError,
+    isLoading,
+    refetch: refetchDetail,
+  } = useQuery({
     queryKey: ordersKeys.detail(id),
     queryFn: () => getOrder(id),
+    retry: false,
   });
   const { data: storeSettings } = useQuery({
     queryKey: messageSettingsKeys.store,
@@ -218,6 +260,29 @@ export function OrderDetailScreen({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const faultUpdate = useMutation({
+    mutationFn: (changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result">) => {
+      if (!data) throw new Error("工单未加载");
+      return patchOrder(id, {
+        expected_updated_at: data.order.updated_at,
+        changes,
+      });
+    },
+    onSuccess: () => {
+      toast.success("故障描述已保存");
+      invalidate();
+    },
+  });
+
+  const attachmentUpload = useMutation({
+    mutationFn: (input: OrderAttachmentUploadInput) => uploadOrderAttachment(id, input),
+    onSuccess: () => {
+      toast.success("设备照片已保存到工单");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(`上传失败：${e.message}`),
+  });
+
   const financeUpdate = useMutation({
     mutationFn: (input: {
       expectedUpdatedAt: string;
@@ -247,6 +312,20 @@ export function OrderDetailScreen({
     onSuccess: () => {
       toast.success("审批消息已记录，并已打开 WhatsApp");
       setApprovalOpen(false);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const approvalDecision = useMutation({
+    mutationFn: (input: OrderApprovalDecisionInput) => decideOrderApproval(id, input),
+    onSuccess: (result) => {
+      toast.success(
+        result.decision === "approved"
+          ? `客户已同意，工单进入「${getWorkflowStatusLabel(workflow, result.to)}」`
+          : `客户已拒绝，工单进入「${getWorkflowStatusLabel(workflow, result.to)}」`,
+      );
+      setApprovalDecisionOpen(false);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -335,7 +414,7 @@ export function OrderDetailScreen({
     });
   }, [defaultWarrantyMonths, editDraft, editFinance, orderUpdate]);
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div
         className={cn(
@@ -352,6 +431,36 @@ export function OrderDetailScreen({
       </div>
     );
   }
+  if (detailIsError || !data) {
+    const message =
+      detailError instanceof Error && detailError.message
+        ? detailError.message
+        : "工单详情加载失败，请刷新后重试。";
+    return (
+      <div
+        className={cn(
+          "min-w-0 max-w-full space-y-3 overflow-x-clip",
+          surface === "page"
+            ? "mx-auto w-full max-w-5xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
+            : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
+        )}
+      >
+        <section className="rounded-xl border border-status-danger-foreground/20 bg-status-danger px-4 py-4 text-status-danger-foreground">
+          <p className="text-sm font-semibold">工单详情加载失败</p>
+          <p className="mt-1 break-words text-xs leading-5">{message}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3 h-8 rounded-lg bg-background/80 text-xs"
+            onClick={() => void refetchDetail()}
+          >
+            重新加载
+          </Button>
+        </section>
+      </div>
+    );
+  }
   const { order, customer, device, supplier, events, messages } = data;
   const next = getWorkflowNextActions(workflow, order.status);
   const desktopWorkflowStatus = getOrderWorkflowStatus(order);
@@ -362,6 +471,7 @@ export function OrderDetailScreen({
     (action): action is NonNullable<typeof next.primary> => Boolean(action),
   );
   const canCancelOrder = desktopStatusActions.some((action) => action.to === "cancelled");
+  const canDecideApproval = isApprovalDecisionAvailable(order);
   const deviceBrand = order.device_snapshot?.brand || device?.brand || "";
   const deviceModel = order.device_snapshot?.model || device?.model || "";
   const deviceLabel = `${deviceBrand} ${deviceModel}`.trim() || order.device_label;
@@ -375,7 +485,7 @@ export function OrderDetailScreen({
       className={cn(
         "min-w-0 max-w-full overflow-x-clip",
         surface === "page"
-          ? "mx-auto w-full max-w-5xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
+          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-5xl md:px-6"
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
@@ -394,6 +504,14 @@ export function OrderDetailScreen({
             await quickImeiUpdate.mutateAsync(imei);
           }}
           imeiPending={quickImeiUpdate.isPending}
+          onFaultSave={async (changes) => {
+            await faultUpdate.mutateAsync(changes);
+          }}
+          faultPending={faultUpdate.isPending}
+          onAttachmentUpload={async (input) => {
+            await attachmentUpload.mutateAsync(input);
+          }}
+          attachmentUploadPending={attachmentUpload.isPending}
           financeDraft={financeDraft}
           financeEditing={mobileFinanceEditing}
           financeSaveError={mobileFinanceSaveError}
@@ -422,9 +540,10 @@ export function OrderDetailScreen({
           }}
           financePending={financeUpdate.isPending}
           onNotify={() => setNotifyOpen(true)}
+          onApprovalDecision={() => setApprovalDecisionOpen(true)}
+          approvalDecisionAvailable={canDecideApproval}
           whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending}
           onPay={() => setPayOpen(true)}
-          onEdit={startEditing}
           onPrint={() => window.print()}
           onCancel={() => setCancelOpen(true)}
           canCancel={canCancelOrder}
@@ -596,6 +715,8 @@ export function OrderDetailScreen({
           onFinanceDraftChange={setFinanceDraft}
           editError={editValidationError}
           onApproval={() => setApprovalOpen(true)}
+          onApprovalDecision={() => setApprovalDecisionOpen(true)}
+          approvalDecisionAvailable={canDecideApproval}
           onPay={() => setPayOpen(true)}
           onNotify={() => setNotifyOpen(true)}
           onPrint={() => window.print()}
@@ -632,6 +753,13 @@ export function OrderDetailScreen({
         busy={approval.isPending}
         onConfirm={(input) => approval.mutateAsync(input)}
       />
+      <ApprovalDecisionSheet
+        open={approvalDecisionOpen}
+        onOpenChange={setApprovalDecisionOpen}
+        order={order}
+        pending={approvalDecision.isPending}
+        onConfirm={(input) => approvalDecision.mutateAsync(input)}
+      />
       <PaymentDialog
         open={payOpen}
         onOpenChange={setPayOpen}
@@ -664,6 +792,176 @@ export function OrderDetailScreen({
   );
 }
 
+function ApprovalDecisionSheet({
+  open,
+  order,
+  pending,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  order: OrderDetail["order"];
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (input: OrderApprovalDecisionInput) => Promise<unknown>;
+}) {
+  const [decision, setDecision] = useState<OrderApprovalDecisionInput["decision"]>("approved");
+  const [approvedNext, setApprovedNext] = useState<RepairOrderStatus>(
+    getDefaultApprovedNextStatus(order),
+  );
+  const [rejectedNext, setRejectedNext] = useState<RepairOrderStatus>("unfixed_pickup");
+  const [reason, setReason] = useState("");
+  const nextStatus = decision === "approved" ? approvedNext : rejectedNext;
+  const canSubmit = decision === "approved" || Boolean(reason.trim());
+
+  useEffect(() => {
+    if (!open) return;
+    setDecision("approved");
+    setApprovedNext(getDefaultApprovedNextStatus(order));
+    setRejectedNext("unfixed_pickup");
+    setReason("");
+  }, [open, order]);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+      >
+        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <MessageCircle className="size-4 text-primary" />
+              客户审批处理
+            </SheetTitle>
+            <SheetDescription>
+              {order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。
+            </SheetDescription>
+          </SheetHeader>
+          <div className={cn(componentOverlay.body, "space-y-2 pt-3")}>
+            <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-lg border px-2.5 py-2 text-left transition-colors",
+                    decision === "approved"
+                      ? "border-status-success-foreground/30 bg-status-success/65 text-status-success-foreground"
+                      : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
+                  )}
+                  disabled={pending}
+                  onClick={() => setDecision("approved")}
+                >
+                  <span className="block text-xs font-semibold">客户同意</span>
+                  <span className="mt-0.5 block truncate text-[10px] opacity-75">
+                    进入维修或订件
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-lg border px-2.5 py-2 text-left transition-colors",
+                    decision === "rejected"
+                      ? "border-status-danger-foreground/30 bg-status-danger/65 text-status-danger-foreground"
+                      : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
+                  )}
+                  disabled={pending}
+                  onClick={() => setDecision("rejected")}
+                >
+                  <span className="block text-xs font-semibold">客户拒绝</span>
+                  <span className="mt-0.5 block truncate text-[10px] opacity-75">
+                    未修取机或取消
+                  </span>
+                </button>
+              </div>
+
+              <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+                下一步状态
+                {decision === "approved" ? (
+                  <Select
+                    value={approvedNext}
+                    onValueChange={(value) => setApprovedNext(value as RepairOrderStatus)}
+                    disabled={pending}
+                  >
+                    <SelectTrigger className="h-8 rounded-lg text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="repairing">开始维修</SelectItem>
+                      <SelectItem value="parts_ordered">需要订件</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select
+                    value={rejectedNext}
+                    onValueChange={(value) => setRejectedNext(value as RepairOrderStatus)}
+                    disabled={pending}
+                  >
+                    <SelectTrigger className="h-8 rounded-lg text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unfixed_pickup">未修取机</SelectItem>
+                      <SelectItem value="cancelled">取消工单</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </label>
+
+              <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+                {decision === "approved" ? "备注" : "拒绝原因"}
+                <Textarea
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  disabled={pending}
+                  className="min-h-20 resize-none rounded-lg text-xs"
+                  placeholder={
+                    decision === "approved"
+                      ? "例如：客户 WhatsApp 确认同意报价。"
+                      : "例如：维修风险过高，客户确认不继续维修并取回设备。"
+                  }
+                />
+              </label>
+
+              <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
+                审批结果会写入时间线。通知客户请继续使用底部 WhatsApp 入口；这里不自动发送消息。
+              </p>
+            </section>
+
+            <SheetFooter className={componentOverlay.footer}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={pending}
+                onClick={() => onOpenChange(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={pending || !canSubmit}
+                onClick={async () => {
+                  await onConfirm({
+                    decision,
+                    next_status: nextStatus,
+                    reason: reason.trim() || undefined,
+                  });
+                }}
+              >
+                {pending ? "保存中..." : "确认处理"}
+              </Button>
+            </SheetFooter>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function MobileOrderDetailView({
   data,
   deviceLabel,
@@ -676,6 +974,10 @@ function MobileOrderDetailView({
   onTransition,
   onImeiSave,
   imeiPending,
+  onFaultSave,
+  faultPending,
+  onAttachmentUpload,
+  attachmentUploadPending,
   financeDraft,
   financeEditing,
   financeSaveError,
@@ -684,9 +986,10 @@ function MobileOrderDetailView({
   onFinanceSave,
   financePending,
   onNotify,
+  onApprovalDecision,
+  approvalDecisionAvailable,
   whatsappDisabled,
   onPay,
-  onEdit,
   onPrint,
   onCancel,
   canCancel,
@@ -703,6 +1006,12 @@ function MobileOrderDetailView({
   onTransition: (to: RepairOrderStatus, reason?: string) => void;
   onImeiSave: (imei: string) => Promise<void>;
   imeiPending: boolean;
+  onFaultSave: (
+    changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result">,
+  ) => Promise<void>;
+  faultPending: boolean;
+  onAttachmentUpload: (input: OrderAttachmentUploadInput) => Promise<void>;
+  attachmentUploadPending: boolean;
   financeDraft: FinanceDraftState;
   financeEditing: boolean;
   financeSaveError: string;
@@ -711,15 +1020,17 @@ function MobileOrderDetailView({
   onFinanceSave: () => Promise<boolean>;
   financePending: boolean;
   onNotify: () => void;
+  onApprovalDecision: () => void;
+  approvalDecisionAvailable: boolean;
   whatsappDisabled: boolean;
   onPay: () => void;
-  onEdit: () => void;
   onPrint: () => void;
   onCancel: () => void;
   canCancel: boolean;
   className?: string;
 }) {
-  const { order, customer, events } = data;
+  const { order, customer } = data;
+  const events = data.events ?? [];
   const workflowStatus = getOrderWorkflowStatus(order);
   const currentStageIndex = getWorkflowProgressValue(workflowStatus);
   const next = getWorkflowNextActions(workflow, order.status);
@@ -731,12 +1042,23 @@ function MobileOrderDetailView({
       : "未命名客户";
   const whatsappHref = getWhatsappHref(phone);
   const paidAmount = inferOrderPaidAmount(order);
-  const latestEvent = events[0];
   const currentStage =
     orderTaskStages[Math.min(currentStageIndex, orderTaskStages.length - 1)] ?? orderTaskStages[0];
   const [imeiEditing, setImeiEditing] = useState(false);
   const [imeiDraft, setImeiDraft] = useState(deviceImei);
+  const [faultEditing, setFaultEditing] = useState(false);
+  const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
+  const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
+    "calc(env(safe-area-inset-top) + 10.75rem)",
+  );
+  const photoAttachments = useMemo(
+    () =>
+      (data.attachments ?? []).filter((attachment) => attachment.mime_type.startsWith("image/")),
+    [data.attachments],
+  );
+  const latestEvent = events[0];
   const normalizedFinance = useMemo(
     () => normalizeFinanceDraft(financeDraft, paidAmount),
     [financeDraft, paidAmount],
@@ -749,46 +1071,87 @@ function MobileOrderDetailView({
     if (!imeiEditing) setImeiDraft(deviceImei);
   }, [deviceImei, imeiEditing]);
 
+  const handleFloatingHeaderHeight = useCallback((height: number) => {
+    setFloatingHeaderOffset(`${Math.ceil(height + 8)}px`);
+  }, []);
+
   return (
-    <div className={cn(repairOs.mobileFloatingPage, className)}>
+    <div
+      data-mobile-order-page="true"
+      className={cn(repairOs.mobileFloatingPage, className)}
+      style={
+        {
+          "--repair-os-mobile-floating-offset": floatingHeaderOffset,
+        } as CSSProperties
+      }
+    >
       <MobileStickyWorkflowHeader
         order={order}
         workflow={workflow}
         currentStageIndex={currentStageIndex}
         currentStage={currentStage}
         nextLabel={next.primary?.label}
-        onEdit={onEdit}
-        onNotify={onNotify}
+        onHeightChange={handleFloatingHeaderHeight}
         onPrint={onPrint}
         onCancel={onCancel}
         canCancel={canCancel}
       />
 
-      <section className={mobileDetailCardClass}>
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-          <div className="min-w-0">
-            <p className="text-[9px] leading-3 text-muted-foreground">订单号</p>
-            <p className="truncate font-mono text-sm font-semibold leading-5 text-primary">
-              {order.public_no}
-            </p>
+      {approvalDecisionAvailable ? (
+        <section className={cn(mobileDetailCardClass, "border-primary/25 bg-primary/5")}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <div className="min-w-0">
+              <MobileSectionTitle icon={MessageCircle} title="客户审批" />
+              <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
+                报价已发送或待确认，请记录客户同意/拒绝后的真实处理结果。
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 rounded-lg px-2 text-[11px]"
+              onClick={onApprovalDecision}
+            >
+              审批处理
+            </Button>
           </div>
-          <div className="min-w-0 text-right">
-            <p className="text-[9px] leading-3 text-muted-foreground">总额</p>
-            <MoneyText
-              amount={order.quotation_amount}
-              className="block text-sm font-semibold leading-5"
-            />
-            <p className="text-[9px] leading-3 text-muted-foreground">
-              {order.is_paid ? "已结清" : `尾款 ${formatMoney(order.balance_amount)}`}
-            </p>
-          </div>
-        </div>
-        <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1 border-t border-[var(--border-panel)] pt-1.5">
+        </section>
+      ) : null}
+
+      <section data-mobile-order-first-card="true" className={mobileDetailCardClass}>
+        <MobileSectionTitle icon={Calendar} title="基础信息" />
+        <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1">
           <MobileMeta icon={Calendar} label="创建时间" value={formatDateTime(order.created_at)} />
           <MobileMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} />
           <MobileMeta icon={Store} label="门店" value={storeSettings?.store_name || "ChinaTech"} />
         </div>
       </section>
+
+      <button
+        type="button"
+        className={cn(
+          mobileDetailCardClass,
+          "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-left transition-colors active:bg-[var(--surface-panel-muted)]",
+        )}
+        onClick={() => setTimelineOpen(true)}
+      >
+        <div className="min-w-0">
+          <MobileSectionTitle icon={Clock3} title="历史记录" />
+          <p className="mt-1 truncate text-[11px] font-medium leading-4">
+            {latestEvent
+              ? renderEvent(latestEvent.event_type, latestEvent.payload, workflow)
+              : "暂无操作记录"}
+          </p>
+          <p className="truncate text-[9px] leading-3 text-muted-foreground">
+            {latestEvent
+              ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name || "系统"}`
+              : "状态流转、报价、收款、照片上传都会记录在这里"}
+          </p>
+        </div>
+        <span className="rounded-lg border border-[var(--border-panel)] px-2 py-1 text-[10px] font-medium text-primary">
+          查看全部
+        </span>
+      </button>
 
       <div className="grid min-w-0 grid-cols-1 gap-1.5 min-[390px]:grid-cols-2">
         <section className={mobileDetailCardClass}>
@@ -879,86 +1242,65 @@ function MobileOrderDetailView({
         </section>
       </div>
 
-      <Sheet
+      <ImeiCaptureSheet
         open={imeiEditing}
         onOpenChange={(open) => {
           setImeiEditing(open);
           if (open) setImeiDraft(deviceImei);
         }}
-      >
-        <SheetContent
-          side="bottom"
-          className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
-        >
-          <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
-            <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-              <SheetTitle className="flex items-center gap-2 text-base">
-                <ScanLine className="size-4 text-primary" />
-                录入 IMEI / 序列号
-              </SheetTitle>
-              <SheetDescription>
-                扫码、粘贴或手动输入，保存后会写入当前工单设备信息。
-              </SheetDescription>
-            </SheetHeader>
-            <div className={cn(componentOverlay.body, "space-y-3 pt-3")}>
-              <div
-                className={cn(
-                  componentOverlay.flatSection,
-                  imeiPending && "pointer-events-none opacity-60",
-                )}
-              >
-                <ImeiScannerField
-                  value={imeiDraft}
-                  onChange={setImeiDraft}
-                  placeholder="扫描或输入 IMEI"
-                  density="compact"
-                />
-              </div>
-              <SheetFooter className={componentOverlay.footer}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
-                  disabled={imeiPending}
-                  onClick={() => {
-                    setImeiDraft(deviceImei);
-                    setImeiEditing(false);
-                  }}
-                >
-                  取消
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 text-xs"
-                  disabled={imeiPending}
-                  onClick={async () => {
-                    try {
-                      await onImeiSave(imeiDraft);
-                      setImeiEditing(false);
-                    } catch {
-                      // Mutation error toast is handled by the parent mutation.
-                    }
-                  }}
-                >
-                  保存
-                </Button>
-              </SheetFooter>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+        value={imeiDraft}
+        savedValue={deviceImei}
+        pending={imeiPending}
+        onChange={setImeiDraft}
+        onSave={async () => {
+          await onImeiSave(imeiDraft);
+          setImeiEditing(false);
+        }}
+      />
 
       <section className={mobileDetailCardClass}>
-        <MobileSectionTitle icon={FileText} title="故障描述" />
+        <MobileSectionTitle
+          icon={FileText}
+          title="故障描述"
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 rounded-md px-1.5 text-[10px]"
+              onClick={() => setFaultEditing(true)}
+            >
+              编辑
+            </Button>
+          }
+        />
         <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
           {order.issue_description || "-"}
         </p>
         <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
           诊断结果：{order.diagnosis_result || "尚未填写"}
         </p>
+        {order.fault_prices.length ? (
+          <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+            {order.fault_prices.slice(0, 3).map((item, index) => (
+              <span
+                key={`${item.name}-${index}`}
+                className="max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary"
+              >
+                {item.name || "未命名项目"}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </section>
+
+      <FaultDescriptionEditSheet
+        open={faultEditing}
+        order={order}
+        pending={faultPending}
+        onOpenChange={setFaultEditing}
+        onSave={onFaultSave}
+      />
 
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
         <section className={cn(mobileDetailCardClass, financeEditing && "col-span-2")}>
@@ -1002,47 +1344,32 @@ function MobileOrderDetailView({
               }}
             />
           ) : (
-            <>
-              <div className="mt-1.5 space-y-1">
-                {order.fault_prices.length ? (
-                  order.fault_prices.map((item, index) => (
-                    <div
-                      key={`${item.name}-${index}`}
-                      className="flex min-w-0 items-center gap-1 text-[11px] leading-4"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {item.name || "未命名项目"}
-                      </span>
-                      <MoneyText amount={item.price} className="shrink-0 font-semibold" />
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground">
-                    暂无报价项目
+            <div className="mt-1.5 space-y-1">
+              {order.fault_prices.length ? (
+                order.fault_prices.map((item, index) => (
+                  <div
+                    key={`${item.name}-${index}`}
+                    className="flex min-w-0 items-center gap-1 text-[11px] leading-4"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                      {item.name || "未命名项目"}
+                    </span>
+                    <MoneyText amount={item.price} className="shrink-0 font-semibold" />
                   </div>
-                )}
-              </div>
-              <div className="mt-1.5 border-t border-[var(--border-panel)] pt-1.5">
-                <div className="flex items-center justify-between gap-1.5 text-[11px]">
-                  <span className="font-semibold">应收总额</span>
-                  <MoneyText
-                    amount={order.quotation_amount}
-                    className="shrink-0 text-sm font-semibold text-primary"
-                  />
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground">
+                  暂无报价项目
                 </div>
-              </div>
-            </>
+              )}
+            </div>
           )}
         </section>
 
         <section className={mobileDetailCardClass}>
           <MobileSectionTitle icon={WalletCards} title="支付信息" />
           <div className="mt-1.5 space-y-1">
-            <PaymentLine
-              label="付款状态"
-              value={order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款"}
-              strong
-            />
+            <PaymentLine label="应收总额" value={formatMoney(order.quotation_amount)} strong />
             <PaymentLine label="已付金额" value={formatMoney(paidAmount)} />
             <PaymentLine label="押金" value={formatMoney(order.deposit_amount)} />
             <PaymentLine
@@ -1051,8 +1378,8 @@ function MobileOrderDetailView({
               danger={order.balance_amount > 0}
             />
             <PaymentLine
-              label="最近记录"
-              value={latestEvent ? formatDateTime(latestEvent.created_at) : "-"}
+              label="付款状态"
+              value={order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款"}
             />
           </div>
         </section>
@@ -1061,20 +1388,53 @@ function MobileOrderDetailView({
       <section className={mobileDetailCardClass}>
         <MobileSectionTitle icon={ImageIcon} title="设备照片" />
         <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-          <PhotoPlaceholder label="正面" />
-          <PhotoPlaceholder label="背面" />
+          {photoAttachments.slice(0, 2).map((attachment) => (
+            <PhotoPreview key={attachment.id} attachment={attachment} />
+          ))}
+          {photoAttachments.length === 0 ? (
+            <>
+              <PhotoPlaceholder label="正面" />
+              <PhotoPlaceholder label="背面" />
+            </>
+          ) : photoAttachments.length === 1 ? (
+            <PhotoPlaceholder label="补充" />
+          ) : null}
           <button
             type="button"
-            className="grid h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary"
-            onClick={onEdit}
+            className="grid h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60"
+            disabled={attachmentUploadPending}
+            onClick={() => setPhotoCaptureOpen(true)}
           >
             <span className="grid place-items-center gap-1">
               <Camera className="size-4" />
-              添加备注
+              {attachmentUploadPending ? "上传中" : "拍照"}
             </span>
           </button>
         </div>
+        {photoAttachments.length ? (
+          <p className="mt-1 text-[9px] leading-3 text-muted-foreground">
+            已保存 {photoAttachments.length} 张照片到工单，更多操作可在历史记录查看。
+          </p>
+        ) : null}
       </section>
+
+      <CameraCaptureSheet
+        open={photoCaptureOpen}
+        onOpenChange={setPhotoCaptureOpen}
+        title="拍摄设备照片"
+        description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
+        attachmentKind="fault_photo"
+        onCapture={(draft) => {
+          void uploadAttachmentDraft(draft, onAttachmentUpload);
+        }}
+      />
+
+      <MobileTimelineSheet
+        open={timelineOpen}
+        events={events}
+        workflow={workflow}
+        onOpenChange={setTimelineOpen}
+      />
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl md:hidden">
         <div className="mx-auto grid max-w-[430px] grid-cols-[1.25fr_1fr_1fr] gap-1.5">
@@ -1089,12 +1449,17 @@ function MobileOrderDetailView({
           <Button
             variant="outline"
             className="h-9 rounded-xl text-xs"
-            disabled={statusActions.length === 0 || transitionPending}
+            disabled={financeEditing || statusActions.length === 0 || transitionPending}
             onClick={() => setStatusSheetOpen(true)}
           >
             <Clock3 className="mr-1 size-3.5" /> 流转
           </Button>
-          <Button variant="outline" className="h-9 rounded-xl text-xs" onClick={onPay}>
+          <Button
+            variant="outline"
+            className="h-9 rounded-xl text-xs"
+            disabled={financeEditing}
+            onClick={onPay}
+          >
             <CreditCard className="mr-1 size-3.5" /> 收款
           </Button>
         </div>
@@ -1110,6 +1475,547 @@ function MobileOrderDetailView({
         onOpenChange={setStatusSheetOpen}
         onTransition={onTransition}
       />
+    </div>
+  );
+}
+
+async function uploadAttachmentDraft(
+  draft: AttachmentDraft,
+  onUpload: (input: OrderAttachmentUploadInput) => Promise<void>,
+) {
+  try {
+    const dataBase64 = await fileToBase64(draft.file);
+    await onUpload({
+      kind: draft.kind,
+      file_name: draft.name,
+      mime_type: draft.mimeType || draft.file.type || "image/jpeg",
+      file_size: draft.size,
+      data_base64: dataBase64,
+    });
+  } finally {
+    revokeAttachmentDraft(draft);
+  }
+}
+
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取照片失败，请重新拍摄"));
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const [, base64 = ""] = result.split(",");
+      if (!base64) {
+        reject(new Error("照片内容为空，请重新拍摄"));
+        return;
+      }
+      resolve(base64);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function MobileTimelineSheet({
+  open,
+  events,
+  workflow,
+  onOpenChange,
+}: {
+  open: boolean;
+  events: OrderDetail["events"];
+  workflow?: OrderWorkflow;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+      >
+        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Clock3 className="size-4 text-primary" />
+              历史操作记录
+            </SheetTitle>
+            <SheetDescription>
+              状态流转、报价、收款、通知和附件上传都会记录在这里。
+            </SheetDescription>
+          </SheetHeader>
+          <div className={cn(componentOverlay.body, "space-y-2 pt-3")}>
+            {events.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[var(--border-panel)] px-3 py-6 text-center text-xs text-muted-foreground">
+                暂无操作记录
+              </div>
+            ) : (
+              events.map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel)] px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 text-xs font-semibold leading-5">
+                      {renderEvent(event.event_type, event.payload, workflow)}
+                    </p>
+                    <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                      {event.operator_name || "系统"}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+                    {formatDateTime(event.created_at)}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ImeiCaptureSheet({
+  open,
+  value,
+  savedValue,
+  pending,
+  onOpenChange,
+  onChange,
+  onSave,
+}: {
+  open: boolean;
+  value: string;
+  savedValue: string;
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (value: string) => void;
+  onSave: () => Promise<void>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [mode, setMode] = useState<"choice" | "barcode" | "ocr">("choice");
+  const [scannerToken, setScannerToken] = useState(0);
+  const [ocrText, setOcrText] = useState("");
+  const [ocrPending, setOcrPending] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setMode("choice");
+    setOcrText("");
+    setError("");
+  }, [open]);
+
+  const chooseBarcode = () => {
+    setMode("barcode");
+    setError("");
+    setScannerToken((current) => current + 1);
+  };
+
+  const handleOcrFile = async (file?: File) => {
+    if (!file) return;
+    setOcrPending(true);
+    setError("");
+    try {
+      const text = await detectTextFromImageFile(file);
+      setOcrText(text);
+      const candidate = extractImeiCandidate(text);
+      if (!candidate) {
+        setError("未自动识别到 IMEI / 序列号。请检查照片清晰度，或手动确认输入。");
+        return;
+      }
+      onChange(candidate);
+      toast.success("已识别并填入 IMEI / 序列号");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "OCR 识别失败，请重新拍摄或手动输入。";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setOcrPending(false);
+    }
+  };
+
+  const save = async () => {
+    try {
+      await onSave();
+    } catch (error) {
+      const message = getOrderPatchSaveErrorMessage(error);
+      setError(message);
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+      >
+        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <ScanLine className="size-4 text-primary" />
+              录入 IMEI / 序列号
+            </SheetTitle>
+            <SheetDescription>
+              选择二维码 / 条码扫描，或用 OCR 拍照识别机身、包装上的数字。
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className={cn(componentOverlay.body, "space-y-3 pt-3")}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                void handleOcrFile(file);
+              }}
+            />
+
+            {mode === "choice" ? (
+              <section className={cn(componentOverlay.flatSection, "grid gap-2 p-2.5")}>
+                <button
+                  type="button"
+                  className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-2.5 py-2 text-left"
+                  disabled={pending}
+                  onClick={chooseBarcode}
+                >
+                  <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
+                    <ScanLine className="size-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold">扫描二维码 / 条码</span>
+                    <span className="block truncate text-[10px] leading-3 text-muted-foreground">
+                      对准 IMEI 条码或序列号二维码，识别后自动填入。
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 text-left"
+                  disabled={pending || ocrPending}
+                  onClick={() => {
+                    setMode("ocr");
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <span className="grid size-8 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary">
+                    <Camera className="size-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold">OCR 识别文字</span>
+                    <span className="block truncate text-[10px] leading-3 text-muted-foreground">
+                      适合没有二维码、只显示数字的设备标签。
+                    </span>
+                  </span>
+                </button>
+              </section>
+            ) : null}
+
+            {mode === "barcode" ? (
+              <section
+                className={cn(
+                  componentOverlay.flatSection,
+                  "space-y-2 p-2.5",
+                  pending && "pointer-events-none opacity-60",
+                )}
+              >
+                <ImeiScannerField
+                  value={value}
+                  onChange={onChange}
+                  placeholder="扫描或输入 IMEI"
+                  density="compact"
+                  showPaste={false}
+                  startScannerToken={scannerToken}
+                />
+                <p className="text-[10px] leading-4 text-muted-foreground">
+                  当前入口不显示粘贴按钮；无法识别时可直接手动输入。
+                </p>
+              </section>
+            ) : null}
+
+            {mode === "ocr" ? (
+              <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
+                <div className="grid gap-1">
+                  <label className="text-[10px] font-medium text-muted-foreground">
+                    识别结果 / 手动确认
+                  </label>
+                  <Input
+                    value={value}
+                    onChange={(event) =>
+                      onChange(normalizeImeiIdentifier(event.target.value).value)
+                    }
+                    disabled={pending}
+                    className="h-8 font-mono text-xs"
+                    placeholder="拍照识别后会填入这里"
+                  />
+                </div>
+                {ocrText ? (
+                  <div className="max-h-20 overflow-y-auto rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+                    原始识别：{ocrText}
+                  </div>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-full rounded-lg text-xs"
+                  disabled={pending || ocrPending}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Camera className="mr-1.5 size-3.5" />
+                  {ocrPending ? "识别中..." : "重新拍照识别"}
+                </Button>
+              </section>
+            ) : null}
+
+            {error ? (
+              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground">
+                {error}
+              </p>
+            ) : null}
+
+            <SheetFooter className={componentOverlay.footer}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={pending || ocrPending}
+                onClick={() => {
+                  onChange(savedValue);
+                  onOpenChange(false);
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={pending || ocrPending}
+                onClick={() => void save()}
+              >
+                {pending ? "保存中..." : "保存"}
+              </Button>
+            </SheetFooter>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function FaultDescriptionEditSheet({
+  open,
+  order,
+  pending,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  order: OrderDetail["order"];
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (
+    changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result">,
+  ) => Promise<void>;
+}) {
+  const [issue, setIssue] = useState(order.issue_description || "");
+  const [diagnosis, setDiagnosis] = useState(order.diagnosis_result || "");
+  const [error, setError] = useState("");
+  const quoteItems = order.fault_prices.filter((item) => item.name.trim());
+
+  useEffect(() => {
+    if (!open) return;
+    setIssue(order.issue_description || "");
+    setDiagnosis(order.diagnosis_result || "");
+    setError("");
+  }, [open, order.diagnosis_result, order.issue_description]);
+
+  const appendText = (target: "issue" | "diagnosis", text: string) => {
+    const setter = target === "issue" ? setIssue : setDiagnosis;
+    const current = target === "issue" ? issue : diagnosis;
+    setter([current.trim(), text.trim()].filter(Boolean).join("\n"));
+  };
+
+  const save = async () => {
+    const normalizedIssue = issue.trim();
+    const normalizedDiagnosis = diagnosis.trim();
+    if (!normalizedIssue) {
+      setError("故障描述不能为空。");
+      return;
+    }
+
+    try {
+      await onSave({
+        issue_description: normalizedIssue,
+        diagnosis_result: normalizedDiagnosis || undefined,
+      });
+      onOpenChange(false);
+    } catch (error) {
+      const message = getOrderPatchSaveErrorMessage(error);
+      setError(message);
+      toast.error(message);
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+      >
+        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <FileText className="size-4 text-primary" />
+              编辑故障描述
+            </SheetTitle>
+            <SheetDescription>
+              可把当前维修项目带入故障或诊断文本，也可以完全手动修改。
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className={cn(componentOverlay.body, "space-y-3 pt-3")}>
+            <section
+              className={cn(
+                componentOverlay.flatSection,
+                "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-primary/20 bg-primary/5 p-2.5",
+              )}
+            >
+              <div className="min-w-0">
+                <p className="text-[10px] text-muted-foreground">当前工单</p>
+                <p className="truncate font-mono text-sm font-semibold text-primary">
+                  {order.public_no}
+                </p>
+              </div>
+              <div className="rounded-lg bg-background/70 px-2 py-1 text-right ring-1 ring-inset ring-primary/15">
+                <p className="text-[9px] leading-3 text-muted-foreground">可关联项目</p>
+                <p className="text-sm font-semibold leading-5">{quoteItems.length}</p>
+              </div>
+            </section>
+
+            {quoteItems.length ? (
+              <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
+                <p className="text-[10px] font-medium text-muted-foreground">维修项目来源</p>
+                <div className="grid gap-1.5">
+                  {quoteItems.map((item, index) => (
+                    <div
+                      key={`${item.name}-${index}`}
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[11px] font-semibold">{item.name}</p>
+                        <MoneyText
+                          amount={item.price}
+                          className="block text-[10px] text-muted-foreground"
+                        />
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-[10px]"
+                          disabled={pending}
+                          onClick={() => appendText("issue", item.name)}
+                        >
+                          故障
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-[10px]"
+                          disabled={pending}
+                          onClick={() => appendText("diagnosis", item.name)}
+                        >
+                          诊断
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
+              <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
+                故障描述
+                <Textarea
+                  value={issue}
+                  onChange={(event) => setIssue(event.target.value)}
+                  disabled={pending}
+                  className="min-h-24 resize-none rounded-lg text-xs"
+                  placeholder="描述客户反馈、故障表现、可复现条件等"
+                />
+              </label>
+              <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
+                诊断结果
+                <Textarea
+                  value={diagnosis}
+                  onChange={(event) => setDiagnosis(event.target.value)}
+                  disabled={pending}
+                  className="min-h-20 resize-none rounded-lg text-xs"
+                  placeholder="填写检测结果、风险、建议处理方式"
+                />
+              </label>
+            </section>
+
+            {error ? (
+              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground">
+                {error}
+              </p>
+            ) : null}
+
+            <SheetFooter className={componentOverlay.footer}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={pending}
+                onClick={() => onOpenChange(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={pending}
+                onClick={() => void save()}
+              >
+                {pending ? "保存中..." : "保存"}
+              </Button>
+            </SheetFooter>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function PhotoPreview({ attachment }: { attachment: OrderAttachment }) {
+  const source = attachment.signed_url || attachment.public_url;
+  return (
+    <div className="relative h-14 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]">
+      {source ? (
+        <img src={source} alt={attachment.file_name} className="size-full object-cover" />
+      ) : (
+        <div className="grid size-full place-items-center text-primary">
+          <ImageIcon className="size-4" />
+        </div>
+      )}
+      <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+        {attachmentKindLabels[attachment.kind] || "照片"} ·{" "}
+        {formatAttachmentSize(attachment.file_size)}
+      </span>
     </div>
   );
 }
@@ -1318,8 +2224,7 @@ function MobileStickyWorkflowHeader({
   currentStageIndex,
   currentStage,
   nextLabel,
-  onEdit,
-  onNotify,
+  onHeightChange,
   onPrint,
   onCancel,
   canCancel,
@@ -1329,20 +2234,44 @@ function MobileStickyWorkflowHeader({
   currentStageIndex: number;
   currentStage: (typeof orderTaskStages)[number];
   nextLabel?: string;
-  onEdit: () => void;
-  onNotify: () => void;
+  onHeightChange?: (height: number) => void;
   onPrint: () => void;
   onCancel: () => void;
   canCancel: boolean;
 }) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const statusLabel = getWorkflowStatusLabel(workflow, order.status);
   const nextText = nextLabel ? `下一步：${nextLabel}` : currentStage.nextAction;
+  const sideBadges = getOrderSideStatusBadges(order).slice(0, 3);
+
+  useEffect(() => {
+    const node = shellRef.current;
+    if (!node || !onHeightChange) return;
+
+    const update = () => {
+      onHeightChange(node.getBoundingClientRect().height);
+    };
+
+    update();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", update);
+      return () => window.removeEventListener("resize", update);
+    }
+
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onHeightChange]);
 
   return (
-    <div className={repairOs.mobileFloatingHeaderShell}>
+    <div
+      ref={shellRef}
+      data-mobile-order-header="true"
+      className={repairOs.mobileFloatingHeaderShell}
+    >
       <section className={repairOs.mobileFloatingHeaderCard}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <Button asChild variant="ghost" size="icon" className="size-7 rounded-lg">
+          <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
             <Link href="/orders" aria-label="返回工单列表">
               <ArrowLeft className="size-4" />
             </Link>
@@ -1353,31 +2282,39 @@ function MobileStickyWorkflowHeader({
               {currentStage.label} · {statusLabel}
             </p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 rounded-lg"
-                aria-label="更多操作"
-              >
-                <MoreVertical className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onEdit}>编辑工单</DropdownMenuItem>
-              <DropdownMenuItem onClick={onPrint}>打印工单</DropdownMenuItem>
-              <DropdownMenuItem onClick={onNotify}>通知客户</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                disabled={!canCancel}
-                onClick={onCancel}
-              >
-                {canCancel ? "取消工单" : "当前状态不可取消"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-lg"
+              aria-label="打印工单"
+              onClick={onPrint}
+            >
+              <Printer className="size-[18px]" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-lg"
+                  aria-label="更多操作"
+                >
+                  <MoreVertical className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={!canCancel}
+                  onClick={onCancel}
+                >
+                  {canCancel ? "取消工单" : "当前状态不可取消"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
 
         <div className={repairOs.mobileFloatingHeaderBody}>
@@ -1392,6 +2329,19 @@ function MobileStickyWorkflowHeader({
             </div>
             <StatusBadge status={order.status} label={statusLabel} className="mt-0.5 scale-90" />
           </div>
+          {sideBadges.length ? (
+            <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+              {sideBadges.map((badge) => (
+                <StatusBadge
+                  key={badge.key}
+                  status={order.status}
+                  label={badge.label}
+                  tone={badge.tone}
+                  className="max-w-[7.5rem] scale-90 truncate text-[10px]"
+                />
+              ))}
+            </div>
+          ) : null}
           <div className="mt-1 border-t border-[var(--border-panel)] pt-1">
             <MobileWorkflowTimeline
               compact
@@ -1460,6 +2410,47 @@ function DetailRows({ rows }: { rows: [string, string][] }) {
   );
 }
 
+function MobileDenseFinanceInput({
+  value,
+  onValueChange,
+  disabled,
+  placeholder,
+  inputMode = "text",
+  align = "left",
+  mono = false,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder: string;
+  inputMode?: "text" | "decimal" | "numeric";
+  align?: "left" | "right";
+  mono?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative block h-7 min-w-0 overflow-hidden rounded-md border border-[var(--border-panel)] bg-card shadow-sm transition-colors focus-within:border-primary/45 focus-within:ring-2 focus-within:ring-primary/10",
+        disabled && "opacity-60",
+      )}
+    >
+      <Input
+        type="text"
+        inputMode={inputMode}
+        value={value}
+        onChange={(event) => onValueChange(event.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        className={cn(
+          "absolute top-1/2 h-9 w-[133.333%] -translate-y-1/2 scale-75 border-0 bg-transparent px-2 py-0 text-base shadow-none focus-visible:ring-0 md:text-[11px]",
+          align === "right" ? "right-0 origin-right text-right" : "left-0 origin-left",
+          mono && "font-mono tabular-nums",
+        )}
+      />
+    </span>
+  );
+}
+
 function MobileFinanceEditor({
   draft,
   normalized,
@@ -1513,22 +2504,21 @@ function MobileFinanceEditor({
       <div className="space-y-1">
         {draft.faults.length ? (
           draft.faults.map((item, index) => (
-            <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_72px_24px] gap-1">
-              <Input
+            <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_74px_24px] gap-1">
+              <MobileDenseFinanceInput
                 value={item.name}
-                onChange={(event) => patchFault(index, { name: event.target.value })}
+                onValueChange={(value) => patchFault(index, { name: value })}
                 disabled={pending}
-                className="h-7 min-w-0 rounded-md px-2 text-[11px]"
                 placeholder="项目"
               />
-              <Input
-                type="text"
-                inputMode="decimal"
+              <MobileDenseFinanceInput
                 value={item.priceText}
-                onChange={(event) => patchFault(index, { priceText: event.target.value })}
+                onValueChange={(value) => patchFault(index, { priceText: value })}
                 disabled={pending}
-                className="h-7 min-w-0 rounded-md px-2 text-right font-mono text-[11px]"
                 placeholder="金额"
+                inputMode="decimal"
+                align="right"
+                mono
               />
               <Button
                 type="button"
@@ -1558,7 +2548,10 @@ function MobileFinanceEditor({
         size="sm"
         className="h-7 w-full rounded-md text-[10px]"
         disabled={pending}
-        onClick={() => onChange({ ...draft, faults: [...draft.faults, emptyFinanceFaultDraft()] })}
+        onClick={() => {
+          const faults = [...draft.faults, emptyFinanceFaultDraft()];
+          onChange({ ...draft, faults });
+        }}
       >
         <Plus className="mr-1 size-3" /> 添加自定义项目
       </Button>
@@ -1574,16 +2567,16 @@ function MobileFinanceEditor({
             <MoneyText amount={normalized.balance} className="font-semibold" />
           </div>
         </div>
-        <label className="min-w-0 text-[10px] text-muted-foreground">
-          押金
-          <Input
-            type="text"
-            inputMode="decimal"
+        <label className="grid min-w-0 gap-0.5 text-[10px] text-muted-foreground">
+          <span>押金</span>
+          <MobileDenseFinanceInput
             value={draft.depositText}
-            onChange={(event) => onChange({ ...draft, depositText: event.target.value })}
+            onValueChange={(value) => onChange({ ...draft, depositText: value })}
             disabled={pending}
-            className="mt-0.5 h-7 min-w-0 rounded-md px-2 text-right font-mono text-[11px]"
             placeholder="0"
+            inputMode="decimal"
+            align="right"
+            mono
           />
         </label>
       </div>
@@ -1610,7 +2603,7 @@ function MobileFinanceEditor({
           size="sm"
           className="h-7 rounded-md text-[10px]"
           onClick={() => void onSave().catch(() => undefined)}
-          disabled={pending}
+          disabled={pending || !normalized.canSave}
         >
           <Save className="mr-1 size-3" /> 保存
         </Button>
@@ -1643,8 +2636,75 @@ function getFinanceSaveErrorMessage(error: Error) {
   return message.startsWith("保存失败") ? message : `保存失败：${message}`;
 }
 
+function getOrderPatchSaveErrorMessage(error: unknown) {
+  const raw = error instanceof Error && error.message ? error.message : "保存失败，请稍后重试。";
+  const message = raw.replace(/^Error:\s*/i, "").trim();
+  if (/工单已被更新|版本|expected_updated_at|conflict/i.test(message)) {
+    return "保存失败：工单刚刚被其他操作更新，请刷新后再保存。";
+  }
+  if (/没有可保存的字段|缺少版本|字段|schema|column/i.test(message)) {
+    return `保存失败：${message}`;
+  }
+  if (/未登录|店铺|权限|unauthorized|forbidden/i.test(message)) {
+    return `保存失败：${message}`;
+  }
+  return message.startsWith("保存失败") ? message : `保存失败：${message}`;
+}
+
+type BrowserTextDetector = {
+  detect: (source: unknown) => Promise<Array<{ rawValue?: string }>>;
+};
+
+type BrowserWindowWithTextDetector = Window & {
+  TextDetector?: new () => BrowserTextDetector;
+};
+
+async function detectTextFromImageFile(file: File) {
+  const TextDetectorCtor = (window as BrowserWindowWithTextDetector).TextDetector;
+  if (!TextDetectorCtor) {
+    throw new Error("当前浏览器暂不支持本机 OCR。请改用二维码/条码扫描或手动输入。");
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+  const image = new Image();
+  try {
+    image.src = imageUrl;
+    await image.decode();
+    const detector = new TextDetectorCtor();
+    const results = await detector.detect(image);
+    return results
+      .map((item) => item.rawValue?.trim())
+      .filter((item): item is string => Boolean(item))
+      .join(" ");
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function extractImeiCandidate(text: string) {
+  const chunks = text.match(/[A-Za-z0-9][A-Za-z0-9\s\-:：_./\\|]{5,}/g) ?? [];
+  const normalized = chunks
+    .map((chunk) => normalizeImeiIdentifier(chunk).value)
+    .filter((value) => value.length >= 6);
+  const imeiLike = normalized.find((value) => /^\d{14,17}$/.test(value));
+  return imeiLike ?? normalized.find((value) => value.length >= 8) ?? "";
+}
+
 function isCommunicationStatus(status: RepairOrderStatus) {
   return status === "waiting_approval" || status === "notified";
+}
+
+function isApprovalDecisionAvailable(order: OrderDetail["order"]) {
+  return (
+    order.approval_flow_status === "waiting_customer" ||
+    (order.status === "waiting_approval" && order.approval_status === "pending") ||
+    (order.status === "quoted" && order.approval_status === "pending")
+  );
+}
+
+function getDefaultApprovedNextStatus(order: OrderDetail["order"]): RepairOrderStatus {
+  if (order.parts_status && order.parts_status !== "not_required") return "parts_ordered";
+  return "repairing";
 }
 
 function getStatusActionHint(status: RepairOrderStatus) {
@@ -1846,6 +2906,10 @@ function renderEvent(
         return fields.length ? `工单资料已更新：${fields.join("、")}` : "工单资料已更新";
       }
       if (payload.action === "order_finance_updated") return "工单财务已更新";
+      if (payload.action === "attachment_uploaded") {
+        const fileName = typeof payload.file_name === "string" ? payload.file_name : "附件";
+        return `已上传设备照片：${fileName}`;
+      }
       return "备注";
     default:
       return type;

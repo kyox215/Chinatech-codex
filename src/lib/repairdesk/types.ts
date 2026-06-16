@@ -32,6 +32,26 @@ export interface Device {
   device_notes?: string;
 }
 
+export interface CustomerHistoryDeviceCandidate {
+  id: string;
+  customer_id: string;
+  source: "customer_device" | "order_history";
+  device_id?: string;
+  brand: string;
+  model: string;
+  serial_or_imei: string;
+  device_notes?: string;
+  last_seen_at?: string;
+  order_id?: string;
+  order_public_no?: string;
+}
+
+export interface CustomerIntakeCandidate {
+  customer: Customer;
+  exactMatch: boolean;
+  historyDevices: CustomerHistoryDeviceCandidate[];
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -244,6 +264,45 @@ export interface MessageLog {
   opened_at?: string;
 }
 
+export type OrderAttachmentKind =
+  | "device_front"
+  | "device_back"
+  | "screen_on"
+  | "fault_photo"
+  | "signature"
+  | "other";
+
+export interface OrderAttachment {
+  id: string;
+  store_id: string;
+  order_id: string;
+  kind: OrderAttachmentKind;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  storage_bucket: string;
+  storage_path: string;
+  public_url?: string;
+  signed_url?: string;
+  note?: string;
+  uploaded_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderAttachmentUploadInput {
+  kind: OrderAttachmentKind;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  data_base64: string;
+  note?: string;
+}
+
+export interface OrderAttachmentUploadResult {
+  attachment: OrderAttachment;
+}
+
 export type OrderWhatsappTemplateKind =
   | "approval_request"
   | "pickup_ready"
@@ -263,6 +322,20 @@ export interface WhatsappNotificationResult {
   statusChanged: boolean;
   from?: RepairOrderStatus;
   to?: RepairOrderStatus;
+}
+
+export interface OrderApprovalDecisionInput {
+  decision: "approved" | "rejected";
+  next_status?: RepairOrderStatus;
+  reason?: string;
+}
+
+export interface OrderApprovalDecisionResult {
+  ok: boolean;
+  decision: "approved" | "rejected";
+  from: RepairOrderStatus;
+  to: RepairOrderStatus;
+  approval_flow_status: OrderApprovalFlowStatus;
 }
 
 export interface OrderListFilters {
@@ -321,6 +394,7 @@ export interface OrderDetail {
   supplier?: Supplier;
   events: OrderEvent[];
   messages: MessageLog[];
+  attachments: OrderAttachment[];
 }
 
 export interface CustomerTag {

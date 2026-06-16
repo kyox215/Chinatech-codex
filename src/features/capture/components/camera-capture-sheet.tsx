@@ -180,7 +180,7 @@ export function CameraCaptureSheet({
             </div>
 
             <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>{isStarting ? "正在启动摄像头…" : "照片会先作为本地草稿处理。"}</span>
+              <span>{isStarting ? "正在启动摄像头…" : "确认后会保存到当前工单。"}</span>
               {!photoUrl ? (
                 <Button type="button" variant="outline" size="sm" onClick={stopCamera}>
                   {isStarting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
