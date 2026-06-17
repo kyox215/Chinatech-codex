@@ -34,50 +34,42 @@ export function CustomerFilters({
       </div>
       <div className="flex-1 space-y-6 overflow-y-auto p-4">
         <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">标签</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">业务状态</div>
+          <CustomerSegmented
+            value={filters.work ?? "all"}
+            options={[
+              ["all", "全部客户"],
+              ["active", "在修"],
+              ["unpaid", "未结清"],
+              ["with_devices", "有设备"],
+              ["repeat", "老客户"],
+            ]}
+            onChange={(work) => onChange({ ...filters, work: work as CustomerListFilters["work"] })}
+          />
+        </section>
+        <section>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">客户标签</div>
           <div className="space-y-1.5">
-            {tags.map((tag) => (
-              <label
-                key={tag.id}
-                className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
-              >
-                <Checkbox
-                  checked={filters.tagIds?.includes(tag.id) ?? false}
-                  onCheckedChange={() => toggleTag(tag.id)}
-                />
-                <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
-                {tag.name}
-              </label>
-            ))}
+            {tags.length ? (
+              tags.map((tag) => (
+                <label
+                  key={tag.id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
+                >
+                  <Checkbox
+                    checked={filters.tagIds?.includes(tag.id) ?? false}
+                    onCheckedChange={() => toggleTag(tag.id)}
+                  />
+                  <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
+                  {tag.name}
+                </label>
+              ))
+            ) : (
+              <p className="rounded-lg bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground">
+                暂无客户标签
+              </p>
+            )}
           </div>
-        </section>
-        <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">营销状态</div>
-          <CustomerSegmented
-            value={filters.marketing ?? "all"}
-            options={[
-              ["all", "全部"],
-              ["allowed", "可营销"],
-              ["blocked", "不可营销"],
-            ]}
-            onChange={(marketing) =>
-              onChange({ ...filters, marketing: marketing as CustomerListFilters["marketing"] })
-            }
-          />
-        </section>
-        <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">回访</div>
-          <CustomerSegmented
-            value={filters.followup ?? "all"}
-            options={[
-              ["all", "全部"],
-              ["due", "今天到期"],
-              ["overdue", "已逾期"],
-            ]}
-            onChange={(followup) =>
-              onChange({ ...filters, followup: followup as CustomerListFilters["followup"] })
-            }
-          />
         </section>
       </div>
       <div className="border-t p-3">

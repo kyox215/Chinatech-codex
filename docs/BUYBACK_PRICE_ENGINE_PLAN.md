@@ -1,0 +1,126 @@
+# 回收报价价格引擎与上线计划
+
+状态：draft
+最后研究日期：2026-06-16
+适用范围：`/buyback` 回收报价、库存回收、二手销售定价、后续价格规则设置。
+
+## 1. 目标
+
+回收报价不能只靠店员手填金额。上线版必须形成：
+
+1. 可追踪的市场参考价。
+2. 可解释的扣减项。
+3. 可配置的目标利润和审批阈值。
+4. 可保存的报价来源、版本和有效期。
+5. 可按时间节点刷新价格的机制。
+
+本轮先落地第一阶段：Apple iPhone 行情参考模型 + 现有回收报价流程接入。后续再把价格表迁移到数据库并加入定时刷新。
+
+## 2. 当前外部资料
+
+| 来源 | 用途 |
+| --- | --- |
+| Apple Trade In Italia `https://www.apple.com/it/shop/trade-in` | 官方换购流程、线上估价与到店复检口径参考。 |
+| Apple Support `https://support.apple.com/en-us/109511` | 出售/换购前的资料清除、账号退出、Find My/Activation Lock 风险规则。 |
+| Refurbed Italia iPhone `https://www.refurbed.it/c/iphone/` | 欧盟/意大利翻新零售价下限，作为门店预估转售价参考之一。 |
+
+规则：外部平台价格只作为参考，不作为最终收购价。最终收购价必须再扣除目标利润、维修成本、成色/电池/屏幕/账号锁等风险。
+
+## 3. 第一阶段价格公式
+
+```txt
+参考转售价 = 平台翻新零售价下限 + 容量修正
+预检最高收购价 = 参考转售价 - 目标利润
+系统报价 = 参考转售价 - 目标利润 - 维修成本 - 检测扣减
+最终报价 = 人工报价存在 ? 人工报价 : 系统报价
+```
+
+现有检测扣减继续来自 `src/features/buyback/model/buyback-quote.ts`：
+
+- 成色等级。
+- 屏幕状态。
+- 机身状态。
+- 电池健康。
+- Face ID / Touch ID。
+- 相机、充电。
+- 盒子和购买凭证。
+- 账号锁、Find My / FRP 等高风险阻断。
+
+## 4. Apple iPhone 行情模型
+
+第一阶段在 `src/features/buyback/model/apple-price-guide.ts` 内维护 Apple iPhone 价格参考。
+
+覆盖范围：
+
+- iPhone SE 2022。
+- iPhone 11 / 11 Pro / 11 Pro Max。
+- iPhone 12 / 12 mini / 12 Pro / 12 Pro Max。
+- iPhone 13 / 13 mini / 13 Pro / 13 Pro Max。
+- iPhone 14 / 14 Plus / 14 Pro / 14 Pro Max。
+- iPhone 15 / 15 Plus / 15 Pro / 15 Pro Max。
+- iPhone 16 / 16 Plus / 16 Pro / 16 Pro Max。
+
+每条记录包含：
+
+- 型号。
+- 发布年份。
+- 基础容量。
+- 参考翻新零售价下限。
+- 来源名称。
+- 来源 URL。
+- 观察日期。
+
+## 5. 刷新机制
+
+上线前采用半自动机制：
+
+1. 每周人工刷新一次 iPhone 行情参考价。
+2. Apple 新品发布、官方降价、二手平台大促后立即刷新。
+3. 价格记录必须带 `observedAt` 和 `sourceUrl`。
+4. 超过 14 天未刷新时 UI 显示“建议复核”。
+5. 超过 30 天未刷新时不自动套用，只显示为低可信参考。
+
+第二阶段迁移到数据库：
+
+```txt
+buyback_price_references
+buyback_price_snapshots
+buyback_price_rules
+buyback_quote_versions
+```
+
+并增加后台任务：
+
+```txt
+weekly_market_price_review
+monthly_depreciation_recalibration
+apple_event_price_review
+```
+
+## 6. 上线功能闭环
+
+第一阶段必须满足：
+
+- 能新建回收报价。
+- Apple 型号能显示行情建议。
+- 店员可一键套用参考售价和目标利润。
+- 店员可人工改价并填写原因。
+- 报价结果保存到库存记录 `legacy_payload.buyback_quote`。
+- 保存报价时记录市场来源、观察日期、下次建议刷新日期。
+- 风险设备只能保存为风险待处理，不直接发送 WhatsApp。
+
+第二阶段补齐：
+
+- 客户确认链接。
+- 收购付款独立面板。
+- 数据清除记录。
+- 转翻新 / 转拆件 / RAEE 处理。
+- 回收详情页。
+- 报价版本和历史价格曲线。
+
+## 7. 待确认问题
+
+1. 你的门店目标毛利：普通 iPhone 每台最低希望赚多少欧元？例如 `€80 / €120 / €150`。
+2. 高金额审批阈值：超过多少收购价需要老板确认？例如 `€300` 或 `€500`。
+3. 回收成交前是否必须采集客户证件或签名？这会影响数据库和页面字段。
+4. Apple 以外品牌优先级：下一批是 Samsung 还是 Xiaomi / Oppo / Huawei？

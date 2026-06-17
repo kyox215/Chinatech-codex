@@ -4,6 +4,9 @@ import type {
   CreateInventoryIntakeInput,
   Customer,
   ElectronicsImportPreview,
+  InventoryAttachment,
+  InventoryAttachmentUploadInput,
+  InventoryAttachmentUploadResult,
   InventoryDetail,
   InventoryEvent,
   InventoryItem,
@@ -138,6 +141,7 @@ const mockInventoryItems: InventoryItem[] = [
 ];
 
 const mockInventoryChecks: InventoryQualityCheck[] = [];
+const mockInventoryAttachments: InventoryAttachment[] = [];
 const mockInventoryTransactions: InventoryTransaction[] = [
   {
     id: "inv_tx_mock_1",
@@ -219,6 +223,7 @@ export async function getInventoryItem(id: string, _actor?: AuditActor): Promise
     checks: mockInventoryChecks.filter((check) => check.item_id === id),
     transactions: mockInventoryTransactions.filter((transaction) => transaction.item_id === id),
     events: mockInventoryEvents.filter((event) => event.item_id === id),
+    attachments: mockInventoryAttachments.filter((attachment) => attachment.item_id === id),
   };
 }
 
@@ -304,12 +309,19 @@ export async function transitionInventoryItem(
   const item = findItem(id);
   const from = item.status;
   validateInventoryTransition(from, to);
+  if (to === "purchased") {
+    assertMockBuybackPurchaseEvidence(item);
+  }
   item.status = to;
   item.updated_at = new Date().toISOString();
+  if (to === "purchased") item.purchased_at = item.updated_at;
   if (to === "listed") item.listed_at = item.updated_at;
   if (to === "sold") item.sold_at = item.updated_at;
   if (to === "returned") item.returned_at = item.updated_at;
   addEvent(id, "status_changed", from, to, { reason: opts.reason }, item.updated_at);
+  if (to === "purchased") {
+    insertMockBuybackPaymentTransaction(item, item.updated_at);
+  }
   return { ok: true, from, to };
 }
 
@@ -354,6 +366,48 @@ export async function recordInventoryCheck(
   item.updated_at = nowIso;
   addEvent(id, "quality_checked", item.status, undefined, asRecord(input), nowIso);
   return { id: checkId };
+}
+
+export async function uploadInventoryAttachment(
+  id: string,
+  input: InventoryAttachmentUploadInput,
+  _actor?: AuditActor,
+): Promise<InventoryAttachmentUploadResult> {
+  findItem(id);
+  const nowIso = new Date().toISOString();
+  const attachmentId = crypto.randomUUID();
+  const attachment: InventoryAttachment = {
+    id: attachmentId,
+    store_id: "mock-store",
+    item_id: id,
+    kind: input.kind,
+    file_name: input.file_name,
+    mime_type: input.mime_type,
+    file_size: input.file_size,
+    storage_bucket: "mock-inventory-attachments",
+    storage_path: `mock-store/${id}/${attachmentId}`,
+    signed_url: `mock://inventory-attachments/${attachmentId}`,
+    note: optional(input.note),
+    uploaded_by: "Mock User",
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+  mockInventoryAttachments.unshift(attachment);
+  addEvent(
+    id,
+    "attachment_uploaded",
+    undefined,
+    undefined,
+    {
+      attachment_id: attachmentId,
+      kind: input.kind,
+      file_name: input.file_name,
+      mime_type: input.mime_type,
+      file_size: input.file_size,
+    },
+    nowIso,
+  );
+  return { attachment };
 }
 
 export async function recordInventoryTransaction(
@@ -439,6 +493,7 @@ function decorateInventoryItem(item: InventoryItem): InventoryListItem {
 
 function matchesFilters(item: InventoryListItem, filters: InventoryListFilters) {
   if (filters.statuses?.length && !filters.statuses.includes(item.status)) return false;
+  if (filters.sourceTypes?.length && !filters.sourceTypes.includes(item.source_type)) return false;
   if (filters.categories?.length && !filters.categories.includes(item.category)) return false;
   if (
     filters.saleChannel &&
@@ -560,4 +615,119 @@ function recordOrEmpty(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function assertMockBuybackPurchaseEvidence(item: InventoryItem) {
+  if (item.source_type !== "buyback") return;
+  const legacyPayload = recordOrEmpty(item.legacy_payload);
+  const quotePayload = recordOrEmpty(legacyPayload.buyback_quote);
+  if (Object.keys(quotePayload).length === 0) {
+    throw new Error("回收成交必须先保存回收报价资料");
+  }
+  if (String(quotePayload.intent_outcome ?? "") !== "accepted") {
+    throw new Error("客户未确认接受报价，不能成交入库");
+  }
+  if (quotePayload.hard_block === true) {
+    throw new Error("高风险回收设备不能直接成交入库");
+  }
+  const acceptedOffer = Number(quotePayload.final_offer ?? 0);
+  if (!Number.isFinite(acceptedOffer) || acceptedOffer <= 0) {
+    throw new Error("客户接受报价金额必须大于 0");
+  }
+  if ((item.buyback_price ?? 0) <= 0) {
+    throw new Error("回收成交金额必须大于 0");
+  }
+  if (Math.abs((item.buyback_price ?? 0) - acceptedOffer) > 0.01) {
+    throw new Error("回收成交金额与客户接受报价不一致");
+  }
+  if (!item.serial_or_imei?.trim()) {
+    throw new Error("回收成交必须记录 IMEI / 序列号");
+  }
+  assertMockCheckPassed(item.imei_check_status, "IMEI / 序列号");
+  assertMockCheckPassed(item.activation_lock_status, "账号锁 / Find My");
+  assertMockCheckPassed(item.data_wipe_status, "数据抹除");
+  const latestCheck = mockInventoryChecks.find((check) => check.item_id === item.id);
+  if (!latestCheck) throw new Error("回收成交前必须完成完整功能检测");
+  assertMockRequiredChecksCompleted(latestCheck);
+
+  const devicePayload = recordOrEmpty(legacyPayload.buyback_device);
+  const requiredKinds = new Set<InventoryAttachment["kind"]>([
+    "device_photo",
+    "signature",
+    "id_front",
+    "id_back",
+  ]);
+  if (devicePayload.purchase_proof !== true) requiredKinds.add("invoice_photo");
+  if (devicePayload.box_included !== true) requiredKinds.add("box_photo");
+
+  const existingKinds = new Set(
+    mockInventoryAttachments
+      .filter((attachment) => attachment.item_id === item.id)
+      .map((attachment) => attachment.kind),
+  );
+  const missingKinds = Array.from(requiredKinds).filter((kind) => !existingKinds.has(kind));
+  if (missingKinds.length > 0) {
+    throw new Error(`缺少成交凭证：${missingKinds.map(inventoryAttachmentKindLabel).join("、")}`);
+  }
+}
+
+function assertMockRequiredChecksCompleted(check: InventoryQualityCheck) {
+  const requiredChecks = [
+    [check.screen_status, "屏幕显示"],
+    [check.touch_status, "触控"],
+    [check.camera_status, "前后摄像头"],
+    [check.microphone_status, "麦克风"],
+    [check.speaker_status, "听筒/扬声器"],
+    [check.buttons_status, "按键 / 静音键"],
+    [check.ports_status, "充电口"],
+    [check.wifi_status, "Wi-Fi"],
+    [check.bluetooth_status, "蓝牙"],
+    [check.cellular_status, "蜂窝 / SIM"],
+  ] as const;
+  for (const [status, label] of requiredChecks) {
+    assertMockCheckRecorded(status, label);
+  }
+}
+
+function assertMockCheckRecorded(value: unknown, label: string) {
+  const status = String(value ?? "");
+  if (status === "pass" || status === "fail") return;
+  throw new Error(`${label}未完成检测，不能成交入库`);
+}
+
+function assertMockCheckPassed(value: unknown, label: string) {
+  const status = String(value ?? "");
+  if (status === "pass") return;
+  if (status === "fail") throw new Error(`${label}检测异常，不能成交入库`);
+  throw new Error(`${label}尚未检测通过，不能成交入库`);
+}
+
+function insertMockBuybackPaymentTransaction(item: InventoryItem, nowIso: string) {
+  if (item.source_type !== "buyback") return;
+  if ((item.buyback_price ?? 0) <= 0) return;
+  const exists = mockInventoryTransactions.some(
+    (transaction) =>
+      transaction.item_id === item.id && transaction.transaction_type === "buyback_payment",
+  );
+  if (exists) return;
+  mockInventoryTransactions.unshift({
+    id: crypto.randomUUID(),
+    item_id: item.id,
+    transaction_type: "buyback_payment",
+    amount: item.buyback_price,
+    currency_code: CURRENCY_CODE,
+    method: item.payment_method,
+    note: "回收成交付款",
+    created_at: nowIso,
+  });
+}
+
+function inventoryAttachmentKindLabel(kind: InventoryAttachment["kind"]) {
+  if (kind === "device_photo") return "设备照片";
+  if (kind === "signature") return "客户签名";
+  if (kind === "id_front") return "证件正面";
+  if (kind === "id_back") return "证件反面";
+  if (kind === "invoice_photo") return "发票/无票确认";
+  if (kind === "box_photo") return "原装盒/无盒确认";
+  return "其他附件";
 }

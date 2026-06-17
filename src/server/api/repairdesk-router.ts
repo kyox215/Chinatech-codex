@@ -55,6 +55,7 @@ import {
   sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
+  uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
 import {
   getStoreSettings,
@@ -78,7 +79,12 @@ import {
   rejectOnboardingRequest,
   submitOnboardingRequest,
 } from "@/features/platform/server/platform.service";
-import { getRequestActor, UnauthorizedError, ForbiddenError } from "@/server/auth-context";
+import {
+  assertStaffRole,
+  getRequestActor,
+  UnauthorizedError,
+  ForbiddenError,
+} from "@/server/auth-context";
 import { writeAuditLog } from "@/server/audit";
 import {
   approvalDecisionBodySchema,
@@ -100,6 +106,7 @@ import {
   customerUpdateBodySchema,
   electronicsCsvImportBodySchema,
   idBodySchema,
+  inventoryAttachmentUploadBodySchema,
   inventoryIntakeCreateBodySchema,
   inventoryListFiltersSchema,
   inventoryQualityCheckBodySchema,
@@ -197,9 +204,16 @@ const supabaseSource = {
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateStoreSettings,
+  uploadInventoryAttachment,
   uploadOrderAttachment,
   upsertCustomerDevice,
 };
+
+const inventoryWriteRoles = ["owner", "manager", "technician", "sales"] as const;
+
+function assertInventoryWrite(actor: Awaited<ReturnType<typeof getRequestActor>>) {
+  assertStaffRole(actor, inventoryWriteRoles);
+}
 
 async function source() {
   const { hasSupabaseConfig } = await import("@/server/supabase");
@@ -534,26 +548,37 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/intake/create": {
         const { input } = inventoryIntakeCreateBodySchema.parse(body);
+        assertInventoryWrite(actor);
         return ok(await api.createInventoryIntake(input, actor));
       }
       case "inventory/update": {
         const { id, input } = inventoryUpdateBodySchema.parse(body);
+        assertInventoryWrite(actor);
         return ok(await api.updateInventoryItem(id, input, actor));
       }
       case "inventory/transition": {
         const { id, to, reason } = inventoryTransitionBodySchema.parse(body);
+        assertInventoryWrite(actor);
         return ok(await api.transitionInventoryItem(id, to, { reason }, actor));
       }
       case "inventory/check": {
         const { id, input } = inventoryQualityCheckBodySchema.parse(body);
+        assertInventoryWrite(actor);
         return ok(await api.recordInventoryCheck(id, input, actor));
+      }
+      case "inventory/attachment/upload": {
+        const { id, input } = inventoryAttachmentUploadBodySchema.parse(body);
+        assertInventoryWrite(actor);
+        return ok(await api.uploadInventoryAttachment(id, input, actor));
       }
       case "inventory/transaction": {
         const { id, input } = inventoryTransactionBodySchema.parse(body);
+        assertInventoryWrite(actor);
         return ok(await api.recordInventoryTransaction(id, input, actor));
       }
       case "inventory/sell": {
         const { id, input } = inventorySellBodySchema.parse(body);
+        assertInventoryWrite(actor);
         return ok(await api.sellInventoryItem(id, input, actor));
       }
       case "inventory/import/electronics/preview": {
@@ -562,6 +587,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/import/electronics/apply": {
         const { csvContent } = electronicsCsvImportBodySchema.parse(body);
+        assertInventoryWrite(actor);
         return ok(await api.applyElectronicsCsvImport(csvContent, actor));
       }
       case "settings/store/update": {

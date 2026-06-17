@@ -47,6 +47,10 @@ import type {
   ElectronicsImportPreview,
   ElectronicsImportReport,
   InventoryDetail,
+  InventoryAttachment,
+  InventoryAttachmentKind,
+  InventoryAttachmentUploadInput,
+  InventoryAttachmentUploadResult,
   InventoryItemStatus,
   InventoryListFilters,
   InventoryListItem,
@@ -138,6 +142,10 @@ export type {
   PaymentResult,
   InventoryCheckStatus,
   InventoryCosmeticGrade,
+  InventoryAttachment,
+  InventoryAttachmentKind,
+  InventoryAttachmentUploadInput,
+  InventoryAttachmentUploadResult,
   InventoryDetail,
   InventoryEvent,
   InventoryFunctionalGrade,
@@ -227,6 +235,13 @@ export async function recordInventoryCheck(
   input: InventoryQualityCheckInput,
 ): Promise<{ id: string }> {
   return postJson<{ id: string }>("inventory/check", { id, input });
+}
+
+export async function uploadInventoryAttachment(
+  id: string,
+  input: InventoryAttachmentUploadInput,
+): Promise<InventoryAttachmentUploadResult> {
+  return postJson<InventoryAttachmentUploadResult>("inventory/attachment/upload", { id, input });
 }
 
 export async function recordInventoryTransaction(

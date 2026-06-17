@@ -9,6 +9,7 @@ import {
 describe("inventory workflow", () => {
   it("allows the main buyback and resale flow", () => {
     expect(canTransitionInventoryItem("intake", "evaluating")).toBe(true);
+    expect(canTransitionInventoryItem("intake", "offer_made")).toBe(true);
     expect(canTransitionInventoryItem("evaluating", "offer_made")).toBe(true);
     expect(canTransitionInventoryItem("offer_made", "purchased")).toBe(true);
     expect(canTransitionInventoryItem("purchased", "data_wipe")).toBe(true);

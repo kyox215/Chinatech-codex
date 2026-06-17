@@ -11,4 +11,5 @@ export {
   sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
+  uploadInventoryAttachment,
 } from "./inventory.repository";

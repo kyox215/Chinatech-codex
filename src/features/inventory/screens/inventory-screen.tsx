@@ -506,6 +506,45 @@ function InventoryDetailBody({
       </div>
 
       <section className={componentOverlay.flatSection}>
+        <h3 className="mb-2 text-sm font-semibold">附件凭证</h3>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {data.attachments.map((attachment) => {
+            const content = (
+              <>
+                <span className="truncate text-sm font-medium">
+                  {inventoryAttachmentKindLabel(attachment.kind)}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {attachment.file_name} · {formatDateTime(attachment.created_at)}
+                </span>
+              </>
+            );
+            return attachment.signed_url ? (
+              <a
+                key={attachment.id}
+                href={attachment.signed_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-w-0 flex-col rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
+              >
+                {content}
+              </a>
+            ) : (
+              <div
+                key={attachment.id}
+                className="flex min-w-0 flex-col rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
+              >
+                {content}
+              </div>
+            );
+          })}
+          {data.attachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">暂无附件凭证。</p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className={componentOverlay.flatSection}>
         <h3 className="mb-2 text-sm font-semibold">时间线</h3>
         <div className="space-y-2">
           {data.events.slice(0, 8).map((event) => (
@@ -1125,12 +1164,26 @@ function checkLabel(value?: string) {
   return labels[value || "unchecked"] ?? value ?? "-";
 }
 
+function inventoryAttachmentKindLabel(value: string) {
+  const labels: Record<string, string> = {
+    device_photo: "设备照片",
+    id_front: "证件正面",
+    id_back: "证件反面",
+    signature: "客户签名",
+    invoice_photo: "发票/无票确认",
+    box_photo: "原装盒/无盒确认",
+    other: "其他附件",
+  };
+  return labels[value] ?? value;
+}
+
 function eventLabel(value: string) {
   const labels: Record<string, string> = {
     created: "创建",
     updated: "更新",
     status_changed: "状态推进",
     quality_checked: "检测记录",
+    attachment_uploaded: "附件上传",
     transaction: "财务流水",
     sold: "售出",
     imported: "导入",

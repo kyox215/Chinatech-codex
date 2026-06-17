@@ -11,6 +11,7 @@ import type {
   CustomerMessageInput,
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
+  InventoryAttachmentUploadInput,
   InventoryItemStatus,
   InventoryListFilters,
   InventoryQualityCheckInput,
@@ -280,6 +281,7 @@ export const customerListFiltersSchema = z
   .object({
     search: optionalText,
     tagIds: z.array(z.string()).optional(),
+    work: z.enum(["all", "active", "unpaid", "with_devices", "repeat"]).optional(),
     marketing: z.enum(["all", "allowed", "blocked"]).optional(),
     followup: z.enum(["all", "due", "overdue"]).optional(),
   })
@@ -294,6 +296,7 @@ export const inventoryListFiltersSchema = z
   .object({
     search: optionalText,
     statuses: z.array(inventoryItemStatusSchema).optional(),
+    sourceTypes: z.array(z.string()).optional(),
     categories: z.array(z.string()).optional(),
     saleChannel: optionalText,
   })
@@ -624,6 +627,45 @@ export const inventoryQualityCheckInputSchema = z
 export const inventoryQualityCheckBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: inventoryQualityCheckInputSchema,
+});
+
+const inventoryAttachmentKindSchema = z.enum([
+  "device_photo",
+  "id_front",
+  "id_back",
+  "signature",
+  "invoice_photo",
+  "box_photo",
+  "other",
+]);
+
+const attachmentMimeTypeSchema = z.enum([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
+
+export const inventoryAttachmentUploadInputSchema = z
+  .object({
+    kind: inventoryAttachmentKindSchema,
+    file_name: z.string().min(1).max(180),
+    mime_type: attachmentMimeTypeSchema,
+    file_size: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(8 * 1024 * 1024),
+    data_base64: z.string().min(1),
+    note: optionalText,
+  })
+  .strict() satisfies z.ZodType<InventoryAttachmentUploadInput>;
+
+export const inventoryAttachmentUploadBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  input: inventoryAttachmentUploadInputSchema,
 });
 
 export const inventoryTransactionInputSchema = z

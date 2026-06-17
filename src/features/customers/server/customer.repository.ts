@@ -326,12 +326,16 @@ export async function getCustomerDevices(
 }
 async function fetchCustomerTags(storeId: string): Promise<CustomerTag[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  const result = await supabase
     .from("customer_tags")
     .select("*")
     .eq("store_id", storeId)
     .order("name", { ascending: true });
-  fail(error, "读取客户标签失败");
+  const legacyResult = missingStoreColumn(result.error, "customer_tags")
+    ? await supabase.from("customer_tags").select("*").order("name", { ascending: true })
+    : result;
+  fail(legacyResult.error, "读取客户标签失败");
+  const data = legacyResult.data;
   return ((data ?? []) as DbRecord[])
     .map(tagFromRow)
     .filter((tag): tag is CustomerTag => Boolean(tag));
@@ -341,11 +345,15 @@ async function fetchCustomerTagAssignments(
   storeId: string,
 ): Promise<{ customer_id: string; tag_id: string }[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  const result = await supabase
     .from("customer_tag_assignments")
     .select("*")
     .eq("store_id", storeId);
-  fail(error, "读取客户标签绑定失败");
+  const legacyResult = missingStoreColumn(result.error, "customer_tag_assignments")
+    ? await supabase.from("customer_tag_assignments").select("*")
+    : result;
+  fail(legacyResult.error, "读取客户标签绑定失败");
+  const data = legacyResult.data;
   return ((data ?? []) as DbRecord[]).map((row) => ({
     customer_id: requiredString(row.customer_id),
     tag_id: requiredString(row.tag_id),
@@ -355,6 +363,7 @@ async function fetchCustomerTagAssignments(
 function customerStatsFromOrders(orders: OrderListItem[]) {
   return {
     order_count: orders.length,
+    active_order_count: orders.filter(isActiveCustomerOrder).length,
     total_spent: orders
       .filter((order) => order.is_paid)
       .reduce((sum, order) => sum + order.quotation_amount, 0),
@@ -369,6 +378,10 @@ function nextFollowup(followups: CustomerFollowup[]) {
   return followups
     .filter((followup) => followup.status === "open")
     .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())[0];
+}
+
+function isActiveCustomerOrder(order: Pick<OrderListItem, "status">) {
+  return order.status !== "completed" && order.status !== "cancelled";
 }
 
 function buildCustomerListItem(
@@ -386,6 +399,7 @@ function buildCustomerListItem(
     tags,
     device_count: devices.length,
     order_count: stats.order_count,
+    active_order_count: stats.active_order_count,
     total_spent: stats.total_spent,
     unpaid_amount: stats.unpaid_amount,
     last_order_at: stats.last_order_at,
@@ -423,6 +437,15 @@ function filterCustomers(customers: CustomerListItem[], filters: CustomerListFil
       filters.tagIds!.some((tagId) => customer.tags.some((tag) => tag.id === tagId)),
     );
   }
+  if (filters.work && filters.work !== "all") {
+    result = result.filter((customer) => {
+      if (filters.work === "active") return customer.active_order_count > 0;
+      if (filters.work === "unpaid") return customer.unpaid_amount > 0;
+      if (filters.work === "with_devices") return customer.device_count > 0;
+      if (filters.work === "repeat") return customer.order_count > 1;
+      return true;
+    });
+  }
   if (filters.marketing && filters.marketing !== "all") {
     result = result.filter((customer) => {
       const allowed = customer.consent_marketing && !customer.blacklisted_at;
@@ -458,30 +481,30 @@ export async function listCustomers(
 ): Promise<CustomerListResult> {
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
-  const [
-    { data: customerRows, error: customerError },
-    { data: deviceRows, error: deviceError },
-    { data: followupRows, error: followupError },
-  ] = await Promise.all([
-    supabase.from("customers").select("*").eq("store_id", storeId).limit(1000),
-    supabase
-      .from("devices")
-      .select("*")
-      .eq("store_id", storeId)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("customer_followups")
-      .select("*")
-      .eq("store_id", storeId)
-      .order("due_at", { ascending: true }),
-  ]);
+  const { data: customerRows, error: customerError } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("store_id", storeId)
+    .limit(1000);
   fail(customerError, "读取客户失败");
-  fail(deviceError, "读取客户设备失败");
-  fail(followupError, "读取回访任务失败");
 
   const customers = ((customerRows ?? []) as DbRecord[])
     .map(customerFromRow)
     .filter((customer): customer is Customer => Boolean(customer));
+  const customerIds = customers.map((customer) => customer.id);
+
+  const [{ data: deviceRows, error: deviceError }, { data: followupRows, error: followupError }] =
+    await Promise.all([
+      supabase
+        .from("devices")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }),
+      fetchFollowupsForCustomerIds(customerIds),
+    ]);
+  fail(deviceError, "读取客户设备失败");
+  fail(followupError, "读取回访任务失败");
+
   const devices = ((deviceRows ?? []) as DbRecord[])
     .map(deviceFromRow)
     .filter((device): device is Device => Boolean(device));
@@ -510,6 +533,9 @@ export async function listCustomers(
   const stats: CustomerStats = {
     total: items.length,
     repeat: items.filter((customer) => customer.order_count > 1).length,
+    activeRepairs: items.filter((customer) => customer.active_order_count > 0).length,
+    unpaid: items.filter((customer) => customer.unpaid_amount > 0).length,
+    withDevices: items.filter((customer) => customer.device_count > 0).length,
     dueFollowups: items.filter((customer) => {
       if (!customer.next_followup_at) return false;
       return new Date(customer.next_followup_at).getTime() <= Date.now();
@@ -528,18 +554,136 @@ export async function listCustomersPage(
   const storeId = requireStoreIdFromActor(actor);
   const { page, pageSize } = normalizeCustomerPageInput(input);
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.rpc("repairdesk_customer_list_page", {
+  const rpcInput = {
     p_store_id: storeId,
     p_search: input.search?.trim() || null,
     p_tag_ids: input.tagIds?.length ? input.tagIds : null,
+    p_work_filter: input.work ?? "all",
     p_marketing: input.marketing ?? "all",
     p_followup: input.followup ?? "all",
     p_page: page,
     p_page_size: pageSize,
-  });
-  fail(error, "读取客户分页失败");
+  };
+  const v2Result = await supabase.rpc("repairdesk_customer_list_page_v2", rpcInput);
+  if (!v2Result.error && isCustomerListPageResult(v2Result.data)) {
+    return normalizeCustomerPageResult(v2Result.data, page, pageSize);
+  }
 
-  return data as CustomerListPageResult;
+  if (!input.work || input.work === "all") {
+    const { p_work_filter: _workFilter, ...legacyRpcInput } = rpcInput;
+    const legacyRpcResult = await supabase.rpc("repairdesk_customer_list_page", legacyRpcInput);
+    if (!legacyRpcResult.error && isCustomerListPageResult(legacyRpcResult.data)) {
+      return normalizeCustomerPageResult(legacyRpcResult.data, page, pageSize);
+    }
+
+    try {
+      const legacy = await listCustomers(input, actor);
+      return paginateCustomerListResult(legacy, page, pageSize);
+    } catch (fallbackError) {
+      const reasons = [
+        v2Result.error?.message,
+        legacyRpcResult.error?.message,
+        errorMessage(fallbackError),
+      ]
+        .filter(Boolean)
+        .join(" / ");
+      throw new Error(reasons ? `读取客户分页失败：${reasons}` : "读取客户分页失败");
+    }
+  }
+
+  try {
+    const legacy = await listCustomers(input, actor);
+    return paginateCustomerListResult(legacy, page, pageSize);
+  } catch (fallbackError) {
+    const reasons = [v2Result.error?.message, errorMessage(fallbackError)]
+      .filter(Boolean)
+      .join(" / ");
+    throw new Error(reasons ? `读取客户分页失败：${reasons}` : "读取客户分页失败");
+  }
+}
+
+function isCustomerListPageResult(value: unknown): value is CustomerListPageResult {
+  if (!value || typeof value !== "object") return false;
+  const result = value as Partial<CustomerListPageResult>;
+  return (
+    Array.isArray(result.items) &&
+    Array.isArray(result.tags) &&
+    typeof result.total === "number" &&
+    typeof result.page === "number" &&
+    typeof result.pageSize === "number" &&
+    typeof result.pageCount === "number" &&
+    Boolean(result.stats)
+  );
+}
+
+function normalizeCustomerPageResult(
+  result: CustomerListPageResult,
+  fallbackPage: number,
+  fallbackPageSize: number,
+): CustomerListPageResult {
+  const total = Number(result.total ?? 0);
+  const pageSize = Math.min(100, Math.max(10, Number(result.pageSize ?? fallbackPageSize)));
+  const page = Math.max(1, Number(result.page ?? fallbackPage));
+  return {
+    items: result.items,
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Number(result.pageCount ?? Math.ceil(total / pageSize))),
+    tags: result.tags ?? [],
+    stats: {
+      total: Number(result.stats?.total ?? 0),
+      repeat: Number(result.stats?.repeat ?? 0),
+      activeRepairs: Number(result.stats?.activeRepairs ?? 0),
+      unpaid: Number(result.stats?.unpaid ?? 0),
+      withDevices: Number(result.stats?.withDevices ?? 0),
+      dueFollowups: Number(result.stats?.dueFollowups ?? 0),
+      marketable: Number(result.stats?.marketable ?? 0),
+    },
+  };
+}
+
+function paginateCustomerListResult(
+  result: CustomerListResult,
+  page: number,
+  pageSize: number,
+): CustomerListPageResult {
+  const total = result.customers.length;
+  const start = (page - 1) * pageSize;
+  return {
+    items: result.customers.slice(start, start + pageSize),
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    tags: result.tags,
+    stats: result.stats,
+  };
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : undefined;
+}
+
+function missingStoreColumn(error: unknown, tableName: string) {
+  const message =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+  return (
+    message.includes(`${tableName}.store_id`) ||
+    (message.includes("store_id") && message.includes(tableName))
+  );
+}
+
+async function fetchFollowupsForCustomerIds(customerIds: string[]) {
+  const supabase = getSupabaseAdmin();
+  if (!customerIds.length) return { data: [], error: null };
+  return supabase
+    .from("customer_followups")
+    .select("*")
+    .in("customer_id", customerIds)
+    .order("due_at", { ascending: true });
 }
 
 export async function getCustomerDetail(id: string, actor?: AuditActor): Promise<CustomerDetail> {
@@ -574,7 +718,6 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
     supabase
       .from("customer_followups")
       .select("*")
-      .eq("store_id", storeId)
       .eq("customer_id", id)
       .order("due_at", { ascending: true }),
   ]);
@@ -782,12 +925,29 @@ export async function setCustomerTags(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const cleanIds = Array.from(new Set(tagIds.filter(Boolean)));
-  const { error: deleteError } = await supabase
+  const deleteResult = await supabase
     .from("customer_tag_assignments")
     .delete()
     .eq("store_id", storeId)
     .eq("customer_id", customerId);
-  fail(deleteError, "清理客户标签失败");
+  if (missingStoreColumn(deleteResult.error, "customer_tag_assignments")) {
+    const legacyDeleteResult = await supabase
+      .from("customer_tag_assignments")
+      .delete()
+      .eq("customer_id", customerId);
+    fail(legacyDeleteResult.error, "清理客户标签失败");
+    if (cleanIds.length) {
+      const legacyInsertResult = await supabase.from("customer_tag_assignments").insert(
+        cleanIds.map((tagId) => ({
+          customer_id: customerId,
+          tag_id: tagId,
+        })),
+      );
+      fail(legacyInsertResult.error, "保存客户标签失败");
+    }
+    return { ok: true };
+  }
+  fail(deleteResult.error, "清理客户标签失败");
   if (cleanIds.length) {
     const { error } = await supabase.from("customer_tag_assignments").insert(
       cleanIds.map((tagId) => ({
@@ -813,7 +973,7 @@ export async function createCustomerFollowup(
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  const { error } = await supabase.from("customer_followups").insert({
+  const payload = {
     id,
     store_id: storeId,
     customer_id: customerId,
@@ -825,7 +985,14 @@ export async function createCustomerFollowup(
     status: "open",
     created_at: now,
     updated_at: now,
-  });
+  };
+  const { error } = await supabase.from("customer_followups").insert(payload);
+  if (missingStoreColumn(error, "customer_followups")) {
+    const { store_id: _storeId, ...legacyPayload } = payload;
+    const legacyResult = await supabase.from("customer_followups").insert(legacyPayload);
+    fail(legacyResult.error, "创建回访失败");
+    return { id };
+  }
   fail(error, "创建回访失败");
   return { id };
 }
@@ -838,13 +1005,22 @@ export async function completeCustomerFollowup(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const result = await supabase
     .from("customer_followups")
     .update({ status: "done", completed_at: now, updated_at: now })
     .eq("store_id", storeId)
     .eq("id", followupId)
     .eq("customer_id", customerId);
-  fail(error, "完成回访失败");
+  if (missingStoreColumn(result.error, "customer_followups")) {
+    const legacyResult = await supabase
+      .from("customer_followups")
+      .update({ status: "done", completed_at: now, updated_at: now })
+      .eq("id", followupId)
+      .eq("customer_id", customerId);
+    fail(legacyResult.error, "完成回访失败");
+    return { ok: true };
+  }
+  fail(result.error, "完成回访失败");
   return { ok: true };
 }
 

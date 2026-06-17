@@ -253,6 +253,7 @@ function tagsFor(customerId: string): CustomerTag[] {
 function customerStatsFromOrders(customerOrders: OrderListItem[]) {
   return {
     order_count: customerOrders.length,
+    active_order_count: customerOrders.filter(isActiveCustomerOrder).length,
     total_spent: customerOrders
       .filter((order) => order.is_paid)
       .reduce((sum, order) => sum + order.quotation_amount, 0),
@@ -261,6 +262,10 @@ function customerStatsFromOrders(customerOrders: OrderListItem[]) {
       .map((order) => order.created_at)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0],
   };
+}
+
+function isActiveCustomerOrder(order: Pick<OrderListItem, "status">) {
+  return order.status !== "completed" && order.status !== "cancelled";
 }
 
 function nextFollowup(customerId: string) {
@@ -279,6 +284,7 @@ async function buildCustomerItem(customer: Customer): Promise<CustomerListItem> 
     tags: tagsFor(customer.id),
     device_count: customerDevices.length,
     order_count: stats.order_count,
+    active_order_count: stats.active_order_count,
     total_spent: stats.total_spent,
     unpaid_amount: stats.unpaid_amount,
     last_order_at: stats.last_order_at,
@@ -316,6 +322,15 @@ function filterCustomerItems(items: CustomerListItem[], filters: CustomerListFil
       filters.tagIds!.some((tagId) => customer.tags.some((tag) => tag.id === tagId)),
     );
   }
+  if (filters.work && filters.work !== "all") {
+    result = result.filter((customer) => {
+      if (filters.work === "active") return customer.active_order_count > 0;
+      if (filters.work === "unpaid") return customer.unpaid_amount > 0;
+      if (filters.work === "with_devices") return customer.device_count > 0;
+      if (filters.work === "repeat") return customer.order_count > 1;
+      return true;
+    });
+  }
   if (filters.marketing && filters.marketing !== "all") {
     result = result.filter((customer) => {
       const allowed = customer.consent_marketing && !customer.blacklisted_at;
@@ -347,6 +362,9 @@ export async function listCustomers(
   const stats: CustomerStats = {
     total: items.length,
     repeat: items.filter((customer) => customer.order_count > 1).length,
+    activeRepairs: items.filter((customer) => customer.active_order_count > 0).length,
+    unpaid: items.filter((customer) => customer.unpaid_amount > 0).length,
+    withDevices: items.filter((customer) => customer.device_count > 0).length,
     dueFollowups: items.filter(
       (customer) =>
         customer.next_followup_at && new Date(customer.next_followup_at).getTime() <= Date.now(),

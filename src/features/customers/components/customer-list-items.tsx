@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, CircleDollarSign, Smartphone, Wrench } from "lucide-react";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
-import { formatCustomerDate } from "@/features/customers/model/customer-list";
 import { RepairOsBusinessCard, RepairOsBadge } from "@/shared/ui";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { CustomerListItem, CustomerTag } from "@/lib/repairdesk/api";
@@ -85,8 +84,8 @@ export function CustomerRow({
       <td className="whitespace-nowrap px-2 py-2 text-right text-xs">
         <MoneyText amount={customer.unpaid_amount} />
       </td>
-      <td className="whitespace-nowrap px-2 py-2 text-[11px] text-muted-foreground">
-        {customer.next_followup_at ? formatCustomerDate(customer.next_followup_at) : "—"}
+      <td className="whitespace-nowrap px-2 py-2 text-[11px]">
+        <CustomerWorkState customer={customer} />
       </td>
       <td className="px-2 py-2 text-right">
         <Button asChild variant="ghost" size="sm" className="h-8 gap-1 text-xs">
@@ -106,7 +105,8 @@ export function CustomerMobileCard({
   customer: CustomerListItem;
   onPrefetch?: () => void;
 }) {
-  const followup = customer.next_followup_at ? formatCustomerDate(customer.next_followup_at) : "—";
+  const activeLabel =
+    customer.active_order_count > 0 ? `在修 ${customer.active_order_count}` : "暂无在修";
   return (
     <RepairOsBusinessCard
       className={cn(repairOs.businessCardDense, "transition-transform active:scale-[0.99]")}
@@ -121,7 +121,7 @@ export function CustomerMobileCard({
               customer.unpaid_amount > 0 ? "text-status-warn-foreground" : "text-muted-foreground",
             )}
           >
-            {customer.unpaid_amount > 0 ? "有未结清" : followup}
+            {customer.unpaid_amount > 0 ? "有未结清" : `${customer.order_count} 个工单`}
           </span>
           <Button asChild variant="ghost" size="icon" className="mt-0.5 size-7">
             <Link href={`/customers/${customer.id}`} aria-label="查看客户">
@@ -153,15 +153,68 @@ export function CustomerMobileCard({
         )}
       </div>
       <PhoneText value={customer.phone_e164} className="block truncate text-[11px] leading-4" />
-      <p className={repairOs.cardMeta}>
-        {customer.latest_device_label ?? "暂无设备"} · {customer.device_count} 台设备 ·{" "}
-        {customer.order_count} 个工单
-      </p>
-      {customer.next_followup_at ? (
-        <p className={cn(repairOs.cardMeta, "text-status-warn-foreground")}>回访 {followup}</p>
-      ) : null}
+      <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+        <p className={cn(repairOs.cardMeta, "min-w-0 truncate")}>
+          {customer.latest_device_label ?? "暂无设备"}
+        </p>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] font-medium leading-none text-muted-foreground">
+          <Smartphone className="size-2.5" />
+          {customer.device_count} / {customer.order_count}
+        </span>
+      </div>
+      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+            customer.active_order_count > 0
+              ? "bg-status-info text-status-info-foreground"
+              : "bg-status-neutral text-status-neutral-foreground",
+          )}
+        >
+          <Wrench className="size-2.5" />
+          {activeLabel}
+        </span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+            customer.unpaid_amount > 0
+              ? "bg-status-warn text-status-warn-foreground"
+              : "bg-status-success text-status-success-foreground",
+          )}
+        >
+          <CircleDollarSign className="size-2.5" />
+          {customer.unpaid_amount > 0 ? "未结清" : "已结清"}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] font-medium leading-none text-muted-foreground">
+          <Smartphone className="size-2.5" />
+          {customer.device_count} 台设备
+        </span>
+      </div>
     </RepairOsBusinessCard>
   );
+}
+
+function CustomerWorkState({ customer }: { customer: CustomerListItem }) {
+  if (customer.active_order_count > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-status-info px-1.5 py-0.5 font-semibold text-status-info-foreground">
+        <Wrench className="size-3" />
+        在修 {customer.active_order_count}
+      </span>
+    );
+  }
+  if (customer.unpaid_amount > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-status-warn px-1.5 py-0.5 font-semibold text-status-warn-foreground">
+        <CircleDollarSign className="size-3" />
+        未结清
+      </span>
+    );
+  }
+  if (customer.order_count > 1) {
+    return <span className="text-muted-foreground">老客户</span>;
+  }
+  return <span className="text-muted-foreground">普通</span>;
 }
 
 function CustomerTagList({ tags }: { tags: CustomerTag[] }) {

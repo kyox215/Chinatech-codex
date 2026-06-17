@@ -157,9 +157,10 @@ export function CustomerPhoneLookup({
       </PopoverAnchor>
       <PopoverContent
         align="start"
+        collisionPadding={12}
         sideOffset={6}
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="w-[min(22rem,calc(100vw-24px))] p-1"
+        className="!w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-24px)] overflow-x-hidden p-1"
       >
         <div
           id={listboxId}

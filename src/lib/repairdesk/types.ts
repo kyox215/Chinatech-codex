@@ -433,6 +433,7 @@ export interface CustomerFollowup {
 export interface CustomerListFilters {
   search?: string;
   tagIds?: string[];
+  work?: "all" | "active" | "unpaid" | "with_devices" | "repeat";
   marketing?: "all" | "allowed" | "blocked";
   followup?: "all" | "due" | "overdue";
 }
@@ -446,6 +447,7 @@ export interface CustomerListItem extends Customer {
   tags: CustomerTag[];
   device_count: number;
   order_count: number;
+  active_order_count: number;
   total_spent: number;
   unpaid_amount: number;
   last_order_at?: string;
@@ -457,6 +459,9 @@ export interface CustomerListItem extends Customer {
 export interface CustomerStats {
   total: number;
   repeat: number;
+  activeRepairs: number;
+  unpaid: number;
+  withDevices: number;
   dueFollowups: number;
   marketable: number;
 }
@@ -899,6 +904,7 @@ export interface InventoryListItem extends InventoryItem {
 export interface InventoryListFilters {
   search?: string;
   statuses?: InventoryItemStatus[];
+  sourceTypes?: string[];
   categories?: string[];
   saleChannel?: string;
 }
@@ -969,6 +975,46 @@ export interface InventoryEvent {
   created_at: string;
 }
 
+export type InventoryAttachmentKind =
+  | "device_photo"
+  | "id_front"
+  | "id_back"
+  | "signature"
+  | "invoice_photo"
+  | "box_photo"
+  | "other";
+
+export interface InventoryAttachment {
+  id: string;
+  store_id: string;
+  item_id: string;
+  kind: InventoryAttachmentKind;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  storage_bucket: string;
+  storage_path: string;
+  public_url?: string;
+  signed_url?: string;
+  note?: string;
+  uploaded_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryAttachmentUploadInput {
+  kind: InventoryAttachmentKind;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  data_base64: string;
+  note?: string;
+}
+
+export interface InventoryAttachmentUploadResult {
+  attachment: InventoryAttachment;
+}
+
 export interface InventoryDetail {
   item: InventoryListItem;
   customer?: Customer;
@@ -976,6 +1022,7 @@ export interface InventoryDetail {
   checks: InventoryQualityCheck[];
   transactions: InventoryTransaction[];
   events: InventoryEvent[];
+  attachments: InventoryAttachment[];
 }
 
 export interface CreateInventoryIntakeInput {

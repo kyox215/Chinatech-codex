@@ -40,7 +40,7 @@ export const inventoryStatusMeta: Record<
 };
 
 const statusTransitions: Record<InventoryItemStatus, InventoryItemStatus[]> = {
-  intake: ["evaluating", "cancelled", "recycled"],
+  intake: ["evaluating", "offer_made", "cancelled", "recycled"],
   evaluating: ["offer_made", "purchased", "cancelled", "recycled"],
   offer_made: ["purchased", "evaluating", "cancelled"],
   purchased: ["data_wipe", "refurbishing", "ready_for_sale", "recycled", "cancelled"],

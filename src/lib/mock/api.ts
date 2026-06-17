@@ -55,6 +55,7 @@ export {
   sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
+  uploadInventoryAttachment,
 } from "@/features/inventory/testing/mock-api";
 
 export {

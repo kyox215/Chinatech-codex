@@ -5,15 +5,17 @@ import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
-  ArrowUpRight,
-  Bell,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  CircleDollarSign,
   Filter,
-  Mail,
   Plus,
+  RefreshCw,
   Search,
+  Smartphone,
   Users,
+  Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,7 +53,7 @@ import {
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
-const CUSTOMER_PAGE_SIZE = 50;
+const CUSTOMER_PAGE_SIZE = 30;
 const CUSTOMER_SEARCH_DEBOUNCE_MS = 280;
 
 function useDebouncedValue<T>(value: T, delay: number) {
@@ -69,8 +71,7 @@ export function CustomerListScreen() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [baseFilters, setBaseFilters] = useState<CustomerListFilters>({
-    marketing: "all",
-    followup: "all",
+    work: "all",
   });
   const [searchDraft, setSearchDraft] = useState("");
   const debouncedSearch = useDebouncedValue(searchDraft, CUSTOMER_SEARCH_DEBOUNCE_MS);
@@ -99,11 +100,14 @@ export function CustomerListScreen() {
     [filters, page],
   );
 
-  const { data, isFetching, isPending, isPlaceholderData } = useQuery({
+  const { data, error, isError, isFetching, isPending, isPlaceholderData, refetch } = useQuery({
     queryKey: customersKeys.listPage(queryInput),
     queryFn: () => listCustomersPage(queryInput),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -113,8 +117,7 @@ export function CustomerListScreen() {
   const updateFilters = useCallback((next: CustomerListFilters) => {
     setBaseFilters({
       tagIds: next.tagIds,
-      marketing: next.marketing ?? "all",
-      followup: next.followup ?? "all",
+      work: next.work ?? "all",
     });
     setPage(1);
   }, []);
@@ -151,11 +154,10 @@ export function CustomerListScreen() {
 
   const activeFilterCount = useMemo(() => {
     return (
-      (baseFilters.tagIds?.length ?? 0) +
-      (baseFilters.marketing && baseFilters.marketing !== "all" ? 1 : 0) +
-      (baseFilters.followup && baseFilters.followup !== "all" ? 1 : 0)
+      (baseFilters.tagIds?.length ?? 0) + (baseFilters.work && baseFilters.work !== "all" ? 1 : 0)
     );
   }, [baseFilters]);
+  const queryErrorMessage = error instanceof Error ? error.message : "客户加载失败";
 
   return (
     <div className={cn(pageShell.list, "pb-8 pt-3 sm:pt-5")}>
@@ -184,17 +186,17 @@ export function CustomerListScreen() {
             metrics={[
               { label: "总客户", value: stats?.total ?? 0, hint: "全部档案", icon: Users },
               {
-                label: "待回访",
-                value: stats?.dueFollowups ?? 0,
-                hint: "今日/逾期",
-                icon: Bell,
+                label: "在修",
+                value: stats?.activeRepairs ?? 0,
+                hint: "有进行中工单",
+                icon: Wrench,
                 tone: "amber",
               },
               {
-                label: "可营销",
-                value: stats?.marketable ?? 0,
-                hint: "已授权",
-                icon: Mail,
+                label: "未结清",
+                value: stats?.unpaid ?? 0,
+                hint: "有尾款",
+                icon: CircleDollarSign,
                 tone: "green",
               },
             ]}
@@ -203,9 +205,9 @@ export function CustomerListScreen() {
 
         <motion.div variants={fadeUp} className={dataDisplay.kpiGrid}>
           <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
-          <CustomerKpiCard icon={ArrowUpRight} label="复购客户" value={stats?.repeat ?? 0} />
-          <CustomerKpiCard icon={Bell} label="待回访" value={stats?.dueFollowups ?? 0} />
-          <CustomerKpiCard icon={Mail} label="可营销" value={stats?.marketable ?? 0} />
+          <CustomerKpiCard icon={Wrench} label="在修客户" value={stats?.activeRepairs ?? 0} />
+          <CustomerKpiCard icon={CircleDollarSign} label="未结清" value={stats?.unpaid ?? 0} />
+          <CustomerKpiCard icon={Smartphone} label="有设备" value={stats?.withDevices ?? 0} />
         </motion.div>
       </motion.div>
 
@@ -222,7 +224,7 @@ export function CustomerListScreen() {
             <Input
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="搜索姓名、电话、邮箱或设备"
+              placeholder="搜索姓名、电话或设备"
               className="h-8 border-0 bg-transparent pl-8 pr-14 text-sm shadow-none focus-visible:ring-0 sm:h-9 sm:border-border/60 sm:bg-surface/60 sm:shadow-sm"
             />
             {isFetching && (
@@ -256,21 +258,36 @@ export function CustomerListScreen() {
         </div>
         <RepairOsChipRow
           chips={[
-            ...(["all", "allowed", "blocked"] as const).map((value) => ({
-              label: value === "all" ? "全部营销" : value === "allowed" ? "可营销" : "不可营销",
-              active: (baseFilters.marketing ?? "all") === value,
-              onClick: () => updateFilters({ ...baseFilters, marketing: value }),
-            })),
-            ...(["all", "due", "overdue"] as const).map((value) => ({
-              label: value === "all" ? "全部回访" : value === "due" ? "今天到期" : "已逾期",
-              active: (baseFilters.followup ?? "all") === value,
-              onClick: () => updateFilters({ ...baseFilters, followup: value }),
-            })),
-          ]}
+            { value: "all" as const, label: `全部 ${stats?.total ?? 0}` },
+            { value: "active" as const, label: `在修 ${stats?.activeRepairs ?? 0}` },
+            { value: "unpaid" as const, label: `未结清 ${stats?.unpaid ?? 0}` },
+            { value: "with_devices" as const, label: `有设备 ${stats?.withDevices ?? 0}` },
+            { value: "repeat" as const, label: `老客户 ${stats?.repeat ?? 0}` },
+          ].map((chip) => ({
+            label: chip.label,
+            active: (baseFilters.work ?? "all") === chip.value,
+            onClick: () => updateFilters({ ...baseFilters, work: chip.value }),
+          }))}
         />
       </div>
 
-      {isPending ? (
+      {isError && data ? (
+        <div className="mb-2 flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground">
+          <span className="min-w-0 truncate">客户数据刷新失败：{queryErrorMessage}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 shrink-0 gap-1 px-2 text-xs"
+            onClick={() => void refetch()}
+          >
+            <RefreshCw className="size-3" /> 重试
+          </Button>
+        </div>
+      ) : null}
+
+      {isError && !data ? (
+        <CustomerLoadError message={queryErrorMessage} onRetry={() => void refetch()} />
+      ) : isPending ? (
         <div className={cn("space-y-2", layoutGuards.noPageOverflow)}>
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-16 w-full" />
@@ -298,9 +315,9 @@ export function CustomerListScreen() {
                     <th className="w-[220px] px-3 py-2 text-left font-medium">客户</th>
                     <th className="w-[180px] px-2 py-2 text-left font-medium">标签</th>
                     <th className="w-[160px] px-2 py-2 text-left font-medium">设备/工单</th>
-                    <th className="w-[112px] px-2 py-2 text-right font-medium">已结清营收</th>
-                    <th className="w-[112px] px-2 py-2 text-right font-medium">未结清</th>
-                    <th className="w-[112px] px-2 py-2 text-left font-medium">下次回访</th>
+                    <th className="w-[112px] px-2 py-2 text-right font-medium">消费额</th>
+                    <th className="w-[112px] px-2 py-2 text-right font-medium">尾款</th>
+                    <th className="w-[112px] px-2 py-2 text-left font-medium">状态</th>
                     <th className="w-[72px] px-2 py-2"></th>
                   </tr>
                 </thead>
@@ -361,6 +378,21 @@ export function CustomerListScreen() {
         initial={defaultCustomerForm}
         onSave={(input) => create.mutateAsync(input)}
       />
+    </div>
+  );
+}
+
+function CustomerLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="mx-auto mt-8 max-w-sm rounded-xl border border-status-danger-foreground/25 bg-card p-5 text-center shadow-[var(--shadow-card)]">
+      <span className="mx-auto grid size-10 place-items-center rounded-full bg-status-danger/10 text-status-danger-foreground">
+        <AlertTriangle className="size-5" />
+      </span>
+      <h3 className="mt-3 text-base font-semibold">客户加载失败</h3>
+      <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{message}</p>
+      <Button className="mt-4 h-9 gap-1.5" onClick={onRetry}>
+        <RefreshCw className="size-3.5" /> 重新加载
+      </Button>
     </div>
   );
 }

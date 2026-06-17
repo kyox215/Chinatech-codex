@@ -32,6 +32,35 @@ describe("customer mock api pagination", () => {
       tagged.items.every((customer) => customer.tags.some((tag) => tag.id === "tag_vip")),
     ).toBe(true);
   });
+
+  it("filters customer pages by repair business state", async () => {
+    const active = await listCustomersPage({ work: "active", pageSize: 20 });
+    expect(active.total).toBeGreaterThan(0);
+    expect(active.items.every((customer) => customer.active_order_count > 0)).toBe(true);
+
+    const unpaid = await listCustomersPage({ work: "unpaid", pageSize: 20 });
+    expect(unpaid.total).toBeGreaterThan(0);
+    expect(unpaid.items.every((customer) => customer.unpaid_amount > 0)).toBe(true);
+
+    const withDevices = await listCustomersPage({ work: "with_devices", pageSize: 20 });
+    expect(withDevices.total).toBeGreaterThan(0);
+    expect(withDevices.items.every((customer) => customer.device_count > 0)).toBe(true);
+
+    const repeat = await listCustomersPage({ work: "repeat", pageSize: 20 });
+    expect(repeat.total).toBeGreaterThan(0);
+    expect(repeat.items.every((customer) => customer.order_count > 1)).toBe(true);
+  });
+
+  it("searches customer pages by device model snapshots", async () => {
+    const all = await listCustomersPage({ pageSize: 20 });
+    const customerWithDevice = all.items.find((customer) => customer.latest_device_label);
+    expect(customerWithDevice).toBeDefined();
+
+    const modelToken = customerWithDevice!.latest_device_label!.split(" ").at(-1)!;
+    const search = await listCustomersPage({ search: modelToken, pageSize: 20 });
+    expect(search.total).toBeGreaterThan(0);
+    expect(search.items.some((customer) => customer.id === customerWithDevice!.id)).toBe(true);
+  });
 });
 
 describe("customer mock api search", () => {
