@@ -21,6 +21,13 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,18 +44,31 @@ import {
   CustomerMobileCard,
   CustomerRow,
 } from "@/features/customers/components/customer-list-items";
+import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
 import { CustomerFilters } from "@/features/customers/forms/customer-filters";
 import { CustomerFormDialog } from "@/features/customers/forms/customer-form-dialog";
-import { defaultCustomerForm } from "@/features/customers/model/customer-list";
+import {
+  buildCustomerWorkFilterChips,
+  defaultCustomerForm,
+  getCustomerActiveFilterCount,
+  getCustomerListSubtitle,
+  getCustomerPageRange,
+  sanitizeCustomerListFilters,
+} from "@/features/customers/model/customer-list";
+import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp, stagger } from "@/lib/motion";
-import { RepairOsChipRow, RepairOsMetricStrip, RepairOsModuleHeader } from "@/shared/ui";
+import {
+  RepairOsChipRow,
+  RepairOsHeaderActionButton,
+  RepairOsListScaffold,
+  RepairOsModuleHeader,
+} from "@/shared/ui";
 import {
   brandGradientStyle,
   controls,
   dataDisplay,
   density,
   layoutGuards,
-  pageShell,
   repairOs,
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -78,6 +98,7 @@ export function CustomerListScreen() {
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [previewCustomerId, setPreviewCustomerId] = useState<string>();
 
   useEffect(() => {
     if (searchParams.get("new") === "1") setCreateOpen(true);
@@ -115,10 +136,7 @@ export function CustomerListScreen() {
   }, [debouncedSearch]);
 
   const updateFilters = useCallback((next: CustomerListFilters) => {
-    setBaseFilters({
-      tagIds: next.tagIds,
-      work: next.work ?? "all",
-    });
+    setBaseFilters(sanitizeCustomerListFilters(next));
     setPage(1);
   }, []);
 
@@ -149,72 +167,105 @@ export function CustomerListScreen() {
   const total = data?.total ?? 0;
   const pageCount = data?.pageCount ?? 1;
   const displayPage = data?.page ?? page;
-  const pageStart = total === 0 ? 0 : (displayPage - 1) * CUSTOMER_PAGE_SIZE + 1;
-  const pageEnd = Math.min(total, displayPage * CUSTOMER_PAGE_SIZE);
+  const pageRange = getCustomerPageRange({
+    total,
+    page: displayPage,
+    pageSize: data?.pageSize ?? CUSTOMER_PAGE_SIZE,
+  });
 
-  const activeFilterCount = useMemo(() => {
-    return (
-      (baseFilters.tagIds?.length ?? 0) + (baseFilters.work && baseFilters.work !== "all" ? 1 : 0)
-    );
-  }, [baseFilters]);
+  const activeFilterCount = useMemo(() => getCustomerActiveFilterCount(baseFilters), [baseFilters]);
   const queryErrorMessage = error instanceof Error ? error.message : "客户加载失败";
+  const activeWorkFilter = baseFilters.work ?? "all";
+  const customerHeaderChips = buildCustomerWorkFilterChips(stats);
 
   return (
-    <div className={cn(pageShell.list, "pb-8 pt-3 sm:pt-5")}>
-      <motion.div
-        variants={stagger(0.05)}
-        initial="hidden"
-        animate="show"
-        className="mb-3 space-y-3 sm:mb-5 sm:space-y-4"
-      >
-        <motion.div variants={fadeUp}>
-          <RepairOsModuleHeader
-            action={
-              <Button
-                className={cn("h-9 gap-1.5", controls.brandButton)}
-                style={brandGradientStyle}
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus className="size-4" /> 新建客户
-              </Button>
-            }
-          />
-        </motion.div>
+    <RepairOsListScaffold
+      title="客户管理"
+      subtitle={getCustomerListSubtitle(baseFilters, total)}
+      action={
+        <RepairOsHeaderActionButton ariaLabel="新建客户" onClick={() => setCreateOpen(true)}>
+          <Plus className="size-4" />
+        </RepairOsHeaderActionButton>
+      }
+      searchValue={searchDraft}
+      onSearchChange={setSearchDraft}
+      searchPlaceholder="搜索姓名、电话或设备"
+      filterAction={
+        <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+          <SheetTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="relative size-8 rounded-xl bg-card"
+              aria-label="筛选客户"
+            >
+              <Filter className="size-3.5" />
+              {activeFilterCount > 0 ? (
+                <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold leading-4 text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="right"
+            className="w-[min(22rem,calc(100vw-16px))] max-w-[calc(100vw-16px)] p-0"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>客户筛选</SheetTitle>
+            </SheetHeader>
+            <CustomerFilters
+              filters={filters}
+              tags={tags}
+              onChange={updateFilters}
+              onClose={() => setFilterOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
+      }
+      chips={customerHeaderChips.map((chip) => ({
+        key: chip.value,
+        label: chip.label,
+        shortLabel: chip.shortLabel,
+        count: chip.count,
+        active: activeWorkFilter === chip.value,
+        onClick: () => updateFilters({ ...baseFilters, work: chip.value }),
+      }))}
+      desktopHeader={
+        <motion.div
+          variants={stagger(0.05)}
+          initial="hidden"
+          animate="show"
+          className="mb-3 space-y-3 sm:mb-5 sm:space-y-4"
+        >
+          <motion.div variants={fadeUp}>
+            <RepairOsModuleHeader
+              action={
+                <Button
+                  className={cn("h-9 gap-1.5", controls.brandButton)}
+                  style={brandGradientStyle}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <Plus className="size-4" /> 新建客户
+                </Button>
+              }
+            />
+          </motion.div>
 
-        <motion.div variants={fadeUp} className="sm:hidden">
-          <RepairOsMetricStrip
-            metrics={[
-              { label: "总客户", value: stats?.total ?? 0, hint: "全部档案", icon: Users },
-              {
-                label: "在修",
-                value: stats?.activeRepairs ?? 0,
-                hint: "有进行中工单",
-                icon: Wrench,
-                tone: "amber",
-              },
-              {
-                label: "未结清",
-                value: stats?.unpaid ?? 0,
-                hint: "有尾款",
-                icon: CircleDollarSign,
-                tone: "green",
-              },
-            ]}
-          />
+          <motion.div variants={fadeUp} className={dataDisplay.kpiGrid}>
+            <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
+            <CustomerKpiCard icon={Wrench} label="在修客户" value={stats?.activeRepairs ?? 0} />
+            <CustomerKpiCard icon={CircleDollarSign} label="未结清" value={stats?.unpaid ?? 0} />
+            <CustomerKpiCard icon={Smartphone} label="有设备" value={stats?.withDevices ?? 0} />
+          </motion.div>
         </motion.div>
-
-        <motion.div variants={fadeUp} className={dataDisplay.kpiGrid}>
-          <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
-          <CustomerKpiCard icon={Wrench} label="在修客户" value={stats?.activeRepairs ?? 0} />
-          <CustomerKpiCard icon={CircleDollarSign} label="未结清" value={stats?.unpaid ?? 0} />
-          <CustomerKpiCard icon={Smartphone} label="有设备" value={stats?.withDevices ?? 0} />
-        </motion.div>
-      </motion.div>
-
+      }
+    >
       <div
         className={cn(
           repairOs.toolbar,
-          "mb-3 flex-col items-stretch gap-2 sm:mb-4 sm:gap-3 sm:p-3",
+          "mb-3 hidden flex-col items-stretch gap-2 sm:mb-4 sm:gap-3 sm:p-3 md:flex",
           layoutGuards.noPageOverflow,
         )}
       >
@@ -257,14 +308,8 @@ export function CustomerListScreen() {
           </Sheet>
         </div>
         <RepairOsChipRow
-          chips={[
-            { value: "all" as const, label: `全部 ${stats?.total ?? 0}` },
-            { value: "active" as const, label: `在修 ${stats?.activeRepairs ?? 0}` },
-            { value: "unpaid" as const, label: `未结清 ${stats?.unpaid ?? 0}` },
-            { value: "with_devices" as const, label: `有设备 ${stats?.withDevices ?? 0}` },
-            { value: "repeat" as const, label: `老客户 ${stats?.repeat ?? 0}` },
-          ].map((chip) => ({
-            label: chip.label,
+          chips={customerHeaderChips.map((chip) => ({
+            label: `${chip.label} ${chip.count}`,
             active: (baseFilters.work ?? "all") === chip.value,
             onClick: () => updateFilters({ ...baseFilters, work: chip.value }),
           }))}
@@ -303,20 +348,24 @@ export function CustomerListScreen() {
         <>
           <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>
-              筛选结果 {total} 位{total > 0 && ` · ${pageStart}-${pageEnd}`}
+              筛选结果 {total} 位{total > 0 && ` · ${pageRange.start}-${pageRange.end}`}
             </span>
             {isPlaceholderData && <span>保留上一页数据中…</span>}
           </div>
           <div className="glass-card hidden min-w-0 max-w-full overflow-hidden lg:block">
             <div className="max-w-full overflow-x-auto">
-              <table className={cn(density.tableDense, "min-w-[900px] table-fixed")}>
+              <table
+                className={cn(density.tableDense, "min-w-[760px] table-fixed xl:min-w-[900px]")}
+              >
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b border-border/40">
                     <th className="w-[220px] px-3 py-2 text-left font-medium">客户</th>
-                    <th className="w-[180px] px-2 py-2 text-left font-medium">标签</th>
-                    <th className="w-[160px] px-2 py-2 text-left font-medium">设备/工单</th>
-                    <th className="w-[112px] px-2 py-2 text-right font-medium">消费额</th>
-                    <th className="w-[112px] px-2 py-2 text-right font-medium">尾款</th>
+                    <th className="hidden w-[160px] px-2 py-2 text-left font-medium xl:table-cell">
+                      标签
+                    </th>
+                    <th className="w-[180px] px-2 py-2 text-left font-medium">设备/工单</th>
+                    <th className="w-[104px] px-2 py-2 text-right font-medium">消费额</th>
+                    <th className="w-[104px] px-2 py-2 text-right font-medium">尾款</th>
                     <th className="w-[112px] px-2 py-2 text-left font-medium">状态</th>
                     <th className="w-[72px] px-2 py-2"></th>
                   </tr>
@@ -326,6 +375,7 @@ export function CustomerListScreen() {
                     <CustomerRow
                       key={customer.id}
                       customer={customer}
+                      onOpenDetail={setPreviewCustomerId}
                       onPrefetch={() => prefetchCustomerDetail(customer.id)}
                     />
                   ))}
@@ -378,7 +428,23 @@ export function CustomerListScreen() {
         initial={defaultCustomerForm}
         onSave={(input) => create.mutateAsync(input)}
       />
-    </div>
+      <Dialog
+        open={Boolean(previewCustomerId)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewCustomerId(undefined);
+        }}
+      >
+        <DialogContent className={componentOverlay.detailWorkspace}>
+          <DialogHeader className="sr-only">
+            <DialogTitle>客户详情预览</DialogTitle>
+            <DialogDescription>查看客户资料、设备、历史工单和回访记录。</DialogDescription>
+          </DialogHeader>
+          {previewCustomerId ? (
+            <CustomerDetailScreen id={previewCustomerId} surface="dialog" />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </RepairOsListScaffold>
   );
 }
 

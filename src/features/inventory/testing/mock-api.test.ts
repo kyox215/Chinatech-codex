@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildBuybackQuoteDraftInput,
   buildBuybackQualityCheckInput,
   buildBuybackQuoteCreateInput,
+  buildBuybackQuoteUpdateInput,
   calculateBuybackQuote,
   defaultBuybackQuoteDraft,
   type BuybackQuoteDraft,
@@ -13,6 +15,7 @@ import {
   getInventoryItem,
   recordInventoryCheck,
   transitionInventoryItem,
+  updateInventoryItem,
   uploadInventoryAttachment,
 } from "./mock-api";
 
@@ -102,6 +105,36 @@ describe("inventory mock buyback workflow", () => {
     await uploadRequiredEvidence(id);
     await transitionInventoryItem(id, "offer_made", { reason: "客户接受报价" });
     await expect(transitionInventoryItem(id, "purchased")).rejects.toThrow(/成交金额|接受报价/);
+  });
+
+  it("updates an existing deferred buyback record before transferring it into inventory", async () => {
+    const draft: BuybackQuoteDraft = {
+      ...completedBuybackDraft("3339001006"),
+      estimated_repair_cost: "65",
+      screen_condition: "cracked",
+    };
+    const result = calculateBuybackQuote(draft);
+    const { id } = await createInventoryIntake(buildBuybackQuoteDraftInput(draft, result));
+
+    await transitionInventoryItem(id, "offer_made", { reason: "客户考虑中" });
+    await updateInventoryItem(id, buildBuybackQuoteUpdateInput(draft, result));
+    await recordInventoryCheck(id, buildBuybackQualityCheckInput(draft));
+    await uploadRequiredEvidence(id);
+    await transitionInventoryItem(id, "purchased", { reason: "客户确认成交" });
+
+    const detail = await getInventoryItem(id);
+    expect(detail.item.id).toBe(id);
+    expect(detail.item.status).toBe("purchased");
+    expect(detail.item.buyback_price).toBe(result.finalOffer);
+    expect(detail.item.repair_cost_amount).toBe(65);
+    expect(detail.item.legacy_payload.buyback_quote).toMatchObject({
+      intent_outcome: "accepted",
+      final_offer: result.finalOffer,
+    });
+    expect(detail.item.legacy_payload.buyback_repair_plan).toMatchObject({
+      issue_summary: expect.stringContaining("屏幕破裂"),
+      estimated_repair_cost: 65,
+    });
   });
 });
 

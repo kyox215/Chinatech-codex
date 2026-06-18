@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CreateOrderInput, PatchOrderInput, UpdateOrderInput } from "@/lib/repairdesk/types";
+import { orders as mockOrders } from "@/lib/mock/state";
 import {
   createOrder,
   decideOrderApproval,
@@ -9,6 +10,7 @@ import {
   patchOrder,
   patchOrderFinance,
   recordPayment,
+  sendNotification,
   sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
@@ -40,6 +42,20 @@ async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator =
 }
 
 describe("mock order WhatsApp notification workflow", () => {
+  it("creates an intake timeline event for new mock orders", async () => {
+    const id = await createMockOrder({ order_type: "dropoff_repair" }, "ALESSIO");
+
+    const detail = await getOrder(id);
+    const createdEvent = detail.events.find((event) => event.event_type === "created");
+
+    expect(createdEvent).toBeDefined();
+    expect(createdEvent?.payload).toMatchObject({
+      type: "dropoff_repair",
+      warranty_months: 6,
+    });
+    expect(createdEvent?.operator_name).toBe("ALESSIO");
+  });
+
   it("does not create customer messages for normal status transitions", async () => {
     const id = await createMockOrder();
     const before = await getOrder(id);
@@ -49,6 +65,17 @@ describe("mock order WhatsApp notification workflow", () => {
     const after = await getOrder(id);
     expect(after.order.status).toBe("diagnosing");
     expect(after.messages).toHaveLength(before.messages.length);
+  });
+
+  it("rejects canonical workflow group names as transition targets", async () => {
+    const id = await createMockOrder();
+
+    await expect(
+      transitionOrder(id, "quote" as Parameters<typeof transitionOrder>[1]),
+    ).rejects.toThrow("不能使用主流程分组");
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("new");
   });
 
   it("records transition reasons and turns unfixed pickup reasons into diagnosis conclusions", async () => {
@@ -146,6 +173,19 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(result.recipient_phone).toBe("+39 333 123 4567");
   });
 
+  it("marks mock orders as notified after generic notification", async () => {
+    const id = await createMockOrder();
+
+    const result = await sendNotification(id, "Messaggio al cliente.");
+
+    const detail = await getOrder(id);
+    expect(result.ok).toBe(true);
+    expect(detail.order.notify_status).toBe("sent");
+    expect(
+      detail.messages.some((message) => message.message_body === "Messaggio al cliente."),
+    ).toBe(true);
+  });
+
   it("rejects invalid notification-driven transitions before writing a message", async () => {
     const id = await createMockOrder();
 
@@ -180,6 +220,28 @@ describe("mock order WhatsApp notification workflow", () => {
     await expect(transitionOrder(id, "completed")).rejects.toThrow("未结清尾款");
   });
 
+  it("normalizes stale zero-balance orders during completion", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "repairing");
+    await transitionOrder(id, "repaired");
+    const raw = mockOrders.find((order) => order.id === id);
+    expect(raw).toBeDefined();
+    raw!.balance_amount = 0;
+    raw!.is_paid = false;
+    raw!.payment_status = "unpaid";
+
+    await transitionOrder(id, "completed");
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("completed");
+    expect(detail.order.balance_amount).toBe(0);
+    expect(detail.order.is_paid).toBe(true);
+    expect(detail.order.payment_status).toBe("paid");
+    expect(detail.order.completed_at).toBeDefined();
+    expect(detail.order.delivered_at).toBeDefined();
+  });
+
   it("moves quoted orders to waiting approval through approval WhatsApp", async () => {
     const id = await createMockOrder();
     await transitionOrder(id, "diagnosing");
@@ -198,6 +260,47 @@ describe("mock order WhatsApp notification workflow", () => {
       template_kind: "approval_request",
       to: "waiting_approval",
     });
+  });
+
+  it("blocks approval requests outside quote stages", async () => {
+    const id = await createMockOrder();
+
+    await expect(sendApprovalRequest(id, "Preventivo fuori fase.")).rejects.toThrow(
+      "只有报价或待审批阶段可以发送客户审批",
+    );
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("new");
+    expect(detail.order.approval_flow_status).not.toBe("waiting_customer");
+    expect(
+      detail.messages.some((message) => message.message_body === "Preventivo fuori fase."),
+    ).toBe(false);
+  });
+
+  it("blocks direct exits from quote stages without approval decision", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+
+    await expect(transitionOrder(id, "repairing")).rejects.toThrow("必须通过审批处理");
+    await expect(transitionOrder(id, "cancelled", { reason: "客户不再维修。" })).rejects.toThrow(
+      "必须通过审批处理",
+    );
+
+    const quotedDetail = await getOrder(id);
+    expect(quotedDetail.order.status).toBe("quoted");
+    expect(quotedDetail.order.approval_status).toBe("pending");
+
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+
+    await expect(transitionOrder(id, "parts_ordered")).rejects.toThrow("必须通过审批处理");
+    await expect(transitionOrder(id, "cancelled", { reason: "客户拒绝报价。" })).rejects.toThrow(
+      "必须通过审批处理",
+    );
+
+    const waitingDetail = await getOrder(id);
+    expect(waitingDetail.order.status).toBe("waiting_approval");
+    expect(waitingDetail.order.approval_flow_status).toBe("waiting_customer");
   });
 
   it("records customer approval and moves the order into repair", async () => {
@@ -228,6 +331,86 @@ describe("mock order WhatsApp notification workflow", () => {
     ).toBe(true);
   });
 
+  it("records customer approval and moves the order into parts ordering", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+
+    const result = await decideOrderApproval(id, {
+      decision: "approved",
+      next_status: "parts_ordered",
+      reason: "客户同意报价，需要等待订件。",
+    });
+
+    const detail = await getOrder(id);
+    expect(result).toMatchObject({
+      decision: "approved",
+      to: "parts_ordered",
+      approval_flow_status: "approved",
+    });
+    expect(detail.order.status).toBe("parts_ordered");
+    expect(detail.order.workflow_status).toBe("parts");
+    expect(detail.order.parts_status).toBe("ordered");
+    expect(detail.order.approval_status).toBe("approved");
+  });
+
+  it("records direct quoted approval and moves the order into parts ordering", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+
+    const result = await decideOrderApproval(id, {
+      decision: "approved",
+      next_status: "parts_ordered",
+      reason: "客户在柜台确认同意报价，需要订件。",
+    });
+
+    const detail = await getOrder(id);
+    expect(result).toMatchObject({
+      decision: "approved",
+      to: "parts_ordered",
+      approval_flow_status: "approved",
+    });
+    expect(detail.order.status).toBe("parts_ordered");
+    expect(detail.order.workflow_status).toBe("parts");
+    expect(detail.order.parts_status).toBe("ordered");
+    expect(
+      detail.events.some(
+        (event) =>
+          event.event_type === "approval_result" &&
+          event.payload.result === "approved" &&
+          event.payload.to === "parts_ordered",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects approval decisions with invalid next status targets", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+
+    await expect(
+      decideOrderApproval(id, {
+        decision: "approved",
+        next_status: "completed" as Parameters<typeof decideOrderApproval>[1]["next_status"],
+      }),
+    ).rejects.toThrow("客户同意后只能进入维修或订件流程");
+
+    await expect(
+      decideOrderApproval(id, {
+        decision: "rejected",
+        next_status: "repairing" as Parameters<typeof decideOrderApproval>[1]["next_status"],
+        reason: "客户拒绝报价。",
+      }),
+    ).rejects.toThrow("客户拒绝后只能进入未修取机或取消流程");
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("waiting_approval");
+    expect(detail.order.approval_flow_status).toBe("waiting_customer");
+  });
+
   it("requires a reason when the customer rejects the quote", async () => {
     const id = await createMockOrder();
     await transitionOrder(id, "diagnosing");
@@ -248,6 +431,30 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.order.approval_flow_status).toBe("rejected");
     expect(detail.order.exception_status).toBe("returned_unfixed");
     expect(detail.order.diagnosis_result).toContain("维修风险过高");
+  });
+
+  it("records rejected approval and cancels the order with a reason", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+
+    const result = await decideOrderApproval(id, {
+      decision: "rejected",
+      next_status: "cancelled",
+      reason: "客户拒绝报价并取消维修。",
+    });
+
+    const detail = await getOrder(id);
+    expect(result).toMatchObject({
+      decision: "rejected",
+      to: "cancelled",
+      approval_flow_status: "rejected",
+    });
+    expect(detail.order.status).toBe("cancelled");
+    expect(detail.order.exception_status).toBe("cancelled");
+    expect(detail.order.cancel_reason).toBe("客户拒绝报价并取消维修。");
+    expect(detail.order.approval_status).toBe("rejected");
   });
 });
 
@@ -413,5 +620,43 @@ describe("mock order inline editing workflow", () => {
       deposit_amount: 30,
       balance_amount: 120,
     });
+  });
+
+  it("invalidates previous customer approval when finance changes", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+    await decideOrderApproval(id, { decision: "approved", next_status: "repairing" });
+    const approved = await getOrder(id);
+    expect(approved.order.status).toBe("repairing");
+    expect(approved.order.approval_status).toBe("approved");
+    expect(approved.order.approval_confirmed_at).toBeDefined();
+
+    await patchOrderFinance(id, {
+      expected_updated_at: approved.order.updated_at,
+      fault_prices: [{ name: "屏幕", price: 180 }],
+      deposit_amount: 20,
+    });
+
+    const after = await getOrder(id);
+    expect(after.order.status).toBe("quoted");
+    expect(after.order.workflow_status).toBe("quote");
+    expect(after.order.approval_status).toBe("pending");
+    expect(after.order.approval_flow_status).toBe("not_required");
+    expect(after.order.approval_confirmed_at).toBeUndefined();
+    expect(after.order.approval_sent_at).toBeUndefined();
+    const financeEvent = after.events.find(
+      (event) => event.payload.action === "order_finance_updated",
+    );
+    expect(financeEvent?.payload).toMatchObject({
+      action: "order_finance_updated",
+      approval_reset: true,
+    });
+
+    await sendApprovalRequest(id, "Preventivo aggiornato da confermare.");
+    const waiting = await getOrder(id);
+    expect(waiting.order.status).toBe("waiting_approval");
+    expect(waiting.order.approval_flow_status).toBe("waiting_customer");
   });
 });

@@ -1040,6 +1040,7 @@ export interface CreateInventoryIntakeInput {
   quote_payload?: Record<string, unknown>;
   buyback_price?: number;
   list_price?: number;
+  repair_cost_amount?: number;
   deposit_amount?: number;
   payment_method?: string;
   notes?: string;
@@ -1058,6 +1059,7 @@ export interface UpdateInventoryItemInput {
   deposit_amount?: number;
   repair_cost_amount?: number;
   fees_amount?: number;
+  quote_payload?: Record<string, unknown>;
   payment_method?: string;
   sale_channel?: string;
   warranty_months?: number;

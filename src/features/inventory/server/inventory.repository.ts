@@ -73,8 +73,14 @@ export async function listInventoryItems(
   const { data, error } = await query.limit(1000);
   fail(error, "读取回收库存失败");
 
-  return ((data ?? []) as DbRecord[])
-    .map((row) => decorateInventoryRow(row))
+  const rows = (data ?? []) as DbRecord[];
+  const transactionsByItem = await fetchInventoryTransactionSummaries(
+    storeId,
+    rows.map((row) => requiredString(row.id)),
+  );
+
+  return rows
+    .map((row) => decorateInventoryRow(row, transactionsByItem.get(requiredString(row.id)) ?? []))
     .filter((item) => inventoryMatchesFilters(item, filters));
 }
 
@@ -202,6 +208,7 @@ export async function createInventoryIntake(
     imei_check_status: input.serial_or_imei ? "unknown" : "unchecked",
     buyback_price: money(input.buyback_price),
     list_price: money(input.list_price),
+    repair_cost_amount: money(input.repair_cost_amount),
     deposit_amount: money(input.deposit_amount),
     currency_code: CURRENCY_CODE,
     payment_method: nullable(input.payment_method),
@@ -276,7 +283,7 @@ export async function updateInventoryItem(
   const supabase = getSupabaseAdmin();
   const before = await fetchInventoryRow(id, storeId);
   const now = new Date().toISOString();
-  const patch = sanitizeItemPatch(input, actor, now);
+  const patch = sanitizeItemPatch(input, before, actor, now);
   const { data, error } = await supabase
     .from("inventory_items")
     .update(patch)
@@ -924,6 +931,29 @@ function decorateInventoryRow(
   };
 }
 
+async function fetchInventoryTransactionSummaries(storeId: string, itemIds: string[]) {
+  const byItem = new Map<string, Pick<InventoryTransaction, "transaction_type" | "amount">[]>();
+  if (itemIds.length === 0) return byItem;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from("inventory_transactions")
+    .select("item_id, transaction_type, amount")
+    .eq("store_id", storeId)
+    .in("item_id", itemIds);
+  fail(error, "读取库存成本流水失败");
+
+  for (const row of (data ?? []) as DbRecord[]) {
+    const itemId = requiredString(row.item_id);
+    const transactions = byItem.get(itemId) ?? [];
+    transactions.push({
+      transaction_type: row.transaction_type as InventoryTransaction["transaction_type"],
+      amount: money(row.amount),
+    });
+    byItem.set(itemId, transactions);
+  }
+  return byItem;
+}
+
 function checkFromRow(row: DbRecord): InventoryQualityCheck {
   return {
     id: requiredString(row.id),
@@ -1170,7 +1200,12 @@ async function insertInventoryTransaction(
   return id;
 }
 
-function sanitizeItemPatch(input: UpdateInventoryItemInput, actor: AuditActor, now: string) {
+function sanitizeItemPatch(
+  input: UpdateInventoryItemInput,
+  before: DbRecord,
+  actor: AuditActor,
+  now: string,
+) {
   const patch: Record<string, unknown> = {
     updated_by: actor.id ?? null,
     updated_at: now,
@@ -1200,8 +1235,42 @@ function sanitizeItemPatch(input: UpdateInventoryItemInput, actor: AuditActor, n
   for (const field of moneyFields) {
     if (field in input) patch[field] = money(input[field]);
   }
+  if (input.quote_payload !== undefined) {
+    patch.legacy_payload = mergeLegacyPayload(before.legacy_payload, input.quote_payload);
+  }
   if (input.warranty_months !== undefined) patch.warranty_months = input.warranty_months;
   return patch;
+}
+
+function mergeLegacyPayload(
+  currentValue: unknown,
+  nextValue: Record<string, unknown>,
+): Record<string, unknown> {
+  const current = recordOrEmpty(currentValue);
+  return {
+    ...current,
+    ...nextValue,
+    buyback_quote: {
+      ...recordOrEmpty(current.buyback_quote),
+      ...recordOrEmpty(nextValue.buyback_quote),
+    },
+    buyback_device: {
+      ...recordOrEmpty(current.buyback_device),
+      ...recordOrEmpty(nextValue.buyback_device),
+    },
+    buyback_function_checks: {
+      ...recordOrEmpty(current.buyback_function_checks),
+      ...recordOrEmpty(nextValue.buyback_function_checks),
+    },
+    buyback_customer: {
+      ...recordOrEmpty(current.buyback_customer),
+      ...recordOrEmpty(nextValue.buyback_customer),
+    },
+    buyback_repair_plan: {
+      ...recordOrEmpty(current.buyback_repair_plan),
+      ...recordOrEmpty(nextValue.buyback_repair_plan),
+    },
+  };
 }
 
 function defaultCheckPayload(input: InventoryQualityCheckInput) {
@@ -1372,6 +1441,7 @@ function redactInventoryIntakeInput(input: CreateInventoryIntakeInput) {
     quote_expires_at: input.quote_expires_at,
     buyback_price: input.buyback_price,
     list_price: input.list_price,
+    repair_cost_amount: input.repair_cost_amount,
     payment_method: input.payment_method,
   };
 }

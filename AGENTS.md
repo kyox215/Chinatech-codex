@@ -3,6 +3,9 @@
 Use these rules when generating or editing pages in this repository.
 
 - Read `AI智能部门管理/部门化管理设计.md` before non-trivial work. Use it to classify the request, decide whether current web research is required, choose single-agent vs multi-agent execution, assign departments, set sub-agent permission mode, and define verification.
+- For multi-agent work, also read `.agents/README.md`, `.agents/repairdesk-multiagent.yaml`, `.agents/department-roster.md`, `.agents/task-package-template.md`, and `.agents/integration-checklist.md`.
+- Treat the main thread as the only user-facing decision owner. The user gives work to the Integration Lead; the Integration Lead decides whether to spawn departments, writes every sub-agent task package, arbitrates disputes, and owns the final integration report.
+- Sub-agents report blockers to the Integration Lead. Do not let sub-agents ask the user for broader permissions or redirect the user to another agent; the Integration Lead decides whether to ask the user.
 - Read `docs/UI_PAGE_GENERATION_DECLARATION.md` before adding pages.
 - Read `docs/COMPONENT_GENERATION_DECLARATION.md` before adding reusable components.
 - Import reusable layout/class declarations from `src/lib/ui-patterns.ts` and component declarations from `src/lib/component-patterns.ts`.
@@ -20,5 +23,7 @@ Use these rules when generating or editing pages in this repository.
 - New navigation pages must update `AppSidebar`, `AppBar` breadcrumb labels, and `CommandPalette`.
 - Do not reintroduce TanStack Router/Start or Vite entrypoints.
 - For multi-domain, high-risk, or explicitly delegated work, follow `AI智能部门管理/部门化管理设计.md`: the main thread is the Integration Lead, sub-agents are read-only by default, scoped writes must have disjoint file ownership, and final integration/verification stays in the main thread.
+- Keep active sub-agents bounded: prefer 2-4, hard cap 5, close completed agents before spawning more, and never allow overlapping write ownership. QA/security agents stay read-only unless the user and Integration Lead explicitly allow a scoped write.
+- Do not let sub-agents stage, commit, push, deploy, run destructive SQL, handle secrets, or perform final integration.
 - When the department design file says current external knowledge is required, search the web and prefer official or primary sources. Local repository facts still come from the codebase.
 - Validate new UI with `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build`.

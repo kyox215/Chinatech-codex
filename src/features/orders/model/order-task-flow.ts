@@ -111,6 +111,17 @@ export function getOrderTaskGuidance(
     };
   }
 
+  if (input.status === "repaired") {
+    return {
+      stage,
+      workflowStatus,
+      label: "已修复",
+      task: "维修已完成，下一步通知客户取机并核对尾款。",
+      nextAction: "通知取机",
+      tone: "success" as const,
+    };
+  }
+
   return {
     stage,
     workflowStatus,

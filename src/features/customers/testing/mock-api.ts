@@ -546,7 +546,7 @@ export async function createCustomerFollowup(
   input: CustomerFollowupInput,
   _actor?: AuditActor,
 ): Promise<{ id: string }> {
-  if (!input.title.trim()) throw new Error("回访标题不能为空");
+  if (!input.title.trim()) throw new Error("待办标题不能为空");
   const id = `cf_new_${Date.now()}`;
   const now = new Date().toISOString();
   extraCustomerFollowups.unshift({
@@ -572,7 +572,7 @@ export async function completeCustomerFollowup(
   const followup = allCustomerFollowups().find(
     (item) => item.id === followupId && item.customer_id === customerId,
   );
-  if (!followup) throw new Error("回访任务不存在");
+  if (!followup) throw new Error("客户待办不存在");
   followup.status = "done";
   followup.completed_at = new Date().toISOString();
   followup.updated_at = followup.completed_at;

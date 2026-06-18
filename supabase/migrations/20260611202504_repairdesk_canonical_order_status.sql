@@ -16,8 +16,8 @@ set workflow_status = case
     when status = 'diagnosing' then 'diagnosis'
     when status in ('quoted', 'waiting_approval') then 'quote'
     when status in ('parts_ordered', 'parts_arrived') then 'parts'
-    when status = 'repairing' then 'repair'
-    when status in ('repaired', 'notified', 'unfixed_pickup', 'waiting_pickup') then 'pickup'
+    when status in ('repairing', 'repaired') then 'repair'
+    when status in ('notified', 'unfixed_pickup', 'waiting_pickup') then 'pickup'
     when status in ('completed', 'cancelled') then 'closed'
     else workflow_status
   end,

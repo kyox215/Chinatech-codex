@@ -10,7 +10,7 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
-  if (!tags.length) return <span className="text-xs text-muted-foreground">无标签</span>;
+  if (!tags.length) return <span className="text-[10px] text-muted-foreground">无标签</span>;
   return (
     <div className="flex min-w-0 flex-wrap gap-1">
       {tags.map((tag) => (
@@ -29,9 +29,9 @@ export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
 
 export function CustomerMetric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-[var(--border-panel)] bg-surface-muted/40 px-2.5 py-2">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className="mt-1 min-w-0 truncate font-mono text-lg font-semibold tabular-nums">
+    <div className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2 py-1.5">
+      <div className="truncate text-[9px] leading-3 text-muted-foreground">{label}</div>
+      <div className="mt-0.5 min-w-0 truncate font-mono text-sm font-semibold leading-5 tabular-nums sm:text-base">
         {value}
       </div>
     </div>
@@ -41,8 +41,8 @@ export function CustomerMetric({ label, value }: { label: string; value: React.R
 export function CustomerInfoBlock({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 break-words text-sm">{value}</div>
+      <div className="text-[10px] leading-3 text-muted-foreground">{label}</div>
+      <div className="mt-0.5 break-words text-xs leading-4 sm:text-sm">{value}</div>
     </div>
   );
 }
@@ -61,22 +61,27 @@ export function CustomerDeviceCard({
   onDelete: () => void;
 }) {
   return (
-    <div className={cn(repairOs.businessCardDense, "grid-cols-[minmax(0,1fr)]")}>
+    <div className={cn(repairOs.businessCardDense, "grid-cols-[minmax(0,1fr)] gap-1.5 py-1.5")}>
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate font-medium" title={`${device.brand} ${device.model}`}>
+          <div
+            className="truncate text-xs font-medium sm:text-sm"
+            title={`${device.brand} ${device.model}`}
+          >
             {device.brand} {device.model}
           </div>
-          <div className="mt-1 truncate font-mono text-xs text-muted-foreground">
+          <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground sm:text-xs">
             {device.serial_or_imei || "无 IMEI"}
           </div>
         </div>
-        <Smartphone className="size-5 shrink-0 text-muted-foreground" />
+        <Smartphone className="size-4 shrink-0 text-muted-foreground" />
       </div>
       {device.device_notes && (
-        <p className="mt-2 break-words text-sm text-muted-foreground">{device.device_notes}</p>
+        <p className="break-words text-[11px] leading-4 text-muted-foreground">
+          {device.device_notes}
+        </p>
       )}
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
           <Link href={`/orders/new?customerId=${customerId}&deviceId=${device.id}`}>
             <Wrench className="size-3.5" /> 新建工单
@@ -107,18 +112,18 @@ export function CustomerOrderRow({
   onFollowup: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 py-2 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between sm:px-3 sm:py-2">
       <div className="min-w-0 flex-1">
         <Link
           href={`/orders/${order.id}`}
-          className="block truncate font-mono text-xs font-medium text-primary hover:underline"
+          className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs"
         >
           {order.public_no}
         </Link>
-        <div className="mt-1 truncate font-medium" title={order.device_label}>
+        <div className="mt-0.5 truncate text-xs font-medium sm:text-sm" title={order.device_label}>
           {order.device_label}
         </div>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
           <StatusBadge status={order.status} />
           <span className="min-w-0 max-w-full truncate" title={order.issue_description}>
             {order.issue_description}
@@ -129,7 +134,7 @@ export function CustomerOrderRow({
         <MoneyText amount={order.quotation_amount} />
         {order.status === "completed" && (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onFollowup}>
-            <Bell className="size-3.5" /> 回访
+            <Bell className="size-3.5" /> 待办
           </Button>
         )}
       </div>
@@ -154,7 +159,7 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
     id: `followup-${followup.id}`,
     at: followup.updated_at,
     title:
-      followup.status === "done" ? `完成回访：${followup.title}` : `回访任务：${followup.title}`,
+      followup.status === "done" ? `完成待办：${followup.title}` : `客户待办：${followup.title}`,
     body: followup.note || formatCustomerDateTime(followup.due_at),
   }));
   const items = [...orderItems, ...interactionItems, ...followupItems]
@@ -163,15 +168,19 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
 
   if (!items.length) return <CustomerEmptyLine text="暂无动态" />;
   return (
-    <ol className="min-w-0 space-y-3 border-l border-border/60 pl-4">
+    <ol className="min-w-0 space-y-2 border-l border-border/60 pl-3.5 sm:space-y-3 sm:pl-4">
       {items.map((item) => (
         <li key={item.id} className="relative min-w-0">
-          <span className="absolute -left-[21px] top-1 size-3 rounded-full bg-primary ring-4 ring-background" />
-          <div className="text-xs text-muted-foreground">{formatCustomerDateTime(item.at)}</div>
-          <div className="truncate text-sm font-medium" title={item.title}>
+          <span className="absolute -left-[19px] top-1 size-2.5 rounded-full bg-primary ring-4 ring-background sm:-left-[21px] sm:size-3" />
+          <div className="text-[10px] leading-3 text-muted-foreground sm:text-xs">
+            {formatCustomerDateTime(item.at)}
+          </div>
+          <div className="truncate text-xs font-medium leading-4 sm:text-sm" title={item.title}>
             {item.title}
           </div>
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</p>
+          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+            {item.body}
+          </p>
         </li>
       ))}
     </ol>
@@ -180,7 +189,7 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
 
 export function CustomerEmptyLine({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--border-panel)] p-6 text-center text-sm text-muted-foreground">
+    <div className="rounded-xl border border-dashed border-[var(--border-panel)] px-3 py-5 text-center text-xs text-muted-foreground">
       {text}
     </div>
   );

@@ -27,11 +27,15 @@ import {
   orderWorkflowMeta,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
+import {
+  buildDashboardWorkInsight,
+  type DashboardWorkInsight,
+} from "@/features/dashboard/model/dashboard-work-insights";
 import { fadeUp, stagger } from "@/lib/motion";
 import { statusGroups } from "@/lib/mock/enums";
 import { getOrderStats, listOrdersPage, type OrderListItem } from "@/lib/repairdesk/api";
-import { RepairOsMetricStrip, type RepairOsMetric } from "@/shared/ui";
-import { pageShell, repairOs, stateBlocks } from "@/lib/ui-patterns";
+import { RepairOsListScaffold, type RepairOsMetric } from "@/shared/ui";
+import { repairOs, stateBlocks } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 const RECENT_PAGE_SIZE = 6;
@@ -106,6 +110,10 @@ export function DashboardScreen() {
     [ordersQuery.data?.total, recentOrders],
   );
   const stats = statsQuery.data ?? fallbackStats;
+  const workInsight = useMemo(
+    () => buildDashboardWorkInsight(stats, recentOrders),
+    [recentOrders, stats],
+  );
   const recentPaidRevenue = recentOrders
     .filter((order) => order.is_paid)
     .reduce((sum, order) => sum + order.quotation_amount, 0);
@@ -145,17 +153,17 @@ export function DashboardScreen() {
   ] satisfies Array<DashboardTask>;
 
   return (
-    <div className={cn(pageShell.list, "pb-8 pt-3 sm:pt-5")}>
+    <RepairOsListScaffold
+      title="概览"
+      subtitle={`今日任务 · 共 ${stats.total} 单`}
+      chips={mobileMetrics.map((metric) => ({
+        key: metric.label,
+        label: metric.label,
+        shortLabel: metric.label.slice(0, 1),
+        count: <AnimatedNumber value={metric.value} />,
+      }))}
+    >
       <motion.div variants={stagger(0.035)} initial="hidden" animate="show" className="space-y-3">
-        <motion.div variants={fadeUp} className="sm:hidden">
-          <RepairOsMetricStrip
-            metrics={mobileMetrics.map((metric) => ({
-              ...metric,
-              value: <AnimatedNumber value={metric.value} />,
-            }))}
-          />
-        </motion.div>
-
         <motion.div
           variants={stagger(0.025)}
           className="hidden min-w-0 gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4"
@@ -199,7 +207,11 @@ export function DashboardScreen() {
           </motion.div>
         ) : null}
 
-        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <motion.section variants={fadeUp}>
+          <WorkInsightCard insight={workInsight} />
+        </motion.section>
+
+        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
           <motion.section variants={fadeUp} className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
             <SectionTitle
               title="今日任务"
@@ -207,7 +219,7 @@ export function DashboardScreen() {
               actionHref="/orders"
               actionLabel="进入工单"
             />
-            <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-3 lg:grid-cols-3">
               {tasks.map((task) => (
                 <TaskCard key={task.label} task={task} />
               ))}
@@ -231,7 +243,7 @@ export function DashboardScreen() {
             actionHref="/orders"
             actionLabel="查看全部"
           />
-          <div className="mt-3 grid min-w-0 gap-2">
+          <div className="mt-3 grid min-w-0 gap-2 xl:grid-cols-2">
             {ordersQuery.isLoading ? (
               <RecentOrdersSkeleton />
             ) : recentOrders.length > 0 ? (
@@ -244,6 +256,52 @@ export function DashboardScreen() {
           </div>
         </motion.section>
       </motion.div>
+    </RepairOsListScaffold>
+  );
+}
+
+function WorkInsightCard({ insight }: { insight: DashboardWorkInsight }) {
+  const toneClass = toneClasses[insight.tone];
+
+  return (
+    <div
+      className={cn(
+        "grid min-w-0 gap-2 rounded-2xl border px-3 py-2.5 shadow-[var(--shadow-card)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
+        toneClass.card,
+      )}
+    >
+      <div className="min-w-0">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+          今日优先级
+        </p>
+        <h2 className={cn("mt-1 truncate text-sm font-semibold leading-5", toneClass.value)}>
+          {insight.headline}
+        </h2>
+        <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
+          {insight.description}
+        </p>
+        <div className="mt-2 flex min-w-0 flex-wrap gap-1">
+          {insight.reasons.map((reason) => (
+            <span
+              key={reason}
+              className="rounded-full bg-[var(--surface-panel-muted)] px-2 py-0.5 text-[10px] leading-4 text-muted-foreground"
+            >
+              {reason}
+            </span>
+          ))}
+        </div>
+      </div>
+      <Button
+        asChild
+        size="sm"
+        className="h-8 justify-center gap-1.5 rounded-xl px-3 text-xs"
+        variant={insight.tone === "danger" ? "default" : "outline"}
+      >
+        <Link href={insight.primaryHref}>
+          {insight.primaryLabel}
+          <ArrowUpRight className="size-3" />
+        </Link>
+      </Button>
     </div>
   );
 }

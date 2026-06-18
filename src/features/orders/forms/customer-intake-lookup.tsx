@@ -152,7 +152,7 @@ export function CustomerIntakeLookup({
         collisionPadding={12}
         sideOffset={6}
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="!w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-24px)] overflow-x-hidden p-1"
+        className="w-[calc(100vw-24px)] max-w-sm overflow-x-hidden p-1 sm:w-[28rem] sm:max-w-[calc(100vw-24px)] md:w-[32rem]"
       >
         <div
           id={listboxId}
@@ -186,16 +186,16 @@ export function CustomerIntakeLookup({
                 >
                   <button
                     type="button"
-                    className="flex w-full min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
+                    className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto]"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => pickCustomer(candidate)}
                   >
                     <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                       <UserRound className="size-4" />
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-xs font-bold leading-4">
+                    <span className="min-w-0">
+                      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span className="min-w-0 break-words text-sm font-bold leading-5 sm:text-xs sm:leading-4">
                           {candidate.customer.name}
                         </span>
                         {candidate.exactMatch ? (
@@ -204,7 +204,7 @@ export function CustomerIntakeLookup({
                           </span>
                         ) : null}
                       </span>
-                      <span className="block truncate font-mono text-[11px] font-medium leading-4 text-muted-foreground">
+                      <span className="block break-all font-mono text-xs font-medium leading-4 text-muted-foreground sm:text-[11px]">
                         {candidate.customer.phone_e164}
                         {candidate.customer.contact_phones.length
                           ? ` · 备用 ${candidate.customer.contact_phones.length}`
@@ -212,15 +212,17 @@ export function CustomerIntakeLookup({
                       </span>
                     </span>
                     {selected ? (
-                      <Check className="size-3.5 shrink-0 text-primary" />
+                      <Check className="col-start-2 size-3.5 shrink-0 justify-self-start text-primary sm:col-start-auto sm:justify-self-end" />
                     ) : (
-                      <span className="shrink-0 text-[10px] font-semibold text-primary">选择</span>
+                      <span className="col-start-2 shrink-0 justify-self-start text-[10px] font-semibold text-primary sm:col-start-auto sm:justify-self-end">
+                        选择
+                      </span>
                     )}
                   </button>
 
                   <div className="px-1.5 pb-1">
                     {candidate.historyDevices.length ? (
-                      <div className="grid grid-cols-2 gap-1">
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                         {candidate.historyDevices.map((device) => (
                           <HistoryDeviceButton
                             key={device.id}
@@ -267,21 +269,21 @@ function HistoryDeviceButton({
     <button
       type="button"
       className={cn(
-        "min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
+        "min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
         selected && "border-primary/45 bg-primary/10 text-primary",
       )}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
     >
-      <span className="flex min-w-0 items-center gap-1">
+      <span className="flex min-w-0 items-start gap-1.5">
         <Smartphone className="size-3 shrink-0 text-primary" />
-        <span className="truncate text-[10px] font-bold leading-3">
+        <span className="min-w-0 break-words text-[11px] font-bold leading-4">
           {device.brand} {device.model}
         </span>
       </span>
-      <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[9px] font-medium leading-3 text-muted-foreground">
+      <span className="mt-0.5 flex min-w-0 items-start gap-1.5 text-[10px] font-medium leading-4 text-muted-foreground">
         <Clock3 className="size-2.5 shrink-0" />
-        <span className="truncate">
+        <span className="min-w-0 break-all">
           {device.serial_or_imei || device.order_public_no || "历史记录"}
         </span>
       </span>

@@ -39,7 +39,7 @@ export function CustomerTagsDialog({
       { id: "tag_repeat", name: "复购", color: "var(--status-success-foreground)" },
       { id: "tag_business", name: "企业", color: "var(--status-info-foreground)" },
       { id: "tag_price_sensitive", name: "价格敏感", color: "var(--status-warn-foreground)" },
-      { id: "tag_followup", name: "需回访", color: "var(--status-danger-foreground)" },
+      { id: "tag_followup", name: "需联系", color: "var(--status-danger-foreground)" },
     ];
     defaults.forEach((tag) => {
       if (!known.has(tag.id)) known.set(tag.id, tag);
@@ -62,7 +62,7 @@ export function CustomerTagsDialog({
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>管理客户标签</DialogTitle>
           <DialogDescription className={componentOverlay.description}>
-            标签会用于客户筛选和营销分群。
+            标签会用于客户筛选、售后跟进和客户服务分组。
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-2">

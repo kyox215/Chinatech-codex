@@ -216,8 +216,9 @@ function assertInventoryWrite(actor: Awaited<ReturnType<typeof getRequestActor>>
 }
 
 async function source() {
+  const { isRepairDeskE2eAuthBypassEnabled } = await import("@/shared/lib/e2e-auth-bypass");
   const { hasSupabaseConfig } = await import("@/server/supabase");
-  if (hasSupabaseConfig()) return supabaseSource;
+  if (hasSupabaseConfig() && !isRepairDeskE2eAuthBypassEnabled()) return supabaseSource;
 
   const mock = await import("@/lib/mock/api");
   return {

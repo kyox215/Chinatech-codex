@@ -1,0 +1,312 @@
+version: 1
+status: active
+owner: Integration Lead
+last_reviewed: "2026-06-18"
+
+canonical_rules:
+  - AGENTS.md
+  - AI智能部门管理/部门化管理设计.md
+  - .agents/README.md
+
+execution_model:
+  pattern: manager_led
+  integration_owner: main_thread
+  handoff_policy: disabled_for_final_write
+  default_subagent_mode: read_only
+  max_parallel_subagents_default: 3
+  max_parallel_subagents_hard_cap: 5
+  max_parallel_writers_default: 1
+  max_parallel_writers_hard_cap: 2
+  writer_overlap_policy: forbidden
+  close_completed_agents_before_spawning: true
+  nested_agents: forbidden
+  stop_condition: integration_complete_and_verification_reported
+
+decision_owner:
+  id: INT
+  name: Integration Lead
+  user_facing: true
+  authority:
+    - agenda_intake
+    - department_routing
+    - subagent_task_packages
+    - conflict_arbitration
+    - final_integration
+    - final_verification_report
+  cannot_delegate:
+    - final_merge
+    - stage_commit_push
+    - deploy
+    - destructive_sql
+    - secret_handling
+    - final_user_report
+
+task_lifecycle:
+  - intake
+  - research_decision
+  - route_plan
+  - batch_spawn
+  - department_execution
+  - debate_and_objection
+  - arbitration
+  - integration
+  - verification
+  - run_log
+
+assignment_contract:
+  required_fields:
+    - task_id
+    - department
+    - mode
+    - goal
+    - must_read
+    - expected_output
+    - acceptance
+    - verification
+  scoped_write_required_fields:
+    - allowed_files
+    - forbidden_files
+    - owned_paths
+    - disjoint_ownership
+  read_only_forbid_fields:
+    - allowed_write_globs
+  subagent_blocker_policy: report_to_integration_lead
+
+routing_matrix:
+  orders:
+    primary: FLOW
+    supporting: [DATA, UX, FE, API, QA, SEC]
+    risk_floor: medium
+  customers:
+    primary: DATA
+    supporting: [SEC, FLOW, UX, FE, API, QA]
+    risk_floor: medium
+  buyback:
+    primary: FLOW
+    supporting: [DATA, API, UX, SEC, QA]
+    risk_floor: medium
+  inventory:
+    primary: DATA
+    supporting: [FLOW, API, QA, SEC]
+    risk_floor: medium
+  payments:
+    primary: SEC
+    supporting: [API, DATA, FLOW, UX, FE, QA]
+    risk_floor: high
+  database:
+    primary: DATA
+    supporting: [API, SEC, QA, INT]
+    risk_floor: high
+  mobile_ui:
+    primary: UX
+    supporting: [FLOW, FE, QA, DATA]
+    risk_floor: medium
+  documentation:
+    primary: DOC
+    supporting: [INT, QA]
+    risk_floor: low
+
+handoff_contracts:
+  subagent_to_integration_lead:
+    required:
+      - summary
+      - evidence
+      - accepted_risks
+      - blockers
+      - changed_files_if_any
+    user_contact: forbidden
+  integration_lead_to_subagent:
+    required:
+      - task_package
+      - permission_mode
+      - scope
+      - stop_condition
+
+debate_protocol:
+  proposal_required_fields:
+    - department
+    - problem_statement
+    - proposal
+    - evidence
+    - risks
+    - verification_plan
+  objection_required_fields:
+    - raised_by
+    - target_proposal
+    - claim
+    - evidence
+    - severity
+    - suggested_resolution
+  arbitration_owner: INT
+
+spawn_triggers:
+  - user_explicitly_requests_multi_agent
+  - crosses_two_or_more_business_domains
+  - changes_workflow_payment_inventory_pii_auth_or_database
+  - needs_independent_qa_security_or_product_review
+  - requires_external_research_and_project_rule_update
+
+do_not_spawn_for:
+  - small_single_file_fix
+  - immediate_blocking_task_on_critical_path
+  - duplicate_question_already_assigned
+  - vague_exploration_without_concrete_output
+
+departments:
+  INT:
+    name: Integration Lead
+    mode: integration_write
+    owner: main_thread
+    final_authority: true
+  FLOW:
+    name: Product Workflow
+    default_mode: read_only
+    triggers:
+      - status_flow
+      - role_simulation
+      - next_action
+      - approval
+  DATA:
+    name: Data Design
+    default_mode: read_only
+    triggers:
+      - schema
+      - api_contract
+      - query_performance
+      - mock_data
+      - migration
+  UX:
+    name: Page Design
+    default_mode: read_only
+    must_read:
+      - docs/UI_PAGE_GENERATION_DECLARATION.md
+      - docs/COMPONENT_GENERATION_DECLARATION.md
+      - docs/RESPONSIVE_DENSITY_PLAN.md
+      - docs/REPAIROS_MOBILE_DETAIL_STANDARD.md
+      - src/lib/ui-patterns.ts
+      - src/lib/component-patterns.ts
+      - src/styles.css
+  FE:
+    name: Frontend Implementation
+    default_mode: scoped_write_when_assigned
+    boundaries:
+      - src/features
+      - src/shared
+      - src/components
+      - src/app_thin_routes_only
+  API:
+    name: Backend API
+    default_mode: scoped_write_when_assigned
+    boundaries:
+      - src/server
+      - src/features/*/server
+      - src/lib/repairdesk
+  QA:
+    name: Verification
+    default_mode: read_only
+  SEC:
+    name: Security Privacy
+    default_mode: read_only
+  DOC:
+    name: Documentation Rules
+    default_mode: scoped_write_when_assigned
+
+permission_modes:
+  read_only:
+    allow:
+      - read_files
+      - search_code
+      - run_non_destructive_inspection
+      - report_findings
+    forbid:
+      - edit_files
+      - format_files
+      - destructive_commands
+      - database_mutation
+      - secret_access_or_exfiltration
+  scoped_write:
+    require:
+      - explicit_allowed_files
+      - explicit_forbidden_files
+      - owner
+      - expected_output
+      - verification_scope
+      - disjoint_ownership
+      - no_revert_unrelated_changes
+    forbid:
+      - expanding_scope_without_integration_lead
+      - editing_forbidden_files
+      - final_merge_or_deploy
+      - editing_other_agent_files
+  integration_write:
+    owner: main_thread_only
+
+conflict_handling:
+  precedence:
+    - latest_user_instruction
+    - AGENTS.md
+    - AI智能部门管理/部门化管理设计.md
+    - docs/ARCHITECTURE.md
+    - ui_component_responsive_declarations
+    - existing_code_patterns
+    - smallest_safe_change
+    - individual_subagent_preference
+  file_conflicts:
+    - no_two_write_agents_may_own_same_file_or_directory_scope
+    - if_overlap_detected_pause_writes_and_return_to_integration_owner
+    - subagents_report_conflicts_but_do_not_resolve_by_editing
+    - main_thread_accepts_rejects_or_reworks_subagent_outputs
+  unclear_scope:
+    - default_to_read_only
+    - ask_user_only_when_risk_is_high_and_assumption_is_unsafe
+
+verification:
+  default_commands:
+    - npm run lint
+    - npm run typecheck
+    - npm run test
+    - npm run build
+  browser_viewports:
+    - 390
+    - 430
+    - 768
+    - 1024
+    - 1280
+    - 1440
+  ui_acceptance:
+    - no_page_level_horizontal_overflow
+    - mobile_keyboard_does_not_zoom_inputs
+    - sheets_and_dialogs_have_body_scroll
+    - bottom_actions_do_not_cover_content
+  data_or_permission_changes:
+    - migration_review
+    - rls_policy_review
+    - server_side_authorization_review
+    - mock_server_client_contract_consistency
+
+sensitive_data_and_database:
+  secrets:
+    - never_commit_or_print_env_values
+    - never_expose_supabase_secret_or_service_role_key_to_browser
+    - never_place_secrets_in_urls_query_params_logs_docs_or_chat
+    - if_secret_exposure_suspected_stop_and_report_rotation_needed
+  pii:
+    - minimize_customer_pii_in_agent_context
+    - do_not_log_customer_phone_address_payment_message_attachment_content_unnecessarily
+    - do_not_put_pii_in_qr_payload_public_routes_or_browser_storage
+  database:
+    - subagents_default_database_access_read_only
+    - destructive_sql_requires_explicit_user_approval_and_main_thread_execution
+    - schema_changes_must_use_supabase_migration
+    - exposed_schema_tables_must_have_rls_enabled
+    - service_role_or_secret_key_usage_server_only_with_prior_authorization_checks
+    - permissions_must_use_database_membership_or_platform_admin_tables_not_user_editable_metadata
+
+external_research:
+  prefer:
+    - official_docs
+    - platform_reference
+    - standards
+    - primary_sources
+  require_note_when_source_inaccessible: true
+  inaccessible_source_policy: do_not_import_unverified_claims

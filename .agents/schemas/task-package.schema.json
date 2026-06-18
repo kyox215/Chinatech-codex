@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RepairDesk Sub-Agent Task Package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "department",
+    "mode",
+    "goal",
+    "context",
+    "must_read",
+    "expected_output",
+    "acceptance",
+    "verification",
+    "deadline"
+  ],
+  "properties": {
+    "task_id": { "type": "string", "minLength": 1 },
+    "parent_task_id": { "type": "string" },
+    "department": {
+      "type": "string",
+      "enum": ["INT", "FLOW", "DATA", "UX", "FE", "API", "QA", "SEC", "DOC"]
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["read_only", "scoped_write"]
+    },
+    "goal": { "type": "string", "minLength": 1 },
+    "context": { "type": "string" },
+    "user_constraints": { "type": "array", "items": { "type": "string" } },
+    "must_read": { "type": "array", "items": { "type": "string" } },
+    "allowed_files": { "type": "array", "items": { "type": "string" } },
+    "forbidden_files": { "type": "array", "items": { "type": "string" } },
+    "owned_paths": { "type": "array", "items": { "type": "string" } },
+    "depends_on": { "type": "array", "items": { "type": "string" } },
+    "expected_output": { "type": "array", "items": { "type": "string" } },
+    "acceptance": { "type": "array", "items": { "type": "string" } },
+    "verification": { "type": "array", "items": { "type": "string" } },
+    "deadline": { "type": "string" },
+    "handoff_to_integration_lead": { "type": "boolean" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "scoped_write" } } },
+      "then": {
+        "required": ["allowed_files", "forbidden_files", "owned_paths"],
+        "properties": {
+          "allowed_files": { "minItems": 1 },
+          "owned_paths": { "minItems": 1 }
+        }
+      }
+    }
+  ]
+}

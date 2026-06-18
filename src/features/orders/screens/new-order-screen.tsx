@@ -25,7 +25,6 @@ import type {
 } from "@/lib/repairdesk/api";
 import { NewOrderCustomerDeviceSection } from "@/features/orders/forms/new-order-customer-device-section";
 import { NewOrderFaultDiagnosisSection } from "@/features/orders/forms/new-order-fault-diagnosis-section";
-import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
 import {
   initialNewOrderForm,
@@ -36,6 +35,7 @@ import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { platformKeys } from "@/features/platform/api/query-keys";
+import { formatMoney } from "@/lib/money";
 import { detailWorkspace, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -117,13 +117,19 @@ export function NewOrderScreen({
     );
   }, [createStatuses, defaultCreateStatus]);
 
-  const total = useMemo(
-    () => form.faults.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
+  const validFaultDrafts = useMemo(
+    () => form.faults.filter((item) => item.name.trim()),
     [form.faults],
   );
-  const faultSummary = form.faults.map((item) => item.name).join("，");
+  const total = useMemo(
+    () => validFaultDrafts.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
+    [validFaultDrafts],
+  );
+  const faultSummary = validFaultDrafts.map((item) => item.name).join("，");
   const issueDescription =
     form.issue.trim() || faultSummary || "客户未补充故障描述，按所选故障项目检测。";
+  const createStatusLabel =
+    selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status;
 
   const selectHistoryDevice = useCallback((device: CustomerHistoryDeviceCandidate) => {
     setForm((current) => ({
@@ -263,7 +269,7 @@ export function NewOrderScreen({
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,
         warranty_change_reason: form.warrantyChangeReason || undefined,
-        fault_prices: toFaultPriceItems(form.faults.filter((item) => item.name.trim())),
+        fault_prices: toFaultPriceItems(validFaultDrafts),
         deposit_amount: form.deposit,
       }),
     onSuccess: ({ id }) => {
@@ -286,7 +292,7 @@ export function NewOrderScreen({
     form.customerPhone.trim() &&
     form.brand.trim() &&
     form.model.trim() &&
-    (form.faults.length > 0 || form.issue.trim()) &&
+    (validFaultDrafts.length > 0 || form.issue.trim()) &&
     form.deposit <= total &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
@@ -320,6 +326,8 @@ export function NewOrderScreen({
 
   return (
     <div
+      data-new-order-root="true"
+      data-new-order-surface={surface}
       className={cn(
         layoutGuards.noPageOverflow,
         surface === "dialog"
@@ -338,7 +346,7 @@ export function NewOrderScreen({
         <NewOrderMobileHeader
           form={form}
           operatorName={operatorName}
-          statusLabel={selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status}
+          statusLabel={createStatusLabel}
           valid={Boolean(valid)}
           total={total}
           defaultWarrantyMonths={defaultWarrantyMonths}
@@ -347,6 +355,7 @@ export function NewOrderScreen({
       ) : null}
 
       <form
+        data-new-order-form="true"
         onSubmit={(event) => {
           event.preventDefault();
           if (!valid) {
@@ -370,25 +379,34 @@ export function NewOrderScreen({
               "pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:pb-20 md:pt-0",
             ),
           surface === "dialog" &&
-            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-12 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-12 md:p-4 md:pt-12",
+            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pr-10 pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pr-12 sm:pt-3 md:p-4 md:pr-12 md:pt-3",
         )}
       >
-        <div className="mb-2 hidden min-w-0 justify-end gap-2 md:flex md:mb-3">
-          {surface === "page" && (
+        {surface === "page" ? (
+          <div className="mb-2 hidden min-w-0 justify-end gap-2 md:flex md:mb-3">
             <Button variant="outline" size="icon" className="size-9 shrink-0 rounded-full" asChild>
               <Link href="/orders" aria-label="关闭">
                 <X className="size-4" />
               </Link>
             </Button>
-          )}
-        </div>
+          </div>
+        ) : null}
+
+        <NewOrderDesktopHeader
+          form={form}
+          operatorName={operatorName}
+          statusLabel={createStatusLabel}
+          valid={Boolean(valid)}
+          total={total}
+          defaultWarrantyMonths={defaultWarrantyMonths}
+          surface={surface}
+        />
 
         <div
+          data-new-order-workspace-grid="true"
           className={cn(
-            "grid min-w-0 gap-1.5 sm:gap-3 lg:grid-cols-2",
-            surface === "dialog"
-              ? "xl:grid-cols-[minmax(280px,0.95fr)_minmax(420px,1.2fr)_minmax(310px,0.95fr)]"
-              : "xl:grid-cols-[minmax(280px,0.95fr)_minmax(420px,1.2fr)_minmax(310px,0.95fr)]",
+            "grid min-w-0 gap-1.5 sm:gap-3 md:gap-3 lg:grid-cols-2",
+            "2xl:grid-cols-[minmax(320px,0.92fr)_minmax(480px,1.28fr)_minmax(250px,0.68fr)]",
           )}
         >
           <div className="min-w-0">
@@ -405,15 +423,10 @@ export function NewOrderScreen({
           </div>
 
           <div className="min-w-0">
-            <NewOrderFaultDiagnosisSection form={form} setForm={setForm} surface={surface} />
-          </div>
-
-          <div className="min-w-0 lg:col-span-2 xl:col-span-1">
-            <NewOrderQuotationSection
+            <NewOrderFaultDiagnosisSection
               form={form}
               setForm={setForm}
               total={total}
-              operatorName={operatorName}
               onPatchFault={patchFault}
               onAddCustomFault={addCustomFault}
               createStatuses={createStatuses}
@@ -421,6 +434,17 @@ export function NewOrderScreen({
               surface={surface}
             />
           </div>
+
+          <aside className="hidden min-w-0 2xl:block">
+            <NewOrderDesktopSummaryPanel
+              form={form}
+              operatorName={operatorName}
+              statusLabel={createStatusLabel}
+              valid={Boolean(valid)}
+              total={total}
+              defaultWarrantyMonths={defaultWarrantyMonths}
+            />
+          </aside>
         </div>
 
         <NewOrderSubmitBar
@@ -429,8 +453,262 @@ export function NewOrderScreen({
           valid={Boolean(valid)}
           pending={create.isPending}
           onCancel={onCancel}
+          surface={surface}
         />
       </form>
+    </div>
+  );
+}
+
+function NewOrderDesktopHeader({
+  form,
+  operatorName,
+  statusLabel,
+  valid,
+  total,
+  defaultWarrantyMonths,
+  surface,
+}: {
+  form: NewOrderFormState;
+  operatorName: string;
+  statusLabel: string;
+  valid: boolean;
+  total: number;
+  defaultWarrantyMonths: number;
+  surface: "page" | "dialog";
+}) {
+  const customerReady = Boolean(form.customerPhone.trim());
+  const deviceReady = Boolean(form.brand.trim() && form.model.trim());
+  const diagnosisReady = Boolean(form.issue.trim() || form.faults.some((item) => item.name.trim()));
+  const warrantyReady =
+    !warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
+    Boolean(form.warrantyChangeReason.trim());
+  const readiness = [
+    { label: "客户", done: customerReady },
+    { label: "设备", done: deviceReady },
+    { label: "故障", done: diagnosisReady },
+    { label: "质保", done: warrantyReady },
+  ];
+
+  return (
+    <section
+      data-new-order-desktop-header="true"
+      className={cn(
+        "mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none md:grid md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] md:items-center md:gap-3 xl:grid-cols-[minmax(220px,0.85fr)_minmax(360px,1.2fr)_minmax(210px,0.7fr)]",
+        surface === "page" && "shadow-[var(--shadow-workspace)]",
+      )}
+    >
+      <div className="min-w-0">
+        <div className="text-[11px] font-medium leading-4 text-muted-foreground">
+          {surface === "dialog" ? "弹窗录入" : "工作台录入"}
+        </div>
+        <h1 className="truncate text-lg font-semibold leading-6">新建维修订单</h1>
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="truncate">{operatorName}</span>
+          <span className="size-1 rounded-full bg-muted-foreground/35" />
+          <span className="truncate">创建后进入 {statusLabel}</span>
+        </div>
+      </div>
+
+      <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2">
+        <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
+          <span className="truncate text-[11px] font-semibold leading-4">资料完整度</span>
+          <span
+            className={cn(
+              "inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
+              valid
+                ? "bg-status-success text-status-success-foreground"
+                : "bg-status-warn text-status-warn-foreground",
+            )}
+          >
+            {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
+            {valid ? "可创建" : "待补全"}
+          </span>
+        </div>
+        <div className="grid min-w-0 grid-cols-4 gap-1.5">
+          {readiness.map((item) => (
+            <span
+              key={item.label}
+              className={cn(
+                "inline-flex h-6 min-w-0 items-center justify-center rounded-md px-1.5 text-[10px] font-medium",
+                item.done
+                  ? "bg-status-success/45 text-status-success-foreground"
+                  : "bg-background text-muted-foreground",
+              )}
+            >
+              <span className="truncate">{item.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid min-w-0 justify-items-start gap-1.5 md:col-span-2 md:grid-cols-[auto_auto_auto] md:items-center md:justify-start xl:col-span-1 xl:grid-cols-none xl:justify-items-end">
+        <div className="text-[11px] font-medium leading-4 text-muted-foreground">预计总额</div>
+        <div className="font-mono text-xl font-semibold leading-6 tabular-nums">
+          {formatMoney(total)}
+        </div>
+        <div className="flex min-w-0 items-center gap-1.5 rounded-full bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary">
+          <ClipboardList className="size-3" />
+          <span className="truncate">{statusLabel}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NewOrderDesktopSummaryPanel({
+  form,
+  operatorName,
+  statusLabel,
+  valid,
+  total,
+  defaultWarrantyMonths,
+}: {
+  form: NewOrderFormState;
+  operatorName: string;
+  statusLabel: string;
+  valid: boolean;
+  total: number;
+  defaultWarrantyMonths: number;
+}) {
+  const namedFaults = form.faults.filter((item) => item.name.trim());
+  const balance = Math.max(0, total - form.deposit);
+  const warrantyReady =
+    !warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
+    Boolean(form.warrantyChangeReason.trim());
+  const checks = [
+    {
+      label: "客户",
+      value: form.customerPhone.trim() || "缺少电话",
+      done: Boolean(form.customerPhone.trim()),
+    },
+    {
+      label: "设备",
+      value: `${form.brand} ${form.model}`.trim() || "缺少品牌/型号",
+      done: Boolean(form.brand.trim() && form.model.trim()),
+    },
+    {
+      label: "故障",
+      value: form.issue.trim() || namedFaults[0]?.name || "缺少故障",
+      done: Boolean(form.issue.trim() || namedFaults.length),
+    },
+    {
+      label: "金额",
+      value:
+        form.deposit > total ? "定金超过合计" : `${formatMoney(total)} / ${namedFaults.length} 项`,
+      done: form.deposit <= total,
+    },
+    {
+      label: "质保",
+      value: form.warrantyText || formatWarrantyText(form.warrantyMonths),
+      done: warrantyReady,
+    },
+  ];
+
+  return (
+    <section
+      data-new-order-desktop-summary="true"
+      className="sticky top-3 grid min-w-0 gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2.5 shadow-[var(--shadow-workspace)]"
+    >
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium leading-4 text-muted-foreground">创建摘要</div>
+          <h2 className="truncate text-sm font-semibold leading-5">
+            {form.customerName.trim() || form.customerPhone.trim() || "新客户工单"}
+          </h2>
+        </div>
+        <span
+          className={cn(
+            "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
+            valid
+              ? "bg-status-success text-status-success-foreground"
+              : "bg-status-warn text-status-warn-foreground",
+          )}
+        >
+          {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
+          {valid ? "可创建" : "检查中"}
+        </span>
+      </div>
+
+      <div className="grid min-w-0 gap-1.5">
+        {checks.map((item) => (
+          <div
+            key={item.label}
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5"
+          >
+            <span
+              className={cn(
+                "grid size-5 shrink-0 place-items-center rounded-full",
+                item.done
+                  ? "bg-status-success text-status-success-foreground"
+                  : "bg-status-warn text-status-warn-foreground",
+              )}
+            >
+              {item.done ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-[10px] font-medium leading-3 text-muted-foreground">
+                {item.label}
+              </span>
+              <span className="block truncate text-xs font-semibold leading-4" title={item.value}>
+                {item.value}
+              </span>
+            </span>
+            <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+              {item.done ? "OK" : "待补"}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid min-w-0 gap-1 rounded-md border border-[var(--border-panel)] bg-card px-2 py-2">
+        <SummaryLine label="合计" value={formatMoney(total)} strong />
+        <SummaryLine label="定金" value={formatMoney(form.deposit)} />
+        <SummaryLine
+          label="尾款"
+          value={formatMoney(balance)}
+          strong={balance > 0}
+          danger={form.deposit > total}
+        />
+      </div>
+
+      <div className="grid min-w-0 gap-1 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px] leading-4">
+        <SummaryLine label="初始状态" value={statusLabel} />
+        <SummaryLine label="录入账号" value={operatorName || "当前登录账号"} />
+        <SummaryLine label="工单类型" value={form.type === "quick_repair" ? "快修" : "送修"} />
+      </div>
+
+      <p className="rounded-md bg-primary/5 px-2 py-1.5 text-[10px] leading-4 text-primary">
+        创建后会写入工单时间线；技师归属由当前账号决定，不在前台手动改写。
+      </p>
+    </section>
+  );
+}
+
+function SummaryLine({
+  label,
+  value,
+  strong,
+  danger,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <span className="truncate text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "shrink-0 truncate text-right font-mono text-xs tabular-nums",
+          strong && "font-semibold text-foreground",
+          danger && "text-status-danger-foreground",
+        )}
+        title={value}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -572,7 +850,7 @@ function NewOrderMobileHeader({
   const shellRef = useRef<HTMLDivElement | null>(null);
   const customerReady = Boolean(form.customerPhone.trim());
   const deviceReady = Boolean(form.brand.trim() && form.model.trim());
-  const diagnosisReady = Boolean(form.issue.trim() || form.faults.length > 0);
+  const diagnosisReady = Boolean(form.issue.trim() || form.faults.some((item) => item.name.trim()));
   const warrantyReady =
     !warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
     Boolean(form.warrantyChangeReason.trim());

@@ -4,9 +4,12 @@ import {
   assessBuybackCosmeticGrade,
   buildBuybackQuoteCreateInput,
   buildBuybackQuoteDraftInput,
+  buildBuybackQuoteDraftFromInventoryItem,
+  buildBuybackQuoteUpdateInput,
   buildBuybackQualityCheckInput,
   calculateBuybackQuote,
   defaultBuybackQuoteDraft,
+  getBuybackBatteryBand,
   getBuybackQuoteOffer,
   validateBuybackIntake,
   type BuybackQuoteDraft,
@@ -35,7 +38,7 @@ describe("buyback quote calculation", () => {
   it("calculates a final offer from market price, profit target and deductions", () => {
     const result = calculateBuybackQuote(pricedQuoteDraft);
 
-    expect(result.finalOffer).toBe(315);
+    expect(result.finalOffer).toBe(270);
     expect(result.marketMin).toBe(485);
     expect(result.marketMax).toBe(565);
     expect(result.deductions.map((item) => item.key)).toEqual([
@@ -82,6 +85,52 @@ describe("buyback quote calculation", () => {
         }),
       ]),
     );
+  });
+
+  it("maps battery health to explicit appraisal bands", () => {
+    expect(getBuybackBatteryBand(100)?.label).toBe("100%");
+    expect(getBuybackBatteryBand(98)?.label).toBe("97-99%");
+    expect(getBuybackBatteryBand(95)?.label).toBe("94-96%");
+    expect(getBuybackBatteryBand(92)?.deduction).toBe(15);
+    expect(getBuybackBatteryBand(89)?.deduction).toBe(22);
+    expect(getBuybackBatteryBand(86)?.deduction).toBe(30);
+    expect(getBuybackBatteryBand(83)?.deduction).toBe(40);
+    expect(getBuybackBatteryBand(80)?.deduction).toBe(55);
+    expect(getBuybackBatteryBand(77)?.deduction).toBe(70);
+    expect(getBuybackBatteryBand(74)?.deduction).toBe(85);
+    expect(getBuybackBatteryBand(71)?.deduction).toBe(105);
+    expect(getBuybackBatteryBand(69)?.deduction).toBe(130);
+  });
+
+  it("deducts battery value every three percent below full health", () => {
+    const result = calculateBuybackQuote({
+      ...pricedQuoteDraft,
+      battery_health: "95",
+    });
+
+    expect(result.deductions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "battery",
+          amount: 10,
+        }),
+      ]),
+    );
+  });
+
+  it("keeps a non-zero quote interval for iPhone 12 128GB with 79-81% battery health", () => {
+    const result = calculateBuybackQuote({
+      ...defaultBuybackQuoteDraft,
+      model: "iPhone 12",
+      storage_capacity: "128GB",
+      battery_health: "80",
+    });
+
+    expect(result.finalOffer).toBeGreaterThan(0);
+    expect(result.pricingFloor).toBeGreaterThanOrEqual(20);
+    expect(result.pricingCeiling).toBeGreaterThanOrEqual(result.pricingFloor);
+    expect(result.suggestedLow).toBeGreaterThanOrEqual(result.pricingFloor);
+    expect(result.suggestedHigh).toBeGreaterThanOrEqual(result.suggestedLow);
   });
 
   it("marks account lock issues as a hard block", () => {
@@ -154,6 +203,25 @@ describe("buyback quote calculation", () => {
     expect(input.notes).toContain("成交资料");
     expect(input.notes).not.toContain("YA1234567");
     expect(validateBuybackIntake(draft, result).canSave).toBe(true);
+  });
+
+  it("builds an update input with repair plan data for an existing buyback record", () => {
+    const draft: BuybackQuoteDraft = {
+      ...pricedQuoteDraft,
+      screen_condition: "cracked",
+      estimated_repair_cost: "85",
+      serial_or_imei: "356789012345678",
+    };
+    const result = calculateBuybackQuote(draft);
+    const input = buildBuybackQuoteUpdateInput(draft, result);
+
+    expect(input.buyback_price).toBe(result.finalOffer);
+    expect(input.repair_cost_amount).toBe(85);
+    expect(input.quote_payload?.buyback_repair_plan).toMatchObject({
+      issue_summary: expect.stringContaining("屏幕破裂"),
+      estimated_repair_cost: 85,
+    });
+    expect(input.notes).toContain("维修计划");
   });
 
   it("stores deferred quotes without counting them as purchased inventory cost", () => {
@@ -322,5 +390,68 @@ describe("buyback quote calculation", () => {
         legacy_payload: { buyback_quote: { final_offer: 485 } },
       } as unknown as InventoryListItem),
     ).toBe(485);
+  });
+
+  it("prefills a follow-up quote draft from an existing buyback record", () => {
+    const draft = buildBuybackQuoteDraftFromInventoryItem({
+      brand: "Apple",
+      model: "iPhone 13",
+      storage_capacity: "128GB",
+      color: "Blue",
+      serial_or_imei: "356789012345678",
+      customer_name: "Mario Rossi",
+      customer_phone: "+393331234567",
+      battery_health: 86,
+      activation_lock_status: "pass",
+      data_wipe_status: "unchecked",
+      repair_cost_amount: 20,
+      list_price: 320,
+      buyback_price: 0,
+      legacy_payload: {
+        buyback_quote: {
+          final_offer: 210,
+          intent_outcome: "accepted",
+          market_source: {
+            resale_reference: 320,
+            target_profit: 75,
+          },
+        },
+        buyback_device: {
+          purchase_region: "欧盟",
+          warranty_status: "已过保",
+          screen_condition: "屏幕破裂",
+          body_condition: "外观轻微磨损",
+          purchase_proof: true,
+          box_included: false,
+        },
+        buyback_function_checks: {
+          imei_check_status: "pass",
+          touch_status: "fail",
+          data_wipe_status: "unchecked",
+        },
+        buyback_customer: {
+          name: "Mario Rossi",
+          phone: "+393331234567",
+          signature_status: "signed",
+          signature_captured: true,
+          id_front_captured: true,
+        },
+      },
+    } as unknown as InventoryListItem);
+
+    expect(draft.customer_name).toBe("Mario Rossi");
+    expect(draft.model).toBe("iPhone 13");
+    expect(draft.storage_capacity).toBe("128GB");
+    expect(draft.market_price).toBe("320");
+    expect(draft.target_profit).toBe("75");
+    expect(draft.estimated_repair_cost).toBe("20");
+    expect(draft.battery_health).toBe("86");
+    expect(draft.screen_condition).toBe("cracked");
+    expect(draft.body_condition).toBe("light_wear");
+    expect(draft.imei_check_status).toBe("pass");
+    expect(draft.touch_status).toBe("fail");
+    expect(draft.customer_intent_confirmed).toBe(true);
+    expect(draft.activation_lock_off).toBe(true);
+    expect(draft.signature_captured).toBe(true);
   });
 });

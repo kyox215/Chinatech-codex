@@ -115,9 +115,11 @@ export const density = {
 
 export const repairOs = {
   mobilePage:
-    "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-3 pb-20 pt-3 sm:max-w-2xl md:max-w-7xl md:px-5 lg:px-6",
+    "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-3 pb-20 pt-3 sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 lg:px-6",
   mobileListFloatingPage:
-    "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 pb-24 pt-[var(--orders-mobile-header-offset,10rem)] sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-5 lg:px-6",
+    "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 pb-24 pt-[var(--orders-mobile-header-offset,10rem)] sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 md:pt-5 lg:px-6",
+  mobileUnifiedListPage:
+    "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 pb-24 pt-[var(--repair-os-list-header-offset,10rem)] sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 md:pt-5 lg:px-6",
   mobileFloatingPage:
     "min-w-0 space-y-1.5 pb-20 pt-[var(--repair-os-mobile-floating-offset,calc(env(safe-area-inset-top)+10.75rem))]",
   mobileListHeaderShell:
@@ -200,7 +202,7 @@ export const stateBlocks = {
   skeletonStack: "space-y-2",
   errorText: "text-sm text-status-danger-foreground",
   emptyIcon:
-    "mb-4 grid size-16 place-items-center rounded-2xl text-primary-foreground shadow-[var(--shadow-action)]",
+    "mx-auto mb-4 grid size-16 place-items-center rounded-2xl text-primary-foreground shadow-[var(--shadow-action)]",
   mutedHelp: "text-sm text-muted-foreground",
 } as const;
 

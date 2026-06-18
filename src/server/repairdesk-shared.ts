@@ -297,11 +297,14 @@ export function followupFromRow(row: DbRecord): CustomerFollowup {
 
 export function orderFromRow(row: DbRecord): RepairOrder {
   const status = row.status as RepairOrder["status"];
+  const balanceAmount = money(row.balance_amount);
+  const isPaid = Boolean(row.is_paid) || balanceAmount <= 0;
   const paymentStatus = paymentStatusFromMoney({
-    isPaid: Boolean(row.is_paid),
+    isPaid,
     depositAmount: money(row.deposit_amount),
-    balanceAmount: money(row.balance_amount),
+    balanceAmount,
   });
+  const storedPaymentStatus = maybeString(row.payment_status) as RepairOrder["payment_status"];
   return {
     id: requiredString(row.id),
     public_no: requiredString(row.public_no),
@@ -322,8 +325,7 @@ export function orderFromRow(row: DbRecord): RepairOrder {
             : maybeString(row.pause_reason)
               ? "paused"
               : undefined),
-    payment_status:
-      (maybeString(row.payment_status) as RepairOrder["payment_status"]) ?? paymentStatus,
+    payment_status: isPaid ? paymentStatus : (storedPaymentStatus ?? paymentStatus),
     approval_flow_status:
       (maybeString(row.approval_flow_status) as RepairOrder["approval_flow_status"]) ??
       approvalFlowStatusFromLegacyStatus(status, maybeString(row.approval_status)),
@@ -339,9 +341,9 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     diagnosis_result: maybeString(row.diagnosis_result),
     quotation_amount: money(row.quotation_amount),
     deposit_amount: money(row.deposit_amount),
-    balance_amount: money(row.balance_amount),
+    balance_amount: balanceAmount,
     currency_code: CURRENCY_CODE,
-    is_paid: Boolean(row.is_paid),
+    is_paid: isPaid,
     approval_status: row.approval_status as RepairOrder["approval_status"],
     approval_sent_at: maybeString(row.approval_sent_at),
     approval_confirmed_at: maybeString(row.approval_confirmed_at),

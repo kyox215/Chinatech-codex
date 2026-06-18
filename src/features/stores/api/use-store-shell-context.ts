@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getOnboardingStatus, getStoreContext } from "@/lib/repairdesk/api";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
+import { resolveStoreShellContext } from "@/features/stores/model/store-shell-context";
 
 export function useStoreShellContext() {
   const onboardingQuery = useQuery({
@@ -23,11 +24,12 @@ export function useStoreShellContext() {
     staleTime: 30_000,
   });
 
-  return {
-    activeStore: storeContextQuery.data?.activeStore ?? onboardingQuery.data?.activeStore,
-    stores: storeContextQuery.data?.stores ?? onboardingQuery.data?.stores ?? [],
-    isPlatformAdmin: Boolean(onboardingQuery.data?.isPlatformAdmin),
-    isLoading: onboardingQuery.isLoading || (hasActiveStore && storeContextQuery.isLoading),
-    isError: onboardingQuery.isError || storeContextQuery.isError,
-  };
+  return resolveStoreShellContext({
+    onboardingStatus: onboardingQuery.data,
+    storeContext: storeContextQuery.data,
+    onboardingLoading: onboardingQuery.isLoading,
+    storeContextLoading: storeContextQuery.isLoading,
+    onboardingError: onboardingQuery.isError,
+    storeContextError: storeContextQuery.isError,
+  });
 }

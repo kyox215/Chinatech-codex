@@ -1,98 +1,56 @@
 ---
-description: 三套页面骨架配方（Dashboard / 列表 / 详情）
-globs: src/routes/**
+description: Next.js 页面骨架与 RepairOS 页面配方
+globs: src/app/**,src/features/**/screens/**
 ---
 
 # 页面骨架配方
 
 每个新页面必须：
-1. 套用下方一种配方
-2. 配独立 `head()` meta（title / description / og:*）
-3. 包在 `<div className="mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6">` 中
-4. 入场动画用 `@/lib/motion` 的 `stagger` + `fadeUp`
 
-## 通用路由模板
+1. `src/app/*` 保持 thin route。
+2. 业务主体放 `src/features/*/screens`。
+3. 使用 `@/lib/ui-patterns` 和 `@/lib/component-patterns`。
+4. 入场动画只从 `@/lib/motion` 取。
+5. 移动端业务详情遵守 `docs/REPAIROS_MOBILE_DETAIL_STANDARD.md`。
 
-```tsx
-import { createFileRoute } from "@tanstack/react-router";
-
-export const Route = createFileRoute("/reports")({
-  head: () => ({
-    meta: [
-      { title: "报表 — RepairDesk" },
-      { name: "description", content: "门店经营报表与趋势分析" },
-      { property: "og:title", content: "报表 — RepairDesk" },
-      { property: "og:description", content: "门店经营报表与趋势分析" },
-    ],
-  }),
-  component: ReportsPage,
-});
-```
-
-## 配方 1 · Dashboard / 概览
-
-参考 `src/routes/index.tsx`。结构：
-
-```
-Hero greeting (左标题 + 右 CTA)
-KPI grid     (sm:grid-cols-2 lg:grid-cols-4，使用 glass-card + AnimatedNumber + Sparkline)
-图表行       (grid lg:grid-cols-3，主图占 2 列)
-列表卡片     (glass-card + divide-y)
-```
-
-## 配方 2 · 列表 / 表格
+## App Router Route
 
 ```tsx
-<div className="mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-6">
-  {/* 标题栏 */}
-  <header className="flex items-end justify-between">
-    <h1 className="font-display text-2xl">客户</h1>
-    <Button style={{ background: "var(--gradient-brand)" }}>新建</Button>
-  </header>
+import { CustomersScreen } from "@/features/customers/screens/customer-list-screen";
 
-  {/* 筛选条 */}
-  <div className="glass-card flex flex-wrap items-center gap-2 p-3">
-    <Input placeholder="搜索…" className="max-w-xs"/>
-    <Select>…</Select>
-  </div>
+export const metadata = {
+  title: "客户 — RepairDesk",
+  description: "客户档案与维修历史",
+};
 
-  {/* 表格 / 列表 */}
-  <div className="glass-card overflow-hidden">
-    <Table>…</Table>
-  </div>
-</div>
+export default function CustomersPage() {
+  return <CustomersScreen />;
+}
 ```
 
-空态：`<ComingSoon/>` 风格的居中卡片，含图标 + 文案 + CTA。
+## 列表页
 
-## 配方 3 · 详情 / 表单
+使用 RepairOS list scaffold 或现有 feature screen pattern：
 
-```tsx
-<div className="mx-auto max-w-7xl grid gap-6 px-3 py-6 sm:px-6 lg:grid-cols-[1fr_320px]">
-  <section className="glass-card p-6 space-y-6">…主信息…</section>
-  <aside className="space-y-4">
-    <div className="glass-card p-4">…操作…</div>
-    <div className="glass-card p-4">…历史…</div>
-  </aside>
-</div>
-```
+- 顶部状态栏固定但不压内容。
+- 搜索和分组 chips 不横向溢出。
+- 移动端卡片高密度，桌面端可切表格或多列。
+- 空态、加载态、错误态都要有。
 
-## 加载 / 错误 / 空态
+## 移动详情 / 工作流页
 
-```tsx
-{isLoading && <Skeleton className="h-32 w-full"/>}
-{isError   && <p className="text-status-danger-foreground">{error.message}</p>}
-{empty     && <div className="glass-card p-8 text-center text-muted-foreground">暂无数据</div>}
-```
+必须优先使用：
 
-## 入场动画
+- `repairOs.mobileFloatingPage`
+- `repairOs.mobileFloatingHeaderShell`
+- `repairOs.mobileFloatingHeaderCard`
+- `repairOs.mobileInfoCard`
 
-```tsx
-import { motion } from "framer-motion";
-import { fadeUp, stagger } from "@/lib/motion";
+信息顺序按任务场景组织：状态/下一步、客户、设备、故障/检测、报价/支付、附件/历史、底部高频动作。
 
-<motion.div variants={stagger(0.06)} initial="hidden" animate="show">
-  <motion.div variants={fadeUp}>…</motion.div>
-  <motion.div variants={fadeUp}>…</motion.div>
-</motion.div>
-```
+## Dialog / Sheet
+
+- 小表单使用单层 modal 容器。
+- 复杂业务详情使用沉浸式工作面或 RepairOS bottom sheet。
+- 滚动必须在明确 body 区域。
+- 不允许 Dialog 外盒 + glass-card + card 多层套壳。

@@ -121,9 +121,11 @@ export function CommandPalette({
                   onSelect={() => goOrder(o.id)}
                 >
                   <Wrench className="mr-2 size-4 opacity-60" />
-                  <span className="font-mono text-xs text-primary">{o.public_no}</span>
-                  <span className="ml-2 text-sm">{o.customer_name}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{o.device_label}</span>
+                  <span className="shrink-0 font-mono text-xs text-primary">{o.public_no}</span>
+                  <span className="ml-2 min-w-0 truncate text-sm">{o.customer_name}</span>
+                  <span className="ml-auto min-w-0 max-w-[45%] truncate text-right text-xs text-muted-foreground">
+                    {o.device_label}
+                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>

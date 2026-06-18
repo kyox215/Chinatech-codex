@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RepairDesk Multi-Agent Integration Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["agenda", "integration", "verification", "final_notes"],
+  "properties": {
+    "agenda": {
+      "type": "object",
+      "required": [
+        "goal",
+        "constraints",
+        "business_domains",
+        "technical_domains",
+        "risk",
+        "needs_web_research",
+        "agents_used"
+      ],
+      "properties": {
+        "goal": { "type": "string" },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "business_domains": { "type": "array", "items": { "type": "string" } },
+        "technical_domains": { "type": "array", "items": { "type": "string" } },
+        "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+        "needs_web_research": { "type": "boolean" },
+        "research_sources": { "type": "array", "items": { "type": "string" } },
+        "agents_used": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "required": ["files_changed", "summary", "important_decisions"],
+      "properties": {
+        "files_changed": { "type": "array", "items": { "type": "string" } },
+        "summary": { "type": "string" },
+        "important_decisions": { "type": "array", "items": { "type": "string" } },
+        "rejected_agent_suggestions": { "type": "array", "items": { "type": "string" } },
+        "conflicts_resolved": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["commands", "skipped"],
+      "properties": {
+        "commands": { "type": "array", "items": { "type": "string" } },
+        "browser": { "type": "array", "items": { "type": "string" } },
+        "skipped": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "final_notes": {
+      "type": "object",
+      "required": ["residual_risks"],
+      "properties": {
+        "residual_risks": { "type": "array", "items": { "type": "string" } },
+        "follow_up": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

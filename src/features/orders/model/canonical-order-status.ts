@@ -94,8 +94,8 @@ export function workflowStatusFromLegacyStatus(status: RepairOrderStatus): Order
   if (status === "diagnosing") return "diagnosis";
   if (["quoted", "waiting_approval"].includes(status)) return "quote";
   if (["parts_ordered", "parts_arrived"].includes(status)) return "parts";
-  if (status === "repairing") return "repair";
-  if (["repaired", "notified", "unfixed_pickup", "waiting_pickup"].includes(status)) {
+  if (["repairing", "repaired"].includes(status)) return "repair";
+  if (["notified", "unfixed_pickup", "waiting_pickup"].includes(status)) {
     return "pickup";
   }
   return "closed";

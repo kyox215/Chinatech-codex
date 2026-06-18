@@ -503,7 +503,7 @@ export async function listCustomers(
       fetchFollowupsForCustomerIds(customerIds),
     ]);
   fail(deviceError, "读取客户设备失败");
-  fail(followupError, "读取回访任务失败");
+  fail(followupError, "读取客户待办失败");
 
   const devices = ((deviceRows ?? []) as DbRecord[])
     .map(deviceFromRow)
@@ -725,7 +725,7 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
   fail(deviceError, "读取客户设备失败");
   fail(orderError, "读取客户工单失败");
   fail(interactionError, "读取客户联系记录失败");
-  fail(followupError, "读取客户回访失败");
+  fail(followupError, "读取客户待办失败");
 
   const customer = customerFromRow(customerRow);
   if (!customer) throw new Error("客户不存在");
@@ -967,9 +967,9 @@ export async function createCustomerFollowup(
   actor?: AuditActor,
 ): Promise<{ id: string }> {
   const storeId = requireStoreIdFromActor(actor);
-  if (!input.title.trim()) throw new Error("回访标题不能为空");
+  if (!input.title.trim()) throw new Error("待办标题不能为空");
   const due = new Date(input.due_at);
-  if (Number.isNaN(due.getTime())) throw new Error("回访时间不正确");
+  if (Number.isNaN(due.getTime())) throw new Error("待办时间不正确");
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
@@ -990,10 +990,10 @@ export async function createCustomerFollowup(
   if (missingStoreColumn(error, "customer_followups")) {
     const { store_id: _storeId, ...legacyPayload } = payload;
     const legacyResult = await supabase.from("customer_followups").insert(legacyPayload);
-    fail(legacyResult.error, "创建回访失败");
+    fail(legacyResult.error, "创建客户待办失败");
     return { id };
   }
-  fail(error, "创建回访失败");
+  fail(error, "创建客户待办失败");
   return { id };
 }
 
@@ -1017,10 +1017,10 @@ export async function completeCustomerFollowup(
       .update({ status: "done", completed_at: now, updated_at: now })
       .eq("id", followupId)
       .eq("customer_id", customerId);
-    fail(legacyResult.error, "完成回访失败");
+    fail(legacyResult.error, "完成客户待办失败");
     return { ok: true };
   }
-  fail(result.error, "完成回访失败");
+  fail(result.error, "完成客户待办失败");
   return { ok: true };
 }
 

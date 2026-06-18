@@ -6,6 +6,7 @@ import {
   applyAuthCookiePersistence,
   parseAuthPersistenceMode,
 } from "@/features/auth/model/auth-persistence";
+import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
 
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,6 +25,10 @@ export async function updateSession(request: NextRequest) {
   const hasAuthCookie = request.cookies
     .getAll()
     .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+
+  if (isRepairDeskE2eAuthBypassEnabled()) {
+    return NextResponse.next({ request });
+  }
 
   if (!supabaseUrl || !supabaseKey) {
     return NextResponse.next({ request });

@@ -39,4 +39,20 @@ describe("order task flow", () => {
       tone: "danger",
     });
   });
+
+  it("keeps repaired orders in the repair task stage until customer notification", () => {
+    expect(
+      getOrderTaskGuidance({
+        status: "repaired",
+        workflow_status: undefined,
+        approval_overdue: false,
+        pickup_overdue: false,
+      }),
+    ).toMatchObject({
+      workflowStatus: "repair",
+      label: "已修复",
+      nextAction: "通知取机",
+      tone: "success",
+    });
+  });
 });

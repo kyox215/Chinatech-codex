@@ -160,7 +160,7 @@ export function CustomerPhoneLookup({
         collisionPadding={12}
         sideOffset={6}
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="!w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-24px)] overflow-x-hidden p-1"
+        className="w-[calc(100vw-24px)] max-w-sm overflow-x-hidden p-1 sm:w-[var(--radix-popover-trigger-width)] sm:max-w-[calc(100vw-24px)]"
       >
         <div
           id={listboxId}
@@ -188,7 +188,7 @@ export function CustomerPhoneLookup({
                   role="option"
                   aria-selected={highlighted}
                   className={cn(
-                    "flex w-full min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors",
+                    "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors",
                     highlighted ? "bg-accent text-accent-foreground" : "hover:bg-accent/70",
                   )}
                   onMouseEnter={() => setHighlightedIndex(index)}
@@ -196,10 +196,10 @@ export function CustomerPhoneLookup({
                   onClick={() => pickCustomer(customer)}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold leading-4">
+                    <span className="block break-words text-sm font-semibold leading-5 sm:text-xs sm:leading-4">
                       {customer.name}
                     </span>
-                    <span className="block truncate font-mono text-[11px] leading-4 text-muted-foreground">
+                    <span className="block break-all font-mono text-xs leading-4 text-muted-foreground sm:text-[11px]">
                       {customer.phone_e164}
                       {customer.contact_phones.length
                         ? ` · 备用 ${customer.contact_phones.length}`

@@ -1,0 +1,45 @@
+---
+description: RepairDesk 多 Agent 部门化协作规则
+alwaysApply: true
+---
+
+# 多 Agent 部门化协作
+
+非简单任务先执行 agenda pass：
+
+1. 读 `AGENTS.md`。
+2. 读 `AI智能部门管理/部门化管理设计.md`。
+3. 读 `.agents/README.md`。
+4. 判断是否需要联网研究。
+5. 判断是否启用多 Agent。
+6. 指定部门、权限模式、文件范围和验收。
+
+## 部门
+
+- INT：主线程集成负责人。
+- FLOW：产品流程。
+- DATA：数据设计。
+- UX：页面设计。
+- FE：前端实现。
+- API：后端/API。
+- QA：验证。
+- SEC：安全隐私。
+- DOC：文档规则。
+
+## 权限
+
+- 子代理默认 `read_only`。
+- `scoped_write` 必须有明确 allowed files，且不能和其他写入代理重叠。
+- `integration_write` 只属于主线程。
+- 子代理不得最终合并、推送、部署、执行 destructive SQL 或处理 secret。
+
+## 验收
+
+最终汇总必须说明：
+
+- 使用了哪些部门/代理。
+- 做了什么。
+- 改了哪些文件。
+- 运行了哪些验证。
+- 哪些验证未运行以及原因。
+- 仍有哪些风险。

@@ -1,0 +1,204 @@
+version: 1
+status: active
+owner: Integration Lead
+last_reviewed: "2026-06-18"
+
+departments:
+  INT:
+    name: 集成负责人
+    mode: integration_write
+    owner: main_thread_only
+    roles:
+      - Integration Lead
+      - 任务分诊官
+      - 冲突仲裁人
+      - 最终验收负责人
+    responsibilities:
+      - task_intake
+      - agent_assignment
+      - conflict_resolution
+      - final_integration
+      - final_verification
+      - user_report
+    must_read:
+      - AGENTS.md
+      - AI智能部门管理/部门化管理设计.md
+      - .agents/README.md
+
+  FLOW:
+    name: 产品流程部
+    default_mode: read_only
+    roles:
+      - 订单流程架构师
+      - 回收流程顾问
+      - 门店角色模拟员
+      - 下一步动作设计师
+    trigger_keywords:
+      - 状态
+      - 流程
+      - 审批
+      - 付款
+      - 取机
+      - 回收
+      - 扫码
+      - 角色模拟
+    expected_output:
+      - workflow_table
+      - allowed_actions
+      - forbidden_actions
+      - edge_cases
+      - acceptance_criteria
+
+  DATA:
+    name: 数据设计部
+    default_mode: read_only
+    roles:
+      - 数据模型师
+      - Supabase契约负责人
+      - 查询性能顾问
+      - mock与测试数据维护员
+    trigger_keywords:
+      - 数据库
+      - migration
+      - API contract
+      - mock
+      - 查询性能
+      - 统计口径
+    must_read:
+      - src/lib/repairdesk/types.ts
+      - src/lib/repairdesk/api.ts
+    expected_output:
+      - data_contract_findings
+      - server_client_mock_consistency
+      - migration_risks
+
+  UX:
+    name: 页面设计部
+    default_mode: read_only
+    roles:
+      - RepairOS移动体验负责人
+      - 信息架构师
+      - 高密度布局设计师
+      - 响应式验收员
+    trigger_keywords:
+      - UI
+      - 布局
+      - 移动端
+      - 弹窗
+      - 卡片
+      - 高密度
+      - 视觉统一
+    must_read:
+      - docs/UI_PAGE_GENERATION_DECLARATION.md
+      - docs/COMPONENT_GENERATION_DECLARATION.md
+      - docs/RESPONSIVE_DENSITY_PLAN.md
+      - docs/REPAIROS_MOBILE_DETAIL_STANDARD.md
+      - src/lib/ui-patterns.ts
+      - src/lib/component-patterns.ts
+      - src/styles.css
+    expected_output:
+      - information_architecture
+      - responsive_matrix
+      - overflow_risks
+      - token_usage_rules
+
+  FE:
+    name: 前端实现部
+    default_mode: scoped_write_when_assigned
+    roles:
+      - Feature Screen工程师
+      - React Query工程师
+      - 表单交互工程师
+      - 移动端状态工程师
+    allowed_scope_examples:
+      - src/features/*/screens
+      - src/features/*/components
+      - src/shared/ui
+      - src/components
+    forbidden:
+      - server_only_imports_in_client
+      - unassigned_server_changes
+      - unrelated_refactors
+    expected_output:
+      - changed_files
+      - implementation_summary
+      - local_verification
+
+  API:
+    name: 后端/API部
+    default_mode: scoped_write_when_assigned
+    roles:
+      - Route Handler工程师
+      - 服务端规则守门人
+      - Zod契约维护员
+      - 错误结构设计师
+    allowed_scope_examples:
+      - src/app/api
+      - src/server
+      - src/features/*/server
+      - src/lib/repairdesk
+      - supabase/migrations
+    forbidden:
+      - destructive_sql_without_user_approval
+      - service_role_in_client
+      - client_only_business_rules_for_critical_flows
+    expected_output:
+      - contract_changes
+      - server_validation
+      - migration_notes
+
+  QA:
+    name: QA验收部
+    default_mode: read_only
+    roles:
+      - 回归测试负责人
+      - 移动端验收员
+      - 角色走查员
+      - 残余风险记录员
+    expected_output:
+      - test_plan
+      - command_results
+      - viewport_checks
+      - role_walkthrough
+      - residual_risks
+
+  SEC:
+    name: 安全隐私部
+    default_mode: read_only
+    roles:
+      - PII审计员
+      - 支付风控员
+      - 权限隔离审查员
+      - 附件与外部消息审查员
+    trigger_keywords:
+      - 客户资料
+      - PII
+      - 权限
+      - 支付
+      - 附件
+      - WhatsApp
+      - Supabase
+      - secret
+    expected_output:
+      - sensitive_data_risks
+      - auth_and_store_isolation_checks
+      - logging_and_storage_restrictions
+
+  DOC:
+    name: 文档规则部
+    default_mode: scoped_write_when_assigned
+    roles:
+      - 规则维护员
+      - 架构记录员
+      - 决策日志管理员
+      - 模板契约维护员
+    allowed_scope_examples:
+      - AGENTS.md
+      - AI智能部门管理
+      - .agents
+      - docs
+      - .cursor/rules
+    expected_output:
+      - rule_changes
+      - source_record
+      - conflict_notes

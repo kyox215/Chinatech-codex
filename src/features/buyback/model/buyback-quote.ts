@@ -5,6 +5,7 @@ import type {
   InventoryFunctionalGrade,
   InventoryListItem,
   InventoryQualityCheckInput,
+  UpdateInventoryItemInput,
 } from "@/lib/repairdesk/types";
 
 import { estimateAppleMarketPricing, type AppleMarketPricingSuggestion } from "./apple-price-guide";
@@ -111,6 +112,19 @@ export interface BuybackInspectionSummaryItem {
   tone: "success" | "warn" | "danger" | "neutral";
 }
 
+export interface BuybackRepairPlanItem {
+  key: string;
+  label: string;
+  detail: string;
+  priority: "low" | "medium" | "high";
+}
+
+export interface BuybackRepairPlan {
+  issueSummary: string;
+  items: BuybackRepairPlanItem[];
+  estimatedRepairCost: number;
+}
+
 export interface BuybackQuoteResult {
   resaleReference: number;
   marketMin: number;
@@ -119,10 +133,13 @@ export interface BuybackQuoteResult {
   suggestedHigh: number;
   systemOffer: number;
   finalOffer: number;
+  pricingFloor: number;
+  pricingCeiling: number;
   estimatedRepairCost: number;
   targetProfit: number;
   expectedProfit: number;
   deductions: BuybackQuoteDeduction[];
+  repairPlan: BuybackRepairPlan;
   riskLevel: BuybackQuoteRiskLevel;
   riskNotes: string[];
   approvalReasons: string[];
@@ -138,6 +155,134 @@ export interface BuybackIntakeValidation {
   missing: string[];
   hardBlockReasons: string[];
 }
+
+export interface BuybackBatteryBand {
+  key: string;
+  label: string;
+  value: string;
+  rangeLabel: string;
+  helper: string;
+  deduction: number;
+  scorePenalty: number;
+}
+
+export const buybackBatteryBands: BuybackBatteryBand[] = [
+  {
+    key: "b100",
+    label: "100%",
+    value: "100",
+    rangeLabel: "满电池健康",
+    helper: "接近新机，不扣减",
+    deduction: 0,
+    scorePenalty: 0,
+  },
+  {
+    key: "b97_99",
+    label: "97-99%",
+    value: "98",
+    rangeLabel: "高健康",
+    helper: "轻微折价",
+    deduction: 5,
+    scorePenalty: 1,
+  },
+  {
+    key: "b94_96",
+    label: "94-96%",
+    value: "95",
+    rangeLabel: "高健康",
+    helper: "小幅扣减",
+    deduction: 10,
+    scorePenalty: 2,
+  },
+  {
+    key: "b91_93",
+    label: "91-93%",
+    value: "92",
+    rangeLabel: "健康良好",
+    helper: "开始折价",
+    deduction: 15,
+    scorePenalty: 4,
+  },
+  {
+    key: "b88_90",
+    label: "88-90%",
+    value: "89",
+    rangeLabel: "正常可售",
+    helper: "轻度扣减",
+    deduction: 22,
+    scorePenalty: 6,
+  },
+  {
+    key: "b85_87",
+    label: "85-87%",
+    value: "86",
+    rangeLabel: "正常可售",
+    helper: "中轻度扣减",
+    deduction: 30,
+    scorePenalty: 9,
+  },
+  {
+    key: "b82_84",
+    label: "82-84%",
+    value: "83",
+    rangeLabel: "临近维护",
+    helper: "中等扣减",
+    deduction: 40,
+    scorePenalty: 12,
+  },
+  {
+    key: "b79_81",
+    label: "79-81%",
+    value: "80",
+    rangeLabel: "电池偏低",
+    helper: "明显扣减",
+    deduction: 55,
+    scorePenalty: 18,
+  },
+  {
+    key: "b76_78",
+    label: "76-78%",
+    value: "77",
+    rangeLabel: "电池偏低",
+    helper: "高扣减",
+    deduction: 70,
+    scorePenalty: 24,
+  },
+  {
+    key: "b73_75",
+    label: "73-75%",
+    value: "74",
+    rangeLabel: "需换电池",
+    helper: "按换电风险扣减",
+    deduction: 85,
+    scorePenalty: 30,
+  },
+  {
+    key: "b70_72",
+    label: "70-72%",
+    value: "71",
+    rangeLabel: "需换电池",
+    helper: "强扣减并建议复核",
+    deduction: 105,
+    scorePenalty: 35,
+  },
+  {
+    key: "b0_69",
+    label: "<70%",
+    value: "69",
+    rangeLabel: "重度老化",
+    helper: "极高扣减，谨慎成交",
+    deduction: 130,
+    scorePenalty: 42,
+  },
+];
+
+const sortedBuybackBatteryBands = buybackBatteryBands
+  .map((band) => ({
+    band,
+    floor: band.label.startsWith("<") ? 1 : Number(band.label.split("-")[0].replace("%", "")),
+  }))
+  .sort((a, b) => b.floor - a.floor);
 
 const cosmeticDeductions: Record<BuybackCosmeticGrade, number> = {
   s: 0,
@@ -503,15 +648,36 @@ export function calculateBuybackQuote(draft: BuybackQuoteDraft): BuybackQuoteRes
       : "low";
 
   const deductionTotal = deductions.reduce((sum, item) => sum + item.amount, 0);
-  const systemOffer = roundToFive(
+  const rawSystemOffer = roundToFive(
     Math.max(0, resaleReference - targetProfit - estimatedRepairCost - deductionTotal),
+  );
+  const pricingFloor = getBuybackPricingFloor({
+    resaleReference,
+    estimatedRepairCost,
+    hardBlock,
+    marketSuggestion,
+  });
+  const rawPricingCeiling = getBuybackPricingCeiling({
+    resaleReference,
+    targetProfit,
+    estimatedRepairCost,
+    marketSuggestion,
+  });
+  const pricingCeiling = hardBlock ? rawPricingCeiling : Math.max(pricingFloor, rawPricingCeiling);
+  const systemOffer = roundToFive(
+    hardBlock ? rawSystemOffer : Math.min(pricingCeiling, Math.max(pricingFloor, rawSystemOffer)),
   );
   const manualOffer = positiveMoney(draft.manual_offer, 0);
   const finalOffer = manualOffer > 0 ? roundMoney(manualOffer) : systemOffer;
-  const suggestedLow = roundToFive(Math.max(0, systemOffer - 30));
-  const suggestedHigh = Math.max(systemOffer, roundToFive(systemOffer + 20));
+  const suggestedLow = hardBlock
+    ? roundToFive(Math.max(0, Math.min(systemOffer, systemOffer - 25)))
+    : roundToFive(Math.min(systemOffer, Math.max(pricingFloor, systemOffer - 25)));
+  const suggestedHigh = hardBlock
+    ? roundToFive(Math.max(systemOffer, suggestedLow))
+    : roundToFive(Math.max(suggestedLow, Math.min(pricingCeiling, systemOffer + 20)));
   const marketMin = roundToFive(Math.max(0, resaleReference - 35));
   const marketMax = roundToFive(resaleReference + 45);
+  const repairPlan = buildBuybackRepairPlan(draft, estimatedRepairCost, batteryHealth);
 
   const approvalReasons: string[] = [];
   if (manualOffer > 0 && manualOffer > suggestedHigh * 1.1) {
@@ -531,10 +697,13 @@ export function calculateBuybackQuote(draft: BuybackQuoteDraft): BuybackQuoteRes
     suggestedHigh,
     systemOffer,
     finalOffer,
+    pricingFloor,
+    pricingCeiling,
     estimatedRepairCost,
     targetProfit,
     expectedProfit: roundMoney(resaleReference - finalOffer - estimatedRepairCost),
     deductions,
+    repairPlan,
     riskLevel,
     riskNotes,
     approvalReasons,
@@ -566,6 +735,7 @@ export function buildBuybackQuoteCreateInput(
     quote_expires_at: quoteExpiresAt,
     list_price: result.resaleReference,
     buyback_price: result.finalOffer,
+    repair_cost_amount: result.estimatedRepairCost,
     notes: buildBuybackQuoteNotes(draft, result),
     quote_payload: buildBuybackQuotePayload(draft, result, quoteExpiresAt, "accepted"),
   };
@@ -592,8 +762,44 @@ export function buildBuybackQuoteDraftInput(
     quote_expires_at: quoteExpiresAt,
     list_price: result.resaleReference,
     buyback_price: 0,
+    repair_cost_amount: result.estimatedRepairCost,
     notes: `${buildBuybackQuoteNotes(draft, result)}\n客户意向：${intentOutcomeLabel(outcome)}`,
     quote_payload: buildBuybackQuotePayload(draft, result, quoteExpiresAt, outcome),
+  };
+}
+
+export function buildBuybackQuoteUpdateInput(
+  draft: BuybackQuoteDraft,
+  result: BuybackQuoteResult,
+): UpdateInventoryItemInput {
+  const createInput = buildBuybackQuoteCreateInput(draft, result);
+  return inventoryUpdateFromIntakeInput(createInput);
+}
+
+export function buildBuybackQuoteDraftUpdateInput(
+  draft: BuybackQuoteDraft,
+  result: BuybackQuoteResult,
+  outcome: Extract<BuybackCustomerIntentOutcome, "deferred"> = "deferred",
+): UpdateInventoryItemInput {
+  const draftInput = buildBuybackQuoteDraftInput(draft, result, outcome);
+  return inventoryUpdateFromIntakeInput(draftInput);
+}
+
+function inventoryUpdateFromIntakeInput(
+  createInput: CreateInventoryIntakeInput,
+): UpdateInventoryItemInput {
+  return {
+    category: createInput.category,
+    brand: createInput.brand,
+    model: createInput.model,
+    color: createInput.color,
+    storage_capacity: createInput.storage_capacity,
+    serial_or_imei: createInput.serial_or_imei,
+    buyback_price: createInput.buyback_price,
+    list_price: createInput.list_price,
+    repair_cost_amount: createInput.repair_cost_amount,
+    notes: createInput.notes,
+    quote_payload: createInput.quote_payload,
   };
 }
 
@@ -613,6 +819,9 @@ function buildBuybackQuotePayload(
       suggested_high: result.suggestedHigh,
       market_min: result.marketMin,
       market_max: result.marketMax,
+      pricing_floor: result.pricingFloor,
+      pricing_ceiling: result.pricingCeiling,
+      estimated_repair_cost: result.estimatedRepairCost,
       expected_profit: result.expectedProfit,
       risk_level: result.riskLevel,
       risk_notes: result.riskNotes,
@@ -645,6 +854,12 @@ function buildBuybackQuotePayload(
       body_condition: bodyLabels[draft.body_condition],
       box_included: draft.box_included,
       purchase_proof: draft.purchase_proof,
+    },
+    buyback_repair_plan: {
+      issue_summary: result.repairPlan.issueSummary,
+      estimated_repair_cost: result.repairPlan.estimatedRepairCost,
+      items: result.repairPlan.items,
+      cost_basis: "pre_purchase_estimate",
     },
     buyback_function_checks: Object.fromEntries(
       buybackFunctionTestItems.map((item) => [item.key, draft[item.key]]),
@@ -679,6 +894,110 @@ export function getBuybackRiskLevel(item: InventoryListItem): BuybackQuoteRiskLe
 export function getBuybackQuotePayload(item: InventoryListItem) {
   const payload = item.legacy_payload?.buyback_quote;
   return isRecord(payload) ? payload : {};
+}
+
+export function buildBuybackQuoteDraftFromInventoryItem(
+  item: InventoryListItem,
+): BuybackQuoteDraft {
+  const quotePayload = getBuybackQuotePayload(item);
+  const legacyPayload = isRecord(item.legacy_payload) ? item.legacy_payload : {};
+  const devicePayload = isRecord(legacyPayload.buyback_device) ? legacyPayload.buyback_device : {};
+  const customerPayload = isRecord(legacyPayload.buyback_customer)
+    ? legacyPayload.buyback_customer
+    : {};
+  const checksPayload = isRecord(legacyPayload.buyback_function_checks)
+    ? legacyPayload.buyback_function_checks
+    : {};
+  const marketSource = isRecord(quotePayload.market_source) ? quotePayload.market_source : {};
+  const intentOutcome = buybackIntentFromPayload(quotePayload.intent_outcome);
+  const signatureStatus = stringFromPayload(
+    customerPayload.signature_status,
+    defaultBuybackQuoteDraft.customer_signature_status,
+  );
+
+  return {
+    ...defaultBuybackQuoteDraft,
+    customer_name: stringFromPayload(customerPayload.name, item.customer_name ?? ""),
+    customer_phone: stringFromPayload(customerPayload.phone, item.customer_phone ?? ""),
+    customer_signature_status: signatureStatus === "signed" ? "signed" : "pending",
+    brand: item.brand || defaultBuybackQuoteDraft.brand,
+    model: item.model || "",
+    storage_capacity: item.storage_capacity ?? "",
+    color: item.color ?? "",
+    serial_or_imei: item.serial_or_imei ?? "",
+    purchase_region: stringFromPayload(
+      devicePayload.purchase_region,
+      defaultBuybackQuoteDraft.purchase_region,
+    ),
+    warranty_status: stringFromPayload(
+      devicePayload.warranty_status,
+      defaultBuybackQuoteDraft.warranty_status,
+    ),
+    market_price: moneyDraftValue(
+      numberFromPayload(marketSource.resale_reference) ||
+        numberFromPayload(quotePayload.market_min) ||
+        item.list_price,
+    ),
+    target_profit: moneyDraftValue(
+      numberFromPayload(marketSource.target_profit) ||
+        numberFromPayload(quotePayload.target_profit) ||
+        Number(defaultBuybackQuoteDraft.target_profit),
+    ),
+    estimated_repair_cost: moneyDraftValue(item.repair_cost_amount),
+    cosmetic_grade: cosmeticGradeFromPayload(devicePayload.cosmetic_grade),
+    screen_condition: screenConditionFromPayload(devicePayload.screen_condition),
+    body_condition: bodyConditionFromPayload(devicePayload.body_condition),
+    battery_health: moneyDraftValue(
+      item.battery_health ?? numberFromPayload(devicePayload.battery_health),
+    ),
+    imei_check_status: inspectionFromPayload(
+      checksPayload.imei_check_status,
+      item.imei_check_status,
+    ),
+    face_id_status: inspectionFromPayload(checksPayload.face_id_status),
+    screen_display_status: inspectionFromPayload(checksPayload.screen_display_status),
+    touch_status: inspectionFromPayload(checksPayload.touch_status),
+    front_camera_status: inspectionFromPayload(checksPayload.front_camera_status),
+    back_camera_status: inspectionFromPayload(checksPayload.back_camera_status),
+    camera_status: inspectionFromPayload(checksPayload.camera_status),
+    flash_status: inspectionFromPayload(checksPayload.flash_status),
+    charging_status: inspectionFromPayload(checksPayload.charging_status),
+    wireless_charging_status: inspectionFromPayload(checksPayload.wireless_charging_status),
+    microphone_status: inspectionFromPayload(checksPayload.microphone_status),
+    receiver_status: inspectionFromPayload(checksPayload.receiver_status),
+    speaker_status: inspectionFromPayload(checksPayload.speaker_status),
+    buttons_status: inspectionFromPayload(checksPayload.buttons_status),
+    vibration_status: inspectionFromPayload(checksPayload.vibration_status),
+    wifi_status: inspectionFromPayload(checksPayload.wifi_status),
+    bluetooth_status: inspectionFromPayload(checksPayload.bluetooth_status),
+    cellular_status: inspectionFromPayload(checksPayload.cellular_status),
+    gps_status: inspectionFromPayload(checksPayload.gps_status),
+    nfc_status: inspectionFromPayload(checksPayload.nfc_status),
+    true_tone_status: inspectionFromPayload(checksPayload.true_tone_status),
+    water_damage_status: inspectionFromPayload(checksPayload.water_damage_status),
+    repair_history_status: inspectionFromPayload(checksPayload.repair_history_status),
+    data_wipe_status: inspectionFromPayload(checksPayload.data_wipe_status, item.data_wipe_status),
+    account_unlocked: item.activation_lock_status === "pass",
+    activation_lock_off: item.activation_lock_status === "pass",
+    purchase_proof: booleanFromPayload(
+      devicePayload.purchase_proof,
+      defaultBuybackQuoteDraft.purchase_proof,
+    ),
+    box_included: booleanFromPayload(
+      devicePayload.box_included,
+      defaultBuybackQuoteDraft.box_included,
+    ),
+    customer_intent_outcome: intentOutcome,
+    customer_intent_confirmed: intentOutcome === "accepted",
+    device_photo_captured: booleanFromPayload(customerPayload.device_photo_captured, false),
+    id_front_captured: booleanFromPayload(customerPayload.id_front_captured, false),
+    id_back_captured: booleanFromPayload(customerPayload.id_back_captured, false),
+    signature_captured: booleanFromPayload(customerPayload.signature_captured, false),
+    invoice_photo_captured: booleanFromPayload(customerPayload.invoice_photo_captured, false),
+    box_photo_captured: booleanFromPayload(customerPayload.box_photo_captured, false),
+    manual_offer: moneyDraftValue(numberFromPayload(quotePayload.final_offer)),
+    manual_reason: "",
+  };
 }
 
 export function buildWhatsappQuoteMessage(draft: BuybackQuoteDraft, result: BuybackQuoteResult) {
@@ -787,7 +1106,10 @@ function buildBuybackQuoteNotes(draft: BuybackQuoteDraft, result: BuybackQuoteRe
   const lines = [
     `回收报价：€${result.finalOffer.toFixed(2)}`,
     `市场参考：€${result.marketMin.toFixed(0)} - €${result.marketMax.toFixed(0)}`,
+    `报价下限/上限：€${result.pricingFloor.toFixed(0)} - €${result.pricingCeiling.toFixed(0)}`,
     `风险等级：${riskLabel(result.riskLevel)}`,
+    `维修计划：${result.repairPlan.issueSummary}`,
+    `预计维修成本：€${result.estimatedRepairCost.toFixed(2)}`,
     `检测摘要：${result.inspectionItems.map((item) => `${item.label} ${item.value}`).join(" / ")}`,
   ];
   if (draft.manual_reason.trim()) lines.push(`人工改价原因：${draft.manual_reason.trim()}`);
@@ -893,12 +1215,141 @@ function buildInspectionItems(
   ];
 }
 
+export function getBuybackBatteryBand(health: number) {
+  if (health <= 0) return undefined;
+  return sortedBuybackBatteryBands.find(({ floor }) => health >= floor)?.band;
+}
+
 function getBatteryDeduction(health: number) {
-  if (health <= 0 || health >= 90) return 0;
-  if (health >= 85) return 15;
-  if (health >= 80) return 30;
-  if (health >= 70) return 55;
-  return 85;
+  return getBuybackBatteryBand(health)?.deduction ?? 0;
+}
+
+function getBuybackPricingFloor({
+  resaleReference,
+  estimatedRepairCost,
+  hardBlock,
+  marketSuggestion,
+}: {
+  resaleReference: number;
+  estimatedRepairCost: number;
+  hardBlock: boolean;
+  marketSuggestion?: AppleMarketPricingSuggestion;
+}) {
+  if (hardBlock || resaleReference <= 0) return 0;
+  const guideFloor = marketSuggestion
+    ? marketSuggestion.matched.buybackFloorEur + marketSuggestion.storagePremium * 0.45
+    : resaleReference * 0.28;
+  const repairPressure = Math.min(estimatedRepairCost * 0.35, guideFloor * 0.45);
+  return roundToFive(Math.max(20, guideFloor - repairPressure));
+}
+
+function getBuybackPricingCeiling({
+  resaleReference,
+  targetProfit,
+  estimatedRepairCost,
+  marketSuggestion,
+}: {
+  resaleReference: number;
+  targetProfit: number;
+  estimatedRepairCost: number;
+  marketSuggestion?: AppleMarketPricingSuggestion;
+}) {
+  if (resaleReference <= 0) return 0;
+  const marketCeiling =
+    marketSuggestion?.preInspectionCeiling ?? resaleReference - Math.max(75, targetProfit * 0.65);
+  return roundToFive(Math.max(0, marketCeiling - estimatedRepairCost * 0.25));
+}
+
+function buildBuybackRepairPlan(
+  draft: BuybackQuoteDraft,
+  estimatedRepairCost: number,
+  batteryHealth: number,
+): BuybackRepairPlan {
+  const items: BuybackRepairPlanItem[] = [];
+  const add = (
+    key: string,
+    label: string,
+    detail: string,
+    priority: BuybackRepairPlanItem["priority"] = "medium",
+  ) => {
+    if (items.some((item) => item.key === key)) return;
+    items.push({ key, label, detail, priority });
+  };
+
+  if (draft.screen_condition === "deep_scratches") {
+    add("screen_cosmetic", "屏幕明显划痕", "检查是否需要换屏或作为售价折扣说明", "low");
+  }
+  if (draft.screen_condition === "cracked") {
+    add("screen_cracked", "屏幕破裂", "订购屏幕总成并记录实际换屏成本", "high");
+  }
+  if (draft.screen_condition === "display_issue" || draft.screen_display_status === "fail") {
+    add("display_issue", "显示异常", "复测显示排线/屏幕总成，维修后再上架", "high");
+  }
+  if (draft.touch_status === "fail") {
+    add("touch_issue", "触控异常", "检测触控层或屏幕总成，维修后复测", "high");
+  }
+  if (batteryHealth > 0 && batteryHealth < 82) {
+    add("battery_service", "电池健康偏低", "订购电池并把实际电池成本记入维修成本", "medium");
+  }
+  if (draft.face_id_status === "fail") {
+    add(
+      "biometric_issue",
+      "Face ID / Touch ID 异常",
+      "标记生物识别风险，通常不建议承诺修复",
+      "high",
+    );
+  }
+  if (hasAnyFailed(draft.front_camera_status, draft.back_camera_status, draft.camera_status)) {
+    add("camera_issue", "相机异常", "检测前后摄像头并记录配件成本", "medium");
+  }
+  if (draft.flash_status === "fail") {
+    add("flash_issue", "闪光灯异常", "复测闪光灯/后摄排线", "low");
+  }
+  if (draft.charging_status === "fail") {
+    add("charging_issue", "充电异常", "检测尾插、排线或无线充电模块", "medium");
+  }
+  if (hasAnyFailed(draft.microphone_status, draft.receiver_status, draft.speaker_status)) {
+    add("audio_issue", "音频异常", "检测麦克风、听筒或扬声器并记录配件成本", "medium");
+  }
+  if (hasAnyFailed(draft.buttons_status, draft.vibration_status)) {
+    add("button_vibration_issue", "按键/震动异常", "检测按键排线、静音键或震动马达", "medium");
+  }
+  if (hasAnyFailed(draft.wifi_status, draft.bluetooth_status, draft.cellular_status)) {
+    add("network_issue", "网络功能异常", "复测 Wi-Fi/蓝牙/蜂窝网络，必要时转主板维修", "high");
+  }
+  if (hasAnyFailed(draft.gps_status, draft.nfc_status)) {
+    add("gps_nfc_issue", "定位 / NFC 异常", "复测定位、NFC 与相关天线模块", "medium");
+  }
+  if (draft.water_damage_status === "fail") {
+    add("liquid_damage", "进水/液体痕迹", "先做主板风险复核，必要时只按拆件处理", "high");
+  }
+  if (draft.repair_history_status === "fail") {
+    add("repair_history", "有拆修痕迹", "记录拆修风险，维修前复查屏幕、电池和主板", "medium");
+  }
+  if (draft.body_condition === "heavy_wear" || draft.body_condition === "bent") {
+    add(
+      "housing_condition",
+      draft.body_condition === "bent" ? "机身变形" : "外观重度磨损",
+      "评估是否更换外壳或作为售价折扣说明",
+      draft.body_condition === "bent" ? "high" : "low",
+    );
+  }
+  if (estimatedRepairCost > 0 && items.length === 0) {
+    add(
+      "manual_repair_cost",
+      "人工整备成本",
+      "已预留维修/订货成本，维修后用实际成本覆盖",
+      "medium",
+    );
+  }
+
+  return {
+    issueSummary: items.length
+      ? items.map((item) => item.label).join(" / ")
+      : "未记录明确故障，按常规清洁整备",
+    items,
+    estimatedRepairCost,
+  };
 }
 
 function pushDeduction(items: BuybackQuoteDeduction[], key: string, label: string, amount: number) {
@@ -1068,11 +1519,7 @@ export function assessBuybackCosmeticGrade(draft: BuybackQuoteDraft): BuybackCos
 }
 
 function getBatteryScorePenalty(health: number) {
-  if (health >= 90 || health <= 0) return 0;
-  if (health >= 85) return 6;
-  if (health >= 80) return 12;
-  if (health >= 70) return 22;
-  return 35;
+  return getBuybackBatteryBand(health)?.scorePenalty ?? 0;
 }
 
 function capCosmeticGrade(current: BuybackCosmeticGrade, maxGrade: BuybackCosmeticGrade) {
@@ -1143,6 +1590,66 @@ function riskLabel(risk: BuybackQuoteRiskLevel) {
   if (risk === "high") return "高风险";
   if (risk === "medium") return "中风险";
   return "低风险";
+}
+
+function stringFromPayload(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function numberFromPayload(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function moneyDraftValue(value: unknown) {
+  const numberValue = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  if (numberValue <= 0) return "";
+  return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(2);
+}
+
+function booleanFromPayload(value: unknown, fallback: boolean) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function inspectionFromPayload(
+  value: unknown,
+  fallback?: InventoryCheckStatus,
+): BuybackInspectionStatus {
+  if (value === "pass" || value === "fail" || value === "unchecked" || value === "not_applicable") {
+    return value;
+  }
+  if (fallback === "pass" || fallback === "fail" || fallback === "unchecked") return fallback;
+  return "unchecked";
+}
+
+function buybackIntentFromPayload(value: unknown): BuybackCustomerIntentOutcome {
+  if (value === "accepted" || value === "rejected" || value === "deferred") return value;
+  return "undecided";
+}
+
+function cosmeticGradeFromPayload(value: unknown): BuybackCosmeticGrade {
+  if (typeof value !== "string") return defaultBuybackQuoteDraft.cosmetic_grade;
+  const entry = Object.entries(cosmeticLabels).find(([, label]) => label === value);
+  return (
+    (entry?.[0] as BuybackCosmeticGrade | undefined) ?? defaultBuybackQuoteDraft.cosmetic_grade
+  );
+}
+
+function screenConditionFromPayload(value: unknown): BuybackQuoteDraft["screen_condition"] {
+  if (typeof value !== "string") return defaultBuybackQuoteDraft.screen_condition;
+  const entry = Object.entries(screenLabels).find(([, label]) => label === value);
+  return (
+    (entry?.[0] as BuybackQuoteDraft["screen_condition"] | undefined) ??
+    defaultBuybackQuoteDraft.screen_condition
+  );
+}
+
+function bodyConditionFromPayload(value: unknown): BuybackQuoteDraft["body_condition"] {
+  if (typeof value !== "string") return defaultBuybackQuoteDraft.body_condition;
+  const entry = Object.entries(bodyLabels).find(([, label]) => label === value);
+  return (
+    (entry?.[0] as BuybackQuoteDraft["body_condition"] | undefined) ??
+    defaultBuybackQuoteDraft.body_condition
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

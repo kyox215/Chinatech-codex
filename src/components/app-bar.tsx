@@ -88,7 +88,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
         <button
           type="button"
           onClick={onOpenCommand}
-          className="ml-0 flex size-10 min-w-0 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:text-foreground md:ml-auto md:h-9 md:w-56 md:shrink md:justify-start md:gap-2 md:rounded-md md:bg-surface/60 md:px-3 md:shadow-none lg:w-64 xl:w-80"
+          className="ml-0 flex size-10 min-w-0 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:text-foreground md:ml-auto md:h-9 md:w-56 md:shrink md:justify-start md:gap-2 md:rounded-md md:bg-surface/60 md:px-3 md:shadow-none lg:w-56 xl:w-80"
         >
           <Search className="size-4" />
           <span className="hidden min-w-0 truncate text-sm md:inline">搜索工单、客户…</span>
@@ -111,7 +111,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
         {shell.isPlatformAdmin ? (
           <Link
             href="/platform"
-            className="hidden h-9 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground lg:inline-flex"
+            className="hidden h-9 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground xl:inline-flex"
           >
             <ShieldCheck className="size-3.5 text-primary" />
             <span className="font-medium">平台</span>
@@ -120,7 +120,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
 
         <Link
           href="/settings"
-          className="hidden h-9 max-w-44 min-w-0 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground lg:inline-flex"
+          className="hidden h-9 max-w-44 min-w-0 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground xl:inline-flex"
         >
           <Store className="size-3.5 text-muted-foreground" />
           <span className="min-w-0 truncate font-medium">{activeStoreName}</span>
@@ -137,7 +137,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
           onClick={handleNewOrder}
         >
           <Plus className="size-4" />
-          <span className="hidden md:inline">新建</span>
+          <span className="hidden xl:inline">新建</span>
         </Button>
       </div>
     </motion.header>

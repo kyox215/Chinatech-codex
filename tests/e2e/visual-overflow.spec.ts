@@ -60,13 +60,13 @@ test.describe("responsive overflow guard", () => {
     const overviewBox = await dialog.boundingBox();
     expect(overviewBox).not.toBeNull();
 
-    await page.getByRole("button", { name: "附件库存" }).click();
-    await expect(page.getByText("暂无与该工单关联的库存记录。")).toBeVisible();
+    await dialog.getByRole("button", { name: "记录" }).click();
+    await expect(dialog.locator('[data-order-records-workspace="true"]')).toBeVisible();
     await page.waitForTimeout(250);
-    const assetsBox = await dialog.boundingBox();
-    expect(assetsBox).not.toBeNull();
-    expect(Math.abs((assetsBox?.width ?? 0) - (overviewBox?.width ?? 0))).toBeLessThanOrEqual(1);
-    expect(Math.abs((assetsBox?.height ?? 0) - (overviewBox?.height ?? 0))).toBeLessThanOrEqual(1);
+    const recordsBox = await dialog.boundingBox();
+    expect(recordsBox).not.toBeNull();
+    expect(Math.abs((recordsBox?.width ?? 0) - (overviewBox?.width ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((recordsBox?.height ?? 0) - (overviewBox?.height ?? 0))).toBeLessThanOrEqual(1);
     await expectNoPageOverflow(page);
   });
 });

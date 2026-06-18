@@ -17,12 +17,60 @@ import { DEFAULT_STORE_SETTINGS, withStoreSettingsDefaults } from "./message-tem
 
 export type TemplateContext = Record<string, string | number | boolean | null | undefined>;
 
+export type TemplateHealthTone = "success" | "warning" | "danger" | "neutral";
+
+export interface TemplateHealthIssue {
+  key: string;
+  label: string;
+  tone: Exclude<TemplateHealthTone, "success">;
+}
+
+export interface TemplateHealth {
+  label: string;
+  detail: string;
+  tone: TemplateHealthTone;
+  canSend: boolean;
+  canSave: boolean;
+  issues: TemplateHealthIssue[];
+}
+
 const TEMPLATE_VARIABLE_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 
 export function extractTemplateVariables(bodyTemplate: string) {
   return Array.from(
     new Set(Array.from(bodyTemplate.matchAll(TEMPLATE_VARIABLE_PATTERN)).map((match) => match[1])),
   ).sort((left, right) => left.localeCompare(right));
+}
+
+export function getUnknownTemplateVariables(
+  bodyTemplate: string,
+  allowedVariables: readonly string[],
+) {
+  const allowed = new Set(allowedVariables);
+  return extractTemplateVariables(bodyTemplate).filter((variable) => !allowed.has(variable));
+}
+
+export function insertTemplateVariable(
+  bodyTemplate: string,
+  variable: string,
+  selectionStart = bodyTemplate.length,
+  selectionEnd = selectionStart,
+) {
+  const start = clampIndex(selectionStart, bodyTemplate.length);
+  const end = clampIndex(selectionEnd, bodyTemplate.length);
+  const from = Math.min(start, end);
+  const to = Math.max(start, end);
+  const prefix = bodyTemplate.slice(0, from);
+  const suffix = bodyTemplate.slice(to);
+  const token = `{{${variable}}}`;
+  const needsLeadingSpace = prefix.length > 0 && !/[\s([{]$/.test(prefix);
+  const needsTrailingSpace = suffix.length > 0 && !/^[\s.,;:!?)\]}]/.test(suffix);
+  const inserted = `${needsLeadingSpace ? " " : ""}${token}${needsTrailingSpace ? " " : ""}`;
+
+  return {
+    bodyTemplate: `${prefix}${inserted}${suffix}`,
+    cursorPosition: prefix.length + inserted.length,
+  };
 }
 
 export function renderTemplate(bodyTemplate: string, context: TemplateContext = {}) {
@@ -38,6 +86,90 @@ export function renderTemplate(bodyTemplate: string, context: TemplateContext = 
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+export function evaluateTemplateHealth({
+  bodyTemplate,
+  allowedVariables,
+  enabled,
+}: {
+  bodyTemplate: string;
+  allowedVariables: readonly string[];
+  enabled: boolean;
+}): TemplateHealth {
+  const body = bodyTemplate.trim();
+  const unknownVariables = getUnknownTemplateVariables(bodyTemplate, allowedVariables);
+  const issues: TemplateHealthIssue[] = [];
+
+  if (!body) {
+    issues.push({
+      key: "empty_body",
+      label: enabled ? "模板已启用，但正文为空" : "模板正文为空",
+      tone: enabled ? "danger" : "warning",
+    });
+  }
+
+  if (unknownVariables.length) {
+    issues.push({
+      key: "unknown_variables",
+      label: `存在未知变量：${unknownVariables.map((name) => `{{${name}}}`).join(" ")}`,
+      tone: "danger",
+    });
+  }
+
+  const lineCount = body ? body.split("\n").length : 0;
+  if (enabled && lineCount > 18) {
+    issues.push({
+      key: "long_template",
+      label: "模板较长，发送前建议人工复核",
+      tone: "warning",
+    });
+  }
+
+  const hasDanger = issues.some((issue) => issue.tone === "danger");
+  const hasWarning = issues.some((issue) => issue.tone === "warning");
+
+  if (!enabled) {
+    return {
+      label: hasDanger ? "停用但需修正" : "已停用",
+      detail: hasDanger ? "停用模板仍有错误，启用前需要修正。" : "这个模板不会出现在发送入口。",
+      tone: hasDanger ? "danger" : "neutral",
+      canSend: false,
+      canSave: !hasDanger,
+      issues,
+    };
+  }
+
+  if (hasDanger) {
+    return {
+      label: "不可发送",
+      detail: "模板包含阻断问题，保存或发送前必须修正。",
+      tone: "danger",
+      canSend: false,
+      canSave: false,
+      issues,
+    };
+  }
+
+  if (hasWarning) {
+    return {
+      label: "建议复核",
+      detail: "模板可以保存，但发送前建议人工确认内容长度和语义。",
+      tone: "warning",
+      canSend: true,
+      canSave: true,
+      issues,
+    };
+  }
+
+  return {
+    label: "可发送",
+    detail: "模板变量和正文正常，可以用于客户沟通。",
+    tone: "success",
+    canSend: true,
+    canSave: true,
+    issues,
+  };
 }
 
 export function findEnabledTemplate(
@@ -216,4 +348,9 @@ export function createPreviewTemplateContext(storeSettings?: Partial<StoreSettin
     customer_url: "https://repairdesk.local/customers/demo",
     customer_url_line: "Area assistenza: https://repairdesk.local/customers/demo",
   };
+}
+
+function clampIndex(value: number, max: number) {
+  if (!Number.isFinite(value)) return max;
+  return Math.max(0, Math.min(Math.trunc(value), max));
 }

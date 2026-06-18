@@ -1,10 +1,11 @@
 "use client";
 
 import type * as React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Battery,
   Box,
   CalendarClock,
   Camera,
@@ -41,13 +42,17 @@ import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import {
   buildBuybackQuoteCreateInput,
   buildBuybackQuoteDraftInput,
+  buildBuybackQuoteDraftUpdateInput,
+  buildBuybackQuoteUpdateInput,
   buildBuybackQualityCheckInput,
   buybackFunctionTestGroups,
   buybackFunctionTestItems,
+  buybackBatteryBands,
   buildWhatsappQuoteMessage,
   buybackQuoteSteps,
   calculateBuybackQuote,
   defaultBuybackQuoteDraft,
+  getBuybackBatteryBand,
   normalizeWhatsappPhone,
   validateBuybackIntake,
   type BuybackAttachmentKind,
@@ -58,8 +63,10 @@ import {
   createInventoryIntake,
   recordInventoryCheck,
   transitionInventoryItem,
+  updateInventoryItem,
   uploadInventoryAttachment,
 } from "@/lib/repairdesk/api";
+import type { InventoryItemStatus, InventoryListItem } from "@/lib/repairdesk/types";
 import { componentOverlay } from "@/lib/component-patterns";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -69,11 +76,14 @@ import {
   getAppleIPhoneSeriesGroups,
   getAppleIPhoneStorageChoices,
   getAppleIPhoneStorageHint,
+  type AppleIPhoneSeriesGroup,
 } from "@/features/buyback/model/apple-price-guide";
 
 interface BuybackQuoteWorkspaceProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialDraft?: BuybackQuoteDraft | null;
+  targetItem?: InventoryListItem | null;
 }
 
 type DraftKey = keyof BuybackQuoteDraft;
@@ -82,7 +92,12 @@ type AttachmentDraft = Partial<Record<BuybackAttachmentKind, File>>;
 
 const quoteCardClass = cn(repairOs.mobileInfoCard, "space-y-2");
 
-export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorkspaceProps) {
+export function BuybackQuoteWorkspace({
+  open,
+  onOpenChange,
+  initialDraft,
+  targetItem,
+}: BuybackQuoteWorkspaceProps) {
   const queryClient = useQueryClient();
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<BuybackQuoteDraft>(defaultBuybackQuoteDraft);
@@ -101,6 +116,13 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
     functionGateMessage,
   );
 
+  useEffect(() => {
+    if (!open) return;
+    setStepIndex(0);
+    setDraft(initialDraft ?? defaultBuybackQuoteDraft);
+    setAttachments({});
+  }, [initialDraft, open]);
+
   function resetWorkspace() {
     setStepIndex(0);
     setDraft(defaultBuybackQuoteDraft);
@@ -116,25 +138,24 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
             "成交资料未完成",
         );
       }
+      if (targetItem) {
+        const id = targetItem.id;
+        await updateInventoryItem(id, buildBuybackQuoteUpdateInput(draft, result));
+        await recordInventoryCheck(id, buildBuybackQualityCheckInput(draft));
+        await uploadBuybackAttachments(id, attachments);
+        await advanceBuybackPurchase(id, targetItem.status, result);
+        return { id, mode: "updated" as const };
+      }
+
       const input = buildBuybackQuoteCreateInput(draft, result);
       const { id } = await createInventoryIntake(input);
       await recordInventoryCheck(id, buildBuybackQualityCheckInput(draft));
       await uploadBuybackAttachments(id, attachments);
-      await transitionInventoryItem(id, "evaluating", {
-        reason: "简易估价后客户同意，已进入检测与资料登记",
-      });
-      if (!result.hardBlock) {
-        await transitionInventoryItem(id, "offer_made", {
-          reason: `检测后建议报价 €${result.finalOffer.toFixed(2)}`,
-        });
-        await transitionInventoryItem(id, "purchased", {
-          reason: `客户已签名并提交证件/设备照片，回收成交 €${result.finalOffer.toFixed(2)}`,
-        });
-      }
-      return { id };
+      await advanceBuybackPurchase(id, "intake", result);
+      return { id, mode: "created" as const };
     },
-    onSuccess: async () => {
-      toast.success("回收成交单已保存");
+    onSuccess: async ({ mode }) => {
+      toast.success(mode === "updated" ? "回收成交单已更新并转入库存" : "回收成交单已保存");
       await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
       onOpenChange(false);
       resetWorkspace();
@@ -144,15 +165,24 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
 
   const deferMutation = useMutation({
     mutationFn: async () => {
+      if (targetItem) {
+        const input = buildBuybackQuoteDraftUpdateInput(draft, result, "deferred");
+        await updateInventoryItem(targetItem.id, input);
+        await advanceDeferredBuybackQuote(targetItem.id, targetItem.status, result);
+        return { id: targetItem.id, mode: "updated" as const };
+      }
+
       const input = buildBuybackQuoteDraftInput(draft, result, "deferred");
       const { id } = await createInventoryIntake(input);
       await transitionInventoryItem(id, "offer_made", {
         reason: `客户考虑中，初步报价 €${result.finalOffer.toFixed(2)}`,
       });
-      return { id };
+      return { id, mode: "created" as const };
     },
-    onSuccess: async () => {
-      toast.success("已保存为客户考虑中的回收报价");
+    onSuccess: async ({ mode }) => {
+      toast.success(
+        mode === "updated" ? "已更新客户考虑中的回收报价" : "已保存为客户考虑中的回收报价",
+      );
       await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
       onOpenChange(false);
       resetWorkspace();
@@ -198,12 +228,16 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
         side="bottom"
         className={cn(
           componentOverlay.bottomSheet,
-          "left-1/2 right-auto h-[calc(100svh-0.5rem)] max-h-[calc(100svh-0.5rem)] w-[min(430px,calc(100vw-0.5rem))] -translate-x-1/2 rounded-t-xl p-0 [&>button.absolute]:hidden",
+          "left-1/2 right-auto h-[calc(100svh-0.5rem)] max-h-[calc(100svh-0.5rem)] w-[min(430px,calc(100vw-0.5rem))] -translate-x-1/2 rounded-t-xl p-0 md:bottom-4 md:h-[calc(100svh-2rem)] md:max-h-[calc(100svh-2rem)] md:w-[min(1120px,calc(100vw-2rem))] md:rounded-xl [&>button.absolute]:hidden",
         )}
       >
         <div className="flex h-full min-h-0 flex-col bg-[var(--surface-workspace)]">
-          <SheetHeader className="px-2 pb-1.5 pt-2 text-left">
-            <section className={cn(repairOs.mobileFloatingHeaderCard, "px-2.5 pb-2")}>
+          <SheetHeader className="w-full px-2 pb-1.5 pt-2 text-left md:px-3 md:pt-3">
+            <section
+              className={cn(
+                "w-full min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card/95 px-2.5 pb-2 pt-1.5 shadow-[var(--shadow-card)]",
+              )}
+            >
               <header className={repairOs.mobileFloatingHeaderNav}>
                 <Button
                   type="button"
@@ -220,7 +254,7 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
                     回收报价
                   </SheetTitle>
                   <p className="truncate text-[9px] leading-3 text-muted-foreground">
-                    {currentStep.label} · {stepSubtitle(currentStep.key, result)}
+                    {currentStep.label} · {stepSubtitle(currentStep.key, result, draft)}
                   </p>
                   <SheetDescription className="sr-only">
                     按设备信息、检测结果和风险规则生成回收报价。
@@ -244,7 +278,7 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
                       {[draft.brand, draft.model].filter(Boolean).join(" ") || "待填写设备"}
                     </p>
                     <p className="truncate text-[9px] leading-3 text-muted-foreground">
-                      {stepHelper(currentStep.key, result)}
+                      {stepHelper(currentStep.key, result, draft)}
                     </p>
                   </div>
                   <Badge
@@ -259,38 +293,46 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
             </section>
           </SheetHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
-            <div className="mx-auto w-full max-w-[430px]">
-              {currentStep.key === "estimate" ? (
-                <QuickEstimateStep draft={draft} result={result} updateDraft={updateDraft} />
-              ) : null}
-              {currentStep.key === "intent" ? (
-                <IntentStep
-                  result={result}
-                  onDefer={() => deferMutation.mutate()}
-                  onReject={rejectQuoteAndClose}
-                  isDeferring={deferMutation.isPending}
-                />
-              ) : null}
-              {currentStep.key === "function" ? (
-                <FunctionStep draft={draft} result={result} updateDraft={updateDraft} />
-              ) : null}
-              {currentStep.key === "intake" ? (
-                <CustomerIntakeStep
-                  draft={draft}
-                  result={result}
-                  updateDraft={updateDraft}
-                  attachments={attachments}
-                  updateAttachment={updateAttachment}
-                  validation={intakeValidation}
-                  onWhatsapp={openWhatsappQuote}
-                />
-              ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5 md:px-3">
+            <div className="mx-auto grid w-full max-w-[430px] gap-2 md:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="min-w-0">
+                {currentStep.key === "estimate" ? (
+                  <QuickEstimateStep draft={draft} result={result} updateDraft={updateDraft} />
+                ) : null}
+                {currentStep.key === "intent" ? (
+                  <IntentStep
+                    result={result}
+                    onDefer={() => deferMutation.mutate()}
+                    onReject={rejectQuoteAndClose}
+                    isDeferring={deferMutation.isPending}
+                  />
+                ) : null}
+                {currentStep.key === "function" ? (
+                  <FunctionStep draft={draft} result={result} updateDraft={updateDraft} />
+                ) : null}
+                {currentStep.key === "intake" ? (
+                  <CustomerIntakeStep
+                    draft={draft}
+                    result={result}
+                    updateDraft={updateDraft}
+                    attachments={attachments}
+                    updateAttachment={updateAttachment}
+                    validation={intakeValidation}
+                    onWhatsapp={openWhatsappQuote}
+                  />
+                ) : null}
+              </div>
+              <QuoteWorkspaceSidebar
+                draft={draft}
+                result={result}
+                validation={intakeValidation}
+                currentStepLabel={currentStep.label}
+              />
             </div>
           </div>
 
-          <div className="border-t border-[var(--border-panel)] bg-card/95 px-2 py-1.5 pb-[calc(env(safe-area-inset-bottom)+0.4rem)]">
-            <div className="mx-auto flex w-full max-w-[430px] min-w-0 items-center justify-between gap-2">
+          <div className="border-t border-[var(--border-panel)] bg-card/95 px-2 py-1.5 pb-[calc(env(safe-area-inset-bottom)+0.4rem)] md:px-3">
+            <div className="mx-auto flex w-full max-w-[430px] min-w-0 items-center justify-between gap-2 md:max-w-[1080px]">
               <Button
                 type="button"
                 variant="outline"
@@ -323,7 +365,7 @@ export function BuybackQuoteWorkspace({ open, onOpenChange }: BuybackQuoteWorksp
                     setStepIndex((current) => Math.min(buybackQuoteSteps.length - 1, current + 1));
                   }}
                 >
-                  {nextButtonLabel(currentStep.key)}
+                  {nextButtonLabel(currentStep.key, draft)}
                   <ChevronRight className="size-3.5" />
                 </Button>
               ) : (
@@ -389,15 +431,26 @@ function QuoteStepper({ activeIndex }: { activeIndex: number }) {
   );
 }
 
-function stepSubtitle(step: StepKey, result: ReturnType<typeof calculateBuybackQuote>) {
-  if (step === "estimate") return `先估 €${result.suggestedLow}-${result.suggestedHigh}`;
+function stepSubtitle(
+  step: StepKey,
+  result: ReturnType<typeof calculateBuybackQuote>,
+  draft: BuybackQuoteDraft,
+) {
+  if (step === "estimate") {
+    const gate = getEstimateGateMessage(draft);
+    return gate || `先估 €${result.suggestedLow}-${result.suggestedHigh}`;
+  }
   if (step === "intent") return "客户同意后再检测";
   if (step === "function") return "检测账号锁与功能";
   return "登记证件与签名";
 }
 
-function stepHelper(step: StepKey, result: ReturnType<typeof calculateBuybackQuote>) {
-  if (step === "estimate") return "无需客户资料 · 先给口头区间";
+function stepHelper(
+  step: StepKey,
+  result: ReturnType<typeof calculateBuybackQuote>,
+  draft: BuybackQuoteDraft,
+) {
+  if (step === "estimate") return getEstimateGateMessage(draft) || "无需客户资料 · 先给口头区间";
   if (step === "intent") return `简易估价 €${result.finalOffer.toFixed(0)} · 等客户确认`;
   if (step === "function") return "客户已同意 · 开始正式检测";
   return "资料齐全后保存回收单";
@@ -437,6 +490,7 @@ function getCurrentFooterHint(
 function getEstimateGateMessage(draft: BuybackQuoteDraft) {
   if (!draft.model.trim()) return "先选择 iPhone 型号";
   if (!draft.storage_capacity.trim()) return "请选择容量";
+  if (!draft.battery_health.trim()) return "请选择电池健康区间";
   return "";
 }
 
@@ -461,8 +515,13 @@ function getFunctionGateMessage(
   return `${missingRequiredItem.label}还未检测`;
 }
 
-function nextButtonLabel(step: StepKey) {
-  if (step === "estimate") return "查看估价";
+function nextButtonLabel(step: StepKey, draft: BuybackQuoteDraft) {
+  if (step === "estimate") {
+    if (!draft.model.trim()) return "先选型号";
+    if (!draft.storage_capacity.trim()) return "先选容量";
+    if (!draft.battery_health.trim()) return "先选电池";
+    return "客户确认";
+  }
   if (step === "intent") return "客户同意，检测";
   if (step === "function") return "登记资料";
   return "下一步";
@@ -488,6 +547,43 @@ async function uploadBuybackAttachments(id: string, attachments: AttachmentDraft
       );
     });
   }
+}
+
+async function advanceBuybackPurchase(
+  id: string,
+  currentStatus: InventoryItemStatus,
+  result: ReturnType<typeof calculateBuybackQuote>,
+) {
+  let status = currentStatus;
+  const transition = async (to: InventoryItemStatus, reason: string) => {
+    if (status === to) return;
+    await transitionInventoryItem(id, to, { reason });
+    status = to;
+  };
+
+  if (status === "intake") {
+    await transition("evaluating", "客户同意回收报价，进入正式检测与资料登记");
+  }
+  if (!result.hardBlock && status === "evaluating") {
+    await transition("offer_made", `检测后建议报价 €${result.finalOffer.toFixed(2)}`);
+  }
+  if (!result.hardBlock && status === "offer_made") {
+    await transition(
+      "purchased",
+      `客户已签名并提交证件/设备照片，回收成交 €${result.finalOffer.toFixed(2)}`,
+    );
+  }
+}
+
+async function advanceDeferredBuybackQuote(
+  id: string,
+  currentStatus: InventoryItemStatus,
+  result: ReturnType<typeof calculateBuybackQuote>,
+) {
+  if (currentStatus !== "intake" && currentStatus !== "evaluating") return;
+  await transitionInventoryItem(id, "offer_made", {
+    reason: `客户考虑中，初步报价 €${result.finalOffer.toFixed(2)}`,
+  });
 }
 
 function fileToBase64(file: File) {
@@ -546,14 +642,27 @@ function QuickEstimateStep({
 }) {
   const modelGroups = getAppleIPhoneSeriesGroups();
   const allModels = getAppleIPhoneModels();
-  const initialSeries =
+  const [editingStage, setEditingStage] = useState<"model" | "storage" | "battery" | null>(null);
+  const selectedModelSeries =
     modelGroups.find((group) => group.models.some((model) => model.model === draft.model))?.key ??
     modelGroups[0]?.key ??
     "iphone17";
-  const [selectedSeries, setSelectedSeries] = useState(initialSeries);
-  const visibleModels =
-    modelGroups.find((group) => group.key === selectedSeries)?.models ?? allModels.slice(0, 6);
+  const [selectedSeries, setSelectedSeries] = useState(selectedModelSeries);
+  const activeSeriesGroup = modelGroups.find((group) => group.key === selectedSeries);
+  const visibleModels = activeSeriesGroup?.models ?? allModels.slice(0, 6);
   const storageChoices = getAppleIPhoneStorageChoices(draft.model);
+  const selectedModel = allModels.find((model) => model.model === draft.model);
+  const selectedStorage = storageChoices.find(
+    (storage) => `${storage.valueGb}GB` === draft.storage_capacity,
+  );
+  const selectedBatteryBand = getBuybackBatteryBand(Number(draft.battery_health));
+  const hasModel = Boolean(draft.model.trim());
+  const hasStorage = Boolean(draft.storage_capacity.trim());
+  const hasBattery = Boolean(draft.battery_health.trim());
+  const hasMarketReference = result.resaleReference > 0;
+  const showModelPicker = !hasModel || editingStage === "model";
+  const showStoragePicker = hasModel && (!hasStorage || editingStage === "storage");
+  const showBatteryPicker = hasModel && hasStorage && (!hasBattery || editingStage === "battery");
   const applyMarketSuggestion = (model: string, storageCapacity: string) => {
     const suggestion = estimateAppleMarketPricing({
       brand: "Apple",
@@ -565,163 +674,441 @@ function QuickEstimateStep({
     updateDraft("target_profit", String(suggestion.targetProfit));
   };
 
+  useEffect(() => {
+    if (!draft.model.trim()) return;
+    setSelectedSeries(selectedModelSeries);
+  }, [draft.model, selectedModelSeries]);
+
   return (
     <div className="space-y-1.5">
-      <section className={quoteCardClass}>
-        <SectionTitle
-          icon={Smartphone}
-          title="选择 iPhone"
-          subtitle="先选型号和容量，不需要客户资料。"
-        />
-        <ChoiceGroup
-          label="系列"
-          value={selectedSeries}
-          onChange={(value) => setSelectedSeries(value)}
-          options={modelGroups.map((group) => [group.key, group.label])}
-        />
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-          {visibleModels.map((model) => {
-            const selected = draft.model === model.model;
-            return (
-              <button
-                key={model.model}
-                type="button"
-                className={cn(
-                  "min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-left shadow-[var(--shadow-card)] transition-colors",
-                  selected && "border-primary/50 bg-primary/10 text-primary",
-                )}
-                onClick={() => {
-                  const baseStorage = `${model.baseStorageGb}GB`;
-                  updateDraft("brand", "Apple");
-                  updateDraft("model", model.model);
-                  updateDraft("storage_capacity", baseStorage);
-                  applyMarketSuggestion(model.model, baseStorage);
-                }}
-              >
-                <p className="truncate text-[11px] font-semibold leading-4">{model.model}</p>
-                <p className="truncate text-[9px] leading-3 text-muted-foreground">
-                  {model.releaseYear} · 起 {model.baseStorageGb}GB
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className={quoteCardClass}>
-        <SectionTitle
-          icon={Sparkles}
-          title="简易状态"
-          subtitle="只记录会影响口头估价的关键条件。"
-        />
-        <MarketGuidePanel
-          result={result}
-          onApplyMarket={() => {
-            if (!result.marketSuggestion) return;
-            updateDraft("market_price", String(result.marketSuggestion.resaleReference));
-          }}
-          onApplyTargetProfit={() => {
-            if (!result.marketSuggestion) return;
-            updateDraft("target_profit", String(result.marketSuggestion.targetProfit));
-          }}
-        />
-        <ChoiceGroup
-          label="容量"
-          value={draft.storage_capacity}
-          onChange={(value) => {
-            updateDraft("storage_capacity", value);
-            applyMarketSuggestion(draft.model, value);
-          }}
-          options={storageChoices.map(
-            (storage) => [`${storage.valueGb}GB`, storage.label] as [string, string],
-          )}
-        />
-        <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-          {getAppleIPhoneStorageHint(draft.model)}
-        </p>
-        <div className="grid grid-cols-2 gap-1.5">
-          <TextField
-            label="颜色"
-            value={draft.color}
-            onChange={(value) => updateDraft("color", value)}
-            placeholder="可选"
+      {showModelPicker ? (
+        <section className={quoteCardClass}>
+          <SectionTitle
+            icon={Smartphone}
+            title="选择 iPhone"
+            subtitle="第一步只选型号，系统不会提前要求客户资料。"
           />
-          <TextField
-            label="电池健康"
-            value={draft.battery_health}
-            onChange={(value) => updateDraft("battery_health", value)}
-            inputMode="numeric"
-            suffix="%"
+          <IPhoneSeriesPicker
+            groups={modelGroups}
+            value={selectedSeries}
+            onChange={(value) => setSelectedSeries(value)}
           />
-        </div>
-        <div className="space-y-2 rounded-lg bg-[var(--surface-panel-muted)] p-2">
-          <AutoCosmeticAssessmentCard result={result} />
-          <ChoiceGroup
-            label="屏幕"
-            value={draft.screen_condition}
-            onChange={(value) => updateDraft("screen_condition", value)}
-            options={[
-              ["normal", "正常"],
-              ["light_scratches", "轻微划痕"],
-              ["deep_scratches", "明显划痕"],
-              ["cracked", "裂屏"],
-              ["display_issue", "显示异常"],
-            ]}
-          />
-          <ChoiceGroup
-            label="机身"
-            value={draft.body_condition}
-            onChange={(value) => updateDraft("body_condition", value)}
-            options={[
-              ["normal", "正常"],
-              ["light_wear", "轻微磨损"],
-              ["heavy_wear", "明显磨损"],
-              ["bent", "变形"],
-            ]}
-          />
-          <div className="grid grid-cols-2 gap-1.5">
-            <ToggleRow
-              label="带原装盒"
-              checked={draft.box_included}
-              onChange={(value) => updateDraft("box_included", value)}
-            />
-            <ToggleRow
-              label="有发票/凭证"
-              checked={draft.purchase_proof}
-              onChange={(value) => updateDraft("purchase_proof", value)}
-            />
+          <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <p className="truncate text-[10px] font-medium leading-4">
+                {activeSeriesGroup?.label ?? "当前系列"}
+              </p>
+              <p className="shrink-0 text-[9px] leading-3 text-muted-foreground">
+                {visibleModels.length} 款可选
+              </p>
+            </div>
           </div>
-          <details className="rounded-lg bg-card px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+          <div className="grid grid-cols-1 gap-1.5 min-[390px]:grid-cols-2 sm:grid-cols-3">
+            {visibleModels.map((model) => {
+              const selected = draft.model === model.model;
+              return (
+                <button
+                  key={model.model}
+                  type="button"
+                  aria-pressed={selected}
+                  className={cn(
+                    "relative min-h-14 min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2.5 py-2 text-left shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
+                    selected && "border-primary/50 bg-primary/10 text-primary",
+                  )}
+                  onClick={() => {
+                    updateDraft("brand", "Apple");
+                    updateDraft("model", model.model);
+                    updateDraft("storage_capacity", "");
+                    updateDraft("market_price", "");
+                    setEditingStage(null);
+                  }}
+                >
+                  <p className="truncate pr-5 text-[12px] font-semibold leading-4">{model.model}</p>
+                  <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
+                    {model.releaseYear} · 起 {model.baseStorageGb}GB
+                  </p>
+                  {selected ? (
+                    <CheckCircle2 className="absolute right-2 top-2 size-4 text-primary" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+          {!hasModel ? <EstimateUnlockHint label="选好型号后继续选择容量" /> : null}
+        </section>
+      ) : (
+        <EstimateSelectionSummary
+          icon={Smartphone}
+          label="已选型号"
+          value={draft.model}
+          meta={
+            selectedModel
+              ? `${selectedModel.releaseYear} · 官方起步 ${selectedModel.baseStorageGb}GB`
+              : "Apple iPhone"
+          }
+          onEdit={() => setEditingStage("model")}
+        />
+      )}
+
+      {showStoragePicker ? (
+        <section className={quoteCardClass}>
+          <SectionTitle
+            icon={ClipboardCheck}
+            title="选择容量"
+            subtitle="第二步只选容量；非官方容量会降低可信度。"
+          />
+          <ChoiceGroup
+            label="容量"
+            value={draft.storage_capacity}
+            onChange={(value) => {
+              updateDraft("storage_capacity", value);
+              applyMarketSuggestion(draft.model, value);
+              setEditingStage(null);
+            }}
+            options={storageChoices.map(
+              (storage) => [`${storage.valueGb}GB`, storage.label] as [string, string],
+            )}
+          />
+          <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+            {getAppleIPhoneStorageHint(draft.model)}
+          </p>
+          {!hasStorage ? <EstimateUnlockHint label="选好容量后继续选择电池健康区间" /> : null}
+        </section>
+      ) : hasModel && hasStorage ? (
+        <EstimateSelectionSummary
+          icon={ClipboardCheck}
+          label="已选容量"
+          value={draft.storage_capacity}
+          meta={
+            selectedStorage?.official === false
+              ? "非官方容量，成交前需复核"
+              : "官方容量，参与行情估算"
+          }
+          onEdit={() => setEditingStage("storage")}
+        />
+      ) : null}
+
+      {showBatteryPicker ? (
+        <section className={quoteCardClass}>
+          <SectionTitle
+            icon={Battery}
+            title="电池健康"
+            subtitle="第三步按 3% 档位扣价，必要时可输入精确值。"
+          />
+          <BatteryBandPicker
+            value={draft.battery_health}
+            onChange={(value) => {
+              updateDraft("battery_health", value);
+              setEditingStage(null);
+            }}
+          />
+          <details className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
             <summary className="cursor-pointer text-[11px] font-medium text-foreground">
-              高级价格参数
+              输入精确电池健康
             </summary>
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
-              <TextField
-                label="市场"
-                value={draft.market_price}
-                onChange={(value) => updateDraft("market_price", value)}
-                inputMode="decimal"
-                prefix="€"
+            <TextField
+              label="电池健康"
+              value={draft.battery_health}
+              onChange={(value) => updateDraft("battery_health", value)}
+              inputMode="numeric"
+              suffix="%"
+              className="mt-2"
+            />
+          </details>
+          {selectedBatteryBand ? (
+            <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+              当前按「{selectedBatteryBand.label} · {selectedBatteryBand.rangeLabel}」估算：
+              {selectedBatteryBand.helper}。
+            </p>
+          ) : (
+            <EstimateUnlockHint label="选好电池健康后继续选择屏幕和机身状态" />
+          )}
+        </section>
+      ) : hasModel && hasStorage && hasBattery ? (
+        <EstimateSelectionSummary
+          icon={Battery}
+          label="电池健康"
+          value={selectedBatteryBand?.label ?? `${draft.battery_health}%`}
+          meta={
+            selectedBatteryBand
+              ? `${selectedBatteryBand.rangeLabel} · 扣减 €${selectedBatteryBand.deduction}`
+              : "按精确百分比估算"
+          }
+          onEdit={() => setEditingStage("battery")}
+        />
+      ) : null}
+
+      {hasModel && hasStorage && hasBattery ? (
+        <section className={quoteCardClass}>
+          <SectionTitle
+            icon={ShieldCheck}
+            title="口头估价条件"
+            subtitle="只记录会影响区间的条件，详细检测在客户同意后做。"
+          />
+          <div className="grid grid-cols-1 gap-1.5">
+            <ChoiceGroup
+              label="屏幕"
+              value={draft.screen_condition}
+              onChange={(value) => updateDraft("screen_condition", value)}
+              options={[
+                ["normal", "正常"],
+                ["light_scratches", "轻微划痕"],
+                ["deep_scratches", "明显划痕"],
+                ["cracked", "裂屏"],
+                ["display_issue", "显示异常"],
+              ]}
+            />
+            <ChoiceGroup
+              label="机身"
+              value={draft.body_condition}
+              onChange={(value) => updateDraft("body_condition", value)}
+              options={[
+                ["normal", "正常"],
+                ["light_wear", "轻微磨损"],
+                ["heavy_wear", "明显磨损"],
+                ["bent", "变形"],
+              ]}
+            />
+            <div className="grid grid-cols-2 gap-1.5">
+              <ToggleRow
+                label="带原装盒"
+                checked={draft.box_included}
+                onChange={(value) => updateDraft("box_included", value)}
               />
-              <TextField
-                label="成本"
-                value={draft.estimated_repair_cost}
-                onChange={(value) => updateDraft("estimated_repair_cost", value)}
-                inputMode="decimal"
-                prefix="€"
-              />
-              <TextField
-                label="利润"
-                value={draft.target_profit}
-                onChange={(value) => updateDraft("target_profit", value)}
-                inputMode="decimal"
-                prefix="€"
+              <ToggleRow
+                label="有发票/凭证"
+                checked={draft.purchase_proof}
+                onChange={(value) => updateDraft("purchase_proof", value)}
               />
             </div>
-          </details>
-        </div>
-      </section>
+          </div>
+        </section>
+      ) : null}
+
+      {hasModel && hasStorage && hasBattery ? (
+        <section className={quoteCardClass}>
+          <SectionTitle
+            icon={TrendingUp}
+            title="口头报价区间"
+            subtitle="客户同意后再进入完整功能检测和资料采集。"
+          />
+          <MarketGuidePanel
+            result={result}
+            onApplyMarket={() => {
+              if (!result.marketSuggestion) return;
+              updateDraft("market_price", String(result.marketSuggestion.resaleReference));
+            }}
+            onApplyTargetProfit={() => {
+              if (!result.marketSuggestion) return;
+              updateDraft("target_profit", String(result.marketSuggestion.targetProfit));
+            }}
+          />
+          <AutoCosmeticAssessmentCard result={result} />
+          <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1">
+            <InfoMetric label="参考售价" value={`€${result.resaleReference.toFixed(0)}`} />
+            <InfoMetric label="区间" value={`€${result.suggestedLow}-${result.suggestedHigh}`} />
+            <InfoMetric label="建议" value={`€${result.finalOffer.toFixed(0)}`} strong />
+          </div>
+          <QuoteFormulaCard result={result} />
+          <DeductionPreview result={result} />
+          {!hasMarketReference ? (
+            <details className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+              <summary className="cursor-pointer text-[11px] font-medium text-foreground">
+                手动补充价格参数
+              </summary>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                <TextField
+                  label="市场"
+                  value={draft.market_price}
+                  onChange={(value) => updateDraft("market_price", value)}
+                  inputMode="decimal"
+                  prefix="€"
+                />
+                <TextField
+                  label="成本"
+                  value={draft.estimated_repair_cost}
+                  onChange={(value) => updateDraft("estimated_repair_cost", value)}
+                  inputMode="decimal"
+                  prefix="€"
+                />
+                <TextField
+                  label="利润"
+                  value={draft.target_profit}
+                  onChange={(value) => updateDraft("target_profit", value)}
+                  inputMode="decimal"
+                  prefix="€"
+                />
+              </div>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
     </div>
+  );
+}
+
+function EstimateSelectionSummary({
+  icon: Icon,
+  label,
+  value,
+  meta,
+  onEdit,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  meta: string;
+  onEdit: () => void;
+}) {
+  return (
+    <section className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
+      <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-3.5" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
+        <p className="truncate text-[11px] font-semibold leading-4">{value}</p>
+        <p className="truncate text-[9px] leading-3 text-muted-foreground">{meta}</p>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 shrink-0 rounded-lg px-2.5 text-[11px]"
+        onClick={onEdit}
+      >
+        更改
+      </Button>
+    </section>
+  );
+}
+
+function EstimateUnlockHint({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
+function BatteryBandPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const active = getBuybackBatteryBand(Number(value));
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      {buybackBatteryBands.map((band) => {
+        const selected = active?.key === band.key;
+        return (
+          <button
+            key={band.key}
+            type="button"
+            className={cn(
+              "relative min-h-12 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-left shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
+              selected && "border-primary/50 bg-primary/10 text-primary",
+            )}
+            onClick={() => onChange(band.value)}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs font-semibold leading-4">{band.label}</span>
+              <span className="shrink-0 rounded-full bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[9px] leading-none text-muted-foreground">
+                {band.deduction > 0 ? `-€${band.deduction}` : "不扣"}
+              </span>
+            </div>
+            <p className="mt-0.5 truncate text-[9px] leading-3 text-muted-foreground">
+              {band.rangeLabel} · {band.helper}
+            </p>
+            {selected ? (
+              <CheckCircle2 className="absolute right-1.5 top-1.5 size-3.5 text-primary" />
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function InfoMetric({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-md bg-card px-2 py-1">
+      <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "truncate font-mono text-[11px] font-semibold leading-4 tabular-nums",
+          strong && "text-primary",
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function QuoteFormulaCard({ result }: { result: ReturnType<typeof calculateBuybackQuote> }) {
+  const deductionTotal = result.deductions.reduce((sum, item) => sum + item.amount, 0);
+  const formulaItems = [
+    ["参考售价", result.resaleReference],
+    ["目标利润", -result.targetProfit],
+    ["维修成本", -result.estimatedRepairCost],
+    ["风险扣减", -deductionTotal],
+  ] as const;
+
+  return (
+    <div className="rounded-lg bg-[var(--surface-panel-muted)] p-1.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className="truncate text-[11px] font-semibold leading-4">报价计算</p>
+        <p className="truncate text-[9px] leading-3 text-muted-foreground">
+          系统价 = 参考 - 利润 - 成本 - 扣减
+        </p>
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {formulaItems.map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-md bg-card px-1.5 py-1">
+            <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
+            <p
+              className={cn(
+                "truncate font-mono text-[10px] font-semibold leading-4 tabular-nums",
+                value < 0 && "text-muted-foreground",
+              )}
+            >
+              {value < 0 ? "-" : ""}€{Math.abs(value).toFixed(0)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeductionPreview({ result }: { result: ReturnType<typeof calculateBuybackQuote> }) {
+  if (!result.deductions.length) {
+    return (
+      <div className="rounded-lg bg-status-success/15 px-2 py-1.5 text-[10px] leading-4 text-status-success-foreground">
+        当前没有明显扣减项，仍需客户同意后做完整功能检测。
+      </div>
+    );
+  }
+
+  return (
+    <details className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+      <summary className="cursor-pointer text-[11px] font-medium text-foreground">
+        扣减明细 {result.deductions.length} 项
+      </summary>
+      <div className="mt-1 grid gap-1">
+        {result.deductions.map((item) => (
+          <div key={item.key} className="flex min-w-0 items-center justify-between gap-2">
+            <span className="truncate">{item.label}</span>
+            <span className="shrink-0 font-mono text-status-warn-foreground">
+              -€{item.amount.toFixed(0)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -936,6 +1323,7 @@ function FunctionChecklist({
   result: ReturnType<typeof calculateBuybackQuote>;
   updateDraft: <K extends DraftKey>(key: K, value: BuybackQuoteDraft[K]) => void;
 }) {
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const requiredItems = buybackFunctionTestItems.filter((item) => item.required);
   const requiredDone = requiredItems.filter(
     (item) => draft[item.key] !== "unchecked" && draft[item.key] !== "not_applicable",
@@ -943,14 +1331,51 @@ function FunctionChecklist({
   const uncheckedCount = buybackFunctionTestItems.filter(
     (item) => draft[item.key] === "unchecked",
   ).length;
+  const itemHandled = (item: (typeof buybackFunctionTestItems)[number]) => {
+    const status = draft[item.key];
+    if (status === "unchecked") return false;
+    return !item.required || status !== "not_applicable";
+  };
   const hardBlockText = result.hardBlock
     ? (result.riskNotes.find((note) => /锁|IMEI|抹除|解锁/.test(note)) ?? "风险待处理")
     : "可继续";
+  const activeGroup = buybackFunctionTestGroups[activeGroupIndex] ?? buybackFunctionTestGroups[0];
+  const activeItems = activeGroup.itemKeys
+    .map((key) => buybackFunctionTestItems.find((item) => item.key === key))
+    .filter((item): item is (typeof buybackFunctionTestItems)[number] => Boolean(item));
+  const activeDone = activeItems.filter((item) => itemHandled(item)).length;
+  const activeRequiredPending = activeItems.some((item) => {
+    if (!item.required) return false;
+    const status = draft[item.key];
+    return status === "unchecked" || status === "not_applicable";
+  });
+  const groupStats = buybackFunctionTestGroups.map((group) => {
+    const items = group.itemKeys
+      .map((key) => buybackFunctionTestItems.find((item) => item.key === key))
+      .filter((item): item is (typeof buybackFunctionTestItems)[number] => Boolean(item));
+    const done = items.filter((item) => itemHandled(item)).length;
+    const requiredPending = items.some((item) => {
+      if (!item.required) return false;
+      const status = draft[item.key];
+      return status === "unchecked" || status === "not_applicable";
+    });
+    return { group, done, total: items.length, requiredPending };
+  });
+  const markActiveGroupPass = () => {
+    activeItems.forEach((item) => {
+      updateDraft(item.key, "pass" as BuybackQuoteDraft[typeof item.key]);
+    });
+  };
+  const resetActiveGroup = () => {
+    activeItems.forEach((item) => {
+      updateDraft(item.key, "unchecked" as BuybackQuoteDraft[typeof item.key]);
+    });
+  };
 
   return (
     <div className="space-y-1.5 rounded-lg bg-[var(--surface-panel-muted)] p-2">
       <div className="flex items-center justify-between gap-2">
-        <Label className="text-[10px] font-medium text-muted-foreground">功能检测清单</Label>
+        <Label className="text-[10px] font-medium text-muted-foreground">引导式功能检测</Label>
         <Badge variant="secondary" className="text-[10px]">
           {buybackFunctionTestItems.length} 项
         </Badge>
@@ -964,40 +1389,118 @@ function FunctionChecklist({
           tone={result.hardBlock ? "danger" : "success"}
         />
       </div>
-      {buybackFunctionTestGroups.map((group) => {
-        const items = group.itemKeys
-          .map((key) => buybackFunctionTestItems.find((item) => item.key === key))
-          .filter((item): item is (typeof buybackFunctionTestItems)[number] => Boolean(item));
-        const done = items.filter(
-          (item) => draft[item.key] !== "unchecked" && draft[item.key] !== "not_applicable",
-        ).length;
-        return (
-          <div key={group.key} className="rounded-lg bg-card p-1.5 shadow-[var(--shadow-card)]">
-            <div className="mb-1.5 flex min-w-0 items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-[11px] font-semibold leading-4">{group.label}</p>
-                <p className="truncate text-[9px] leading-3 text-muted-foreground">{group.hint}</p>
-              </div>
-              <Badge variant="outline" className="shrink-0 text-[10px]">
-                {done}/{items.length}
-              </Badge>
-            </div>
-            <div className="grid gap-1.5 sm:grid-cols-2">
-              {items.map((item) => (
-                <InspectionStatusRow
-                  key={item.key}
-                  label={item.label}
-                  required={item.required}
-                  value={draft[item.key] as BuybackInspectionStatus}
-                  onChange={(value) =>
-                    updateDraft(item.key, value as BuybackQuoteDraft[typeof item.key])
-                  }
-                />
-              ))}
-            </div>
+
+      <div className="grid grid-cols-4 gap-1">
+        {groupStats.map(({ group, done, total, requiredPending }, index) => {
+          const active = index === activeGroupIndex;
+          return (
+            <button
+              key={group.key}
+              type="button"
+              className={cn(
+                "min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-1 py-1 text-center shadow-[var(--shadow-card)]",
+                active && "border-primary/40 bg-primary/10 text-primary",
+              )}
+              onClick={() => setActiveGroupIndex(index)}
+            >
+              <span className="block truncate text-[10px] font-semibold leading-4">
+                {group.label}
+              </span>
+              <span
+                className={cn(
+                  "block truncate text-[9px] leading-3 text-muted-foreground",
+                  requiredPending && "text-status-warn-foreground",
+                )}
+              >
+                {done}/{total}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="rounded-lg bg-card p-1.5 shadow-[var(--shadow-card)]">
+        <div className="mb-1.5 flex min-w-0 items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-semibold leading-4">{activeGroup.label}</p>
+            <p className="truncate text-[9px] leading-3 text-muted-foreground">
+              {activeGroup.hint}
+            </p>
           </div>
-        );
-      })}
+          <Badge
+            variant={activeRequiredPending ? "secondary" : "outline"}
+            className="shrink-0 text-[10px]"
+          >
+            {activeDone}/{activeItems.length}
+          </Badge>
+        </div>
+        <div className="grid gap-1.5 sm:grid-cols-2">
+          {activeItems.map((item) => (
+            <InspectionStatusRow
+              key={item.key}
+              label={item.label}
+              required={item.required}
+              value={draft[item.key] as BuybackInspectionStatus}
+              onChange={(value) =>
+                updateDraft(item.key, value as BuybackQuoteDraft[typeof item.key])
+              }
+            />
+          ))}
+        </div>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-lg text-[11px]"
+            onClick={markActiveGroupPass}
+          >
+            本组全部正常
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-lg text-[11px] text-muted-foreground"
+            onClick={resetActiveGroup}
+          >
+            重置本组
+          </Button>
+        </div>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5 border-t border-[var(--border-panel)] pt-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-lg text-[11px]"
+            disabled={activeGroupIndex === 0}
+            onClick={() => setActiveGroupIndex((current) => Math.max(0, current - 1))}
+          >
+            上一组
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className={cn("h-8 rounded-lg text-[11px]", controls.brandButton)}
+            style={brandGradientStyle}
+            disabled={
+              activeRequiredPending || activeGroupIndex >= buybackFunctionTestGroups.length - 1
+            }
+            onClick={() =>
+              setActiveGroupIndex((current) =>
+                Math.min(buybackFunctionTestGroups.length - 1, current + 1),
+              )
+            }
+          >
+            下一组
+          </Button>
+        </div>
+        {activeRequiredPending ? (
+          <p className="mt-1 text-[10px] leading-4 text-status-warn-foreground">
+            本组还有必检项未完成，完成后再进入下一组。
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1117,6 +1620,72 @@ function DeviceSummaryCard({
         )}
       </div>
     </section>
+  );
+}
+
+function QuoteWorkspaceSidebar({
+  draft,
+  result,
+  validation,
+  currentStepLabel,
+}: {
+  draft: BuybackQuoteDraft;
+  result: ReturnType<typeof calculateBuybackQuote>;
+  validation: ReturnType<typeof validateBuybackIntake>;
+  currentStepLabel: string;
+}) {
+  const pendingItems = [...validation.missing, ...validation.hardBlockReasons];
+
+  return (
+    <aside className="hidden min-w-0 space-y-2 lg:block">
+      <div className="sticky top-2 min-w-0 space-y-2">
+        <DeviceSummaryCard draft={draft} result={result} showDeviceMeta />
+        <QuoteSummaryCard
+          title="报价摘要"
+          result={result}
+          badgeLabel={result.hardBlock ? "风险待处理" : "建议接受"}
+        >
+          <div className="grid grid-cols-2 gap-1.5 text-[10px] leading-4">
+            <InfoLine label="当前步骤" value={currentStepLabel} />
+            <InfoLine label="资料状态" value={validation.canSave ? "可入库" : "待补齐"} />
+            <InfoLine label="市场低位" value={`€ ${result.marketMin}`} />
+            <InfoLine label="市场高位" value={`€ ${result.marketMax}`} />
+          </div>
+        </QuoteSummaryCard>
+        <section className={quoteCardClass}>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <h3 className="truncate text-[11px] font-semibold leading-4">风险与缺口</h3>
+            <Badge
+              variant={pendingItems.length ? "secondary" : "outline"}
+              className="shrink-0 text-[10px]"
+            >
+              {pendingItems.length || "OK"}
+            </Badge>
+          </div>
+          {pendingItems.length ? (
+            <ul className="space-y-1">
+              {pendingItems.slice(0, 5).map((item) => (
+                <li
+                  key={item}
+                  className="rounded-lg border border-status-warn-foreground/20 bg-status-warn px-2 py-1 text-[10px] leading-4 text-status-warn-foreground"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg border border-status-success-foreground/20 bg-status-success px-2 py-1.5 text-[10px] leading-4 text-status-success-foreground">
+              资料和硬性风险已满足当前保存要求。
+            </p>
+          )}
+          {result.riskNotes.length ? (
+            <p className="line-clamp-3 text-[10px] leading-4 text-muted-foreground">
+              {result.riskNotes.join("；")}
+            </p>
+          ) : null}
+        </section>
+      </div>
+    </aside>
   );
 }
 
@@ -1643,6 +2212,65 @@ function ToggleRow({
   );
 }
 
+function IPhoneSeriesPicker({
+  groups,
+  value,
+  onChange,
+}: {
+  groups: AppleIPhoneSeriesGroup[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const activeGroup = groups.find((group) => group.key === value);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-[10px] font-medium text-foreground">选择系列</Label>
+        <span className="truncate text-[9px] leading-3 text-muted-foreground">
+          {activeGroup ? `当前：${activeGroup.label}` : "先选代际，再选型号"}
+        </span>
+      </div>
+      <div className="-mx-1 overflow-hidden">
+        <div className="grid auto-cols-[minmax(74px,1fr)] grid-flow-col grid-rows-2 gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {groups.map((group) => {
+            const selected = value === group.key;
+            const years = group.models.map((model) => model.releaseYear);
+            const minYear = Math.min(...years);
+            const maxYear = Math.max(...years);
+            const yearLabel =
+              minYear === maxYear
+                ? `${minYear}`
+                : `${String(minYear).slice(2)}-${String(maxYear).slice(2)}`;
+
+            return (
+              <button
+                key={group.key}
+                type="button"
+                aria-pressed={selected}
+                className={cn(
+                  "min-h-[46px] min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-center shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
+                  selected &&
+                    "border-primary/50 bg-primary/10 text-primary shadow-[var(--shadow-action)]",
+                )}
+                onClick={() => onChange(group.key)}
+              >
+                <span className="flex min-w-0 items-center justify-center gap-1 leading-3">
+                  <span className="truncate text-[11px] font-semibold">{group.label}</span>
+                  {selected ? <CheckCircle2 className="size-3.5 shrink-0 text-primary" /> : null}
+                </span>
+                <span className="mt-1 block truncate text-[9px] leading-3 text-muted-foreground">
+                  {group.models.length} 款 · {yearLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChoiceGroup<T extends string>({
   label,
   value,
@@ -1662,12 +2290,14 @@ function ChoiceGroup<T extends string>({
           <button
             key={option}
             type="button"
+            aria-pressed={value === option}
             className={cn(
-              "inline-flex h-7 shrink-0 items-center rounded-lg border border-[var(--border-panel)] bg-card px-2 text-[11px] font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors",
+              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2.5 text-[12px] font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
               value === option && "border-primary/40 bg-primary/10 text-primary",
             )}
             onClick={() => onChange(option)}
           >
+            {value === option ? <CheckCircle2 className="size-3.5" /> : null}
             {text}
           </button>
         ))}

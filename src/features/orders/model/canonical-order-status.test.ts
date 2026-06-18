@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   approvalFlowStatusFromLegacyStatus,
   paymentStatusFromMoney,
+  workflowStatusFromLegacyStatus,
 } from "./canonical-order-status";
 
 describe("canonical order status helpers", () => {
@@ -17,5 +18,11 @@ describe("canonical order status helpers", () => {
     expect(paymentStatusFromMoney({ isPaid: false, depositAmount: 0, balanceAmount: 0 })).toBe(
       "paid",
     );
+  });
+
+  it("keeps repaired orders in the repair workflow stage", () => {
+    expect(workflowStatusFromLegacyStatus("repairing")).toBe("repair");
+    expect(workflowStatusFromLegacyStatus("repaired")).toBe("repair");
+    expect(workflowStatusFromLegacyStatus("notified")).toBe("pickup");
   });
 });

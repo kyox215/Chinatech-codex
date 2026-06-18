@@ -40,7 +40,7 @@ export function CustomerFollowupDialog({
     [],
   );
   const [form, setForm] = useState<CustomerFollowupInput>({
-    title: "维修后满意度回访",
+    title: "维修后联系客户",
     due_at: defaultDueAt,
     owner_name: "",
     note: "",
@@ -48,7 +48,7 @@ export function CustomerFollowupDialog({
   useEffect(() => {
     if (open) {
       setForm({
-        title: "维修后满意度回访",
+        title: "维修后联系客户",
         due_at: defaultDueAt,
         owner_name: "",
         note: "",
@@ -60,7 +60,7 @@ export function CustomerFollowupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={componentOverlay.formContent}>
         <DialogHeader className={componentOverlay.header}>
-          <DialogTitle className={componentOverlay.title}>添加回访任务</DialogTitle>
+          <DialogTitle className={componentOverlay.title}>添加客户待办</DialogTitle>
           <DialogDescription className={componentOverlay.description}>
             用于售后满意度、报价确认或取机提醒。
           </DialogDescription>
@@ -118,7 +118,7 @@ export function CustomerFollowupDialog({
             disabled={busy || !form.title.trim() || !form.due_at}
             onClick={() => onSave(form)}
           >
-            {busy ? "创建中…" : "创建回访"}
+            {busy ? "创建中…" : "创建待办"}
           </Button>
         </DialogFooter>
       </DialogContent>

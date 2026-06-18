@@ -4,16 +4,21 @@ import { createContext, useContext, useMemo, useState } from "react";
 import type React from "react";
 import { motion } from "framer-motion";
 import {
-  Bell,
+  Calendar,
   Camera,
   CheckCircle2,
   ChevronUp,
+  Clock3,
   CreditCard,
+  History,
+  Image as ImageIcon,
   Plus,
-  Printer,
   Send,
   Signature,
+  Store,
   Trash2,
+  UserRound,
+  type LucideIcon,
 } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
@@ -30,19 +35,21 @@ import {
   normalizeFaultPrices,
   toFaultPriceItems,
 } from "@/components/orders/fault-diagnosis-picker";
+import { getWorkflowStatusLabel } from "@/features/orders/model/order-workflow";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
 import {
@@ -54,7 +61,15 @@ import {
 } from "@/features/orders/model/order-finance-draft";
 import { fadeUp } from "@/lib/motion";
 import { detailWorkspace } from "@/lib/ui-patterns";
-import type { Customer, OrderDetail, Supplier, UpdateOrderInput } from "@/lib/repairdesk/types";
+import type {
+  Customer,
+  OrderAttachment,
+  OrderDetail,
+  OrderWorkflow,
+  StoreSettings,
+  Supplier,
+  UpdateOrderInput,
+} from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 
 type DetailSurface = "page" | "dialog";
@@ -106,6 +121,14 @@ export function OrderOverviewTab({
   onQuickImeiSave,
   quickImeiPending = false,
   surface = "page",
+  storeSettings,
+  supplier,
+  events = [],
+  workflow,
+  onShowRecords,
+  photoAttachments = [],
+  photoUploadPending = false,
+  onPhotoCapture,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -123,6 +146,14 @@ export function OrderOverviewTab({
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending?: boolean;
   surface?: DetailSurface;
+  storeSettings?: StoreSettings;
+  supplier?: Supplier;
+  events?: OrderDetail["events"];
+  workflow?: OrderWorkflow;
+  onShowRecords?: () => void;
+  photoAttachments?: OrderAttachment[];
+  photoUploadPending?: boolean;
+  onPhotoCapture?: () => void;
 }) {
   const edit =
     isEditing && editDraft && onEditDraftChange && onActiveEditFieldChange
@@ -153,34 +184,116 @@ export function OrderOverviewTab({
         />
       </div>
 
-      <div
-        className={cn(
-          "hidden min-w-0 gap-2 sm:gap-3 md:grid md:grid-cols-2",
-          surface === "dialog"
-            ? detailWorkspace.compactDetailGrid
-            : "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.25fr)]",
-        )}
-      >
-        <CustomerPanel order={order} customer={customer} edit={edit} surface={surface} />
-        <DeviceIssuePanel
+      <div className="hidden min-w-0 space-y-2 sm:space-y-3 md:block">
+        <OrderOverviewDesktopContextStrip
           order={order}
-          deviceBrand={deviceBrand}
-          deviceModel={deviceModel}
-          deviceImei={deviceImei}
-          deviceNotes={deviceNotes}
-          accessoryNotes={accessoryNotes}
-          defaultWarrantyMonths={defaultWarrantyMonths}
-          onQuickImeiSave={onQuickImeiSave}
-          quickImeiPending={quickImeiPending}
-          edit={edit}
-          surface={surface}
+          supplier={supplier}
+          storeSettings={storeSettings}
+          events={events}
+          workflow={workflow}
+          onShowRecords={onShowRecords}
         />
+
+        <div
+          data-order-detail-main-grid="true"
+          className={cn(
+            "grid min-w-0 gap-2 sm:gap-3 md:grid-cols-2",
+            surface === "dialog"
+              ? "lg:grid-cols-[minmax(190px,0.82fr)_minmax(280px,1.16fr)_minmax(230px,0.9fr)_minmax(180px,0.66fr)]"
+              : "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.15fr)] xl:grid-cols-[minmax(220px,0.86fr)_minmax(320px,1.16fr)_minmax(250px,0.9fr)] 2xl:grid-cols-[minmax(220px,0.86fr)_minmax(320px,1.16fr)_minmax(250px,0.9fr)_minmax(210px,0.72fr)]",
+          )}
+        >
+          <CustomerPanel order={order} customer={customer} edit={edit} surface={surface} />
+          <DeviceIssuePanel
+            order={order}
+            deviceBrand={deviceBrand}
+            deviceModel={deviceModel}
+            deviceImei={deviceImei}
+            deviceNotes={deviceNotes}
+            accessoryNotes={accessoryNotes}
+            defaultWarrantyMonths={defaultWarrantyMonths}
+            onQuickImeiSave={onQuickImeiSave}
+            quickImeiPending={quickImeiPending}
+            edit={edit}
+            surface={surface}
+          />
+          <OrderOverviewFinancePanel order={order} isEditing={Boolean(edit)} surface={surface} />
+          <DesktopOrderPhotosPanel
+            attachments={photoAttachments}
+            uploadPending={photoUploadPending}
+            onCapture={onPhotoCapture}
+            surface={surface}
+          />
+        </div>
       </div>
     </motion.div>
   );
 }
 
-export function OrderFinanceDock({
+function OrderOverviewDesktopContextStrip({
+  order,
+  supplier,
+  storeSettings,
+  events,
+  workflow,
+  onShowRecords,
+}: {
+  order: OrderDetail["order"];
+  supplier?: Supplier;
+  storeSettings?: StoreSettings;
+  events: OrderDetail["events"];
+  workflow?: OrderWorkflow;
+  onShowRecords?: () => void;
+}) {
+  const latestEvent = events[0];
+  const latestLabel = latestEvent ? getLatestEventSummary(latestEvent, workflow) : "暂无历史记录";
+  const latestMeta = latestEvent
+    ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name}`
+    : "记录会在流转、通知和收款后生成";
+
+  return (
+    <section
+      data-order-detail-context-strip="true"
+      className="grid min-w-0 gap-2 rounded-lg border border-[var(--border-panel)] bg-card/95 p-2 shadow-sm lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(220px,1.2fr)]"
+    >
+      <OverviewMeta icon={Calendar} label="创建" value={formatDateTime(order.created_at)} compact />
+      <OverviewMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} compact />
+      <OverviewMeta
+        icon={Store}
+        label={supplier ? "外修 / 门店" : "门店"}
+        value={supplier?.short_name || storeSettings?.store_name || "ChinaTech"}
+        compact
+        color={supplier?.color}
+      />
+      <button
+        type="button"
+        data-order-latest-event="true"
+        className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-left transition-colors hover:bg-accent/45"
+        onClick={onShowRecords}
+        disabled={!onShowRecords}
+      >
+        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+          <History className="size-3.5" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-xs font-semibold" title={latestLabel}>
+            {latestLabel}
+          </span>
+          <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+            {latestMeta}
+          </span>
+        </span>
+        {onShowRecords ? (
+          <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] font-medium text-primary">
+            记录
+          </span>
+        ) : null}
+      </button>
+    </section>
+  );
+}
+
+export function OrderDetailActionDock({
   order,
   isEditing,
   financeDraft,
@@ -189,9 +302,10 @@ export function OrderFinanceDock({
   onApproval,
   onApprovalDecision,
   approvalDecisionAvailable = false,
+  onFlow,
+  flowDisabled = false,
   onPay,
   onNotify,
-  onPrint,
   surface = "page",
 }: {
   order: OrderDetail["order"];
@@ -202,11 +316,13 @@ export function OrderFinanceDock({
   onApproval: () => void;
   onApprovalDecision?: () => void;
   approvalDecisionAvailable?: boolean;
+  onFlow: () => void;
+  flowDisabled?: boolean;
   onPay: () => void;
   onNotify: () => void;
-  onPrint: () => void;
   surface?: DetailSurface;
 }) {
+  const { isMobile, state: sidebarState } = useSidebar();
   const [open, setOpen] = useState(false);
   const paidAmount = inferOrderPaidAmount(order);
   const normalizedDraft = useMemo(
@@ -235,117 +351,199 @@ export function OrderFinanceDock({
       setOpen(false);
       onApprovalDecision?.();
     },
-    onPay: () => {
-      setOpen(false);
-      onPay();
-    },
-    onNotify: () => {
-      setOpen(false);
-      onNotify();
-    },
-    onPrint: () => {
-      setOpen(false);
-      onPrint();
-    },
   };
+  const flowActionLabel = approvalDecisionAvailable ? "审批处理" : "流转";
+  const pageDockStyle: React.CSSProperties | undefined =
+    surface === "page"
+      ? {
+          left: isMobile
+            ? 0
+            : sidebarState === "collapsed"
+              ? "var(--sidebar-width-icon)"
+              : "var(--sidebar-width)",
+        }
+      : undefined;
 
   return (
     <>
       <div
+        data-order-action-dock="true"
+        style={pageDockStyle}
         className={cn(
           surface === "dialog"
             ? "sticky bottom-0 z-20 mt-2 min-w-0"
-            : "fixed inset-x-0 bottom-0 z-30 px-2 pb-[calc(env(safe-area-inset-bottom)+8px)] sm:px-4",
+            : "fixed bottom-0 right-0 z-30 px-2 pb-[calc(env(safe-area-inset-bottom)+8px)] sm:px-4",
         )}
       >
         <div
           className={cn(
             "mx-auto min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]/95 p-2 shadow-[var(--shadow-overlay)] backdrop-blur-xl",
-            surface === "dialog" ? "w-full" : "w-full max-w-5xl",
+            surface === "dialog" ? "w-full" : "w-full max-w-7xl",
           )}
         >
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2">
-              <DockMoney label="总价" amount={display.quotation} strong />
-              <DockMoney label="定金" amount={display.deposit} />
-              <DockMoney label="待付" amount={display.balance} strong />
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-9 shrink-0 gap-1.5 px-2 text-xs sm:px-3"
-              onClick={() => setOpen(true)}
+          <div className="grid min-w-0 gap-1.5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,auto)] xl:items-center">
+            <div
+              data-order-action-money-strip="true"
+              className="grid min-w-0 overflow-hidden rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 sm:grid-cols-[repeat(3,minmax(0,1fr))_minmax(140px,auto)]"
             >
-              <ChevronUp className="size-3.5" />
-              <span className="hidden sm:inline">展开报价</span>
-              <span className="sm:hidden">报价</span>
-            </Button>
-          </div>
-          <div className="mt-1 flex min-w-0 items-center justify-between gap-2 px-0.5 text-[11px] text-muted-foreground">
-            <span className="inline-flex min-w-0 items-center gap-1">
-              {display.isPaid ? (
-                <>
-                  <CheckCircle2 className="size-3 text-status-success-foreground" />
-                  已结清
-                </>
-              ) : (
-                "未结清"
-              )}
-            </span>
-            <span className="truncate">
-              {isEditing ? "报价草稿会随顶部保存一起提交" : "审批、收款和报价项目在详情中处理"}
-            </span>
+              <DockInlineMoney label="总价" amount={display.quotation} strong />
+              <DockInlineMoney label="定金" amount={display.deposit} />
+              <DockInlineMoney label="待付" amount={display.balance} strong />
+              <div className="flex min-w-0 items-center justify-between gap-2 border-t border-[var(--border-panel)] px-2 py-1 text-[11px] text-muted-foreground sm:border-l sm:border-t-0">
+                <span className="inline-flex min-w-0 items-center gap-1">
+                  {display.isPaid ? (
+                    <>
+                      <CheckCircle2 className="size-3 text-status-success-foreground" />
+                      已结清
+                    </>
+                  ) : (
+                    "未结清"
+                  )}
+                </span>
+                <span className="truncate">
+                  {isEditing
+                    ? "报价草稿待保存"
+                    : `项目 ${order.fault_prices.length} · ${
+                        order.approval_status === "approved"
+                          ? "审批通过"
+                          : order.approval_status === "rejected"
+                            ? "审批拒绝"
+                            : "审批待确认"
+                      }`}
+                </span>
+              </div>
+            </div>
+            <div className="grid min-w-0 grid-cols-2 gap-1.5 lg:grid-cols-4">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 gap-1.5 border-0 px-2 text-xs text-primary-foreground"
+                style={{ background: "var(--gradient-brand)" }}
+                disabled={isEditing}
+                onClick={onNotify}
+              >
+                <Send className="size-3.5" />
+                WhatsApp
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1.5 px-2 text-xs"
+                disabled={isEditing || (!approvalDecisionAvailable && flowDisabled)}
+                onClick={approvalDecisionAvailable ? actionHandlers.onApprovalDecision : onFlow}
+              >
+                <Clock3 className="size-3.5" />
+                {flowActionLabel}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1.5 px-2 text-xs"
+                disabled={isEditing || display.isPaid || display.balance <= 0}
+                onClick={onPay}
+              >
+                <CreditCard className="size-3.5" />
+                收款
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 shrink-0 gap-1.5 px-2 text-xs"
+                onClick={() => setOpen(true)}
+              >
+                <ChevronUp className="size-3.5" />
+                报价
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="mx-auto w-[min(980px,calc(100vw-16px))]">
-          <DrawerHeader className="text-left">
-            <div className="flex min-w-0 items-center justify-between gap-2">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          data-order-desktop-quote-dialog="true"
+          className="grid max-h-[calc(100svh-40px)] w-[min(940px,calc(100vw-40px))] max-w-[calc(100vw-40px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
+        >
+          <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 pr-14 text-left">
+            <div className="flex min-w-0 items-center justify-between gap-3">
               <div className="min-w-0">
-                <DrawerTitle className="truncate">报价与处理</DrawerTitle>
-                <DrawerDescription className="truncate">
-                  {order.public_no} · {isEditing ? "编辑报价草稿" : "报价、审批与收款"}
-                </DrawerDescription>
+                <DialogTitle className="truncate text-base">报价与处理</DialogTitle>
+                <DialogDescription className="truncate">
+                  {order.public_no} · {isEditing ? "编辑报价草稿" : "报价项目与客户审批"}
+                </DialogDescription>
               </div>
               <ApprovalBadge status={order.approval_status} />
             </div>
-          </DrawerHeader>
+          </DialogHeader>
 
-          <div className="min-w-0 overflow-y-auto px-4 pb-2">
-            <div className="mb-3 grid min-w-0 grid-cols-3 gap-2">
-              <DockMoney label="总报价" amount={display.quotation} strong expanded />
-              <DockMoney label="押金" amount={display.deposit} expanded />
-              <DockMoney label="尾款" amount={display.balance} strong expanded />
-            </div>
+          <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_300px] overflow-hidden">
+            <section data-order-quote-editor="true" className="min-h-0 min-w-0 overflow-y-auto p-4">
+              {isEditing ? (
+                <FinanceEditor
+                  edit={{ financeDraft, onFinanceDraftChange }}
+                  normalizedDraft={normalizedDraft}
+                  error={editError ?? normalizedDraft.error}
+                />
+              ) : (
+                <FinanceDisplay order={order} />
+              )}
+            </section>
 
-            {isEditing ? (
-              <FinanceEditor
-                edit={{ financeDraft, onFinanceDraftChange }}
-                normalizedDraft={normalizedDraft}
-                error={editError ?? normalizedDraft.error}
+            <aside
+              data-order-quote-summary="true"
+              className="min-w-0 border-l border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/65 p-3"
+            >
+              <div className="grid min-w-0 gap-2">
+                <DockMoney label="总报价" amount={display.quotation} strong expanded />
+                <DockMoney label="押金" amount={display.deposit} expanded />
+                <DockMoney label="尾款" amount={display.balance} strong expanded />
+              </div>
+
+              <div className="mt-3 rounded-lg border border-[var(--border-panel)] bg-card/80 px-2.5 py-2">
+                <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
+                  <span className="text-muted-foreground">付款状态</span>
+                  <span
+                    className={cn(
+                      "rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+                      display.isPaid
+                        ? "bg-status-success text-status-success-foreground"
+                        : "bg-status-warn text-status-warn-foreground",
+                    )}
+                  >
+                    {display.isPaid ? "已结清" : "待收款"}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
+                  <span className="text-muted-foreground">报价项目</span>
+                  <span className="font-mono font-semibold tabular-nums">
+                    {order.fault_prices.length}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
+                  <span className="text-muted-foreground">审批状态</span>
+                  <ApprovalBadge status={order.approval_status} />
+                </div>
+              </div>
+
+              <Separator className="my-3" />
+              <FinanceActions
+                approvalDecisionAvailable={approvalDecisionAvailable}
+                canSendApprovalRequest={canSendApprovalRequest(order)}
+                {...actionHandlers}
               />
-            ) : (
-              <FinanceDisplay order={order} />
-            )}
-
-            <Separator className="my-3" />
-            <FinanceActions
-              order={order}
-              approvalDecisionAvailable={approvalDecisionAvailable}
-              {...actionHandlers}
-            />
+            </aside>
           </div>
 
-          <DrawerFooter className="pt-2">
+          <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               关闭
             </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -362,7 +560,7 @@ export function OrderKeyInfoCard({
   surface?: DetailSurface;
 }) {
   return (
-    <DetailPanel surface={surface} className={className}>
+    <DetailPanel surface={surface} className={className} dataPanel="key-info">
       <h3 className="mb-2 text-sm font-semibold sm:mb-3">关键信息</h3>
       <dl className="grid min-w-0 gap-1 text-xs sm:gap-1.5">
         <Row label="创建时间" value={new Date(order.created_at).toLocaleString("zh-CN")} />
@@ -394,26 +592,188 @@ export function OrderKeyInfoCard({
   );
 }
 
+function OrderOverviewFinancePanel({
+  order,
+  isEditing,
+  surface,
+}: {
+  order: OrderDetail["order"];
+  isEditing: boolean;
+  surface: DetailSurface;
+}) {
+  return (
+    <DetailPanel surface={surface} dataPanel="finance">
+      <PanelHeader title="报价处理" editing={isEditing} />
+      <div className="min-w-0 space-y-2 sm:space-y-3">
+        <div className="grid min-w-0 grid-cols-3 gap-1.5">
+          <DockMoney label="总价" amount={order.quotation_amount} strong />
+          <DockMoney label="定金" amount={order.deposit_amount} />
+          <DockMoney label="待付" amount={order.balance_amount} strong />
+        </div>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <ApprovalBadge status={order.approval_status} />
+          <span
+            className={cn(
+              "rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
+              order.is_paid
+                ? "border-status-success-foreground/25 bg-status-success text-status-success-foreground"
+                : "border-status-warn-foreground/25 bg-status-warn text-status-warn-foreground",
+            )}
+          >
+            {order.is_paid ? "已结清" : "待收款"}
+          </span>
+        </div>
+
+        <FinanceDisplay order={order} />
+
+        <div className="rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
+          <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
+            <span className="truncate text-muted-foreground">报价项目</span>
+            <span className="shrink-0 font-mono font-semibold tabular-nums">
+              {order.fault_prices.length}
+            </span>
+          </div>
+          <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
+            <span className="truncate text-muted-foreground">审批状态</span>
+            <span className="shrink-0">
+              <ApprovalBadge status={order.approval_status} />
+            </span>
+          </div>
+        </div>
+      </div>
+    </DetailPanel>
+  );
+}
+
+function DesktopOrderPhotosPanel({
+  attachments,
+  uploadPending,
+  onCapture,
+  surface,
+}: {
+  attachments: OrderAttachment[];
+  uploadPending: boolean;
+  onCapture?: () => void;
+  surface: DetailSurface;
+}) {
+  const previews = attachments.slice(0, 3);
+  const hiddenCount = Math.max(0, attachments.length - previews.length);
+
+  return (
+    <DetailPanel surface={surface} dataPanel="photos">
+      <PanelHeader
+        title="设备照片"
+        action={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+            disabled={uploadPending || !onCapture}
+            onClick={onCapture}
+          >
+            <Camera className="size-3.5" />
+            {uploadPending ? "上传中" : "拍照"}
+          </Button>
+        }
+      />
+      <div className="grid min-w-0 grid-cols-2 gap-1.5 lg:grid-cols-1 xl:grid-cols-2">
+        {previews.map((attachment) => (
+          <DesktopPhotoPreview key={attachment.id} attachment={attachment} />
+        ))}
+        {attachments.length === 0 ? (
+          <>
+            <DesktopPhotoPlaceholder label="正面" />
+            <DesktopPhotoPlaceholder label="背面" />
+          </>
+        ) : attachments.length === 1 ? (
+          <DesktopPhotoPlaceholder label="补充" />
+        ) : null}
+        <button
+          type="button"
+          className={cn(
+            "grid h-16 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60",
+            attachments.length >= 2 && "col-span-2 lg:col-span-1 xl:col-span-2",
+          )}
+          disabled={uploadPending || !onCapture}
+          onClick={onCapture}
+        >
+          <span className="grid place-items-center gap-1">
+            <Camera className="size-4" />
+            {uploadPending ? "上传中" : "补拍"}
+          </span>
+        </button>
+      </div>
+      <div className="mt-2 flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[11px] leading-4">
+        <span className="truncate text-muted-foreground">已保存照片</span>
+        <span className="shrink-0 font-mono font-semibold tabular-nums">
+          {attachments.length}
+          {hiddenCount ? ` +${hiddenCount}` : ""}
+        </span>
+      </div>
+    </DetailPanel>
+  );
+}
+
+function DesktopPhotoPreview({ attachment }: { attachment: OrderAttachment }) {
+  const source = attachment.signed_url || attachment.public_url;
+  return (
+    <div
+      data-order-photo-preview="true"
+      className="relative h-16 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]"
+    >
+      {source ? (
+        <img src={source} alt={attachment.file_name} className="size-full object-cover" />
+      ) : (
+        <div className="grid size-full place-items-center text-primary">
+          <ImageIcon className="size-4" />
+        </div>
+      )}
+      <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+        {attachment.file_name || "设备照片"}
+      </span>
+    </div>
+  );
+}
+
+function DesktopPhotoPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="grid h-16 min-w-0 place-items-center rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2 text-center">
+      <span className="grid place-items-center gap-1 text-[10px] font-medium text-muted-foreground">
+        <ImageIcon className="size-4 text-muted-foreground/70" />
+        {label}
+      </span>
+    </div>
+  );
+}
+
 function DetailPanel({
   surface,
+  dataPanel,
   className,
   children,
 }: {
   surface: DetailSurface;
+  dataPanel?: string;
   className?: string;
   children: React.ReactNode;
 }) {
   if (surface === "dialog") {
     return (
       <DetailDensityContext.Provider value>
-        <section className={cn(detailWorkspace.densePanel, className)}>{children}</section>
+        <section className={cn(detailWorkspace.densePanel, className)} data-order-panel={dataPanel}>
+          {children}
+        </section>
       </DetailDensityContext.Provider>
     );
   }
 
   return (
     <DetailDensityContext.Provider value={false}>
-      <Card className={cn(overviewPanelClass, className)}>{children}</Card>
+      <Card className={cn(overviewPanelClass, className)} data-order-panel={dataPanel}>
+        {children}
+      </Card>
     </DetailDensityContext.Provider>
   );
 }
@@ -551,7 +911,7 @@ function CustomerPanel({
   surface: DetailSurface;
 }) {
   return (
-    <DetailPanel surface={surface}>
+    <DetailPanel surface={surface} dataPanel="customer">
       <PanelHeader title="客户信息" editing={Boolean(edit)} />
       <div className="min-w-0 space-y-2 sm:space-y-3">
         <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-1">
@@ -721,7 +1081,7 @@ function DeviceIssuePanel({
   surface: DetailSurface;
 }) {
   return (
-    <DetailPanel surface={surface}>
+    <DetailPanel surface={surface} dataPanel="device">
       <PanelHeader title="设备与故障" editing={Boolean(edit)} />
       <div className="min-w-0 space-y-2 sm:space-y-3">
         <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-1 lg:grid-cols-2">
@@ -1015,27 +1375,21 @@ function FinanceDisplay({ order }: { order: OrderDetail["order"] }) {
 }
 
 function FinanceActions({
-  order,
   onApproval,
   onApprovalDecision,
   approvalDecisionAvailable,
-  onPay,
-  onNotify,
-  onPrint,
+  canSendApprovalRequest,
 }: {
-  order: OrderDetail["order"];
   onApproval: () => void;
   onApprovalDecision?: () => void;
   approvalDecisionAvailable: boolean;
-  onPay: () => void;
-  onNotify: () => void;
-  onPrint: () => void;
+  canSendApprovalRequest: boolean;
 }) {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-2 gap-1.5 sm:gap-2",
-        approvalDecisionAvailable ? "sm:grid-cols-5" : "sm:grid-cols-4",
+        "grid min-w-0 gap-1.5 sm:gap-2",
+        approvalDecisionAvailable ? "sm:grid-cols-2" : "sm:grid-cols-1",
       )}
     >
       {approvalDecisionAvailable ? (
@@ -1053,36 +1407,17 @@ function FinanceActions({
         variant="outline"
         className="h-8 gap-1.5 border-primary/25 bg-accent/30 px-2 text-xs text-accent-foreground hover:bg-accent/50"
         onClick={onApproval}
+        disabled={!canSendApprovalRequest}
+        title={canSendApprovalRequest ? "发送客户报价审批" : "只有报价或待审批阶段可以发送审批"}
       >
         <Send className="size-3.5" /> 发送审批
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-8 gap-1.5 bg-surface/70 px-2 text-xs"
-        disabled={order.is_paid || order.balance_amount <= 0}
-        onClick={onPay}
-      >
-        <CreditCard className="size-3.5" /> 收款
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-8 gap-1.5 bg-surface/70 px-2 text-xs"
-        onClick={onNotify}
-      >
-        <Bell className="size-3.5" /> 通知客户
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-8 gap-1.5 bg-surface/70 px-2 text-xs"
-        onClick={onPrint}
-      >
-        <Printer className="size-3.5" /> 打印
-      </Button>
     </div>
   );
+}
+
+function canSendApprovalRequest(order: OrderDetail["order"]) {
+  return order.status === "quoted" || order.status === "waiting_approval";
 }
 
 function DraftTextField({
@@ -1250,13 +1585,123 @@ function patchDraft(edit: OrderEditContext | null, patch: Partial<UpdateOrderInp
   edit.onDraftChange({ ...edit.draft, ...patch });
 }
 
-function PanelHeader({ title, editing }: { title: string; editing?: boolean }) {
+function OverviewMeta({
+  icon: Icon,
+  label,
+  value,
+  compact,
+  color,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  compact?: boolean;
+  color?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5",
+        compact ? "py-1.5" : "py-2",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        {color ? (
+          <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
+        ) : (
+          <Icon className="size-3.5 shrink-0 text-primary" />
+        )}
+        <span className="truncate">{label}</span>
+      </div>
+      <p
+        className={cn("truncate font-semibold", compact ? "mt-0.5 text-xs" : "mt-1 text-sm")}
+        title={value}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getLatestEventSummary(event: OrderDetail["events"][number], workflow?: OrderWorkflow) {
+  switch (event.event_type) {
+    case "created":
+      return "工单已创建";
+    case "status_changed":
+      return "状态已流转";
+    case "quoted":
+      return "报价已更新";
+    case "approval_sent":
+      return "报价已发送给客户";
+    case "approval_result":
+      return renderApprovalResultSummary(event.payload, workflow);
+    case "payment":
+      return "收款已登记";
+    case "message_sent":
+      return "客户通知已发送";
+    case "delivered":
+      return "设备已交付";
+    case "note":
+      return "新增备注";
+    default:
+      return "工单记录已更新";
+  }
+}
+
+function renderApprovalResultSummary(payload: Record<string, unknown>, workflow?: OrderWorkflow) {
+  const result = payload.result === "approved" ? "通过" : "拒绝";
+  const from =
+    typeof payload.from === "string" ? getWorkflowStatusLabel(workflow, payload.from) : "";
+  const to = typeof payload.to === "string" ? getWorkflowStatusLabel(workflow, payload.to) : "";
+  const route = from && to ? `：${from} → ${to}` : "";
+  const reason =
+    typeof payload.reason === "string" && payload.reason.trim()
+      ? `，原因：${payload.reason.trim()}`
+      : "";
+  return `客户审批${result}${route}${reason}`;
+}
+
+function PanelHeader({
+  title,
+  editing,
+  action,
+  className,
+}: {
+  title: string;
+  editing?: boolean;
+  action?: React.ReactNode;
+  className?: string;
+}) {
   const dense = useDenseDetail();
+  const trailing =
+    action ??
+    (editing ? (
+      <span
+        className={cn(
+          "hidden rounded-full border border-primary/20 bg-accent/25 px-1.5 py-0.5 text-primary sm:inline",
+          dense ? "text-[10px]" : "text-[11px]",
+        )}
+      >
+        选择字段编辑
+      </span>
+    ) : null);
+
   return (
     <div
       className={cn(
         "flex min-w-0 items-center justify-between gap-2",
         dense ? "mb-1.5" : "mb-2 sm:mb-3",
+        className,
       )}
     >
       <h3
@@ -1268,16 +1713,35 @@ function PanelHeader({ title, editing }: { title: string; editing?: boolean }) {
         <span className="size-1.5 shrink-0 rounded-full bg-primary/70" />
         <span className="truncate">{title}</span>
       </h3>
-      {editing && (
-        <span
-          className={cn(
-            "hidden rounded-full border border-primary/20 bg-accent/25 px-1.5 py-0.5 text-primary sm:inline",
-            dense ? "text-[10px]" : "text-[11px]",
-          )}
-        >
-          选择字段编辑
-        </span>
+      {trailing}
+    </div>
+  );
+}
+
+function DockInlineMoney({
+  label,
+  amount,
+  strong,
+}: {
+  label: string;
+  amount: number;
+  strong?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 items-center justify-between gap-2 border-b border-[var(--border-panel)] px-2 py-1 sm:border-b-0 sm:border-r",
+        strong && "bg-accent/20",
       )}
+    >
+      <span className="truncate text-[10px] font-medium text-muted-foreground">{label}</span>
+      <MoneyText
+        amount={amount}
+        className={cn(
+          "shrink-0 truncate font-mono text-xs tabular-nums",
+          strong && "font-semibold text-foreground",
+        )}
+      />
     </div>
   );
 }

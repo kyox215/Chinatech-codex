@@ -44,7 +44,12 @@ export function NewOrderQuotationSection({
 }) {
   const shellClass = cn(
     "h-fit min-w-0 p-2 sm:p-3",
-    surface === "dialog" ? detailWorkspace.flatPanel : repairOs.mobileInfoCard,
+    surface === "dialog"
+      ? detailWorkspace.flatPanel
+      : cn(
+          repairOs.mobileInfoCard,
+          "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
+        ),
   );
   const Shell = "section";
   const controlClass =
@@ -53,7 +58,7 @@ export function NewOrderQuotationSection({
   const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
 
   return (
-    <Shell className={shellClass}>
+    <Shell data-new-order-section="quotation" className={shellClass}>
       <SectionHeading
         icon={ReceiptText}
         title="报价与服务"
@@ -152,7 +157,7 @@ export function NewOrderQuotationSection({
       <div className="my-1.5 border-t border-[var(--border-panel)] sm:my-3" />
 
       <div className="min-w-0 space-y-1.5 sm:space-y-3">
-        <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 sm:gap-3">
+        <div className="grid min-w-0 gap-1.5 xl:grid-cols-2 xl:gap-3">
           <FormItem label="定金" mobileLabel="sr-only">
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -171,15 +176,15 @@ export function NewOrderQuotationSection({
               />
             </div>
           </FormItem>
-          <div className="hidden min-w-0 items-center rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[10px] leading-4 text-muted-foreground sm:flex">
+          <div className="hidden min-w-0 items-center rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[10px] leading-4 text-muted-foreground xl:flex">
             合计由底部结算条集中显示：{total.toFixed(2)}
           </div>
         </div>
-        <p className="hidden text-xs text-muted-foreground sm:block">
+        <p className="hidden text-xs text-muted-foreground xl:block">
           保存时由服务端按总金额与定金自动写入余额。
         </p>
 
-        <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:gap-3">
+        <div className="grid min-w-0 gap-1.5 xl:grid-cols-2 xl:gap-3">
           <FormItem label="录入账号" mobileLabel="sr-only">
             <div
               className="flex h-8 min-w-0 items-center rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 text-[11px] font-medium sm:h-9 sm:px-3 sm:text-sm"
@@ -215,7 +220,7 @@ export function NewOrderQuotationSection({
           />
         </FormItem>
 
-        <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:gap-3">
+        <div className="grid min-w-0 gap-1.5 xl:grid-cols-2 xl:gap-3">
           <div className="grid gap-1.5">
             <div className="text-[10px] font-medium leading-3 text-muted-foreground sm:text-xs">
               工单类型

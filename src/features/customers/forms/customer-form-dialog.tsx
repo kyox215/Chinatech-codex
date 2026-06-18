@@ -126,7 +126,7 @@ export function CustomerFormDialog({
             </CustomerFormField>
           </div>
           <div className="sm:col-span-2">
-            <CustomerFormField label="营销备注">
+            <CustomerFormField label="联系备注">
               <Textarea
                 className={compactTextareaClass}
                 value={form.marketing_notes ?? ""}
@@ -141,7 +141,7 @@ export function CustomerFormDialog({
                 setForm({ ...form, consent_marketing: Boolean(checked) })
               }
             />
-            允许营销触达
+            允许主动联系
           </label>
           <label className="flex min-w-0 items-center gap-2 text-sm">
             <Checkbox

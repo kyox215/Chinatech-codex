@@ -24,9 +24,16 @@ import {
   submitOnboardingRequest,
   type OnboardingRequestInput,
 } from "@/lib/repairdesk/api";
-import { brandGradientStyle, controls, formLayout, pageShell } from "@/lib/ui-patterns";
+import { brandGradientStyle, controls, formLayout } from "@/lib/ui-patterns";
 import { createClient } from "@/utils/supabase/client";
 import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-persistence";
+import {
+  buildOnboardingRequestInput,
+  getOnboardingRequestSummary,
+  getPendingOnboardingRequest,
+  onboardingRoleLabels,
+  validateOnboardingForm,
+} from "@/features/auth/model/onboarding-flow";
 import { platformKeys } from "@/features/platform/api/query-keys";
 
 export function OnboardingScreen() {
@@ -43,9 +50,17 @@ export function OnboardingScreen() {
     queryFn: getOnboardingStatus,
   });
 
+  const formState = useMemo(
+    () => ({ mode, storeName, targetStoreId, requestedRole }),
+    [mode, requestedRole, storeName, targetStoreId],
+  );
   const latestRequest = useMemo(
-    () => statusQuery.data?.requests.find((request) => request.status === "pending"),
+    () => getPendingOnboardingRequest(statusQuery.data?.requests),
     [statusQuery.data?.requests],
+  );
+  const formValidation = useMemo(
+    () => validateOnboardingForm(formState, statusQuery.data),
+    [formState, statusQuery.data],
   );
 
   const submitMutation = useMutation({
@@ -73,15 +88,11 @@ export function OnboardingScreen() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    submitMutation.mutate(
-      mode === "create_store"
-        ? { request_type: "create_store", desired_store_name: storeName }
-        : {
-            request_type: "join_store",
-            target_store_id: targetStoreId,
-            requested_role: requestedRole,
-          },
-    );
+    if (!formValidation.canSubmit) {
+      toast.error(formValidation.reason);
+      return;
+    }
+    submitMutation.mutate(buildOnboardingRequestInput(formState));
   };
 
   if (statusQuery.isLoading) {
@@ -116,10 +127,36 @@ export function OnboardingScreen() {
   const canEnter = Boolean(status?.activeStore || status?.isPlatformAdmin);
 
   return (
-    <main className="min-h-svh bg-background px-3 py-6 sm:px-6">
-      <div className={pageShell.form}>
-        <header className="flex min-w-0 justify-end">
-          <div className="flex flex-wrap items-center gap-2">
+    <main className="min-h-svh bg-background px-3 py-6 sm:px-6 lg:py-8">
+      <div className="mx-auto grid w-full max-w-5xl min-w-0 gap-4 lg:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.25fr)] lg:items-start">
+        <aside className="glass-card min-w-0 p-4 lg:sticky lg:top-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+              <Store className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-display text-xl font-semibold">账号开通</h1>
+              <p className="mt-1 truncate text-sm text-muted-foreground">
+                {status?.activeStore?.name ?? latestRequest?.target_store_name ?? "RepairDesk"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
+            <p className="text-xs text-muted-foreground">当前状态</p>
+            <p className="mt-1 text-sm font-semibold">
+              {status?.activeStore ? "账号已开通" : latestRequest ? "申请待审核" : "等待提交"}
+            </p>
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+              {status?.activeStore
+                ? `角色：${status.activeStore.role}`
+                : latestRequest
+                  ? getOnboardingRequestSummary(latestRequest)
+                  : formValidation.reason}
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
             {canEnter && (
               <Button
                 className={controls.brandButton}
@@ -135,22 +172,22 @@ export function OnboardingScreen() {
               退出
             </Button>
           </div>
-        </header>
+        </aside>
 
         {status?.activeStore ? (
-          <section className="glass-card mt-5 p-4">
+          <section className="glass-card min-w-0 p-4">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 size-5 text-status-success-foreground" />
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold">账号已开通</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 break-words text-sm text-muted-foreground">
                   你已加入 {status.activeStore.name}，角色为 {status.activeStore.role}。
                 </p>
               </div>
             </div>
           </section>
         ) : latestRequest ? (
-          <section className="glass-card mt-5 p-4">
+          <section className="glass-card min-w-0 p-4">
             <div className="flex items-start gap-3">
               <Clock3 className="mt-0.5 size-5 text-status-warn-foreground" />
               <div className="min-w-0">
@@ -158,16 +195,14 @@ export function OnboardingScreen() {
                   <h2 className="text-sm font-semibold">申请待审核</h2>
                   <Badge variant="outline">pending</Badge>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {latestRequest.request_type === "create_store"
-                    ? `创建店铺：${latestRequest.desired_store_name}`
-                    : `加入店铺：${latestRequest.target_store_name || latestRequest.target_store_id}`}
+                <p className="mt-1 break-words text-sm text-muted-foreground">
+                  {getOnboardingRequestSummary(latestRequest)}
                 </p>
               </div>
             </div>
           </section>
         ) : (
-          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+          <form className="min-w-0 space-y-4" onSubmit={handleSubmit}>
             <Tabs value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="join_store">
@@ -181,6 +216,11 @@ export function OnboardingScreen() {
               </TabsList>
 
               <TabsContent value="join_store" className="glass-card space-y-4 p-4">
+                {!status?.availableStores.length ? (
+                  <div className="rounded-[var(--radius-lg)] border border-status-warn-foreground/20 bg-status-warn px-3 py-2 text-xs leading-5 text-status-warn-foreground">
+                    当前没有可申请加入的店铺。可以创建新店铺，或联系平台管理员先创建店铺。
+                  </div>
+                ) : null}
                 <div className={formLayout.field}>
                   <Label className={formLayout.label}>选择店铺</Label>
                   <Select value={targetStoreId} onValueChange={setTargetStoreId}>
@@ -206,10 +246,11 @@ export function OnboardingScreen() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="technician">维修员工</SelectItem>
-                      <SelectItem value="sales">销售/前台</SelectItem>
-                      <SelectItem value="manager">店铺经理</SelectItem>
-                      <SelectItem value="viewer">只读查看</SelectItem>
+                      {Object.entries(onboardingRoleLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -232,7 +273,7 @@ export function OnboardingScreen() {
 
             <Button
               type="submit"
-              disabled={submitMutation.isPending}
+              disabled={submitMutation.isPending || !formValidation.canSubmit}
               className={controls.brandButton}
               style={brandGradientStyle}
             >
@@ -243,6 +284,7 @@ export function OnboardingScreen() {
               )}
               提交平台审核
             </Button>
+            <p className="text-xs text-muted-foreground">{formValidation.reason}</p>
           </form>
         )}
       </div>

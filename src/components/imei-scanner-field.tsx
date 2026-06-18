@@ -159,7 +159,7 @@ export function ImeiScannerField({
           className={cn(
             "font-mono",
             compact &&
-              "h-8 min-w-0 text-base placeholder:text-base md:text-[13px] md:placeholder:text-[13px]",
+              "h-8 min-w-0 text-[13px] placeholder:text-[13px] md:text-[13px] md:placeholder:text-[13px]",
             compact && quiet && "border-0 bg-transparent px-0 shadow-none focus-visible:ring-0",
           )}
           inputMode="text"

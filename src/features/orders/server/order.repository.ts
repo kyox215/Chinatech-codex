@@ -46,7 +46,6 @@ import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
   approvalFlowStatusFromLegacyStatus,
-  legacyStatusFromWorkflowStatus,
   notifyStatusFromLegacyStatus,
   orderWorkflowStatuses,
   partsStatusFromLegacyStatus,
@@ -317,16 +316,100 @@ function isCanonicalWorkflowStatus(status: string): status is OrderWorkflowStatu
   return orderWorkflowStatuses.includes(status as OrderWorkflowStatusCode);
 }
 
-function assertCanonicalWorkflowTransition(
-  from: OrderWorkflowStatusCode,
-  to: OrderWorkflowStatusCode,
+function orderBalanceAmount(row: { balance_amount?: unknown }) {
+  return money(row.balance_amount);
+}
+
+function isOrderFinanciallyPaid(row: { balance_amount?: unknown; is_paid?: unknown }) {
+  return Boolean(row.is_paid) || orderBalanceAmount(row) <= 0;
+}
+
+function isApprovalDecisionBypass(
+  from: RepairOrderStatus,
+  to: RepairOrderStatus,
+  approvalStatus?: string,
+  approvalFlowStatus?: string,
 ) {
-  if (from === to) return;
-  const fromIndex = orderWorkflowStatuses.indexOf(from);
-  const toIndex = orderWorkflowStatuses.indexOf(to);
-  if (fromIndex < 0 || toIndex < 0 || toIndex !== fromIndex + 1) {
-    throw new Error("主流程只能按顺序推进");
+  if (to === "waiting_approval") return false;
+  if (from === "waiting_approval" && approvalFlowStatus !== "approved") return true;
+  return from === "quoted" && approvalStatus === "pending";
+}
+
+function faultPriceSignature(value: unknown) {
+  const rows = Array.isArray(value) ? value : [];
+  return JSON.stringify(
+    rows.map((raw) => {
+      const item = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+      return {
+        name: String(item.name ?? "").trim(),
+        price: money(item.price),
+        note: String(item.note ?? "").trim(),
+        currency_code: String(item.currency_code ?? CURRENCY_CODE),
+      };
+    }),
+  );
+}
+
+function quoteApprovalWasTouched(row: DbRecord) {
+  const approvalStatus = maybeString(row.approval_status);
+  return (
+    approvalStatus === "approved" ||
+    approvalStatus === "rejected" ||
+    maybeString(row.approval_flow_status) === "waiting_customer" ||
+    Boolean(row.approval_sent_at) ||
+    Boolean(row.approval_confirmed_at)
+  );
+}
+
+const quoteReapprovalReopenStatuses = new Set([
+  "parts_ordered",
+  "parts_arrived",
+  "repairing",
+  "repaired",
+  "notified",
+  "waiting_pickup",
+]);
+
+function buildQuoteApprovalResetUpdate({
+  currentRow,
+  nextFaults,
+  quotation,
+  deposit,
+  balance,
+}: {
+  currentRow: DbRecord;
+  nextFaults: unknown[];
+  quotation: number;
+  deposit: number;
+  balance: number;
+}): DbRecord {
+  const quoteChanged =
+    money(currentRow.quotation_amount) !== quotation ||
+    money(currentRow.deposit_amount) !== deposit ||
+    money(currentRow.balance_amount) !== balance ||
+    faultPriceSignature(currentRow.fault_prices) !== faultPriceSignature(nextFaults);
+
+  if (!quoteChanged || !quoteApprovalWasTouched(currentRow)) return {};
+
+  const currentStatus = requiredString(currentRow.status) as RepairOrderStatus;
+  const resetUpdate: DbRecord = {
+    approval_status: "pending",
+    approval_flow_status: approvalFlowStatusFromLegacyStatus(currentStatus, "pending"),
+    approval_sent_at: null,
+    approval_confirmed_at: null,
+  };
+
+  if (quoteReapprovalReopenStatuses.has(currentStatus)) {
+    Object.assign(resetUpdate, {
+      status: "quoted",
+      ...deriveCanonicalUpdateFromLegacyStatus("quoted", new Date().toISOString()),
+      approval_status: "pending",
+      approval_sent_at: null,
+      approval_confirmed_at: null,
+    });
   }
+
+  return resetUpdate;
 }
 
 function deriveCanonicalUpdateFromLegacyStatus(status: RepairOrderStatus, now: string) {
@@ -344,7 +427,9 @@ function deriveCanonicalUpdateFromLegacyStatus(status: RepairOrderStatus, now: s
     approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
     parts_status: partsStatusFromLegacyStatus(status),
     notify_status: status === "completed" ? "sent" : notifyStatusFromLegacyStatus(status),
-    ...(workflowStatus === "closed" || status === "completed" ? { completed_at: now } : {}),
+    ...(workflowStatus === "closed" || status === "completed"
+      ? { completed_at: now, delivered_at: now }
+      : {}),
     ...(status === "waiting_approval" ? { approval_sent_at: now } : {}),
   };
 }
@@ -1063,27 +1148,34 @@ export async function transitionOrder(
     (maybeString(currentRow.workflow_status) as OrderWorkflowStatusCode | undefined) ??
     workflowStatusFromLegacyStatus(from);
   const canonicalRequest = isCanonicalWorkflowStatus(to);
-  const workflowTo = canonicalRequest ? to : workflowStatusFromLegacyStatus(to);
-  const legacyTo = canonicalRequest
-    ? legacyStatusFromWorkflowStatus(workflowTo, {
-        partsStatus: maybeString(currentRow.parts_status) as never,
-        exceptionStatus: maybeString(currentRow.exception_status) as never,
-      })
-    : to;
+  if (canonicalRequest) {
+    throw new Error("状态流转必须使用具体工单状态，不能使用主流程分组");
+  }
+  const workflowTo = workflowStatusFromLegacyStatus(to);
+  const legacyTo = to;
   const cleanReason = opts.reason?.trim();
 
-  if (canonicalRequest) {
-    assertCanonicalWorkflowTransition(workflowFrom, workflowTo);
-  } else {
-    const validation = await validateConfiguredOrderTransition(supabase, storeId, from, to);
-    if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
+  const validation = await validateConfiguredOrderTransition(supabase, storeId, from, to);
+  if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
+  if (
+    isApprovalDecisionBypass(
+      from,
+      legacyTo,
+      maybeString(currentRow.approval_status),
+      maybeString(currentRow.approval_flow_status),
+    )
+  ) {
+    throw new Error("客户审批阶段必须通过审批处理记录同意或拒绝");
   }
   if (orderTransitionRequiresReason(legacyTo) && !cleanReason) {
     throw new Error(
       `流转到「${await readWorkflowStatusLabel(supabase, storeId, legacyTo)}」需要填写原因`,
     );
   }
-  if (legacyTo === "completed" && (!currentRow.is_paid || money(currentRow.balance_amount) > 0)) {
+  if (
+    legacyTo === "completed" &&
+    (orderBalanceAmount(currentRow) > 0 || !isOrderFinanciallyPaid(currentRow))
+  ) {
     throw new Error("工单仍有未结清尾款，不能直接结案");
   }
 
@@ -1095,6 +1187,14 @@ export async function transitionOrder(
     workflow_status: workflowTo,
   };
   if (legacyTo === "cancelled") update.cancel_reason = cleanReason || "未填写";
+  if (legacyTo === "completed") {
+    update.is_paid = true;
+    update.payment_status = paymentStatusFromMoney({
+      isPaid: true,
+      depositAmount: money(currentRow.deposit_amount),
+      balanceAmount: orderBalanceAmount(currentRow),
+    });
+  }
   if (legacyTo === "unfixed_pickup" && cleanReason) {
     update.diagnosis_result = buildTransitionDiagnosisResult(
       maybeString(currentRow.diagnosis_result),
@@ -1722,7 +1822,7 @@ export async function updateOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      "id,updated_at,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,warranty_text,warranty_months,warranty_change_reason,customer:customers(contact_phones)",
+      "id,updated_at,status,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,fault_prices,approval_status,approval_flow_status,approval_sent_at,approval_confirmed_at,warranty_text,warranty_months,warranty_change_reason,customer:customers(contact_phones)",
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -1760,6 +1860,13 @@ export async function updateOrder(
   const oldBalance = money(currentRow.balance_amount);
   const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const approvalResetUpdate = buildQuoteApprovalResetUpdate({
+    currentRow,
+    nextFaults: validFaults,
+    quotation,
+    deposit,
+    balance: nextBalance,
+  });
   const tagInput = normalizeOrderTagInput({
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
@@ -1808,6 +1915,7 @@ export async function updateOrder(
       }),
       fault_prices: validFaults,
       currency_code: CURRENCY_CODE,
+      ...approvalResetUpdate,
       device_snapshot: {
         brand: deviceBrand,
         model: deviceModel,
@@ -1845,6 +1953,7 @@ export async function updateOrder(
       accessory_notes: tagInput.accessoryNotes,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,
+      approval_reset: Boolean(approvalResetUpdate.approval_status),
       currency_code: CURRENCY_CODE,
     },
     operator_name: operatorName,
@@ -2041,7 +2150,9 @@ export async function patchOrderFinance(
   const supabase = getSupabaseAdmin();
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
-    .select("id,updated_at,quotation_amount,deposit_amount,balance_amount")
+    .select(
+      "id,updated_at,status,quotation_amount,deposit_amount,balance_amount,fault_prices,approval_status,approval_flow_status,approval_sent_at,approval_confirmed_at",
+    )
     .eq("store_id", storeId)
     .eq("id", id)
     .single();
@@ -2058,6 +2169,13 @@ export async function patchOrderFinance(
   const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
   const now = new Date().toISOString();
+  const approvalResetUpdate = buildQuoteApprovalResetUpdate({
+    currentRow,
+    nextFaults: validFaults,
+    quotation,
+    deposit,
+    balance: nextBalance,
+  });
   const updatedAt = await updateVersionedOrderRow({
     supabase,
     id,
@@ -2075,6 +2193,7 @@ export async function patchOrderFinance(
       }),
       fault_prices: validFaults,
       currency_code: CURRENCY_CODE,
+      ...approvalResetUpdate,
       updated_at: now,
     },
     context: "更新财务失败",
@@ -2090,6 +2209,7 @@ export async function patchOrderFinance(
       quotation_amount: quotation,
       deposit_amount: deposit,
       balance_amount: nextBalance,
+      approval_reset: Boolean(approvalResetUpdate.approval_status),
       currency_code: CURRENCY_CODE,
     },
     operator_name: operatorName,
@@ -2137,6 +2257,10 @@ async function writeWhatsappMessage({
   let statusChanged = false;
   let to: RepairOrderStatus | undefined;
 
+  if (markApprovalPending && from !== "quoted" && from !== "waiting_approval") {
+    throw new Error("只有报价或待审批阶段可以发送客户审批");
+  }
+
   if (transitionTo) {
     const transition = await validateConfiguredOrderTransition(
       supabase,
@@ -2147,7 +2271,10 @@ async function writeWhatsappMessage({
     if (!transition.ok) {
       if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
     } else {
-      if (transitionTo === "completed" && (!current.is_paid || money(current.balance_amount) > 0)) {
+      if (
+        transitionTo === "completed" &&
+        (orderBalanceAmount(current) > 0 || !isOrderFinanciallyPaid(current))
+      ) {
         throw new Error("工单仍有未结清尾款，不能直接结案");
       }
       statusChanged = true;
@@ -2164,7 +2291,14 @@ async function writeWhatsappMessage({
   if (statusChanged && to) {
     update.status = to;
     Object.assign(update, deriveCanonicalUpdateFromLegacyStatus(to, now));
-    if (to === "completed") update.completed_at = now;
+    if (to === "completed") {
+      update.is_paid = true;
+      update.payment_status = paymentStatusFromMoney({
+        isPaid: true,
+        depositAmount: money(current.deposit_amount),
+        balanceAmount: orderBalanceAmount(current),
+      });
+    }
     if (to === "waiting_approval") update.approval_sent_at = now;
   }
 

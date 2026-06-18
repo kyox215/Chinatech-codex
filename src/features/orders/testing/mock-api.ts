@@ -54,7 +54,6 @@ import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
   approvalFlowStatusFromLegacyStatus,
-  legacyStatusFromWorkflowStatus,
   notifyStatusFromLegacyStatus,
   orderWorkflowStatuses,
   partsStatusFromLegacyStatus,
@@ -192,18 +191,6 @@ function countWorkflowRows(rows: OrderListItem[]) {
 
 function filtersForWorkflowCounts(filters: OrderListFilters): OrderListFilters {
   return { ...filters, workflowStatuses: undefined };
-}
-
-function assertCanonicalWorkflowTransition(
-  from: OrderWorkflowStatusCode,
-  to: OrderWorkflowStatusCode,
-) {
-  if (from === to) return;
-  const fromIndex = orderWorkflowStatuses.indexOf(from);
-  const toIndex = orderWorkflowStatuses.indexOf(to);
-  if (fromIndex < 0 || toIndex < 0 || toIndex !== fromIndex + 1) {
-    throw new Error("主流程只能按顺序推进");
-  }
 }
 
 export async function listOrders(
@@ -543,6 +530,80 @@ export async function uploadOrderAttachment(
 }
 
 // POST /api/orders/[id]/transition
+function isMockOrderFinanciallyPaid(order: Pick<OrderListItem, "balance_amount" | "is_paid">) {
+  return order.is_paid || order.balance_amount <= 0;
+}
+
+function isApprovalDecisionBypass(
+  from: RepairOrderStatus,
+  to: RepairOrderStatus,
+  approvalStatus?: string,
+  approvalFlowStatus?: string,
+) {
+  if (to === "waiting_approval") return false;
+  if (from === "waiting_approval" && approvalFlowStatus !== "approved") return true;
+  return from === "quoted" && approvalStatus === "pending";
+}
+
+function mockFaultPriceSignature(value: unknown) {
+  const rows = Array.isArray(value) ? value : [];
+  return JSON.stringify(
+    rows.map((raw) => {
+      const item = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+      return {
+        name: String(item.name ?? "").trim(),
+        price: Number(item.price) || 0,
+        note: String(item.note ?? "").trim(),
+        currency_code: String(item.currency_code ?? CURRENCY_CODE),
+      };
+    }),
+  );
+}
+
+function shouldResetMockQuoteApproval(
+  order: RepairOrder,
+  nextFaults: unknown[],
+  quotation: number,
+  deposit: number,
+  balance: number,
+) {
+  const quoteChanged =
+    order.quotation_amount !== quotation ||
+    order.deposit_amount !== deposit ||
+    order.balance_amount !== balance ||
+    mockFaultPriceSignature(order.fault_prices) !== mockFaultPriceSignature(nextFaults);
+  const approvalWasTouched =
+    order.approval_status === "approved" ||
+    order.approval_status === "rejected" ||
+    order.approval_flow_status === "waiting_customer" ||
+    Boolean(order.approval_sent_at) ||
+    Boolean(order.approval_confirmed_at);
+  return quoteChanged && approvalWasTouched;
+}
+
+const quoteReapprovalReopenStatuses = new Set([
+  "parts_ordered",
+  "parts_arrived",
+  "repairing",
+  "repaired",
+  "notified",
+  "waiting_pickup",
+]);
+
+function resetMockQuoteApproval(order: RepairOrder) {
+  if (quoteReapprovalReopenStatuses.has(order.status)) {
+    order.status = "quoted";
+    order.workflow_status = workflowStatusFromLegacyStatus("quoted");
+    order.exception_status = undefined;
+    order.parts_status = partsStatusFromLegacyStatus("quoted");
+    order.notify_status = notifyStatusFromLegacyStatus("quoted");
+  }
+  order.approval_status = "pending";
+  order.approval_flow_status = approvalFlowStatusFromLegacyStatus(order.status, "pending");
+  order.approval_sent_at = undefined;
+  order.approval_confirmed_at = undefined;
+}
+
 export async function transitionOrder(
   id: string,
   to: RepairOrderStatus,
@@ -551,13 +612,13 @@ export async function transitionOrder(
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   const canonicalRequest = orderWorkflowStatuses.includes(to as never);
-  const workflowFrom = o.workflow_status ?? workflowStatusFromLegacyStatus(o.status);
-  const workflowTo = canonicalRequest ? (to as never) : workflowStatusFromLegacyStatus(to);
-  const legacyTo = canonicalRequest ? legacyStatusFromWorkflowStatus(workflowTo) : to;
-  const cleanReason = opts.reason?.trim();
   if (canonicalRequest) {
-    assertCanonicalWorkflowTransition(workflowFrom, workflowTo);
+    throw new Error("状态流转必须使用具体工单状态，不能使用主流程分组");
   }
+  const workflowFrom = o.workflow_status ?? workflowStatusFromLegacyStatus(o.status);
+  const workflowTo = workflowStatusFromLegacyStatus(to);
+  const legacyTo = to;
+  const cleanReason = opts.reason?.trim();
   const targetStatus = workflowStatuses.find((status) => status.code === legacyTo);
   if (targetStatus && !targetStatus.enabled) {
     throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
@@ -568,17 +629,20 @@ export async function transitionOrder(
       transition.to_status_code === legacyTo &&
       transition.enabled,
   );
-  if (!allowed && !canonicalRequest) {
+  if (!allowed) {
     const fromLabel =
       workflowStatuses.find((status) => status.code === o.status)?.label ?? o.status;
     const toLabel = workflowStatuses.find((status) => status.code === legacyTo)?.label ?? legacyTo;
     throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
   }
+  if (isApprovalDecisionBypass(o.status, legacyTo, o.approval_status, o.approval_flow_status)) {
+    throw new Error("客户审批阶段必须通过审批处理记录同意或拒绝");
+  }
   if (orderTransitionRequiresReason(legacyTo) && !cleanReason) {
     const label = workflowStatuses.find((status) => status.code === legacyTo)?.label ?? legacyTo;
     throw new Error(`流转到「${label}」需要填写原因`);
   }
-  if (legacyTo === "completed" && (!o.is_paid || o.balance_amount > 0)) {
+  if (legacyTo === "completed" && (o.balance_amount > 0 || !isMockOrderFinanciallyPaid(o))) {
     throw new Error("工单仍有未结清尾款，不能直接结案");
   }
   const from = o.status;
@@ -601,7 +665,16 @@ export async function transitionOrder(
   if (legacyTo === "unfixed_pickup" && cleanReason) {
     o.diagnosis_result = buildMockTransitionDiagnosisResult(o.diagnosis_result, cleanReason);
   }
-  if (legacyTo === "completed") o.completed_at = o.updated_at;
+  if (legacyTo === "completed") {
+    o.completed_at = o.updated_at;
+    o.delivered_at = o.updated_at;
+    o.is_paid = true;
+    o.payment_status = paymentStatusFromMoney({
+      isPaid: true,
+      depositAmount: o.deposit_amount,
+      balanceAmount: o.balance_amount,
+    });
+  }
   if (legacyTo === "waiting_approval") o.approval_sent_at = o.updated_at;
   extraEvents.unshift({
     id: `evt_status_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -892,6 +965,13 @@ export async function updateOrder(
 
   const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const approvalReset = shouldResetMockQuoteApproval(
+    o,
+    validFaults,
+    quotation,
+    deposit,
+    nextBalance,
+  );
   const tagInput = normalizeOrderTagInput({
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
@@ -948,6 +1028,7 @@ export async function updateOrder(
   });
   o.fault_prices = validFaults;
   o.currency_code = CURRENCY_CODE;
+  if (approvalReset) resetMockQuoteApproval(o);
   o.device_snapshot = {
     brand: deviceBrand,
     model: deviceModel,
@@ -969,6 +1050,7 @@ export async function updateOrder(
       accessory_notes: tagInput.accessoryNotes,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,
+      approval_reset: approvalReset,
       currency_code: CURRENCY_CODE,
     },
     operator_name: operatorName(operator),
@@ -1115,6 +1197,13 @@ export async function patchOrderFinance(
 
   const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  const approvalReset = shouldResetMockQuoteApproval(
+    o,
+    validFaults,
+    quotation,
+    deposit,
+    nextBalance,
+  );
   const now = new Date().toISOString();
 
   o.quotation_amount = quotation;
@@ -1128,6 +1217,7 @@ export async function patchOrderFinance(
   });
   o.fault_prices = validFaults;
   o.currency_code = CURRENCY_CODE;
+  if (approvalReset) resetMockQuoteApproval(o);
   o.updated_at = now;
 
   extraEvents.unshift({
@@ -1139,6 +1229,7 @@ export async function patchOrderFinance(
       quotation_amount: quotation,
       deposit_amount: deposit,
       balance_amount: nextBalance,
+      approval_reset: approvalReset,
       currency_code: CURRENCY_CODE,
     },
     operator_name: operatorName(operator),
@@ -1162,6 +1253,7 @@ export async function sendNotification(
   const now = new Date().toISOString();
   const messageId = `msg_${Date.now()}`;
   o.updated_at = now;
+  o.notify_status = "sent";
   extraMessages.unshift({
     id: messageId,
     order_id: id,
@@ -1213,6 +1305,10 @@ function writeMockWhatsappMessage({
   let statusChanged = false;
   let to: RepairOrderStatus | undefined;
 
+  if (markApprovalPending && from !== "quoted" && from !== "waiting_approval") {
+    throw new Error("只有报价或待审批阶段可以发送客户审批");
+  }
+
   if (transitionTo) {
     const targetStatus = workflowStatuses.find((status) => status.code === transitionTo);
     if (targetStatus && !targetStatus.enabled) {
@@ -1232,7 +1328,10 @@ function writeMockWhatsappMessage({
         throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
       }
     } else {
-      if (transitionTo === "completed" && (!o.is_paid || o.balance_amount > 0)) {
+      if (
+        transitionTo === "completed" &&
+        (o.balance_amount > 0 || !isMockOrderFinanciallyPaid(o))
+      ) {
         throw new Error("工单仍有未结清尾款，不能直接结案");
       }
       statusChanged = true;
@@ -1250,7 +1349,16 @@ function writeMockWhatsappMessage({
       o.approval_flow_status = approvalFlowStatusFromLegacyStatus(to, o.approval_status);
       o.parts_status = partsStatusFromLegacyStatus(to);
       o.notify_status = notifyStatusFromLegacyStatus(to);
-      if (to === "completed") o.completed_at = now;
+      if (to === "completed") {
+        o.completed_at = now;
+        o.delivered_at = now;
+        o.is_paid = true;
+        o.payment_status = paymentStatusFromMoney({
+          isPaid: true,
+          depositAmount: o.deposit_amount,
+          balanceAmount: o.balance_amount,
+        });
+      }
       if (to === "waiting_approval") o.approval_sent_at = now;
     }
   }
@@ -1484,5 +1592,18 @@ export async function createOrder(
     updated_at: now,
   };
   orders.unshift(newOrder);
+  extraEvents.unshift({
+    id: `evt_created_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: id,
+    event_type: "created",
+    payload: {
+      type: input.order_type,
+      warranty_months: warranty.warranty_months,
+      warranty_text: warranty.warranty_text,
+      warranty_change_reason: warranty.warranty_change_reason ?? null,
+    },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
   return { id };
 }

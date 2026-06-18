@@ -263,7 +263,7 @@ export async function createInventoryIntake(
     list_price: input.list_price ?? 0,
     sale_price: 0,
     deposit_amount: input.deposit_amount ?? 0,
-    repair_cost_amount: 0,
+    repair_cost_amount: input.repair_cost_amount ?? 0,
     fees_amount: 0,
     currency_code: CURRENCY_CODE,
     payment_method: optional(input.payment_method),
@@ -295,7 +295,12 @@ export async function updateInventoryItem(
   _actor?: AuditActor,
 ) {
   const item = findItem(id);
-  Object.assign(item, pruneUndefined(input), { updated_at: new Date().toISOString() });
+  const patch = pruneUndefined(input);
+  if (input.quote_payload !== undefined) {
+    patch.legacy_payload = mergeLegacyPayload(item.legacy_payload, input.quote_payload);
+    delete patch.quote_payload;
+  }
+  Object.assign(item, patch, { updated_at: new Date().toISOString() });
   addEvent(id, "updated", item.status, undefined, { input }, item.updated_at);
   return { ok: true };
 }
@@ -615,6 +620,37 @@ function recordOrEmpty(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function mergeLegacyPayload(
+  currentValue: unknown,
+  nextValue: Record<string, unknown>,
+): Record<string, unknown> {
+  const current = recordOrEmpty(currentValue);
+  return {
+    ...current,
+    ...nextValue,
+    buyback_quote: {
+      ...recordOrEmpty(current.buyback_quote),
+      ...recordOrEmpty(nextValue.buyback_quote),
+    },
+    buyback_device: {
+      ...recordOrEmpty(current.buyback_device),
+      ...recordOrEmpty(nextValue.buyback_device),
+    },
+    buyback_function_checks: {
+      ...recordOrEmpty(current.buyback_function_checks),
+      ...recordOrEmpty(nextValue.buyback_function_checks),
+    },
+    buyback_customer: {
+      ...recordOrEmpty(current.buyback_customer),
+      ...recordOrEmpty(nextValue.buyback_customer),
+    },
+    buyback_repair_plan: {
+      ...recordOrEmpty(current.buyback_repair_plan),
+      ...recordOrEmpty(nextValue.buyback_repair_plan),
+    },
+  };
 }
 
 function assertMockBuybackPurchaseEvidence(item: InventoryItem) {

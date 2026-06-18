@@ -1,0 +1,85 @@
+version: 1
+status: active
+owner: Integration Lead
+
+cases:
+  customer_search_or_customer_loading:
+    match:
+      business_domains: [customers]
+      keywords: [客户搜索, 客户加载, 客户管理, 历史维修型号, 实时匹配]
+    primary_department: DATA
+    supporting_departments: [SEC, UX, FE, API, QA]
+    default_modes:
+      DATA: read_only
+      SEC: read_only
+      UX: read_only
+      FE: scoped_write_when_assigned
+      API: scoped_write_when_assigned
+      QA: read_only
+    must_check:
+      - server_side_store_filter
+      - lightweight_result_fields
+      - pii_minimization
+      - pagination_or_limit
+      - query_key_invalidation
+      - mobile_overlay_no_overflow
+
+  order_workflow_or_payment:
+    match:
+      business_domains: [orders, payments]
+      keywords: [工单状态, 付款, 尾款, 定金, 审批, 取机, 取消工单, 状态流]
+    primary_department: FLOW
+    supporting_departments: [DATA, API, SEC, UX, FE, QA]
+    risk_floor: high
+    must_check:
+      - allowed_transitions
+      - forbidden_transitions
+      - server_side_validation
+      - finance_payload_consistency
+      - role_simulation_front_desk_technician_owner_customer
+
+  mobile_order_detail_or_task:
+    match:
+      business_domains: [orders, mobile_ui]
+      keywords: [订单详情, 移动端, 扫码, 拍照, 维修项目, 报价, 支付信息]
+    primary_department: UX
+    supporting_departments: [FLOW, FE, DATA, QA, SEC]
+    must_read:
+      - docs/REPAIROS_MOBILE_DETAIL_STANDARD.md
+      - docs/REPAIROS_COMPACT_ARCHITECTURE.md
+      - src/shared/ui/repair-os-mobile.tsx
+    must_check:
+      - repairos_floating_card_language
+      - mobile_keyboard_no_zoom
+      - no_horizontal_overflow
+      - bottom_actions_do_not_cover_content
+
+  buyback_quote_flow:
+    match:
+      business_domains: [buyback]
+      keywords: [回收报价, 回收估价, iPhone, 电池健康, 功能检测, 客户签名, 证件照]
+    primary_department: FLOW
+    supporting_departments: [DATA, UX, API, SEC, QA]
+    risk_floor: medium
+    must_check:
+      - estimate_before_customer_intake
+      - inspection_blocks_hard_risks
+      - proof_required_without_box_or_invoice
+      - private_attachment_storage
+      - final_price_recalculation_after_inspection
+
+  agent_rules_or_project_declarations:
+    match:
+      business_domains: [documentation]
+      keywords: [AGENTS, 部门化管理, 多Agent, 子代理, 规则, 声明, 规划]
+    primary_department: DOC
+    supporting_departments: [INT, QA]
+    default_modes:
+      DOC: scoped_write_when_assigned
+      INT: integration_write
+      QA: read_only
+    must_check:
+      - no_conflicting_authoritative_sources
+      - machine_readable_config_updated
+      - templates_updated
+      - agents_check_passes

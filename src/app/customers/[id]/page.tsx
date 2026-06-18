@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   return {
     title: `客户 ${id}`,
-    description: "客户资料、设备、历史工单与回访",
+    description: "客户资料、设备、历史工单与客户待办",
   };
 }
 

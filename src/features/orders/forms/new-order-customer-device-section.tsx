@@ -37,14 +37,19 @@ export function NewOrderCustomerDeviceSection({
 }) {
   const shellClass = cn(
     "h-fit min-w-0 p-2 sm:p-3",
-    surface === "dialog" ? detailWorkspace.flatPanel : repairOs.mobileInfoCard,
+    surface === "dialog"
+      ? detailWorkspace.flatPanel
+      : cn(
+          repairOs.mobileInfoCard,
+          "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
+        ),
   );
   const visualInputClass =
     "absolute left-0 top-0 h-12 w-[133.333%] origin-top-left scale-75 border-0 bg-transparent px-0 py-0 font-sans text-base leading-[3rem] text-foreground shadow-none placeholder:text-base placeholder:text-muted-foreground/55 focus-visible:ring-0 md:static md:h-8 md:w-full md:scale-100 md:text-[13px] md:leading-8 md:placeholder:text-[13px]";
   const hasDeviceDraft = Boolean(form.brand.trim() || form.model.trim() || form.imei.trim());
 
   return (
-    <div className="grid min-w-0 gap-1.5 sm:gap-3">
+    <div data-new-order-section="customer-device" className="grid min-w-0 gap-1.5 sm:gap-3">
       <section className={cn(shellClass, "space-y-1.5")}>
         <SectionHeading icon={UserRound} title="客户信息" className="mb-1.5" />
         <div className="grid min-w-0 gap-1.5">

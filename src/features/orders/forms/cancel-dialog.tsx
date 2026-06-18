@@ -33,18 +33,22 @@ export function CancelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${componentOverlay.modalSm} p-4 sm:p-5`}>
+      <DialogContent
+        className={`${componentOverlay.modalSm} grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-4 sm:p-5`}
+      >
         <DialogHeader>
           <DialogTitle>取消工单</DialogTitle>
           <DialogDescription>选择一个常见原因，也可以改成更准确的说明。</DialogDescription>
         </DialogHeader>
-        <OrderTransitionReasonSelector
-          target="cancelled"
-          value={reason}
-          onChange={setReason}
-          disabled={busy}
-          compact
-        />
+        <div className="min-h-0 overflow-y-auto">
+          <OrderTransitionReasonSelector
+            target="cancelled"
+            value={reason}
+            onChange={setReason}
+            disabled={busy}
+            compact
+          />
+        </div>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             返回

@@ -46,6 +46,14 @@ import {
 } from "@/components/orders/fault-diagnosis-picker";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -97,7 +105,7 @@ import { OrderDetailTabs } from "@/features/orders/components/order-detail-tabs"
 import { OrderHero } from "@/features/orders/components/order-hero";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
-  OrderFinanceDock,
+  OrderDetailActionDock,
   OrderKeyInfoCard,
   OrderOverviewTab,
   type OrderEditableField,
@@ -129,6 +137,7 @@ import {
   getWorkflowStatusLabel,
 } from "@/features/orders/model/order-workflow";
 import {
+  getOrderTaskGuidance,
   getOrderWorkflowStatus,
   getWorkflowProgressValue,
   orderTaskStages,
@@ -169,6 +178,7 @@ export function OrderDetailScreen({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
+  const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
   const [orderUrl, setOrderUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
@@ -420,7 +430,7 @@ export function OrderDetailScreen({
         className={cn(
           "min-w-0 max-w-full space-y-3 overflow-x-clip",
           surface === "page"
-            ? "mx-auto w-full max-w-5xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
+            ? "mx-auto w-full max-w-7xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
             : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
         )}
       >
@@ -441,7 +451,7 @@ export function OrderDetailScreen({
         className={cn(
           "min-w-0 max-w-full space-y-3 overflow-x-clip",
           surface === "page"
-            ? "mx-auto w-full max-w-5xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
+            ? "mx-auto w-full max-w-7xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
             : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
         )}
       >
@@ -479,13 +489,18 @@ export function OrderDetailScreen({
     order.device_snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei || "";
   const deviceNotes = order.device_snapshot?.device_notes || device?.device_notes;
   const accessoryNotes = order.accessory_notes;
+  const photoAttachments = (data.attachments ?? []).filter((attachment) =>
+    attachment.mime_type.startsWith("image/"),
+  );
 
   return (
     <div
+      data-order-detail-root="true"
+      data-order-detail-surface={surface}
       className={cn(
         "min-w-0 max-w-full overflow-x-clip",
         surface === "page"
-          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-5xl md:px-6"
+          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-7xl md:px-6"
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
@@ -494,7 +509,6 @@ export function OrderDetailScreen({
           data={data}
           deviceLabel={deviceLabel}
           deviceImei={deviceImei}
-          deviceNotes={deviceNotes}
           accessoryNotes={accessoryNotes}
           storeSettings={storeSettings}
           workflow={workflow}
@@ -561,12 +575,6 @@ export function OrderDetailScreen({
             order={order}
             customerName={customer?.name}
             deviceLabel={deviceLabel}
-            next={next}
-            workflow={workflow}
-            transitionPending={transition.isPending}
-            onTransition={(to) => transition.mutate({ to })}
-            onOpenTransitionSheet={() => setDesktopTransitionOpen(true)}
-            onNotify={() => setNotifyOpen(true)}
             onPrint={() => window.print()}
             onCancel={() => setCancelOpen(true)}
             canCancel={canCancelOrder}
@@ -578,6 +586,17 @@ export function OrderDetailScreen({
             editSaveDisabled={!editCanSave}
             showBackLink={surface === "page"}
             surface={surface}
+            currentStage={desktopCurrentStage}
+            currentStageIndex={desktopStageIndex}
+            nextActionLabel={canDecideApproval ? "处理客户审批" : next.primary?.label}
+            taskHint={
+              canDecideApproval
+                ? "客户已在等待报价结果，先记录同意或拒绝，再进入维修、订件或未修取机。"
+                : next.primary
+                  ? getStatusActionHint(next.primary.to)
+                  : undefined
+            }
+            approvalDecisionAvailable={canDecideApproval}
           />
         </div>
 
@@ -613,102 +632,32 @@ export function OrderDetailScreen({
                   }}
                   quickImeiPending={quickImeiUpdate.isPending}
                   surface={surface}
+                  storeSettings={storeSettings}
+                  supplier={supplier}
+                  events={events}
+                  workflow={workflow}
+                  onShowRecords={() => setTab("records")}
+                  photoAttachments={photoAttachments}
+                  photoUploadPending={attachmentUpload.isPending}
+                  onPhotoCapture={() => setDesktopPhotoCaptureOpen(true)}
                 />
               )}
 
               {tab === "records" && (
-                <motion.div variants={fadeUp} className="min-w-0 space-y-2 sm:space-y-3">
-                  <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} />
-
-                  <section className={detailWorkspace.flatPanel}>
-                    <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 sm:mb-3">
-                      <h3 className="text-sm font-semibold">通知历史</h3>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 gap-1 text-xs"
-                        onClick={() => setNotifyOpen(true)}
-                      >
-                        <MessageCircle className="size-3" /> 发送通知
-                      </Button>
-                    </div>
-                    {messages.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-[var(--border-panel)] p-4 text-center text-xs text-muted-foreground">
-                        暂无通知记录
-                      </div>
-                    ) : (
-                      <ul className="space-y-2">
-                        {messages.map((m) => (
-                          <li
-                            key={m.id}
-                            className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 text-xs"
-                          >
-                            <div className="flex min-w-0 items-center justify-between gap-2">
-                              <span className="font-medium">
-                                {m.channel === "whatsapp" ? "WhatsApp" : "短信"}
-                              </span>
-                              <span
-                                className={cn(
-                                  "rounded px-1.5 py-0.5 text-[10px]",
-                                  m.status === "read"
-                                    ? "bg-status-success text-status-success-foreground"
-                                    : "bg-status-info text-status-info-foreground",
-                                )}
-                              >
-                                {m.status === "read" ? "已读" : m.status}
-                              </span>
-                            </div>
-                            <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
-                              {m.message_body}
-                            </p>
-                            <p className="mt-2 text-[10px] text-muted-foreground/70">
-                              {new Date(m.sent_at).toLocaleString("zh-CN")}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-
-                  <section className={detailWorkspace.flatPanel}>
-                    <h3 className="mb-2 text-sm font-semibold sm:mb-3">时间线</h3>
-                    {events.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-[var(--border-panel)] p-4 text-center text-xs text-muted-foreground">
-                        暂无时间线记录
-                      </div>
-                    ) : (
-                      <ol className="relative min-w-0 space-y-3 border-l border-border/60 pl-4 sm:space-y-4 sm:pl-5">
-                        {events.map((e, idx) => (
-                          <motion.li
-                            key={e.id}
-                            variants={fadeUp}
-                            className="group relative min-w-0"
-                          >
-                            <span
-                              className="absolute -left-[26px] top-1 grid size-4 place-items-center rounded-full ring-4 ring-background transition-shadow group-hover:shadow-[0_0_0_6px_color-mix(in_oklch,var(--primary)_18%,transparent)]"
-                              style={{
-                                background:
-                                  idx === 0 ? "var(--gradient-brand)" : "var(--brand-marker-muted)",
-                              }}
-                            />
-                            <div className="break-words text-xs text-muted-foreground">
-                              {new Date(e.created_at).toLocaleString("zh-CN")} · {e.operator_name}
-                            </div>
-                            <div className="break-words text-sm">
-                              {renderEvent(e.event_type, e.payload, workflow)}
-                            </div>
-                          </motion.li>
-                        ))}
-                      </ol>
-                    )}
-                  </section>
-                </motion.div>
+                <OrderRecordsWorkspace
+                  order={order}
+                  supplier={supplier}
+                  messages={messages}
+                  events={events}
+                  workflow={workflow}
+                  surface={surface}
+                />
               )}
             </motion.div>
           </AnimatePresence>
         </div>
 
-        <OrderFinanceDock
+        <OrderDetailActionDock
           order={order}
           isEditing={isEditing}
           financeDraft={financeDraft}
@@ -717,9 +666,10 @@ export function OrderDetailScreen({
           onApproval={() => setApprovalOpen(true)}
           onApprovalDecision={() => setApprovalDecisionOpen(true)}
           approvalDecisionAvailable={canDecideApproval}
+          onFlow={() => setDesktopTransitionOpen(true)}
+          flowDisabled={transition.isPending || (!next.primary && next.secondary.length === 0)}
           onPay={() => setPayOpen(true)}
           onNotify={() => setNotifyOpen(true)}
-          onPrint={() => window.print()}
           surface={surface}
         />
       </div>
@@ -787,9 +737,193 @@ export function OrderDetailScreen({
         onOpenChange={setDesktopTransitionOpen}
         onTransition={(to, reason) => transition.mutate({ to, reason })}
       />
+      <CameraCaptureSheet
+        open={desktopPhotoCaptureOpen}
+        onOpenChange={setDesktopPhotoCaptureOpen}
+        title="拍摄设备照片"
+        description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
+        attachmentKind="fault_photo"
+        onCapture={(draft) => {
+          void uploadAttachmentDraft(draft, async (input) => {
+            await attachmentUpload.mutateAsync(input);
+          });
+        }}
+      />
       <RepairOrderPrintSheet data={data} orderUrl={orderUrl} />
     </div>
   );
+}
+
+function OrderRecordsWorkspace({
+  order,
+  supplier,
+  messages,
+  events,
+  workflow,
+  surface,
+}: {
+  order: OrderDetail["order"];
+  supplier?: OrderDetail["supplier"];
+  messages: OrderDetail["messages"];
+  events: OrderDetail["events"];
+  workflow: Parameters<typeof getWorkflowStatusLabel>[0];
+  surface: "page" | "dialog";
+}) {
+  return (
+    <motion.div
+      variants={fadeUp}
+      data-order-records-workspace="true"
+      className={cn(
+        "grid min-w-0 gap-2 sm:gap-3",
+        surface === "dialog"
+          ? "lg:grid-cols-[minmax(240px,0.78fr)_minmax(0,1.22fr)]"
+          : "lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]",
+      )}
+    >
+      <div className="grid min-w-0 content-start gap-2 sm:gap-3">
+        <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} className="h-fit" />
+        <OrderMessagesLog messages={messages} />
+      </div>
+      <OrderTimelineLog events={events} workflow={workflow} />
+    </motion.div>
+  );
+}
+
+function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
+  return (
+    <section data-order-records-messages="true" className={detailWorkspace.flatPanel}>
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+        <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+          <MessageCircle className="size-3.5 text-primary" />
+          <span className="truncate">通知历史</span>
+        </h3>
+        <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+          {messages.length}
+        </span>
+      </div>
+      {messages.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[var(--border-panel)] p-3 text-center text-xs text-muted-foreground">
+          暂无通知记录
+        </div>
+      ) : (
+        <ul className="grid min-w-0 gap-1.5">
+          {messages.map((message) => (
+            <li
+              key={message.id}
+              data-order-message-row="true"
+              className="grid min-w-0 gap-1 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/65 px-2 py-1.5 text-xs"
+            >
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
+                  <span className="size-1.5 shrink-0 rounded-full bg-primary/70" />
+                  <span className="truncate">
+                    {message.channel === "whatsapp" ? "WhatsApp" : "短信"}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none",
+                    message.status === "read"
+                      ? "bg-status-success text-status-success-foreground"
+                      : "bg-status-info text-status-info-foreground",
+                  )}
+                >
+                  {message.status === "read" ? "已读" : message.status}
+                </span>
+              </div>
+              <p className="line-clamp-2 break-words text-[11px] leading-4 text-muted-foreground">
+                {message.message_body}
+              </p>
+              <p className="truncate font-mono text-[10px] leading-3 text-muted-foreground/70">
+                {new Date(message.sent_at).toLocaleString("zh-CN")}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function OrderTimelineLog({
+  events,
+  workflow,
+}: {
+  events: OrderDetail["events"];
+  workflow: Parameters<typeof getWorkflowStatusLabel>[0];
+}) {
+  return (
+    <section data-order-records-timeline="true" className={detailWorkspace.flatPanel}>
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+        <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+          <FileText className="size-3.5 text-primary" />
+          <span className="truncate">时间线日志</span>
+        </h3>
+        <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+          {events.length}
+        </span>
+      </div>
+      {events.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[var(--border-panel)] p-3 text-center text-xs text-muted-foreground">
+          暂无时间线记录
+        </div>
+      ) : (
+        <ol className="grid min-w-0 gap-1.5">
+          {events.map((event, index) => (
+            <li
+              key={event.id}
+              data-order-record-row="true"
+              className="grid min-w-0 gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 text-xs sm:grid-cols-[92px_minmax(0,1fr)]"
+            >
+              <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground sm:block">
+                <span
+                  className={cn(
+                    "inline-grid size-5 shrink-0 place-items-center rounded-full font-semibold leading-none sm:mb-1",
+                    index === 0
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-[var(--surface-panel)] text-muted-foreground",
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className="font-mono tabular-nums">{formatShortDate(event.created_at)}</span>
+                <span className="font-mono tabular-nums sm:block">
+                  {formatClockTime(event.created_at)}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">
+                    {renderEvent(event.event_type, event.payload, workflow)}
+                  </span>
+                  <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {event.operator_name}
+                  </span>
+                </div>
+                <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground/70">
+                  {event.event_type}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function useDesktopActionSurface() {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return isDesktop;
 }
 
 function ApprovalDecisionSheet({
@@ -813,6 +947,7 @@ function ApprovalDecisionSheet({
   const [reason, setReason] = useState("");
   const nextStatus = decision === "approved" ? approvedNext : rejectedNext;
   const canSubmit = decision === "approved" || Boolean(reason.trim());
+  const isDesktop = useDesktopActionSurface();
 
   useEffect(() => {
     if (!open) return;
@@ -822,13 +957,164 @@ function ApprovalDecisionSheet({
     setReason("");
   }, [open, order]);
 
+  const body = (
+    <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
+      <section
+        className={cn(
+          componentOverlay.flatSection,
+          "space-y-2 p-2.5 lg:grid lg:grid-cols-[minmax(0,0.82fr)_minmax(280px,0.7fr)] lg:gap-3 lg:space-y-0",
+        )}
+      >
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              className={cn(
+                "rounded-lg border px-2.5 py-2 text-left transition-colors",
+                decision === "approved"
+                  ? "border-status-success-foreground/30 bg-status-success/65 text-status-success-foreground"
+                  : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
+              )}
+              disabled={pending}
+              onClick={() => setDecision("approved")}
+            >
+              <span className="block text-xs font-semibold">客户同意</span>
+              <span className="mt-0.5 block truncate text-[10px] opacity-75">进入维修或订件</span>
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-lg border px-2.5 py-2 text-left transition-colors",
+                decision === "rejected"
+                  ? "border-status-danger-foreground/30 bg-status-danger/65 text-status-danger-foreground"
+                  : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
+              )}
+              disabled={pending}
+              onClick={() => setDecision("rejected")}
+            >
+              <span className="block text-xs font-semibold">客户拒绝</span>
+              <span className="mt-0.5 block truncate text-[10px] opacity-75">未修取机或取消</span>
+            </button>
+          </div>
+
+          <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+            下一步状态
+            {decision === "approved" ? (
+              <Select
+                value={approvedNext}
+                onValueChange={(value) => setApprovedNext(value as RepairOrderStatus)}
+                disabled={pending}
+              >
+                <SelectTrigger className="h-8 rounded-lg text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="repairing">开始维修</SelectItem>
+                  <SelectItem value="parts_ordered">需要订件</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select
+                value={rejectedNext}
+                onValueChange={(value) => setRejectedNext(value as RepairOrderStatus)}
+                disabled={pending}
+              >
+                <SelectTrigger className="h-8 rounded-lg text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unfixed_pickup">未修取机</SelectItem>
+                  <SelectItem value="cancelled">取消工单</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </label>
+        </div>
+
+        <div className="space-y-2">
+          <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+            {decision === "approved" ? "备注" : "拒绝原因"}
+            <Textarea
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              disabled={pending}
+              className="min-h-20 resize-none rounded-lg text-xs lg:min-h-[104px]"
+              placeholder={
+                decision === "approved"
+                  ? "例如：客户 WhatsApp 确认同意报价。"
+                  : "例如：维修风险过高，客户确认不继续维修并取回设备。"
+              }
+            />
+          </label>
+
+          <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
+            审批结果会写入时间线；客户消息保持为独立沟通记录。
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+
+  const footer = (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 text-xs"
+        disabled={pending}
+        onClick={() => onOpenChange(false)}
+      >
+        取消
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        className="h-8 text-xs"
+        disabled={pending || !canSubmit}
+        onClick={async () => {
+          await onConfirm({
+            decision,
+            next_status: nextStatus,
+            reason: reason.trim() || undefined,
+          });
+        }}
+      >
+        {pending ? "保存中..." : "确认处理"}
+      </Button>
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          data-order-desktop-approval-dialog="true"
+          className={cn(componentOverlay.modalLg, "max-h-[calc(100svh-32px)] overflow-y-auto p-4")}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <MessageCircle className="size-4 text-primary" />
+              客户审批处理
+            </DialogTitle>
+            <DialogDescription>
+              {order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。
+            </DialogDescription>
+          </DialogHeader>
+          {body}
+          <DialogFooter className="gap-2 sm:gap-2">{footer}</DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+        className="max-h-[calc(100svh-24px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+        <div className="flex max-h-[calc(100svh-24px)] min-w-0 flex-col overflow-hidden">
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <MessageCircle className="size-4 text-primary" />
@@ -838,124 +1124,10 @@ function ApprovalDecisionSheet({
               {order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。
             </SheetDescription>
           </SheetHeader>
-          <div className={cn(componentOverlay.body, "space-y-2 pt-3")}>
-            <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded-lg border px-2.5 py-2 text-left transition-colors",
-                    decision === "approved"
-                      ? "border-status-success-foreground/30 bg-status-success/65 text-status-success-foreground"
-                      : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
-                  )}
-                  disabled={pending}
-                  onClick={() => setDecision("approved")}
-                >
-                  <span className="block text-xs font-semibold">客户同意</span>
-                  <span className="mt-0.5 block truncate text-[10px] opacity-75">
-                    进入维修或订件
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded-lg border px-2.5 py-2 text-left transition-colors",
-                    decision === "rejected"
-                      ? "border-status-danger-foreground/30 bg-status-danger/65 text-status-danger-foreground"
-                      : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
-                  )}
-                  disabled={pending}
-                  onClick={() => setDecision("rejected")}
-                >
-                  <span className="block text-xs font-semibold">客户拒绝</span>
-                  <span className="mt-0.5 block truncate text-[10px] opacity-75">
-                    未修取机或取消
-                  </span>
-                </button>
-              </div>
-
-              <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
-                下一步状态
-                {decision === "approved" ? (
-                  <Select
-                    value={approvedNext}
-                    onValueChange={(value) => setApprovedNext(value as RepairOrderStatus)}
-                    disabled={pending}
-                  >
-                    <SelectTrigger className="h-8 rounded-lg text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="repairing">开始维修</SelectItem>
-                      <SelectItem value="parts_ordered">需要订件</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Select
-                    value={rejectedNext}
-                    onValueChange={(value) => setRejectedNext(value as RepairOrderStatus)}
-                    disabled={pending}
-                  >
-                    <SelectTrigger className="h-8 rounded-lg text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unfixed_pickup">未修取机</SelectItem>
-                      <SelectItem value="cancelled">取消工单</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </label>
-
-              <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
-                {decision === "approved" ? "备注" : "拒绝原因"}
-                <Textarea
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  disabled={pending}
-                  className="min-h-20 resize-none rounded-lg text-xs"
-                  placeholder={
-                    decision === "approved"
-                      ? "例如：客户 WhatsApp 确认同意报价。"
-                      : "例如：维修风险过高，客户确认不继续维修并取回设备。"
-                  }
-                />
-              </label>
-
-              <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
-                审批结果会写入时间线。通知客户请继续使用底部 WhatsApp 入口；这里不自动发送消息。
-              </p>
-            </section>
-
-            <SheetFooter className={componentOverlay.footer}>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={pending}
-                onClick={() => onOpenChange(false)}
-              >
-                取消
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={pending || !canSubmit}
-                onClick={async () => {
-                  await onConfirm({
-                    decision,
-                    next_status: nextStatus,
-                    reason: reason.trim() || undefined,
-                  });
-                }}
-              >
-                {pending ? "保存中..." : "确认处理"}
-              </Button>
-            </SheetFooter>
-          </div>
+          {body}
+          <SheetFooter className={cn(componentOverlay.footer, "px-3 pb-3 sm:px-4")}>
+            {footer}
+          </SheetFooter>
         </div>
       </SheetContent>
     </Sheet>
@@ -966,7 +1138,6 @@ function MobileOrderDetailView({
   data,
   deviceLabel,
   deviceImei,
-  deviceNotes,
   accessoryNotes,
   storeSettings,
   workflow,
@@ -998,7 +1169,6 @@ function MobileOrderDetailView({
   data: OrderDetail;
   deviceLabel: string;
   deviceImei: string;
-  deviceNotes?: string;
   accessoryNotes?: string;
   storeSettings?: StoreSettings;
   workflow?: OrderWorkflow;
@@ -1234,11 +1404,6 @@ function MobileOrderDetailView({
               ]}
             />
           </div>
-          {deviceNotes ? (
-            <p className="mt-1 line-clamp-1 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[10px] leading-3 text-muted-foreground">
-              {deviceNotes}
-            </p>
-          ) : null}
         </section>
       </div>
 
@@ -2044,6 +2209,7 @@ function MobileStatusTransitionSheet({
   const [reasonDraft, setReasonDraft] = useState("");
   const reasonConfig = reasonAction ? getOrderTransitionReasonConfig(reasonAction.to) : undefined;
   const canConfirmReason = !reasonConfig?.required || Boolean(reasonDraft.trim());
+  const isDesktop = useDesktopActionSurface();
 
   useEffect(() => {
     if (!open) {
@@ -2063,6 +2229,177 @@ function MobileStatusTransitionSheet({
     onTransition(action.to);
   };
 
+  const body = (
+    <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
+      <div
+        className={cn(
+          "grid min-w-0 gap-2",
+          reasonAction
+            ? "lg:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]"
+            : "lg:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]",
+        )}
+      >
+        <section className={cn(componentOverlay.flatSection, "space-y-1.5 p-2.5")}>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] leading-3 text-muted-foreground">当前工单</p>
+              <p className="truncate font-mono text-xs font-semibold leading-4 text-primary">
+                {order.public_no}
+              </p>
+            </div>
+            <StatusBadge status={order.status} label={statusLabel} />
+          </div>
+          <div className="rounded-lg bg-[var(--surface-panel)] px-2 py-1.5">
+            <p className="text-[10px] leading-3 text-muted-foreground">当前阶段</p>
+            <p className="mt-0.5 truncate text-xs font-semibold">{currentStage.label}</p>
+          </div>
+          <p className="text-[10px] leading-4 text-muted-foreground">
+            {reasonAction
+              ? `准备流转为「${reasonAction.label}」，确认后会写入状态时间线。`
+              : "状态流转只改变工单进度；客户消息会保留为独立沟通记录。"}
+          </p>
+        </section>
+
+        {reasonAction ? (
+          <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
+            <OrderTransitionReasonSelector
+              target={reasonAction.to}
+              value={reasonDraft}
+              onChange={setReasonDraft}
+              disabled={pending}
+              compact
+            />
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg text-xs"
+                disabled={pending}
+                onClick={() => {
+                  setReasonAction(null);
+                  setReasonDraft("");
+                }}
+              >
+                返回
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 rounded-lg text-xs"
+                disabled={pending || !canConfirmReason}
+                onClick={() => {
+                  const reason = reasonDraft.trim();
+                  if (reasonConfig?.required && !reason) return;
+                  onOpenChange(false);
+                  onTransition(reasonAction.to, reason || undefined);
+                }}
+              >
+                确认流转
+              </Button>
+            </div>
+          </section>
+        ) : (
+          <div className="space-y-1.5 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0">
+            {actions.length ? (
+              actions.map((action, index) => {
+                const hint = getStatusActionHint(action.to);
+                const destructive = action.to === "cancelled";
+                const needsReason = Boolean(getOrderTransitionReasonConfig(action.to));
+                return (
+                  <button
+                    key={`${action.to}-${index}`}
+                    type="button"
+                    disabled={pending}
+                    className={cn(
+                      "flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                      action.isPrimary
+                        ? "border-primary/35 bg-primary/5"
+                        : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
+                      destructive &&
+                        "border-status-danger-foreground/25 bg-status-danger/45 text-status-danger-foreground",
+                      pending && "pointer-events-none opacity-60",
+                    )}
+                    onClick={() => chooseAction(action)}
+                  >
+                    <span
+                      className={cn(
+                        "grid size-7 shrink-0 place-items-center rounded-lg",
+                        action.isPrimary
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-[var(--surface-panel-muted)] text-muted-foreground",
+                        destructive && "bg-status-danger text-status-danger-foreground",
+                      )}
+                    >
+                      {action.isPrimary ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <Clock3 className="size-3.5" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-xs font-semibold leading-4">
+                          {statusLabel} → {action.label}
+                        </span>
+                        {action.isPrimary ? (
+                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
+                            推荐
+                          </span>
+                        ) : null}
+                        {needsReason ? (
+                          <span className="shrink-0 rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground">
+                            原因
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[10px] leading-3 text-muted-foreground">
+                        {hint}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground lg:col-span-2">
+                当前状态暂无可用流转。
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {hasCommunicationStatus && !reasonAction ? (
+        <p className="rounded-lg bg-status-warn px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground">
+          提醒：选择“待审批”或“已通知”只会改状态，不会自动发送
+          WhatsApp。需要发送给客户时请走通知入口。
+        </p>
+      ) : null}
+    </div>
+  );
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          data-order-desktop-transition-dialog="true"
+          className={cn(componentOverlay.modalLg, "max-h-[calc(100svh-32px)] overflow-y-auto p-4")}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Clock3 className="size-4 text-primary" />
+              状态流转
+            </DialogTitle>
+            <DialogDescription>
+              当前：{currentStage.label} · {statusLabel}。选择下一步后会写入时间线。
+            </DialogDescription>
+          </DialogHeader>
+          {body}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -2079,139 +2416,7 @@ function MobileStatusTransitionSheet({
               当前：{currentStage.label} · {statusLabel}。选择下一步后会写入时间线。
             </SheetDescription>
           </SheetHeader>
-          <div className={cn(componentOverlay.body, "space-y-2 pt-3")}>
-            <section className={cn(componentOverlay.flatSection, "space-y-1.5 p-2.5")}>
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] leading-3 text-muted-foreground">当前工单</p>
-                  <p className="truncate font-mono text-xs font-semibold leading-4 text-primary">
-                    {order.public_no}
-                  </p>
-                </div>
-                <StatusBadge status={order.status} label={statusLabel} />
-              </div>
-              <p className="text-[10px] leading-4 text-muted-foreground">
-                {reasonAction
-                  ? `准备流转为「${reasonAction.label}」，确认后会写入状态时间线。`
-                  : "状态流转只改变工单进度；需要给客户发送报价或取机通知时，请使用底部 WhatsApp 通知入口。"}
-              </p>
-            </section>
-
-            {reasonAction ? (
-              <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
-                <OrderTransitionReasonSelector
-                  target={reasonAction.to}
-                  value={reasonDraft}
-                  onChange={setReasonDraft}
-                  disabled={pending}
-                  compact
-                />
-                <div className="grid grid-cols-2 gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 rounded-lg text-xs"
-                    disabled={pending}
-                    onClick={() => {
-                      setReasonAction(null);
-                      setReasonDraft("");
-                    }}
-                  >
-                    返回
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 rounded-lg text-xs"
-                    disabled={pending || !canConfirmReason}
-                    onClick={() => {
-                      const reason = reasonDraft.trim();
-                      if (reasonConfig?.required && !reason) return;
-                      onOpenChange(false);
-                      onTransition(reasonAction.to, reason || undefined);
-                    }}
-                  >
-                    确认流转
-                  </Button>
-                </div>
-              </section>
-            ) : (
-              <div className="space-y-1.5">
-                {actions.length ? (
-                  actions.map((action, index) => {
-                    const hint = getStatusActionHint(action.to);
-                    const destructive = action.to === "cancelled";
-                    const needsReason = Boolean(getOrderTransitionReasonConfig(action.to));
-                    return (
-                      <button
-                        key={`${action.to}-${index}`}
-                        type="button"
-                        disabled={pending}
-                        className={cn(
-                          "flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                          action.isPrimary
-                            ? "border-primary/35 bg-primary/5"
-                            : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
-                          destructive &&
-                            "border-status-danger-foreground/25 bg-status-danger/45 text-status-danger-foreground",
-                          pending && "pointer-events-none opacity-60",
-                        )}
-                        onClick={() => chooseAction(action)}
-                      >
-                        <span
-                          className={cn(
-                            "grid size-7 shrink-0 place-items-center rounded-lg",
-                            action.isPrimary
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-[var(--surface-panel-muted)] text-muted-foreground",
-                            destructive && "bg-status-danger text-status-danger-foreground",
-                          )}
-                        >
-                          {action.isPrimary ? (
-                            <Check className="size-3.5" />
-                          ) : (
-                            <Clock3 className="size-3.5" />
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <span className="truncate text-xs font-semibold leading-4">
-                              {statusLabel} → {action.label}
-                            </span>
-                            {action.isPrimary ? (
-                              <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
-                                推荐
-                              </span>
-                            ) : null}
-                            {needsReason ? (
-                              <span className="shrink-0 rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground">
-                                原因
-                              </span>
-                            ) : null}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[10px] leading-3 text-muted-foreground">
-                            {hint}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground">
-                    当前状态暂无可用流转。
-                  </div>
-                )}
-              </div>
-            )}
-
-            {hasCommunicationStatus && !reasonAction ? (
-              <p className="rounded-lg bg-status-warn px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground">
-                提醒：选择“待审批”或“已通知”只会改状态，不会自动发送
-                WhatsApp。需要发送给客户时请走通知入口。
-              </p>
-            ) : null}
-          </div>
+          {body}
         </div>
       </SheetContent>
     </Sheet>
@@ -2863,6 +3068,13 @@ function formatShortDate(value: string) {
   });
 }
 
+function formatClockTime(value: string) {
+  return new Date(value).toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function renderEvent(
   type: string,
   payload: Record<string, unknown>,
@@ -2884,8 +3096,18 @@ function renderEvent(
       return `提交报价 ${formatMoney(Number(payload.amount ?? 0))}`;
     case "approval_sent":
       return payload.status_changed ? "已发送审批并进入待审批" : "已发送审批消息";
-    case "approval_result":
-      return `客户审批${payload.result === "approved" ? "通过" : "拒绝"}`;
+    case "approval_result": {
+      const result = payload.result === "approved" ? "通过" : "拒绝";
+      const route =
+        typeof payload.from === "string" && typeof payload.to === "string"
+          ? `：${label(payload.from)} → ${label(payload.to)}`
+          : "";
+      const reason =
+        typeof payload.reason === "string" && payload.reason.trim()
+          ? `，原因：${payload.reason.trim()}`
+          : "";
+      return `客户审批${result}${route}${reason}`;
+    }
     case "payment":
       return `收款 ${formatMoney(Number(payload.amount ?? 0))}（${payload.method}）`;
     case "message_sent":

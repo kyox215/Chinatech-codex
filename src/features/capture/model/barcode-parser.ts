@@ -2,6 +2,7 @@ export type CapturePayloadKind =
   | "order_link"
   | "customer_link"
   | "inventory_link"
+  | "buyback_link"
   | "imei"
   | "serial"
   | "url"
@@ -43,6 +44,9 @@ export function parseBarcodePayload(rawValue: string, origin = "http://localhost
 
   const prefixed = parsePrefixedPayload(raw);
   if (prefixed) return prefixed;
+
+  const labeledIdentifier = parseLabeledIdentifier(raw);
+  if (labeledIdentifier) return labeledIdentifier;
 
   if (IMEI_PATTERN.test(normalized)) {
     return {
@@ -132,11 +136,21 @@ function parseInternalLink(raw: string, origin: string): CapturePayload | null {
     };
   }
 
+  if (path.startsWith("/buyback")) {
+    return {
+      kind: "buyback_link",
+      raw,
+      value: url.searchParams.get("id") ?? url.searchParams.get("record") ?? path,
+      label: "回收记录",
+      targetHref: `${path}${url.search}`,
+    };
+  }
+
   return null;
 }
 
 function parsePrefixedPayload(raw: string): CapturePayload | null {
-  const match = raw.match(/^(order|customer|inventory|imei|serial):(.+)$/i);
+  const match = raw.match(/^(order|customer|inventory|buyback|imei|serial|sn):(.+)$/i);
   if (!match) return null;
 
   const type = match[1].toLowerCase();
@@ -172,12 +186,56 @@ function parsePrefixedPayload(raw: string): CapturePayload | null {
     };
   }
 
+  if (type === "buyback") {
+    return {
+      kind: "buyback_link",
+      raw,
+      value,
+      label: "回收记录",
+      targetHref: `/buyback?id=${encodeURIComponent(value)}`,
+    };
+  }
+
   return {
     kind: type === "imei" ? "imei" : "serial",
     raw,
     value: normalizeCaptureIdentifier(value),
     label: type === "imei" ? "IMEI / 序列号" : "序列号",
   };
+}
+
+function parseLabeledIdentifier(raw: string): CapturePayload | null {
+  const imeiMatch = raw.match(
+    /\b(?:IMEI|IMEI\s*[12]|MEID)\b\s*(?:[:：#-])?\s*([0-9][0-9\s\-:：_.,/\\|]{12,24}[0-9])/i,
+  );
+  if (imeiMatch?.[1]) {
+    const value = normalizeCaptureIdentifier(imeiMatch[1]);
+    if (IMEI_PATTERN.test(value)) {
+      return {
+        kind: "imei",
+        raw,
+        value,
+        label: "IMEI / 序列号",
+      };
+    }
+  }
+
+  const serialMatch = raw.match(
+    /\b(?:SERIAL\s*NUMBER|SERIAL\s*NO\.?|S\/N|SN|SERIAL)\b\s*(?:[:：#-])?\s*([A-Z0-9][A-Z0-9._:-]{5,63})/i,
+  );
+  if (serialMatch?.[1]) {
+    const value = normalizeCaptureIdentifier(serialMatch[1]);
+    if (SERIAL_PATTERN.test(value)) {
+      return {
+        kind: "serial",
+        raw,
+        value,
+        label: "序列号",
+      };
+    }
+  }
+
+  return null;
 }
 
 function isUrl(value: string) {

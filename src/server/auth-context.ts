@@ -8,6 +8,7 @@ import type {
   StoreMembershipStatus,
   StoreRole,
 } from "@/lib/repairdesk/types";
+import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
 
 export class UnauthorizedError extends Error {
   constructor(message = "未登录或登录已过期") {
@@ -33,6 +34,7 @@ export interface RequestActorOptions {
 }
 
 export function hasBrowserAuthConfig() {
+  if (isRepairDeskE2eAuthBypassEnabled()) return false;
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   );

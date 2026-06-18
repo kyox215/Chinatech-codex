@@ -36,7 +36,7 @@ export const DEFAULT_ORDER_WORKFLOW_TRANSITIONS: Record<string, RepairOrderStatu
   rework: ["diagnosing", "repairing", "cancelled"],
   mail_in_progress: ["diagnosing", "cancelled"],
   diagnosing: ["quoted", "repairing", "unfixed_pickup", "cancelled"],
-  quoted: ["waiting_approval", "repairing", "cancelled"],
+  quoted: ["waiting_approval", "repairing", "parts_ordered", "cancelled"],
   waiting_approval: ["repairing", "parts_ordered", "cancelled"],
   parts_ordered: ["parts_arrived", "cancelled"],
   parts_arrived: ["repairing", "cancelled"],
