@@ -70,6 +70,7 @@ import {
   deviceFromRow,
   eventFromRow,
   fail,
+  failStorageOperation,
   fetchOrderRows,
   isMissingRepairOrderColumnError,
   maybeString,
@@ -1083,7 +1084,7 @@ export async function uploadOrderAttachment(
     contentType: input.mime_type,
     upsert: false,
   });
-  fail(uploadError, "上传工单附件失败");
+  failStorageOperation(uploadError, "上传工单附件失败", bucket);
 
   const row = {
     id: attachmentId,
@@ -1489,7 +1490,35 @@ function attachmentPayloadFromInput(input: OrderAttachmentUploadInput) {
   if (bytes.byteLength === 0) throw new Error("附件内容为空");
   if (bytes.byteLength > ORDER_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 8MB");
   if (input.file_size > ORDER_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 8MB");
+  if (input.file_size !== bytes.byteLength) throw new Error("附件大小与实际内容不一致");
+  assertAttachmentMagicBytes(bytes, input.mime_type);
   return bytes;
+}
+
+function assertAttachmentMagicBytes(bytes: Buffer, mimeType: string) {
+  if (mimeType === "image/jpeg" && bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) {
+    return;
+  }
+  if (
+    mimeType === "image/png" &&
+    bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return;
+  }
+  if (mimeType === "image/webp" && bytes.subarray(0, 4).toString("ascii") === "RIFF") {
+    if (bytes.subarray(8, 12).toString("ascii") === "WEBP") return;
+  }
+  if (mimeType === "application/pdf" && bytes.subarray(0, 5).toString("ascii") === "%PDF-") {
+    return;
+  }
+  if (
+    (mimeType === "image/heic" || mimeType === "image/heif") &&
+    bytes.byteLength >= 12 &&
+    bytes.subarray(4, 8).toString("ascii") === "ftyp"
+  ) {
+    return;
+  }
+  throw new Error("附件内容与文件类型不匹配");
 }
 
 async function attachSignedUrls(
@@ -1838,15 +1867,7 @@ export async function updateOrder(
   if (!customerId || !deviceId) throw new Error("工单缺少客户或设备关联");
   const phoneBook = normalizePhoneBook(customerPhone);
   if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
-  const existingContactPhones =
-    currentRow.customer && typeof currentRow.customer === "object"
-      ? stringArray((currentRow.customer as DbRecord).contact_phones)
-      : [];
-  const customerContactPhones = mergeContactPhones(
-    existingContactPhones,
-    phoneBook.contacts,
-    phoneBook.primaryRaw,
-  );
+  const customerContactPhones = mergeContactPhones([], phoneBook.contacts, phoneBook.primaryRaw);
   await assertCustomerPhoneAvailable(
     supabase,
     storeId,

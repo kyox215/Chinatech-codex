@@ -4,6 +4,8 @@ import { parseWarrantyMonths, formatWarrantyText } from "@/features/orders/model
 export function buildEditForm(data: OrderDetail, defaultWarrantyMonths = 6): UpdateOrderInput {
   const { order, customer, device } = data;
   const snapshot = order.device_snapshot;
+  const primaryPhone = customer?.phone_e164 ?? order.customer_phone;
+  const backupPhones = customer?.contact_phones ?? order.contact_phones;
   const warrantyMonths =
     typeof order.warranty_months === "number"
       ? order.warranty_months
@@ -11,7 +13,7 @@ export function buildEditForm(data: OrderDetail, defaultWarrantyMonths = 6): Upd
   return {
     expected_updated_at: order.updated_at,
     customer_name: customer?.name ?? order.customer_name,
-    customer_phone: customer?.phone_e164 ?? order.customer_phone,
+    customer_phone: [primaryPhone, ...backupPhones].filter(Boolean).join(" / "),
     device_brand: snapshot?.brand ?? device?.brand ?? "",
     device_model: snapshot?.model ?? device?.model ?? "",
     device_imei: snapshot?.serial_or_imei ?? order.device_imei ?? device?.serial_or_imei,

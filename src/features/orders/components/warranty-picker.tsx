@@ -60,6 +60,7 @@ export function WarrantyPicker({
   defaultMonths = 6,
   onChange,
   compact = false,
+  appearance = "outlined",
 }: {
   valueMonths?: number | null;
   valueText?: string | null;
@@ -67,7 +68,9 @@ export function WarrantyPicker({
   defaultMonths?: number;
   onChange: (value: WarrantyDraftValue) => void;
   compact?: boolean;
+  appearance?: "outlined" | "quiet";
 }) {
+  const quiet = appearance === "quiet";
   const normalizedDefault = normalizeWarrantyMonths(defaultMonths);
   const months =
     typeof valueMonths === "number"
@@ -97,7 +100,13 @@ export function WarrantyPicker({
   return (
     <div className={cn("min-w-0 space-y-1.5", compact && "space-y-1")}>
       <Select value={String(months)} onValueChange={(value) => updateMonths(Number(value))}>
-        <SelectTrigger className={cn(compact ? "h-8 text-xs" : "h-9")}>
+        <SelectTrigger
+          className={cn(
+            compact ? "h-8 text-xs" : "h-9",
+            quiet &&
+              "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus:!ring-0 focus-visible:!border-primary/45",
+          )}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -122,7 +131,12 @@ export function WarrantyPicker({
             value={reason ?? ""}
             onChange={(event) => updateReason(event.target.value)}
             placeholder="请输入非默认质保原因"
-            className={cn("h-8 text-xs", compact && "h-7")}
+            className={cn(
+              "h-8 text-xs",
+              compact && "h-7",
+              quiet &&
+                "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus-visible:!border-primary/45 focus-visible:!ring-0",
+            )}
           />
           <p className="flex items-center gap-1 text-[11px] text-status-warn-foreground">
             <AlertCircle className="size-3 shrink-0" />

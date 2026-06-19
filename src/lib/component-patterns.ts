@@ -115,7 +115,7 @@ export const componentOverlay = {
   detailWorkspace:
     "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-48px)] sm:max-h-[calc(100svh-48px)] sm:w-[min(1000px,calc(100vw-56px))] sm:max-w-[calc(100vw-56px)] lg:w-[min(1000px,calc(100vw-96px))] lg:max-w-[calc(100vw-96px)]",
   formWorkspace:
-    "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1240px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+    "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   body: "min-w-0 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4",
   section:
     "min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3",

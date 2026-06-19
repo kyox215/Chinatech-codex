@@ -4,12 +4,15 @@ import { ArrowUp, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export interface CustomerBackupPhonesFieldProps {
   primaryPhone: string;
   phones: string[];
   onPrimaryPhoneChange: (value: string) => void;
   onPhonesChange: (value: string[]) => void;
+  onPromotePhone?: (primaryPhone: string, phones: string[]) => void;
+  compact?: boolean;
 }
 
 export function CustomerBackupPhonesField({
@@ -17,6 +20,8 @@ export function CustomerBackupPhonesField({
   phones,
   onPrimaryPhoneChange,
   onPhonesChange,
+  onPromotePhone,
+  compact = false,
 }: CustomerBackupPhonesFieldProps) {
   const visiblePhones = phones.length > 0 ? phones : [""];
 
@@ -35,25 +40,30 @@ export function CustomerBackupPhonesField({
     const phone = visiblePhones[index]?.trim();
     if (!phone) return;
     const next = visiblePhones.filter((_, itemIndex) => itemIndex !== index);
+    if (onPromotePhone) {
+      onPromotePhone(phone, primaryPhone.trim() ? [primaryPhone, ...next] : next);
+      return;
+    }
     onPrimaryPhoneChange(phone);
     onPhonesChange(primaryPhone.trim() ? [primaryPhone, ...next] : next);
   };
 
   return (
-    <div className="min-w-0 space-y-2">
+    <div className={cn("min-w-0 space-y-2", compact && "space-y-1.5")}>
       {visiblePhones.map((phone, index) => (
         <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
           <Input
+            aria-label="备用联系电话"
             value={phone}
             onChange={(event) => updatePhone(index, event.target.value)}
             placeholder="备用联系电话"
-            className="h-8 font-mono text-sm sm:h-9"
+            className={cn("h-8 font-mono text-sm sm:h-9", compact && "h-7 text-xs sm:h-7")}
           />
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="size-8 sm:size-9"
+            className={cn("size-8 sm:size-9", compact && "size-7 sm:size-7")}
             aria-label="设为主号码"
             onClick={() => promotePhone(index)}
             disabled={!phone.trim()}
@@ -64,7 +74,7 @@ export function CustomerBackupPhonesField({
             type="button"
             variant="outline"
             size="icon"
-            className="size-8 sm:size-9"
+            className={cn("size-8 sm:size-9", compact && "size-7 sm:size-7")}
             aria-label="删除备用号码"
             onClick={() => removePhone(index)}
             disabled={phones.length === 0 && !phone.trim()}
@@ -77,12 +87,12 @@ export function CustomerBackupPhonesField({
         type="button"
         variant="outline"
         size="sm"
-        className="h-8 gap-1.5 text-xs"
+        className={cn("h-8 gap-1.5 text-xs", compact && "h-7")}
         onClick={() => onPhonesChange([...visiblePhones, ""])}
       >
         <Plus className="size-3.5" /> 添加备用号码
       </Button>
-      <p className="text-xs text-muted-foreground">
+      <p className={cn("text-xs text-muted-foreground", compact && "text-[10px] leading-3")}>
         第一个手机号是主号码；备用号码可用于取机期间联系客户。
       </p>
     </div>

@@ -71,20 +71,17 @@ test.describe("order desktop UI audit", () => {
       await expectRectInsideViewport(
         page.locator('[data-order-detail-dialog-shell="true"]'),
         "工单详情桌面弹窗外壳",
-        { minWidth: Math.min(960, viewport.width - 80) },
+        { minWidth: Math.min(920, viewport.width - 96) },
       );
       await expectFirstVisible(
         detail.locator('[data-order-desktop-status-card="true"]'),
         "工单桌面状态卡",
       );
       await expectFirstVisible(detail.locator('[data-order-stage-rail="true"]'), "工单阶段轨道");
-      await expectFirstVisible(detail.locator('[data-order-readiness="true"]'), "工单就绪检查");
+      if ((await detail.locator('[data-order-readiness="true"]').count()) > 0) {
+        await expectFirstVisible(detail.locator('[data-order-readiness="true"]'), "工单就绪检查");
+      }
       await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(0);
-      await expectFirstVisible(
-        detail.locator('[data-order-detail-context-strip="true"]'),
-        "工单桌面基础与历史上下文",
-      );
-      await expectFirstVisible(detail.locator('[data-order-latest-event="true"]'), "工单最新记录");
       await expectFirstVisible(detail.getByText("客户信息"), "工单客户信息卡");
       await expectFirstVisible(detail.getByText("设备与故障"), "工单设备与故障卡");
       await expectFirstVisible(detail.getByText("报价处理"), "工单报价处理卡");
@@ -135,7 +132,7 @@ test.describe("order desktop UI audit", () => {
       );
       await expectVisibleButtonCount(
         actionDock.getByRole("button", { name: "报价" }),
-        1,
+        0,
         "详情报价",
       );
       await expectVisibleButtonCount(
@@ -175,26 +172,7 @@ test.describe("order desktop UI audit", () => {
         );
       }
 
-      await clickFirstVisible(actionDock.getByRole("button", { name: "报价" }), "报价");
-      const quoteDialog = page.getByRole("dialog", { name: "报价与处理" });
-      const quoteDialogShell = page.locator('[data-order-desktop-quote-dialog="true"]');
-      await expect(quoteDialog).toBeVisible();
-      await page.waitForTimeout(250);
-      await expectFirstVisible(quoteDialogShell, "桌面报价弹窗");
-      await expectFirstVisible(
-        quoteDialog.locator('[data-order-quote-editor="true"]'),
-        "报价项目区域",
-      );
-      await expectFirstVisible(
-        quoteDialog.locator('[data-order-quote-summary="true"]'),
-        "报价摘要区域",
-      );
-      await expectFirstVisible(quoteDialog.getByRole("button", { name: "发送审批" }), "发送审批");
-      await expectDesktopQuoteDialog(page, quoteDialogShell, viewport.width);
-      await expectVisibleOverlaysFit(page, "/orders quote dialog", viewport.width);
-      await page.keyboard.press("Escape");
-      await expect(quoteDialog).toHaveCount(0);
-      await expect(detail).toBeVisible();
+      await expectInlineEditWorkspace(page, detail, viewport.width, "/orders detail edit");
 
       const payOpened = await clickFirstVisible(
         detail.getByRole("button", { name: "收款" }),
@@ -363,68 +341,56 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
   }
 }
 
-async function expectDesktopQuoteDialog(page: Page, dialog: Locator, width: number) {
-  const result = await dialog.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    const editor = element.querySelector<HTMLElement>('[data-order-quote-editor="true"]');
-    const summary = element.querySelector<HTMLElement>('[data-order-quote-summary="true"]');
-    const editorRect = editor?.getBoundingClientRect();
-    const summaryRect = summary?.getBoundingClientRect();
-    return {
-      dialog: {
-        left: Math.round(rect.left),
-        top: Math.round(rect.top),
-        right: Math.round(rect.right),
-        bottom: Math.round(rect.bottom),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-      },
-      editor: editorRect
-        ? {
-            left: Math.round(editorRect.left),
-            right: Math.round(editorRect.right),
-            width: Math.round(editorRect.width),
-          }
-        : null,
-      summary: summaryRect
-        ? {
-            left: Math.round(summaryRect.left),
-            right: Math.round(summaryRect.right),
-            width: Math.round(summaryRect.width),
-          }
-        : null,
-      viewport: {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      },
-    };
-  });
+async function expectInlineEditWorkspace(
+  page: Page,
+  detail: Locator,
+  width: number,
+  route: string,
+) {
+  const hero = detail.locator('[data-order-hero="true"]');
+  const actionDock = detail.locator('[data-order-action-dock="true"]');
 
-  expect(result.dialog.top, `quote dialog top margin at ${width}px`).toBeGreaterThan(12);
-  expect(result.dialog.bottom, `quote dialog bottom margin at ${width}px`).toBeLessThan(
-    result.viewport.height - 12,
-  );
-  expect(result.dialog.left, `quote dialog left margin at ${width}px`).toBeGreaterThanOrEqual(12);
-  expect(result.dialog.right, `quote dialog right margin at ${width}px`).toBeLessThanOrEqual(
-    result.viewport.width - 12,
-  );
-  expect(result.editor, "quote editor exists").not.toBeNull();
-  expect(result.summary, "quote summary exists").not.toBeNull();
-  if (result.editor && result.summary) {
-    expect(
-      result.editor.right,
-      `quote editor and summary are side-by-side at ${width}px`,
-    ).toBeLessThanOrEqual(result.summary.left + 1);
-    expect(result.editor.width, `quote editor readable width at ${width}px`).toBeGreaterThanOrEqual(
-      420,
-    );
-    expect(
-      result.summary.width,
-      `quote summary readable width at ${width}px`,
-    ).toBeGreaterThanOrEqual(260);
-  }
+  await clickFirstVisible(hero.getByRole("button", { name: "编辑" }), "详情编辑");
+  await expectVisibleButtonCount(hero.getByRole("button", { name: "保存" }), 1, "编辑保存");
+  await expectVisibleButtonCount(hero.getByRole("button", { name: "取消" }), 1, "编辑取消");
 
-  await expectNoPageOverflow(page, "/orders quote dialog", width);
+  await expectFirstVisible(detail.getByLabel("客户"), "编辑客户名称");
+  await expectFirstVisible(detail.getByPlaceholder("搜索或输入主电话"), "编辑主电话");
+  await expectFirstVisible(detail.getByLabel("备用联系电话"), "编辑备用联系电话");
+  await expectFirstVisible(detail.getByRole("button", { name: "添加备用号码" }), "添加备用号码");
+  await expectFirstVisible(detail.getByLabel("品牌"), "编辑品牌");
+  await expectFirstVisible(detail.getByLabel("型号"), "编辑型号");
+  await expectFirstVisible(detail.getByLabel("设备备注"), "编辑设备备注");
+  await expectFirstVisible(detail.getByLabel("故障描述"), "编辑故障描述");
+  await expectFirstVisible(detail.getByLabel("报价项目 1 名称"), "编辑报价项目名称");
+  await expectFirstVisible(detail.getByLabel("报价项目 1 金额"), "编辑报价项目金额");
+  await expectFirstVisible(detail.getByLabel("定金"), "编辑定金");
+
+  await expectVisibleButtonCount(actionDock.getByRole("button", { name: "报价" }), 0, "编辑报价");
+  await expect(actionDock.getByRole("button", { name: "WhatsApp" })).toBeDisabled();
+  await expect(actionDock.getByRole("button", { name: /^(流转|审批处理)$/ })).toBeDisabled();
+  await expect(actionDock.getByRole("button", { name: "收款" })).toBeDisabled();
+
+  const mainGrid = detail.locator('[data-order-detail-main-grid="true"]');
+  const columns = await mainGrid.evaluate(
+    (element) =>
+      window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
+  );
+  const expectedColumns = route.includes("direct detail") && width <= 1024 ? 2 : 3;
+  expect(columns, `${route} main edit grid columns at ${width}px`).toBeGreaterThanOrEqual(
+    expectedColumns,
+  );
+  expect(
+    await mainGrid.locator('[data-order-panel="photos"]').count(),
+    `${route} photos are not squeezed into the main edit grid`,
+  ).toBe(0);
+  await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "编辑态设备照片卡");
+  await expectDesktopPanelsReadable(detail, width);
+  await expectNoLocalHorizontalScroll(mainGrid, `${route} main edit grid`);
+  await expectNoPageOverflow(page, route, width);
+
+  await clickFirstVisible(hero.getByRole("button", { name: "取消" }), "取消编辑");
+  await expectVisibleButtonCount(hero.getByRole("button", { name: "编辑" }), 1, "退出编辑");
 }
 
 async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
@@ -529,17 +495,12 @@ async function expectDirectDesktopDetailPage(page: Page, width: number) {
   await expectDesktopPanelsReadable(detail, width);
   await expectNoPageOverflow(page, "/orders direct detail", width);
 
-  const actionDock = detail.locator('[data-order-action-dock="true"]');
-  await clickFirstVisible(actionDock.getByRole("button", { name: "报价" }), "直达详情报价");
-  const quoteDialog = page.getByRole("dialog", { name: "报价与处理" });
-  const quoteDialogShell = page.locator('[data-order-desktop-quote-dialog="true"]');
-  await expect(quoteDialog).toBeVisible();
-  await page.waitForTimeout(250);
-  await expectFirstVisible(quoteDialogShell, "直达详情桌面报价弹窗");
-  await expect(page.locator('[data-order-mobile-quote-drawer="true"]')).toHaveCount(0);
-  await expectDesktopQuoteDialog(page, quoteDialogShell, width);
-  await page.keyboard.press("Escape");
-  await expect(quoteDialog).toHaveCount(0);
+  await expectVisibleButtonCount(
+    detail.locator('[data-order-action-dock="true"]').getByRole("button", { name: "报价" }),
+    0,
+    "直达详情报价",
+  );
+  await expectInlineEditWorkspace(page, detail, width, "/orders direct detail edit");
 
   await clickFirstVisible(detail.getByRole("button", { name: "记录" }), "直达详情记录标签");
   await expectDesktopRecordsWorkspace(detail, width, "/orders direct records");

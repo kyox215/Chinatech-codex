@@ -58,11 +58,11 @@ export function NewOrderQuotationSection({
   const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
 
   return (
-    <Shell data-new-order-section="quotation" className={shellClass}>
+    <Shell data-new-order-section="quotation" className={cn(shellClass, "space-y-2")}>
       <SectionHeading
         icon={ReceiptText}
         title="报价与服务"
-        className="sm:mb-3"
+        className="mb-1"
         action={
           <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
             {form.faults.length} 项
@@ -71,12 +71,17 @@ export function NewOrderQuotationSection({
       />
 
       <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1.5">
-        <div className="mb-1 px-0.5 text-[9px] font-medium leading-3 text-muted-foreground sm:text-[11px]">
-          报价项目
+        <div className="mb-1 flex min-w-0 items-center justify-between gap-2 px-0.5">
+          <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
+            报价项目
+          </span>
+          <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-primary">
+            € {total.toFixed(2)}
+          </span>
         </div>
-        <div className="min-w-0 space-y-1.5 sm:space-y-2">
+        <div className="min-w-0 space-y-1.5">
           {form.faults.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-background/60 px-2 py-3 text-center text-[10px] leading-4 text-muted-foreground sm:p-4 sm:text-xs">
+            <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-background/60 px-2 py-2 text-center text-[10px] leading-4 text-muted-foreground">
               从左侧故障诊断选择项目后，可在这里输入价格
             </div>
           ) : (
@@ -146,7 +151,7 @@ export function NewOrderQuotationSection({
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none sm:h-8 sm:text-xs"
+            className="h-8 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none"
             onClick={onAddCustomFault}
           >
             <Plus className="size-3.5" /> 添加自定义项目
@@ -154,10 +159,11 @@ export function NewOrderQuotationSection({
         </div>
       </div>
 
-      <div className="my-1.5 border-t border-[var(--border-panel)] sm:my-3" />
-
-      <div className="min-w-0 space-y-1.5 sm:space-y-3">
-        <div className="grid min-w-0 gap-1.5 xl:grid-cols-2 xl:gap-3">
+      <div className="min-w-0 space-y-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5">
+        <div className="px-0.5 text-[10px] font-semibold leading-3 text-muted-foreground">
+          服务设置
+        </div>
+        <div className="grid min-w-0 grid-cols-2 gap-1.5">
           <FormItem label="定金" mobileLabel="sr-only">
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -174,23 +180,6 @@ export function NewOrderQuotationSection({
                 className={cn(controlClass, "pl-5 font-mono sm:pl-8")}
                 placeholder="0"
               />
-            </div>
-          </FormItem>
-          <div className="hidden min-w-0 items-center rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[10px] leading-4 text-muted-foreground xl:flex">
-            合计由底部结算条集中显示：{total.toFixed(2)}
-          </div>
-        </div>
-        <p className="hidden text-xs text-muted-foreground xl:block">
-          保存时由服务端按总金额与定金自动写入余额。
-        </p>
-
-        <div className="grid min-w-0 gap-1.5 xl:grid-cols-2 xl:gap-3">
-          <FormItem label="录入账号" mobileLabel="sr-only">
-            <div
-              className="flex h-8 min-w-0 items-center rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 text-[11px] font-medium sm:h-9 sm:px-3 sm:text-sm"
-              title={operatorName || "当前登录账号"}
-            >
-              <span className="truncate">{operatorName || "当前登录账号"}</span>
             </div>
           </FormItem>
           <FormItem label="保修" mobileLabel="sr-only">
@@ -212,6 +201,17 @@ export function NewOrderQuotationSection({
           </FormItem>
         </div>
 
+        <div className="grid min-w-0 gap-1.5">
+          <FormItem label="录入账号" mobileLabel="sr-only">
+            <div
+              className="flex h-8 min-w-0 items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 text-[11px] font-medium"
+              title={operatorName || "当前登录账号"}
+            >
+              <span className="truncate">{operatorName || "当前登录账号"}</span>
+            </div>
+          </FormItem>
+        </div>
+
         <FormItem label="客户留存备注" mobileLabel="sr-only">
           <AccessoryNotesPicker
             value={form.accessoryNotes}
@@ -220,16 +220,14 @@ export function NewOrderQuotationSection({
           />
         </FormItem>
 
-        <div className="grid min-w-0 gap-1.5 xl:grid-cols-2 xl:gap-3">
+        <div className="grid min-w-0 grid-cols-2 gap-1.5">
           <div className="grid gap-1.5">
-            <div className="text-[10px] font-medium leading-3 text-muted-foreground sm:text-xs">
-              工单类型
-            </div>
+            <div className="text-[10px] font-medium leading-3 text-muted-foreground">工单类型</div>
             <Select
               value={form.type}
               onValueChange={(type) => setForm({ ...form, type: type as RepairOrderType })}
             >
-              <SelectTrigger className="h-7 text-xs sm:h-9">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -247,7 +245,7 @@ export function NewOrderQuotationSection({
               value={form.status}
               onValueChange={(value) => setForm({ ...form, status: value })}
             >
-              <SelectTrigger className="h-7 sm:h-9">
+              <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -991,13 +991,9 @@ export async function updateOrder(
   const warrantyChanged =
     previousWarrantyMonths !== warranty.warranty_months ||
     (previousWarrantyReason ?? "") !== (warranty.warranty_change_reason ?? "");
-  const phoneBook = normalizePhoneBook(customerPhone, customer.contact_phones);
+  const phoneBook = normalizePhoneBook(customerPhone);
   if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
-  const customerContactPhones = mergeContactPhones(
-    customer.contact_phones,
-    phoneBook.contacts,
-    phoneBook.primaryRaw,
-  );
+  const customerContactPhones = mergeContactPhones([], phoneBook.contacts, phoneBook.primaryRaw);
   assertCustomerPhoneAvailable(customer.id, phoneBook.primaryRaw, customerContactPhones);
 
   customer.name = customerName;

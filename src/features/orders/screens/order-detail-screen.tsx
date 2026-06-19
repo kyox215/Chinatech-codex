@@ -109,9 +109,7 @@ import {
   OrderDetailActionDock,
   OrderKeyInfoCard,
   OrderOverviewTab,
-  type OrderEditableField,
 } from "@/features/orders/components/order-overview-tab";
-import { ApprovalRequestDialog } from "@/features/orders/forms/approval-request-dialog";
 import { CancelDialog } from "@/features/orders/forms/cancel-dialog";
 import { NotifyDialog } from "@/features/orders/forms/notify-dialog";
 import { PaymentDialog } from "@/features/orders/forms/payment-dialog";
@@ -176,7 +174,6 @@ export function OrderDetailScreen({
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("overview");
   const [notifyOpen, setNotifyOpen] = useState(false);
-  const [approvalOpen, setApprovalOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
@@ -185,7 +182,6 @@ export function OrderDetailScreen({
   const [orderUrl, setOrderUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
-  const [activeEditField, setActiveEditField] = useState<OrderEditableField | null>(null);
   const [mobileFinanceEditing, setMobileFinanceEditing] = useState(false);
   const [mobileFinanceSaveError, setMobileFinanceSaveError] = useState("");
   const [financeDraft, setFinanceDraft] = useState<FinanceDraftState>(() =>
@@ -252,7 +248,6 @@ export function OrderDetailScreen({
       toast.success("工单信息已保存");
       setIsEditing(false);
       setEditDraft(null);
-      setActiveEditField(null);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -324,7 +319,6 @@ export function OrderDetailScreen({
       sendApprovalRequest(id, input.body, input.recipientPhone),
     onSuccess: () => {
       toast.success("审批消息已记录，并已打开 WhatsApp");
-      setApprovalOpen(false);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -395,14 +389,12 @@ export function OrderDetailScreen({
     setEditDraft(draft);
     setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
     setIsEditing(true);
-    setActiveEditField(null);
     setTab("overview");
   }, [data, defaultWarrantyMonths]);
 
   const cancelEditing = useCallback(() => {
     setIsEditing(false);
     setEditDraft(null);
-    setActiveEditField(null);
     if (data) {
       const draft = buildEditForm(data, defaultWarrantyMonths);
       setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
@@ -639,8 +631,9 @@ export function OrderDetailScreen({
                   isEditing={isEditing}
                   editDraft={editDraft}
                   onEditDraftChange={(next) => setEditDraft(next)}
-                  activeEditField={activeEditField}
-                  onActiveEditFieldChange={setActiveEditField}
+                  financeDraft={financeDraft}
+                  financeError={editFinance?.error}
+                  onFinanceDraftChange={setFinanceDraft}
                   defaultWarrantyMonths={defaultWarrantyMonths}
                   onQuickImeiSave={async (imei) => {
                     await quickImeiUpdate.mutateAsync(imei);
@@ -676,9 +669,6 @@ export function OrderDetailScreen({
           order={order}
           isEditing={isEditing}
           financeDraft={financeDraft}
-          onFinanceDraftChange={setFinanceDraft}
-          editError={editValidationError}
-          onApproval={() => setApprovalOpen(true)}
           onApprovalDecision={() => setApprovalDecisionOpen(true)}
           approvalDecisionAvailable={canDecideApproval}
           onFlow={() => setDesktopTransitionOpen(true)}
@@ -709,14 +699,6 @@ export function OrderDetailScreen({
           }
           await whatsappNotification.mutateAsync(input);
         }}
-      />
-      <ApprovalRequestDialog
-        open={approvalOpen}
-        onOpenChange={setApprovalOpen}
-        data={data}
-        orderUrl={orderUrl}
-        busy={approval.isPending}
-        onConfirm={(input) => approval.mutateAsync(input)}
       />
       <ApprovalDecisionSheet
         open={approvalDecisionOpen}
@@ -1640,7 +1622,7 @@ function MobileOrderDetailView({
           <Button
             variant="outline"
             className="h-9 rounded-xl text-xs"
-            disabled={financeEditing}
+            disabled={financeEditing || order.is_paid || order.balance_amount <= 0}
             onClick={onPay}
           >
             <CreditCard className="mr-1 size-3.5" /> 收款
