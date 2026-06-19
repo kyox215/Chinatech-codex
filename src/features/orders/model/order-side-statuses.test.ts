@@ -16,7 +16,7 @@ describe("order side status badges", () => {
     });
 
     expect(badges.map((badge) => badge.label)).toEqual([
-      "外修寄送中",
+      "寄修 PartsLab",
       "暂停",
       "等客户确认",
       "已订件",

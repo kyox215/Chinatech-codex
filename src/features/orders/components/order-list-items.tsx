@@ -48,9 +48,8 @@ export function OrderMobileCard({ order }: OrderMobileCardProps) {
   const firstFaultPrice = order.fault_prices[0];
   const extraFaultCount = Math.max(0, order.fault_prices.length - 1);
   const primaryRepairLabel = firstFaultPrice?.name || "待确认维修项目";
-  const deviceLine = order.issue_description
-    ? `${order.device_label || "未知设备"} · ${order.issue_description}`
-    : order.device_label || order.device_imei || "-";
+  const deviceLabel = order.device_label || order.device_imei || "未知设备";
+  const issueLabel = order.issue_description || "待补充故障描述";
   const paidAmount = Math.max(
     0,
     order.quotation_amount - order.deposit_amount - order.balance_amount,
@@ -132,18 +131,37 @@ export function OrderMobileCard({ order }: OrderMobileCardProps) {
             </div>
           </div>
 
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-surface-muted text-muted-foreground">
-              <Smartphone className="size-3.5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-[9px] font-medium leading-3 text-muted-foreground">
-                设备与故障
-              </p>
-              <p className="line-clamp-1 text-[11px] font-medium leading-4 text-foreground">
-                {deviceLine}
-              </p>
+          <div className="min-w-0 rounded-lg bg-surface-muted/70 px-2 py-1.5">
+            <div className="flex min-w-0 items-center gap-1 text-[9px] font-medium leading-3 text-muted-foreground">
+              <Smartphone className="size-3 shrink-0" />
+              <span className="truncate">设备故障与报价</span>
+              {extraFaultCount > 0 ? (
+                <span className="ml-auto shrink-0 rounded bg-primary/10 px-1 text-[9px] leading-3 text-primary">
+                  +{extraFaultCount}
+                </span>
+              ) : null}
             </div>
+            <p className="mt-0.5 truncate text-[11px] font-semibold leading-4 text-foreground">
+              {deviceLabel}
+            </p>
+            <p className="truncate text-[10px] leading-3 text-muted-foreground">{issueLabel}</p>
+            <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1 text-[11px] font-semibold leading-4 text-foreground">
+                <ReceiptText className="size-3 shrink-0 text-primary" />
+                <span className="truncate">{primaryRepairLabel}</span>
+              </div>
+              {firstFaultPrice ? (
+                <MoneyText
+                  amount={firstFaultPrice.price}
+                  className="shrink-0 text-[10px] font-semibold leading-4 text-foreground"
+                />
+              ) : null}
+            </div>
+            {order.accessory_notes ? (
+              <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
+                留存：{order.accessory_notes}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -178,42 +196,14 @@ export function OrderMobileCard({ order }: OrderMobileCardProps) {
       </div>
 
       <div className="border-t border-[var(--border-panel)] pt-2">
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1 text-[10px] font-medium leading-3 text-muted-foreground">
-              <ReceiptText className="size-3 shrink-0 text-primary" />
-              维修项目与报价
-              {extraFaultCount > 0 ? (
-                <span className="rounded bg-primary/10 px-1 text-[9px] leading-3">
-                  +{extraFaultCount}
-                </span>
-              ) : null}
-            </div>
-            <p
-              className={cn(
-                "mt-1 truncate text-xs leading-4",
-                firstFaultPrice
-                  ? "font-semibold text-foreground"
-                  : "font-medium text-muted-foreground",
-              )}
-            >
-              {primaryRepairLabel}
-            </p>
-            {order.accessory_notes ? (
-              <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
-                留存：{order.accessory_notes}
-              </p>
-            ) : null}
-          </div>
-          <p
-            className={cn(
-              "shrink-0 truncate text-[10px] font-medium leading-4",
-              hasOverdueException ? "text-status-danger-foreground" : "text-primary",
-            )}
-          >
-            下一步：{guidance.nextAction}
-          </p>
-        </div>
+        <p
+          className={cn(
+            "truncate text-right text-[10px] font-medium leading-4",
+            hasOverdueException ? "text-status-danger-foreground" : "text-primary",
+          )}
+        >
+          下一步：{guidance.nextAction}
+        </p>
       </div>
 
       {hasOverdueException ? (

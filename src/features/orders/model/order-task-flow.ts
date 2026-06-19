@@ -111,6 +111,17 @@ export function getOrderTaskGuidance(
     };
   }
 
+  if (input.status === "mail_in_progress") {
+    return {
+      stage,
+      workflowStatus,
+      label: "寄修中",
+      task: "设备已转给外部维修方处理，请跟进供应商、寄出原因、预计返回时间和维修结果。",
+      nextAction: "登记寄修结果",
+      tone: "progress" as const,
+    };
+  }
+
   if (input.status === "repaired") {
     return {
       stage,

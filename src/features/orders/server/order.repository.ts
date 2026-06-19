@@ -1256,7 +1256,7 @@ export async function batchTransition(
   return { ok: failures.length === 0, count, failures };
 }
 
-const APPROVAL_APPROVED_TARGETS = ["repairing", "parts_ordered"] as const;
+const APPROVAL_APPROVED_TARGETS = ["repairing", "parts_ordered", "mail_in_progress"] as const;
 const APPROVAL_REJECTED_TARGETS = ["unfixed_pickup", "cancelled"] as const;
 
 export async function decideOrderApproval(
@@ -1288,7 +1288,7 @@ export async function decideOrderApproval(
   if (!(allowedTargets as readonly string[]).includes(target)) {
     throw new Error(
       input.decision === "approved"
-        ? "客户同意后只能进入维修或订件流程"
+        ? "客户同意后只能进入维修、订件或寄修流程"
         : "客户拒绝后只能进入未修取机或取消流程",
     );
   }

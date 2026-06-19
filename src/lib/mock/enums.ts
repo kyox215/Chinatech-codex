@@ -33,7 +33,7 @@ export const statusMeta: Record<string, { label: string; shortLabel?: string; to
   {
     new: { label: "新建", tone: "info" },
     rework: { label: "返修", tone: "warn" },
-    mail_in_progress: { label: "邮寄中", tone: "info" },
+    mail_in_progress: { label: "寄修中", shortLabel: "寄修", tone: "progress" },
     diagnosing: { label: "检测中", tone: "progress" },
     quoted: { label: "已报价", tone: "progress" },
     waiting_approval: { label: "待审批", tone: "warn" },

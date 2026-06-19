@@ -15,6 +15,38 @@ export type OrderTransitionReasonConfig = {
 };
 
 const transitionReasonConfigs: Partial<Record<string, OrderTransitionReasonConfig>> = {
+  mail_in_progress: {
+    title: "记录寄修说明",
+    description:
+      "用于门店尝试维修后需要转给外部维修方处理的情况。建议写清供应商、故障判断、报价项目和预计返回时间。",
+    required: true,
+    presets: [
+      {
+        id: "board-repair",
+        label: "主板外修",
+        description: "门店检测后判断需要主板级维修或显微焊接。",
+        reason: "门店检测后判断需要主板级外修，已报价并准备寄给外部维修方处理。",
+      },
+      {
+        id: "in-house-failed",
+        label: "店内未修起",
+        description: "店内已尝试维修，但需要更专业设备继续处理。",
+        reason: "店内已尝试维修但未修复，需转外修继续检测和维修。",
+      },
+      {
+        id: "supplier-diagnosis",
+        label: "供应商复检",
+        description: "需要供应商确认维修可行性、周期或最终价格。",
+        reason: "需要供应商复检确认维修可行性、周期和最终成本。",
+      },
+      {
+        id: "data-risk",
+        label: "资料/主板风险",
+        description: "涉及资料恢复、短路、进水或主板高风险维修。",
+        reason: "设备涉及资料或主板高风险维修，需要寄修并记录客户已知悉风险。",
+      },
+    ],
+  },
   unfixed_pickup: {
     title: "选择未修取机原因",
     description: "用于客户不修、维修风险过高或设备不建议继续维修的情况。",

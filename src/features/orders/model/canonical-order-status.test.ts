@@ -20,7 +20,8 @@ describe("canonical order status helpers", () => {
     );
   });
 
-  it("keeps repaired orders in the repair workflow stage", () => {
+  it("keeps repaired and external-repair orders in the repair workflow stage", () => {
+    expect(workflowStatusFromLegacyStatus("mail_in_progress")).toBe("repair");
     expect(workflowStatusFromLegacyStatus("repairing")).toBe("repair");
     expect(workflowStatusFromLegacyStatus("repaired")).toBe("repair");
     expect(workflowStatusFromLegacyStatus("notified")).toBe("pickup");

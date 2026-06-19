@@ -591,7 +591,7 @@ export function OrderDetailScreen({
             nextActionLabel={canDecideApproval ? "处理客户审批" : next.primary?.label}
             taskHint={
               canDecideApproval
-                ? "客户已在等待报价结果，先记录同意或拒绝，再进入维修、订件或未修取机。"
+                ? "客户已在等待报价结果，先记录同意或拒绝，再进入维修、订件、寄修或未修取机。"
                 : next.primary
                   ? getStatusActionHint(next.primary.to)
                   : undefined
@@ -979,7 +979,9 @@ function ApprovalDecisionSheet({
               onClick={() => setDecision("approved")}
             >
               <span className="block text-xs font-semibold">客户同意</span>
-              <span className="mt-0.5 block truncate text-[10px] opacity-75">进入维修或订件</span>
+              <span className="mt-0.5 block truncate text-[10px] opacity-75">
+                进入维修、订件或寄修
+              </span>
             </button>
             <button
               type="button"
@@ -1011,6 +1013,7 @@ function ApprovalDecisionSheet({
                 <SelectContent>
                   <SelectItem value="repairing">开始维修</SelectItem>
                   <SelectItem value="parts_ordered">需要订件</SelectItem>
+                  <SelectItem value="mail_in_progress">转入寄修</SelectItem>
                 </SelectContent>
               </Select>
             ) : (
@@ -2908,6 +2911,7 @@ function isApprovalDecisionAvailable(order: OrderDetail["order"]) {
 }
 
 function getDefaultApprovedNextStatus(order: OrderDetail["order"]): RepairOrderStatus {
+  if (order.status === "mail_in_progress" || order.supplier_id) return "mail_in_progress";
   if (order.parts_status && order.parts_status !== "not_required") return "parts_ordered";
   return "repairing";
 }
@@ -2915,6 +2919,8 @@ function getDefaultApprovedNextStatus(order: OrderDetail["order"]): RepairOrderS
 function getStatusActionHint(status: RepairOrderStatus) {
   if (status === "waiting_approval") return "进入客户审批阶段；不会自动发送报价消息。";
   if (status === "notified") return "标记客户已通知；不会自动发送取机消息。";
+  if (status === "mail_in_progress")
+    return "用于店内未修起、主板外修或供应商复检；需要记录寄修说明。";
   if (status === "parts_ordered") return "记录为已订配件，后续可流转到配件到货。";
   if (status === "parts_arrived") return "记录为配件已到，下一步通常进入维修。";
   if (status === "unfixed_pickup") return "用于无法维修但客户取回设备的情况。";

@@ -90,11 +90,11 @@ export const orderWorkflowTransitions: Partial<
 };
 
 export function workflowStatusFromLegacyStatus(status: RepairOrderStatus): OrderWorkflowStatusCode {
-  if (["new", "rework", "mail_in_progress"].includes(status)) return "intake";
+  if (["new", "rework"].includes(status)) return "intake";
   if (status === "diagnosing") return "diagnosis";
   if (["quoted", "waiting_approval"].includes(status)) return "quote";
   if (["parts_ordered", "parts_arrived"].includes(status)) return "parts";
-  if (["repairing", "repaired"].includes(status)) return "repair";
+  if (["mail_in_progress", "repairing", "repaired"].includes(status)) return "repair";
   if (["notified", "unfixed_pickup", "waiting_pickup"].includes(status)) {
     return "pickup";
   }

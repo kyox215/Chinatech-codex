@@ -17,10 +17,10 @@ describe("order workflow list status groups", () => {
       ]),
     );
 
-    expect(byGroup.intake).toEqual(["new", "rework", "mail_in_progress"]);
+    expect(byGroup.intake).toEqual(["new", "rework"]);
     expect(byGroup.diagnosis_quote).toEqual(["diagnosing", "quoted", "waiting_approval"]);
     expect(byGroup.parts).toEqual(["parts_ordered", "parts_arrived"]);
-    expect(byGroup.repair).toEqual(["repairing", "repaired"]);
+    expect(byGroup.repair).toEqual(["mail_in_progress", "repairing", "repaired"]);
     expect(byGroup.pickup).toEqual(["notified", "unfixed_pickup", "waiting_pickup"]);
     expect(byGroup.done).toEqual(["completed"]);
     expect(byGroup.cancelled).toEqual(["cancelled"]);

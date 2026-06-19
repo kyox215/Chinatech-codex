@@ -76,7 +76,7 @@ function getFallbackStatusBucket(code: RepairOrderStatus): OrderWorkflowBucket {
   if (code === "cancelled") return "cancelled";
   if (code === "completed") return "done";
   if (["notified", "waiting_pickup", "unfixed_pickup"].includes(code)) return "pickup";
-  if (["repairing", "repaired"].includes(code)) return "repair";
+  if (["mail_in_progress", "repairing", "repaired"].includes(code)) return "repair";
   if (["parts_ordered", "parts_arrived"].includes(code)) return "parts";
   if (["quoted", "waiting_approval"].includes(code)) return "quote";
   if (code === "diagnosing") return "diagnosing";

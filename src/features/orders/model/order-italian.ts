@@ -8,7 +8,7 @@ export const orderTypeItalian = {
 export const statusItalian: Record<string, string> = {
   new: "Nuovo",
   rework: "Rientro in garanzia",
-  mail_in_progress: "Spedizione in corso",
+  mail_in_progress: "Riparazione esterna in corso",
   diagnosing: "In diagnosi",
   quoted: "Preventivo emesso",
   waiting_approval: "In attesa di approvazione",

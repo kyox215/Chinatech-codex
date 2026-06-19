@@ -211,6 +211,35 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.order.cancel_reason).toBe("客户主动取消本次维修。");
   });
 
+  it("supports external repair handoff after an in-house repair attempt", async () => {
+    const id = await createMockOrder({
+      fault_prices: [{ name: "主板维修", price: 180, note: "外修报价" }],
+      deposit_amount: 0,
+    });
+
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "repairing");
+    await expect(transitionOrder(id, "mail_in_progress")).rejects.toThrow("需要填写原因");
+    await transitionOrder(id, "mail_in_progress", {
+      reason: "店内已尝试维修但未修复，需转外修继续检测和维修。",
+    });
+
+    const mailed = await getOrder(id);
+    expect(mailed.order.status).toBe("mail_in_progress");
+    expect(mailed.order.workflow_status).toBe("repair");
+    const mailEvent = mailed.events.find(
+      (event) => event.event_type === "status_changed" && event.payload.to === "mail_in_progress",
+    );
+    expect(mailEvent?.payload).toMatchObject({
+      to: "mail_in_progress",
+      reason: "店内已尝试维修但未修复，需转外修继续检测和维修。",
+    });
+
+    await transitionOrder(id, "repaired");
+    const repaired = await getOrder(id);
+    expect(repaired.order.status).toBe("repaired");
+  });
+
   it("does not complete an unpaid order", async () => {
     const id = await createMockOrder();
     await transitionOrder(id, "diagnosing");
@@ -355,6 +384,32 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.order.approval_status).toBe("approved");
   });
 
+  it("records customer approval and moves the order into external repair", async () => {
+    const id = await createMockOrder({
+      fault_prices: [{ name: "主板维修", price: 180, note: "外修报价" }],
+      deposit_amount: 0,
+    });
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo scheda madre da confermare.");
+
+    const result = await decideOrderApproval(id, {
+      decision: "approved",
+      next_status: "mail_in_progress",
+      reason: "客户同意主板外修报价。",
+    });
+
+    const detail = await getOrder(id);
+    expect(result).toMatchObject({
+      decision: "approved",
+      to: "mail_in_progress",
+      approval_flow_status: "approved",
+    });
+    expect(detail.order.status).toBe("mail_in_progress");
+    expect(detail.order.workflow_status).toBe("repair");
+    expect(detail.order.approval_status).toBe("approved");
+  });
+
   it("records direct quoted approval and moves the order into parts ordering", async () => {
     const id = await createMockOrder();
     await transitionOrder(id, "diagnosing");
@@ -396,7 +451,7 @@ describe("mock order WhatsApp notification workflow", () => {
         decision: "approved",
         next_status: "completed" as Parameters<typeof decideOrderApproval>[1]["next_status"],
       }),
-    ).rejects.toThrow("客户同意后只能进入维修或订件流程");
+    ).rejects.toThrow("客户同意后只能进入维修、订件或寄修流程");
 
     await expect(
       decideOrderApproval(id, {

@@ -399,7 +399,7 @@ function TaskTransitionPanel({
                 需要先处理客户审批
               </p>
               <p className="mt-0.5 text-[11px] leading-4 text-status-warn-foreground/80">
-                当前处于报价确认阶段，必须记录客户同意或拒绝后再进入维修、订件或取消。
+                当前处于报价确认阶段，必须记录客户同意或拒绝后再进入维修、订件、寄修或取消。
               </p>
             </div>
           </div>
@@ -586,6 +586,7 @@ function TaskTransitionDialog({
 function getTaskStatusActionHint(status: RepairOrderStatus) {
   if (status === "waiting_approval") return "只改为待审批，不自动发消息";
   if (status === "notified") return "只标记已通知，不自动发消息";
+  if (status === "mail_in_progress") return "转外修处理，需要寄修说明";
   if (status === "parts_ordered") return "配件已订，等待到货";
   if (status === "parts_arrived") return "配件到货，可开始维修";
   if (status === "unfixed_pickup") return "未维修交还，需要原因";

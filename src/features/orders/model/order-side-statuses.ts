@@ -35,11 +35,11 @@ export function getOrderSideStatusBadges(
   if (order.status === "mail_in_progress") {
     badges.push({
       key: "logistics-mail",
-      label: supplierName ? "外修寄送中" : "邮寄中",
-      tone: "info",
+      label: supplierName ? `寄修 ${supplierName}` : "寄修中",
+      tone: "progress",
       description: supplierName
-        ? `设备正在寄送或外修，供应商：${supplierName}`
-        : "设备尚未进入店内维修主流程，当前处于邮寄/送修途中。",
+        ? `设备已转外修处理，供应商：${supplierName}`
+        : "设备已转给外部维修方处理，请跟进寄修进度和返回结果。",
     });
   } else if (order.order_type === "dropoff_repair" || order.supplier_id) {
     badges.push({
