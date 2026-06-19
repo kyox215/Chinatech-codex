@@ -113,7 +113,7 @@ export const componentOverlay = {
   modalLg: "w-[min(860px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
   modalWide: "w-[min(1240px,calc(100vw-24px))] max-w-[calc(100vw-24px)]",
   detailWorkspace:
-    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1180px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-48px)] sm:max-h-[calc(100svh-48px)] sm:w-[min(1000px,calc(100vw-56px))] sm:max-w-[calc(100vw-56px)] lg:w-[min(1000px,calc(100vw-96px))] lg:max-w-[calc(100vw-96px)]",
   formWorkspace:
     "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1240px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   body: "min-w-0 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4",

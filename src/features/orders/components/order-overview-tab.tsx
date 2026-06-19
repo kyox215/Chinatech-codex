@@ -184,22 +184,24 @@ export function OrderOverviewTab({
         />
       </div>
 
-      <div className="hidden min-w-0 space-y-2 sm:space-y-3 md:block">
-        <OrderOverviewDesktopContextStrip
-          order={order}
-          supplier={supplier}
-          storeSettings={storeSettings}
-          events={events}
-          workflow={workflow}
-          onShowRecords={onShowRecords}
-        />
+      <div className="hidden min-w-0 space-y-2 md:block">
+        {surface !== "dialog" ? (
+          <OrderOverviewDesktopContextStrip
+            order={order}
+            supplier={supplier}
+            storeSettings={storeSettings}
+            events={events}
+            workflow={workflow}
+            onShowRecords={onShowRecords}
+          />
+        ) : null}
 
         <div
           data-order-detail-main-grid="true"
           className={cn(
-            "grid min-w-0 gap-2 sm:gap-3 md:grid-cols-2",
+            "grid min-w-0 gap-2 md:grid-cols-2",
             surface === "dialog"
-              ? "lg:grid-cols-[minmax(190px,0.82fr)_minmax(280px,1.16fr)_minmax(230px,0.9fr)_minmax(180px,0.66fr)]"
+              ? "lg:grid-cols-[minmax(180px,0.78fr)_minmax(290px,1.16fr)_minmax(230px,0.88fr)_minmax(170px,0.62fr)]"
               : "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.15fr)] xl:grid-cols-[minmax(220px,0.86fr)_minmax(320px,1.16fr)_minmax(250px,0.9fr)] 2xl:grid-cols-[minmax(220px,0.86fr)_minmax(320px,1.16fr)_minmax(250px,0.9fr)_minmax(210px,0.72fr)]",
           )}
         >
@@ -601,10 +603,11 @@ function OrderOverviewFinancePanel({
   isEditing: boolean;
   surface: DetailSurface;
 }) {
+  const dense = surface === "dialog";
   return (
     <DetailPanel surface={surface} dataPanel="finance">
       <PanelHeader title="报价处理" editing={isEditing} />
-      <div className="min-w-0 space-y-2 sm:space-y-3">
+      <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
         <div className="grid min-w-0 grid-cols-3 gap-1.5">
           <DockMoney label="总价" amount={order.quotation_amount} strong />
           <DockMoney label="定金" amount={order.deposit_amount} />
@@ -626,21 +629,6 @@ function OrderOverviewFinancePanel({
         </div>
 
         <FinanceDisplay order={order} />
-
-        <div className="rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
-          <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
-            <span className="truncate text-muted-foreground">报价项目</span>
-            <span className="shrink-0 font-mono font-semibold tabular-nums">
-              {order.fault_prices.length}
-            </span>
-          </div>
-          <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
-            <span className="truncate text-muted-foreground">审批状态</span>
-            <span className="shrink-0">
-              <ApprovalBadge status={order.approval_status} />
-            </span>
-          </div>
-        </div>
       </div>
     </DetailPanel>
   );
@@ -693,7 +681,7 @@ function DesktopOrderPhotosPanel({
         <button
           type="button"
           className={cn(
-            "grid h-16 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60",
+            "grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60",
             attachments.length >= 2 && "col-span-2 lg:col-span-1 xl:col-span-2",
           )}
           disabled={uploadPending || !onCapture}
@@ -705,7 +693,7 @@ function DesktopOrderPhotosPanel({
           </span>
         </button>
       </div>
-      <div className="mt-2 flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[11px] leading-4">
+      <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] leading-4">
         <span className="truncate text-muted-foreground">已保存照片</span>
         <span className="shrink-0 font-mono font-semibold tabular-nums">
           {attachments.length}
@@ -721,7 +709,7 @@ function DesktopPhotoPreview({ attachment }: { attachment: OrderAttachment }) {
   return (
     <div
       data-order-photo-preview="true"
-      className="relative h-16 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]"
+      className="relative h-12 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]"
     >
       {source ? (
         <img src={source} alt={attachment.file_name} className="size-full object-cover" />
@@ -739,7 +727,7 @@ function DesktopPhotoPreview({ attachment }: { attachment: OrderAttachment }) {
 
 function DesktopPhotoPlaceholder({ label }: { label: string }) {
   return (
-    <div className="grid h-16 min-w-0 place-items-center rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2 text-center">
+    <div className="grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2 text-center">
       <span className="grid place-items-center gap-1 text-[10px] font-medium text-muted-foreground">
         <ImageIcon className="size-4 text-muted-foreground/70" />
         {label}
@@ -910,21 +898,24 @@ function CustomerPanel({
   edit: OrderEditContext | null;
   surface: DetailSurface;
 }) {
+  const dense = surface === "dialog";
   return (
     <DetailPanel surface={surface} dataPanel="customer">
       <PanelHeader title="客户信息" editing={Boolean(edit)} />
-      <div className="min-w-0 space-y-2 sm:space-y-3">
-        <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-1">
+      <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
+        <section className="grid min-w-0 gap-1.5">
           <CustomerNameField order={order} customer={customer} edit={edit} />
-          <InfoField label="技师" tone="soft">
-            <ReadonlyValue value={order.technician_name} />
-          </InfoField>
+          {surface !== "dialog" ? (
+            <InfoField label="技师" tone="soft">
+              <ReadonlyValue value={order.technician_name} />
+            </InfoField>
+          ) : null}
         </section>
 
         <CustomerPhoneField order={order} customer={customer} edit={edit} />
         <BackupPhones order={order} />
 
-        <Separator className="my-2 sm:my-3" />
+        <Separator className={dense ? "my-1" : "my-2 sm:my-3"} />
         <CustomerSignatureSection order={order} />
       </div>
     </DetailPanel>
@@ -1045,7 +1036,7 @@ function CustomerSignatureSection({ order }: { order: OrderDetail["order"] }) {
       <div
         className={cn(
           "flex items-center justify-center rounded-md border border-dashed border-border/80 bg-surface-muted/20 text-xs text-muted-foreground",
-          dense ? "h-14" : "h-16 sm:h-24 sm:rounded-lg",
+          dense ? "h-10" : "h-16 sm:h-24 sm:rounded-lg",
           order.customer_signature && "border-primary/20 bg-accent/30 text-accent-foreground",
         )}
       >
@@ -1080,11 +1071,17 @@ function DeviceIssuePanel({
   edit: OrderEditContext | null;
   surface: DetailSurface;
 }) {
+  const dense = surface === "dialog";
   return (
     <DetailPanel surface={surface} dataPanel="device">
       <PanelHeader title="设备与故障" editing={Boolean(edit)} />
-      <div className="min-w-0 space-y-2 sm:space-y-3">
-        <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-1 lg:grid-cols-2">
+      <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
+        <section
+          className={cn(
+            "grid min-w-0 grid-cols-2 md:grid-cols-1 lg:grid-cols-2",
+            dense ? "gap-1.5" : "gap-2 sm:gap-3",
+          )}
+        >
           <DraftTextField
             field="device_brand"
             label="品牌"
@@ -1112,12 +1109,18 @@ function DeviceIssuePanel({
           quickPending={quickImeiPending}
         />
 
-        <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-1 lg:grid-cols-2">
+        <section
+          className={cn(
+            "grid min-w-0 grid-cols-2 md:grid-cols-1 lg:grid-cols-2",
+            dense ? "gap-1.5" : "gap-2 sm:gap-3",
+          )}
+        >
           <DraftTextField
             field="device_notes"
             label="设备备注"
             value={edit?.draft.device_notes ?? deviceNotes ?? ""}
             tone="note"
+            className={dense ? "line-clamp-2" : undefined}
             emptyText="—"
             edit={edit}
             onChange={(value) => patchDraft(edit, { device_notes: value })}
@@ -1129,9 +1132,9 @@ function DeviceIssuePanel({
           />
         </section>
 
-        <Separator className="my-2 sm:my-3" />
+        <Separator className={dense ? "my-1" : "my-2 sm:my-3"} />
 
-        <section className="min-w-0 space-y-2 sm:space-y-3">
+        <section className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
           <DraftTextField
             field="issue_description"
             label="故障描述"
@@ -1139,6 +1142,7 @@ function DeviceIssuePanel({
             required
             multiline
             tone="note"
+            className={dense ? "line-clamp-2" : undefined}
             edit={edit}
             onChange={(value) => patchDraft(edit, { issue_description: value })}
           />
@@ -1148,6 +1152,7 @@ function DeviceIssuePanel({
             value={edit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
             multiline
             tone="soft"
+            className={dense ? "line-clamp-2" : undefined}
             emptyText="—"
             edit={edit}
             onChange={(value) => patchDraft(edit, { diagnosis_result: value })}
@@ -1815,32 +1820,34 @@ function InfoField({
 }) {
   const dense = useDenseDetail();
   const fieldPadding = dense
-    ? "rounded-md px-2 py-1"
+    ? "px-0 py-0.5"
     : "rounded-md px-2 py-1.5 sm:rounded-lg sm:px-2.5 sm:py-2";
   return (
     <div
       className={cn(
         "min-w-0",
-        tone === "hero" && "border border-border/70 bg-surface-muted/30",
-        tone === "soft" && "border border-border/60 bg-surface-muted/20",
-        tone === "note" && "border border-border/70 bg-surface-muted/35",
-        tone === "metric" && "border border-border/60 bg-surface-muted/25",
-        tone === "metricStrong" && "border border-primary/20 bg-accent/25",
+        dense && tone !== "plain" && "border-b border-[var(--border-panel)]/55 last:border-b-0",
+        dense && tone === "metricStrong" && "rounded-md border-b-0 bg-primary/5 px-1.5 py-1",
+        !dense && tone === "hero" && "border border-border/70 bg-surface-muted/30",
+        !dense && tone === "soft" && "border border-border/60 bg-surface-muted/20",
+        !dense && tone === "note" && "border border-border/70 bg-surface-muted/35",
+        !dense && tone === "metric" && "border border-border/60 bg-surface-muted/25",
+        !dense && tone === "metricStrong" && "border border-primary/20 bg-accent/25",
         tone !== "plain" && fieldPadding,
       )}
     >
       <div
         className={cn(
           "font-medium text-muted-foreground",
-          dense ? "text-[10px]" : "text-[10px] sm:text-[11px]",
+          dense ? "text-[9px] leading-3" : "text-[10px] sm:text-[11px]",
         )}
       >
         {label}
       </div>
       <div
         className={cn(
-          "mt-0.5 min-w-0 break-words leading-snug",
-          dense ? "text-[12px]" : "text-[13px] sm:text-sm",
+          "min-w-0 break-words leading-snug",
+          dense ? "mt-0 text-[11px]" : "mt-0.5 text-[13px] sm:text-sm",
           tone === "hero" && "font-semibold text-foreground",
           tone === "note" && "text-foreground",
           !dense && tone === "note" && "sm:leading-relaxed",

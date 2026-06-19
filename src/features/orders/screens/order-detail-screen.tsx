@@ -35,6 +35,7 @@ import {
   Trash2,
   UserRound,
   WalletCards,
+  X,
 } from "lucide-react";
 
 import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
@@ -166,9 +167,11 @@ type WorkflowNextAction = NonNullable<ReturnType<typeof getWorkflowNextActions>[
 export function OrderDetailScreen({
   id,
   surface = "page",
+  onClose,
 }: {
   id: string;
   surface?: "page" | "dialog";
+  onClose?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("overview");
@@ -498,12 +501,24 @@ export function OrderDetailScreen({
       data-order-detail-root="true"
       data-order-detail-surface={surface}
       className={cn(
-        "min-w-0 max-w-full overflow-x-clip",
+        "relative min-w-0 max-w-full overflow-x-clip",
         surface === "page"
           ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-7xl md:px-6"
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
+      {surface === "dialog" && onClose ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="absolute right-2 top-2 z-40 size-8 rounded-full bg-card/95 shadow-[var(--shadow-card)]"
+          onClick={onClose}
+          aria-label="关闭工单详情"
+        >
+          <X className="size-4" />
+        </Button>
+      ) : null}
       {surface === "page" ? (
         <MobileOrderDetailView
           data={data}
@@ -567,20 +582,20 @@ export function OrderDetailScreen({
       <div
         className={cn(
           surface === "page" && "hidden md:block",
-          surface === "dialog" && "flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-3 md:p-4",
+          surface === "dialog" &&
+            "flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5 md:p-3",
         )}
       >
         <div className="relative z-20">
           <OrderHero
             order={order}
-            customerName={customer?.name}
-            deviceLabel={deviceLabel}
             onPrint={() => window.print()}
             onCancel={() => setCancelOpen(true)}
             canCancel={canCancelOrder}
             onEdit={startEditing}
             onSaveEdit={() => void saveEditing()}
             onCancelEdit={cancelEditing}
+            storeName={storeSettings?.store_name || "ChinaTech"}
             isEditing={isEditing}
             editPending={orderUpdate.isPending}
             editSaveDisabled={!editCanSave}
