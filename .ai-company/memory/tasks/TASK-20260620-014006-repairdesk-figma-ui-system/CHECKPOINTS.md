@@ -765,6 +765,36 @@
 - Verification passed: generated payloads, JSON parse, payload JS syntax, storyboard DOM counts, `git diff --check`, `npm run lint`, and `npm run agents:check`.
 - Protected mobile order detail, mobile order information, mobile order list management, and mobile work-order management remain untouched.
 
+## 2026-06-20T17:52:17+02:00 - Inventory Buyback Mobile Card Density Polished
+
+- Owner asked to further optimize the mobile inventory buyback source card internals: remove repeated descriptions, make values more direct, improve visual hierarchy/color, and improve edit operation access.
+- Scoped implementation to `src/features/inventory/screens/inventory-screen.tsx` only.
+- Did not edit protected mobile order surfaces:
+  - `src/features/orders/screens/order-detail-screen.tsx`
+  - `src/features/orders/screens/order-list-screen.tsx`
+  - `src/features/orders/components/order-list-mobile-header.tsx`
+  - `src/features/orders/screens/order-task-screen.tsx`
+- UI changes:
+  - Buyback source header now keeps the status pill and exposes a direct `编辑` action for price/cost edits.
+  - Replaced repeated descriptive rows with direct dense metrics: `报价`, `实付`, `整备`, `总成本`, `凭证`.
+  - Merged quote expiry into the quote metric meta and removed the separate duplicate quote/fee row.
+  - Cost composition now shows direct split rows for actual paid cost, repair cost, and other fees.
+  - Risk/proof blocks now use direct `待补` / `无扣减` wording instead of longer empty-state descriptions.
+  - Price/cost edit dialog is renamed to `编辑价格 / 成本`, shows current cost/list/profit summary, and orders fields as回收实付 -> 维修/整备 -> 其他费用 -> 挂牌价.
+- Verification passed:
+  - `npx prettier --write src/features/inventory/screens/inventory-screen.tsx`
+  - `git diff --check -- src/features/inventory/screens/inventory-screen.tsx`
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npx vitest run --exclude "exports/**" src/features/inventory/model/inventory-buyback-summary.test.ts src/features/inventory/model/inventory-workflow.test.ts src/features/inventory/testing/mock-api.test.ts`
+  - `npm run build` passed in non-sandbox mode; the sandbox build still hits the known Turbopack port-binding permission issue.
+- Visual evidence:
+  - `screenshots/figma-ui-system-20260620/inventory-buyback-source-card-final-3col-mobile.png`
+  - `screenshots/figma-ui-system-20260620/inventory-buyback-source-edit-dialog-final-mobile.png`
+- Playwright 390px overflow metrics passed:
+  - Detail card: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`; dialog bounds `x=12`, `width=366`.
+  - Edit dialog: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`; dialog bounds `x=12`, `width=366`.
+
 ## Next
 
 - When the Figma MCP limit clears or the plan is upgraded, run generated payloads in order:

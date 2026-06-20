@@ -927,3 +927,21 @@ Figma screenshots are still blocked by the Figma MCP Starter call limit. Browser
 - Screenshot DOM metrics: `innerWidth=1440`, `scrollWidth=1440`, `pagePairs=8`, `planCards=8`, `planColumns=48`, `motionCards=4`, `prototypeCards=5`.
 - No application page code was changed in this batch.
 - No protected mobile order detail, mobile order information, mobile order list management, or mobile work-order management files were edited.
+
+## 2026-06-20T17:52:17+02:00 - Inventory Buyback Source Mobile Card and Edit Dialog
+
+- Touched application file:
+  - `src/features/inventory/screens/inventory-screen.tsx`
+- Protected mobile order files were not edited in this batch.
+- Verification:
+  - `npx prettier --write src/features/inventory/screens/inventory-screen.tsx`: passed.
+  - `git diff --check -- src/features/inventory/screens/inventory-screen.tsx`: passed.
+  - `npm run typecheck`: passed.
+  - `npm run lint`: passed.
+  - `npx vitest run --exclude "exports/**" src/features/inventory/model/inventory-buyback-summary.test.ts src/features/inventory/model/inventory-workflow.test.ts src/features/inventory/testing/mock-api.test.ts`: 3 files passed, 16 tests passed.
+  - `npm run build`: sandbox run failed with known Turbopack `creating new process / binding to a port / Operation not permitted`; non-sandbox rerun passed.
+- Playwright visual verification at `http://127.0.0.1:3026/inventory`, viewport `390x844`, device scale factor 2:
+  - Detail screenshot: `screenshots/figma-ui-system-20260620/inventory-buyback-source-card-final-3col-mobile.png`
+  - Edit screenshot: `screenshots/figma-ui-system-20260620/inventory-buyback-source-edit-dialog-final-mobile.png`
+  - Detail metrics: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`, dialog `x=12`, `width=366`.
+  - Edit metrics: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`, dialog `x=12`, `width=366`.

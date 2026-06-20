@@ -1,15 +1,15 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260620-014006-repairdesk-figma-ui-system"
-status: "figma_blocked_page_planning_storyboard_ready"
-phase: "page_planning_storyboard_prepared"
+status: "inventory_buyback_mobile_card_verified"
+phase: "local_inventory_buyback_card_polish_verified"
 task_class: "ui_design_system"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-06-20T11:43:35+02:00"
+last_checkpoint_at: "2026-06-20T17:52:17+02:00"
 checkpoint_required: false
-last_rehydrated_at: "2026-06-20T11:43:35+02:00"
+last_rehydrated_at: "2026-06-20T17:52:17+02:00"
 ---
 
 # Active Context
@@ -27,6 +27,11 @@ First finish the Figma UI system design target, then use it to unify RepairDesk 
 - Latest Figma metadata retry still failed with the Figma MCP Starter tool-call limit; no actual Figma page/component write was completed in this retry.
 - Latest live Figma resume retry on 2026-06-20T11:32:28+02:00 still failed at the read-only metadata gate with the same Starter MCP call-limit paywall; no `use_figma` payload was executed.
 - Latest local page-planning batch on 2026-06-20T11:43:35+02:00 deepened the Figma planning source with page-level desktop zones, mobile zones, primary actions, states, density targets, motion flows, and acceptance criteria for Dashboard, Orders desktop queue, Customers, Inventory, Buyback, Messages, Settings, and Platform admin. Live Figma remains blocked, but generated payloads/storyboard are ready for resume.
+- Latest local UI code batch on 2026-06-20T17:52:17+02:00 polished the mobile Inventory buyback source card only:
+  - `src/features/inventory/screens/inventory-screen.tsx` now shows direct dense metrics (`报价`, `实付`, `整备`, `总成本`, `凭证`), removes the duplicated quote/fee row, exposes direct `编辑` action in the buyback source header, and renames/reorders the edit dialog as price/cost editing.
+  - Protected mobile order detail, mobile order information/list management, and mobile work-order/task pages were not edited in this batch.
+  - Verification passed: prettier, scoped diff check, typecheck, lint, focused inventory Vitest, non-sandbox build, and 390px Playwright screenshot/overflow checks.
+  - Visual evidence: `screenshots/figma-ui-system-20260620/inventory-buyback-source-card-final-3col-mobile.png` and `screenshots/figma-ui-system-20260620/inventory-buyback-source-edit-dialog-final-mobile.png`.
 - Local progress after the Figma blocker:
   - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md`
   - `docs/REPAIRDESK_FIGMA_DESIGN_BLUEPRINT.md`
