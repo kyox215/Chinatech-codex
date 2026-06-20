@@ -1,0 +1,249 @@
+---
+schema_version: 1
+current_task_id: "TASK-20260620-014006-repairdesk-figma-ui-system"
+status: "figma_blocked_page_planning_storyboard_ready"
+phase: "page_planning_storyboard_prepared"
+task_class: "ui_design_system"
+risk_level: "R2"
+autonomy_level: "L2"
+owner: "CEO-Orchestrator"
+last_checkpoint_at: "2026-06-20T11:43:35+02:00"
+checkpoint_required: false
+last_rehydrated_at: "2026-06-20T11:43:35+02:00"
+---
+
+# Active Context
+
+## Current objective
+
+First finish the Figma UI system design target, then use it to unify RepairDesk pages with compact desktop and mobile layouts. Desktop targets should show complete task-critical information on one page where feasible, borrowing the mobile order detail information hierarchy while preserving protected mobile order information, detail, and work-order pages.
+
+## Current state
+
+- Figma file created: `https://www.figma.com/design/j7sAvwPMcA43F2cOg7B3Kf`
+- RepairDesk variables and local styles were created in Figma.
+  - Figma component/page generation and metadata inspection are still blocked by the Figma MCP Starter tool-call limit; latest read-only retry after the owner updated the target to Figma-first hit the same limit.
+- Latest owner direction: prioritize the actual Figma page/component design before expanding further code refactors; local work should only stabilize already-applied reversible batches until the Figma limit clears or the plan is upgraded.
+- Latest Figma metadata retry still failed with the Figma MCP Starter tool-call limit; no actual Figma page/component write was completed in this retry.
+- Latest live Figma resume retry on 2026-06-20T11:32:28+02:00 still failed at the read-only metadata gate with the same Starter MCP call-limit paywall; no `use_figma` payload was executed.
+- Latest local page-planning batch on 2026-06-20T11:43:35+02:00 deepened the Figma planning source with page-level desktop zones, mobile zones, primary actions, states, density targets, motion flows, and acceptance criteria for Dashboard, Orders desktop queue, Customers, Inventory, Buyback, Messages, Settings, and Platform admin. Live Figma remains blocked, but generated payloads/storyboard are ready for resume.
+- Local progress after the Figma blocker:
+  - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md`
+  - `docs/REPAIRDESK_FIGMA_DESIGN_BLUEPRINT.md`
+  - `tools/figma/repairdesk-ui-system-blueprint.json`
+  - `tools/figma/use-figma-create-repairdesk-ui-system.mjs`
+  - `tools/figma/build-repairdesk-figma-artifacts.mjs`
+  - `tools/figma/generated/use-figma-payloads/`
+  - `tools/figma/generated/repairdesk-ui-system-storyboard.html`
+  - `tools/figma/generated/manifest.json` now records motion tokens, interaction states, Prototype flows, protected mobile order surfaces, and all staged run modes.
+  - `tools/figma/repairdesk-ui-system-blueprint.json` now includes `pageDesignPlans` for the 8 page targets.
+  - `tools/figma/use-figma-create-repairdesk-ui-system.mjs` now generates a `Page Design Plan / Desktop + Mobile` board for each page target after the prototype board.
+  - `tools/figma/generated/repairdesk-ui-system-storyboard.html` now displays 8 page-planning cards with 48 planning columns.
+  - Local Figma blueprint now includes visual polish rules, motion principles, `motion/instant`, `motion/fast`, `motion/standard`, `motion/slow`, reduced-motion guidance, required component states, and Prototype flow targets.
+  - Generated `use_figma` payloads now include motion-token boards, component state-matrix boards, and page-level Prototype flow boards.
+  - `eslint.config.js` now ignores only Figma MCP snippet files with intentional top-level `return`; ordinary project source and normal tooling remain linted.
+  - `.ai-company/memory/tasks/TASK-20260620-014006-repairdesk-figma-ui-system/FIGMA_MCP_RESUME_RUNBOOK.md`
+  - `src/lib/ui-patterns.ts` now exports `pageHeader`.
+- Third Figma metadata attempt still hit the same Figma MCP Starter call limit.
+- Additional local UI refactor progress:
+  - `src/shared/ui/repair-os-mobile.tsx` extends `RepairOsModuleHeader` with shared compact desktop title/subtitle support.
+  - `RepairOsListScaffold` can now render a default desktop header from `title`, `subtitle`, `eyebrow`, and `desktopAction`.
+  - `RepairOsListScaffold` also supports `desktopHeaderAddon`, so KPI/Metric strips can sit under the unified default header without each page hand-writing its own title block.
+  - Dashboard, customers, inventory, buyback, messages, settings, and platform admin desktop headers use the shared compact pattern.
+  - `src/features/customers/components/customer-hero.tsx` now uses the shared `pageHeader` title/subtitle/action structure for the customer detail desktop/dialog hero.
+  - `src/features/messages/screens/messages-screen.tsx` now relies on `RepairOsListScaffold` default desktop header and uses separate mobile `action` / desktop `desktopAction`.
+  - `src/shared/ui/repair-os-mobile.tsx` now exports `RepairOsSectionHeader` for dense panel/section titles with optional description, icon, and action slots.
+  - `src/shared/ui/repair-os-mobile.tsx` now exports `RepairOsInfoTile`, `RepairOsInfoGrid`, and `RepairOsInfoLine` for dense info cards, metric tiles, and data rows.
+  - Dashboard, Settings, Messages, Platform admin, and Buyback record detail section-title markup now uses `RepairOsSectionHeader`.
+  - Customer detail panels and Inventory detail dialog/drawer section-title markup now uses `RepairOsSectionHeader`.
+  - Customer detail metric/profile blocks now use `RepairOsInfoTile`.
+  - Customer detail mobile floating-header metrics and desktop summary-rail metrics now use `RepairOsInfoTile`.
+  - Inventory detail finance tiles now use `RepairOsInfoTile`, and product/check sections now use `RepairOsInfoGrid`.
+  - Inventory detail dialog now forces the dense flex shell with `!flex` and `!p-0`, avoiding default Dialog grid/padding expansion.
+  - Buyback quote workspace local `SectionTitle`, `InfoMetric`, `MetricPill`, and `InfoLine` now delegate to shared RepairOS primitives.
+  - Buyback record detail quote/device/proof metric tiles now delegate to `RepairOsInfoTile`.
+  - Dashboard KPI metric cards and Platform approval dialog info fields now delegate to `RepairOsInfoTile`.
+  - `RepairOsInfoTile` supports optional `leading` and `meta` slots for dense icon-plus-data blocks.
+  - Buyback mobile inline customer/device/quote information blocks now delegate to `RepairOsInfoTile`.
+  - `RepairOsBusinessCard` supports optional leading/body/trailing slots for dense business card/action-row variants.
+  - Dashboard task cards, quick module links, recent order cards, and recent-order skeletons now delegate to `RepairOsBusinessCard`.
+  - Customer detail device cards, order rows, contact records, and followup rows now delegate to `RepairOsBusinessCard`.
+  - Settings section titles now call `RepairOsSectionHeader` directly, and settings readiness/member/invitation rows now delegate to `RepairOsBusinessCard`.
+  - Dashboard section titles now call `RepairOsSectionHeader` directly, without a local `SectionTitle` wrapper.
+  - Platform admin mobile request cards now delegate to `RepairOsBusinessCard`.
+  - Inventory mobile list cards now delegate to `RepairOsBusinessCard`.
+  - `RepairOsBusinessCard` now supports semantic `as="article" | "div" | "label"` shells and keeps slot grid layouts ahead of dense card default grid columns.
+  - Customer tag selection rows now use `RepairOsBusinessCard as="label"` with native controlled checkbox semantics, so row-text clicks toggle on desktop and mobile.
+  - `docs/COMPONENT_GENERATION_DECLARATION.md` now documents label-style compact selection rows for `RepairOsBusinessCard`.
+  - `RepairOsInfoTile` now supports `trailing`, `leadingClassName`, and `trailingClassName` slots without changing plain label/value layout.
+  - Customer list KPI cards and mobile customer next-step blocks now use `RepairOsInfoTile`.
+  - `docs/COMPONENT_GENERATION_DECLARATION.md` and `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now record customer list InfoTile convergence.
+  - `RepairOsBusinessCard` now supports `as="button"` with native button `type` / `disabled` props.
+  - Message template selection rows and variable insertion rows now use `RepairOsBusinessCard as="button"`.
+  - `docs/COMPONENT_GENERATION_DECLARATION.md` and `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now record message action-row convergence.
+  - Buyback quote selected-estimate summary rows and boolean condition/inspection toggle rows now use `RepairOsBusinessCard`.
+  - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now records Buyback choice-summary and toggle-row convergence.
+  - Buyback quote workspace iPhone model selection cards now use `RepairOsBusinessCard as="button"` while preserving model selection, storage reset, market-price reset, and quote logic.
+  - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now records Buyback model-choice convergence.
+  - Buyback quote workspace storage-capacity and battery-health picker cards now use `RepairOsBusinessCard as="button"` while preserving storage market suggestion, battery deduction, and quote logic.
+  - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now records Buyback storage/battery picker convergence.
+  - Buyback quote workspace iPhone series picker cards now use `RepairOsBusinessCard as="button"` while preserving selected-series filtering, model list display, quote calculation, and inventory handoff logic.
+  - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now records Buyback series picker convergence.
+  - Generic Buyback quote workspace `ChoiceGroup` option chips now use `RepairOsBusinessCard as="button"` while preserving screen/body condition, document type, signature status, quote calculation, and inventory handoff logic.
+  - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now records Buyback generic ChoiceGroup convergence.
+  - Customer list mobile device-count, work-state, payment-state, and tag chips now use `RepairOsBadge` while preserving customer list queries, pagination, preview dialog, create flow, and detail links.
+  - `docs/COMPONENT_GENERATION_DECLARATION.md` now documents `RepairOsBadge` as the preferred shared primitive for repeated status/tag/count/risk chips.
+  - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now records customer list badge/internal chip convergence.
+  - Buyback quote workspace attachment capture cards now use `RepairOsBusinessCard as="label"` with nested native file input semantics, while the separate reset action preserves the existing reselect flow.
+  - `docs/COMPONENT_GENERATION_DECLARATION.md` and `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md` now record attachment capture-card convergence.
+  - Inventory SeaTable import preview now uses `RepairOsBusinessCard` and `RepairOsInfoTile` summary metrics, while preview/apply import mutations and mapping behavior remain unchanged.
+  - Import preview warning UI now shows row/field/reason only and avoids displaying raw sensitive CSV values.
+  - Settings workflow transition target rows now use `RepairOsBusinessCard as="div"` with checkbox leading, status label body, and primary-target button trailing slots; workflow transition mutation behavior remains unchanged.
+  - The settings workflow transition panel now exposes `data-ui="settings-workflow-transitions"` for focused visual verification.
+  - Messages template enable toggle and template health notices now use `RepairOsBusinessCard as="div"` slot layouts; template save, reset, preview, variable insertion, and message template API behavior remain unchanged.
+  - Messages template enable and health components expose `data-ui="messages-template-enabled-toggle"` and `data-ui="messages-template-health"` for focused visual verification.
+  - Messages template load error, no-template empty state, and no-match group rows now use `RepairOsBusinessCard as="div"`; template query, save, reset, preview, variable insertion, and API behavior remain unchanged.
+  - Messages state components expose `data-ui="messages-template-load-error"`, `data-ui="messages-template-empty-state"`, and `data-ui="messages-template-group-empty"` for focused visual verification.
+  - Settings load error now uses `RepairOsBusinessCard as="div"` with `data-ui="settings-load-error"`; settings retry behavior and API calls remain unchanged.
+  - Settings error rendering now checks `settingsQuery.isError` before the `!draft` loading fallback, so the failure state is reachable when `/api/repairdesk/settings/store` fails.
+  - Platform onboarding queue load error and empty state now use `RepairOsBusinessCard as="div"` with `data-ui="platform-onboarding-load-error"` and `data-ui="platform-onboarding-empty-state"`; approve/reject mutations and platform API behavior remain unchanged.
+  - Customer list refresh warning, empty state, load error, and pagination controls now use `RepairOsBusinessCard as="div"` slot layouts; search, pagination, customer preview, create flow, API behavior, and order screens remain unchanged.
+  - Customer list empty and pagination components expose `data-ui="customer-list-empty-state"` and `data-ui="customer-list-pagination"` for focused visual verification.
+  - Inventory header KPI cards now use `RepairOsInfoTile` inside `repairOs.metricCard`; inventory stats queries, list filters, item cards, import flow, API behavior, and order screens remain unchanged.
+  - Inventory KPI strip exposes `data-ui="inventory-kpi-strip"` and KPI cards expose `data-ui="inventory-kpi-card"` for focused visual verification.
+  - Inventory load and inline refresh errors now use `RepairOsBusinessCard as="div"`; retry behavior, inventory queries/API, and order screens remain unchanged.
+  - Inventory error components expose `data-ui="inventory-load-error"`, `data-ui="inventory-load-error-compact"`, and `data-ui="inventory-inline-error"` for focused visual verification.
+  - Dashboard partial data warning and recent-orders empty state now use `RepairOsBusinessCard as="div"` with `data-ui="dashboard-partial-data-warning"` and `data-ui="dashboard-recent-orders-empty"`; dashboard query behavior, fallback stats, task links, and order screens remain unchanged.
+  - Customer detail empty activity/order/follow-up lines now use `RepairOsBusinessCard as="div"` with `data-ui="customer-empty-line"`; customer detail queries, tab behavior, follow-up actions, order links, and order screens remain unchanged.
+  - Inventory detail attachment, timeline, risk/deduction, and financial-ledger empty lines now use `RepairOsBusinessCard as="div"` with `data-ui="inventory-detail-empty-line"`; inventory detail queries, transaction rendering, action dialogs, import flow, and order screens remain unchanged.
+  - Customer detail full-load error and inline refresh warning now use `RepairOsBusinessCard as="div"` with `data-ui="customer-detail-load-error"` and `data-ui="customer-detail-refresh-warning"`; retry, back-link, tabs, dialogs, customer detail query behavior, and order screens remain unchanged.
+  - Buyback list empty state now uses `RepairOsBusinessCard as="div"` with `data-ui="buyback-empty-state"`, and mobile buyback card side metrics now use `RepairOsInfoTile`; quote creation, list filtering, record detail, inventory handoff, and protected order screens remain unchanged.
+- Verification passed for the local progress: lint, typecheck, root-project Vitest with `exports/**` excluded, non-sandbox build, agent checks, and Playwright screenshot DOM checks.
+- Visual evidence:
+  - `screenshots/figma-ui-system-20260620/customers-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-detail-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-detail-mobile.png`
+  - `screenshots/figma-ui-system-20260620/inventory-mobile.png`
+  - `screenshots/figma-ui-system-20260620/settings-desktop.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-desktop.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-mobile.png`
+  - `screenshots/figma-ui-system-20260620/messages-desktop.png`
+  - `screenshots/figma-ui-system-20260620/messages-mobile.png`
+  - `screenshots/figma-ui-system-20260620/scaffold-dashboard-desktop.png`
+  - `screenshots/figma-ui-system-20260620/scaffold-customers-desktop.png`
+  - `screenshots/figma-ui-system-20260620/scaffold-inventory-desktop.png`
+  - `screenshots/figma-ui-system-20260620/scaffold-buyback-desktop.png`
+  - `screenshots/figma-ui-system-20260620/scaffold-settings-desktop.png`
+  - `screenshots/figma-ui-system-20260620/scaffold-platform-desktop.png`
+  - `screenshots/figma-ui-system-20260620/scaffold-inventory-mobile.png`
+  - `screenshots/figma-ui-system-20260620/section-header-dashboard.png`
+  - `screenshots/figma-ui-system-20260620/section-header-messages.png`
+  - `screenshots/figma-ui-system-20260620/section-header-settings.png`
+  - `screenshots/figma-ui-system-20260620/section-header-platform.png`
+  - `screenshots/figma-ui-system-20260620/section-header-buyback.png`
+  - `screenshots/figma-ui-system-20260620/section-header-messages-mobile.png`
+  - `screenshots/figma-ui-system-20260620/section-header-settings-mobile.png`
+  - `screenshots/figma-ui-system-20260620/section-header-buyback-detail-mobile.png`
+  - `screenshots/figma-ui-system-20260620/shared-section-customer-detail-desktop.png`
+  - `screenshots/figma-ui-system-20260620/shared-section-customer-detail-mobile.png`
+  - `screenshots/figma-ui-system-20260620/shared-section-inventory-detail-desktop.png`
+  - `screenshots/figma-ui-system-20260620/shared-section-inventory-detail-mobile.png`
+  - `screenshots/figma-ui-system-20260620/info-tile-customer-detail-desktop.png`
+  - `screenshots/figma-ui-system-20260620/info-tile-customer-detail-mobile.png`
+  - `screenshots/figma-ui-system-20260620/info-tile-inventory-detail-desktop.png`
+  - `screenshots/figma-ui-system-20260620/info-tile-inventory-detail-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-quote-workspace-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-quote-workspace-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-detail-metric-tiles-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-detail-metric-tiles-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-record-metrics-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-record-metrics-mobile.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-info-tile-metrics-desktop.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-info-tile-metrics-mobile.png`
+  - `screenshots/figma-ui-system-20260620/platform-info-tile-mobile.png`
+  - `screenshots/figma-ui-system-20260620/platform-approval-info-tile-dialog-mocked-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-info-tile-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-info-tile-mobile.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-business-card-device-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-business-card-orders-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-business-card-contact-mobile.png`
+  - `screenshots/figma-ui-system-20260620/settings-shared-cards-desktop.png`
+  - `screenshots/figma-ui-system-20260620/settings-shared-cards-members-mobile.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-section-header-direct-desktop.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-section-header-direct-mobile.png`
+  - `screenshots/figma-ui-system-20260620/platform-request-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/platform-request-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/inventory-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/inventory-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-tags-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-tags-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-info-tile-kpi-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-info-tile-mobile.png`
+  - `screenshots/figma-ui-system-20260620/messages-business-card-actions-desktop.png`
+  - `screenshots/figma-ui-system-20260620/messages-business-card-actions-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-business-card-choice-rows-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-business-card-choice-rows-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-model-choice-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-model-choice-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-storage-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-storage-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-battery-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-battery-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-series-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-series-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-choicegroup-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-choicegroup-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-badge-internals-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-badge-internals-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-attachment-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-attachment-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/inventory-import-preview-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/inventory-import-preview-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/settings-workflow-transition-panel-desktop.png`
+  - `screenshots/figma-ui-system-20260620/settings-workflow-transition-panel-mobile.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-enable-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-enable-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-health-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-health-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-load-error-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-load-error-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-empty-state-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/messages-template-empty-state-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/settings-load-error-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/settings-load-error-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/platform-onboarding-load-error-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/platform-onboarding-load-error-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/platform-onboarding-empty-state-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/platform-onboarding-empty-state-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-pagination-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-pagination-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-empty-state-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-list-empty-state-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/inventory-kpi-info-tile-desktop.png`
+  - `screenshots/figma-ui-system-20260620/inventory-kpi-mobile-route.png`
+  - `screenshots/figma-ui-system-20260620/inventory-load-error-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/inventory-load-error-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-state-cards-desktop.png`
+  - `screenshots/figma-ui-system-20260620/dashboard-state-cards-mobile.png`
+  - `screenshots/figma-ui-system-20260620/customer-empty-line-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-empty-line-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/inventory-detail-empty-line-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/inventory-detail-empty-line-business-card-mobile-bottom.png`
+  - `screenshots/figma-ui-system-20260620/customer-detail-load-error-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/customer-detail-load-error-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/buyback-empty-state-business-card-desktop.png`
+  - `screenshots/figma-ui-system-20260620/buyback-empty-state-business-card-mobile.png`
+  - `screenshots/figma-ui-system-20260620/repairdesk-figma-storyboard.png`
+  - `screenshots/figma-ui-system-20260620/repairdesk-figma-motion-storyboard.png`
+  - `screenshots/figma-ui-system-20260620/repairdesk-figma-page-planning-storyboard.png`
+- The Figma file must use three pages after resume because the Starter plan caps files at three pages:
+  - `00 Overview & Foundations`
+  - `01 Components`
+  - `02 Page Targets & Protected`
+- No protected mobile order source files were edited by this task.
+
+## Next action
+
+Resume Figma page/component/prototype generation after the Figma MCP call limit clears or the owner upgrades the plan, then verify with metadata and screenshot evidence. Use the generated payload sequence: `overview-foundations`, `components-core`, then each `page-*` target; verify motion-token board, interaction-state matrix, at least one Prototype flow board, component library, and desktop/mobile page targets. Local non-protected shared header/scaffold/section-header/info-tile/info-line/business-card/action-row/badge refactor batches, including Buyback model/storage/battery/series pickers, generic ChoiceGroup chips, customer list badge internals and detail/state cards, Buyback attachment capture cards, Inventory import preview/KPI/error/detail-empty cards, Settings workflow transition rows and load-error state, Platform onboarding queue load/empty states, Dashboard partial-data/empty-state cards, and Messages template health/toggle/state rows, have passed verification; future code batches should continue avoiding protected mobile order detail and mobile order work-order management.

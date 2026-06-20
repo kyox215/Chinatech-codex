@@ -1,0 +1,115 @@
+{
+  "task_id": "TASK-20260620-014006-repairdesk-figma-ui-system",
+  "figma_file_key": "j7sAvwPMcA43F2cOg7B3Kf",
+  "figma_file_url": "https://www.figma.com/design/j7sAvwPMcA43F2cOg7B3Kf",
+  "phase": "motion_payloads_storyboard_prepared",
+  "status": "figma_blocked_local_motion_payloads_storyboard_ready",
+  "protected_scope": [
+    "mobile_order_detail",
+    "mobile_order_work_order_management",
+    "mobile_order_task_workflow"
+  ],
+  "completed": {
+    "figma_file_created": true,
+    "variables_created": true,
+    "text_styles_created": true,
+    "paint_styles_created": true,
+    "effect_styles_created": true
+  },
+  "pending": {
+    "component_library": true,
+    "page_targets": true,
+    "live_motion_prototype_boards": true,
+    "metadata_verification": true,
+    "screenshot_verification": true,
+    "full_app_build": false,
+    "visual_browser_verification": false
+  },
+  "local_progress_after_block": {
+    "project_ui_system_doc": "docs/REPAIRDESK_FIGMA_UI_SYSTEM.md",
+    "project_figma_blueprint_doc": "docs/REPAIRDESK_FIGMA_DESIGN_BLUEPRINT.md",
+    "figma_resume_runbook": ".ai-company/memory/tasks/TASK-20260620-014006-repairdesk-figma-ui-system/FIGMA_MCP_RESUME_RUNBOOK.md",
+    "figma_blueprint_json": "tools/figma/repairdesk-ui-system-blueprint.json",
+    "figma_use_runner": "tools/figma/use-figma-create-repairdesk-ui-system.mjs",
+    "figma_artifact_generator": "tools/figma/build-repairdesk-figma-artifacts.mjs",
+    "figma_generated_manifest": "tools/figma/generated/manifest.json",
+    "figma_generated_payloads": "tools/figma/generated/use-figma-payloads/",
+    "figma_generated_storyboard": "tools/figma/generated/repairdesk-ui-system-storyboard.html",
+    "figma_snippet_lint_boundary": "eslint.config.js ignores intentional use_figma top-level-return snippets only",
+    "figma_motion_payloads": {
+      "motion_tokens": ["motion/instant", "motion/fast", "motion/standard", "motion/slow"],
+      "required_interaction_states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading",
+        "selected",
+        "error",
+        "empty"
+      ],
+      "prototype_flows": [
+        "Desktop list selection",
+        "Desktop filter refinement",
+        "Mobile card detail",
+        "Mutation feedback",
+        "Skeleton to content"
+      ]
+    },
+    "shared_page_header_export": "src/lib/ui-patterns.ts",
+    "repair_os_module_header_titles": "src/shared/ui/repair-os-mobile.tsx",
+    "repair_os_list_scaffold_default_header": "src/shared/ui/repair-os-mobile.tsx",
+    "repair_os_list_scaffold_header_addon": "src/shared/ui/repair-os-mobile.tsx",
+    "desktop_header_adopters": [
+      "src/features/dashboard/screens/dashboard-screen.tsx",
+      "src/features/customers/screens/customer-list-screen.tsx",
+      "src/features/inventory/screens/inventory-screen.tsx",
+      "src/features/buyback/screens/buyback-screen.tsx",
+      "src/features/messages/screens/messages-screen.tsx",
+      "src/features/settings/screens/settings-screen.tsx",
+      "src/features/platform/screens/platform-admin-screen.tsx"
+    ],
+    "detail_header_adopters": ["src/features/customers/components/customer-hero.tsx"],
+    "default_scaffold_header_adopters": ["src/features/messages/screens/messages-screen.tsx"],
+    "scaffold_header_addon_adopters": [
+      "src/features/dashboard/screens/dashboard-screen.tsx",
+      "src/features/customers/screens/customer-list-screen.tsx",
+      "src/features/inventory/screens/inventory-screen.tsx",
+      "src/features/buyback/screens/buyback-screen.tsx",
+      "src/features/settings/screens/settings-screen.tsx",
+      "src/features/platform/screens/platform-admin-screen.tsx"
+    ]
+  },
+  "visual_evidence": [
+    "screenshots/figma-ui-system-20260620/customers-desktop.png",
+    "screenshots/figma-ui-system-20260620/customer-detail-desktop.png",
+    "screenshots/figma-ui-system-20260620/customer-detail-mobile.png",
+    "screenshots/figma-ui-system-20260620/inventory-mobile.png",
+    "screenshots/figma-ui-system-20260620/settings-desktop.png",
+    "screenshots/figma-ui-system-20260620/dashboard-desktop.png",
+    "screenshots/figma-ui-system-20260620/dashboard-mobile.png",
+    "screenshots/figma-ui-system-20260620/messages-desktop.png",
+    "screenshots/figma-ui-system-20260620/messages-mobile.png",
+    "screenshots/figma-ui-system-20260620/scaffold-dashboard-desktop.png",
+    "screenshots/figma-ui-system-20260620/scaffold-customers-desktop.png",
+    "screenshots/figma-ui-system-20260620/scaffold-inventory-desktop.png",
+    "screenshots/figma-ui-system-20260620/scaffold-buyback-desktop.png",
+    "screenshots/figma-ui-system-20260620/scaffold-settings-desktop.png",
+    "screenshots/figma-ui-system-20260620/scaffold-platform-desktop.png",
+    "screenshots/figma-ui-system-20260620/scaffold-inventory-mobile.png",
+    "screenshots/figma-ui-system-20260620/repairdesk-figma-storyboard.png",
+    "screenshots/figma-ui-system-20260620/repairdesk-figma-motion-storyboard.png"
+  ],
+  "figma_plan_constraints": {
+    "page_cap": 3,
+    "mcp_call_limit_hit": true,
+    "required_page_structure_after_resume": [
+      "00 Overview & Foundations",
+      "01 Components",
+      "02 Page Targets & Protected"
+    ]
+  },
+  "created_nodes": {},
+  "last_updated_at": "2026-06-20T11:14:12+02:00"
+}

@@ -1,0 +1,59 @@
+{
+  "generatedAt": "2026-06-20T09:53:23.899Z",
+  "fileKey": "j7sAvwPMcA43F2cOg7B3Kf",
+  "runModes": [
+    "overview-foundations",
+    "components-core",
+    "page-dashboard",
+    "page-orders-desktop",
+    "page-customers",
+    "page-inventory",
+    "page-buyback",
+    "page-messages",
+    "page-settings",
+    "page-platform-admin"
+  ],
+  "payloadDir": "tools/figma/generated/use-figma-payloads",
+  "storyboard": "tools/figma/generated/repairdesk-ui-system-storyboard.html",
+  "protectedMobileOrderSurfaces": [
+    "src/features/orders/screens/order-detail-screen.tsx",
+    "src/features/orders/screens/order-list-screen.tsx mobile list and management sections",
+    "src/features/orders/components/order-list-mobile-header.tsx",
+    "src/features/orders/components/order-list-items.tsx mobile card behavior",
+    "src/features/orders/screens/order-task-screen.tsx"
+  ],
+  "pageDesignPlans": [
+    "dashboard",
+    "orders-desktop-queue",
+    "customers",
+    "inventory",
+    "buyback",
+    "messages",
+    "settings",
+    "platform-admin"
+  ],
+  "motionTokens": [
+    "motion/instant",
+    "motion/fast",
+    "motion/standard",
+    "motion/slow"
+  ],
+  "prototypeFlows": [
+    "Desktop list selection",
+    "Desktop filter refinement",
+    "Mobile card detail",
+    "Mutation feedback",
+    "Skeleton to content"
+  ],
+  "interactionStates": [
+    "default",
+    "hover",
+    "pressed",
+    "focus-visible",
+    "disabled",
+    "loading",
+    "selected",
+    "error",
+    "empty"
+  ]
+}

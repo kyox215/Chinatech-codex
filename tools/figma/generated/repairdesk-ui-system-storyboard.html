@@ -1,0 +1,1342 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RepairDesk Figma UI System Storyboard</title>
+    <style>
+      :root {
+        --bg: #f6f8fb;
+        --card: #fff;
+        --text: #1f2633;
+        --muted: #687384;
+        --border: #d8dee8;
+        --primary: #315cff;
+        --success: #148a59;
+        --warn: #b76507;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      main {
+        display: grid;
+        gap: 24px;
+        padding: 32px;
+      }
+      .hero, .card, .desktop-frame, .mobile-frame {
+        background: var(--card);
+        border: 1px solid var(--border);
+        box-shadow: 0 14px 34px -28px rgba(32, 38, 52, 0.45);
+      }
+      .hero {
+        border-radius: 20px;
+        padding: 22px;
+      }
+      h1, h2, h3, h4, p { margin: 0; }
+      h1 { font-size: 24px; }
+      .hero p { margin-top: 8px; color: var(--muted); max-width: 900px; }
+      .component-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .card {
+        min-height: 132px;
+        border-radius: 16px;
+        padding: 12px;
+      }
+      .label {
+        color: var(--primary);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .card h3 { margin-top: 8px; font-size: 14px; }
+      .card p, .card small { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; }
+      .state-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 8px;
+      }
+      .state-pills span,
+      .state-table span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 20px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        padding: 0 7px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 650;
+      }
+      .motion-grid,
+      .prototype-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .prototype-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .motion-track {
+        position: relative;
+        height: 18px;
+        margin-top: 10px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #edf3ff;
+      }
+      .motion-track span {
+        position: absolute;
+        top: 3px;
+        left: 4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--primary);
+        animation: motion-preview 1200ms ease-in-out infinite alternate;
+      }
+      @keyframes motion-preview {
+        from { transform: translateX(0); opacity: 0.72; }
+        to { transform: translateX(210px); opacity: 1; }
+      }
+      .state-table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: white;
+      }
+      .state-table th,
+      .state-table td {
+        border-bottom: 1px solid var(--border);
+        padding: 10px;
+        text-align: left;
+        vertical-align: top;
+        font-size: 12px;
+      }
+      .state-table th {
+        width: 260px;
+        color: var(--text);
+      }
+      .state-table td {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .prototype-card p {
+        line-height: 1.35;
+      }
+      .page-pair {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 390px;
+        gap: 18px;
+        align-items: start;
+      }
+      .plan-card {
+        grid-column: 1 / -1;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: white;
+        padding: 14px;
+      }
+      .plan-card header {
+        display: grid;
+        grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 12px;
+      }
+      .plan-card header span,
+      .plan-card small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .plan-card header strong {
+        display: block;
+        margin-top: 3px;
+        font-size: 15px;
+      }
+      .plan-card header p {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .plan-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .plan-column {
+        min-height: 130px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fbfcfe;
+        padding: 10px;
+      }
+      .plan-column h4 {
+        font-size: 12px;
+        margin: 0 0 7px;
+      }
+      .plan-column ul {
+        display: grid;
+        gap: 5px;
+        margin: 0;
+        padding-left: 16px;
+      }
+      .plan-column li {
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      .plan-card small {
+        margin-top: 10px;
+      }
+      .desktop-frame {
+        min-height: 480px;
+        border-radius: 22px;
+        padding: 18px;
+      }
+      .desktop-frame header {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 14px;
+      }
+      .desktop-frame header span, .mobile-header span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .metric-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .metric-strip div, .panel, .mobile-card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: #fbfcfe;
+      }
+      .metric-strip div {
+        display: grid;
+        gap: 4px;
+        padding: 10px;
+      }
+      .metric-strip b { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 18px; }
+      .metric-strip span { color: var(--muted); font-size: 10px; }
+      .desktop-workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(260px, 0.8fr);
+        gap: 12px;
+      }
+      .panel {
+        min-height: 320px;
+        padding: 14px;
+      }
+      .panel h4 { font-size: 15px; line-height: 1.35; }
+      .panel p { margin-top: 10px; color: var(--muted); font-size: 12px; }
+      .mobile-frame {
+        width: 390px;
+        min-height: 620px;
+        border-radius: 24px;
+        padding: 8px;
+      }
+      .mobile-frame.protected {
+        outline: 2px dashed var(--warn);
+        outline-offset: 4px;
+      }
+      .mobile-header {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) 32px;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 8px;
+      }
+      .mobile-header button {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: white;
+      }
+      .mobile-header div {
+        min-width: 0;
+        text-align: center;
+      }
+      .mobile-header strong, .mobile-header span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .mobile-header strong { font-size: 11px; }
+      .chips {
+        display: flex;
+        gap: 6px;
+        padding: 8px 2px;
+        overflow: hidden;
+      }
+      .chips span {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .chips span:not(:first-child) {
+        background: #eef2f8;
+        color: var(--muted);
+      }
+      .mobile-card {
+        margin-top: 8px;
+        padding: 10px;
+      }
+      .mobile-card b {
+        font-size: 12px;
+      }
+      .mobile-card p {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      footer {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 14px;
+      }
+      footer span {
+        display: grid;
+        place-items: center;
+        height: 36px;
+        border-radius: 12px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      @media (max-width: 1100px) {
+        .component-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .motion-grid, .prototype-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .page-pair { grid-template-columns: 1fr; }
+        .plan-grid { grid-template-columns: 1fr; }
+        .plan-card header { grid-template-columns: 1fr; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .motion-track span { animation: none; transform: translateX(180px); }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>RepairDesk Figma UI System Storyboard</h1>
+        <p>
+          Figma MCP is currently blocked. This local storyboard previews the component and page targets that should be generated in Figma once access resumes. Protected mobile order information/detail/work-order pages are reference-only.
+        </p>
+      </section>
+      <section>
+        <h2>Core Components</h2>
+        <div class="component-grid">
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/App Shell</h3>
+        <p>desktop / mobile</p>
+        <div class="state-pills"><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>disabled</span></div>
+        <small>AppSidebar, AppBar, CommandPalette</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/List Scaffold</h3>
+        <p>desktop / mobile</p>
+        <div class="state-pills"><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>disabled</span></div>
+        <small>RepairOsListScaffold</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Mobile Floating Header</h3>
+        <p>default / with-progress / with-actions</p>
+        <div class="state-pills"><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>disabled</span></div>
+        <small>repairOs.mobileFloatingHeaderShell, repairOs.mobileFloatingHeaderCard</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Business Card</h3>
+        <p>article / button / label / status-notice / selection-row</p>
+        <div class="state-pills"><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>selected</span></div>
+        <small>RepairOsBusinessCard, repairOs.businessCard, repairOs.businessCardDense</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Info Tile</h3>
+        <p>plain / soft / bordered / with-leading / with-trailing</p>
+        <div class="state-pills"><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>disabled</span></div>
+        <small>RepairOsInfoTile</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Info Grid</h3>
+        <p>two-column / mobile-compact</p>
+        <div class="state-pills"><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>disabled</span></div>
+        <small>RepairOsInfoGrid, RepairOsInfoLine</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Section Header</h3>
+        <p>desktop / mobile / with-action</p>
+        <div class="state-pills"><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>disabled</span></div>
+        <small>RepairOsSectionHeader</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Toolbar</h3>
+        <p>desktop / mobile</p>
+        <div class="state-pills"><span>default</span><span>focus-visible</span><span>loading</span><span>error</span><span>empty</span></div>
+        <small>surfaces.toolbar, repairOs.toolbar</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Status Badge</h3>
+        <p>neutral / info / progress / warn / success / danger</p>
+        <div class="state-pills"><span>default</span><span>selected</span><span>warning</span><span>success</span><span>danger</span></div>
+        <small>RepairOsBadge, src/components/orders/badges.tsx</small>
+      </article>
+
+      <article class="card component-card">
+        <div class="label">Component</div>
+        <h3>RepairDesk/Bottom Action Bar</h3>
+        <p>mobile-3-actions / desktop-footer</p>
+        <div class="state-pills"><span>default</span><span>pressed</span><span>loading</span><span>disabled</span><span>error</span></div>
+        <small>repairOs.mobileFloatingPage, surfaces.stickyActions</small>
+      </article>
+    </div>
+      </section>
+      <section>
+        <h2>Motion Tokens</h2>
+        <div class="motion-grid">
+      <article class="card motion-card">
+        <div class="label">Motion</div>
+        <h3>motion/instant</h3>
+        <p>80ms / ease-in-out</p>
+        <div class="motion-track"><span style="animation-duration:600ms"></span></div>
+        <small>badge tone change, chip selected state, inline icon feedback</small>
+      </article>
+
+      <article class="card motion-card">
+        <div class="label">Motion</div>
+        <h3>motion/fast</h3>
+        <p>140ms / ease-out</p>
+        <div class="motion-track"><span style="animation-duration:840ms"></span></div>
+        <small>hover, pressed, focus ring, button loading swap</small>
+      </article>
+
+      <article class="card motion-card">
+        <div class="label">Motion</div>
+        <h3>motion/standard</h3>
+        <p>220ms / ease-in-out</p>
+        <div class="motion-track"><span style="animation-duration:1320ms"></span></div>
+        <small>drawer, dialog, row expand, tab panel, context rail</small>
+      </article>
+
+      <article class="card motion-card">
+        <div class="label">Motion</div>
+        <h3>motion/slow</h3>
+        <p>320ms / ease-out</p>
+        <div class="motion-track"><span style="animation-duration:1920ms"></span></div>
+        <small>first page entry, empty state, full skeleton to content</small>
+      </article>
+    </div>
+      </section>
+      <section>
+        <h2>Interaction States</h2>
+        <table class="state-table">
+          <tbody>
+      <tr>
+        <th>RepairDesk/Business Card</th>
+        <td><span>default</span><span>hover</span><span>pressed</span><span>focus-visible</span><span>selected</span><span>disabled</span><span>loading</span></td>
+      </tr>
+
+      <tr>
+        <th>RepairDesk/Toolbar</th>
+        <td><span>default</span><span>focus-visible</span><span>loading</span><span>error</span><span>empty</span></td>
+      </tr>
+
+      <tr>
+        <th>RepairDesk/Status Badge</th>
+        <td><span>default</span><span>selected</span><span>warning</span><span>success</span><span>danger</span><span>disabled</span></td>
+      </tr>
+
+      <tr>
+        <th>RepairDesk/Bottom Action Bar</th>
+        <td><span>default</span><span>pressed</span><span>loading</span><span>disabled</span><span>error</span></td>
+      </tr>
+    </tbody>
+        </table>
+      </section>
+      <section>
+        <h2>Desktop + Mobile Page Targets</h2>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Dashboard / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>Dense operational overview with KPI strip, priority queue, quick modules, and recent orders in one viewport.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame ">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>RepairDesk / Dashboard / Mobile 390</strong>
+              <span>Compact metric strip and actionable cards under a floating list header.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>dashboard</strong>
+        </div>
+        <p>First viewport shows 4 KPIs, 6 priority/recent records, and quick modules without scrolling.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>KPI strip: today orders, waiting quote, unpaid balance, ready pickup</li><li>Priority queue: blocked, overdue, ready, and needs-customer-response cards</li><li>Recent orders: dense list with customer, device, stage, payment, and next action</li><li>Quick modules: buyback, inventory scan, message templates, and settings shortcuts</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Floating header with store/day context and primary add action</li><li>Horizontal metric strip that fits 3-4 cards without wrapping</li><li>Priority business cards with status, amount, and next action</li><li>Recent activity cards using the mobile order-detail information hierarchy</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Create order</li><li>Open priority queue</li><li>Start scan</li><li>Send follow-up</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>loading skeleton</li><li>partial data warning</li><li>empty recent orders</li><li>selected priority</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>KPI click filters the queue with motion/fast chip feedback.</li><li>Priority card opens context rail or sheet with motion/standard.</li><li>Partial-data warning resolves with motion/instant badge and toast.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>No hero or decorative chart dominates the first viewport.</li><li>Desktop warnings and next actions are visible without page navigation.</li><li>Mobile card hierarchy matches the protected order-detail standard.</li></ul>
+    </div>
+
+      </div>
+      <small>First viewport shows header, metrics, and at least 3 actionable cards.</small>
+    </article>
+
+      </section>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Orders Queue / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>Queue, filters, dense rows, and optional quick preview panel for desktop only.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame protected">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>Protected / Mobile Orders Reference Only</strong>
+              <span>Reference only; do not redesign mobile order information, detail, or work-order pages.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>orders-desktop-queue</strong>
+        </div>
+        <p>First viewport shows toolbar, 12-16 dense rows, and the optional preview rail.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>Queue toolbar: search, status stepper, quick filters, date/owner filters, export/print</li><li>Dense table: customer, device, issue, stage, payment, owner, next action, updated time</li><li>Batch bar: visible only when rows are selected</li><li>Desktop preview rail: order context, status, finance, history, and next action</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Protected reference note only</li><li>Locked hierarchy map: floating header, info cards, history, bottom actions</li><li>No replacement frame for mobile order list, mobile detail, or mobile work-order management</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Search queue</li><li>Filter stage</li><li>Open desktop preview</li><li>Export</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>loading table</li><li>empty filtered queue</li><li>row selected</li><li>batch selected</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>Row click opens preview rail with motion/standard translateX.</li><li>Filter panel expands inside toolbar with motion/fast.</li><li>Batch selection reveals stable batch bar without changing table width.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>No Figma frame implies replacement of protected mobile order pages.</li><li>Desktop queue keeps table width stable during filter and preview interactions.</li><li>Preview rail is desktop-only and marked as non-mobile.</li></ul>
+    </div>
+
+      </div>
+      <small>Reference-only frame confirms protected scope; no redesign target.</small>
+    </article>
+
+      </section>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Customers CRM / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>One-page CRM workspace with search/list, profile/devices, and activity/orders/follow-ups.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame ">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>RepairDesk / Customers CRM / Mobile 390</strong>
+              <span>Dense customer cards and detail hierarchy borrowed from mobile order detail.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>customers</strong>
+        </div>
+        <p>One-page CRM shows list, profile, and activity together at 1440x1024.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>Left rail: customer search, filters, tags, and dense customer list</li><li>Profile workspace: identity, phones, devices, tags, preferences, and edit actions</li><li>Activity rail: orders, follow-ups, messages, timeline, and next action</li><li>KPI/header addon: active customers, unpaid balance, follow-ups due, devices</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Floating list header with search and create customer action</li><li>Customer business cards with phone, device count, tags, and next action</li><li>Detail sheet hierarchy: recent history, profile, devices, orders, follow-ups</li><li>Compact contact/action row for WhatsApp, call, message, and edit</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Create customer</li><li>Edit profile</li><li>Add follow-up</li><li>Message customer</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>loading list</li><li>empty search</li><li>refresh warning</li><li>full-load error</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>Selecting a customer updates profile/activity with motion/standard.</li><li>Tag and follow-up edits use motion/instant pending state plus toast.</li><li>Mobile card opens detail sheet using protected order-detail hierarchy.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>Customer list/detail keeps high information density without nested cards.</li><li>Mobile detail order follows history -&gt; profile -&gt; devices -&gt; orders -&gt; actions.</li><li>Error and empty panels use Business Card status-notice styling.</li></ul>
+    </div>
+
+      </div>
+      <small>First viewport shows header/search plus at least 4 customer cards or detail sections.</small>
+    </article>
+
+      </section>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Inventory / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>KPI, scan/search, supplier/import status, dense SKU table, and detail/finance panel.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame ">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>RepairDesk / Inventory / Mobile 390</strong>
+              <span>Search/scan entry, stock cards, detail cards for supplier, finance, attachments, and history.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>inventory</strong>
+        </div>
+        <p>First viewport shows KPI strip, toolbar, 10-14 SKU rows, and detail rail.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>KPI strip: total stock, low stock, buyback source, margin risk</li><li>Scan/search toolbar: barcode, supplier, import, stock state, condition filters</li><li>Dense SKU table: product, supplier, quantity, cost, price, margin, status</li><li>Detail/finance rail: checks, attachments, ledger, source, and history</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Search/scan entry under floating header</li><li>Horizontal chips for stock, low, supplier, buyback, import</li><li>Stock cards with product, quantity, status, cost/price, and next action</li><li>Detail cards for identity, supplier, risk, finance, attachments, and history</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Scan SKU</li><li>Create item</li><li>Import supplier data</li><li>Adjust stock</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>loading inventory</li><li>inline refresh error</li><li>empty stock</li><li>import preview</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>Scan result opens detail rail with motion/standard.</li><li>Import preview applies with motion/fast status notice.</li><li>Stock adjustment keeps row dimensions stable and shows inline pending.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>Financial and supplier data are visible together for decision making.</li><li>Mobile keeps scan and stock actions reachable without long scrolling.</li><li>Import/error/empty states use shared Business Card and Info Tile targets.</li></ul>
+    </div>
+
+      </div>
+      <small>First viewport shows scan/search, chips, and at least 3 stock cards.</small>
+    </article>
+
+      </section>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Buyback / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>Guided quote, model/condition choices, margin checks, attachments, and records on one workspace.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame ">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>RepairDesk / Buyback / Mobile 390</strong>
+              <span>Compact quote workflow with card-based choices and mobile-detail-like hierarchy.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>buyback</strong>
+        </div>
+        <p>First viewport shows wizard, quote/margin, and record context together.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>Guided quote wizard: series, model, storage, battery, condition, documents, signature</li><li>Quote/margin panel: estimated value, deductions, target price, margin, and risk</li><li>Attachment/proof area: camera, photos, PDF/document proof, and reset action</li><li>Record list: active quotes, inventory handoff, customer/device context</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Floating header with quote state and create/continue action</li><li>Stepper chips for quote stages</li><li>Business-card choice rows for every selection group</li><li>Quote detail cards for customer, device, finance, proof, and history</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Start quote</li><li>Select condition</li><li>Capture proof</li><li>Save quote</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>empty records</li><li>choice selected</li><li>quote recalculating</li><li>attachment pending</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>Choice card selection updates quote with motion/instant.</li><li>Attachment capture confirms with motion/fast notice.</li><li>Inventory handoff opens confirmation with motion/standard.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>No marketing-style hero; quote creation is the primary first screen.</li><li>Every choice row maps to the shared Business Card target.</li><li>Finance emphasis is visible before the final handoff action.</li></ul>
+    </div>
+
+      </div>
+      <small>First viewport shows current step, 4-6 selectable cards, and quote summary.</small>
+    </article>
+
+      </section>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Messages / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>Thread-first workspace with conversation list, message thread, order/customer context, and templates.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame ">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>RepairDesk / Messages / Mobile 390</strong>
+              <span>Thread list first with compact template/action rows.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>messages</strong>
+        </div>
+        <p>First viewport shows thread list, active conversation, templates, and context.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>Thread list: customer, channel, unread/failed state, linked order, last message</li><li>Conversation panel: message history, composer, send preview, and attachments</li><li>Template/variable rail: template health, enable toggle, variable insertion, preview</li><li>Order/customer context: status, next action, amount, and contact actions</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Thread-first floating header with search and compose action</li><li>Compact thread cards with customer/order/status context</li><li>Conversation detail sheet with template insertion rows</li><li>Template and variable rows use compact action-card layouts</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Open thread</li><li>Insert template</li><li>Insert variable</li><li>Preview send</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>template disabled</li><li>health warning</li><li>empty templates</li><li>load error</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>Thread select updates conversation with motion/standard.</li><li>Template insert gives motion/instant inline feedback.</li><li>Save settings disables action and shows motion/fast toast.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>Template health and send preview are visible without leaving the message page.</li><li>Variable rows and toggles use shared Business Card action-row styling.</li><li>Mobile thread flow stays compact and does not hide linked order context.</li></ul>
+    </div>
+
+      </div>
+      <small>First viewport shows header/search and at least 5 thread rows or template action rows.</small>
+    </article>
+
+      </section>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Settings / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>Store, roles, workflow transitions, templates, and audit readiness in dense section cards.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame ">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>RepairDesk / Settings / Mobile 390</strong>
+              <span>Section card list with compact switch and workflow rows.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>settings</strong>
+        </div>
+        <p>First viewport shows store, members/roles, workflow, templates, and audit summary.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>Store profile and business identity</li><li>Members and roles with invite/permission state</li><li>Workflow transitions with target rows and checkbox/action controls</li><li>Templates and notification configuration</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Section-card list under floating header</li><li>Role/status rows as compact Business Card controls</li><li>Workflow target rows with selected/disabled/pending states</li><li>Template and audit rows with compact switches/actions</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Save settings</li><li>Invite member</li><li>Toggle workflow target</li><li>Edit template</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>settings loading</li><li>load error</li><li>pending save</li><li>disabled permission</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>Workflow target toggles use motion/fast inline pending.</li><li>Save settings uses motion/instant disable and motion/fast toast.</li><li>Section expand/collapse uses motion/standard while preserving row height.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>Settings reads as an operations console, not a decorative landing page.</li><li>Permission/disabled states are visible and keyboard-focusable.</li><li>Workflow rows share the same action-row component language.</li></ul>
+    </div>
+
+      </div>
+      <small>First viewport shows header plus 4-5 section cards or workflow rows.</small>
+    </article>
+
+      </section>
+
+      <section class="page-pair">
+        <div class="desktop-frame">
+          <header>
+            <span>Desktop 1440</span>
+            <strong>RepairDesk / Platform Admin / Desktop 1440</strong>
+          </header>
+          <div class="metric-strip">
+            <div><b>12</b><span>今日</span></div>
+            <div><b>5</b><span>待处理</span></div>
+            <div><b>€480</b><span>尾款</span></div>
+            <div><b>3</b><span>可取</span></div>
+          </div>
+          <div class="desktop-workspace">
+            <div class="panel wide">
+              <h4>Request queue, approval detail, role/tenant summary, and policy notes in one decision surface.</h4>
+              <p>Dense table / split workspace / one page decision surface.</p>
+            </div>
+            <div class="panel">
+              <h4>Context</h4>
+              <p>History, finance, status, next action, and risk.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-frame ">
+          <header class="mobile-header">
+            <button>☰</button>
+            <div>
+              <strong>RepairDesk / Platform Admin / Mobile 390</strong>
+              <span>Dense request cards with applicant, tenant, reason, status, and actions.</span>
+            </div>
+            <button>+</button>
+          </header>
+          <div class="chips"><span>全</span><span>收</span><span>检</span><span>报</span><span>修</span></div>
+          <article class="mobile-card">
+            <b>历史 / 状态 / 下一步</b>
+            <p>Borrow hierarchy from the protected mobile order detail standard.</p>
+          </article>
+          <article class="mobile-card">
+            <b>状态反馈 / 动效</b>
+            <p>Loading, selected, error, toast, and reduced-motion states are specified before code refactor.</p>
+          </article>
+          <article class="mobile-card">
+            <b>客户 / 设备 / 金额</b>
+            <p>Compact information cards, neutral surfaces, focused status color.</p>
+          </article>
+          <footer><span>WhatsApp</span><span>流转</span><span>收款</span></footer>
+        </div>
+
+    <article class="plan-card">
+      <header>
+        <div>
+          <span>Page Planning</span>
+          <strong>platform-admin</strong>
+        </div>
+        <p>First viewport shows queue, selected decision context, and policy summary.</p>
+      </header>
+      <div class="plan-grid">
+
+    <div class="plan-column">
+      <h4>Desktop Zones</h4>
+      <ul><li>Access request queue with applicant, tenant, reason, submitted time, and status</li><li>Decision context rail with role, policy, risk notes, and tenant summary</li><li>Approve/reject action area with pending, error, and success feedback</li><li>Governance notes and audit-ready history</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Mobile Zones</h4>
+      <ul><li>Dense request cards with applicant, tenant, role, reason, and status</li><li>Decision sheet using order-detail-like hierarchy</li><li>Approve/reject actions remain visible at the bottom</li><li>Policy/risk notes rendered as compact info cards</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Primary Actions</h4>
+      <ul><li>Inspect request</li><li>Approve</li><li>Reject</li><li>Open tenant summary</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>States</h4>
+      <ul><li>queue loading</li><li>empty queue</li><li>load error</li><li>request selected</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Motion</h4>
+      <ul><li>Request select opens decision context with motion/standard.</li><li>Approve/reject disables actions and shows motion/fast toast.</li><li>Resolved request exits queue with motion/fast opacity only in reduced motion.</li></ul>
+    </div>
+
+
+    <div class="plan-column">
+      <h4>Acceptance</h4>
+      <ul><li>Decision context is visible before approve/reject actions.</li><li>No production data or secrets are exposed in design/test screenshots.</li><li>Empty and error states align with the shared status-notice component target.</li></ul>
+    </div>
+
+      </div>
+      <small>First viewport shows header and at least 4 request cards or full decision sheet.</small>
+    </article>
+
+      </section>
+
+      </section>
+      <section>
+        <h2>Prototype Flows</h2>
+        <div class="prototype-grid">
+      <article class="card prototype-card">
+        <div class="label">Prototype</div>
+        <h3>Desktop list selection</h3>
+        <p><strong>Trigger:</strong> Click dense row</p>
+        <p><strong>Motion:</strong> motion/standard opacity + translateX 12</p>
+        <small>Right context panel opens without leaving the list; selected row and toolbar batch state update.</small>
+      </article>
+
+      <article class="card prototype-card">
+        <div class="label">Prototype</div>
+        <h3>Desktop filter refinement</h3>
+        <p><strong>Trigger:</strong> Open filter or segmented control</p>
+        <p><strong>Motion:</strong> motion/fast opacity + y 4</p>
+        <small>Filter panel expands inside the toolbar area; table keeps layout width stable.</small>
+      </article>
+
+      <article class="card prototype-card">
+        <div class="label">Prototype</div>
+        <h3>Mobile card detail</h3>
+        <p><strong>Trigger:</strong> Tap business card</p>
+        <p><strong>Motion:</strong> motion/standard sheet slide + opacity</p>
+        <small>Detail sheet uses floating-header hierarchy and keeps bottom actions visible.</small>
+      </article>
+
+      <article class="card prototype-card">
+        <div class="label">Prototype</div>
+        <h3>Mutation feedback</h3>
+        <p><strong>Trigger:</strong> Save, status change, send, approve, or import action</p>
+        <p><strong>Motion:</strong> motion/instant button loading, then motion/fast toast</p>
+        <small>Button disables during pending; inline error or success toast appears without shifting layout.</small>
+      </article>
+
+      <article class="card prototype-card">
+        <div class="label">Prototype</div>
+        <h3>Skeleton to content</h3>
+        <p><strong>Trigger:</strong> Initial load or panel refresh</p>
+        <p><strong>Motion:</strong> motion/slow shimmer fade to content</p>
+        <small>Skeleton occupies the final layout dimensions so dense pages do not jump.</small>
+      </article>
+    </div>
+      </section>
+    </main>
+  </body>
+</html>

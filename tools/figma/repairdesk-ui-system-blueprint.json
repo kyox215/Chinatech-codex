@@ -1,0 +1,607 @@
+{
+  "version": 2,
+  "status": "figma_mcp_blocked_motion_blueprint_ready",
+  "figmaFileKey": "j7sAvwPMcA43F2cOg7B3Kf",
+  "figmaPages": ["00 Overview & Foundations", "01 Components", "02 Page Targets & Protected"],
+  "protectedMobileOrderSurfaces": [
+    "src/features/orders/screens/order-detail-screen.tsx",
+    "src/features/orders/screens/order-list-screen.tsx mobile list and management sections",
+    "src/features/orders/components/order-list-mobile-header.tsx",
+    "src/features/orders/components/order-list-items.tsx mobile card behavior",
+    "src/features/orders/screens/order-task-screen.tsx"
+  ],
+  "componentTargets": [
+    {
+      "name": "RepairDesk/App Shell",
+      "variants": ["desktop", "mobile"],
+      "codeSources": ["AppSidebar", "AppBar", "CommandPalette"]
+    },
+    {
+      "name": "RepairDesk/List Scaffold",
+      "variants": ["desktop", "mobile"],
+      "codeSources": ["RepairOsListScaffold"]
+    },
+    {
+      "name": "RepairDesk/Mobile Floating Header",
+      "variants": ["default", "with-progress", "with-actions"],
+      "codeSources": ["repairOs.mobileFloatingHeaderShell", "repairOs.mobileFloatingHeaderCard"]
+    },
+    {
+      "name": "RepairDesk/Business Card",
+      "variants": ["article", "button", "label", "status-notice", "selection-row"],
+      "codeSources": ["RepairOsBusinessCard", "repairOs.businessCard", "repairOs.businessCardDense"]
+    },
+    {
+      "name": "RepairDesk/Info Tile",
+      "variants": ["plain", "soft", "bordered", "with-leading", "with-trailing"],
+      "codeSources": ["RepairOsInfoTile"]
+    },
+    {
+      "name": "RepairDesk/Info Grid",
+      "variants": ["two-column", "mobile-compact"],
+      "codeSources": ["RepairOsInfoGrid", "RepairOsInfoLine"]
+    },
+    {
+      "name": "RepairDesk/Section Header",
+      "variants": ["desktop", "mobile", "with-action"],
+      "codeSources": ["RepairOsSectionHeader"]
+    },
+    {
+      "name": "RepairDesk/Toolbar",
+      "variants": ["desktop", "mobile"],
+      "codeSources": ["surfaces.toolbar", "repairOs.toolbar"]
+    },
+    {
+      "name": "RepairDesk/Status Badge",
+      "variants": ["neutral", "info", "progress", "warn", "success", "danger"],
+      "codeSources": ["RepairOsBadge", "src/components/orders/badges.tsx"]
+    },
+    {
+      "name": "RepairDesk/Bottom Action Bar",
+      "variants": ["mobile-3-actions", "desktop-footer"],
+      "codeSources": ["repairOs.mobileFloatingPage", "surfaces.stickyActions"]
+    }
+  ],
+  "pageTargets": [
+    {
+      "domain": "dashboard",
+      "desktopFrame": "RepairDesk / Dashboard / Desktop 1440",
+      "mobileFrame": "RepairDesk / Dashboard / Mobile 390",
+      "desktopGoal": "Dense operational overview with KPI strip, priority queue, quick modules, and recent orders in one viewport.",
+      "mobileGoal": "Compact metric strip and actionable cards under a floating list header."
+    },
+    {
+      "domain": "orders-desktop-queue",
+      "desktopFrame": "RepairDesk / Orders Queue / Desktop 1440",
+      "mobileFrame": "Protected / Mobile Orders Reference Only",
+      "desktopGoal": "Queue, filters, dense rows, and optional quick preview panel for desktop only.",
+      "mobileGoal": "Reference only; do not redesign mobile order information, detail, or work-order pages."
+    },
+    {
+      "domain": "customers",
+      "desktopFrame": "RepairDesk / Customers CRM / Desktop 1440",
+      "mobileFrame": "RepairDesk / Customers CRM / Mobile 390",
+      "desktopGoal": "One-page CRM workspace with search/list, profile/devices, and activity/orders/follow-ups.",
+      "mobileGoal": "Dense customer cards and detail hierarchy borrowed from mobile order detail."
+    },
+    {
+      "domain": "inventory",
+      "desktopFrame": "RepairDesk / Inventory / Desktop 1440",
+      "mobileFrame": "RepairDesk / Inventory / Mobile 390",
+      "desktopGoal": "KPI, scan/search, supplier/import status, dense SKU table, and detail/finance panel.",
+      "mobileGoal": "Search/scan entry, stock cards, detail cards for supplier, finance, attachments, and history."
+    },
+    {
+      "domain": "buyback",
+      "desktopFrame": "RepairDesk / Buyback / Desktop 1440",
+      "mobileFrame": "RepairDesk / Buyback / Mobile 390",
+      "desktopGoal": "Guided quote, model/condition choices, margin checks, attachments, and records on one workspace.",
+      "mobileGoal": "Compact quote workflow with card-based choices and mobile-detail-like hierarchy."
+    },
+    {
+      "domain": "messages",
+      "desktopFrame": "RepairDesk / Messages / Desktop 1440",
+      "mobileFrame": "RepairDesk / Messages / Mobile 390",
+      "desktopGoal": "Thread-first workspace with conversation list, message thread, order/customer context, and templates.",
+      "mobileGoal": "Thread list first with compact template/action rows."
+    },
+    {
+      "domain": "settings",
+      "desktopFrame": "RepairDesk / Settings / Desktop 1440",
+      "mobileFrame": "RepairDesk / Settings / Mobile 390",
+      "desktopGoal": "Store, roles, workflow transitions, templates, and audit readiness in dense section cards.",
+      "mobileGoal": "Section card list with compact switch and workflow rows."
+    },
+    {
+      "domain": "platform-admin",
+      "desktopFrame": "RepairDesk / Platform Admin / Desktop 1440",
+      "mobileFrame": "RepairDesk / Platform Admin / Mobile 390",
+      "desktopGoal": "Request queue, approval detail, role/tenant summary, and policy notes in one decision surface.",
+      "mobileGoal": "Dense request cards with applicant, tenant, reason, status, and actions."
+    }
+  ],
+  "pageDesignPlans": [
+    {
+      "domain": "dashboard",
+      "desktopZones": [
+        "KPI strip: today orders, waiting quote, unpaid balance, ready pickup",
+        "Priority queue: blocked, overdue, ready, and needs-customer-response cards",
+        "Recent orders: dense list with customer, device, stage, payment, and next action",
+        "Quick modules: buyback, inventory scan, message templates, and settings shortcuts",
+        "Risk rail: partial data warnings, low-stock warnings, and delayed pickups"
+      ],
+      "mobileZones": [
+        "Floating header with store/day context and primary add action",
+        "Horizontal metric strip that fits 3-4 cards without wrapping",
+        "Priority business cards with status, amount, and next action",
+        "Recent activity cards using the mobile order-detail information hierarchy",
+        "Bottom action row for add order, scan, and WhatsApp follow-up"
+      ],
+      "primaryActions": ["Create order", "Open priority queue", "Start scan", "Send follow-up"],
+      "states": [
+        "loading skeleton",
+        "partial data warning",
+        "empty recent orders",
+        "selected priority",
+        "mutation toast"
+      ],
+      "densityTargets": {
+        "desktop": "First viewport shows 4 KPIs, 6 priority/recent records, and quick modules without scrolling.",
+        "mobile": "First viewport shows header, metrics, and at least 3 actionable cards."
+      },
+      "motionFlows": [
+        "KPI click filters the queue with motion/fast chip feedback.",
+        "Priority card opens context rail or sheet with motion/standard.",
+        "Partial-data warning resolves with motion/instant badge and toast."
+      ],
+      "acceptance": [
+        "No hero or decorative chart dominates the first viewport.",
+        "Desktop warnings and next actions are visible without page navigation.",
+        "Mobile card hierarchy matches the protected order-detail standard."
+      ]
+    },
+    {
+      "domain": "orders-desktop-queue",
+      "desktopZones": [
+        "Queue toolbar: search, status stepper, quick filters, date/owner filters, export/print",
+        "Dense table: customer, device, issue, stage, payment, owner, next action, updated time",
+        "Batch bar: visible only when rows are selected",
+        "Desktop preview rail: order context, status, finance, history, and next action",
+        "Protection note: mobile order information/detail/work-order pages are locked"
+      ],
+      "mobileZones": [
+        "Protected reference note only",
+        "Locked hierarchy map: floating header, info cards, history, bottom actions",
+        "No replacement frame for mobile order list, mobile detail, or mobile work-order management"
+      ],
+      "primaryActions": ["Search queue", "Filter stage", "Open desktop preview", "Export", "Print"],
+      "states": [
+        "loading table",
+        "empty filtered queue",
+        "row selected",
+        "batch selected",
+        "preview loading",
+        "export pending"
+      ],
+      "densityTargets": {
+        "desktop": "First viewport shows toolbar, 12-16 dense rows, and the optional preview rail.",
+        "mobile": "Reference-only frame confirms protected scope; no redesign target."
+      },
+      "motionFlows": [
+        "Row click opens preview rail with motion/standard translateX.",
+        "Filter panel expands inside toolbar with motion/fast.",
+        "Batch selection reveals stable batch bar without changing table width."
+      ],
+      "acceptance": [
+        "No Figma frame implies replacement of protected mobile order pages.",
+        "Desktop queue keeps table width stable during filter and preview interactions.",
+        "Preview rail is desktop-only and marked as non-mobile."
+      ]
+    },
+    {
+      "domain": "customers",
+      "desktopZones": [
+        "Left rail: customer search, filters, tags, and dense customer list",
+        "Profile workspace: identity, phones, devices, tags, preferences, and edit actions",
+        "Activity rail: orders, follow-ups, messages, timeline, and next action",
+        "KPI/header addon: active customers, unpaid balance, follow-ups due, devices",
+        "State panels: load error, empty search, refresh warning, and pagination"
+      ],
+      "mobileZones": [
+        "Floating list header with search and create customer action",
+        "Customer business cards with phone, device count, tags, and next action",
+        "Detail sheet hierarchy: recent history, profile, devices, orders, follow-ups",
+        "Compact contact/action row for WhatsApp, call, message, and edit",
+        "Status and tag chips reuse the shared badge component"
+      ],
+      "primaryActions": [
+        "Create customer",
+        "Edit profile",
+        "Add follow-up",
+        "Message customer",
+        "Open order"
+      ],
+      "states": [
+        "loading list",
+        "empty search",
+        "refresh warning",
+        "full-load error",
+        "selected customer",
+        "dialog pending"
+      ],
+      "densityTargets": {
+        "desktop": "One-page CRM shows list, profile, and activity together at 1440x1024.",
+        "mobile": "First viewport shows header/search plus at least 4 customer cards or detail sections."
+      },
+      "motionFlows": [
+        "Selecting a customer updates profile/activity with motion/standard.",
+        "Tag and follow-up edits use motion/instant pending state plus toast.",
+        "Mobile card opens detail sheet using protected order-detail hierarchy."
+      ],
+      "acceptance": [
+        "Customer list/detail keeps high information density without nested cards.",
+        "Mobile detail order follows history -> profile -> devices -> orders -> actions.",
+        "Error and empty panels use Business Card status-notice styling."
+      ]
+    },
+    {
+      "domain": "inventory",
+      "desktopZones": [
+        "KPI strip: total stock, low stock, buyback source, margin risk",
+        "Scan/search toolbar: barcode, supplier, import, stock state, condition filters",
+        "Dense SKU table: product, supplier, quantity, cost, price, margin, status",
+        "Detail/finance rail: checks, attachments, ledger, source, and history",
+        "Import preview state: mapping summary, apply result, and failure recovery"
+      ],
+      "mobileZones": [
+        "Search/scan entry under floating header",
+        "Horizontal chips for stock, low, supplier, buyback, import",
+        "Stock cards with product, quantity, status, cost/price, and next action",
+        "Detail cards for identity, supplier, risk, finance, attachments, and history",
+        "Bottom actions for scan, adjust stock, import, and handoff"
+      ],
+      "primaryActions": [
+        "Scan SKU",
+        "Create item",
+        "Import supplier data",
+        "Adjust stock",
+        "Open finance ledger"
+      ],
+      "states": [
+        "loading inventory",
+        "inline refresh error",
+        "empty stock",
+        "import preview",
+        "detail empty lines",
+        "mutation pending"
+      ],
+      "densityTargets": {
+        "desktop": "First viewport shows KPI strip, toolbar, 10-14 SKU rows, and detail rail.",
+        "mobile": "First viewport shows scan/search, chips, and at least 3 stock cards."
+      },
+      "motionFlows": [
+        "Scan result opens detail rail with motion/standard.",
+        "Import preview applies with motion/fast status notice.",
+        "Stock adjustment keeps row dimensions stable and shows inline pending."
+      ],
+      "acceptance": [
+        "Financial and supplier data are visible together for decision making.",
+        "Mobile keeps scan and stock actions reachable without long scrolling.",
+        "Import/error/empty states use shared Business Card and Info Tile targets."
+      ]
+    },
+    {
+      "domain": "buyback",
+      "desktopZones": [
+        "Guided quote wizard: series, model, storage, battery, condition, documents, signature",
+        "Quote/margin panel: estimated value, deductions, target price, margin, and risk",
+        "Attachment/proof area: camera, photos, PDF/document proof, and reset action",
+        "Record list: active quotes, inventory handoff, customer/device context",
+        "State panels: empty state, validation errors, selected estimate, and handoff result"
+      ],
+      "mobileZones": [
+        "Floating header with quote state and create/continue action",
+        "Stepper chips for quote stages",
+        "Business-card choice rows for every selection group",
+        "Quote detail cards for customer, device, finance, proof, and history",
+        "Bottom actions for save quote, WhatsApp, approve, and inventory handoff"
+      ],
+      "primaryActions": [
+        "Start quote",
+        "Select condition",
+        "Capture proof",
+        "Save quote",
+        "Send to inventory"
+      ],
+      "states": [
+        "empty records",
+        "choice selected",
+        "quote recalculating",
+        "attachment pending",
+        "handoff confirmation",
+        "validation error"
+      ],
+      "densityTargets": {
+        "desktop": "First viewport shows wizard, quote/margin, and record context together.",
+        "mobile": "First viewport shows current step, 4-6 selectable cards, and quote summary."
+      },
+      "motionFlows": [
+        "Choice card selection updates quote with motion/instant.",
+        "Attachment capture confirms with motion/fast notice.",
+        "Inventory handoff opens confirmation with motion/standard."
+      ],
+      "acceptance": [
+        "No marketing-style hero; quote creation is the primary first screen.",
+        "Every choice row maps to the shared Business Card target.",
+        "Finance emphasis is visible before the final handoff action."
+      ]
+    },
+    {
+      "domain": "messages",
+      "desktopZones": [
+        "Thread list: customer, channel, unread/failed state, linked order, last message",
+        "Conversation panel: message history, composer, send preview, and attachments",
+        "Template/variable rail: template health, enable toggle, variable insertion, preview",
+        "Order/customer context: status, next action, amount, and contact actions",
+        "State panels: template load error, no-template empty, no-match group, send failure"
+      ],
+      "mobileZones": [
+        "Thread-first floating header with search and compose action",
+        "Compact thread cards with customer/order/status context",
+        "Conversation detail sheet with template insertion rows",
+        "Template and variable rows use compact action-card layouts",
+        "Bottom actions for send, template, WhatsApp, and order link"
+      ],
+      "primaryActions": [
+        "Open thread",
+        "Insert template",
+        "Insert variable",
+        "Preview send",
+        "Save template settings"
+      ],
+      "states": [
+        "template disabled",
+        "health warning",
+        "empty templates",
+        "load error",
+        "send pending",
+        "selected thread"
+      ],
+      "densityTargets": {
+        "desktop": "First viewport shows thread list, active conversation, templates, and context.",
+        "mobile": "First viewport shows header/search and at least 5 thread rows or template action rows."
+      },
+      "motionFlows": [
+        "Thread select updates conversation with motion/standard.",
+        "Template insert gives motion/instant inline feedback.",
+        "Save settings disables action and shows motion/fast toast."
+      ],
+      "acceptance": [
+        "Template health and send preview are visible without leaving the message page.",
+        "Variable rows and toggles use shared Business Card action-row styling.",
+        "Mobile thread flow stays compact and does not hide linked order context."
+      ]
+    },
+    {
+      "domain": "settings",
+      "desktopZones": [
+        "Store profile and business identity",
+        "Members and roles with invite/permission state",
+        "Workflow transitions with target rows and checkbox/action controls",
+        "Templates and notification configuration",
+        "Audit readiness, load error, and retry/recovery states"
+      ],
+      "mobileZones": [
+        "Section-card list under floating header",
+        "Role/status rows as compact Business Card controls",
+        "Workflow target rows with selected/disabled/pending states",
+        "Template and audit rows with compact switches/actions",
+        "Error and recovery panel with retry action"
+      ],
+      "primaryActions": [
+        "Save settings",
+        "Invite member",
+        "Toggle workflow target",
+        "Edit template",
+        "Retry load"
+      ],
+      "states": [
+        "settings loading",
+        "load error",
+        "pending save",
+        "disabled permission",
+        "selected target",
+        "audit warning"
+      ],
+      "densityTargets": {
+        "desktop": "First viewport shows store, members/roles, workflow, templates, and audit summary.",
+        "mobile": "First viewport shows header plus 4-5 section cards or workflow rows."
+      },
+      "motionFlows": [
+        "Workflow target toggles use motion/fast inline pending.",
+        "Save settings uses motion/instant disable and motion/fast toast.",
+        "Section expand/collapse uses motion/standard while preserving row height."
+      ],
+      "acceptance": [
+        "Settings reads as an operations console, not a decorative landing page.",
+        "Permission/disabled states are visible and keyboard-focusable.",
+        "Workflow rows share the same action-row component language."
+      ]
+    },
+    {
+      "domain": "platform-admin",
+      "desktopZones": [
+        "Access request queue with applicant, tenant, reason, submitted time, and status",
+        "Decision context rail with role, policy, risk notes, and tenant summary",
+        "Approve/reject action area with pending, error, and success feedback",
+        "Governance notes and audit-ready history",
+        "State panels for empty queue, load error, selected request, and mocked QA state"
+      ],
+      "mobileZones": [
+        "Dense request cards with applicant, tenant, role, reason, and status",
+        "Decision sheet using order-detail-like hierarchy",
+        "Approve/reject actions remain visible at the bottom",
+        "Policy/risk notes rendered as compact info cards",
+        "Empty/load error cards use shared Business Card styling"
+      ],
+      "primaryActions": [
+        "Inspect request",
+        "Approve",
+        "Reject",
+        "Open tenant summary",
+        "Retry queue"
+      ],
+      "states": [
+        "queue loading",
+        "empty queue",
+        "load error",
+        "request selected",
+        "decision pending",
+        "decision error"
+      ],
+      "densityTargets": {
+        "desktop": "First viewport shows queue, selected decision context, and policy summary.",
+        "mobile": "First viewport shows header and at least 4 request cards or full decision sheet."
+      },
+      "motionFlows": [
+        "Request select opens decision context with motion/standard.",
+        "Approve/reject disables actions and shows motion/fast toast.",
+        "Resolved request exits queue with motion/fast opacity only in reduced motion."
+      ],
+      "acceptance": [
+        "Decision context is visible before approve/reject actions.",
+        "No production data or secrets are exposed in design/test screenshots.",
+        "Empty and error states align with the shared status-notice component target."
+      ]
+    }
+  ],
+  "densityRules": {
+    "desktop": {
+      "frameSize": "1440x1024",
+      "target": "one-page task-critical view where feasible",
+      "primaryPatterns": ["dense table", "split workspace", "KPI strip", "right context panel"]
+    },
+    "mobile": {
+      "frameSize": "390x844",
+      "target": "floating header plus compact business cards",
+      "primaryPatterns": [
+        "mobile floating header",
+        "info cards",
+        "bottom actions",
+        "horizontal chips"
+      ]
+    }
+  },
+  "visualPolishRules": [
+    "Use neutral card surfaces, thin borders, and compact shadows; color is reserved for status, risk, primary action, and current workflow state.",
+    "Desktop targets must prioritize scan density: KPI strip, toolbar, main work area, and context panel should fit in the first 1024px viewport when feasible.",
+    "Mobile targets must borrow the protected order-detail hierarchy: floating header, recent history, compact info cards, finance emphasis, attachment/history access, and bottom actions.",
+    "Avoid decorative gradients, oversized hero sections, nested cards, and large marketing-style empty space."
+  ],
+  "motionSystem": {
+    "principles": [
+      "Motion communicates state, hierarchy, and feedback; it is not decorative.",
+      "High-frequency list and form operations must feel instant and must not wait for long transitions.",
+      "Animate opacity and transform first; avoid size animations that reflow dense tables or card lists.",
+      "Every motion pattern must have a reduced-motion equivalent."
+    ],
+    "tokens": [
+      {
+        "name": "motion/instant",
+        "durationMs": 80,
+        "easing": "ease-in-out",
+        "usage": ["badge tone change", "chip selected state", "inline icon feedback"]
+      },
+      {
+        "name": "motion/fast",
+        "durationMs": 140,
+        "easing": "ease-out",
+        "usage": ["hover", "pressed", "focus ring", "button loading swap"]
+      },
+      {
+        "name": "motion/standard",
+        "durationMs": 220,
+        "easing": "ease-in-out",
+        "usage": ["drawer", "dialog", "row expand", "tab panel", "context rail"]
+      },
+      {
+        "name": "motion/slow",
+        "durationMs": 320,
+        "easing": "ease-out",
+        "usage": ["first page entry", "empty state", "full skeleton to content"]
+      }
+    ],
+    "reducedMotion": "Disable translate/scale movement, keep instant opacity and state changes, and preserve all visible status text."
+  },
+  "interactionStates": {
+    "requiredStates": [
+      "default",
+      "hover",
+      "pressed",
+      "focus-visible",
+      "disabled",
+      "loading",
+      "selected",
+      "error",
+      "empty"
+    ],
+    "componentMatrix": [
+      {
+        "component": "RepairDesk/Business Card",
+        "states": [
+          "default",
+          "hover",
+          "pressed",
+          "focus-visible",
+          "selected",
+          "disabled",
+          "loading"
+        ]
+      },
+      {
+        "component": "RepairDesk/Toolbar",
+        "states": ["default", "focus-visible", "loading", "error", "empty"]
+      },
+      {
+        "component": "RepairDesk/Status Badge",
+        "states": ["default", "selected", "warning", "success", "danger", "disabled"]
+      },
+      {
+        "component": "RepairDesk/Bottom Action Bar",
+        "states": ["default", "pressed", "loading", "disabled", "error"]
+      }
+    ]
+  },
+  "prototypeFlows": [
+    {
+      "name": "Desktop list selection",
+      "trigger": "Click dense row",
+      "transition": "motion/standard opacity + translateX 12",
+      "result": "Right context panel opens without leaving the list; selected row and toolbar batch state update."
+    },
+    {
+      "name": "Desktop filter refinement",
+      "trigger": "Open filter or segmented control",
+      "transition": "motion/fast opacity + y 4",
+      "result": "Filter panel expands inside the toolbar area; table keeps layout width stable."
+    },
+    {
+      "name": "Mobile card detail",
+      "trigger": "Tap business card",
+      "transition": "motion/standard sheet slide + opacity",
+      "result": "Detail sheet uses floating-header hierarchy and keeps bottom actions visible."
+    },
+    {
+      "name": "Mutation feedback",
+      "trigger": "Save, status change, send, approve, or import action",
+      "transition": "motion/instant button loading, then motion/fast toast",
+      "result": "Button disables during pending; inline error or success toast appears without shifting layout."
+    },
+    {
+      "name": "Skeleton to content",
+      "trigger": "Initial load or panel refresh",
+      "transition": "motion/slow shimmer fade to content",
+      "result": "Skeleton occupies the final layout dimensions so dense pages do not jump."
+    }
+  ]
+}
