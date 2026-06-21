@@ -1,15 +1,15 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260621-008-customer-label-reduction"
-status: "customer_label_position_verified"
-phase: "fixed_tag_slot_and_name_protection_verified"
+current_task_id: "TASK-20260621-007-shell-unification"
+status: "shell_unification_revalidated"
+phase: "ready_for_owner_push_approval"
 task_class: "ui_design_system"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-06-21T15:35:00+02:00"
+last_checkpoint_at: "2026-06-21T15:55:00+02:00"
 checkpoint_required: false
-last_rehydrated_at: "2026-06-21T15:35:00+02:00"
+last_rehydrated_at: "2026-06-21T15:55:00+02:00"
 ---
 
 # Active Context
@@ -28,6 +28,12 @@ First finish the Figma UI system design target, then use it to unify RepairDesk 
   - Protected mobile order detail and mobile work-order/task pages were not edited.
   - Verification passed: typecheck, lint, focused customer Vitest, full Vitest, non-sandbox build, and Playwright screenshot DOM assertions including tag/name non-overlap.
   - Visual evidence: `screenshots/customer-label-reduction-20260621/customers-desktop-label-reduced.png`, `screenshots/customer-label-reduction-20260621/customers-mobile-label-reduced.png`, `screenshots/customer-label-position-20260621/customers-desktop-fixed-tag-slot.png`, `screenshots/customer-label-position-20260621/customers-mobile-390-fixed-tag-slot.png`, and `screenshots/customer-label-position-20260621/customers-mobile-320-fixed-tag-slot.png`.
+- Latest shell execution checkpoint on 2026-06-21T15:55:00+02:00 revalidated the global shell batch after the customer tag release:
+  - Vercel production deployment for commit `4665dad Improve customer tag density` is `READY`.
+  - `MobileWorkspaceDock` now passes `shell.isPlatformAdmin` into `getShellPrimaryAction`, matching the desktop AppBar primary-action lookup.
+  - Verification passed: typecheck, lint, full Vitest, non-sandbox build, and direct Playwright visual assertions.
+  - Visual evidence: `screenshots/shell-unification-20260621/orders-desktop-shell-unified.png`, `screenshots/shell-unification-20260621/buyback-mobile-quick-sheet-viewport.png`, and `screenshots/shell-unification-20260621/buyback-mobile-quick-sheet-dialog.png`.
+  - This shell batch is ready for owner push approval; pushing `main` will trigger production deployment.
 - Latest local UI shell batch on 2026-06-21T09:58:00+02:00 unified the global top bar, sidebar, command palette, and mobile quick actions:
   - `src/shared/config/navigation.ts` now owns workspace nav labels, icons, route aliases, and primary shell actions.
   - `src/shared/lib/shell-actions.ts` centralizes route/event/scanner/camera/command execution for shell actions.

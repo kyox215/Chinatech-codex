@@ -4,15 +4,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { Bell, Plus, Search, ShieldCheck, Store } from "lucide-react";
+import { Bell, Search, ShieldCheck, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { appShell, brandGradientStyle, controls } from "@/lib/ui-patterns";
-import { routeLabels } from "@/shared/config/navigation";
+import {
+  getActiveWorkspaceItem,
+  getShellPrimaryAction,
+  routeLabels,
+} from "@/shared/config/navigation";
+import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 import { cn } from "@/lib/utils";
 
 function useCrumbs() {
@@ -25,6 +29,13 @@ function useCrumbs() {
   }));
 }
 
+function usesRepairOsMobileHeader(pathname: string) {
+  return (
+    pathname === "/" ||
+    /^\/(?:orders|customers|buyback|inventory|messages|platform|settings)(?:\/|$)/.test(pathname)
+  );
+}
+
 export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
@@ -33,17 +44,17 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const shell = useStoreShellContext();
-  const isOrdersList = pathname === "/orders";
-  const isMobileWorkspaceRoute =
-    isOrdersList || pathname === "/orders/new" || /^\/orders\/[^/]+(?:\/task)?$/.test(pathname);
+  const activeModule = getActiveWorkspaceItem(pathname, shell.isPlatformAdmin);
+  const primaryAction = getShellPrimaryAction(pathname, shell.isPlatformAdmin);
+  const hideOnMobile = usesRepairOsMobileHeader(pathname);
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
 
-  const handleNewOrder = () => {
-    if (isOrdersList) {
-      window.dispatchEvent(new CustomEvent(REPAIRDESK_NEW_ORDER_EVENT));
-      return;
-    }
-    router.push("/orders/new");
+  const handlePrimaryAction = () => {
+    runRepairDeskShellAction(primaryAction, {
+      pathname,
+      push: (href) => router.push(href),
+      openCommand: onOpenCommand,
+    });
   };
 
   return (
@@ -51,7 +62,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
       data-app-bar="true"
       className={cn(
         appShell.topBar,
-        isMobileWorkspaceRoute && "max-md:hidden",
+        hideOnMobile && "max-md:hidden",
         scrolled ? "shadow-[var(--shadow-card)]" : "shadow-none",
       )}
     >
@@ -60,7 +71,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
 
         <div className="min-w-0 flex-1 md:hidden">
           <p className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70">
-            RepairDesk
+            {activeModule.title}
           </p>
           <p className="truncate text-sm font-semibold leading-5 text-foreground">
             {activeStoreName}
@@ -91,7 +102,7 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
           className="ml-0 flex size-10 min-w-0 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:text-foreground md:ml-auto md:h-9 md:w-56 md:shrink md:justify-start md:gap-2 md:rounded-md md:bg-surface/60 md:px-3 md:shadow-none lg:w-56 xl:w-80"
         >
           <Search className="size-4" />
-          <span className="hidden min-w-0 truncate text-sm md:inline">搜索工单、客户…</span>
+          <span className="hidden min-w-0 truncate text-sm md:inline">搜索工单、客户、库存…</span>
           <kbd className="ml-auto hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[10px] md:inline-flex">
             ⌘K
           </kbd>
@@ -134,10 +145,13 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
           size="sm"
           className={cn("hidden h-9 gap-1.5 sm:inline-flex", controls.brandButton)}
           style={brandGradientStyle}
-          onClick={handleNewOrder}
+          onClick={handlePrimaryAction}
+          aria-label={primaryAction.label}
         >
-          <Plus className="size-4" />
-          <span className="hidden xl:inline">新建</span>
+          <primaryAction.icon className="size-4" />
+          <span className="hidden xl:inline">
+            {primaryAction.shortLabel ?? primaryAction.label}
+          </span>
         </Button>
       </div>
     </motion.header>

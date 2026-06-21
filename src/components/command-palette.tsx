@@ -1,18 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Boxes,
-  ClipboardList,
-  MessageSquare,
-  Plus,
-  Recycle,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  Sun,
-  Users,
-  Wrench,
-} from "lucide-react";
+import { Sun, Wrench } from "lucide-react";
 
 import {
   CommandDialog,
@@ -27,19 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listOrders } from "@/lib/repairdesk/api";
 import { toggleThemePreference } from "@/lib/theme";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-
-type StaticCommandPath =
-  | "/"
-  | "/orders"
-  | "/orders/new"
-  | "/customers"
-  | "/buyback"
-  | "/buyback?new=1"
-  | "/inventory"
-  | "/inventory?new=1"
-  | "/messages"
-  | "/platform"
-  | "/settings";
+import { getShellCommandActions, getWorkspaceNavItems } from "@/shared/config/navigation";
 
 export function CommandPalette({
   open,
@@ -56,7 +32,7 @@ export function CommandPalette({
     enabled: open,
   });
 
-  const go = (to: StaticCommandPath) => {
+  const go = (to: string) => {
     onOpenChange(false);
     router.push(to);
   };
@@ -70,6 +46,8 @@ export function CommandPalette({
     toggleThemePreference();
     onOpenChange(false);
   };
+  const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin);
+  const shellActions = getShellCommandActions();
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
@@ -77,38 +55,29 @@ export function CommandPalette({
       <CommandList>
         <CommandEmpty>没有匹配项。</CommandEmpty>
         <CommandGroup heading="跳转">
-          <CommandItem onSelect={() => go("/")}>
-            <Sparkles className="mr-2 size-4" /> 概览
-          </CommandItem>
-          <CommandItem onSelect={() => go("/orders")}>
-            <ClipboardList className="mr-2 size-4" /> 工单列表
-          </CommandItem>
-          <CommandItem onSelect={() => go("/orders/new")}>
-            <Plus className="mr-2 size-4" /> 新建工单
-          </CommandItem>
-          <CommandItem onSelect={() => go("/customers")}>
-            <Users className="mr-2 size-4" /> 客户管理
-          </CommandItem>
-          <CommandItem onSelect={() => go("/buyback")}>
-            <Recycle className="mr-2 size-4" /> 回收管理
-          </CommandItem>
-          <CommandItem onSelect={() => go("/inventory")}>
-            <Boxes className="mr-2 size-4" /> 库存商品
-          </CommandItem>
-          <CommandItem onSelect={() => go("/buyback?new=1")}>
-            <Plus className="mr-2 size-4" /> 新建回收报价
-          </CommandItem>
-          <CommandItem onSelect={() => go("/messages")}>
-            <MessageSquare className="mr-2 size-4" /> 消息模板
-          </CommandItem>
-          {shell.isPlatformAdmin ? (
-            <CommandItem onSelect={() => go("/platform")}>
-              <ShieldCheck className="mr-2 size-4" /> 平台审批
+          {navigationItems.map((item) => (
+            <CommandItem
+              key={item.id}
+              value={[item.commandLabel ?? item.title, item.title, ...(item.aliases ?? [])].join(
+                " ",
+              )}
+              onSelect={() => go(item.url)}
+            >
+              <item.icon className="mr-2 size-4" /> {item.commandLabel ?? item.title}
             </CommandItem>
-          ) : null}
-          <CommandItem onSelect={() => go("/settings")}>
-            <Settings className="mr-2 size-4" /> 设置
-          </CommandItem>
+          ))}
+        </CommandGroup>
+        <CommandSeparator />
+        <CommandGroup heading="快捷动作">
+          {shellActions.map((action) => (
+            <CommandItem
+              key={action.id}
+              value={`${action.label} ${action.shortLabel ?? ""} ${action.description}`}
+              onSelect={() => action.href && go(action.href)}
+            >
+              <action.icon className="mr-2 size-4" /> {action.label}
+            </CommandItem>
+          ))}
         </CommandGroup>
         {data.length > 0 && (
           <>

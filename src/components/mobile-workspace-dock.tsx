@@ -2,19 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
-import {
-  Camera,
-  ClipboardPlus,
-  Command,
-  MessageSquare,
-  Package,
-  Recycle,
-  ScanLine,
-  Search,
-  Settings2,
-  Users,
-} from "lucide-react";
+import { Command } from "lucide-react";
 
 import {
   AttachmentDraftPanel,
@@ -24,6 +12,7 @@ import {
   type AttachmentDraft,
   type CapturePayload,
 } from "@/features/capture";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -33,19 +22,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { repairOs } from "@/lib/ui-patterns";
+import { globalMobileQuickActions, getShellPrimaryAction } from "@/shared/config/navigation";
+import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 import { cn } from "@/lib/utils";
 
 interface MobileWorkspaceDockProps {
   onOpenCommand: () => void;
-}
-
-interface QuickAction {
-  label: string;
-  description: string;
-  icon: LucideIcon;
-  run: () => void;
 }
 
 export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps) {
@@ -56,6 +39,7 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
   const attachmentDraftsRef = useRef<AttachmentDraft[]>([]);
   const pathname = usePathname() ?? "/";
   const router = useRouter();
+  const shell = useStoreShellContext();
   const isOrdersList = pathname === "/orders";
   const isMobileWorkspaceRoute =
     isOrdersList || pathname === "/orders/new" || /^\/orders\/[^/]+(?:\/task)?$/.test(pathname);
@@ -72,95 +56,22 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
     return null;
   }
 
-  const go = (href: string) => {
-    setOpen(false);
-    router.push(href);
-  };
-
-  const primaryAction: QuickAction = (() => {
-    if (pathname.startsWith("/customers")) {
-      return {
-        label: "新建客户",
-        description: "录入客户资料与联系方式",
-        icon: Users,
-        run: () => go("/customers?new=1"),
-      };
-    }
-    if (pathname.startsWith("/buyback")) {
-      return {
-        label: "新建回收",
-        description: "创建旧机估价与检测记录",
-        icon: Recycle,
-        run: () => go("/buyback?new=1"),
-      };
-    }
-    if (pathname.startsWith("/inventory")) {
-      return {
-        label: "库存入库",
-        description: "新增配件、翻新机或商品",
-        icon: Package,
-        run: () => go("/inventory?new=1"),
-      };
-    }
-    if (pathname.startsWith("/settings")) {
-      return {
-        label: "邀请成员",
-        description: "进入成员权限与邀请",
-        icon: Settings2,
-        run: () => go("/settings#settings-members"),
-      };
-    }
-    return {
-      label: "新建工单",
-      description: "快速进入接单流程",
-      icon: ClipboardPlus,
-      run: () => {
-        setOpen(false);
-        if (isOrdersList) {
-          window.dispatchEvent(new CustomEvent(REPAIRDESK_NEW_ORDER_EVENT));
-          return;
-        }
-        router.push("/orders/new");
-      },
-    };
-  })();
-
-  const actions: QuickAction[] = [
+  const primaryAction = getShellPrimaryAction(pathname, shell.isPlatformAdmin);
+  const actions = [
     primaryAction,
-    {
-      label: "扫码读取",
-      description: "识别工单、IMEI、库存标签",
-      icon: ScanLine,
-      run: () => {
-        setOpen(false);
-        setScannerOpen(true);
-      },
-    },
-    {
-      label: "拍照采集",
-      description: "采集设备外观或故障照片",
-      icon: Camera,
-      run: () => {
-        setOpen(false);
-        setCameraOpen(true);
-      },
-    },
-    {
-      label: "消息模板",
-      description: "打开 WhatsApp / SMS 模板",
-      icon: MessageSquare,
-      run: () => go("/messages"),
-    },
-    {
-      label: "全局搜索",
-      description: "搜索工单、客户和设备",
-      icon: Search,
-      run: () => {
-        setOpen(false);
-        onOpenCommand();
-      },
-    },
+    ...globalMobileQuickActions.filter((action) => action.id !== primaryAction.id),
   ];
+
+  const runAction = (action: (typeof actions)[number]) => {
+    runRepairDeskShellAction(action, {
+      pathname,
+      push: (href) => router.push(href),
+      close: () => setOpen(false),
+      openCommand: onOpenCommand,
+      openScanner: () => setScannerOpen(true),
+      openCamera: () => setCameraOpen(true),
+    });
+  };
 
   const renderScannerActions = (payload: CapturePayload, helpers: { close: () => void }) => {
     if (payload.targetHref) {
@@ -223,7 +134,7 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
                 <button
                   key={action.label}
                   type="button"
-                  onClick={action.run}
+                  onClick={() => runAction(action)}
                   className={cn(repairOs.quickActionItem, isPrimary && repairOs.quickActionPrimary)}
                 >
                   <span

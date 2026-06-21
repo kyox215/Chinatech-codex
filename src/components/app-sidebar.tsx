@@ -34,7 +34,7 @@ import { storesKeys } from "@/features/stores/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { indicatorSpring } from "@/lib/motion";
 import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
-import { platformNavItem, workspaceNavItems } from "@/shared/config/navigation";
+import { getWorkspaceNavItems, isActiveNavItem } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
@@ -43,10 +43,7 @@ export function AppSidebar() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const { isMobile, setOpenMobile } = useSidebar();
-  const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
-  const nav = shell.isPlatformAdmin
-    ? [...workspaceNavItems.slice(0, -1), platformNavItem, workspaceNavItems.at(-1)!]
-    : workspaceNavItems;
+  const nav = getWorkspaceNavItems(shell.isPlatformAdmin);
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
   const activeStoreMeta = shell.activeStore
     ? `${shell.activeStore.role} · 在线`
@@ -100,7 +97,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
               {nav.map((item) => {
-                const active = isActive(item.url);
+                const active = isActiveNavItem(pathname, item);
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
