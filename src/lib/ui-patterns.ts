@@ -15,6 +15,17 @@ export const pageShell = {
     "mx-auto grid w-full min-w-0 max-w-7xl gap-6 overflow-x-hidden px-3 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px]",
 } as const;
 
+export const pageHeader = {
+  root: "mb-4 flex min-w-0 flex-col gap-3 md:mb-5 md:flex-row md:items-start md:justify-between",
+  compact: "mb-3 flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-between",
+  titleGroup: "min-w-0 space-y-1",
+  eyebrow: "text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70",
+  title: "font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl",
+  compactTitle: "truncate font-display text-xl font-semibold tracking-tight text-foreground",
+  subtitle: "max-w-2xl text-sm text-muted-foreground",
+  actions: "flex min-w-0 flex-wrap items-center gap-2",
+} as const;
+
 export const layoutGuards = {
   noPageOverflow: "w-full min-w-0 max-w-full overflow-x-hidden",
   flexChild: "min-w-0",

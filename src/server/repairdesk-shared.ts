@@ -8,7 +8,7 @@ import {
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
 import { getSupabaseAdmin } from "@/server/supabase";
-import { primaryPhoneRaw } from "@/shared/lib/phone";
+import { primaryPhoneRaw, uniqueContactPhones } from "@/shared/lib/phone";
 import type {
   AuditActor,
   Customer,
@@ -134,6 +134,31 @@ export function fail(error: { message: string } | null | undefined, context: str
   if (error) throw new Error(`${context}: ${error.message}`);
 }
 
+export function failStorageOperation(
+  error: { message: string } | null | undefined,
+  context: string,
+  bucket: string,
+) {
+  if (!error) return;
+
+  const message = error.message || "";
+  if (/bucket/i.test(message) && /not found/i.test(message)) {
+    throw new Error(
+      `${context}: 附件存储未初始化，缺少 Supabase Storage bucket「${bucket}」。请应用 repairdesk_attachment_storage_repair 迁移后重试。`,
+    );
+  }
+  if (/signature verification failed|unauthorized|invalid jwt|jwt/i.test(message)) {
+    throw new Error(
+      `${context}: Supabase Storage 服务密钥无效或权限不足，请检查服务端 SUPABASE_SERVICE_ROLE_KEY。`,
+    );
+  }
+  if (/row-level security|permission denied|403/i.test(message)) {
+    throw new Error(`${context}: Supabase Storage 权限拒绝，请检查 bucket 策略和服务端权限。`);
+  }
+
+  throw new Error(`${context}: ${message}`);
+}
+
 export function isMissingRepairOrderColumnError(error: { message: string } | null | undefined) {
   const message = error?.message;
   return Boolean(
@@ -188,7 +213,10 @@ export function customerFromRow(row: unknown): Customer | undefined {
     name: requiredString(r.name),
     phone_e164: requiredString(r.phone_e164),
     phone_raw: requiredString(r.phone_raw),
-    contact_phones: stringArray(r.contact_phones),
+    contact_phones: uniqueContactPhones(
+      requiredString(r.phone_e164),
+      stringArray(r.contact_phones),
+    ),
     consent_marketing: Boolean(r.consent_marketing),
     consent_sms: Boolean(r.consent_sms),
     email: maybeString(r.email),
@@ -366,7 +394,10 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     cancel_reason: maybeString(row.cancel_reason),
     supplier_id: maybeString(row.supplier_id),
     original_order_id: maybeString(row.original_order_id),
-    contact_phones: stringArray(row.contact_phones),
+    contact_phones: uniqueContactPhones(
+      requiredString(row.customer_phone),
+      stringArray(row.contact_phones),
+    ),
     fault_prices: faultPrices(row.fault_prices),
     device_snapshot: deviceSnapshotFromRow(row.device_snapshot),
     customer_signature: maybeString(row.customer_signature),
