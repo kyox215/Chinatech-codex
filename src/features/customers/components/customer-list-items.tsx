@@ -6,7 +6,7 @@ import { ArrowUpRight, CircleDollarSign, Smartphone, Wrench } from "lucide-react
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
-import { RepairOsBusinessCard, RepairOsBadge } from "@/shared/ui";
+import { RepairOsBusinessCard, RepairOsBadge, RepairOsInfoTile } from "@/shared/ui";
 import {
   getCustomerDetailHref,
   getCustomerWorkSummary,
@@ -15,6 +15,55 @@ import {
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { CustomerListItem, CustomerTag } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+
+const customerTagPriority = new Map([
+  ["tag_followup", 0],
+  ["tag_price_sensitive", 1],
+  ["tag_vip", 2],
+  ["tag_business", 3],
+  ["tag_repeat", 4],
+]);
+
+function CustomerCompactTags({
+  tags,
+  max = 1,
+  reserveSlot = false,
+}: {
+  tags: CustomerTag[];
+  max?: number;
+  reserveSlot?: boolean;
+}) {
+  if (!tags.length) {
+    return reserveSlot ? <span aria-hidden="true" className="block h-5 w-full" /> : null;
+  }
+  const orderedTags = [...tags].sort(
+    (a, b) =>
+      (customerTagPriority.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+      (customerTagPriority.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+  );
+  const visibleTags = orderedTags.slice(0, max);
+  const hiddenCount = Math.max(0, tags.length - visibleTags.length);
+
+  return (
+    <span className="flex min-w-0 items-center justify-end gap-1">
+      {visibleTags.map((tag) => (
+        <RepairOsBadge
+          key={tag.id}
+          title={tag.name}
+          className="min-w-0 max-w-16 border bg-card text-[10px] leading-none"
+          style={{ borderColor: tag.color, color: tag.color }}
+        >
+          <span className="truncate">{tag.name}</span>
+        </RepairOsBadge>
+      ))}
+      {hiddenCount > 0 ? (
+        <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground">
+          +{hiddenCount}
+        </RepairOsBadge>
+      ) : null}
+    </span>
+  );
+}
 
 export function CustomerKpiCard({
   icon: Icon,
@@ -26,20 +75,22 @@ export function CustomerKpiCard({
   value: number;
 }) {
   return (
-    <div className={cn(repairOs.metricCardDense, "flex items-center justify-between gap-3")}>
-      <div className="min-w-0">
-        <div className={repairOs.metricLabel}>{label}</div>
-        <div className="mt-1 font-mono text-lg font-semibold leading-none tabular-nums">
-          {value}
+    <RepairOsInfoTile
+      frame="plain"
+      label={label}
+      value={value}
+      className={repairOs.metricCardDense}
+      labelClassName={repairOs.metricLabel}
+      valueClassName="mt-1 font-mono text-lg font-semibold leading-none tabular-nums"
+      trailing={
+        <div
+          className="grid size-8 place-items-center rounded-md text-primary-foreground"
+          style={brandGradientStyle}
+        >
+          <Icon className="size-3.5" />
         </div>
-      </div>
-      <div
-        className="grid size-8 shrink-0 place-items-center rounded-md text-primary-foreground"
-        style={brandGradientStyle}
-      >
-        <Icon className="size-3.5" />
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -89,6 +140,7 @@ export function CustomerRow({
             <button
               type="button"
               title={customer.name}
+              data-ui="customer-row-name"
               className="block max-w-full truncate text-left text-xs font-medium hover:text-primary hover:underline"
               onClick={openDetail}
             >
@@ -98,23 +150,32 @@ export function CustomerRow({
             <Link
               href={href}
               title={customer.name}
+              data-ui="customer-row-name"
               className="block truncate text-xs font-medium hover:text-primary hover:underline"
             >
               {customer.name}
             </Link>
           )}
-          <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
-            <PhoneText value={customer.phone_e164} className="block truncate text-[11px]" />
-            {customer.email && (
-              <span className="min-w-0 truncate" title={customer.email}>
-                {customer.email}
-              </span>
-            )}
+          <div className="mt-0.5 grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2 text-[11px] text-muted-foreground">
+            <div className="flex min-w-0 items-center gap-2">
+              <PhoneText
+                value={customer.phone_e164}
+                className="block min-w-0 shrink-0 truncate text-[11px]"
+              />
+              {customer.email && (
+                <span className="min-w-0 truncate" title={customer.email}>
+                  {customer.email}
+                </span>
+              )}
+            </div>
+            <span
+              data-ui="customer-row-tag-slot"
+              className="hidden w-[5.5rem] justify-self-end sm:block"
+            >
+              <CustomerCompactTags tags={customer.tags} reserveSlot />
+            </span>
           </div>
         </div>
-      </td>
-      <td className="hidden min-w-0 px-2 py-2 xl:table-cell">
-        <CustomerTagList tags={customer.tags} />
       </td>
       <td className="min-w-0 px-2 py-2">
         <div className="truncate text-xs font-medium" title={customer.latest_device_label ?? ""}>
@@ -200,44 +261,39 @@ export function CustomerMobileCard({
           </div>
         }
       >
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={cn(repairOs.cardTitle, "min-w-0 truncate")}>{customer.name}</span>
-          {customer.tags[0] ? (
-            <RepairOsBadge
-              className="max-w-20 border bg-card"
-              style={{ borderColor: customer.tags[0].color, color: customer.tags[0].color }}
-            >
-              <span className="truncate">{customer.tags[0].name}</span>
-            </RepairOsBadge>
-          ) : (
-            <RepairOsBadge className="bg-status-neutral text-status-neutral-foreground">
-              普通
-            </RepairOsBadge>
-          )}
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 max-[360px]:grid-cols-1">
+          <span
+            data-ui="customer-mobile-name"
+            className={cn(repairOs.cardTitle, "min-w-0 truncate")}
+          >
+            {customer.name}
+          </span>
+          <span className="flex max-w-[6.25rem] shrink-0 justify-end justify-self-end max-[360px]:max-w-full max-[360px]:justify-self-start">
+            <span data-ui="customer-mobile-tag-slot">
+              <CustomerCompactTags tags={customer.tags} />
+            </span>
+          </span>
         </div>
         <PhoneText value={customer.phone_e164} className="block truncate text-[11px] leading-4" />
         <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
           <p className={cn(repairOs.cardMeta, "min-w-0 truncate")}>
             {customer.latest_device_label ?? "暂无设备"}
           </p>
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] font-medium leading-none text-muted-foreground">
+          <RepairOsBadge className="gap-1 bg-[var(--surface-panel-muted)] text-[9px] text-muted-foreground">
             <Smartphone className="size-2.5" />
             {customer.device_count} / {customer.order_count}
-          </span>
+          </RepairOsBadge>
         </div>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
-              customerWorkToneClass(summary.tone),
-            )}
+          <RepairOsBadge
+            className={cn("gap-1 text-[9px] font-semibold", customerWorkToneClass(summary.tone))}
           >
             <Wrench className="size-2.5" />
             {summary.label}
-          </span>
-          <span
+          </RepairOsBadge>
+          <RepairOsBadge
             className={cn(
-              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+              "gap-1 text-[9px] font-semibold",
               customer.unpaid_amount > 0
                 ? "bg-status-warn text-status-warn-foreground"
                 : "bg-status-success text-status-success-foreground",
@@ -245,16 +301,19 @@ export function CustomerMobileCard({
           >
             <CircleDollarSign className="size-2.5" />
             {customer.unpaid_amount > 0 ? "未结清" : "已结清"}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] font-medium leading-none text-muted-foreground">
+          </RepairOsBadge>
+          <RepairOsBadge className="gap-1 bg-[var(--surface-panel-muted)] text-[9px] text-muted-foreground">
             <Smartphone className="size-2.5" />
             {customer.device_count} 台设备
-          </span>
+          </RepairOsBadge>
         </div>
-        <div className="mt-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1">
-          <p className="truncate text-[9px] leading-3 text-muted-foreground">下一步</p>
-          <p className="truncate text-[11px] font-medium leading-4">{summary.actionLabel}</p>
-        </div>
+        <RepairOsInfoTile
+          className="mt-1.5"
+          label="下一步"
+          value={summary.actionLabel}
+          labelClassName="text-[9px] leading-3"
+          valueClassName="truncate text-[11px] font-medium leading-4"
+        />
       </RepairOsBusinessCard>
     </Link>
   );
@@ -262,16 +321,13 @@ export function CustomerMobileCard({
 
 function CustomerWorkState({ summary }: { summary: ReturnType<typeof getCustomerWorkSummary> }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-semibold",
-        customerWorkToneClass(summary.tone),
-      )}
+    <RepairOsBadge
+      className={cn("gap-1 text-[11px] font-semibold", customerWorkToneClass(summary.tone))}
       title={`${summary.detail} · ${summary.actionLabel}`}
     >
       <Wrench className="size-3" />
       {summary.label}
-    </span>
+    </RepairOsBadge>
   );
 }
 
@@ -280,25 +336,4 @@ function customerWorkToneClass(tone: CustomerWorkSummaryTone) {
   if (tone === "warning") return "bg-status-warn text-status-warn-foreground";
   if (tone === "success") return "bg-status-success text-status-success-foreground";
   return "bg-status-neutral text-status-neutral-foreground";
-}
-
-function CustomerTagList({ tags }: { tags: CustomerTag[] }) {
-  if (!tags.length) return <span className="text-xs text-muted-foreground">无标签</span>;
-  return (
-    <div className="flex min-w-0 flex-wrap gap-1">
-      {tags.slice(0, 3).map((tag) => (
-        <span
-          key={tag.id}
-          title={tag.name}
-          className="max-w-20 truncate rounded border px-1.5 py-0.5 text-[11px]"
-          style={{ borderColor: tag.color, color: tag.color }}
-        >
-          {tag.name}
-        </span>
-      ))}
-      {tags.length > 3 && (
-        <span className="text-[11px] text-muted-foreground">+{tags.length - 3}</span>
-      )}
-    </div>
-  );
 }

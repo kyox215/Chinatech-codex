@@ -1,15 +1,15 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260621-006-order-list-desktop-density"
-status: "order_list_desktop_density_verified"
-phase: "desktop_queue_health_strip_verified"
+current_task_id: "TASK-20260621-008-customer-label-reduction"
+status: "customer_label_position_verified"
+phase: "fixed_tag_slot_and_name_protection_verified"
 task_class: "ui_design_system"
-risk_level: "R2"
+risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-06-21T05:12:47+02:00"
+last_checkpoint_at: "2026-06-21T15:35:00+02:00"
 checkpoint_required: false
-last_rehydrated_at: "2026-06-21T05:12:47+02:00"
+last_rehydrated_at: "2026-06-21T15:35:00+02:00"
 ---
 
 # Active Context
@@ -20,6 +20,22 @@ First finish the Figma UI system design target, then use it to unify RepairDesk 
 
 ## Current state
 
+- Latest local UI density batch on 2026-06-21T15:35:00+02:00 reduced customer label clutter and fixed tag positioning:
+  - `src/features/customers/screens/customer-list-screen.tsx` no longer renders a dedicated desktop `标签` column.
+  - `src/features/customers/components/customer-list-items.tsx` now shows one prioritized customer tag plus `+N` in rows/mobile cards, reserves a fixed desktop tag slot, and lets very narrow mobile tags move below the customer name instead of covering it.
+  - `src/features/customers/components/customer-profile-blocks.tsx` now limits customer detail tag display to two prioritized tags plus `+N`.
+  - Customer filters and tag editing remain unchanged.
+  - Protected mobile order detail and mobile work-order/task pages were not edited.
+  - Verification passed: typecheck, lint, focused customer Vitest, full Vitest, non-sandbox build, and Playwright screenshot DOM assertions including tag/name non-overlap.
+  - Visual evidence: `screenshots/customer-label-reduction-20260621/customers-desktop-label-reduced.png`, `screenshots/customer-label-reduction-20260621/customers-mobile-label-reduced.png`, `screenshots/customer-label-position-20260621/customers-desktop-fixed-tag-slot.png`, `screenshots/customer-label-position-20260621/customers-mobile-390-fixed-tag-slot.png`, and `screenshots/customer-label-position-20260621/customers-mobile-320-fixed-tag-slot.png`.
+- Latest local UI shell batch on 2026-06-21T09:58:00+02:00 unified the global top bar, sidebar, command palette, and mobile quick actions:
+  - `src/shared/config/navigation.ts` now owns workspace nav labels, icons, route aliases, and primary shell actions.
+  - `src/shared/lib/shell-actions.ts` centralizes route/event/scanner/camera/command execution for shell actions.
+  - `AppSidebar`, `AppBar`, `CommandPalette`, and `MobileWorkspaceDock` now read shared config instead of maintaining separate nav/action lists.
+  - Mobile RepairOS workspace routes hide the global AppBar and keep a single page-level floating header, fixing duplicate mobile menu buttons.
+  - Protected mobile order detail and mobile work-order/task page content were not edited.
+  - Verification passed: typecheck, lint, Vitest, non-sandbox build, and app-shell Playwright checks.
+  - Visual evidence: `screenshots/shell-unification-20260621/customers-desktop-shell.png` and `screenshots/shell-unification-20260621/buyback-mobile-quick-sheet.png`.
 - Figma file created: `https://www.figma.com/design/j7sAvwPMcA43F2cOg7B3Kf`
 - Latest local UI code batch on 2026-06-21T05:12:47+02:00 implemented a desktop-only `/orders` queue density strip:
   - `src/features/orders/screens/order-list-screen.tsx` now shows current queue, current-page quote total, unpaid/exception counts, and directly advanceable order count above the desktop queue.

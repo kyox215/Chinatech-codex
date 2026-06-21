@@ -56,12 +56,12 @@ import {
   sanitizeCustomerListFilters,
 } from "@/features/customers/model/customer-list";
 import { componentOverlay } from "@/lib/component-patterns";
-import { fadeUp, stagger } from "@/lib/motion";
+import { fadeUp } from "@/lib/motion";
 import {
+  RepairOsBusinessCard,
   RepairOsChipRow,
   RepairOsHeaderActionButton,
   RepairOsListScaffold,
-  RepairOsModuleHeader,
 } from "@/shared/ui";
 import {
   brandGradientStyle,
@@ -182,6 +182,7 @@ export function CustomerListScreen() {
     <RepairOsListScaffold
       title="客户管理"
       subtitle={getCustomerListSubtitle(baseFilters, total)}
+      eyebrow="工作台 / 客户"
       action={
         <RepairOsHeaderActionButton ariaLabel="新建客户" onClick={() => setCreateOpen(true)}>
           <Plus className="size-4" />
@@ -232,33 +233,26 @@ export function CustomerListScreen() {
         active: activeWorkFilter === chip.value,
         onClick: () => updateFilters({ ...baseFilters, work: chip.value }),
       }))}
-      desktopHeader={
+      desktopAction={
+        <Button
+          className={cn("h-9 gap-1.5", controls.brandButton)}
+          style={brandGradientStyle}
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus className="size-4" /> 新建客户
+        </Button>
+      }
+      desktopHeaderAddon={
         <motion.div
-          variants={stagger(0.05)}
+          variants={fadeUp}
           initial="hidden"
           animate="show"
-          className="mb-3 space-y-3 sm:mb-5 sm:space-y-4"
+          className={dataDisplay.kpiGrid}
         >
-          <motion.div variants={fadeUp}>
-            <RepairOsModuleHeader
-              action={
-                <Button
-                  className={cn("h-9 gap-1.5", controls.brandButton)}
-                  style={brandGradientStyle}
-                  onClick={() => setCreateOpen(true)}
-                >
-                  <Plus className="size-4" /> 新建客户
-                </Button>
-              }
-            />
-          </motion.div>
-
-          <motion.div variants={fadeUp} className={dataDisplay.kpiGrid}>
-            <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
-            <CustomerKpiCard icon={Wrench} label="在修客户" value={stats?.activeRepairs ?? 0} />
-            <CustomerKpiCard icon={CircleDollarSign} label="未结清" value={stats?.unpaid ?? 0} />
-            <CustomerKpiCard icon={Smartphone} label="有设备" value={stats?.withDevices ?? 0} />
-          </motion.div>
+          <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
+          <CustomerKpiCard icon={Wrench} label="在修客户" value={stats?.activeRepairs ?? 0} />
+          <CustomerKpiCard icon={CircleDollarSign} label="未结清" value={stats?.unpaid ?? 0} />
+          <CustomerKpiCard icon={Smartphone} label="有设备" value={stats?.withDevices ?? 0} />
         </motion.div>
       }
     >
@@ -317,17 +311,25 @@ export function CustomerListScreen() {
       </div>
 
       {isError && data ? (
-        <div className="mb-2 flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground">
+        <RepairOsBusinessCard
+          as="div"
+          data-ui="customer-list-refresh-warning"
+          leading={<AlertTriangle className="size-3.5" />}
+          trailing={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 gap-1 px-2 text-xs"
+              onClick={() => void refetch()}
+            >
+              <RefreshCw className="size-3" /> 重试
+            </Button>
+          }
+          className="mb-2 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground shadow-none hover:bg-status-warn/10"
+          bodyClassName="min-w-0"
+        >
           <span className="min-w-0 truncate">客户数据刷新失败：{queryErrorMessage}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-xs"
-            onClick={() => void refetch()}
-          >
-            <RefreshCw className="size-3" /> 重试
-          </Button>
-        </div>
+        </RepairOsBusinessCard>
       ) : null}
 
       {isError && !data ? (
@@ -339,11 +341,18 @@ export function CustomerListScreen() {
           ))}
         </div>
       ) : customers.length === 0 ? (
-        <div className="mx-auto mt-8 max-w-sm rounded-lg border border-[var(--border-panel)] bg-card p-5 text-center shadow-[var(--shadow-card)]">
-          <Search className="mx-auto size-8 text-muted-foreground" />
-          <h3 className="mt-3 text-base font-semibold">暂无符合条件的客户</h3>
+        <RepairOsBusinessCard
+          as="div"
+          data-ui="customer-list-empty-state"
+          className="mx-auto mt-8 !flex max-w-sm flex-col items-center rounded-xl px-5 py-5 text-center"
+          bodyClassName="flex min-w-0 flex-col items-center"
+        >
+          <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
+            <Search className="size-5" />
+          </span>
+          <h3 className="mt-3 text-base font-semibold leading-5">暂无符合条件的客户</h3>
           <p className="mt-1 text-xs text-muted-foreground">调整筛选条件，或新建客户档案。</p>
-        </div>
+        </RepairOsBusinessCard>
       ) : (
         <>
           <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -355,15 +364,12 @@ export function CustomerListScreen() {
           <div className="glass-card hidden min-w-0 max-w-full overflow-hidden lg:block">
             <div className="max-w-full overflow-x-auto">
               <table
-                className={cn(density.tableDense, "min-w-[760px] table-fixed xl:min-w-[900px]")}
+                className={cn(density.tableDense, "min-w-[720px] table-fixed xl:min-w-[840px]")}
               >
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b border-border/40">
-                    <th className="w-[220px] px-3 py-2 text-left font-medium">客户</th>
-                    <th className="hidden w-[160px] px-2 py-2 text-left font-medium xl:table-cell">
-                      标签
-                    </th>
-                    <th className="w-[180px] px-2 py-2 text-left font-medium">设备/工单</th>
+                    <th className="w-[280px] px-3 py-2 text-left font-medium">客户</th>
+                    <th className="w-[220px] px-2 py-2 text-left font-medium">设备/工单</th>
                     <th className="w-[104px] px-2 py-2 text-right font-medium">消费额</th>
                     <th className="w-[104px] px-2 py-2 text-right font-medium">尾款</th>
                     <th className="w-[112px] px-2 py-2 text-left font-medium">状态</th>
@@ -392,31 +398,39 @@ export function CustomerListScreen() {
               />
             ))}
           </div>
-          <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-surface/70 px-3 py-2 text-xs">
+          <RepairOsBusinessCard
+            as="div"
+            data-ui="customer-list-pagination"
+            trailing={
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 text-xs"
+                  disabled={page <= 1 || isPlaceholderData}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  <ChevronLeft className="size-3.5" /> 上一页
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 text-xs"
+                  disabled={page >= pageCount || isPlaceholderData}
+                  onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                >
+                  下一页 <ChevronRight className="size-3.5" />
+                </Button>
+              </div>
+            }
+            className="mt-3 items-center rounded-md border-border/60 bg-surface/70 px-3 py-2 text-xs shadow-none hover:bg-surface/70"
+            bodyClassName="min-w-0"
+            trailingClassName="shrink-0"
+          >
             <span className="text-muted-foreground">
               第 {displayPage} / {pageCount} 页 · 每页 {CUSTOMER_PAGE_SIZE}
             </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1 text-xs"
-                disabled={page <= 1 || isPlaceholderData}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                <ChevronLeft className="size-3.5" /> 上一页
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1 text-xs"
-                disabled={page >= pageCount || isPlaceholderData}
-                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-              >
-                下一页 <ChevronRight className="size-3.5" />
-              </Button>
-            </div>
-          </div>
+          </RepairOsBusinessCard>
         </>
       )}
 
@@ -450,7 +464,12 @@ export function CustomerListScreen() {
 
 function CustomerLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="mx-auto mt-8 max-w-sm rounded-xl border border-status-danger-foreground/25 bg-card p-5 text-center shadow-[var(--shadow-card)]">
+    <RepairOsBusinessCard
+      as="div"
+      data-ui="customer-list-load-error"
+      className="mx-auto mt-8 !flex max-w-sm flex-col items-center rounded-xl border-status-danger-foreground/25 px-5 py-5 text-center"
+      bodyClassName="flex min-w-0 flex-col items-center"
+    >
       <span className="mx-auto grid size-10 place-items-center rounded-full bg-status-danger/10 text-status-danger-foreground">
         <AlertTriangle className="size-5" />
       </span>
@@ -459,6 +478,6 @@ function CustomerLoadError({ message, onRetry }: { message: string; onRetry: () 
       <Button className="mt-4 h-9 gap-1.5" onClick={onRetry}>
         <RefreshCw className="size-3.5" /> 重新加载
       </Button>
-    </div>
+    </RepairOsBusinessCard>
   );
 }
