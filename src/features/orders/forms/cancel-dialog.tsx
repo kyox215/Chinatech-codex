@@ -34,13 +34,15 @@ export function CancelDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`${componentOverlay.modalSm} grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-4 sm:p-5`}
+        className={`${componentOverlay.modalSm} grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0`}
       >
-        <DialogHeader>
+        <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
           <DialogTitle>取消工单</DialogTitle>
-          <DialogDescription>选择一个常见原因，也可以改成更准确的说明。</DialogDescription>
+          <DialogDescription className="text-xs">
+            选择一个常见原因，也可以改成更准确的说明。
+          </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 overflow-y-auto">
+        <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
           <OrderTransitionReasonSelector
             target="cancelled"
             value={reason}
@@ -49,7 +51,7 @@ export function CancelDialog({
             compact
           />
         </div>
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             返回
           </Button>

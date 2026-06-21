@@ -56,6 +56,8 @@ export function NewOrderQuotationSection({
     "h-8 rounded-lg border-0 bg-[var(--surface-panel-muted)] text-base leading-none shadow-none focus-visible:ring-1 md:text-[13px]";
   const moneyInputValue = (value: number) => (value === 0 ? "" : String(value));
   const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
+  const balance = Math.max(0, total - form.deposit);
+  const depositTone = form.deposit > total ? "danger" : form.deposit > 0 ? "warning" : "neutral";
 
   return (
     <Shell data-new-order-section="quotation" className={cn(shellClass, "space-y-2")}>
@@ -156,6 +158,15 @@ export function NewOrderQuotationSection({
           >
             <Plus className="size-3.5" /> 添加自定义项目
           </Button>
+        </div>
+        <div className="mt-1.5 grid grid-cols-3 gap-1">
+          <QuoteSummaryTile label="总额" value={total} tone={total > 0 ? "info" : "neutral"} />
+          <QuoteSummaryTile label="定金" value={form.deposit} tone={depositTone} />
+          <QuoteSummaryTile
+            label="尾款"
+            value={balance}
+            tone={balance <= 0 && total > 0 ? "success" : "warning"}
+          />
         </div>
       </div>
 
@@ -260,5 +271,44 @@ export function NewOrderQuotationSection({
         </div>
       </div>
     </Shell>
+  );
+}
+
+function QuoteSummaryTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "neutral" | "info" | "success" | "warning" | "danger";
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-lg border px-1.5 py-1",
+        tone === "info" && "border-status-info-foreground/20 bg-status-info/10",
+        tone === "success" && "border-status-success-foreground/20 bg-status-success/10",
+        tone === "warning" && "border-status-warn-foreground/20 bg-status-warn/15",
+        tone === "danger" && "border-status-danger-foreground/20 bg-status-danger/10",
+        tone === "neutral" && "border-[var(--border-panel)] bg-card",
+      )}
+    >
+      <div
+        className={cn(
+          "truncate text-[9px] font-semibold leading-3",
+          tone === "info" && "text-status-info-foreground/80",
+          tone === "success" && "text-status-success-foreground/80",
+          tone === "warning" && "text-status-warn-foreground/80",
+          tone === "danger" && "text-status-danger-foreground/80",
+          tone === "neutral" && "text-muted-foreground",
+        )}
+      >
+        {label}
+      </div>
+      <div className="mt-0.5 truncate font-mono text-[11px] font-semibold leading-4 tabular-nums">
+        € {value.toFixed(2)}
+      </div>
+    </div>
   );
 }

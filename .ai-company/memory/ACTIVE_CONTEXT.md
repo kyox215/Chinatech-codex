@@ -1,15 +1,15 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260620-014006-repairdesk-figma-ui-system"
-status: "inventory_buyback_mobile_card_verified"
-phase: "local_inventory_buyback_card_polish_verified"
+current_task_id: "TASK-20260621-006-order-list-desktop-density"
+status: "order_list_desktop_density_verified"
+phase: "desktop_queue_health_strip_verified"
 task_class: "ui_design_system"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-06-20T17:52:17+02:00"
+last_checkpoint_at: "2026-06-21T05:12:47+02:00"
 checkpoint_required: false
-last_rehydrated_at: "2026-06-20T17:52:17+02:00"
+last_rehydrated_at: "2026-06-21T05:12:47+02:00"
 ---
 
 # Active Context
@@ -21,6 +21,19 @@ First finish the Figma UI system design target, then use it to unify RepairDesk 
 ## Current state
 
 - Figma file created: `https://www.figma.com/design/j7sAvwPMcA43F2cOg7B3Kf`
+- Latest local UI code batch on 2026-06-21T05:12:47+02:00 implemented a desktop-only `/orders` queue density strip:
+  - `src/features/orders/screens/order-list-screen.tsx` now shows current queue, current-page quote total, unpaid/exception counts, and directly advanceable order count above the desktop queue.
+  - The new strip is hidden below the desktop breakpoint; mobile order cards and the protected mobile order detail/task/header files were not edited in this batch.
+  - Verification passed: prettier, scoped diff check, typecheck, order tests, lint, non-sandbox build, and Playwright screenshot/overflow checks.
+  - Visual evidence: `screenshots/figma-ui-system-20260620/orders-desktop-queue-health-strip.png` and `screenshots/figma-ui-system-20260620/orders-mobile-list-safe-after-health-strip.png`.
+- Latest local UI code batch on 2026-06-21T00:57:33+02:00 implemented the first-round order UI optimization:
+  - `/orders/new` quotation section now adds a compact `总额 / 定金 / 尾款` summary.
+  - Desktop order queue rows now expose inline `推进` actions for safe no-reason quick transitions.
+  - Desktop order flow filters are shorter, denser, and easier to scan.
+  - Payment, WhatsApp notification, approval-request, and cancel dialogs now use compact fixed header/footer shells with scrollable bodies.
+  - Protected mobile order detail, mobile order list management, and mobile work-order/task pages were not edited in this batch.
+  - Verification passed: prettier, scoped diff check, typecheck, order tests, lint, non-sandbox build, and Playwright screenshot/overflow checks.
+  - Visual evidence: `screenshots/figma-ui-system-20260620/orders-new-dense-desktop.png`, `screenshots/figma-ui-system-20260620/orders-new-dense-mobile.png`, `screenshots/figma-ui-system-20260620/orders-new-quote-summary-mobile.png`, `screenshots/figma-ui-system-20260620/orders-desktop-queue-actions.png`, `screenshots/figma-ui-system-20260620/order-payment-dialog-compact-desktop.png`, `screenshots/figma-ui-system-20260620/order-notify-dialog-compact-desktop.png`, and `screenshots/figma-ui-system-20260620/order-cancel-dialog-compact-desktop.png`.
 - RepairDesk variables and local styles were created in Figma.
   - Figma component/page generation and metadata inspection are still blocked by the Figma MCP Starter tool-call limit; latest read-only retry after the owner updated the target to Figma-first hit the same limit.
 - Latest owner direction: prioritize the actual Figma page/component design before expanding further code refactors; local work should only stabilize already-applied reversible batches until the Figma limit clears or the plan is upgraded.
@@ -32,6 +45,20 @@ First finish the Figma UI system design target, then use it to unify RepairDesk 
   - Protected mobile order detail, mobile order information/list management, and mobile work-order/task pages were not edited in this batch.
   - Verification passed: prettier, scoped diff check, typecheck, lint, focused inventory Vitest, non-sandbox build, and 390px Playwright screenshot/overflow checks.
   - Visual evidence: `screenshots/figma-ui-system-20260620/inventory-buyback-source-card-final-3col-mobile.png` and `screenshots/figma-ui-system-20260620/inventory-buyback-source-edit-dialog-final-mobile.png`.
+- Latest local UI code batch on 2026-06-20T20:41:58+02:00 refined the Inventory buyback source internals only:
+  - `商品` now uses app-style icon rows and tiles for model, color, storage, and IMEI.
+  - `检测` now uses six compact status tiles with icons and status tones for appearance, function, battery, IMEI, activation lock, and data wipe.
+  - `凭证状态` proof chips now use short readable mobile labels (`客签`, `证正`, `证反`, `设备`, `无票/票据`, `无盒/原盒`) with direct `补/齐` badges.
+  - Protected mobile order detail, mobile order information/list management, and mobile work-order/task pages were not edited in this batch.
+  - Verification passed: prettier, lint, typecheck, focused inventory Vitest, non-sandbox build, and 390px Playwright screenshot/overflow checks.
+  - Visual evidence: `screenshots/figma-ui-system-20260620/inventory-buyback-source-app-style-mobile.png` and `screenshots/figma-ui-system-20260620/inventory-buyback-source-app-style-detection-mobile.png`.
+- Latest local UI code batch on 2026-06-20T20:56:47+02:00 compacted the mobile Inventory finance area below `附件凭证` only:
+  - Replaced six vertical finance boxes with a single `财务总览` card using a 2-row / 3-column grid for `回收`, `成本`, `挂牌`, `维修`, `其他`, and `利润`.
+  - Kept a direct `编辑` action on the compact finance card.
+  - Reduced the empty `附件凭证` placeholder height and simplified `财务流水` rows by removing the long description and duplicate note line.
+  - Protected mobile order detail, mobile order information/list management, and mobile work-order/task pages were not edited in this batch.
+  - Verification passed: prettier, lint, typecheck, focused inventory Vitest, non-sandbox build, scoped diff check, and 390px Playwright screenshot/overflow checks.
+  - Visual evidence: `screenshots/figma-ui-system-20260620/inventory-buyback-source-finance-compact-mobile.png`.
 - Local progress after the Figma blocker:
   - `docs/REPAIRDESK_FIGMA_UI_SYSTEM.md`
   - `docs/REPAIRDESK_FIGMA_DESIGN_BLUEPRINT.md`

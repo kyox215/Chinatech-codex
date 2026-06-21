@@ -90,23 +90,23 @@ export function NotifyDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`${componentOverlay.modalMd} max-h-[calc(100svh-24px)] overflow-y-auto p-4 sm:p-5`}
+        className={`${componentOverlay.modalMd} grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0`}
       >
-        <DialogHeader>
+        <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
           <DialogTitle>预览 WhatsApp 通知</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             内容将以意大利语发送给客户。确认后会打开 WhatsApp，并记录到通知历史。
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-3">
-          <div className="grid min-w-0 gap-3 sm:grid-cols-[1fr_1.3fr]">
-            <div>
+        <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
+          <div className="grid min-w-0 gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 sm:grid-cols-[1fr_1.25fr]">
+            <div className="min-w-0">
               <Label className="text-xs">通知类型</Label>
               <Select
                 value={templateKind}
                 onValueChange={(value) => updateTemplate(value as OrderWhatsappTemplateKind)}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger className="mt-1 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -118,11 +118,11 @@ export function NotifyDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="min-w-0">
               <Label className="text-xs">WhatsApp</Label>
               {phoneOptions.length > 1 ? (
                 <Select value={phone} onValueChange={updatePhone}>
-                  <SelectTrigger className="mt-1 font-mono text-xs">
+                  <SelectTrigger className="mt-1 h-8 font-mono text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -134,28 +134,28 @@ export function NotifyDialog({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="mt-1 min-w-0 truncate rounded-md border bg-surface-muted px-3 py-2 font-mono text-xs">
+                <div className="mt-1 flex h-8 min-w-0 items-center truncate rounded-md border bg-surface-muted px-2 font-mono text-xs">
                   {phone || "缺少电话号码"}
                 </div>
               )}
             </div>
           </div>
           {transitionTo && (
-            <div className="rounded-md border border-status-warn-foreground/20 bg-status-warn px-3 py-2 text-xs text-status-warn-foreground">
+            <div className="mt-2 rounded-md border border-status-warn-foreground/20 bg-status-warn px-2 py-1.5 text-xs text-status-warn-foreground">
               确认发送后将同步流转为「{getWorkflowStatusLabel(workflow, transitionTo)}」。
             </div>
           )}
-          <div>
+          <div className="mt-2">
             <Label className="text-xs">通知内容</Label>
             <Textarea
-              rows={12}
+              rows={10}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="mt-1 font-mono text-xs leading-relaxed"
+              className="mt-1 min-h-[260px] resize-none font-mono text-xs leading-relaxed"
             />
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

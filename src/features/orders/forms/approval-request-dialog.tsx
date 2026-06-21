@@ -74,20 +74,20 @@ export function ApprovalRequestDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`${componentOverlay.modalMd} max-h-[calc(100svh-24px)] overflow-y-auto p-4 sm:p-5`}
+        className={`${componentOverlay.modalMd} grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0`}
       >
-        <DialogHeader>
+        <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
           <DialogTitle>预览 WhatsApp 审批消息</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             内容将以意大利语发送给客户。确认后会打开 WhatsApp，并记录到通知历史。
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>WhatsApp</span>
+        <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
+          <div className="grid min-w-0 gap-1.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 text-xs text-muted-foreground sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+            <span className="font-medium text-foreground">WhatsApp</span>
             {phoneOptions.length > 1 ? (
               <Select value={phone} onValueChange={updatePhone}>
-                <SelectTrigger className="h-8 w-[min(280px,100%)] font-mono text-xs">
+                <SelectTrigger className="h-8 w-full font-mono text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -99,17 +99,22 @@ export function ApprovalRequestDialog({
                 </SelectContent>
               </Select>
             ) : (
-              <span className="min-w-0 truncate font-mono">{phone || "缺少电话号码"}</span>
+              <span className="min-w-0 truncate rounded-md border bg-card px-2 py-1.5 font-mono">
+                {phone || "缺少电话号码"}
+              </span>
             )}
           </div>
-          <Textarea
-            rows={12}
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            className="font-mono text-xs leading-relaxed"
-          />
+          <div className="mt-2">
+            <div className="mb-1 text-xs font-medium text-muted-foreground">审批消息内容</div>
+            <Textarea
+              rows={10}
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              className="min-h-[260px] resize-none font-mono text-xs leading-relaxed"
+            />
+          </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>

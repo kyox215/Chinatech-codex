@@ -72,12 +72,14 @@ export function PaymentDialog({
             <CreditCard className="size-4 text-primary" />
             登记收款
           </DialogTitle>
-          <DialogDescription>核对尾款并登记本次收款，收款后会写入工单时间线。</DialogDescription>
+          <DialogDescription className="text-xs">
+            核对尾款并登记本次收款，收款后会写入工单时间线。
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid min-h-0 min-w-0 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1fr)_260px]">
-          <section className="min-w-0 space-y-3 p-4">
-            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.72fr)]">
+          <section className="min-w-0 space-y-2.5 p-3 sm:p-4">
+            <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.72fr)]">
               <div className="min-w-0">
                 <Label className="text-xs">本次收款金额</Label>
                 <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
@@ -150,7 +152,7 @@ export function PaymentDialog({
             <div
               data-order-payment-result="true"
               className={cn(
-                "grid min-w-0 gap-2 rounded-lg border px-3 py-2",
+                "grid min-w-0 gap-2 rounded-lg border px-2.5 py-2",
                 willSettle
                   ? "border-status-success-foreground/30 bg-status-success/55"
                   : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
@@ -181,9 +183,9 @@ export function PaymentDialog({
 
           <aside
             data-order-payment-summary="true"
-            className="min-w-0 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/65 p-3 md:border-l md:border-t-0"
+            className="min-w-0 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/65 p-2.5 md:border-l md:border-t-0"
           >
-            <div className="grid min-w-0 gap-2">
+            <div className="grid min-w-0 gap-1.5">
               <PaymentSummaryLine label="未结清尾款" value={formatMoney(balanceAmount)} strong />
               <PaymentSummaryLine
                 label="本次收款"
@@ -196,7 +198,7 @@ export function PaymentDialog({
                 dataAttr="data-order-payment-remaining"
               />
             </div>
-            <div className="mt-3 rounded-lg border border-[var(--border-panel)] bg-card/80 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground">
+            <div className="mt-2 rounded-lg border border-[var(--border-panel)] bg-card/80 px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
               收款金额会与当前工单版本一起提交，若其他人已修改报价或尾款，系统会要求刷新后再操作。
             </div>
           </aside>
@@ -253,7 +255,7 @@ function PaymentSummaryLine({
   return (
     <div
       {...(dataAttr ? { [dataAttr]: "true" } : {})}
-      className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-card/75 px-2.5 py-2"
+      className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-card/75 px-2 py-1.5"
     >
       <span className="truncate text-[11px] leading-4 text-muted-foreground">{label}</span>
       <span
