@@ -4,6 +4,7 @@ import {
   fallbackOrderWorkflowStatuses,
   getOrderListStatusGroups,
   getOrderListSubStatusTabs,
+  getWorkflowTransitionActions,
 } from "./order-workflow";
 
 const workflow = { statuses: fallbackOrderWorkflowStatuses, transitions: [] };
@@ -48,5 +49,16 @@ describe("order workflow list status groups", () => {
     expect(partsTabs.find((tab) => tab.key === "parts_ordered")?.statuses).toEqual([
       "parts_ordered",
     ]);
+  });
+
+  it("offers every enabled non-current status for manual order transitions", () => {
+    const actions = getWorkflowTransitionActions(workflow, "new");
+
+    expect(actions.map((action) => action.to)).toEqual(
+      fallbackOrderWorkflowStatuses
+        .filter((status) => status.enabled && status.code !== "new")
+        .map((status) => status.code),
+    );
+    expect(actions.find((action) => action.to === "diagnosing")?.isPrimary).toBe(false);
   });
 });

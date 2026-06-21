@@ -435,12 +435,14 @@ function deriveCanonicalUpdateFromLegacyStatus(status: RepairOrderStatus, now: s
   };
 }
 
-async function validateConfiguredOrderTransition(
+type OrderTransitionValidationResult = { ok: true; label?: string } | { ok: false; reason: string };
+
+async function validateManualOrderTransitionTarget(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   storeId: string,
   from: RepairOrderStatus,
   to: RepairOrderStatus,
-) {
+): Promise<OrderTransitionValidationResult> {
   if (from === to) return { ok: false, reason: "目标状态与当前一致" };
 
   const { data: target, error: targetError } = await supabase
@@ -455,6 +457,17 @@ async function validateConfiguredOrderTransition(
     const toLabel = maybeString((target as DbRecord).label) || to;
     return { ok: false, reason: `「${toLabel}」已停用，不能流转到该状态` };
   }
+  return { ok: true, label: maybeString((target as DbRecord).label) || to };
+}
+
+async function validateConfiguredOrderTransition(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  from: RepairOrderStatus,
+  to: RepairOrderStatus,
+): Promise<OrderTransitionValidationResult> {
+  const target = await validateManualOrderTransitionTarget(supabase, storeId, from, to);
+  if (!target.ok) return target;
 
   const { data: transition, error } = await supabase
     .from("order_workflow_transitions")
@@ -466,7 +479,7 @@ async function validateConfiguredOrderTransition(
   fail(error, "检查状态流转失败");
   if (!transition || !(transition as DbRecord).enabled) {
     const fromLabel = await readWorkflowStatusLabel(supabase, storeId, from);
-    const toLabel = maybeString((target as DbRecord).label) || to;
+    const toLabel = target.label;
     return { ok: false, reason: `「${fromLabel}」不能直接流转到「${toLabel}」` };
   }
   return { ok: true };
@@ -1156,7 +1169,7 @@ export async function transitionOrder(
   const legacyTo = to;
   const cleanReason = opts.reason?.trim();
 
-  const validation = await validateConfiguredOrderTransition(supabase, storeId, from, to);
+  const validation = await validateManualOrderTransitionTarget(supabase, storeId, from, to);
   if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
   if (
     isApprovalDecisionBypass(

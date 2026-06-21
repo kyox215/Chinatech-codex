@@ -124,6 +124,13 @@ import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
 } from "@/features/orders/model/order-transition-reasons";
+import {
+  appendFaultDescriptionItems,
+  countMissingFaultDescriptionItems,
+  getFaultDescriptionSourceItems,
+  hasFaultDescriptionItem,
+  type FaultDescriptionSourceItem,
+} from "@/features/orders/model/order-fault-description";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
@@ -133,6 +140,7 @@ import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import {
   getWorkflowNextActions,
+  getWorkflowTransitionActions,
   getWorkflowStatusLabel,
 } from "@/features/orders/model/order-workflow";
 import {
@@ -160,7 +168,7 @@ const tabs = [
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
-type WorkflowNextAction = NonNullable<ReturnType<typeof getWorkflowNextActions>["primary"]>;
+type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
 
 export function OrderDetailScreen({
   id,
@@ -472,9 +480,7 @@ export function OrderDetailScreen({
   const desktopStageIndex = getWorkflowProgressValue(desktopWorkflowStatus);
   const desktopCurrentStage =
     orderTaskStages[Math.min(desktopStageIndex, orderTaskStages.length - 1)] ?? orderTaskStages[0];
-  const desktopStatusActions = [next.primary, ...next.secondary].filter(
-    (action): action is NonNullable<typeof next.primary> => Boolean(action),
-  );
+  const desktopStatusActions = getWorkflowTransitionActions(workflow, order.status);
   const canCancelOrder = desktopStatusActions.some((action) => action.to === "cancelled");
   const canDecideApproval = isApprovalDecisionAvailable(order);
   const deviceBrand = order.device_snapshot?.brand || device?.brand || "";
@@ -665,14 +671,38 @@ export function OrderDetailScreen({
           </AnimatePresence>
         </div>
 
+        <AnimatePresence initial={false}>
+          {desktopTransitionOpen ? (
+            <motion.div
+              key="desktop-transition-panel"
+              data-order-desktop-transition-panel="true"
+              variants={fadeUp}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, y: 4 }}
+              className="mt-2 min-w-0"
+            >
+              <DesktopStatusTransitionPanel
+                order={order}
+                statusLabel={getWorkflowStatusLabel(workflow, order.status)}
+                currentStage={desktopCurrentStage}
+                actions={desktopStatusActions}
+                pending={transition.isPending}
+                onOpenChange={setDesktopTransitionOpen}
+                onTransition={(to, reason) => transition.mutate({ to, reason })}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
         <OrderDetailActionDock
           order={order}
           isEditing={isEditing}
           financeDraft={financeDraft}
           onApprovalDecision={() => setApprovalDecisionOpen(true)}
           approvalDecisionAvailable={canDecideApproval}
-          onFlow={() => setDesktopTransitionOpen(true)}
-          flowDisabled={transition.isPending || (!next.primary && next.secondary.length === 0)}
+          onFlow={() => setDesktopTransitionOpen((open) => !open)}
+          flowDisabled={transition.isPending || desktopStatusActions.length === 0}
           onPay={() => setPayOpen(true)}
           onNotify={() => setNotifyOpen(true)}
           surface={surface}
@@ -723,16 +753,6 @@ export function OrderDetailScreen({
         onConfirm={async (reason) => {
           await transition.mutateAsync({ to: "cancelled", reason });
         }}
-      />
-      <MobileStatusTransitionSheet
-        open={desktopTransitionOpen}
-        order={order}
-        statusLabel={getWorkflowStatusLabel(workflow, order.status)}
-        currentStage={desktopCurrentStage}
-        actions={desktopStatusActions}
-        pending={transition.isPending}
-        onOpenChange={setDesktopTransitionOpen}
-        onTransition={(to, reason) => transition.mutate({ to, reason })}
       />
       <CameraCaptureSheet
         open={desktopPhotoCaptureOpen}
@@ -1233,9 +1253,7 @@ function MobileOrderDetailView({
     () => normalizeFinanceDraft(financeDraft, paidAmount),
     [financeDraft, paidAmount],
   );
-  const statusActions = [next.primary, ...next.secondary].filter(
-    (action): action is NonNullable<typeof next.primary> => Boolean(action),
-  );
+  const statusActions = getWorkflowTransitionActions(workflow, order.status);
 
   useEffect(() => {
     if (!imeiEditing) setImeiDraft(deviceImei);
@@ -1993,7 +2011,9 @@ function FaultDescriptionEditSheet({
   const [issue, setIssue] = useState(order.issue_description || "");
   const [diagnosis, setDiagnosis] = useState(order.diagnosis_result || "");
   const [error, setError] = useState("");
-  const quoteItems = order.fault_prices.filter((item) => item.name.trim());
+  const quoteItems = getFaultDescriptionSourceItems(order.fault_prices);
+  const missingIssueCount = countMissingFaultDescriptionItems(issue, quoteItems);
+  const missingDiagnosisCount = countMissingFaultDescriptionItems(diagnosis, quoteItems);
 
   useEffect(() => {
     if (!open) return;
@@ -2002,10 +2022,11 @@ function FaultDescriptionEditSheet({
     setError("");
   }, [open, order.diagnosis_result, order.issue_description]);
 
-  const appendText = (target: "issue" | "diagnosis", text: string) => {
+  const appendItems = (target: "issue" | "diagnosis", items: FaultDescriptionSourceItem[]) => {
     const setter = target === "issue" ? setIssue : setDiagnosis;
     const current = target === "issue" ? issue : diagnosis;
-    setter([current.trim(), text.trim()].filter(Boolean).join("\n"));
+    setter(appendFaultDescriptionItems(current, items));
+    setError("");
   };
 
   const save = async () => {
@@ -2033,133 +2054,186 @@ function FaultDescriptionEditSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+        className="mx-auto h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] rounded-t-xl p-0 md:h-[82svh] md:max-h-[760px] md:w-[calc(100vw-32px)] md:max-w-[920px] md:rounded-xl"
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
-          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <FileText className="size-4 text-primary" />
-              编辑故障描述
-            </SheetTitle>
-            <SheetDescription>
-              可把当前维修项目带入故障或诊断文本，也可以完全手动修改。
-            </SheetDescription>
+        <div className="flex h-full min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="border-b border-[var(--border-panel)] px-3 py-2 pr-11 text-left sm:px-4">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+              <div className="min-w-0">
+                <SheetTitle className="flex min-w-0 items-center gap-2 text-sm leading-5">
+                  <FileText className="size-4 shrink-0 text-primary" />
+                  <span className="truncate">编辑故障描述</span>
+                </SheetTitle>
+                <SheetDescription className="mt-0.5 truncate text-[10px] leading-3">
+                  {order.public_no} · {quoteItems.length} 个维修项目
+                </SheetDescription>
+              </div>
+              <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-primary/15 bg-primary/5 text-center">
+                <div className="min-w-0 border-r border-primary/10 px-2 py-1">
+                  <p className="text-[9px] leading-3 text-muted-foreground">故障缺</p>
+                  <p className="font-mono text-xs font-semibold leading-4 text-primary">
+                    {missingIssueCount}
+                  </p>
+                </div>
+                <div className="min-w-0 px-2 py-1">
+                  <p className="text-[9px] leading-3 text-muted-foreground">诊断缺</p>
+                  <p className="font-mono text-xs font-semibold leading-4 text-primary">
+                    {missingDiagnosisCount}
+                  </p>
+                </div>
+              </div>
+            </div>
           </SheetHeader>
 
-          <div className={cn(componentOverlay.body, "space-y-3 pt-3")}>
-            <section
-              className={cn(
-                componentOverlay.flatSection,
-                "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-primary/20 bg-primary/5 p-2.5",
-              )}
-            >
-              <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground">当前工单</p>
-                <p className="truncate font-mono text-sm font-semibold text-primary">
-                  {order.public_no}
-                </p>
-              </div>
-              <div className="rounded-lg bg-background/70 px-2 py-1 text-right ring-1 ring-inset ring-primary/15">
-                <p className="text-[9px] leading-3 text-muted-foreground">可关联项目</p>
-                <p className="text-sm font-semibold leading-5">{quoteItems.length}</p>
-              </div>
-            </section>
-
+          <div
+            className={cn(
+              componentOverlay.body,
+              "min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2 pt-2 sm:px-3 md:grid md:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)] md:items-start md:gap-2 md:space-y-0",
+            )}
+          >
             {quoteItems.length ? (
-              <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
-                <p className="text-[10px] font-medium text-muted-foreground">维修项目来源</p>
-                <div className="grid gap-1.5">
-                  {quoteItems.map((item, index) => (
-                    <div
-                      key={`${item.name}-${index}`}
-                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+              <section className={cn(componentOverlay.flatSection, "space-y-1.5 p-2")}>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <p className="text-[10px] font-medium leading-3 text-muted-foreground">
+                    维修项目来源
+                  </p>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px]"
+                      disabled={pending || missingIssueCount === 0}
+                      onClick={() => appendItems("issue", quoteItems)}
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-[11px] font-semibold">{item.name}</p>
-                        <MoneyText
-                          amount={item.price}
-                          className="block text-[10px] text-muted-foreground"
-                        />
-                      </div>
-                      <div className="flex shrink-0 gap-1">
+                      全入故障
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px]"
+                      disabled={pending || missingDiagnosisCount === 0}
+                      onClick={() => appendItems("diagnosis", quoteItems)}
+                    >
+                      全入诊断
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-1 md:max-h-[calc(82svh-9rem)] md:overflow-y-auto md:pr-0.5">
+                  {quoteItems.map((item, index) => {
+                    const inIssue = hasFaultDescriptionItem(issue, item);
+                    const inDiagnosis = hasFaultDescriptionItem(diagnosis, item);
+
+                    return (
+                      <div
+                        key={`${item.name}-${index}`}
+                        className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[11px] font-semibold leading-4">
+                            {item.name}
+                          </p>
+                          <div className="flex min-w-0 items-center gap-1 text-[10px] leading-3 text-muted-foreground">
+                            <MoneyText amount={item.price} className="shrink-0" />
+                            {item.note ? <span className="truncate">{item.note}</span> : null}
+                          </div>
+                        </div>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-7 px-2 text-[10px]"
-                          disabled={pending}
-                          onClick={() => appendText("issue", item.name)}
+                          className="h-6 px-1.5 text-[10px]"
+                          disabled={pending || inIssue}
+                          aria-label={`将 ${item.name} 加入故障描述`}
+                          onClick={() => appendItems("issue", [item])}
                         >
-                          故障
+                          {inIssue ? "已故障" : "故障"}
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-7 px-2 text-[10px]"
-                          disabled={pending}
-                          onClick={() => appendText("diagnosis", item.name)}
+                          className="h-6 px-1.5 text-[10px]"
+                          disabled={pending || inDiagnosis}
+                          aria-label={`将 ${item.name} 加入诊断结果`}
+                          onClick={() => appendItems("diagnosis", [item])}
                         >
-                          诊断
+                          {inDiagnosis ? "已诊断" : "诊断"}
                         </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
-            ) : null}
+            ) : (
+              <section className={cn(componentOverlay.flatSection, "p-2")}>
+                <p className="grid rounded-lg border border-dashed border-[var(--border-panel)] px-2 py-3 text-center text-[10px] leading-4 text-muted-foreground md:min-h-40 md:place-items-center">
+                  暂无可带入项目，可直接手动填写。
+                </p>
+              </section>
+            )}
 
-            <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
+            <section className={cn(componentOverlay.flatSection, "space-y-2 p-2")}>
               <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
-                故障描述
+                <span className="flex items-center justify-between gap-2">
+                  <span>故障描述</span>
+                  <span className="font-mono text-[9px] font-normal text-muted-foreground">
+                    {issue.trim().length}
+                  </span>
+                </span>
                 <Textarea
                   value={issue}
                   onChange={(event) => setIssue(event.target.value)}
                   disabled={pending}
-                  className="min-h-24 resize-none rounded-lg text-xs"
+                  className="min-h-24 resize-none rounded-lg text-xs md:min-h-[230px]"
                   placeholder="描述客户反馈、故障表现、可复现条件等"
                 />
               </label>
               <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
-                诊断结果
+                <span className="flex items-center justify-between gap-2">
+                  <span>诊断结果</span>
+                  <span className="font-mono text-[9px] font-normal text-muted-foreground">
+                    {diagnosis.trim().length}
+                  </span>
+                </span>
                 <Textarea
                   value={diagnosis}
                   onChange={(event) => setDiagnosis(event.target.value)}
                   disabled={pending}
-                  className="min-h-20 resize-none rounded-lg text-xs"
+                  className="min-h-20 resize-none rounded-lg text-xs md:min-h-[180px]"
                   placeholder="填写检测结果、风险、建议处理方式"
                 />
               </label>
             </section>
 
             {error ? (
-              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground">
+              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground md:col-span-2">
                 {error}
               </p>
             ) : null}
-
-            <SheetFooter className={componentOverlay.footer}>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={pending}
-                onClick={() => onOpenChange(false)}
-              >
-                取消
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={pending}
-                onClick={() => void save()}
-              >
-                {pending ? "保存中..." : "保存"}
-              </Button>
-            </SheetFooter>
           </div>
+          <SheetFooter className="!grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] px-3 py-2 sm:!flex sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs sm:h-8"
+              disabled={pending}
+              onClick={() => onOpenChange(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 text-xs sm:h-8"
+              disabled={pending}
+              onClick={() => void save()}
+            >
+              {pending ? "保存中..." : "保存"}
+            </Button>
+          </SheetFooter>
         </div>
       </SheetContent>
     </Sheet>
@@ -2185,7 +2259,62 @@ function PhotoPreview({ attachment }: { attachment: OrderAttachment }) {
   );
 }
 
-function MobileStatusTransitionSheet({
+function DesktopStatusTransitionPanel({
+  order,
+  statusLabel,
+  currentStage,
+  actions,
+  pending,
+  onOpenChange,
+  onTransition,
+}: {
+  order: OrderDetail["order"];
+  statusLabel: string;
+  currentStage: (typeof orderTaskStages)[number];
+  actions: WorkflowTransitionAction[];
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+}) {
+  return (
+    <section className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card/95 p-2.5 shadow-sm">
+      <header className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+            <Clock3 className="size-4 shrink-0 text-primary" />
+            <span className="truncate">状态流转</span>
+          </h3>
+          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+            当前：{currentStage.label} · {statusLabel}。可手动选择任一启用状态，确认后会写入时间线。
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7 shrink-0 rounded-lg"
+          disabled={pending}
+          onClick={() => onOpenChange(false)}
+          aria-label="收起状态流转"
+        >
+          <X className="size-4" />
+        </Button>
+      </header>
+      <StatusTransitionPanelBody
+        open
+        order={order}
+        statusLabel={statusLabel}
+        currentStage={currentStage}
+        actions={actions}
+        pending={pending}
+        onOpenChange={onOpenChange}
+        onTransition={onTransition}
+      />
+    </section>
+  );
+}
+
+function StatusTransitionPanelBody({
   open,
   order,
   statusLabel,
@@ -2199,17 +2328,16 @@ function MobileStatusTransitionSheet({
   order: OrderDetail["order"];
   statusLabel: string;
   currentStage: (typeof orderTaskStages)[number];
-  actions: WorkflowNextAction[];
+  actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
   onTransition: (to: RepairOrderStatus, reason?: string) => void;
 }) {
   const hasCommunicationStatus = actions.some((action) => isCommunicationStatus(action.to));
-  const [reasonAction, setReasonAction] = useState<WorkflowNextAction | null>(null);
+  const [reasonAction, setReasonAction] = useState<WorkflowTransitionAction | null>(null);
   const [reasonDraft, setReasonDraft] = useState("");
   const reasonConfig = reasonAction ? getOrderTransitionReasonConfig(reasonAction.to) : undefined;
   const canConfirmReason = !reasonConfig?.required || Boolean(reasonDraft.trim());
-  const isDesktop = useDesktopActionSurface();
 
   useEffect(() => {
     if (!open) {
@@ -2218,7 +2346,7 @@ function MobileStatusTransitionSheet({
     }
   }, [open]);
 
-  const chooseAction = (action: WorkflowNextAction) => {
+  const chooseAction = (action: WorkflowTransitionAction) => {
     const config = getOrderTransitionReasonConfig(action.to);
     if (config) {
       setReasonAction(action);
@@ -2229,7 +2357,7 @@ function MobileStatusTransitionSheet({
     onTransition(action.to);
   };
 
-  const body = (
+  return (
     <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
       <div
         className={cn(
@@ -2256,7 +2384,7 @@ function MobileStatusTransitionSheet({
           <p className="text-[10px] leading-4 text-muted-foreground">
             {reasonAction
               ? `准备流转为「${reasonAction.label}」，确认后会写入状态时间线。`
-              : "状态流转只改变工单进度；客户消息会保留为独立沟通记录。"}
+              : "可手动切换到任一启用工单状态；客户消息会保留为独立沟通记录。"}
           </p>
         </section>
 
@@ -2300,7 +2428,7 @@ function MobileStatusTransitionSheet({
             </div>
           </section>
         ) : (
-          <div className="space-y-1.5 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0">
+          <div className="space-y-1.5 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0 xl:grid-cols-3">
             {actions.length ? (
               actions.map((action, index) => {
                 const hint = getStatusActionHint(action.to);
@@ -2361,8 +2489,8 @@ function MobileStatusTransitionSheet({
                 );
               })
             ) : (
-              <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground lg:col-span-2">
-                当前状态暂无可用流转。
+              <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground lg:col-span-2 xl:col-span-3">
+                当前没有其他已启用状态可切换。
               </div>
             )}
           </div>
@@ -2377,29 +2505,27 @@ function MobileStatusTransitionSheet({
       ) : null}
     </div>
   );
+}
 
-  if (isDesktop) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          data-order-desktop-transition-dialog="true"
-          className={cn(componentOverlay.modalLg, "max-h-[calc(100svh-32px)] overflow-y-auto p-4")}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Clock3 className="size-4 text-primary" />
-              状态流转
-            </DialogTitle>
-            <DialogDescription>
-              当前：{currentStage.label} · {statusLabel}。选择下一步后会写入时间线。
-            </DialogDescription>
-          </DialogHeader>
-          {body}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+function MobileStatusTransitionSheet({
+  open,
+  order,
+  statusLabel,
+  currentStage,
+  actions,
+  pending,
+  onOpenChange,
+  onTransition,
+}: {
+  open: boolean;
+  order: OrderDetail["order"];
+  statusLabel: string;
+  currentStage: (typeof orderTaskStages)[number];
+  actions: WorkflowTransitionAction[];
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+}) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -2413,10 +2539,20 @@ function MobileStatusTransitionSheet({
               状态流转
             </SheetTitle>
             <SheetDescription>
-              当前：{currentStage.label} · {statusLabel}。选择下一步后会写入时间线。
+              当前：{currentStage.label} · {statusLabel}。
+              {"可手动选择任一启用状态，确认后会写入时间线。"}
             </SheetDescription>
           </SheetHeader>
-          {body}
+          <StatusTransitionPanelBody
+            open={open}
+            order={order}
+            statusLabel={statusLabel}
+            currentStage={currentStage}
+            actions={actions}
+            pending={pending}
+            onOpenChange={onOpenChange}
+            onTransition={onTransition}
+          />
         </div>
       </SheetContent>
     </Sheet>

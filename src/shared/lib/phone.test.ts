@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizePhoneBook, normalizePhoneRaw, primaryPhoneRaw, samePhoneRaw } from "./phone";
+import {
+  normalizePhoneBook,
+  normalizePhoneRaw,
+  primaryPhoneRaw,
+  samePhoneRaw,
+  uniqueContactPhones,
+} from "./phone";
 
 describe("phone helpers", () => {
   it("keeps only digits for phone identity checks", () => {
@@ -27,5 +33,15 @@ describe("phone helpers", () => {
       primaryRaw: "39333015223",
       contacts: ["+39 344 122 7014", "+39 345 000 7788"],
     });
+  });
+
+  it("filters primary numbers out of backup phone lists", () => {
+    expect(
+      uniqueContactPhones("+39 320 100 2005", [
+        "3201002005",
+        "+39 329 900 0005",
+        "+39 329 900 0005 / +39 320 100 2005",
+      ]),
+    ).toEqual(["+39 329 900 0005"]);
   });
 });

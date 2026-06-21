@@ -67,6 +67,22 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(after.messages).toHaveLength(before.messages.length);
   });
 
+  it("allows manual transitions to any enabled order status and records the timeline", async () => {
+    const id = await createMockOrder();
+
+    await transitionOrder(id, "parts_arrived");
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("parts_arrived");
+    const event = detail.events.find(
+      (item) => item.event_type === "status_changed" && item.payload.to === "parts_arrived",
+    );
+    expect(event?.payload).toMatchObject({
+      from: "new",
+      to: "parts_arrived",
+    });
+  });
+
   it("rejects canonical workflow group names as transition targets", async () => {
     const id = await createMockOrder();
 

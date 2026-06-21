@@ -1,11 +1,15 @@
 import type { OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
 import { parseWarrantyMonths, formatWarrantyText } from "@/features/orders/model/order-warranty";
+import { uniqueContactPhones } from "@/shared/lib/phone";
 
 export function buildEditForm(data: OrderDetail, defaultWarrantyMonths = 6): UpdateOrderInput {
   const { order, customer, device } = data;
   const snapshot = order.device_snapshot;
   const primaryPhone = customer?.phone_e164 ?? order.customer_phone;
-  const backupPhones = customer?.contact_phones ?? order.contact_phones;
+  const backupPhones = uniqueContactPhones(
+    primaryPhone,
+    customer?.contact_phones ?? order.contact_phones,
+  );
   const warrantyMonths =
     typeof order.warranty_months === "number"
       ? order.warranty_months

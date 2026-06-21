@@ -155,6 +155,22 @@ export function getWorkflowNextActions(
   return { primary: actions[0], secondary: actions.slice(1) };
 }
 
+export function getWorkflowTransitionActions(
+  workflow: OrderWorkflow | undefined,
+  current: RepairOrderStatus,
+) {
+  const next = getWorkflowNextActions(workflow, current);
+  const primaryTarget = next.primary?.to;
+  return getWorkflowStatuses(workflow)
+    .filter((status) => status.enabled && status.code !== current)
+    .map((status) => ({
+      to: status.code,
+      label: status.label,
+      tone: status.tone,
+      isPrimary: status.code === primaryTarget,
+    }));
+}
+
 export function getCommonWorkflowTargets(
   workflow: OrderWorkflow | undefined,
   currents: RepairOrderStatus[],

@@ -131,6 +131,16 @@ function cloneWorkflow(): OrderWorkflow {
   };
 }
 
+function validateMockManualTransitionTarget(from: RepairOrderStatus, to: RepairOrderStatus) {
+  if (from === to) return { ok: false, reason: "目标状态与当前一致" };
+  const targetStatus = workflowStatuses.find((status) => status.code === to);
+  if (!targetStatus) return { ok: false, reason: "目标状态不存在" };
+  if (!targetStatus.enabled) {
+    return { ok: false, reason: `「${targetStatus.label}」已停用，不能流转到该状态` };
+  }
+  return { ok: true, label: targetStatus.label };
+}
+
 function mergeContactPhones(existing: string[], incoming: string[], primaryRaw: string) {
   const result: string[] = [];
   const seen = new Set<string>(primaryRaw ? [primaryRaw] : []);
@@ -619,22 +629,8 @@ export async function transitionOrder(
   const workflowTo = workflowStatusFromLegacyStatus(to);
   const legacyTo = to;
   const cleanReason = opts.reason?.trim();
-  const targetStatus = workflowStatuses.find((status) => status.code === legacyTo);
-  if (targetStatus && !targetStatus.enabled) {
-    throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
-  }
-  const allowed = workflowTransitions.some(
-    (transition) =>
-      transition.from_status_code === o.status &&
-      transition.to_status_code === legacyTo &&
-      transition.enabled,
-  );
-  if (!allowed) {
-    const fromLabel =
-      workflowStatuses.find((status) => status.code === o.status)?.label ?? o.status;
-    const toLabel = workflowStatuses.find((status) => status.code === legacyTo)?.label ?? legacyTo;
-    throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
-  }
+  const target = validateMockManualTransitionTarget(o.status, legacyTo);
+  if (!target.ok) throw new Error(target.reason ?? "状态流转不合法");
   if (isApprovalDecisionBypass(o.status, legacyTo, o.approval_status, o.approval_flow_status)) {
     throw new Error("客户审批阶段必须通过审批处理记录同意或拒绝");
   }
