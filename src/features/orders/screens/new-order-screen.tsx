@@ -380,7 +380,7 @@ export function NewOrderScreen({
               "pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:pb-20 md:pt-0",
             ),
           surface === "dialog" &&
-            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pr-10 pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pr-12 sm:pt-3 md:p-4 md:pr-12 md:pt-3",
+            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3",
         )}
       >
         {surface === "page" ? (
@@ -393,6 +393,15 @@ export function NewOrderScreen({
           </div>
         ) : null}
 
+        {surface === "dialog" && onCancel ? (
+          <NewOrderDialogMobileHeader
+            operatorName={operatorName}
+            statusLabel={createStatusLabel}
+            valid={Boolean(valid)}
+            onClose={onCancel}
+          />
+        ) : null}
+
         <NewOrderDesktopHeader
           form={form}
           operatorName={operatorName}
@@ -401,6 +410,7 @@ export function NewOrderScreen({
           total={total}
           defaultWarrantyMonths={defaultWarrantyMonths}
           surface={surface}
+          onClose={surface === "dialog" ? onCancel : undefined}
         />
 
         <div
@@ -464,6 +474,7 @@ function NewOrderDesktopHeader({
   total,
   defaultWarrantyMonths,
   surface,
+  onClose,
 }: {
   form: NewOrderFormState;
   operatorName: string;
@@ -472,6 +483,7 @@ function NewOrderDesktopHeader({
   total: number;
   defaultWarrantyMonths: number;
   surface: "page" | "dialog";
+  onClose?: () => void;
 }) {
   const customerReady = Boolean(form.customerPhone.trim());
   const deviceReady = Boolean(form.brand.trim() && form.model.trim());
@@ -490,10 +502,24 @@ function NewOrderDesktopHeader({
     <section
       data-new-order-desktop-header="true"
       className={cn(
-        "mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none md:grid md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] md:items-center md:gap-3 xl:grid-cols-[minmax(220px,0.85fr)_minmax(360px,1.2fr)_minmax(210px,0.7fr)]",
+        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none md:grid md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] md:items-center md:gap-3 xl:grid-cols-[minmax(220px,0.85fr)_minmax(360px,1.2fr)_minmax(210px,0.7fr)]",
         surface === "page" && "shadow-[var(--shadow-workspace)]",
+        surface === "dialog" && onClose && "pr-12",
       )}
     >
+      {surface === "dialog" && onClose ? (
+        <Button
+          data-new-order-dialog-close="true"
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute right-2 top-2 size-8 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
+          aria-label="关闭新建维修订单"
+          onClick={onClose}
+        >
+          <X className="size-4" />
+        </Button>
+      ) : null}
       <div className="min-w-0">
         <div className="text-[11px] font-medium leading-4 text-muted-foreground">
           {surface === "dialog" ? "弹窗录入" : "工作台录入"}
@@ -548,6 +574,57 @@ function NewOrderDesktopHeader({
           <span className="truncate">{statusLabel}</span>
         </div>
       </div>
+    </section>
+  );
+}
+
+function NewOrderDialogMobileHeader({
+  operatorName,
+  statusLabel,
+  valid,
+  onClose,
+}: {
+  operatorName: string;
+  statusLabel: string;
+  valid: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <section
+      data-new-order-dialog-mobile-header="true"
+      className="mb-2 flex min-w-0 items-center justify-between gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2 shadow-none md:hidden"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-medium leading-3 text-muted-foreground">弹窗录入</div>
+        <div className="truncate text-sm font-semibold leading-5">新建维修订单</div>
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+          <span className="truncate">{operatorName}</span>
+          <span className="size-1 rounded-full bg-muted-foreground/35" />
+          <span className="truncate">创建后进入 {statusLabel}</span>
+        </div>
+      </div>
+      <span
+        className={cn(
+          "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
+          valid
+            ? "bg-status-success text-status-success-foreground"
+            : "bg-status-warn text-status-warn-foreground",
+        )}
+      >
+        {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
+        {valid ? "可创建" : "待补全"}
+      </span>
+      <Button
+        data-new-order-dialog-close="true"
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8 shrink-0 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
+        aria-label="关闭新建维修订单"
+        onClick={onClose}
+      >
+        <X className="size-4" />
+      </Button>
     </section>
   );
 }

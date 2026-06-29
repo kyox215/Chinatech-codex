@@ -421,6 +421,10 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     page.locator('[data-new-order-submit-card="true"]'),
     "新建工单提交工作条",
   );
+  await expectFirstVisible(
+    page.locator('[data-new-order-dialog-close="true"]'),
+    "新建工单关闭按钮",
+  );
   await expectNewOrderWorkspaceLayout(page, width);
   await expectOpenDialogsFit(page, "/orders new order workspace", width);
   await expectNoPageOverflow(page, "/orders new order workspace", width);
@@ -433,6 +437,33 @@ async function expectNewOrderWorkspaceLayout(page: Page, width: number) {
     .locator('[data-new-order-workspace-grid="true"]')
     .evaluate((element) => {
       const rect = element.getBoundingClientRect();
+      const compactRect = (target: Element | null) => {
+        if (!target) return null;
+        const targetRect = target.getBoundingClientRect();
+        return {
+          left: Math.round(targetRect.left),
+          top: Math.round(targetRect.top),
+          right: Math.round(targetRect.right),
+          bottom: Math.round(targetRect.bottom),
+          width: Math.round(targetRect.width),
+          height: Math.round(targetRect.height),
+        };
+      };
+      const visibleRect = (selector: string) => {
+        const targets = [...document.querySelectorAll<HTMLElement>(selector)];
+        const visibleTarget = targets.find((target) => {
+          const style = window.getComputedStyle(target);
+          const targetRect = target.getBoundingClientRect();
+          return (
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            Number(style.opacity) !== 0 &&
+            targetRect.width > 0 &&
+            targetRect.height > 0
+          );
+        });
+        return compactRect(visibleTarget ?? null);
+      };
       const columns = window
         .getComputedStyle(element)
         .gridTemplateColumns.split(" ")
@@ -447,6 +478,10 @@ async function expectNewOrderWorkspaceLayout(page: Page, width: number) {
         width: Math.round(rect.width),
         columns: columns.length,
         sectionWidths,
+        grid: compactRect(element),
+        header: visibleRect('[data-new-order-desktop-header="true"]'),
+        close: visibleRect('[data-new-order-dialog-close="true"]'),
+        submit: visibleRect('[data-new-order-submit-card="true"]'),
         submitWidth: Math.round(
           document
             .querySelector<HTMLElement>('[data-new-order-submit-card="true"]')
@@ -467,6 +502,36 @@ async function expectNewOrderWorkspaceLayout(page: Page, width: number) {
   expect(result.submitWidth, `new order submit rail width at ${width}px`).toBeGreaterThanOrEqual(
     Math.min(700, width - 220),
   );
+  expect(result.grid, `new order grid visible at ${width}px`).toBeTruthy();
+  expect(result.header, `new order header visible at ${width}px`).toBeTruthy();
+  expect(result.close, `new order close button visible at ${width}px`).toBeTruthy();
+  expect(result.submit, `new order submit rail visible at ${width}px`).toBeTruthy();
+  if (result.grid && result.header && result.close && result.submit) {
+    expect(
+      Math.abs(result.header.left - result.grid.left),
+      `new order header/grid left alignment at ${width}px`,
+    ).toBeLessThanOrEqual(4);
+    expect(
+      Math.abs(result.submit.left - result.grid.left),
+      `new order submit/grid left alignment at ${width}px`,
+    ).toBeLessThanOrEqual(4);
+    expect(
+      Math.abs(result.header.right - result.grid.right),
+      `new order header/grid right alignment at ${width}px`,
+    ).toBeLessThanOrEqual(4);
+    expect(
+      Math.abs(result.submit.right - result.grid.right),
+      `new order submit/grid right alignment at ${width}px`,
+    ).toBeLessThanOrEqual(4);
+    expect(
+      result.close.right,
+      `new order close button stays inside header at ${width}px`,
+    ).toBeLessThanOrEqual(result.header.right - 6);
+    expect(
+      result.close.top,
+      `new order close button stays below header top at ${width}px`,
+    ).toBeGreaterThanOrEqual(result.header.top + 6);
+  }
 }
 
 async function expectDirectDesktopDetailPage(page: Page, width: number) {

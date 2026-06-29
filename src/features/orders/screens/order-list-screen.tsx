@@ -844,7 +844,7 @@ export function OrderListScreen() {
       </AnimatePresence>
       <OrderListPrintSheet orders={printOrders} />
       <Dialog open={newOrderOpen} onOpenChange={setNewOrderOpen}>
-        <DialogContent className={componentOverlay.formWorkspace}>
+        <DialogContent showCloseButton={false} className={componentOverlay.formWorkspace}>
           <DialogHeader className="sr-only">
             <DialogTitle>新建维修订单</DialogTitle>
             <DialogDescription>在弹窗中填写客户、设备、故障与报价信息。</DialogDescription>
