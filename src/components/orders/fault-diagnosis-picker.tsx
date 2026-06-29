@@ -47,6 +47,21 @@ type FaultGroup = {
   options: FaultOption[];
 };
 
+const MAIN_FAULT_OPTION_KEY = "main";
+
+function getMainFaultOption(group: FaultGroup): FaultOption {
+  return {
+    key: MAIN_FAULT_OPTION_KEY,
+    label: group.label,
+    italian: group.italian,
+    price: 0,
+  };
+}
+
+function isMainFaultOption(option: FaultOption) {
+  return option.key === MAIN_FAULT_OPTION_KEY;
+}
+
 const faultGroups: FaultGroup[] = [
   {
     key: "display",
@@ -54,7 +69,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Display",
     icon: Smartphone,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Display", price: 0 },
       { key: "glass", label: "外屏碎裂", italian: "Vetro esterno rotto", price: 0 },
       { key: "lcd", label: "内屏漏液", italian: "LCD danneggiato", price: 0 },
       { key: "touch", label: "触摸失灵", italian: "Touch non funzionante", price: 0 },
@@ -66,7 +80,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Batteria",
     icon: Battery,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Batteria", price: 0 },
       { key: "health", label: "健康度低", italian: "Salute batteria bassa", price: 0 },
       { key: "drain", label: "耗电快", italian: "Consumo rapido", price: 0 },
       { key: "swollen", label: "鼓包", italian: "Batteria gonfia", price: 0 },
@@ -78,7 +91,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Connettore di ricarica",
     icon: Zap,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Connettore di ricarica", price: 0 },
       { key: "loose", label: "接口松动", italian: "Porta allentata", price: 0 },
       { key: "no-charge", label: "无法充电", italian: "Non carica", price: 0 },
       { key: "clean", label: "清洁尾插", italian: "Pulizia connettore", price: 0 },
@@ -90,7 +102,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Fotocamera",
     icon: Camera,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Fotocamera", price: 0 },
       { key: "front", label: "前摄异常", italian: "Fotocamera frontale", price: 0 },
       { key: "rear", label: "后摄异常", italian: "Fotocamera posteriore", price: 0 },
       { key: "lens", label: "镜头破损", italian: "Lente danneggiata", price: 0 },
@@ -102,7 +113,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Danni da liquido",
     icon: Droplets,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Danni da liquido", price: 0 },
       { key: "cleaning", label: "清洁检测", italian: "Pulizia e diagnosi", price: 0 },
       { key: "corrosion", label: "主板腐蚀", italian: "Ossidazione scheda", price: 0 },
     ],
@@ -113,7 +123,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Scheda madre",
     icon: Cpu,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Scheda madre", price: 0 },
       { key: "no-power", label: "不开机", italian: "Non si accende", price: 0 },
       { key: "baseband", label: "无服务", italian: "Nessun servizio", price: 0 },
       { key: "short", label: "短路", italian: "Corto circuito", price: 0 },
@@ -125,7 +134,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Sistema",
     icon: Settings,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Sistema", price: 0 },
       { key: "restore", label: "刷机恢复", italian: "Ripristino software", price: 0 },
       { key: "data", label: "资料迁移", italian: "Trasferimento dati", price: 0 },
       { key: "account", label: "账户问题", italian: "Problema account", price: 0 },
@@ -137,7 +145,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Cover posteriore",
     icon: Smartphone,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Cover posteriore", price: 0 },
       { key: "glass", label: "玻璃破裂", italian: "Vetro posteriore rotto", price: 0 },
       { key: "frame", label: "中框变形", italian: "Telaio deformato", price: 0 },
     ],
@@ -148,7 +155,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Face ID / Impronta",
     icon: ScanLine,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Face ID / Impronta", price: 0 },
       { key: "face-id", label: "面容异常", italian: "Face ID non funzionante", price: 0 },
       { key: "fingerprint", label: "指纹异常", italian: "Impronta non funzionante", price: 0 },
     ],
@@ -159,7 +165,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Altoparlante",
     icon: Volume2,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Altoparlante", price: 0 },
       { key: "low", label: "声音小", italian: "Volume basso", price: 0 },
       { key: "noise", label: "杂音", italian: "Rumore", price: 0 },
     ],
@@ -170,7 +175,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Microfono",
     icon: Mic,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Microfono", price: 0 },
       { key: "no-sound", label: "无声", italian: "Audio assente", price: 0 },
       { key: "noise", label: "通话杂音", italian: "Rumore in chiamata", price: 0 },
     ],
@@ -181,7 +185,6 @@ const faultGroups: FaultGroup[] = [
     italian: "Tasti",
     icon: Smartphone,
     options: [
-      { key: "unspecified", label: "不细分", italian: "Tasti", price: 0 },
       { key: "power", label: "电源键", italian: "Tasto accensione", price: 0 },
       { key: "volume", label: "音量键", italian: "Tasti volume", price: 0 },
       { key: "silent", label: "静音键", italian: "Tasto silenzioso", price: 0 },
@@ -193,6 +196,10 @@ function faultKey(group: FaultGroup, option: FaultOption) {
   return `${group.key}:${option.key}`;
 }
 
+function mainFaultKey(group: FaultGroup) {
+  return faultKey(group, getMainFaultOption(group));
+}
+
 function createFault(
   group: FaultGroup,
   option: FaultOption,
@@ -202,7 +209,7 @@ function createFault(
     key: faultKey(group, option),
     categoryKey: group.key,
     categoryLabel: group.label,
-    name: option.key === "unspecified" ? group.label : `${group.label} - ${option.label}`,
+    name: isMainFaultOption(option) ? group.label : `${group.label} - ${option.label}`,
     price: preserve?.price ?? option.price,
     note: option.italian,
   };
@@ -211,9 +218,18 @@ function createFault(
 export function normalizeFaultPrices(items: FaultPriceItem[]): SelectedFault[] {
   return items.map((item, index) => {
     for (const group of faultGroups) {
+      if (item.name === group.label) {
+        return {
+          ...item,
+          key: mainFaultKey(group),
+          categoryKey: group.key,
+          categoryLabel: group.label,
+          note: item.note ?? group.italian,
+        };
+      }
+
       for (const option of group.options) {
-        const name =
-          option.key === "unspecified" ? group.label : `${group.label} - ${option.label}`;
+        const name = `${group.label} - ${option.label}`;
         if (item.name === name) {
           return {
             ...item,
@@ -263,7 +279,7 @@ export function FaultDiagnosisPicker({
     const active = selected.filter((item) => item.categoryKey === group.key);
     const existing = selected.find((item) => item.key === key);
 
-    if (option.key === "unspecified") {
+    if (isMainFaultOption(option)) {
       const preserve = existing ?? active[0];
       onChange([
         ...selected.filter((item) => item.categoryKey !== group.key),
@@ -278,7 +294,7 @@ export function FaultDiagnosisPicker({
     }
 
     onChange([
-      ...selected.filter((item) => item.key !== faultKey(group, group.options[0])),
+      ...selected.filter((item) => item.key !== mainFaultKey(group)),
       createFault(group, option),
     ]);
   };
@@ -289,7 +305,7 @@ export function FaultDiagnosisPicker({
 
   const toggleMainSelection = (group: FaultGroup) => {
     const active = selected.filter((item) => item.categoryKey === group.key);
-    const mainKey = faultKey(group, group.options[0]);
+    const mainKey = mainFaultKey(group);
     const mainOnly = active.length === 1 && active[0]?.key === mainKey;
 
     if (mainOnly) {
@@ -297,7 +313,7 @@ export function FaultDiagnosisPicker({
       return;
     }
 
-    setGroupSelection(group, group.options[0]);
+    setGroupSelection(group, getMainFaultOption(group));
   };
 
   const compact = density === "compact";

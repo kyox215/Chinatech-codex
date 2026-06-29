@@ -3,6 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import {
+  FaultDiagnosisPicker,
+  type SelectedFault,
+} from "@/components/orders/fault-diagnosis-picker";
+
 import { AccessoryNotesPicker } from "./accessory-notes-picker";
 import { WarrantyPicker, type WarrantyDraftValue } from "./warranty-picker";
 
@@ -53,7 +58,32 @@ function WarrantyHarness() {
   );
 }
 
+function FaultHarness() {
+  const [selected, setSelected] = useState<SelectedFault[]>([]);
+  return (
+    <div>
+      <FaultDiagnosisPicker selected={selected} onChange={setSelected} />
+      <output data-testid="fault-value">{selected.map((item) => item.name).join("|")}</output>
+    </div>
+  );
+}
+
 describe("order option pickers", () => {
+  it("hides generic no-subtype fault options while preserving category selection", async () => {
+    const user = userEvent.setup();
+    render(<FaultHarness />);
+
+    await user.click(screen.getByRole("button", { name: "尾插" }));
+
+    expect(screen.getByTestId("fault-value")).toHaveTextContent("尾插");
+
+    await user.click(screen.getByRole("button", { name: "展开尾插细分选项" }));
+
+    expect(screen.queryByText("不细分")).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /接口松动/ })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+  });
+
   it("uses a multi-select dropdown for accessory notes and keeps none exclusive", async () => {
     const user = userEvent.setup();
     render(<AccessoryHarness />);
