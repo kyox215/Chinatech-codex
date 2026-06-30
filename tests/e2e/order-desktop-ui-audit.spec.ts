@@ -85,6 +85,11 @@ test.describe("order desktop UI audit", () => {
       await expectFirstVisible(detail.getByText("客户信息"), "工单客户信息卡");
       await expectFirstVisible(detail.getByText("设备与故障"), "工单设备与故障卡");
       await expectFirstVisible(detail.getByText("报价处理"), "工单报价处理卡");
+      const detailMoneyStrip = detail.locator('[data-order-workspace-money-strip="true"]');
+      await expectFirstVisible(detailMoneyStrip, "工单详情统一金额条");
+      await expectFirstVisible(detailMoneyStrip.getByText("总额").first(), "详情金额总额");
+      await expectFirstVisible(detailMoneyStrip.getByText("定金").first(), "详情金额定金");
+      await expectFirstVisible(detailMoneyStrip.getByText("尾款").first(), "详情金额尾款");
       await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "工单设备照片卡");
       await expectFirstVisible(
         detail.locator('[data-order-detail-main-grid="true"]'),
@@ -158,18 +163,24 @@ test.describe("order desktop UI audit", () => {
         optional: true,
       });
       if (flowOpened) {
-        await expect(page.getByRole("dialog", { name: /^(状态流转|客户审批处理)$/ })).toBeVisible();
-        await expectFirstVisible(
-          page.locator(
-            '[data-order-desktop-transition-dialog="true"], [data-order-desktop-approval-dialog="true"]',
-          ),
-          "桌面流转或审批弹窗",
-        );
-        await expectOpenDialogsFit(page, "/orders transition sheet", viewport.width);
-        await page.keyboard.press("Escape");
-        await expect(page.getByRole("dialog", { name: /^(状态流转|客户审批处理)$/ })).toHaveCount(
-          0,
-        );
+        const transitionPanel = page.locator('[data-order-desktop-transition-panel="true"]');
+        const approvalDialog = page.locator('[data-order-desktop-approval-dialog="true"]');
+        if (
+          await transitionPanel
+            .first()
+            .isVisible()
+            .catch(() => false)
+        ) {
+          await expectFirstVisible(transitionPanel, "桌面内嵌流转面板");
+          await expect(page.getByRole("dialog", { name: "状态流转" })).toHaveCount(0);
+          await expectNoPageOverflow(page, "/orders transition inline panel", viewport.width);
+        } else {
+          await expect(page.getByRole("dialog", { name: "客户审批处理" })).toBeVisible();
+          await expectFirstVisible(approvalDialog, "桌面审批处理弹窗");
+          await expectOpenDialogsFit(page, "/orders approval dialog", viewport.width);
+          await page.keyboard.press("Escape");
+          await expect(page.getByRole("dialog", { name: "客户审批处理" })).toHaveCount(0);
+        }
       }
 
       await expectInlineEditWorkspace(page, detail, viewport.width, "/orders detail edit");
@@ -410,12 +421,41 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     "新建工单客户设备区",
   );
   await expectFirstVisible(
+    page.locator('[data-new-order-section="customer-device"]').getByText("客户信息"),
+    "新建工单客户信息标题",
+  );
+  await expectFirstVisible(
+    page.locator('[data-new-order-section="customer-device"]').getByText("设备信息"),
+    "新建工单设备信息标题",
+  );
+  await expectFirstVisible(
     page.locator('[data-new-order-section="fault-diagnosis"]'),
-    "新建工单故障诊断区",
+    "新建工单故障与诊断区",
+  );
+  await expectFirstVisible(
+    page.locator('[data-new-order-section="fault-diagnosis"]').getByText("故障与诊断"),
+    "新建工单故障与诊断标题",
   );
   await expectFirstVisible(
     page.locator('[data-new-order-section="quotation"]'),
-    "新建工单报价服务区",
+    "新建工单报价处理区",
+  );
+  await expectFirstVisible(
+    page.locator('[data-new-order-section="quotation"]').getByText("报价处理"),
+    "新建工单报价处理标题",
+  );
+  const newOrderMoneyStrip = page.locator(
+    '[data-new-order-money-strip="true"] [data-order-workspace-money-strip="true"]',
+  );
+  await expectFirstVisible(newOrderMoneyStrip, "新建工单统一金额条");
+  await expectFirstVisible(newOrderMoneyStrip.getByText("总额").first(), "新建金额总额");
+  await expectFirstVisible(newOrderMoneyStrip.getByText("定金").first(), "新建金额定金");
+  await expectFirstVisible(newOrderMoneyStrip.getByText("尾款").first(), "新建金额尾款");
+  await expectFirstVisible(
+    page.locator(
+      '[data-new-order-section="quotation"] [data-order-workspace-quote-row="true"], [data-new-order-section="quotation"] [data-order-workspace-empty-block="true"]',
+    ),
+    "新建工单报价项目或空态",
   );
   await expectFirstVisible(
     page.locator('[data-new-order-submit-card="true"]'),

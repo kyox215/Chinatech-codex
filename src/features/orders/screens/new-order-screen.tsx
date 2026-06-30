@@ -774,7 +774,7 @@ function NewOrderMobileHeader({
     !customerReady ? "客户电话" : null,
     !form.brand.trim() ? "设备品牌" : null,
     !form.model.trim() ? "设备型号" : null,
-    !diagnosisReady ? "故障诊断" : null,
+    !diagnosisReady ? "故障与诊断" : null,
     form.deposit > total ? "定金金额" : null,
     !warrantyReady ? "质保原因" : null,
   ].filter(Boolean);

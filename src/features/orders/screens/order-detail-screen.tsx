@@ -103,6 +103,7 @@ import {
 } from "@/features/capture";
 import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
 import { OrderDetailTabs } from "@/features/orders/components/order-detail-tabs";
+import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import { OrderHero } from "@/features/orders/components/order-hero";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
@@ -1551,15 +1552,15 @@ function MobileOrderDetailView({
 
         <section className={mobileDetailCardClass}>
           <MobileSectionTitle icon={WalletCards} title="支付信息" />
+          <OrderWorkspaceMoneyStrip
+            total={order.quotation_amount}
+            deposit={order.deposit_amount}
+            balance={order.balance_amount}
+            compact
+            className="mt-1.5"
+          />
           <div className="mt-1.5 space-y-1">
-            <PaymentLine label="应收总额" value={formatMoney(order.quotation_amount)} strong />
             <PaymentLine label="已付金额" value={formatMoney(paidAmount)} />
-            <PaymentLine label="押金" value={formatMoney(order.deposit_amount)} />
-            <PaymentLine
-              label="尾款金额"
-              value={formatMoney(order.balance_amount)}
-              danger={order.balance_amount > 0}
-            />
             <PaymentLine
               label="付款状态"
               value={order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款"}

@@ -13,8 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
+import {
+  OrderWorkspaceEmptyBlock,
+  OrderWorkspaceMoneyStrip,
+  OrderWorkspaceQuoteRow,
+  OrderWorkspaceSectionHeader,
+} from "@/features/orders/components/order-workspace-primitives";
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
-import { FormItem, SectionHeading } from "@/features/orders/forms/new-order-fields";
+import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
 import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
@@ -57,13 +63,13 @@ export function NewOrderQuotationSection({
   const moneyInputValue = (value: number) => (value === 0 ? "" : String(value));
   const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
   const balance = Math.max(0, total - form.deposit);
-  const depositTone = form.deposit > total ? "danger" : form.deposit > 0 ? "warning" : "neutral";
 
   return (
     <Shell data-new-order-section="quotation" className={cn(shellClass, "space-y-2")}>
-      <SectionHeading
+      <OrderWorkspaceSectionHeader
         icon={ReceiptText}
-        title="报价与服务"
+        title="报价处理"
+        description="维修项目、定金、质保与初始状态"
         className="mb-1"
         action={
           <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
@@ -83,14 +89,48 @@ export function NewOrderQuotationSection({
         </div>
         <div className="min-w-0 space-y-1.5">
           {form.faults.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-background/60 px-2 py-2 text-center text-[10px] leading-4 text-muted-foreground">
-              从左侧故障诊断选择项目后，可在这里输入价格
-            </div>
+            <OrderWorkspaceEmptyBlock>
+              从左侧故障与诊断选择项目后，可在这里输入价格
+            </OrderWorkspaceEmptyBlock>
           ) : (
             form.faults.map((item, index) => (
-              <div
+              <OrderWorkspaceQuoteRow
                 key={item.key}
-                className="grid min-w-0 grid-cols-[minmax(0,1fr)_78px_24px] items-center gap-1 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 sm:grid-cols-[minmax(0,1fr)_96px_32px] sm:gap-1.5 sm:p-2"
+                price={
+                  <div className="relative min-w-0">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                      €
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={moneyInputValue(Number(item.price) || 0)}
+                      onChange={(event) =>
+                        onPatchFault(index, { price: parseMoneyDraft(event.target.value) })
+                      }
+                      className={cn(controlClass, "pl-5 font-mono sm:pl-8")}
+                      placeholder="0"
+                    />
+                  </div>
+                }
+                action={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 shrink-0 sm:size-8"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        faults: form.faults.filter((_, faultIndex) => faultIndex !== index),
+                      })
+                    }
+                    aria-label="删除报价项目"
+                  >
+                    <Trash2 className="size-3 text-muted-foreground sm:size-4" />
+                  </Button>
+                }
               >
                 {item.categoryKey === "custom" ? (
                   <Input
@@ -100,7 +140,7 @@ export function NewOrderQuotationSection({
                     placeholder="自定义项目"
                   />
                 ) : (
-                  <div className="min-w-0">
+                  <>
                     <div
                       className="truncate text-[10px] font-medium leading-4 sm:text-[11px]"
                       title={item.name}
@@ -113,40 +153,9 @@ export function NewOrderQuotationSection({
                     >
                       {item.note}
                     </div>
-                  </div>
+                  </>
                 )}
-                <div className="relative min-w-0">
-                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                    €
-                  </span>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={moneyInputValue(Number(item.price) || 0)}
-                    onChange={(event) =>
-                      onPatchFault(index, { price: parseMoneyDraft(event.target.value) })
-                    }
-                    className={cn(controlClass, "pl-5 font-mono sm:pl-8")}
-                    placeholder="0"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 shrink-0 sm:size-8"
-                  onClick={() =>
-                    setForm({
-                      ...form,
-                      faults: form.faults.filter((_, faultIndex) => faultIndex !== index),
-                    })
-                  }
-                  aria-label="删除报价项目"
-                >
-                  <Trash2 className="size-3 text-muted-foreground sm:size-4" />
-                </Button>
-              </div>
+              </OrderWorkspaceQuoteRow>
             ))
           )}
           <Button
@@ -159,15 +168,12 @@ export function NewOrderQuotationSection({
             <Plus className="size-3.5" /> 添加自定义项目
           </Button>
         </div>
-        <div className="mt-1.5 grid grid-cols-3 gap-1">
-          <QuoteSummaryTile label="总额" value={total} tone={total > 0 ? "info" : "neutral"} />
-          <QuoteSummaryTile label="定金" value={form.deposit} tone={depositTone} />
-          <QuoteSummaryTile
-            label="尾款"
-            value={balance}
-            tone={balance <= 0 && total > 0 ? "success" : "warning"}
-          />
-        </div>
+        <OrderWorkspaceMoneyStrip
+          total={total}
+          deposit={form.deposit}
+          balance={balance}
+          className="mt-1.5"
+        />
       </div>
 
       <div className="min-w-0 space-y-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5">
@@ -271,44 +277,5 @@ export function NewOrderQuotationSection({
         </div>
       </div>
     </Shell>
-  );
-}
-
-function QuoteSummaryTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "neutral" | "info" | "success" | "warning" | "danger";
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 rounded-lg border px-1.5 py-1",
-        tone === "info" && "border-status-info-foreground/20 bg-status-info/10",
-        tone === "success" && "border-status-success-foreground/20 bg-status-success/10",
-        tone === "warning" && "border-status-warn-foreground/20 bg-status-warn/15",
-        tone === "danger" && "border-status-danger-foreground/20 bg-status-danger/10",
-        tone === "neutral" && "border-[var(--border-panel)] bg-card",
-      )}
-    >
-      <div
-        className={cn(
-          "truncate text-[9px] font-semibold leading-3",
-          tone === "info" && "text-status-info-foreground/80",
-          tone === "success" && "text-status-success-foreground/80",
-          tone === "warning" && "text-status-warn-foreground/80",
-          tone === "danger" && "text-status-danger-foreground/80",
-          tone === "neutral" && "text-muted-foreground",
-        )}
-      >
-        {label}
-      </div>
-      <div className="mt-0.5 truncate font-mono text-[11px] font-semibold leading-4 tabular-nums">
-        € {value.toFixed(2)}
-      </div>
-    </div>
   );
 }

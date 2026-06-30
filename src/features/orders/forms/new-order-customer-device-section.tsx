@@ -6,8 +6,8 @@ import { ChevronDown, ScanLine, Search, Smartphone, UserRound } from "lucide-rea
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
 import { CustomerIntakeLookup } from "@/features/orders/forms/customer-intake-lookup";
-import { SectionHeading } from "@/features/orders/forms/new-order-fields";
 import { brandSuggestions, type NewOrderFormState } from "@/features/orders/model/new-order-form";
 import type { CustomerHistoryDeviceCandidate, CustomerIntakeCandidate } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
@@ -51,7 +51,12 @@ export function NewOrderCustomerDeviceSection({
   return (
     <div data-new-order-section="customer-device" className="grid min-w-0 gap-1.5 sm:gap-3">
       <section className={cn(shellClass, "space-y-1.5")}>
-        <SectionHeading icon={UserRound} title="客户信息" className="mb-1.5" />
+        <OrderWorkspaceSectionHeader
+          icon={UserRound}
+          title="客户信息"
+          description="电话优先匹配客户档案"
+          className="mb-1.5"
+        />
         <div className="grid min-w-0 gap-1.5">
           <DensePillField
             label="电话"
@@ -96,7 +101,12 @@ export function NewOrderCustomerDeviceSection({
       </section>
 
       <section className={cn(shellClass, "space-y-1.5")}>
-        <SectionHeading icon={Smartphone} title="设备信息" className="mb-1.5" />
+        <OrderWorkspaceSectionHeader
+          icon={Smartphone}
+          title="设备信息"
+          description="品牌、型号、IMEI 与留存"
+          className="mb-1.5"
+        />
         <datalist id="repair-brand-suggestions">
           {brandSuggestions.map((brand) => (
             <option key={brand} value={brand} />

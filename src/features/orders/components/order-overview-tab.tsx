@@ -26,6 +26,11 @@ import {
   AccessoryNotesPicker,
   AccessoryNotesPills,
 } from "@/features/orders/components/accessory-notes-picker";
+import {
+  OrderWorkspaceEmptyBlock,
+  OrderWorkspaceMoneyStrip,
+  OrderWorkspaceQuoteDisplayRow,
+} from "@/features/orders/components/order-workspace-primitives";
 import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
@@ -56,7 +61,7 @@ import type {
   UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
-import { splitPhoneCandidates } from "@/shared/lib/phone";
+import { splitPhoneCandidates, uniqueContactPhones } from "@/shared/lib/phone";
 
 type DetailSurface = "page" | "dialog";
 
@@ -352,12 +357,15 @@ export function OrderDetailActionDock({
         <div className="grid min-w-0 gap-1.5 xl:grid-cols-[minmax(0,1fr)_minmax(290px,auto)] xl:items-center">
           <div
             data-order-action-money-strip="true"
-            className="grid min-w-0 overflow-hidden rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 sm:grid-cols-[repeat(3,minmax(0,1fr))_minmax(140px,auto)]"
+            className="grid min-w-0 gap-1.5 overflow-hidden rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1 sm:grid-cols-[minmax(0,1fr)_minmax(140px,auto)]"
           >
-            <DockInlineMoney label="总价" amount={display.quotation} strong />
-            <DockInlineMoney label="定金" amount={display.deposit} />
-            <DockInlineMoney label="待付" amount={display.balance} strong />
-            <div className="flex min-w-0 items-center justify-between gap-2 border-t border-[var(--border-panel)] px-2 py-1 text-[11px] text-muted-foreground sm:border-l sm:border-t-0">
+            <OrderWorkspaceMoneyStrip
+              total={display.quotation}
+              deposit={display.deposit}
+              balance={display.balance}
+              compact
+            />
+            <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-card px-2 py-1 text-[11px] text-muted-foreground">
               <span className="inline-flex min-w-0 items-center gap-1">
                 {display.isPaid ? (
                   <>
@@ -506,11 +514,11 @@ function OrderOverviewFinancePanel({
     <DetailPanel surface={surface} dataPanel="finance">
       <PanelHeader title="报价处理" editing={canEditFinance} />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
-        <div className="grid min-w-0 grid-cols-3 gap-1.5">
-          <DockMoney label="总价" amount={display.quotation} strong />
-          <DockMoney label="定金" amount={display.deposit} />
-          <DockMoney label="待付" amount={display.balance} strong />
-        </div>
+        <OrderWorkspaceMoneyStrip
+          total={display.quotation}
+          deposit={display.deposit}
+          balance={display.balance}
+        />
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <ApprovalBadge status={order.approval_status} />
@@ -969,10 +977,12 @@ function BackupPhones({
     );
   }
   if (!order.contact_phones.length) return null;
+  const backupPhones = uniqueContactPhones(order.customer_phone, order.contact_phones);
+  if (!backupPhones.length) return null;
   return (
     <InfoField label="备用联系电话">
       <div className="flex min-w-0 flex-wrap gap-1">
-        {order.contact_phones.map((phone) => (
+        {backupPhones.map((phone) => (
           <PhoneContactMenu
             key={phone}
             phone={phone}
@@ -1114,7 +1124,12 @@ function DeviceIssuePanel({
 
         <Separator className={dense ? "my-1" : "my-2 sm:my-3"} />
 
-        <section className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
+        <section
+          className={cn(
+            "grid min-w-0",
+            dense ? "gap-1.5 lg:grid-cols-2" : "gap-2 sm:gap-3 xl:grid-cols-2",
+          )}
+        >
           <DraftTextField
             label="故障描述"
             value={edit?.draft.issue_description ?? order.issue_description}
@@ -1135,7 +1150,13 @@ function DeviceIssuePanel({
             edit={edit}
             onChange={(value) => patchDraft(edit, { diagnosis_result: value })}
           />
-          <WarrantyField order={order} edit={edit} defaultWarrantyMonths={defaultWarrantyMonths} />
+          <div className={cn(dense ? "lg:col-span-2" : "xl:col-span-2")}>
+            <WarrantyField
+              order={order}
+              edit={edit}
+              defaultWarrantyMonths={defaultWarrantyMonths}
+            />
+          </div>
         </section>
       </div>
     </DetailPanel>
@@ -1361,28 +1382,17 @@ function FinanceDisplay({ order }: { order: OrderDetail["order"] }) {
         报价项目
       </h4>
       {order.fault_prices.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border/80 bg-surface-muted/20 p-2.5 text-xs text-muted-foreground sm:rounded-lg sm:p-3">
-          暂无报价项目
-        </div>
+        <OrderWorkspaceEmptyBlock className="text-xs">暂无报价项目</OrderWorkspaceEmptyBlock>
       ) : (
         <ul className="min-w-0 space-y-1">
           {order.fault_prices.map((item, index) => (
-            <li
+            <OrderWorkspaceQuoteDisplayRow
               key={`${item.name}-${index}`}
-              className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-md border border-border/60 bg-surface-muted/35 px-2 py-1.5 sm:rounded-lg"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-xs font-medium" title={item.name}>
-                  {item.name}
-                </div>
-                {item.note && (
-                  <div className="truncate text-[11px] text-muted-foreground" title={item.note}>
-                    {item.note}
-                  </div>
-                )}
-              </div>
-              <MoneyText amount={item.price} className="whitespace-nowrap text-xs font-medium" />
-            </li>
+              name={item.name}
+              note={item.note}
+              amount={item.price}
+              className="bg-surface-muted/35"
+            />
           ))}
         </ul>
       )}
@@ -1556,7 +1566,9 @@ function getDraftBackupPhones(value: string) {
 function joinDraftPhones(primary: string, backups: string | readonly string[]) {
   const primaryPhone = primary.trim();
   const backupPhones = typeof backups === "string" ? splitPhoneCandidates(backups) : [...backups];
-  return [primaryPhone, ...backupPhones.map((phone) => phone.trim())].filter(Boolean).join(" / ");
+  return [primaryPhone, ...uniqueContactPhones(primaryPhone, backupPhones)]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function isQuoteApprovalTouched(order: OrderDetail["order"]) {
@@ -1697,68 +1709,6 @@ function PanelHeader({
         <span className="truncate">{title}</span>
       </h3>
       {trailing}
-    </div>
-  );
-}
-
-function DockInlineMoney({
-  label,
-  amount,
-  strong,
-}: {
-  label: string;
-  amount: number;
-  strong?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center justify-between gap-2 border-b border-[var(--border-panel)] px-2 py-1 sm:border-b-0 sm:border-r",
-        strong && "bg-accent/20",
-      )}
-    >
-      <span className="truncate text-[10px] font-medium text-muted-foreground">{label}</span>
-      <MoneyText
-        amount={amount}
-        className={cn(
-          "shrink-0 truncate font-mono text-xs tabular-nums",
-          strong && "font-semibold text-foreground",
-        )}
-      />
-    </div>
-  );
-}
-
-function DockMoney({
-  label,
-  amount,
-  strong,
-  expanded,
-}: {
-  label: string;
-  amount: number;
-  strong?: boolean;
-  expanded?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 rounded-md border border-border/60 bg-surface-muted/25 px-2 py-1",
-        expanded && "rounded-lg px-2.5 py-2",
-        strong && "border-primary/20 bg-accent/25",
-      )}
-    >
-      <div className="truncate text-[10px] font-medium leading-none text-muted-foreground">
-        {label}
-      </div>
-      <MoneyText
-        amount={amount}
-        className={cn(
-          "mt-0.5 block truncate font-mono text-[13px] leading-tight",
-          expanded && "text-sm sm:text-base",
-          strong && "font-semibold text-foreground",
-        )}
-      />
     </div>
   );
 }

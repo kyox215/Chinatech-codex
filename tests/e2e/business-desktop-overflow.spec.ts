@@ -10,7 +10,7 @@ const desktopViewports = [
 
 const businessRoutes = [
   { path: "/orders", marker: /R2026|工单|订单/i },
-  { path: "/orders/new", marker: /客户信息|故障诊断|报价与服务/i },
+  { path: "/orders/new", marker: /客户信息|故障与诊断|报价处理/i },
   { path: "/customers", marker: /客户|Customer/i },
   { path: "/buyback", marker: /回收|I001|报价/i },
   { path: "/inventory", marker: /库存|I001|商品/i },

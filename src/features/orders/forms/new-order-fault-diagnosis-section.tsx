@@ -5,7 +5,8 @@ import { Wrench } from "lucide-react";
 
 import { FaultDiagnosisPicker } from "@/components/orders/fault-diagnosis-picker";
 import { Textarea } from "@/components/ui/textarea";
-import { FormItem, SectionHeading } from "@/features/orders/forms/new-order-fields";
+import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
+import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -33,9 +34,10 @@ export function NewOrderFaultDiagnosisSection({
 
   return (
     <Shell data-new-order-section="fault-diagnosis" className={cn(shellClass, "space-y-2")}>
-      <SectionHeading
+      <OrderWorkspaceSectionHeader
         icon={Wrench}
-        title="故障诊断"
+        title="故障与诊断"
+        description="选择维修项目并补充故障备注"
         className="mb-1"
         action={
           <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
