@@ -135,7 +135,10 @@ export function MobileOrdersFloatingHeader({
             </Sheet>
           </div>
 
-          <div className="min-w-0 overflow-x-auto pb-0.5" aria-label="流程分组">
+          <div
+            className="min-w-0 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            aria-label="流程分组"
+          >
             <div className="relative grid min-w-[430px] grid-cols-8">
               <span
                 aria-hidden
@@ -190,7 +193,7 @@ export function MobileOrdersFloatingHeader({
           </div>
 
           {activeFilterChips.length > 0 ? (
-            <div className="flex min-w-0 snap-x gap-1 overflow-x-auto pb-0.5">
+            <div className="flex min-w-0 snap-x gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {activeFilterChips.map((chip) => (
                 <button
                   key={chip.key}
