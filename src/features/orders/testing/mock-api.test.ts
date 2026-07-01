@@ -42,6 +42,13 @@ async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator =
 }
 
 describe("mock order WhatsApp notification workflow", () => {
+  it("creates a non-empty public order number for new orders", async () => {
+    const id = await createMockOrder();
+    const detail = await getOrder(id);
+
+    expect(detail.order.public_no).toMatch(/^R\d+$/);
+  });
+
   it("creates an intake timeline event for new mock orders", async () => {
     const id = await createMockOrder({ order_type: "dropoff_repair" }, "ALESSIO");
 

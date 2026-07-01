@@ -83,9 +83,6 @@ export function NewOrderQuotationSection({
           <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
             报价项目
           </span>
-          <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-primary">
-            € {total.toFixed(2)}
-          </span>
         </div>
         <div className="min-w-0 space-y-1.5">
           {form.faults.length === 0 ? (

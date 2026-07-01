@@ -59,6 +59,11 @@ import {
   parseWarrantyMonths,
   warrantyReasonRequired,
 } from "@/features/orders/model/order-warranty";
+import {
+  createFallbackRepairOrderPublicNo,
+  isRepairOrderPublicNoInsertError,
+  normalizeGeneratedRepairOrderPublicNo,
+} from "@/features/orders/model/order-public-no";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   ORDER_LIST_SELECT,
@@ -1645,17 +1650,34 @@ async function insertOrderRow({
   row: DbRecord;
   context: string;
 }) {
-  const { data, error } = await supabase.from("repair_orders").insert(row).select("id").single();
+  const { data, error } = await supabase
+    .from("repair_orders")
+    .insert(row)
+    .select("id,public_no")
+    .single();
   if (error && isMissingRepairOrderColumnError(error)) {
     const { stripped, removed } = stripCanonicalOrderWriteFields(row);
     if (removed) {
-      const retry = await supabase.from("repair_orders").insert(stripped).select("id").single();
+      const retry = await supabase
+        .from("repair_orders")
+        .insert(stripped)
+        .select("id,public_no")
+        .single();
       fail(retry.error, context);
       return retry.data as DbRecord;
     }
   }
   fail(error, context);
   return data as DbRecord;
+}
+
+async function generateRepairOrderPublicNo(supabase: SupabaseAdmin, attempt: number) {
+  const { data, error } = await supabase.rpc("generate_repair_order_public_no");
+  if (!error) {
+    const publicNo = normalizeGeneratedRepairOrderPublicNo(data);
+    if (publicNo) return publicNo;
+  }
+  return createFallbackRepairOrderPublicNo({ attempt });
 }
 
 async function readDefaultOrderWarrantyMonths(supabase: SupabaseAdmin, storeId: string) {
@@ -2653,50 +2675,72 @@ export async function createOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
-  const inserted = await insertOrderRow({
-    supabase,
-    context: "创建工单失败",
-    row: {
-      id,
-      store_id: storeId,
-      order_type: input.order_type,
-      status,
-      workflow_status: workflowStatus,
-      exception_status: canonicalDefaults.exception_status,
-      payment_status: paymentStatusFromMoney({
-        isPaid: balance === 0,
-        depositAmount: deposit,
-        balanceAmount: balance,
-      }),
-      approval_flow_status: canonicalDefaults.approval_flow_status,
-      parts_status: canonicalDefaults.parts_status,
-      notify_status: canonicalDefaults.notify_status,
-      customer_id: customerId,
-      device_id: deviceId,
-      issue_description: input.issue_description.trim(),
-      quotation_amount: quotation,
-      deposit_amount: deposit,
-      balance_amount: balance,
-      currency_code: CURRENCY_CODE,
-      is_paid: balance === 0,
-      approval_status: "pending",
-      technician_name: technicianName,
-      internal_tag: tagInput.internalTag || null,
-      accessory_notes: tagInput.accessoryNotes || null,
-      warranty_text: warranty.warranty_text,
-      warranty_months: warranty.warranty_months,
-      warranty_change_reason: warranty.warranty_change_reason ?? null,
-      warranty_changed_by: warrantyChangedFromDefault ? (actorId ?? null) : null,
-      warranty_changed_at: warrantyChangedFromDefault ? now : null,
-      contact_phones: customerContactPhones,
-      fault_prices: validFaults,
-      device_snapshot: deviceSnapshot,
-      created_at: now,
-      updated_at: now,
-    },
-  });
+  const orderRowBase: DbRecord = {
+    id,
+    store_id: storeId,
+    order_type: input.order_type,
+    status,
+    workflow_status: workflowStatus,
+    exception_status: canonicalDefaults.exception_status,
+    payment_status: paymentStatusFromMoney({
+      isPaid: balance === 0,
+      depositAmount: deposit,
+      balanceAmount: balance,
+    }),
+    approval_flow_status: canonicalDefaults.approval_flow_status,
+    parts_status: canonicalDefaults.parts_status,
+    notify_status: canonicalDefaults.notify_status,
+    customer_id: customerId,
+    device_id: deviceId,
+    issue_description: input.issue_description.trim(),
+    quotation_amount: quotation,
+    deposit_amount: deposit,
+    balance_amount: balance,
+    currency_code: CURRENCY_CODE,
+    is_paid: balance === 0,
+    approval_status: "pending",
+    technician_name: technicianName,
+    internal_tag: tagInput.internalTag || null,
+    accessory_notes: tagInput.accessoryNotes || null,
+    warranty_text: warranty.warranty_text,
+    warranty_months: warranty.warranty_months,
+    warranty_change_reason: warranty.warranty_change_reason ?? null,
+    warranty_changed_by: warrantyChangedFromDefault ? (actorId ?? null) : null,
+    warranty_changed_at: warrantyChangedFromDefault ? now : null,
+    contact_phones: customerContactPhones,
+    fault_prices: validFaults,
+    device_snapshot: deviceSnapshot,
+    created_at: now,
+    updated_at: now,
+  };
 
-  const orderId = requiredString((inserted as DbRecord).id);
+  let inserted: DbRecord | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      inserted = await insertOrderRow({
+        supabase,
+        context: "创建工单失败",
+        row: {
+          ...orderRowBase,
+          public_no: await generateRepairOrderPublicNo(supabase, attempt),
+        },
+      });
+      break;
+    } catch (error) {
+      if (!isRepairOrderPublicNoInsertError(error) || attempt === 2) {
+        if (isRepairOrderPublicNoInsertError(error)) {
+          throw new Error("创建工单失败：工单编号生成失败，请重试或联系管理员");
+        }
+        throw error;
+      }
+    }
+  }
+
+  if (!inserted) {
+    throw new Error("创建工单失败：工单编号生成失败，请重试或联系管理员");
+  }
+
+  const orderId = requiredString(inserted.id);
   const { error: eventError } = await supabase.from("order_events").insert({
     id: crypto.randomUUID(),
     store_id: storeId,

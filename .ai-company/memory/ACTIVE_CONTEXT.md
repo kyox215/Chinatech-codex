@@ -1,15 +1,15 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260621-007-shell-unification"
-status: "shell_unification_revalidated"
-phase: "ready_for_owner_push_approval"
-task_class: "ui_design_system"
-risk_level: "R1"
+current_task_id: "TASK-20260701-003-new-order-mobile-public-no-fix"
+status: "implemented_verified"
+phase: "ready_for_owner_review"
+task_class: "orders_new_order_reliability_ui_fix"
+risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-06-21T15:55:00+02:00"
+last_checkpoint_at: "2026-07-01T03:10:00+02:00"
 checkpoint_required: false
-last_rehydrated_at: "2026-06-21T15:55:00+02:00"
+last_rehydrated_at: "2026-07-01T03:10:00+02:00"
 ---
 
 # Active Context
@@ -20,6 +20,15 @@ First finish the Figma UI system design target, then use it to unify RepairDesk 
 
 ## Current state
 
+- Latest local RepairDesk orders fix on 2026-07-01T03:10:00+02:00 completed `/orders/new` mobile cleanup and `public_no` create reliability:
+  - Mobile `NewOrderSubmitBar` now shows only the primary `创建工单` button; duplicate `总额 / 定金 / 尾款` summary is kept inside `报价处理` only.
+  - Desktop `/orders/new` keeps the submit-bar money confirmation.
+  - `createOrder` now explicitly generates `public_no` before inserting `repair_orders`, retries public number insert conflicts, and returns a friendly Chinese error instead of raw database constraint text.
+  - Added `supabase/migrations/20260701070341_repair_order_public_no_default_repair.sql` to restore `repair_order_public_no_seq`, `generate_repair_order_public_no()`, and the `repair_orders.public_no` default.
+  - Added `supabase/migrations/20260701070449_repair_order_public_no_generator_privileges.sql` to remove default `PUBLIC` execute access and keep the generator limited to `service_role`.
+  - Verification passed: lint, typecheck, orders Vitest, full Vitest, non-sandbox build, `/orders/new` 390/430/1024/1440 Playwright DOM checks, mobile mock create flow, and `visual-overflow` Playwright spec.
+  - Visual evidence: `screenshots/TASK-20260701-003-new-order-mobile-public-no/mobile-390-bottom.png`, `screenshots/TASK-20260701-003-new-order-mobile-public-no/mobile-430-bottom.png`, `screenshots/TASK-20260701-003-new-order-mobile-public-no/desktop-1440.png`, and `screenshots/TASK-20260701-003-new-order-mobile-public-no/mobile-390-create-after-click-debug.png`.
+  - Extended `order-desktop-ui-audit` was run and failed in existing order detail payment interaction, not in `/orders/new`; record in `.ai-company/memory/tasks/TASK-20260701-003-new-order-mobile-public-no-fix/EVIDENCE.md`.
 - Latest local UI density batch on 2026-06-21T15:35:00+02:00 reduced customer label clutter and fixed tag positioning:
   - `src/features/customers/screens/customer-list-screen.tsx` no longer renders a dedicated desktop `标签` column.
   - `src/features/customers/components/customer-list-items.tsx` now shows one prioritized customer tag plus `+N` in rows/mobile cards, reserves a fixed desktop tag slot, and lets very narrow mobile tags move below the customer name instead of covering it.

@@ -29,14 +29,14 @@ export function NewOrderSubmitBar({
     <div
       data-new-order-submit-bar="true"
       className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-40 bg-background/80 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 backdrop-blur-xl md:pointer-events-auto md:sticky md:bottom-3 md:mt-3 md:px-0 md:pb-0 md:pt-0",
+        "pointer-events-none fixed inset-x-0 bottom-0 z-40 bg-background/85 px-2 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-1.5 backdrop-blur-xl md:pointer-events-auto md:sticky md:bottom-3 md:mt-3 md:px-0 md:pb-0 md:pt-0",
         isDialog ? "md:mx-0" : "md:mx-0 md:bg-transparent md:backdrop-blur-none",
       )}
     >
       <div
         data-new-order-submit-card="true"
         className={cn(
-          "pointer-events-auto mx-auto grid max-w-[430px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-2 shadow-[var(--shadow-card)] md:flex md:max-w-none md:justify-between md:gap-2 md:bg-[var(--surface-panel)] md:py-2 md:shadow-[var(--shadow-workspace)]",
+          "pointer-events-auto mx-auto grid max-w-[430px] min-w-0 grid-cols-1 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-2 shadow-[var(--shadow-card)] md:flex md:max-w-none md:justify-between md:gap-2 md:bg-[var(--surface-panel)] md:py-2 md:shadow-[var(--shadow-workspace)]",
           isDialog ? "md:rounded-xl md:px-3" : "md:rounded-[var(--radius-lg)] md:px-3",
         )}
       >
@@ -66,14 +66,14 @@ export function NewOrderSubmitBar({
         <div className="contents md:flex md:min-w-0 md:items-center md:gap-2">
           <div
             data-new-order-money-strip="true"
-            className="rounded-lg border border-[var(--border-panel)] bg-background/65 p-1 md:flex-none"
+            className="hidden rounded-lg border border-[var(--border-panel)] bg-background/65 p-1 md:block md:flex-none"
           >
             <OrderWorkspaceMoneyStrip total={total} deposit={deposit} balance={balance} compact />
           </div>
           <Button
             type="submit"
             disabled={!valid || pending}
-            className="h-10 shrink-0 gap-1.5 rounded-xl border-0 px-4 text-xs font-semibold text-primary-foreground md:w-auto md:text-sm"
+            className="h-11 w-full shrink-0 gap-1.5 rounded-xl border-0 px-4 text-sm font-semibold text-primary-foreground md:h-10 md:w-auto"
             style={{ background: "var(--gradient-brand)" }}
           >
             <Banknote className="size-3.5" />

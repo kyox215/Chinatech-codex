@@ -286,7 +286,7 @@ export function NewOrderScreen({
         router.push(`/orders/${id}`);
       }
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(getCreateOrderErrorMessage(error)),
   });
 
   const valid =
@@ -377,7 +377,7 @@ export function NewOrderScreen({
           surface === "page" &&
             cn(
               repairOs.mobileFloatingPage,
-              "pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:pb-20 md:pt-0",
+              "pb-[calc(env(safe-area-inset-bottom)+7.75rem)] md:pb-20 md:pt-0",
             ),
           surface === "dialog" &&
             "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3",
@@ -464,6 +464,14 @@ export function NewOrderScreen({
       </form>
     </div>
   );
+}
+
+function getCreateOrderErrorMessage(error: Error) {
+  const message = error.message || "创建工单失败";
+  if (/public_no/i.test(message) || /repair_orders_public_no/i.test(message)) {
+    return "创建工单失败：工单编号生成失败，请重试或联系管理员";
+  }
+  return message;
 }
 
 function NewOrderDesktopHeader({
