@@ -102,6 +102,9 @@ export interface RepairOrder {
   contact_phones: string[];
   fault_prices: FaultPriceItem[];
   device_snapshot?: DeviceSnapshot;
+  device_unlock_method?: "text" | "pin" | "pattern";
+  device_unlock_value?: string;
+  device_unlock_pattern?: number[];
   customer_signature?: string;
   created_at: string;
   updated_at: string;
@@ -361,6 +364,9 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     technician_name: rand(technicians, i),
     internal_tag: i % 5 === 0 ? "VIP" : i % 7 === 0 ? "加急" : undefined,
     accessory_notes: i % 9 === 0 ? "SIM卡托、手机壳" : undefined,
+    device_unlock_method: i % 10 === 0 ? "pattern" : i % 6 === 0 ? "pin" : undefined,
+    device_unlock_value: i % 6 === 0 && i % 10 !== 0 ? "001258" : undefined,
+    device_unlock_pattern: i % 10 === 0 ? [1, 2, 5, 8] : undefined,
     warranty_text: "90天质保",
     completed_at: status === "completed" ? created : undefined,
     delivered_at: status === "completed" && i % 2 === 0 ? created : undefined,

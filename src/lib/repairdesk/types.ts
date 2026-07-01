@@ -190,6 +190,14 @@ export interface DeviceSnapshot {
   device_notes?: string;
 }
 
+export type DeviceUnlockMethod = "text" | "pin" | "pattern";
+
+export type DeviceUnlockInput =
+  | { method: "none" }
+  | { method: "text"; value: string }
+  | { method: "pin"; value: string }
+  | { method: "pattern"; pattern: number[] };
+
 export interface RepairOrder {
   id: string;
   public_no: string;
@@ -231,6 +239,9 @@ export interface RepairOrder {
   contact_phones: string[];
   fault_prices: FaultPriceItem[];
   device_snapshot?: DeviceSnapshot;
+  device_unlock_method?: DeviceUnlockMethod;
+  device_unlock_value?: string;
+  device_unlock_pattern?: number[];
   customer_signature?: string;
   created_at: string;
   updated_at: string;
@@ -513,6 +524,7 @@ export interface CreateOrderInput {
   issue_description: string;
   internal_tag?: string;
   accessory_notes?: string;
+  device_unlock?: DeviceUnlockInput;
   warranty_text?: string;
   warranty_months?: number;
   warranty_change_reason?: string;
@@ -532,6 +544,7 @@ export interface UpdateOrderInput {
   diagnosis_result?: string;
   internal_tag?: string;
   accessory_notes?: string;
+  device_unlock?: DeviceUnlockInput;
   warranty_text?: string;
   warranty_months?: number;
   warranty_change_reason?: string;
@@ -549,6 +562,7 @@ export interface PatchOrderChanges {
   issue_description?: string;
   diagnosis_result?: string;
   accessory_notes?: string;
+  device_unlock?: DeviceUnlockInput;
   warranty_text?: string;
 }
 

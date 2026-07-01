@@ -7,6 +7,10 @@ import {
   paymentStatusFromMoney,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
+import {
+  isDeviceUnlockMethod,
+  normalizeUnlockPattern,
+} from "@/features/orders/model/device-unlock";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { primaryPhoneRaw, uniqueContactPhones } from "@/shared/lib/phone";
 import type {
@@ -111,9 +115,14 @@ const ORDER_LIST_CANONICAL_COLUMNS = `
   notify_status
 `;
 
+const ORDER_LIST_UNLOCK_COLUMNS = `
+  device_unlock_method
+`;
+
 const ORDER_LIST_COLUMNS = `
   ${ORDER_LIST_BASE_COLUMNS},
-  ${ORDER_LIST_CANONICAL_COLUMNS}
+  ${ORDER_LIST_CANONICAL_COLUMNS},
+  ${ORDER_LIST_UNLOCK_COLUMNS}
 `;
 
 export const ORDER_LIST_SELECT = `
@@ -270,6 +279,16 @@ function deviceSnapshotFromRow(value: unknown): DeviceSnapshot | undefined {
   };
 }
 
+function deviceUnlockPatternFromRow(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const points = value.map((point) => Number(point));
+  try {
+    return normalizeUnlockPattern(points);
+  } catch {
+    return undefined;
+  }
+}
+
 export function snapshotFromDevice(device: Device): DeviceSnapshot {
   return {
     brand: device.brand,
@@ -400,6 +419,11 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     ),
     fault_prices: faultPrices(row.fault_prices),
     device_snapshot: deviceSnapshotFromRow(row.device_snapshot),
+    device_unlock_method: isDeviceUnlockMethod(row.device_unlock_method)
+      ? row.device_unlock_method
+      : undefined,
+    device_unlock_value: maybeString(row.device_unlock_value),
+    device_unlock_pattern: deviceUnlockPatternFromRow(row.device_unlock_pattern),
     customer_signature: maybeString(row.customer_signature),
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),

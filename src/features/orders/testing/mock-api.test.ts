@@ -7,6 +7,7 @@ import {
   decideOrderApproval,
   getOrder,
   listOrders,
+  listOrdersPage,
   patchOrder,
   patchOrderFinance,
   recordPayment,
@@ -620,6 +621,60 @@ describe("mock order inline editing workflow", () => {
         changes: { issue_description: "旧页面覆盖" },
       }),
     ).rejects.toThrow("工单已被更新");
+  });
+
+  it("persists device unlock metadata and keeps list/event payloads redacted", async () => {
+    const id = await createMockOrder({
+      device_unlock: { method: "pin", value: "001258" },
+    });
+    const created = await getOrder(id);
+
+    expect(created.order.device_unlock_method).toBe("pin");
+    expect(created.order.device_unlock_value).toBe("001258");
+    expect(
+      JSON.stringify(created.events.find((event) => event.event_type === "created")),
+    ).not.toContain("001258");
+
+    await updateOrder(id, {
+      expected_updated_at: created.order.updated_at,
+      customer_name: created.order.customer_name,
+      customer_phone: created.order.customer_phone,
+      device_brand: created.order.device_snapshot?.brand ?? "Apple",
+      device_model: created.order.device_snapshot?.model ?? "iPhone",
+      device_imei: created.order.device_imei,
+      issue_description: created.order.issue_description,
+      diagnosis_result: created.order.diagnosis_result,
+      accessory_notes: created.order.accessory_notes,
+      device_unlock: { method: "pattern", pattern: [1, 2, 5, 8] },
+      warranty_text: created.order.warranty_text,
+      warranty_months: created.order.warranty_months,
+      warranty_change_reason: created.order.warranty_change_reason,
+      fault_prices: created.order.fault_prices,
+      deposit_amount: created.order.deposit_amount,
+    });
+
+    const updated = await getOrder(id);
+    expect(updated.order.device_unlock_method).toBe("pattern");
+    expect(updated.order.device_unlock_pattern).toEqual([1, 2, 5, 8]);
+    expect(
+      JSON.stringify(updated.events.find((event) => event.payload.action === "order_updated")),
+    ).not.toContain("1,2,5,8");
+
+    await patchOrder(id, {
+      expected_updated_at: updated.order.updated_at,
+      changes: { device_unlock: { method: "none" } },
+    });
+    const cleared = await getOrder(id);
+    expect(cleared.order.device_unlock_method).toBeUndefined();
+
+    const relisted = await createMockOrder({
+      device_unlock: { method: "text", value: "secret-word" },
+    });
+    const relistedDetail = await getOrder(relisted);
+    const page = await listOrdersPage({ search: relistedDetail.order.public_no, pageSize: 10 });
+    expect(page.items[0]?.device_unlock_method).toBe("text");
+    expect(page.items[0]?.device_unlock_value).toBeUndefined();
+    expect(page.items[0]?.device_unlock_pattern).toBeUndefined();
   });
 
   it("rejects technician changes through inline patching", async () => {

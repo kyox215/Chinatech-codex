@@ -42,6 +42,7 @@ import type {
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
@@ -1557,20 +1558,23 @@ async function attachSignedUrls(
   );
 }
 
-const CANONICAL_ORDER_WRITE_FIELDS = [
+const OPTIONAL_ORDER_WRITE_FIELDS = [
   "workflow_status",
   "exception_status",
   "payment_status",
   "approval_flow_status",
   "parts_status",
   "notify_status",
+  "device_unlock_method",
+  "device_unlock_value",
+  "device_unlock_pattern",
 ] as const;
 
-function stripCanonicalOrderWriteFields(row: DbRecord) {
+function stripOptionalOrderWriteFields(row: DbRecord) {
   const stripped: DbRecord = {};
   let removed = false;
   for (const [key, value] of Object.entries(row)) {
-    if ((CANONICAL_ORDER_WRITE_FIELDS as readonly string[]).includes(key)) {
+    if ((OPTIONAL_ORDER_WRITE_FIELDS as readonly string[]).includes(key)) {
       removed = true;
       continue;
     }
@@ -1627,7 +1631,7 @@ async function updateOrderRow({
     .eq("store_id", storeId)
     .eq("id", id);
   if (error && isMissingRepairOrderColumnError(error)) {
-    const { stripped, removed } = stripCanonicalOrderWriteFields(update);
+    const { stripped, removed } = stripOptionalOrderWriteFields(update);
     if (removed) {
       const retry = await supabase
         .from("repair_orders")
@@ -1656,7 +1660,7 @@ async function insertOrderRow({
     .select("id,public_no")
     .single();
   if (error && isMissingRepairOrderColumnError(error)) {
-    const { stripped, removed } = stripCanonicalOrderWriteFields(row);
+    const { stripped, removed } = stripOptionalOrderWriteFields(row);
     if (removed) {
       const retry = await supabase
         .from("repair_orders")
@@ -1715,8 +1719,18 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
   accessory_notes: "留存备注",
+  device_unlock: "手机密码",
   warranty_text: "质保",
 };
+
+function deviceUnlockUpdateFromInput(input: PatchOrderInput["changes"]["device_unlock"]) {
+  const unlock = normalizeDeviceUnlockInput(input);
+  return {
+    device_unlock_method: unlock.method,
+    device_unlock_value: unlock.value,
+    device_unlock_pattern: unlock.pattern,
+  };
+}
 
 function normalizeFaultPriceInput(input: PatchOrderFinanceInput["fault_prices"]) {
   return input.map((item) => {
@@ -1769,7 +1783,7 @@ async function updateVersionedOrderRow({
     .maybeSingle();
 
   if (error && isMissingRepairOrderColumnError(error)) {
-    const { stripped, removed } = stripCanonicalOrderWriteFields(update);
+    const { stripped, removed } = stripOptionalOrderWriteFields(update);
     if (removed) {
       const retry = await supabase
         .from("repair_orders")
@@ -1927,6 +1941,9 @@ export async function updateOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
+  const deviceUnlock = input.device_unlock
+    ? normalizeDeviceUnlockInput(input.device_unlock)
+    : undefined;
   const now = new Date().toISOString();
   const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
   const warranty = normalizeWarrantyPayload({
@@ -1953,6 +1970,13 @@ export async function updateOrder(
       diagnosis_result: input.diagnosis_result?.trim() || null,
       internal_tag: tagInput.internalTag || null,
       accessory_notes: tagInput.accessoryNotes || null,
+      ...(deviceUnlock
+        ? {
+            device_unlock_method: deviceUnlock.method,
+            device_unlock_value: deviceUnlock.value,
+            device_unlock_pattern: deviceUnlock.pattern,
+          }
+        : {}),
       warranty_text: warranty.warranty_text,
       warranty_months: warranty.warranty_months,
       warranty_change_reason: warranty.warranty_change_reason ?? null,
@@ -2007,6 +2031,8 @@ export async function updateOrder(
       balance_amount: nextBalance,
       internal_tag: tagInput.internalTag,
       accessory_notes: tagInput.accessoryNotes,
+      device_unlock_changed: Boolean(deviceUnlock),
+      device_unlock_method: deviceUnlock?.method ?? null,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,
       approval_reset: Boolean(approvalResetUpdate.approval_status),
@@ -2055,7 +2081,10 @@ export async function patchOrder(
   if (changeEntries.length === 0) throw new Error("没有可保存的字段");
   const unsupportedField = changeEntries.find(([field]) => !(field in PATCH_FIELD_LABELS))?.[0];
   if (unsupportedField) throw new Error(`${unsupportedField} 不可通过快速编辑修改`);
-  const editableEntries = changeEntries as [keyof PatchOrderInput["changes"], string][];
+  const editableEntries = changeEntries as [
+    keyof PatchOrderInput["changes"],
+    PatchOrderInput["changes"][keyof PatchOrderInput["changes"]],
+  ][];
 
   const supabase = getSupabaseAdmin();
   const { data: current, error: readError } = await supabase
@@ -2090,8 +2119,20 @@ export async function patchOrder(
   const changedFields: string[] = [];
 
   for (const [field, rawValue] of editableEntries) {
-    const value = rawValue.trim();
     changedFields.push(PATCH_FIELD_LABELS[field]);
+
+    if (field === "device_unlock") {
+      Object.assign(
+        orderUpdate,
+        deviceUnlockUpdateFromInput(rawValue as PatchOrderInput["changes"]["device_unlock"]),
+      );
+      continue;
+    }
+
+    if (typeof rawValue !== "string") {
+      throw new Error(`${PATCH_FIELD_LABELS[field]}格式不正确`);
+    }
+    const value = rawValue.trim();
 
     switch (field) {
       case "customer_name":
@@ -2675,6 +2716,7 @@ export async function createOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
+  const deviceUnlock = normalizeDeviceUnlockInput(input.device_unlock);
   const orderRowBase: DbRecord = {
     id,
     store_id: storeId,
@@ -2702,6 +2744,9 @@ export async function createOrder(
     technician_name: technicianName,
     internal_tag: tagInput.internalTag || null,
     accessory_notes: tagInput.accessoryNotes || null,
+    device_unlock_method: deviceUnlock.method,
+    device_unlock_value: deviceUnlock.value,
+    device_unlock_pattern: deviceUnlock.pattern,
     warranty_text: warranty.warranty_text,
     warranty_months: warranty.warranty_months,
     warranty_change_reason: warranty.warranty_change_reason ?? null,
@@ -2748,6 +2793,7 @@ export async function createOrder(
     event_type: "created",
     payload: {
       type: input.order_type,
+      device_unlock_method: deviceUnlock.method,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,
       warranty_change_reason: warranty.warranty_change_reason ?? null,

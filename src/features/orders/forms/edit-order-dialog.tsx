@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
+import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import { EditField } from "@/features/orders/forms/edit-field";
@@ -143,6 +144,13 @@ export function EditOrderDialog({
                 <Input
                   value={form.device_notes ?? ""}
                   onChange={(event) => setForm({ ...form, device_notes: event.target.value })}
+                />
+              </EditField>
+              <EditField label="手机密码">
+                <DeviceUnlockEditor
+                  value={form.device_unlock}
+                  onChange={(device_unlock) => setForm({ ...form, device_unlock })}
+                  compact
                 />
               </EditField>
             </div>

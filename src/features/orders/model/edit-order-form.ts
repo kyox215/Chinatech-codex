@@ -1,4 +1,5 @@
 import type { OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
+import { deviceUnlockInputFromOrder } from "@/features/orders/model/device-unlock";
 import { parseWarrantyMonths, formatWarrantyText } from "@/features/orders/model/order-warranty";
 import { uniqueContactPhones } from "@/shared/lib/phone";
 
@@ -26,6 +27,7 @@ export function buildEditForm(data: OrderDetail, defaultWarrantyMonths = 6): Upd
     diagnosis_result: order.diagnosis_result ?? "",
     internal_tag: order.internal_tag ?? "",
     accessory_notes: order.accessory_notes ?? "",
+    device_unlock: deviceUnlockInputFromOrder(order),
     warranty_text: order.warranty_text ?? formatWarrantyText(warrantyMonths),
     warranty_months: warrantyMonths,
     warranty_change_reason: order.warranty_change_reason ?? "",

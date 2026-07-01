@@ -1,5 +1,6 @@
 import type { SelectedFault } from "@/components/orders/fault-diagnosis-picker";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import type { DeviceUnlockInput } from "@/lib/repairdesk/types";
 
 export interface NewOrderFormState {
   type: "quick_repair" | "dropoff_repair";
@@ -12,6 +13,7 @@ export interface NewOrderFormState {
   model: string;
   imei: string;
   deviceNotes: string;
+  deviceUnlock: DeviceUnlockInput;
   issue: string;
   internalTag: string;
   accessoryNotes: string;
@@ -31,6 +33,7 @@ export const initialNewOrderForm: NewOrderFormState = {
   model: "",
   imei: "",
   deviceNotes: "",
+  deviceUnlock: { method: "none" },
   issue: "",
   internalTag: "",
   accessoryNotes: "",

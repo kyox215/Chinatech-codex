@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
+import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
@@ -33,7 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const orderQueueDesktopGrid =
-  "grid min-w-0 grid-cols-[32px_minmax(82px,0.7fr)_minmax(104px,0.82fr)_minmax(142px,1.12fr)_minmax(132px,1fr)_minmax(70px,0.48fr)_32px] items-center xl:grid-cols-[34px_minmax(92px,0.72fr)_minmax(104px,0.78fr)_minmax(140px,1.08fr)_minmax(132px,0.98fr)_minmax(76px,0.5fr)_minmax(82px,0.52fr)_minmax(58px,0.38fr)_34px]";
+  "grid min-w-0 grid-cols-[32px_minmax(188px,1.22fr)_minmax(150px,0.92fr)_minmax(142px,0.9fr)_minmax(82px,0.48fr)_minmax(84px,0.48fr)_34px] items-center xl:grid-cols-[34px_minmax(220px,1.25fr)_minmax(180px,0.98fr)_minmax(168px,0.92fr)_minmax(96px,0.52fr)_minmax(108px,0.56fr)_34px]";
 
 export function DesktopOrderQueueRow({
   order,
@@ -44,6 +45,7 @@ export function DesktopOrderQueueRow({
   onTransition,
   onPrint,
   onStopInteraction,
+  transitionPending = false,
 }: {
   order: OrderListItem;
   workflow?: OrderWorkflow;
@@ -53,6 +55,7 @@ export function DesktopOrderQueueRow({
   onTransition: (to: RepairOrderStatus) => void;
   onPrint: () => void;
   onStopInteraction: (event: SyntheticEvent) => void;
+  transitionPending?: boolean;
 }) {
   const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
   const exceptionStatus = order.exception_status;
@@ -113,53 +116,6 @@ export function DesktopOrderQueueRow({
       </div>
 
       <div className="min-w-0 px-2 py-1.5">
-        <span
-          className="block truncate font-mono text-[11px] font-semibold leading-4 text-primary"
-          title={order.public_no}
-        >
-          {order.public_no}
-        </span>
-        <div className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
-          {createdDate} · {order.technician_name || "-"}
-        </div>
-        {order.accessory_notes ? (
-          <div
-            className="truncate text-[10px] leading-4 text-muted-foreground"
-            title={order.accessory_notes}
-          >
-            留存：{order.accessory_notes}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="min-w-0 px-2 py-1.5">
-        <div className="truncate font-semibold leading-4" title={order.customer_name}>
-          {order.customer_name || "-"}
-        </div>
-        <PhoneText value={order.customer_phone} className="block truncate text-[11px] leading-4" />
-      </div>
-
-      <div className="min-w-0 px-2 py-1.5">
-        <div className="truncate font-medium leading-4" title={order.device_label}>
-          {order.device_label || "-"}
-        </div>
-        <div
-          className="truncate text-[11px] leading-4 text-muted-foreground"
-          title={order.issue_description}
-        >
-          {order.issue_description || "-"}
-        </div>
-        {order.device_imei ? (
-          <div
-            className="truncate font-mono text-[10px] leading-4 text-muted-foreground"
-            title={order.device_imei}
-          >
-            IMEI {order.device_imei.slice(-10)}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="min-w-0 px-2 py-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           <StatusBadge
             status={order.status}
@@ -192,6 +148,7 @@ export function DesktopOrderQueueRow({
               size="sm"
               variant="outline"
               className="h-6 shrink-0 gap-1 rounded-md bg-card px-1.5 text-[10px]"
+              disabled={transitionPending}
               onClick={(event) => {
                 event.stopPropagation();
                 onTransition(primaryQuickAction.to);
@@ -203,13 +160,56 @@ export function DesktopOrderQueueRow({
             </Button>
           ) : null}
         </div>
-        <div className="mt-1 flex min-w-0 items-center gap-1 xl:hidden">
-          <OrderTypeBadge type={order.order_type} className="max-w-[4.25rem] text-[10px]" />
+      </div>
+
+      <div className="min-w-0 px-2 py-1.5">
+        <span
+          className="block truncate font-mono text-[11px] font-semibold leading-4 text-primary"
+          title={order.public_no}
+        >
+          {order.public_no}
+        </span>
+        <div className="mt-0.5 truncate font-semibold leading-4" title={order.customer_name}>
+          {order.customer_name || "-"}
+        </div>
+        <PhoneText value={order.customer_phone} className="block truncate text-[11px] leading-4" />
+        {order.accessory_notes ? (
+          <div
+            className="truncate text-[10px] leading-4 text-muted-foreground"
+            title={order.accessory_notes}
+          >
+            留存：{order.accessory_notes}
+          </div>
+        ) : (
+          <div className="truncate text-[10px] leading-4 text-muted-foreground">无留存备注</div>
+        )}
+        <DeviceUnlockListBadge method={order.device_unlock_method} className="mt-0.5" />
+      </div>
+
+      <div className="min-w-0 px-2 py-1.5">
+        <div className="truncate font-medium leading-4" title={order.device_label}>
+          {order.device_label || "-"}
+        </div>
+        <div
+          className="truncate text-[11px] leading-4 text-muted-foreground"
+          title={order.issue_description}
+        >
+          {order.issue_description || "-"}
+        </div>
+        <div className="mt-0.5 flex min-w-0 items-center gap-1">
           <span className="min-w-0 truncate text-[10px] leading-3 text-muted-foreground">
             {primaryRepair?.name || "待报价"}
             {extraRepairCount ? ` +${extraRepairCount}` : ""}
           </span>
         </div>
+        {order.device_imei ? (
+          <div
+            className="hidden truncate font-mono text-[10px] leading-4 text-muted-foreground xl:block"
+            title={order.device_imei}
+          >
+            IMEI {order.device_imei.slice(-10)}
+          </div>
+        ) : null}
       </div>
 
       <div className="min-w-0 px-2 py-1.5 text-right">
@@ -220,23 +220,35 @@ export function DesktopOrderQueueRow({
         <div className={cn("whitespace-nowrap text-[11px] leading-4", paymentClass)}>
           {paymentLabel}
         </div>
+        <div
+          className={cn(
+            "whitespace-nowrap text-[10px] leading-3",
+            order.balance_amount > 0 ? "text-status-danger-foreground" : "text-muted-foreground",
+          )}
+        >
+          {order.balance_amount > 0 ? (
+            <>
+              尾款 <MoneyText amount={order.balance_amount} />
+            </>
+          ) : (
+            "尾款清"
+          )}
+        </div>
       </div>
 
-      <div className="hidden min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground xl:block">
+      <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground">
+        <div
+          className="truncate font-semibold leading-4 text-foreground"
+          title={order.technician_name}
+        >
+          {order.technician_name || "-"}
+        </div>
         <div className="flex min-w-0 items-center gap-1 whitespace-nowrap">
           <Clock className="size-3 shrink-0" />
           {createdDate}
         </div>
-        <div className="truncate leading-4" title={order.technician_name}>
-          {order.technician_name || "-"}
-        </div>
-      </div>
-
-      <div className="hidden min-w-0 px-2 py-1.5 xl:block">
-        <OrderTypeBadge type={order.order_type} className="max-w-full text-[10px]" />
-        <div className="mt-1 truncate text-[10px] leading-3 text-muted-foreground">
-          {primaryRepair?.name || "待报价"}
-          {extraRepairCount ? ` +${extraRepairCount}` : ""}
+        <div className="mt-0.5">
+          <OrderTypeBadge type={order.order_type} className="max-w-full text-[10px]" />
         </div>
       </div>
 
@@ -260,6 +272,7 @@ export function DesktopOrderQueueRow({
                 {quickActions.map((action, index) => (
                   <DropdownMenuItem
                     key={action.to}
+                    disabled={transitionPending}
                     onClick={() => onTransition(action.to)}
                     className={cn(index === 0 && "font-medium text-primary")}
                   >

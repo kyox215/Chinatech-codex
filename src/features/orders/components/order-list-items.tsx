@@ -1,16 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
-import {
-  AlertTriangle,
-  Calendar,
-  ReceiptText,
-  Smartphone,
-  UserRound,
-  WalletCards,
-} from "lucide-react";
+import { AlertTriangle, Calendar, ReceiptText, Smartphone, UserRound } from "lucide-react";
 
-import { MoneyText, OrderTypeBadge, StatusBadge } from "@/components/orders/badges";
+import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
+import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import {
   orderExceptionMeta,
   orderWorkflowMeta,
@@ -42,18 +37,11 @@ export function OrderMobileCard({ order }: OrderMobileCardProps) {
     normalizedCustomerName.length > 0 && normalizedCustomerName === normalizedPhone;
   const customerLabel = order.customer_name?.trim() || order.customer_phone || "-";
   const showPhoneLine = Boolean(order.customer_phone && !customerNameIsPhone);
-  const customerLine = showPhoneLine
-    ? `${customerLabel} · ${formatPhoneHint(order.customer_phone)}`
-    : customerLabel;
   const firstFaultPrice = order.fault_prices[0];
   const extraFaultCount = Math.max(0, order.fault_prices.length - 1);
   const primaryRepairLabel = firstFaultPrice?.name || "待确认维修项目";
   const deviceLabel = order.device_label || order.device_imei || "未知设备";
   const issueLabel = order.issue_description || "待补充故障描述";
-  const paidAmount = Math.max(
-    0,
-    order.quotation_amount - order.deposit_amount - order.balance_amount,
-  );
   const paymentLabel = order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款";
   const paymentStatusClass = order.is_paid
     ? "bg-status-success text-status-success-foreground"
@@ -117,85 +105,75 @@ export function OrderMobileCard({ order }: OrderMobileCardProps) {
         </div>
       </div>
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_124px] gap-2 border-t border-[var(--border-panel)] pt-2">
-        <div className="min-w-0 space-y-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <UserRound className="size-3.5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-[9px] font-medium leading-3 text-muted-foreground">
-                客户信息
-              </p>
-              <p className="truncate text-xs font-semibold leading-4">{customerLine}</p>
-            </div>
-          </div>
-
-          <div className="min-w-0 rounded-lg bg-surface-muted/70 px-2 py-1.5">
-            <div className="flex min-w-0 items-center gap-1 text-[9px] font-medium leading-3 text-muted-foreground">
-              <Smartphone className="size-3 shrink-0" />
-              <span className="truncate">设备故障与报价</span>
-              {extraFaultCount > 0 ? (
-                <span className="ml-auto shrink-0 rounded bg-primary/10 px-1 text-[9px] leading-3 text-primary">
-                  +{extraFaultCount}
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-0.5 truncate text-[11px] font-semibold leading-4 text-foreground">
-              {deviceLabel}
-            </p>
-            <p className="truncate text-[10px] leading-3 text-muted-foreground">{issueLabel}</p>
-            <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-1 text-[11px] font-semibold leading-4 text-foreground">
-                <ReceiptText className="size-3 shrink-0 text-primary" />
-                <span className="truncate">{primaryRepairLabel}</span>
-              </div>
-              {firstFaultPrice ? (
-                <MoneyText
-                  amount={firstFaultPrice.price}
-                  className="shrink-0 text-[10px] font-semibold leading-4 text-foreground"
-                />
-              ) : null}
-            </div>
-            {order.accessory_notes ? (
-              <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
-                留存：{order.accessory_notes}
-              </p>
+      <div className="min-w-0 space-y-1.5 border-t border-[var(--border-panel)] pt-2">
+        <div className="flex min-w-0 items-start gap-1.5">
+          <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <UserRound className="size-3.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold leading-4">{customerLabel}</p>
+            {showPhoneLine ? (
+              <PhoneText
+                value={order.customer_phone}
+                className="block max-w-full truncate text-[10px] leading-3"
+              />
             ) : null}
           </div>
         </div>
 
-        <div className="min-w-0 border-l border-[var(--border-panel)] pl-2 text-right">
-          <div className="flex items-center justify-end gap-1 text-[9px] font-medium leading-3 text-muted-foreground">
-            <WalletCards className="size-3 text-muted-foreground" />
-            支付信息
+        <div className="min-w-0 rounded-lg bg-surface-muted/70 px-2 py-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Smartphone className="size-3 shrink-0 text-muted-foreground" />
+            <p className="truncate text-[11px] font-semibold leading-4 text-foreground">
+              {deviceLabel}
+            </p>
+            {extraFaultCount > 0 ? (
+              <span className="ml-auto shrink-0 rounded bg-primary/10 px-1 text-[9px] leading-3 text-primary">
+                +{extraFaultCount}
+              </span>
+            ) : null}
           </div>
-          <div className="mt-0.5 flex items-center justify-end gap-1">
-            <span
-              className={cn(
-                "max-w-full truncate rounded px-1 py-0.5 text-[9px] font-semibold leading-3",
-                paymentStatusClass,
-              )}
-            >
-              {paymentLabel}
-            </span>
+          <p className="truncate text-[10px] leading-3 text-muted-foreground">{issueLabel}</p>
+          <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-1 text-[11px] font-semibold leading-4 text-foreground">
+              <ReceiptText className="size-3 shrink-0 text-primary" />
+              <span className="truncate">{primaryRepairLabel}</span>
+            </div>
+            {firstFaultPrice ? (
+              <MoneyText
+                amount={firstFaultPrice.price}
+                className="shrink-0 text-[10px] font-semibold leading-4 text-foreground"
+              />
+            ) : null}
           </div>
-          <PaymentMiniLine
-            label="总额"
-            value={<MoneyText amount={order.quotation_amount} />}
-            strong
-          />
-          <PaymentMiniLine
+          {order.accessory_notes ? (
+            <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
+              留存：{order.accessory_notes}
+            </p>
+          ) : null}
+          <DeviceUnlockListBadge method={order.device_unlock_method} className="mt-1" />
+        </div>
+
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-1.5 rounded-lg bg-surface-muted/55 px-2 py-1.5">
+          <span
+            className={cn(
+              "max-w-[64px] truncate rounded px-1.5 py-0.5 text-[9px] font-semibold leading-3",
+              paymentStatusClass,
+            )}
+          >
+            {paymentLabel}
+          </span>
+          <PaymentCompactItem label="总额" value={<MoneyText amount={order.quotation_amount} />} />
+          <PaymentCompactItem
             label="尾款"
             value={formatCompactMoney(order.balance_amount)}
             className={paymentBalanceClass}
             strong={order.balance_amount > 0}
           />
-          <PaymentMiniLine label="已付" value={formatCompactMoney(paidAmount)} />
         </div>
       </div>
 
-      <div className="border-t border-[var(--border-panel)] pt-2">
+      <div className="border-t border-[var(--border-panel)] pt-1.5">
         <p
           className={cn(
             "truncate text-right text-[10px] font-medium leading-4",
@@ -216,29 +194,29 @@ export function OrderMobileCard({ order }: OrderMobileCardProps) {
         workflowStatus={workflowStatus}
         tone={progressTone}
         compact
-        className="-mt-1"
+        className="-mt-0.5"
       />
     </Link>
   );
 }
 
-function PaymentMiniLine({
+function PaymentCompactItem({
   label,
   value,
   strong = false,
   className,
 }: {
   label: string;
-  value: React.ReactNode;
+  value: ReactNode;
   strong?: boolean;
   className?: string;
 }) {
   return (
-    <div className="mt-0.5 flex min-w-0 items-center justify-between gap-1 text-[10px] leading-3">
-      <span className="truncate text-muted-foreground">{label}</span>
+    <div className="flex min-w-0 items-baseline justify-end gap-1 text-[10px] leading-3">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
       <span
         className={cn(
-          "shrink-0 font-mono tabular-nums text-muted-foreground",
+          "min-w-0 truncate font-mono tabular-nums text-muted-foreground",
           strong && "font-semibold text-foreground",
           className,
         )}
@@ -255,11 +233,6 @@ function formatCompactMoney(amount: number) {
     return `€${Math.round(value).toLocaleString("en-US")}`;
   }
   return `€${value.toFixed(0)}`;
-}
-
-function formatPhoneHint(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return digits.length >= 4 ? `尾号 ${digits.slice(-4)}` : value;
 }
 
 function normalizeComparable(value: string | null | undefined) {

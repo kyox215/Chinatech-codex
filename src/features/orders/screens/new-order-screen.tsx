@@ -32,11 +32,13 @@ import {
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
 import { formatWarrantyText, warrantyReasonRequired } from "@/features/orders/model/order-warranty";
+import { customersKeys } from "@/features/customers/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { formatMoney } from "@/lib/money";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import { detailWorkspace, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -70,17 +72,17 @@ export function NewOrderScreen({
     queryKey: platformKeys.onboardingStatus,
     queryFn: getOnboardingStatus,
     retry: false,
-    staleTime: 30_000,
+    staleTime: CACHE_TIMES.shell,
   });
   const { data: storeSettings } = useQuery({
     queryKey: messageSettingsKeys.store,
     queryFn: getStoreSettings,
-    staleTime: 30_000,
+    staleTime: CACHE_TIMES.settings,
   });
   const { data: workflow } = useQuery({
     queryKey: ordersKeys.workflow(),
     queryFn: () => listOrderWorkflow(),
-    staleTime: 60_000,
+    staleTime: CACHE_TIMES.workflow,
   });
   const operatorName = onboardingStatus?.displayName ?? "当前登录账号";
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
@@ -270,15 +272,15 @@ export function NewOrderScreen({
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,
         warranty_change_reason: form.warrantyChangeReason || undefined,
+        device_unlock: form.deviceUnlock,
         fault_prices: toFaultPriceItems(validFaultDrafts),
         deposit_amount: form.deposit,
       }),
     onSuccess: ({ id }) => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["order-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["repairdesk-options"] });
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      queryClient.invalidateQueries({ queryKey: ["customer-detail"] });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.options() });
+      queryClient.invalidateQueries({ queryKey: customersKeys.all });
       toast.success("工单已创建");
       if (onCreated) {
         onCreated(id);

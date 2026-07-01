@@ -6,6 +6,7 @@ import { ChevronDown, ScanLine, Search, Smartphone, UserRound } from "lucide-rea
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
 import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
 import { CustomerIntakeLookup } from "@/features/orders/forms/customer-intake-lookup";
 import { brandSuggestions, type NewOrderFormState } from "@/features/orders/model/new-order-form";
@@ -187,6 +188,21 @@ export function NewOrderCustomerDeviceSection({
               校验
             </span>
           </DenseScannerBlock>
+          <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
+            <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+              <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
+                手机密码
+              </Label>
+              <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
+                默认隐藏
+              </span>
+            </div>
+            <DeviceUnlockEditor
+              value={form.deviceUnlock}
+              onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
+              compact
+            />
+          </div>
         </div>
       </section>
     </div>

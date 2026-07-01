@@ -7,6 +7,7 @@ import {
   onboardingRequestBodySchema,
   patchOrderInputSchema,
   paymentBodySchema,
+  updateOrderInputSchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
 
@@ -62,11 +63,52 @@ describe("repairdesk API schemas", () => {
     ).toThrow();
   });
 
+  it("accepts and validates device unlock metadata", () => {
+    expect(
+      createOrderSchema.parse({
+        order_type: "quick_repair",
+        status: "new",
+        issue_description: "屏幕碎裂",
+        fault_prices: [],
+        device_unlock: { method: "pin", value: "001258" },
+      }).device_unlock,
+    ).toEqual({ method: "pin", value: "001258" });
+
+    expect(() =>
+      updateOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        customer_name: "Cliente",
+        customer_phone: "+39 333 000 0000",
+        device_brand: "Apple",
+        device_model: "iPhone",
+        issue_description: "屏幕",
+        fault_prices: [],
+        device_unlock: { method: "pattern", pattern: [1, 2, 2, 5] },
+      }),
+    ).toThrow();
+  });
+
   it("rejects technician changes in inline order patches", () => {
     expect(() =>
       patchOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
         changes: { technician_name: "Chen" },
+      }),
+    ).toThrow();
+  });
+
+  it("accepts device unlock inline patches without exposing a technician patch hole", () => {
+    expect(
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { device_unlock: { method: "pattern", pattern: [1, 2, 5, 8] } },
+      }).changes.device_unlock,
+    ).toEqual({ method: "pattern", pattern: [1, 2, 5, 8] });
+
+    expect(() =>
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { device_unlock: { method: "pin", value: "12a4" } },
       }),
     ).toThrow();
   });

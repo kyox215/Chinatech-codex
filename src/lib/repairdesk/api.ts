@@ -85,6 +85,8 @@ export type {
   CustomerHistoryDeviceCandidate,
   CustomerIntakeCandidate,
   Device,
+  DeviceUnlockInput,
+  DeviceUnlockMethod,
   FaultPriceItem,
   MessageLog,
   OrderDetail,

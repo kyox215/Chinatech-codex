@@ -27,6 +27,10 @@ import {
   AccessoryNotesPills,
 } from "@/features/orders/components/accessory-notes-picker";
 import {
+  DeviceUnlockEditor,
+  DeviceUnlockViewer,
+} from "@/features/orders/components/device-unlock-fields";
+import {
   OrderWorkspaceEmptyBlock,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteDisplayRow,
@@ -167,16 +171,14 @@ export function OrderOverviewTab({
       </div>
 
       <div className="hidden min-w-0 space-y-2 md:block">
-        {surface !== "dialog" ? (
-          <OrderOverviewDesktopContextStrip
-            order={order}
-            supplier={supplier}
-            storeSettings={storeSettings}
-            events={events}
-            workflow={workflow}
-            onShowRecords={onShowRecords}
-          />
-        ) : null}
+        <OrderOverviewDesktopContextStrip
+          order={order}
+          supplier={supplier}
+          storeSettings={storeSettings}
+          events={events}
+          workflow={workflow}
+          onShowRecords={onShowRecords}
+        />
 
         <div
           data-order-detail-main-grid="true"
@@ -779,6 +781,7 @@ function MobileCoreInfoPanel({
             onChange={(value) => patchDraft(edit, { accessory_notes: value })}
           />
         </section>
+        <DeviceUnlockDetailField order={order} edit={edit} dense={false} />
 
         <Separator className="my-2 sm:my-3" />
 
@@ -1121,6 +1124,7 @@ function DeviceIssuePanel({
             onChange={(value) => patchDraft(edit, { accessory_notes: value })}
           />
         </section>
+        <DeviceUnlockDetailField order={order} edit={edit} dense={dense} />
 
         <Separator className={dense ? "my-1" : "my-2 sm:my-3"} />
 
@@ -1178,6 +1182,30 @@ function AccessoryNotesField({
         <AccessoryNotesPicker value={value} onChange={onChange} compact />
       ) : (
         <AccessoryNotesPills value={value} />
+      )}
+    </InfoField>
+  );
+}
+
+function DeviceUnlockDetailField({
+  order,
+  edit,
+  dense,
+}: {
+  order: OrderDetail["order"];
+  edit: OrderEditContext | null;
+  dense: boolean;
+}) {
+  return (
+    <InfoField label="手机密码" tone="note">
+      {edit ? (
+        <DeviceUnlockEditor
+          value={edit.draft.device_unlock}
+          onChange={(device_unlock) => patchDraft(edit, { device_unlock })}
+          compact
+        />
+      ) : (
+        <DeviceUnlockViewer order={order} compact={dense} />
       )}
     </InfoField>
   );

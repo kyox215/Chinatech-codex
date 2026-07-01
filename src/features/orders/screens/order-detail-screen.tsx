@@ -102,7 +102,10 @@ import {
   type AttachmentDraft,
 } from "@/features/capture";
 import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
-import { OrderDetailTabs } from "@/features/orders/components/order-detail-tabs";
+import {
+  DeviceUnlockEditor,
+  DeviceUnlockViewer,
+} from "@/features/orders/components/device-unlock-fields";
 import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import { OrderHero } from "@/features/orders/components/order-hero";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
@@ -115,6 +118,7 @@ import { CancelDialog } from "@/features/orders/forms/cancel-dialog";
 import { NotifyDialog } from "@/features/orders/forms/notify-dialog";
 import { PaymentDialog } from "@/features/orders/forms/payment-dialog";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
+import { deviceUnlockInputFromOrder } from "@/features/orders/model/device-unlock";
 import {
   createFinanceDraftState,
   emptyFinanceFaultDraft,
@@ -134,11 +138,13 @@ import {
 } from "@/features/orders/model/order-fault-description";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
+import { customersKeys } from "@/features/customers/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   getWorkflowNextActions,
   getWorkflowTransitionActions,
@@ -160,15 +166,10 @@ import type {
   OrderDetail,
   OrderWorkflow,
   PatchOrderChanges,
+  DeviceUnlockInput,
   StoreSettings,
 } from "@/lib/repairdesk/types";
 
-const tabs = [
-  { key: "overview", label: "概览" },
-  { key: "records", label: "记录" },
-] as const;
-
-type TabKey = (typeof tabs)[number]["key"];
 type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
 
 export function OrderDetailScreen({
@@ -181,7 +182,6 @@ export function OrderDetailScreen({
   onClose?: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabKey>("overview");
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -196,6 +196,7 @@ export function OrderDetailScreen({
   const [financeDraft, setFinanceDraft] = useState<FinanceDraftState>(() =>
     createFinanceDraftState([], 0),
   );
+  const desktopRecordsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     document.body.dataset.orderDetailActive = "true";
@@ -216,25 +217,25 @@ export function OrderDetailScreen({
     queryKey: ordersKeys.detail(id),
     queryFn: () => getOrder(id),
     retry: false,
+    staleTime: CACHE_TIMES.detail,
   });
   const { data: storeSettings } = useQuery({
     queryKey: messageSettingsKeys.store,
     queryFn: getStoreSettings,
-    staleTime: 30_000,
+    staleTime: CACHE_TIMES.settings,
   });
   const { data: workflow } = useQuery({
     queryKey: ordersKeys.workflow(),
     queryFn: () => listOrderWorkflow(),
-    staleTime: 60_000,
+    staleTime: CACHE_TIMES.workflow,
   });
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });
-    queryClient.invalidateQueries({ queryKey: ["orders"] });
-    queryClient.invalidateQueries({ queryKey: ["order-stats"] });
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customer-detail"] });
+    queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
+    queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
   }, [id, queryClient]);
 
   useEffect(() => {
@@ -289,6 +290,21 @@ export function OrderDetailScreen({
       toast.success("故障描述已保存");
       invalidate();
     },
+  });
+
+  const deviceUnlockUpdate = useMutation({
+    mutationFn: (device_unlock: DeviceUnlockInput) => {
+      if (!data) throw new Error("工单未加载");
+      return patchOrder(id, {
+        expected_updated_at: data.order.updated_at,
+        changes: { device_unlock },
+      });
+    },
+    onSuccess: () => {
+      toast.success("手机密码已保存");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const attachmentUpload = useMutation({
@@ -398,7 +414,6 @@ export function OrderDetailScreen({
     setEditDraft(draft);
     setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
     setIsEditing(true);
-    setTab("overview");
   }, [data, defaultWarrantyMonths]);
 
   const cancelEditing = useCallback(() => {
@@ -409,6 +424,10 @@ export function OrderDetailScreen({
       setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
     }
   }, [data, defaultWarrantyMonths]);
+
+  const scrollToDesktopRecords = useCallback(() => {
+    desktopRecordsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const saveEditing = useCallback(async () => {
     if (!editDraft || !editFinance) return;
@@ -536,6 +555,10 @@ export function OrderDetailScreen({
             await faultUpdate.mutateAsync(changes);
           }}
           faultPending={faultUpdate.isPending}
+          onDeviceUnlockSave={async (deviceUnlock) => {
+            await deviceUnlockUpdate.mutateAsync(deviceUnlock);
+          }}
+          deviceUnlockPending={deviceUnlockUpdate.isPending}
           onAttachmentUpload={async (input) => {
             await attachmentUpload.mutateAsync(input);
           }}
@@ -614,62 +637,54 @@ export function OrderDetailScreen({
           />
         </div>
 
-        <OrderDetailTabs tabs={tabs} activeTab={tab} onChange={setTab} />
-
         <div className={cn("min-w-0", surface === "dialog" && "min-h-0 flex-1 overflow-y-auto")}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={tab}
-              variants={stagger(0.05)}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0, y: -4 }}
-              className={cn("min-w-0 space-y-2 sm:space-y-3", surface === "dialog" && "min-h-full")}
-            >
-              {tab === "overview" && (
-                <OrderOverviewTab
-                  order={order}
-                  customer={customer}
-                  deviceBrand={deviceBrand}
-                  deviceModel={deviceModel}
-                  deviceImei={deviceImei}
-                  deviceNotes={deviceNotes}
-                  accessoryNotes={accessoryNotes}
-                  isEditing={isEditing}
-                  editDraft={editDraft}
-                  onEditDraftChange={(next) => setEditDraft(next)}
-                  financeDraft={financeDraft}
-                  financeError={editFinance?.error}
-                  onFinanceDraftChange={setFinanceDraft}
-                  defaultWarrantyMonths={defaultWarrantyMonths}
-                  onQuickImeiSave={async (imei) => {
-                    await quickImeiUpdate.mutateAsync(imei);
-                  }}
-                  quickImeiPending={quickImeiUpdate.isPending}
-                  surface={surface}
-                  storeSettings={storeSettings}
-                  supplier={supplier}
-                  events={events}
-                  workflow={workflow}
-                  onShowRecords={() => setTab("records")}
-                  photoAttachments={photoAttachments}
-                  photoUploadPending={attachmentUpload.isPending}
-                  onPhotoCapture={() => setDesktopPhotoCaptureOpen(true)}
-                />
-              )}
-
-              {tab === "records" && (
-                <OrderRecordsWorkspace
-                  order={order}
-                  supplier={supplier}
-                  messages={messages}
-                  events={events}
-                  workflow={workflow}
-                  surface={surface}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            data-order-desktop-single-workspace="true"
+            variants={stagger(0.05)}
+            initial="hidden"
+            animate="show"
+            className={cn("min-w-0 space-y-2 sm:space-y-3", surface === "dialog" && "min-h-full")}
+          >
+            <OrderOverviewTab
+              order={order}
+              customer={customer}
+              deviceBrand={deviceBrand}
+              deviceModel={deviceModel}
+              deviceImei={deviceImei}
+              deviceNotes={deviceNotes}
+              accessoryNotes={accessoryNotes}
+              isEditing={isEditing}
+              editDraft={editDraft}
+              onEditDraftChange={(next) => setEditDraft(next)}
+              financeDraft={financeDraft}
+              financeError={editFinance?.error}
+              onFinanceDraftChange={setFinanceDraft}
+              defaultWarrantyMonths={defaultWarrantyMonths}
+              onQuickImeiSave={async (imei) => {
+                await quickImeiUpdate.mutateAsync(imei);
+              }}
+              quickImeiPending={quickImeiUpdate.isPending}
+              surface={surface}
+              storeSettings={storeSettings}
+              supplier={supplier}
+              events={events}
+              workflow={workflow}
+              onShowRecords={scrollToDesktopRecords}
+              photoAttachments={photoAttachments}
+              photoUploadPending={attachmentUpload.isPending}
+              onPhotoCapture={() => setDesktopPhotoCaptureOpen(true)}
+            />
+            <div ref={desktopRecordsRef} className="scroll-mt-24">
+              <OrderRecordsWorkspace
+                order={order}
+                supplier={supplier}
+                messages={messages}
+                events={events}
+                workflow={workflow}
+                surface={surface}
+              />
+            </div>
+          </motion.div>
         </div>
 
         <AnimatePresence initial={false}>
@@ -1168,6 +1183,8 @@ function MobileOrderDetailView({
   imeiPending,
   onFaultSave,
   faultPending,
+  onDeviceUnlockSave,
+  deviceUnlockPending,
   onAttachmentUpload,
   attachmentUploadPending,
   financeDraft,
@@ -1201,6 +1218,8 @@ function MobileOrderDetailView({
     changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result">,
   ) => Promise<void>;
   faultPending: boolean;
+  onDeviceUnlockSave: (input: DeviceUnlockInput) => Promise<void>;
+  deviceUnlockPending: boolean;
   onAttachmentUpload: (input: OrderAttachmentUploadInput) => Promise<void>;
   attachmentUploadPending: boolean;
   financeDraft: FinanceDraftState;
@@ -1238,6 +1257,7 @@ function MobileOrderDetailView({
   const [imeiEditing, setImeiEditing] = useState(false);
   const [imeiDraft, setImeiDraft] = useState(deviceImei);
   const [faultEditing, setFaultEditing] = useState(false);
+  const [deviceUnlockEditing, setDeviceUnlockEditing] = useState(false);
   const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
@@ -1398,19 +1418,30 @@ function MobileOrderDetailView({
             icon={Smartphone}
             title="设备信息"
             action={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-lg px-3 text-[11px]"
-                onClick={() => {
-                  setImeiDraft(deviceImei);
-                  setImeiEditing(true);
-                }}
-              >
-                <ScanLine className="mr-1 size-4" />
-                扫码
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg px-2 text-[11px]"
+                  onClick={() => setDeviceUnlockEditing(true)}
+                >
+                  密码
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg px-2 text-[11px]"
+                  onClick={() => {
+                    setImeiDraft(deviceImei);
+                    setImeiEditing(true);
+                  }}
+                >
+                  <ScanLine className="mr-1 size-4" />
+                  扫码
+                </Button>
+              </div>
             }
           />
           <div className="mt-1.5 min-w-0">
@@ -1422,6 +1453,7 @@ function MobileOrderDetailView({
                 ["留存", accessoryNotes || "-"],
               ]}
             />
+            <DeviceUnlockViewer order={order} compact className="mt-1.5" />
           </div>
         </section>
       </div>
@@ -1484,6 +1516,14 @@ function MobileOrderDetailView({
         pending={faultPending}
         onOpenChange={setFaultEditing}
         onSave={onFaultSave}
+      />
+
+      <DeviceUnlockEditSheet
+        open={deviceUnlockEditing}
+        order={order}
+        pending={deviceUnlockPending}
+        onOpenChange={setDeviceUnlockEditing}
+        onSave={onDeviceUnlockSave}
       />
 
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
@@ -1988,6 +2028,82 @@ function ImeiCaptureSheet({
               </Button>
             </SheetFooter>
           </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function DeviceUnlockEditSheet({
+  open,
+  order,
+  pending,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  order: OrderDetail["order"];
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (input: DeviceUnlockInput) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<DeviceUnlockInput>(() => deviceUnlockInputFromOrder(order));
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setDraft(deviceUnlockInputFromOrder(order));
+    setError("");
+  }, [open, order]);
+
+  const save = async () => {
+    setError("");
+    try {
+      await onSave(draft);
+      onOpenChange(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "手机密码保存失败";
+      setError(message);
+      toast.error(message);
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="mx-auto h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] rounded-t-xl p-0 md:h-auto md:max-h-[calc(100svh-64px)] md:w-[min(520px,calc(100vw-32px))] md:max-w-[calc(100vw-32px)] md:rounded-xl"
+      >
+        <div className="flex h-full min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="border-b border-[var(--border-panel)] px-3 py-2 pr-11 text-left">
+            <SheetTitle className="text-sm leading-5">编辑手机密码</SheetTitle>
+            <SheetDescription className="text-[10px] leading-3">
+              {order.public_no} · 默认只在详情里遮挡查看，不进入列表、打印或消息正文。
+            </SheetDescription>
+          </SheetHeader>
+          <div
+            className={cn(componentOverlay.body, "min-h-0 flex-1 space-y-2 overflow-y-auto p-3")}
+          >
+            <DeviceUnlockEditor value={draft} onChange={setDraft} />
+            {error ? (
+              <p className="rounded-lg bg-status-danger px-2 py-1.5 text-[10px] font-medium leading-3 text-status-danger-foreground">
+                {error}
+              </p>
+            ) : null}
+          </div>
+          <SheetFooter className="border-t border-[var(--border-panel)] p-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() => onOpenChange(false)}
+            >
+              取消
+            </Button>
+            <Button type="button" disabled={pending} onClick={() => void save()}>
+              {pending ? "保存中..." : "保存"}
+            </Button>
+          </SheetFooter>
         </div>
       </SheetContent>
     </Sheet>

@@ -309,6 +309,37 @@ export const faultPriceItemSchema = z.object({
   note: optionalText,
 });
 
+const deviceUnlockInputSchema = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("none") }).strict(),
+  z
+    .object({
+      method: z.literal("text"),
+      value: z.string().trim().min(1, "手机密码不能为空").max(80, "手机密码最多 80 个字符"),
+    })
+    .strict(),
+  z
+    .object({
+      method: z.literal("pin"),
+      value: z
+        .string()
+        .trim()
+        .regex(/^\d{1,16}$/, "数字 PIN 只能包含 1-16 位数字"),
+    })
+    .strict(),
+  z
+    .object({
+      method: z.literal("pattern"),
+      pattern: z
+        .array(z.coerce.number().int().min(1).max(9))
+        .min(4, "图案密码需要连接 4-9 个点")
+        .max(9, "图案密码需要连接 4-9 个点")
+        .refine((pattern) => new Set(pattern).size === pattern.length, {
+          message: "图案密码不能重复连接同一个点",
+        }),
+    })
+    .strict(),
+]);
+
 export const createOrderSchema = z
   .object({
     customer_id: optionalText,
@@ -324,6 +355,7 @@ export const createOrderSchema = z
     issue_description: z.string(),
     internal_tag: optionalText,
     accessory_notes: optionalText,
+    device_unlock: deviceUnlockInputSchema.optional(),
     warranty_text: optionalText,
     warranty_months: z.coerce.number().optional(),
     warranty_change_reason: optionalText,
@@ -345,6 +377,7 @@ export const updateOrderInputSchema = z
     diagnosis_result: optionalText,
     internal_tag: optionalText,
     accessory_notes: optionalText,
+    device_unlock: deviceUnlockInputSchema.optional(),
     warranty_text: optionalText,
     warranty_months: z.coerce.number().optional(),
     warranty_change_reason: optionalText,
@@ -369,6 +402,7 @@ export const patchOrderChangesSchema = z
     issue_description: optionalText,
     diagnosis_result: optionalText,
     accessory_notes: optionalText,
+    device_unlock: deviceUnlockInputSchema.optional(),
     warranty_text: optionalText,
   })
   .strict();

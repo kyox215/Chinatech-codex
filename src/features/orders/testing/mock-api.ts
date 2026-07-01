@@ -30,6 +30,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
+import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
   DEFAULT_ORDER_WORKFLOW_TRANSITIONS,
@@ -203,6 +204,13 @@ function filtersForWorkflowCounts(filters: OrderListFilters): OrderListFilters {
   return { ...filters, workflowStatuses: undefined };
 }
 
+function redactOrderListSecrets(order: OrderListItem): OrderListItem {
+  const safeOrder = { ...order };
+  delete safeOrder.device_unlock_value;
+  delete safeOrder.device_unlock_pattern;
+  return safeOrder;
+}
+
 export async function listOrders(
   filters: OrderListFilters = {},
   _actor?: AuditActor,
@@ -273,11 +281,13 @@ export async function listOrders(
     );
   }
   // Workflow-first sort, then updated_at desc.
-  return result.sort((a, b) => {
-    const d = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
-    if (d !== 0) return d;
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-  });
+  return result
+    .sort((a, b) => {
+      const d = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
+      if (d !== 0) return d;
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    })
+    .map(redactOrderListSecrets);
 }
 
 export async function listOrdersPage(
@@ -859,8 +869,16 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
   accessory_notes: "留存备注",
+  device_unlock: "手机密码",
   warranty_text: "质保",
 };
+
+function applyDeviceUnlock(order: RepairOrder, input: PatchOrderInput["changes"]["device_unlock"]) {
+  const unlock = normalizeDeviceUnlockInput(input);
+  order.device_unlock_method = unlock.method ?? undefined;
+  order.device_unlock_value = unlock.value ?? undefined;
+  order.device_unlock_pattern = unlock.pattern ?? undefined;
+}
 
 function normalizeFaultPriceInput(input: PatchOrderFinanceInput["fault_prices"]) {
   return input.map((item) => {
@@ -972,6 +990,9 @@ export async function updateOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
+  const deviceUnlock = input.device_unlock
+    ? normalizeDeviceUnlockInput(input.device_unlock)
+    : undefined;
   const now = new Date().toISOString();
   const warranty = normalizeWarrantyPayload({
     warranty_months: input.warranty_months,
@@ -1001,6 +1022,11 @@ export async function updateOrder(
   o.diagnosis_result = input.diagnosis_result?.trim() || undefined;
   o.internal_tag = tagInput.internalTag;
   o.accessory_notes = tagInput.accessoryNotes;
+  if (deviceUnlock) {
+    o.device_unlock_method = deviceUnlock.method ?? undefined;
+    o.device_unlock_value = deviceUnlock.value ?? undefined;
+    o.device_unlock_pattern = deviceUnlock.pattern ?? undefined;
+  }
   o.warranty_text = warranty.warranty_text;
   o.warranty_months = warranty.warranty_months;
   o.warranty_change_reason = warranty.warranty_change_reason;
@@ -1040,6 +1066,8 @@ export async function updateOrder(
       balance_amount: nextBalance,
       internal_tag: tagInput.internalTag,
       accessory_notes: tagInput.accessoryNotes,
+      device_unlock_changed: Boolean(deviceUnlock),
+      device_unlock_method: deviceUnlock?.method ?? null,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,
       approval_reset: approvalReset,
@@ -1084,7 +1112,10 @@ export async function patchOrder(
   const rawEntries = Object.entries(input.changes).filter(([, value]) => value !== undefined);
   const unsupportedField = rawEntries.find(([field]) => !(field in PATCH_FIELD_LABELS))?.[0];
   if (unsupportedField) throw new Error(`${unsupportedField} 不可通过快速编辑修改`);
-  const entries = rawEntries as [keyof PatchOrderInput["changes"], string][];
+  const entries = rawEntries as [
+    keyof PatchOrderInput["changes"],
+    PatchOrderInput["changes"][keyof PatchOrderInput["changes"]],
+  ][];
   if (entries.length === 0) throw new Error("没有可保存的字段");
 
   const customer = getCustomer(o.customer_id);
@@ -1100,8 +1131,13 @@ export async function patchOrder(
   const changedFields: string[] = [];
 
   for (const [field, rawValue] of entries) {
-    const value = rawValue.trim();
     changedFields.push(PATCH_FIELD_LABELS[field]);
+    if (field === "device_unlock") {
+      applyDeviceUnlock(o, rawValue as PatchOrderInput["changes"]["device_unlock"]);
+      continue;
+    }
+    if (typeof rawValue !== "string") throw new Error(`${PATCH_FIELD_LABELS[field]}格式不正确`);
+    const value = rawValue.trim();
     switch (field) {
       case "customer_name":
         if (!value) throw new Error("客户姓名不能为空");
@@ -1531,6 +1567,7 @@ export async function createOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
+  const deviceUnlock = normalizeDeviceUnlockInput(input.device_unlock);
   const warranty = normalizeWarrantyPayload({
     warranty_months: input.warranty_months,
     warranty_text: input.warranty_text,
@@ -1566,6 +1603,9 @@ export async function createOrder(
     technician_name: operatorName(operator),
     internal_tag: tagInput.internalTag,
     accessory_notes: tagInput.accessoryNotes,
+    device_unlock_method: deviceUnlock.method ?? undefined,
+    device_unlock_value: deviceUnlock.value ?? undefined,
+    device_unlock_pattern: deviceUnlock.pattern ?? undefined,
     warranty_text: warranty.warranty_text,
     warranty_months: warranty.warranty_months,
     warranty_change_reason: warranty.warranty_change_reason,
@@ -1590,6 +1630,7 @@ export async function createOrder(
     event_type: "created",
     payload: {
       type: input.order_type,
+      device_unlock_method: deviceUnlock.method,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,
       warranty_change_reason: warranty.warranty_change_reason ?? null,
