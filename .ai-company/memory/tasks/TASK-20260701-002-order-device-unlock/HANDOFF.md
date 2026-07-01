@@ -2,7 +2,7 @@
 
 ## Current State
 
-The order phone password / unlock method feature is implemented and validated locally. Production database migration is prepared but unapplied.
+The order phone password / unlock method feature is implemented, pushed, and the production Supabase migration has been applied to project `xluzcoduqsdvjoouqhkc`.
 
 ## Key Files
 
@@ -28,7 +28,14 @@ npm run build
 
 For UI, run with E2E mock auth enabled and verify `/orders`, `/orders/new`, desktop detail modal, and `/orders/ord_1` mobile detail.
 
+Production migration verification already completed:
+
+- Migration history: `20260701214123 order_device_unlock_credentials`
+- Columns: `device_unlock_method`, `device_unlock_value`, `device_unlock_pattern`
+- Constraints: `repair_orders_device_unlock_method_check`, `repair_orders_device_unlock_shape_check`
+- Function: `public.repairdesk_valid_unlock_pattern(integer[])`
+
 ## Risks
 
-- Existing production databases need the new migration before canonical columns can persist unlock data.
+- Other environments or branches still need the migration if they are not linked to production `xluzcoduqsdvjoouqhkc`.
 - The repository has many unrelated pre-existing modified/untracked files; stage only this task's files if committing.

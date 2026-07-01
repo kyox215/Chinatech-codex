@@ -13,3 +13,11 @@
 
 - Apply the Supabase migration only after Owner approval.
 - If the business later wants unlock secrets in print/export/messages, require a separate privacy approval design.
+
+## 2026-07-01T23:43:58+02:00 Production Migration Applied
+
+- Owner approved with "应用migration".
+- Applied `order_device_unlock_credentials` to Supabase project `xluzcoduqsdvjoouqhkc`.
+- Remote migration history now includes `20260701214123 order_device_unlock_credentials`.
+- Verified columns, constraints, immutable pattern validator function, valid PIN update rollback, invalid PIN rejection, and no residual unlock test data.
+- CLI advisors were unavailable because this local environment does not have `SUPABASE_ACCESS_TOKEN`; targeted MCP SQL validation completed.
