@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  DEVICE_UNLOCK_PATTERN_MAX_STEPS,
+  DEVICE_UNLOCK_PATTERN_MIN_STEPS,
+} from "@/features/orders/model/device-unlock";
 import type { ApprovalStatus, RepairOrderStatus, RepairOrderType } from "@/lib/mock/enums";
 import type {
   CreateOrderInput,
@@ -331,11 +335,14 @@ const deviceUnlockInputSchema = z.discriminatedUnion("method", [
       method: z.literal("pattern"),
       pattern: z
         .array(z.coerce.number().int().min(1).max(9))
-        .min(4, "图案密码需要连接 4-9 个点")
-        .max(9, "图案密码需要连接 4-9 个点")
-        .refine((pattern) => new Set(pattern).size === pattern.length, {
-          message: "图案密码不能重复连接同一个点",
-        }),
+        .min(
+          DEVICE_UNLOCK_PATTERN_MIN_STEPS,
+          `图案密码需要连接 ${DEVICE_UNLOCK_PATTERN_MIN_STEPS}-${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 个点`,
+        )
+        .max(
+          DEVICE_UNLOCK_PATTERN_MAX_STEPS,
+          `图案密码需要连接 ${DEVICE_UNLOCK_PATTERN_MIN_STEPS}-${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 个点`,
+        ),
     })
     .strict(),
 ]);

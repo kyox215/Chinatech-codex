@@ -645,7 +645,7 @@ describe("mock order inline editing workflow", () => {
       issue_description: created.order.issue_description,
       diagnosis_result: created.order.diagnosis_result,
       accessory_notes: created.order.accessory_notes,
-      device_unlock: { method: "pattern", pattern: [1, 2, 5, 8] },
+      device_unlock: { method: "pattern", pattern: [1, 2, 1, 5, 9, 5, 1, 4, 7, 4] },
       warranty_text: created.order.warranty_text,
       warranty_months: created.order.warranty_months,
       warranty_change_reason: created.order.warranty_change_reason,
@@ -655,10 +655,10 @@ describe("mock order inline editing workflow", () => {
 
     const updated = await getOrder(id);
     expect(updated.order.device_unlock_method).toBe("pattern");
-    expect(updated.order.device_unlock_pattern).toEqual([1, 2, 5, 8]);
+    expect(updated.order.device_unlock_pattern).toEqual([1, 2, 1, 5, 9, 5, 1, 4, 7, 4]);
     expect(
       JSON.stringify(updated.events.find((event) => event.payload.action === "order_updated")),
-    ).not.toContain("1,2,5,8");
+    ).not.toContain("1,2,1,5,9,5,1,4,7,4");
 
     await patchOrder(id, {
       expected_updated_at: updated.order.updated_at,

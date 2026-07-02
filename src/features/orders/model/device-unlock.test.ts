@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
+import {
+  DEVICE_UNLOCK_PATTERN_MAX_STEPS,
+  normalizeDeviceUnlockInput,
+} from "@/features/orders/model/device-unlock";
 
 describe("device unlock normalization", () => {
   it("keeps text passwords and trims whitespace", () => {
@@ -19,10 +22,22 @@ describe("device unlock normalization", () => {
     });
   });
 
-  it("rejects invalid PIN and repeated pattern points", () => {
+  it("rejects invalid PIN and invalid pattern shapes", () => {
     expect(() => normalizeDeviceUnlockInput({ method: "pin", value: "12a4" })).toThrow("数字 PIN");
-    expect(() => normalizeDeviceUnlockInput({ method: "pattern", pattern: [1, 2, 2, 5] })).toThrow(
-      "不能重复",
+    expect(() => normalizeDeviceUnlockInput({ method: "pattern", pattern: [1, 2, 3] })).toThrow(
+      "4-128",
+    );
+    expect(() =>
+      normalizeDeviceUnlockInput({
+        method: "pattern",
+        pattern: Array.from(
+          { length: DEVICE_UNLOCK_PATTERN_MAX_STEPS + 1 },
+          (_, index) => (index % 9) + 1,
+        ),
+      }),
+    ).toThrow("4-128");
+    expect(() => normalizeDeviceUnlockInput({ method: "pattern", pattern: [1, 2, 5, 10] })).toThrow(
+      "1-9",
     );
   });
 
@@ -36,6 +51,15 @@ describe("device unlock normalization", () => {
       method: "pattern",
       value: null,
       pattern: [1, 2, 5, 8],
+    });
+  });
+
+  it("keeps repeated and longer pattern trajectories", () => {
+    const pattern = [1, 2, 1, 5, 9, 5, 1, 4, 7, 4, 1, 2];
+    expect(normalizeDeviceUnlockInput({ method: "pattern", pattern })).toEqual({
+      method: "pattern",
+      value: null,
+      pattern,
     });
   });
 });

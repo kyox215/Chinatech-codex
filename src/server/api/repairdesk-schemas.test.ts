@@ -74,6 +74,19 @@ describe("repairdesk API schemas", () => {
       }).device_unlock,
     ).toEqual({ method: "pin", value: "001258" });
 
+    expect(
+      updateOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        customer_name: "Cliente",
+        customer_phone: "+39 333 000 0000",
+        device_brand: "Apple",
+        device_model: "iPhone",
+        issue_description: "屏幕",
+        fault_prices: [],
+        device_unlock: { method: "pattern", pattern: [1, 2, 1, 5, 9, 5, 1, 4, 7, 4] },
+      }).device_unlock,
+    ).toEqual({ method: "pattern", pattern: [1, 2, 1, 5, 9, 5, 1, 4, 7, 4] });
+
     expect(() =>
       updateOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
@@ -83,7 +96,7 @@ describe("repairdesk API schemas", () => {
         device_model: "iPhone",
         issue_description: "屏幕",
         fault_prices: [],
-        device_unlock: { method: "pattern", pattern: [1, 2, 2, 5] },
+        device_unlock: { method: "pattern", pattern: [1, 2, 3] },
       }),
     ).toThrow();
   });
@@ -101,9 +114,9 @@ describe("repairdesk API schemas", () => {
     expect(
       patchOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
-        changes: { device_unlock: { method: "pattern", pattern: [1, 2, 5, 8] } },
+        changes: { device_unlock: { method: "pattern", pattern: [1, 2, 1, 5, 9, 5] } },
       }).changes.device_unlock,
-    ).toEqual({ method: "pattern", pattern: [1, 2, 5, 8] });
+    ).toEqual({ method: "pattern", pattern: [1, 2, 1, 5, 9, 5] });
 
     expect(() =>
       patchOrderInputSchema.parse({

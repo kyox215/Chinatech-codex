@@ -6,6 +6,9 @@ export const DEVICE_UNLOCK_METHOD_LABELS: Record<DeviceUnlockMethod, string> = {
   pattern: "图案",
 };
 
+export const DEVICE_UNLOCK_PATTERN_MIN_STEPS = 4;
+export const DEVICE_UNLOCK_PATTERN_MAX_STEPS = 128;
+
 export type NormalizedDeviceUnlock = {
   method: DeviceUnlockMethod | null;
   value: string | null;
@@ -44,12 +47,13 @@ export function normalizeDeviceUnlockInput(
 
 export function normalizeUnlockPattern(pattern: readonly number[]) {
   const points = pattern.map((point) => Number(point));
-  const unique = new Set(points);
-  if (points.length < 4 || points.length > 9) {
-    throw new Error("图案密码需要连接 4-9 个点");
-  }
-  if (unique.size !== points.length) {
-    throw new Error("图案密码不能重复连接同一个点");
+  if (
+    points.length < DEVICE_UNLOCK_PATTERN_MIN_STEPS ||
+    points.length > DEVICE_UNLOCK_PATTERN_MAX_STEPS
+  ) {
+    throw new Error(
+      `图案密码需要连接 ${DEVICE_UNLOCK_PATTERN_MIN_STEPS}-${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 个点`,
+    );
   }
   if (points.some((point) => !Number.isInteger(point) || point < 1 || point > 9)) {
     throw new Error("图案密码点位必须在 1-9 之间");
