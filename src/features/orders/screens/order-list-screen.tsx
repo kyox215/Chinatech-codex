@@ -73,7 +73,6 @@ import {
   getRepairDeskOptions,
   listOrderWorkflow,
   listOrdersPage,
-  transitionOrder,
   type OrderListFilters,
   type OrderListItem,
 } from "@/lib/repairdesk/api";
@@ -328,15 +327,6 @@ export function OrderListScreen() {
     queryClient.invalidateQueries({ queryKey: ["orders"] });
     queryClient.invalidateQueries({ queryKey: ["order-stats"] });
   };
-
-  const transition = useMutation({
-    mutationFn: ({ id, to }: { id: string; to: RepairOrderStatus }) => transitionOrder(id, to),
-    onSuccess: (_r, vars) => {
-      toast.success(`已流转为「${getWorkflowStatusLabel(workflow, vars.to)}」`);
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const bulk = useMutation({
     mutationFn: ({ ids, to }: { ids: string[]; to: RepairOrderStatus }) => batchTransition(ids, to),
@@ -719,13 +709,11 @@ export function OrderListScreen() {
                       aria-label="选择当前页全部工单"
                     />
                   </label>
-                  <div className="min-w-0 px-2 py-1.5">工单</div>
-                  <div className="min-w-0 px-2 py-1.5">客户</div>
+                  <div className="min-w-0 px-2 py-1.5">阶段 / 下一步</div>
+                  <div className="min-w-0 px-2 py-1.5">工单 / 客户</div>
                   <div className="min-w-0 px-2 py-1.5">设备 / 故障</div>
-                  <div className="min-w-0 px-2 py-1.5">状态与下一步</div>
-                  <div className="px-2 py-1.5 text-right">金额</div>
-                  <div className="hidden px-2 py-1.5 xl:block">时间 / 技师</div>
-                  <div className="hidden px-2 py-1.5 xl:block">类型 / 项目</div>
+                  <div className="px-2 py-1.5 text-right">金额 / 风险</div>
+                  <div className="px-2 py-1.5">负责人 / 时间</div>
                   <div className="px-2 py-1.5 text-right">{data.length}</div>
                 </div>
                 <motion.div
@@ -749,7 +737,6 @@ export function OrderListScreen() {
                             value ? [...prev, o.id] : prev.filter((id) => id !== o.id),
                           )
                         }
-                        onTransition={(to) => transition.mutate({ id: o.id, to })}
                         onPrint={() => printRows([o])}
                         onStopInteraction={stopRowClick}
                       />
@@ -927,7 +914,7 @@ function DesktopQueueHealthStrip({
       tone: exceptionCount ? ("danger" as const) : ("warn" as const),
     },
     {
-      label: "可直接推进",
+      label: "可直接处理",
       value: `${quickActionCount} 条`,
       hint: "不需要补充原因的下一步",
       icon: CheckCircle2,

@@ -3,7 +3,7 @@
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowRight, Clock, MoreHorizontal, Printer } from "lucide-react";
+import { AlertTriangle, Clock, MoreHorizontal, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,7 +11,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -20,12 +19,7 @@ import { DeviceUnlockListBadge } from "@/features/orders/components/device-unloc
 import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
-import type { RepairOrderStatus } from "@/lib/mock/enums";
-import {
-  getWorkflowNextActions,
-  getWorkflowStatusLabel,
-} from "@/features/orders/model/order-workflow";
-import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
+import { getWorkflowNextActions } from "@/features/orders/model/order-workflow";
 import {
   orderExceptionMeta,
   orderWorkflowMeta,
@@ -34,7 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const orderQueueDesktopGrid =
-  "grid min-w-0 grid-cols-[32px_minmax(188px,1.22fr)_minmax(150px,0.92fr)_minmax(142px,0.9fr)_minmax(82px,0.48fr)_minmax(84px,0.48fr)_34px] items-center xl:grid-cols-[34px_minmax(220px,1.25fr)_minmax(180px,0.98fr)_minmax(168px,0.92fr)_minmax(96px,0.52fr)_minmax(108px,0.56fr)_34px]";
+  "grid min-w-0 grid-cols-[30px_minmax(126px,0.82fr)_minmax(164px,1.08fr)_minmax(158px,1.02fr)_minmax(88px,0.5fr)_minmax(90px,0.52fr)_32px] items-center xl:grid-cols-[32px_minmax(146px,0.82fr)_minmax(220px,1.12fr)_minmax(214px,1.08fr)_minmax(102px,0.5fr)_minmax(110px,0.54fr)_34px]";
 
 export function DesktopOrderQueueRow({
   order,
@@ -42,20 +36,16 @@ export function DesktopOrderQueueRow({
   checked,
   onOpen,
   onCheckedChange,
-  onTransition,
   onPrint,
   onStopInteraction,
-  transitionPending = false,
 }: {
   order: OrderListItem;
   workflow?: OrderWorkflow;
   checked: boolean;
   onOpen: () => void;
   onCheckedChange: (checked: boolean) => void;
-  onTransition: (to: RepairOrderStatus) => void;
   onPrint: () => void;
   onStopInteraction: (event: SyntheticEvent) => void;
-  transitionPending?: boolean;
 }) {
   const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
   const exceptionStatus = order.exception_status;
@@ -73,10 +63,8 @@ export function DesktopOrderQueueRow({
   const allNextActions = [next.primary, ...next.secondary].filter(
     (action): action is NonNullable<typeof next.primary> => Boolean(action),
   );
-  const quickActions = allNextActions.filter((action) => !orderTransitionRequiresReason(action.to));
-  const reasonRequiredCount = allNextActions.length - quickActions.length;
-  const nextLabel = allNextActions[0]?.label ?? "暂无推荐流转";
-  const primaryQuickAction = quickActions[0];
+  const nextLabel = allNextActions[0]?.label ?? "暂无下一步";
+  const nextText = allNextActions.length ? `下一步：${nextLabel}` : nextLabel;
 
   return (
     <motion.div
@@ -94,20 +82,20 @@ export function DesktopOrderQueueRow({
       }}
       className={cn(
         orderQueueDesktopGrid,
-        "group relative min-h-12 cursor-pointer overflow-hidden rounded-lg border border-border/55 bg-surface/80 text-xs shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent/25 hover:shadow-[var(--shadow-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        "group relative min-h-[58px] cursor-pointer overflow-hidden rounded-md border border-border/45 bg-card/80 text-xs shadow-[0_1px_1px_rgba(15,23,42,0.04)] transition-colors hover:border-primary/25 hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         checked && "border-primary/35 bg-primary/10",
       )}
     >
       <span
         aria-hidden
         className={cn(
-          "absolute inset-y-0 left-0 w-[3px] transition-opacity",
+          "absolute inset-y-1 left-0 w-[3px] rounded-r-full opacity-0 transition-opacity",
           checked && "opacity-100",
         )}
         style={brandGradientStyle}
       />
 
-      <div className="px-2 py-1.5 pl-3" onClick={onStopInteraction}>
+      <div className="px-1.5 py-1.5 pl-2.5" onClick={onStopInteraction}>
         <Checkbox
           checked={checked}
           onCheckedChange={(value) => onCheckedChange(Boolean(value))}
@@ -115,7 +103,7 @@ export function DesktopOrderQueueRow({
         />
       </div>
 
-      <div className="min-w-0 px-2 py-1.5">
+      <div className="min-w-0 px-1.5 py-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           <StatusBadge
             status={order.status}
@@ -138,52 +126,33 @@ export function DesktopOrderQueueRow({
             </span>
           ) : null}
         </div>
-        <div className="mt-1 flex min-w-0 items-center gap-1">
-          <span className="min-w-0 flex-1 truncate text-[11px] leading-4 text-muted-foreground">
-            {reasonRequiredCount ? `详情处理：${nextLabel}` : `下一步：${nextLabel}`}
-          </span>
-          {primaryQuickAction ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-6 shrink-0 gap-1 rounded-md bg-card px-1.5 text-[10px]"
-              disabled={transitionPending}
-              onClick={(event) => {
-                event.stopPropagation();
-                onTransition(primaryQuickAction.to);
-              }}
-              aria-label={`推进工单 ${order.public_no} 到 ${primaryQuickAction.label}`}
-            >
-              <ArrowRight className="size-3" />
-              推进
-            </Button>
-          ) : null}
-        </div>
+        <p className="mt-1 truncate text-[11px] leading-4 text-muted-foreground" title={nextText}>
+          {nextText}
+        </p>
       </div>
 
       <div className="min-w-0 px-2 py-1.5">
-        <span
-          className="block truncate font-mono text-[11px] font-semibold leading-4 text-primary"
-          title={order.public_no}
-        >
-          {order.public_no}
-        </span>
-        <div className="mt-0.5 truncate font-semibold leading-4" title={order.customer_name}>
-          {order.customer_name || "-"}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span
+            className="shrink-0 truncate font-mono text-[11px] font-semibold leading-4 text-primary"
+            title={order.public_no}
+          >
+            {order.public_no}
+          </span>
+          <span className="min-w-0 truncate font-semibold leading-4" title={order.customer_name}>
+            {order.customer_name || "-"}
+          </span>
         </div>
         <PhoneText value={order.customer_phone} className="block truncate text-[11px] leading-4" />
-        {order.accessory_notes ? (
-          <div
-            className="truncate text-[10px] leading-4 text-muted-foreground"
-            title={order.accessory_notes}
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+          <span
+            className="min-w-0 truncate text-[10px] leading-4 text-muted-foreground"
+            title={order.accessory_notes || "无留存备注"}
           >
-            留存：{order.accessory_notes}
-          </div>
-        ) : (
-          <div className="truncate text-[10px] leading-4 text-muted-foreground">无留存备注</div>
-        )}
-        <DeviceUnlockListBadge method={order.device_unlock_method} className="mt-0.5" />
+            {order.accessory_notes ? `留存：${order.accessory_notes}` : "无留存"}
+          </span>
+          <DeviceUnlockListBadge method={order.device_unlock_method} className="shrink-0" />
+        </div>
       </div>
 
       <div className="min-w-0 px-2 py-1.5">
@@ -196,11 +165,17 @@ export function DesktopOrderQueueRow({
         >
           {order.issue_description || "-"}
         </div>
-        <div className="mt-0.5 flex min-w-0 items-center gap-1">
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 truncate text-[10px] leading-3 text-muted-foreground">
             {primaryRepair?.name || "待报价"}
             {extraRepairCount ? ` +${extraRepairCount}` : ""}
           </span>
+          {primaryRepair ? (
+            <MoneyText
+              amount={primaryRepair.price}
+              className="shrink-0 text-[10px] font-semibold leading-3 text-foreground"
+            />
+          ) : null}
         </div>
         {order.device_imei ? (
           <div
@@ -217,7 +192,7 @@ export function DesktopOrderQueueRow({
           amount={order.quotation_amount}
           className="whitespace-nowrap text-sm font-semibold"
         />
-        <div className={cn("whitespace-nowrap text-[11px] leading-4", paymentClass)}>
+        <div className={cn("whitespace-nowrap text-[10px] leading-4", paymentClass)}>
           {paymentLabel}
         </div>
         <div
@@ -263,31 +238,6 @@ export function DesktopOrderQueueRow({
             <DropdownMenuItem asChild>
               <Link href={`/orders/${order.id}`}>在新页打开</Link>
             </DropdownMenuItem>
-            {quickActions.length ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  下一步
-                </DropdownMenuLabel>
-                {quickActions.map((action, index) => (
-                  <DropdownMenuItem
-                    key={action.to}
-                    disabled={transitionPending}
-                    onClick={() => onTransition(action.to)}
-                    className={cn(index === 0 && "font-medium text-primary")}
-                  >
-                    {index === 0 ? <ArrowRight className="mr-2 size-3.5" /> : null}
-                    {action.label}
-                  </DropdownMenuItem>
-                ))}
-              </>
-            ) : null}
-            {reasonRequiredCount ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled>需在详情记录原因</DropdownMenuItem>
-              </>
-            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onPrint}>
               <Printer className="mr-2 size-3.5" /> 打印
