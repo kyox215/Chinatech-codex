@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260703-007-order-queue-progress-parts-supplier"
-status: "active"
-phase: "implemented_verified"
+status: "blocked"
+phase: "pushed_apply_blocked"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-03T21:22:46Z"
+last_checkpoint_at: "2026-07-03T21:36:11Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,15 +19,15 @@ last_rehydrated_at: null
 
 ## Current state
 
-Implemented and locally verified: desktop order queue now has compact `N/5` current-progress rows and an inline parts-purchase supplier selector backed by a new nullable `parts_supplier_id` field. Supplier catalogue remains Settings-owned, and selection does not change workflow/parts status.
+Implemented, locally verified, committed, and pushed to `origin/main` at `ad32c53`. Desktop order queue now has compact `N/5` current-progress rows and an inline parts-purchase supplier selector backed by a new nullable `parts_supplier_id` field. Supplier catalogue remains Settings-owned, and selection does not change workflow/parts status.
 
 ## Blocking decisions
 
-- Production migration for `parts_supplier_id` has not been applied; owner approval is required before applying production schema changes.
+- Production migration for `parts_supplier_id` has not been applied. `supabase db push --linked --dry-run` stopped because remote migration history contains versions missing from local files, and `supabase migration list --linked` could not authenticate because `SUPABASE_DB_PASSWORD` is missing/invalid.
 
 ## Next action
 
-If owner asks to ship, stage only scoped files for `TASK-20260703-007-order-queue-progress-parts-supplier`, review staged diff, commit, push `main`, then handle production migration as a separate approved step.
+To apply the production migration, first restore a valid Supabase DB password/session, then resolve remote migration history mismatch before rerunning `supabase db push --linked --dry-run`.
 
 ## Resume protocol
 

@@ -1,6 +1,6 @@
 ---
 task_id: TASK-20260703-007-order-queue-progress-parts-supplier
-updated_at: "2026-07-03T23:22:46+02:00"
+updated_at: "2026-07-03T23:36:11+02:00"
 ---
 # Checkpoints
 
@@ -20,3 +20,10 @@ updated_at: "2026-07-03T23:22:46+02:00"
 - Browser evidence captured for `/orders` desktop queue and supplier menu using local mock/auth-bypass preview.
 - Migration review corrected the composite foreign key delete behavior to `on delete set null (parts_supplier_id)` so deleting a supplier clears only the marker and does not affect `store_id`.
 - Open risk: local migration is not applied to production; deployment requires normal migration review/apply step.
+
+## 2026-07-03T23:36:11+02:00 Push Complete, Apply Blocked
+
+- Scoped release commit `ad32c53` was pushed to `origin/main`.
+- Validation immediately before push: `npm run lint`, `npm run typecheck`, `npm run test`, and escalated `npm run build` passed.
+- Production migration apply did not run. Supabase dry-run blocked on remote migration history mismatch, and migration listing failed due missing/invalid `SUPABASE_DB_PASSWORD`.
+- Stop condition: do not run `supabase migration repair` or direct SQL apply until the missing remote migration versions are reconciled and database authentication is restored.

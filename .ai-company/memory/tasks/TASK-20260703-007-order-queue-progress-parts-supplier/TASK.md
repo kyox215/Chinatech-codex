@@ -1,7 +1,7 @@
 ---
 task_id: TASK-20260703-007-order-queue-progress-parts-supplier
-updated_at: "2026-07-03T23:22:46+02:00"
-status: implemented_verified
+updated_at: "2026-07-03T23:36:11+02:00"
+status: pushed_apply_blocked
 risk_level: R2
 autonomy_level: L2
 owner: CEO-Orchestrator
@@ -70,6 +70,11 @@ No real sub-agent spawned. Reason: current multi-agent tool policy says not to s
 - `npm run test` passed.
 - `npm run build` passed after rerunning outside the sandbox permission issue documented in evidence.
 - Browser preview verified `/orders` in mock/auth-bypass mode at desktop viewport with inline supplier selector and compact progress visible.
+
+## Release Result
+
+- Commit `ad32c53` (`Improve order queue supplier workflow`) was pushed to `origin/main`.
+- Production Supabase migration was not applied. Apply is blocked by remote migration history mismatch and missing/invalid `SUPABASE_DB_PASSWORD`.
 
 ## Rollback
 
