@@ -1607,8 +1607,6 @@ function MobileOrderDetailView({
             total={order.quotation_amount}
             deposit={order.deposit_amount}
             balance={order.balance_amount}
-            paid={paidAmount}
-            status={order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款"}
             className="mt-1.5"
           />
         </section>
@@ -3258,58 +3256,69 @@ function MobilePaymentSummary({
   total,
   deposit,
   balance,
-  paid,
-  status,
   className,
 }: {
   total: number;
   deposit: number;
   balance: number;
-  paid: number;
-  status: string;
   className?: string;
 }) {
   const hasBalance = balance > 0;
 
   return (
-    <div className={cn("min-w-0 space-y-1.5", className)} data-mobile-payment-summary="true">
-      <div className="flex min-w-0 items-end justify-between gap-2 border-b border-[var(--border-panel)] pb-1.5">
-        <div className="min-w-0">
-          <p className="text-[10px] font-medium leading-3 text-muted-foreground">待收尾款</p>
-          <p
-            className={cn(
-              "mt-0.5 inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-semibold leading-3",
-              hasBalance
-                ? "bg-status-warn text-status-warn-foreground"
-                : "bg-status-success text-status-success-foreground",
-            )}
-          >
-            {status}
-          </p>
-        </div>
-        <MoneyText
-          amount={balance}
-          className={cn(
-            "shrink-0 text-right text-base font-bold leading-5",
-            hasBalance ? "text-status-danger-foreground" : "text-status-success-foreground",
-          )}
-        />
-      </div>
-
-      <div className="space-y-1">
-        <MobilePaymentRow label="总金额" amount={total} />
-        <MobilePaymentRow label="定金" amount={deposit} />
-        <MobilePaymentRow label="已付金额" amount={paid} />
-      </div>
+    <div className={cn("min-w-0 space-y-1", className)} data-mobile-payment-summary="true">
+      <MobilePaymentRow label="总金额" amount={total} />
+      <MobilePaymentRow
+        label="已付押金"
+        amount={deposit}
+        valueClassName={deposit > 0 ? "text-status-success-foreground" : undefined}
+      />
+      <MobilePaymentRow
+        label="待收尾款"
+        amount={balance}
+        emphasis
+        valueClassName={
+          hasBalance ? "text-status-danger-foreground" : "text-status-success-foreground"
+        }
+      />
     </div>
   );
 }
 
-function MobilePaymentRow({ label, amount }: { label: string; amount: number }) {
+function MobilePaymentRow({
+  label,
+  amount,
+  emphasis = false,
+  valueClassName,
+}: {
+  label: string;
+  amount: number;
+  emphasis?: boolean;
+  valueClassName?: string;
+}) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <MoneyText amount={amount} className="min-w-0 text-right text-xs font-semibold" />
+    <div
+      className={cn(
+        "flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4",
+        emphasis && "border-t border-[var(--border-panel)] pt-1",
+      )}
+    >
+      <span
+        className={cn(
+          "shrink-0",
+          emphasis ? "font-semibold text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </span>
+      <MoneyText
+        amount={amount}
+        className={cn(
+          "min-w-0 text-right font-semibold",
+          emphasis ? "text-base leading-5" : "text-xs",
+          valueClassName,
+        )}
+      />
     </div>
   );
 }
