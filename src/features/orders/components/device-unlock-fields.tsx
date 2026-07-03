@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Eye, EyeOff, Grid3X3, LockKeyhole, X } from "lucide-react";
+import { Delete, Eye, EyeOff, Grid3X3, LockKeyhole, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import type { DeviceUnlockInput, DeviceUnlockMethod, RepairOrder } from "@/lib/r
 import { cn } from "@/lib/utils";
 
 const patternPoints = Array.from({ length: 9 }, (_, index) => index + 1);
+const pinKeypadDigits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"] as const;
 
 const patternGeometry = {
   input: { size: 132, pointSize: 36, gap: 12, hitRadius: 24, strokeWidth: 3 },
@@ -40,10 +41,18 @@ function patternPointCenter(point: number, variant: PatternGeometryVariant) {
 }
 
 function sanitizePatternDraft(pattern: readonly number[]) {
-  return pattern
-    .map((point) => Number(point))
-    .filter((point) => Number.isInteger(point) && point >= 1 && point <= 9)
-    .slice(0, DEVICE_UNLOCK_PATTERN_MAX_STEPS);
+  const seen = new Set<number>();
+  const points: number[] = [];
+
+  for (const rawPoint of pattern) {
+    const point = Number(rawPoint);
+    if (!Number.isInteger(point) || point < 1 || point > 9 || seen.has(point)) continue;
+    points.push(point);
+    seen.add(point);
+    if (points.length >= DEVICE_UNLOCK_PATTERN_MAX_STEPS) break;
+  }
+
+  return points;
 }
 
 export function DeviceUnlockEditor({
@@ -58,15 +67,6 @@ export function DeviceUnlockEditor({
   compact?: boolean;
 }) {
   const method = value?.method ?? "none";
-  const pinInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (method !== "pin") return;
-    const frame = window.requestAnimationFrame(() => {
-      pinInputRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [method]);
 
   const setMethod = (next: "none" | DeviceUnlockMethod) => {
     if (next === "none") {
@@ -120,35 +120,32 @@ export function DeviceUnlockEditor({
         ))}
       </div>
 
-      {method === "text" || method === "pin" ? (
+      {method === "text" ? (
         <div className="space-y-1">
           <Label className="text-[10px] font-semibold leading-3 text-muted-foreground">
-            {method === "pin" ? "数字 PIN" : "文字 / 字母密码"}
+            文字 / 字母密码
           </Label>
           <Input
-            ref={pinInputRef}
-            type={method === "pin" ? "tel" : "text"}
-            value={value?.method === method ? value.value : ""}
-            inputMode={method === "pin" ? "numeric" : "text"}
-            pattern={method === "pin" ? "[0-9]*" : undefined}
-            enterKeyHint={method === "pin" ? "done" : undefined}
-            maxLength={method === "pin" ? 16 : 80}
+            type="text"
+            value={value?.method === "text" ? value.value : ""}
+            inputMode="text"
+            maxLength={80}
             autoComplete="off"
-            autoFocus={method === "pin"}
             className="h-9 rounded-lg bg-card text-base md:text-sm"
-            placeholder={method === "pin" ? "例如 001258" : "例如 password / 客户提示"}
+            placeholder="例如 password / 客户提示"
             onChange={(event) => {
-              const nextValue =
-                method === "pin"
-                  ? event.target.value.replace(/\D/g, "").slice(0, 16)
-                  : event.target.value;
-              onChange({ method, value: nextValue });
+              onChange({ method: "text", value: event.target.value });
             }}
           />
-          <p className="text-[9px] leading-3 text-muted-foreground">
-            {method === "pin" ? "PIN 会按文本保存，保留前导 0。" : "最多 80 个字符。"}
-          </p>
+          <p className="text-[9px] leading-3 text-muted-foreground">最多 80 个字符。</p>
         </div>
+      ) : null}
+
+      {method === "pin" ? (
+        <PinKeypadInput
+          value={value?.method === "pin" ? value.value : ""}
+          onChange={(pin) => onChange({ method: "pin", value: pin })}
+        />
       ) : null}
 
       {method === "pattern" ? (
@@ -263,6 +260,133 @@ export function DeviceUnlockListBadge({
   );
 }
 
+function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const pin = value.replace(/\D/g, "").slice(0, 16);
+  const pinRef = useRef(pin);
+
+  useEffect(() => {
+    pinRef.current = pin;
+  }, [pin]);
+
+  useEffect(() => {
+    if (pin !== value) {
+      pinRef.current = pin;
+      onChange(pin);
+    }
+  }, [onChange, pin, value]);
+
+  const appendDigit = (digit: string) => {
+    const current = pinRef.current;
+    if (current.length >= 16) return;
+    const next = `${current}${digit}`;
+    pinRef.current = next;
+    onChange(next);
+  };
+
+  const removeLastDigit = () => {
+    const current = pinRef.current;
+    if (!current) return;
+    const next = current.slice(0, -1);
+    pinRef.current = next;
+    onChange(next);
+  };
+
+  const clearPin = () => {
+    if (!pinRef.current) return;
+    pinRef.current = "";
+    onChange("");
+  };
+
+  const handleDisplayKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      appendDigit(event.key);
+      return;
+    }
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      removeLastDigit();
+      return;
+    }
+    if (event.key === "Delete" || event.key === "Escape") {
+      event.preventDefault();
+      clearPin();
+    }
+  };
+
+  return (
+    <div className="space-y-1" data-device-unlock-pin-keypad="true">
+      <Label className="text-[10px] font-semibold leading-3 text-muted-foreground">数字 PIN</Label>
+      <div
+        role="textbox"
+        aria-label="数字 PIN"
+        aria-readonly="true"
+        tabIndex={0}
+        className="flex h-9 min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+        onKeyDown={handleDisplayKeyDown}
+      >
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate font-mono font-semibold tabular-nums tracking-wide",
+            pin ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {pin || "点下方数字输入"}
+        </span>
+        <span className="shrink-0 text-[10px] font-medium leading-3 text-muted-foreground">
+          {pin.length}/16
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1" aria-label="PIN 数字键盘">
+        {pinKeypadDigits.slice(0, 9).map((digit) => (
+          <button
+            key={digit}
+            type="button"
+            data-device-unlock-pin-digit={digit}
+            className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+            disabled={pin.length >= 16}
+            onClick={() => appendDigit(digit)}
+          >
+            {digit}
+          </button>
+        ))}
+        <button
+          type="button"
+          data-device-unlock-pin-clear="true"
+          className="h-10 rounded-lg border border-[var(--border-panel)] bg-card text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+          disabled={!pin}
+          onClick={clearPin}
+        >
+          清空
+        </button>
+        <button
+          type="button"
+          data-device-unlock-pin-digit="0"
+          className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+          disabled={pin.length >= 16}
+          onClick={() => appendDigit("0")}
+        >
+          0
+        </button>
+        <button
+          type="button"
+          data-device-unlock-pin-backspace="true"
+          aria-label="退格"
+          className="grid h-10 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+          disabled={!pin}
+          onClick={removeLastDigit}
+        >
+          <Delete className="size-4" />
+        </button>
+      </div>
+      <p className="text-[9px] leading-3 text-muted-foreground">
+        直接点数字输入，不弹出键盘；PIN 会按文本保存，保留前导 0。
+      </p>
+    </div>
+  );
+}
+
 function PatternLockInput({
   value,
   onChange,
@@ -271,19 +395,37 @@ function PatternLockInput({
   onChange: (pattern: number[]) => void;
 }) {
   const drawingRef = useRef(false);
+  const [ignoredPoint, setIgnoredPoint] = useState<number | null>(null);
   const draftPattern = useMemo(() => sanitizePatternDraft(value), [value]);
   const draftPatternRef = useRef<number[]>(draftPattern);
+  const startPoint = draftPattern[0] ?? null;
+  const endPoint = draftPattern.at(-1) ?? null;
 
   useEffect(() => {
     draftPatternRef.current = draftPattern;
   }, [draftPattern]);
 
+  useEffect(() => {
+    if (!ignoredPoint) return;
+    const timeout = window.setTimeout(() => setIgnoredPoint(null), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [ignoredPoint]);
+
+  useEffect(() => {
+    if (draftPattern.length === value.length) return;
+    onChange(draftPattern);
+  }, [draftPattern, onChange, value.length]);
+
   const appendPoint = (point: number) => {
     const current = draftPatternRef.current;
+    if (current.includes(point)) {
+      setIgnoredPoint(point);
+      return;
+    }
     if (current.length >= DEVICE_UNLOCK_PATTERN_MAX_STEPS) return;
-    if (current.at(-1) === point) return;
     const next = [...current, point];
     draftPatternRef.current = next;
+    setIgnoredPoint(null);
     onChange(next);
   };
 
@@ -374,9 +516,11 @@ function PatternLockInput({
       >
         <PatternLines pattern={draftPattern} variant="input" />
         {patternPoints.map((point) => {
-          const index = draftPattern.lastIndexOf(point);
+          const index = draftPattern.indexOf(point);
           const selected = index >= 0;
           const stepNumber = index + 1;
+          const isStart = selected && stepNumber === 1;
+          const isEnd = selected && stepNumber === draftPattern.length;
           return (
             <button
               key={point}
@@ -388,9 +532,12 @@ function PatternLockInput({
                 selected
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-muted-foreground hover:bg-accent",
+                isStart && "ring-2 ring-primary/30 ring-offset-2 ring-offset-card",
               )}
               aria-label={
-                selected ? `图案点 ${point}，最后为第 ${stepNumber} 步` : `图案点 ${point}`
+                selected
+                  ? `图案点 ${point}，第 ${stepNumber} 步${isStart ? "，起点" : ""}${isEnd ? "，终点" : ""}`
+                  : `图案点 ${point}`
               }
               onKeyDown={(event) => addPointWithKeyboard(event, point)}
             >
@@ -400,10 +547,23 @@ function PatternLockInput({
         })}
       </div>
       <p className="mt-2 text-center text-[9px] leading-3 text-muted-foreground">
-        已连接 {draftPattern.length} 个点，保存时需要至少 {DEVICE_UNLOCK_PATTERN_MIN_STEPS} 个点。
+        {draftPattern.length > 0
+          ? `起点 ${startPoint} · 终点 ${endPoint} · 已连接 ${draftPattern.length} / ${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 点。`
+          : `已连接 0 个点，保存时需要至少 ${DEVICE_UNLOCK_PATTERN_MIN_STEPS} 个点。`}
         {draftPattern.length >= DEVICE_UNLOCK_PATTERN_MAX_STEPS
           ? ` 已到 ${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 步上限。`
           : null}
+      </p>
+      <p
+        className={cn(
+          "mt-1 min-h-3 text-center text-[9px] leading-3",
+          ignoredPoint ? "text-primary" : "text-muted-foreground",
+        )}
+        aria-live="polite"
+      >
+        {ignoredPoint
+          ? `点 ${ignoredPoint} 已在第 ${draftPattern.indexOf(ignoredPoint) + 1} 步，不会重复添加；要改顺序请点清除后重画。`
+          : "每个点只能连接一次，数字 1 是起点，最后一个数字是终点。"}
       </p>
     </div>
   );
@@ -428,7 +588,7 @@ function PatternPreview({ pattern, compact = false }: { pattern: number[]; compa
     >
       <PatternLines pattern={normalized} variant={compact ? "compact" : "preview"} />
       {patternPoints.map((point) => {
-        const index = normalized.lastIndexOf(point);
+        const index = normalized.indexOf(point);
         const selected = index >= 0;
         const stepNumber = index + 1;
         return (

@@ -645,7 +645,7 @@ describe("mock order inline editing workflow", () => {
       issue_description: created.order.issue_description,
       diagnosis_result: created.order.diagnosis_result,
       accessory_notes: created.order.accessory_notes,
-      device_unlock: { method: "pattern", pattern: [1, 2, 1, 5, 9, 5, 1, 4, 7, 4] },
+      device_unlock: { method: "pattern", pattern: [1, 2, 5, 9, 8, 7, 4, 6, 3] },
       warranty_text: created.order.warranty_text,
       warranty_months: created.order.warranty_months,
       warranty_change_reason: created.order.warranty_change_reason,
@@ -655,10 +655,30 @@ describe("mock order inline editing workflow", () => {
 
     const updated = await getOrder(id);
     expect(updated.order.device_unlock_method).toBe("pattern");
-    expect(updated.order.device_unlock_pattern).toEqual([1, 2, 1, 5, 9, 5, 1, 4, 7, 4]);
+    expect(updated.order.device_unlock_pattern).toEqual([1, 2, 5, 9, 8, 7, 4, 6, 3]);
     expect(
       JSON.stringify(updated.events.find((event) => event.payload.action === "order_updated")),
-    ).not.toContain("1,2,1,5,9,5,1,4,7,4");
+    ).not.toContain("1,2,5,9,8,7,4,6,3");
+
+    await expect(
+      updateOrder(id, {
+        expected_updated_at: updated.order.updated_at,
+        customer_name: updated.order.customer_name,
+        customer_phone: updated.order.customer_phone,
+        device_brand: updated.order.device_snapshot?.brand ?? "Apple",
+        device_model: updated.order.device_snapshot?.model ?? "iPhone",
+        device_imei: updated.order.device_imei,
+        issue_description: updated.order.issue_description,
+        diagnosis_result: updated.order.diagnosis_result,
+        accessory_notes: updated.order.accessory_notes,
+        device_unlock: { method: "pattern", pattern: [1, 2, 1, 5] },
+        warranty_text: updated.order.warranty_text,
+        warranty_months: updated.order.warranty_months,
+        warranty_change_reason: updated.order.warranty_change_reason,
+        fault_prices: updated.order.fault_prices,
+        deposit_amount: updated.order.deposit_amount,
+      }),
+    ).rejects.toThrow("不能重复");
 
     await patchOrder(id, {
       expected_updated_at: updated.order.updated_at,

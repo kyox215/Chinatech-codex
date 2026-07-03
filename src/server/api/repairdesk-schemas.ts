@@ -342,7 +342,10 @@ const deviceUnlockInputSchema = z.discriminatedUnion("method", [
         .max(
           DEVICE_UNLOCK_PATTERN_MAX_STEPS,
           `图案密码需要连接 ${DEVICE_UNLOCK_PATTERN_MIN_STEPS}-${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 个点`,
-        ),
+        )
+        .refine((pattern) => new Set(pattern).size === pattern.length, {
+          message: "图案密码不能重复连接同一个点",
+        }),
     })
     .strict(),
 ]);

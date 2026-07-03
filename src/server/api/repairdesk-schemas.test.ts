@@ -83,9 +83,9 @@ describe("repairdesk API schemas", () => {
         device_model: "iPhone",
         issue_description: "屏幕",
         fault_prices: [],
-        device_unlock: { method: "pattern", pattern: [1, 2, 1, 5, 9, 5, 1, 4, 7, 4] },
+        device_unlock: { method: "pattern", pattern: [1, 2, 5, 9, 8, 7, 4, 6, 3] },
       }).device_unlock,
-    ).toEqual({ method: "pattern", pattern: [1, 2, 1, 5, 9, 5, 1, 4, 7, 4] });
+    ).toEqual({ method: "pattern", pattern: [1, 2, 5, 9, 8, 7, 4, 6, 3] });
 
     expect(() =>
       updateOrderInputSchema.parse({
@@ -99,6 +99,18 @@ describe("repairdesk API schemas", () => {
         device_unlock: { method: "pattern", pattern: [1, 2, 3] },
       }),
     ).toThrow();
+    expect(() =>
+      updateOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        customer_name: "Cliente",
+        customer_phone: "+39 333 000 0000",
+        device_brand: "Apple",
+        device_model: "iPhone",
+        issue_description: "屏幕",
+        fault_prices: [],
+        device_unlock: { method: "pattern", pattern: [1, 2, 1, 5] },
+      }),
+    ).toThrow("不能重复");
   });
 
   it("rejects technician changes in inline order patches", () => {
@@ -114,9 +126,9 @@ describe("repairdesk API schemas", () => {
     expect(
       patchOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
-        changes: { device_unlock: { method: "pattern", pattern: [1, 2, 1, 5, 9, 5] } },
+        changes: { device_unlock: { method: "pattern", pattern: [1, 2, 5, 9, 8, 7] } },
       }).changes.device_unlock,
-    ).toEqual({ method: "pattern", pattern: [1, 2, 1, 5, 9, 5] });
+    ).toEqual({ method: "pattern", pattern: [1, 2, 5, 9, 8, 7] });
 
     expect(() =>
       patchOrderInputSchema.parse({
@@ -124,6 +136,12 @@ describe("repairdesk API schemas", () => {
         changes: { device_unlock: { method: "pin", value: "12a4" } },
       }),
     ).toThrow();
+    expect(() =>
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { device_unlock: { method: "pattern", pattern: [1, 2, 1, 5] } },
+      }),
+    ).toThrow("不能重复");
   });
 
   it("validates onboarding request mode-specific fields", () => {

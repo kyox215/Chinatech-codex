@@ -35,6 +35,7 @@ import {
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteDisplayRow,
 } from "@/features/orders/components/order-workspace-primitives";
+import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
@@ -570,8 +571,16 @@ function DesktopOrderPhotosPanel({
   onCapture?: () => void;
   surface: DetailSurface;
 }) {
+  const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
   const previews = attachments.slice(0, 3);
   const hiddenCount = Math.max(0, attachments.length - previews.length);
+
+  useEffect(() => {
+    if (!photoPreviewId) return;
+    if (!attachments.some((attachment) => attachment.id === photoPreviewId)) {
+      setPhotoPreviewId(null);
+    }
+  }, [attachments, photoPreviewId]);
 
   return (
     <DetailPanel surface={surface} dataPanel="photos">
@@ -598,7 +607,11 @@ function DesktopOrderPhotosPanel({
         )}
       >
         {previews.map((attachment) => (
-          <DesktopPhotoPreview key={attachment.id} attachment={attachment} />
+          <DesktopPhotoPreview
+            key={attachment.id}
+            attachment={attachment}
+            onOpen={() => setPhotoPreviewId(attachment.id)}
+          />
         ))}
         {attachments.length === 0 ? (
           <>
@@ -631,28 +644,60 @@ function DesktopOrderPhotosPanel({
           {hiddenCount ? ` +${hiddenCount}` : ""}
         </span>
       </div>
+      <OrderPhotoPreviewDialog
+        attachments={attachments}
+        activeId={photoPreviewId}
+        onActiveIdChange={setPhotoPreviewId}
+      />
     </DetailPanel>
   );
 }
 
-function DesktopPhotoPreview({ attachment }: { attachment: OrderAttachment }) {
+function DesktopPhotoPreview({
+  attachment,
+  onOpen,
+}: {
+  attachment: OrderAttachment;
+  onOpen?: () => void;
+}) {
   const source = attachment.signed_url || attachment.public_url;
-  return (
-    <div
-      data-order-photo-preview="true"
-      className="relative h-12 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]"
-    >
-      {source ? (
-        <img src={source} alt={attachment.file_name} className="size-full object-cover" />
-      ) : (
+
+  if (!source) {
+    return (
+      <div
+        data-order-photo-preview="true"
+        className="relative h-12 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]"
+      >
         <div className="grid size-full place-items-center text-primary">
           <ImageIcon className="size-4" />
         </div>
-      )}
+        <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+          {attachment.file_name || "设备照片"}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-order-photo-preview="true"
+      className="group relative h-12 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={onOpen}
+      aria-label={`查看照片 ${attachment.file_name || "设备照片"}`}
+    >
+      <img
+        src={source}
+        alt={attachment.file_name || "设备照片"}
+        className="size-full object-cover"
+      />
+      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid">
+        查看
+      </span>
       <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
         {attachment.file_name || "设备照片"}
       </span>
-    </div>
+    </button>
   );
 }
 

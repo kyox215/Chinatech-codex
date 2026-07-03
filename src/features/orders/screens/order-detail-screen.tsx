@@ -106,8 +106,8 @@ import {
   DeviceUnlockEditor,
   DeviceUnlockViewer,
 } from "@/features/orders/components/device-unlock-fields";
-import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import { OrderHero } from "@/features/orders/components/order-hero";
+import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
   OrderDetailActionDock,
@@ -118,7 +118,10 @@ import { CancelDialog } from "@/features/orders/forms/cancel-dialog";
 import { NotifyDialog } from "@/features/orders/forms/notify-dialog";
 import { PaymentDialog } from "@/features/orders/forms/payment-dialog";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
-import { deviceUnlockInputFromOrder } from "@/features/orders/model/device-unlock";
+import {
+  deviceUnlockInputFromOrder,
+  normalizeDeviceUnlockInput,
+} from "@/features/orders/model/device-unlock";
 import {
   createFinanceDraftState,
   emptyFinanceFaultDraft,
@@ -1259,6 +1262,7 @@ function MobileOrderDetailView({
   const [faultEditing, setFaultEditing] = useState(false);
   const [deviceUnlockEditing, setDeviceUnlockEditing] = useState(false);
   const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
+  const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
@@ -1275,6 +1279,13 @@ function MobileOrderDetailView({
     [financeDraft, paidAmount],
   );
   const statusActions = getWorkflowTransitionActions(workflow, order.status);
+
+  useEffect(() => {
+    if (!photoPreviewId) return;
+    if (!photoAttachments.some((attachment) => attachment.id === photoPreviewId)) {
+      setPhotoPreviewId(null);
+    }
+  }, [photoAttachments, photoPreviewId]);
 
   useEffect(() => {
     if (!imeiEditing) setImeiDraft(deviceImei);
@@ -1592,20 +1603,14 @@ function MobileOrderDetailView({
 
         <section className={mobileDetailCardClass}>
           <MobileSectionTitle icon={WalletCards} title="支付信息" />
-          <OrderWorkspaceMoneyStrip
+          <MobilePaymentSummary
             total={order.quotation_amount}
             deposit={order.deposit_amount}
             balance={order.balance_amount}
-            compact
+            paid={paidAmount}
+            status={order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款"}
             className="mt-1.5"
           />
-          <div className="mt-1.5 space-y-1">
-            <PaymentLine label="已付金额" value={formatMoney(paidAmount)} />
-            <PaymentLine
-              label="付款状态"
-              value={order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款"}
-            />
-          </div>
         </section>
       </div>
 
@@ -1613,7 +1618,11 @@ function MobileOrderDetailView({
         <MobileSectionTitle icon={ImageIcon} title="设备照片" />
         <div className="mt-1.5 grid grid-cols-3 gap-1.5">
           {photoAttachments.slice(0, 2).map((attachment) => (
-            <PhotoPreview key={attachment.id} attachment={attachment} />
+            <PhotoPreview
+              key={attachment.id}
+              attachment={attachment}
+              onOpen={() => setPhotoPreviewId(attachment.id)}
+            />
           ))}
           {photoAttachments.length === 0 ? (
             <>
@@ -1651,6 +1660,12 @@ function MobileOrderDetailView({
         onCapture={(draft) => {
           void uploadAttachmentDraft(draft, onAttachmentUpload);
         }}
+      />
+
+      <OrderPhotoPreviewDialog
+        attachments={photoAttachments}
+        activeId={photoPreviewId}
+        onActiveIdChange={setPhotoPreviewId}
       />
 
       <MobileTimelineSheet
@@ -2049,6 +2064,15 @@ function DeviceUnlockEditSheet({
 }) {
   const [draft, setDraft] = useState<DeviceUnlockInput>(() => deviceUnlockInputFromOrder(order));
   const [error, setError] = useState("");
+  const validationError = useMemo(() => {
+    try {
+      normalizeDeviceUnlockInput(draft);
+      return "";
+    } catch (error) {
+      return error instanceof Error ? error.message : "手机密码格式不正确";
+    }
+  }, [draft]);
+  const helperError = error || validationError;
 
   useEffect(() => {
     if (!open) return;
@@ -2058,6 +2082,10 @@ function DeviceUnlockEditSheet({
 
   const save = async () => {
     setError("");
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     try {
       await onSave(draft);
       onOpenChange(false);
@@ -2085,9 +2113,9 @@ function DeviceUnlockEditSheet({
             className={cn(componentOverlay.body, "min-h-0 flex-1 space-y-2 overflow-y-auto p-3")}
           >
             <DeviceUnlockEditor value={draft} onChange={setDraft} />
-            {error ? (
+            {helperError ? (
               <p className="rounded-lg bg-status-danger px-2 py-1.5 text-[10px] font-medium leading-3 text-status-danger-foreground">
-                {error}
+                {helperError}
               </p>
             ) : null}
           </div>
@@ -2100,7 +2128,11 @@ function DeviceUnlockEditSheet({
             >
               取消
             </Button>
-            <Button type="button" disabled={pending} onClick={() => void save()}>
+            <Button
+              type="button"
+              disabled={pending || Boolean(validationError)}
+              onClick={() => void save()}
+            >
               {pending ? "保存中..." : "保存"}
             </Button>
           </SheetFooter>
@@ -2357,22 +2389,44 @@ function FaultDescriptionEditSheet({
   );
 }
 
-function PhotoPreview({ attachment }: { attachment: OrderAttachment }) {
+function PhotoPreview({
+  attachment,
+  onOpen,
+}: {
+  attachment: OrderAttachment;
+  onOpen?: () => void;
+}) {
   const source = attachment.signed_url || attachment.public_url;
-  return (
-    <div className="relative h-14 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]">
-      {source ? (
-        <img src={source} alt={attachment.file_name} className="size-full object-cover" />
-      ) : (
+  const label = attachmentKindLabels[attachment.kind] || "照片";
+
+  if (!source) {
+    return (
+      <div className="relative h-14 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]">
         <div className="grid size-full place-items-center text-primary">
           <ImageIcon className="size-4" />
         </div>
-      )}
-      <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
-        {attachmentKindLabels[attachment.kind] || "照片"} ·{" "}
-        {formatAttachmentSize(attachment.file_size)}
+        <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+          {label} · {formatAttachmentSize(attachment.file_size)}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="group relative h-14 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={onOpen}
+      aria-label={`查看照片 ${attachment.file_name || label}`}
+    >
+      <img src={source} alt={attachment.file_name || label} className="size-full object-cover" />
+      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid">
+        查看
       </span>
-    </div>
+      <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+        {label} · {formatAttachmentSize(attachment.file_size)}
+      </span>
+    </button>
   );
 }
 
@@ -3200,30 +3254,62 @@ function mergeSelectedFaultsIntoFinanceDraft(
   };
 }
 
-function PaymentLine({
-  label,
-  value,
-  strong = false,
-  danger = false,
+function MobilePaymentSummary({
+  total,
+  deposit,
+  balance,
+  paid,
+  status,
+  className,
 }: {
-  label: string;
-  value: string;
-  strong?: boolean;
-  danger?: boolean;
+  total: number;
+  deposit: number;
+  balance: number;
+  paid: number;
+  status: string;
+  className?: string;
 }) {
+  const hasBalance = balance > 0;
+
   return (
-    <div className="flex min-w-0 items-center justify-between gap-1 text-[11px] leading-4">
-      <span className="truncate text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "shrink-0 font-mono tabular-nums",
-          strong &&
-            "rounded bg-status-warn px-1 py-0.5 text-[10px] font-semibold leading-3 text-status-warn-foreground",
-          danger && "font-semibold text-status-danger-foreground",
-        )}
-      >
-        {value}
-      </span>
+    <div className={cn("min-w-0 space-y-1.5", className)} data-mobile-payment-summary="true">
+      <div className="flex min-w-0 items-end justify-between gap-2 border-b border-[var(--border-panel)] pb-1.5">
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium leading-3 text-muted-foreground">待收尾款</p>
+          <p
+            className={cn(
+              "mt-0.5 inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-semibold leading-3",
+              hasBalance
+                ? "bg-status-warn text-status-warn-foreground"
+                : "bg-status-success text-status-success-foreground",
+            )}
+          >
+            {status}
+          </p>
+        </div>
+        <MoneyText
+          amount={balance}
+          className={cn(
+            "shrink-0 text-right text-base font-bold leading-5",
+            hasBalance ? "text-status-danger-foreground" : "text-status-success-foreground",
+          )}
+        />
+      </div>
+
+      <div className="space-y-1">
+        <MobilePaymentRow label="总金额" amount={total} />
+        <MobilePaymentRow label="定金" amount={deposit} />
+        <MobilePaymentRow label="已付金额" amount={paid} />
+      </div>
+    </div>
+  );
+}
+
+function MobilePaymentRow({ label, amount }: { label: string; amount: number }) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <MoneyText amount={amount} className="min-w-0 text-right text-xs font-semibold" />
     </div>
   );
 }

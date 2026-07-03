@@ -25,7 +25,7 @@ describe("device unlock normalization", () => {
   it("rejects invalid PIN and invalid pattern shapes", () => {
     expect(() => normalizeDeviceUnlockInput({ method: "pin", value: "12a4" })).toThrow("数字 PIN");
     expect(() => normalizeDeviceUnlockInput({ method: "pattern", pattern: [1, 2, 3] })).toThrow(
-      "4-128",
+      "4-9",
     );
     expect(() =>
       normalizeDeviceUnlockInput({
@@ -35,9 +35,12 @@ describe("device unlock normalization", () => {
           (_, index) => (index % 9) + 1,
         ),
       }),
-    ).toThrow("4-128");
+    ).toThrow("4-9");
     expect(() => normalizeDeviceUnlockInput({ method: "pattern", pattern: [1, 2, 5, 10] })).toThrow(
       "1-9",
+    );
+    expect(() => normalizeDeviceUnlockInput({ method: "pattern", pattern: [1, 2, 1, 5] })).toThrow(
+      "不能重复",
     );
   });
 
@@ -54,8 +57,8 @@ describe("device unlock normalization", () => {
     });
   });
 
-  it("keeps repeated and longer pattern trajectories", () => {
-    const pattern = [1, 2, 1, 5, 9, 5, 1, 4, 7, 4, 1, 2];
+  it("keeps unique Android-style pattern trajectories", () => {
+    const pattern = [1, 2, 5, 9, 8, 7, 4, 6, 3];
     expect(normalizeDeviceUnlockInput({ method: "pattern", pattern })).toEqual({
       method: "pattern",
       value: null,
