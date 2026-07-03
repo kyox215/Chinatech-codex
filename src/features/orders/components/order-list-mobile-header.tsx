@@ -10,8 +10,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { OrderListFilters, RepairDeskOptions } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
-import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
-import { orderWorkflowMeta } from "@/features/orders/model/canonical-order-status";
 import { FiltersPanel } from "@/features/orders/components/order-list-filters";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +38,7 @@ export function MobileOrdersFloatingHeader({
   onCreateOrder,
   headerRef,
 }: {
-  groups: { key: string; label: string; count: number; hint?: string }[];
+  groups: { key: string; label: string; shortLabel?: string; count: number; hint?: string }[];
   groupValue: string;
   filters: OrderListFilters;
   setFilters: Dispatch<SetStateAction<OrderListFilters>>;
@@ -61,6 +59,8 @@ export function MobileOrdersFloatingHeader({
 }) {
   const activeGroup = groups.find((group) => group.key === groupValue);
   const activeFilterCount = activeFilterChips.length;
+  const groupCount = Math.max(1, groups.length);
+  const railOffset = `${100 / (groupCount * 2)}%`;
 
   return (
     <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
@@ -139,18 +139,18 @@ export function MobileOrdersFloatingHeader({
             className="min-w-0 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             aria-label="流程分组"
           >
-            <div className="relative grid min-w-[430px] grid-cols-8">
+            <div
+              className="relative grid min-w-[360px]"
+              style={{ gridTemplateColumns: `repeat(${groupCount}, minmax(0, 1fr))` }}
+            >
               <span
                 aria-hidden
-                className="absolute left-[calc(100%/16)] right-[calc(100%/16)] top-3 h-px bg-border"
+                className="absolute top-3 h-px bg-border"
+                style={{ left: railOffset, right: railOffset }}
               />
               {groups.map((group) => {
                 const active = groupValue === group.key;
-                const isAll = group.key === "all";
-                const workflowKey = group.key as OrderWorkflowStatusCode;
-                const shortLabel =
-                  (isAll ? "全" : orderWorkflowMeta[workflowKey]?.shortLabel) ??
-                  group.label.slice(0, 1);
+                const shortLabel = group.shortLabel ?? group.label.slice(0, 1);
 
                 return (
                   <button

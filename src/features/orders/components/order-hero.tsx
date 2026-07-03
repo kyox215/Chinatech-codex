@@ -29,10 +29,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { OrderDetail } from "@/lib/repairdesk/api";
 import {
-  orderWorkflowMeta,
-  workflowStatusFromLegacyStatus,
-} from "@/features/orders/model/canonical-order-status";
-import {
   getOrderTaskGuidance,
   orderTaskStages,
   type OrderTaskStage,
@@ -80,7 +76,6 @@ export function OrderHero({
   taskHint?: string;
   approvalDecisionAvailable?: boolean;
 }) {
-  const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
   const sideBadges = getOrderSideStatusBadges(order);
   const guidance = getOrderTaskGuidance(order);
   const activeStage = currentStage ?? guidance.stage;
@@ -94,6 +89,9 @@ export function OrderHero({
     0,
     Math.min(100, (safeCurrentStageIndex / Math.max(1, orderTaskStages.length - 1)) * 100),
   );
+  const stageGridStyle = {
+    gridTemplateColumns: `repeat(${orderTaskStages.length}, minmax(0, 1fr))`,
+  };
   const readiness = [
     { label: "客户电话", done: Boolean(order.customer_phone?.trim()) },
     { label: "设备型号", done: Boolean(order.device_label?.trim()) },
@@ -204,8 +202,8 @@ export function OrderHero({
                 </span>
                 <StatusBadge
                   status={order.status}
-                  label={orderWorkflowMeta[workflowStatus].label}
-                  tone={orderWorkflowMeta[workflowStatus].tone}
+                  label={activeStage.label}
+                  tone={activeStage.tone}
                   className="text-[10px]"
                 />
                 {sideBadges.map((badge) => (
@@ -280,7 +278,7 @@ export function OrderHero({
               className="absolute left-6 top-[11px] h-0.5 max-w-[calc(100%-3rem)] rounded-full bg-primary transition-all"
               style={{ width: `${progressPercent}%` }}
             />
-            <div className="relative grid grid-cols-7 gap-1">
+            <div className="relative grid gap-1" style={stageGridStyle}>
               {orderTaskStages.map((stage, index) => {
                 const completed = index < safeCurrentStageIndex;
                 const active = index === safeCurrentStageIndex;

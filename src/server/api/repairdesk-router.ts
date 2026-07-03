@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { statusGroups } from "@/lib/mock/enums";
 import {
   batchTransition,
   createOrderWorkflowStatus,
@@ -47,6 +48,7 @@ import {
   createInventoryIntake,
   getInventoryItem,
   getInventoryStats,
+  getInventorySummary,
   importElectronicsCsvPreview,
   listInventoryItems,
   listInventoryItemsPage,
@@ -86,6 +88,12 @@ import {
   ForbiddenError,
 } from "@/server/auth-context";
 import { writeAuditLog } from "@/server/audit";
+import type {
+  OrderListItem,
+  OrderListResult,
+  OrderStats,
+  RepairDeskOptions,
+} from "@/lib/repairdesk/types";
 import {
   approvalDecisionBodySchema,
   approvalRequestBodySchema,
@@ -104,6 +112,7 @@ import {
   customerSearchBodySchema,
   customerTagsUpdateBodySchema,
   customerUpdateBodySchema,
+  dashboardSummaryInputSchema,
   electronicsCsvImportBodySchema,
   idBodySchema,
   inventoryAttachmentUploadBodySchema,
@@ -157,6 +166,7 @@ const supabaseSource = {
   getCustomerDetail,
   getInventoryItem,
   getInventoryStats,
+  getInventorySummary,
   getOnboardingStatus,
   getOrder,
   getOrderStats,
@@ -261,6 +271,36 @@ function ok(data: unknown) {
   return NextResponse.json({ data });
 }
 
+function emptyOrderListResult(pageSize: number): OrderListResult {
+  return {
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize,
+    pageCount: 1,
+    workflowCounts: { all: 0 } as OrderListResult["workflowCounts"],
+  };
+}
+
+function deriveDashboardStatsFromRecentOrders(items: OrderListItem[], total: number): OrderStats {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  return {
+    total,
+    today: items.filter((order) => new Date(order.created_at).getTime() >= todayMs).length,
+    inProgress: items.filter((order) =>
+      order.workflow_status
+        ? order.workflow_status !== "closed"
+        : statusGroups.in_progress.includes(order.status),
+    ).length,
+    unpaid: items.filter((order) => !order.is_paid).length,
+    approvalOverdue: items.filter((order) => order.approval_overdue).length,
+    pickupOverdue: items.filter((order) => order.pickup_overdue).length,
+  };
+}
+
 function fail(error: unknown) {
   if (error instanceof UnauthorizedError) {
     return NextResponse.json({ error: error.message }, { status: 401 });
@@ -333,6 +373,65 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok(await api.listOrders(orderListFiltersSchema.parse(body), actor));
       case "orders/list-page":
         return ok(await api.listOrdersPage(orderListPageInputSchema.parse(body), actor));
+      case "orders/queue-summary": {
+        const input = orderListPageInputSchema.parse(body);
+        const [listResult, workflowResult, optionsResult] = await Promise.allSettled([
+          api.listOrdersPage(input, actor),
+          api.listOrderWorkflow(actor),
+          api.getRepairDeskOptions(actor),
+        ]);
+        if (listResult.status === "rejected") throw listResult.reason;
+
+        const workflow =
+          workflowResult.status === "fulfilled"
+            ? workflowResult.value
+            : { statuses: [], transitions: [] };
+        const options: RepairDeskOptions =
+          optionsResult.status === "fulfilled"
+            ? optionsResult.value
+            : { suppliers: [], technicians: [] };
+        const partialErrors =
+          workflowResult.status === "rejected" || optionsResult.status === "rejected"
+            ? {
+                ...(workflowResult.status === "rejected"
+                  ? { workflow: "状态流配置暂时不可用" }
+                  : {}),
+                ...(optionsResult.status === "rejected" ? { options: "筛选选项暂时不可用" } : {}),
+              }
+            : undefined;
+
+        return ok({ list: listResult.value, workflow, options, partialErrors });
+      }
+      case "dashboard/summary": {
+        const { pageSize = 6 } = dashboardSummaryInputSchema.parse(body);
+        const [recentOrdersResult, statsResult] = await Promise.allSettled([
+          api.listOrdersPage({ page: 1, pageSize }, actor),
+          api.getOrderStats(actor),
+        ]);
+        if (recentOrdersResult.status === "rejected" && statsResult.status === "rejected") {
+          throw new Error("仪表盘数据暂时不可用");
+        }
+
+        const recentOrders =
+          recentOrdersResult.status === "fulfilled"
+            ? recentOrdersResult.value
+            : emptyOrderListResult(pageSize);
+        const stats =
+          statsResult.status === "fulfilled"
+            ? statsResult.value
+            : deriveDashboardStatsFromRecentOrders(recentOrders.items, recentOrders.total);
+        const partialErrors =
+          recentOrdersResult.status === "rejected" || statsResult.status === "rejected"
+            ? {
+                ...(recentOrdersResult.status === "rejected"
+                  ? { recentOrders: "最新工单暂时不可用" }
+                  : {}),
+                ...(statsResult.status === "rejected" ? { stats: "工单统计暂时不可用" } : {}),
+              }
+            : undefined;
+
+        return ok({ recentOrders, stats, partialErrors });
+      }
       case "customers/list":
         return ok(await api.listCustomers(customerListFiltersSchema.parse(body), actor));
       case "customers/list-page":
@@ -341,6 +440,8 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok(await api.listInventoryItems(inventoryListFiltersSchema.parse(body), actor));
       case "inventory/list-page":
         return ok(await api.listInventoryItemsPage(inventoryListFiltersSchema.parse(body), actor));
+      case "inventory/summary":
+        return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
       case "orders/create":
         return ok(
           await auditGeneric(actor, "create", "repair_order", "new", body, () =>

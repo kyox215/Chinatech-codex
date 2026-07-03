@@ -10,12 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { indicatorSpring } from "@/lib/motion";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { OrderListFilters, RepairDeskOptions } from "@/lib/repairdesk/api";
-import { repairOrderType, type RepairOrderStatus } from "@/lib/mock/enums";
-import {
-  orderExceptionMeta,
-  orderWorkflowMeta,
-  orderWorkflowStatuses,
-} from "@/features/orders/model/canonical-order-status";
+import { repairOrderType, type RepairOrderStatus, type StatusTone } from "@/lib/mock/enums";
+import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
+import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow";
 import type { OrderListStatusTab } from "@/features/orders/model/order-workflow";
 import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
@@ -41,6 +38,15 @@ export function FiltersPanel({
     setFilters({ ...filters, [key]: next });
     if (key === "statuses") onStatusFilterChange?.();
   };
+  const toggleWorkflowStage = (workflowStatuses: readonly OrderWorkflowStatusCode[]) => {
+    const current = filters.workflowStatuses ?? [];
+    const active = workflowStatuses.every((status) => current.includes(status));
+    const next = active
+      ? current.filter((status) => !workflowStatuses.includes(status))
+      : Array.from(new Set<OrderWorkflowStatusCode>([...current, ...workflowStatuses]));
+    setFilters({ ...filters, workflowStatuses: next.length ? next : undefined });
+    onStatusFilterChange?.();
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -48,15 +54,14 @@ export function FiltersPanel({
         <div className="space-y-6 p-4 pt-5">
           <FilterGroup label="主流程">
             <div className="flex flex-wrap gap-1.5">
-              {orderWorkflowStatuses.map((status) => {
-                const active = filters.workflowStatuses?.includes(status);
+              {simpleOrderFlowStages.map((stage) => {
+                const active = stage.workflowStatuses.every((status) =>
+                  filters.workflowStatuses?.includes(status),
+                );
                 return (
                   <button
-                    key={status}
-                    onClick={() => {
-                      toggle("workflowStatuses", status);
-                      onStatusFilterChange?.();
-                    }}
+                    key={stage.key}
+                    onClick={() => toggleWorkflowStage(stage.workflowStatuses)}
                     className={cn(
                       "rounded-md border px-2 py-1 text-xs transition-colors",
                       active
@@ -64,7 +69,7 @@ export function FiltersPanel({
                         : "bg-surface hover:bg-accent",
                     )}
                   >
-                    {orderWorkflowMeta[status].label}
+                    {stage.label}
                   </button>
                 );
               })}
@@ -231,7 +236,14 @@ export function OrderStatusFilterControls({
   onGroupChange,
   onStatusChange,
 }: {
-  groups: { key: string; label: string; count: number; hint?: string }[];
+  groups: {
+    key: string;
+    label: string;
+    shortLabel?: string;
+    count: number;
+    hint?: string;
+    tone?: StatusTone;
+  }[];
   subTabs: OrderListStatusTab[];
   groupValue: string;
   statusValue: string;
@@ -249,30 +261,30 @@ export function OrderStatusFilterControls({
             <ListChecks className="size-3" />
           </span>
           <div className="min-w-0">
-            <div className="text-xs font-semibold leading-4">流程分组</div>
+            <div className="text-xs font-semibold leading-4">阶段队列</div>
             <div className="truncate text-[11px] text-muted-foreground">
               {groupValue === "all"
-                ? "按客户当前所处阶段查看工单"
+                ? "先选阶段，再处理下一步"
                 : `当前：${activeGroup?.label ?? groupValue} · ${activeGroup?.count ?? 0} 条`}
             </div>
           </div>
         </div>
-        <span className="hidden text-[10px] text-muted-foreground sm:inline">点击阶段筛选</span>
+        <span className="hidden text-[10px] text-muted-foreground sm:inline">处理视图</span>
       </div>
 
       <div
         data-order-desktop-flow-rail="true"
-        className="hidden min-w-0 gap-1 sm:grid sm:grid-cols-4 lg:grid-cols-8"
+        className="hidden min-w-0 gap-1 sm:grid sm:grid-cols-3 lg:grid-cols-6"
       >
         {groups.map((group, index) => {
           const active = groupValue === group.key;
           const isAll = group.key === "all";
-          const workflowKey = group.key as OrderWorkflowStatusCode;
-          const tone = isAll ? "neutral" : orderWorkflowMeta[workflowKey]?.tone;
+          const tone = group.tone ?? "neutral";
           return (
             <button
               key={group.key}
               type="button"
+              aria-pressed={active}
               onClick={() => onGroupChange(group.key)}
               className={cn(
                 "relative grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-md border px-2 py-1 text-left transition-all",
@@ -309,9 +321,6 @@ export function OrderStatusFilterControls({
                     {isAll ? "全" : index}
                   </span>
                 </div>
-                <span className="hidden truncate text-[9px] leading-3 text-muted-foreground xl:block">
-                  {group.hint ?? "当前阶段"}
-                </span>
               </div>
               <span className="shrink-0 font-mono text-xs font-semibold leading-none tabular-nums text-foreground">
                 {group.count}
@@ -328,6 +337,7 @@ export function OrderStatusFilterControls({
             <button
               key={group.key}
               type="button"
+              aria-pressed={active}
               onClick={() => onGroupChange(group.key)}
               className={cn(
                 "inline-flex h-9 shrink-0 snap-start items-center gap-2 rounded-full border px-2.5 text-xs font-medium transition-colors",
@@ -366,6 +376,7 @@ export function OrderStatusFilterControls({
                 <button
                   key={status.key}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => onStatusChange(status.key)}
                   className={cn(
                     "relative h-6 min-w-0 rounded-md border px-2 text-[11px] font-medium transition-colors",

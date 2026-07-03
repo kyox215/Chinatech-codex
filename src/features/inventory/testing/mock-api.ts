@@ -16,6 +16,7 @@ import type {
   InventoryQualityCheck,
   InventoryQualityCheckInput,
   InventoryStats,
+  InventorySummary,
   InventoryTransaction,
   InventoryTransactionInput,
   SellInventoryItemInput,
@@ -194,6 +195,22 @@ export async function listInventoryItemsPage(
 
 export async function getInventoryStats(actor?: AuditActor): Promise<InventoryStats> {
   const items = await listInventoryItems({}, actor);
+  return buildInventoryStats(items);
+}
+
+export async function getInventorySummary(
+  filters: InventoryListFilters = {},
+  actor?: AuditActor,
+): Promise<InventorySummary> {
+  const allItems = await listInventoryItems({}, actor);
+  const items = allItems.filter((item) => matchesFilters(item, filters));
+  return {
+    list: { items, total: items.length },
+    stats: buildInventoryStats(allItems),
+  };
+}
+
+function buildInventoryStats(items: InventoryListItem[]): InventoryStats {
   return {
     total: items.length,
     inPipeline: items.filter((item) => isInventoryPipelineStatus(item.status)).length,
@@ -513,6 +530,8 @@ function matchesFilters(item: InventoryListItem, filters: InventoryListFilters) 
     item.public_no,
     item.item_label,
     item.category,
+    item.color,
+    item.storage_capacity,
     item.serial_or_imei,
     item.customer_name,
     item.customer_phone,

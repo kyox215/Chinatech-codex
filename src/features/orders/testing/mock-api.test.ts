@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CreateOrderInput, PatchOrderInput, UpdateOrderInput } from "@/lib/repairdesk/types";
-import { orders as mockOrders } from "@/lib/mock/state";
+import { orders as mockOrders, suppliers } from "@/lib/mock/state";
 import {
   createOrder,
   decideOrderApproval,
@@ -710,6 +710,42 @@ describe("mock order inline editing workflow", () => {
 
     const after = await getOrder(id);
     expect(after.order.technician_name).toBe("Original Tech");
+  });
+
+  it("patches parts supplier without changing order status", async () => {
+    const id = await createMockOrder({}, "Original Tech");
+    const before = await getOrder(id);
+    const supplier = suppliers[0];
+
+    await patchOrder(id, {
+      expected_updated_at: before.order.updated_at,
+      changes: { parts_supplier_id: supplier.id },
+    });
+
+    const marked = await getOrder(id);
+    expect(marked.order.parts_supplier_id).toBe(supplier.id);
+    expect(marked.order.status).toBe(before.order.status);
+
+    await patchOrder(id, {
+      expected_updated_at: marked.order.updated_at,
+      changes: { parts_supplier_id: null },
+    });
+
+    const cleared = await getOrder(id);
+    expect(cleared.order.parts_supplier_id).toBeUndefined();
+    expect(cleared.order.status).toBe(before.order.status);
+  });
+
+  it("rejects unknown parts suppliers through inline patching", async () => {
+    const id = await createMockOrder({}, "Original Tech");
+    const before = await getOrder(id);
+
+    await expect(
+      patchOrder(id, {
+        expected_updated_at: before.order.updated_at,
+        changes: { parts_supplier_id: "missing-supplier" },
+      }),
+    ).rejects.toThrow("配件供应商不存在");
   });
 
   it("does not change technician during full order edits", async () => {

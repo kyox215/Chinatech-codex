@@ -4,6 +4,8 @@ import type {
   Customer,
   Device,
   CustomerIntakeCandidate,
+  DashboardSummary,
+  DashboardSummaryInput,
   OrderDetail,
   OrderApprovalFlowStatus,
   OrderExceptionStatus,
@@ -19,6 +21,8 @@ import type {
   OrderListItem,
   OrderListPageInput,
   OrderListResult,
+  OrderQueueSummary,
+  OrderQueueSummaryInput,
   OrderStats,
   OrderApprovalDecisionInput,
   OrderApprovalDecisionResult,
@@ -57,6 +61,7 @@ import type {
   InventoryListResult,
   InventoryQualityCheckInput,
   InventoryStats,
+  InventorySummary,
   InventoryTransactionInput,
   SellInventoryItemInput,
   MessageTemplate,
@@ -79,11 +84,20 @@ import type {
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 
+export type RepairDeskRequestOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
+const DEFAULT_REPAIRDESK_REQUEST_TIMEOUT_MS = 30_000;
+
 export type {
   CreateOrderInput,
   Customer,
   CustomerHistoryDeviceCandidate,
   CustomerIntakeCandidate,
+  DashboardSummary,
+  DashboardSummaryInput,
   Device,
   DeviceUnlockInput,
   DeviceUnlockMethod,
@@ -108,6 +122,8 @@ export type {
   OrderListItem,
   OrderListPageInput,
   OrderListResult,
+  OrderQueueSummary,
+  OrderQueueSummaryInput,
   OrderStats,
   OrderApprovalDecisionInput,
   OrderApprovalDecisionResult,
@@ -159,6 +175,7 @@ export type {
   InventoryQualityCheck,
   InventoryQualityCheckInput,
   InventoryStats,
+  InventorySummary,
   InventoryTransaction,
   InventoryTransactionInput,
   InventoryTransactionType,
@@ -193,22 +210,36 @@ export type {
 
 export async function listInventoryItems(
   filters: InventoryListFilters = {},
+  options?: RepairDeskRequestOptions,
 ): Promise<InventoryListItem[]> {
-  return postJson<InventoryListItem[]>("inventory/list", filters);
+  return postJson<InventoryListItem[]>("inventory/list", filters, options);
 }
 
 export async function listInventoryItemsPage(
   filters: InventoryListFilters = {},
+  options?: RepairDeskRequestOptions,
 ): Promise<InventoryListResult> {
-  return postJson<InventoryListResult>("inventory/list-page", filters);
+  return postJson<InventoryListResult>("inventory/list-page", filters, options);
 }
 
-export async function getInventoryStats(): Promise<InventoryStats> {
-  return requestJson<InventoryStats>("inventory/stats");
+export async function getInventoryStats(
+  options?: RepairDeskRequestOptions,
+): Promise<InventoryStats> {
+  return requestJson<InventoryStats>("inventory/stats", {}, options);
 }
 
-export async function getInventoryItem(id: string): Promise<InventoryDetail> {
-  return postJson<InventoryDetail>("inventory/get", { id });
+export async function getInventorySummary(
+  filters: InventoryListFilters = {},
+  options?: RepairDeskRequestOptions,
+): Promise<InventorySummary> {
+  return postJson<InventorySummary>("inventory/summary", filters, options);
+}
+
+export async function getInventoryItem(
+  id: string,
+  options?: RepairDeskRequestOptions,
+): Promise<InventoryDetail> {
+  return postJson<InventoryDetail>("inventory/get", { id }, options);
 }
 
 export async function createInventoryIntake(
@@ -276,16 +307,18 @@ export async function applyElectronicsCsvImport(
   });
 }
 
-export async function getStoreSettings(): Promise<StoreSettings> {
-  return requestJson<StoreSettings>("settings/store");
+export async function getStoreSettings(options?: RepairDeskRequestOptions): Promise<StoreSettings> {
+  return requestJson<StoreSettings>("settings/store", {}, options);
 }
 
-export async function getStoreContext(): Promise<StoreContext> {
-  return requestJson<StoreContext>("stores/context");
+export async function getStoreContext(options?: RepairDeskRequestOptions): Promise<StoreContext> {
+  return requestJson<StoreContext>("stores/context", {}, options);
 }
 
-export async function getOnboardingStatus(): Promise<OnboardingStatus> {
-  return requestJson<OnboardingStatus>("onboarding/status");
+export async function getOnboardingStatus(
+  options?: RepairDeskRequestOptions,
+): Promise<OnboardingStatus> {
+  return requestJson<OnboardingStatus>("onboarding/status", {}, options);
 }
 
 export async function submitOnboardingRequest(
@@ -310,8 +343,10 @@ export async function rejectOnboardingRequest(
   return postJson<OnboardingRequest>("platform/onboarding/reject", input);
 }
 
-export async function getStoreMembers(): Promise<StoreMembersResult> {
-  return requestJson<StoreMembersResult>("stores/members");
+export async function getStoreMembers(
+  options?: RepairDeskRequestOptions,
+): Promise<StoreMembersResult> {
+  return requestJson<StoreMembersResult>("stores/members", {}, options);
 }
 
 export async function createStore(input: StoreCreateInput): Promise<StoreContext> {
@@ -330,8 +365,10 @@ export async function updateStoreSettings(input: StoreSettingsUpdateInput): Prom
   return postJson<StoreSettings>("settings/store/update", { input });
 }
 
-export async function listMessageTemplates(): Promise<MessageTemplate[]> {
-  return requestJson<MessageTemplate[]>("message-templates");
+export async function listMessageTemplates(
+  options?: RepairDeskRequestOptions,
+): Promise<MessageTemplate[]> {
+  return requestJson<MessageTemplate[]>("message-templates", {}, options);
 }
 
 export async function updateMessageTemplate(
@@ -351,14 +388,49 @@ export async function renderMessageTemplatePreview(
   return postJson<MessageTemplatePreviewResult>("message-template/preview", input);
 }
 
-async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api/repairdesk/${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
+async function requestJson<T>(
+  path: string,
+  init: RequestInit = {},
+  options: RepairDeskRequestOptions = {},
+): Promise<T> {
+  const { signal, timeoutMs = DEFAULT_REPAIRDESK_REQUEST_TIMEOUT_MS } = options;
+  const controller = new AbortController();
+  let didTimeout = false;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  const abortRequest = () => controller.abort(signal?.reason);
+  if (signal?.aborted) {
+    abortRequest();
+  } else if (signal) {
+    signal.addEventListener("abort", abortRequest, { once: true });
+  }
+
+  if (timeoutMs > 0) {
+    timeoutId = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, timeoutMs);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`/api/repairdesk/${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    if (didTimeout) {
+      throw new Error("请求超时，请稍后重试");
+    }
+    throw error;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortRequest);
+  }
 
   const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: string };
   if (!response.ok) {
@@ -367,27 +439,53 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   return payload.data as T;
 }
 
-function postJson<T>(path: string, body: unknown): Promise<T> {
-  return requestJson<T>(path, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+function postJson<T>(path: string, body: unknown, options?: RepairDeskRequestOptions): Promise<T> {
+  return requestJson<T>(
+    path,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    options,
+  );
 }
 
-export async function listOrders(filters: OrderListFilters = {}): Promise<OrderListItem[]> {
-  return postJson<OrderListItem[]>("orders/list", filters);
+export async function listOrders(
+  filters: OrderListFilters = {},
+  options?: RepairDeskRequestOptions,
+): Promise<OrderListItem[]> {
+  return postJson<OrderListItem[]>("orders/list", filters, options);
 }
 
-export async function listOrdersPage(input: OrderListPageInput = {}): Promise<OrderListResult> {
-  return postJson<OrderListResult>("orders/list-page", input);
+export async function listOrdersPage(
+  input: OrderListPageInput = {},
+  options?: RepairDeskRequestOptions,
+): Promise<OrderListResult> {
+  return postJson<OrderListResult>("orders/list-page", input, options);
 }
 
-export async function getOrderStats(): Promise<OrderStats> {
-  return requestJson<OrderStats>("order-stats");
+export async function getOrderQueueSummary(
+  input: OrderQueueSummaryInput = {},
+  options?: RepairDeskRequestOptions,
+): Promise<OrderQueueSummary> {
+  return postJson<OrderQueueSummary>("orders/queue-summary", input, options);
 }
 
-export async function listOrderWorkflow(): Promise<OrderWorkflow> {
-  return requestJson<OrderWorkflow>("order-workflow");
+export async function getOrderStats(options?: RepairDeskRequestOptions): Promise<OrderStats> {
+  return requestJson<OrderStats>("order-stats", {}, options);
+}
+
+export async function getDashboardSummary(
+  input: DashboardSummaryInput = {},
+  options?: RepairDeskRequestOptions,
+): Promise<DashboardSummary> {
+  return postJson<DashboardSummary>("dashboard/summary", input, options);
+}
+
+export async function listOrderWorkflow(
+  options?: RepairDeskRequestOptions,
+): Promise<OrderWorkflow> {
+  return requestJson<OrderWorkflow>("order-workflow", {}, options);
 }
 
 export async function createOrderWorkflowStatus(
@@ -421,8 +519,11 @@ export async function updateOrderWorkflowTransitions(
   return postJson<OrderWorkflow>("order-workflow/transitions/update", input);
 }
 
-export async function getOrder(id: string): Promise<OrderDetail> {
-  return postJson<OrderDetail>("order/get", { id });
+export async function getOrder(
+  id: string,
+  options?: RepairDeskRequestOptions,
+): Promise<OrderDetail> {
+  return postJson<OrderDetail>("order/get", { id }, options);
 }
 
 export async function transitionOrder(
@@ -520,12 +621,16 @@ export async function listCustomers(
 
 export async function listCustomersPage(
   input: CustomerListPageInput = {},
+  options?: RepairDeskRequestOptions,
 ): Promise<CustomerListPageResult> {
-  return postJson<CustomerListPageResult>("customers/list-page", input);
+  return postJson<CustomerListPageResult>("customers/list-page", input, options);
 }
 
-export async function getCustomerDetail(id: string): Promise<CustomerDetail> {
-  return postJson<CustomerDetail>("customer/get", { id });
+export async function getCustomerDetail(
+  id: string,
+  options?: RepairDeskRequestOptions,
+): Promise<CustomerDetail> {
+  return postJson<CustomerDetail>("customer/get", { id }, options);
 }
 
 export async function createCustomer(input: CustomerCreateInput): Promise<{ id: string }> {
@@ -600,6 +705,8 @@ export async function patchOrderFinance(
   return postJson<PatchOrderResult>("order/finance", { id, input });
 }
 
-export async function getRepairDeskOptions(): Promise<RepairDeskOptions> {
-  return requestJson<RepairDeskOptions>("options");
+export async function getRepairDeskOptions(
+  options?: RepairDeskRequestOptions,
+): Promise<RepairDeskOptions> {
+  return requestJson<RepairDeskOptions>("options", {}, options);
 }

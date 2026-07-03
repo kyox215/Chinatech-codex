@@ -218,18 +218,18 @@ export function OrderDetailScreen({
     refetch: refetchDetail,
   } = useQuery({
     queryKey: ordersKeys.detail(id),
-    queryFn: () => getOrder(id),
+    queryFn: ({ signal }) => getOrder(id, { signal }),
     retry: false,
     staleTime: CACHE_TIMES.detail,
   });
   const { data: storeSettings } = useQuery({
     queryKey: messageSettingsKeys.store,
-    queryFn: getStoreSettings,
+    queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
   });
   const { data: workflow } = useQuery({
     queryKey: ordersKeys.workflow(),
-    queryFn: () => listOrderWorkflow(),
+    queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
@@ -3332,8 +3332,12 @@ function MobileWorkflowTimeline({
   createdAt: string;
   compact?: boolean;
 }) {
+  const stageGridStyle = {
+    gridTemplateColumns: `repeat(${orderTaskStages.length}, minmax(0, 1fr))`,
+  };
+
   return (
-    <div className={cn("grid min-w-0 grid-cols-7 gap-0.5", compact ? "mt-1" : "mt-4")}>
+    <div className={cn("grid min-w-0 gap-0.5", compact ? "mt-1" : "mt-4")} style={stageGridStyle}>
       {orderTaskStages.map((stage, index) => {
         const done = index < currentIndex;
         const current = index === currentIndex;

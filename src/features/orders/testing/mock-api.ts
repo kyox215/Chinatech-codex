@@ -871,6 +871,7 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   accessory_notes: "留存备注",
   device_unlock: "手机密码",
   warranty_text: "质保",
+  parts_supplier_id: "配件供应商",
 };
 
 function applyDeviceUnlock(order: RepairOrder, input: PatchOrderInput["changes"]["device_unlock"]) {
@@ -1134,6 +1135,14 @@ export async function patchOrder(
     changedFields.push(PATCH_FIELD_LABELS[field]);
     if (field === "device_unlock") {
       applyDeviceUnlock(o, rawValue as PatchOrderInput["changes"]["device_unlock"]);
+      continue;
+    }
+    if (field === "parts_supplier_id") {
+      const supplierId = typeof rawValue === "string" ? rawValue.trim() : null;
+      if (supplierId && !getSupplier(supplierId)) {
+        throw new Error("配件供应商不存在或不属于当前店铺");
+      }
+      o.parts_supplier_id = supplierId || undefined;
       continue;
     }
     if (typeof rawValue !== "string") throw new Error(`${PATCH_FIELD_LABELS[field]}格式不正确`);

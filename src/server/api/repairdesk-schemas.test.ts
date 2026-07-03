@@ -144,6 +144,29 @@ describe("repairdesk API schemas", () => {
     ).toThrow("不能重复");
   });
 
+  it("accepts parts supplier inline patches without broadening quick edit fields", () => {
+    expect(
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { parts_supplier_id: "supplier-1" },
+      }).changes.parts_supplier_id,
+    ).toBe("supplier-1");
+
+    expect(
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { parts_supplier_id: null },
+      }).changes.parts_supplier_id,
+    ).toBeNull();
+
+    expect(() =>
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { supplier_id: "supplier-1" },
+      }),
+    ).toThrow();
+  });
+
   it("validates onboarding request mode-specific fields", () => {
     expect(
       onboardingRequestBodySchema.parse({

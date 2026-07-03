@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type SyntheticEvent,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -19,7 +19,6 @@ import {
   Plus,
   Printer,
   Search,
-  WalletCards,
   X,
 } from "lucide-react";
 
@@ -70,9 +69,8 @@ import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
 import {
   batchTransition,
-  getRepairDeskOptions,
-  listOrderWorkflow,
-  listOrdersPage,
+  getOrderQueueSummary,
+  patchOrder,
   type OrderListFilters,
   type OrderListItem,
 } from "@/lib/repairdesk/api";
@@ -88,24 +86,27 @@ import { orderTransitionRequiresReason } from "@/features/orders/model/order-tra
 import {
   orderExceptionMeta,
   orderWorkflowMeta,
-  orderWorkflowStatuses,
 } from "@/features/orders/model/canonical-order-status";
-import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
+import {
+  getSimpleOrderFlowCounts,
+  getSimpleOrderFlowWorkflowStatuses,
+  simpleOrderFlowStages,
+  type SimpleOrderFlowStageKey,
+} from "@/features/orders/model/order-simple-flow";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 
 const ORDER_LIST_PAGE_SIZE = 50;
 
-const orderStageHints: Record<OrderWorkflowStatusCode | "all", string> = {
+const orderStageHints: Record<SimpleOrderFlowStageKey | "all", string> = {
   all: "全部客户队列",
-  intake: "刚收机/待受理",
-  diagnosis: "检测诊断中",
-  quote: "报价待确认",
-  parts: "订件/等到货",
-  repair: "维修执行中",
-  pickup: "通知/待取机",
-  closed: "已完成归档",
+  intake: "接单资料待补齐",
+  quote: "检测、报价与客户确认",
+  repair: "配件、外修和维修执行",
+  pickup: "通知、尾款和交付",
+  closed: "已收款完成归档",
 };
 
 type ActiveFilterChip = {
@@ -123,7 +124,7 @@ const queueMetricToneClass = {
 } as const;
 
 export function OrderListScreen() {
-  const [statusGroup, setStatusGroup] = useState<"all" | OrderWorkflowStatusCode>("all");
+  const [statusGroup, setStatusGroup] = useState<"all" | SimpleOrderFlowStageKey>("all");
   const [statusCode, setStatusCode] = useState<string>("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
   const [page, setPage] = useState(1);
@@ -162,15 +163,42 @@ export function OrderListScreen() {
     };
   }, []);
 
+  const effectiveFilters = useMemo<OrderListFilters>(() => {
+    return {
+      ...filters,
+      workflowStatuses:
+        statusGroup === "all"
+          ? filters.workflowStatuses
+          : getSimpleOrderFlowWorkflowStatuses(statusGroup),
+    };
+  }, [filters, statusGroup]);
+
   const {
-    data: workflow,
-    isError: workflowIsError,
-    error: workflowError,
+    data: queueSummary,
+    isLoading,
+    isError: listIsError,
+    error: listError,
+    refetch: refetchOrders,
   } = useQuery({
-    queryKey: ordersKeys.workflow(),
-    queryFn: () => listOrderWorkflow(),
-    staleTime: 60_000,
+    queryKey: ordersKeys.queueSummary({
+      ...effectiveFilters,
+      page,
+      pageSize: ORDER_LIST_PAGE_SIZE,
+    }),
+    queryFn: ({ signal }) =>
+      getOrderQueueSummary(
+        { ...effectiveFilters, page, pageSize: ORDER_LIST_PAGE_SIZE },
+        { signal },
+      ),
+    placeholderData: keepPreviousData,
+    staleTime: CACHE_TIMES.hotList,
   });
+
+  const listResult = queueSummary?.list;
+  const workflow = queueSummary?.workflow;
+  const options = queueSummary?.options ?? { suppliers: [], technicians: [] };
+  const workflowIsError = Boolean(queueSummary?.partialErrors?.workflow);
+  const workflowErrorMessage = queueSummary?.partialErrors?.workflow ?? "状态流配置暂时不可用。";
   const statusSubTabs = useMemo<OrderListStatusTab[]>(
     () => [{ key: "all", label: "全部状态" }],
     [],
@@ -181,55 +209,32 @@ export function OrderListScreen() {
     [workflow],
   );
 
-  const effectiveFilters = useMemo<OrderListFilters>(() => {
-    return {
-      ...filters,
-      workflowStatuses: statusGroup === "all" ? filters.workflowStatuses : [statusGroup],
-    };
-  }, [filters, statusGroup]);
-
-  const {
-    data: listResult,
-    isLoading,
-    isError: listIsError,
-    error: listError,
-    refetch: refetchOrders,
-  } = useQuery({
-    queryKey: ordersKeys.page(effectiveFilters, page, ORDER_LIST_PAGE_SIZE),
-    queryFn: () => listOrdersPage({ ...effectiveFilters, page, pageSize: ORDER_LIST_PAGE_SIZE }),
-    staleTime: 15_000,
-  });
-
-  const { data: options = { suppliers: [], technicians: [] } } = useQuery({
-    queryKey: ordersKeys.options(),
-    queryFn: () => getRepairDeskOptions(),
-  });
-
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
   const totalOrders = listResult?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
-  const statusGroups = useMemo(
-    () => [
+  const statusGroups = useMemo(() => {
+    const simpleCounts = getSimpleOrderFlowCounts(listResult?.workflowCounts);
+    return [
       {
         key: "all" as const,
         label: "全部",
-        count: listResult?.workflowCounts?.all ?? 0,
+        shortLabel: "全",
+        tone: "neutral" as const,
+        count: simpleCounts.all,
         hint: orderStageHints.all,
       },
-      ...orderWorkflowStatuses.map((status) => ({
-        key: status,
-        label: orderWorkflowMeta[status].shortLabel,
-        count: listResult?.workflowCounts?.[status] ?? 0,
-        hint: orderStageHints[status],
+      ...simpleOrderFlowStages.map((stage) => ({
+        key: stage.key,
+        label: stage.label,
+        shortLabel: stage.shortLabel,
+        tone: stage.tone,
+        count: simpleCounts[stage.key],
+        hint: orderStageHints[stage.key],
       })),
-    ],
-    [listResult?.workflowCounts],
-  );
+    ];
+  }, [listResult?.workflowCounts]);
   const listErrorMessage =
     listError instanceof Error ? listError.message : "请检查网络、登录状态或数据库迁移。";
-  const workflowErrorMessage =
-    workflowError instanceof Error ? workflowError.message : "状态流配置暂时不可用。";
-
   const activeFilterChips = useMemo<ActiveFilterChip[]>(() => {
     const chips: ActiveFilterChip[] = [];
     const statusLabels = new Map(workflowStatuses.map((status) => [status.code, status.label]));
@@ -258,7 +263,7 @@ export function OrderListScreen() {
     } else if (statusGroup !== "all") {
       chips.push({
         key: "phase",
-        label: `流程：${activeGroup?.label ?? orderWorkflowMeta[statusGroup].label}`,
+        label: `流程：${activeGroup?.label ?? statusGroup}`,
       });
     }
     filters.exceptionStatuses?.forEach((status) =>
@@ -318,14 +323,13 @@ export function OrderListScreen() {
         (action) => action && !orderTransitionRequiresReason(action.to),
       );
     }).length;
-    const pageValue = data.reduce((sum, order) => sum + order.quotation_amount, 0);
-
-    return { exceptionCount, pageValue, quickActionCount, unpaidCount };
+    return { exceptionCount, quickActionCount, unpaidCount };
   }, [data, workflow]);
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["orders"] });
-    queryClient.invalidateQueries({ queryKey: ["order-stats"] });
+  const invalidate = (orderId?: string) => {
+    queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
+    if (orderId) queryClient.invalidateQueries({ queryKey: ordersKeys.detail(orderId) });
   };
 
   const bulk = useMutation({
@@ -337,6 +341,26 @@ export function OrderListScreen() {
       );
       setSelected([]);
       invalidate();
+    },
+  });
+
+  const partsSupplierMutation = useMutation({
+    mutationFn: ({ order, supplierId }: { order: OrderListItem; supplierId: string | null }) =>
+      patchOrder(order.id, {
+        expected_updated_at: order.updated_at,
+        changes: { parts_supplier_id: supplierId },
+      }),
+    onSuccess: (_, vars) => {
+      const supplierName =
+        options.suppliers.find((supplier) => supplier.id === vars.supplierId)?.short_name ??
+        options.suppliers.find((supplier) => supplier.id === vars.supplierId)?.name;
+      toast.success(
+        vars.supplierId ? `已标记配件供应商：${supplierName ?? "已选择"}` : "已清除配件供应商",
+      );
+      invalidate(vars.order.id);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "保存配件供应商失败");
     },
   });
 
@@ -421,7 +445,7 @@ export function OrderListScreen() {
   };
 
   const handleStatusGroupChange = (nextGroup: string) => {
-    setStatusGroup(nextGroup as "all" | OrderWorkflowStatusCode);
+    setStatusGroup(nextGroup as "all" | SimpleOrderFlowStageKey);
     setStatusCode("all");
     setFilters((current) => ({
       ...current,
@@ -611,6 +635,7 @@ export function OrderListScreen() {
           </Button>
           <Button
             type="button"
+            data-order-list-new-button="true"
             size="sm"
             className={cn("hidden h-9 gap-1.5 lg:inline-flex", controls.brandButton)}
             style={brandGradientStyle}
@@ -659,7 +684,6 @@ export function OrderListScreen() {
         totalOrders={totalOrders}
         pageTotal={data.length}
         activeFilterCount={activeFilterChips.length}
-        pageValue={pageQueueMetrics.pageValue}
         unpaidCount={pageQueueMetrics.unpaidCount}
         exceptionCount={pageQueueMetrics.exceptionCount}
         quickActionCount={pageQueueMetrics.quickActionCount}
@@ -739,6 +763,14 @@ export function OrderListScreen() {
                         }
                         onPrint={() => printRows([o])}
                         onStopInteraction={stopRowClick}
+                        suppliers={options.suppliers}
+                        onPartsSupplierChange={(supplierId) =>
+                          partsSupplierMutation.mutate({ order: o, supplierId })
+                        }
+                        isPartsSupplierUpdating={
+                          partsSupplierMutation.isPending &&
+                          partsSupplierMutation.variables?.order.id === o.id
+                        }
                       />
                     );
                   })}
@@ -877,7 +909,6 @@ function DesktopQueueHealthStrip({
   totalOrders,
   pageTotal,
   activeFilterCount,
-  pageValue,
   unpaidCount,
   exceptionCount,
   quickActionCount,
@@ -886,7 +917,6 @@ function DesktopQueueHealthStrip({
   totalOrders: number;
   pageTotal: number;
   activeFilterCount: number;
-  pageValue: number;
   unpaidCount: number;
   exceptionCount: number;
   quickActionCount: number;
@@ -900,18 +930,19 @@ function DesktopQueueHealthStrip({
       tone: "primary" as const,
     },
     {
-      label: "本页金额",
-      value: formatQueueMoney(pageValue),
-      hint: "按当前页报价合计",
-      icon: WalletCards,
-      tone: "neutral" as const,
-    },
-    {
       label: "待处理风险",
       value: `${unpaidCount} 未结 · ${exceptionCount} 异常`,
-      hint: exceptionCount ? "优先查看超期/异常" : "当前页无异常标记",
+      hint: exceptionCount
+        ? "先处理超期/异常"
+        : unpaidCount
+          ? "先看尾款和未收款"
+          : "当前队列风险较低",
       icon: AlertTriangle,
-      tone: exceptionCount ? ("danger" as const) : ("warn" as const),
+      tone: exceptionCount
+        ? ("danger" as const)
+        : unpaidCount
+          ? ("warn" as const)
+          : ("neutral" as const),
     },
     {
       label: "可直接处理",
@@ -925,7 +956,7 @@ function DesktopQueueHealthStrip({
   return (
     <div
       data-order-desktop-health-strip="true"
-      className="mb-3 hidden min-w-0 grid-cols-2 gap-2 lg:grid xl:grid-cols-4"
+      className="mb-3 hidden min-w-0 grid-cols-3 gap-2 lg:grid"
     >
       {metrics.map((metric) => {
         const Icon = metric.icon;
@@ -954,12 +985,4 @@ function DesktopQueueHealthStrip({
       })}
     </div>
   );
-}
-
-function formatQueueMoney(value: number) {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(value) ? value : 0);
 }

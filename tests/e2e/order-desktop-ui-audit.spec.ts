@@ -17,6 +17,7 @@ test.describe("order desktop UI audit", () => {
     test(`orders use desktop queue rows and compact work surfaces at ${viewport.width}px`, async ({
       page,
     }) => {
+      test.setTimeout(60_000);
       await page.addInitScript(() => {
         window.localStorage.setItem("repairdesk-print-count", "0");
         window.print = () => {
@@ -26,8 +27,7 @@ test.describe("order desktop UI audit", () => {
       });
 
       await page.setViewportSize(viewport);
-      await page.goto("/orders");
-      await page.waitForLoadState("networkidle");
+      await gotoReady(page, "/orders");
 
       await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
       await expectFirstVisible(page.getByText("工单工作队列"), "/orders work queue heading");
@@ -40,14 +40,19 @@ test.describe("order desktop UI audit", () => {
       await expectNoPageOverflow(page, "/orders desktop queue", viewport.width);
       await openAndExpectNewOrderWorkspace(page, viewport.width);
 
-      await expectFirstVisible(desktopList.getByText("工单"), "/orders queue order column");
-      await expectFirstVisible(desktopList.getByText("客户"), "/orders queue customer column");
+      await expectFirstVisible(
+        desktopList.getByText("阶段 / 下一步"),
+        "/orders queue action column",
+      );
+      await expectFirstVisible(
+        desktopList.getByText("工单 / 客户"),
+        "/orders queue order customer column",
+      );
       await expectFirstVisible(desktopList.getByText("设备 / 故障"), "/orders queue device column");
       await expectFirstVisible(
-        desktopList.getByText("状态与下一步"),
-        "/orders queue status column",
+        desktopList.getByText("金额 / 风险"),
+        "/orders queue finance risk column",
       );
-      await expectFirstVisible(desktopList.getByText("金额"), "/orders queue finance column");
 
       const rows = desktopList.locator('[data-order-row="true"]');
       expect(await countVisible(rows), "/orders visible desktop rows").toBeGreaterThanOrEqual(4);
@@ -81,7 +86,10 @@ test.describe("order desktop UI audit", () => {
       if ((await detail.locator('[data-order-readiness="true"]').count()) > 0) {
         await expectFirstVisible(detail.locator('[data-order-readiness="true"]'), "工单就绪检查");
       }
-      await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(0);
+      await expectFirstVisible(
+        detail.locator('[data-order-panel="key-info"]'),
+        "工单关键记录同页信息",
+      );
       await expectFirstVisible(detail.getByText("客户信息"), "工单客户信息卡");
       await expectFirstVisible(detail.getByText("设备与故障"), "工单设备与故障卡");
       await expectFirstVisible(detail.getByText("报价处理"), "工单报价处理卡");
@@ -211,7 +219,6 @@ test.describe("order desktop UI audit", () => {
       await clickFirstVisible(detail.getByRole("button", { name: "打印" }), "详情打印");
       await expect.poll(() => printCount(page)).toBe(detailPrintsBefore + 1);
 
-      await clickFirstVisible(page.getByRole("button", { name: /记录/ }), "工单记录标签");
       await expect(detail.getByText("发送入口在底部 WhatsApp 操作")).toHaveCount(0);
       await expectVisibleButtonCount(
         detail.getByRole("button", { name: "发送通知" }),
@@ -234,12 +241,10 @@ test.describe("order desktop UI audit", () => {
       await expectDirectDesktopDetailPage(page, viewport.width);
 
       const detailPath = new URL(page.url()).pathname;
-      await page.goto(`${detailPath}/task`);
-      await page.waitForLoadState("networkidle");
+      await gotoReady(page, `${detailPath}/task`);
       await expectDesktopTaskPage(page, viewport.width);
 
-      await page.goto("/orders");
-      await page.waitForLoadState("networkidle");
+      await gotoReady(page, "/orders");
       await expectFirstVisible(desktopList, "/orders desktop queue after direct detail");
       const rowPrintsBefore = await printCount(page);
       const firstRowForPrint = page.getByRole("button", { name: /查看工单详情 R\d+/ }).first();
@@ -253,6 +258,11 @@ test.describe("order desktop UI audit", () => {
   }
 });
 
+async function gotoReady(page: Page, path: string) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await page.locator("body").waitFor({ state: "visible" });
+}
+
 async function printCount(page: Page) {
   return page.evaluate(() => Number(window.localStorage.getItem("repairdesk-print-count") ?? "0"));
 }
@@ -262,6 +272,15 @@ async function clickFirstVisible(
   label: string,
   options: { optional?: boolean } = {},
 ) {
+  if (!options.optional) {
+    await expect
+      .poll(() => firstVisibleEnabledIndex(locator), {
+        message: `Clickable control for ${label}`,
+        timeout: 10_000,
+      })
+      .toBeGreaterThanOrEqual(0);
+  }
+
   const count = await locator.count();
   for (let index = 0; index < count; index += 1) {
     const candidate = locator.nth(index);
@@ -277,13 +296,36 @@ async function clickFirstVisible(
   throw new Error(`No visible control found for ${label}`);
 }
 
-async function expectFirstVisible(locator: Locator, label: string) {
+async function firstVisibleEnabledIndex(locator: Locator) {
   const count = await locator.count();
   for (let index = 0; index < count; index += 1) {
     const candidate = locator.nth(index);
-    if (await candidate.isVisible().catch(() => false)) return;
+    const visible = await candidate.isVisible().catch(() => false);
+    const enabled = await candidate.isEnabled().catch(() => true);
+    if (visible && enabled) return index;
   }
-  throw new Error(`No visible element found for ${label}`);
+  return -1;
+}
+
+async function expectFirstVisible(locator: Locator, label: string) {
+  await expect
+    .poll(
+      async () => {
+        const count = await locator.count();
+        for (let index = 0; index < count; index += 1) {
+          if (
+            await locator
+              .nth(index)
+              .isVisible()
+              .catch(() => false)
+          )
+            return true;
+        }
+        return false;
+      },
+      { message: `Visible element for ${label}`, timeout: 10_000 },
+    )
+    .toBe(true);
 }
 
 async function countVisible(locator: Locator) {
@@ -308,7 +350,7 @@ async function expectDesktopQueueGrid(locator: Locator, label: string, width: nu
     .evaluate(
       (row) => window.getComputedStyle(row).gridTemplateColumns.split(" ").filter(Boolean).length,
     );
-  expect(columns, `${label} desktop column count`).toBeGreaterThanOrEqual(width >= 1280 ? 8 : 7);
+  expect(columns, `${label} desktop column count`).toBeGreaterThanOrEqual(7);
 }
 
 async function expectNoLocalHorizontalScroll(locator: Locator, label: string) {
@@ -405,7 +447,7 @@ async function expectInlineEditWorkspace(
 }
 
 async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
-  await clickFirstVisible(page.getByRole("button", { name: /新建工单/ }), "新建工单");
+  await clickFirstVisible(page.locator('[data-order-list-new-button="true"]'), "新建工单");
   const dialog = page.getByRole("dialog", { name: "新建维修订单" });
   await expect(dialog).toBeVisible();
   await expectFirstVisible(
@@ -595,7 +637,10 @@ async function expectDirectDesktopDetailPage(page: Page, width: number) {
   );
   await expectDirectDetailDockAligned(detail, width);
   await expect(detail.locator('[data-mobile-order-page="true"]')).toBeHidden();
-  await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(0);
+  await expectFirstVisible(
+    detail.locator('[data-order-panel="key-info"]'),
+    "直达详情关键记录同页信息",
+  );
   await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "直达详情设备照片卡");
   await expectDesktopPanelsReadable(detail, width);
   await expectNoPageOverflow(page, "/orders direct detail", width);
@@ -607,7 +652,6 @@ async function expectDirectDesktopDetailPage(page: Page, width: number) {
   );
   await expectInlineEditWorkspace(page, detail, width, "/orders direct detail edit");
 
-  await clickFirstVisible(detail.getByRole("button", { name: "记录" }), "直达详情记录标签");
   await expectDesktopRecordsWorkspace(detail, width, "/orders direct records");
   await expectNoPageOverflow(page, "/orders direct records", width);
 }

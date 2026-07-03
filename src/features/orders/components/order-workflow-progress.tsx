@@ -55,8 +55,10 @@ export function OrderWorkflowProgress({
 }) {
   const currentIndex = getWorkflowProgressValue(workflowStatus);
   const toneClass = nodeToneClass[tone];
-  const progressWidth =
-    orderTaskStages.length <= 1 ? "0%" : `${(currentIndex / (orderTaskStages.length - 1)) * 100}%`;
+  const stageCount = orderTaskStages.length;
+  const railOffset = `${100 / Math.max(1, stageCount * 2)}%`;
+  const progressWidth = stageCount <= 1 ? "0%" : `${(currentIndex / (stageCount - 1)) * 100}%`;
+  const stageGridStyle = { gridTemplateColumns: `repeat(${stageCount}, minmax(0, 1fr))` };
 
   return (
     <div
@@ -65,11 +67,13 @@ export function OrderWorkflowProgress({
       aria-label={`当前流程：${orderTaskStages[currentIndex]?.label ?? workflowStatus}`}
     >
       <div
-        className={cn("relative grid min-w-0 grid-cols-7 items-center", compact ? "h-4" : "h-8")}
+        className={cn("relative grid min-w-0 items-center", compact ? "h-4" : "h-8")}
+        style={stageGridStyle}
       >
         <span
           aria-hidden
-          className="absolute left-[calc(100%/14)] right-[calc(100%/14)] top-1/2 h-0.5 -translate-y-1/2 overflow-hidden rounded-full bg-border/65"
+          className="absolute top-1/2 h-0.5 -translate-y-1/2 overflow-hidden rounded-full bg-border/65"
+          style={{ left: railOffset, right: railOffset }}
         >
           <span
             className={cn(
@@ -120,7 +124,10 @@ export function OrderWorkflowProgress({
         })}
       </div>
       {showLabels && (
-        <div className="mt-1 grid min-w-0 grid-cols-7 text-center text-[10px] leading-4 text-muted-foreground">
+        <div
+          className="mt-1 grid min-w-0 text-center text-[10px] leading-4 text-muted-foreground"
+          style={stageGridStyle}
+        >
           {orderTaskStages.map((stage, index) => (
             <span
               key={stage.key}

@@ -119,10 +119,15 @@ const ORDER_LIST_UNLOCK_COLUMNS = `
   device_unlock_method
 `;
 
+const ORDER_LIST_PARTS_SUPPLIER_COLUMNS = `
+  parts_supplier_id
+`;
+
 const ORDER_LIST_COLUMNS = `
   ${ORDER_LIST_BASE_COLUMNS},
   ${ORDER_LIST_CANONICAL_COLUMNS},
-  ${ORDER_LIST_UNLOCK_COLUMNS}
+  ${ORDER_LIST_UNLOCK_COLUMNS},
+  ${ORDER_LIST_PARTS_SUPPLIER_COLUMNS}
 `;
 
 export const ORDER_LIST_SELECT = `
@@ -412,6 +417,7 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     pause_reason: maybeString(row.pause_reason),
     cancel_reason: maybeString(row.cancel_reason),
     supplier_id: maybeString(row.supplier_id),
+    parts_supplier_id: maybeString(row.parts_supplier_id),
     original_order_id: maybeString(row.original_order_id),
     contact_phones: uniqueContactPhones(
       requiredString(row.customer_phone),

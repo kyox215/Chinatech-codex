@@ -3,7 +3,15 @@
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { AlertTriangle, Clock, MoreHorizontal, Printer } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clock,
+  Loader2,
+  MoreHorizontal,
+  PackageSearch,
+  Printer,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,6 +19,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -20,12 +29,14 @@ import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
 import { getWorkflowNextActions } from "@/features/orders/model/order-workflow";
+import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
-  orderExceptionMeta,
-  orderWorkflowMeta,
-  workflowStatusFromLegacyStatus,
-} from "@/features/orders/model/canonical-order-status";
+  getOrderTaskGuidance,
+  orderTaskStageIndex,
+  orderTaskStages,
+} from "@/features/orders/model/order-task-flow";
 import { cn } from "@/lib/utils";
+import type { Supplier } from "@/lib/repairdesk/types";
 
 export const orderQueueDesktopGrid =
   "grid min-w-0 grid-cols-[30px_minmax(126px,0.82fr)_minmax(164px,1.08fr)_minmax(158px,1.02fr)_minmax(88px,0.5fr)_minmax(90px,0.52fr)_32px] items-center xl:grid-cols-[32px_minmax(146px,0.82fr)_minmax(220px,1.12fr)_minmax(214px,1.08fr)_minmax(102px,0.5fr)_minmax(110px,0.54fr)_34px]";
@@ -38,6 +49,9 @@ export function DesktopOrderQueueRow({
   onCheckedChange,
   onPrint,
   onStopInteraction,
+  suppliers,
+  onPartsSupplierChange,
+  isPartsSupplierUpdating = false,
 }: {
   order: OrderListItem;
   workflow?: OrderWorkflow;
@@ -46,9 +60,12 @@ export function DesktopOrderQueueRow({
   onCheckedChange: (checked: boolean) => void;
   onPrint: () => void;
   onStopInteraction: (event: SyntheticEvent) => void;
+  suppliers: Supplier[];
+  onPartsSupplierChange: (supplierId: string | null) => void;
+  isPartsSupplierUpdating?: boolean;
 }) {
-  const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
   const exceptionStatus = order.exception_status;
+  const guidance = getOrderTaskGuidance(order);
   const next = getWorkflowNextActions(workflow, order.status);
   const hasOverdueException = Boolean(order.approval_overdue || order.pickup_overdue);
   const createdDate = new Date(order.created_at).toLocaleDateString("zh-CN");
@@ -65,6 +82,9 @@ export function DesktopOrderQueueRow({
   );
   const nextLabel = allNextActions[0]?.label ?? "暂无下一步";
   const nextText = allNextActions.length ? `下一步：${nextLabel}` : nextLabel;
+  const stageIndex = orderTaskStageIndex[guidance.stage.key] ?? 0;
+  const stageStep = stageIndex + 1;
+  const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
 
   return (
     <motion.div
@@ -107,8 +127,8 @@ export function DesktopOrderQueueRow({
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           <StatusBadge
             status={order.status}
-            label={orderWorkflowMeta[workflowStatus].shortLabel}
-            tone={orderWorkflowMeta[workflowStatus].tone}
+            label={guidance.stage.shortLabel}
+            tone={guidance.stage.tone}
             className="max-w-full text-[10px]"
           />
           {exceptionStatus ? (
@@ -129,6 +149,22 @@ export function DesktopOrderQueueRow({
         <p className="mt-1 truncate text-[11px] leading-4 text-muted-foreground" title={nextText}>
           {nextText}
         </p>
+        <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 font-mono text-[10px] leading-none text-muted-foreground">
+            {stageStep}/{orderTaskStages.length}
+          </span>
+          <div
+            className="grid min-w-0 flex-1 grid-cols-5 gap-0.5"
+            aria-label={`当前进度第 ${stageStep} 步，共 ${orderTaskStages.length} 步`}
+          >
+            {orderTaskStages.map((stage, index) => (
+              <span
+                key={stage.key}
+                className={cn("h-1 rounded-full bg-muted", index <= stageIndex && "bg-primary")}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="min-w-0 px-2 py-1.5">
@@ -176,6 +212,14 @@ export function DesktopOrderQueueRow({
               className="shrink-0 text-[10px] font-semibold leading-3 text-foreground"
             />
           ) : null}
+        </div>
+        <div className="mt-1 min-w-0" onClick={onStopInteraction}>
+          <PartsSupplierSelector
+            supplier={partsSupplier}
+            suppliers={suppliers}
+            isUpdating={isPartsSupplierUpdating}
+            onChange={onPartsSupplierChange}
+          />
         </div>
         {order.device_imei ? (
           <div
@@ -246,5 +290,80 @@ export function DesktopOrderQueueRow({
         </DropdownMenu>
       </div>
     </motion.div>
+  );
+}
+
+function PartsSupplierSelector({
+  supplier,
+  suppliers,
+  isUpdating,
+  onChange,
+}: {
+  supplier?: Supplier;
+  suppliers: Supplier[];
+  isUpdating: boolean;
+  onChange: (supplierId: string | null) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isUpdating}
+          className={cn(
+            "h-6 max-w-full justify-start gap-1 rounded-md px-1.5 text-[10px] font-medium leading-none",
+            supplier
+              ? "bg-primary/10 text-primary hover:bg-primary/15"
+              : "bg-muted/60 text-muted-foreground hover:bg-muted",
+          )}
+          aria-label={supplier ? `配件供应商 ${supplier.name}` : "选择配件供应商"}
+        >
+          {isUpdating ? (
+            <Loader2 className="size-3 shrink-0 animate-spin" />
+          ) : (
+            <PackageSearch className="size-3 shrink-0" />
+          )}
+          <span className="truncate">
+            配件供：{supplier?.short_name || supplier?.name || "未选"}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel className="text-xs">选择配件供应商</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {suppliers.length ? (
+          suppliers.map((item) => (
+            <DropdownMenuItem
+              key={item.id}
+              className="text-xs"
+              disabled={isUpdating || item.id === supplier?.id}
+              onSelect={() => onChange(item.id)}
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: item.color }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate">{item.name}</span>
+              {item.id === supplier?.id ? <Check className="size-3.5" /> : null}
+            </DropdownMenuItem>
+          ))
+        ) : (
+          <DropdownMenuItem disabled className="text-xs">
+            请先到设置页维护供应商
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-xs text-muted-foreground"
+          disabled={isUpdating || !supplier}
+          onSelect={() => onChange(null)}
+        >
+          清除配件供应商
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

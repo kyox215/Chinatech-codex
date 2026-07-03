@@ -1721,6 +1721,7 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   accessory_notes: "留存备注",
   device_unlock: "手机密码",
   warranty_text: "质保",
+  parts_supplier_id: "配件供应商",
 };
 
 function deviceUnlockUpdateFromInput(input: PatchOrderInput["changes"]["device_unlock"]) {
@@ -2126,6 +2127,22 @@ export async function patchOrder(
         orderUpdate,
         deviceUnlockUpdateFromInput(rawValue as PatchOrderInput["changes"]["device_unlock"]),
       );
+      continue;
+    }
+
+    if (field === "parts_supplier_id") {
+      const supplierId = typeof rawValue === "string" ? rawValue.trim() : null;
+      if (supplierId) {
+        const { data: supplierRow, error: supplierError } = await supabase
+          .from("suppliers")
+          .select("id")
+          .eq("store_id", storeId)
+          .eq("id", supplierId)
+          .maybeSingle();
+        fail(supplierError, "校验配件供应商失败");
+        if (!supplierRow) throw new Error("配件供应商不存在或不属于当前店铺");
+      }
+      orderUpdate.parts_supplier_id = supplierId || null;
       continue;
     }
 

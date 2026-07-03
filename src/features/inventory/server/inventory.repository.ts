@@ -13,9 +13,11 @@ import type {
   InventoryItemStatus,
   InventoryListFilters,
   InventoryListItem,
+  InventoryListResult,
   InventoryQualityCheck,
   InventoryQualityCheckInput,
   InventoryStats,
+  InventorySummary,
   InventoryTransaction,
   InventoryTransactionInput,
   SellInventoryItemInput,
@@ -25,6 +27,7 @@ import {
   customerFromRow,
   type DbRecord,
   fail,
+  failStorageOperation,
   maybeString,
   money,
   requiredString,
@@ -79,21 +82,40 @@ export async function listInventoryItems(
     rows.map((row) => requiredString(row.id)),
   );
 
-  return rows
-    .map((row) => decorateInventoryRow(row, transactionsByItem.get(requiredString(row.id)) ?? []))
-    .filter((item) => inventoryMatchesFilters(item, filters));
+  return filterInventoryItems(
+    rows.map((row) =>
+      decorateInventoryRow(row, transactionsByItem.get(requiredString(row.id)) ?? []),
+    ),
+    filters,
+  );
 }
 
 export async function listInventoryItemsPage(
   filters: InventoryListFilters = {},
   actor?: AuditActor,
-): Promise<{ items: InventoryListItem[]; total: number }> {
+): Promise<InventoryListResult> {
   const items = await listInventoryItems(filters, actor);
   return { items, total: items.length };
 }
 
 export async function getInventoryStats(actor?: AuditActor): Promise<InventoryStats> {
   const items = await listInventoryItems({}, actor);
+  return buildInventoryStats(items);
+}
+
+export async function getInventorySummary(
+  filters: InventoryListFilters = {},
+  actor?: AuditActor,
+): Promise<InventorySummary> {
+  const allItems = await listInventoryItems({}, actor);
+  const items = filterInventoryItems(allItems, filters);
+  return {
+    list: { items, total: items.length },
+    stats: buildInventoryStats(allItems),
+  };
+}
+
+function buildInventoryStats(items: InventoryListItem[]): InventoryStats {
   return {
     total: items.length,
     inPipeline: items.filter((item) => isInventoryPipelineStatus(item.status)).length,
@@ -615,7 +637,7 @@ export async function uploadInventoryAttachment(
       contentType: input.mime_type,
       upsert: false,
     });
-  fail(uploadError, "上传库存附件失败");
+  failStorageOperation(uploadError, "上传库存附件失败", INVENTORY_ATTACHMENT_BUCKET);
 
   const row = {
     id: attachmentId,
@@ -1014,7 +1036,12 @@ function eventFromRow(row: DbRecord): InventoryEvent {
   };
 }
 
+function filterInventoryItems(items: InventoryListItem[], filters: InventoryListFilters) {
+  return items.filter((item) => inventoryMatchesFilters(item, filters));
+}
+
 function inventoryMatchesFilters(item: InventoryListItem, filters: InventoryListFilters) {
+  if (filters.statuses?.length && !filters.statuses.includes(item.status)) return false;
   if (filters.sourceTypes?.length && !filters.sourceTypes.includes(item.source_type)) return false;
   if (filters.categories?.length && !filters.categories.includes(item.category)) return false;
   if (

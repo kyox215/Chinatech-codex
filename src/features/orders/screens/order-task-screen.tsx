@@ -34,7 +34,6 @@ import { OrderWorkflowProgress } from "@/features/orders/components/order-workfl
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
   orderExceptionMeta,
-  orderWorkflowMeta,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
 import {
@@ -49,6 +48,7 @@ import {
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { getOrder, listOrderWorkflow, transitionOrder } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 
 type WorkflowNextAction = NonNullable<ReturnType<typeof getWorkflowNextActions>["primary"]>;
@@ -70,12 +70,13 @@ export function OrderTaskScreen({ id }: { id: string }) {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ordersKeys.detail(id),
-    queryFn: () => getOrder(id),
+    queryFn: ({ signal }) => getOrder(id, { signal }),
+    staleTime: CACHE_TIMES.detail,
   });
   const { data: workflow } = useQuery({
     queryKey: ordersKeys.workflow(),
-    queryFn: listOrderWorkflow,
-    staleTime: 60_000,
+    queryFn: ({ signal }) => listOrderWorkflow({ signal }),
+    staleTime: CACHE_TIMES.workflow,
   });
 
   const order = data?.order;
@@ -93,12 +94,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const exceptionStatus = order?.exception_status;
   const progressTone = exceptionStatus
     ? orderExceptionMeta[exceptionStatus].tone
-    : (guidance?.tone ?? orderWorkflowMeta[workflowStatus].tone);
+    : (guidance?.tone ?? "info");
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });
     queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
   };
 
   const transition = useMutation({

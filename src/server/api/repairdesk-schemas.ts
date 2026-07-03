@@ -10,6 +10,7 @@ import type {
   CustomerCreateInput,
   CustomerDeviceInput,
   CustomerFollowupInput,
+  DashboardSummaryInput,
   CustomerListFilters,
   CustomerListPageInput,
   CustomerMessageInput,
@@ -216,6 +217,12 @@ export const orderListPageInputSchema = orderListFiltersSchema.extend({
   pageSize: z.coerce.number().int().positive().max(100).optional(),
 });
 
+export const dashboardSummaryInputSchema = z
+  .object({
+    pageSize: z.coerce.number().int().positive().max(20).optional(),
+  })
+  .passthrough() satisfies z.ZodType<DashboardSummaryInput>;
+
 export const orderWorkflowStatusCreateBodySchema = z.object({
   input: z
     .object({
@@ -414,6 +421,7 @@ export const patchOrderChangesSchema = z
     accessory_notes: optionalText,
     device_unlock: deviceUnlockInputSchema.optional(),
     warranty_text: optionalText,
+    parts_supplier_id: z.string().nullable().optional(),
   })
   .strict();
 

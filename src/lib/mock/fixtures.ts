@@ -98,6 +98,7 @@ export interface RepairOrder {
   pause_reason?: string;
   cancel_reason?: string;
   supplier_id?: string;
+  parts_supplier_id?: string;
   original_order_id?: string;
   contact_phones: string[];
   fault_prices: FaultPriceItem[];
@@ -372,6 +373,10 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     delivered_at: status === "completed" && i % 2 === 0 ? created : undefined,
     cancel_reason: status === "cancelled" ? "客户主动取消" : undefined,
     supplier_id: i % 6 === 0 ? suppliers[i % suppliers.length].id : undefined,
+    parts_supplier_id:
+      i % 4 === 0 || status === "parts_ordered" || status === "parts_arrived"
+        ? suppliers[(i + 1) % suppliers.length].id
+        : undefined,
     original_order_id: status === "rework" ? `ord_${((i + 5) % 40) + 1}` : undefined,
     contact_phones: customer.contact_phones,
     fault_prices,

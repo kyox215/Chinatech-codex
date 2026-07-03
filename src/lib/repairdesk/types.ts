@@ -235,6 +235,7 @@ export interface RepairOrder {
   pause_reason?: string;
   cancel_reason?: string;
   supplier_id?: string;
+  parts_supplier_id?: string;
   original_order_id?: string;
   contact_phones: string[];
   fault_prices: FaultPriceItem[];
@@ -389,6 +390,18 @@ export interface OrderListResult {
   workflowCounts: Record<OrderWorkflowStatusCode | "all", number>;
 }
 
+export type OrderQueueSummaryInput = OrderListPageInput;
+
+export interface OrderQueueSummary {
+  list: OrderListResult;
+  workflow: OrderWorkflow;
+  options: RepairDeskOptions;
+  partialErrors?: {
+    workflow?: string;
+    options?: string;
+  };
+}
+
 export interface OrderStats {
   total: number;
   today: number;
@@ -396,6 +409,19 @@ export interface OrderStats {
   unpaid: number;
   approvalOverdue: number;
   pickupOverdue: number;
+}
+
+export interface DashboardSummaryInput {
+  pageSize?: number;
+}
+
+export interface DashboardSummary {
+  recentOrders: OrderListResult;
+  stats: OrderStats;
+  partialErrors?: {
+    recentOrders?: string;
+    stats?: string;
+  };
 }
 
 export interface OrderDetail {
@@ -564,6 +590,7 @@ export interface PatchOrderChanges {
   accessory_notes?: string;
   device_unlock?: DeviceUnlockInput;
   warranty_text?: string;
+  parts_supplier_id?: string | null;
 }
 
 export interface PatchOrderInput {
@@ -937,6 +964,11 @@ export interface InventoryStats {
   buybackCost: number;
   listedValue: number;
   realizedProfit: number;
+}
+
+export interface InventorySummary {
+  list: InventoryListResult;
+  stats: InventoryStats;
 }
 
 export interface InventoryQualityCheck {
