@@ -62,7 +62,7 @@ export const ORDER_SELECT = `
   *,
   customer:customers(*),
   device:devices(*),
-  supplier:suppliers(*)
+  supplier:suppliers!repair_orders_supplier_id_fkey(*)
 `;
 
 const ORDER_LIST_PAGE_SIZE = 1000;
@@ -134,14 +134,14 @@ export const ORDER_LIST_SELECT = `
   ${ORDER_LIST_COLUMNS},
   customer:customers(*),
   device:devices(*),
-  supplier:suppliers(*)
+  supplier:suppliers!repair_orders_supplier_id_fkey(*)
 `;
 
 export const ORDER_LIST_LEGACY_SELECT = `
   ${ORDER_LIST_BASE_COLUMNS},
   customer:customers(*),
   device:devices(*),
-  supplier:suppliers(*)
+  supplier:suppliers!repair_orders_supplier_id_fkey(*)
 `;
 
 export function fail(error: { message: string } | null | undefined, context: string) {

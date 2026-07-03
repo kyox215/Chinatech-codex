@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260703-007-order-queue-progress-parts-supplier"
+current_task_id: "TASK-20260704-001-order-supplier-embed-incident"
 status: "complete"
-phase: "production_migration_applied"
+phase: "ready_to_push"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-03T23:21:15Z"
+last_checkpoint_at: "2026-07-03T23:36:37Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,11 +15,11 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**TASK-20260703-007-order-queue-progress-parts-supplier**
+**Fix order page supplier embed incident**
 
 ## Current state
 
-Production migrations 20260702001000 and 20260703210959 are applied and verified; local supplier marker migration was corrected to uuid plus supplier store unique index.
+Order page supplier embed incident fix is complete: selects use repair_orders_supplier_id_fkey explicitly, production supplier FK names were verified, and regression/type/lint checks passed.
 
 ## Blocking decisions
 
@@ -27,11 +27,11 @@ Production migrations 20260702001000 and 20260703210959 are applied and verified
 
 ## Next action
 
-Commit and push the corrected migration and task-memory closeout to origin/main.
+Stage, commit, and push the scoped files to origin/main.
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260703-007-order-queue-progress-parts-supplier/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260704-001-order-supplier-embed-incident/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.
