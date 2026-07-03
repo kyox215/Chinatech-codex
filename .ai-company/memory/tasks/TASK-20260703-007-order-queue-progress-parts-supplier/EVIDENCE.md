@@ -33,3 +33,11 @@ updated_at: "2026-07-03T23:36:11+02:00"
 
 - `/Users/kyox215/Documents/文稿 - kyox215的MacBook Pro/Codex/2026-05-17/zip-github/screenshots/TASK-20260703-007-order-queue-progress-parts-supplier/orders-desktop-queue-parts-supplier.png`
 - `/Users/kyox215/Documents/文稿 - kyox215的MacBook Pro/Codex/2026-05-17/zip-github/screenshots/TASK-20260703-007-order-queue-progress-parts-supplier/orders-desktop-supplier-menu.png`
+- `2026-07-03T22:14:13Z` `bb035c60ea` — supabase db query verified repair_orders.parts_supplier_id exists as nullable uuid in production.
+- `2026-07-03T22:14:13Z` `10a3595fac` — supabase db query verified repair_orders_parts_supplier_same_store_fkey references suppliers(id, store_id).
+- `2026-07-03T22:14:13Z` `87acc904a6` — supabase db query verified repair_orders_store_parts_supplier_idx and suppliers_id_store_id_unique_idx exist.
+- `2026-07-03T22:14:13Z` `35ae29393f` — supabase db query verified schema_migrations includes 20260702001000 order_device_unlock_pattern_trajectory and 20260703210959 order_parts_supplier_marker.
+- `2026-07-03T22:14:13Z` `7c282f247a` — Function behavior check returned repeated_path_allowed=true and invalid_point_rejected=false.
+- `2026-07-03T23:21:15Z` `60db3e5529` — Staged diff is limited to Active Context, TASK/CHECKPOINTS/EVIDENCE, and 20260703210959_order_parts_supplier_marker.sql.
+- `2026-07-03T23:21:15Z` `ad6ec7f9b6` — git diff --cached --check passed before final checkpoint.
+- `2026-07-03T23:21:15Z` `e50cc466d9` — Production schema/history/function checks passed for parts_supplier_id, FK, indexes, migration history, and unlock-pattern behavior.

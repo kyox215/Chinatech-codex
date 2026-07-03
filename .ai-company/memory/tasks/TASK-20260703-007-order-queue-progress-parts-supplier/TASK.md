@@ -1,10 +1,11 @@
 ---
-task_id: TASK-20260703-007-order-queue-progress-parts-supplier
-updated_at: "2026-07-03T23:36:11+02:00"
-status: pushed_apply_blocked
-risk_level: R2
-autonomy_level: L2
-owner: CEO-Orchestrator
+task_id: "TASK-20260703-007-order-queue-progress-parts-supplier"
+updated_at: "2026-07-03T23:21:15Z"
+status: "complete"
+task_class: "T2"
+risk_level: "R2"
+autonomy_level: "L2"
+owner: "CEO-Orchestrator"
 ---
 # TASK-20260703-007-order-queue-progress-parts-supplier
 
@@ -74,7 +75,10 @@ No real sub-agent spawned. Reason: current multi-agent tool policy says not to s
 ## Release Result
 
 - Commit `ad32c53` (`Improve order queue supplier workflow`) was pushed to `origin/main`.
-- Production Supabase migration was not applied. Apply is blocked by remote migration history mismatch and missing/invalid `SUPABASE_DB_PASSWORD`.
+- Follow-up checkpoint commit `74296a8` recorded the initial migration apply blocker.
+- Production Supabase migrations `20260702001000_order_device_unlock_pattern_trajectory` and `20260703210959_order_parts_supplier_marker` were applied on 2026-07-04 Europe/Rome via checked-in SQL files after `supabase db push` was blocked by older history drift.
+- Migration history was repaired only for the two executed versions, and production schema was verified for `repair_orders.parts_supplier_id`, the supplier/store FK, supporting indexes, and the pattern validation function behavior.
+- Remaining risk: regular `supabase db push --linked --dry-run` still reports older local migration files missing from remote history. Treat that as a separate migration-history cleanup task; do not run `--include-all` without review.
 
 ## Rollback
 

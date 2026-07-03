@@ -2,7 +2,14 @@
 -- Existing repair_orders.supplier_id keeps its external repair / mail-in meaning.
 
 alter table public.repair_orders
-  add column if not exists parts_supplier_id text;
+  add column if not exists parts_supplier_id uuid;
+
+alter table public.repair_orders
+  alter column parts_supplier_id type uuid
+  using nullif(parts_supplier_id::text, '')::uuid;
+
+create unique index if not exists suppliers_id_store_id_unique_idx
+  on public.suppliers (id, store_id);
 
 do $$
 begin
