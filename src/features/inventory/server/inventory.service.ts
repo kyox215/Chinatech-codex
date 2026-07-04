@@ -3,6 +3,7 @@ export {
   createInventoryIntake,
   getInventoryItem,
   getInventoryStats,
+  getInventorySummary,
   importElectronicsCsvPreview,
   listInventoryItems,
   listInventoryItemsPage,
