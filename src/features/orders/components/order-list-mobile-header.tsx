@@ -64,7 +64,7 @@ export function MobileOrdersFloatingHeader({
     <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
       <section className={repairOs.mobileFloatingHeaderCard}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <SidebarTrigger className="size-7 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
+          <SidebarTrigger className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
             <p className="truncate text-sm font-semibold leading-5">订单管理</p>
             <p className="truncate text-[9px] leading-3 text-muted-foreground">
@@ -74,7 +74,7 @@ export function MobileOrdersFloatingHeader({
           <Button
             type="button"
             size="icon"
-            className="size-7 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
+            className="size-10 rounded-xl border-0 text-primary-foreground shadow-[var(--shadow-action)]"
             style={brandGradientStyle}
             onClick={onCreateOrder}
             aria-label="新建工单"
@@ -84,8 +84,8 @@ export function MobileOrdersFloatingHeader({
         </header>
 
         <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] gap-1.5">
-            <div className={cn(repairOs.searchBar, "h-8 rounded-xl px-2 shadow-none")}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px] gap-1.5">
+            <div className={cn(repairOs.searchBar, "h-10 rounded-xl px-2 shadow-none")}>
               <Search className="size-3.5 shrink-0 text-muted-foreground" />
               <Input
                 value={filters.search ?? ""}
@@ -96,7 +96,7 @@ export function MobileOrdersFloatingHeader({
                   }))
                 }
                 placeholder="搜索订单、客户、手机"
-                className={cn(repairOs.searchInput, "h-7 text-xs")}
+                className={cn(repairOs.searchInput, "h-9 text-base")}
               />
             </div>
 
@@ -106,7 +106,7 @@ export function MobileOrdersFloatingHeader({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="relative size-8 rounded-xl bg-card"
+                  className="relative size-10 rounded-xl bg-card"
                   aria-label="筛选订单"
                 >
                   <Filter className="size-3.5" />
@@ -117,7 +117,7 @@ export function MobileOrdersFloatingHeader({
                   ) : null}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-full max-w-sm p-0">
+              <SheetContent side="right" className="h-[100svh] max-h-[100svh] w-full max-w-sm p-0">
                 <SheetHeader className="sr-only">
                   <SheetTitle>筛选</SheetTitle>
                 </SheetHeader>
@@ -147,7 +147,7 @@ export function MobileOrdersFloatingHeader({
                     type="button"
                     onClick={() => onGroupChange(group.key)}
                     className={cn(
-                      "grid h-9 min-w-0 snap-start justify-items-center gap-0.5 rounded-[8px] border px-1 py-1 text-center transition-colors active:scale-[0.98]",
+                      "grid h-10 min-w-0 snap-start justify-items-center gap-0.5 rounded-[8px] border px-1 py-1 text-center transition-colors active:scale-[0.98]",
                       active
                         ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
                         : "border-[var(--border-panel)] bg-surface-muted text-muted-foreground shadow-none",

@@ -53,6 +53,7 @@ import {
   paymentStatusFromMoney,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
+import { getSimpleOrderFlowStageIndexForWorkflow } from "@/features/orders/model/order-simple-flow";
 import {
   formatWarrantyText,
   normalizeWarrantyMonths,
@@ -160,9 +161,14 @@ function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
   }
 
   return result.sort((a, b) => {
+    const aWorkflow = a.workflow_status ?? workflowStatusFromLegacyStatus(a.status);
+    const bWorkflow = b.workflow_status ?? workflowStatusFromLegacyStatus(b.status);
+    const simpleProgressSort =
+      getSimpleOrderFlowStageIndexForWorkflow(aWorkflow) -
+      getSimpleOrderFlowStageIndexForWorkflow(bWorkflow);
+    if (simpleProgressSort !== 0) return simpleProgressSort;
     const workflowSort =
-      orderWorkflowStatuses.indexOf(a.workflow_status ?? workflowStatusFromLegacyStatus(a.status)) -
-      orderWorkflowStatuses.indexOf(b.workflow_status ?? workflowStatusFromLegacyStatus(b.status));
+      orderWorkflowStatuses.indexOf(aWorkflow) - orderWorkflowStatuses.indexOf(bWorkflow);
     if (workflowSort !== 0) return workflowSort;
     const statusSort = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
     if (statusSort !== 0) return statusSort;
@@ -662,14 +668,10 @@ export async function listOrdersPage(
   }
 
   const supabase = getSupabaseAdmin();
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
   let query = supabase
     .from("repair_orders")
     .select(ORDER_LIST_SELECT, { count: "exact" })
-    .eq("store_id", storeId)
-    .order("updated_at", { ascending: false })
-    .range(from, to);
+    .eq("store_id", storeId);
 
   if (filters.statuses?.length) query = query.in("status", filters.statuses);
   if (filters.workflowStatuses?.length) {
@@ -709,13 +711,15 @@ export async function listOrdersPage(
   }
   fail(error, "读取工单失败");
 
-  const total = count ?? 0;
+  const all = filterOrders(((data ?? []) as DbRecord[]).map(decorate), {});
+  const total = count ?? all.length;
+  const start = (page - 1) * pageSize;
   const workflowCounts = await readWorkflowCountsFromSupabase(
     storeId,
     filtersForWorkflowCounts(filters),
   );
   return {
-    items: ((data ?? []) as DbRecord[]).map(decorate),
+    items: all.slice(start, start + pageSize),
     total,
     page,
     pageSize,

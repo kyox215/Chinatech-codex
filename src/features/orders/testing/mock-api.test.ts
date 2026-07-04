@@ -50,6 +50,41 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.order.public_no).toMatch(/^R\d+$/);
   });
 
+  it("sorts order cards by simplified progress from 1 to 5", async () => {
+    const marker = `SortFlowAlpha${"x".repeat(seq + 1)}`;
+    const intakeId = await createMockOrder({ customer_name: `${marker} intake` });
+    const quoteId = await createMockOrder({
+      customer_name: `${marker} quote`,
+      status: "diagnosing",
+    });
+    const repairId = await createMockOrder({ customer_name: `${marker} repair` });
+    await transitionOrder(repairId, "mail_in_progress", { reason: "外修检测" });
+    const pickupId = await createMockOrder({ customer_name: `${marker} pickup` });
+    await transitionOrder(pickupId, "waiting_pickup");
+    const closedId = await createMockOrder({
+      customer_name: `${marker} closed`,
+      deposit_amount: 120,
+    });
+    await transitionOrder(closedId, "completed");
+
+    const matches = await listOrders({ search: marker });
+
+    expect(matches.map((order) => order.id)).toEqual([
+      intakeId,
+      quoteId,
+      repairId,
+      pickupId,
+      closedId,
+    ]);
+    expect(matches.map((order) => order.workflow_status)).toEqual([
+      "intake",
+      "diagnosis",
+      "repair",
+      "pickup",
+      "closed",
+    ]);
+  });
+
   it("creates an intake timeline event for new mock orders", async () => {
     const id = await createMockOrder({ order_type: "dropoff_repair" }, "ALESSIO");
 

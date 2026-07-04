@@ -61,6 +61,7 @@ import {
   paymentStatusFromMoney,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
+import { getSimpleOrderFlowStageIndexForWorkflow } from "@/features/orders/model/order-simple-flow";
 import {
   formatWarrantyText,
   normalizeWarrantyPayload,
@@ -283,8 +284,17 @@ export async function listOrders(
   // Workflow-first sort, then updated_at desc.
   return result
     .sort((a, b) => {
-      const d = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
-      if (d !== 0) return d;
+      const aWorkflow = a.workflow_status ?? workflowStatusFromLegacyStatus(a.status);
+      const bWorkflow = b.workflow_status ?? workflowStatusFromLegacyStatus(b.status);
+      const simpleProgressSort =
+        getSimpleOrderFlowStageIndexForWorkflow(aWorkflow) -
+        getSimpleOrderFlowStageIndexForWorkflow(bWorkflow);
+      if (simpleProgressSort !== 0) return simpleProgressSort;
+      const workflowSort =
+        orderWorkflowStatuses.indexOf(aWorkflow) - orderWorkflowStatuses.indexOf(bWorkflow);
+      if (workflowSort !== 0) return workflowSort;
+      const statusSort = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
+      if (statusSort !== 0) return statusSort;
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     })
     .map(redactOrderListSecrets);

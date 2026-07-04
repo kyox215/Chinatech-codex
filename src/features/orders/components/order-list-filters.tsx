@@ -49,11 +49,11 @@ export function FiltersPanel({
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <ScrollArea className="flex-1">
-        <div className="space-y-6 p-4 pt-5">
+    <div className="flex h-full min-h-0 flex-col">
+      <ScrollArea className="min-h-0 flex-1 overscroll-contain">
+        <div className="space-y-5 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5">
           <FilterGroup label="主流程">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {simpleOrderFlowStages.map((stage) => {
                 const active = stage.workflowStatuses.every((status) =>
                   filters.workflowStatuses?.includes(status),
@@ -61,9 +61,10 @@ export function FiltersPanel({
                 return (
                   <button
                     key={stage.key}
+                    type="button"
                     onClick={() => toggleWorkflowStage(stage.workflowStatuses)}
                     className={cn(
-                      "rounded-md border px-2 py-1 text-xs transition-colors",
+                      filterChipClass,
                       active
                         ? "border-primary bg-primary/10 text-primary"
                         : "bg-surface hover:bg-accent",
@@ -77,15 +78,16 @@ export function FiltersPanel({
           </FilterGroup>
 
           <FilterGroup label="异常">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {Object.entries(orderExceptionMeta).map(([status, meta]) => {
                 const active = filters.exceptionStatuses?.includes(status as never);
                 return (
                   <button
                     key={status}
+                    type="button"
                     onClick={() => toggle("exceptionStatuses", status)}
                     className={cn(
-                      "rounded-md border px-2 py-1 text-xs transition-colors",
+                      filterChipClass,
                       active
                         ? "border-status-danger-foreground/40 bg-status-danger/15 text-status-danger-foreground"
                         : "bg-surface hover:bg-accent",
@@ -99,15 +101,16 @@ export function FiltersPanel({
           </FilterGroup>
 
           <FilterGroup label="工单状态">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               {statuses.map((status) => {
                 const active = filters.statuses?.includes(status.code);
                 return (
                   <button
                     key={status.code}
+                    type="button"
                     onClick={() => toggle("statuses", status.code)}
                     className={cn(
-                      "rounded-md border px-2 py-1 text-xs transition-colors",
+                      filterChipClass,
                       active
                         ? "border-primary bg-primary/10 text-primary"
                         : "bg-surface hover:bg-accent",
@@ -121,15 +124,16 @@ export function FiltersPanel({
           </FilterGroup>
 
           <FilterGroup label="工单类型">
-            <div className="flex gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {repairOrderType.map((t) => {
                 const active = filters.types?.includes(t);
                 return (
                   <button
                     key={t}
+                    type="button"
                     onClick={() => toggle("types", t)}
                     className={cn(
-                      "rounded-md border px-2 py-1 text-xs",
+                      filterChipClass,
                       active
                         ? "border-primary bg-primary/10 text-primary"
                         : "bg-surface hover:bg-accent",
@@ -143,13 +147,14 @@ export function FiltersPanel({
           </FilterGroup>
 
           <FilterGroup label="付款状态">
-            <div className="flex gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               {(["all", "paid", "unpaid"] as const).map((p) => (
                 <button
                   key={p}
+                  type="button"
                   onClick={() => setFilters({ ...filters, paid: p })}
                   className={cn(
-                    "rounded-md border px-2 py-1 text-xs",
+                    filterChipClass,
                     (filters.paid ?? "all") === p
                       ? "border-primary bg-primary/10 text-primary"
                       : "bg-surface hover:bg-accent",
@@ -162,13 +167,14 @@ export function FiltersPanel({
           </FilterGroup>
 
           <FilterGroup label="技师">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {options.technicians.map((t) => (
                 <label
                   key={t}
-                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
+                  className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2 text-sm hover:bg-accent"
                 >
                   <Checkbox
+                    className="size-5 rounded-md"
                     checked={filters.technicians?.includes(t) ?? false}
                     onCheckedChange={() => toggle("technicians", t)}
                   />
@@ -179,18 +185,22 @@ export function FiltersPanel({
           </FilterGroup>
 
           <FilterGroup label="外修供应商">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {options.suppliers.map((s) => (
                 <label
                   key={s.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
+                  className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2 text-sm hover:bg-accent"
                 >
                   <Checkbox
+                    className="size-5 rounded-md"
                     checked={filters.supplierIds?.includes(s.id) ?? false}
                     onCheckedChange={() => toggle("supplierIds", s.id)}
                   />
-                  <span className="size-2.5 rounded-full" style={{ background: s.color }} />
-                  {s.short_name}
+                  <span
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{ background: s.color }}
+                  />
+                  <span className="min-w-0 truncate">{s.short_name}</span>
                 </label>
               ))}
             </div>
@@ -198,9 +208,10 @@ export function FiltersPanel({
         </div>
       </ScrollArea>
       {onClose && (
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-t p-3">
+        <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)] gap-2 border-t bg-[var(--surface-workspace-strong)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <Button
             variant="outline"
+            className="h-11 px-5"
             onClick={() => {
               setFilters({ search: filters.search });
               onStatusFilterChange?.();
@@ -208,7 +219,7 @@ export function FiltersPanel({
           >
             重置
           </Button>
-          <Button className="w-full" onClick={onClose}>
+          <Button className="h-11 w-full" onClick={onClose}>
             应用筛选
           </Button>
         </div>
@@ -216,6 +227,9 @@ export function FiltersPanel({
     </div>
   );
 }
+
+const filterChipClass =
+  "min-h-10 rounded-lg border px-2.5 py-2 text-center text-xs font-medium leading-tight transition-colors";
 
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
