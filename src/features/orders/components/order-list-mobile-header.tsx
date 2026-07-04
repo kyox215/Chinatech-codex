@@ -59,8 +59,6 @@ export function MobileOrdersFloatingHeader({
 }) {
   const activeGroup = groups.find((group) => group.key === groupValue);
   const activeFilterCount = activeFilterChips.length;
-  const groupCount = Math.max(1, groups.length);
-  const railOffset = `${100 / (groupCount * 2)}%`;
 
   return (
     <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
@@ -139,52 +137,39 @@ export function MobileOrdersFloatingHeader({
             className="min-w-0 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             aria-label="流程分组"
           >
-            <div
-              className="relative grid min-w-[360px]"
-              style={{ gridTemplateColumns: `repeat(${groupCount}, minmax(0, 1fr))` }}
-            >
-              <span
-                aria-hidden
-                className="absolute top-3 h-px bg-border"
-                style={{ left: railOffset, right: railOffset }}
-              />
+            <div className="grid w-full grid-cols-6 gap-1">
               {groups.map((group) => {
                 const active = groupValue === group.key;
-                const shortLabel = group.shortLabel ?? group.label.slice(0, 1);
 
                 return (
                   <button
                     key={group.key}
                     type="button"
                     onClick={() => onGroupChange(group.key)}
-                    className="relative z-10 grid min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
+                    className={cn(
+                      "grid h-9 min-w-0 snap-start justify-items-center gap-0.5 rounded-[8px] border px-1 py-1 text-center transition-colors active:scale-[0.98]",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
+                        : "border-[var(--border-panel)] bg-surface-muted text-muted-foreground shadow-none",
+                    )}
                     aria-pressed={active}
+                    aria-label={`${group.label} ${group.count} 条`}
                   >
                     <span
                       className={cn(
-                        "grid size-6 place-items-center rounded-full border text-[11px] font-semibold leading-none transition-colors",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground shadow-none"
-                          : "border-border bg-surface-muted text-muted-foreground",
+                        "min-w-0 truncate text-[9px] font-semibold leading-none",
+                        active ? "text-primary-foreground" : "text-foreground",
                       )}
                     >
-                      {shortLabel}
+                      {group.label}
                     </span>
                     <span
                       className={cn(
-                        "flex max-w-full items-center justify-center gap-0.5 truncate text-[9px] leading-3",
-                        active ? "font-semibold text-primary" : "text-muted-foreground",
+                        "font-mono text-[9px] font-semibold leading-none tabular-nums",
+                        active ? "text-primary-foreground/90" : "text-muted-foreground",
                       )}
                     >
-                      <span className="truncate">{group.label}</span>
-                      <span
-                        className={cn(
-                          "font-mono text-[9px] tabular-nums",
-                          active ? "text-primary" : "text-muted-foreground",
-                        )}
-                      >
-                        {group.count}
-                      </span>
+                      {group.count}
                     </span>
                   </button>
                 );
