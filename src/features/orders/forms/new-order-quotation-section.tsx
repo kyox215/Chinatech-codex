@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { Plus, ReceiptText, Trash2 } from "lucide-react";
+import { Plus, ReceiptText, ShieldCheck, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export function NewOrderQuotationSection({
   setForm,
   total,
   operatorName,
+  operatorRole,
   onPatchFault,
   onAddCustomFault,
   createStatuses,
@@ -42,6 +43,7 @@ export function NewOrderQuotationSection({
   setForm: Dispatch<SetStateAction<NewOrderFormState>>;
   total: number;
   operatorName: string;
+  operatorRole?: string;
   onPatchFault: (index: number, patch: Partial<FaultPriceItem>) => void;
   onAddCustomFault: () => void;
   createStatuses: OrderWorkflowStatus[];
@@ -63,6 +65,7 @@ export function NewOrderQuotationSection({
   const moneyInputValue = (value: number) => (value === 0 ? "" : String(value));
   const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
   const balance = Math.max(0, total - form.deposit);
+  const roleLabel = getOperatorRoleLabel(operatorRole);
 
   return (
     <Shell data-new-order-section="quotation" className={cn(shellClass, "space-y-2")}>
@@ -174,11 +177,23 @@ export function NewOrderQuotationSection({
       </div>
 
       <div className="min-w-0 space-y-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5">
-        <div className="px-0.5 text-[10px] font-semibold leading-3 text-muted-foreground">
-          服务设置
+        <div className="flex min-w-0 items-center justify-between gap-1.5 px-0.5">
+          <div className="min-w-0">
+            <div className="truncate text-[10px] font-semibold leading-3 text-foreground">
+              定金与服务
+            </div>
+            <div className="truncate text-[9px] leading-3 text-muted-foreground">
+              定金、质保、录入人员与工单属性
+            </div>
+          </div>
+          <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 text-[9px] font-medium leading-none text-muted-foreground">
+            <ShieldCheck className="size-3 text-primary" />
+            {roleLabel}
+          </span>
         </div>
-        <div className="grid min-w-0 grid-cols-2 gap-1.5">
-          <FormItem label="定金" mobileLabel="sr-only">
+
+        <div className="grid min-w-0 grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] gap-1.5">
+          <FormItem label="定金">
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                 €
@@ -191,12 +206,12 @@ export function NewOrderQuotationSection({
                 onChange={(event) =>
                   setForm({ ...form, deposit: parseMoneyDraft(event.target.value) })
                 }
-                className={cn(controlClass, "pl-5 font-mono sm:pl-8")}
+                className={cn(controlClass, "h-9 pl-5 font-mono sm:pl-8")}
                 placeholder="0"
               />
             </div>
           </FormItem>
-          <FormItem label="保修" mobileLabel="sr-only">
+          <FormItem label="保修">
             <WarrantyPicker
               valueMonths={form.warrantyMonths}
               valueText={form.warrantyText}
@@ -215,33 +230,41 @@ export function NewOrderQuotationSection({
           </FormItem>
         </div>
 
-        <div className="grid min-w-0 gap-1.5">
-          <FormItem label="录入账号" mobileLabel="sr-only">
-            <div
-              className="flex h-8 min-w-0 items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 text-[11px] font-medium"
-              title={operatorName || "当前登录账号"}
-            >
-              <span className="truncate">{operatorName || "当前登录账号"}</span>
-            </div>
-          </FormItem>
-        </div>
-
-        <FormItem label="客户留存备注" mobileLabel="sr-only">
-          <AccessoryNotesPicker
-            value={form.accessoryNotes}
-            onChange={(accessoryNotes) => setForm({ ...form, accessoryNotes })}
-            compact
-          />
-        </FormItem>
-
         <div className="grid min-w-0 grid-cols-2 gap-1.5">
-          <div className="grid gap-1.5">
-            <div className="text-[10px] font-medium leading-3 text-muted-foreground">工单类型</div>
+          <div
+            className="grid min-h-10 min-w-0 content-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5"
+            title={operatorName || "当前登录账号"}
+          >
+            <div className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground">
+              录入人员
+            </div>
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+              <ShieldCheck className="size-3.5 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold leading-4 text-foreground">
+                {operatorName || "当前登录账号"}
+              </span>
+              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary">
+                {roleLabel}
+              </span>
+            </div>
+          </div>
+          <div className="grid min-w-0 gap-0.5">
+            <div className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground">
+              留存
+            </div>
+            <AccessoryNotesPicker
+              value={form.accessoryNotes}
+              onChange={(accessoryNotes) => setForm({ ...form, accessoryNotes })}
+              compact
+            />
+          </div>
+          <div className="grid min-w-0 gap-0.5">
+            <div className="text-[9.5px] font-medium leading-3 text-muted-foreground">类型</div>
             <Select
               value={form.type}
               onValueChange={(type) => setForm({ ...form, type: type as RepairOrderType })}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-9 rounded-lg text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -254,12 +277,13 @@ export function NewOrderQuotationSection({
             </Select>
           </div>
 
-          <FormItem label="初始状态" mobileLabel="sr-only">
+          <div className="grid min-w-0 gap-0.5">
+            <div className="text-[9.5px] font-medium leading-3 text-muted-foreground">状态</div>
             <Select
               value={form.status}
               onValueChange={(value) => setForm({ ...form, status: value })}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-9 rounded-lg text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -270,9 +294,18 @@ export function NewOrderQuotationSection({
                 ))}
               </SelectContent>
             </Select>
-          </FormItem>
+          </div>
         </div>
       </div>
     </Shell>
   );
+}
+
+function getOperatorRoleLabel(role?: string) {
+  if (role === "owner") return "最高管理员";
+  if (role === "manager") return "管理员";
+  if (role === "technician") return "技师";
+  if (role === "sales") return "前台";
+  if (role === "viewer") return "只读";
+  return "账号";
 }

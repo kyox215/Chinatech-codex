@@ -3008,6 +3008,7 @@ function MobileFinanceEditor({
           onChange={(items) => onChange(mergeSelectedFaultsIntoFinanceDraft(draft, items))}
           className="gap-1.5"
           density="compact"
+          compactColumns={3}
         />
       </div>
 
@@ -3266,58 +3267,52 @@ function MobilePaymentSummary({
   const hasBalance = balance > 0;
 
   return (
-    <div className={cn("min-w-0 space-y-1", className)} data-mobile-payment-summary="true">
-      <MobilePaymentRow label="总金额" amount={total} />
-      <MobilePaymentRow
-        label="已付押金"
-        amount={deposit}
-        valueClassName={deposit > 0 ? "text-status-success-foreground" : undefined}
-      />
-      <MobilePaymentRow
-        label="待收尾款"
-        amount={balance}
-        emphasis
-        valueClassName={
-          hasBalance ? "text-status-danger-foreground" : "text-status-success-foreground"
-        }
-      />
+    <div className={cn("min-w-0 space-y-1.5", className)} data-mobile-payment-summary="true">
+      <div className="rounded-lg border border-primary/15 bg-primary/5 px-2 py-1.5">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <span className="shrink-0 text-[10px] font-semibold leading-4 text-primary">总金额</span>
+          <MoneyText
+            amount={total}
+            className="min-w-0 text-right font-mono text-lg font-bold leading-6 text-foreground"
+          />
+        </div>
+      </div>
+
+      <div className="grid min-w-0 grid-cols-2 gap-1.5">
+        <MobilePaymentTile
+          label="已收定金"
+          amount={deposit}
+          valueClassName={deposit > 0 ? "text-status-success-foreground" : undefined}
+        />
+        <MobilePaymentTile
+          label="待付尾款"
+          amount={balance}
+          valueClassName={
+            hasBalance ? "text-status-danger-foreground" : "text-status-success-foreground"
+          }
+        />
+      </div>
     </div>
   );
 }
 
-function MobilePaymentRow({
+function MobilePaymentTile({
   label,
   amount,
-  emphasis = false,
   valueClassName,
 }: {
   label: string;
   amount: number;
-  emphasis?: boolean;
   valueClassName?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4",
-        emphasis && "border-t border-[var(--border-panel)] pt-1",
-      )}
-    >
-      <span
-        className={cn(
-          "shrink-0",
-          emphasis ? "font-semibold text-foreground" : "text-muted-foreground",
-        )}
-      >
+    <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
+      <div className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
         {label}
-      </span>
+      </div>
       <MoneyText
         amount={amount}
-        className={cn(
-          "min-w-0 text-right font-semibold",
-          emphasis ? "text-base leading-5" : "text-xs",
-          valueClassName,
-        )}
+        className={cn("mt-0.5 min-w-0 text-right font-mono text-xs font-semibold", valueClassName)}
       />
     </div>
   );

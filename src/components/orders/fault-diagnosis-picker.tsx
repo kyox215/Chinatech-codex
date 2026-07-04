@@ -265,14 +265,13 @@ export function FaultDiagnosisPicker({
   className,
   density = "default",
   appearance = "outlined",
-  compactColumns = "auto",
 }: {
   selected: SelectedFault[];
   onChange: (items: SelectedFault[]) => void;
   className?: string;
   density?: "default" | "compact";
   appearance?: "outlined" | "quiet";
-  compactColumns?: "auto" | 3;
+  compactColumns?: 3;
 }) {
   const setGroupSelection = (group: FaultGroup, option: FaultOption) => {
     const key = faultKey(group, option);
@@ -320,13 +319,10 @@ export function FaultDiagnosisPicker({
 
   return (
     <div
+      data-fault-diagnosis-picker="true"
       className={cn(
         "grid min-w-0",
-        compact
-          ? compactColumns === 3
-            ? "grid-cols-3 gap-1.5"
-            : "grid-cols-3 gap-1.5 min-[390px]:grid-cols-4"
-          : "grid-cols-2 gap-1.5 sm:grid-cols-3",
+        compact ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-1.5 sm:grid-cols-3",
         className,
       )}
     >
@@ -374,9 +370,9 @@ function FaultCategoryButton({
         className={cn(
           "grid min-w-0 overflow-hidden border text-left transition-colors",
           compact && quiet
-            ? "min-h-9 grid-cols-[minmax(0,1fr)_1.5rem] rounded-lg"
+            ? "min-h-10 grid-cols-[minmax(0,1fr)_2rem] rounded-lg"
             : compact
-              ? "min-h-7 grid-cols-[minmax(0,1fr)_1.25rem] rounded-md"
+              ? "min-h-9 grid-cols-[minmax(0,1fr)_2rem] rounded-lg"
               : "min-h-10 grid-cols-[minmax(0,1fr)_2rem] rounded-lg",
           quiet
             ? active.length
@@ -394,18 +390,18 @@ function FaultCategoryButton({
           className={cn(
             "flex min-w-0 items-center text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             compact && quiet
-              ? "min-h-9 gap-1 px-1.5 py-1"
+              ? "min-h-10 gap-1.5 px-2 py-1.5"
               : compact
-                ? "min-h-7 gap-1 px-1 py-0.5"
+                ? "min-h-9 gap-1.5 px-1.5 py-1"
                 : "min-h-10 gap-1.5 px-2 py-1.5",
           )}
         >
           <Icon
             className={cn(
               compact && quiet
-                ? "size-3.5 shrink-0"
+                ? "size-4 shrink-0"
                 : compact
-                  ? "size-3 shrink-0"
+                  ? "size-3.5 shrink-0"
                   : "size-4 shrink-0",
               active.length ? "text-primary" : "text-muted-foreground",
             )}
@@ -415,9 +411,9 @@ function FaultCategoryButton({
               className={cn(
                 "block truncate font-medium",
                 compact && quiet
-                  ? "text-[10px] leading-4"
+                  ? "text-[11px] leading-4"
                   : compact
-                    ? "text-[9px] leading-3"
+                    ? "text-[10px] leading-4"
                     : "text-[13px] leading-5",
               )}
             >
@@ -435,13 +431,13 @@ function FaultCategoryButton({
             type="button"
             aria-label={`展开${group.label}细分选项`}
             className={cn(
-              "grid h-full place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "grid h-full min-w-8 place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               quiet && "border-[var(--border-panel)] hover:bg-accent/30",
               active.length && "border-primary/20 text-primary/70 hover:text-primary",
             )}
           >
             <ChevronDown
-              className={compact && quiet ? "size-3.5" : compact ? "size-3" : "size-4"}
+              className={compact && quiet ? "size-4" : compact ? "size-3.5" : "size-4"}
             />
           </button>
         </DropdownMenuTrigger>
@@ -466,24 +462,24 @@ function FaultCategoryButton({
               }}
               className={cn(
                 "gap-1.5 rounded-md px-2 py-1 outline-none",
-                compact ? "min-h-8 text-xs" : "min-h-9 gap-2 px-2.5 py-1.5 text-[13px]",
+                compact ? "min-h-9 text-xs" : "min-h-9 gap-2 px-2.5 py-1.5 text-[13px]",
                 checked && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
               )}
             >
               <span
                 className={cn(
                   "grid shrink-0 place-items-center rounded border border-[var(--border-panel)] bg-background text-transparent",
-                  compact ? "size-3.5" : "size-4",
+                  compact ? "size-4" : "size-4",
                   checked && "border-primary bg-primary text-primary-foreground",
                 )}
               >
-                <Check className={compact ? "size-2.5" : "size-3"} />
+                <Check className="size-3" />
               </span>
               <span className="min-w-0 flex-1">
                 <span
                   className={cn(
                     "block truncate font-medium",
-                    compact ? "text-[10px] leading-4" : "text-[13px] leading-5",
+                    compact ? "text-xs leading-4" : "text-[13px] leading-5",
                   )}
                 >
                   {option.label}
@@ -491,7 +487,7 @@ function FaultCategoryButton({
                 <span
                   className={cn(
                     "block truncate text-muted-foreground",
-                    compact ? "text-[9px] leading-3" : "text-[11px] leading-4",
+                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
                   )}
                 >
                   {option.italian}
