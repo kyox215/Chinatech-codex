@@ -667,13 +667,30 @@ A. 先不做合并，只把详情工作台做好。推荐。
 B. 同期规划重复客户检测，但不自动合并。
 C. 同期实现客户合并，这会扩大风险和测试范围。
 
-## 15. Recommended Next Step
+## 15. Progress
 
-如果老板确认默认方案：
+### 2026-07-05 Phase 1 Implemented
 
-1. 设置实施目标为：`客户详情工作台 Phase CUST-1 + CUST-2`。
-2. 先实现派生模型和测试。
-3. 再改客户详情页信息架构。
-4. 最后再做外层列表卡片简化。
+- Added customer workbench derived model and tests.
+- Refreshed customer detail overview to profile-first and order-centered history.
+- Simplified mobile outer customer cards so the list is an entry point, not the full record.
+- Merged followups, messages, and timeline under `跟进`.
+- Unified money semantics around total spend / deposit / unpaid balance.
 
-不建议直接先改列表卡片，因为列表只是入口，真正价值在打开客户后的详情工作台。
+### 2026-07-05 Phase 2 Implemented
+
+- Added device-centered derived statistics from existing customer detail data.
+- Customer detail `设备` tab now shows each device with repair count, total amount, unpaid amount, warranty label, latest order, and active repair count.
+- Cancelled orders are classified as closed before unpaid checks, so cancelled balances do not pollute customer/device statistics.
+- Validation passed: customer tests, typecheck, lint, and production build.
+
+## 16. Recommended Next Step
+
+下一阶段建议做 `客户详情工作台 Phase 3：设备详情下钻与安全操作`：
+
+1. 设备卡点击进入设备详情小面板，展示该设备全部历史工单、维修项目、金额、售后和备注。
+2. 增强删除设备确认：如果设备已有历史工单，默认禁止直接删除，改为归档或提示先处理关联关系。
+3. 桌面端客户详情增加更清楚的设备-历史订单关联表。
+4. 补浏览器交互测试，覆盖设备 tab、设备新建工单入口和历史订单入口。
+
+暂不建议优先做客户合并或自动营销，因为它们会引入权限、隐私和误操作风险。当前最有价值的是把“打开客户后能看懂设备历史”继续做扎实。

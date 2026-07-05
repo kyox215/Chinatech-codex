@@ -1,6 +1,10 @@
 import type { CustomerDetail, Device, OrderListItem } from "@/lib/repairdesk/api";
 
-import { isCustomerOrderBillable, isCustomerOrderClosed } from "./customer-order-state";
+import {
+  isCustomerOrderBillable,
+  isCustomerOrderCancelled,
+  isCustomerOrderClosed,
+} from "./customer-order-state";
 
 export type CustomerOrderWorkbenchState = "active" | "unpaid" | "settled" | "closed";
 
@@ -20,6 +24,17 @@ export interface CustomerOrderWorkbenchItem {
   state: CustomerOrderWorkbenchState;
 }
 
+export interface CustomerDeviceWorkbenchItem {
+  device: Device;
+  orderItems: CustomerOrderWorkbenchItem[];
+  latestOrder?: CustomerOrderWorkbenchItem;
+  repairCount: number;
+  activeOrderCount: number;
+  totalQuoted: number;
+  unpaidAmount: number;
+  warrantyLabel: string;
+}
+
 export interface CustomerWorkbenchSummary {
   orderItems: CustomerOrderWorkbenchItem[];
   payment: CustomerPaymentSummary;
@@ -34,6 +49,37 @@ export interface CustomerWorkbenchSummary {
     language: "中文" | "English" | "Italiano";
     lastContactedAt?: string;
   };
+}
+
+export function buildCustomerDeviceWorkbenchItems(
+  data: CustomerDetail,
+): CustomerDeviceWorkbenchItem[] {
+  const orderItems = buildCustomerOrderWorkbenchItems(data);
+
+  return data.devices.map((device) => {
+    const linkedOrders = orderItems.filter((item) => item.order.device_id === device.id);
+    const billableOrders = linkedOrders.filter((item) => isCustomerOrderBillable(item.order));
+    const latestClosedOrder = linkedOrders.find(
+      (item) => isCustomerOrderClosed(item.order) && item.state !== "closed",
+    );
+
+    return {
+      device,
+      orderItems: linkedOrders,
+      latestOrder: linkedOrders[0],
+      repairCount: billableOrders.length,
+      activeOrderCount: linkedOrders.filter((item) => item.state === "active").length,
+      totalQuoted: billableOrders.reduce(
+        (sum, item) => sum + Math.max(0, item.order.quotation_amount),
+        0,
+      ),
+      unpaidAmount: billableOrders.reduce(
+        (sum, item) => sum + Math.max(0, item.order.balance_amount),
+        0,
+      ),
+      warrantyLabel: warrantyLabelFromOrder(latestClosedOrder?.order),
+    };
+  });
 }
 
 export function buildCustomerWorkbenchSummary(data: CustomerDetail): CustomerWorkbenchSummary {
@@ -106,13 +152,22 @@ export function buildCustomerPaymentSummary(orders: OrderListItem[]): CustomerPa
 export function getCustomerOrderWorkbenchState(
   order: Pick<OrderListItem, "status" | "balance_amount" | "workflow_status" | "exception_status">,
 ): CustomerOrderWorkbenchState {
+  if (isCustomerOrderCancelled(order)) return "closed";
   if (!isCustomerOrderClosed(order)) return "active";
   if (order.balance_amount > 0) return "unpaid";
-  return order.status === "cancelled" || order.exception_status === "cancelled"
-    ? "closed"
-    : "settled";
+  return "settled";
 }
 
 function orderTime(order: Pick<OrderListItem, "updated_at" | "created_at">) {
   return new Date(order.updated_at || order.created_at || 0).getTime();
+}
+
+function warrantyLabelFromOrder(order?: OrderListItem) {
+  if (!order) return "暂无售后记录";
+  const warrantyText = order.warranty_text?.trim();
+  if (warrantyText) return warrantyText;
+  if (typeof order.warranty_months === "number") {
+    return order.warranty_months > 0 ? `${order.warranty_months}个月售后` : "无售后";
+  }
+  return "售后未设置";
 }

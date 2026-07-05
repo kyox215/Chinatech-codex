@@ -5,8 +5,11 @@ import { Bell, Edit3, Inbox, Smartphone, Trash2, Wrench } from "lucide-react";
 
 import { MoneyText, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
-import type { CustomerDetail, CustomerTag, Device, OrderListItem } from "@/lib/repairdesk/api";
-import type { CustomerOrderWorkbenchItem } from "@/features/customers/model/customer-workbench";
+import type { CustomerDetail, CustomerTag, OrderListItem } from "@/lib/repairdesk/api";
+import type {
+  CustomerDeviceWorkbenchItem,
+  CustomerOrderWorkbenchItem,
+} from "@/features/customers/model/customer-workbench";
 import { RepairOsBadge, RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
 
 const customerTagPriority = new Map([
@@ -72,18 +75,20 @@ export function CustomerInfoBlock({ label, value }: { label: string; value: Reac
 }
 
 export function CustomerDeviceCard({
-  device,
+  item,
   customerId,
   deleting,
   onEdit,
   onDelete,
 }: {
-  device: Device;
+  item: CustomerDeviceWorkbenchItem;
   customerId: string;
   deleting: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { device, latestOrder } = item;
+
   return (
     <RepairOsBusinessCard
       className="grid-cols-[minmax(0,1fr)] gap-1.5 px-2.5 py-1.5"
@@ -108,6 +113,68 @@ export function CustomerDeviceCard({
           {device.device_notes}
         </p>
       )}
+      <div className="grid min-w-0 grid-cols-2 gap-1.5">
+        <RepairOsInfoTile
+          label="维修次数"
+          value={`${item.repairCount} 次`}
+          frame="plain"
+          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+          labelClassName="text-[9px]"
+          valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
+        />
+        <RepairOsInfoTile
+          label="总金额"
+          value={<MoneyText amount={item.totalQuoted} />}
+          frame="plain"
+          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+          labelClassName="text-[9px]"
+          valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
+        />
+        <RepairOsInfoTile
+          label="待收"
+          value={<MoneyText amount={item.unpaidAmount} />}
+          frame="plain"
+          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+          labelClassName="text-[9px]"
+          valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
+        />
+        <RepairOsInfoTile
+          label="售后"
+          value={item.warrantyLabel}
+          frame="plain"
+          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+          labelClassName="text-[9px]"
+          valueClassName="truncate text-xs font-semibold leading-4"
+        />
+      </div>
+      {latestOrder ? (
+        <div className="rounded-lg border border-[var(--border-panel)] bg-card/60 px-2 py-1.5">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <Link
+              href={`/orders/${latestOrder.order.id}`}
+              className="truncate font-mono text-[10px] font-semibold text-primary hover:underline"
+            >
+              {latestOrder.order.public_no}
+            </Link>
+            <StatusBadge status={latestOrder.order.status} className="max-w-[5.5rem] text-[10px]" />
+          </div>
+          <p
+            className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-muted-foreground"
+            title={latestOrder.order.issue_description}
+          >
+            最近：{latestOrder.order.issue_description}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-2 text-[10px] font-medium leading-4 text-muted-foreground">
+          暂无关联工单
+        </div>
+      )}
+      {item.activeOrderCount > 0 ? (
+        <RepairOsBadge className="w-fit bg-status-info text-[10px] text-status-info-foreground">
+          在修 {item.activeOrderCount}
+        </RepairOsBadge>
+      ) : null}
       <div className="flex flex-wrap gap-1.5">
         <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
           <Link href={`/orders/new?customerId=${customerId}&deviceId=${device.id}`}>

@@ -237,7 +237,7 @@ export function CustomerDetailScreen({
     );
   }
 
-  const { customer, devices, orders, followups, interactions } = data;
+  const { customer, orders, followups, interactions } = data;
   const tabs = buildCustomerDetailTabs(data);
   const detailStyle =
     surface === "page" && mobileHeaderHeight
@@ -254,8 +254,7 @@ export function CustomerDetailScreen({
       <CustomerOverviewPanel data={data} />
     ) : tab === "devices" ? (
       <CustomerDevicesPanel
-        customerId={customer.id}
-        devices={devices}
+        data={data}
         deleting={deleteDevice.isPending}
         onAdd={() => {
           setEditingDevice(undefined);

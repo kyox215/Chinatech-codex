@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260705-006-customer-workbench-planning"
 status: "active"
-phase: "phase-1-implemented"
+phase: "phase-2-implemented"
 task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-05T14:03:23Z"
+last_checkpoint_at: "2026-07-05T14:33:55Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Customer workbench phase 1 implemented: order-centered history, profile-first overview, simplified mobile customer cards, merged followups/messages/timeline, unified money/status semantics, device empty state, tab ARIA.
+Customer workbench phase 2 implemented: device tab now derives linked order statistics, latest order, repair/active counts, total/unpaid amounts, warranty label, and cancelled-order-safe state classification; validation passed customer tests, typecheck, lint, build; mobile screenshot saved.
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Customer workbench phase 1 implemented: order-centered history, profile-first ov
 
 ## Next action
 
-Next phase: decide whether to implement device-level analytics, safer device delete confirmation, and customer list desktop table simplification.
+Next recommended action: Phase 3 device detail drill-down and safer device deletion/archiving rules. Start by reviewing customer device delete flow, order-device relations, and customer detail mobile device panel before any schema change.
 
 ## Resume protocol
 

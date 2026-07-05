@@ -1,5 +1,5 @@
 ---
-updated_at: "2026-07-05T14:03:23Z"
+updated_at: "2026-07-05T14:33:55Z"
 ---
 # TASK-20260705-006 Customer Workbench Planning
 
@@ -61,6 +61,13 @@ Owner confirmed choices on 2026-07-05:
 5. Phase CUST-5: Unified total-spend/total-quoted money semantics across list/detail and excluded cancelled orders from totals.
 6. Phase CUST-6: Added device empty state and tab accessibility semantics.
 
+## Implemented Phase 2
+
+1. Phase CUST-7: Added device-centered customer workbench derivation for linked orders, latest order, repair count, active order count, total quoted amount, unpaid amount, and warranty label.
+2. Phase CUST-8: Refreshed the customer detail `设备` tab card so each device shows relationship statistics and the latest related order without entering the order detail.
+3. Phase CUST-9: Fixed customer order workbench state classification so cancelled orders stay closed before unpaid-balance checks.
+4. Phase CUST-10: Added model coverage for device-order statistics and cancelled-order exclusion.
+
 ## Next Implementation Plan
 
 1. Phase CUST-1: Build customer workbench derived model and tests.
@@ -94,3 +101,4 @@ Main thread integrated the accepted fixes and retained final ownership of code, 
 - `screenshots/TASK-20260705-006-customer-workbench-planning/customers-mobile-list-final.png`
 - `screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-overview-final.png`
 - `screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-followups-final.png`
+- `screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-devices-phase2-viewport.png`

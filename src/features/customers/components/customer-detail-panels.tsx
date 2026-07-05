@@ -14,7 +14,10 @@ import {
   CustomerTimelineList,
   CustomerWorkbenchOrderRow,
 } from "@/features/customers/components/customer-profile-blocks";
-import { buildCustomerWorkbenchSummary } from "@/features/customers/model/customer-workbench";
+import {
+  buildCustomerDeviceWorkbenchItems,
+  buildCustomerWorkbenchSummary,
+} from "@/features/customers/model/customer-workbench";
 import type { CustomerDetail, Device } from "@/lib/repairdesk/api";
 import { RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
@@ -88,20 +91,20 @@ export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
 }
 
 export function CustomerDevicesPanel({
-  customerId,
-  devices,
+  data,
   deleting,
   onAdd,
   onEdit,
   onDelete,
 }: {
-  customerId: string;
-  devices: CustomerDetail["devices"];
+  data: CustomerDetail;
   deleting: boolean;
   onAdd: () => void;
   onEdit: (device: Device) => void;
   onDelete: (deviceId: string) => void;
 }) {
+  const deviceItems = buildCustomerDeviceWorkbenchItems(data);
+
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
@@ -115,15 +118,15 @@ export function CustomerDevicesPanel({
         }
       />
       <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 sm:gap-2 2xl:grid-cols-3">
-        {devices.length ? (
-          devices.map((device) => (
+        {deviceItems.length ? (
+          deviceItems.map((item) => (
             <CustomerDeviceCard
-              key={device.id}
-              device={device}
-              customerId={customerId}
+              key={item.device.id}
+              item={item}
+              customerId={data.customer.id}
               deleting={deleting}
-              onEdit={() => onEdit(device)}
-              onDelete={() => onDelete(device.id)}
+              onEdit={() => onEdit(item.device)}
+              onDelete={() => onDelete(item.device.id)}
             />
           ))
         ) : (

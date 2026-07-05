@@ -53,3 +53,12 @@ Risks:
 - **Evidence:**
   - npm run test passed 54 files / 351 tests; customer tests passed 4 files / 22 tests; npx tsc --noEmit passed; npm run lint passed; npm run build passed; screenshots saved under screenshots/TASK-20260705-006-customer-workbench-planning/
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-05T14:33:55Z — Customer workbench phase 2 implemented: device tab now derives linked order statistics, latest order, repair/active counts, total/unpaid amounts, warranty label, and cancelled-order-safe state classification; validation passed customer tests, typecheck, lint, build; mobile screenshot saved.
+
+- **Phase:** phase-2-implemented
+- **Completed/current state:** Customer workbench phase 2 implemented: device tab now derives linked order statistics, latest order, repair/active counts, total/unpaid amounts, warranty label, and cancelled-order-safe state classification; validation passed customer tests, typecheck, lint, build; mobile screenshot saved.
+- **Next:** Next recommended action: Phase 3 device detail drill-down and safer device deletion/archiving rules. Start by reviewing customer device delete flow, order-device relations, and customer detail mobile device panel before any schema change.
+- **Decision:** Continue with detail-workbench-first strategy; no schema migration in phase 2; cancelled orders are closed before unpaid checks so they do not affect device financial stats.
+- **Evidence:**
+  - src/features/customers/model/customer-workbench.ts; src/features/customers/model/customer-workbench.test.ts; src/features/customers/components/customer-profile-blocks.tsx; src/features/customers/components/customer-detail-panels.tsx; src/features/customers/screens/customer-detail-screen.tsx; screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-devices-phase2-viewport.png; npm run test -- src/features/customers; npx tsc --noEmit --pretty false; npm run lint; npm run build
+- **Recorded by:** CEO-Orchestrator

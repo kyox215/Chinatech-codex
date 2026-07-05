@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CustomerDetail, OrderListItem } from "@/lib/repairdesk/types";
 
 import {
+  buildCustomerDeviceWorkbenchItems,
   buildCustomerOrderWorkbenchItems,
   buildCustomerPaymentSummary,
   buildCustomerWorkbenchSummary,
@@ -38,6 +39,8 @@ function order(input: Partial<OrderListItem> & Pick<OrderListItem, "id" | "devic
     currency_code: "EUR",
     is_paid: input.is_paid ?? false,
     approval_status: input.approval_status ?? "pending",
+    warranty_text: input.warranty_text,
+    warranty_months: input.warranty_months,
     technician_name: input.technician_name ?? "ALESSIO",
     created_at: input.created_at ?? "2026-05-01T10:00:00.000Z",
     updated_at: input.updated_at ?? input.created_at ?? "2026-05-01T10:00:00.000Z",
@@ -109,6 +112,73 @@ describe("customer workbench model", () => {
       deviceLabel: "SAMSUNG A13",
       deviceImei: "9900",
       state: "unpaid",
+    });
+  });
+
+  it("builds device-centered statistics from related historical orders", () => {
+    const data = detail({
+      devices: [
+        {
+          id: "dev_1",
+          customer_id: "cust_1",
+          brand: "APPLE",
+          model: "iPhone 15",
+          serial_or_imei: "350100000000000",
+        },
+        {
+          id: "dev_2",
+          customer_id: "cust_1",
+          brand: "SAMSUNG",
+          model: "A13",
+          serial_or_imei: "9900",
+        },
+      ],
+      orders: [
+        order({
+          id: "o1",
+          device_id: "dev_1",
+          status: "completed",
+          quotation_amount: 100,
+          balance_amount: 0,
+          warranty_months: 6,
+          created_at: "2026-05-02T10:00:00.000Z",
+        }),
+        order({
+          id: "o2",
+          device_id: "dev_1",
+          status: "repairing",
+          quotation_amount: 50,
+          balance_amount: 30,
+          created_at: "2026-05-03T10:00:00.000Z",
+        }),
+        order({
+          id: "o3",
+          device_id: "dev_1",
+          status: "cancelled",
+          exception_status: "cancelled",
+          quotation_amount: 999,
+          balance_amount: 999,
+          created_at: "2026-05-04T10:00:00.000Z",
+        }),
+      ],
+    });
+
+    const [iphone, samsung] = buildCustomerDeviceWorkbenchItems(data);
+
+    expect(iphone).toMatchObject({
+      repairCount: 2,
+      activeOrderCount: 1,
+      totalQuoted: 150,
+      unpaidAmount: 30,
+      warrantyLabel: "6个月售后",
+    });
+    expect(iphone.orderItems.map((item) => item.order.id)).toEqual(["o3", "o2", "o1"]);
+    expect(samsung).toMatchObject({
+      repairCount: 0,
+      activeOrderCount: 0,
+      totalQuoted: 0,
+      unpaidAmount: 0,
+      warrantyLabel: "暂无售后记录",
     });
   });
 
