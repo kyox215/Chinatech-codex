@@ -171,15 +171,44 @@ describe("customer workbench model", () => {
       totalQuoted: 150,
       unpaidAmount: 30,
       warrantyLabel: "6个月售后",
+      canDelete: false,
+      deleteBlockedReason: "已有历史工单，设备档案需要保留用于维修记录追踪",
     });
     expect(iphone.orderItems.map((item) => item.order.id)).toEqual(["o3", "o2", "o1"]);
+    expect(iphone.historyPreviewItems.map((item) => item.order.id)).toEqual(["o3", "o2", "o1"]);
     expect(samsung).toMatchObject({
       repairCount: 0,
       activeOrderCount: 0,
       totalQuoted: 0,
       unpaidAmount: 0,
       warrantyLabel: "暂无售后记录",
+      canDelete: true,
+      deleteBlockedReason: undefined,
     });
+  });
+
+  it("limits device drill-down preview while keeping the full order count", () => {
+    const [device] = buildCustomerDeviceWorkbenchItems(
+      detail({
+        orders: Array.from({ length: 6 }, (_, index) =>
+          order({
+            id: `o${index + 1}`,
+            device_id: "dev_1",
+            created_at: `2026-05-0${index + 1}T10:00:00.000Z`,
+          }),
+        ),
+      }),
+    );
+
+    expect(device.orderItems).toHaveLength(6);
+    expect(device.historyPreviewItems).toHaveLength(4);
+    expect(device.historyPreviewItems.map((item) => item.order.id)).toEqual([
+      "o6",
+      "o5",
+      "o4",
+      "o3",
+    ]);
+    expect(device.canDelete).toBe(false);
   });
 
   it("summarizes quoted, deposit, and unpaid totals without mixing labels", () => {

@@ -27,12 +27,15 @@ export interface CustomerOrderWorkbenchItem {
 export interface CustomerDeviceWorkbenchItem {
   device: Device;
   orderItems: CustomerOrderWorkbenchItem[];
+  historyPreviewItems: CustomerOrderWorkbenchItem[];
   latestOrder?: CustomerOrderWorkbenchItem;
   repairCount: number;
   activeOrderCount: number;
   totalQuoted: number;
   unpaidAmount: number;
   warrantyLabel: string;
+  canDelete: boolean;
+  deleteBlockedReason?: string;
 }
 
 export interface CustomerWorkbenchSummary {
@@ -66,6 +69,7 @@ export function buildCustomerDeviceWorkbenchItems(
     return {
       device,
       orderItems: linkedOrders,
+      historyPreviewItems: linkedOrders.slice(0, 4),
       latestOrder: linkedOrders[0],
       repairCount: billableOrders.length,
       activeOrderCount: linkedOrders.filter((item) => item.state === "active").length,
@@ -78,6 +82,10 @@ export function buildCustomerDeviceWorkbenchItems(
         0,
       ),
       warrantyLabel: warrantyLabelFromOrder(latestClosedOrder?.order),
+      canDelete: linkedOrders.length === 0,
+      deleteBlockedReason: linkedOrders.length
+        ? "已有历史工单，设备档案需要保留用于维修记录追踪"
+        : undefined,
     };
   });
 }
