@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: null
-status: "idle"
-phase: "none"
-task_class: null
-risk_level: null
-autonomy_level: null
+current_task_id: "TASK-20260705-006-customer-workbench-planning"
+status: "active"
+phase: "phase-1-implemented"
+task_class: "T1"
+risk_level: "R1"
+autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: null
+last_checkpoint_at: "2026-07-05T14:03:23Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,13 +15,23 @@ last_rehydrated_at: null
 
 ## Current objective
 
-No active task.
+**TASK-20260705-006-customer-workbench-planning**
 
 ## Current state
 
-- Status: idle
-- No task is selected for automatic resumption.
+Customer workbench phase 1 implemented: order-centered history, profile-first overview, simplified mobile customer cards, merged followups/messages/timeline, unified money/status semantics, device empty state, tab ARIA.
+
+## Blocking decisions
+
+- None recorded. Check the task file and `OPEN_CONFLICTS.md` before assuming this remains true.
 
 ## Next action
 
-Create a task with `python tools/ai_company.py new-task --title "..."`.
+Next phase: decide whether to implement device-level analytics, safer device delete confirmation, and customer list desktop table simplification.
+
+## Resume protocol
+
+1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
+2. Read `.ai-company/memory/tasks/TASK-20260705-006-customer-workbench-planning/TASK.md` and latest checkpoint.
+3. Inspect current Git/workspace state before changing files.
+4. Reclassify if scope, target environment, or risk changed.

@@ -17,6 +17,8 @@ import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { ordersKeys } from "@/features/orders/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   CustomerFollowupsPanel,
   CustomerMessagesPanel,
@@ -57,6 +59,7 @@ import {
   type Device,
   type CustomerDetail,
 } from "@/lib/repairdesk/api";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   brandGradientStyle,
   controls,
@@ -65,6 +68,7 @@ import {
   repairOs,
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
 
 type CustomerDetailSurface = "page" | "dialog";
 
@@ -87,11 +91,13 @@ export function CustomerDetailScreen({
   const [messageOpen, setMessageOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [orderUrl, setOrderUrl] = useState("");
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
 
   const { data, error, isError, isFetching, isLoading, refetch } = useQuery({
-    queryKey: customersKeys.detail(id),
-    queryFn: () => getCustomerDetail(id),
-    staleTime: 60_000,
+    queryKey: customersKeys.detail(id, activeStoreId),
+    queryFn: ({ signal }) => getCustomerDetail(id, { signal }),
+    staleTime: CACHE_TIMES.detail,
     retry: 1,
   });
 
@@ -121,7 +127,7 @@ export function CustomerDetailScreen({
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: customersKeys.detail(id) });
     queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
-    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
   };
 
   const update = useMutation({
@@ -263,14 +269,12 @@ export function CustomerDetailScreen({
       />
     ) : tab === "orders" ? (
       <CustomerOrdersPanel
-        orders={orders}
+        data={data}
         onFollowup={(orderId) => {
           setFollowupOrderId(orderId);
           setFollowupOpen(true);
         }}
       />
-    ) : tab === "messages" ? (
-      <CustomerMessagesPanel interactions={interactions} onMessage={() => setMessageOpen(true)} />
     ) : tab === "profile" ? (
       <CustomerProfilePanel
         customer={customer}
@@ -278,13 +282,21 @@ export function CustomerDetailScreen({
         onManageTags={() => setTagsOpen(true)}
       />
     ) : tab === "followups" ? (
-      <CustomerFollowupsPanel
-        followups={followups}
-        onAdd={openCustomerFollowup}
-        onComplete={(followupId) => completeFollowup.mutate(followupId)}
-      />
+      <div className="grid min-w-0 gap-2">
+        <CustomerFollowupsPanel
+          followups={followups}
+          onAdd={openCustomerFollowup}
+          onComplete={(followupId) => completeFollowup.mutate(followupId)}
+        />
+        <CustomerMessagesPanel interactions={interactions} onMessage={() => setMessageOpen(true)} />
+        <CustomerTimelinePanel data={data} />
+      </div>
     ) : (
-      <CustomerTimelinePanel data={data} />
+      <CustomerProfilePanel
+        customer={customer}
+        tags={data.tags}
+        onManageTags={() => setTagsOpen(true)}
+      />
     );
 
   return (
@@ -315,24 +327,34 @@ export function CustomerDetailScreen({
       ) : null}
 
       {isError ? (
-        <div
+        <RepairOsBusinessCard
+          as="div"
+          data-ui="customer-detail-refresh-warning"
           className={cn(
-            "mb-2 flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground",
+            "mb-2 items-center gap-2 rounded-lg border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground shadow-none hover:bg-status-warn/10",
             surface === "dialog" && "mx-2 mt-2 shrink-0 sm:mx-3 md:mx-4",
           )}
+          leading={
+            <span className="grid size-7 place-items-center rounded-lg bg-status-warn/15">
+              <AlertTriangle className="size-3.5" />
+            </span>
+          }
+          trailing={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 gap-1 px-2 text-xs text-status-warn-foreground hover:text-status-warn-foreground"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+            >
+              <RefreshCw className={cn("size-3", isFetching && "animate-spin")} /> 重试
+            </Button>
+          }
+          trailingClassName="justify-self-end"
         >
-          <span className="min-w-0 truncate">客户详情刷新失败：{queryErrorMessage}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-xs"
-            disabled={isFetching}
-            onClick={() => void refetch()}
-          >
-            <RefreshCw className={cn("size-3", isFetching && "animate-spin")} /> 重试
-          </Button>
-        </div>
+          <span className="block min-w-0 truncate">客户详情刷新失败：{queryErrorMessage}</span>
+        </RepairOsBusinessCard>
       ) : null}
 
       <div
@@ -533,12 +555,14 @@ function CustomerMobileFloatingHeader({
 
 function CustomerMobileMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-1.5 py-1">
-      <div className="truncate text-[9px] leading-3 text-muted-foreground">{label}</div>
-      <div className="truncate font-mono text-[11px] font-semibold leading-4 tabular-nums">
-        {value}
-      </div>
-    </div>
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      frame="plain"
+      className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-1.5 py-1"
+      labelClassName="text-[9px]"
+      valueClassName="truncate font-mono text-[11px] font-semibold leading-4 tabular-nums"
+    />
   );
 }
 
@@ -647,12 +671,14 @@ function CustomerDesktopSummaryRail({
 
 function CustomerRailMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-      <div className="truncate text-[9px] leading-3 text-muted-foreground">{label}</div>
-      <div className="mt-0.5 truncate font-mono text-xs font-semibold leading-4 tabular-nums">
-        {value}
-      </div>
-    </div>
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      frame="plain"
+      className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+      labelClassName="text-[9px]"
+      valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
+    />
   );
 }
 
@@ -680,13 +706,22 @@ function CustomerDetailLoadError({
           : cn(detailWorkspace.root, "flex h-full min-h-0 items-center justify-center p-3 sm:p-4"),
       )}
     >
-      <section className="mx-auto mt-8 max-w-sm rounded-xl border border-status-danger-foreground/25 bg-card p-5 text-center shadow-[var(--shadow-card)]">
-        <span className="mx-auto grid size-10 place-items-center rounded-full bg-status-danger/10 text-status-danger-foreground">
-          <AlertTriangle className="size-5" />
+      <RepairOsBusinessCard
+        as="div"
+        data-ui="customer-detail-load-error"
+        className="mx-auto mt-8 max-w-sm items-start rounded-xl border-status-danger-foreground/25 px-4 py-3 text-status-danger-foreground shadow-[var(--shadow-card)]"
+        leading={
+          <span className="grid size-9 place-items-center rounded-lg bg-status-danger/10 text-status-danger-foreground">
+            <AlertTriangle className="size-4" />
+          </span>
+        }
+        leadingClassName="pt-0.5"
+      >
+        <span className="block text-sm font-semibold text-foreground">客户详情加载失败</span>
+        <span className="mt-1 block break-words text-xs leading-5 text-muted-foreground">
+          {message}
         </span>
-        <h1 className="mt-3 text-base font-semibold">客户详情加载失败</h1>
-        <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{message}</p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <Button asChild variant="outline" className="h-9 gap-1.5 text-xs">
             <Link href="/customers">
               <ArrowLeft className="size-3.5" />
@@ -698,7 +733,7 @@ function CustomerDetailLoadError({
             重新加载
           </Button>
         </div>
-      </section>
+      </RepairOsBusinessCard>
     </div>
   );
 }

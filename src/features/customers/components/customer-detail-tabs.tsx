@@ -18,10 +18,13 @@ export function CustomerDetailTabs<T extends string>({
 }) {
   return (
     <div className="mb-3 max-w-full overflow-x-auto pb-1 [scrollbar-width:none] md:overflow-visible [&::-webkit-scrollbar]:hidden">
-      <div className="inline-flex min-w-0 items-center gap-1.5 md:flex md:flex-wrap">
+      <div className="inline-flex min-w-0 items-center gap-1.5 md:flex md:flex-wrap" role="tablist">
         {tabs.map((item) => (
           <button
             key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === item.key}
             onClick={() => onChange(item.key)}
             className={cn(repairOs.chip, "gap-1.5", activeTab === item.key && repairOs.chipActive)}
           >

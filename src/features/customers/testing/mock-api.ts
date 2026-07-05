@@ -20,6 +20,10 @@ import type {
   OrderListItem,
 } from "@/lib/repairdesk/types";
 import { listOrders } from "@/features/orders/testing/mock-api";
+import {
+  isCustomerOrderBillable,
+  isCustomerOrderClosed,
+} from "@/features/customers/model/customer-order-state";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   customerFollowups,
@@ -253,19 +257,15 @@ function tagsFor(customerId: string): CustomerTag[] {
 function customerStatsFromOrders(customerOrders: OrderListItem[]) {
   return {
     order_count: customerOrders.length,
-    active_order_count: customerOrders.filter(isActiveCustomerOrder).length,
+    active_order_count: customerOrders.filter((order) => !isCustomerOrderClosed(order)).length,
     total_spent: customerOrders
-      .filter((order) => order.is_paid)
+      .filter(isCustomerOrderBillable)
       .reduce((sum, order) => sum + order.quotation_amount, 0),
     unpaid_amount: customerOrders.reduce((sum, order) => sum + order.balance_amount, 0),
     last_order_at: customerOrders
       .map((order) => order.created_at)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0],
   };
-}
-
-function isActiveCustomerOrder(order: Pick<OrderListItem, "status">) {
-  return order.status !== "completed" && order.status !== "cancelled";
 }
 
 function nextFollowup(customerId: string) {

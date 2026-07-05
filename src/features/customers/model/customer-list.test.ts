@@ -136,6 +136,7 @@ describe("customer list helpers", () => {
         orders: [
           { id: "o1", status: "completed" },
           { id: "o2", status: "repairing" },
+          { id: "o3", status: "repairing", workflow_status: "closed" },
         ] as Parameters<typeof getCustomerDetailWorkSummary>[0]["orders"],
         tags: [],
         interactions: [],
@@ -184,13 +185,11 @@ describe("customer list helpers", () => {
     });
 
     expect(tabs).toEqual([
-      { key: "overview", label: "概览" },
-      { key: "devices", label: "设备", count: 2 },
+      { key: "overview", label: "总览" },
       { key: "orders", label: "工单", count: 3 },
-      { key: "messages", label: "联系", count: 2 },
+      { key: "devices", label: "设备", count: 2 },
+      { key: "followups", label: "跟进", count: 4 },
       { key: "profile", label: "资料", count: 1 },
-      { key: "followups", label: "待办", count: 1 },
-      { key: "timeline", label: "记录", count: 7 },
     ]);
   });
 });

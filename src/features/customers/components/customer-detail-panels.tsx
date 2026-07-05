@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
-import { MoneyText, StatusBadge } from "@/components/orders/badges";
+import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -11,37 +11,77 @@ import {
   CustomerDeviceCard,
   CustomerInfoBlock,
   CustomerMetric,
-  CustomerOrderRow,
   CustomerTimelineList,
+  CustomerWorkbenchOrderRow,
 } from "@/features/customers/components/customer-profile-blocks";
+import { buildCustomerWorkbenchSummary } from "@/features/customers/model/customer-workbench";
 import type { CustomerDetail, Device } from "@/lib/repairdesk/api";
+import { RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
-const customerDetailSectionTitleClass = "mb-2 text-[11px] font-semibold leading-4 sm:text-sm";
+const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm";
 
 export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
-  const { customer, stats } = data;
+  const { customer } = data;
+  const workbench = buildCustomerWorkbenchSummary(data);
+  const { contactSummary, latestOrder, payment } = workbench;
+  const noteRows = [
+    { label: "客户备注", value: customer.notes?.trim() },
+    { label: "联系备注", value: customer.marketing_notes?.trim() },
+  ].filter((row) => row.value);
+
   return (
     <div className="grid min-w-0 gap-1.5 sm:gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
       <section className={customerDetailSectionClass}>
-        <h2 className={customerDetailSectionTitleClass}>客户概览</h2>
+        <RepairOsSectionHeader
+          title="客户资料"
+          className="mb-2"
+          titleClassName={customerDetailSectionTitleClass}
+        />
         <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:gap-2">
-          <CustomerMetric label="设备" value={stats.device_count} />
-          <CustomerMetric label="历史工单" value={stats.order_count} />
-          <CustomerMetric label="已结清营收" value={<MoneyText amount={stats.total_spent} />} />
-          <CustomerMetric label="未结清" value={<MoneyText amount={stats.unpaid_amount} />} />
+          <CustomerInfoBlock
+            label="主电话"
+            value={<PhoneText value={contactSummary.primaryPhone} />}
+          />
+          <CustomerInfoBlock label="备用号码" value={`${contactSummary.backupPhoneCount} 个`} />
+          <CustomerInfoBlock label="首选联系" value={contactSummary.channel} />
+          <CustomerInfoBlock label="语言" value={contactSummary.language} />
+          <CustomerMetric label="总消费" value={<MoneyText amount={payment.totalQuoted} />} />
+          <CustomerMetric label="待收尾款" value={<MoneyText amount={payment.unpaidAmount} />} />
+          <CustomerMetric label="已收定金" value={<MoneyText amount={payment.depositTotal} />} />
+          <CustomerMetric label="历史工单" value={data.orders.length} />
         </div>
-        <Separator className="my-2" />
-        <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-          <CustomerInfoBlock label="客户备注" value={customer.notes || "暂无备注"} />
-          <CustomerInfoBlock label="联系备注" value={customer.marketing_notes || "暂无联系备注"} />
-        </div>
+        {noteRows.length ? (
+          <>
+            <Separator className="my-1.5" />
+            <div className="grid min-w-0 gap-1.5 sm:grid-cols-2">
+              {noteRows.map((row) => (
+                <CustomerInfoBlock key={row.label} label={row.label} value={row.value} />
+              ))}
+            </div>
+          </>
+        ) : null}
       </section>
       <section className={customerDetailSectionClass}>
-        <h2 className={customerDetailSectionTitleClass}>最近动态</h2>
-        <CustomerTimelineList data={data} limit={6} />
+        <RepairOsSectionHeader
+          title="最近工单"
+          className="mb-2"
+          titleClassName={customerDetailSectionTitleClass}
+        />
+        {latestOrder ? (
+          <CustomerWorkbenchOrderRow item={latestOrder} />
+        ) : (
+          <CustomerEmptyLine text="暂无历史工单" />
+        )}
+        <Separator className="my-2" />
+        <RepairOsSectionHeader
+          title="最近动态"
+          className="mb-2"
+          titleClassName={customerDetailSectionTitleClass}
+        />
+        <CustomerTimelineList data={data} limit={4} />
       </section>
     </div>
   );
@@ -64,41 +104,58 @@ export function CustomerDevicesPanel({
 }) {
   return (
     <section className={customerDetailSectionClass}>
-      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-        <h2 className={customerDetailSectionTitleClass}>设备档案</h2>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={onAdd}>
-          <Plus className="size-3.5" /> 添加设备
-        </Button>
-      </div>
+      <RepairOsSectionHeader
+        title="设备档案"
+        className="mb-2"
+        titleClassName={customerDetailSectionTitleClass}
+        action={
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={onAdd}>
+            <Plus className="size-3.5" /> 添加设备
+          </Button>
+        }
+      />
       <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 sm:gap-2 2xl:grid-cols-3">
-        {devices.map((device) => (
-          <CustomerDeviceCard
-            key={device.id}
-            device={device}
-            customerId={customerId}
-            deleting={deleting}
-            onEdit={() => onEdit(device)}
-            onDelete={() => onDelete(device.id)}
-          />
-        ))}
+        {devices.length ? (
+          devices.map((device) => (
+            <CustomerDeviceCard
+              key={device.id}
+              device={device}
+              customerId={customerId}
+              deleting={deleting}
+              onEdit={() => onEdit(device)}
+              onDelete={() => onDelete(device.id)}
+            />
+          ))
+        ) : (
+          <div className="rounded-xl border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-xs text-muted-foreground sm:col-span-2 2xl:col-span-3">
+            暂无设备档案，可先添加设备后复用到新工单。
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
 export function CustomerOrdersPanel({
-  orders,
+  data,
   onFollowup,
 }: {
-  orders: CustomerDetail["orders"];
+  data: CustomerDetail;
   onFollowup: (orderId: string) => void;
 }) {
+  const workbench = buildCustomerWorkbenchSummary(data);
+  const orderItems = workbench.orderItems;
+
   return (
     <section className={customerDetailSectionClass}>
-      <h2 className={customerDetailSectionTitleClass}>历史工单</h2>
-      {orders.length ? (
+      <RepairOsSectionHeader
+        title="历史工单"
+        className="mb-2"
+        titleClassName={customerDetailSectionTitleClass}
+      />
+      {orderItems.length ? (
         <div className="hidden max-w-full overflow-x-auto rounded-xl border border-[var(--border-panel)] bg-card lg:block">
-          <table className="w-full min-w-[620px] table-fixed text-xs xl:min-w-[760px]">
+          <table className="w-full min-w-[760px] table-fixed text-xs xl:min-w-[840px]">
             <thead className="border-b border-border/40 text-[11px] text-muted-foreground">
               <tr>
                 <th className="w-[118px] px-3 py-2 text-left font-medium xl:w-[130px]">工单</th>
@@ -106,57 +163,77 @@ export function CustomerOrdersPanel({
                 <th className="hidden w-[120px] px-2 py-2 text-left font-medium xl:table-cell">
                   状态
                 </th>
-                <th className="w-[96px] px-2 py-2 text-right font-medium xl:w-[110px]">报价</th>
+                <th className="w-[150px] px-2 py-2 text-right font-medium xl:w-[170px]">金额</th>
                 <th className="w-[86px] px-2 py-2 text-right font-medium xl:w-[110px]">操作</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
+              {orderItems.map((item) => (
                 <tr
-                  key={order.id}
+                  key={item.order.id}
                   className="border-b border-border/30 transition-colors last:border-0 hover:bg-accent/30"
                 >
                   <td className="px-3 py-2">
                     <Link
-                      href={`/orders/${order.id}`}
+                      href={`/orders/${item.order.id}`}
                       className="block truncate font-mono text-xs font-semibold text-primary hover:underline"
                     >
-                      {order.public_no}
+                      {item.order.public_no}
                     </Link>
                     <div className="mt-1 xl:hidden">
-                      <StatusBadge status={order.status} className="max-w-full text-[10px]" />
+                      <StatusBadge status={item.order.status} className="max-w-full text-[10px]" />
                     </div>
                   </td>
                   <td className="min-w-0 px-2 py-2">
-                    <div className="truncate text-xs font-medium" title={order.device_label}>
-                      {order.device_label}
+                    <div className="truncate text-xs font-medium" title={item.deviceLabel}>
+                      {item.deviceLabel}
                     </div>
+                    {item.deviceImei ? (
+                      <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                        IMEI {item.deviceImei}
+                      </div>
+                    ) : null}
                     <div
                       className="mt-0.5 truncate text-[11px] text-muted-foreground"
-                      title={order.issue_description}
+                      title={item.order.issue_description}
                     >
-                      {order.issue_description}
+                      {item.order.issue_description}
                     </div>
                   </td>
                   <td className="hidden px-2 py-2 xl:table-cell">
-                    <StatusBadge status={order.status} />
+                    <StatusBadge status={item.order.status} />
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2 text-right">
-                    <MoneyText amount={order.quotation_amount} />
+                  <td className="whitespace-nowrap px-2 py-2 text-right font-mono tabular-nums">
+                    <div className="font-semibold">
+                      <MoneyText amount={item.order.quotation_amount} />
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      定金 <MoneyText amount={item.order.deposit_amount} />
+                    </div>
+                    <div
+                      className={cn(
+                        "text-[10px]",
+                        item.order.balance_amount > 0
+                          ? "text-status-danger-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      待收 <MoneyText amount={Math.max(0, item.order.balance_amount)} />
+                    </div>
                   </td>
                   <td className="px-2 py-2 text-right">
-                    {order.status === "completed" ? (
+                    {item.order.status === "completed" ? (
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-7 gap-1.5 px-2 text-[11px]"
-                        onClick={() => onFollowup(order.id)}
+                        onClick={() => onFollowup(item.order.id)}
                       >
                         <Plus className="size-3" /> 待办
                       </Button>
                     ) : (
                       <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-[11px]">
-                        <Link href={`/orders/${order.id}`}>查看</Link>
+                        <Link href={`/orders/${item.order.id}`}>查看</Link>
                       </Button>
                     )}
                   </td>
@@ -166,11 +243,15 @@ export function CustomerOrdersPanel({
           </table>
         </div>
       ) : null}
-      <div className={cn("min-w-0 space-y-1.5 sm:space-y-2", orders.length && "lg:hidden")}>
-        {orders.map((order) => (
-          <CustomerOrderRow key={order.id} order={order} onFollowup={() => onFollowup(order.id)} />
+      <div className={cn("min-w-0 space-y-1.5 sm:space-y-2", orderItems.length && "lg:hidden")}>
+        {orderItems.map((item) => (
+          <CustomerWorkbenchOrderRow
+            key={item.order.id}
+            item={item}
+            onFollowup={() => onFollowup(item.order.id)}
+          />
         ))}
-        {!orders.length ? <CustomerEmptyLine text="暂无历史工单" /> : null}
+        {!orderItems.length ? <CustomerEmptyLine text="暂无历史工单" /> : null}
       </div>
     </section>
   );

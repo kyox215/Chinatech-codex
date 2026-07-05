@@ -20,6 +20,10 @@ import type {
   Device,
   OrderListItem,
 } from "@/lib/repairdesk/types";
+import {
+  isCustomerOrderBillable,
+  isCustomerOrderClosed,
+} from "@/features/customers/model/customer-order-state";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
@@ -363,9 +367,9 @@ async function fetchCustomerTagAssignments(
 function customerStatsFromOrders(orders: OrderListItem[]) {
   return {
     order_count: orders.length,
-    active_order_count: orders.filter(isActiveCustomerOrder).length,
+    active_order_count: orders.filter((order) => !isCustomerOrderClosed(order)).length,
     total_spent: orders
-      .filter((order) => order.is_paid)
+      .filter(isCustomerOrderBillable)
       .reduce((sum, order) => sum + order.quotation_amount, 0),
     unpaid_amount: orders.reduce((sum, order) => sum + order.balance_amount, 0),
     last_order_at: orders
@@ -378,10 +382,6 @@ function nextFollowup(followups: CustomerFollowup[]) {
   return followups
     .filter((followup) => followup.status === "open")
     .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())[0];
-}
-
-function isActiveCustomerOrder(order: Pick<OrderListItem, "status">) {
-  return order.status !== "completed" && order.status !== "cancelled";
 }
 
 function buildCustomerListItem(

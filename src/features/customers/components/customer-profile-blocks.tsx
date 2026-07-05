@@ -6,6 +6,7 @@ import { Bell, Edit3, Inbox, Smartphone, Trash2, Wrench } from "lucide-react";
 import { MoneyText, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import type { CustomerDetail, CustomerTag, Device, OrderListItem } from "@/lib/repairdesk/api";
+import type { CustomerOrderWorkbenchItem } from "@/features/customers/model/customer-workbench";
 import { RepairOsBadge, RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
 
 const customerTagPriority = new Map([
@@ -173,25 +174,88 @@ export function CustomerOrderRow({
   );
 }
 
+export function CustomerWorkbenchOrderRow({
+  item,
+  onFollowup,
+}: {
+  item: CustomerOrderWorkbenchItem;
+  onFollowup?: () => void;
+}) {
+  const { order } = item;
+  const unpaid = Math.max(0, order.balance_amount);
+
+  return (
+    <RepairOsBusinessCard
+      className="grid-cols-1 gap-1.5 rounded-xl px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:justify-between sm:px-3 sm:py-2"
+      trailing={
+        <div className="grid min-w-0 justify-items-end gap-1">
+          <MoneyText amount={order.quotation_amount} />
+          <div className="grid justify-items-end gap-0.5 font-mono text-[10px] leading-3 text-muted-foreground tabular-nums">
+            <span>
+              定金 <MoneyText amount={order.deposit_amount} />
+            </span>
+            <span className={unpaid > 0 ? "text-status-danger-foreground" : ""}>
+              待收 <MoneyText amount={unpaid} />
+            </span>
+          </div>
+          {order.status === "completed" && onFollowup ? (
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onFollowup}>
+              <Bell className="size-3.5" /> 待办
+            </Button>
+          ) : null}
+        </div>
+      }
+      trailingClassName="shrink-0"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <Link
+            href={`/orders/${order.id}`}
+            className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs"
+          >
+            {order.public_no}
+          </Link>
+          <StatusBadge status={order.status} />
+        </div>
+        <div className="mt-0.5 truncate text-xs font-medium sm:text-sm" title={item.deviceLabel}>
+          {item.deviceLabel}
+        </div>
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+          {item.deviceImei ? (
+            <span className="max-w-full truncate font-mono" title={item.deviceImei}>
+              IMEI {item.deviceImei}
+            </span>
+          ) : null}
+          <span className="min-w-0 max-w-full truncate" title={order.issue_description}>
+            {order.issue_description}
+          </span>
+        </div>
+      </div>
+    </RepairOsBusinessCard>
+  );
+}
+
 export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; limit?: number }) {
   const orderItems = data.orders.map((order) => ({
     id: `order-${order.id}`,
     at: order.created_at,
-    title: `创建工单 ${order.public_no}`,
-    body: `${order.device_label} · ${order.issue_description}`,
+    title: `工单 ${order.public_no}`,
+    meta: order.device_label,
+    body: order.issue_description,
   }));
   const interactionItems = data.interactions.map((interaction) => ({
     id: `interaction-${interaction.id}`,
     at: interaction.created_at,
-    title: `发送${interaction.channel === "whatsapp" ? " WhatsApp" : " SMS"}`,
+    title: interaction.channel === "whatsapp" ? "WhatsApp" : "SMS",
+    meta: interaction.operator_name,
     body: interaction.message_body,
   }));
   const followupItems = data.followups.map((followup) => ({
     id: `followup-${followup.id}`,
     at: followup.updated_at,
-    title:
-      followup.status === "done" ? `完成待办：${followup.title}` : `客户待办：${followup.title}`,
-    body: followup.note || formatCustomerDateTime(followup.due_at),
+    title: followup.status === "done" ? "完成待办" : "客户待办",
+    meta: followup.title,
+    body: followup.note || `到期 ${formatCustomerDateTime(followup.due_at)}`,
   }));
   const items = [...orderItems, ...interactionItems, ...followupItems]
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
@@ -199,17 +263,25 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
 
   if (!items.length) return <CustomerEmptyLine text="暂无动态" />;
   return (
-    <ol className="min-w-0 space-y-2 border-l border-border/60 pl-3.5 sm:space-y-3 sm:pl-4">
+    <ol className="min-w-0 space-y-1.5 border-l border-border/50 pl-3 sm:space-y-2 sm:pl-3.5">
       {items.map((item) => (
         <li key={item.id} className="relative min-w-0">
-          <span className="absolute -left-[19px] top-1 size-2.5 rounded-full bg-primary ring-4 ring-background sm:-left-[21px] sm:size-3" />
-          <div className="text-[10px] leading-3 text-muted-foreground sm:text-xs">
-            {formatCustomerDateTime(item.at)}
+          <span className="absolute -left-[17px] top-1.5 size-2 rounded-full bg-primary ring-[3px] ring-background sm:-left-[19px] sm:size-2.5" />
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <div className="min-w-0 truncate text-[11px] font-semibold leading-4 sm:text-xs">
+              <span title={item.title}>{item.title}</span>
+              {item.meta ? (
+                <span className="font-normal text-muted-foreground" title={item.meta}>
+                  {" "}
+                  · {item.meta}
+                </span>
+              ) : null}
+            </div>
+            <time className="shrink-0 text-[9px] leading-3 text-muted-foreground">
+              {formatCustomerDateTime(item.at)}
+            </time>
           </div>
-          <div className="truncate text-xs font-medium leading-4 sm:text-sm" title={item.title}>
-            {item.title}
-          </div>
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+          <p className="line-clamp-1 text-[10px] leading-[14px] text-muted-foreground sm:text-[11px] sm:leading-4">
             {item.body}
           </p>
         </li>

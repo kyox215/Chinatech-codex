@@ -6,6 +6,8 @@ import type {
   CustomerStats,
 } from "@/lib/repairdesk/api";
 
+import { isCustomerOrderClosed } from "./customer-order-state";
+
 export type CustomerWorkFilter = NonNullable<CustomerListFilters["work"]>;
 
 export interface CustomerWorkFilterChip {
@@ -32,14 +34,7 @@ export interface CustomerWorkSummary {
   tone: CustomerWorkSummaryTone;
 }
 
-export type CustomerDetailTabKey =
-  | "overview"
-  | "devices"
-  | "orders"
-  | "messages"
-  | "profile"
-  | "followups"
-  | "timeline";
+export type CustomerDetailTabKey = "overview" | "devices" | "orders" | "profile" | "followups";
 
 export interface CustomerDetailTabMeta {
   key: CustomerDetailTabKey;
@@ -167,9 +162,7 @@ export function getCustomerWorkSummary(
 }
 
 export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWorkSummary {
-  const activeOrderCount = data.orders.filter(
-    (order) => !isClosedCustomerOrderStatus(order.status),
-  ).length;
+  const activeOrderCount = data.orders.filter((order) => !isCustomerOrderClosed(order)).length;
 
   return getCustomerWorkSummary({
     active_order_count: activeOrderCount,
@@ -180,17 +173,14 @@ export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWork
 }
 
 export function buildCustomerDetailTabs(data: CustomerDetail): CustomerDetailTabMeta[] {
-  const openFollowupCount = data.followups.filter((followup) => followup.status === "open").length;
-  const timelineCount = data.orders.length + data.interactions.length + data.followups.length;
+  const followupCount = data.followups.length + data.interactions.length;
 
   return [
-    { key: "overview", label: "概览" },
-    { key: "devices", label: "设备", count: data.devices.length },
+    { key: "overview", label: "总览" },
     { key: "orders", label: "工单", count: data.orders.length },
-    { key: "messages", label: "联系", count: data.interactions.length },
+    { key: "devices", label: "设备", count: data.devices.length },
+    { key: "followups", label: "跟进", count: followupCount },
     { key: "profile", label: "资料", count: data.tags.length },
-    { key: "followups", label: "待办", count: openFollowupCount },
-    { key: "timeline", label: "记录", count: timelineCount },
   ];
 }
 
@@ -225,8 +215,4 @@ export function formatCustomerDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
-}
-
-function isClosedCustomerOrderStatus(status: CustomerDetail["orders"][number]["status"]) {
-  return status === "completed" || status === "cancelled";
 }

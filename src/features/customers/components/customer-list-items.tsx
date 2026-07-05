@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, CircleDollarSign, Smartphone, Wrench } from "lucide-react";
+import { ArrowUpRight, Smartphone, Wrench } from "lucide-react";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
@@ -244,6 +244,7 @@ export function CustomerMobileCard({
         )}
         trailing={
           <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">
+            <span className="text-[9px] leading-3 text-muted-foreground">总消费</span>
             <MoneyText amount={customer.total_spent} className={repairOs.cardAmount} />
             <span
               className={cn(
@@ -299,21 +300,9 @@ export function CustomerMobileCard({
                 : "bg-status-success text-status-success-foreground",
             )}
           >
-            <CircleDollarSign className="size-2.5" />
             {customer.unpaid_amount > 0 ? "未结清" : "已结清"}
           </RepairOsBadge>
-          <RepairOsBadge className="gap-1 bg-[var(--surface-panel-muted)] text-[9px] text-muted-foreground">
-            <Smartphone className="size-2.5" />
-            {customer.device_count} 台设备
-          </RepairOsBadge>
         </div>
-        <RepairOsInfoTile
-          className="mt-1.5"
-          label="下一步"
-          value={summary.actionLabel}
-          labelClassName="text-[9px] leading-3"
-          valueClassName="truncate text-[11px] font-medium leading-4"
-        />
       </RepairOsBusinessCard>
     </Link>
   );
