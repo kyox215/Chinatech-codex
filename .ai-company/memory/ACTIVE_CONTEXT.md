@@ -7,7 +7,7 @@ task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-05T23:21:20Z"
+last_checkpoint_at: "2026-07-05T23:25:23Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Fix Vercel production build after customer device sheet push: latest deployment failed because main lacked store-scoped customersKeys.detail/list signatures. Added shared storeQueryScope helper and updated customer query keys; local lint, typecheck, customer tests, and next build pass.
+Customer workbench Phase 3 push/apply completed: main includes dde55c4 query-key build fix after previous Vercel failures, production deployment chinatech-codex-45ms086tn is Ready, and chinatech.in/www.chinatech.in aliases point to that deployment. Captured mobile production screenshot showing protected login page rather than build error.
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Fix Vercel production build after customer device sheet push: latest deployment 
 
 ## Next action
 
-Stage only src/features/customers/api/query-keys.ts and src/shared/lib/store-query-scope.ts, commit, push main, then monitor Vercel until production deployment is Ready.
+Task is ready for closeout; unrelated dirty worktree items remain intentionally untouched. Future work: Phase 4 true device archive requires separate schema/API approval.
 
 ## Resume protocol
 

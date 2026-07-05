@@ -119,3 +119,10 @@ Risks:
 - **Next:** Stage only src/features/customers/api/query-keys.ts and src/shared/lib/store-query-scope.ts, commit, push main, then monitor Vercel until production deployment is Ready.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-05T23:25:23Z — Customer workbench Phase 3 push/apply completed: main includes dde55c4 query-key build fix after previous Vercel failures, production deployment chinatech-codex-45ms086tn is Ready, and chinatech.in/www.chinatech.in aliases point to that deployment. Captured mobile production screenshot showing protected login page rather than build error.
+
+- **Phase:** implementation
+- **Completed/current state:** Customer workbench Phase 3 push/apply completed: main includes dde55c4 query-key build fix after previous Vercel failures, production deployment chinatech-codex-45ms086tn is Ready, and chinatech.in/www.chinatech.in aliases point to that deployment. Captured mobile production screenshot showing protected login page rather than build error.
+- **Next:** Task is ready for closeout; unrelated dirty worktree items remain intentionally untouched. Future work: Phase 4 true device archive requires separate schema/API approval.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
