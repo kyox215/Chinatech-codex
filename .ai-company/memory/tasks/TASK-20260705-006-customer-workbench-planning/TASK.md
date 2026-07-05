@@ -1,9 +1,9 @@
 ---
-updated_at: "2026-07-05T14:33:55Z"
+updated_at: "2026-07-05T23:13:43Z"
 ---
 # TASK-20260705-006 Customer Workbench Planning
 
-Status: implemented_pending_closeout
+Status: phase_3_bottom_sheet_implemented
 Owner: Hexiang Huang / 鹤祥
 Decision owner: CEO-Orchestrator / RepairDesk Integration Lead
 Created: 2026-07-05 CEST
@@ -52,6 +52,10 @@ Owner confirmed choices on 2026-07-05:
 5. `5A`: no device-level followups in phase 1.
 6. `6A`: no customer merge/deduplication in phase 1.
 
+Owner confirmed on 2026-07-05 for Phase 3:
+
+7. Device detail on mobile uses option `A`: bottom sheet, not independent device detail route.
+
 ## Implemented Phase 1
 
 1. Phase CUST-1: Added customer workbench derived model and customer order state helpers.
@@ -68,13 +72,45 @@ Owner confirmed choices on 2026-07-05:
 3. Phase CUST-9: Fixed customer order workbench state classification so cancelled orders stay closed before unpaid-balance checks.
 4. Phase CUST-10: Added model coverage for device-order statistics and cancelled-order exclusion.
 
+## Implemented Phase 3
+
+1. Phase CUST-11: Added device drill-down preview items so each customer device can expose recent linked order history without leaving the customer detail page.
+2. Phase CUST-12: Updated the customer device card to show an expandable `设备历史` section with linked order number, status, issue, and amount.
+3. Phase CUST-13: Added safer device deletion rules in the UI: devices with linked historical orders no longer show the destructive delete button and instead show the retention reason.
+4. Phase CUST-14: Added model coverage for delete eligibility and history preview limits.
+
+## Implemented Phase 3 Bottom Sheet
+
+1. Phase CUST-11B: Added `CustomerDeviceSheet` as the owner-selected option A mobile bottom sheet drill-down.
+2. Phase CUST-12B: Connected selected-device state in `CustomerDevicesPanel` and opened the Sheet from the device card body.
+3. Phase CUST-13B: Converted the device card into an accessible trigger with `role=button`, keyboard Enter/Space support, and nested action/link propagation guards.
+4. Phase CUST-14B: Moved full device history into the Sheet, using all linked `orderItems` rather than the card preview limit.
+5. Phase CUST-15B: Added delete safety at the UI layer: linked-order devices show retention reason and no hard delete action; direct card deletes now require confirmation.
+6. Phase CUST-16B: Expanded customer detail invalidation to include device and intake-search query families after device mutation.
+
 ## Next Implementation Plan
 
-1. Phase CUST-1: Build customer workbench derived model and tests.
-2. Phase CUST-2: Refresh customer detail IA and mobile layout.
-3. Phase CUST-3: Simplify outer customer list cards.
-4. Phase CUST-4: Refine follow-ups and CRM links.
-5. Phase CUST-5: Validate with lint, typecheck, customer tests, build, and browser screenshots.
+Phase 4: true device archive and deeper device lifecycle semantics.
+
+1. Decide whether device archive should be soft-delete, hidden-from-new-orders, or full lifecycle state.
+2. Add schema/API only after a separate data-migration review.
+3. Preserve all historical order/device associations and tenant isolation.
+4. Add repository/API tests before exposing archive actions in UI.
+
+## Phase 3 Sub-Agent Review
+
+Three read-only sub-agents reviewed the Phase 3 plan:
+
+- Product analyst `019f3443-574e-7c10-9da0-15685cf081a4`: confirmed bottom sheet should focus on device identity, current risk, linked order history, and next action; hard delete must be blocked for devices with any linked order.
+- UX reviewer `019f3443-5862-7be2-bf05-a87f2895db90`: recommended a near-full-screen Sheet with sticky header/action bar, 2x2 stats, newest-first order history, and dangerous actions moved out of the primary button row.
+- Data reviewer `019f3443-590f-71d2-ac76-bb0af6b96140`: confirmed Phase 3 can remain pure front-end derivation with no migration; true archive requires nullable archive fields in Phase 4 and must not fake archive in UI.
+
+Integrated decision:
+
+- Phase 3 does not add database fields.
+- Phase 3 does not implement true archive.
+- Devices with any linked `repair_orders` must not be hard deleted.
+- Cancelled orders remain visible in device history but excluded from repair count, totals, unpaid amount, and warranty source.
 
 ## Implementation Contract Added
 
@@ -102,3 +138,6 @@ Main thread integrated the accepted fixes and retained final ownership of code, 
 - `screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-overview-final.png`
 - `screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-followups-final.png`
 - `screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-devices-phase2-viewport.png`
+- `screenshots/TASK-20260705-006-customer-workbench-planning/customer-detail-mobile-devices-phase3-history.png`
+- `screenshots/TASK-20260705-006-customer-workbench-planning/customer-phase3-mobile-devices-393.png`
+- `screenshots/TASK-20260705-006-customer-workbench-planning/customer-phase3-mobile-device-sheet-393-prod.png`

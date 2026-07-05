@@ -126,6 +126,8 @@ export function CustomerDetailScreen({
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: customersKeys.detail(id) });
+    queryClient.invalidateQueries({ queryKey: customersKeys.devices(id) });
+    queryClient.invalidateQueries({ queryKey: [...customersKeys.all, "intake-search"] });
     queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
     queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
   };

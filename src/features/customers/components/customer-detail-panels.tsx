@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { CustomerDeviceSheet } from "@/features/customers/components/customer-device-sheet";
 import {
   CustomerEmptyLine,
   CustomerDeviceCard,
@@ -104,6 +106,9 @@ export function CustomerDevicesPanel({
   onDelete: (deviceId: string) => void;
 }) {
   const deviceItems = buildCustomerDeviceWorkbenchItems(data);
+  const [selectedDeviceItem, setSelectedDeviceItem] = useState<
+    (typeof deviceItems)[number] | undefined
+  >();
 
   return (
     <section className={customerDetailSectionClass}>
@@ -125,6 +130,7 @@ export function CustomerDevicesPanel({
               item={item}
               customerId={data.customer.id}
               deleting={deleting}
+              onOpen={() => setSelectedDeviceItem(item)}
               onEdit={() => onEdit(item.device)}
               onDelete={() => onDelete(item.device.id)}
             />
@@ -135,6 +141,23 @@ export function CustomerDevicesPanel({
           </div>
         )}
       </div>
+      <CustomerDeviceSheet
+        item={selectedDeviceItem}
+        customerId={data.customer.id}
+        open={Boolean(selectedDeviceItem)}
+        deleting={deleting}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedDeviceItem(undefined);
+        }}
+        onEdit={(device) => {
+          setSelectedDeviceItem(undefined);
+          onEdit(device);
+        }}
+        onDelete={(deviceId) => {
+          onDelete(deviceId);
+          setSelectedDeviceItem(undefined);
+        }}
+      />
     </section>
   );
 }

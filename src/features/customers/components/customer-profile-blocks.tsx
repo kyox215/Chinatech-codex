@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Edit3, Inbox, Smartphone, Trash2, Wrench } from "lucide-react";
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { Bell, Edit3, History, Inbox, ShieldCheck, Smartphone, Trash2, Wrench } from "lucide-react";
 
 import { MoneyText, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
@@ -78,20 +79,37 @@ export function CustomerDeviceCard({
   item,
   customerId,
   deleting,
+  onOpen,
   onEdit,
   onDelete,
 }: {
   item: CustomerDeviceWorkbenchItem;
   customerId: string;
   deleting: boolean;
+  onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const { device, latestOrder } = item;
+  const hasHistory = item.orderItems.length > 0;
+  const deviceName = `${device.brand} ${device.model}`;
+  const stopCardClick = (event: ReactMouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    onOpen();
+  };
 
   return (
     <RepairOsBusinessCard
-      className="grid-cols-[minmax(0,1fr)] gap-1.5 px-2.5 py-1.5"
+      role="button"
+      tabIndex={0}
+      aria-label={`查看设备详情 ${device.brand} ${device.model}`}
+      onClick={onOpen}
+      onKeyDown={handleKeyDown}
+      className="grid-cols-[minmax(0,1fr)] gap-1.5 px-2.5 py-1.5 transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       bodyClassName="space-y-1.5"
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
@@ -153,6 +171,7 @@ export function CustomerDeviceCard({
             <Link
               href={`/orders/${latestOrder.order.id}`}
               className="truncate font-mono text-[10px] font-semibold text-primary hover:underline"
+              onClick={stopCardClick}
             >
               {latestOrder.order.public_no}
             </Link>
@@ -175,24 +194,61 @@ export function CustomerDeviceCard({
           在修 {item.activeOrderCount}
         </RepairOsBadge>
       ) : null}
+      {hasHistory ? (
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--border-panel)] bg-card/60 px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <History className="size-3.5 shrink-0" />
+            <span className="truncate">设备历史 · {item.orderItems.length} 单</span>
+          </span>
+          <span className="shrink-0 text-primary">点开查看</span>
+        </div>
+      ) : null}
+      {!item.canDelete ? (
+        <div className="flex min-w-0 items-start gap-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] font-medium leading-4 text-muted-foreground">
+          <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
+          <span>{item.deleteBlockedReason}</span>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-1.5">
         <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
-          <Link href={`/orders/new?customerId=${customerId}&deviceId=${device.id}`}>
+          <Link
+            href={`/orders/new?customerId=${customerId}&deviceId=${device.id}`}
+            onClick={stopCardClick}
+          >
             <Wrench className="size-3.5" /> 新建工单
           </Link>
-        </Button>
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={onEdit}>
-          <Edit3 className="size-3.5" /> 编辑
         </Button>
         <Button
           size="sm"
           variant="ghost"
-          className="h-8 gap-1.5 text-destructive hover:text-destructive"
-          disabled={deleting}
-          onClick={onDelete}
+          className="h-8 gap-1.5"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit();
+          }}
         >
-          <Trash2 className="size-3.5" /> 删除
+          <Edit3 className="size-3.5" /> 编辑
         </Button>
+        {item.canDelete ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 text-destructive hover:text-destructive"
+            disabled={deleting}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (
+                window.confirm(
+                  `确认删除 ${deviceName}${device.serial_or_imei ? ` · ${device.serial_or_imei}` : ""}？`,
+                )
+              ) {
+                onDelete();
+              }
+            }}
+          >
+            <Trash2 className="size-3.5" /> 删除
+          </Button>
+        ) : null}
       </div>
     </RepairOsBusinessCard>
   );

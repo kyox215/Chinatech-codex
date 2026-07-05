@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260705-006-customer-workbench-planning"
 status: "active"
-phase: "phase-2-implemented"
+phase: "implementation"
 task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-05T14:33:55Z"
+last_checkpoint_at: "2026-07-05T23:13:43Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Customer workbench phase 2 implemented: device tab now derives linked order statistics, latest order, repair/active counts, total/unpaid amounts, warranty label, and cancelled-order-safe state classification; validation passed customer tests, typecheck, lint, build; mobile screenshot saved.
+Customer workbench Phase 3 bottom sheet implementation is ready to push: mobile device cards open a near-full-screen Sheet with full linked order history, stats, sticky actions, confirmation delete for unlinked devices, and linked-order delete protection. Focused tests, typecheck, lint, build, and 393px production-preview screenshot/metrics passed.
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Customer workbench phase 2 implemented: device tab now derives linked order stat
 
 ## Next action
 
-Next recommended action: Phase 3 device detail drill-down and safer device deletion/archiving rules. Start by reviewing customer device delete flow, order-device relations, and customer detail mobile device panel before any schema change.
+Commit and push the scoped Phase 3 bottom sheet implementation to main; Phase 4 true device archive requires separate schema/API planning and approval before any migration.
 
 ## Resume protocol
 
