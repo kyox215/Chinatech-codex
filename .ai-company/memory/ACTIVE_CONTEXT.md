@@ -7,7 +7,7 @@ task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-05T23:13:43Z"
+last_checkpoint_at: "2026-07-05T23:21:20Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Customer workbench Phase 3 bottom sheet implementation is ready to push: mobile device cards open a near-full-screen Sheet with full linked order history, stats, sticky actions, confirmation delete for unlinked devices, and linked-order delete protection. Focused tests, typecheck, lint, build, and 393px production-preview screenshot/metrics passed.
+Fix Vercel production build after customer device sheet push: latest deployment failed because main lacked store-scoped customersKeys.detail/list signatures. Added shared storeQueryScope helper and updated customer query keys; local lint, typecheck, customer tests, and next build pass.
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Customer workbench Phase 3 bottom sheet implementation is ready to push: mobile 
 
 ## Next action
 
-Commit and push the scoped Phase 3 bottom sheet implementation to main; Phase 4 true device archive requires separate schema/API planning and approval before any migration.
+Stage only src/features/customers/api/query-keys.ts and src/shared/lib/store-query-scope.ts, commit, push main, then monitor Vercel until production deployment is Ready.
 
 ## Resume protocol
 

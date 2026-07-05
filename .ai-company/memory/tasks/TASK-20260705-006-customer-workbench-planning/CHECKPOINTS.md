@@ -112,3 +112,10 @@ Risks:
 - **Next:** Commit and push the scoped Phase 3 bottom sheet implementation to main; Phase 4 true device archive requires separate schema/API planning and approval before any migration.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-05T23:21:20Z — Fix Vercel production build after customer device sheet push: latest deployment failed because main lacked store-scoped customersKeys.detail/list signatures. Added shared storeQueryScope helper and updated customer query keys; local lint, typecheck, customer tests, and next build pass.
+
+- **Phase:** implementation
+- **Completed/current state:** Fix Vercel production build after customer device sheet push: latest deployment failed because main lacked store-scoped customersKeys.detail/list signatures. Added shared storeQueryScope helper and updated customer query keys; local lint, typecheck, customer tests, and next build pass.
+- **Next:** Stage only src/features/customers/api/query-keys.ts and src/shared/lib/store-query-scope.ts, commit, push main, then monitor Vercel until production deployment is Ready.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
