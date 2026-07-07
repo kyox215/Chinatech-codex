@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
 import { getSupabaseAdmin, hasSupabaseConfig } from "@/server/supabase";
+import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import { cookies, headers } from "next/headers";
 import type {
   ActorStoreMembership,
@@ -64,7 +65,7 @@ export async function getRequestActor(
     return {
       id: claims.sub,
       email,
-      displayName: email ?? "员工",
+      displayName: resolveStaffDisplayName({ email }),
       requestIpHash,
     };
   }
@@ -87,7 +88,11 @@ export async function getRequestActor(
   return {
     id: staff.id,
     email: staff.email || email,
-    displayName: staff.display_name || staff.email || email || "员工",
+    displayName: resolveStaffDisplayName({
+      email: staff.email || email,
+      displayName: staff.display_name,
+      role: activeStore?.role || staff.role,
+    }),
     role: activeStore?.role || staff.role,
     isPlatformAdmin,
     storeId: activeStore?.id,
@@ -124,7 +129,7 @@ async function ensureStaffProfile({
   if (profileError) throw new Error(`读取员工档案失败：${profileError.message}`);
   if (profile) return profile as StaffProfile;
 
-  const fallbackName = displayNameFromEmail(email);
+  const fallbackName = resolveStaffDisplayName({ email, fallback: "店铺管理员" });
   const { data: inserted, error: insertError } = await admin
     .from("staff_profiles")
     .insert({
@@ -209,15 +214,6 @@ async function getRequestIpHash() {
   } catch {
     return undefined;
   }
-}
-
-function displayNameFromEmail(email?: string) {
-  return (
-    email
-      ?.split("@")[0]
-      ?.replace(/[._-]+/g, " ")
-      .trim() || "店铺管理员"
-  );
 }
 
 function toStoreRole(value: unknown): StoreRole {

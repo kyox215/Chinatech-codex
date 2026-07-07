@@ -7,6 +7,7 @@ import {
   orderWhatsappTemplateOptions,
   replaceOrderWhatsappRecipientPhone,
 } from "@/features/orders/model/order-message-templates";
+import { translateFaultName } from "@/features/orders/model/order-italian";
 import { getOrder, listOrders } from "@/features/orders/testing/mock-api";
 
 describe("order WhatsApp message templates", () => {
@@ -53,5 +54,15 @@ describe("order WhatsApp message templates", () => {
     expect(getOrderWhatsappTransition("quoted", "approval_request")).toBe("waiting_approval");
     expect(getOrderWhatsappTransition("repaired", "pickup_ready")).toBe("notified");
     expect(getOrderWhatsappTransition("new", "approval_request")).toBeUndefined();
+  });
+
+  it("translates expanded fault services without splitting slash or hyphen labels", () => {
+    expect(translateFaultName("系统 - PIN/图案解锁")).toBe("Sistema - Sblocco PIN o sequenza");
+    expect(translateFaultName("主板 - Wi-Fi/蓝牙异常")).toBe(
+      "Scheda madre - Wi-Fi/Bluetooth difettoso",
+    );
+    expect(translateFaultName("系统 - 激活锁核验咨询")).toBe(
+      "Sistema - Verifica blocco attivazione",
+    );
   });
 });

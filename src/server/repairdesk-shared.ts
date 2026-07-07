@@ -12,6 +12,7 @@ import {
   normalizeUnlockPattern,
 } from "@/features/orders/model/device-unlock";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import { primaryPhoneRaw, uniqueContactPhones } from "@/shared/lib/phone";
 import type {
   AuditActor,
@@ -50,12 +51,17 @@ export function requireStoreIdFromActor(
 }
 
 export function operatorNameFromActor(
-  actor?: Pick<AuditActor, "displayName"> | string | null,
+  actor?: Pick<AuditActor, "displayName" | "email" | "role" | "storeRole"> | string | null,
   fallback = "前台",
 ) {
   if (!actor) return fallback;
   if (typeof actor === "string") return actor.trim() || fallback;
-  return actor?.displayName || fallback;
+  return resolveStaffDisplayName({
+    email: actor.email,
+    displayName: actor.displayName,
+    role: actor.storeRole || actor.role,
+    fallback,
+  });
 }
 
 export const ORDER_SELECT = `

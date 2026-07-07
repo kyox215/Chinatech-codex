@@ -72,6 +72,10 @@ const faultGroups: FaultGroup[] = [
       { key: "glass", label: "外屏碎裂", italian: "Vetro esterno rotto", price: 0 },
       { key: "lcd", label: "内屏漏液", italian: "LCD danneggiato", price: 0 },
       { key: "touch", label: "触摸失灵", italian: "Touch non funzionante", price: 0 },
+      { key: "no-display", label: "黑屏无显示", italian: "Schermo nero", price: 0 },
+      { key: "lines", label: "花屏/竖线", italian: "Linee sul display", price: 0 },
+      { key: "backlight", label: "背光异常", italian: "Retroilluminazione difettosa", price: 0 },
+      { key: "protector", label: "贴膜服务", italian: "Applicazione pellicola", price: 0 },
     ],
   },
   {
@@ -83,6 +87,10 @@ const faultGroups: FaultGroup[] = [
       { key: "health", label: "健康度低", italian: "Salute batteria bassa", price: 0 },
       { key: "drain", label: "耗电快", italian: "Consumo rapido", price: 0 },
       { key: "swollen", label: "鼓包", italian: "Batteria gonfia", price: 0 },
+      { key: "shutdown", label: "自动关机", italian: "Spegnimento improvviso", price: 0 },
+      { key: "not-detected", label: "电池不识别", italian: "Batteria non riconosciuta", price: 0 },
+      { key: "charging-slow", label: "充电慢", italian: "Ricarica lenta", price: 0 },
+      { key: "calibration", label: "电池校准", italian: "Calibrazione batteria", price: 0 },
     ],
   },
   {
@@ -94,6 +102,20 @@ const faultGroups: FaultGroup[] = [
       { key: "loose", label: "接口松动", italian: "Porta allentata", price: 0 },
       { key: "no-charge", label: "无法充电", italian: "Non carica", price: 0 },
       { key: "clean", label: "清洁尾插", italian: "Pulizia connettore", price: 0 },
+      { key: "intermittent", label: "接触不良", italian: "Contatto intermittente", price: 0 },
+      { key: "fast-charge", label: "快充异常", italian: "Ricarica rapida difettosa", price: 0 },
+      {
+        key: "data-port",
+        label: "无法连接电脑",
+        italian: "Connessione dati non funziona",
+        price: 0,
+      },
+      {
+        key: "wireless-charge",
+        label: "无线充异常",
+        italian: "Ricarica wireless difettosa",
+        price: 0,
+      },
     ],
   },
   {
@@ -105,6 +127,10 @@ const faultGroups: FaultGroup[] = [
       { key: "front", label: "前摄异常", italian: "Fotocamera frontale", price: 0 },
       { key: "rear", label: "后摄异常", italian: "Fotocamera posteriore", price: 0 },
       { key: "lens", label: "镜头破损", italian: "Lente danneggiata", price: 0 },
+      { key: "focus", label: "无法对焦", italian: "Messa a fuoco non funziona", price: 0 },
+      { key: "shake", label: "抖动异响", italian: "Vibrazione della fotocamera", price: 0 },
+      { key: "flash", label: "闪光灯异常", italian: "Flash non funzionante", price: 0 },
+      { key: "camera-app", label: "相机打不开", italian: "App fotocamera non si apre", price: 0 },
     ],
   },
   {
@@ -115,6 +141,10 @@ const faultGroups: FaultGroup[] = [
     options: [
       { key: "cleaning", label: "清洁检测", italian: "Pulizia e diagnosi", price: 0 },
       { key: "corrosion", label: "主板腐蚀", italian: "Ossidazione scheda", price: 0 },
+      { key: "no-power", label: "进水不开机", italian: "Non si accende dopo liquido", price: 0 },
+      { key: "screen", label: "进水屏幕异常", italian: "Display danneggiato da liquido", price: 0 },
+      { key: "data-rescue", label: "资料抢救", italian: "Recupero dati", price: 0 },
+      { key: "inspection", label: "进水检测报告", italian: "Report diagnosi liquido", price: 0 },
     ],
   },
   {
@@ -126,6 +156,11 @@ const faultGroups: FaultGroup[] = [
       { key: "no-power", label: "不开机", italian: "Non si accende", price: 0 },
       { key: "baseband", label: "无服务", italian: "Nessun servizio", price: 0 },
       { key: "short", label: "短路", italian: "Corto circuito", price: 0 },
+      { key: "charging-ic", label: "充电IC", italian: "IC ricarica", price: 0 },
+      { key: "power-ic", label: "电源IC", italian: "IC alimentazione", price: 0 },
+      { key: "wifi-bt", label: "Wi-Fi/蓝牙异常", italian: "Wi-Fi/Bluetooth difettoso", price: 0 },
+      { key: "storage", label: "硬盘/存储故障", italian: "Memoria interna difettosa", price: 0 },
+      { key: "board-repair", label: "主板维修", italian: "Riparazione scheda madre", price: 0 },
     ],
   },
   {
@@ -137,6 +172,17 @@ const faultGroups: FaultGroup[] = [
       { key: "restore", label: "刷机恢复", italian: "Ripristino software", price: 0 },
       { key: "data", label: "资料迁移", italian: "Trasferimento dati", price: 0 },
       { key: "account", label: "账户问题", italian: "Problema account", price: 0 },
+      { key: "screen-lock", label: "屏幕锁解锁", italian: "Sblocco codice schermo", price: 0 },
+      { key: "pin-lock", label: "PIN/图案解锁", italian: "Sblocco PIN o sequenza", price: 0 },
+      { key: "update", label: "系统升级", italian: "Aggiornamento sistema", price: 0 },
+      { key: "backup", label: "资料备份", italian: "Backup dati", price: 0 },
+      {
+        key: "activation-check",
+        label: "激活锁核验咨询",
+        italian: "Verifica blocco attivazione",
+        price: 0,
+      },
+      { key: "app-error", label: "软件/应用异常", italian: "Problema app o software", price: 0 },
     ],
   },
   {
@@ -147,6 +193,10 @@ const faultGroups: FaultGroup[] = [
     options: [
       { key: "glass", label: "玻璃破裂", italian: "Vetro posteriore rotto", price: 0 },
       { key: "frame", label: "中框变形", italian: "Telaio deformato", price: 0 },
+      { key: "camera-glass", label: "摄像头玻璃", italian: "Vetro fotocamera", price: 0 },
+      { key: "wireless-coil", label: "无线充线圈", italian: "Bobina ricarica wireless", price: 0 },
+      { key: "housing", label: "后壳总成", italian: "Scocca posteriore completa", price: 0 },
+      { key: "adhesive", label: "防水胶重贴", italian: "Nuova guarnizione adesiva", price: 0 },
     ],
   },
   {
@@ -157,6 +207,20 @@ const faultGroups: FaultGroup[] = [
     options: [
       { key: "face-id", label: "面容异常", italian: "Face ID non funzionante", price: 0 },
       { key: "fingerprint", label: "指纹异常", italian: "Impronta non funzionante", price: 0 },
+      {
+        key: "proximity",
+        label: "距离感应异常",
+        italian: "Sensore prossimita difettoso",
+        price: 0,
+      },
+      { key: "ambient", label: "自动亮度异常", italian: "Sensore luminosita difettoso", price: 0 },
+      { key: "home-touch", label: "Home 指纹键", italian: "Tasto Home con impronta", price: 0 },
+      {
+        key: "earpiece-flex",
+        label: "听筒排线",
+        italian: "Flat altoparlante auricolare",
+        price: 0,
+      },
     ],
   },
   {
@@ -167,6 +231,15 @@ const faultGroups: FaultGroup[] = [
     options: [
       { key: "low", label: "声音小", italian: "Volume basso", price: 0 },
       { key: "noise", label: "杂音", italian: "Rumore", price: 0 },
+      { key: "no-sound", label: "外放无声", italian: "Altoparlante senza audio", price: 0 },
+      { key: "earpiece", label: "听筒无声", italian: "Auricolare senza audio", price: 0 },
+      { key: "mesh-clean", label: "听筒网清洁", italian: "Pulizia griglia auricolare", price: 0 },
+      {
+        key: "speaker-replace",
+        label: "扬声器更换",
+        italian: "Sostituzione altoparlante",
+        price: 0,
+      },
     ],
   },
   {
@@ -177,6 +250,16 @@ const faultGroups: FaultGroup[] = [
     options: [
       { key: "no-sound", label: "无声", italian: "Audio assente", price: 0 },
       { key: "noise", label: "通话杂音", italian: "Rumore in chiamata", price: 0 },
+      {
+        key: "caller-cannot-hear",
+        label: "对方听不到",
+        italian: "Interlocutore non sente",
+        price: 0,
+      },
+      { key: "recording", label: "录音异常", italian: "Registrazione difettosa", price: 0 },
+      { key: "bottom-mic", label: "底部麦克风", italian: "Microfono inferiore", price: 0 },
+      { key: "top-mic", label: "顶部麦克风", italian: "Microfono superiore", price: 0 },
+      { key: "mic-clean", label: "麦克风清洁", italian: "Pulizia microfono", price: 0 },
     ],
   },
   {
@@ -188,6 +271,16 @@ const faultGroups: FaultGroup[] = [
       { key: "power", label: "电源键", italian: "Tasto accensione", price: 0 },
       { key: "volume", label: "音量键", italian: "Tasti volume", price: 0 },
       { key: "silent", label: "静音键", italian: "Tasto silenzioso", price: 0 },
+      { key: "home", label: "Home 键", italian: "Tasto Home", price: 0 },
+      { key: "action", label: "Action 按键", italian: "Tasto Azione", price: 0 },
+      {
+        key: "camera-control",
+        label: "相机控制键",
+        italian: "Tasto controllo fotocamera",
+        price: 0,
+      },
+      { key: "vibration", label: "震动马达", italian: "Motore vibrazione", price: 0 },
+      { key: "button-flex", label: "按键排线", italian: "Flat tasti", price: 0 },
     ],
   },
 ];

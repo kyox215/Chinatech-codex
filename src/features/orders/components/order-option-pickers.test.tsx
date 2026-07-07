@@ -84,6 +84,46 @@ describe("order option pickers", () => {
     await user.keyboard("{Escape}");
   });
 
+  it("shows expanded front desk service options for every fault category", async () => {
+    const user = userEvent.setup();
+    render(<FaultHarness />);
+
+    const expectedOptions = [
+      { category: "屏幕", options: ["黑屏无显示", "贴膜服务"] },
+      { category: "电池", options: ["自动关机", "电池校准"] },
+      { category: "尾插", options: ["快充异常", "无线充异常"] },
+      { category: "摄像头", options: ["无法对焦", "相机打不开"] },
+      { category: "进水", options: ["资料抢救", "进水检测报告"] },
+      { category: "主板", options: ["Wi-Fi/蓝牙异常", "主板维修"] },
+      { category: "系统", options: ["屏幕锁解锁", "激活锁核验咨询"] },
+      { category: "后盖", options: ["后壳总成", "防水胶重贴"] },
+      { category: "面容/指纹", options: ["距离感应异常", "Home 指纹键"] },
+      { category: "扬声器", options: ["听筒无声", "听筒网清洁"] },
+      { category: "麦克风", options: ["对方听不到", "麦克风清洁"] },
+      { category: "按键", options: ["相机控制键", "震动马达"] },
+    ];
+
+    for (const { category, options } of expectedOptions) {
+      await user.click(screen.getByRole("button", { name: `展开${category}细分选项` }));
+
+      for (const option of options) {
+        expect(screen.getByRole("menuitem", { name: new RegExp(option) })).toBeInTheDocument();
+      }
+
+      await user.keyboard("{Escape}");
+    }
+  });
+
+  it("selects system unlock services without changing picker behavior", async () => {
+    const user = userEvent.setup();
+    render(<FaultHarness />);
+
+    await user.click(screen.getByRole("button", { name: "展开系统细分选项" }));
+    await user.click(screen.getByRole("menuitem", { name: /屏幕锁解锁/ }));
+
+    expect(screen.getByTestId("fault-value")).toHaveTextContent("系统 - 屏幕锁解锁");
+  });
+
   it("uses a multi-select dropdown for accessory notes and keeps none exclusive", async () => {
     const user = userEvent.setup();
     render(<AccessoryHarness />);

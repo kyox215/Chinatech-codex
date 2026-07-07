@@ -18,6 +18,7 @@ import {
 import { sanitizeAuditRecord } from "@/server/audit";
 import { ForbiddenError } from "@/server/auth-context";
 import { type DbRecord, fail, maybeString, requiredString } from "@/server/repairdesk-shared";
+import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import { getSupabaseAdmin } from "@/server/supabase";
 
 export async function getOnboardingStatus(actor: AuditActor): Promise<OnboardingStatus> {
@@ -71,6 +72,11 @@ export async function updateAccountProfile(
   assertLoggedIn(actor);
   const userId = requiredString(actor.id);
   const displayName = sanitizeDisplayName(input.display_name);
+  const publicDisplayName = resolveStaffDisplayName({
+    email: actor.email,
+    displayName,
+    role: actor.storeRole || actor.role,
+  });
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
 
@@ -95,15 +101,15 @@ export async function updateAccountProfile(
   fail(membershipError, "同步店铺成员名称失败");
 
   await writePlatformAuditLog({
-    actor: { ...actor, displayName },
+    actor: { ...actor, displayName: publicDisplayName },
     action: "update_account_profile",
     entityType: "staff_profile",
     entityId: userId,
     before: { display_name: actor.displayName },
-    after: { display_name: displayName, email: (data as DbRecord).email },
+    after: { display_name: publicDisplayName, email: (data as DbRecord).email },
   });
 
-  return getOnboardingStatus({ ...actor, displayName });
+  return getOnboardingStatus({ ...actor, displayName: publicDisplayName });
 }
 
 export async function submitOnboardingRequest(
