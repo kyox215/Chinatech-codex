@@ -9,6 +9,7 @@ export type StoreShellStatus =
   | "error";
 
 export interface StoreShellContextSnapshot {
+  userId?: string;
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
   isPlatformAdmin: boolean;
@@ -62,6 +63,7 @@ export function resolveStoreShellContext({
   const copy = getStoreShellStatusCopy(status);
 
   return {
+    userId: onboardingStatus?.userId,
     activeStore,
     stores,
     isPlatformAdmin,

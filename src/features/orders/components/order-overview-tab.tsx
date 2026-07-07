@@ -1244,11 +1244,16 @@ function DeviceUnlockDetailField({
   return (
     <InfoField label="手机密码" tone="note">
       {edit ? (
-        <DeviceUnlockEditor
-          value={edit.draft.device_unlock}
-          onChange={(device_unlock) => patchDraft(edit, { device_unlock })}
-          compact
-        />
+        <div className="min-w-0 space-y-1">
+          <DeviceUnlockEditor
+            value={edit.draft.device_unlock}
+            onChange={(device_unlock) => patchDraft(edit, { device_unlock })}
+            compact
+          />
+          <p className="break-words text-[10px] leading-4 text-muted-foreground">
+            手机密码不会保存到本机草稿，刷新后需重新输入或在线保存。
+          </p>
+        </div>
       ) : (
         <DeviceUnlockViewer order={order} compact={dense} />
       )}

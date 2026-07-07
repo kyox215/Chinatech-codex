@@ -94,6 +94,7 @@ import {
   type SimpleOrderFlowStageKey,
 } from "@/features/orders/model/order-simple-flow";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
@@ -136,6 +137,8 @@ export function OrderListScreen() {
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const queryClient = useQueryClient();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
 
   useEffect(() => {
     document.body.dataset.mobileWorkspaceActive = "true";
@@ -180,11 +183,14 @@ export function OrderListScreen() {
     error: listError,
     refetch: refetchOrders,
   } = useQuery({
-    queryKey: ordersKeys.queueSummary({
-      ...effectiveFilters,
-      page,
-      pageSize: ORDER_LIST_PAGE_SIZE,
-    }),
+    queryKey: ordersKeys.queueSummary(
+      {
+        ...effectiveFilters,
+        page,
+        pageSize: ORDER_LIST_PAGE_SIZE,
+      },
+      activeStoreId,
+    ),
     queryFn: ({ signal }) =>
       getOrderQueueSummary(
         { ...effectiveFilters, page, pageSize: ORDER_LIST_PAGE_SIZE },

@@ -1,7 +1,15 @@
 export {
+  acceptStoreInvitation,
+  approveStoreAccessRequest,
   createStore,
+  createStoreInviteLink,
   getStoreContext,
   inviteStoreMember,
+  listStoreAccessRequests,
   listStoreMembers,
+  redeemStoreInviteLink,
+  rejectStoreAccessRequest,
+  revokeStoreInviteLink,
+  revokeStoreInvitation,
   switchActiveStore,
 } from "./store.repository";

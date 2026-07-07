@@ -70,6 +70,7 @@ import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
 import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen";
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   batchTransition,
   getRepairDeskOptions,
@@ -823,6 +824,8 @@ export default function OrdersListPage() {
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const queryClient = useQueryClient();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
 
   useEffect(() => {
     document.body.dataset.mobileWorkspaceActive = "true";
@@ -855,7 +858,7 @@ export default function OrdersListPage() {
     isError: workflowIsError,
     error: workflowError,
   } = useQuery({
-    queryKey: ordersKeys.workflow(),
+    queryKey: ordersKeys.workflow(activeStoreId),
     queryFn: () => listOrderWorkflow(),
     staleTime: 60_000,
   });
@@ -883,13 +886,13 @@ export default function OrdersListPage() {
     error: listError,
     refetch: refetchOrders,
   } = useQuery({
-    queryKey: ["orders", "page", effectiveFilters, page, ORDER_LIST_PAGE_SIZE],
+    queryKey: ordersKeys.page(effectiveFilters, page, ORDER_LIST_PAGE_SIZE, activeStoreId),
     queryFn: () => listOrdersPage({ ...effectiveFilters, page, pageSize: ORDER_LIST_PAGE_SIZE }),
     staleTime: 15_000,
   });
 
   const { data: options = { suppliers: [], technicians: [] } } = useQuery({
-    queryKey: ["repairdesk-options"],
+    queryKey: ordersKeys.options(activeStoreId),
     queryFn: () => getRepairDeskOptions(),
   });
 

@@ -5,6 +5,7 @@ import { useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
+  AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
   ClipboardList,
@@ -23,6 +24,7 @@ import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   orderWorkflowMeta,
   workflowStatusFromLegacyStatus,
@@ -33,9 +35,16 @@ import {
 } from "@/features/dashboard/model/dashboard-work-insights";
 import { fadeUp, stagger } from "@/lib/motion";
 import { statusGroups } from "@/lib/mock/enums";
-import { getOrderStats, listOrdersPage, type OrderListItem } from "@/lib/repairdesk/api";
-import { RepairOsListScaffold, type RepairOsMetric } from "@/shared/ui";
-import { repairOs, stateBlocks } from "@/lib/ui-patterns";
+import { CACHE_TIMES } from "@/lib/query-performance";
+import { getDashboardSummary, type OrderListItem } from "@/lib/repairdesk/api";
+import {
+  RepairOsBusinessCard,
+  RepairOsInfoTile,
+  RepairOsListScaffold,
+  RepairOsSectionHeader,
+  type RepairOsMetric,
+} from "@/shared/ui";
+import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 const RECENT_PAGE_SIZE = 6;
@@ -94,22 +103,27 @@ function deriveFallbackStats(items: OrderListItem[], total: number) {
 }
 
 export function DashboardScreen() {
-  const ordersQuery = useQuery({
-    queryKey: [...ordersKeys.lists(), "dashboard", { page: 1, pageSize: RECENT_PAGE_SIZE }],
-    queryFn: () => listOrdersPage({ page: 1, pageSize: RECENT_PAGE_SIZE }),
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
+  const dashboardQuery = useQuery({
+    queryKey: ordersKeys.dashboardSummary({ pageSize: RECENT_PAGE_SIZE }, activeStoreId),
+    queryFn: ({ signal }) => getDashboardSummary({ pageSize: RECENT_PAGE_SIZE }, { signal }),
+    staleTime: CACHE_TIMES.stats,
   });
 
-  const statsQuery = useQuery({
-    queryKey: ordersKeys.stats(),
-    queryFn: getOrderStats,
-  });
-
-  const recentOrders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
-  const fallbackStats = useMemo(
-    () => deriveFallbackStats(recentOrders, ordersQuery.data?.total ?? recentOrders.length),
-    [ordersQuery.data?.total, recentOrders],
+  const recentOrders = useMemo(
+    () => dashboardQuery.data?.recentOrders.items ?? [],
+    [dashboardQuery.data?.recentOrders.items],
   );
-  const stats = statsQuery.data ?? fallbackStats;
+  const fallbackStats = useMemo(
+    () =>
+      deriveFallbackStats(
+        recentOrders,
+        dashboardQuery.data?.recentOrders.total ?? recentOrders.length,
+      ),
+    [dashboardQuery.data?.recentOrders.total, recentOrders],
+  );
+  const stats = dashboardQuery.data?.stats ?? fallbackStats;
   const workInsight = useMemo(
     () => buildDashboardWorkInsight(stats, recentOrders),
     [recentOrders, stats],
@@ -117,7 +131,7 @@ export function DashboardScreen() {
   const recentPaidRevenue = recentOrders
     .filter((order) => order.is_paid)
     .reduce((sum, order) => sum + order.quotation_amount, 0);
-  const hasError = ordersQuery.isError || statsQuery.isError;
+  const hasError = dashboardQuery.isError || Boolean(dashboardQuery.data?.partialErrors);
 
   const mobileMetrics = [
     { label: "总工单", value: stats.total, hint: "当前门店", icon: ClipboardList, tone: "blue" },
@@ -156,12 +170,26 @@ export function DashboardScreen() {
     <RepairOsListScaffold
       title="概览"
       subtitle={`今日任务 · 共 ${stats.total} 单`}
+      eyebrow="工作台 / 概览"
       chips={mobileMetrics.map((metric) => ({
         key: metric.label,
         label: metric.label,
         shortLabel: metric.label.slice(0, 1),
         count: <AnimatedNumber value={metric.value} />,
       }))}
+      desktopAction={
+        <Button
+          asChild
+          size="sm"
+          className={cn("h-9 gap-1.5", controls.brandButton)}
+          style={brandGradientStyle}
+        >
+          <Link href="/orders">
+            <ClipboardList className="size-3.5" />
+            进入工单
+          </Link>
+        </Button>
+      }
     >
       <motion.div variants={stagger(0.035)} initial="hidden" animate="show" className="space-y-3">
         <motion.div
@@ -199,11 +227,24 @@ export function DashboardScreen() {
         </motion.div>
 
         {hasError ? (
-          <motion.div
-            variants={fadeUp}
-            className={cn(repairOs.adminSection, stateBlocks.errorText)}
-          >
-            部分统计暂时不可用，已显示可读取的最近工单数据。
+          <motion.div variants={fadeUp}>
+            <RepairOsBusinessCard
+              as="div"
+              data-ui="dashboard-partial-data-warning"
+              className="grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2.5 text-status-warn-foreground shadow-none hover:bg-status-warn/10"
+              leading={
+                <span className="grid size-8 place-items-center rounded-lg bg-status-warn/20">
+                  <AlertTriangle className="size-4" />
+                </span>
+              }
+              leadingClassName="self-center"
+              aria-live="polite"
+            >
+              <span className="block text-sm font-semibold">部分统计暂时不可用</span>
+              <span className="mt-0.5 block truncate text-[11px] leading-4 text-status-warn-foreground/80">
+                已显示可读取的最近工单数据。
+              </span>
+            </RepairOsBusinessCard>
           </motion.div>
         ) : null}
 
@@ -213,11 +254,22 @@ export function DashboardScreen() {
 
         <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
           <motion.section variants={fadeUp} className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-            <SectionTitle
+            <RepairOsSectionHeader
               title="今日任务"
               description="优先处理超期、未收款和待推进事项"
-              actionHref="/orders"
-              actionLabel="进入工单"
+              action={
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 shrink-0 gap-1 px-2 text-xs"
+                >
+                  <Link href="/orders">
+                    进入工单
+                    <ArrowUpRight className="size-3" />
+                  </Link>
+                </Button>
+              }
             />
             <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-3 lg:grid-cols-3">
               {tasks.map((task) => (
@@ -227,7 +279,7 @@ export function DashboardScreen() {
           </motion.section>
 
           <motion.section variants={fadeUp} className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-            <SectionTitle title="快捷模块" description="常用业务入口" />
+            <RepairOsSectionHeader title="快捷模块" description="常用业务入口" />
             <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-1">
               {quickModules.map((module) => (
                 <QuickModuleLink key={module.href} module={module} />
@@ -237,21 +289,40 @@ export function DashboardScreen() {
         </div>
 
         <motion.section variants={fadeUp} className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-          <SectionTitle
+          <RepairOsSectionHeader
             title="最新工单"
             description="最近接入的维修业务"
-            actionHref="/orders"
-            actionLabel="查看全部"
+            action={
+              <Button asChild variant="ghost" size="sm" className="h-8 shrink-0 gap-1 px-2 text-xs">
+                <Link href="/orders">
+                  查看全部
+                  <ArrowUpRight className="size-3" />
+                </Link>
+              </Button>
+            }
           />
           <div className="mt-3 grid min-w-0 gap-2 xl:grid-cols-2">
-            {ordersQuery.isLoading ? (
+            {dashboardQuery.isLoading ? (
               <RecentOrdersSkeleton />
             ) : recentOrders.length > 0 ? (
               recentOrders.map((order) => <RecentOrderCard key={order.id} order={order} />)
             ) : (
-              <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-6 text-center text-sm text-muted-foreground">
-                暂无最近工单
-              </div>
+              <RepairOsBusinessCard
+                as="div"
+                data-ui="dashboard-recent-orders-empty"
+                className="xl:col-span-2 grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl border-dashed px-3 py-3 text-muted-foreground shadow-none"
+                leading={
+                  <span className="grid size-8 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary">
+                    <ClipboardList className="size-4" />
+                  </span>
+                }
+                leadingClassName="self-center"
+              >
+                <span className="block text-sm font-semibold text-foreground">暂无最近工单</span>
+                <span className="mt-0.5 block truncate text-[11px] leading-4">
+                  新接入的维修业务会显示在这里。
+                </span>
+              </RepairOsBusinessCard>
             )}
           </div>
         </motion.section>
@@ -305,7 +376,6 @@ function WorkInsightCard({ insight }: { insight: DashboardWorkInsight }) {
     </div>
   );
 }
-
 type Tone = "neutral" | "info" | "progress" | "warn" | "success" | "danger";
 
 const toneClasses: Record<Tone, { card: string; icon: string; marker: string; value: string }> = {
@@ -379,19 +449,17 @@ function DashboardMetricCard({
       )}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-[10px] uppercase tracking-widest text-muted-foreground/70">
-            {label}
-          </p>
-          <p
-            className={cn(
-              "mt-1 truncate font-mono text-xl font-semibold tabular-nums leading-none",
-              toneClass.value,
-            )}
-          >
-            {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
-          </p>
-        </div>
+        <RepairOsInfoTile
+          label={label}
+          value={typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+          frame="plain"
+          className="min-w-0"
+          labelClassName="text-[10px] uppercase tracking-widest text-muted-foreground/70"
+          valueClassName={cn(
+            "mt-1 truncate font-mono text-xl font-semibold tabular-nums leading-none",
+            toneClass.value,
+          )}
+        />
         <span className={cn("grid size-8 shrink-0 place-items-center rounded-md", toneClass.icon)}>
           <Icon className="size-4" />
         </span>
@@ -401,57 +469,31 @@ function DashboardMetricCard({
   );
 }
 
-function SectionTitle({
-  title,
-  description,
-  actionHref,
-  actionLabel,
-}: {
-  title: string;
-  description: string;
-  actionHref?: string;
-  actionLabel?: string;
-}) {
-  return (
-    <div className={repairOs.adminSectionHeader}>
-      <div className="min-w-0">
-        <h2 className={repairOs.adminSectionTitle}>{title}</h2>
-        <p className="truncate text-[11px] text-muted-foreground">{description}</p>
-      </div>
-      {actionHref && actionLabel ? (
-        <Button asChild variant="ghost" size="sm" className="h-8 shrink-0 gap-1 px-2 text-xs">
-          <Link href={actionHref}>
-            {actionLabel}
-            <ArrowUpRight className="size-3" />
-          </Link>
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
 function TaskCard({ task }: { task: DashboardTask }) {
   const toneClass = toneClasses[task.tone];
   return (
     <Link
       href={task.href}
-      className={cn(
-        "grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border px-3 py-2 transition-colors hover:bg-accent/60",
-        toneClass.card,
-      )}
+      className="block min-w-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className={cn("grid size-8 place-items-center rounded-md", toneClass.icon)}>
-        <task.icon className="size-4" />
-      </span>
-      <span className="min-w-0">
+      <RepairOsBusinessCard
+        leading={
+          <span className={cn("grid size-8 place-items-center rounded-md", toneClass.icon)}>
+            <task.icon className="size-4" />
+          </span>
+        }
+        trailing={
+          <span className={cn("font-mono text-lg font-semibold tabular-nums", toneClass.value)}>
+            <AnimatedNumber value={task.value} />
+          </span>
+        }
+        className={cn("items-center px-3 py-2 hover:bg-accent/60", toneClass.card)}
+      >
         <span className="block truncate text-sm font-semibold leading-5">{task.label}</span>
         <span className="block truncate text-[11px] leading-4 text-muted-foreground">
           {task.hint}
         </span>
-      </span>
-      <span className={cn("font-mono text-lg font-semibold tabular-nums", toneClass.value)}>
-        <AnimatedNumber value={task.value} />
-      </span>
+      </RepairOsBusinessCard>
     </Link>
   );
 }
@@ -460,18 +502,22 @@ function QuickModuleLink({ module }: { module: (typeof quickModules)[number] }) 
   return (
     <Link
       href={module.href}
-      className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 py-2 shadow-[var(--shadow-card)] transition-colors hover:bg-accent/60"
+      className="block min-w-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary">
-        <module.icon className="size-4" />
-      </span>
-      <span className="min-w-0">
+      <RepairOsBusinessCard
+        leading={
+          <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary">
+            <module.icon className="size-4" />
+          </span>
+        }
+        trailing={<ArrowUpRight className="size-3.5 text-muted-foreground" />}
+        className="items-center px-3 py-2 hover:bg-accent/60"
+      >
         <span className="block truncate text-sm font-semibold leading-5">{module.title}</span>
         <span className="block truncate text-[11px] leading-4 text-muted-foreground">
           {module.description}
         </span>
-      </span>
-      <ArrowUpRight className="size-3.5 text-muted-foreground" />
+      </RepairOsBusinessCard>
     </Link>
   );
 }
@@ -482,12 +528,29 @@ function RecentOrderCard({ order }: { order: OrderListItem }) {
   return (
     <Link
       href={`/orders/${order.id}`}
-      className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 py-2 shadow-[var(--shadow-card)] transition-colors hover:bg-accent/60"
+      className="block min-w-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="mt-0.5 grid size-8 place-items-center rounded-md bg-primary/10 text-primary">
-        <Smartphone className="size-4" />
-      </span>
-      <span className="min-w-0">
+      <RepairOsBusinessCard
+        leading={
+          <span className="mt-0.5 grid size-8 place-items-center rounded-md bg-primary/10 text-primary">
+            <Smartphone className="size-4" />
+          </span>
+        }
+        trailing={
+          <span className="min-w-0 text-right">
+            <MoneyText amount={order.quotation_amount} className="text-sm font-semibold" />
+            <span
+              className={cn(
+                "mt-1 block truncate text-[10px] leading-4",
+                order.is_paid ? "text-status-success-foreground" : "text-muted-foreground",
+              )}
+            >
+              {order.is_paid ? "已结清" : "未结清"}
+            </span>
+          </span>
+        }
+        className="px-3 py-2 hover:bg-accent/60"
+      >
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-mono text-xs font-semibold text-primary">
             {order.public_no}
@@ -507,18 +570,7 @@ function RecentOrderCard({ order }: { order: OrderListItem }) {
           </span>
         </span>
         <PhoneText value={order.customer_phone} className="block truncate" />
-      </span>
-      <span className="min-w-0 text-right">
-        <MoneyText amount={order.quotation_amount} className="text-sm font-semibold" />
-        <span
-          className={cn(
-            "mt-1 block truncate text-[10px] leading-4",
-            order.is_paid ? "text-status-success-foreground" : "text-muted-foreground",
-          )}
-        >
-          {order.is_paid ? "已结清" : "未结清"}
-        </span>
-      </span>
+      </RepairOsBusinessCard>
     </Link>
   );
 }
@@ -527,18 +579,18 @@ function RecentOrdersSkeleton() {
   return (
     <>
       {Array.from({ length: 4 }).map((_, index) => (
-        <div
+        <RepairOsBusinessCard
           key={index}
-          className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 py-2"
+          leading={<Skeleton className="size-8 rounded-md" />}
+          trailing={<Skeleton className="h-4 w-14" />}
+          className="px-3 py-2"
         >
-          <Skeleton className="size-8 rounded-md" />
           <span className="min-w-0 space-y-2">
             <Skeleton className="h-3 w-32" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-3 w-24" />
           </span>
-          <Skeleton className="h-4 w-14" />
-        </div>
+        </RepairOsBusinessCard>
       ))}
     </>
   );

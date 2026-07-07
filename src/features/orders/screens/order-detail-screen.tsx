@@ -110,6 +110,11 @@ import { OrderHero } from "@/features/orders/components/order-hero";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
+  useEditOrderOfflineAutosave,
+  type EditOrderOfflineAutosaveState,
+  type EditOrderOfflineDraftPrompt,
+} from "@/features/orders/api/use-edit-order-offline-autosave";
+import {
   OrderDetailActionDock,
   OrderKeyInfoCard,
   OrderOverviewTab,
@@ -147,6 +152,7 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   getWorkflowNextActions,
@@ -185,6 +191,13 @@ export function OrderDetailScreen({
   onClose?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
+  const activeUserId = shell.userId;
+  const offlineScope = useMemo(
+    () => (activeStoreId && activeUserId ? { storeId: activeStoreId, userId: activeUserId } : null),
+    [activeStoreId, activeUserId],
+  );
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -217,22 +230,39 @@ export function OrderDetailScreen({
     isLoading,
     refetch: refetchDetail,
   } = useQuery({
-    queryKey: ordersKeys.detail(id),
+    queryKey: ordersKeys.detail(id, activeStoreId),
     queryFn: ({ signal }) => getOrder(id, { signal }),
     retry: false,
     staleTime: CACHE_TIMES.detail,
   });
   const { data: storeSettings } = useQuery({
-    queryKey: messageSettingsKeys.store,
+    queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
   });
   const { data: workflow } = useQuery({
-    queryKey: ordersKeys.workflow(),
+    queryKey: ordersKeys.workflow(activeStoreId),
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
+  const {
+    state: editOfflineState,
+    errorMessage: editOfflineErrorMessage,
+    lastSavedAt: editOfflineLastSavedAt,
+    draftPrompt: editOfflineDraftPrompt,
+    pendingRestoreNotice: editOfflineRestoreNotice,
+    hasSensitiveUnlockDraft: editOfflineHasSensitiveUnlockDraft,
+    restorePromptDraft: restoreEditOfflinePromptDraft,
+    discardPromptDraft: discardEditOfflinePromptDraft,
+    discardCurrentDraft: discardCurrentEditOfflineDraft,
+  } = useEditOrderOfflineAutosave({
+    draft: editDraft,
+    orderDetail: data,
+    scope: offlineScope,
+    defaultWarrantyMonths,
+    autosaveEnabled: isEditing,
+  });
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });
@@ -259,6 +289,7 @@ export function OrderDetailScreen({
     mutationFn: (input: UpdateOrderInput) => updateOrder(id, input),
     onSuccess: () => {
       toast.success("工单信息已保存");
+      void discardCurrentEditOfflineDraft();
       setIsEditing(false);
       setEditDraft(null);
       invalidate();
@@ -420,13 +451,14 @@ export function OrderDetailScreen({
   }, [data, defaultWarrantyMonths]);
 
   const cancelEditing = useCallback(() => {
+    void discardCurrentEditOfflineDraft();
     setIsEditing(false);
     setEditDraft(null);
     if (data) {
       const draft = buildEditForm(data, defaultWarrantyMonths);
       setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
     }
-  }, [data, defaultWarrantyMonths]);
+  }, [data, defaultWarrantyMonths, discardCurrentEditOfflineDraft]);
 
   const scrollToDesktopRecords = useCallback(() => {
     desktopRecordsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -449,6 +481,24 @@ export function OrderDetailScreen({
       deposit_amount: editFinance.deposit,
     });
   }, [defaultWarrantyMonths, editDraft, editFinance, orderUpdate]);
+  const restoreEditOfflineDraft = useCallback(async () => {
+    const result = await restoreEditOfflinePromptDraft();
+    if (!result) return;
+    if (result.status === "conflict") {
+      toast.error(result.message);
+      return;
+    }
+    setEditDraft(result.draft);
+    setFinanceDraft(
+      createFinanceDraftState(result.draft.fault_prices, result.draft.deposit_amount ?? 0),
+    );
+    setIsEditing(true);
+    toast.success("本机编辑草稿已恢复");
+  }, [restoreEditOfflinePromptDraft]);
+  const discardEditOfflinePrompt = useCallback(async () => {
+    const discarded = await discardEditOfflinePromptDraft();
+    if (discarded) toast.success("本机编辑草稿已丢弃");
+  }, [discardEditOfflinePromptDraft]);
 
   if (isLoading) {
     return (
@@ -648,6 +698,17 @@ export function OrderDetailScreen({
             animate="show"
             className={cn("min-w-0 space-y-2 sm:space-y-3", surface === "dialog" && "min-h-full")}
           >
+            <OrderEditOfflineDraftNotice
+              state={editOfflineState}
+              errorMessage={editOfflineErrorMessage}
+              lastSavedAt={editOfflineLastSavedAt}
+              prompt={editOfflineDraftPrompt}
+              pendingRestoreNotice={editOfflineRestoreNotice}
+              hasSensitiveUnlockDraft={editOfflineHasSensitiveUnlockDraft}
+              isEditing={isEditing}
+              onRestore={() => void restoreEditOfflineDraft()}
+              onDiscard={() => void discardEditOfflinePrompt()}
+            />
             <OrderOverviewTab
               order={order}
               customer={customer}
@@ -1170,6 +1231,111 @@ function ApprovalDecisionSheet({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function OrderEditOfflineDraftNotice({
+  state,
+  errorMessage,
+  lastSavedAt,
+  prompt,
+  pendingRestoreNotice,
+  hasSensitiveUnlockDraft,
+  isEditing,
+  onRestore,
+  onDiscard,
+}: {
+  state: EditOrderOfflineAutosaveState;
+  errorMessage: string | null;
+  lastSavedAt: string | null;
+  prompt: EditOrderOfflineDraftPrompt | null;
+  pendingRestoreNotice: string | null;
+  hasSensitiveUnlockDraft: boolean;
+  isEditing: boolean;
+  onRestore: () => void;
+  onDiscard: () => void;
+}) {
+  const showStatus =
+    isEditing &&
+    (state === "saving" ||
+      state === "saved" ||
+      state === "error" ||
+      state === "unavailable" ||
+      hasSensitiveUnlockDraft);
+  if (!prompt && !pendingRestoreNotice && !showStatus) return null;
+
+  const tone =
+    prompt?.hasConflict || state === "error" || state === "unavailable" ? "danger" : "info";
+  const title = prompt
+    ? prompt.hasConflict
+      ? "发现旧版本本机编辑草稿"
+      : "发现未保存的本机编辑草稿"
+    : state === "saving"
+      ? "正在保存本机编辑草稿"
+      : state === "saved"
+        ? "本机编辑草稿已保存"
+        : state === "unavailable" || state === "error"
+          ? "本机编辑草稿暂不可用"
+          : "本机编辑草稿";
+  const description = prompt
+    ? prompt.hasConflict
+      ? "工单已经更新，为避免覆盖其他人的修改，当前草稿不能直接恢复。"
+      : "草稿仅保存在当前浏览器；恢复后仍需在线点击保存。"
+    : (pendingRestoreNotice ??
+      (state === "saved" && lastSavedAt
+        ? `最近保存：${formatDateTime(lastSavedAt)}。草稿仅保存在当前浏览器。`
+        : (errorMessage ?? "编辑内容会保存在当前浏览器，在线保存后才会进入系统。")));
+  const unlockNotice = hasSensitiveUnlockDraft
+    ? "手机密码、PIN 或图案不会进入普通本机草稿，刷新后需要重新输入或在线保存。"
+    : null;
+
+  return (
+    <section
+      data-order-edit-offline-draft="true"
+      className={cn(
+        "rounded-xl border px-3 py-2.5 text-xs shadow-[var(--shadow-card)] sm:px-4",
+        tone === "danger"
+          ? "border-status-danger-foreground/20 bg-status-danger text-status-danger-foreground"
+          : "border-primary/20 bg-primary/5 text-foreground",
+      )}
+    >
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <Save className="size-4 shrink-0" />
+            <p className="truncate text-sm font-semibold">{title}</p>
+          </div>
+          <p className="mt-1 break-words leading-5 text-muted-foreground">{description}</p>
+          {unlockNotice ? (
+            <p className="mt-1 break-words leading-5 text-muted-foreground">{unlockNotice}</p>
+          ) : null}
+        </div>
+        {prompt ? (
+          <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
+            {!prompt.hasConflict ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 rounded-lg px-3 text-xs"
+                onClick={onRestore}
+              >
+                恢复编辑
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-lg px-3 text-xs"
+              onClick={onDiscard}
+            >
+              <Trash2 className="mr-1 size-3.5" />
+              丢弃草稿
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

@@ -25,6 +25,7 @@ import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-b
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerUpdateInput } from "@/lib/repairdesk/api";
+import { uniqueContactPhones } from "@/shared/lib/phone";
 
 const customerChannelOptions = [
   { value: "whatsapp", label: "WhatsApp" },
@@ -81,7 +82,7 @@ function buildCustomerForm(data: CustomerDetail): CustomerUpdateInput {
     name: customer.name,
     phone_e164: customer.phone_e164,
     email: customer.email ?? "",
-    contact_phones: customer.contact_phones,
+    contact_phones: uniqueContactPhones(customer.phone_e164, customer.contact_phones),
     consent_marketing: customer.consent_marketing,
     consent_sms: customer.consent_sms,
     preferred_channel: customer.preferred_channel ?? "whatsapp",

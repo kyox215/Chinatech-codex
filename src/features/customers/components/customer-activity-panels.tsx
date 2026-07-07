@@ -12,11 +12,12 @@ import {
   formatCustomerDateTime,
 } from "@/features/customers/components/customer-profile-blocks";
 import type { CustomerDetail } from "@/lib/repairdesk/api";
+import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
-const customerDetailSectionTitleClass = "text-[11px] font-semibold leading-4 sm:text-sm";
+const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm";
 
 export function CustomerMessagesPanel({
   interactions,
@@ -27,21 +28,22 @@ export function CustomerMessagesPanel({
 }) {
   return (
     <section className={customerDetailSectionClass}>
-      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-        <h2 className={customerDetailSectionTitleClass}>联系记录</h2>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onMessage}>
-          <Send className="size-3.5" /> 发送消息
-        </Button>
-      </div>
+      <RepairOsSectionHeader
+        title="联系记录"
+        className="mb-2"
+        titleClassName={customerDetailSectionTitleClass}
+        action={
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onMessage}>
+            <Send className="size-3.5" /> 发送消息
+          </Button>
+        }
+      />
       <div className="grid min-w-0 gap-1.5 sm:gap-2 lg:grid-cols-2">
         {interactions.length ? (
           interactions.map((interaction) => (
-            <div
+            <RepairOsBusinessCard
               key={interaction.id}
-              className={cn(
-                repairOs.businessCardDense,
-                "grid-cols-[minmax(0,1fr)] bg-surface-muted/30 text-sm",
-              )}
+              className="grid-cols-[minmax(0,1fr)] bg-surface-muted/30 px-2.5 py-2 text-sm"
             >
               <div className="flex min-w-0 items-center justify-between gap-3 text-[11px] text-muted-foreground">
                 <span className="min-w-0 truncate">
@@ -53,7 +55,7 @@ export function CustomerMessagesPanel({
               <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
                 {interaction.message_body}
               </p>
-            </div>
+            </RepairOsBusinessCard>
           ))
         ) : (
           <CustomerEmptyLine text="暂无联系记录" />
@@ -74,12 +76,16 @@ export function CustomerProfilePanel({
 }) {
   return (
     <section className={customerDetailSectionClass}>
-      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-        <h2 className={customerDetailSectionTitleClass}>客户资料</h2>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onManageTags}>
-          <Tags className="size-3.5" /> 管理标签
-        </Button>
-      </div>
+      <RepairOsSectionHeader
+        title="客户资料"
+        className="mb-2"
+        titleClassName={customerDetailSectionTitleClass}
+        action={
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onManageTags}>
+            <Tags className="size-3.5" /> 管理标签
+          </Button>
+        }
+      />
       <div className="mb-2 min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
         <p className="mb-1 text-[10px] font-medium leading-3 text-muted-foreground">服务标签</p>
         {tags.length ? (
@@ -142,18 +148,35 @@ export function CustomerFollowupsPanel({
 }) {
   return (
     <section className={customerDetailSectionClass}>
-      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-        <h2 className={customerDetailSectionTitleClass}>客户待办</h2>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAdd}>
-          <Plus className="size-3.5" /> 添加待办
-        </Button>
-      </div>
+      <RepairOsSectionHeader
+        title="客户待办"
+        className="mb-2"
+        titleClassName={customerDetailSectionTitleClass}
+        action={
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAdd}>
+            <Plus className="size-3.5" /> 添加待办
+          </Button>
+        }
+      />
       <div className="grid min-w-0 gap-1.5 sm:gap-2 lg:grid-cols-2">
         {followups.length ? (
           followups.map((item) => (
-            <div
+            <RepairOsBusinessCard
               key={item.id}
-              className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between sm:px-3 sm:py-2"
+              className="grid-cols-1 gap-1.5 rounded-xl px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:justify-between sm:px-3 sm:py-2"
+              trailing={
+                item.status === "open" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5"
+                    onClick={() => onComplete(item.id)}
+                  >
+                    <CheckCircle2 className="size-3.5" /> 标记完成
+                  </Button>
+                ) : null
+              }
+              trailingClassName="shrink-0"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -178,17 +201,7 @@ export function CustomerFollowupsPanel({
                   <p className="mt-1 break-words text-xs text-muted-foreground">{item.note}</p>
                 )}
               </div>
-              {item.status === "open" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5"
-                  onClick={() => onComplete(item.id)}
-                >
-                  <CheckCircle2 className="size-3.5" /> 标记完成
-                </Button>
-              )}
-            </div>
+            </RepairOsBusinessCard>
           ))
         ) : (
           <CustomerEmptyLine text="暂无客户待办" />
@@ -201,7 +214,11 @@ export function CustomerFollowupsPanel({
 export function CustomerTimelinePanel({ data }: { data: CustomerDetail }) {
   return (
     <section className={customerDetailSectionClass}>
-      <h2 className="mb-2 text-[11px] font-semibold leading-4 sm:text-sm">操作记录</h2>
+      <RepairOsSectionHeader
+        title="操作记录"
+        className="mb-2"
+        titleClassName={customerDetailSectionTitleClass}
+      />
       <CustomerTimelineList data={data} />
     </section>
   );

@@ -7,6 +7,7 @@ import { Check, Clock3, Loader2, Search, Smartphone, UserRound } from "lucide-re
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   searchCustomerIntakeCandidates,
   type CustomerHistoryDeviceCandidate,
@@ -57,9 +58,16 @@ export function CustomerIntakeLookup({
   const activeLimit = Math.min(12, Math.max(1, limit));
   const activeDeviceLimit = Math.min(8, Math.max(1, deviceLimit));
   const debouncedQuery = useDebouncedValue(searchEnabled ? query : "", 160);
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
 
   const candidateQuery = useQuery({
-    queryKey: customersKeys.intakeSearch(debouncedQuery, activeLimit, activeDeviceLimit),
+    queryKey: customersKeys.intakeSearch(
+      debouncedQuery,
+      activeLimit,
+      activeDeviceLimit,
+      activeStoreId,
+    ),
     queryFn: () => searchCustomerIntakeCandidates(debouncedQuery, activeLimit, activeDeviceLimit),
     enabled: Boolean(debouncedQuery),
     staleTime: 90_000,

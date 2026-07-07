@@ -71,6 +71,12 @@ import { componentOverlay } from "@/lib/component-patterns";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import {
+  RepairOsBusinessCard,
+  RepairOsInfoLine,
+  RepairOsInfoTile,
+  RepairOsSectionHeader,
+} from "@/shared/ui";
+import {
   estimateAppleMarketPricing,
   getAppleIPhoneModels,
   getAppleIPhoneSeriesGroups,
@@ -707,14 +713,29 @@ function QuickEstimateStep({
             {visibleModels.map((model) => {
               const selected = draft.model === model.model;
               return (
-                <button
+                <RepairOsBusinessCard
                   key={model.model}
+                  as="button"
                   type="button"
                   aria-pressed={selected}
                   className={cn(
-                    "relative min-h-14 min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2.5 py-2 text-left shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
+                    repairOs.businessCardDense,
+                    "min-h-14 min-w-0 rounded-lg px-2.5 py-2 text-left transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     selected && "border-primary/50 bg-primary/10 text-primary",
                   )}
+                  bodyClassName="min-w-0"
+                  trailingClassName="flex justify-end self-start"
+                  trailing={
+                    <span
+                      className={cn(
+                        "grid size-4 shrink-0 place-items-center rounded-full border border-transparent",
+                        selected && "border-primary/40 text-primary",
+                      )}
+                      aria-hidden="true"
+                    >
+                      {selected ? <CheckCircle2 className="size-3" /> : null}
+                    </span>
+                  }
                   onClick={() => {
                     updateDraft("brand", "Apple");
                     updateDraft("model", model.model);
@@ -723,14 +744,11 @@ function QuickEstimateStep({
                     setEditingStage(null);
                   }}
                 >
-                  <p className="truncate pr-5 text-[12px] font-semibold leading-4">{model.model}</p>
+                  <p className="truncate text-[12px] font-semibold leading-4">{model.model}</p>
                   <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
                     {model.releaseYear} · 起 {model.baseStorageGb}GB
                   </p>
-                  {selected ? (
-                    <CheckCircle2 className="absolute right-2 top-2 size-4 text-primary" />
-                  ) : null}
-                </button>
+                </RepairOsBusinessCard>
               );
             })}
           </div>
@@ -757,17 +775,14 @@ function QuickEstimateStep({
             title="选择容量"
             subtitle="第二步只选容量；非官方容量会降低可信度。"
           />
-          <ChoiceGroup
-            label="容量"
+          <StorageChoicePicker
+            choices={storageChoices}
             value={draft.storage_capacity}
             onChange={(value) => {
               updateDraft("storage_capacity", value);
               applyMarketSuggestion(draft.model, value);
               setEditingStage(null);
             }}
-            options={storageChoices.map(
-              (storage) => [`${storage.valueGb}GB`, storage.label] as [string, string],
-            )}
           />
           <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
             {getAppleIPhoneStorageHint(draft.model)}
@@ -961,25 +976,33 @@ function EstimateSelectionSummary({
   onEdit: () => void;
 }) {
   return (
-    <section className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
-      <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-3.5" />
-      </span>
+    <RepairOsBusinessCard
+      className={cn(repairOs.businessCardDense, "rounded-xl px-2 py-1.5")}
+      leading={
+        <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-3.5" />
+        </span>
+      }
+      trailing={
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0 rounded-lg px-2.5 text-[11px]"
+          onClick={onEdit}
+        >
+          更改
+        </Button>
+      }
+      bodyClassName="min-w-0"
+      trailingClassName="flex justify-end"
+    >
       <div className="min-w-0">
         <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
         <p className="truncate text-[11px] font-semibold leading-4">{value}</p>
         <p className="truncate text-[9px] leading-3 text-muted-foreground">{meta}</p>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 shrink-0 rounded-lg px-2.5 text-[11px]"
-        onClick={onEdit}
-      >
-        更改
-      </Button>
-    </section>
+    </RepairOsBusinessCard>
   );
 }
 
@@ -987,6 +1010,66 @@ function EstimateUnlockHint({ label }: { label: string }) {
   return (
     <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
       {label}
+    </div>
+  );
+}
+
+function StorageChoicePicker({
+  choices,
+  value,
+  onChange,
+}: {
+  choices: ReturnType<typeof getAppleIPhoneStorageChoices>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[10px] text-muted-foreground">容量</Label>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {choices.map((storage) => {
+          const optionValue = `${storage.valueGb}GB`;
+          const selected = value === optionValue;
+
+          return (
+            <RepairOsBusinessCard
+              key={optionValue}
+              as="button"
+              type="button"
+              aria-pressed={selected}
+              className={cn(
+                repairOs.businessCardDense,
+                "min-h-12 rounded-lg px-2 py-1.5 text-left transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                selected && "border-primary/50 bg-primary/10 text-primary",
+              )}
+              bodyClassName="min-w-0"
+              trailingClassName="flex justify-end self-start"
+              trailing={
+                <span
+                  className={cn(
+                    "grid size-4 shrink-0 place-items-center rounded-full border border-transparent",
+                    selected && "border-primary/40 text-primary",
+                  )}
+                  aria-hidden="true"
+                >
+                  {selected ? <CheckCircle2 className="size-3" /> : null}
+                </span>
+              }
+              onClick={() => onChange(optionValue)}
+            >
+              <p className="truncate text-[12px] font-semibold leading-4">{storage.label}</p>
+              <p
+                className={cn(
+                  "mt-0.5 truncate text-[9px] leading-3 text-muted-foreground",
+                  !storage.official && "text-status-warn-foreground",
+                )}
+              >
+                {storage.official ? "官方容量" : (storage.note ?? "需成交前核对")}
+              </p>
+            </RepairOsBusinessCard>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1004,13 +1087,29 @@ function BatteryBandPicker({
       {buybackBatteryBands.map((band) => {
         const selected = active?.key === band.key;
         return (
-          <button
+          <RepairOsBusinessCard
             key={band.key}
+            as="button"
             type="button"
+            aria-pressed={selected}
             className={cn(
-              "relative min-h-12 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-left shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
+              repairOs.businessCardDense,
+              "min-h-12 rounded-lg px-2 py-1.5 text-left transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               selected && "border-primary/50 bg-primary/10 text-primary",
             )}
+            bodyClassName="min-w-0"
+            trailingClassName="flex justify-end self-start"
+            trailing={
+              <span
+                className={cn(
+                  "grid size-4 shrink-0 place-items-center rounded-full border border-transparent",
+                  selected && "border-primary/40 text-primary",
+                )}
+                aria-hidden="true"
+              >
+                {selected ? <CheckCircle2 className="size-3" /> : null}
+              </span>
+            }
             onClick={() => onChange(band.value)}
           >
             <div className="flex items-center justify-between gap-2">
@@ -1022,10 +1121,7 @@ function BatteryBandPicker({
             <p className="mt-0.5 truncate text-[9px] leading-3 text-muted-foreground">
               {band.rangeLabel} · {band.helper}
             </p>
-            {selected ? (
-              <CheckCircle2 className="absolute right-1.5 top-1.5 size-3.5 text-primary" />
-            ) : null}
-          </button>
+          </RepairOsBusinessCard>
         );
       })}
     </div>
@@ -1034,17 +1130,17 @@ function BatteryBandPicker({
 
 function InfoMetric({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="min-w-0 rounded-md bg-card px-2 py-1">
-      <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "truncate font-mono text-[11px] font-semibold leading-4 tabular-nums",
-          strong && "text-primary",
-        )}
-      >
-        {value}
-      </p>
-    </div>
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      frame="plain"
+      className="rounded-md bg-card px-2 py-1"
+      labelClassName="text-[9px]"
+      valueClassName={cn(
+        "truncate font-mono text-[11px] font-semibold leading-4 tabular-nums",
+        strong && "text-primary",
+      )}
+    />
   );
 }
 
@@ -1515,16 +1611,18 @@ function MetricPill({
   tone?: "neutral" | "success" | "danger";
 }) {
   return (
-    <div
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      frame="plain"
       className={cn(
         "min-w-0 rounded-lg bg-card px-2 py-1 shadow-[var(--shadow-card)]",
         tone === "success" && "bg-status-success/15 text-status-success-foreground",
         tone === "danger" && "bg-status-danger/15 text-status-danger-foreground",
       )}
-    >
-      <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
-      <p className="truncate text-[11px] font-semibold leading-4">{value}</p>
-    </div>
+      labelClassName="text-[9px]"
+      valueClassName="truncate text-[11px] font-semibold leading-4"
+    />
   );
 }
 
@@ -2066,15 +2164,18 @@ function SectionTitle({
   subtitle: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-        <Icon className="size-3.5" />
-      </span>
-      <div className="min-w-0">
-        <h3 className="truncate text-[11px] font-semibold leading-4">{title}</h3>
-        <p className="truncate text-[9px] leading-3 text-muted-foreground">{subtitle}</p>
-      </div>
-    </div>
+    <RepairOsSectionHeader
+      icon={Icon}
+      title={title}
+      description={subtitle}
+      headingLevel={3}
+      className="mb-0 justify-start"
+      bodyClassName="gap-1.5"
+      titleClassName="text-[11px] leading-4"
+      descriptionClassName="text-[9px] leading-3"
+      iconClassName="size-3.5"
+      iconWrapperClassName="size-6"
+    />
   );
 }
 
@@ -2095,39 +2196,42 @@ function AttachmentCaptureButton({
 }) {
   const inputId = `buyback-${kind}`;
   return (
-    <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-card p-1.5 shadow-[var(--shadow-card)]">
-      <label htmlFor={inputId} className="block cursor-pointer">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+    <div className="min-w-0 space-y-1">
+      <RepairOsBusinessCard
+        as="label"
+        className={cn(repairOs.businessCardDense, "cursor-pointer rounded-lg px-2 py-1.5")}
+        leading={
+          <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
             <Icon className="size-3.5" />
           </span>
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold leading-4">
-              {label}
-              {required ? <span className="ml-0.5 text-status-danger-foreground">*</span> : null}
-            </p>
-            <p className="truncate text-[9px] leading-3 text-muted-foreground">
-              {file ? file.name : "点击拍照/选择"}
-            </p>
-          </div>
-        </div>
-      </label>
-      <input
-        id={inputId}
-        type="file"
-        accept="image/*,application/pdf"
-        capture="environment"
-        className="sr-only"
-        onChange={(event) => onChange(kind, event.currentTarget.files?.[0])}
-      />
+        }
+      >
+        <span className="block truncate text-[11px] font-semibold leading-4">
+          {label}
+          {required ? <span className="ml-0.5 text-status-danger-foreground">*</span> : null}
+        </span>
+        <span className="block truncate text-[9px] leading-3 text-muted-foreground">
+          {file ? file.name : "点击拍照/选择"}
+        </span>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/*,application/pdf"
+          capture="environment"
+          className="sr-only"
+          onChange={(event) => onChange(kind, event.currentTarget.files?.[0])}
+        />
+      </RepairOsBusinessCard>
       {file ? (
-        <button
+        <Button
           type="button"
-          className="mt-1 text-[10px] leading-3 text-muted-foreground"
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1 text-[10px] leading-3 text-muted-foreground"
           onClick={() => onChange(kind, undefined)}
         >
           重新选择
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -2194,21 +2298,28 @@ function ToggleRow({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <button
+    <RepairOsBusinessCard
+      as="button"
       type="button"
+      aria-pressed={checked}
       className={cn(
-        "flex min-h-8 min-w-0 items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-left text-[11px] leading-4",
+        repairOs.businessCardDense,
+        "min-h-8 rounded-lg px-2 py-1.5 text-left text-[11px] leading-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         checked
           ? "border-primary/30 bg-primary/10 text-primary"
           : "border-[var(--border-panel)] bg-card text-foreground",
       )}
+      bodyClassName="min-w-0"
+      trailingClassName="flex justify-end"
+      trailing={
+        <span className="grid size-4 shrink-0 place-items-center rounded-full border border-current">
+          {checked ? <CheckCircle2 className="size-3" /> : null}
+        </span>
+      }
       onClick={() => onChange(!checked)}
     >
       <span className="truncate">{label}</span>
-      <span className="grid size-4 shrink-0 place-items-center rounded-full border border-current">
-        {checked ? <CheckCircle2 className="size-3" /> : null}
-      </span>
-    </button>
+    </RepairOsBusinessCard>
   );
 }
 
@@ -2244,15 +2355,18 @@ function IPhoneSeriesPicker({
                 : `${String(minYear).slice(2)}-${String(maxYear).slice(2)}`;
 
             return (
-              <button
+              <RepairOsBusinessCard
                 key={group.key}
+                as="button"
                 type="button"
                 aria-pressed={selected}
                 className={cn(
-                  "min-h-[46px] min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-center shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
+                  repairOs.businessCardDense,
+                  "min-h-[46px] min-w-0 rounded-lg px-2 py-1.5 text-center transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   selected &&
                     "border-primary/50 bg-primary/10 text-primary shadow-[var(--shadow-action)]",
                 )}
+                bodyClassName="min-w-0"
                 onClick={() => onChange(group.key)}
               >
                 <span className="flex min-w-0 items-center justify-center gap-1 leading-3">
@@ -2262,7 +2376,7 @@ function IPhoneSeriesPicker({
                 <span className="mt-1 block truncate text-[9px] leading-3 text-muted-foreground">
                   {group.models.length} 款 · {yearLabel}
                 </span>
-              </button>
+              </RepairOsBusinessCard>
             );
           })}
         </div>
@@ -2287,19 +2401,22 @@ function ChoiceGroup<T extends string>({
       <Label className="text-[10px] text-muted-foreground">{label}</Label>
       <div className="flex min-w-0 flex-wrap gap-1">
         {options.map(([option, text]) => (
-          <button
+          <RepairOsBusinessCard
             key={option}
+            as="button"
             type="button"
             aria-pressed={value === option}
             className={cn(
-              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2.5 text-[12px] font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors active:scale-[0.99]",
+              repairOs.businessCardDense,
+              "h-9 shrink-0 rounded-lg px-2.5 py-0 text-[12px] font-medium text-muted-foreground transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               value === option && "border-primary/40 bg-primary/10 text-primary",
             )}
+            bodyClassName="flex min-w-0 items-center justify-center gap-1.5"
             onClick={() => onChange(option)}
           >
             {value === option ? <CheckCircle2 className="size-3.5" /> : null}
             {text}
-          </button>
+          </RepairOsBusinessCard>
         ))}
       </div>
     </div>
@@ -2307,12 +2424,7 @@ function ChoiceGroup<T extends string>({
 }
 
 function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="mt-1 flex min-w-0 items-center justify-between gap-2 border-b border-border/40 pb-1 text-[10px] leading-4 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="min-w-0 truncate text-right font-medium">{value}</span>
-    </div>
-  );
+  return <RepairOsInfoLine label={label} value={value} className="mt-1" />;
 }
 
 function inspectionToneClass(tone: "success" | "warn" | "danger" | "neutral") {

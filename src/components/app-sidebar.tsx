@@ -29,6 +29,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { switchStore } from "@/lib/repairdesk/api";
+import { customersKeys } from "@/features/customers/api/query-keys";
+import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -55,6 +59,11 @@ export function AppSidebar() {
     mutationFn: switchStore,
     onSuccess: async (context) => {
       toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
+      queryClient.removeQueries({ queryKey: ordersKeys.all });
+      queryClient.removeQueries({ queryKey: customersKeys.all });
+      queryClient.removeQueries({ queryKey: inventoryKeys.all });
+      queryClient.removeQueries({ queryKey: messageSettingsKeys.store });
+      queryClient.removeQueries({ queryKey: messageSettingsKeys.templates });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: storesKeys.context }),
         queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),

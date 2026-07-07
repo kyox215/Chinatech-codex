@@ -675,6 +675,8 @@ export type StoreMembershipStatus = "active" | "invited" | "inactive";
 export type PlatformAdminStatus = "active" | "inactive";
 export type OnboardingRequestType = "create_store" | "join_store";
 export type OnboardingRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type OnboardingReviewScope = "platform" | "store";
+export type ApprovedStoreRole = Exclude<StoreRole, "owner">;
 
 export interface Store {
   id: string;
@@ -714,6 +716,8 @@ export interface StoreMember {
 
 export interface StoreInvitation {
   id: string;
+  store_id?: string;
+  store_name?: string;
   email: string;
   role: StoreRole;
   status: StoreMembershipStatus;
@@ -724,14 +728,56 @@ export interface StoreInvitation {
   updated_at: string;
 }
 
+export interface StoreInviteLink {
+  id: string;
+  store_id?: string;
+  store_name?: string;
+  label?: string;
+  role: StoreRole;
+  status: StoreMembershipStatus;
+  expires_at: string;
+  max_uses?: number;
+  used_count: number;
+  created_by?: string;
+  revoked_by?: string;
+  revoked_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface StoreMembersResult {
   members: StoreMember[];
   invitations: StoreInvitation[];
+  invite_links?: StoreInviteLink[];
 }
 
 export interface StoreInviteInput {
   email: string;
   role: Exclude<StoreRole, "owner">;
+}
+
+export interface StoreInviteLinkCreateInput {
+  label?: string;
+  role: Exclude<StoreRole, "owner">;
+  expires_in_days?: number;
+  max_uses?: number;
+}
+
+export interface StoreInviteLinkCreateResult {
+  link: StoreInviteLink;
+  code: string;
+}
+
+export interface StoreInvitationDecisionInput {
+  id: string;
+}
+
+export interface StoreInviteLinkDecisionInput {
+  id: string;
+}
+
+export interface StoreInviteLinkRedeemInput {
+  code: string;
 }
 
 export interface ActorStoreMembership {
@@ -777,9 +823,14 @@ export interface OnboardingRequest {
   desired_store_name?: string;
   target_store_id?: string;
   target_store_name?: string;
+  target_owner_email?: string;
+  request_note?: string;
+  review_scope: OnboardingReviewScope;
   requested_role: StoreRole;
+  approved_role?: ApprovedStoreRole;
   status: OnboardingRequestStatus;
   reviewed_by?: string;
+  reviewed_by_membership_id?: string;
   reviewed_at?: string;
   decision_note?: string;
   resulting_store_id?: string;
@@ -788,25 +839,35 @@ export interface OnboardingRequest {
 }
 
 export interface OnboardingStatus {
+  userId?: string;
   email?: string;
   displayName: string;
   isPlatformAdmin: boolean;
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
   requests: OnboardingRequest[];
+  invitations?: StoreInvitation[];
   availableStores: OnboardingStoreOption[];
+}
+
+export interface AccountProfileUpdateInput {
+  display_name: string;
 }
 
 export interface OnboardingRequestInput {
   request_type: OnboardingRequestType;
   desired_store_name?: string;
   target_store_id?: string;
+  target_owner_email?: string;
+  note?: string;
   requested_role?: Exclude<StoreRole, "owner">;
 }
 
 export interface OnboardingDecisionInput {
   id: string;
   note?: string;
+  target_store_id?: string;
+  approved_role?: ApprovedStoreRole;
 }
 
 export interface StaffProfile {
@@ -829,6 +890,7 @@ export interface AuditActor {
   storeName?: string;
   storeRole?: StoreRole;
   stores?: ActorStoreMembership[];
+  requestIpHash?: string;
   isSystem?: boolean;
 }
 

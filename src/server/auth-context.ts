@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
 import { getSupabaseAdmin, hasSupabaseConfig } from "@/server/supabase";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type {
   ActorStoreMembership,
   AuditActor,
@@ -44,16 +45,17 @@ export async function getRequestActor(
   required = true,
   options: RequestActorOptions = {},
 ): Promise<AuditActor> {
+  const requestIpHash = await getRequestIpHash();
   if (!hasBrowserAuthConfig()) {
-    if (required) return systemActor;
-    return systemActor;
+    if (required) return { ...systemActor, requestIpHash };
+    return { ...systemActor, requestIpHash };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims;
   if (error || !claims?.sub) {
-    if (!required) return systemActor;
+    if (!required) return { ...systemActor, requestIpHash };
     throw new UnauthorizedError();
   }
 
@@ -63,6 +65,7 @@ export async function getRequestActor(
       id: claims.sub,
       email,
       displayName: email ?? "员工",
+      requestIpHash,
     };
   }
 
@@ -91,6 +94,7 @@ export async function getRequestActor(
     storeName: activeStore?.name,
     storeRole: activeStore?.role,
     stores: memberships,
+    requestIpHash,
   };
 }
 
@@ -192,6 +196,19 @@ async function resolveActiveStore(
   const cookieStore = await cookies();
   const requestedStoreId = cookieStore.get("repairdesk-store-id")?.value;
   return memberships.find((store) => store.id === requestedStoreId) ?? memberships[0];
+}
+
+async function getRequestIpHash() {
+  try {
+    const headerStore = await headers();
+    const forwardedFor = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const realIp = headerStore.get("x-real-ip")?.trim();
+    const ip = forwardedFor || realIp;
+    if (!ip) return undefined;
+    return createHash("sha256").update(ip).digest("hex");
+  } catch {
+    return undefined;
+  }
 }
 
 function displayNameFromEmail(email?: string) {

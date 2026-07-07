@@ -4,7 +4,9 @@ import type { OnboardingRequest, OnboardingStatus } from "@/lib/repairdesk/types
 
 import {
   buildOnboardingRequestInput,
+  getLatestOnboardingRequest,
   getOnboardingRequestSummary,
+  getOnboardingRequestStatusLabel,
   getPendingOnboardingRequest,
   validateOnboardingForm,
   type OnboardingFormState,
@@ -22,11 +24,15 @@ function request(overrides: Partial<OnboardingRequest>): OnboardingRequest {
     display_name: overrides.display_name ?? "Marco",
     request_type: overrides.request_type ?? "join_store",
     desired_store_name: overrides.desired_store_name,
-    target_store_id: overrides.target_store_id ?? "store_1",
-    target_store_name: overrides.target_store_name ?? "ChinaTech",
+    target_store_id: "target_store_id" in overrides ? overrides.target_store_id : "store_1",
+    target_store_name: "target_store_name" in overrides ? overrides.target_store_name : "ChinaTech",
+    target_owner_email: overrides.target_owner_email,
+    request_note: overrides.request_note,
+    review_scope: overrides.review_scope ?? "store",
     requested_role: overrides.requested_role ?? "technician",
     status: overrides.status ?? "pending",
     reviewed_by: overrides.reviewed_by,
+    reviewed_by_membership_id: overrides.reviewed_by_membership_id,
     reviewed_at: overrides.reviewed_at,
     decision_note: overrides.decision_note,
     resulting_store_id: overrides.resulting_store_id,
@@ -56,6 +62,25 @@ describe("onboarding flow helpers", () => {
     expect(latest?.id).toBe("00000000-0000-4000-8000-000000000002");
   });
 
+  it("picks the latest request by update time and labels final states", () => {
+    const latest = getLatestOnboardingRequest([
+      request({
+        id: "00000000-0000-4000-8000-000000000001",
+        status: "pending",
+        updated_at: "2026-06-18T08:00:00.000Z",
+      }),
+      request({
+        id: "00000000-0000-4000-8000-000000000002",
+        status: "rejected",
+        updated_at: "2026-06-18T09:00:00.000Z",
+      }),
+    ]);
+
+    expect(latest?.id).toBe("00000000-0000-4000-8000-000000000002");
+    expect(getOnboardingRequestStatusLabel(latest!)).toBe("申请未通过");
+    expect(getOnboardingRequestStatusLabel(request({ status: "cancelled" }))).toBe("申请已取消");
+  });
+
   it("summarizes create and join requests", () => {
     expect(
       getOnboardingRequestSummary(
@@ -71,43 +96,46 @@ describe("onboarding flow helpers", () => {
       getOnboardingRequestSummary(
         request({
           request_type: "join_store",
-          target_store_name: "ChinaTech",
+          target_store_name: undefined,
+          target_owner_email: "owner@chinatech.in",
           requested_role: "sales",
         }),
       ),
-    ).toBe("加入店铺：ChinaTech · 销售/前台");
+    ).toBe("加入店铺：负责人 owner@chinatech.in · 销售/前台");
   });
 
   it("validates join store requirements", () => {
     const form: OnboardingFormState = {
       mode: "join_store",
       storeName: "",
-      targetStoreId: "",
+      targetOwnerEmail: "",
+      note: "",
       requestedRole: "technician",
     };
 
     expect(validateOnboardingForm(form, baseStatus)).toMatchObject({
       canSubmit: false,
-      reason: "请选择要加入的店铺",
+      reason: "请填写目标店铺负责人的邮箱",
     });
-    expect(validateOnboardingForm({ ...form, targetStoreId: "store_2" }, baseStatus)).toMatchObject(
-      {
-        canSubmit: false,
-        reason: "所选店铺不在可申请列表中",
-      },
-    );
-    expect(validateOnboardingForm({ ...form, targetStoreId: "store_1" }, baseStatus)).toMatchObject(
-      {
-        canSubmit: true,
-      },
-    );
+    expect(
+      validateOnboardingForm({ ...form, targetOwnerEmail: "bad-email" }, baseStatus),
+    ).toMatchObject({
+      canSubmit: false,
+      reason: "店铺负责人邮箱格式不正确",
+    });
+    expect(
+      validateOnboardingForm({ ...form, targetOwnerEmail: "owner@chinatech.in" }, baseStatus),
+    ).toMatchObject({
+      canSubmit: true,
+    });
   });
 
   it("validates store creation names", () => {
     const form: OnboardingFormState = {
       mode: "create_store",
       storeName: "C",
-      targetStoreId: "",
+      targetOwnerEmail: "",
+      note: "",
       requestedRole: "technician",
     };
 
@@ -119,32 +147,33 @@ describe("onboarding flow helpers", () => {
       validateOnboardingForm({ ...form, storeName: "ChinaTech Roma" }, baseStatus),
     ).toMatchObject({
       canSubmit: true,
+      reason: "将立即创建你的独立私有店铺",
     });
   });
 
   it("builds sanitized request input", () => {
-    expect(
+    expect(() =>
       buildOnboardingRequestInput({
         mode: "create_store",
         storeName: "  ChinaTech Roma  ",
-        targetStoreId: "",
+        targetOwnerEmail: "",
+        note: "",
         requestedRole: "technician",
       }),
-    ).toEqual({
-      request_type: "create_store",
-      desired_store_name: "ChinaTech Roma",
-    });
+    ).toThrow("创建店铺请使用创建店铺接口");
 
     expect(
       buildOnboardingRequestInput({
         mode: "join_store",
         storeName: "",
-        targetStoreId: "store_1",
+        targetOwnerEmail: " OWNER@ChinaTech.in ",
+        note: "  我是新员工  ",
         requestedRole: "manager",
       }),
     ).toEqual({
       request_type: "join_store",
-      target_store_id: "store_1",
+      target_owner_email: "owner@chinatech.in",
+      note: "我是新员工",
       requested_role: "manager",
     });
   });

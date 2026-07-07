@@ -1,25 +1,42 @@
 "use client";
 
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowRight,
+  BadgeCheck,
+  BatteryCharging,
+  Calculator,
+  CheckCircle2,
   ClipboardCheck,
+  CircleDashed,
   DatabaseZap,
   Edit3,
+  Eraser,
+  FileText,
   FileUp,
+  HardDrive,
+  Hash,
   Inbox,
   Layers3,
+  LockKeyhole,
   MoreHorizontal,
+  Palette,
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
   ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Tag,
   TrendingUp,
+  Wallet,
+  Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -52,11 +69,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   RepairOsBusinessCard,
   RepairOsChipRow,
   RepairOsHeaderActionButton,
-  RepairOsInfoGrid,
   RepairOsInfoTile,
   RepairOsListScaffold,
   RepairOsSectionHeader,
@@ -79,9 +96,8 @@ import {
   applyElectronicsCsvImport,
   createInventoryIntake,
   getInventoryItem,
-  getInventoryStats,
+  getInventorySummary,
   importElectronicsCsvPreview,
-  listInventoryItems,
   recordInventoryCheck,
   sellInventoryItem,
   transitionInventoryItem,
@@ -96,6 +112,7 @@ import {
 } from "@/lib/repairdesk/api";
 import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp } from "@/lib/motion";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   brandGradientStyle,
   controls,
@@ -133,11 +150,15 @@ const inventoryDetailActions = [
   mode: Exclude<InventoryActionMode, "import">;
   label: string;
 }>;
+const EMPTY_INVENTORY_ITEMS: InventoryListItem[] = [];
 
 export function InventoryScreen() {
   const queryClient = useQueryClient();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [view, setView] = useState<InventoryListViewKey>("all");
   const [selectedId, setSelectedId] = useState<string>();
   const [actionItem, setActionItem] = useState<InventoryListItem>();
@@ -146,29 +167,30 @@ export function InventoryScreen() {
 
   const filters = useMemo(
     () => ({
-      search: search.trim() || undefined,
+      search: deferredSearch.trim() || undefined,
     }),
-    [search],
+    [deferredSearch],
   );
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: inventoryKeys.stats(),
-    queryFn: getInventoryStats,
-  });
   const {
-    data: items = [],
+    data: inventorySummary,
     error: itemsError,
     isError: isItemsError,
     isFetching: isItemsFetching,
     isLoading,
     refetch: refetchItems,
   } = useQuery({
-    queryKey: inventoryKeys.list(filters),
-    queryFn: () => listInventoryItems(filters),
+    queryKey: inventoryKeys.summary(filters, activeStoreId),
+    queryFn: ({ signal }) => getInventorySummary(filters, { signal }),
+    placeholderData: keepPreviousData,
     retry: 1,
+    staleTime: CACHE_TIMES.hotList,
     refetchOnWindowFocus: false,
   });
 
+  const items = inventorySummary?.list.items ?? EMPTY_INVENTORY_ITEMS;
+  const stats = inventorySummary?.stats;
+  const statsLoading = isLoading && !inventorySummary;
   const visibleItems = useMemo(() => filterInventoryItemsByView(items, view), [items, view]);
   const listViews = useMemo(() => buildInventoryListViews(items), [items]);
   const selectedItem = items.find((item) => item.id === selectedId);
@@ -398,6 +420,7 @@ export function InventoryScreen() {
       />
       <InventoryDetailDialog
         id={selectedId}
+        activeStoreId={activeStoreId}
         onOpenChange={(open) => !open && setSelectedId(undefined)}
         onAction={openActionForItem}
       />
@@ -610,18 +633,23 @@ function InventoryMobileCard({
 
 function InventoryDetailDialog({
   id,
+  activeStoreId,
   onOpenChange,
   onAction,
 }: {
   id?: string;
+  activeStoreId?: string;
   onOpenChange: (open: boolean) => void;
   onAction: (item: InventoryListItem, action: Exclude<InventoryActionMode, "import">) => void;
 }) {
   const { data, error, isError, isFetching, isLoading, refetch } = useQuery({
-    queryKey: id ? inventoryKeys.detail(id) : inventoryKeys.detail(""),
-    queryFn: () => getInventoryItem(id || ""),
+    queryKey: id
+      ? inventoryKeys.detail(id, activeStoreId)
+      : inventoryKeys.detail("", activeStoreId),
+    queryFn: ({ signal }) => getInventoryItem(id || "", { signal }),
     enabled: Boolean(id),
     retry: 1,
+    staleTime: CACHE_TIMES.detail,
     refetchOnWindowFocus: false,
   });
   const detailErrorMessage = getErrorMessage(error, "库存详情加载失败");
@@ -791,47 +819,26 @@ function InventoryDetailBody({
             <section className={cn(componentOverlay.flatSection, "p-2")}>
               <RepairOsSectionHeader
                 title="商品"
+                icon={Smartphone}
                 headingLevel={3}
                 className="mb-1.5"
                 titleClassName="text-xs"
+                iconWrapperClassName="size-6"
+                iconClassName="size-3.5"
               />
-              <RepairOsInfoGrid
-                rows={[
-                  { label: "类别", value: item.category },
-                  { label: "品牌型号", value: item.item_label },
-                  {
-                    label: "颜色/容量",
-                    value: [item.color, item.storage_capacity].filter(Boolean).join(" / ") || "-",
-                  },
-                  { label: "IMEI/序列号", value: item.serial_or_imei || "-" },
-                  {
-                    label: "备注",
-                    value: item.notes || "-",
-                    valueClassName: "line-clamp-4 text-[10px] font-normal leading-4",
-                  },
-                ]}
-              />
+              <InventoryProductPanel item={item} />
             </section>
             <section className={cn(componentOverlay.flatSection, "p-2")}>
               <RepairOsSectionHeader
                 title="检测"
+                icon={BadgeCheck}
                 headingLevel={3}
                 className="mb-1.5"
                 titleClassName="text-xs"
+                iconWrapperClassName="size-6"
+                iconClassName="size-3.5"
               />
-              <RepairOsInfoGrid
-                rows={[
-                  { label: "外观", value: gradeLabel(item.cosmetic_grade) },
-                  { label: "功能", value: gradeLabel(item.functional_grade) },
-                  {
-                    label: "电池",
-                    value: item.battery_health === undefined ? "-" : `${item.battery_health}%`,
-                  },
-                  { label: "IMEI", value: checkLabel(item.imei_check_status) },
-                  { label: "激活锁", value: checkLabel(item.activation_lock_status) },
-                  { label: "资料清除", value: checkLabel(item.data_wipe_status) },
-                ]}
-              />
+              <InventoryQualityPanel item={item} />
             </section>
           </div>
 
@@ -839,18 +846,29 @@ function InventoryDetailBody({
             <RepairOsSectionHeader
               title="附件凭证"
               headingLevel={3}
-              className="mb-1.5"
+              className="mb-1.5 items-center"
               titleClassName="text-xs"
+              action={
+                <span className="rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[11px] font-semibold">
+                  {data.attachments.length}
+                </span>
+              }
             />
             <div className="grid gap-1.5 sm:grid-cols-2">
               {data.attachments.map((attachment) => {
                 const content = (
                   <>
-                    <span className="truncate text-xs font-medium">
-                      {inventoryAttachmentKindLabel(attachment.kind)}
-                    </span>
-                    <span className="truncate text-[10px] text-muted-foreground">
-                      {attachment.file_name} · {formatDateTime(attachment.created_at)}
+                    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5">
+                      <FileText className="size-3.5 shrink-0 text-primary" />
+                      <span className="truncate text-[11px] font-semibold">
+                        {inventoryAttachmentKindLabel(attachment.kind)}
+                      </span>
+                      <time className="shrink-0 text-[9px] leading-3 text-muted-foreground">
+                        {formatDateTime(attachment.created_at)}
+                      </time>
+                    </div>
+                    <span className="mt-0.5 block truncate pl-5 text-[10px] leading-3 text-muted-foreground">
+                      {attachment.file_name}
                     </span>
                   </>
                 );
@@ -860,22 +878,22 @@ function InventoryDetailBody({
                     href={attachment.signed_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex min-w-0 flex-col rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
+                    className="block min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
                   >
                     {content}
                   </a>
                 ) : (
                   <div
                     key={attachment.id}
-                    className="flex min-w-0 flex-col rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
+                    className="block min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
                   >
                     {content}
                   </div>
                 );
               })}
               {data.attachments.length === 0 ? (
-                <InventoryDetailEmptyLine className="sm:col-span-2">
-                  暂无附件凭证。
+                <InventoryDetailEmptyLine className="border-0 bg-[var(--surface-panel-muted)] px-2 py-1.5 sm:col-span-2">
+                  暂无附件凭证
                 </InventoryDetailEmptyLine>
               ) : null}
             </div>
@@ -883,14 +901,13 @@ function InventoryDetailBody({
         </main>
 
         <aside className="min-w-0 space-y-2">
-          <div className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-2">
-            <InventoryInfoBox label="回收价" value={<MoneyText amount={item.buyback_price} />} />
-            <InventoryInfoBox label="维修成本" value={<MoneyText amount={repairCost} />} />
-            <InventoryInfoBox label="其他费用" value={<MoneyText amount={fees} />} />
-            <InventoryInfoBox label="成本价" value={<MoneyText amount={costBasis} />} />
-            <InventoryInfoBox label="挂牌价" value={<MoneyText amount={item.list_price} />} />
-            <InventoryInfoBox label="利润" value={<MoneyText amount={item.profit} />} />
-          </div>
+          <InventoryFinancialSummarySection
+            item={item}
+            repairCost={repairCost}
+            fees={fees}
+            costBasis={costBasis}
+            onEditCosts={() => onAction(item, "update")}
+          />
 
           <InventoryTransactionsSection transactions={data.transactions} />
 
@@ -901,26 +918,36 @@ function InventoryDetailBody({
               className="mb-1.5"
               titleClassName="text-xs"
             />
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 border-l border-border/50 pl-3">
               {data.events.slice(0, 8).map((event) => (
                 <div
                   key={event.id}
-                  className="grid min-w-0 grid-cols-[8px_minmax(0,1fr)] gap-2 border-b border-border/30 pb-1.5 last:border-0"
+                  className="relative min-w-0 border-b border-border/30 pb-1.5 last:border-0"
                 >
-                  <div className="mt-1.5 size-1.5 rounded-full bg-primary" />
-                  <div className="min-w-0">
-                    <div className="truncate text-xs font-medium">
+                  <span className="absolute -left-[15px] top-1.5 size-2 rounded-full bg-primary ring-[3px] ring-background" />
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                    <div className="truncate text-[11px] font-semibold leading-4">
                       {eventLabel(event.event_type)}
-                      {event.to_status ? ` · ${inventoryStatusMeta[event.to_status].label}` : ""}
+                      {event.to_status ? (
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          · {inventoryStatusMeta[event.to_status].label}
+                        </span>
+                      ) : null}
                     </div>
-                    <div className="truncate text-[10px] text-muted-foreground">
-                      {event.operator_name} · {formatDateTime(event.created_at)}
-                    </div>
+                    <time className="shrink-0 text-[9px] leading-3 text-muted-foreground">
+                      {formatDateTime(event.created_at)}
+                    </time>
                   </div>
+                  <p className="truncate text-[10px] leading-[14px] text-muted-foreground">
+                    {event.operator_name}
+                  </p>
                 </div>
               ))}
               {data.events.length === 0 ? (
-                <InventoryDetailEmptyLine>暂无时间线记录。</InventoryDetailEmptyLine>
+                <InventoryDetailEmptyLine className="border-0 bg-[var(--surface-panel-muted)] px-2 py-1.5">
+                  暂无时间线记录
+                </InventoryDetailEmptyLine>
               ) : null}
             </div>
           </section>
@@ -1120,7 +1147,7 @@ function InventoryBuybackSection({
           )}
         >
           <div className="mb-0.5 flex items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold text-muted-foreground">凭证</span>
+            <span className="text-[10px] font-semibold text-muted-foreground">凭证状态</span>
             <span
               className={cn(
                 "rounded px-1 font-mono text-[10px] font-semibold leading-4",
@@ -1132,21 +1159,9 @@ function InventoryBuybackSection({
               {summary.proofDone}/{summary.proofTotal}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-x-1 gap-y-0.5">
+          <div className="grid grid-cols-2 gap-1">
             {summary.proofRows.map((row) => (
-              <div key={row.key} className="flex min-w-0 items-center justify-between gap-1">
-                <span className="truncate text-[10px] leading-3">{row.label}</span>
-                <span
-                  className={cn(
-                    "shrink-0 rounded px-1 text-[9px] font-medium leading-3",
-                    row.done
-                      ? "bg-status-success text-status-success-foreground"
-                      : "bg-status-warn text-status-warn-foreground",
-                  )}
-                >
-                  {row.done ? "已齐" : "待补"}
-                </span>
-              </div>
+              <InventoryProofChip key={row.key} row={row} />
             ))}
           </div>
         </div>
@@ -1214,6 +1229,117 @@ function InventoryBuybackSection({
   );
 }
 
+function InventoryFinancialSummarySection({
+  item,
+  repairCost,
+  fees,
+  costBasis,
+  onEditCosts,
+}: {
+  item: InventoryDetail["item"];
+  repairCost: number;
+  fees: number;
+  costBasis: number;
+  onEditCosts: () => void;
+}) {
+  const profitTone = item.profit > 0 ? "success" : item.profit < 0 ? "danger" : "neutral";
+
+  return (
+    <section className={cn(componentOverlay.flatSection, "p-2")}>
+      <RepairOsSectionHeader
+        title="财务总览"
+        headingLevel={3}
+        className="mb-1.5 items-center"
+        titleClassName="text-xs"
+        action={
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 gap-1 rounded-md bg-card px-1.5 text-[10px]"
+            aria-label="编辑回收价格和成本"
+            onClick={onEditCosts}
+          >
+            <Edit3 className="size-3" />
+            编辑
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-3 gap-1">
+        <InventoryFinanceTile
+          icon={Wallet}
+          label="回收"
+          value={<MoneyText amount={item.buyback_price} />}
+          tone={item.buyback_price > 0 ? "success" : "neutral"}
+        />
+        <InventoryFinanceTile
+          icon={Calculator}
+          label="成本"
+          value={<MoneyText amount={costBasis} />}
+          tone={costBasis > 0 ? "warning" : "neutral"}
+        />
+        <InventoryFinanceTile
+          icon={Tag}
+          label="挂牌"
+          value={<MoneyText amount={item.list_price} />}
+          tone={item.list_price > 0 ? "info" : "warning"}
+        />
+        <InventoryFinanceTile
+          icon={Wrench}
+          label="维修"
+          value={<MoneyText amount={repairCost} />}
+          tone={repairCost > 0 ? "warning" : "neutral"}
+        />
+        <InventoryFinanceTile
+          icon={FileText}
+          label="其他"
+          value={<MoneyText amount={fees} />}
+          tone={fees > 0 ? "warning" : "neutral"}
+        />
+        <InventoryFinanceTile
+          icon={TrendingUp}
+          label="利润"
+          value={<MoneyText amount={item.profit} />}
+          tone={profitTone}
+        />
+      </div>
+    </section>
+  );
+}
+
+function InventoryFinanceTile({
+  icon: Icon,
+  label,
+  value,
+  tone = "neutral",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+  tone?: InventoryDenseInfoTone;
+}) {
+  const toneClass = inventoryAppToneClass(tone);
+
+  return (
+    <div className={cn("min-w-0 rounded-lg border px-1.5 py-1", toneClass.frame)}>
+      <div className="flex min-w-0 items-center gap-1">
+        <span
+          className={cn("grid size-5 shrink-0 place-items-center rounded-md", toneClass.iconFrame)}
+        >
+          <Icon className={cn("size-3", toneClass.icon)} />
+        </span>
+        <span className={cn("min-w-0 truncate text-[9px] font-medium leading-3", toneClass.label)}>
+          {label}
+        </span>
+      </div>
+      <div className="mt-0.5 truncate font-mono text-[11px] font-semibold leading-4 tabular-nums">
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function InventoryTransactionsSection({
   transactions,
 }: {
@@ -1223,11 +1349,9 @@ function InventoryTransactionsSection({
     <section className={cn(componentOverlay.flatSection, "p-2")}>
       <RepairOsSectionHeader
         title="财务流水"
-        description="回收付款、维修成本、费用和售出收入都会计入库存成本。"
         headingLevel={3}
-        className="mb-1.5 items-start"
+        className="mb-1.5 items-center"
         titleClassName="text-xs"
-        descriptionClassName="mt-0.5 text-[10px]"
         action={
           <span className="rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[11px] font-semibold">
             {transactions.length}
@@ -1241,21 +1365,22 @@ function InventoryTransactionsSection({
             const isCost = ["buyback_payment", "repair_cost", "fee", "refund"].includes(
               transaction.transaction_type,
             );
+            const transactionLabel = inventoryTransactionTypeLabel(transaction.transaction_type);
+            const note =
+              transaction.note && transaction.note !== transactionLabel ? transaction.note : "";
 
             return (
               <div
                 key={transaction.id}
-                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-[11px] font-medium">
-                    {inventoryTransactionTypeLabel(transaction.transaction_type)}
-                  </p>
+                  <p className="truncate text-[11px] font-medium">{transactionLabel}</p>
                   <p className="truncate text-[10px] text-muted-foreground">
                     {transaction.method || "未记录方式"} · {formatDateTime(transaction.created_at)}
                   </p>
-                  {transaction.note ? (
-                    <p className="truncate text-[10px] text-muted-foreground">{transaction.note}</p>
+                  {note ? (
+                    <p className="truncate text-[10px] text-muted-foreground">{note}</p>
                   ) : null}
                 </div>
                 <span
@@ -2001,17 +2126,6 @@ function InventoryStatusBadge({
   );
 }
 
-function InventoryInfoBox({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <RepairOsInfoTile
-      label={label}
-      value={value}
-      frame="bordered"
-      valueClassName="truncate font-mono text-[13px] font-semibold leading-4 tabular-nums"
-    />
-  );
-}
-
 type InventoryDenseInfoTone = "neutral" | "info" | "success" | "warning" | "danger";
 
 function InventoryDenseInfoBox({
@@ -2042,6 +2156,215 @@ function InventoryDenseInfoBox({
       metaClassName="mt-0 truncate text-[9px] leading-3 text-muted-foreground"
     />
   );
+}
+
+function InventoryProductPanel({ item }: { item: InventoryDetail["item"] }) {
+  return (
+    <div className="grid gap-1.5">
+      <InventoryAppInfoRow
+        icon={Smartphone}
+        label="品牌型号"
+        value={item.item_label}
+        meta={item.category || "未分类"}
+        tone="info"
+      />
+      <div className="grid grid-cols-2 gap-1.5">
+        <InventoryAppStatusTile
+          icon={Palette}
+          label="颜色"
+          value={item.color || "-"}
+          tone={item.color ? "neutral" : "warning"}
+        />
+        <InventoryAppStatusTile
+          icon={HardDrive}
+          label="容量"
+          value={item.storage_capacity || "-"}
+          tone={item.storage_capacity ? "neutral" : "warning"}
+        />
+      </div>
+      <InventoryAppInfoRow
+        icon={Hash}
+        label="IMEI / 序列号"
+        value={item.serial_or_imei || "-"}
+        tone={item.serial_or_imei ? "neutral" : "warning"}
+        valueClassName="font-mono text-[11px] tracking-normal"
+      />
+      {item.notes ? (
+        <InventoryAppInfoRow
+          icon={FileText}
+          label="备注"
+          value={item.notes}
+          tone="neutral"
+          valueClassName="line-clamp-2 whitespace-normal text-[11px] font-medium leading-4"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function InventoryQualityPanel({ item }: { item: InventoryDetail["item"] }) {
+  const batteryLabel = item.battery_health == null ? "-" : `${item.battery_health}%`;
+
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      <InventoryAppStatusTile
+        icon={Sparkles}
+        label="外观"
+        value={gradeLabel(item.cosmetic_grade)}
+        tone={inventoryGradeTone(item.cosmetic_grade)}
+      />
+      <InventoryAppStatusTile
+        icon={BadgeCheck}
+        label="功能"
+        value={gradeLabel(item.functional_grade)}
+        tone={inventoryGradeTone(item.functional_grade)}
+      />
+      <InventoryAppStatusTile
+        icon={BatteryCharging}
+        label="电池"
+        value={batteryLabel}
+        tone={inventoryBatteryTone(item.battery_health)}
+      />
+      <InventoryAppStatusTile
+        icon={ShieldCheck}
+        label="IMEI"
+        value={checkLabel(item.imei_check_status)}
+        tone={inventoryCheckTone(item.imei_check_status)}
+      />
+      <InventoryAppStatusTile
+        icon={LockKeyhole}
+        label="激活锁"
+        value={checkLabel(item.activation_lock_status)}
+        tone={inventoryCheckTone(item.activation_lock_status)}
+      />
+      <InventoryAppStatusTile
+        icon={Eraser}
+        label="资料清除"
+        value={checkLabel(item.data_wipe_status)}
+        tone={inventoryCheckTone(item.data_wipe_status)}
+      />
+    </div>
+  );
+}
+
+function InventoryAppInfoRow({
+  icon: Icon,
+  label,
+  value,
+  meta,
+  tone = "neutral",
+  valueClassName,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+  meta?: React.ReactNode;
+  tone?: InventoryDenseInfoTone;
+  valueClassName?: string;
+}) {
+  const toneClass = inventoryAppToneClass(tone);
+
+  return (
+    <div
+      className={cn(
+        "grid min-w-0 grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border px-2 py-1.5",
+        toneClass.frame,
+      )}
+    >
+      <span className={cn("grid size-7 place-items-center rounded-lg", toneClass.iconFrame)}>
+        <Icon className={cn("size-3.5", toneClass.icon)} />
+      </span>
+      <div className="min-w-0">
+        <div className={cn("truncate text-[9px] font-medium leading-3", toneClass.label)}>
+          {label}
+        </div>
+        <div className={cn("truncate text-[12px] font-semibold leading-4", valueClassName)}>
+          {value}
+        </div>
+      </div>
+      {meta ? (
+        <span
+          className={cn("max-w-20 truncate rounded-md px-1 text-[9px] leading-4", toneClass.pill)}
+        >
+          {meta}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function InventoryAppStatusTile({
+  icon: Icon,
+  label,
+  value,
+  tone = "neutral",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+  tone?: InventoryDenseInfoTone;
+}) {
+  const toneClass = inventoryAppToneClass(tone);
+
+  return (
+    <div className={cn("min-w-0 rounded-xl border px-2 py-1.5", toneClass.frame)}>
+      <div className="flex min-w-0 items-center justify-between gap-1.5">
+        <span className={cn("grid size-6 place-items-center rounded-lg", toneClass.iconFrame)}>
+          <Icon className={cn("size-3.5", toneClass.icon)} />
+        </span>
+        <span
+          className={cn(
+            "min-w-0 truncate rounded-md px-1 text-right text-[9px] font-semibold leading-4",
+            toneClass.pill,
+          )}
+        >
+          {value}
+        </span>
+      </div>
+      <div className={cn("mt-1 truncate text-[10px] font-medium leading-3", toneClass.label)}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function InventoryProofChip({ row }: { row: InventoryBuybackSummary["proofRows"][number] }) {
+  const tone = row.done ? "success" : "warning";
+  const toneClass = inventoryAppToneClass(tone);
+  const Icon = row.done ? CheckCircle2 : CircleDashed;
+  const label = inventoryProofShortLabel(row);
+
+  return (
+    <div
+      aria-label={`${row.label}${row.done ? "已齐" : "待补"}`}
+      className={cn(
+        "flex min-w-0 items-center gap-1 rounded-lg border px-1.5 py-0.5",
+        toneClass.frame,
+      )}
+    >
+      <Icon className={cn("size-3 shrink-0", toneClass.icon)} />
+      <span className="min-w-0 flex-1 whitespace-nowrap text-[9px] font-medium leading-4">
+        {label}
+      </span>
+      <span
+        className={cn("shrink-0 rounded px-1 text-[8px] font-semibold leading-3", toneClass.pill)}
+      >
+        {row.done ? "齐" : "补"}
+      </span>
+    </div>
+  );
+}
+
+function inventoryProofShortLabel(row: InventoryBuybackSummary["proofRows"][number]) {
+  const labels: Record<string, string> = {
+    signature: "客签",
+    id_front: "证正",
+    id_back: "证反",
+    device_photo: "设备",
+  };
+  if (row.key === "invoice") return row.label.includes("发票") ? "票据" : "无票";
+  if (row.key === "box") return row.label.includes("原装") ? "原盒" : "无盒";
+  return labels[row.key] ?? row.label;
 }
 
 function Field(
@@ -2269,6 +2592,74 @@ function inventoryDenseInfoToneClass(tone: InventoryDenseInfoTone) {
     label: "text-muted-foreground",
     value: "text-foreground",
   };
+}
+
+function inventoryAppToneClass(tone: InventoryDenseInfoTone) {
+  if (tone === "success") {
+    return {
+      frame: "border-status-success-foreground/20 bg-status-success/10",
+      iconFrame: "bg-status-success text-status-success-foreground",
+      icon: "text-status-success-foreground",
+      label: "text-status-success-foreground/80",
+      pill: "bg-status-success text-status-success-foreground",
+    };
+  }
+  if (tone === "danger") {
+    return {
+      frame: "border-status-danger-foreground/20 bg-status-danger/10",
+      iconFrame: "bg-status-danger text-status-danger-foreground",
+      icon: "text-status-danger-foreground",
+      label: "text-status-danger-foreground/80",
+      pill: "bg-status-danger text-status-danger-foreground",
+    };
+  }
+  if (tone === "warning") {
+    return {
+      frame: "border-status-warn-foreground/20 bg-status-warn/15",
+      iconFrame: "bg-status-warn text-status-warn-foreground",
+      icon: "text-status-warn-foreground",
+      label: "text-status-warn-foreground/80",
+      pill: "bg-status-warn text-status-warn-foreground",
+    };
+  }
+  if (tone === "info") {
+    return {
+      frame: "border-status-info-foreground/20 bg-status-info/10",
+      iconFrame: "bg-status-info text-status-info-foreground",
+      icon: "text-status-info-foreground",
+      label: "text-status-info-foreground/80",
+      pill: "bg-status-info text-status-info-foreground",
+    };
+  }
+  return {
+    frame: "border-[var(--border-panel)] bg-card",
+    iconFrame: "bg-[var(--surface-panel-muted)] text-muted-foreground",
+    icon: "text-muted-foreground",
+    label: "text-muted-foreground",
+    pill: "bg-[var(--surface-panel-muted)] text-muted-foreground",
+  };
+}
+
+function inventoryGradeTone(value?: string): InventoryDenseInfoTone {
+  if (["new", "mint", "good", "passed"].includes(value || "")) return "success";
+  if (["fair", "untested", "unknown"].includes(value || "")) return "warning";
+  if (["poor", "needs_repair"].includes(value || "")) return "warning";
+  if (["failed", "for_parts"].includes(value || "")) return "danger";
+  return "neutral";
+}
+
+function inventoryCheckTone(value?: string): InventoryDenseInfoTone {
+  if (value === "pass") return "success";
+  if (value === "fail") return "danger";
+  if (value === "unknown" || value === "unchecked") return "warning";
+  return "neutral";
+}
+
+function inventoryBatteryTone(value?: number | null): InventoryDenseInfoTone {
+  if (value == null) return "warning";
+  if (value >= 85) return "success";
+  if (value >= 70) return "info";
+  return "warning";
 }
 
 function isInventoryDialogActionKind(

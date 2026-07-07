@@ -500,7 +500,7 @@ export async function listCustomers(
         .select("*")
         .eq("store_id", storeId)
         .order("created_at", { ascending: false }),
-      fetchFollowupsForCustomerIds(customerIds),
+      fetchFollowupsForCustomerIds(storeId, customerIds),
     ]);
   fail(deviceError, "读取客户设备失败");
   fail(followupError, "读取客户待办失败");
@@ -676,13 +676,58 @@ function missingStoreColumn(error: unknown, tableName: string) {
   );
 }
 
-async function fetchFollowupsForCustomerIds(customerIds: string[]) {
+async function fetchCustomerInteractionsForCustomer(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  customerId: string,
+) {
+  const result = await supabase
+    .from("customer_interactions")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+  if (!missingStoreColumn(result.error, "customer_interactions")) return result;
+  return supabase
+    .from("customer_interactions")
+    .select("*")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+}
+
+async function fetchFollowupsForCustomerIds(storeId: string, customerIds: string[]) {
   const supabase = getSupabaseAdmin();
   if (!customerIds.length) return { data: [], error: null };
+  const result = await supabase
+    .from("customer_followups")
+    .select("*")
+    .eq("store_id", storeId)
+    .in("customer_id", customerIds)
+    .order("due_at", { ascending: true });
+  if (!missingStoreColumn(result.error, "customer_followups")) return result;
   return supabase
     .from("customer_followups")
     .select("*")
     .in("customer_id", customerIds)
+    .order("due_at", { ascending: true });
+}
+
+async function fetchFollowupsForCustomer(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  customerId: string,
+) {
+  const result = await supabase
+    .from("customer_followups")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("customer_id", customerId)
+    .order("due_at", { ascending: true });
+  if (!missingStoreColumn(result.error, "customer_followups")) return result;
+  return supabase
+    .from("customer_followups")
+    .select("*")
+    .eq("customer_id", customerId)
     .order("due_at", { ascending: true });
 }
 
@@ -709,17 +754,8 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
       .eq("store_id", storeId)
       .eq("customer_id", id)
       .order("updated_at", { ascending: false }),
-    supabase
-      .from("customer_interactions")
-      .select("*")
-      .eq("store_id", storeId)
-      .eq("customer_id", id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("customer_followups")
-      .select("*")
-      .eq("customer_id", id)
-      .order("due_at", { ascending: true }),
+    fetchCustomerInteractionsForCustomer(supabase, storeId, id),
+    fetchFollowupsForCustomer(supabase, storeId, id),
   ]);
   fail(customerError, "读取客户详情失败");
   fail(deviceError, "读取客户设备失败");
@@ -846,12 +882,15 @@ export async function updateCustomer(
   const now = new Date().toISOString();
   const payload = customerPayload(input, now);
   await assertCustomerPhoneAvailable(storeId, payload.phone_raw, payload.contact_phones, id);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("customers")
     .update(payload)
     .eq("store_id", storeId)
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
   fail(error, "更新客户失败");
+  if (!data) throw new Error("客户不存在");
   return { ok: true };
 }
 
@@ -866,6 +905,7 @@ export async function upsertCustomerDevice(
   if (!brand || !model) throw new Error("设备品牌和型号不能为空");
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
+  await assertCustomerBelongsToStore(supabase, storeId, customerId);
   const id = input.id ?? crypto.randomUUID();
   const payload = {
     id,
@@ -878,13 +918,16 @@ export async function upsertCustomerDevice(
     updated_at: now,
   };
   if (input.id) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("devices")
       .update(payload)
       .eq("store_id", storeId)
       .eq("id", input.id)
-      .eq("customer_id", customerId);
+      .eq("customer_id", customerId)
+      .select("id")
+      .maybeSingle();
     fail(error, "保存客户设备失败");
+    if (!data) throw new Error("设备不存在");
   } else {
     const { error } = await supabase.from("devices").insert({ ...payload, created_at: now });
     fail(error, "保存客户设备失败");
@@ -903,17 +946,21 @@ export async function deleteCustomerDevice(
     .from("repair_orders")
     .select("id")
     .eq("store_id", storeId)
+    .eq("customer_id", customerId)
     .eq("device_id", deviceId)
     .limit(1);
   fail(readError, "检查设备工单失败");
   if ((orders ?? []).length) throw new Error("该设备已有工单记录，不能删除");
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("devices")
     .delete()
     .eq("store_id", storeId)
     .eq("id", deviceId)
-    .eq("customer_id", customerId);
+    .eq("customer_id", customerId)
+    .select("id")
+    .maybeSingle();
   fail(error, "删除设备失败");
+  if (!data) throw new Error("设备不存在");
   return { ok: true };
 }
 
@@ -925,6 +972,8 @@ export async function setCustomerTags(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const cleanIds = Array.from(new Set(tagIds.filter(Boolean)));
+  await assertCustomerBelongsToStore(supabase, storeId, customerId);
+  await assertCustomerTagsBelongToStore(supabase, storeId, cleanIds);
   const deleteResult = await supabase
     .from("customer_tag_assignments")
     .delete()
@@ -972,6 +1021,10 @@ export async function createCustomerFollowup(
   if (Number.isNaN(due.getTime())) throw new Error("待办时间不正确");
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
+  await assertCustomerBelongsToStore(supabase, storeId, customerId);
+  if (input.order_id) {
+    await assertOrderBelongsToCustomerInStore(supabase, storeId, customerId, input.order_id);
+  }
   const id = crypto.randomUUID();
   const payload = {
     id,
@@ -1010,18 +1063,84 @@ export async function completeCustomerFollowup(
     .update({ status: "done", completed_at: now, updated_at: now })
     .eq("store_id", storeId)
     .eq("id", followupId)
-    .eq("customer_id", customerId);
+    .eq("customer_id", customerId)
+    .select("id")
+    .maybeSingle();
   if (missingStoreColumn(result.error, "customer_followups")) {
+    await assertCustomerBelongsToStore(supabase, storeId, customerId);
     const legacyResult = await supabase
       .from("customer_followups")
       .update({ status: "done", completed_at: now, updated_at: now })
       .eq("id", followupId)
-      .eq("customer_id", customerId);
+      .eq("customer_id", customerId)
+      .select("id")
+      .maybeSingle();
     fail(legacyResult.error, "完成客户待办失败");
+    if (!legacyResult.data) throw new Error("客户待办不存在");
     return { ok: true };
   }
   fail(result.error, "完成客户待办失败");
+  if (!result.data) throw new Error("客户待办不存在");
   return { ok: true };
+}
+
+async function assertCustomerBelongsToStore(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  customerId: string,
+) {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("id", customerId)
+    .maybeSingle();
+  fail(error, "检查客户归属失败");
+  if (!data) throw new Error("客户不存在");
+}
+
+async function assertCustomerTagsBelongToStore(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  tagIds: string[],
+) {
+  if (!tagIds.length) return;
+  const { data, error } = await supabase
+    .from("customer_tags")
+    .select("id")
+    .eq("store_id", storeId)
+    .in("id", tagIds);
+  if (missingStoreColumn(error, "customer_tags")) return;
+  fail(error, "检查客户标签失败");
+  const foundIds = new Set(((data ?? []) as DbRecord[]).map((row) => requiredString(row.id)));
+  if (tagIds.some((tagId) => !foundIds.has(tagId))) throw new Error("客户标签不存在");
+}
+
+async function assertOrderBelongsToCustomerInStore(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  customerId: string,
+  orderId: string,
+) {
+  const { data, error } = await supabase
+    .from("repair_orders")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("customer_id", customerId)
+    .eq("id", orderId)
+    .maybeSingle();
+  fail(error, "检查关联工单失败");
+  if (!data) throw new Error("关联工单不存在或不属于当前客户");
+}
+
+async function insertCustomerInteraction(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  payload: Record<string, unknown> & { store_id: string },
+) {
+  const result = await supabase.from("customer_interactions").insert(payload);
+  if (!missingStoreColumn(result.error, "customer_interactions")) return result;
+  const { store_id: _storeId, ...legacyPayload } = payload;
+  return supabase.from("customer_interactions").insert(legacyPayload);
 }
 
 export async function sendCustomerMessage(
@@ -1036,7 +1155,11 @@ export async function sendCustomerMessage(
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  const { error: insertError } = await supabase.from("customer_interactions").insert({
+  await assertCustomerBelongsToStore(supabase, storeId, customerId);
+  if (input.order_id) {
+    await assertOrderBelongsToCustomerInStore(supabase, storeId, customerId, input.order_id);
+  }
+  const { error: insertError } = await insertCustomerInteraction(supabase, {
     id,
     store_id: storeId,
     customer_id: customerId,
@@ -1049,11 +1172,14 @@ export async function sendCustomerMessage(
     created_at: now,
   });
   fail(insertError, "记录客户消息失败");
-  const { error: updateError } = await supabase
+  const { data: customerRow, error: updateError } = await supabase
     .from("customers")
     .update({ last_contacted_at: now, updated_at: now })
     .eq("store_id", storeId)
-    .eq("id", customerId);
+    .eq("id", customerId)
+    .select("id")
+    .maybeSingle();
   fail(updateError, "更新客户联系时间失败");
+  if (!customerRow) throw new Error("客户不存在");
   return { ok: true, id };
 }

@@ -65,7 +65,10 @@ export function sortOnboardingRequests(requests: OnboardingRequest[]) {
 export function getOnboardingRequestTarget(request: OnboardingRequest) {
   return request.request_type === "create_store"
     ? request.desired_store_name?.trim() || "新店铺"
-    : request.target_store_name?.trim() || request.target_store_id || "已有店铺";
+    : request.target_store_name?.trim() ||
+        request.target_owner_email?.trim() ||
+        request.target_store_id ||
+        "待负责人确认";
 }
 
 export function getOnboardingRequestTypeLabel(request: OnboardingRequest) {

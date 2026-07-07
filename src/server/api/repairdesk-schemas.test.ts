@@ -4,9 +4,13 @@ import {
   createOrderSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
+  onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
   patchOrderInputSchema,
   paymentBodySchema,
+  storeInviteLinkCreateBodySchema,
+  storeInviteLinkDecisionBodySchema,
+  storeInviteLinkRedeemBodySchema,
   updateOrderInputSchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
@@ -51,6 +55,45 @@ describe("repairdesk API schemas", () => {
       template_kind: "pickup_ready",
       transition_to: "notified",
     });
+  });
+
+  it("validates store invite link creation and redemption payloads", () => {
+    expect(
+      storeInviteLinkCreateBodySchema.parse({
+        input: {
+          label: "临时员工",
+          role: "technician",
+          expires_in_days: 7,
+          max_uses: 1,
+        },
+      }).input,
+    ).toMatchObject({ role: "technician", expires_in_days: 7, max_uses: 1 });
+
+    expect(() =>
+      storeInviteLinkCreateBodySchema.parse({
+        input: { role: "owner", expires_in_days: 7, max_uses: 1 },
+      }),
+    ).toThrow();
+    expect(() =>
+      storeInviteLinkCreateBodySchema.parse({
+        input: { role: "viewer", expires_in_days: 31, max_uses: 1 },
+      }),
+    ).toThrow();
+    expect(() =>
+      storeInviteLinkCreateBodySchema.parse({
+        input: { role: "viewer", expires_in_days: 7, max_uses: 51 },
+      }),
+    ).toThrow();
+
+    expect(
+      storeInviteLinkDecisionBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000201",
+      }),
+    ).toMatchObject({ id: "00000000-0000-4000-8000-000000000201" });
+    expect(storeInviteLinkRedeemBodySchema.parse({ code: " rd_valid_invite_code " })).toMatchObject(
+      { code: "rd_valid_invite_code" },
+    );
+    expect(() => storeInviteLinkRedeemBodySchema.parse({ code: "short" })).toThrow();
   });
 
   it("rejects incomplete order creation payloads", () => {
@@ -172,19 +215,61 @@ describe("repairdesk API schemas", () => {
       onboardingRequestBodySchema.parse({
         input: {
           request_type: "join_store",
-          target_store_id: "5248dda1-2b32-46cd-8ed0-d15386a9e8ed",
-          requested_role: "technician",
+          target_owner_email: "owner@chinatech.in",
+          note: "新员工申请加入",
+          requested_role: "manager",
         },
       }).input,
     ).toMatchObject({
       request_type: "join_store",
-      requested_role: "technician",
+      target_owner_email: "owner@chinatech.in",
+      requested_role: "manager",
     });
+
+    expect(() =>
+      onboardingRequestBodySchema.parse({
+        input: {
+          request_type: "join_store",
+          target_store_id: "5248dda1-2b32-46cd-8ed0-d15386a9e8ed",
+          requested_role: "technician",
+        },
+      }),
+    ).toThrow("请填写店铺负责人的邮箱");
 
     expect(() =>
       onboardingRequestBodySchema.parse({
         input: { request_type: "create_store" },
       }),
-    ).toThrow("请填写要创建的店铺名称");
+    ).toThrow("创建店铺请使用创建店铺接口");
+
+    expect(() =>
+      onboardingRequestBodySchema.parse({
+        input: {
+          request_type: "create_store",
+          desired_store_name: "ChinaTech Roma",
+        },
+      }),
+    ).toThrow("创建店铺请使用创建店铺接口");
+  });
+
+  it("validates onboarding decision approved role", () => {
+    expect(
+      onboardingDecisionBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000001",
+        approved_role: "viewer",
+        note: "只读先加入",
+      }),
+    ).toMatchObject({
+      id: "00000000-0000-4000-8000-000000000001",
+      approved_role: "viewer",
+      note: "只读先加入",
+    });
+
+    expect(() =>
+      onboardingDecisionBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000001",
+        approved_role: "owner",
+      }),
+    ).toThrow();
   });
 });

@@ -1,9 +1,9 @@
 "use client";
 
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/table";
 import { BuybackQuoteWorkspace } from "@/features/buyback/components/buyback-quote-workspace";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { inventoryStatusMeta } from "@/features/inventory/model/inventory-workflow";
 import { buildInventoryBuybackSummary } from "@/features/inventory/model/inventory-buyback-summary";
 import {
@@ -69,14 +70,16 @@ import {
 import { listInventoryItems, type InventoryListItem } from "@/lib/repairdesk/api";
 import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp, stagger } from "@/lib/motion";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   RepairOsBadge,
   RepairOsBusinessCard,
   RepairOsChipRow,
   RepairOsHeaderActionButton,
+  RepairOsInfoTile,
   RepairOsListScaffold,
   RepairOsMetricStrip,
-  RepairOsModuleHeader,
+  RepairOsSectionHeader,
 } from "@/shared/ui";
 import { brandGradientStyle, controls, density, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -88,12 +91,15 @@ const buybackScopeFilters = {
 
 export function BuybackScreen() {
   const router = useRouter();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
   const searchParams = useSearchParams();
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [quoteInitialDraft, setQuoteInitialDraft] = useState<BuybackQuoteDraft | null>(null);
   const [quoteTargetRecord, setQuoteTargetRecord] = useState<InventoryListItem | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<InventoryListItem | null>(null);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [activeView, setActiveView] = useState<BuybackListViewKey>("all");
 
   useEffect(() => {
@@ -107,18 +113,21 @@ export function BuybackScreen() {
   const filters = useMemo(
     () => ({
       ...buybackScopeFilters,
-      search: search.trim() || undefined,
+      search: deferredSearch.trim() || undefined,
     }),
-    [search],
+    [deferredSearch],
   );
 
   const { data: allBuybackItems = [], isLoading: statsLoading } = useQuery({
-    queryKey: inventoryKeys.list(buybackScopeFilters),
-    queryFn: () => listInventoryItems(buybackScopeFilters),
+    queryKey: inventoryKeys.list(buybackScopeFilters, activeStoreId),
+    queryFn: ({ signal }) => listInventoryItems(buybackScopeFilters, { signal }),
+    staleTime: CACHE_TIMES.stats,
   });
   const { data: items = [], isLoading } = useQuery({
-    queryKey: inventoryKeys.list(filters),
-    queryFn: () => listInventoryItems(filters),
+    queryKey: inventoryKeys.list(filters, activeStoreId),
+    queryFn: ({ signal }) => listInventoryItems(filters, { signal }),
+    placeholderData: keepPreviousData,
+    staleTime: CACHE_TIMES.hotList,
   });
 
   const summary = useMemo(() => buildBuybackListSummary(allBuybackItems), [allBuybackItems]);
@@ -160,6 +169,7 @@ export function BuybackScreen() {
       <RepairOsListScaffold
         title="回收管理"
         subtitle={`${activeViewLabel} · 共 ${filteredItems.length} 条`}
+        eyebrow="工作台 / 回收"
         action={
           <RepairOsHeaderActionButton ariaLabel="新建回收报价" onClick={handleCreateQuote}>
             <Plus className="size-4" />
@@ -189,51 +199,45 @@ export function BuybackScreen() {
           active: activeView === view.key,
           onClick: () => setActiveView(view.key),
         }))}
-        desktopHeader={
-          <div className="mb-3 space-y-3 sm:mb-5 sm:space-y-4">
-            <motion.div variants={fadeUp}>
-              <RepairOsModuleHeader
-                action={
-                  <Button
-                    size="sm"
-                    className={cn("h-9 shrink-0 gap-1.5", controls.brandButton)}
-                    style={brandGradientStyle}
-                    onClick={handleCreateQuote}
-                  >
-                    <Plus className="size-4" />
-                    回收报价
-                  </Button>
-                }
-              />
-            </motion.div>
-            <motion.div variants={fadeUp}>
-              <RepairOsMetricStrip
-                metrics={[
-                  {
-                    label: "回收记录",
-                    value: statsLoading ? "-" : summary.total,
-                    hint: "iPhone 回收",
-                    icon: Recycle,
-                    tone: "blue",
-                  },
-                  {
-                    label: "待检测",
-                    value: summary.pendingCount,
-                    hint: "收机/估价",
-                    icon: ScanLine,
-                    tone: "amber",
-                  },
-                  {
-                    label: "已报价",
-                    value: summary.quotedCount,
-                    hint: "待客户确认",
-                    icon: Euro,
-                    tone: "green",
-                  },
-                ]}
-              />
-            </motion.div>
-          </div>
+        desktopAction={
+          <Button
+            size="sm"
+            className={cn("h-9 shrink-0 gap-1.5", controls.brandButton)}
+            style={brandGradientStyle}
+            onClick={handleCreateQuote}
+          >
+            <Plus className="size-4" />
+            回收报价
+          </Button>
+        }
+        desktopHeaderAddon={
+          <motion.div variants={fadeUp}>
+            <RepairOsMetricStrip
+              metrics={[
+                {
+                  label: "回收记录",
+                  value: statsLoading ? "-" : summary.total,
+                  hint: "iPhone 回收",
+                  icon: Recycle,
+                  tone: "blue",
+                },
+                {
+                  label: "待检测",
+                  value: summary.pendingCount,
+                  hint: "收机/估价",
+                  icon: ScanLine,
+                  tone: "amber",
+                },
+                {
+                  label: "已报价",
+                  value: summary.quotedCount,
+                  hint: "待客户确认",
+                  icon: Euro,
+                  tone: "green",
+                },
+              ]}
+            />
+          </motion.div>
         }
       >
         <motion.div
@@ -314,27 +318,31 @@ export function BuybackScreen() {
 
 function BuybackEmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <motion.section variants={fadeUp} className={cn(repairOs.mobileInfoCard, "mt-3")}>
-      <div className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)] gap-2">
-        <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
-          <FileText className="size-4" />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-[12px] font-semibold leading-4">还没有回收报价</h2>
-          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
-            先做简易估价，客户同意后再检测功能并登记资料。
-          </p>
-        </div>
-      </div>
-      <Button
-        className={cn("mt-2 h-9 w-full gap-1.5 rounded-lg text-xs", controls.brandButton)}
-        style={brandGradientStyle}
-        onClick={onCreate}
+    <motion.div variants={fadeUp}>
+      <RepairOsBusinessCard
+        as="div"
+        data-ui="buyback-empty-state"
+        className="mt-3 items-start rounded-xl border-dashed px-3 py-3 shadow-none"
+        leading={
+          <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+            <FileText className="size-4" />
+          </span>
+        }
       >
-        <Plus className="size-3.5" />
-        新建回收报价
-      </Button>
-    </motion.section>
+        <h2 className="text-[12px] font-semibold leading-4">还没有回收报价</h2>
+        <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+          先做简易估价，客户同意后再检测功能并登记资料。
+        </p>
+        <Button
+          className={cn("mt-2 h-9 w-full gap-1.5 rounded-lg text-xs", controls.brandButton)}
+          style={brandGradientStyle}
+          onClick={onCreate}
+        >
+          <Plus className="size-3.5" />
+          新建回收报价
+        </Button>
+      </RepairOsBusinessCard>
+    </motion.div>
   );
 }
 
@@ -1021,19 +1029,29 @@ function RecordSectionTitle({
   title: string;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <Icon className="size-3.5 text-primary" />
-      <h3 className="text-[12px] font-semibold leading-4">{title}</h3>
-    </div>
+    <RepairOsSectionHeader
+      icon={Icon}
+      iconFrame={false}
+      title={title}
+      headingLevel={3}
+      className="mb-0 justify-start"
+      bodyClassName="gap-1.5"
+      titleClassName="text-[12px] leading-4"
+      iconClassName="size-3.5"
+    />
   );
 }
 
 function RecordMetric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-      <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
-      <p className="truncate text-[11px] font-semibold leading-4">{value}</p>
-    </div>
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      frame="plain"
+      className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+      labelClassName="text-[9px] leading-3"
+      valueClassName="mt-0 truncate text-[11px] font-semibold leading-4"
+    />
   );
 }
 
@@ -1049,16 +1067,21 @@ function BuybackInlineInfo({
   meta: React.ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-[20px_minmax(0,1fr)] gap-1.5">
-      <span className="grid size-5 place-items-center rounded-md bg-[var(--surface-panel-muted)] text-primary">
-        <Icon className="size-3" />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
-        <p className="truncate text-[11px] font-semibold leading-4">{value}</p>
-        <p className="truncate text-[9px] leading-3 text-muted-foreground">{meta}</p>
-      </div>
-    </div>
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      meta={meta}
+      leading={
+        <span className="grid size-5 place-items-center rounded-md bg-[var(--surface-panel-muted)] text-primary">
+          <Icon className="size-3" />
+        </span>
+      }
+      frame="plain"
+      className="grid min-w-0 grid-cols-[20px_minmax(0,1fr)] gap-1.5"
+      labelClassName="text-[9px] leading-3"
+      valueClassName="mt-0 truncate text-[11px] font-semibold leading-4"
+      metaClassName="mt-0 truncate text-[9px] leading-3"
+    />
   );
 }
 
@@ -1098,17 +1121,17 @@ function BuybackCardMetric({
   emphasis?: boolean;
 }) {
   return (
-    <div className="min-w-0">
-      <p className="truncate text-[9px] leading-3 text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "truncate text-[10px] font-medium leading-4",
-          emphasis ? "font-mono text-status-success-foreground" : "text-foreground",
-        )}
-      >
-        {value}
-      </p>
-    </div>
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      frame="plain"
+      className="min-w-0"
+      labelClassName="text-[9px] leading-3"
+      valueClassName={cn(
+        "mt-0 truncate text-[10px] font-medium leading-4",
+        emphasis ? "font-mono text-status-success-foreground" : "text-foreground",
+      )}
+    />
   );
 }
 

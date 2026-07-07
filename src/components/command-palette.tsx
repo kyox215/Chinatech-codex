@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sun, Wrench } from "lucide-react";
 
@@ -12,7 +11,9 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useQuery } from "@tanstack/react-query";
+import { ordersKeys } from "@/features/orders/api/query-keys";
 import { listOrders } from "@/lib/repairdesk/api";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import { toggleThemePreference } from "@/lib/theme";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { getShellCommandActions, getWorkspaceNavItems } from "@/shared/config/navigation";
@@ -26,10 +27,12 @@ export function CommandPalette({
 }) {
   const router = useRouter();
   const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
   const { data = [] } = useQuery({
-    queryKey: ["orders", {}],
-    queryFn: () => listOrders(),
+    queryKey: ordersKeys.list({}, activeStoreId),
+    queryFn: ({ signal }) => listOrders({}, { signal }),
     enabled: open,
+    staleTime: CACHE_TIMES.hotList,
   });
 
   const go = (to: string) => {
@@ -109,19 +112,4 @@ export function CommandPalette({
       </CommandList>
     </CommandDialog>
   );
-}
-
-export function useCommandPalette() {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-  return { open, setOpen };
 }

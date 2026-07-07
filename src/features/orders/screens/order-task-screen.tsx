@@ -32,6 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderWorkflowProgress } from "@/features/orders/components/order-workflow-progress";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   orderExceptionMeta,
   workflowStatusFromLegacyStatus,
@@ -58,6 +59,8 @@ const orderTaskPageShell =
 
 export function OrderTaskScreen({ id }: { id: string }) {
   const queryClient = useQueryClient();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
   const [transitionAction, setTransitionAction] = useState<WorkflowNextAction | null>(null);
   const [transitionReason, setTransitionReason] = useState("");
 
@@ -69,12 +72,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
   }, []);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ordersKeys.detail(id),
+    queryKey: ordersKeys.detail(id, activeStoreId),
     queryFn: ({ signal }) => getOrder(id, { signal }),
     staleTime: CACHE_TIMES.detail,
   });
   const { data: workflow } = useQuery({
-    queryKey: ordersKeys.workflow(),
+    queryKey: ordersKeys.workflow(activeStoreId),
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });

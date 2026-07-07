@@ -1,5 +1,6 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type {
+  AccountProfileUpdateInput,
   CreateOrderInput,
   Customer,
   Device,
@@ -75,6 +76,12 @@ import type {
   RepairDeskOptions,
   StoreContext,
   StoreCreateInput,
+  StoreInvitation,
+  StoreInvitationDecisionInput,
+  StoreInviteLinkCreateInput,
+  StoreInviteLinkCreateResult,
+  StoreInviteLinkDecisionInput,
+  StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreMembersResult,
   StoreSettings,
@@ -140,6 +147,7 @@ export type {
   PatchOrderResult,
   BatchTransitionResult,
   CustomerCreateInput,
+  AccountProfileUpdateInput,
   CustomerDetail,
   CustomerDeviceInput,
   CustomerFollowup,
@@ -198,6 +206,11 @@ export type {
   StoreContext,
   StoreCreateInput,
   StoreInvitation,
+  StoreInvitationDecisionInput,
+  StoreInviteLinkCreateInput,
+  StoreInviteLinkCreateResult,
+  StoreInviteLinkDecisionInput,
+  StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreMember,
   StoreMembersResult,
@@ -321,10 +334,22 @@ export async function getOnboardingStatus(
   return requestJson<OnboardingStatus>("onboarding/status", {}, options);
 }
 
+export async function updateAccountProfile(
+  input: AccountProfileUpdateInput,
+): Promise<OnboardingStatus> {
+  return postJson<OnboardingStatus>("account/profile/update", { input });
+}
+
 export async function submitOnboardingRequest(
   input: OnboardingRequestInput,
 ): Promise<OnboardingRequest> {
   return postJson<OnboardingRequest>("onboarding/request", { input });
+}
+
+export async function cancelOnboardingRequest(
+  input: OnboardingDecisionInput,
+): Promise<OnboardingRequest> {
+  return postJson<OnboardingRequest>("onboarding/request/cancel", input);
 }
 
 export async function listPlatformOnboardingRequests(): Promise<OnboardingRequest[]> {
@@ -349,6 +374,24 @@ export async function getStoreMembers(
   return requestJson<StoreMembersResult>("stores/members", {}, options);
 }
 
+export async function listStoreAccessRequests(
+  options?: RepairDeskRequestOptions,
+): Promise<OnboardingRequest[]> {
+  return requestJson<OnboardingRequest[]>("stores/access-requests", {}, options);
+}
+
+export async function approveStoreAccessRequest(
+  input: OnboardingDecisionInput,
+): Promise<OnboardingRequest> {
+  return postJson<OnboardingRequest>("stores/access-requests/approve", input);
+}
+
+export async function rejectStoreAccessRequest(
+  input: OnboardingDecisionInput,
+): Promise<OnboardingRequest> {
+  return postJson<OnboardingRequest>("stores/access-requests/reject", input);
+}
+
 export async function createStore(input: StoreCreateInput): Promise<StoreContext> {
   return postJson<StoreContext>("stores/create", { input });
 }
@@ -359,6 +402,36 @@ export async function switchStore(storeId: string): Promise<StoreContext> {
 
 export async function inviteStoreMember(input: StoreInviteInput): Promise<StoreMembersResult> {
   return postJson<StoreMembersResult>("stores/invite-member", { input });
+}
+
+export async function createStoreInviteLink(
+  input: StoreInviteLinkCreateInput,
+): Promise<StoreInviteLinkCreateResult> {
+  return postJson<StoreInviteLinkCreateResult>("stores/invite-links/create", { input });
+}
+
+export async function revokeStoreInviteLink(
+  input: StoreInviteLinkDecisionInput,
+): Promise<StoreMembersResult> {
+  return postJson<StoreMembersResult>("stores/invite-links/revoke", input);
+}
+
+export async function redeemStoreInviteLink(
+  input: StoreInviteLinkRedeemInput,
+): Promise<StoreInvitation> {
+  return postJson<StoreInvitation>("onboarding/invite-links/redeem", input);
+}
+
+export async function acceptStoreInvitation(
+  input: StoreInvitationDecisionInput,
+): Promise<StoreContext> {
+  return postJson<StoreContext>("onboarding/invitations/accept", input);
+}
+
+export async function revokeStoreInvitation(
+  input: StoreInvitationDecisionInput,
+): Promise<StoreMembersResult> {
+  return postJson<StoreMembersResult>("stores/invitations/revoke", input);
 }
 
 export async function updateStoreSettings(input: StoreSettingsUpdateInput): Promise<StoreSettings> {

@@ -22,7 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerMessageInput } from "@/lib/repairdesk/api";
-import { normalizePhoneRaw } from "@/shared/lib/phone";
+import { normalizePhoneRaw, uniqueContactPhones } from "@/shared/lib/phone";
 
 const customerMessageChannels = [
   { value: "whatsapp", label: "WhatsApp" },
@@ -134,7 +134,8 @@ export function CustomerMessageDialog({
 function customerPhoneOptions(data: CustomerDetail) {
   const result: string[] = [];
   const seen = new Set<string>();
-  for (const phone of [data.customer.phone_e164, ...data.customer.contact_phones]) {
+  const backupPhones = uniqueContactPhones(data.customer.phone_e164, data.customer.contact_phones);
+  for (const phone of [data.customer.phone_e164, ...backupPhones]) {
     const trimmed = phone.trim();
     const raw = normalizePhoneRaw(trimmed);
     if (!trimmed || !raw || seen.has(raw)) continue;

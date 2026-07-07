@@ -40,7 +40,13 @@ import {
   rejectOnboardingRequest,
   type OnboardingRequest,
 } from "@/lib/repairdesk/api";
-import { RepairOsListScaffold, RepairOsMetricStrip, RepairOsModuleHeader } from "@/shared/ui";
+import {
+  RepairOsBusinessCard,
+  RepairOsInfoTile,
+  RepairOsListScaffold,
+  RepairOsMetricStrip,
+  RepairOsSectionHeader,
+} from "@/shared/ui";
 import { brandGradientStyle, controls, density, repairOs } from "@/lib/ui-patterns";
 import { componentOverlay } from "@/lib/component-patterns";
 import { platformKeys } from "@/features/platform/api/query-keys";
@@ -125,42 +131,38 @@ export function PlatformAdminScreen() {
     <RepairOsListScaffold
       title="平台审批"
       subtitle={`待审核 · 共 ${requests.length} 条`}
+      eyebrow="系统 / 平台"
       chips={[
         { key: "pending", label: "待审核", shortLabel: "审", count: requests.length },
         { key: "create", label: "创建店铺", shortLabel: "店", count: summary.createStoreCount },
         { key: "join", label: "加入店铺", shortLabel: "员", count: summary.joinStoreCount },
       ]}
-      desktopHeader={
-        <div className="space-y-3">
-          <RepairOsModuleHeader
-            action={
-              <Badge variant="outline" className="gap-1.5">
-                <ShieldCheck className="size-3.5" />
-                平台管理员
-              </Badge>
-            }
-          />
-
-          <RepairOsMetricStrip
-            metrics={[
-              { label: "待审核", value: requests.length, hint: "全部申请", icon: ShieldCheck },
-              {
-                label: "创建店铺",
-                value: summary.createStoreCount,
-                hint: "新门店",
-                icon: Store,
-                tone: "green",
-              },
-              {
-                label: "加入店铺",
-                value: summary.joinStoreCount,
-                hint: "成员加入",
-                icon: UserPlus,
-                tone: "amber",
-              },
-            ]}
-          />
-        </div>
+      desktopAction={
+        <Badge variant="outline" className="gap-1.5">
+          <ShieldCheck className="size-3.5" />
+          平台管理员
+        </Badge>
+      }
+      desktopHeaderAddon={
+        <RepairOsMetricStrip
+          metrics={[
+            { label: "待审核", value: requests.length, hint: "全部申请", icon: ShieldCheck },
+            {
+              label: "创建店铺",
+              value: summary.createStoreCount,
+              hint: "新门店",
+              icon: Store,
+              tone: "green",
+            },
+            {
+              label: "加入店铺",
+              value: summary.joinStoreCount,
+              hint: "成员加入",
+              icon: UserPlus,
+              tone: "amber",
+            },
+          ]}
+        />
       }
     >
       <section className={cn(repairOs.adminSection, "mt-3 p-3")}>
@@ -190,17 +192,16 @@ export function PlatformAdminScreen() {
       </section>
 
       <section className={cn(repairOs.adminSection, "mt-3 overflow-hidden p-0")}>
-        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-[var(--border-panel)] px-3 py-2.5">
-          <div className="min-w-0">
-            <h2 className={repairOs.adminSectionTitle}>待处理申请</h2>
-            <p className="truncate text-[11px] text-muted-foreground">
-              审核后账号才可进入对应店铺工作台
-            </p>
-          </div>
-          <Badge variant="secondary" className="shrink-0 font-mono text-[11px]">
-            {requests.length}
-          </Badge>
-        </div>
+        <RepairOsSectionHeader
+          title="待处理申请"
+          description="审核后账号才可进入对应店铺工作台"
+          className="mb-0 border-b border-[var(--border-panel)] px-3 py-2.5"
+          action={
+            <Badge variant="secondary" className="font-mono text-[11px]">
+              {requests.length}
+            </Badge>
+          }
+        />
         {requestsQuery.isLoading ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-10 w-full" />
@@ -208,30 +209,54 @@ export function PlatformAdminScreen() {
             <Skeleton className="h-10 w-full" />
           </div>
         ) : requestsQuery.isError ? (
-          <div className="m-3 rounded-[var(--radius-lg)] border border-status-danger-foreground/20 bg-status-danger p-3 text-status-danger-foreground">
-            <div className="flex gap-2">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">审批队列加载失败</p>
-                <p className="mt-1 break-words text-xs leading-5">
-                  {requestsQuery.error instanceof Error
-                    ? requestsQuery.error.message
-                    : "读取审批列表失败"}
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-3 h-8 bg-[var(--surface-workspace-strong)]"
-                  disabled={requestsQuery.isFetching}
-                  onClick={() => void requestsQuery.refetch()}
-                >
-                  重新加载
-                </Button>
-              </div>
-            </div>
-          </div>
+          <RepairOsBusinessCard
+            as="div"
+            data-ui="platform-onboarding-load-error"
+            className="m-3 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2.5 text-status-danger-foreground shadow-none hover:bg-status-danger/10 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+            leading={
+              <span className="grid size-8 place-items-center rounded-lg bg-status-danger/10">
+                <AlertTriangle className="size-4" />
+              </span>
+            }
+            trailing={
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 bg-[var(--surface-workspace-strong)]"
+                disabled={requestsQuery.isFetching}
+                onClick={() => void requestsQuery.refetch()}
+              >
+                重新加载
+              </Button>
+            }
+            leadingClassName="self-center"
+            trailingClassName="col-span-2 justify-self-start sm:col-span-1 sm:justify-self-end"
+            aria-live="polite"
+          >
+            <span className="block text-sm font-semibold">审批队列加载失败</span>
+            <span className="mt-0.5 block break-words text-xs leading-5 text-status-danger-foreground/80">
+              {requestsQuery.error instanceof Error
+                ? requestsQuery.error.message
+                : "读取审批列表失败"}
+            </span>
+          </RepairOsBusinessCard>
         ) : requests.length === 0 ? (
-          <div className="p-5 text-center text-sm text-muted-foreground">暂无待审核申请。</div>
+          <RepairOsBusinessCard
+            as="div"
+            data-ui="platform-onboarding-empty-state"
+            className="m-3 grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl border-dashed px-3 py-2.5 text-muted-foreground shadow-none"
+            leading={
+              <span className="grid size-8 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary">
+                <ShieldCheck className="size-4" />
+              </span>
+            }
+            leadingClassName="self-center"
+          >
+            <span className="block text-sm font-semibold text-foreground">暂无待审核申请</span>
+            <span className="mt-0.5 block truncate text-[11px] leading-4">
+              新店铺和成员加入申请会显示在这里。
+            </span>
+          </RepairOsBusinessCard>
         ) : (
           <>
             <div className="hidden min-w-0 max-w-full overflow-x-auto lg:block">
@@ -333,7 +358,10 @@ function RequestCard({
   onOpen: () => void;
 }) {
   return (
-    <article className={cn(repairOs.businessCardDense, "grid-cols-[minmax(0,1fr)] gap-1.5 py-2")}>
+    <RepairOsBusinessCard
+      className={cn(repairOs.businessCardDense, "grid-cols-[minmax(0,1fr)] gap-1.5 py-2")}
+      bodyClassName="grid gap-1.5"
+    >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <p className={repairOs.cardTitle}>{request.display_name || request.email}</p>
@@ -360,7 +388,7 @@ function RequestCard({
           查看并处理
         </Button>
       </div>
-    </article>
+    </RepairOsBusinessCard>
   );
 }
 
@@ -402,7 +430,12 @@ function OnboardingDecisionDialog({
               <InfoLine label="邮箱" value={request.email} />
               <InfoLine label="类型" value={getOnboardingRequestTypeLabel(request)} />
               <InfoLine label="目标" value={requestTarget(request)} />
+              <InfoLine
+                label="审核范围"
+                value={request.review_scope === "store" ? "店铺负责人" : "平台"}
+              />
               <InfoLine label="申请角色" value={getOnboardingRequestedRoleLabel(request)} />
+              <InfoLine label="申请备注" value={request.request_note || "-"} />
               <InfoLine label="提交时间" value={formatOnboardingDate(request.created_at)} />
             </div>
 
@@ -451,10 +484,14 @@ function OnboardingDecisionDialog({
 
 function InfoLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0">
-      <p className="text-[11px] leading-4 text-muted-foreground">{label}</p>
-      <p className="truncate text-sm font-medium text-foreground">{value}</p>
-    </div>
+    <RepairOsInfoTile
+      label={label}
+      value={value}
+      frame="plain"
+      className="min-w-0"
+      labelClassName="text-[11px] leading-4"
+      valueClassName="mt-0 truncate text-sm font-medium leading-5 text-foreground"
+    />
   );
 }
 

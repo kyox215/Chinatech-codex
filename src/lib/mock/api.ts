@@ -69,10 +69,18 @@ export {
 } from "@/features/messages/testing/mock-api";
 
 export {
+  acceptStoreInvitation,
+  approveStoreAccessRequest,
   createStore,
+  createStoreInviteLink,
   getStoreContext,
   inviteStoreMember,
+  listStoreAccessRequests,
   listStoreMembers,
+  redeemStoreInviteLink,
+  rejectStoreAccessRequest,
+  revokeStoreInviteLink,
+  revokeStoreInvitation,
   switchActiveStore,
 } from "@/features/stores/testing/mock-api";
 

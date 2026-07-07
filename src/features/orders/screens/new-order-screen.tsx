@@ -4,9 +4,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, ClipboardList, CircleAlert, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ClipboardList,
+  CircleAlert,
+  RotateCcw,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { toFaultPriceItems } from "@/components/orders/fault-diagnosis-picker";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -27,6 +45,11 @@ import { NewOrderCustomerDeviceSection } from "@/features/orders/forms/new-order
 import { NewOrderFaultDiagnosisSection } from "@/features/orders/forms/new-order-fault-diagnosis-section";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
+import {
+  useNewOrderOfflineAutosave,
+  type NewOrderOfflineAutosaveState,
+  type NewOrderOfflineDraftPrompt,
+} from "@/features/orders/api/use-new-order-offline-autosave";
 import {
   initialNewOrderForm,
   type NewOrderFormState,
@@ -56,6 +79,7 @@ export function NewOrderScreen({
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
+  const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
     "calc(env(safe-area-inset-top) + 5.5rem)",
   );
@@ -70,21 +94,34 @@ export function NewOrderScreen({
 
   const { data: onboardingStatus } = useQuery({
     queryKey: platformKeys.onboardingStatus,
-    queryFn: getOnboardingStatus,
+    queryFn: ({ signal }) => getOnboardingStatus({ signal }),
     retry: false,
     staleTime: CACHE_TIMES.shell,
   });
+  const activeStoreId = onboardingStatus?.activeStore?.id;
+  const offlineScope = useMemo(
+    () =>
+      activeStoreId && onboardingStatus?.userId
+        ? { storeId: activeStoreId, userId: onboardingStatus.userId }
+        : null,
+    [activeStoreId, onboardingStatus?.userId],
+  );
+  const offlineDraft = useNewOrderOfflineAutosave({
+    form,
+    scope: offlineScope,
+  });
   const { data: storeSettings } = useQuery({
-    queryKey: messageSettingsKeys.store,
-    queryFn: getStoreSettings,
+    queryKey: messageSettingsKeys.storeScoped(activeStoreId),
+    queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
   });
   const { data: workflow } = useQuery({
-    queryKey: ordersKeys.workflow(),
-    queryFn: () => listOrderWorkflow(),
+    queryKey: ordersKeys.workflow(activeStoreId),
+    queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });
   const operatorName = onboardingStatus?.displayName ?? "当前登录账号";
+  const operatorRole = onboardingStatus?.activeStore?.role;
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
   const createStatuses = useMemo(
     () =>
@@ -277,6 +314,7 @@ export function NewOrderScreen({
         deposit_amount: form.deposit,
       }),
     onSuccess: ({ id }) => {
+      void offlineDraft.discardCurrentDraft();
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
       queryClient.invalidateQueries({ queryKey: ordersKeys.options() });
@@ -327,6 +365,29 @@ export function NewOrderScreen({
     setFloatingHeaderOffset(`${Math.ceil(height)}px`);
   }, []);
 
+  const handleRestoreOfflineDraft = useCallback(async () => {
+    const restored = await offlineDraft.restorePromptDraft();
+    if (!restored) return;
+    setForm(restored.form);
+    setHistoryDevices([]);
+    toast.success("已恢复本机草稿");
+  }, [offlineDraft]);
+
+  const handleDiscardOfflineDraft = useCallback(async () => {
+    const discarded = await offlineDraft.discardPromptDraft();
+    if (!discarded) return;
+    setDiscardDraftDialogOpen(false);
+    toast.success("本机草稿已丢弃");
+  }, [offlineDraft]);
+
+  const offlineStatus = {
+    state: offlineDraft.state,
+    lastSavedAt: offlineDraft.lastSavedAt,
+    errorMessage: offlineDraft.errorMessage,
+    hasSensitiveUnlockDraft: offlineDraft.hasSensitiveUnlockDraft,
+    scopeReady: Boolean(offlineScope),
+  };
+
   return (
     <div
       data-new-order-root="true"
@@ -353,12 +414,16 @@ export function NewOrderScreen({
           valid={Boolean(valid)}
           total={total}
           defaultWarrantyMonths={defaultWarrantyMonths}
+          offlineStatus={offlineStatus}
           onHeightChange={handleFloatingHeaderHeight}
         />
       ) : null}
 
       <form
         data-new-order-form="true"
+        onBlurCapture={() => {
+          void offlineDraft.saveNow();
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           if (!valid) {
@@ -379,10 +444,10 @@ export function NewOrderScreen({
           surface === "page" &&
             cn(
               repairOs.mobileFloatingPage,
-              "pb-[calc(env(safe-area-inset-bottom)+7.75rem)] md:pb-20 md:pt-0",
+              "scroll-pb-[calc(env(safe-area-inset-bottom)+12rem)] pb-[calc(env(safe-area-inset-bottom)+12rem)] md:pb-20 md:pt-0",
             ),
           surface === "dialog" &&
-            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3",
+            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pb-[calc(env(safe-area-inset-bottom)+9rem)] pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3",
         )}
       >
         {surface === "page" ? (
@@ -412,8 +477,28 @@ export function NewOrderScreen({
           total={total}
           defaultWarrantyMonths={defaultWarrantyMonths}
           surface={surface}
+          offlineStatus={offlineStatus}
           onClose={surface === "dialog" ? onCancel : undefined}
         />
+
+        {offlineDraft.draftPrompt ? (
+          <NewOrderOfflineRestoreCard
+            prompt={offlineDraft.draftPrompt}
+            onRestore={handleRestoreOfflineDraft}
+            onDiscard={() => setDiscardDraftDialogOpen(true)}
+          />
+        ) : null}
+
+        {offlineDraft.pendingRestoreNotice ? (
+          <NewOrderOfflineInlineNotice tone="success" message={offlineDraft.pendingRestoreNotice} />
+        ) : null}
+
+        {offlineDraft.state === "error" || offlineDraft.state === "unavailable" ? (
+          <NewOrderOfflineInlineNotice
+            tone="warning"
+            message={offlineDraft.errorMessage ?? "本机草稿暂不可用，请不要刷新页面。"}
+          />
+        ) : null}
 
         <div
           data-new-order-workspace-grid="true"
@@ -446,6 +531,7 @@ export function NewOrderScreen({
               setForm={setForm}
               total={total}
               operatorName={operatorName}
+              operatorRole={operatorRole}
               onPatchFault={patchFault}
               onAddCustomFault={addCustomFault}
               createStatuses={createStatuses}
@@ -464,6 +550,28 @@ export function NewOrderScreen({
           surface={surface}
         />
       </form>
+
+      <AlertDialog open={discardDraftDialogOpen} onOpenChange={setDiscardDraftDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>丢弃本机草稿</AlertDialogTitle>
+            <AlertDialogDescription>
+              只会删除此设备上的本机草稿，不会删除或修改任何系统工单。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                void handleDiscardOfflineDraft();
+              }}
+            >
+              确认丢弃
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -476,6 +584,14 @@ function getCreateOrderErrorMessage(error: Error) {
   return message;
 }
 
+type NewOrderOfflineStatusSummary = {
+  state: NewOrderOfflineAutosaveState;
+  lastSavedAt: string | null;
+  errorMessage: string | null;
+  hasSensitiveUnlockDraft: boolean;
+  scopeReady: boolean;
+};
+
 function NewOrderDesktopHeader({
   form,
   operatorName,
@@ -484,6 +600,7 @@ function NewOrderDesktopHeader({
   total,
   defaultWarrantyMonths,
   surface,
+  offlineStatus,
   onClose,
 }: {
   form: NewOrderFormState;
@@ -493,6 +610,7 @@ function NewOrderDesktopHeader({
   total: number;
   defaultWarrantyMonths: number;
   surface: "page" | "dialog";
+  offlineStatus: NewOrderOfflineStatusSummary;
   onClose?: () => void;
 }) {
   const customerReady = Boolean(form.customerPhone.trim());
@@ -540,6 +658,7 @@ function NewOrderDesktopHeader({
           <span className="size-1 rounded-full bg-muted-foreground/35" />
           <span className="truncate">创建后进入 {statusLabel}</span>
         </div>
+        <NewOrderOfflineStatusLine status={offlineStatus} className="mt-2" />
       </div>
 
       <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2">
@@ -763,6 +882,7 @@ function NewOrderMobileHeader({
   valid,
   total,
   defaultWarrantyMonths,
+  offlineStatus,
   onHeightChange,
 }: {
   form: NewOrderFormState;
@@ -771,6 +891,7 @@ function NewOrderMobileHeader({
   valid: boolean;
   total: number;
   defaultWarrantyMonths: number;
+  offlineStatus: NewOrderOfflineStatusSummary;
   onHeightChange?: (height: number) => void;
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -856,8 +977,161 @@ function NewOrderMobileHeader({
               <span className="line-clamp-2">{helperText}</span>
             </span>
           </div>
+          <NewOrderOfflineStatusLine status={offlineStatus} compact className="mt-1" />
         </div>
       </section>
     </div>
   );
+}
+
+function NewOrderOfflineStatusLine({
+  status,
+  compact,
+  className,
+}: {
+  status: NewOrderOfflineStatusSummary;
+  compact?: boolean;
+  className?: string;
+}) {
+  const copy = getNewOrderOfflineStatusCopy(status);
+  const isError = status.state === "error" || status.state === "unavailable";
+  if (!copy && !status.hasSensitiveUnlockDraft) return null;
+
+  return (
+    <div
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
+      data-new-order-offline-status="true"
+      className={cn(
+        "flex min-w-0 items-start gap-1.5 rounded-lg px-2 py-1.5 text-[10px] leading-4",
+        isError
+          ? "bg-status-warn text-status-warn-foreground"
+          : "bg-[var(--surface-panel-muted)] text-muted-foreground",
+        compact ? "text-[9.5px] leading-3.5" : "text-[10px] leading-4",
+        className,
+      )}
+    >
+      <ClipboardList
+        className={cn(
+          "mt-0.5 size-3.5 shrink-0",
+          isError ? "text-status-warn-foreground" : "text-primary",
+        )}
+      />
+      <span className="min-w-0 flex-1">
+        <span className="line-clamp-2">{copy}</span>
+        {status.hasSensitiveUnlockDraft ? (
+          <span className="mt-0.5 block text-[9px] leading-3">
+            手机密码、PIN 或图案不会进入本机草稿，刷新后需重新输入。
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+function NewOrderOfflineRestoreCard({
+  prompt,
+  onRestore,
+  onDiscard,
+}: {
+  prompt: NewOrderOfflineDraftPrompt;
+  onRestore: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <section
+      data-new-order-offline-restore-card="true"
+      className={cn(
+        repairOs.mobileInfoCard,
+        "mb-2 grid min-w-0 gap-2 p-2.5 md:mb-3 md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-3 md:shadow-none",
+      )}
+    >
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold leading-4">
+          <RotateCcw className="size-3.5 shrink-0 text-primary" />
+          <span className="truncate">发现本机草稿</span>
+        </div>
+        <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+          这个草稿只保存在此设备，尚未创建系统工单。上次本机保存：
+          {formatOfflineDraftTime(prompt.updatedAt)}。
+        </p>
+        {prompt.relationshipNeedsReview ? (
+          <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[10px] leading-4 text-status-warn-foreground">
+            恢复后请重新确认客户或设备关联，再在线创建工单。
+          </p>
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <Button type="button" size="sm" className="h-8 rounded-xl text-xs" onClick={onRestore}>
+          <RotateCcw className="mr-1.5 size-3.5" />
+          恢复本机草稿
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 rounded-xl text-xs"
+          onClick={onDiscard}
+        >
+          <Trash2 className="mr-1.5 size-3.5" />
+          丢弃本机草稿
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function NewOrderOfflineInlineNotice({
+  tone,
+  message,
+}: {
+  tone: "success" | "warning";
+  message: string;
+}) {
+  const isWarning = tone === "warning";
+  return (
+    <div
+      role={isWarning ? "alert" : "status"}
+      aria-live={isWarning ? "assertive" : "polite"}
+      data-new-order-offline-notice="true"
+      className={cn(
+        "mb-2 rounded-xl px-2.5 py-2 text-[10px] font-medium leading-4 md:mb-3 md:text-xs",
+        isWarning
+          ? "bg-status-warn text-status-warn-foreground"
+          : "bg-status-success/45 text-status-success-foreground",
+      )}
+    >
+      {message}
+    </div>
+  );
+}
+
+function getNewOrderOfflineStatusCopy(status: NewOrderOfflineStatusSummary) {
+  if (!status.scopeReady) return "本机草稿需登录店铺后启用。";
+  switch (status.state) {
+    case "checking":
+      return "正在检查本机草稿。";
+    case "ready":
+      return "本机草稿可用，仅此设备可见，尚未创建系统工单。";
+    case "saving":
+      return "正在保存本机草稿。";
+    case "saved":
+      return status.lastSavedAt
+        ? `本机草稿已保存 ${formatOfflineDraftTime(status.lastSavedAt)}，仅此设备可见。`
+        : "本机草稿已保存，仅此设备可见。";
+    case "error":
+    case "unavailable":
+      return status.errorMessage ?? "本机草稿暂不可用，请不要刷新页面。";
+    case "disabled":
+      return "本机草稿未启用。";
+  }
+}
+
+function formatOfflineDraftTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "刚刚";
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }

@@ -5,6 +5,7 @@ import { ArrowUp, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { uniqueContactPhones } from "@/shared/lib/phone";
 
 export interface CustomerBackupPhonesFieldProps {
   primaryPhone: string;
@@ -23,7 +24,8 @@ export function CustomerBackupPhonesField({
   onPromotePhone,
   compact = false,
 }: CustomerBackupPhonesFieldProps) {
-  const visiblePhones = phones.length > 0 ? phones : [""];
+  const filteredPhones = uniqueContactPhones(primaryPhone, phones);
+  const visiblePhones = filteredPhones.length > 0 ? filteredPhones : [""];
 
   const updatePhone = (index: number, value: string) => {
     const next = [...visiblePhones];
@@ -77,7 +79,7 @@ export function CustomerBackupPhonesField({
             className={cn("size-8 sm:size-9", compact && "size-7 sm:size-7")}
             aria-label="删除备用号码"
             onClick={() => removePhone(index)}
-            disabled={phones.length === 0 && !phone.trim()}
+            disabled={filteredPhones.length === 0 && !phone.trim()}
           >
             <Trash2 className="size-3.5" />
           </Button>

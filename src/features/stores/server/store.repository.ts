@@ -1,11 +1,24 @@
+import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 
+import {
+  canStoreReviewAccessRequest,
+  createOnboardingAuditSnapshot,
+} from "@/features/platform/model/onboarding-review-policy";
 import type {
   ActorStoreMembership,
   AuditActor,
+  OnboardingDecisionInput,
+  OnboardingRequest,
   StoreContext,
   StoreCreateInput,
   StoreInvitation,
+  StoreInvitationDecisionInput,
+  StoreInviteLink,
+  StoreInviteLinkCreateInput,
+  StoreInviteLinkCreateResult,
+  StoreInviteLinkDecisionInput,
+  StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreMember,
   StoreMembersResult,
@@ -19,6 +32,8 @@ import { getSupabaseAdmin } from "@/server/supabase";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const INVITE_LINK_REDEEM_WINDOW_MS = 15 * 60 * 1000;
+const INVITE_LINK_REDEEM_LIMIT = 10;
 
 export async function getStoreContext(actor: AuditActor): Promise<StoreContext> {
   return {
@@ -74,13 +89,16 @@ export async function createStore(
   const { error: membershipError } = await supabase.from("store_memberships").insert({
     store_id: store.id,
     user_id: actor.id,
-    email: actor.email || `${actor.id}@unknown.local`,
+    email: sanitizeEmail(actor.email || `${actor.id}@unknown.local`),
     display_name: actor.displayName,
     role: "owner",
     status: "active",
     created_at: now,
     updated_at: now,
   });
+  if (membershipError) {
+    await rollbackCreatedStore(supabase, store.id, membershipError);
+  }
   fail(membershipError, "创建店铺成员关系失败");
 
   await setActiveStoreCookie(store.id);
@@ -95,10 +113,21 @@ export async function createStore(
   return nextContext(actor, store);
 }
 
+async function rollbackCreatedStore(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  cause: { message: string },
+) {
+  const { error } = await supabase.from("stores").delete().eq("id", storeId);
+  if (error) {
+    throw new Error(`创建店铺成员关系失败: ${cause.message}; 回滚店铺失败: ${error.message}`);
+  }
+}
+
 export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersResult> {
   const storeId = requireActiveStoreId(actor);
   const supabase = getSupabaseAdmin();
-  const [membersResult, invitationsResult] = await Promise.all([
+  const [membersResult, invitationsResult, inviteLinksResult] = await Promise.all([
     supabase
       .from("store_memberships")
       .select("id, user_id, email, display_name, role, status, created_at, updated_at")
@@ -113,13 +142,23 @@ export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersR
       .eq("store_id", storeId)
       .eq("status", "invited")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("store_invite_links")
+      .select(
+        "id, store_id, label, role, status, expires_at, max_uses, used_count, created_by, revoked_by, revoked_at, created_at, updated_at",
+      )
+      .eq("store_id", storeId)
+      .eq("status", "active")
+      .order("created_at", { ascending: false }),
   ]);
   fail(membersResult.error, "读取店铺成员失败");
   fail(invitationsResult.error, "读取店铺邀请失败");
+  fail(inviteLinksResult.error, "读取店铺邀请码失败");
 
   return {
     members: ((membersResult.data ?? []) as DbRecord[]).map(memberFromRow),
     invitations: ((invitationsResult.data ?? []) as DbRecord[]).map(invitationFromRow),
+    invite_links: ((inviteLinksResult.data ?? []) as DbRecord[]).map(inviteLinkFromRow),
   };
 }
 
@@ -145,31 +184,6 @@ export async function inviteStoreMember(
   fail(membershipReadError, "检查店铺成员失败");
   if (existingMembership) throw new Error("该邮箱已经是当前店铺成员");
 
-  const { data: staffRow, error: staffError } = await supabase
-    .from("staff_profiles")
-    .select("id, email, display_name, status")
-    .ilike("email", email)
-    .maybeSingle();
-  fail(staffError, "检查员工账号失败");
-
-  if (staffRow) {
-    const staff = staffRow as DbRecord;
-    if (staff.status !== "active") throw new Error("该员工账号已停用");
-    const { error: upsertError } = await supabase.from("store_memberships").upsert(
-      {
-        store_id: storeId,
-        user_id: requiredString(staff.id),
-        email: requiredString(staff.email),
-        display_name: requiredString(staff.display_name),
-        role,
-        status: "active",
-        updated_at: now,
-      },
-      { onConflict: "store_id,user_id" },
-    );
-    fail(upsertError, "添加店铺成员失败");
-  }
-
   const { data: existingInvite, error: inviteReadError } = await supabase
     .from("store_invitations")
     .select("id")
@@ -184,9 +198,9 @@ export async function inviteStoreMember(
     email,
     role,
     token_hash: crypto.randomUUID(),
-    status: staffRow ? "active" : "invited",
+    status: "invited",
     invited_by: actor.id ?? null,
-    accepted_at: staffRow ? now : null,
+    accepted_at: null,
     expires_at: expiresAt,
     updated_at: now,
   };
@@ -210,11 +224,689 @@ export async function inviteStoreMember(
     action: "invite",
     entityType: "store_invitation",
     entityId: requiredString((invitation as DbRecord).id),
-    after: invitation as Record<string, unknown>,
-    metadata: { email, role, accepted_immediately: Boolean(staffRow) },
+    after: createInvitationAuditSnapshot(invitation as DbRecord),
+    metadata: { role, invitation_status: "invited" },
   });
 
   return listStoreMembers(actor);
+}
+
+export async function acceptStoreInvitation(
+  input: StoreInvitationDecisionInput,
+  actor: AuditActor,
+): Promise<StoreContext> {
+  if (!actor.id || actor.isSystem) {
+    throw new ForbiddenError("需要登录员工账号后才能接受邀请");
+  }
+  const email = sanitizeEmail(actor.email || "");
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  const { data: invitationRow, error: invitationReadError } = await supabase
+    .from("store_invitations")
+    .select("*")
+    .eq("id", input.id)
+    .eq("email", email)
+    .eq("status", "invited")
+    .maybeSingle();
+  fail(invitationReadError, "读取店铺邀请失败");
+  if (!invitationRow) throw new Error("邀请不存在或已失效");
+
+  const invitation = invitationRow as DbRecord;
+  const role = sanitizeAccessRole(toStoreRole(invitation.role));
+  if (new Date(requiredString(invitation.expires_at)).getTime() <= Date.now()) {
+    throw new Error("邀请已过期");
+  }
+
+  const { data: acceptedInvitation, error: acceptError } = await supabase
+    .from("store_invitations")
+    .update({
+      status: "active",
+      accepted_at: now,
+      updated_at: now,
+    })
+    .eq("id", input.id)
+    .eq("email", email)
+    .eq("status", "invited")
+    .gt("expires_at", now)
+    .select("*")
+    .maybeSingle();
+  fail(acceptError, "接受店铺邀请失败");
+  if (!acceptedInvitation) throw new Error("邀请不存在或已失效");
+
+  const accepted = acceptedInvitation as DbRecord;
+  const storeId = requiredString(accepted.store_id);
+  const { error: membershipError } = await supabase.from("store_memberships").upsert(
+    {
+      store_id: storeId,
+      user_id: actor.id,
+      email,
+      display_name: actor.displayName || displayNameFromEmail(email),
+      role,
+      status: "active",
+      updated_at: now,
+    },
+    { onConflict: "store_id,user_id" },
+  );
+  if (membershipError) {
+    await markInvitationAcceptFailed(supabase, input.id);
+  }
+  fail(membershipError, "开通店铺成员关系失败");
+
+  const { data: storeRow, error: storeError } = await supabase
+    .from("stores")
+    .select("id, name, slug, status")
+    .eq("id", storeId)
+    .single();
+  fail(storeError, "读取邀请店铺失败");
+  const activeStore = storeFromRow(storeRow as DbRecord, role);
+  await setActiveStoreCookie(activeStore.id);
+
+  await writeAuditLog({
+    actor: { ...actor, storeId: activeStore.id, storeName: activeStore.name, storeRole: role },
+    action: "accept_invitation",
+    entityType: "store_invitation",
+    entityId: input.id,
+    after: createInvitationAuditSnapshot(accepted),
+  });
+
+  return nextContext(actor, activeStore);
+}
+
+export async function revokeStoreInvitation(
+  input: StoreInvitationDecisionInput,
+  actor: AuditActor,
+): Promise<StoreMembersResult> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("store_invitations")
+    .update({
+      status: "inactive",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.id)
+    .eq("store_id", storeId)
+    .eq("status", "invited")
+    .select("*")
+    .maybeSingle();
+  fail(error, "撤销店铺邀请失败");
+  if (!data) throw new Error("邀请不存在或已处理");
+
+  await writeAuditLog({
+    actor,
+    action: "revoke_invitation",
+    entityType: "store_invitation",
+    entityId: input.id,
+    before: createInvitationAuditSnapshot(data as DbRecord),
+  });
+
+  return listStoreMembers(actor);
+}
+
+export async function createStoreInviteLink(
+  input: StoreInviteLinkCreateInput,
+  actor: AuditActor,
+): Promise<StoreInviteLinkCreateResult> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const role = sanitizeInviteRole(input.role);
+  const label = sanitizeInviteLinkLabel(input.label);
+  const expiresInDays = sanitizeInviteLinkExpiry(input.expires_in_days);
+  const maxUses = sanitizeInviteLinkMaxUses(input.max_uses);
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const code = generateInviteCode();
+  const tokenHash = hashInviteCode(code);
+
+  const { data, error } = await supabase
+    .from("store_invite_links")
+    .insert({
+      id: crypto.randomUUID(),
+      store_id: storeId,
+      label,
+      role,
+      token_hash: tokenHash,
+      status: "active",
+      expires_at: new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString(),
+      max_uses: maxUses,
+      used_count: 0,
+      created_by: actor.id ?? null,
+      created_at: now,
+      updated_at: now,
+    })
+    .select("*")
+    .single();
+  fail(error, "创建邀请码失败");
+
+  await writeAuditLog({
+    actor,
+    action: "create_invite_link",
+    entityType: "store_invite_link",
+    entityId: requiredString((data as DbRecord).id),
+    after: createInviteLinkAuditSnapshot(data as DbRecord),
+    metadata: { role, max_uses: maxUses, expires_in_days: expiresInDays },
+  });
+
+  return { link: inviteLinkFromRow(data as DbRecord), code };
+}
+
+export async function revokeStoreInviteLink(
+  input: StoreInviteLinkDecisionInput,
+  actor: AuditActor,
+): Promise<StoreMembersResult> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("store_invite_links")
+    .update({
+      status: "inactive",
+      revoked_by: actor.id ?? null,
+      revoked_at: now,
+      updated_at: now,
+    })
+    .eq("id", input.id)
+    .eq("store_id", storeId)
+    .eq("status", "active")
+    .select("*")
+    .maybeSingle();
+  fail(error, "撤销邀请码失败");
+  if (!data) throw new Error("邀请码不存在或已处理");
+
+  await writeAuditLog({
+    actor,
+    action: "revoke_invite_link",
+    entityType: "store_invite_link",
+    entityId: input.id,
+    before: createInviteLinkAuditSnapshot(data as DbRecord),
+  });
+
+  return listStoreMembers(actor);
+}
+
+export async function redeemStoreInviteLink(
+  input: StoreInviteLinkRedeemInput,
+  actor: AuditActor,
+): Promise<StoreInvitation> {
+  if (!actor.id || actor.isSystem) {
+    throw new ForbiddenError("需要登录员工账号后才能兑换邀请码");
+  }
+  const email = sanitizeEmail(actor.email || "");
+  const code = normalizeInviteCode(input.code);
+  const tokenHash = hashInviteCode(code);
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  await enforceInviteLinkRedeemRateLimit(supabase, actor, tokenHash);
+
+  const { data: linkRow, error: linkReadError } = await supabase
+    .from("store_invite_links")
+    .select(
+      "id, store_id, label, role, status, expires_at, max_uses, used_count, created_by, created_at, updated_at",
+    )
+    .eq("token_hash", tokenHash)
+    .eq("status", "active")
+    .maybeSingle();
+  fail(linkReadError, "读取邀请码失败");
+  if (!linkRow) {
+    await recordInviteLinkAttempt(supabase, {
+      actor,
+      codeHash: tokenHash,
+      result: "not_found",
+    });
+    throw new Error("邀请码不存在或已失效");
+  }
+
+  const link = linkRow as DbRecord;
+  const storeId = requiredString(link.store_id);
+  const role = sanitizeAccessRole(toStoreRole(link.role));
+  if (new Date(requiredString(link.expires_at)).getTime() <= Date.now()) {
+    await recordInviteLinkAttempt(supabase, {
+      actor,
+      codeHash: tokenHash,
+      storeId,
+      result: "expired",
+    });
+    throw new Error("邀请码不存在或已失效");
+  }
+  if (isInviteLinkUseLimitReached(link)) {
+    await recordInviteLinkAttempt(supabase, {
+      actor,
+      codeHash: tokenHash,
+      storeId,
+      result: "over_limit",
+    });
+    throw new Error("邀请码不存在或已失效");
+  }
+
+  const { data: existingMembership, error: membershipReadError } = await supabase
+    .from("store_memberships")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("user_id", actor.id)
+    .eq("status", "active")
+    .maybeSingle();
+  fail(membershipReadError, "检查店铺成员失败");
+  if (existingMembership) {
+    await recordInviteLinkAttempt(supabase, {
+      actor,
+      codeHash: tokenHash,
+      storeId,
+      result: "already_member",
+    });
+    throw new Error("你已经是该店铺成员");
+  }
+
+  const existingInvite = await readPendingInvitationForEmail(supabase, storeId, email);
+  if (existingInvite) {
+    await recordInviteLinkAttempt(supabase, {
+      actor,
+      codeHash: tokenHash,
+      storeId,
+      result: "existing_invitation",
+    });
+    return publicInvitationFromRow(existingInvite);
+  }
+
+  const { data: claimedRows, error: claimError } = await supabase.rpc("claim_store_invite_link", {
+    p_token_hash: tokenHash,
+  });
+  fail(claimError, "兑换邀请码失败");
+  const claimed = Array.isArray(claimedRows) ? claimedRows[0] : claimedRows;
+  if (!claimed) {
+    await recordInviteLinkAttempt(supabase, {
+      actor,
+      codeHash: tokenHash,
+      storeId,
+      result: "claim_failed",
+    });
+    throw new Error("邀请码不存在或已失效");
+  }
+
+  const invitePayload = {
+    id: crypto.randomUUID(),
+    store_id: storeId,
+    email,
+    role,
+    token_hash: crypto.randomUUID(),
+    status: "invited",
+    invited_by: requiredString((claimed as DbRecord).created_by) || null,
+    accepted_at: null,
+    expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: now,
+    updated_at: now,
+  };
+  const { data: invitation, error: inviteError } = await supabase
+    .from("store_invitations")
+    .insert(invitePayload)
+    .select("*")
+    .single();
+  if (inviteError) {
+    const existingAfterRace = await readPendingInvitationForEmail(supabase, storeId, email);
+    if (existingAfterRace) {
+      await recordInviteLinkAttempt(supabase, {
+        actor,
+        codeHash: tokenHash,
+        storeId,
+        result: "existing_invitation",
+      });
+      return publicInvitationFromRow(existingAfterRace);
+    }
+    await recordInviteLinkAttempt(supabase, {
+      actor,
+      codeHash: tokenHash,
+      storeId,
+      result: "insert_failed",
+    });
+  }
+  fail(inviteError, "保存兑换邀请失败");
+
+  await recordInviteLinkAttempt(supabase, {
+    actor,
+    codeHash: tokenHash,
+    storeId,
+    result: "success",
+  });
+  await writeAuditLog({
+    actor: { ...actor, storeId },
+    action: "redeem_invite_link",
+    entityType: "store_invite_link",
+    entityId: requiredString((claimed as DbRecord).id),
+    after: createInvitationAuditSnapshot(invitation as DbRecord),
+  });
+
+  return publicInvitationFromRow(invitation as DbRecord);
+}
+
+export async function listStoreAccessRequests(actor: AuditActor): Promise<OnboardingRequest[]> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("onboarding_requests")
+    .select("*")
+    .eq("request_type", "join_store")
+    .eq("status", "pending")
+    .eq("review_scope", "store")
+    .eq("target_store_id", storeId)
+    .order("created_at", { ascending: true });
+  fail(error, "读取店铺加入申请失败");
+
+  return ((data ?? []) as DbRecord[]).map(onboardingRequestFromRow);
+}
+
+export async function approveStoreAccessRequest(
+  input: OnboardingDecisionInput,
+  actor: AuditActor,
+): Promise<OnboardingRequest> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+  const request = await getPendingStoreAccessRequest(supabase, input.id, storeId);
+  const context = await getStoreReviewContext(supabase, storeId, actor);
+  assertCanReviewStoreAccessRequest(request, storeId);
+
+  const now = new Date().toISOString();
+  const role = sanitizeAccessRole(input.approved_role ?? request.requested_role);
+  const { data, error } = await supabase
+    .from("onboarding_requests")
+    .update({
+      status: "approved",
+      target_store_id: storeId,
+      target_store_name: actor.storeName ?? "RepairDesk",
+      reviewed_by: actor.id,
+      reviewed_by_membership_id: context.membershipId,
+      reviewed_at: now,
+      decision_note: sanitizeOptionalNote(input.note),
+      approved_role: role,
+      resulting_store_id: storeId,
+      review_scope: "store",
+      updated_at: now,
+    })
+    .eq("id", request.id)
+    .eq("request_type", "join_store")
+    .eq("status", "pending")
+    .eq("review_scope", "store")
+    .eq("target_store_id", storeId)
+    .select("*")
+    .maybeSingle();
+  fail(error, "批准加入申请失败");
+  if (!data) throw new Error("加入申请已处理，请刷新后再试");
+
+  try {
+    await upsertStaffProfile(supabase, request, role, now);
+    await upsertStoreMembership(supabase, request, storeId, role, now);
+  } catch (approvalError) {
+    await markStoreAccessApprovalFailed(supabase, request.id);
+    throw approvalError;
+  }
+
+  await writeAuditLog({
+    actor,
+    action: "approve_access_request",
+    entityType: "onboarding_request",
+    entityId: request.id,
+    before: createOnboardingAuditSnapshot(request),
+    after: createOnboardingAuditSnapshot(onboardingRequestFromRow(data as DbRecord)),
+  });
+
+  return onboardingRequestFromRow(data as DbRecord);
+}
+
+export async function rejectStoreAccessRequest(
+  input: OnboardingDecisionInput,
+  actor: AuditActor,
+): Promise<OnboardingRequest> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+  const request = await getPendingStoreAccessRequest(supabase, input.id, storeId);
+  const context = await getStoreReviewContext(supabase, storeId, actor);
+  assertCanReviewStoreAccessRequest(request, storeId);
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("onboarding_requests")
+    .update({
+      status: "rejected",
+      reviewed_by: actor.id,
+      reviewed_by_membership_id: context.membershipId,
+      reviewed_at: now,
+      decision_note: sanitizeOptionalNote(input.note),
+      review_scope: "store",
+      updated_at: now,
+    })
+    .eq("id", request.id)
+    .eq("request_type", "join_store")
+    .eq("status", "pending")
+    .eq("review_scope", "store")
+    .eq("target_store_id", storeId)
+    .select("*")
+    .maybeSingle();
+  fail(error, "拒绝加入申请失败");
+  if (!data) throw new Error("加入申请已处理，请刷新后再试");
+
+  await writeAuditLog({
+    actor,
+    action: "reject_access_request",
+    entityType: "onboarding_request",
+    entityId: request.id,
+    before: createOnboardingAuditSnapshot(request),
+    after: createOnboardingAuditSnapshot(onboardingRequestFromRow(data as DbRecord)),
+  });
+
+  return onboardingRequestFromRow(data as DbRecord);
+}
+
+async function getPendingStoreAccessRequest(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  id: string,
+  storeId: string,
+): Promise<OnboardingRequest> {
+  const { data, error } = await supabase
+    .from("onboarding_requests")
+    .select("*")
+    .eq("id", id)
+    .eq("request_type", "join_store")
+    .eq("status", "pending")
+    .eq("review_scope", "store")
+    .eq("target_store_id", storeId)
+    .maybeSingle();
+  fail(error, "读取加入申请失败");
+  if (!data) throw new Error("加入申请不存在或已处理");
+  return onboardingRequestFromRow(data as DbRecord);
+}
+
+async function markStoreAccessApprovalFailed(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  requestId: string,
+) {
+  await supabase
+    .from("onboarding_requests")
+    .update({
+      status: "rejected",
+      decision_note: "批准失败，请重新提交申请或联系店铺负责人。",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("status", "approved");
+}
+
+async function markInvitationAcceptFailed(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  invitationId: string,
+) {
+  await supabase
+    .from("store_invitations")
+    .update({
+      status: "invited",
+      accepted_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", invitationId)
+    .eq("status", "active");
+}
+
+async function readPendingInvitationForEmail(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  email: string,
+) {
+  const { data, error } = await supabase
+    .from("store_invitations")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("email", email)
+    .eq("status", "invited")
+    .maybeSingle();
+  fail(error, "读取待接受邀请失败");
+  return data ? (data as DbRecord) : null;
+}
+
+async function enforceInviteLinkRedeemRateLimit(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  actor: AuditActor,
+  codeHash: string,
+) {
+  const windowStart = new Date(Date.now() - INVITE_LINK_REDEEM_WINDOW_MS).toISOString();
+  const actorAttempts = actor.id
+    ? await countInviteLinkAttempts(supabase, "actor_id", actor.id, windowStart)
+    : 0;
+  const ipAttempts = actor.requestIpHash
+    ? await countInviteLinkAttempts(supabase, "ip_hash", actor.requestIpHash, windowStart)
+    : 0;
+
+  if (Math.max(actorAttempts, ipAttempts) < INVITE_LINK_REDEEM_LIMIT) return;
+
+  await recordInviteLinkAttempt(supabase, {
+    actor,
+    codeHash,
+    result: "rate_limited",
+  });
+  throw new Error("邀请码不存在或已失效");
+}
+
+async function countInviteLinkAttempts(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  column: "actor_id" | "ip_hash",
+  value: string,
+  windowStart: string,
+) {
+  const { count, error } = await supabase
+    .from("store_invite_link_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq(column, value)
+    .gte("created_at", windowStart);
+  fail(error, "检查邀请码尝试次数失败");
+  return count ?? 0;
+}
+
+async function recordInviteLinkAttempt(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  {
+    actor,
+    codeHash,
+    result,
+    storeId,
+  }: {
+    actor: AuditActor;
+    codeHash: string;
+    result:
+      | "success"
+      | "existing_invitation"
+      | "rate_limited"
+      | "not_found"
+      | "expired"
+      | "over_limit"
+      | "already_member"
+      | "claim_failed"
+      | "insert_failed";
+    storeId?: string;
+  },
+) {
+  const { error } = await supabase.from("store_invite_link_attempts").insert({
+    id: crypto.randomUUID(),
+    actor_id: actor.id ?? null,
+    actor_email: actor.email ? sanitizeEmail(actor.email) : null,
+    ip_hash: actor.requestIpHash ?? null,
+    code_hash: codeHash,
+    store_id: storeId ?? null,
+    result,
+  });
+  fail(error, "记录邀请码尝试失败");
+}
+
+async function getStoreReviewContext(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  actor: AuditActor,
+) {
+  if (!actor.id || actor.isSystem) throw new ForbiddenError();
+  const { data: membership, error: membershipError } = await supabase
+    .from("store_memberships")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("user_id", actor.id)
+    .eq("status", "active")
+    .maybeSingle();
+  fail(membershipError, "读取审核人身份失败");
+  if (!membership) throw new ForbiddenError("你不是当前店铺成员");
+  return {
+    membershipId: requiredString((membership as DbRecord).id),
+  };
+}
+
+function assertCanReviewStoreAccessRequest(request: OnboardingRequest, storeId: string) {
+  if (canStoreReviewAccessRequest(request, storeId)) {
+    return;
+  }
+  throw new ForbiddenError("你没有权限处理这个加入申请");
+}
+
+async function upsertStaffProfile(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  request: OnboardingRequest,
+  role: StoreRole,
+  now: string,
+) {
+  const { error } = await supabase.from("staff_profiles").upsert(
+    {
+      id: request.requester_user_id,
+      email: request.email,
+      display_name: request.display_name || displayNameFromEmail(request.email),
+      role,
+      status: "active",
+      updated_at: now,
+    },
+    { onConflict: "id" },
+  );
+  fail(error, "同步员工档案失败");
+}
+
+async function upsertStoreMembership(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  request: OnboardingRequest,
+  storeId: string,
+  role: StoreRole,
+  now: string,
+) {
+  const { error } = await supabase.from("store_memberships").upsert(
+    {
+      store_id: storeId,
+      user_id: request.requester_user_id,
+      email: request.email,
+      display_name: request.display_name || displayNameFromEmail(request.email),
+      role,
+      status: "active",
+      updated_at: now,
+    },
+    { onConflict: "store_id,user_id" },
+  );
+  fail(error, "同步店铺成员关系失败");
 }
 
 async function assertStoreMembership(
@@ -263,8 +955,7 @@ function assertCanManageStoreMembers(actor: AuditActor) {
 async function uniqueStoreSlug(supabase: ReturnType<typeof getSupabaseAdmin>, name: string) {
   const base = slugify(name);
   for (let attempt = 0; attempt < 5; attempt++) {
-    const suffix = attempt === 0 ? "" : `-${crypto.randomUUID().slice(0, 6)}`;
-    const candidate = `${base}${suffix}`.slice(0, 64).replace(/-+$/g, "");
+    const candidate = `${base}-${crypto.randomUUID().slice(0, 8)}`.slice(0, 64).replace(/-+$/g, "");
     const { data, error } = await supabase
       .from("stores")
       .select("id")
@@ -331,14 +1022,105 @@ function memberFromRow(row: DbRecord): StoreMember {
 }
 
 function invitationFromRow(row: DbRecord): StoreInvitation {
+  const store = Array.isArray(row.store) ? row.store[0] : (row.store as DbRecord | undefined);
   return {
     id: requiredString(row.id),
+    store_id: requiredString(row.store_id) || undefined,
+    store_name: store ? requiredString(store.name) || undefined : undefined,
     email: requiredString(row.email),
     role: toStoreRole(row.role),
     status: toMembershipStatus(row.status),
     invited_by: requiredString(row.invited_by) || undefined,
     accepted_at: requiredString(row.accepted_at) || undefined,
     expires_at: requiredString(row.expires_at),
+    created_at: requiredString(row.created_at),
+    updated_at: requiredString(row.updated_at),
+  };
+}
+
+function publicInvitationFromRow(row: DbRecord): StoreInvitation {
+  const invitation = invitationFromRow(row);
+  return {
+    id: invitation.id,
+    store_name: invitation.store_name,
+    email: invitation.email,
+    role: invitation.role,
+    status: invitation.status,
+    expires_at: invitation.expires_at,
+    created_at: invitation.created_at,
+    updated_at: invitation.updated_at,
+  };
+}
+
+function inviteLinkFromRow(row: DbRecord): StoreInviteLink {
+  const store = Array.isArray(row.store) ? row.store[0] : (row.store as DbRecord | undefined);
+  return {
+    id: requiredString(row.id),
+    store_id: requiredString(row.store_id) || undefined,
+    store_name: store ? requiredString(store.name) || undefined : undefined,
+    label: requiredString(row.label) || undefined,
+    role: toStoreRole(row.role),
+    status: toMembershipStatus(row.status),
+    expires_at: requiredString(row.expires_at),
+    max_uses: optionalPositiveInteger(row.max_uses),
+    used_count: optionalPositiveInteger(row.used_count) ?? 0,
+    created_by: requiredString(row.created_by) || undefined,
+    revoked_by: requiredString(row.revoked_by) || undefined,
+    revoked_at: requiredString(row.revoked_at) || undefined,
+    created_at: requiredString(row.created_at),
+    updated_at: requiredString(row.updated_at),
+  };
+}
+
+function createInvitationAuditSnapshot(row: DbRecord): Record<string, unknown> {
+  return {
+    id: requiredString(row.id),
+    store_id: requiredString(row.store_id) || undefined,
+    role: toStoreRole(row.role),
+    status: toMembershipStatus(row.status),
+    invited_by: requiredString(row.invited_by) || undefined,
+    accepted_at: requiredString(row.accepted_at) || undefined,
+    expires_at: requiredString(row.expires_at) || undefined,
+  };
+}
+
+function createInviteLinkAuditSnapshot(row: DbRecord): Record<string, unknown> {
+  return {
+    id: requiredString(row.id),
+    store_id: requiredString(row.store_id) || undefined,
+    label: requiredString(row.label) || undefined,
+    role: toStoreRole(row.role),
+    status: toMembershipStatus(row.status),
+    expires_at: requiredString(row.expires_at) || undefined,
+    max_uses: optionalPositiveInteger(row.max_uses),
+    used_count: optionalPositiveInteger(row.used_count) ?? 0,
+    created_by: requiredString(row.created_by) || undefined,
+    revoked_by: requiredString(row.revoked_by) || undefined,
+    revoked_at: requiredString(row.revoked_at) || undefined,
+  };
+}
+
+function onboardingRequestFromRow(row: DbRecord): OnboardingRequest {
+  return {
+    id: requiredString(row.id),
+    requester_user_id: requiredString(row.requester_user_id),
+    email: requiredString(row.email),
+    display_name: requiredString(row.display_name) || undefined,
+    request_type: row.request_type === "join_store" ? "join_store" : "create_store",
+    desired_store_name: requiredString(row.desired_store_name) || undefined,
+    target_store_id: requiredString(row.target_store_id) || undefined,
+    target_store_name: requiredString(row.target_store_name) || undefined,
+    target_owner_email: requiredString(row.target_owner_email) || undefined,
+    request_note: requiredString(row.request_note) || undefined,
+    review_scope: toReviewScope(row.review_scope),
+    requested_role: toStoreRole(row.requested_role),
+    approved_role: toApprovedRole(row.approved_role),
+    status: toRequestStatus(row.status),
+    reviewed_by: requiredString(row.reviewed_by) || undefined,
+    reviewed_by_membership_id: requiredString(row.reviewed_by_membership_id) || undefined,
+    reviewed_at: requiredString(row.reviewed_at) || undefined,
+    decision_note: requiredString(row.decision_note) || undefined,
+    resulting_store_id: requiredString(row.resulting_store_id) || undefined,
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };
@@ -362,6 +1144,86 @@ function sanitizeInviteRole(value: StoreInviteInput["role"]): StoreInviteInput["
     return value;
   }
   throw new Error("邀请角色不正确");
+}
+
+function sanitizeInviteLinkLabel(value?: string) {
+  const label = value?.trim().replace(/\s+/g, " ");
+  if (!label) return null;
+  if (label.length > 40) throw new Error("邀请码备注不能超过 40 个字符");
+  return label;
+}
+
+function sanitizeInviteLinkExpiry(value?: number) {
+  if (value === undefined) return 7;
+  if (!Number.isInteger(value) || value < 1 || value > 30) {
+    throw new Error("邀请码有效期必须为 1-30 天");
+  }
+  return value;
+}
+
+function sanitizeInviteLinkMaxUses(value?: number) {
+  if (value === undefined) return null;
+  if (!Number.isInteger(value) || value < 1 || value > 50) {
+    throw new Error("邀请码次数必须为 1-50 次");
+  }
+  return value;
+}
+
+function normalizeInviteCode(value: string) {
+  const code = value.trim();
+  if (code.length < 12 || code.length > 120) throw new Error("邀请码不正确");
+  return code;
+}
+
+function generateInviteCode() {
+  return `rd_${randomBytes(18).toString("base64url")}`;
+}
+
+function hashInviteCode(value: string) {
+  return createHash("sha256").update(normalizeInviteCode(value)).digest("hex");
+}
+
+function optionalPositiveInteger(value: unknown) {
+  if (value === null || value === undefined || value === "") return undefined;
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number) || number < 0) return undefined;
+  return Math.trunc(number);
+}
+
+function isInviteLinkUseLimitReached(row: DbRecord) {
+  const maxUses = optionalPositiveInteger(row.max_uses);
+  if (!maxUses) return false;
+  return (optionalPositiveInteger(row.used_count) ?? 0) >= maxUses;
+}
+
+function sanitizeAccessRole(value: StoreRole): Exclude<StoreRole, "owner"> {
+  if (value === "manager" || value === "technician" || value === "sales" || value === "viewer") {
+    return value;
+  }
+  throw new Error("不能批准 owner 角色");
+}
+
+function toApprovedRole(value: unknown): OnboardingRequest["approved_role"] {
+  if (value === "manager" || value === "technician" || value === "sales" || value === "viewer") {
+    return value;
+  }
+  return undefined;
+}
+
+function sanitizeOptionalNote(value?: string) {
+  const note = value?.trim().replace(/\s+/g, " ");
+  if (!note) return null;
+  if (note.length > 500) throw new Error("审核备注不能超过 500 个字符");
+  return note;
+}
+
+function displayNameFromEmail(email?: string) {
+  return (
+    email
+      ?.split("@")[0]
+      ?.replace(/[._-]+/g, " ")
+      .trim() || "员工"
+  );
 }
 
 function slugify(value: string) {
@@ -391,6 +1253,15 @@ function toStoreRole(value: unknown): StoreRole {
 function toMembershipStatus(value: unknown): StoreMembershipStatus {
   if (value === "active" || value === "invited" || value === "inactive") return value;
   return "inactive";
+}
+
+function toRequestStatus(value: unknown): OnboardingRequest["status"] {
+  if (value === "approved" || value === "rejected" || value === "cancelled") return value;
+  return "pending";
+}
+
+function toReviewScope(value: unknown): OnboardingRequest["review_scope"] {
+  return value === "store" ? "store" : "platform";
 }
 
 interface StoreMembershipRow {

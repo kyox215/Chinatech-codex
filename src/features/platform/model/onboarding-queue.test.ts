@@ -18,11 +18,15 @@ function makeRequest(overrides: Partial<OnboardingRequest>): OnboardingRequest {
     display_name: overrides.display_name ?? "Mario",
     request_type: overrides.request_type ?? "join_store",
     desired_store_name: overrides.desired_store_name,
-    target_store_id: overrides.target_store_id ?? "store_1",
-    target_store_name: overrides.target_store_name ?? "Chinatech",
+    target_store_id: "target_store_id" in overrides ? overrides.target_store_id : "store_1",
+    target_store_name: "target_store_name" in overrides ? overrides.target_store_name : "Chinatech",
+    target_owner_email: overrides.target_owner_email,
+    request_note: overrides.request_note,
+    review_scope: overrides.review_scope ?? "store",
     requested_role: overrides.requested_role ?? "technician",
     status: overrides.status ?? "pending",
     reviewed_by: overrides.reviewed_by,
+    reviewed_by_membership_id: overrides.reviewed_by_membership_id,
     reviewed_at: overrides.reviewed_at,
     decision_note: overrides.decision_note,
     resulting_store_id: overrides.resulting_store_id,
@@ -82,12 +86,13 @@ describe("onboarding queue helpers", () => {
     });
     const joinRequest = makeRequest({
       request_type: "join_store",
-      target_store_name: "Chinatech",
+      target_store_name: undefined,
+      target_owner_email: "owner@chinatech.in",
       requested_role: "sales",
     });
 
     expect(getOnboardingRequestTarget(createRequest)).toBe("Siracusa");
-    expect(getOnboardingRequestTarget(joinRequest)).toBe("Chinatech");
+    expect(getOnboardingRequestTarget(joinRequest)).toBe("owner@chinatech.in");
     expect(getOnboardingRequestTypeLabel(createRequest)).toBe("创建店铺");
     expect(getOnboardingRequestedRoleLabel(joinRequest)).toBe("前台/销售");
   });

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import {
 import { componentOverlay } from "@/lib/component-patterns";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { RepairOsBusinessCard } from "@/shared/ui";
 import type { CustomerDetail, CustomerTag } from "@/lib/repairdesk/api";
 
 export function CustomerTagsDialog({
@@ -66,22 +67,45 @@ export function CustomerTagsDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-2">
-          {allTags.map((tag) => (
-            <label
-              key={tag.id}
-              className={cn(
-                repairOs.businessCardDense,
-                "grid-cols-[auto_auto_minmax(0,1fr)] cursor-pointer items-center gap-2 text-sm",
-              )}
-            >
-              <Checkbox
-                checked={selected.includes(tag.id)}
-                onCheckedChange={() => toggle(tag.id)}
-              />
-              <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
-              <span className="min-w-0 truncate">{tag.name}</span>
-            </label>
-          ))}
+          {allTags.map((tag) => {
+            const isSelected = selected.includes(tag.id);
+            return (
+              <RepairOsBusinessCard
+                key={tag.id}
+                as="label"
+                leading={
+                  <>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggle(tag.id)}
+                      className="peer sr-only"
+                    />
+                    <span
+                      className={cn(
+                        "grid size-4 shrink-0 place-content-center rounded-sm border border-primary shadow transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-1 peer-focus-visible:ring-ring",
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background text-transparent",
+                      )}
+                      aria-hidden="true"
+                    >
+                      <Check className="size-4" />
+                    </span>
+                  </>
+                }
+                leadingClassName="grid place-items-center"
+                className={cn(
+                  repairOs.businessCardDense,
+                  "cursor-pointer select-none items-center text-sm",
+                )}
+                bodyClassName="flex min-w-0 items-center gap-2"
+              >
+                <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
+                <span className="min-w-0 truncate">{tag.name}</span>
+              </RepairOsBusinessCard>
+            );
+          })}
         </div>
         <DialogFooter className={componentOverlay.footer}>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

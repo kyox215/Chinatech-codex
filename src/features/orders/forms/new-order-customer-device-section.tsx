@@ -202,6 +202,9 @@ export function NewOrderCustomerDeviceSection({
               onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
               compact
             />
+            <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
+              本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
+            </p>
           </div>
         </div>
       </section>

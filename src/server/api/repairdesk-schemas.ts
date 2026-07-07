@@ -6,6 +6,7 @@ import {
 } from "@/features/orders/model/device-unlock";
 import type { ApprovalStatus, RepairOrderStatus, RepairOrderType } from "@/lib/mock/enums";
 import type {
+  AccountProfileUpdateInput,
   CreateOrderInput,
   CustomerCreateInput,
   CustomerDeviceInput,
@@ -38,6 +39,10 @@ import type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   StoreCreateInput,
+  StoreInvitationDecisionInput,
+  StoreInviteLinkCreateInput,
+  StoreInviteLinkDecisionInput,
+  StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreSettingsUpdateInput,
   UpdateInventoryItemInput,
@@ -171,6 +176,18 @@ const orderAttachmentMimeTypeSchema = z.enum([
 
 export const idBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
+});
+
+export const accountProfileUpdateBodySchema = z.object({
+  input: z
+    .object({
+      display_name: z
+        .string()
+        .trim()
+        .min(1, "账号名称不能为空")
+        .max(60, "账号名称不能超过 60 个字符"),
+    })
+    .strict() satisfies z.ZodType<AccountProfileUpdateInput>,
 });
 
 export const orderAttachmentUploadBodySchema = z.object({
@@ -806,27 +823,58 @@ export const storeInviteBodySchema = z.object({
   input: storeInviteInputSchema,
 });
 
+export const storeInviteLinkCreateBodySchema = z.object({
+  input: z
+    .object({
+      label: optionalText,
+      role: z.enum(["manager", "technician", "sales", "viewer"]),
+      expires_in_days: z.number().int().min(1).max(30).optional(),
+      max_uses: z.number().int().min(1).max(50).optional(),
+    })
+    .passthrough() satisfies z.ZodType<StoreInviteLinkCreateInput>,
+});
+
+export const storeInvitationDecisionBodySchema = z
+  .object({
+    id: z.string().uuid("邀请 id 不正确"),
+  })
+  .passthrough() satisfies z.ZodType<StoreInvitationDecisionInput>;
+
+export const storeInviteLinkDecisionBodySchema = z
+  .object({
+    id: z.string().uuid("邀请码 id 不正确"),
+  })
+  .passthrough() satisfies z.ZodType<StoreInviteLinkDecisionInput>;
+
+export const storeInviteLinkRedeemBodySchema = z
+  .object({
+    code: z.string().trim().min(12, "邀请码不正确").max(120, "邀请码不正确"),
+  })
+  .passthrough() satisfies z.ZodType<StoreInviteLinkRedeemInput>;
+
 export const onboardingRequestInputSchema = z
   .object({
     request_type: z.enum(["create_store", "join_store"]),
     desired_store_name: optionalText,
     target_store_id: optionalText,
+    target_owner_email: optionalText,
+    note: optionalText,
     requested_role: z.enum(["manager", "technician", "sales", "viewer"]).optional(),
   })
   .passthrough()
   .superRefine((input, ctx) => {
-    if (input.request_type === "create_store" && !input.desired_store_name?.trim()) {
+    if (input.request_type === "create_store") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["desired_store_name"],
-        message: "请填写要创建的店铺名称",
+        path: ["request_type"],
+        message: "创建店铺请使用创建店铺接口",
       });
     }
-    if (input.request_type === "join_store" && !input.target_store_id?.trim()) {
+    if (input.request_type === "join_store" && !input.target_owner_email?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["target_store_id"],
-        message: "请选择要加入的店铺",
+        path: ["target_owner_email"],
+        message: "请填写店铺负责人的邮箱",
       });
     }
   }) satisfies z.ZodType<OnboardingRequestInput>;
@@ -839,6 +887,8 @@ export const onboardingDecisionBodySchema = z
   .object({
     id: z.string().uuid("申请 id 不正确"),
     note: optionalText,
+    target_store_id: optionalText,
+    approved_role: z.enum(["manager", "technician", "sales", "viewer"]).optional(),
   })
   .passthrough() satisfies z.ZodType<OnboardingDecisionInput>;
 

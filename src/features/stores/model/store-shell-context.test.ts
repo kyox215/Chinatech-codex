@@ -16,6 +16,7 @@ function makeStore(overrides: Partial<ActorStoreMembership> = {}): ActorStoreMem
 
 function makeOnboardingStatus(overrides: Partial<OnboardingStatus> = {}): OnboardingStatus {
   return {
+    userId: overrides.userId ?? "user_1",
     email: overrides.email ?? "owner@example.com",
     displayName: overrides.displayName ?? "最高管理员",
     isPlatformAdmin: overrides.isPlatformAdmin ?? false,
@@ -44,6 +45,7 @@ describe("resolveStoreShellContext", () => {
     });
 
     expect(snapshot).toMatchObject({
+      userId: "user_1",
       activeStore,
       status: "ready",
       isLoading: false,

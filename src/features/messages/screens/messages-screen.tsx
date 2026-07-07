@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, MessageSquareText, RotateCcw, Search, Smartphone, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  MessageSquareText,
+  RotateCcw,
+  Search,
+  Smartphone,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +33,7 @@ import {
   renderTemplate,
 } from "@/features/messages/model/template-renderer";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   getStoreSettings,
   listMessageTemplates,
@@ -32,13 +41,15 @@ import {
   updateMessageTemplate,
   type MessageTemplate,
 } from "@/lib/repairdesk/api";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 import {
+  RepairOsBusinessCard,
   RepairOsHeaderActionButton,
   RepairOsListScaffold,
-  RepairOsModuleHeader,
+  RepairOsSectionHeader,
 } from "@/shared/ui";
-import { brandGradientStyle, controls, repairOs, surfaces } from "@/lib/ui-patterns";
+import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 
 const domainMeta = {
   order: {
@@ -55,6 +66,8 @@ const messageTemplateVariableNames = MESSAGE_TEMPLATE_VARIABLES.map((variable) =
 
 export function MessagesScreen() {
   const queryClient = useQueryClient();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>();
@@ -63,12 +76,14 @@ export function MessagesScreen() {
   const [enabledDraft, setEnabledDraft] = useState(true);
 
   const templatesQuery = useQuery({
-    queryKey: messageSettingsKeys.templates,
-    queryFn: listMessageTemplates,
+    queryKey: messageSettingsKeys.templatesScoped(activeStoreId),
+    queryFn: ({ signal }) => listMessageTemplates({ signal }),
+    staleTime: CACHE_TIMES.settings,
   });
   const storeQuery = useQuery({
-    queryKey: messageSettingsKeys.store,
-    queryFn: getStoreSettings,
+    queryKey: messageSettingsKeys.storeScoped(activeStoreId),
+    queryFn: ({ signal }) => getStoreSettings({ signal }),
+    staleTime: CACHE_TIMES.settings,
   });
 
   const templates = useMemo(() => templatesQuery.data ?? [], [templatesQuery.data]);
@@ -168,19 +183,41 @@ export function MessagesScreen() {
       <RepairOsListScaffold
         title="消息模板"
         subtitle="读取失败"
+        eyebrow="工作台 / 消息"
         chips={[
           { key: "enabled", label: "启用", shortLabel: "启", count: "-" },
           { key: "order", label: "工单", shortLabel: "单", count: "-" },
           { key: "customer", label: "客户", shortLabel: "客", count: "-" },
         ]}
       >
-        <section className={surfaces.empty}>
-          <MessageSquareText className="mb-3 size-8 text-status-danger-foreground" />
-          <p className="text-sm text-status-danger-foreground">读取消息模板失败</p>
-          <Button variant="outline" className="mt-3" onClick={() => templatesQuery.refetch()}>
-            重新加载
-          </Button>
-        </section>
+        <RepairOsBusinessCard
+          as="div"
+          data-ui="messages-template-load-error"
+          className="mx-auto mt-16 max-w-sm grid-cols-[auto_minmax(0,1fr)_auto] items-center rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-4 py-3 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10"
+          leading={
+            <span className="grid size-9 place-items-center rounded-lg bg-status-danger/10">
+              <MessageSquareText className="size-4" />
+            </span>
+          }
+          trailing={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 bg-card"
+              onClick={() => templatesQuery.refetch()}
+            >
+              重新加载
+            </Button>
+          }
+          trailingClassName="shrink-0"
+          aria-live="polite"
+        >
+          <span className="block text-sm font-semibold">读取消息模板失败</span>
+          <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80">
+            请重新加载模板列表后继续编辑。
+          </span>
+        </RepairOsBusinessCard>
       </RepairOsListScaffold>
     );
   }
@@ -189,6 +226,7 @@ export function MessagesScreen() {
     <RepairOsListScaffold
       title="消息模板"
       subtitle={`启用 ${enabledCount} · 共 ${templates.length} 个`}
+      eyebrow="工作台 / 消息"
       action={
         <RepairOsHeaderActionButton
           ariaLabel="保存模板"
@@ -198,6 +236,17 @@ export function MessagesScreen() {
           <Check className="size-4" />
         </RepairOsHeaderActionButton>
       }
+      desktopAction={
+        <Button
+          size="sm"
+          className={cn("h-9 gap-1.5", controls.brandButton)}
+          style={brandGradientStyle}
+          disabled={!canSaveTemplate || saveMutation.isPending}
+          onClick={() => saveMutation.mutate()}
+        >
+          <Check className="mr-1.5 size-3.5" /> 保存模板
+        </Button>
+      }
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="搜索模板"
@@ -206,23 +255,6 @@ export function MessagesScreen() {
         { key: "order", label: "工单", shortLabel: "单", count: orderCount },
         { key: "customer", label: "客户", shortLabel: "客", count: customerCount },
       ]}
-      desktopHeader={
-        <div className="mb-3 space-y-3 sm:mb-4">
-          <RepairOsModuleHeader
-            action={
-              <Button
-                size="sm"
-                className={cn("h-9 gap-1.5", controls.brandButton)}
-                style={brandGradientStyle}
-                disabled={!canSaveTemplate || saveMutation.isPending}
-                onClick={() => saveMutation.mutate()}
-              >
-                <Check className="mr-1.5 size-3.5" /> 保存模板
-              </Button>
-            }
-          />
-        </div>
-      }
     >
       <section className="grid min-w-0 gap-3 lg:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]">
         <aside className={cn(repairOs.adminSection, "min-w-0 p-2.5 sm:p-3")}>
@@ -264,10 +296,28 @@ export function MessagesScreen() {
                   />
                 </div>
                 <div className="flex items-end">
-                  <label className="flex h-8 items-center gap-2 rounded-md border border-[var(--border-panel)] bg-surface px-2.5 text-xs sm:h-9 sm:text-sm">
-                    <Switch checked={enabledDraft} onCheckedChange={setEnabledDraft} />
-                    {enabledDraft ? "启用" : "停用"}
-                  </label>
+                  <RepairOsBusinessCard
+                    as="div"
+                    data-ui="messages-template-enabled-toggle"
+                    className="h-8 min-w-[7.25rem] items-center rounded-md bg-surface px-2.5 py-0 shadow-none hover:bg-surface sm:h-9"
+                    bodyClassName="self-center"
+                    trailing={
+                      <Switch
+                        id="template-enabled"
+                        checked={enabledDraft}
+                        onCheckedChange={setEnabledDraft}
+                        aria-label={enabledDraft ? "停用消息模板" : "启用消息模板"}
+                      />
+                    }
+                    trailingClassName="shrink-0 self-center"
+                  >
+                    <Label
+                      htmlFor="template-enabled"
+                      className="block cursor-pointer text-xs sm:text-sm"
+                    >
+                      {enabledDraft ? "启用" : "停用"}
+                    </Label>
+                  </RepairOsBusinessCard>
                 </div>
               </div>
 
@@ -336,17 +386,15 @@ export function MessagesScreen() {
 
             <aside className="grid min-w-0 gap-3 xl:grid-cols-2 min-[1440px]:block min-[1440px]:space-y-4">
               <section className={cn(repairOs.adminSection, "min-w-0")}>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <h2 className="text-sm font-semibold">变量助手</h2>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      点击变量插入到当前光标位置。
-                    </p>
-                  </div>
-                  <Badge variant={unknownVariables.length ? "destructive" : "secondary"}>
-                    {templateHealth.label}
-                  </Badge>
-                </div>
+                <RepairOsSectionHeader
+                  title="变量助手"
+                  description="点击变量插入到当前光标位置。"
+                  action={
+                    <Badge variant={unknownVariables.length ? "destructive" : "secondary"}>
+                      {templateHealth.label}
+                    </Badge>
+                  }
+                />
 
                 <TemplateHealthPanel health={templateHealth} />
 
@@ -354,40 +402,45 @@ export function MessagesScreen() {
                   {MESSAGE_TEMPLATE_VARIABLES.map((variable) => {
                     const used = usedVariables.includes(variable.name);
                     return (
-                      <button
+                      <RepairOsBusinessCard
                         key={variable.name}
+                        as="button"
                         type="button"
                         onClick={() => handleInsertVariable(variable.name)}
                         className={cn(
-                          "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          repairOs.businessCardDense,
+                          "w-full rounded-lg px-2 py-1.5 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                           used
                             ? "border-primary/35 bg-primary/10 text-primary"
                             : "border-[var(--border-panel)] bg-card text-foreground",
                         )}
+                        bodyClassName="min-w-0"
+                        trailing={
+                          <span className="min-w-0 truncate text-right font-mono text-[10px] text-muted-foreground">
+                            {`{{${variable.name}}}`}
+                          </span>
+                        }
                         title={`插入 ${variable.label}`}
                       >
                         <span className="min-w-0 truncate text-[11px] font-medium">
                           {variable.label}
                         </span>
-                        <span className="min-w-0 truncate text-right font-mono text-[10px] text-muted-foreground">
-                          {`{{${variable.name}}}`}
-                        </span>
-                      </button>
+                      </RepairOsBusinessCard>
                     );
                   })}
                 </div>
               </section>
 
               <section className={cn(repairOs.adminSection, "min-w-0")}>
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold">实时预览</h2>
-                  <Badge className={templateHealthToneClass(templateHealth.tone)}>
-                    {templateHealth.canSend ? "可发送" : enabledDraft ? "不可发送" : "停用"}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                  {templateHealth.detail}
-                </p>
+                <RepairOsSectionHeader
+                  title="实时预览"
+                  description={templateHealth.detail}
+                  action={
+                    <Badge className={templateHealthToneClass(templateHealth.tone)}>
+                      {templateHealth.canSend ? "可发送" : enabledDraft ? "不可发送" : "停用"}
+                    </Badge>
+                  }
+                />
                 <pre className="mt-2 max-h-[360px] min-w-0 whitespace-pre-wrap break-words rounded-md border border-[var(--border-panel)] bg-surface-muted p-2.5 text-xs leading-relaxed text-foreground [overflow-wrap:anywhere] xl:max-h-[520px]">
                   {preview || " "}
                 </pre>
@@ -395,10 +448,21 @@ export function MessagesScreen() {
             </aside>
           </section>
         ) : (
-          <section className={surfaces.empty}>
-            <MessageSquareText className="mb-3 size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">暂无消息模板</p>
-          </section>
+          <RepairOsBusinessCard
+            as="div"
+            data-ui="messages-template-empty-state"
+            className="mx-auto mt-8 max-w-sm grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl px-4 py-3 shadow-[var(--shadow-card)]"
+            leading={
+              <span className="grid size-9 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-muted-foreground">
+                <MessageSquareText className="size-4" />
+              </span>
+            }
+          >
+            <span className="block text-sm font-semibold text-foreground">暂无消息模板</span>
+            <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+              新增默认模板后可以在这里编辑启用状态、变量和预览。
+            </span>
+          </RepairOsBusinessCard>
         )}
       </section>
     </RepairOsListScaffold>
@@ -408,26 +472,52 @@ export function MessagesScreen() {
 function TemplateHealthPanel({ health }: { health: ReturnType<typeof evaluateTemplateHealth> }) {
   if (!health.issues.length) {
     return (
-      <div className="mt-2 rounded-lg border border-status-success/25 bg-status-success/10 px-2 py-1.5 text-[11px] leading-4 text-status-success-foreground">
-        模板检查通过，变量和正文都可以用于发送。
-      </div>
+      <RepairOsBusinessCard
+        as="div"
+        data-ui="messages-template-health"
+        leading={
+          <span className="grid size-4 place-items-center rounded-full bg-status-success text-status-success-foreground">
+            <Check className="size-3" />
+          </span>
+        }
+        className="mt-2 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border-status-success/25 bg-status-success/10 px-2 py-1.5 text-status-success-foreground shadow-none hover:bg-status-success/10"
+        leadingClassName="mt-0.5"
+      >
+        <span className="block text-[11px] leading-4">
+          模板检查通过，变量和正文都可以用于发送。
+        </span>
+      </RepairOsBusinessCard>
     );
   }
 
   return (
-    <div className="mt-2 space-y-1">
+    <div data-ui="messages-template-health" className="mt-2 space-y-1">
       {health.issues.map((issue) => (
-        <div
+        <RepairOsBusinessCard
+          as="div"
           key={issue.key}
+          leading={
+            <span
+              className={cn(
+                "grid size-4 place-items-center rounded-full",
+                issue.tone === "danger"
+                  ? "bg-status-danger text-status-danger-foreground"
+                  : "bg-status-warn text-status-warn-foreground",
+              )}
+            >
+              <AlertTriangle className="size-3" />
+            </span>
+          }
           className={cn(
-            "rounded-lg border px-2 py-1.5 text-[11px] leading-4",
+            "grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg px-2 py-1.5 shadow-none",
             issue.tone === "danger"
-              ? "border-status-danger-foreground/25 bg-status-danger/15 text-status-danger-foreground"
-              : "border-status-warn-foreground/25 bg-status-warn/15 text-status-warn-foreground",
+              ? "border-status-danger-foreground/25 bg-status-danger/15 text-status-danger-foreground hover:bg-status-danger/15"
+              : "border-status-warn-foreground/25 bg-status-warn/15 text-status-warn-foreground hover:bg-status-warn/15",
           )}
+          leadingClassName="mt-0.5"
         >
-          {issue.label}
-        </div>
+          <span className="block text-[11px] leading-4">{issue.label}</span>
+        </RepairOsBusinessCard>
       ))}
     </div>
   );
@@ -463,16 +553,32 @@ function TemplateGroup({
       <div className="space-y-1.5">
         {templates.length ? (
           templates.map((template) => (
-            <button
+            <RepairOsBusinessCard
               key={template.id}
+              as="button"
               type="button"
               onClick={() => onSelect(template.id)}
               className={cn(
-                "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors hover:bg-accent/40",
+                repairOs.businessCardDense,
+                "w-full rounded-lg px-2.5 py-2 text-left hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 selectedId === template.id
                   ? "border-primary/35 bg-primary/10 text-primary shadow-[var(--shadow-card)]"
                   : "border-[var(--border-panel)] bg-card",
               )}
+              bodyClassName="min-w-0"
+              trailing={
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      template.enabled ? "bg-status-success-foreground" : "bg-muted-foreground/50",
+                    )}
+                  />
+                  <span className="text-[10px] text-muted-foreground">
+                    {template.enabled ? "启用" : "停用"}
+                  </span>
+                </span>
+              }
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-semibold leading-5">
@@ -482,23 +588,21 @@ function TemplateGroup({
                   {template.kind} · {template.channel}
                 </span>
               </span>
-              <span className="flex shrink-0 items-center gap-1.5">
-                <span
-                  className={cn(
-                    "size-1.5 rounded-full",
-                    template.enabled ? "bg-status-success-foreground" : "bg-muted-foreground/50",
-                  )}
-                />
-                <span className="text-[10px] text-muted-foreground">
-                  {template.enabled ? "启用" : "停用"}
-                </span>
-              </span>
-            </button>
+            </RepairOsBusinessCard>
           ))
         ) : (
-          <div className="rounded-md border border-dashed px-3 py-5 text-center text-xs text-muted-foreground">
-            无匹配模板
-          </div>
+          <RepairOsBusinessCard
+            as="div"
+            data-ui="messages-template-group-empty"
+            className="grid-cols-[auto_minmax(0,1fr)] items-center rounded-lg border-dashed px-2.5 py-2 text-xs text-muted-foreground shadow-none"
+            leading={
+              <span className="grid size-7 place-items-center rounded-md bg-[var(--surface-panel-muted)]">
+                <MessageSquareText className="size-3.5" />
+              </span>
+            }
+          >
+            <span className="block truncate">无匹配模板</span>
+          </RepairOsBusinessCard>
         )}
       </div>
     </div>
@@ -510,6 +614,7 @@ function MessagesLoading() {
     <RepairOsListScaffold
       title="消息模板"
       subtitle="正在读取模板"
+      eyebrow="工作台 / 消息"
       chips={[
         { key: "enabled", label: "启用", shortLabel: "启", count: "-" },
         { key: "order", label: "工单", shortLabel: "单", count: "-" },

@@ -39,6 +39,7 @@ import {
   type CustomerListFilters,
 } from "@/lib/repairdesk/api";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   CustomerKpiCard,
   CustomerMobileCard,
@@ -57,6 +58,7 @@ import {
 } from "@/features/customers/model/customer-list";
 import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp } from "@/lib/motion";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   RepairOsBusinessCard,
   RepairOsChipRow,
@@ -89,6 +91,8 @@ function useDebouncedValue<T>(value: T, delay: number) {
 
 export function CustomerListScreen() {
   const queryClient = useQueryClient();
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
   const searchParams = useSearchParams();
   const [baseFilters, setBaseFilters] = useState<CustomerListFilters>({
     work: "all",
@@ -122,10 +126,10 @@ export function CustomerListScreen() {
   );
 
   const { data, error, isError, isFetching, isPending, isPlaceholderData, refetch } = useQuery({
-    queryKey: customersKeys.listPage(queryInput),
-    queryFn: () => listCustomersPage(queryInput),
+    queryKey: customersKeys.listPage(queryInput, activeStoreId),
+    queryFn: ({ signal }) => listCustomersPage(queryInput, { signal }),
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
+    staleTime: CACHE_TIMES.hotList,
     gcTime: 5 * 60_000,
     retry: 1,
     refetchOnWindowFocus: false,
@@ -143,12 +147,12 @@ export function CustomerListScreen() {
   const prefetchCustomerDetail = useCallback(
     (customerId: string) => {
       queryClient.prefetchQuery({
-        queryKey: customersKeys.detail(customerId),
-        queryFn: () => getCustomerDetail(customerId),
-        staleTime: 60_000,
+        queryKey: customersKeys.detail(customerId, activeStoreId),
+        queryFn: ({ signal }) => getCustomerDetail(customerId, { signal }),
+        staleTime: CACHE_TIMES.detail,
       });
     },
-    [queryClient],
+    [activeStoreId, queryClient],
   );
 
   const create = useMutation({

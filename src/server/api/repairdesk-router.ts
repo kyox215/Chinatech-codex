@@ -68,18 +68,28 @@ import {
   updateStoreSettings,
 } from "@/features/messages/server/message-settings.service";
 import {
+  acceptStoreInvitation,
+  approveStoreAccessRequest,
+  createStoreInviteLink,
   createStore,
   getStoreContext,
   inviteStoreMember,
+  listStoreAccessRequests,
   listStoreMembers,
+  redeemStoreInviteLink,
+  rejectStoreAccessRequest,
+  revokeStoreInviteLink,
+  revokeStoreInvitation,
   switchActiveStore,
 } from "@/features/stores/server/store.service";
 import {
   approveOnboardingRequest,
+  cancelOnboardingRequest,
   getOnboardingStatus,
   listPlatformOnboardingRequests,
   rejectOnboardingRequest,
   submitOnboardingRequest,
+  updateAccountProfile,
 } from "@/features/platform/server/platform.service";
 import {
   assertStaffRole,
@@ -88,6 +98,10 @@ import {
   ForbiddenError,
 } from "@/server/auth-context";
 import { writeAuditLog } from "@/server/audit";
+import {
+  queueRepairDeskRealtimeBroadcast,
+  type RepairDeskRealtimeMutationBroadcast,
+} from "@/features/realtime/server/realtime-broadcast";
 import type {
   OrderListItem,
   OrderListResult,
@@ -95,6 +109,7 @@ import type {
   RepairDeskOptions,
 } from "@/lib/repairdesk/types";
 import {
+  accountProfileUpdateBodySchema,
   approvalDecisionBodySchema,
   approvalRequestBodySchema,
   batchTransitionBodySchema,
@@ -142,6 +157,10 @@ import {
   paymentBodySchema,
   storeCreateBodySchema,
   storeInviteBodySchema,
+  storeInviteLinkCreateBodySchema,
+  storeInviteLinkDecisionBodySchema,
+  storeInviteLinkRedeemBodySchema,
+  storeInvitationDecisionBodySchema,
   storeSettingsUpdateBodySchema,
   storeSwitchBodySchema,
   transitionOrderBodySchema,
@@ -152,14 +171,18 @@ import {
 const supabaseSource = {
   batchTransition,
   completeCustomerFollowup,
+  acceptStoreInvitation,
   approveOnboardingRequest,
+  approveStoreAccessRequest,
   applyElectronicsCsvImport,
+  cancelOnboardingRequest,
   createCustomer,
   createCustomerFollowup,
   createInventoryIntake,
   createOrder,
   createOrderWorkflowStatus,
   createStore,
+  createStoreInviteLink,
   decideOrderApproval,
   deleteCustomerDevice,
   getCustomerDevices,
@@ -184,6 +207,7 @@ const supabaseSource = {
   listOrders,
   listOrdersPage,
   listPlatformOnboardingRequests,
+  listStoreAccessRequests,
   listStoreMembers,
   patchOrder,
   patchOrderFinance,
@@ -194,6 +218,10 @@ const supabaseSource = {
   renderMessageTemplatePreview,
   resetMessageTemplate,
   rejectOnboardingRequest,
+  rejectStoreAccessRequest,
+  redeemStoreInviteLink,
+  revokeStoreInviteLink,
+  revokeStoreInvitation,
   searchCustomers,
   searchCustomerIntakeCandidates,
   sendApprovalRequest,
@@ -214,12 +242,76 @@ const supabaseSource = {
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateStoreSettings,
+  updateAccountProfile,
   uploadInventoryAttachment,
   uploadOrderAttachment,
   upsertCustomerDevice,
 };
 
 const inventoryWriteRoles = ["owner", "manager", "technician", "sales"] as const;
+
+const realtimeBroadcasts = {
+  orderCreated: {
+    domain: "orders",
+    mutation: "created",
+    queryGroups: ["orders.all", "customers.all"],
+  },
+  orderUpdated: {
+    domain: "orders",
+    mutation: "updated",
+    queryGroups: ["orders.all", "customers.all"],
+  },
+  orderTransitioned: {
+    domain: "orders",
+    mutation: "transitioned",
+    queryGroups: ["orders.all", "customers.all"],
+  },
+  orderWorkflowChanged: {
+    domain: "settings",
+    mutation: "workflow_changed",
+    queryGroups: ["orders.workflow", "orders.options", "orders.all", "settings.store"],
+  },
+  customerCreated: {
+    domain: "customers",
+    mutation: "created",
+    queryGroups: ["customers.all"],
+  },
+  customerUpdated: {
+    domain: "customers",
+    mutation: "updated",
+    queryGroups: ["customers.all"],
+  },
+  inventoryCreated: {
+    domain: "inventory",
+    mutation: "created",
+    queryGroups: ["inventory.all", "customers.all"],
+  },
+  inventoryUpdated: {
+    domain: "inventory",
+    mutation: "updated",
+    queryGroups: ["inventory.all", "customers.all"],
+  },
+  inventoryTransitioned: {
+    domain: "inventory",
+    mutation: "transitioned",
+    queryGroups: ["inventory.all", "customers.all"],
+  },
+  settingsUpdated: {
+    domain: "settings",
+    mutation: "settings_updated",
+    queryGroups: ["settings.store", "orders.options"],
+  },
+  messageTemplateUpdated: {
+    domain: "settings",
+    mutation: "settings_updated",
+    queryGroups: ["settings.templates"],
+  },
+  storeMembershipChanged: {
+    domain: "settings",
+    mutation: "membership_changed",
+    queryGroups: ["stores.context", "stores.members", "stores.access_requests"],
+  },
+} as const satisfies Record<string, RepairDeskRealtimeMutationBroadcast>;
 
 function assertInventoryWrite(actor: Awaited<ReturnType<typeof getRequestActor>>) {
   assertStaffRole(actor, inventoryWriteRoles);
@@ -238,6 +330,7 @@ async function source() {
       technicians: mock.allTechnicians,
     }),
     getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => ({
+      userId: actor.id,
       email: actor.email,
       displayName: actor.displayName,
       isPlatformAdmin: Boolean(actor.isPlatformAdmin),
@@ -257,12 +350,43 @@ async function source() {
     submitOnboardingRequest: async () => {
       throw new Error("Mock 模式暂不支持注册申请");
     },
+    cancelOnboardingRequest: async () => {
+      throw new Error("Mock 模式暂不支持取消申请");
+    },
     listPlatformOnboardingRequests: async () => [],
+    listStoreAccessRequests: async () => [],
+    updateAccountProfile: async (
+      input: { display_name: string },
+      actor: Awaited<ReturnType<typeof getRequestActor>>,
+    ) => ({
+      userId: actor.id,
+      email: actor.email,
+      displayName: input.display_name.trim() || actor.displayName,
+      isPlatformAdmin: Boolean(actor.isPlatformAdmin),
+      activeStore: actor.storeId
+        ? {
+            id: actor.storeId,
+            name: actor.storeName || "Mock Store",
+            slug: "mock-store",
+            role: actor.storeRole ?? actor.role ?? "owner",
+            status: "active" as const,
+          }
+        : undefined,
+      stores: actor.stores ?? [],
+      requests: [],
+      availableStores: [],
+    }),
     approveOnboardingRequest: async () => {
       throw new Error("Mock 模式暂不支持平台审批");
     },
     rejectOnboardingRequest: async () => {
       throw new Error("Mock 模式暂不支持平台审批");
+    },
+    approveStoreAccessRequest: async () => {
+      throw new Error("Mock 模式暂不支持加入申请审批");
+    },
+    rejectStoreAccessRequest: async () => {
+      throw new Error("Mock 模式暂不支持加入申请审批");
     },
   };
 }
@@ -321,7 +445,9 @@ function fail(error: unknown) {
 
 export async function handleRepairDeskGet(path: string) {
   try {
-    const actor = await getRequestActor(true, { allowPendingStore: allowsPendingStore(path) });
+    const actor = await getRequestActor(true, {
+      allowPendingStore: allowsPendingStore(path, "GET"),
+    });
     const api = await source();
     switch (path) {
       case "onboarding/status":
@@ -344,6 +470,8 @@ export async function handleRepairDeskGet(path: string) {
         return ok(await api.getStoreContext(actor));
       case "stores/members":
         return ok(await api.listStoreMembers(actor));
+      case "stores/access-requests":
+        return ok(await api.listStoreAccessRequests(actor));
       default:
         return NextResponse.json({ error: "接口不存在" }, { status: 404 });
     }
@@ -354,13 +482,27 @@ export async function handleRepairDeskGet(path: string) {
 
 export async function handleRepairDeskPost(path: string, body: unknown) {
   try {
-    const actor = await getRequestActor(true, { allowPendingStore: allowsPendingStore(path) });
+    const actor = await getRequestActor(true, {
+      allowPendingStore: allowsPendingStore(path, "POST"),
+    });
     const api = await source();
     switch (path) {
       case "onboarding/request": {
         const { input } = onboardingRequestBodySchema.parse(body);
         return ok(await api.submitOnboardingRequest(input, actor));
       }
+      case "onboarding/request/cancel":
+        return ok(
+          await api.cancelOnboardingRequest(onboardingDecisionBodySchema.parse(body), actor),
+        );
+      case "onboarding/invitations/accept":
+        return ok(
+          await api.acceptStoreInvitation(storeInvitationDecisionBodySchema.parse(body), actor),
+        );
+      case "onboarding/invite-links/redeem":
+        return ok(
+          await api.redeemStoreInviteLink(storeInviteLinkRedeemBodySchema.parse(body), actor),
+        );
       case "platform/onboarding/approve":
         return ok(
           await api.approveOnboardingRequest(onboardingDecisionBodySchema.parse(body), actor),
@@ -369,6 +511,10 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok(
           await api.rejectOnboardingRequest(onboardingDecisionBodySchema.parse(body), actor),
         );
+      case "account/profile/update": {
+        const { input } = accountProfileUpdateBodySchema.parse(body);
+        return ok(await api.updateAccountProfile(input, actor));
+      }
       case "orders/list":
         return ok(await api.listOrders(orderListFiltersSchema.parse(body), actor));
       case "orders/list-page":
@@ -444,8 +590,14 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
       case "orders/create":
         return ok(
-          await auditGeneric(actor, "create", "repair_order", "new", body, () =>
-            api.createOrder(createOrderSchema.parse(body), actor),
+          await auditGeneric(
+            actor,
+            "create",
+            "repair_order",
+            "new",
+            body,
+            () => api.createOrder(createOrderSchema.parse(body), actor),
+            realtimeBroadcasts.orderCreated,
           ),
         );
       case "order/get": {
@@ -463,120 +615,228 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       case "customer/create": {
         const { input } = customerCreateBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "create", "customer", "new", input, () =>
-            api.createCustomer(input, actor),
+          await auditGeneric(
+            actor,
+            "create",
+            "customer",
+            "new",
+            input,
+            () => api.createCustomer(input, actor),
+            realtimeBroadcasts.customerCreated,
           ),
         );
       }
       case "customer/update": {
         const { id, input } = customerUpdateBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "update", "customer", id, input, () =>
-            api.updateCustomer(id, input, actor),
+          await auditGeneric(
+            actor,
+            "update",
+            "customer",
+            id,
+            input,
+            () => api.updateCustomer(id, input, actor),
+            realtimeBroadcasts.customerUpdated,
           ),
         );
       }
       case "customer/device/upsert": {
         const { customerId, input } = customerDeviceUpsertBodySchema.parse(body);
-        return ok(await api.upsertCustomerDevice(customerId, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.upsertCustomerDevice(customerId, input, actor),
+            realtimeBroadcasts.customerUpdated,
+          ),
+        );
       }
       case "customer/device/delete": {
         const { customerId, deviceId } = customerDeviceDeleteBodySchema.parse(body);
-        return ok(await api.deleteCustomerDevice(customerId, deviceId, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.deleteCustomerDevice(customerId, deviceId, actor),
+            realtimeBroadcasts.customerUpdated,
+          ),
+        );
       }
       case "customer/tags/update": {
         const { customerId, tagIds } = customerTagsUpdateBodySchema.parse(body);
-        return ok(await api.setCustomerTags(customerId, tagIds, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.setCustomerTags(customerId, tagIds, actor),
+            realtimeBroadcasts.customerUpdated,
+          ),
+        );
       }
       case "customer/followup/create": {
         const { customerId, input } = customerFollowupCreateBodySchema.parse(body);
-        return ok(await api.createCustomerFollowup(customerId, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createCustomerFollowup(customerId, input, actor),
+            realtimeBroadcasts.customerUpdated,
+          ),
+        );
       }
       case "customer/followup/complete": {
         const { customerId, followupId } = customerFollowupCompleteBodySchema.parse(body);
-        return ok(await api.completeCustomerFollowup(customerId, followupId, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.completeCustomerFollowup(customerId, followupId, actor),
+            realtimeBroadcasts.customerUpdated,
+          ),
+        );
       }
       case "customer/message": {
         const { customerId, input } = customerMessageBodySchema.parse(body);
-        return ok(await api.sendCustomerMessage(customerId, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.sendCustomerMessage(customerId, input, actor),
+            realtimeBroadcasts.customerUpdated,
+          ),
+        );
       }
       case "order/update": {
         const { id, input } = updateOrderBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "update", "repair_order", id, input, () =>
-            api.updateOrder(id, input, actor),
+          await auditGeneric(
+            actor,
+            "update",
+            "repair_order",
+            id,
+            input,
+            () => api.updateOrder(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
           ),
         );
       }
       case "order/patch": {
         const { id, input } = patchOrderBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "update", "repair_order", id, input, () =>
-            api.patchOrder(id, input, actor),
+          await auditGeneric(
+            actor,
+            "update",
+            "repair_order",
+            id,
+            input,
+            () => api.patchOrder(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
           ),
         );
       }
       case "order/finance": {
         const { id, input } = patchOrderFinanceBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "payment", "repair_order", id, input, () =>
-            api.patchOrderFinance(id, input, actor),
+          await auditGeneric(
+            actor,
+            "payment",
+            "repair_order",
+            id,
+            input,
+            () => api.patchOrderFinance(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
           ),
         );
       }
       case "order/attachment/upload": {
         const { id, input } = orderAttachmentUploadBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "upload", "order_attachment", id, input, () =>
-            api.uploadOrderAttachment(id, input, actor),
+          await auditGeneric(
+            actor,
+            "upload",
+            "order_attachment",
+            id,
+            input,
+            () => api.uploadOrderAttachment(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
           ),
         );
       }
       case "order/transition": {
         const { id, to, reason } = transitionOrderBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "transition", "repair_order", id, { to, reason }, () =>
-            api.transitionOrder(id, to, { reason, operator: actor, storeId: actor.storeId }),
+          await auditGeneric(
+            actor,
+            "transition",
+            "repair_order",
+            id,
+            { to, reason },
+            () => api.transitionOrder(id, to, { reason, operator: actor, storeId: actor.storeId }),
+            realtimeBroadcasts.orderTransitioned,
           ),
         );
       }
       case "order/batch-transition": {
         const { ids, to } = batchTransitionBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "transition", "repair_order", "batch", { ids, to }, () =>
-            api.batchTransition(ids, to, actor),
+          await auditGeneric(
+            actor,
+            "transition",
+            "repair_order",
+            "batch",
+            { ids, to },
+            () => api.batchTransition(ids, to, actor),
+            realtimeBroadcasts.orderTransitioned,
           ),
         );
       }
       case "order-workflow/status/create": {
         const { input } = orderWorkflowStatusCreateBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "create", "order_workflow_status", "new", input, () =>
-            api.createOrderWorkflowStatus(input, actor),
+          await auditGeneric(
+            actor,
+            "create",
+            "order_workflow_status",
+            "new",
+            input,
+            () => api.createOrderWorkflowStatus(input, actor),
+            realtimeBroadcasts.orderWorkflowChanged,
           ),
         );
       }
       case "order-workflow/status/update": {
         const { id, input } = orderWorkflowStatusUpdateBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "update", "order_workflow_status", id, input, () =>
-            api.updateOrderWorkflowStatus(id, input, actor),
+          await auditGeneric(
+            actor,
+            "update",
+            "order_workflow_status",
+            id,
+            input,
+            () => api.updateOrderWorkflowStatus(id, input, actor),
+            realtimeBroadcasts.orderWorkflowChanged,
           ),
         );
       }
       case "order-workflow/status/reorder": {
         const input = orderWorkflowStatusReorderBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "reorder", "order_workflow_status", "batch", input, () =>
-            api.reorderOrderWorkflowStatuses(input, actor),
+          await auditGeneric(
+            actor,
+            "reorder",
+            "order_workflow_status",
+            "batch",
+            input,
+            () => api.reorderOrderWorkflowStatuses(input, actor),
+            realtimeBroadcasts.orderWorkflowChanged,
           ),
         );
       }
       case "order-workflow/status/enabled": {
         const input = orderWorkflowStatusEnabledBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "update", "order_workflow_status", input.id, input, () =>
-            api.setOrderWorkflowStatusEnabled(input, actor),
+          await auditGeneric(
+            actor,
+            "update",
+            "order_workflow_status",
+            input.id,
+            input,
+            () => api.setOrderWorkflowStatusEnabled(input, actor),
+            realtimeBroadcasts.orderWorkflowChanged,
           ),
         );
       }
@@ -590,20 +850,33 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
             input.from_status_code,
             input,
             () => api.updateOrderWorkflowTransitions(input, actor),
+            realtimeBroadcasts.orderWorkflowChanged,
           ),
         );
       }
       case "order/payment": {
         const { id, amount, method, expected_updated_at } = paymentBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "payment", "repair_order", id, { amount, method }, () =>
-            api.recordPayment(id, amount, method, actor, expected_updated_at),
+          await auditGeneric(
+            actor,
+            "payment",
+            "repair_order",
+            id,
+            { amount, method },
+            () => api.recordPayment(id, amount, method, actor, expected_updated_at),
+            realtimeBroadcasts.orderUpdated,
           ),
         );
       }
       case "order/notification": {
         const { id, body: messageBody, channel } = notificationBodySchema.parse(body);
-        return ok(await api.sendNotification(id, messageBody, channel, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.sendNotification(id, messageBody, channel, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
       }
       case "order/whatsapp-notification": {
         const {
@@ -614,25 +887,42 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           recipient_phone,
         } = whatsappNotificationBodySchema.parse(body);
         return ok(
-          await api.sendWhatsappNotification(
-            id,
-            messageBody,
-            template_kind,
-            transition_to,
+          await runWithRealtime(
             actor,
-            recipient_phone,
+            () =>
+              api.sendWhatsappNotification(
+                id,
+                messageBody,
+                template_kind,
+                transition_to,
+                actor,
+                recipient_phone,
+              ),
+            realtimeBroadcasts.orderUpdated,
           ),
         );
       }
       case "order/approval-request": {
         const { id, body: messageBody, recipient_phone } = approvalRequestBodySchema.parse(body);
-        return ok(await api.sendApprovalRequest(id, messageBody, actor, recipient_phone));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.sendApprovalRequest(id, messageBody, actor, recipient_phone),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
       }
       case "order/approval-decision": {
         const { id, input } = approvalDecisionBodySchema.parse(body);
         return ok(
-          await auditGeneric(actor, "update", "repair_order_approval", id, input, () =>
-            api.decideOrderApproval(id, input, actor),
+          await auditGeneric(
+            actor,
+            "update",
+            "repair_order_approval",
+            id,
+            input,
+            () => api.decideOrderApproval(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
           ),
         );
       }
@@ -651,37 +941,79 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       case "inventory/intake/create": {
         const { input } = inventoryIntakeCreateBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.createInventoryIntake(input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createInventoryIntake(input, actor),
+            realtimeBroadcasts.inventoryCreated,
+          ),
+        );
       }
       case "inventory/update": {
         const { id, input } = inventoryUpdateBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.updateInventoryItem(id, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.updateInventoryItem(id, input, actor),
+            realtimeBroadcasts.inventoryUpdated,
+          ),
+        );
       }
       case "inventory/transition": {
         const { id, to, reason } = inventoryTransitionBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.transitionInventoryItem(id, to, { reason }, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.transitionInventoryItem(id, to, { reason }, actor),
+            realtimeBroadcasts.inventoryTransitioned,
+          ),
+        );
       }
       case "inventory/check": {
         const { id, input } = inventoryQualityCheckBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.recordInventoryCheck(id, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.recordInventoryCheck(id, input, actor),
+            realtimeBroadcasts.inventoryUpdated,
+          ),
+        );
       }
       case "inventory/attachment/upload": {
         const { id, input } = inventoryAttachmentUploadBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.uploadInventoryAttachment(id, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.uploadInventoryAttachment(id, input, actor),
+            realtimeBroadcasts.inventoryUpdated,
+          ),
+        );
       }
       case "inventory/transaction": {
         const { id, input } = inventoryTransactionBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.recordInventoryTransaction(id, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.recordInventoryTransaction(id, input, actor),
+            realtimeBroadcasts.inventoryUpdated,
+          ),
+        );
       }
       case "inventory/sell": {
         const { id, input } = inventorySellBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.sellInventoryItem(id, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.sellInventoryItem(id, input, actor),
+            realtimeBroadcasts.inventoryTransitioned,
+          ),
+        );
       }
       case "inventory/import/electronics/preview": {
         const { csvContent } = electronicsCsvImportBodySchema.parse(body);
@@ -690,11 +1022,23 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       case "inventory/import/electronics/apply": {
         const { csvContent } = electronicsCsvImportBodySchema.parse(body);
         assertInventoryWrite(actor);
-        return ok(await api.applyElectronicsCsvImport(csvContent, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.applyElectronicsCsvImport(csvContent, actor),
+            realtimeBroadcasts.inventoryCreated,
+          ),
+        );
       }
       case "settings/store/update": {
         const { input } = storeSettingsUpdateBodySchema.parse(body);
-        return ok(await api.updateStoreSettings(input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.updateStoreSettings(input, actor),
+            realtimeBroadcasts.settingsUpdated,
+          ),
+        );
       }
       case "stores/create": {
         const { input } = storeCreateBodySchema.parse(body);
@@ -706,15 +1050,75 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "stores/invite-member": {
         const { input } = storeInviteBodySchema.parse(body);
-        return ok(await api.inviteStoreMember(input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.inviteStoreMember(input, actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
       }
+      case "stores/invite-links/create": {
+        const { input } = storeInviteLinkCreateBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createStoreInviteLink(input, actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
+      }
+      case "stores/invite-links/revoke":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.revokeStoreInviteLink(storeInviteLinkDecisionBodySchema.parse(body), actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
+      case "stores/invitations/revoke":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.revokeStoreInvitation(storeInvitationDecisionBodySchema.parse(body), actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
+      case "stores/access-requests/approve":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.approveStoreAccessRequest(onboardingDecisionBodySchema.parse(body), actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
+      case "stores/access-requests/reject":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.rejectStoreAccessRequest(onboardingDecisionBodySchema.parse(body), actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
       case "message-template/update": {
         const { id, input } = messageTemplateUpdateBodySchema.parse(body);
-        return ok(await api.updateMessageTemplate(id, input, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.updateMessageTemplate(id, input, actor),
+            realtimeBroadcasts.messageTemplateUpdated,
+          ),
+        );
       }
       case "message-template/reset": {
         const { id } = messageTemplateResetBodySchema.parse(body);
-        return ok(await api.resetMessageTemplate(id, actor));
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.resetMessageTemplate(id, actor),
+            realtimeBroadcasts.messageTemplateUpdated,
+          ),
+        );
       }
       case "message-template/preview":
         return ok(
@@ -731,8 +1135,20 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
   }
 }
 
-function allowsPendingStore(path: string) {
-  return path.startsWith("onboarding/") || path.startsWith("platform/");
+export function allowsPendingStore(path: string, method: "GET" | "POST") {
+  if (method === "GET") {
+    return path === "onboarding/status" || path === "platform/onboarding/requests";
+  }
+  return (
+    path === "stores/create" ||
+    path === "onboarding/request" ||
+    path === "onboarding/request/cancel" ||
+    path === "onboarding/invitations/accept" ||
+    path === "onboarding/invite-links/redeem" ||
+    path === "account/profile/update" ||
+    path === "platform/onboarding/approve" ||
+    path === "platform/onboarding/reject"
+  );
 }
 
 async function auditGeneric<T>(
@@ -742,6 +1158,7 @@ async function auditGeneric<T>(
   entityId: string,
   input: unknown,
   run: () => Promise<T>,
+  realtime?: RepairDeskRealtimeMutationBroadcast,
 ) {
   const result = await run();
   await writeAuditLog({
@@ -752,7 +1169,26 @@ async function auditGeneric<T>(
     after: asRecord(result),
     metadata: { input: asRecord(input) },
   });
+  queueRealtimeBroadcast(actor, realtime);
   return result;
+}
+
+async function runWithRealtime<T>(
+  actor: Awaited<ReturnType<typeof getRequestActor>>,
+  run: () => Promise<T>,
+  realtime?: RepairDeskRealtimeMutationBroadcast,
+) {
+  const result = await run();
+  queueRealtimeBroadcast(actor, realtime);
+  return result;
+}
+
+function queueRealtimeBroadcast(
+  actor: Awaited<ReturnType<typeof getRequestActor>>,
+  realtime?: RepairDeskRealtimeMutationBroadcast,
+) {
+  if (!realtime || !actor.storeId) return;
+  queueRepairDeskRealtimeBroadcast({ storeId: actor.storeId, ...realtime });
 }
 
 function resolveEntityId(entityId: string, result: unknown) {

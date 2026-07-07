@@ -1,0 +1,259 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { createRepairDeskIndexedDbOfflineStore } from "@/features/offline/model/offline-indexeddb-store";
+import {
+  createRepairDeskOfflineOrderService,
+  type RepairDeskOfflineOrderService,
+} from "@/features/offline/model/offline-order-service";
+import type {
+  RepairDeskOfflineError,
+  RepairDeskOfflineScope,
+} from "@/features/offline/model/offline-types";
+import {
+  buildNewOrderOfflineDraftInput,
+  getNewOrderOfflineDraftFingerprint,
+  hasNewOrderSensitiveUnlockDraft,
+  isNewOrderFormWorthOfflineAutosave,
+  restoreNewOrderFormFromOfflineDraft,
+  type NewOrderOfflineDraftRestoreResult,
+} from "@/features/orders/model/new-order-offline-draft";
+import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
+
+export type NewOrderOfflineAutosaveState =
+  | "disabled"
+  | "checking"
+  | "ready"
+  | "saving"
+  | "saved"
+  | "error"
+  | "unavailable";
+
+export type NewOrderOfflineDraftPrompt = {
+  localDraftId: string;
+  updatedAt: string;
+  relationshipNeedsReview: boolean;
+};
+
+export type UseNewOrderOfflineAutosaveOptions = {
+  form: NewOrderFormState;
+  scope?: RepairDeskOfflineScope | null;
+  enabled?: boolean;
+  debounceMs?: number;
+  serviceFactory?: (scope: RepairDeskOfflineScope) => RepairDeskOfflineOrderService;
+};
+
+export function useNewOrderOfflineAutosave({
+  form,
+  scope,
+  enabled = true,
+  debounceMs = 1200,
+  serviceFactory = createIndexedDbOrderService,
+}: UseNewOrderOfflineAutosaveOptions) {
+  const [state, setState] = useState<NewOrderOfflineAutosaveState>(
+    scope && enabled ? "checking" : "disabled",
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [draftPrompt, setDraftPrompt] = useState<NewOrderOfflineDraftPrompt | null>(null);
+  const [pendingRestoreNotice, setPendingRestoreNotice] = useState<string | null>(null);
+  const latestFormRef = useRef(form);
+  const currentDraftIdRef = useRef<string | undefined>(undefined);
+  const lastSavedFingerprintRef = useRef<string | undefined>(undefined);
+  const storageAvailableRef = useRef(false);
+  const scopeStoreId = scope?.storeId;
+  const scopeUserId = scope?.userId;
+
+  useEffect(() => {
+    latestFormRef.current = form;
+  }, [form]);
+
+  const service = useMemo(() => {
+    if (!enabled || !scopeStoreId || !scopeUserId || typeof window === "undefined") return null;
+    return serviceFactory({ storeId: scopeStoreId, userId: scopeUserId });
+  }, [enabled, scopeStoreId, scopeUserId, serviceFactory]);
+
+  useEffect(() => {
+    let active = true;
+    storageAvailableRef.current = false;
+    currentDraftIdRef.current = undefined;
+    lastSavedFingerprintRef.current = undefined;
+    setLastSavedAt(null);
+    setDraftPrompt(null);
+    setPendingRestoreNotice(null);
+    setErrorMessage(null);
+
+    if (!service) {
+      setState("disabled");
+      return;
+    }
+
+    setState("checking");
+    service.healthCheck().then(async (health) => {
+      if (!active) return;
+      if (!health.ok || !health.value.available) {
+        storageAvailableRef.current = false;
+        setState("unavailable");
+        setErrorMessage(formatOfflineStorageError(!health.ok ? health.error : health.value.error));
+        return;
+      }
+
+      storageAvailableRef.current = true;
+      setState("ready");
+      const drafts = await service.listLocalDrafts();
+      if (!active || !drafts.ok) return;
+      const newest = drafts.value
+        .filter((draft) => draft.mode === "create")
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+      if (!newest) return;
+      setDraftPrompt({
+        localDraftId: newest.localDraftId,
+        updatedAt: newest.updatedAt,
+        relationshipNeedsReview:
+          newest.customerLinkMode === "unknown_needs_review" ||
+          newest.deviceLinkMode === "unknown_device_needs_review",
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [service]);
+
+  const saveNow = useCallback(async () => {
+    if (!service || !storageAvailableRef.current || draftPrompt) return;
+    const currentForm = latestFormRef.current;
+    if (!isNewOrderFormWorthOfflineAutosave(currentForm)) return;
+
+    const fingerprint = getNewOrderOfflineDraftFingerprint(currentForm);
+    if (fingerprint === lastSavedFingerprintRef.current && currentDraftIdRef.current) return;
+
+    setState("saving");
+    setErrorMessage(null);
+    const saved = await service.saveDraft(
+      buildNewOrderOfflineDraftInput({
+        form: currentForm,
+        localDraftId: currentDraftIdRef.current,
+      }),
+    );
+
+    if (!saved.ok) {
+      setState("error");
+      setErrorMessage(formatOfflineStorageError(saved.error));
+      return;
+    }
+
+    currentDraftIdRef.current = saved.value.localDraftId;
+    lastSavedFingerprintRef.current = fingerprint;
+    setLastSavedAt(saved.value.updatedAt);
+    setState("saved");
+  }, [draftPrompt, service]);
+
+  useEffect(() => {
+    if (!service || !storageAvailableRef.current || draftPrompt) return;
+    if (
+      state === "checking" ||
+      state === "disabled" ||
+      state === "saving" ||
+      state === "unavailable"
+    )
+      return;
+    if (!isNewOrderFormWorthOfflineAutosave(form)) return;
+
+    const timer = window.setTimeout(() => {
+      void saveNow();
+    }, debounceMs);
+    return () => window.clearTimeout(timer);
+  }, [debounceMs, draftPrompt, form, saveNow, service, state]);
+
+  useEffect(() => {
+    if (!service) return;
+    const saveBeforeHidden = () => {
+      if (document.visibilityState === "hidden") void saveNow();
+    };
+    document.addEventListener("visibilitychange", saveBeforeHidden);
+    return () => document.removeEventListener("visibilitychange", saveBeforeHidden);
+  }, [saveNow, service]);
+
+  const restorePromptDraft =
+    useCallback(async (): Promise<NewOrderOfflineDraftRestoreResult | null> => {
+      if (!service || !draftPrompt) return null;
+      const restored = await service.restoreDraft(draftPrompt.localDraftId);
+      if (!restored.ok || !restored.value) {
+        setState("error");
+        setErrorMessage(formatOfflineStorageError(!restored.ok ? restored.error : undefined));
+        return null;
+      }
+
+      const restoreResult = restoreNewOrderFormFromOfflineDraft(restored.value);
+      currentDraftIdRef.current = restored.value.localDraftId;
+      lastSavedFingerprintRef.current = getNewOrderOfflineDraftFingerprint(restoreResult.form);
+      setLastSavedAt(restored.value.updatedAt);
+      setDraftPrompt(null);
+      setPendingRestoreNotice(
+        restoreResult.relationshipNeedsReview
+          ? "本机草稿已恢复；客户或设备关联需要在线保存前再次确认。"
+          : "本机草稿已恢复；手机密码、PIN 或图案需要重新输入。",
+      );
+      setState("saved");
+      return restoreResult;
+    }, [draftPrompt, service]);
+
+  const discardPromptDraft = useCallback(async () => {
+    if (!service || !draftPrompt) return false;
+    const discarded = await service.discardDraft(draftPrompt.localDraftId);
+    if (!discarded.ok) {
+      setState("error");
+      setErrorMessage(formatOfflineStorageError(discarded.error));
+      return false;
+    }
+    if (currentDraftIdRef.current === draftPrompt.localDraftId) {
+      currentDraftIdRef.current = undefined;
+      lastSavedFingerprintRef.current = undefined;
+      setLastSavedAt(null);
+    }
+    setDraftPrompt(null);
+    setPendingRestoreNotice(null);
+    setState("ready");
+    return true;
+  }, [draftPrompt, service]);
+
+  const discardCurrentDraft = useCallback(async () => {
+    if (!service || !currentDraftIdRef.current) return false;
+    const discarded = await service.discardDraft(currentDraftIdRef.current);
+    if (!discarded.ok) return false;
+    currentDraftIdRef.current = undefined;
+    lastSavedFingerprintRef.current = undefined;
+    setLastSavedAt(null);
+    setDraftPrompt(null);
+    setPendingRestoreNotice(null);
+    setState("ready");
+    return true;
+  }, [service]);
+
+  return {
+    state,
+    errorMessage,
+    lastSavedAt,
+    draftPrompt,
+    pendingRestoreNotice,
+    hasSensitiveUnlockDraft: hasNewOrderSensitiveUnlockDraft(form),
+    saveNow,
+    restorePromptDraft,
+    discardPromptDraft,
+    discardCurrentDraft,
+  };
+}
+
+function createIndexedDbOrderService(scope: RepairDeskOfflineScope) {
+  const store = createRepairDeskIndexedDbOfflineStore({ scope });
+  return createRepairDeskOfflineOrderService({ store, scope });
+}
+
+function formatOfflineStorageError(error: RepairDeskOfflineError | undefined) {
+  if (!error) return "本机草稿暂不可用，请不要刷新页面。";
+  if (error.code === "quota_exceeded") return "本机存储空间不足，草稿未保存，请不要刷新页面。";
+  if (error.code === "storage_unavailable") return "此浏览器无法使用本机草稿，请不要刷新页面。";
+  return "本机草稿保存失败，请不要刷新页面。";
+}

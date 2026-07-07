@@ -7,6 +7,7 @@ import { Check, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { searchCustomers, type Customer } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { normalizePhoneRaw, primaryPhoneRaw, splitPhoneCandidates } from "@/shared/lib/phone";
@@ -48,8 +49,10 @@ export function CustomerPhoneLookup({
   const searchEnabled = query.length >= 2 || normalizedPhone.length >= 3;
   const debouncedQuery = useDebouncedValue(searchEnabled ? query : "", 180);
   const activeLimit = Math.min(12, Math.max(1, limit));
+  const shell = useStoreShellContext();
+  const activeStoreId = shell.activeStore?.id;
   const customerQuery = useQuery({
-    queryKey: customersKeys.search(debouncedQuery, activeLimit),
+    queryKey: customersKeys.search(debouncedQuery, activeLimit, activeStoreId),
     queryFn: () => searchCustomers(debouncedQuery, activeLimit),
     enabled: Boolean(debouncedQuery),
     staleTime: 90_000,
