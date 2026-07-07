@@ -61,6 +61,8 @@ export function WarrantyPicker({
   onChange,
   compact = false,
   appearance = "outlined",
+  triggerClassName,
+  contentClassName,
 }: {
   valueMonths?: number | null;
   valueText?: string | null;
@@ -69,6 +71,8 @@ export function WarrantyPicker({
   onChange: (value: WarrantyDraftValue) => void;
   compact?: boolean;
   appearance?: "outlined" | "quiet";
+  triggerClassName?: string;
+  contentClassName?: string;
 }) {
   const quiet = appearance === "quiet";
   const normalizedDefault = normalizeWarrantyMonths(defaultMonths);
@@ -105,11 +109,12 @@ export function WarrantyPicker({
             compact ? "h-8 text-xs" : "h-9",
             quiet &&
               "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus:!ring-0 focus-visible:!border-primary/45",
+            triggerClassName,
           )}
         >
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className={contentClassName}>
           {ORDER_WARRANTY_OPTIONS.map((option) => {
             const isDefault = normalizedDefault === option.months;
             return (

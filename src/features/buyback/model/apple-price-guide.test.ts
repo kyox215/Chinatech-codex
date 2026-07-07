@@ -96,7 +96,16 @@ describe("apple price guide", () => {
 
   it("groups models by guided iPhone series", () => {
     const groups = getAppleIPhoneSeriesGroups();
-    expect(groups[0]?.label).toBe("17 / Air");
+    expect(groups.map((group) => group.label)).toEqual([
+      "17 / Air",
+      "16 / 16e",
+      "15",
+      "14",
+      "13",
+      "12",
+      "11 / SE",
+      "X / 8",
+    ]);
     expect(groups.some((group) => group.models.some((model) => model.model === "iPhone 8"))).toBe(
       true,
     );

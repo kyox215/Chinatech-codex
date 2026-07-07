@@ -247,6 +247,8 @@ export function OrderStatusFilterControls({
   subTabs,
   groupValue,
   statusValue,
+  embedded = false,
+  className,
   onGroupChange,
   onStatusChange,
 }: {
@@ -261,6 +263,8 @@ export function OrderStatusFilterControls({
   subTabs: OrderListStatusTab[];
   groupValue: string;
   statusValue: string;
+  embedded?: boolean;
+  className?: string;
   onGroupChange: (value: string) => void;
   onStatusChange: (value: string) => void;
 }) {
@@ -268,10 +272,18 @@ export function OrderStatusFilterControls({
   const activeGroup = groups.find((group) => group.key === groupValue);
 
   return (
-    <div data-order-desktop-flow-filter="true" className={cn(repairOs.mobileInfoCard, "p-2")}>
+    <div
+      data-order-desktop-flow-filter="true"
+      className={cn(embedded ? "min-w-0" : cn(repairOs.mobileInfoCard, "p-2"), className)}
+    >
       <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+          <span
+            className={cn(
+              "grid shrink-0 place-items-center rounded-md bg-primary/10 text-primary",
+              embedded ? "size-7" : "size-6",
+            )}
+          >
             <ListChecks className="size-3" />
           </span>
           <div className="min-w-0">
@@ -301,11 +313,13 @@ export function OrderStatusFilterControls({
               aria-pressed={active}
               onClick={() => onGroupChange(group.key)}
               className={cn(
-                "relative grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-md border px-2 py-1 text-left transition-all",
+                "relative grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-md border py-1 text-left transition-all",
+                embedded ? "px-1.5" : "px-2",
                 active
                   ? "border-primary/40 bg-primary/10 text-foreground shadow-sm"
                   : "border-border/50 bg-surface/65 text-muted-foreground hover:bg-accent/60 hover:text-foreground",
               )}
+              title={`${group.label} · ${group.count}`}
             >
               {active && (
                 <motion.span
@@ -317,23 +331,27 @@ export function OrderStatusFilterControls({
               )}
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-xs font-semibold">{group.label}</span>
-                  <span
-                    className={cn(
-                      "grid size-3.5 shrink-0 place-items-center rounded-full text-[8px] font-semibold tabular-nums",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : tone === "success"
-                          ? "bg-status-success text-status-success-foreground"
-                          : tone === "warn"
-                            ? "bg-status-warn text-status-warn-foreground"
-                            : tone === "progress"
-                              ? "bg-status-progress text-status-progress-foreground"
-                              : "bg-surface-muted",
-                    )}
-                  >
-                    {isAll ? "全" : index}
+                  <span className="truncate text-xs font-semibold">
+                    {embedded && !isAll ? (group.shortLabel ?? group.label) : group.label}
                   </span>
+                  {embedded && isAll ? null : (
+                    <span
+                      className={cn(
+                        "grid size-3.5 shrink-0 place-items-center rounded-full text-[8px] font-semibold tabular-nums",
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : tone === "success"
+                            ? "bg-status-success text-status-success-foreground"
+                            : tone === "warn"
+                              ? "bg-status-warn text-status-warn-foreground"
+                              : tone === "progress"
+                                ? "bg-status-progress text-status-progress-foreground"
+                                : "bg-surface-muted",
+                      )}
+                    >
+                      {isAll ? "全" : index}
+                    </span>
+                  )}
                 </div>
               </div>
               <span className="shrink-0 font-mono text-xs font-semibold leading-none tabular-nums text-foreground">

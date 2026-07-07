@@ -2343,7 +2343,7 @@ function IPhoneSeriesPicker({
         </span>
       </div>
       <div className="-mx-1 overflow-hidden">
-        <div className="grid auto-cols-[minmax(74px,1fr)] grid-flow-col grid-rows-2 gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="grid grid-cols-2 gap-1 px-1 pb-1 sm:grid-cols-4">
           {groups.map((group) => {
             const selected = value === group.key;
             const years = group.models.map((model) => model.releaseYear);

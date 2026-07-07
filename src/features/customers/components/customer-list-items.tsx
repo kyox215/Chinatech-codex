@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Smartphone, Wrench } from "lucide-react";
+import { ArrowUpRight, Mail, Phone, Smartphone, Wrench } from "lucide-react";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,63 @@ const customerTagPriority = new Map([
   ["tag_business", 3],
   ["tag_repeat", 4],
 ]);
+
+function customerInitial(name: string) {
+  return name.trim().slice(0, 1).toUpperCase() || "客";
+}
+
+function CustomerIdentityMark({ name, compact = false }: { name: string; compact?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid shrink-0 place-items-center rounded-lg border border-primary/15 bg-primary/10 font-semibold text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]",
+        compact ? "size-7 text-[11px]" : "size-8 text-xs",
+      )}
+    >
+      {customerInitial(name)}
+    </span>
+  );
+}
+
+function CustomerContactLine({
+  phone,
+  email,
+  compact = false,
+}: {
+  phone: string;
+  email?: string | null;
+  compact?: boolean;
+}) {
+  return (
+    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <span
+        className={cn(
+          "inline-flex max-w-full min-w-0 items-center gap-1 rounded-md border border-primary/10 bg-primary/5 px-1.5 py-0.5 text-primary",
+          compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+        )}
+      >
+        <Phone className={cn("shrink-0", compact ? "size-2.5" : "size-3")} />
+        <PhoneText
+          value={phone}
+          className={cn("min-w-0 truncate text-inherit", compact ? "text-[10px]" : "text-[11px]")}
+        />
+      </span>
+      {email ? (
+        <span
+          className={cn(
+            "inline-flex min-w-0 max-w-full items-center gap-1 text-muted-foreground",
+            compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+          )}
+          title={email}
+        >
+          <Mail className={cn("shrink-0", compact ? "size-2.5" : "size-3")} />
+          <span className="min-w-0 truncate">{email}</span>
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function CustomerCompactTags({
   tags,
@@ -117,7 +174,7 @@ export function CustomerRow({
 
   return (
     <tr
-      className="h-12 cursor-pointer border-b border-border/30 transition-colors hover:bg-accent/30 focus-within:bg-accent/30"
+      className="h-14 cursor-pointer border-b border-border/30 transition-colors hover:bg-accent/30 focus-within:bg-accent/30"
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
       onClick={(event) => {
@@ -134,47 +191,38 @@ export function CustomerRow({
       role="link"
       aria-label={`查看客户 ${customer.name}`}
     >
-      <td className="min-w-0 px-3 py-2">
-        <div className="min-w-0">
-          {onOpenDetail ? (
-            <button
-              type="button"
-              title={customer.name}
-              data-ui="customer-row-name"
-              className="block max-w-full truncate text-left text-xs font-medium hover:text-primary hover:underline"
-              onClick={openDetail}
-            >
-              {customer.name}
-            </button>
-          ) : (
-            <Link
-              href={href}
-              title={customer.name}
-              data-ui="customer-row-name"
-              className="block truncate text-xs font-medium hover:text-primary hover:underline"
-            >
-              {customer.name}
-            </Link>
-          )}
-          <div className="mt-0.5 grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2 text-[11px] text-muted-foreground">
-            <div className="flex min-w-0 items-center gap-2">
-              <PhoneText
-                value={customer.phone_e164}
-                className="block min-w-0 shrink-0 truncate text-[11px]"
-              />
-              {customer.email && (
-                <span className="min-w-0 truncate" title={customer.email}>
-                  {customer.email}
-                </span>
-              )}
-            </div>
-            <span
-              data-ui="customer-row-tag-slot"
-              className="hidden w-[5.5rem] justify-self-end sm:block"
-            >
-              <CustomerCompactTags tags={customer.tags} reserveSlot />
-            </span>
+      <td className="min-w-0 px-3 py-2.5">
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_5.5rem] items-start gap-2.5">
+          <CustomerIdentityMark name={customer.name} />
+          <div className="min-w-0">
+            {onOpenDetail ? (
+              <button
+                type="button"
+                title={customer.name}
+                data-ui="customer-row-name"
+                className="block max-w-full truncate text-left text-sm font-semibold leading-5 text-foreground hover:text-primary hover:underline"
+                onClick={openDetail}
+              >
+                {customer.name}
+              </button>
+            ) : (
+              <Link
+                href={href}
+                title={customer.name}
+                data-ui="customer-row-name"
+                className="block truncate text-sm font-semibold leading-5 text-foreground hover:text-primary hover:underline"
+              >
+                {customer.name}
+              </Link>
+            )}
+            <CustomerContactLine phone={customer.phone_e164} email={customer.email} />
           </div>
+          <span
+            data-ui="customer-row-tag-slot"
+            className="hidden w-[5.5rem] justify-self-end sm:block"
+          >
+            <CustomerCompactTags tags={customer.tags} reserveSlot />
+          </span>
         </div>
       </td>
       <td className="min-w-0 px-2 py-2">
@@ -262,20 +310,23 @@ export function CustomerMobileCard({
           </div>
         }
       >
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 max-[360px]:grid-cols-1">
-          <span
-            data-ui="customer-mobile-name"
-            className={cn(repairOs.cardTitle, "min-w-0 truncate")}
-          >
-            {customer.name}
-          </span>
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 max-[360px]:grid-cols-[auto_minmax(0,1fr)]">
+          <CustomerIdentityMark name={customer.name} compact />
+          <div className="min-w-0">
+            <span
+              data-ui="customer-mobile-name"
+              className={cn(repairOs.cardTitle, "block min-w-0 truncate text-foreground")}
+            >
+              {customer.name}
+            </span>
+            <CustomerContactLine phone={customer.phone_e164} email={customer.email} compact />
+          </div>
           <span className="flex max-w-[6.25rem] shrink-0 justify-end justify-self-end max-[360px]:max-w-full max-[360px]:justify-self-start">
             <span data-ui="customer-mobile-tag-slot">
               <CustomerCompactTags tags={customer.tags} />
             </span>
           </span>
         </div>
-        <PhoneText value={customer.phone_e164} className="block truncate text-[11px] leading-4" />
         <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
           <p className={cn(repairOs.cardMeta, "min-w-0 truncate")}>
             {customer.latest_device_label ?? "暂无设备"}

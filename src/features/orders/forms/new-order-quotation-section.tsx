@@ -62,6 +62,9 @@ export function NewOrderQuotationSection({
   const Shell = "section";
   const controlClass =
     "h-8 rounded-lg border-0 bg-[var(--surface-panel-muted)] text-base leading-none shadow-none focus-visible:ring-1 md:text-[13px]";
+  const serviceSelectTriggerClass =
+    "h-10 rounded-xl border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 text-xs font-medium shadow-none focus:ring-1 focus:ring-ring focus-visible:ring-1";
+  const serviceDropdownContentClass = "z-[90] rounded-xl shadow-[var(--shadow-overlay)]";
   const moneyInputValue = (value: number) => (value === 0 ? "" : String(value));
   const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
   const balance = Math.max(0, total - form.deposit);
@@ -172,11 +175,12 @@ export function NewOrderQuotationSection({
           total={total}
           deposit={form.deposit}
           balance={balance}
+          variant="finance"
           className="mt-1.5"
         />
       </div>
 
-      <div className="min-w-0 space-y-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5">
+      <div className="min-w-0 space-y-2 rounded-xl border border-[var(--border-panel)] bg-card p-2">
         <div className="flex min-w-0 items-center justify-between gap-1.5 px-0.5">
           <div className="min-w-0">
             <div className="truncate text-[10px] font-semibold leading-3 text-foreground">
@@ -192,7 +196,7 @@ export function NewOrderQuotationSection({
           </span>
         </div>
 
-        <div className="grid min-w-0 grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] gap-1.5">
+        <div className="grid min-w-0 grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] gap-2">
           <FormItem label="定金">
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -218,6 +222,8 @@ export function NewOrderQuotationSection({
               reason={form.warrantyChangeReason}
               defaultMonths={defaultWarrantyMonths}
               compact
+              triggerClassName={serviceSelectTriggerClass}
+              contentClassName={serviceDropdownContentClass}
               onChange={(warranty) =>
                 setForm({
                   ...form,
@@ -230,7 +236,7 @@ export function NewOrderQuotationSection({
           </FormItem>
         </div>
 
-        <div className="grid min-w-0 grid-cols-2 gap-1.5">
+        <div className="grid min-w-0 grid-cols-2 gap-2">
           <div
             className="grid min-h-10 min-w-0 content-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5"
             title={operatorName || "当前登录账号"}
@@ -256,6 +262,8 @@ export function NewOrderQuotationSection({
               value={form.accessoryNotes}
               onChange={(accessoryNotes) => setForm({ ...form, accessoryNotes })}
               compact
+              triggerClassName={serviceSelectTriggerClass}
+              contentClassName={serviceDropdownContentClass}
             />
           </div>
           <div className="grid min-w-0 gap-0.5">
@@ -264,10 +272,10 @@ export function NewOrderQuotationSection({
               value={form.type}
               onValueChange={(type) => setForm({ ...form, type: type as RepairOrderType })}
             >
-              <SelectTrigger className="h-9 rounded-lg text-xs">
+              <SelectTrigger className={serviceSelectTriggerClass}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={serviceDropdownContentClass}>
                 {repairOrderType.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type === "quick_repair" ? "快修" : "送修"}
@@ -283,10 +291,10 @@ export function NewOrderQuotationSection({
               value={form.status}
               onValueChange={(value) => setForm({ ...form, status: value })}
             >
-              <SelectTrigger className="h-9 rounded-lg text-xs">
+              <SelectTrigger className={serviceSelectTriggerClass}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={serviceDropdownContentClass}>
                 {createStatuses.map((status) => (
                   <SelectItem key={status.code} value={status.code}>
                     {status.label}

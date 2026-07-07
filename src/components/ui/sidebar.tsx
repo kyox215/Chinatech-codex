@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Menu, PanelLeft } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -263,8 +263,10 @@ Sidebar.displayName = "Sidebar";
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar, isMobile } = useSidebar();
+>(({ className, onClick, title, "aria-label": ariaLabel, ...props }, ref) => {
+  const { toggleSidebar, isMobile, state } = useSidebar();
+  const label = isMobile ? "打开导航菜单" : state === "collapsed" ? "展开侧边栏" : "折叠侧边栏";
+  const Icon = isMobile ? Menu : state === "collapsed" ? PanelLeftOpen : PanelLeftClose;
 
   return (
     <Button
@@ -272,6 +274,8 @@ const SidebarTrigger = React.forwardRef<
       data-sidebar="trigger"
       variant="ghost"
       size="icon"
+      aria-label={ariaLabel ?? label}
+      title={title ?? label}
       className={cn("h-7 w-7", className)}
       onClick={(event) => {
         onClick?.(event);
@@ -279,27 +283,28 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      {isMobile ? <Menu /> : <PanelLeft />}
-      <span className="sr-only">Toggle Sidebar</span>
+      <Icon />
+      <span className="sr-only">{label}</span>
     </Button>
   );
 });
 SidebarTrigger.displayName = "SidebarTrigger";
 
 const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"button">>(
-  ({ className, ...props }, ref) => {
-    const { toggleSidebar } = useSidebar();
+  ({ className, title, "aria-label": ariaLabel, ...props }, ref) => {
+    const { toggleSidebar, state } = useSidebar();
+    const label = state === "collapsed" ? "展开侧边栏" : "折叠侧边栏";
 
     return (
       <button
         ref={ref}
         data-sidebar="rail"
-        aria-label="Toggle Sidebar"
+        aria-label={ariaLabel ?? label}
         tabIndex={-1}
         onClick={toggleSidebar}
-        title="Toggle Sidebar"
+        title={title ?? label}
         className={cn(
-          "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-[side=left]:-right-4 group-data-[side=right]:left-0 sm:flex",
+          "group/rail absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 items-center justify-center transition-all ease-linear after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] hover:after:bg-sidebar-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-data-[side=left]:-right-4 group-data-[side=right]:left-0 md:flex",
           "[[data-side=left]_&]:cursor-w-resize [[data-side=right]_&]:cursor-e-resize",
           "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
           "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full group-data-[collapsible=offcanvas]:hover:bg-sidebar",
@@ -308,7 +313,12 @@ const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"bu
           className,
         )}
         {...props}
-      />
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 hidden h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sidebar-border/0 transition-colors group-hover/rail:bg-sidebar-border group-focus-visible/rail:bg-ring md:block"
+        />
+      </button>
     );
   },
 );

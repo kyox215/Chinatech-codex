@@ -1,5 +1,10 @@
 # ChinaTech RepairDesk 响应式与高密度布局执行计划
 
+Status: active
+Owner: UX + QA + Documentation / Integration Lead
+Scope: current responsive density rules, overflow requirements, desktop/mobile behavior, and validation guidance.
+Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+
 ## Summary
 
 本计划用于把 ChinaTech RepairDesk 全项目改造成稳定的响应式后台系统：
@@ -170,6 +175,16 @@ iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动�
 ```tsx
 "w-[min(1120px,calc(100vw-32px))] max-h-[90vh] overflow-y-auto";
 ```
+
+工作台型弹窗（新建工单、工单详情、客户详情预览等）使用共享 workspace shell，
+桌面端与新建工单保持同一宽度逻辑：
+
+```tsx
+"sm:h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))]";
+```
+
+小型表单、付款、通知、确认类 Dialog 继续使用 `modalSm` / `modalMd` / `formContent`，
+不要被提升成全屏工作台。
 
 工单详情弹窗属于沉浸式工作面，外壳必须固定为 viewport-safe 高度，切换概览、记录、附件库存时不改变 Dialog 尺寸；桌面概览区必须使用 `detailWorkspace.orderDetailGrid`：客户信息、设备故障、报价处理三列同屏；低于桌面宽度时自动降为两列或单列，不能产生页面级横向滚动。
 

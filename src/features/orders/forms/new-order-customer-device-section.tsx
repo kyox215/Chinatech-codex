@@ -1,18 +1,54 @@
 "use client";
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { ChevronDown, ScanLine, Search, Smartphone, UserRound } from "lucide-react";
+import { Check, ChevronDown, ScanLine, Search, Smartphone, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
 import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
 import { CustomerIntakeLookup } from "@/features/orders/forms/customer-intake-lookup";
-import { brandSuggestions, type NewOrderFormState } from "@/features/orders/model/new-order-form";
+import {
+  brandSuggestions,
+  deviceModelSuggestionsForBrand,
+  isAppleDeviceModelSuggestion,
+  type NewOrderFormState,
+} from "@/features/orders/model/new-order-form";
 import type { CustomerHistoryDeviceCandidate, CustomerIntakeCandidate } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+
+type NewOrderCustomerDeviceBaseProps = {
+  form: NewOrderFormState;
+  setForm: Dispatch<SetStateAction<NewOrderFormState>>;
+  surface?: "page" | "dialog";
+};
+
+type NewOrderCustomerSectionProps = NewOrderCustomerDeviceBaseProps & {
+  onClearCustomerContext: () => void;
+  onPickCustomer: (candidate: CustomerIntakeCandidate) => void | Promise<void>;
+  onPickHistoryDevice: (
+    candidate: CustomerIntakeCandidate,
+    device: CustomerHistoryDeviceCandidate,
+  ) => void | Promise<void>;
+};
+
+type NewOrderDeviceSectionProps = NewOrderCustomerDeviceBaseProps & {
+  historyDevices: CustomerHistoryDeviceCandidate[];
+  onSelectHistoryDevice: (device: CustomerHistoryDeviceCandidate) => void;
+};
+
+type NewOrderCustomerDeviceSectionProps = NewOrderCustomerSectionProps & NewOrderDeviceSectionProps;
+
+const visualInputClass =
+  "absolute left-0 top-0 h-12 w-[133.333%] origin-top-left scale-75 border-0 bg-transparent px-0 py-0 font-sans text-base leading-[3rem] text-foreground shadow-none placeholder:text-base placeholder:text-muted-foreground/55 focus-visible:ring-0 md:static md:h-8 md:w-full md:scale-100 md:text-[13px] md:leading-8 md:placeholder:text-[13px]";
 
 export function NewOrderCustomerDeviceSection({
   form,
@@ -23,20 +59,281 @@ export function NewOrderCustomerDeviceSection({
   onPickHistoryDevice,
   onSelectHistoryDevice,
   surface = "page",
-}: {
-  form: NewOrderFormState;
-  setForm: Dispatch<SetStateAction<NewOrderFormState>>;
-  historyDevices: CustomerHistoryDeviceCandidate[];
-  onClearCustomerContext: () => void;
-  onPickCustomer: (candidate: CustomerIntakeCandidate) => void | Promise<void>;
-  onPickHistoryDevice: (
-    candidate: CustomerIntakeCandidate,
-    device: CustomerHistoryDeviceCandidate,
-  ) => void | Promise<void>;
-  onSelectHistoryDevice: (device: CustomerHistoryDeviceCandidate) => void;
-  surface?: "page" | "dialog";
-}) {
-  const shellClass = cn(
+}: NewOrderCustomerDeviceSectionProps) {
+  return (
+    <div data-new-order-section="customer-device" className="grid min-w-0 gap-1.5 sm:gap-3">
+      <NewOrderCustomerSection
+        form={form}
+        setForm={setForm}
+        onClearCustomerContext={onClearCustomerContext}
+        onPickCustomer={onPickCustomer}
+        onPickHistoryDevice={onPickHistoryDevice}
+        surface={surface}
+      />
+      <NewOrderDeviceInfoSection
+        form={form}
+        setForm={setForm}
+        historyDevices={historyDevices}
+        onSelectHistoryDevice={onSelectHistoryDevice}
+        surface={surface}
+      />
+      <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
+    </div>
+  );
+}
+
+export function NewOrderCustomerSection({
+  form,
+  setForm,
+  onClearCustomerContext,
+  onPickCustomer,
+  onPickHistoryDevice,
+  surface = "page",
+}: NewOrderCustomerSectionProps) {
+  const shellClass = getShellClass(surface);
+
+  return (
+    <section data-new-order-section="customer" className={cn(shellClass, "space-y-1.5")}>
+      <OrderWorkspaceSectionHeader
+        icon={UserRound}
+        title="客户信息"
+        description="电话优先匹配客户档案"
+        className="mb-1.5"
+      />
+      <div className="grid min-w-0 gap-1.5">
+        <DensePillField
+          label="电话"
+          required
+          leading={<Search className="size-3.5" />}
+          trailing={<UserRound className="size-3.5 text-primary" />}
+        >
+          <CustomerIntakeLookup
+            value={form.customerPhone}
+            selectedCustomerId={form.customerId}
+            selectedDeviceId={form.deviceId}
+            className={visualInputClass}
+            containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
+            placeholder="搜索电话 / 客户"
+            onChange={(customerPhone) => {
+              onClearCustomerContext();
+              setForm({
+                ...form,
+                customerPhone,
+                customerId: undefined,
+                deviceId: undefined,
+              });
+            }}
+            onPickCustomer={onPickCustomer}
+            onPickHistoryDevice={onPickHistoryDevice}
+          />
+        </DensePillField>
+        <DensePillField label="姓名">
+          <Input
+            value={form.customerName}
+            onChange={(event) =>
+              setForm({ ...form, customerName: event.target.value, customerId: undefined })
+            }
+            className={visualInputClass}
+            placeholder="客户姓名（可选）"
+          />
+        </DensePillField>
+      </div>
+      <p className="mt-1 rounded-lg bg-primary/5 px-2 py-1 text-[9px] leading-3 text-primary">
+        输入电话会即时匹配客户档案与历史维修型号
+      </p>
+    </section>
+  );
+}
+
+export function NewOrderDeviceSection({
+  form,
+  setForm,
+  historyDevices,
+  onSelectHistoryDevice,
+  surface = "page",
+}: NewOrderDeviceSectionProps) {
+  return (
+    <div data-new-order-section="device" className="grid min-w-0 gap-1.5 sm:gap-3">
+      <NewOrderDeviceInfoSection
+        form={form}
+        setForm={setForm}
+        historyDevices={historyDevices}
+        onSelectHistoryDevice={onSelectHistoryDevice}
+        surface={surface}
+      />
+      <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
+    </div>
+  );
+}
+
+export function NewOrderDeviceInfoSection({
+  form,
+  setForm,
+  historyDevices,
+  onSelectHistoryDevice,
+  surface = "page",
+}: NewOrderDeviceSectionProps) {
+  const shellClass = getShellClass(surface);
+  const hasDeviceDraft = Boolean(form.brand.trim() || form.model.trim() || form.imei.trim());
+  const modelSuggestions = deviceModelSuggestionsForBrand(form.brand);
+
+  return (
+    <section data-new-order-section="device-info" className={cn(shellClass, "space-y-1.5")}>
+      <OrderWorkspaceSectionHeader
+        icon={Smartphone}
+        title="设备信息"
+        description="品牌、型号、IMEI 与留存"
+        className="mb-1.5"
+      />
+      {form.customerId && !hasDeviceDraft && historyDevices.length > 0 && (
+        <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5 shadow-[var(--shadow-card)]">
+          <div className="mb-1 flex items-center justify-between gap-2 px-1">
+            <span className="truncate text-[10px] font-bold leading-3 text-muted-foreground">
+              历史维修型号
+            </span>
+            <span className="shrink-0 text-[9px] font-medium leading-3 text-primary">手动选择</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {historyDevices.map((device) => (
+              <button
+                key={device.id}
+                type="button"
+                className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
+                onClick={() => onSelectHistoryDevice(device)}
+              >
+                <span className="block truncate text-[10px] font-bold leading-3">
+                  {device.brand} {device.model}
+                </span>
+                <span className="mt-0.5 block truncate font-mono text-[9px] font-medium leading-3 text-muted-foreground">
+                  {device.serial_or_imei || device.order_public_no || "历史记录"}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="grid min-w-0 gap-1.5">
+        <DensePillField
+          label="品牌"
+          required
+          trailingInteractive
+          trailing={
+            <DenseOptionMenu
+              label="品牌"
+              value={form.brand}
+              options={brandSuggestions}
+              onSelect={(brand) => setForm({ ...form, brand, deviceId: undefined })}
+            />
+          }
+        >
+          <Input
+            value={form.brand}
+            onChange={(event) =>
+              setForm({ ...form, brand: event.target.value, deviceId: undefined })
+            }
+            className={cn(visualInputClass, "pr-10")}
+            placeholder="选择品牌"
+          />
+        </DensePillField>
+        <DensePillField
+          label="型号"
+          required
+          trailingInteractive
+          trailing={
+            <DenseOptionMenu
+              label="型号"
+              value={form.model}
+              options={modelSuggestions}
+              emptyText="暂无预设型号，可直接输入"
+              onSelect={(model) =>
+                setForm({
+                  ...form,
+                  brand: isAppleDeviceModelSuggestion(model) ? "Apple" : form.brand,
+                  model,
+                  deviceId: undefined,
+                })
+              }
+            />
+          }
+        >
+          <Input
+            value={form.model}
+            onChange={(event) => {
+              const model = event.target.value;
+              setForm({
+                ...form,
+                brand:
+                  isAppleDeviceModelSuggestion(model) && modelSuggestions.length > 0
+                    ? "Apple"
+                    : form.brand,
+                model,
+                deviceId: undefined,
+              });
+            }}
+            className={cn(visualInputClass, "pr-10")}
+            placeholder="例如 iPhone 13"
+          />
+        </DensePillField>
+        <DenseScannerBlock label="IMEI">
+          <div className="min-w-0 flex-1">
+            <ImeiScannerField
+              value={form.imei}
+              onChange={(imei) => setForm({ ...form, imei, deviceId: undefined })}
+              placeholder="请输入 IMEI / 序列号"
+              density="compact"
+              appearance="quiet"
+              showPaste={false}
+            />
+          </div>
+          <span className="ml-1 hidden h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[9px] font-medium text-primary min-[430px]:inline-flex">
+            <ScanLine className="size-3.5" />
+            校验
+          </span>
+        </DenseScannerBlock>
+      </div>
+    </section>
+  );
+}
+
+export function NewOrderDeviceUnlockSection({
+  form,
+  setForm,
+  surface = "page",
+}: NewOrderCustomerDeviceBaseProps) {
+  const shellClass = getShellClass(surface);
+
+  return (
+    <section data-new-order-section="device-unlock" className={cn(shellClass, "space-y-1.5")}>
+      <OrderWorkspaceSectionHeader
+        icon={Smartphone}
+        title="手机密码"
+        description="默认隐藏，在线创建时保存"
+        className="mb-1.5"
+      />
+      <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
+        <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+          <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
+            手机密码
+          </Label>
+          <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
+            默认隐藏
+          </span>
+        </div>
+        <DeviceUnlockEditor
+          value={form.deviceUnlock}
+          onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
+          compact
+        />
+        <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
+          本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function getShellClass(surface: "page" | "dialog") {
+  return cn(
     "h-fit min-w-0 p-2 sm:p-3",
     surface === "dialog"
       ? detailWorkspace.flatPanel
@@ -45,171 +342,6 @@ export function NewOrderCustomerDeviceSection({
           "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
         ),
   );
-  const visualInputClass =
-    "absolute left-0 top-0 h-12 w-[133.333%] origin-top-left scale-75 border-0 bg-transparent px-0 py-0 font-sans text-base leading-[3rem] text-foreground shadow-none placeholder:text-base placeholder:text-muted-foreground/55 focus-visible:ring-0 md:static md:h-8 md:w-full md:scale-100 md:text-[13px] md:leading-8 md:placeholder:text-[13px]";
-  const hasDeviceDraft = Boolean(form.brand.trim() || form.model.trim() || form.imei.trim());
-
-  return (
-    <div data-new-order-section="customer-device" className="grid min-w-0 gap-1.5 sm:gap-3">
-      <section className={cn(shellClass, "space-y-1.5")}>
-        <OrderWorkspaceSectionHeader
-          icon={UserRound}
-          title="客户信息"
-          description="电话优先匹配客户档案"
-          className="mb-1.5"
-        />
-        <div className="grid min-w-0 gap-1.5">
-          <DensePillField
-            label="电话"
-            required
-            leading={<Search className="size-3.5" />}
-            trailing={<UserRound className="size-3.5 text-primary" />}
-          >
-            <CustomerIntakeLookup
-              value={form.customerPhone}
-              selectedCustomerId={form.customerId}
-              selectedDeviceId={form.deviceId}
-              className={visualInputClass}
-              containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
-              placeholder="搜索电话 / 客户"
-              onChange={(customerPhone) => {
-                onClearCustomerContext();
-                setForm({
-                  ...form,
-                  customerPhone,
-                  customerId: undefined,
-                  deviceId: undefined,
-                });
-              }}
-              onPickCustomer={onPickCustomer}
-              onPickHistoryDevice={onPickHistoryDevice}
-            />
-          </DensePillField>
-          <DensePillField label="姓名">
-            <Input
-              value={form.customerName}
-              onChange={(event) =>
-                setForm({ ...form, customerName: event.target.value, customerId: undefined })
-              }
-              className={visualInputClass}
-              placeholder="客户姓名（可选）"
-            />
-          </DensePillField>
-        </div>
-        <p className="mt-1 rounded-lg bg-primary/5 px-2 py-1 text-[9px] leading-3 text-primary">
-          输入电话会即时匹配客户档案与历史维修型号
-        </p>
-      </section>
-
-      <section className={cn(shellClass, "space-y-1.5")}>
-        <OrderWorkspaceSectionHeader
-          icon={Smartphone}
-          title="设备信息"
-          description="品牌、型号、IMEI 与留存"
-          className="mb-1.5"
-        />
-        <datalist id="repair-brand-suggestions">
-          {brandSuggestions.map((brand) => (
-            <option key={brand} value={brand} />
-          ))}
-        </datalist>
-        {form.customerId && !hasDeviceDraft && historyDevices.length > 0 && (
-          <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5 shadow-[var(--shadow-card)]">
-            <div className="mb-1 flex items-center justify-between gap-2 px-1">
-              <span className="truncate text-[10px] font-bold leading-3 text-muted-foreground">
-                历史维修型号
-              </span>
-              <span className="shrink-0 text-[9px] font-medium leading-3 text-primary">
-                手动选择
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1">
-              {historyDevices.map((device) => (
-                <button
-                  key={device.id}
-                  type="button"
-                  className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
-                  onClick={() => onSelectHistoryDevice(device)}
-                >
-                  <span className="block truncate text-[10px] font-bold leading-3">
-                    {device.brand} {device.model}
-                  </span>
-                  <span className="mt-0.5 block truncate font-mono text-[9px] font-medium leading-3 text-muted-foreground">
-                    {device.serial_or_imei || device.order_public_no || "历史记录"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="grid min-w-0 gap-1.5">
-          <DensePillField
-            label="品牌"
-            required
-            trailing={<ChevronDown className="size-3.5 text-muted-foreground" />}
-          >
-            <Input
-              list="repair-brand-suggestions"
-              value={form.brand}
-              onChange={(event) =>
-                setForm({ ...form, brand: event.target.value, deviceId: undefined })
-              }
-              className={cn(visualInputClass, "pr-10")}
-              placeholder="选择品牌"
-            />
-          </DensePillField>
-          <DensePillField
-            label="型号"
-            required
-            trailing={<ChevronDown className="size-3.5 text-muted-foreground" />}
-          >
-            <Input
-              value={form.model}
-              onChange={(event) =>
-                setForm({ ...form, model: event.target.value, deviceId: undefined })
-              }
-              className={cn(visualInputClass, "pr-10")}
-              placeholder="例如 iPhone 13"
-            />
-          </DensePillField>
-          <DenseScannerBlock label="IMEI">
-            <div className="min-w-0 flex-1">
-              <ImeiScannerField
-                value={form.imei}
-                onChange={(imei) => setForm({ ...form, imei, deviceId: undefined })}
-                placeholder="请输入 IMEI / 序列号"
-                density="compact"
-                appearance="quiet"
-                showPaste={false}
-              />
-            </div>
-            <span className="ml-1 hidden h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[9px] font-medium text-primary min-[430px]:inline-flex">
-              <ScanLine className="size-3.5" />
-              校验
-            </span>
-          </DenseScannerBlock>
-          <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
-            <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-              <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
-                手机密码
-              </Label>
-              <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
-                默认隐藏
-              </span>
-            </div>
-            <DeviceUnlockEditor
-              value={form.deviceUnlock}
-              onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
-              compact
-            />
-            <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
-              本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
-            </p>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
 }
 
 function DensePillField({
@@ -217,32 +349,104 @@ function DensePillField({
   required,
   leading,
   trailing,
+  trailingInteractive = false,
   children,
 }: {
   label: string;
   required?: boolean;
   leading?: ReactNode;
   trailing?: ReactNode;
+  trailingInteractive?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="rd-new-order-field grid min-h-10 min-w-0 grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1 shadow-[var(--shadow-card)]">
+    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
       <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </Label>
-      <div className="grid h-9 min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-1.5 overflow-hidden">
-        <span className="grid size-4 shrink-0 place-items-center text-muted-foreground">
-          {leading}
-        </span>
+      <div
+        className={cn(
+          "grid h-9 min-w-0 items-center gap-1.5 overflow-hidden",
+          leading ? "grid-cols-[1rem_minmax(0,1fr)]" : "grid-cols-1",
+        )}
+      >
+        {leading ? (
+          <span className="grid size-4 shrink-0 place-items-center text-muted-foreground">
+            {leading}
+          </span>
+        ) : null}
         <div className="relative h-9 min-w-0 flex-1 overflow-hidden">{children}</div>
       </div>
       {trailing ? (
-        <div className="pointer-events-none flex h-8 shrink-0 items-center gap-1 border-l border-[var(--border-panel)] pl-2">
+        <div
+          className={cn(
+            "flex h-9 shrink-0 items-center gap-1 border-l border-[var(--border-panel)] pl-1.5",
+            !trailingInteractive && "pointer-events-none pl-2",
+          )}
+        >
           {trailing}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function DenseOptionMenu({
+  label,
+  value,
+  options,
+  emptyText = "暂无选项",
+  onSelect,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  emptyText?: string;
+  onSelect: (value: string) => void;
+}) {
+  const normalizedValue = value.trim().toLowerCase();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label={`选择${label}`}
+        >
+          <ChevronDown className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        collisionPadding={12}
+        className="z-[90] max-h-72 w-[min(18rem,calc(100vw-24px))] overflow-y-auto rounded-xl p-1 shadow-[var(--shadow-overlay)]"
+      >
+        {options.length ? (
+          options.map((option) => {
+            const selected = option.trim().toLowerCase() === normalizedValue;
+            return (
+              <DropdownMenuItem
+                key={option}
+                onSelect={() => onSelect(option)}
+                className={cn(
+                  "min-h-9 gap-2 rounded-lg px-2.5 py-1.5 text-xs",
+                  selected && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate font-medium">{option}</span>
+                {selected ? <Check className="size-3.5 shrink-0" /> : null}
+              </DropdownMenuItem>
+            );
+          })
+        ) : (
+          <DropdownMenuItem disabled className="min-h-9 rounded-lg px-2.5 py-1.5 text-xs">
+            {emptyText}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
 import { Bell, Search, ShieldCheck, Store } from "lucide-react";
@@ -10,13 +10,8 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { appShell, brandGradientStyle, controls } from "@/lib/ui-patterns";
-import {
-  getActiveWorkspaceItem,
-  getShellPrimaryAction,
-  routeLabels,
-} from "@/shared/config/navigation";
-import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
+import { appShell } from "@/lib/ui-patterns";
+import { getActiveWorkspaceItem, routeLabels } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
 
 function useCrumbs() {
@@ -42,20 +37,10 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 8));
   const crumbs = useCrumbs();
   const pathname = usePathname() ?? "/";
-  const router = useRouter();
   const shell = useStoreShellContext();
   const activeModule = getActiveWorkspaceItem(pathname, shell.isPlatformAdmin);
-  const primaryAction = getShellPrimaryAction(pathname, shell.isPlatformAdmin);
   const hideOnMobile = usesRepairOsMobileHeader(pathname);
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
-
-  const handlePrimaryAction = () => {
-    runRepairDeskShellAction(primaryAction, {
-      pathname,
-      push: (href) => router.push(href),
-      openCommand: onOpenCommand,
-    });
-  };
 
   return (
     <motion.header
@@ -139,20 +124,6 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
             <span className="size-1.5 shrink-0 rounded-full bg-status-success-foreground" />
           ) : null}
         </Link>
-
-        <Button
-          type="button"
-          size="sm"
-          className={cn("hidden h-9 gap-1.5 sm:inline-flex", controls.brandButton)}
-          style={brandGradientStyle}
-          onClick={handlePrimaryAction}
-          aria-label={primaryAction.label}
-        >
-          <primaryAction.icon className="size-4" />
-          <span className="hidden xl:inline">
-            {primaryAction.shortLabel ?? primaryAction.label}
-          </span>
-        </Button>
       </div>
     </motion.header>
   );

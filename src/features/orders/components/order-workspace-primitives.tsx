@@ -6,6 +6,7 @@ import { MoneyText } from "@/components/orders/badges";
 import { cn } from "@/lib/utils";
 
 export type OrderWorkspaceMoneyTone = "neutral" | "info" | "success" | "warning" | "danger";
+export type OrderWorkspaceMoneyStripVariant = "status" | "finance";
 
 const moneyToneClass: Record<OrderWorkspaceMoneyTone, string> = {
   neutral: "border-[var(--border-panel)] bg-card text-foreground",
@@ -52,6 +53,7 @@ export function OrderWorkspaceMoneyStrip({
   className,
   itemClassName,
   compact = false,
+  variant = "status",
 }: {
   total: number;
   deposit: number;
@@ -59,7 +61,25 @@ export function OrderWorkspaceMoneyStrip({
   className?: string;
   itemClassName?: string;
   compact?: boolean;
+  variant?: OrderWorkspaceMoneyStripVariant;
 }) {
+  const financeVariant = variant === "finance";
+  const totalTone: OrderWorkspaceMoneyTone = financeVariant
+    ? "info"
+    : total > 0
+      ? "info"
+      : "neutral";
+  const depositTone: OrderWorkspaceMoneyTone =
+    deposit > total ? "danger" : financeVariant ? "success" : deposit > 0 ? "warning" : "neutral";
+  const balanceTone: OrderWorkspaceMoneyTone =
+    balance <= 0 && total > 0
+      ? "success"
+      : financeVariant
+        ? "warning"
+        : balance > 0
+          ? "warning"
+          : "neutral";
+
   return (
     <div
       data-order-workspace-money-strip="true"
@@ -68,24 +88,27 @@ export function OrderWorkspaceMoneyStrip({
       <OrderWorkspaceMoneyTile
         label="总额"
         amount={total}
-        tone={total > 0 ? "info" : "neutral"}
+        tone={totalTone}
         strong
         compact={compact}
+        emphasizeTone={financeVariant}
         className={itemClassName}
       />
       <OrderWorkspaceMoneyTile
         label="定金"
         amount={deposit}
-        tone={deposit > total ? "danger" : deposit > 0 ? "warning" : "neutral"}
+        tone={depositTone}
         compact={compact}
+        emphasizeTone={financeVariant}
         className={itemClassName}
       />
       <OrderWorkspaceMoneyTile
         label="尾款"
         amount={balance}
-        tone={balance <= 0 && total > 0 ? "success" : balance > 0 ? "warning" : "neutral"}
+        tone={balanceTone}
         strong={balance > 0}
         compact={compact}
+        emphasizeTone={financeVariant}
         className={itemClassName}
       />
     </div>
@@ -98,6 +121,7 @@ export function OrderWorkspaceMoneyTile({
   tone = "neutral",
   strong,
   compact = false,
+  emphasizeTone = false,
   className,
 }: {
   label: ReactNode;
@@ -105,6 +129,7 @@ export function OrderWorkspaceMoneyTile({
   tone?: OrderWorkspaceMoneyTone;
   strong?: boolean;
   compact?: boolean;
+  emphasizeTone?: boolean;
   className?: string;
 }) {
   return (
@@ -113,6 +138,7 @@ export function OrderWorkspaceMoneyTile({
         "min-w-0 rounded-lg border px-1.5 py-1",
         moneyToneClass[tone],
         compact && "rounded-md px-2 py-1",
+        emphasizeTone && "shadow-[inset_0_1px_0_color-mix(in_oklch,currentColor_12%,transparent)]",
         className,
       )}
     >
@@ -130,7 +156,7 @@ export function OrderWorkspaceMoneyTile({
         className={cn(
           "mt-0.5 block truncate font-mono font-semibold leading-4 tabular-nums",
           compact ? "text-xs" : "text-[11px]",
-          strong && "text-foreground",
+          strong && !emphasizeTone && "text-foreground",
         )}
       />
     </div>

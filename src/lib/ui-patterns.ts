@@ -59,9 +59,9 @@ export const overlayShell = {
   scroll: "max-h-[calc(100svh-24px)] overflow-y-auto",
   body: "min-w-0 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4",
   detailWorkspace:
-    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-48px)] sm:max-h-[calc(100svh-48px)] sm:w-[min(1000px,calc(100vw-56px))] sm:max-w-[calc(100vw-56px)] lg:w-[min(1000px,calc(100vw-96px))] lg:max-w-[calc(100vw-96px)]",
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   orderDetailWorkspace:
-    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-48px)] sm:max-h-[calc(100svh-48px)] sm:w-[min(1080px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)] min-[1200px]:w-[min(1120px,calc(100vw-48px))] min-[1200px]:max-w-[calc(100vw-48px)] xl:w-[min(1160px,calc(100vw-64px))] xl:max-w-[calc(100vw-64px)] 2xl:w-[min(1200px,calc(100vw-96px))] 2xl:max-w-[calc(100vw-96px)]",
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   formWorkspace:
     "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
 } as const;

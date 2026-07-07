@@ -599,6 +599,17 @@ describe("mock order inline editing workflow", () => {
     expect(matches.some((order) => order.id === id)).toBe(true);
   });
 
+  it("keeps customer name blank when a new order is created without one", async () => {
+    const id = await createMockOrder({
+      customer_name: undefined,
+      customer_phone: "+39 333 571 9865",
+    });
+
+    const detail = await getOrder(id);
+    expect(detail.customer?.name).toBe("");
+    expect(detail.order.customer_name).toBe("");
+  });
+
   it("replaces backup phones during full order edits", async () => {
     const id = await createMockOrder({
       customer_phone: "+39 366 100 200 / +39 366 300 400",

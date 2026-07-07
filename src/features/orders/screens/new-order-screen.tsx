@@ -41,7 +41,11 @@ import type {
   CustomerIntakeCandidate,
   FaultPriceItem,
 } from "@/lib/repairdesk/api";
-import { NewOrderCustomerDeviceSection } from "@/features/orders/forms/new-order-customer-device-section";
+import {
+  NewOrderDeviceInfoSection,
+  NewOrderDeviceUnlockSection,
+  NewOrderCustomerSection,
+} from "@/features/orders/forms/new-order-customer-device-section";
 import { NewOrderFaultDiagnosisSection } from "@/features/orders/forms/new-order-fault-diagnosis-section";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
@@ -51,6 +55,9 @@ import {
   type NewOrderOfflineDraftPrompt,
 } from "@/features/orders/api/use-new-order-offline-autosave";
 import {
+  customerLabelForNewOrder,
+  customerNameForNewOrder,
+  customerNameValueForCreateOrder,
   initialNewOrderForm,
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
@@ -184,11 +191,13 @@ export function NewOrderScreen({
   }, []);
 
   const handlePickCustomer = useCallback((candidate: CustomerIntakeCandidate) => {
+    const customerName = customerNameForNewOrder(candidate.customer);
+    const customerLabel = customerLabelForNewOrder(candidate.customer);
     setHistoryDevices(candidate.historyDevices);
     setForm((current) => ({
       ...current,
       customerId: candidate.customer.id,
-      customerName: candidate.customer.name,
+      customerName,
       customerPhone: candidate.customer.phone_e164,
       deviceId: undefined,
       brand: "",
@@ -198,18 +207,19 @@ export function NewOrderScreen({
     }));
     toast.success(
       candidate.historyDevices.length
-        ? `已选择客户 ${candidate.customer.name}，请选择历史维修型号`
-        : `已选择客户 ${candidate.customer.name}`,
+        ? `已选择客户 ${customerLabel}，请选择历史维修型号`
+        : `已选择客户 ${customerLabel}`,
     );
   }, []);
 
   const handlePickHistoryDevice = useCallback(
     (candidate: CustomerIntakeCandidate, device: CustomerHistoryDeviceCandidate) => {
+      const customerName = customerNameForNewOrder(candidate.customer);
       setHistoryDevices(candidate.historyDevices);
       setForm((current) => ({
         ...current,
         customerId: candidate.customer.id,
-        customerName: candidate.customer.name,
+        customerName,
         customerPhone: candidate.customer.phone_e164,
         deviceId: device.source === "customer_device" ? device.device_id : undefined,
         brand: device.brand,
@@ -252,10 +262,12 @@ export function NewOrderScreen({
           ? candidates.find((device) => device.device_id === preferredDeviceId)
           : undefined;
         setHistoryDevices(candidates);
+        const customerName = customerNameForNewOrder(detail.customer);
+        const customerLabel = customerLabelForNewOrder(detail.customer);
         setForm((current) => ({
           ...current,
           customerId: detail.customer.id,
-          customerName: detail.customer.name,
+          customerName,
           customerPhone: detail.customer.phone_e164,
           ...(selectedDevice
             ? {
@@ -278,8 +290,8 @@ export function NewOrderScreen({
         }));
         toast.success(
           selectedDevice
-            ? `已从客户档案带入：${detail.customer.name} / ${selectedDevice.brand} ${selectedDevice.model}`
-            : `已从客户档案带入：${detail.customer.name}`,
+            ? `已从客户档案带入：${customerLabel} / ${selectedDevice.brand} ${selectedDevice.model}`
+            : `已从客户档案带入：${customerLabel}`,
         );
         applyPrefillIdentifier();
       })
@@ -299,7 +311,7 @@ export function NewOrderScreen({
         order_type: form.type,
         status: form.status,
         customer_id: form.customerId,
-        customer_name: form.customerName.trim() || `客户 ${form.customerPhone.trim()}`,
+        customer_name: customerNameValueForCreateOrder(form),
         customer_phone: form.customerPhone,
         device_id: form.deviceId,
         device_brand: form.brand,
@@ -508,21 +520,27 @@ export function NewOrderScreen({
             "2xl:grid-cols-[minmax(300px,0.88fr)_minmax(430px,1.18fr)_minmax(280px,0.82fr)]",
           )}
         >
-          <div className="min-w-0">
-            <NewOrderCustomerDeviceSection
+          <div className="grid min-w-0 gap-1.5 sm:gap-3">
+            <NewOrderCustomerSection
               form={form}
               setForm={setForm}
-              historyDevices={historyDevices}
               onClearCustomerContext={() => setHistoryDevices([])}
               onPickCustomer={handlePickCustomer}
               onPickHistoryDevice={handlePickHistoryDevice}
+              surface={surface}
+            />
+            <NewOrderDeviceInfoSection
+              form={form}
+              setForm={setForm}
+              historyDevices={historyDevices}
               onSelectHistoryDevice={selectHistoryDevice}
               surface={surface}
             />
           </div>
 
-          <div className="min-w-0">
+          <div className="grid min-w-0 gap-1.5 sm:gap-3">
             <NewOrderFaultDiagnosisSection form={form} setForm={setForm} surface={surface} />
+            <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
           </div>
 
           <div className="min-w-0">

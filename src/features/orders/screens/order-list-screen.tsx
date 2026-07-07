@@ -10,17 +10,7 @@ import {
 } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Download,
-  Filter,
-  ListChecks,
-  Plus,
-  Printer,
-  Search,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Download, Filter, Plus, Printer, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,7 +67,6 @@ import {
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import {
   getCommonWorkflowTargets,
-  getWorkflowNextActions,
   getWorkflowStatusLabel,
   getWorkflowStatuses,
   type OrderListStatusTab,
@@ -121,15 +110,6 @@ type ActiveFilterChip = {
   key: string;
   label: string;
 };
-
-const queueMetricToneClass = {
-  primary: "border-primary/25 bg-primary/10 text-primary",
-  success:
-    "border-status-success-foreground/25 bg-status-success/10 text-status-success-foreground",
-  warn: "border-status-warn-foreground/25 bg-status-warn/10 text-status-warn-foreground",
-  danger: "border-status-danger-foreground/25 bg-status-danger/10 text-status-danger-foreground",
-  neutral: "border-border/55 bg-surface/70 text-foreground",
-} as const;
 
 export function OrderListScreen() {
   const [statusGroup, setStatusGroup] = useState<"all" | SimpleOrderFlowStageKey>("all");
@@ -324,20 +304,6 @@ export function OrderListScreen() {
   const isPageOutOfRange = Boolean(
     listResult && listResult.total > 0 && !listResult.items.length && page > pageCount,
   );
-  const activeStageLabel = statusGroups.find((group) => group.key === statusGroup)?.label ?? "全部";
-  const pageQueueMetrics = useMemo(() => {
-    const exceptionCount = data.filter(
-      (order) => order.exception_status || order.approval_overdue || order.pickup_overdue,
-    ).length;
-    const unpaidCount = data.filter((order) => !order.is_paid || order.balance_amount > 0).length;
-    const quickActionCount = data.filter((order) => {
-      const next = getWorkflowNextActions(workflow, order.status);
-      return [next.primary, ...next.secondary].some(
-        (action) => action && !orderTransitionRequiresReason(action.to),
-      );
-    }).length;
-    return { exceptionCount, quickActionCount, unpaidCount };
-  }, [data, workflow]);
 
   const invalidate = (orderId?: string) => {
     invalidateOrderReadCaches(queryClient, orderId);
@@ -563,8 +529,10 @@ export function OrderListScreen() {
   const statusGroupItems = statusGroups.map((group) => ({
     key: group.key,
     label: group.label,
+    shortLabel: group.shortLabel,
     count: group.count,
     hint: group.hint,
+    tone: group.tone,
   }));
 
   return (
@@ -597,8 +565,17 @@ export function OrderListScreen() {
         onCreateOrder={() => setNewOrderOpen(true)}
       />
 
-      <div className="hidden md:block">
+      {/* Desktop stage and search toolbar */}
+      <div
+        data-order-desktop-unified-toolbar="true"
+        className={cn(
+          repairOs.mobileInfoCard,
+          "mb-3 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 md:flex lg:flex-row lg:items-end xl:items-center",
+        )}
+      >
         <OrderStatusFilterControls
+          embedded
+          className="min-w-0 lg:flex-[1_1_520px] xl:flex-[1_1_560px]"
           groups={statusGroupItems}
           subTabs={statusSubTabs}
           groupValue={statusGroup}
@@ -606,16 +583,13 @@ export function OrderListScreen() {
           onGroupChange={handleStatusGroupChange}
           onStatusChange={handleStatusCodeChange}
         />
-      </div>
 
-      {/* Toolbar */}
-      <div
-        className={cn(
-          repairOs.mobileInfoCard,
-          "mb-4 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 sm:gap-3 sm:p-3 md:flex",
-        )}
-      >
-        <div className={cn(layoutGuards.wrapRow, "items-stretch")}>
+        <div
+          className={cn(
+            layoutGuards.wrapRow,
+            "min-w-0 items-stretch lg:flex-[1_1_420px] lg:justify-end xl:flex-nowrap",
+          )}
+        >
           <div className="relative min-w-0 flex-[1_1_260px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -705,16 +679,6 @@ export function OrderListScreen() {
           </div>
         )}
       </div>
-
-      <DesktopQueueHealthStrip
-        stageLabel={activeStageLabel}
-        totalOrders={totalOrders}
-        pageTotal={data.length}
-        activeFilterCount={activeFilterChips.length}
-        unpaidCount={pageQueueMetrics.unpaidCount}
-        exceptionCount={pageQueueMetrics.exceptionCount}
-        quickActionCount={pageQueueMetrics.quickActionCount}
-      />
 
       {/* List */}
       <div className="pb-8">
@@ -909,10 +873,7 @@ export function OrderListScreen() {
         <DialogContent
           data-order-detail-dialog-shell="true"
           showCloseButton={false}
-          className={cn(
-            componentOverlay.orderDetailWorkspace,
-            "sm:h-[calc(100svh-56px)] sm:max-h-[calc(100svh-56px)]",
-          )}
+          className={componentOverlay.orderDetailWorkspace}
         >
           <DialogHeader className="sr-only">
             <DialogTitle>工单详情</DialogTitle>
@@ -927,89 +888,6 @@ export function OrderListScreen() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function DesktopQueueHealthStrip({
-  stageLabel,
-  totalOrders,
-  pageTotal,
-  activeFilterCount,
-  unpaidCount,
-  exceptionCount,
-  quickActionCount,
-}: {
-  stageLabel: string;
-  totalOrders: number;
-  pageTotal: number;
-  activeFilterCount: number;
-  unpaidCount: number;
-  exceptionCount: number;
-  quickActionCount: number;
-}) {
-  const metrics = [
-    {
-      label: "当前队列",
-      value: `${stageLabel} · ${totalOrders}`,
-      hint: `本页 ${pageTotal} 条${activeFilterCount ? ` · ${activeFilterCount} 个筛选` : ""}`,
-      icon: ListChecks,
-      tone: "primary" as const,
-    },
-    {
-      label: "待处理风险",
-      value: `${unpaidCount} 未结 · ${exceptionCount} 异常`,
-      hint: exceptionCount
-        ? "先处理超期/异常"
-        : unpaidCount
-          ? "先看尾款和未收款"
-          : "当前队列风险较低",
-      icon: AlertTriangle,
-      tone: exceptionCount
-        ? ("danger" as const)
-        : unpaidCount
-          ? ("warn" as const)
-          : ("neutral" as const),
-    },
-    {
-      label: "可直接处理",
-      value: `${quickActionCount} 条`,
-      hint: "不需要补充原因的下一步",
-      icon: CheckCircle2,
-      tone: quickActionCount ? ("success" as const) : ("neutral" as const),
-    },
-  ];
-
-  return (
-    <div
-      data-order-desktop-health-strip="true"
-      className="mb-3 hidden min-w-0 grid-cols-3 gap-2 lg:grid"
-    >
-      {metrics.map((metric) => {
-        const Icon = metric.icon;
-        return (
-          <div
-            key={metric.label}
-            className={cn(
-              "min-w-0 rounded-lg border px-2.5 py-2 shadow-sm",
-              queueMetricToneClass[metric.tone],
-            )}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="grid size-7 shrink-0 place-items-center rounded-md bg-current/10">
-                <Icon className="size-3.5" />
-              </span>
-              <div className="min-w-0">
-                <div className="truncate text-[10px] font-semibold uppercase tracking-wide opacity-75">
-                  {metric.label}
-                </div>
-                <div className="truncate text-sm font-semibold leading-5">{metric.value}</div>
-              </div>
-            </div>
-            <div className="mt-1 truncate text-[11px] leading-4 opacity-75">{metric.hint}</div>
-          </div>
-        );
-      })}
     </div>
   );
 }

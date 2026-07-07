@@ -46,10 +46,14 @@ export function AccessoryNotesPicker({
   value,
   onChange,
   compact = false,
+  triggerClassName,
+  contentClassName,
 }: {
   value?: string | null;
   onChange: (value: string) => void;
   compact?: boolean;
+  triggerClassName?: string;
+  contentClassName?: string;
 }) {
   const parsed = parseAccessoryNotes(value);
   const customSelected = parsed.selected.includes("其他");
@@ -71,6 +75,8 @@ export function AccessoryNotesPicker({
         onChange={updateSelection}
         placeholder="选择留存物品"
         compact={compact}
+        className={triggerClassName}
+        contentClassName={contentClassName}
         exclusiveValues={["无"]}
         renderSummary={(selectedOptions) => {
           if (!selectedOptions.length) return "选择留存物品";

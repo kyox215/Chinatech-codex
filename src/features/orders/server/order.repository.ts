@@ -2643,7 +2643,7 @@ export async function createOrder(
   } else {
     const name = input.customer_name?.trim();
     const phone = input.customer_phone?.trim();
-    if (!name || !phone) throw new Error("客户姓名和手机号不能为空");
+    if (!phone) throw new Error("客户手机号不能为空");
     const phoneBook = normalizePhoneBook(phone);
     const raw = phoneBook.primaryRaw;
     if (!raw) throw new Error("手机号格式不正确");
@@ -2671,7 +2671,7 @@ export async function createOrder(
       const { error } = await supabase.from("customers").insert({
         id: customerId,
         store_id: storeId,
-        name,
+        name: name ?? "",
         phone_e164: phoneBook.primary,
         phone_raw: raw,
         contact_phones: phoneBook.contacts,

@@ -29,6 +29,8 @@ import {
   orderWorkflowMeta,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
+import { getWorkflowNextActions } from "@/features/orders/model/order-workflow";
+import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
   buildDashboardWorkInsight,
   type DashboardWorkInsight,
@@ -36,7 +38,11 @@ import {
 import { fadeUp, stagger } from "@/lib/motion";
 import { statusGroups } from "@/lib/mock/enums";
 import { CACHE_TIMES } from "@/lib/query-performance";
-import { getDashboardSummary, type OrderListItem } from "@/lib/repairdesk/api";
+import {
+  getDashboardSummary,
+  getOrderQueueSummary,
+  type OrderListItem,
+} from "@/lib/repairdesk/api";
 import {
   RepairOsBusinessCard,
   RepairOsInfoTile,
@@ -48,6 +54,7 @@ import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 const RECENT_PAGE_SIZE = 6;
+const QUEUE_OVERVIEW_PAGE_SIZE = 50;
 
 const quickModules = [
   {
@@ -110,6 +117,15 @@ export function DashboardScreen() {
     queryFn: ({ signal }) => getDashboardSummary({ pageSize: RECENT_PAGE_SIZE }, { signal }),
     staleTime: CACHE_TIMES.stats,
   });
+  const queueOverviewQuery = useQuery({
+    queryKey: ordersKeys.queueSummary(
+      { page: 1, pageSize: QUEUE_OVERVIEW_PAGE_SIZE },
+      activeStoreId,
+    ),
+    queryFn: ({ signal }) =>
+      getOrderQueueSummary({ page: 1, pageSize: QUEUE_OVERVIEW_PAGE_SIZE }, { signal }),
+    staleTime: CACHE_TIMES.hotList,
+  });
 
   const recentOrders = useMemo(
     () => dashboardQuery.data?.recentOrders.items ?? [],
@@ -132,6 +148,25 @@ export function DashboardScreen() {
     .filter((order) => order.is_paid)
     .reduce((sum, order) => sum + order.quotation_amount, 0);
   const hasError = dashboardQuery.isError || Boolean(dashboardQuery.data?.partialErrors);
+  const queueOverviewItems = queueOverviewQuery.data?.list.items ?? recentOrders;
+  const quickActionCount = useMemo(() => {
+    const workflow = queueOverviewQuery.data?.workflow;
+    if (!workflow) return 0;
+    return queueOverviewItems.filter((order) => {
+      const next = getWorkflowNextActions(workflow, order.status);
+      return [next.primary, ...next.secondary].some(
+        (action) => action && !orderTransitionRequiresReason(action.to),
+      );
+    }).length;
+  }, [queueOverviewItems, queueOverviewQuery.data?.workflow]);
+  const queueOverview = {
+    totalOrders: queueOverviewQuery.data?.list.total ?? stats.total,
+    pageTotal: queueOverviewQuery.data?.list.items.length ?? recentOrders.length,
+    unpaidCount: stats.unpaid,
+    exceptionCount: stats.approvalOverdue + stats.pickupOverdue,
+    quickActionCount,
+    isLoading: queueOverviewQuery.isLoading && !queueOverviewQuery.data,
+  };
 
   const mobileMetrics = [
     { label: "总工单", value: stats.total, hint: "当前门店", icon: ClipboardList, tone: "blue" },
@@ -252,6 +287,10 @@ export function DashboardScreen() {
           <WorkInsightCard insight={workInsight} />
         </motion.section>
 
+        <motion.section variants={fadeUp}>
+          <QueueOverviewSection overview={queueOverview} />
+        </motion.section>
+
         <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
           <motion.section variants={fadeUp} className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
             <RepairOsSectionHeader
@@ -328,6 +367,109 @@ export function DashboardScreen() {
         </motion.section>
       </motion.div>
     </RepairOsListScaffold>
+  );
+}
+
+interface QueueOverview {
+  totalOrders: number;
+  pageTotal: number;
+  unpaidCount: number;
+  exceptionCount: number;
+  quickActionCount: number;
+  isLoading: boolean;
+}
+
+function QueueOverviewSection({ overview }: { overview: QueueOverview }) {
+  const metrics = [
+    {
+      label: "当前队列",
+      value: `全部 · ${overview.totalOrders}`,
+      hint: `首屏 ${overview.pageTotal} 条工单`,
+      icon: ClipboardList,
+      tone: "info" as Tone,
+    },
+    {
+      label: "待处理风险",
+      value: `${overview.unpaidCount} 未结 · ${overview.exceptionCount} 异常`,
+      hint: overview.exceptionCount
+        ? "先处理超期/异常"
+        : overview.unpaidCount
+          ? "先看尾款和未收款"
+          : "当前队列风险较低",
+      icon: AlertTriangle,
+      tone: overview.exceptionCount
+        ? ("danger" as Tone)
+        : overview.unpaidCount
+          ? ("warn" as Tone)
+          : ("neutral" as Tone),
+    },
+    {
+      label: "可直接处理",
+      value: `${overview.quickActionCount} 条`,
+      hint: "不需要补充原因的下一步",
+      icon: CheckCircle2,
+      tone: overview.quickActionCount ? ("success" as Tone) : ("neutral" as Tone),
+    },
+  ];
+
+  return (
+    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
+      <RepairOsSectionHeader
+        title="工单队列概览"
+        description="队列风险和可直接推进事项"
+        action={
+          <Button asChild variant="ghost" size="sm" className="h-8 shrink-0 gap-1 px-2 text-xs">
+            <Link href="/orders">
+              打开队列
+              <ArrowUpRight className="size-3" />
+            </Link>
+          </Button>
+        }
+      />
+      <div className="mt-3 grid min-w-0 gap-2 md:grid-cols-3">
+        {metrics.map((metric) => (
+          <QueueOverviewCard key={metric.label} metric={metric} isLoading={overview.isLoading} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function QueueOverviewCard({
+  metric,
+  isLoading,
+}: {
+  metric: {
+    label: string;
+    value: string;
+    hint: string;
+    icon: LucideIcon;
+    tone: Tone;
+  };
+  isLoading: boolean;
+}) {
+  const toneClass = toneClasses[metric.tone];
+  return (
+    <div className={cn("min-w-0 rounded-xl border px-2.5 py-2 shadow-sm", toneClass.card)}>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-md", toneClass.icon)}>
+          <metric.icon className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/75">
+            {metric.label}
+          </div>
+          {isLoading ? (
+            <Skeleton className="mt-1 h-4 w-20" />
+          ) : (
+            <div className={cn("truncate text-sm font-semibold leading-5", toneClass.value)}>
+              {metric.value}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-1 truncate text-[11px] leading-4 text-muted-foreground">{metric.hint}</div>
+    </div>
   );
 }
 

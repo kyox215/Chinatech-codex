@@ -1523,8 +1523,8 @@ export async function createOrder(
     customer.contact_phones = customerContactPhones;
   }
   if (!customer) {
-    if (!input.customer_name?.trim() || !input.customer_phone?.trim()) {
-      throw new Error("客户姓名和手机号不能为空");
+    if (!input.customer_phone?.trim()) {
+      throw new Error("客户手机号不能为空");
     }
     const phoneBook = normalizePhoneBook(input.customer_phone);
     const raw = phoneBook.primaryRaw;
@@ -1533,7 +1533,7 @@ export async function createOrder(
     if (!customer) {
       customer = {
         id: mockId("cus_new"),
-        name: input.customer_name.trim(),
+        name: input.customer_name?.trim() ?? "",
         phone_raw: raw,
         phone_e164: phoneBook.primary,
         contact_phones: phoneBook.contacts,
