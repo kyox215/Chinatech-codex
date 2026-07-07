@@ -60,7 +60,7 @@
 优先 import：
 
 ```tsx
-import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-patterns";
+import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patterns";
 ```
 
 ### 3.1 RepairOS Compact 移动业务页
@@ -69,14 +69,14 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 
 结构固定：
 
-1. 桌面端可保留紧凑标题；移动端不重复模块标题，不做大 hero。
+1. 桌面端和移动端都不重复模块标题，不做大 hero；模块名称、面包屑和店铺上下文由 `AppBar` / 移动悬浮头负责。
 2. 搜索/扫码/筛选工具条高度控制在 44px 左右。
 3. KPI 使用 2-3 个小卡片，不占满首屏。
 4. 状态筛选使用横向 chips。
 5. 主体使用高密度业务卡片，一屏目标 4-7 条。
 6. 桌面端使用固定侧边栏；移动端使用同一套侧边栏抽屉，默认收纳，由 AppBar 左侧菜单按钮打开。
 7. 移动端禁止再新增底部模块导航，避免与侧边栏重复；导航项统一来自 `src/shared/config/navigation.ts`。
-8. 移动端进入模块后，不再重复显示页面内部大标题区；内容从 KPI、工具条、chips 或业务卡片开始。
+8. 进入模块后，不再重复显示页面内部大标题区；内容从 KPI、工具条、chips 或业务卡片开始。
 9. 扫码和拍照作为全局工具，由悬浮 `+` 或模块工具条触发。
 10. 移动端悬浮 `+` 和快捷操作 Sheet 必须复用 `repairOs.floatingAction`、`repairOs.quickSheet`、`repairOs.quickAction*`；第一项展示当前模块主动作，其余才是扫码、拍照、搜索等全局工具。
 11. 移动端详情页和高频工作流页面必须使用 RepairOS Floating Card：`repairOs.mobileFloatingPage` + `repairOs.mobileFloatingHeader*` + `repairOs.mobileInfoCard`，顶部是一张圆角悬浮工作卡，不再使用整屏横线分割的固定顶栏。
@@ -100,7 +100,7 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 
 使用 `pageShell.list`，结构固定：
 
-1. Header：`pageHeader.root`。
+1. 不生成页内模块标题块；不要在正文里重复 `工作台 / ...`、模块名或总数副标题。
 2. KPI / 快捷筛选：一行可换行 pill。
 3. Toolbar：`surfaces.toolbar`，包含搜索、筛选、导出、分段 Tabs。
 4. Desktop：表格。
@@ -165,7 +165,7 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 | 导出                 | 用途                                                               |
 | -------------------- | ------------------------------------------------------------------ |
 | `pageShell`          | 页面最大宽度、padding、详情/表单/列表容器                          |
-| `pageHeader`         | 页面标题区、eyebrow、title、subtitle、actions                      |
+| `pageHeader`         | 对象详情、表单或特殊工作区标题；列表/管理模块正文禁止用它重复 AppBar |
 | `surfaces`           | `glass-card`、toolbar、sticky action、empty、popover               |
 | `controls`           | 品牌按钮、搜索框、分段按钮                                         |
 | `dataDisplay`        | KPI grid、chart grid、table、mobile cards、number                  |
@@ -175,23 +175,12 @@ import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-pa
 | `iconSizes`          | 统一图标尺寸                                                       |
 | `brandGradientStyle` | 品牌渐变 style 对象                                                |
 
-示例：
+列表 / 管理页示例：
 
 ```tsx
 <div className={pageShell.list}>
-  <header className={pageHeader.root}>
-    <div>
-      <p className={pageHeader.eyebrow}>工作台 / 客户</p>
-      <h1 className={pageHeader.title}>
-        <span className="gradient-text">客户</span>
-      </h1>
-      <p className={pageHeader.subtitle}>客户资料、设备和历史工单。</p>
-    </div>
-    <div className={pageHeader.actions}>
-      <Button style={brandGradientStyle}>新建客户</Button>
-    </div>
-  </header>
   <div className={surfaces.toolbar}>...</div>
+  <section className={repairOs.cardList}>...</section>
 </div>
 ```
 
@@ -243,10 +232,8 @@ Mutation 成功后至少 invalidate 当前资源和相关统计。例如创建/�
 
 ```tsx
 import type { Metadata } from "next";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { brandGradientStyle, pageHeader, pageShell, surfaces } from "@/lib/ui-patterns";
-import { fadeUp, stagger } from "@/lib/motion";
+import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patterns";
 
 export const metadata: Metadata = {
   title: "示例",
@@ -256,25 +243,11 @@ export const metadata: Metadata = {
 export default function ExamplePage() {
   return (
     <div className={pageShell.wide}>
-      <motion.header
-        variants={stagger(0.05)}
-        initial="hidden"
-        animate="show"
-        className={pageHeader.root}
-      >
-        <motion.div variants={fadeUp}>
-          <p className={pageHeader.eyebrow}>工作台 / 示例</p>
-          <h1 className={pageHeader.title}>
-            <span className="gradient-text">示例</span>
-          </h1>
-          <p className={pageHeader.subtitle}>页面说明写业务价值，不写使用教程。</p>
-        </motion.div>
-        <motion.div variants={fadeUp} className={pageHeader.actions}>
-          <Button style={brandGradientStyle}>主要操作</Button>
-        </motion.div>
-      </motion.header>
-
+      <div className={surfaces.toolbar}>
+        <Button style={brandGradientStyle}>主要操作</Button>
+      </div>
       <section className={surfaces.section}>...</section>
+      <section className={repairOs.cardList}>...</section>
     </div>
   );
 }
@@ -283,7 +256,7 @@ export default function ExamplePage() {
 ## 9. 视觉验收清单
 
 - 页面容器是否使用 `pageShell.*`。
-- 主标题是否使用 `font-display` 或 `pageHeader.title`。
+- 列表/管理模块正文是否没有重复 AppBar 的模块标题、面包屑和总数副标题。
 - 主 CTA 是否使用 `brandGradientStyle`。
 - 是否没有新硬编码颜色。
 - 是否复用 `StatusBadge`、`MoneyText`、`PhoneText`。

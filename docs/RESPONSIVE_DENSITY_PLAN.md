@@ -242,6 +242,7 @@ iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动�
 - 右侧数字不换行
 - 移动订单列表卡片采用订单详情小卡片密度：紧凑模式一屏 4-7 张，富摘要模式一屏 3-4 张。富摘要模式可使用 `p-2.5/p-3`、`gap-2`、`space-y-2`，标签 9-10px，正文 11-12px，主编号 14px，支付摘要主金额 16px；金额集中在支付信息区域右对齐、等宽数字、不换行。列表卡内部最多一个维修项目淡色块和一个支付摘要淡色块，不得把客户、设备、维修、支付都做成独立 bordered panel。
 - 移动详情页的卡片密度以 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md) 为准；列表卡可以更压缩，但字号、金额层级和语义色不得与详情页冲突。
+- 列表 / 管理模块正文不得再显示重复 AppBar 的大标题块，例如 `工作台 / 客户`、`客户管理`、`全部 · 共 ...`；首屏应直接进入 KPI、工具条、chips 或业务列表。
 
 ## Shared Pattern Updates
 
@@ -544,6 +545,7 @@ expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLess
 
 - 代码复用 `src/lib/ui-patterns.ts` / `src/lib/component-patterns.ts` 中的响应式声明。
 - 没有新增硬编码颜色或临时布局 hack。
+- 正文没有重复 AppBar 的模块标题、面包屑或总数副标题。
 - 390、768、1024、1440 viewport 下无页面横向滚动。
 - 数据加载、空态、错误态不撑宽。
 - 弹窗、Dropdown、Popover 不超出 viewport。

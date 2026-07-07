@@ -335,16 +335,12 @@ export function RepairOsListScaffold({
   const offsetStyle = {
     "--repair-os-list-header-offset": `${headerHeight + 8}px`,
   } as CSSProperties;
+  const desktopActions = desktopAction ?? action;
   const resolvedDesktopHeader =
     desktopHeader ??
-    (title || subtitle || eyebrow || action ? (
+    (desktopActions || desktopHeaderAddon ? (
       <div className="mb-3 space-y-3 sm:mb-4">
-        <RepairOsModuleHeader
-          eyebrow={eyebrow}
-          title={title}
-          subtitle={subtitle}
-          action={desktopAction ?? action}
-        />
+        {desktopActions ? <div className="flex min-w-0 justify-end">{desktopActions}</div> : null}
         {desktopHeaderAddon}
       </div>
     ) : null);
