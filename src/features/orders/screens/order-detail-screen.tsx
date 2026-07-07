@@ -506,7 +506,7 @@ export function OrderDetailScreen({
         className={cn(
           "min-w-0 max-w-full space-y-3 overflow-x-clip",
           surface === "page"
-            ? "mx-auto w-full max-w-7xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
+            ? "mx-auto w-full max-w-[1200px] px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
             : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
         )}
       >
@@ -527,7 +527,7 @@ export function OrderDetailScreen({
         className={cn(
           "min-w-0 max-w-full space-y-3 overflow-x-clip",
           surface === "page"
-            ? "mx-auto w-full max-w-7xl px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
+            ? "mx-auto w-full max-w-[1200px] px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
             : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
         )}
       >
@@ -574,7 +574,7 @@ export function OrderDetailScreen({
       className={cn(
         "relative min-w-0 max-w-full overflow-x-clip",
         surface === "page"
-          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-7xl md:px-6"
+          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1200px] md:px-6"
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
@@ -732,6 +732,7 @@ export function OrderDetailScreen({
               storeSettings={storeSettings}
               supplier={supplier}
               events={events}
+              messages={messages}
               workflow={workflow}
               onShowRecords={scrollToDesktopRecords}
               photoAttachments={photoAttachments}

@@ -889,8 +889,8 @@ export function OrderListScreen() {
           data-order-detail-dialog-shell="true"
           showCloseButton={false}
           className={cn(
-            componentOverlay.detailWorkspace,
-            "sm:h-[calc(100svh-56px)] sm:max-h-[calc(100svh-56px)] sm:w-[min(1000px,calc(100vw-56px))] sm:max-w-[calc(100vw-56px)] lg:w-[min(1000px,calc(100vw-96px))] lg:max-w-[calc(100vw-96px)]",
+            componentOverlay.orderDetailWorkspace,
+            "sm:h-[calc(100svh-56px)] sm:max-h-[calc(100svh-56px)]",
           )}
         >
           <DialogHeader className="sr-only">

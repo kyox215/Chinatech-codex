@@ -8,6 +8,7 @@ const desktopQueueViewports = [
   { width: 1024, height: 768 },
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
+  { width: 1536, height: 900 },
 ] as const;
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for order desktop UI audit.");
@@ -76,7 +77,7 @@ test.describe("order desktop UI audit", () => {
       await expectRectInsideViewport(
         page.locator('[data-order-detail-dialog-shell="true"]'),
         "工单详情桌面弹窗外壳",
-        { minWidth: Math.min(920, viewport.width - 96) },
+        detailDialogWidthBounds(viewport.width),
       );
       await expectFirstVisible(
         detail.locator('[data-order-desktop-status-card="true"]'),
@@ -102,6 +103,10 @@ test.describe("order desktop UI audit", () => {
       await expectFirstVisible(
         detail.locator('[data-order-detail-main-grid="true"]'),
         "工单桌面主网格",
+      );
+      await expectFirstVisible(
+        detail.locator('[data-order-detail-secondary-grid="true"]'),
+        "工单桌面第二排摘要网格",
       );
       await expectFirstVisible(
         detail.locator('[data-order-action-dock="true"]'),
@@ -353,6 +358,13 @@ async function expectDesktopQueueGrid(locator: Locator, label: string, width: nu
   expect(columns, `${label} desktop column count`).toBeGreaterThanOrEqual(7);
 }
 
+function detailDialogWidthBounds(width: number) {
+  if (width >= 1536) return { minWidth: 1160, maxWidth: 1200 };
+  if (width >= 1440) return { minWidth: 1120, maxWidth: 1160 };
+  if (width >= 1280) return { minWidth: 1080, maxWidth: 1120 };
+  return { minWidth: Math.min(960, width - 48), maxWidth: width - 32 };
+}
+
 async function expectNoLocalHorizontalScroll(locator: Locator, label: string) {
   const result = await locator.evaluate((element) => ({
     scrollWidth: element.scrollWidth,
@@ -390,6 +402,7 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
     await expectRectInsideViewport(detail.locator(`[data-order-panel="${panel}"]`), label, {
       checkVertical: false,
       minWidth,
+      ...(panel === "photos" && width >= 1280 ? { maxWidth: 500 } : {}),
     });
   }
 }
@@ -429,10 +442,8 @@ async function expectInlineEditWorkspace(
     (element) =>
       window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
   );
-  const expectedColumns = route.includes("direct detail") && width <= 1024 ? 2 : 3;
-  expect(columns, `${route} main edit grid columns at ${width}px`).toBeGreaterThanOrEqual(
-    expectedColumns,
-  );
+  const expectedColumns = width >= 1280 ? 3 : 2;
+  expect(columns, `${route} main edit grid columns at ${width}px`).toBe(expectedColumns);
   expect(
     await mainGrid.locator('[data-order-panel="photos"]').count(),
     `${route} photos are not squeezed into the main edit grid`,
@@ -630,6 +641,10 @@ async function expectDirectDesktopDetailPage(page: Page, width: number) {
     detail.locator('[data-order-detail-main-grid="true"]'),
     "直达详情主网格",
   );
+  await expectFirstVisible(
+    detail.locator('[data-order-detail-secondary-grid="true"]'),
+    "直达详情第二排摘要网格",
+  );
   await expectFirstVisible(detail.locator('[data-order-action-dock="true"]'), "直达详情动作工作区");
   await expectFirstVisible(
     detail.locator('[data-order-action-money-strip="true"]'),
@@ -790,7 +805,7 @@ async function expectDesktopRecordsWorkspace(detail: Locator, width: number, lab
 async function expectRectInsideViewport(
   locator: Locator,
   label: string,
-  options: { checkVertical?: boolean; minWidth?: number } = {},
+  options: { checkVertical?: boolean; minWidth?: number; maxWidth?: number } = {},
 ) {
   const count = await locator.count();
   for (let index = 0; index < count; index += 1) {
@@ -823,6 +838,11 @@ async function expectRectInsideViewport(
     if (options.minWidth) {
       expect(rect.width, `${label} readable width: ${JSON.stringify(rect)}`).toBeGreaterThanOrEqual(
         options.minWidth,
+      );
+    }
+    if (options.maxWidth) {
+      expect(rect.width, `${label} bounded width: ${JSON.stringify(rect)}`).toBeLessThanOrEqual(
+        options.maxWidth,
       );
     }
     return;

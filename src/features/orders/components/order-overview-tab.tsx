@@ -11,6 +11,7 @@ import {
   CreditCard,
   History,
   Image as ImageIcon,
+  MessageCircle,
   Plus,
   Send,
   Signature,
@@ -112,6 +113,7 @@ export function OrderOverviewTab({
   storeSettings,
   supplier,
   events = [],
+  messages = [],
   workflow,
   onShowRecords,
   photoAttachments = [],
@@ -138,6 +140,7 @@ export function OrderOverviewTab({
   storeSettings?: StoreSettings;
   supplier?: Supplier;
   events?: OrderDetail["events"];
+  messages?: OrderDetail["messages"];
   workflow?: OrderWorkflow;
   onShowRecords?: () => void;
   photoAttachments?: OrderAttachment[];
@@ -186,8 +189,8 @@ export function OrderOverviewTab({
           className={cn(
             "grid min-w-0 gap-2 md:grid-cols-2",
             surface === "dialog"
-              ? "lg:grid-cols-[minmax(220px,0.88fr)_minmax(330px,1.28fr)_minmax(260px,1fr)]"
-              : "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.15fr)] xl:grid-cols-[minmax(240px,0.88fr)_minmax(360px,1.2fr)_minmax(280px,0.92fr)]",
+              ? detailWorkspace.orderDetailGrid
+              : "lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
           )}
         >
           <CustomerPanel order={order} customer={customer} edit={edit} surface={surface} />
@@ -213,12 +216,36 @@ export function OrderOverviewTab({
             surface={surface}
           />
         </div>
-        <DesktopOrderPhotosPanel
-          attachments={photoAttachments}
-          uploadPending={photoUploadPending}
-          onCapture={onPhotoCapture}
-          surface={surface}
-        />
+        <div
+          data-order-detail-secondary-grid="true"
+          className={cn(
+            "grid min-w-0 gap-2 md:grid-cols-2",
+            surface === "dialog"
+              ? detailWorkspace.orderDetailSecondaryGrid
+              : "lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
+          )}
+        >
+          <OrderKeyInfoCard
+            order={order}
+            supplier={supplier}
+            surface={surface}
+            className="h-full"
+          />
+          <DesktopOrderPhotosPanel
+            attachments={photoAttachments}
+            uploadPending={photoUploadPending}
+            onCapture={onPhotoCapture}
+            surface={surface}
+            className="h-full"
+          />
+          <DesktopRecordsSummaryPanel
+            events={events}
+            messages={messages}
+            workflow={workflow}
+            surface={surface}
+            onShowRecords={onShowRecords}
+          />
+        </div>
       </div>
     </motion.div>
   );
@@ -354,10 +381,10 @@ export function OrderDetailActionDock({
       <div
         className={cn(
           "mx-auto min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]/95 p-2 shadow-[var(--shadow-overlay)] backdrop-blur-xl",
-          surface === "dialog" ? "w-full" : "w-full max-w-7xl",
+          surface === "dialog" ? "w-full" : "w-full max-w-[1200px]",
         )}
       >
-        <div className="grid min-w-0 gap-1.5 xl:grid-cols-[minmax(0,1fr)_minmax(290px,auto)] xl:items-center">
+        <div className="grid min-w-0 gap-1.5 min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(290px,auto)] min-[1200px]:items-center">
           <div
             data-order-action-money-strip="true"
             className="grid min-w-0 gap-1.5 overflow-hidden rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1 sm:grid-cols-[minmax(0,1fr)_minmax(140px,auto)]"
@@ -477,6 +504,108 @@ export function OrderKeyInfoCard({
   );
 }
 
+function DesktopRecordsSummaryPanel({
+  events,
+  messages,
+  workflow,
+  surface,
+  onShowRecords,
+}: {
+  events: OrderDetail["events"];
+  messages: OrderDetail["messages"];
+  workflow?: OrderWorkflow;
+  surface: DetailSurface;
+  onShowRecords?: () => void;
+}) {
+  const latestEvent = events[0];
+  const latestMessage = messages[0];
+  const latestEventLabel = latestEvent
+    ? getLatestEventSummary(latestEvent, workflow)
+    : "暂无时间线记录";
+  const latestEventMeta = latestEvent
+    ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name}`
+    : "状态、收款、附件和审批会记录在这里";
+  const latestMessageText = latestMessage?.message_body?.trim() || "暂无通知记录";
+  const latestMessageMeta = latestMessage
+    ? `${latestMessage.channel === "whatsapp" ? "WhatsApp" : "短信"} · ${formatDateTime(
+        latestMessage.sent_at,
+      )}`
+    : "通知发送后会显示最近沟通";
+
+  return (
+    <DetailPanel surface={surface} dataPanel="records-summary" className="h-full">
+      <PanelHeader
+        title="记录摘要"
+        action={
+          onShowRecords ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              onClick={onShowRecords}
+            >
+              记录
+            </Button>
+          ) : null
+        }
+      />
+      <div className="grid min-w-0 gap-1.5">
+        <CompactSummaryRow
+          icon={History}
+          label="最近时间线"
+          value={latestEventLabel}
+          meta={latestEventMeta}
+          count={events.length}
+        />
+        <CompactSummaryRow
+          icon={MessageCircle}
+          label="通知历史"
+          value={latestMessageText}
+          meta={latestMessageMeta}
+          count={messages.length}
+        />
+      </div>
+    </DetailPanel>
+  );
+}
+
+function CompactSummaryRow({
+  icon: Icon,
+  label,
+  value,
+  meta,
+  count,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  meta: string;
+  count: number;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/65 px-2 py-1.5">
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+        <Icon className="size-3.5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[10px] font-medium text-muted-foreground">
+          {label}
+        </span>
+        <span className="block truncate text-xs font-semibold" title={value}>
+          {value}
+        </span>
+        <span className="block truncate text-[10px] leading-3 text-muted-foreground/80">
+          {meta}
+        </span>
+      </span>
+      <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+        {count}
+      </span>
+    </div>
+  );
+}
+
 function OrderOverviewFinancePanel({
   order,
   isEditing,
@@ -565,11 +694,13 @@ function DesktopOrderPhotosPanel({
   uploadPending,
   onCapture,
   surface,
+  className,
 }: {
   attachments: OrderAttachment[];
   uploadPending: boolean;
   onCapture?: () => void;
   surface: DetailSurface;
+  className?: string;
 }) {
   const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
   const previews = attachments.slice(0, 3);
@@ -583,7 +714,7 @@ function DesktopOrderPhotosPanel({
   }, [attachments, photoPreviewId]);
 
   return (
-    <DetailPanel surface={surface} dataPanel="photos">
+    <DetailPanel surface={surface} dataPanel="photos" className={className}>
       <PanelHeader
         title="设备照片"
         action={
@@ -603,7 +734,7 @@ function DesktopOrderPhotosPanel({
       <div
         className={cn(
           "grid min-w-0 gap-1.5",
-          surface === "dialog" ? "grid-cols-4" : "grid-cols-2 lg:grid-cols-4",
+          surface === "dialog" ? "grid-cols-3" : "grid-cols-2 lg:grid-cols-3",
         )}
       >
         {previews.map((attachment) => (
@@ -625,8 +756,7 @@ function DesktopOrderPhotosPanel({
           type="button"
           className={cn(
             "grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60",
-            attachments.length >= 2 &&
-              (surface === "dialog" ? "" : "col-span-2 lg:col-span-1 xl:col-span-2"),
+            attachments.length >= 2 && (surface === "dialog" ? "" : "col-span-2 lg:col-span-1"),
           )}
           disabled={uploadPending || !onCapture}
           onClick={onCapture}

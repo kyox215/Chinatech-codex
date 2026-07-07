@@ -60,6 +60,8 @@ export const overlayShell = {
   body: "min-w-0 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4",
   detailWorkspace:
     "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-48px)] sm:max-h-[calc(100svh-48px)] sm:w-[min(1000px,calc(100vw-56px))] sm:max-w-[calc(100vw-56px)] lg:w-[min(1000px,calc(100vw-96px))] lg:max-w-[calc(100vw-96px)]",
+  orderDetailWorkspace:
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-48px)] sm:max-h-[calc(100svh-48px)] sm:w-[min(1080px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)] min-[1200px]:w-[min(1120px,calc(100vw-48px))] min-[1200px]:max-w-[calc(100vw-48px)] xl:w-[min(1160px,calc(100vw-64px))] xl:max-w-[calc(100vw-64px)] 2xl:w-[min(1200px,calc(100vw-96px))] 2xl:max-w-[calc(100vw-96px)]",
   formWorkspace:
     "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
 } as const;
@@ -77,7 +79,9 @@ export const detailWorkspace = {
     "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 shadow-none sm:p-3",
   compactDetailGrid: "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
   orderDetailGrid:
-    "lg:grid-cols-[minmax(220px,0.9fr)_minmax(300px,1.15fr)_minmax(240px,0.85fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(360px,1.15fr)_minmax(280px,0.9fr)]",
+    "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
+  orderDetailSecondaryGrid:
+    "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
 } as const;
 
 export const surfaces = {
