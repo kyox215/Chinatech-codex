@@ -94,6 +94,13 @@ import {
   type SimpleOrderFlowStageKey,
 } from "@/features/orders/model/order-simple-flow";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import {
+  invalidateOrderReadCaches,
+  isOrderVersionConflict,
+  patchOrderReadCaches,
+  restoreOrderReadCaches,
+  snapshotOrderReadCaches,
+} from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -333,9 +340,7 @@ export function OrderListScreen() {
   }, [data, workflow]);
 
   const invalidate = (orderId?: string) => {
-    queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-    queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
-    if (orderId) queryClient.invalidateQueries({ queryKey: ordersKeys.detail(orderId) });
+    invalidateOrderReadCaches(queryClient, orderId);
   };
 
   const bulk = useMutation({
@@ -356,7 +361,17 @@ export function OrderListScreen() {
         expected_updated_at: order.updated_at,
         changes: { parts_supplier_id: supplierId },
       }),
-    onSuccess: (_, vars) => {
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: ordersKeys.all });
+      const snapshot = snapshotOrderReadCaches(queryClient, vars.order.id);
+      patchOrderReadCaches(queryClient, vars.order.id, { parts_supplier_id: vars.supplierId });
+      return { snapshot };
+    },
+    onSuccess: (result, vars) => {
+      patchOrderReadCaches(queryClient, vars.order.id, {
+        parts_supplier_id: vars.supplierId,
+        updated_at: result.updated_at,
+      });
       const supplierName =
         options.suppliers.find((supplier) => supplier.id === vars.supplierId)?.short_name ??
         options.suppliers.find((supplier) => supplier.id === vars.supplierId)?.name;
@@ -365,7 +380,13 @@ export function OrderListScreen() {
       );
       invalidate(vars.order.id);
     },
-    onError: (error) => {
+    onError: (error, vars, context) => {
+      restoreOrderReadCaches(queryClient, context?.snapshot);
+      if (isOrderVersionConflict(error)) {
+        invalidate(vars.order.id);
+        toast.error("工单已被更新，已刷新最新数据，请确认后重新选择供应商");
+        return;
+      }
       toast.error(error instanceof Error ? error.message : "保存配件供应商失败");
     },
   });

@@ -152,6 +152,7 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import {
@@ -265,9 +266,7 @@ export function OrderDetailScreen({
   });
 
   const invalidate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });
-    queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-    queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
+    invalidateOrderReadCaches(queryClient, id);
     queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
   }, [id, queryClient]);
 

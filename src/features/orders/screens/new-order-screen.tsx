@@ -58,6 +58,7 @@ import { formatWarrantyText, warrantyReasonRequired } from "@/features/orders/mo
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { formatMoney } from "@/lib/money";
@@ -315,8 +316,7 @@ export function NewOrderScreen({
       }),
     onSuccess: ({ id }) => {
       void offlineDraft.discardCurrentDraft();
-      queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
+      invalidateOrderReadCaches(queryClient, id);
       queryClient.invalidateQueries({ queryKey: ordersKeys.options() });
       queryClient.invalidateQueries({ queryKey: customersKeys.all });
       toast.success("工单已创建");

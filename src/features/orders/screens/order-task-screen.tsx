@@ -47,6 +47,7 @@ import {
   getOrderTransitionReasonConfig,
 } from "@/features/orders/model/order-transition-reasons";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { getOrder, listOrderWorkflow, transitionOrder } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -100,9 +101,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     : (guidance?.tone ?? "info");
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });
-    queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-    queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
+    invalidateOrderReadCaches(queryClient, id);
   };
 
   const transition = useMutation({
