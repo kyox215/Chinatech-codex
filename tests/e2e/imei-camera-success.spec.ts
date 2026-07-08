@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import { fakeCameraImeiValue } from "./support/imei-fake-camera-video";
 
 const enabled = process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1";
-const screenshotDir = "screenshots/TASK-20260709-002-imei-candidate-selection";
+const screenshotDir = "screenshots/TASK-20260709-003-imei-overlay-selection";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for IMEI fake-camera checks.");
 

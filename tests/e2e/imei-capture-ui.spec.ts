@@ -6,7 +6,7 @@ const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
-const screenshotDir = "screenshots/TASK-20260709-002-imei-candidate-selection";
+const screenshotDir = "screenshots/TASK-20260709-003-imei-overlay-selection";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for IMEI capture UI checks.");
 
@@ -43,11 +43,12 @@ test("new order IMEI capture handles camera fallback and numeric OCR candidates"
   );
   await expect(captureDialog.getByRole("button", { name: /490154203237518/ })).toBeVisible();
   await expect(captureDialog.getByRole("button", { name: /356938035643809/ })).toBeVisible();
+  await expect(captureDialog.getByRole("button", { name: "选择画面候选 2" })).toBeVisible();
   await captureDialog.screenshot({
     path: getScreenshotPath(testInfo.project.name, "upload-candidates"),
   });
 
-  await captureDialog.getByRole("button", { name: /356938035643809/ }).click();
+  await captureDialog.getByRole("button", { name: "选择画面候选 2" }).click();
   await captureDialog.getByRole("button", { name: "使用选择的编号" }).click();
 
   await expect(captureDialog).toHaveCount(0);
@@ -63,11 +64,31 @@ async function installCaptureMocks(page: Page) {
       value: undefined,
     });
 
+    class RepairDeskBarcodeDetectorMock {
+      async detect() {
+        return [
+          {
+            rawValue: "IMEI1: 490154203237518",
+            boundingBox: { x: 0.12, y: 0.22, width: 0.72, height: 0.08 },
+          },
+          {
+            rawValue: "IMEI2: 356938035643809",
+            boundingBox: { x: 0.18, y: 0.44, width: 0.64, height: 0.08 },
+          },
+        ];
+      }
+    }
+
     class RepairDeskTextDetectorMock {
       async detect() {
         return [{ rawValue: "490154203237518" }, { rawValue: "356938035643809" }];
       }
     }
+
+    Object.defineProperty(window, "BarcodeDetector", {
+      configurable: true,
+      value: RepairDeskBarcodeDetectorMock,
+    });
 
     Object.defineProperty(window, "TextDetector", {
       configurable: true,

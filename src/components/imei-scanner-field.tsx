@@ -25,6 +25,31 @@ import { cn } from "@/lib/utils";
 
 type CommitSource = "manual" | "paste" | "scan" | "clear";
 type ImeiScannerFieldDensity = "default" | "compact";
+type ImeiCaptureBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+type ImeiBarcodeDetection = {
+  rawValue: string;
+  box?: ImeiCaptureBox;
+};
+type ImeiSelectableCandidate = ImeiCandidate & {
+  box?: ImeiCaptureBox;
+  overlayIndex?: number;
+};
+type ImeiCapturePreview = {
+  src: string;
+  alt: string;
+};
+type ImeiRecognitionResult = {
+  text: string;
+  source: ImeiCaptureSource;
+  detections?: ImeiBarcodeDetection[];
+  preview?: ImeiCapturePreview;
+  previewCleanup?: () => void;
+};
 
 const imeiImageMaxBytes = 8 * 1024 * 1024;
 const imeiBarcodeDecodeTimeoutMs = 2500;
@@ -73,12 +98,14 @@ export function ImeiScannerField({
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [warning, setWarning] = useState("");
   const [captureError, setCaptureError] = useState("");
-  const [captureCandidates, setCaptureCandidates] = useState<ImeiCandidate[]>([]);
+  const [captureCandidates, setCaptureCandidates] = useState<ImeiSelectableCandidate[]>([]);
+  const [capturePreview, setCapturePreview] = useState<ImeiCapturePreview | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState("");
   const [scannerManualValue, setScannerManualValue] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const capturePreviewCleanupRef = useRef<(() => void) | null>(null);
   const scannerRunIdRef = useRef(0);
   const onChangeRef = useRef(onChange);
   const lastStartScannerTokenRef = useRef(startScannerToken);
@@ -88,10 +115,30 @@ export function ImeiScannerField({
     captureCandidates.find((candidate) => candidate.id === selectedCandidateId) ??
     captureCandidates[0] ??
     null;
+  const hasOverlayCandidates = captureCandidates.some((candidate) => candidate.box);
+  const shouldShowCaptureViewport =
+    Boolean(capturePreview) ||
+    isStarting ||
+    isCameraActive ||
+    captureCandidates.length > 0 ||
+    !captureError;
+  const captureViewportClassName = cn(
+    "w-full object-cover sm:aspect-[4/3] sm:h-auto sm:max-h-[38svh]",
+    captureCandidates.length > 0 ? "h-[24svh] min-h-40 max-h-56" : "h-[30svh] min-h-44 max-h-72",
+  );
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  const replaceCapturePreview = useCallback(
+    (preview: ImeiCapturePreview | null, cleanup?: () => void) => {
+      capturePreviewCleanupRef.current?.();
+      capturePreviewCleanupRef.current = cleanup ?? null;
+      setCapturePreview(preview);
+    },
+    [],
+  );
 
   const stopScanner = useCallback(() => {
     scannerRunIdRef.current += 1;
@@ -104,10 +151,19 @@ export function ImeiScannerField({
   const resetCaptureState = useCallback(() => {
     setCaptureError("");
     setCaptureCandidates([]);
+    replaceCapturePreview(null);
     setSelectedCandidateId("");
     setScannerManualValue("");
     setIsImageProcessing(false);
-  }, []);
+  }, [replaceCapturePreview]);
+
+  useEffect(
+    () => () => {
+      capturePreviewCleanupRef.current?.();
+      capturePreviewCleanupRef.current = null;
+    },
+    [],
+  );
 
   const commitCandidate = useCallback(
     (candidate: ImeiCandidate) => {
@@ -122,29 +178,44 @@ export function ImeiScannerField({
   );
 
   const handleCapturedText = useCallback(
-    (rawValue: string, source: ImeiCaptureSource) => {
+    (
+      rawValue: string,
+      source: ImeiCaptureSource,
+      options: Pick<ImeiRecognitionResult, "detections" | "preview" | "previewCleanup"> = {},
+    ) => {
       const candidates = extractImeiCandidates(rawValue, {
         source,
         includeGenericSerial: true,
       });
 
       if (candidates.length === 0) {
+        if (options.preview) {
+          replaceCapturePreview(options.preview, options.previewCleanup);
+        }
         setCaptureError("未识别到可用编号。请重拍、上传更清晰照片，或手动输入。");
         stopScanner();
         return;
       }
 
-      const selectableCandidates = candidates.map((candidate, index) => ({
-        ...candidate,
-        id: `${candidate.kind}:${candidate.value}:${index}`,
-      }));
+      const selectableCandidates = candidates.map((candidate, index) => {
+        const detection = findDetectionForCandidate(candidate, options.detections, index);
+        return {
+          ...candidate,
+          id: `${candidate.kind}:${candidate.value}:${index}`,
+          box: detection?.box,
+          overlayIndex: detection?.box ? index + 1 : undefined,
+        };
+      });
       const preferred = getPreferredImeiCandidate(selectableCandidates);
+      if (options.preview) {
+        replaceCapturePreview(options.preview, options.previewCleanup);
+      }
       setCaptureCandidates(selectableCandidates);
       setSelectedCandidateId(preferred?.id ?? selectableCandidates[0]?.id ?? "");
       setCaptureError(getCaptureCandidatesMessage(selectableCandidates));
       stopScanner();
     },
-    [stopScanner],
+    [replaceCapturePreview, stopScanner],
   );
 
   const commitValue = useCallback((rawValue: string, source: CommitSource) => {
@@ -184,11 +255,12 @@ export function ImeiScannerField({
       setIsImageProcessing(true);
       setCaptureError("");
       setCaptureCandidates([]);
+      replaceCapturePreview(null);
       setSelectedCandidateId("");
 
       try {
         const recognition = await recognizeTextFromImageFile(file);
-        handleCapturedText(recognition.text, recognition.source);
+        handleCapturedText(recognition.text, recognition.source, recognition);
       } catch (error) {
         const message = getImageRecognitionErrorMessage(error);
         setCaptureError(message);
@@ -197,7 +269,7 @@ export function ImeiScannerField({
         setIsImageProcessing(false);
       }
     },
-    [handleCapturedText, stopScanner],
+    [handleCapturedText, replaceCapturePreview, stopScanner],
   );
 
   const handleCurrentFrameCapture = useCallback(async () => {
@@ -212,13 +284,17 @@ export function ImeiScannerField({
     setIsImageProcessing(true);
     setCaptureError("");
     setCaptureCandidates([]);
+    replaceCapturePreview(null);
     setSelectedCandidateId("");
 
     try {
-      const image = await createImageElementFromVideoFrame(video);
+      const frame = await createImageElementFromVideoFrame(video);
       stopScanner();
-      const recognition = await recognizeTextFromImageElement(image);
-      handleCapturedText(recognition.text, recognition.source);
+      const recognition = await recognizeTextFromImageElement(frame.image);
+      handleCapturedText(recognition.text, recognition.source, {
+        ...recognition,
+        preview: frame.preview,
+      });
     } catch (error) {
       const message = getImageRecognitionErrorMessage(error);
       setCaptureError(message);
@@ -226,7 +302,46 @@ export function ImeiScannerField({
     } finally {
       setIsImageProcessing(false);
     }
-  }, [handleCapturedText, stopScanner]);
+  }, [handleCapturedText, replaceCapturePreview, stopScanner]);
+
+  const handleCameraDecodeResult = useCallback(
+    async (rawValue: string) => {
+      const video = videoRef.current;
+      if (!video) {
+        handleCapturedText(rawValue, "camera");
+        return;
+      }
+
+      try {
+        const frame = await createImageElementFromVideoFrame(video);
+        const detections = await withImageRecognitionTimeout(
+          detectBarcodeValuesFromImageElement(frame.image),
+          imeiBarcodeDecodeTimeoutMs,
+          "条码识别超时",
+        ).catch((): ImeiBarcodeDetection[] => []);
+
+        handleCapturedText(
+          detections.length ? detections.map((d) => d.rawValue).join("\n") : rawValue,
+          "camera",
+          {
+            detections,
+            preview: frame.preview,
+          },
+        );
+      } catch {
+        handleCapturedText(rawValue, "camera");
+      }
+    },
+    [handleCapturedText],
+  );
+
+  const handleRetryCapture = useCallback(() => {
+    setCaptureError("");
+    setCaptureCandidates([]);
+    setSelectedCandidateId("");
+    replaceCapturePreview(null);
+    setIsImageProcessing(false);
+  }, [replaceCapturePreview]);
 
   useEffect(() => {
     if (!scannerOpen) {
@@ -261,7 +376,7 @@ export function ImeiScannerField({
         const onDecodeResult: Parameters<typeof reader.decodeFromConstraints>[2] = (result) => {
           if (!result) return;
           completedByScan = true;
-          handleCapturedText(result.getText(), "camera");
+          void handleCameraDecodeResult(result.getText());
         };
         let controls: IScannerControls;
         try {
@@ -319,7 +434,7 @@ export function ImeiScannerField({
   }, [
     captureCandidates.length,
     captureError,
-    handleCapturedText,
+    handleCameraDecodeResult,
     isImageProcessing,
     resetCaptureState,
     scannerOpen,
@@ -409,13 +524,7 @@ export function ImeiScannerField({
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}
 
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
-        <DialogContent className="max-w-md gap-3 overflow-y-auto sm:gap-4">
-          <DialogHeader>
-            <DialogTitle>录入 IMEI / 序列号</DialogTitle>
-            <DialogDescription>
-              可扫码、上传照片识别，或手动输入。多个编号会先让你选择。
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
           <input
             ref={fileInputRef}
             type="file"
@@ -427,93 +536,141 @@ export function ImeiScannerField({
               void handleImageFile(file);
             }}
           />
-          <div className="overflow-hidden rounded-md border bg-[var(--capture-preview)]">
-            <video
-              ref={videoRef}
-              className="aspect-[4/3] max-h-[38svh] w-full object-cover sm:max-h-none"
-              muted
-              playsInline
-              autoPlay
-              aria-label="摄像头预览"
-            />
-          </div>
-          {captureError ? (
-            <p
-              role="alert"
-              className="rounded-md bg-status-warn px-3 py-2 text-xs leading-5 text-status-warn-foreground"
-            >
-              {captureError}
-            </p>
-          ) : null}
-          {captureCandidates.length > 0 ? (
-            <div className="space-y-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2">
-              <p className="text-xs font-medium text-muted-foreground">选择要填入的编号</p>
-              <div className="grid gap-1.5">
-                {captureCandidates.map((candidate) => (
-                  <button
-                    key={candidate.id}
-                    type="button"
-                    className={cn(
-                      "min-w-0 rounded-md border px-2.5 py-2 text-left transition",
-                      selectedCandidateId === candidate.id
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
+          <div className="min-h-0 space-y-2 overflow-y-auto p-3 pb-2 sm:space-y-3 sm:p-5 sm:pb-4">
+            <DialogHeader className="space-y-0.5 pr-8 sm:space-y-1.5">
+              <DialogTitle className="text-base sm:text-lg">录入 IMEI / 序列号</DialogTitle>
+              <DialogDescription className="text-xs leading-4 sm:text-sm">
+                可扫码、上传照片识别，或手动输入。多个编号会先让你选择。
+              </DialogDescription>
+            </DialogHeader>
+            {shouldShowCaptureViewport ? (
+              <div className="relative overflow-hidden rounded-md border bg-[var(--capture-preview)]">
+                {capturePreview ? (
+                  <img
+                    src={capturePreview.src}
+                    alt={capturePreview.alt}
+                    className={captureViewportClassName}
+                  />
+                ) : (
+                  <video
+                    ref={videoRef}
+                    className={captureViewportClassName}
+                    muted
+                    playsInline
+                    autoPlay
+                    aria-label="摄像头预览"
+                  />
+                )}
+                {hasOverlayCandidates ? (
+                  <div className="absolute inset-0">
+                    {captureCandidates.map((candidate, index) =>
+                      candidate.box ? (
+                        <button
+                          key={`${candidate.id}:overlay`}
+                          type="button"
+                          className={cn(
+                            "absolute min-h-7 min-w-8 rounded-md border-2 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                            selectedCandidateId === candidate.id
+                              ? "border-primary bg-primary/15 ring-2 ring-primary/25"
+                              : "border-status-warn-foreground/90 bg-background/10 hover:bg-background/20",
+                          )}
+                          style={{
+                            left: `${candidate.box.x * 100}%`,
+                            top: `${candidate.box.y * 100}%`,
+                            width: `${candidate.box.width * 100}%`,
+                            height: `${candidate.box.height * 100}%`,
+                          }}
+                          aria-label={`选择画面候选 ${candidate.overlayIndex ?? index + 1}`}
+                          aria-pressed={selectedCandidateId === candidate.id}
+                          title={`${candidate.label} ${candidate.value}`}
+                          onClick={() => setSelectedCandidateId(candidate.id)}
+                        >
+                          <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground">
+                            {candidate.overlayIndex ?? index + 1}
+                          </span>
+                        </button>
+                      ) : null,
                     )}
-                    aria-pressed={selectedCandidateId === candidate.id}
-                    onClick={() => setSelectedCandidateId(candidate.id)}
-                  >
-                    <span className="flex min-w-0 items-center justify-between gap-2">
-                      <span className="truncate text-xs font-semibold">{candidate.label}</span>
-                      <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {candidate.confidence === "high" ? "高可信" : "需确认"}
-                      </span>
-                    </span>
-                    <span className="mt-1 block break-all font-mono text-xs">
-                      {candidate.value}
-                    </span>
-                    {candidate.reason ? (
-                      <span className="mt-1 block text-[10px] leading-4 text-status-warn-foreground">
-                        {candidate.reason}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
+                  </div>
+                ) : null}
               </div>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 w-full text-xs"
-                disabled={!selectedCandidate}
-                onClick={() => {
-                  if (selectedCandidate) commitCandidate(selectedCandidate);
-                }}
+            ) : null}
+            {captureError ? (
+              <p
+                role="alert"
+                className="rounded-md bg-status-warn px-2.5 py-1.5 text-xs leading-4 text-status-warn-foreground sm:px-3 sm:py-2 sm:leading-5"
               >
-                使用选择的编号
-              </Button>
-            </div>
-          ) : null}
-          <div className="grid gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2">
-            <Input
-              value={scannerManualValue}
-              onChange={(event) => setScannerManualValue(event.target.value)}
-              placeholder="无法识别时可手动输入"
-              className="h-9 font-mono text-sm"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs"
-              disabled={!scannerManualValue.trim()}
-              onClick={() => {
-                commitValue(scannerManualValue, "manual");
-                setScannerOpen(false);
-              }}
-            >
-              填入手动编号
-            </Button>
+                {captureError}
+              </p>
+            ) : null}
+            {captureCandidates.length > 0 ? (
+              <div className="space-y-1.5 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 sm:space-y-2 sm:p-2">
+                <p className="text-xs font-medium text-muted-foreground">选择要填入的编号</p>
+                <div className="grid max-h-[20svh] gap-1 overflow-y-auto pr-0.5 sm:max-h-[28svh] sm:gap-1.5">
+                  {captureCandidates.map((candidate, index) => (
+                    <button
+                      key={candidate.id}
+                      type="button"
+                      className={cn(
+                        "min-w-0 rounded-md border px-2 py-1.5 text-left transition sm:px-2.5 sm:py-2",
+                        selectedCandidateId === candidate.id
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
+                      )}
+                      aria-pressed={selectedCandidateId === candidate.id}
+                      onClick={() => setSelectedCandidateId(candidate.id)}
+                    >
+                      <span className="flex min-w-0 items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {candidate.box ? (
+                            <span className="grid size-5 shrink-0 place-items-center rounded bg-primary text-[10px] font-semibold text-primary-foreground">
+                              {candidate.overlayIndex ?? index + 1}
+                            </span>
+                          ) : null}
+                          <span className="truncate text-xs font-semibold">{candidate.label}</span>
+                        </span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {candidate.confidence === "high" ? "高可信" : "需确认"}
+                        </span>
+                      </span>
+                      <span className="mt-1 block break-all font-mono text-xs">
+                        {candidate.value}
+                      </span>
+                      {candidate.reason ? (
+                        <span className="mt-1 block text-[10px] leading-4 text-status-warn-foreground">
+                          {candidate.reason}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {captureCandidates.length === 0 ? (
+              <div className="grid gap-1.5 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 sm:gap-2 sm:p-2">
+                <Input
+                  value={scannerManualValue}
+                  onChange={(event) => setScannerManualValue(event.target.value)}
+                  placeholder="无法识别时可手动输入"
+                  className="h-8 font-mono text-sm sm:h-9"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  disabled={!scannerManualValue.trim()}
+                  onClick={() => {
+                    commitValue(scannerManualValue, "manual");
+                    setScannerOpen(false);
+                  }}
+                >
+                  填入手动编号
+                </Button>
+              </div>
+            ) : null}
           </div>
-          <div className="grid gap-2 text-xs text-muted-foreground sm:flex sm:items-center sm:justify-between sm:gap-3">
+          <div className="grid gap-1.5 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 text-xs text-muted-foreground sm:gap-2 sm:p-4">
             <span className="min-w-0 leading-5" aria-live="polite">
               {getScannerStatusText({
                 isImageProcessing,
@@ -523,12 +680,25 @@ export function ImeiScannerField({
                 hasCaptureError: Boolean(captureError),
               })}
             </span>
-            <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0 sm:flex-wrap sm:justify-end">
+            {captureCandidates.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 w-full text-xs sm:h-9"
+                disabled={!selectedCandidate}
+                onClick={() => {
+                  if (selectedCandidate) commitCandidate(selectedCandidate);
+                }}
+              >
+                使用选择的编号
+              </Button>
+            ) : null}
+            <div className="grid grid-cols-3 gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 text-xs"
+                className="h-8 text-xs sm:h-9"
                 onClick={() => void handleCurrentFrameCapture()}
                 disabled={isImageProcessing || isStarting || !isCameraActive}
               >
@@ -543,7 +713,7 @@ export function ImeiScannerField({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 text-xs"
+                className="h-8 text-xs sm:h-9"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImageProcessing}
               >
@@ -554,17 +724,13 @@ export function ImeiScannerField({
                 )}
                 上传图片
               </Button>
-              {captureError ? (
+              {captureError || captureCandidates.length > 0 ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 text-xs"
-                  onClick={() => {
-                    setCaptureError("");
-                    setCaptureCandidates([]);
-                    setSelectedCandidateId("");
-                  }}
+                  className="h-8 text-xs sm:h-9"
+                  onClick={handleRetryCapture}
                 >
                   <RotateCcw className="mr-1.5 size-3.5" />
                   重试
@@ -574,7 +740,7 @@ export function ImeiScannerField({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 text-xs"
+                  className="h-8 text-xs sm:h-9"
                   onClick={stopScanner}
                 >
                   {isStarting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
@@ -599,29 +765,38 @@ function validateImeiImageFile(file: File) {
   return "";
 }
 
-async function recognizeTextFromImageFile(file: File) {
+async function recognizeTextFromImageFile(file: File): Promise<ImeiRecognitionResult> {
   const imageSource = await createImageElementFromFile(file);
   try {
-    return await recognizeTextFromImageElement(imageSource.image);
-  } finally {
+    const recognition = await recognizeTextFromImageElement(imageSource.image);
+    return {
+      ...recognition,
+      preview: {
+        src: imageSource.image.src,
+        alt: "上传图片预览",
+      },
+      previewCleanup: imageSource.cleanup,
+    };
+  } catch (error) {
     imageSource.cleanup();
+    throw error;
   }
 }
 
-async function recognizeTextFromImageElement(image: HTMLImageElement): Promise<{
-  text: string;
-  source: ImeiCaptureSource;
-}> {
-  const barcodeDetectorText = await withImageRecognitionTimeout(
+async function recognizeTextFromImageElement(
+  image: HTMLImageElement,
+): Promise<ImeiRecognitionResult> {
+  const barcodeDetections = await withImageRecognitionTimeout(
     detectBarcodeValuesFromImageElement(image),
     imeiBarcodeDecodeTimeoutMs,
     "条码识别超时",
-  ).catch(() => "");
+  ).catch((): ImeiBarcodeDetection[] => []);
 
-  if (barcodeDetectorText) {
+  if (barcodeDetections.length > 0) {
     return {
-      text: barcodeDetectorText,
+      text: barcodeDetections.map((detection) => detection.rawValue).join("\n"),
       source: "barcode",
+      detections: barcodeDetections,
     };
   }
 
@@ -685,7 +860,13 @@ async function createImageElementFromVideoFrame(video: HTMLVideoElement) {
   const image = new Image();
   image.src = canvas.toDataURL("image/png");
   await decodeImageElement(image);
-  return image;
+  return {
+    image,
+    preview: {
+      src: image.src,
+      alt: "当前摄像头画面截图",
+    },
+  };
 }
 
 async function decodeImageElement(image: HTMLImageElement) {
@@ -702,8 +883,18 @@ async function decodeImageElement(image: HTMLImageElement) {
   });
 }
 
+type BrowserBarcodeDetectionResult = {
+  rawValue?: string;
+  boundingBox?: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  };
+};
+
 type BrowserBarcodeDetector = {
-  detect: (source: unknown) => Promise<Array<{ rawValue?: string }>>;
+  detect: (source: unknown) => Promise<BrowserBarcodeDetectionResult[]>;
 };
 
 type BrowserWindowWithBarcodeDetector = Window & {
@@ -726,15 +917,19 @@ async function detectBarcodeValuesFromImageElement(image: HTMLImageElement) {
   }
 
   const results = await detector.detect(image);
-  const values = Array.from(
-    new Set(
-      results.map((item) => item.rawValue?.trim()).filter((item): item is string => Boolean(item)),
-    ),
-  );
-  if (values.length === 0) {
+  const detections = results.reduce<ImeiBarcodeDetection[]>((items, item) => {
+    const rawValue = item.rawValue?.trim();
+    if (!rawValue || items.some((existing) => existing.rawValue === rawValue)) return items;
+    items.push({
+      rawValue,
+      box: getNormalizedDetectionBox(item, image),
+    });
+    return items;
+  }, []);
+  if (detections.length === 0) {
     throw new Error("未识别到条码。");
   }
-  return values.join("\n");
+  return detections;
 }
 
 async function decodeBarcodeFromImageElement(image: HTMLImageElement) {
@@ -827,6 +1022,72 @@ async function ensureVideoPreviewPlayback(video: HTMLVideoElement | null) {
 function getErrorName(error: unknown) {
   if (!error || typeof error !== "object" || !("name" in error)) return "";
   return String((error as { name?: unknown }).name ?? "");
+}
+
+function findDetectionForCandidate(
+  candidate: ImeiCandidate,
+  detections: readonly ImeiBarcodeDetection[] | undefined,
+  fallbackIndex: number,
+) {
+  if (!detections?.length) return null;
+  const directMatch = detections.find((detection) =>
+    normalizeCaptureIdentifier(detection.rawValue).includes(candidate.value),
+  );
+  return directMatch ?? detections[fallbackIndex] ?? null;
+}
+
+function getNormalizedDetectionBox(
+  result: BrowserBarcodeDetectionResult,
+  image: HTMLImageElement,
+): ImeiCaptureBox | undefined {
+  const box = result.boundingBox;
+  if (!box) return undefined;
+
+  const rawX = Number(box.x ?? 0);
+  const rawY = Number(box.y ?? 0);
+  const rawWidth = Number(box.width ?? 0);
+  const rawHeight = Number(box.height ?? 0);
+  if (
+    ![rawX, rawY, rawWidth, rawHeight].every(Number.isFinite) ||
+    rawWidth <= 0 ||
+    rawHeight <= 0
+  ) {
+    return undefined;
+  }
+
+  const looksNormalized =
+    rawX >= 0 && rawY >= 0 && rawWidth <= 1 && rawHeight <= 1 && rawX + rawWidth <= 1.05;
+  if (looksNormalized) {
+    return normalizeBoxBounds(rawX, rawY, rawWidth, rawHeight);
+  }
+
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+  if (!imageWidth || !imageHeight) return undefined;
+
+  return normalizeBoxBounds(
+    rawX / imageWidth,
+    rawY / imageHeight,
+    rawWidth / imageWidth,
+    rawHeight / imageHeight,
+  );
+}
+
+function normalizeBoxBounds(x: number, y: number, width: number, height: number): ImeiCaptureBox {
+  const left = clampRatio(x);
+  const top = clampRatio(y);
+  const maxWidth = Math.max(0.01, 1 - left);
+  const maxHeight = Math.max(0.01, 1 - top);
+  return {
+    x: left,
+    y: top,
+    width: Math.min(Math.max(0.04, clampRatio(width)), maxWidth),
+    height: Math.min(Math.max(0.04, clampRatio(height)), maxHeight),
+  };
+}
+
+function clampRatio(value: number) {
+  return Math.min(1, Math.max(0, value));
 }
 
 function getCaptureCandidatesMessage(candidates: readonly ImeiCandidate[]) {

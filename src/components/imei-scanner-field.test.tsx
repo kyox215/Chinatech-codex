@@ -255,9 +255,18 @@ describe("ImeiScannerField", () => {
       value: class BarcodeDetectorMock {
         async detect() {
           return [
-            { rawValue: "IMEI1: 490154203237518" },
-            { rawValue: "IMEI2: 356938035643809" },
-            { rawValue: "SN:AUNWE02SB05002790" },
+            {
+              rawValue: "IMEI1: 490154203237518",
+              boundingBox: { x: 0.12, y: 0.22, width: 0.68, height: 0.08 },
+            },
+            {
+              rawValue: "IMEI2: 356938035643809",
+              boundingBox: { x: 0.2, y: 0.42, width: 0.6, height: 0.08 },
+            },
+            {
+              rawValue: "SN:AUNWE02SB05002790",
+              boundingBox: { x: 0.24, y: 0.62, width: 0.52, height: 0.08 },
+            },
           ];
         }
       },
@@ -283,9 +292,11 @@ describe("ImeiScannerField", () => {
       expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toBeInTheDocument();
+      expect(screen.getByAltText("当前摄像头画面截图")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "选择画面候选 2" })).toBeInTheDocument();
       expect(onChange).not.toHaveBeenCalled();
 
-      await user.click(screen.getByRole("button", { name: /356938035643809/ }));
+      await user.click(screen.getByRole("button", { name: "选择画面候选 2" }));
       await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
       expect(onChange).toHaveBeenLastCalledWith("356938035643809");
@@ -442,6 +453,7 @@ describe("ImeiScannerField", () => {
         { timeout: 4000 },
       );
       await waitFor(() => expect(screen.queryByText("正在识别图片...")).not.toBeInTheDocument());
+      expect(screen.getByAltText("上传图片预览")).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: /356938035643809/ }));
       await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
