@@ -7,11 +7,15 @@ import {
   approveStoreAccessRequest,
   createStore,
   createStoreInviteLink,
+  disableStoreMember,
   inviteStoreMember,
+  listStoreMembers,
   listStoreAccessRequests,
   redeemStoreInviteLink,
   rejectStoreAccessRequest,
+  restoreStoreMember,
   revokeStoreInvitation,
+  updateStoreMemberRole,
 } from "./store.repository";
 
 const mocks = vi.hoisted(() => ({
@@ -55,6 +59,16 @@ const storeManager: AuditActor = {
   storeId: "store_1",
   storeName: "ChinaTech",
   storeRole: "manager",
+};
+
+const storeViewer: AuditActor = {
+  id: "viewer_1",
+  email: "viewer@chinatech.in",
+  emailVerified: true,
+  displayName: "Viewer",
+  storeId: "store_1",
+  storeName: "ChinaTech",
+  storeRole: "viewer",
 };
 
 const invitedActor: AuditActor = {
@@ -620,6 +634,157 @@ describe("store repository access request boundaries", () => {
     expect(memberReadQuery.ilike).toHaveBeenCalledWith("email", "staff@example.com");
     expect(memberReadQuery.eq).toHaveBeenCalledWith("status", "active");
     expect(memberReadQuery.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not expose employee management data to ordinary store members", async () => {
+    await expect(listStoreMembers(storeViewer)).rejects.toThrow("当前员工没有权限执行此操作");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("lets the owner update an active employee role with minimized audit data", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "technician", status: "active" }),
+      error: null,
+    });
+    const updateQuery = createSupabaseQuery({
+      data: membershipRow({ role: "sales", status: "active" }),
+      error: null,
+    });
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ role: "sales", status: "active" }),
+    ]);
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const inviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from
+      .mockReturnValueOnce(memberReadQuery)
+      .mockReturnValueOnce(updateQuery)
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(invitationsQuery)
+      .mockReturnValueOnce(inviteLinksQuery);
+
+    const result = await updateStoreMemberRole(
+      { id: "membership_staff", role: "sales" },
+      storeOwner,
+    );
+
+    expect(memberReadQuery.eq).toHaveBeenCalledWith("id", "membership_staff");
+    expect(memberReadQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(updateQuery.update).toHaveBeenCalledWith(expect.objectContaining({ role: "sales" }));
+    expect(updateQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(updateQuery.neq).toHaveBeenCalledWith("role", "owner");
+    expect(result.members[0]).toMatchObject({ role: "sales", status: "active" });
+    expect(mocks.writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "update_role",
+        entityType: "store_membership",
+        entityId: "membership_staff",
+        before: expect.not.objectContaining({ email: expect.anything() }),
+        after: expect.not.objectContaining({ email: expect.anything() }),
+      }),
+    );
+  });
+
+  it("does not let managers grant the manager role", async () => {
+    await expect(
+      updateStoreMemberRole({ id: "membership_staff", role: "manager" }, storeManager),
+    ).rejects.toThrow("当前员工没有权限执行此操作");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("does not let managers manage another manager membership", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({
+        id: "membership_manager",
+        user_id: "manager_2",
+        email: "manager2@example.com",
+        role: "manager",
+      }),
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(memberReadQuery);
+
+    await expect(
+      updateStoreMemberRole({ id: "membership_manager", role: "sales" }, storeManager),
+    ).rejects.toThrow("当前员工没有权限执行此操作");
+
+    expect(memberReadQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let employees disable their own active store membership", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({
+        id: "membership_manager",
+        user_id: "manager_1",
+        email: "manager@chinatech.in",
+        role: "manager",
+      }),
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(memberReadQuery);
+
+    await expect(disableStoreMember({ id: "membership_manager" }, storeManager)).rejects.toThrow(
+      "不能停用自己的当前店铺权限",
+    );
+
+    expect(memberReadQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets managers disable and restore ordinary employees only inside the active store", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "technician", status: "active" }),
+      error: null,
+    });
+    const disableQuery = createSupabaseQuery({
+      data: membershipRow({ role: "technician", status: "inactive" }),
+      error: null,
+    });
+    const disabledMembersQuery = createMembershipListQuery([
+      membershipRow({ role: "technician", status: "inactive" }),
+    ]);
+    const disabledInvitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const disabledInviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    const inactiveReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "technician", status: "inactive" }),
+      error: null,
+    });
+    const restoreQuery = createSupabaseQuery({
+      data: membershipRow({ role: "technician", status: "active" }),
+      error: null,
+    });
+    const restoredMembersQuery = createMembershipListQuery([
+      membershipRow({ role: "technician", status: "active" }),
+    ]);
+    const restoredInvitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const restoredInviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from
+      .mockReturnValueOnce(memberReadQuery)
+      .mockReturnValueOnce(disableQuery)
+      .mockReturnValueOnce(disabledMembersQuery)
+      .mockReturnValueOnce(disabledInvitationsQuery)
+      .mockReturnValueOnce(disabledInviteLinksQuery)
+      .mockReturnValueOnce(inactiveReadQuery)
+      .mockReturnValueOnce(restoreQuery)
+      .mockReturnValueOnce(restoredMembersQuery)
+      .mockReturnValueOnce(restoredInvitationsQuery)
+      .mockReturnValueOnce(restoredInviteLinksQuery);
+
+    const disabled = await disableStoreMember({ id: "membership_staff" }, storeManager);
+    const restored = await restoreStoreMember({ id: "membership_staff" }, storeManager);
+
+    expect(disableQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "inactive" }),
+    );
+    expect(disableQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(disableQuery.neq).toHaveBeenCalledWith("role", "owner");
+    expect(restoreQuery.update).toHaveBeenCalledWith(expect.objectContaining({ status: "active" }));
+    expect(restoreQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(restoreQuery.neq).toHaveBeenCalledWith("role", "owner");
+    expect(disabled.members[0]).toMatchObject({ status: "inactive" });
+    expect(restored.members[0]).toMatchObject({ status: "active" });
   });
 
   it("accepts a pending invitation and creates the active store membership", async () => {
@@ -1350,6 +1515,7 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count?: nu
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    neq: vi.fn(() => query),
     gt: vi.fn(() => query),
     gte: vi.fn(() => result),
     in: vi.fn(() => query),
@@ -1362,6 +1528,14 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count?: nu
     update: vi.fn(() => query),
     upsert: vi.fn(() => result),
   };
+  return query;
+}
+
+function createMembershipListQuery(rows: unknown[]) {
+  const query = createSupabaseQuery({ data: rows, error: null });
+  query.order
+    .mockReturnValueOnce(query as unknown as { data: unknown; error: unknown })
+    .mockReturnValueOnce({ data: rows, error: null });
   return query;
 }
 
@@ -1394,6 +1568,19 @@ function inviteLinkRow(overrides: Record<string, unknown> = {}) {
     created_by: overrides.created_by ?? "owner_1",
     revoked_by: overrides.revoked_by ?? null,
     revoked_at: overrides.revoked_at ?? null,
+    created_at: overrides.created_at ?? "2026-07-04T09:00:00.000Z",
+    updated_at: overrides.updated_at ?? "2026-07-04T09:00:00.000Z",
+  };
+}
+
+function membershipRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: overrides.id ?? "membership_staff",
+    user_id: overrides.user_id ?? "staff_1",
+    email: overrides.email ?? "staff@example.com",
+    display_name: overrides.display_name ?? "Staff",
+    role: overrides.role ?? "technician",
+    status: overrides.status ?? "active",
     created_at: overrides.created_at ?? "2026-07-04T09:00:00.000Z",
     updated_at: overrides.updated_at ?? "2026-07-04T09:00:00.000Z",
   };

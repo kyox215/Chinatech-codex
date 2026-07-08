@@ -8,6 +8,9 @@ describe("repairdesk router pending-store access", () => {
     expect(allowsPendingStore("stores/create", "GET")).toBe(false);
     expect(allowsPendingStore("stores/context", "GET")).toBe(false);
     expect(allowsPendingStore("stores/members", "GET")).toBe(false);
+    expect(allowsPendingStore("stores/members/update-role", "POST")).toBe(false);
+    expect(allowsPendingStore("stores/members/disable", "POST")).toBe(false);
+    expect(allowsPendingStore("stores/members/restore", "POST")).toBe(false);
     expect(allowsPendingStore("stores/access-requests", "GET")).toBe(false);
     expect(allowsPendingStore("stores/switch", "POST")).toBe(false);
   });

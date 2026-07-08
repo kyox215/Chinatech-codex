@@ -73,14 +73,17 @@ import {
   createStoreInviteLink,
   createStore,
   getStoreContext,
+  disableStoreMember,
   inviteStoreMember,
   listStoreAccessRequests,
   listStoreMembers,
   redeemStoreInviteLink,
   rejectStoreAccessRequest,
+  restoreStoreMember,
   revokeStoreInviteLink,
   revokeStoreInvitation,
   switchActiveStore,
+  updateStoreMemberRole,
 } from "@/features/stores/server/store.service";
 import {
   approveOnboardingRequest,
@@ -162,6 +165,8 @@ import {
   storeInviteLinkDecisionBodySchema,
   storeInviteLinkRedeemBodySchema,
   storeInvitationDecisionBodySchema,
+  storeMemberDecisionBodySchema,
+  storeMemberRoleUpdateBodySchema,
   storeSettingsUpdateBodySchema,
   storeSwitchBodySchema,
   transitionOrderBodySchema,
@@ -199,6 +204,7 @@ const supabaseSource = {
   getStoreSettings,
   importElectronicsCsvPreview,
   inviteStoreMember,
+  disableStoreMember,
   listCustomers,
   listCustomersPage,
   listInventoryItems,
@@ -236,6 +242,7 @@ const supabaseSource = {
   switchActiveStore,
   transitionInventoryItem,
   transitionOrder,
+  updateStoreMemberRole,
   updateCustomer,
   updateInventoryItem,
   updateMessageTemplate,
@@ -243,6 +250,7 @@ const supabaseSource = {
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateStoreSettings,
+  restoreStoreMember,
   updateAccountProfile,
   uploadInventoryAttachment,
   uploadOrderAttachment,
@@ -328,6 +336,25 @@ async function source() {
   if (mode === "supabase") return supabaseSource;
 
   const mock = await import("@/lib/mock/api");
+  const getMockStoreMembers = async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
+    const now = new Date().toISOString();
+    return {
+      members: [
+        {
+          id: "mock_membership_owner",
+          user_id: actor.id ?? "mock_user",
+          email: actor.email ?? "owner@example.com",
+          display_name: actor.displayName,
+          role: actor.storeRole ?? actor.role ?? "owner",
+          status: "active" as const,
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+      invitations: [],
+      invite_links: [],
+    };
+  };
   return {
     ...mock,
     getRepairDeskOptions: async () => ({
@@ -362,6 +389,19 @@ async function source() {
     cancelOnboardingRequest: async () => {
       throw new Error("Mock 模式暂不支持取消申请");
     },
+    listStoreMembers: getMockStoreMembers,
+    updateStoreMemberRole: async (
+      _input: unknown,
+      actor: Awaited<ReturnType<typeof getRequestActor>>,
+    ) => getMockStoreMembers(actor),
+    disableStoreMember: async (
+      _input: unknown,
+      actor: Awaited<ReturnType<typeof getRequestActor>>,
+    ) => getMockStoreMembers(actor),
+    restoreStoreMember: async (
+      _input: unknown,
+      actor: Awaited<ReturnType<typeof getRequestActor>>,
+    ) => getMockStoreMembers(actor),
     listPlatformOnboardingRequests: async () => [],
     listStoreAccessRequests: async () => [],
     updateAccountProfile: async (
@@ -1071,6 +1111,30 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           ),
         );
       }
+      case "stores/members/update-role":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.updateStoreMemberRole(storeMemberRoleUpdateBodySchema.parse(body), actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
+      case "stores/members/disable":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.disableStoreMember(storeMemberDecisionBodySchema.parse(body), actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
+      case "stores/members/restore":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.restoreStoreMember(storeMemberDecisionBodySchema.parse(body), actor),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
       case "stores/invite-links/create": {
         const { input } = storeInviteLinkCreateBodySchema.parse(body);
         return ok(

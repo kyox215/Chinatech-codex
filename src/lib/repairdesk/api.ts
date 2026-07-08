@@ -74,6 +74,7 @@ import type {
   OnboardingRequestInput,
   OnboardingStatus,
   RepairDeskOptions,
+  StoreRole,
   StoreContext,
   StoreCreateInput,
   StoreInvitation,
@@ -83,6 +84,8 @@ import type {
   StoreInviteLinkDecisionInput,
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
+  StoreMemberDecisionInput,
+  StoreMemberRoleUpdateInput,
   StoreMembersResult,
   StoreSettings,
   StoreSettingsUpdateInput,
@@ -99,6 +102,7 @@ export type RepairDeskRequestOptions = {
 const DEFAULT_REPAIRDESK_REQUEST_TIMEOUT_MS = 30_000;
 
 export type {
+  ApprovedStoreRole,
   CreateOrderInput,
   Customer,
   CustomerHistoryDeviceCandidate,
@@ -202,6 +206,7 @@ export type {
   OnboardingStatus,
   RepairOrder,
   RepairDeskOptions,
+  StoreRole,
   SellInventoryItemInput,
   StoreContext,
   StoreCreateInput,
@@ -213,6 +218,8 @@ export type {
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreMember,
+  StoreMemberDecisionInput,
+  StoreMemberRoleUpdateInput,
   StoreMembersResult,
   StoreSettings,
   StoreSettingsUpdateInput,
@@ -402,6 +409,24 @@ export async function switchStore(storeId: string): Promise<StoreContext> {
 
 export async function inviteStoreMember(input: StoreInviteInput): Promise<StoreMembersResult> {
   return postJson<StoreMembersResult>("stores/invite-member", { input });
+}
+
+export async function updateStoreMemberRole(
+  input: StoreMemberRoleUpdateInput,
+): Promise<StoreMembersResult> {
+  return postJson<StoreMembersResult>("stores/members/update-role", input);
+}
+
+export async function disableStoreMember(
+  input: StoreMemberDecisionInput,
+): Promise<StoreMembersResult> {
+  return postJson<StoreMembersResult>("stores/members/disable", input);
+}
+
+export async function restoreStoreMember(
+  input: StoreMemberDecisionInput,
+): Promise<StoreMembersResult> {
+  return postJson<StoreMembersResult>("stores/members/restore", input);
 }
 
 export async function createStoreInviteLink(

@@ -756,6 +756,15 @@ export interface StoreInviteInput {
   role: Exclude<StoreRole, "owner">;
 }
 
+export interface StoreMemberRoleUpdateInput {
+  id: string;
+  role: Exclude<StoreRole, "owner">;
+}
+
+export interface StoreMemberDecisionInput {
+  id: string;
+}
+
 export interface StoreInviteLinkCreateInput {
   label?: string;
   role: Exclude<StoreRole, "owner">;

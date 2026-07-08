@@ -44,6 +44,8 @@ import type {
   StoreInviteLinkDecisionInput,
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
+  StoreMemberDecisionInput,
+  StoreMemberRoleUpdateInput,
   StoreSettingsUpdateInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
@@ -822,6 +824,19 @@ export const storeInviteInputSchema = z
 export const storeInviteBodySchema = z.object({
   input: storeInviteInputSchema,
 });
+
+export const storeMemberRoleUpdateBodySchema = z
+  .object({
+    id: z.string().uuid("成员 id 不正确"),
+    role: z.enum(["manager", "technician", "sales", "viewer"]),
+  })
+  .passthrough() satisfies z.ZodType<StoreMemberRoleUpdateInput>;
+
+export const storeMemberDecisionBodySchema = z
+  .object({
+    id: z.string().uuid("成员 id 不正确"),
+  })
+  .passthrough() satisfies z.ZodType<StoreMemberDecisionInput>;
 
 export const storeInviteLinkCreateBodySchema = z.object({
   input: z

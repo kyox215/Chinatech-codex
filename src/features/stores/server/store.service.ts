@@ -9,7 +9,10 @@ export {
   listStoreMembers,
   redeemStoreInviteLink,
   rejectStoreAccessRequest,
+  disableStoreMember,
+  restoreStoreMember,
   revokeStoreInviteLink,
   revokeStoreInvitation,
   switchActiveStore,
+  updateStoreMemberRole,
 } from "./store.repository";

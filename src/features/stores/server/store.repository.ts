@@ -20,6 +20,8 @@ import type {
   StoreInviteLinkDecisionInput,
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
+  StoreMemberDecisionInput,
+  StoreMemberRoleUpdateInput,
   StoreMember,
   StoreMembersResult,
   StoreMembershipStatus,
@@ -180,6 +182,7 @@ async function rollbackCreatedStore(
 }
 
 export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersResult> {
+  assertCanManageStoreMembers(actor);
   const storeId = requireActiveStoreId(actor);
   const supabase = getSupabaseAdmin();
   const [membersResult, invitationsResult, inviteLinksResult] = await Promise.all([
@@ -282,6 +285,117 @@ export async function inviteStoreMember(
     entityId: requiredString((invitation as DbRecord).id),
     after: createInvitationAuditSnapshot(invitation as DbRecord),
     metadata: { role, invitation_status: "invited" },
+  });
+
+  return listStoreMembers(actor);
+}
+
+export async function updateStoreMemberRole(
+  input: StoreMemberRoleUpdateInput,
+  actor: AuditActor,
+): Promise<StoreMembersResult> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const role = sanitizeAccessRole(input.role);
+  assertCanGrantStoreRole(actor, role);
+  const supabase = getSupabaseAdmin();
+  const member = await readStoreMemberForManagement(supabase, storeId, input.id);
+  assertCanManageStoreMember(actor, member, { nextRole: role });
+
+  if (member.role === role) return listStoreMembers(actor);
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("store_memberships")
+    .update({ role, updated_at: now })
+    .eq("id", member.id)
+    .eq("store_id", storeId)
+    .neq("role", "owner")
+    .select("id, user_id, email, display_name, role, status, created_at, updated_at")
+    .maybeSingle();
+  fail(error, "更新员工角色失败");
+  if (!data) throw new Error("员工已变更，请刷新后再试");
+
+  await writeAuditLog({
+    actor,
+    action: "update_role",
+    entityType: "store_membership",
+    entityId: member.id,
+    before: createMemberAuditSnapshot(member),
+    after: createMemberAuditSnapshot(memberFromRow(data as DbRecord)),
+  });
+
+  return listStoreMembers(actor);
+}
+
+export async function disableStoreMember(
+  input: StoreMemberDecisionInput,
+  actor: AuditActor,
+): Promise<StoreMembersResult> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+  const member = await readStoreMemberForManagement(supabase, storeId, input.id);
+  assertCanManageStoreMember(actor, member, { disable: true });
+
+  if (member.status === "inactive") return listStoreMembers(actor);
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("store_memberships")
+    .update({ status: "inactive", updated_at: now })
+    .eq("id", member.id)
+    .eq("store_id", storeId)
+    .neq("role", "owner")
+    .select("id, user_id, email, display_name, role, status, created_at, updated_at")
+    .maybeSingle();
+  fail(error, "停用员工失败");
+  if (!data) throw new Error("员工已变更，请刷新后再试");
+
+  await writeAuditLog({
+    actor,
+    action: "disable_member",
+    entityType: "store_membership",
+    entityId: member.id,
+    before: createMemberAuditSnapshot(member),
+    after: createMemberAuditSnapshot(memberFromRow(data as DbRecord)),
+  });
+
+  return listStoreMembers(actor);
+}
+
+export async function restoreStoreMember(
+  input: StoreMemberDecisionInput,
+  actor: AuditActor,
+): Promise<StoreMembersResult> {
+  assertCanManageStoreMembers(actor);
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+  const member = await readStoreMemberForManagement(supabase, storeId, input.id);
+  assertCanManageStoreMember(actor, member, { restore: true });
+  assertCanGrantStoreRole(actor, member.role);
+
+  if (member.status === "active") return listStoreMembers(actor);
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("store_memberships")
+    .update({ status: "active", updated_at: now })
+    .eq("id", member.id)
+    .eq("store_id", storeId)
+    .neq("role", "owner")
+    .select("id, user_id, email, display_name, role, status, created_at, updated_at")
+    .maybeSingle();
+  fail(error, "恢复员工失败");
+  if (!data) throw new Error("员工已变更，请刷新后再试");
+
+  await writeAuditLog({
+    actor,
+    action: "restore_member",
+    entityType: "store_membership",
+    entityId: member.id,
+    before: createMemberAuditSnapshot(member),
+    after: createMemberAuditSnapshot(memberFromRow(data as DbRecord)),
   });
 
   return listStoreMembers(actor);
@@ -916,6 +1030,55 @@ async function getStoreReviewContext(
   if (!membership) throw new ForbiddenError("你不是当前店铺成员");
   return {
     membershipId: requiredString((membership as DbRecord).id),
+  };
+}
+
+async function readStoreMemberForManagement(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  memberId: string,
+): Promise<StoreMember> {
+  const { data, error } = await supabase
+    .from("store_memberships")
+    .select("id, user_id, email, display_name, role, status, created_at, updated_at")
+    .eq("id", memberId)
+    .eq("store_id", storeId)
+    .maybeSingle();
+  fail(error, "读取员工失败");
+  if (!data) throw new Error("员工不存在或不属于当前店铺");
+  return memberFromRow(data as DbRecord);
+}
+
+function assertCanManageStoreMember(
+  actor: AuditActor,
+  member: StoreMember,
+  options: { nextRole?: StoreRole; disable?: boolean; restore?: boolean } = {},
+) {
+  if (!actor.id || actor.isSystem) throw new ForbiddenError();
+  if (member.role === "owner") {
+    throw new ForbiddenError("店主账号不能在员工管理中停用或改角色");
+  }
+  if (options.nextRole && member.user_id === actor.id) {
+    throw new ForbiddenError("不能修改自己的当前店铺角色");
+  }
+  if (options.disable && member.user_id === actor.id) {
+    throw new ForbiddenError("不能停用自己的当前店铺权限");
+  }
+  if (member.role === "manager" || options.nextRole === "manager") {
+    assertPermission(actor, "member:grant_manager");
+    return;
+  }
+  assertPermission(actor, "member:manage_basic");
+}
+
+function createMemberAuditSnapshot(member: StoreMember): Record<string, unknown> {
+  return {
+    id: member.id,
+    user_id: member.user_id,
+    role: member.role,
+    status: member.status,
+    created_at: member.created_at,
+    updated_at: member.updated_at,
   };
 }
 

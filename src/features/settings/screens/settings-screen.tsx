@@ -13,9 +13,12 @@ import {
   Phone,
   Plus,
   Printer,
+  RotateCcw,
+  Search,
   Settings2,
   ShieldCheck,
   Store,
+  UserMinus,
   UserRound,
   UserPlus,
   Users,
@@ -65,6 +68,7 @@ import {
   approveStoreAccessRequest,
   createOrderWorkflowStatus,
   createStoreInviteLink,
+  disableStoreMember,
   getOnboardingStatus,
   getStoreMembers,
   getStoreContext,
@@ -73,10 +77,12 @@ import {
   listStoreAccessRequests,
   listOrderWorkflow,
   rejectStoreAccessRequest,
+  restoreStoreMember,
   revokeStoreInviteLink,
   revokeStoreInvitation,
   reorderOrderWorkflowStatuses,
   switchStore,
+  updateStoreMemberRole,
   updateAccountProfile,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
@@ -90,7 +96,10 @@ import {
   type OrderWorkflowTransitionsUpdateInput,
   type StoreInviteLinkCreateInput,
   type StoreInviteInput,
+  type StoreMember,
+  type ApprovedStoreRole,
   type StoreSettings,
+  type StoreRole,
 } from "@/lib/repairdesk/api";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
@@ -132,9 +141,7 @@ export function SettingsScreen() {
     queryKey: storesKeys.accessRequestsScoped(activeStoreId),
     queryFn: ({ signal }) => listStoreAccessRequests({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled:
-      storeContextQuery.data?.activeStore?.role === "owner" ||
-      storeContextQuery.data?.activeStore?.role === "manager",
+    enabled: storeContextQuery.data?.activeStore?.role === "owner",
   });
   const workflowQuery = useQuery({
     queryKey: ordersKeys.workflow(activeStoreId),
@@ -162,6 +169,15 @@ export function SettingsScreen() {
     max_uses: 1,
   });
   const [latestInviteCode, setLatestInviteCode] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberStatusFilter, setMemberStatusFilter] = useState<"all" | "active" | "inactive">(
+    "all",
+  );
+  const [memberRoleDrafts, setMemberRoleDrafts] = useState<Record<string, ApprovedStoreRole>>({});
+  const [memberActionId, setMemberActionId] = useState("");
+  const [accessRequestRoles, setAccessRequestRoles] = useState<Record<string, ApprovedStoreRole>>(
+    {},
+  );
 
   useEffect(() => {
     if (!settingsData) return;
@@ -172,6 +188,26 @@ export function SettingsScreen() {
     if (!accountQuery.data) return;
     setAccountNameDraft(accountQuery.data.displayName);
   }, [accountQuery.data]);
+
+  useEffect(() => {
+    setMemberRoleDrafts((current) => {
+      const next: Record<string, ApprovedStoreRole> = {};
+      for (const member of storeMembersQuery.data?.members ?? []) {
+        next[member.id] = toApprovedRole(current[member.id] ?? member.role);
+      }
+      return next;
+    });
+  }, [storeMembersQuery.data?.members]);
+
+  useEffect(() => {
+    setAccessRequestRoles((current) => {
+      const next: Record<string, ApprovedStoreRole> = {};
+      for (const request of storeAccessRequestsQuery.data ?? []) {
+        next[request.id] = toApprovedRole(current[request.id] ?? request.requested_role);
+      }
+      return next;
+    });
+  }, [storeAccessRequestsQuery.data]);
 
   const hasChanges = useMemo(() => {
     if (!draft || !settingsData) return false;
@@ -271,6 +307,52 @@ export function SettingsScreen() {
       await queryClient.invalidateQueries({ queryKey: storesKeys.members });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "撤销邀请失败"),
+  });
+  const updateMemberRoleMutation = useMutation({
+    mutationFn: updateStoreMemberRole,
+    onMutate: (input) => {
+      setMemberActionId(input.id);
+    },
+    onSuccess: async () => {
+      toast.success("员工角色已保存");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: storesKeys.members }),
+        queryClient.invalidateQueries({ queryKey: storesKeys.context }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
+      ]);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "保存员工角色失败"),
+    onSettled: () => setMemberActionId(""),
+  });
+  const disableMemberMutation = useMutation({
+    mutationFn: disableStoreMember,
+    onMutate: (input) => {
+      setMemberActionId(input.id);
+    },
+    onSuccess: async () => {
+      toast.success("员工已停用");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: storesKeys.members }),
+        queryClient.invalidateQueries({ queryKey: storesKeys.context }),
+      ]);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "停用员工失败"),
+    onSettled: () => setMemberActionId(""),
+  });
+  const restoreMemberMutation = useMutation({
+    mutationFn: restoreStoreMember,
+    onMutate: (input) => {
+      setMemberActionId(input.id);
+    },
+    onSuccess: async () => {
+      toast.success("员工已恢复");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: storesKeys.members }),
+        queryClient.invalidateQueries({ queryKey: storesKeys.context }),
+      ]);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "恢复员工失败"),
+    onSettled: () => setMemberActionId(""),
   });
   const approveAccessRequestMutation = useMutation({
     mutationFn: approveStoreAccessRequest,
@@ -480,20 +562,44 @@ export function SettingsScreen() {
               invitations={storeMembersQuery.data?.invitations ?? []}
               inviteLinks={storeMembersQuery.data?.invite_links ?? []}
               accessRequests={storeAccessRequestsQuery.data ?? []}
+              activeStoreRole={storeContextQuery.data?.activeStore?.role}
+              currentUserId={accountQuery.data?.userId}
               isLoading={storeMembersQuery.isLoading}
+              isError={storeMembersQuery.isError}
               isAccessRequestsLoading={storeAccessRequestsQuery.isLoading}
               inviteDraft={inviteDraft}
               inviteLinkDraft={inviteLinkDraft}
+              memberSearch={memberSearch}
+              memberStatusFilter={memberStatusFilter}
+              memberRoleDrafts={memberRoleDrafts}
+              accessRequestRoles={accessRequestRoles}
               latestInviteCode={latestInviteCode}
               isInviting={inviteMemberMutation.isPending}
               isCreatingInviteLink={createInviteLinkMutation.isPending}
               isRevokingInvitation={revokeInvitationMutation.isPending}
               isRevokingInviteLink={revokeInviteLinkMutation.isPending}
+              isUpdatingMember={
+                updateMemberRoleMutation.isPending ||
+                disableMemberMutation.isPending ||
+                restoreMemberMutation.isPending
+              }
+              memberActionId={memberActionId}
               isReviewingAccessRequest={
                 approveAccessRequestMutation.isPending || rejectAccessRequestMutation.isPending
               }
               onInviteDraftChange={setInviteDraft}
               onInviteLinkDraftChange={setInviteLinkDraft}
+              onMemberSearchChange={setMemberSearch}
+              onMemberStatusFilterChange={setMemberStatusFilter}
+              onMemberRoleDraftChange={(id, role) =>
+                setMemberRoleDrafts((current) => ({ ...current, [id]: role }))
+              }
+              onAccessRequestRoleChange={(id, role) =>
+                setAccessRequestRoles((current) => ({ ...current, [id]: role }))
+              }
+              onUpdateMemberRole={(id, role) => updateMemberRoleMutation.mutate({ id, role })}
+              onDisableMember={(id) => disableMemberMutation.mutate({ id })}
+              onRestoreMember={(id) => restoreMemberMutation.mutate({ id })}
               onInvite={() => {
                 const email = inviteDraft.email.trim();
                 if (!email) return;
@@ -512,7 +618,9 @@ export function SettingsScreen() {
                 void navigator.clipboard?.writeText(latestInviteCode);
                 toast.success("邀请码已复制");
               }}
-              onApproveAccessRequest={(id) => approveAccessRequestMutation.mutate({ id })}
+              onApproveAccessRequest={(id, approvedRole) =>
+                approveAccessRequestMutation.mutate({ id, approved_role: approvedRole })
+              }
               onRejectAccessRequest={(id) =>
                 rejectAccessRequestMutation.mutate({ id, note: "店铺负责人拒绝加入申请" })
               }
@@ -711,6 +819,15 @@ const accountRoleLabels: Record<string, string> = {
   sales: "前台",
   viewer: "只读账号",
 };
+
+const memberStatusLabels: Record<string, string> = {
+  active: "正常",
+  inactive: "已停用",
+  invited: "待接受",
+};
+
+const approvedRoleOptions: ApprovedStoreRole[] = ["manager", "technician", "sales", "viewer"];
+const basicRoleOptions: ApprovedStoreRole[] = ["technician", "sales", "viewer"];
 
 const workflowToneOptions: { value: OrderWorkflowTone; label: string }[] = [
   { value: "neutral", label: "中性" },
@@ -1415,18 +1532,34 @@ function StoreMembersSection({
   invitations,
   inviteLinks,
   accessRequests,
+  activeStoreRole,
+  currentUserId,
   isLoading,
+  isError,
   isAccessRequestsLoading,
   inviteDraft,
   inviteLinkDraft,
+  memberSearch,
+  memberStatusFilter,
+  memberRoleDrafts,
+  accessRequestRoles,
   latestInviteCode,
   isInviting,
   isCreatingInviteLink,
   isRevokingInvitation,
   isRevokingInviteLink,
+  isUpdatingMember,
+  memberActionId,
   isReviewingAccessRequest,
   onInviteDraftChange,
   onInviteLinkDraftChange,
+  onMemberSearchChange,
+  onMemberStatusFilterChange,
+  onMemberRoleDraftChange,
+  onAccessRequestRoleChange,
+  onUpdateMemberRole,
+  onDisableMember,
+  onRestoreMember,
   onInvite,
   onCreateInviteLink,
   onRevokeInvitation,
@@ -1435,13 +1568,7 @@ function StoreMembersSection({
   onApproveAccessRequest,
   onRejectAccessRequest,
 }: {
-  members: {
-    id: string;
-    email: string;
-    display_name?: string;
-    role: string;
-    status: string;
-  }[];
+  members: StoreMember[];
   invitations: { id: string; email: string; role: string; expires_at: string }[];
   inviteLinks: {
     id: string;
@@ -1452,33 +1579,74 @@ function StoreMembersSection({
     used_count: number;
   }[];
   accessRequests: OnboardingRequest[];
+  activeStoreRole?: StoreRole;
+  currentUserId?: string;
   isLoading: boolean;
+  isError: boolean;
   isAccessRequestsLoading: boolean;
   inviteDraft: StoreInviteInput;
   inviteLinkDraft: StoreInviteLinkCreateInput;
+  memberSearch: string;
+  memberStatusFilter: "all" | "active" | "inactive";
+  memberRoleDrafts: Record<string, ApprovedStoreRole>;
+  accessRequestRoles: Record<string, ApprovedStoreRole>;
   latestInviteCode: string;
   isInviting: boolean;
   isCreatingInviteLink: boolean;
   isRevokingInvitation: boolean;
   isRevokingInviteLink: boolean;
+  isUpdatingMember: boolean;
+  memberActionId: string;
   isReviewingAccessRequest: boolean;
   onInviteDraftChange: React.Dispatch<React.SetStateAction<StoreInviteInput>>;
   onInviteLinkDraftChange: React.Dispatch<React.SetStateAction<StoreInviteLinkCreateInput>>;
+  onMemberSearchChange: (value: string) => void;
+  onMemberStatusFilterChange: (value: "all" | "active" | "inactive") => void;
+  onMemberRoleDraftChange: (id: string, role: ApprovedStoreRole) => void;
+  onAccessRequestRoleChange: (id: string, role: ApprovedStoreRole) => void;
+  onUpdateMemberRole: (id: string, role: ApprovedStoreRole) => void;
+  onDisableMember: (id: string) => void;
+  onRestoreMember: (id: string) => void;
   onInvite: () => void;
   onCreateInviteLink: () => void;
   onRevokeInvitation: (id: string) => void;
   onRevokeInviteLink: (id: string) => void;
   onCopyInviteCode: () => void;
-  onApproveAccessRequest: (id: string) => void;
+  onApproveAccessRequest: (id: string, approvedRole: ApprovedStoreRole) => void;
   onRejectAccessRequest: (id: string) => void;
 }) {
+  const roleOptions = getRoleOptionsForActor(activeStoreRole);
+  const searchTerm = memberSearch.trim().toLowerCase();
+  const activeCount = members.filter((member) => member.status === "active").length;
+  const inactiveCount = members.filter((member) => member.status === "inactive").length;
+  const filteredMembers = members.filter((member) => {
+    const matchesStatus =
+      memberStatusFilter === "all" ? true : member.status === memberStatusFilter;
+    if (!matchesStatus) return false;
+    if (!searchTerm) return true;
+    const display = `${member.display_name ?? ""} ${member.email}`.toLowerCase();
+    return display.includes(searchTerm);
+  });
+
   return (
     <section id="settings-members" className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={Users} iconFrame={false} title="成员权限" />
+      <RepairOsSectionHeader icon={Users} iconFrame={false} title="员工管理" />
       {isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-20 w-full" />
+        </div>
+      ) : isError ? (
+        <div className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium">无法读取员工管理</p>
+              <p className="mt-0.5 text-xs leading-5 text-amber-800">
+                当前账号可能没有员工管理权限，或店铺成员数据暂时读取失败。
+              </p>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1494,57 +1662,84 @@ function StoreMembersSection({
                   {accessRequests.length} 条待处理
                 </Badge>
               </div>
-              {accessRequests.map((request) => (
-                <RepairOsBusinessCard
-                  key={request.id}
-                  className="grid-cols-1 gap-2 border-primary/20 bg-primary/5 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                  trailing={
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-8 gap-1"
-                        disabled={isReviewingAccessRequest}
-                        onClick={() => onApproveAccessRequest(request.id)}
-                      >
-                        <Check className="size-3.5" />
-                        批准
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8"
-                        disabled={isReviewingAccessRequest}
-                        onClick={() => onRejectAccessRequest(request.id)}
-                      >
-                        拒绝
-                      </Button>
-                    </div>
-                  }
-                  trailingClassName="sm:justify-self-end"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      <p className="truncate text-sm font-medium">
-                        {request.display_name || request.email}
-                      </p>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {roleLabels[request.requested_role] ?? request.requested_role}
-                      </Badge>
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">{request.email}</p>
-                    <p className="truncate text-[11px] leading-4 text-muted-foreground">
-                      目标负责人：{request.target_owner_email || request.target_store_name || "-"}
-                    </p>
-                    {request.request_note ? (
-                      <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                        {request.request_note}
-                      </p>
-                    ) : null}
-                  </div>
-                </RepairOsBusinessCard>
-              ))}
+              {accessRequests.map((request) =>
+                (() => {
+                  const approvedRole =
+                    accessRequestRoles[request.id] ?? toApprovedRole(request.requested_role);
+                  return (
+                    <RepairOsBusinessCard
+                      key={request.id}
+                      className="grid-cols-1 gap-2 border-primary/20 bg-primary/5 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      trailing={
+                        <div className="grid min-w-0 gap-1.5 sm:w-56">
+                          <Select
+                            value={approvedRole}
+                            disabled={isReviewingAccessRequest}
+                            onValueChange={(role) =>
+                              onAccessRequestRoleChange(request.id, role as ApprovedStoreRole)
+                            }
+                          >
+                            <SelectTrigger className={compactControlClass}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {approvedRoleOptions.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {roleLabels[role]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8 gap-1"
+                              disabled={isReviewingAccessRequest}
+                              onClick={() => onApproveAccessRequest(request.id, approvedRole)}
+                            >
+                              <Check className="size-3.5" />
+                              批准
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8"
+                              disabled={isReviewingAccessRequest}
+                              onClick={() => onRejectAccessRequest(request.id)}
+                            >
+                              拒绝
+                            </Button>
+                          </div>
+                        </div>
+                      }
+                      trailingClassName="sm:justify-self-end"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <p className="truncate text-sm font-medium">
+                            {request.display_name || request.email}
+                          </p>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {roleLabels[request.requested_role] ?? request.requested_role}
+                          </Badge>
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">{request.email}</p>
+                        <p className="truncate text-[11px] leading-4 text-muted-foreground">
+                          目标负责人：
+                          {request.target_owner_email || request.target_store_name || "-"}
+                        </p>
+                        {request.request_note ? (
+                          <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                            {request.request_note}
+                          </p>
+                        ) : null}
+                      </div>
+                    </RepairOsBusinessCard>
+                  );
+                })(),
+              )}
             </div>
           ) : null}
 
@@ -1569,6 +1764,7 @@ function StoreMembersSection({
             <Field label="角色" htmlFor="invite-role">
               <Select
                 value={inviteDraft.role}
+                disabled={!roleOptions.length}
                 onValueChange={(role) =>
                   onInviteDraftChange((current) => ({
                     ...current,
@@ -1580,7 +1776,7 @@ function StoreMembersSection({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(["manager", "technician", "sales", "viewer"] as const).map((role) => (
+                  {roleOptions.map((role) => (
                     <SelectItem key={role} value={role}>
                       {roleLabels[role]}
                     </SelectItem>
@@ -1594,7 +1790,7 @@ function StoreMembersSection({
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1.5"
-                disabled={isInviting || inviteDraft.email.trim().length < 3}
+                disabled={isInviting || !roleOptions.length || inviteDraft.email.trim().length < 3}
                 onClick={onInvite}
               >
                 <UserPlus className="mr-1.5 size-3.5" /> 邀请
@@ -1615,70 +1811,80 @@ function StoreMembersSection({
               </Badge>
             </div>
             <div className="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_9rem_6rem_6rem_auto]">
-              <Input
-                className={compactControlClass}
-                value={inviteLinkDraft.label ?? ""}
-                onChange={(event) =>
-                  onInviteLinkDraftChange((current) => ({
-                    ...current,
-                    label: event.target.value,
-                  }))
-                }
-                placeholder="备注，例如 临时员工"
-              />
-              <Select
-                value={inviteLinkDraft.role}
-                onValueChange={(role) =>
-                  onInviteLinkDraftChange((current) => ({
-                    ...current,
-                    role: role as StoreInviteLinkCreateInput["role"],
-                  }))
-                }
-              >
-                <SelectTrigger className={compactControlClass}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(["manager", "technician", "sales", "viewer"] as const).map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {roleLabels[role]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                min={1}
-                max={30}
-                className={compactControlClass}
-                value={inviteLinkDraft.expires_in_days ?? 7}
-                onChange={(event) =>
-                  onInviteLinkDraftChange((current) => ({
-                    ...current,
-                    expires_in_days: Number(event.target.value) || 7,
-                  }))
-                }
-                aria-label="有效天数"
-              />
-              <Input
-                type="number"
-                min={1}
-                max={50}
-                className={compactControlClass}
-                value={inviteLinkDraft.max_uses ?? 1}
-                onChange={(event) =>
-                  onInviteLinkDraftChange((current) => ({
-                    ...current,
-                    max_uses: Number(event.target.value) || 1,
-                  }))
-                }
-                aria-label="可用次数"
-              />
+              <Field label="备注" htmlFor="invite-code-label">
+                <Input
+                  id="invite-code-label"
+                  className={compactControlClass}
+                  value={inviteLinkDraft.label ?? ""}
+                  onChange={(event) =>
+                    onInviteLinkDraftChange((current) => ({
+                      ...current,
+                      label: event.target.value,
+                    }))
+                  }
+                  placeholder="例如 临时员工"
+                />
+              </Field>
+              <Field label="角色" htmlFor="invite-code-role">
+                <Select
+                  value={inviteLinkDraft.role}
+                  disabled={!roleOptions.length}
+                  onValueChange={(role) =>
+                    onInviteLinkDraftChange((current) => ({
+                      ...current,
+                      role: role as StoreInviteLinkCreateInput["role"],
+                    }))
+                  }
+                >
+                  <SelectTrigger id="invite-code-role" className={compactControlClass}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {roleLabels[role]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="天数" htmlFor="invite-code-days">
+                <Input
+                  id="invite-code-days"
+                  type="number"
+                  min={1}
+                  max={30}
+                  className={compactControlClass}
+                  value={inviteLinkDraft.expires_in_days ?? 7}
+                  onChange={(event) =>
+                    onInviteLinkDraftChange((current) => ({
+                      ...current,
+                      expires_in_days: Number(event.target.value) || 7,
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="次数" htmlFor="invite-code-uses">
+                <Input
+                  id="invite-code-uses"
+                  type="number"
+                  min={1}
+                  max={50}
+                  className={compactControlClass}
+                  value={inviteLinkDraft.max_uses ?? 1}
+                  onChange={(event) =>
+                    onInviteLinkDraftChange((current) => ({
+                      ...current,
+                      max_uses: Number(event.target.value) || 1,
+                    }))
+                  }
+                />
+              </Field>
               <Button
                 type="button"
                 size="sm"
-                className="h-8 gap-1.5"
-                disabled={isCreatingInviteLink}
+                className="h-8 gap-1.5 self-end"
+                disabled={isCreatingInviteLink || !roleOptions.length}
                 onClick={onCreateInviteLink}
               >
                 <Plus className="size-3.5" />
@@ -1739,29 +1945,182 @@ function StoreMembersSection({
             ) : null}
           </div>
 
-          <div className="grid gap-2">
-            {members.map((member) => (
-              <RepairOsBusinessCard
-                key={member.id}
-                className="grid-cols-1 gap-1.5 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                trailing={
-                  <Badge
-                    variant={member.role === "owner" ? "default" : "outline"}
-                    className="text-[10px]"
+          <div className="space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_9rem]">
+                <Field label="搜索员工" htmlFor="member-search">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="member-search"
+                      className={cn(compactControlClass, "pl-8")}
+                      value={memberSearch}
+                      onChange={(event) => onMemberSearchChange(event.target.value)}
+                      placeholder="姓名或邮箱"
+                    />
+                  </div>
+                </Field>
+                <Field label="状态" htmlFor="member-status-filter">
+                  <Select
+                    value={memberStatusFilter}
+                    onValueChange={(status) =>
+                      onMemberStatusFilterChange(status as "all" | "active" | "inactive")
+                    }
                   >
-                    {roleLabels[member.role] ?? member.role}
-                  </Badge>
-                }
-                trailingClassName="shrink-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {member.display_name || member.email}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">{member.email}</p>
-                </div>
-              </RepairOsBusinessCard>
-            ))}
+                    <SelectTrigger id="member-status-filter" className={compactControlClass}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部</SelectItem>
+                      <SelectItem value="active">正常</SelectItem>
+                      <SelectItem value="inactive">已停用</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="outline" className="text-[10px]">
+                  共 {members.length}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px]">
+                  正常 {activeCount}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  停用 {inactiveCount}
+                </Badge>
+              </div>
+            </div>
+
+            {filteredMembers.length ? (
+              filteredMembers.map((member) => {
+                const draftRole = memberRoleDrafts[member.id] ?? toApprovedRole(member.role);
+                const canEditRole =
+                  member.status === "active" &&
+                  canManageMemberRole(activeStoreRole, member, currentUserId, draftRole);
+                const canChangeStatus = canManageMemberStatus(
+                  activeStoreRole,
+                  member,
+                  currentUserId,
+                );
+                const hasRoleChange = member.role !== "owner" && draftRole !== member.role;
+                const isRowPending = isUpdatingMember && memberActionId === member.id;
+                const memberRoleOptions = getRoleOptionsForMember(activeStoreRole, member);
+                return (
+                  <RepairOsBusinessCard
+                    key={member.id}
+                    className={cn(
+                      "grid-cols-1 gap-2 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,auto)] sm:items-center",
+                      member.status === "inactive" && "bg-muted/30 opacity-80",
+                    )}
+                    trailing={
+                      <div className="grid min-w-0 gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                          <Badge
+                            variant={member.role === "owner" ? "default" : "outline"}
+                            className="text-[10px]"
+                          >
+                            {roleLabels[member.role] ?? member.role}
+                          </Badge>
+                          <Badge
+                            variant={member.status === "active" ? "secondary" : "outline"}
+                            className="text-[10px]"
+                          >
+                            {memberStatusLabels[member.status] ?? member.status}
+                          </Badge>
+                        </div>
+                        {member.role !== "owner" ? (
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1.5">
+                            <Select
+                              value={draftRole}
+                              disabled={
+                                !canEditRole || !memberRoleOptions.length || isUpdatingMember
+                              }
+                              onValueChange={(role) =>
+                                onMemberRoleDraftChange(member.id, role as ApprovedStoreRole)
+                              }
+                            >
+                              <SelectTrigger className={compactControlClass}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {memberRoleOptions.map((role) => (
+                                  <SelectItem key={role} value={role}>
+                                    {roleLabels[role]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2"
+                              disabled={!canEditRole || !hasRoleChange || isUpdatingMember}
+                              onClick={() => onUpdateMemberRole(member.id, draftRole)}
+                            >
+                              保存
+                            </Button>
+                          </div>
+                        ) : null}
+                        {member.role !== "owner" ? (
+                          member.status === "inactive" ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 justify-center gap-1.5"
+                              disabled={!canChangeStatus || isUpdatingMember}
+                              onClick={() => onRestoreMember(member.id)}
+                            >
+                              <RotateCcw className="size-3.5" />
+                              {isRowPending ? "恢复中" : "恢复"}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 justify-center gap-1.5 text-destructive hover:text-destructive"
+                              disabled={!canChangeStatus || isUpdatingMember}
+                              onClick={() => {
+                                if (
+                                  window.confirm(`停用 ${member.display_name || member.email}？`)
+                                ) {
+                                  onDisableMember(member.id);
+                                }
+                              }}
+                            >
+                              <UserMinus className="size-3.5" />
+                              {isRowPending ? "停用中" : "停用"}
+                            </Button>
+                          )
+                        ) : null}
+                      </div>
+                    }
+                    trailingClassName="min-w-0"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-sm font-medium">
+                        {member.display_name || member.email}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        更新：{formatDate(member.updated_at)}
+                      </p>
+                      {member.user_id === currentUserId ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          当前账号
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </RepairOsBusinessCard>
+                );
+              })
+            ) : (
+              <div className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+                没有符合条件的员工。
+              </div>
+            )}
           </div>
 
           {invitations.length ? (
@@ -1971,4 +2330,43 @@ function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date);
+}
+
+function toApprovedRole(role?: StoreRole): ApprovedStoreRole {
+  return role && role !== "owner" ? role : "viewer";
+}
+
+function getRoleOptionsForActor(role?: StoreRole): ApprovedStoreRole[] {
+  if (role === "owner") return approvedRoleOptions;
+  if (role === "manager") return basicRoleOptions;
+  return [];
+}
+
+function getRoleOptionsForMember(actorRole: StoreRole | undefined, member: StoreMember) {
+  if (member.role === "owner") return [];
+  if (actorRole === "owner") return approvedRoleOptions;
+  if (actorRole === "manager" && member.role !== "manager") return basicRoleOptions;
+  return [];
+}
+
+function canManageMemberRole(
+  actorRole: StoreRole | undefined,
+  member: StoreMember,
+  currentUserId: string | undefined,
+  nextRole: ApprovedStoreRole,
+) {
+  if (member.role === "owner" || member.user_id === currentUserId) return false;
+  if (actorRole === "owner") return true;
+  if (actorRole !== "manager") return false;
+  return member.role !== "manager" && nextRole !== "manager";
+}
+
+function canManageMemberStatus(
+  actorRole: StoreRole | undefined,
+  member: StoreMember,
+  currentUserId: string | undefined,
+) {
+  if (member.role === "owner" || member.user_id === currentUserId) return false;
+  if (actorRole === "owner") return true;
+  return actorRole === "manager" && member.role !== "manager";
 }

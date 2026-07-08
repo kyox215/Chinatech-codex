@@ -11,6 +11,8 @@ import {
   storeInviteLinkCreateBodySchema,
   storeInviteLinkDecisionBodySchema,
   storeInviteLinkRedeemBodySchema,
+  storeMemberDecisionBodySchema,
+  storeMemberRoleUpdateBodySchema,
   updateOrderInputSchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
@@ -94,6 +96,37 @@ describe("repairdesk API schemas", () => {
       { code: "rd_valid_invite_code" },
     );
     expect(() => storeInviteLinkRedeemBodySchema.parse({ code: "short" })).toThrow();
+  });
+
+  it("validates store member lifecycle payloads without accepting owner role", () => {
+    expect(
+      storeMemberRoleUpdateBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000301",
+        role: "sales",
+      }),
+    ).toMatchObject({
+      id: "00000000-0000-4000-8000-000000000301",
+      role: "sales",
+    });
+
+    expect(() =>
+      storeMemberRoleUpdateBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000301",
+        role: "owner",
+      }),
+    ).toThrow();
+    expect(() =>
+      storeMemberRoleUpdateBodySchema.parse({
+        id: "not-a-uuid",
+        role: "viewer",
+      }),
+    ).toThrow();
+    expect(
+      storeMemberDecisionBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000301",
+      }),
+    ).toEqual({ id: "00000000-0000-4000-8000-000000000301" });
+    expect(() => storeMemberDecisionBodySchema.parse({ id: "membership_staff" })).toThrow();
   });
 
   it("rejects incomplete order creation payloads", () => {
