@@ -1,0 +1,22 @@
+# Evidence Index — TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for
+
+| Evidence ID | Type | Claim supported | Source/path/command | Result | Collected at | Collector |
+|---|---|---|---|---|---|---|
+| E-001 | request | task exists and title is recorded | `TASK.md` | observed | 2026-06-19T23:29:15Z | Integration Lead / CEO Agent |
+| E-002 | sub-agent | DOC department was actually spawned for this fix | `multi_agent_v1.spawn_agent` | spawned documentation_reviewer id `019ee237-b920-7111-af6e-e9f978be5c48` nickname `Ledger` | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-003 | sub-agent | QA department was actually spawned for this fix | `multi_agent_v1.spawn_agent` | spawned qa_reviewer id `019ee237-d2cc-7791-980a-f50c26063fa5` nickname `Probe` | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-004 | rule | root rules require real sub-agent spawning for Owner-requested AI employee/department work | `AGENTS.md` | Owner Simple Mode updated with real-spawn and no-spawn reason rule | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-005 | rule | department design requires actual spawn and no-spawn reporting | `AI智能部门管理/部门化管理设计.md` | core rules and spawn triggers updated | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-006 | config/checklist | multi-agent config/checklist records real-spawn requirement and evidence fields | `.agents/repairdesk-multiagent.yaml`; `.agents/integration-checklist.md` | owner-requested departments require real spawn; checklist requires agent ids/roles or no-spawn reason | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-007 | sub-agent result | DOC conclusions were received and merged | `SUBAGENT_REVIEW_REPORT.md`; DOC agent `019ee237-b920-7111-af6e-e9f978be5c48` | accepted authority-surface and task-package-template recommendations | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-008 | sub-agent result | QA conclusions were received and merged | `SUBAGENT_REVIEW_REPORT.md`; QA agent `019ee237-d2cc-7791-980a-f50c26063fa5` | accepted blocker findings: record conclusions, attribution, targeted scans, no-screenshot reason | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-009 | template | sub-agent task packages now require agent identity and spawn status | `.agents/task-package-template.md`; `AI智能部门管理/部门化管理设计.md`; `.agents/repairdesk-multiagent.yaml` | added `codex_agent`, `spawn_required`, `spawn_status`, and fallback reason fields | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-010 | scope attribution | this task's manual edits are governance/rules/task-memory only | apply_patch touched files listed in E-004 through E-009 and memory updates | no `src/`, `supabase/`, app runtime, package, dependency, deployment, staging, commit, or push action performed by this task | 2026-06-19T23:29:47Z | Integration Lead / CEO Agent |
+| E-011 | validation | real-spawn and no-spawn rule text exists in authoritative surfaces | `rg -n -S "真实调用|真实多代理|真实子代理|spawn_agent|real sub-agent|codex_agent|spawn_status|no-spawn|no_spawn_reason|fallback_reason_if_not_spawned|AI 员工" AGENTS.md 'AI智能部门管理/部门化管理设计.md' .agents/repairdesk-multiagent.yaml .agents/integration-checklist.md .agents/task-package-template.md .ai-company/memory/tasks/TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for` | passed; matched root rules, department design, config, checklist, template, and task evidence | 2026-06-19T23:38:41Z | Integration Lead / CEO Agent |
+| E-012 | validation | agent config remains valid | `npm run agents:config` | passed: Agent config check passed | 2026-06-19T23:38:41Z | Integration Lead / CEO Agent |
+| E-013 | validation | agent task templates remain valid | `npm run agents:templates` | passed: Agent template check passed | 2026-06-19T23:38:41Z | Integration Lead / CEO Agent |
+| E-014 | validation | combined governance rule check passes | `npm run agents:check` | passed: config, template, and rule checks passed | 2026-06-19T23:38:41Z | Integration Lead / CEO Agent |
+| E-015 | closeout | completed sub-agents were closed after their results were merged | `multi_agent_v1.close_agent` | closed DOC Ledger and QA Probe; previous statuses contained their completed reports | 2026-06-19T23:38:41Z | Integration Lead / CEO Agent |
+
+Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
+IDs, test reports, screenshots, or concise log references.

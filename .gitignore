@@ -18,13 +18,17 @@ test-results
 .output
 .vinxi
 .tanstack/**
-tsconfig.tsbuildinfo
+*.tsbuildinfo
 .nitro
 .vercel/
 .env
 .env.*
 !.env.example
 *.local
+
+# Python cache output from local tooling
+__pycache__/
+*.pyc
 
 # Wrangler / Cloudflare
 .wrangler/

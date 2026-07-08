@@ -1,0 +1,7 @@
+# Infrastructure / Deployment Instructions
+
+- Treat environment, account, region, cluster, workspace, and artifact as explicit inputs.
+- Plan/apply, build/push, and deploy/promote are separate authority steps.
+- Require observability, canary/progressive rollout, stop thresholds, and rollback/forward repair.
+- Never expose credentials in code, logs, prompts, or generated reports.
+- Production writes, public DNS, IAM, secrets, and destructive operations require explicit approval.

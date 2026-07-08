@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700">
+  <rect width="900" height="700" fill="#ffffff"/>
+  <text x="60" y="90" fill="#111111" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700">Plain Numeric OCR Test</text>
+  <text x="60" y="170" fill="#111111" font-family="Courier New, monospace" font-size="54">IMEI 490154203237518</text>
+  <text x="60" y="260" fill="#111111" font-family="Courier New, monospace" font-size="54">IMEI 356938035643809</text>
+  <text x="60" y="350" fill="#111111" font-family="Courier New, monospace" font-size="44">SERIAL SN-TEST-20260708</text>
+  <text x="60" y="455" fill="#333333" font-family="Arial, Helvetica, sans-serif" font-size="28">Use as uploaded/captured gallery image. Browsers without native TextDetector should fall back safely.</text>
+</svg>

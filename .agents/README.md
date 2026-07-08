@@ -6,22 +6,28 @@ Last reviewed: 2026-06-18
 
 This directory turns the project department rules into executable multi-agent operating material. The canonical policy remains `AGENTS.md` and `AI智能部门管理/部门化管理设计.md`; files here are the working prompts, task packets, and verification checklists used when a task requires delegated agents.
 
+AI Company OS Codex Native v3.0 is available under `.ai-company/`, `.codex/`, and `.agents/skills/`. It supplies owner/CEO/task-flow/memory governance, reusable skills, and optional Codex-native specialist definitions for the project, while this directory remains the executable RepairDesk department configuration. If generic `.ai-company/policies/*`, `.agents/skills/*`, or `.codex/agents/*` rules conflict with RepairDesk-specific rules, `AGENTS.md`, `AI智能部门管理/部门化管理设计.md`, and this directory win.
+
 ## Required Flow
 
 1. Read `AGENTS.md`.
-2. Read `AI智能部门管理/部门化管理设计.md`.
-3. Read this directory:
+2. Read `.ai-company/REPAIRDESK_ADOPTION.md`.
+3. Read `.ai-company/policies/CODEX_OPERATING_MODEL.md`, `.ai-company/policies/PROJECT_RULES.md`, and `.ai-company/policies/TASK_FLOW.md` for non-trivial tasks.
+4. Read `.ai-company/memory/ACTIVE_CONTEXT.md` and the current task under `.ai-company/memory/tasks/` when present.
+5. Read `AI智能部门管理/部门化管理设计.md`.
+6. Read this directory:
    - `.agents/repairdesk-multiagent.yaml`
    - `.agents/decision-flow.md`
    - `.agents/department-roster.md`
    - `.agents/task-package-template.md`
    - `.agents/integration-checklist.md`
    - `.agents/route-cases.yaml`
-4. Classify the request with the agenda intake.
-5. Decide single-agent or multi-agent.
-6. If multi-agent is required, spawn only bounded sidecar work that can run in parallel.
-7. Keep the main thread as Integration Lead.
-8. Integrate, verify, and report.
+7. Load task-relevant skills from `.agents/skills/*` only when useful.
+8. Classify the request with the agenda intake.
+9. Decide single-agent or multi-agent.
+10. If multi-agent is required, spawn only bounded sidecar work that can run in parallel.
+11. Keep the main thread as Integration Lead / CEO Agent.
+12. Integrate, verify, update `.ai-company/memory/` when required, and report.
 
 ## Operating Model
 

@@ -59,7 +59,7 @@ export function operatorNameFromActor(
   return resolveStaffDisplayName({
     email: actor.email,
     displayName: actor.displayName,
-    role: actor.storeRole || actor.role,
+    role: actor.storeRole ?? actor.role,
     fallback,
   });
 }
@@ -507,7 +507,7 @@ export function attachmentFromRow(row: DbRecord): OrderAttachment {
   };
 }
 
-export async function fetchOrderRows(storeId = DEFAULT_STORE_ID): Promise<DbRecord[]> {
+export async function fetchOrderRows(storeId: string): Promise<DbRecord[]> {
   const supabase = getSupabaseAdmin();
   const rows: DbRecord[] = [];
   let from = 0;

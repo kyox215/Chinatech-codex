@@ -13,3 +13,6 @@ IDs, test reports, screenshots, or concise log references.
 - `2026-07-03T23:35:48Z` `526cf2fd70` — npm run lint -- src/server/repairdesk-shared.ts src/server/repairdesk-shared.test.ts passed; project script ran eslint .
 - `2026-07-03T23:36:37Z` `e0bdb371be` — TASK.md closeout marks acceptance criteria complete.
 - `2026-07-03T23:36:37Z` `c14909a591` — src/server/repairdesk-shared.test.ts guards against supplier:suppliers(*) returning.
+- `2026-07-04T10:06:47Z` `260d75f643` — vercel deploy --prod --yes completed successfully; deployment URL chinatech-codex-ip82p88dj-kyox120-9295s-projects.vercel.app; alias www.chinatech.in.
+- `2026-07-04T10:06:47Z` `524b0c2241` — curl -I https://www.chinatech.in/orders returned HTTP/2 307 to /login?next=%2Forders from Vercel.
+- `2026-07-04T10:06:47Z` `f702ffd79e` — vercel inspect reported production deployment status Ready.

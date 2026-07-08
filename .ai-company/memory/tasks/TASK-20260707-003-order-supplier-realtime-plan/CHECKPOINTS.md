@@ -56,3 +56,12 @@
   - npm run build passed
   - git diff --cached --name-only contains only task memory and order cache sync files
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-07T18:24:21Z — Implemented realtime order parts-supplier cache sync, committed b93a1fb, pushed origin/main, and verified Vercel production deployment READY with chinatech.in aliases.
+
+- **Phase:** deployed
+- **Completed/current state:** Implemented realtime order parts-supplier cache sync, committed b93a1fb, pushed origin/main, and verified Vercel production deployment READY with chinatech.in aliases.
+- **Next:** Task is complete. Preserve unrelated dirty worktree; no further code action required unless owner reports production behavior still stale after selecting supplier.
+- **Decision:** Use React Query optimistic cache patch plus rollback/invalidation for supplier updates; rely on Git-triggered Vercel deploy instead of manual dirty-worktree deploy.
+- **Evidence:**
+  - Tests passed before commit: lint, typecheck, npm run test, build. Vercel deployment chinatech-codex-4kt0s0ztp is READY for commit b93a1fb; chinatech.in/orders redirects to login and returns 200; screenshot saved at screenshots/TASK-20260707-003-order-supplier-realtime-plan/prod-orders-login-20260707.png.
+- **Recorded by:** codex-main

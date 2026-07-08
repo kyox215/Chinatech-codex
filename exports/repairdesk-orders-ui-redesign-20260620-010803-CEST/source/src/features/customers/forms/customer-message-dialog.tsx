@@ -1,0 +1,177 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Send } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { componentOverlay } from "@/lib/component-patterns";
+import type { CustomerDetail, CustomerMessageInput } from "@/lib/repairdesk/api";
+import { normalizePhoneRaw, uniqueContactPhones } from "@/shared/lib/phone";
+
+const customerMessageChannels = [
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "sms", label: "SMS" },
+] as const;
+
+const compactControlClass = "h-8 text-sm sm:h-9";
+
+export function CustomerMessageDialog({
+  open,
+  onOpenChange,
+  data,
+  appOrigin,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  data: CustomerDetail;
+  appOrigin: string;
+  busy: boolean;
+  onConfirm: (input: CustomerMessageInput) => Promise<unknown>;
+}) {
+  const [channel, setChannel] = useState<"whatsapp" | "sms">(
+    data.customer.preferred_channel ?? "whatsapp",
+  );
+  const phoneOptions = customerPhoneOptions(data);
+  const [phone, setPhone] = useState(phoneOptions[0] ?? "");
+  const [body, setBody] = useState(() => buildCustomerMessage(data, appOrigin));
+  useEffect(() => {
+    if (open) {
+      setChannel(data.customer.preferred_channel ?? "whatsapp");
+      setPhone(customerPhoneOptions(data)[0] ?? "");
+      setBody(buildCustomerMessage(data, appOrigin));
+    }
+  }, [data, open, appOrigin]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={componentOverlay.formContent}>
+        <DialogHeader className={componentOverlay.header}>
+          <DialogTitle className={componentOverlay.title}>预览客户消息</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
+            客户可见内容使用意大利语。确认后打开对应通道并记录联系历史。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-w-0 space-y-2.5">
+          <Select
+            value={channel}
+            onValueChange={(value) => setChannel(value as "whatsapp" | "sms")}
+          >
+            <SelectTrigger className={compactControlClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {customerMessageChannels.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {phoneOptions.length > 1 ? (
+            <Select value={phone} onValueChange={setPhone}>
+              <SelectTrigger className="h-8 min-w-0 font-mono text-xs sm:h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {phoneOptions.map((option, index) => (
+                  <SelectItem key={option} value={option}>
+                    {index === 0 ? "主号码" : "备用号码"} · {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex h-8 items-center truncate rounded-md border border-[var(--border-panel)] bg-surface-muted px-3 font-mono text-xs text-muted-foreground sm:h-9">
+              {phone || "缺少电话号码"}
+            </div>
+          )}
+          <Textarea
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            className="min-h-56 font-mono text-xs leading-relaxed sm:min-h-64"
+          />
+        </div>
+        <DialogFooter className={componentOverlay.footer}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            取消
+          </Button>
+          <Button
+            disabled={busy || !body.trim()}
+            onClick={async () => {
+              const url =
+                channel === "whatsapp"
+                  ? whatsAppUrl(phone, body.trim())
+                  : smsUrl(phone, body.trim());
+              if (url) window.open(url, "_blank", "noopener,noreferrer");
+              await onConfirm({ channel, body: body.trim() });
+            }}
+          >
+            <Send className="mr-1.5 size-3.5" /> 确认并记录
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function customerPhoneOptions(data: CustomerDetail) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const backupPhones = uniqueContactPhones(data.customer.phone_e164, data.customer.contact_phones);
+  for (const phone of [data.customer.phone_e164, ...backupPhones]) {
+    const trimmed = phone.trim();
+    const raw = normalizePhoneRaw(trimmed);
+    if (!trimmed || !raw || seen.has(raw)) continue;
+    seen.add(raw);
+    result.push(trimmed);
+  }
+  return result;
+}
+
+function buildCustomerMessage(data: CustomerDetail, appOrigin: string) {
+  const { customer, orders, stats } = data;
+  const latest = orders[0];
+  return [
+    `Gentile ${customer.name},`,
+    "",
+    "la contattiamo da ChinaTech per il servizio di assistenza.",
+    latest ? `Ultimo ordine: ${latest.public_no} - ${latest.device_label}` : null,
+    `Dispositivi registrati: ${stats.device_count}`,
+    appOrigin ? `Area assistenza: ${appOrigin}/customers/${customer.id}` : null,
+    "",
+    "Restiamo a disposizione per qualsiasi necessità.",
+    "Grazie,",
+    "ChinaTech",
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
+}
+
+function whatsAppUrl(phone: string, body: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  return `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
+}
+
+function smsUrl(phone: string, body: string) {
+  const digits = phone.replace(/[^\d+]/g, "");
+  if (!digits) return "";
+  return `sms:${digits}?body=${encodeURIComponent(body)}`;
+}

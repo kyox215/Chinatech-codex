@@ -198,6 +198,110 @@ describe("repairdesk API schemas", () => {
     ).toThrow();
   });
 
+  it("validates IMEI fields consistently while keeping create and full edit blank optional", () => {
+    expect(() =>
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { device_imei: "   " },
+      }),
+    ).toThrow("IMEI / 序列号不能为空");
+
+    expect(
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { device_imei: " SN-TEST_20260708:01 " },
+      }).changes.device_imei,
+    ).toBe("SN-TEST_20260708:01");
+
+    expect(() =>
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { device_imei: "A".repeat(65) },
+      }),
+    ).toThrow("IMEI / 序列号不能超过 64 个字符");
+
+    expect(() =>
+      patchOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        changes: { device_imei: "SN<script>" },
+      }),
+    ).toThrow("IMEI / 序列号只能包含");
+
+    expect(
+      createOrderSchema.parse({
+        order_type: "quick_repair",
+        status: "new",
+        issue_description: "屏幕碎裂",
+        fault_prices: [],
+        device_imei: "",
+      }).device_imei,
+    ).toBe("");
+    expect(
+      createOrderSchema.parse({
+        order_type: "quick_repair",
+        status: "new",
+        issue_description: "屏幕碎裂",
+        fault_prices: [],
+        device_imei: " SN-TEST_20260708:01 ",
+      }).device_imei,
+    ).toBe("SN-TEST_20260708:01");
+    expect(() =>
+      createOrderSchema.parse({
+        order_type: "quick_repair",
+        status: "new",
+        issue_description: "屏幕碎裂",
+        fault_prices: [],
+        device_imei: "A".repeat(65),
+      }),
+    ).toThrow("IMEI / 序列号不能超过 64 个字符");
+    expect(() =>
+      createOrderSchema.parse({
+        order_type: "quick_repair",
+        status: "new",
+        issue_description: "屏幕碎裂",
+        fault_prices: [],
+        device_imei: "SN<script>",
+      }),
+    ).toThrow("IMEI / 序列号只能包含");
+
+    expect(
+      updateOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        customer_name: "Cliente",
+        customer_phone: "+39 333 000 0000",
+        device_brand: "Apple",
+        device_model: "iPhone",
+        device_imei: "",
+        issue_description: "屏幕",
+        fault_prices: [],
+      }).device_imei,
+    ).toBe("");
+    expect(
+      updateOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        customer_name: "Cliente",
+        customer_phone: "+39 333 000 0000",
+        device_brand: "Apple",
+        device_model: "iPhone",
+        device_imei: " SN-TEST_20260708:01 ",
+        issue_description: "屏幕",
+        fault_prices: [],
+      }).device_imei,
+    ).toBe("SN-TEST_20260708:01");
+    expect(() =>
+      updateOrderInputSchema.parse({
+        expected_updated_at: "2026-06-11T00:00:00.000Z",
+        customer_name: "Cliente",
+        customer_phone: "+39 333 000 0000",
+        device_brand: "Apple",
+        device_model: "iPhone",
+        device_imei: "=490154203237518",
+        issue_description: "屏幕",
+        fault_prices: [],
+      }),
+    ).toThrow("IMEI / 序列号只能包含");
+  });
+
   it("accepts device unlock inline patches without exposing a technician patch hole", () => {
     expect(
       patchOrderInputSchema.parse({

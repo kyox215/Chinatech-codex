@@ -1,5 +1,10 @@
 # RepairOS Mobile Detail Standard
 
+Status: active
+Owner: UX + Documentation / Integration Lead
+Scope: current mobile detail/task/workflow page standards for RepairDesk.
+Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+
 状态：active
 来源页面：`/orders/[id]` 移动端订单详情
 适用范围：订单详情、移动任务详情、新建/编辑工单移动流程、客户详情、回收报价详情、库存商品详情、设置子页等高频移动业务详情页。
@@ -70,7 +75,7 @@ repairOs.mobileInfoCardMuted
 | 主编号 | `font-mono text-[12px] font-semibold leading-4 text-primary` |
 | 辅助 badge | `text-[10px]`，最多 3 个，超长必须截断 |
 
-主流程只表达 `收机 / 检测 / 报价 / 配件 / 维修 / 取机 / 结案`。邮寄中、外修、通知状态、审批状态、异常状态都属于辅助状态标签或独立处理面板。
+主流程只表达 `接单 / 检测报价 / 维修处理 / 通知取机 / 收款完成`。底层 `workflow_status` 可以继续保留收机、检测、报价、配件、维修、取机、结案等兼容状态，移动 UI 通过 `order-simple-flow.ts` 聚合展示。邮寄中、外修、通知状态、审批状态、异常状态都属于辅助状态标签或独立处理面板。
 
 ## 3. 信息卡形态
 

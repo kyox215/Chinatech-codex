@@ -1188,6 +1188,7 @@ export async function patchOrder(
         nextSnapshot.model = value;
         break;
       case "device_imei":
+        if (!value) throw new Error("IMEI / 序列号不能为空");
         nextSnapshot.serial_or_imei = value;
         break;
       case "device_notes":

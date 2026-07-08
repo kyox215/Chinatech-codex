@@ -100,17 +100,23 @@ import {
   UnauthorizedError,
   ForbiddenError,
 } from "@/server/auth-context";
+import { assertPermission, type PermissionAction } from "@/server/permissions";
 import { writeAuditLog } from "@/server/audit";
 import { resolveRepairDeskSourceMode } from "@/server/repairdesk-source-mode";
+import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
 import {
   queueRepairDeskRealtimeBroadcast,
   type RepairDeskRealtimeMutationBroadcast,
 } from "@/features/realtime/server/realtime-broadcast";
 import type {
+  AuditActor,
   OrderListItem,
   OrderListResult,
   OrderStats,
+  PatchOrderFinanceInput,
+  PatchOrderInput,
   RepairDeskOptions,
+  UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 import {
   accountProfileUpdateBodySchema,
@@ -642,6 +648,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       case "inventory/summary":
         return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
       case "orders/create":
+        assertOrderCreatePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -755,6 +762,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/update": {
         const { id, input } = updateOrderBodySchema.parse(body);
+        assertOrderUpdatePermission(actor, input);
         return ok(
           await auditGeneric(
             actor,
@@ -769,6 +777,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/patch": {
         const { id, input } = patchOrderBodySchema.parse(body);
+        assertOrderPatchPermission(actor, input);
         return ok(
           await auditGeneric(
             actor,
@@ -783,6 +792,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/finance": {
         const { id, input } = patchOrderFinanceBodySchema.parse(body);
+        assertOrderFinancePermission(actor, input);
         return ok(
           await auditGeneric(
             actor,
@@ -818,7 +828,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
             "repair_order",
             id,
             { to, reason },
-            () => api.transitionOrder(id, to, { reason, operator: actor, storeId: actor.storeId }),
+            () => api.transitionOrder(id, to, { reason, operator: actor }),
             realtimeBroadcasts.orderTransitioned,
           ),
         );
@@ -1226,6 +1236,80 @@ export function allowsPendingStore(path: string, method: "GET" | "POST") {
     path === "platform/onboarding/approve" ||
     path === "platform/onboarding/reject"
   );
+}
+
+export function assertOrderCreatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "order:create");
+}
+
+export function assertOrderUpdatePermission(actor: AuditActor, _input: UpdateOrderInput) {
+  for (const action of resolveOrderUpdatePermissionActions(_input)) {
+    assertRepairDeskPermission(actor, action);
+  }
+}
+
+export function assertOrderPatchPermission(actor: AuditActor, input: PatchOrderInput) {
+  for (const action of resolveOrderPatchPermissionActions(input)) {
+    assertRepairDeskPermission(actor, action);
+  }
+}
+
+export function assertOrderFinancePermission(actor: AuditActor, _input: PatchOrderFinanceInput) {
+  assertRepairDeskPermission(actor, "payment:adjust");
+}
+
+export function resolveOrderUpdatePermissionActions(input: UpdateOrderInput): PermissionAction[] {
+  const actions = new Set<PermissionAction>(["order:update_intake"]);
+
+  if (hasFullOrderRepairFields(input)) {
+    actions.add("order:update_repair");
+  }
+
+  if (hasFullOrderFinanceFields(input)) {
+    actions.add("payment:adjust");
+  }
+
+  return [...actions];
+}
+
+export function resolveOrderPatchPermissionActions(input: PatchOrderInput): PermissionAction[] {
+  const actions = new Set<PermissionAction>();
+  const repairFields = new Set([
+    "diagnosis_result",
+    "device_notes",
+    "device_unlock",
+    "warranty_text",
+  ]);
+
+  for (const key of Object.keys(input.changes)) {
+    actions.add(repairFields.has(key) ? "order:update_repair" : "order:update_intake");
+  }
+
+  return [...actions];
+}
+
+function hasFullOrderRepairFields(input: UpdateOrderInput) {
+  return [
+    "device_notes",
+    "diagnosis_result",
+    "device_unlock",
+    "warranty_text",
+    "warranty_months",
+    "warranty_change_reason",
+  ].some((field) => hasOwnField(input, field));
+}
+
+function hasFullOrderFinanceFields(input: UpdateOrderInput) {
+  return hasOwnField(input, "fault_prices") || hasOwnField(input, "deposit_amount");
+}
+
+function hasOwnField(input: object, field: string) {
+  return Object.prototype.hasOwnProperty.call(input, field);
+}
+
+function assertRepairDeskPermission(actor: AuditActor, action: PermissionAction) {
+  if (actor.isSystem && isRepairDeskE2eAuthBypassEnabled()) return;
+  assertPermission(actor, action);
 }
 
 async function auditGeneric<T>(

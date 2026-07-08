@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RepairDesk">
+  <defs>
+    <linearGradient id="brand" x1="96" x2="416" y1="80" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="oklch(0.72 0.21 285)" />
+      <stop offset="1" stop-color="oklch(0.78 0.16 200)" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#brand)" />
+  <path
+    d="M318 128a72 72 0 0 0-83 91L126 328a39 39 0 1 0 55 55l109-109a72 72 0 0 0 91-83l-47 47-60-60 44-50Z"
+    fill="white"
+    opacity=".96"
+  />
+  <circle cx="154" cy="356" r="15" fill="oklch(0.72 0.21 285)" />
+</svg>

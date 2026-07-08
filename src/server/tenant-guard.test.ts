@@ -32,6 +32,36 @@ describe("tenant guardrails", () => {
     }
   });
 
+  it("does not allow implicit default-store reads in shared order/message helpers", () => {
+    const sharedSource = readFileSync(
+      resolve(process.cwd(), "src/server/repairdesk-shared.ts"),
+      "utf8",
+    );
+    const messageRepositorySource = readFileSync(
+      resolve(process.cwd(), "src/features/messages/server/message-settings.repository.ts"),
+      "utf8",
+    );
+
+    expect(sharedSource).toContain("fetchOrderRows(storeId: string)");
+    expect(sharedSource).not.toContain("fetchOrderRows(storeId = DEFAULT_STORE_ID)");
+    expect(messageRepositorySource).toContain("getStoreSettings(storeId: string)");
+    expect(messageRepositorySource).toContain("listMessageTemplates(storeId: string)");
+    expect(messageRepositorySource).toContain("requireRepositoryStoreId");
+    expect(messageRepositorySource).not.toContain("isMissingStoreIdError");
+    expect(messageRepositorySource).not.toContain('.eq("id", "default")');
+  });
+
+  it("derives order transitions from actor store context instead of raw storeId options", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/features/orders/server/order.repository.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("opts: { reason?: string; operator?: string | AuditActor }");
+    expect(source).not.toContain("storeId?: string");
+    expect(source).not.toContain("opts.storeId");
+  });
+
   it("treats Supabase schema-cache missing repair_orders columns as legacy schema fallback", () => {
     expect(
       isMissingRepairOrderColumnError({
@@ -91,19 +121,21 @@ describe("tenant guardrails", () => {
     );
   });
 
-  it("keeps customer interaction reads compatible with legacy missing store_id schemas", () => {
+  it("fails closed for customer child tables instead of using unscoped schema fallbacks", () => {
     const source = readFileSync(
       resolve(process.cwd(), "src/features/customers/server/customer.repository.ts"),
       "utf8",
     );
 
     expect(source).toContain("fetchCustomerInteractionsForCustomer");
-    expect(source).toContain('missingStoreColumn(result.error, "customer_interactions")');
     expect(source).toContain('from("customer_interactions")');
-    expect(source).toContain('eq("customer_id", customerId)');
+    expect(source).toContain('.eq("store_id", storeId)');
+    expect(source).not.toContain("missingStoreColumn");
+    expect(source).not.toContain("legacyResult");
+    expect(source).not.toContain("legacyPayload");
   });
 
-  it("keeps customer followup reads store scoped before legacy fallback", () => {
+  it("keeps customer followup reads store scoped without legacy fallback", () => {
     const source = readFileSync(
       resolve(process.cwd(), "src/features/customers/server/customer.repository.ts"),
       "utf8",
@@ -111,7 +143,6 @@ describe("tenant guardrails", () => {
 
     expect(source).toContain("fetchFollowupsForCustomerIds(storeId");
     expect(source).toContain("fetchFollowupsForCustomer(supabase, storeId, id)");
-    expect(source).toContain('missingStoreColumn(result.error, "customer_followups")');
     expect(source).toContain('.eq("store_id", storeId)');
     expect(source).toContain('.in("customer_id", customerIds)');
     expect(source).toContain('.eq("customer_id", customerId)');

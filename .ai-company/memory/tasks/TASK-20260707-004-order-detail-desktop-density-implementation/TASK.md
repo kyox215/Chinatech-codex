@@ -7,7 +7,7 @@ risk_level: "R1"
 autonomy_level: "L2"
 owner: "Integration Lead"
 created_at: "2026-07-07T15:43:20+02:00"
-updated_at: "2026-07-07T13:59:51Z"
+updated_at: "2026-07-07T14:44:43Z"
 ---
 # Task
 

@@ -1,0 +1,8 @@
+# Database Area Instructions
+
+- Read existing schema and migration history before editing.
+- Prefer expand/migrate/contract and backward-compatible releases.
+- Define invariants, constraints, indexes, lock/performance impact, data volume, backfill, and validation.
+- Migrations and backfills must be idempotent/resumable when practical.
+- Writing migration code is not approval to run it against production.
+- Destructive changes require backup/recovery evidence and a human-approved runbook.

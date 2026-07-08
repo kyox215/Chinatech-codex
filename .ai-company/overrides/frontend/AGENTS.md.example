@@ -1,0 +1,11 @@
+# Frontend Area Instructions
+
+These instructions extend the repository root `AGENTS.md` for this subtree.
+
+- Reuse the project design system and existing data-fetching/form patterns.
+- Cover loading, empty, error, permission, long-content, and responsive states.
+- Preserve semantic HTML, keyboard flow, focus, labels, and non-color status cues.
+- Client checks improve UX but never replace server authorization or validation.
+- Avoid unrelated visual redesign and broad formatting.
+- Verify with targeted unit/component tests and the real user flow when tooling exists.
+- Update frontend/design department memory only for reusable, evidence-backed conventions.

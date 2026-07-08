@@ -795,6 +795,58 @@
   - Detail card: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`; dialog bounds `x=12`, `width=366`.
   - Edit dialog: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`; dialog bounds `x=12`, `width=366`.
 
+## 2026-06-20T20:41:58+02:00 - Inventory Buyback App-Style Internal Cards
+
+- Owner asked to make the `凭证状态`, `商品`, and `检测` internals feel closer to a mobile app.
+- Scoped implementation to `src/features/inventory/screens/inventory-screen.tsx` only.
+- Did not edit protected mobile order surfaces:
+  - `src/features/orders/screens/order-detail-screen.tsx`
+  - `src/features/orders/screens/order-list-screen.tsx`
+  - `src/features/orders/components/order-list-mobile-header.tsx`
+  - `src/features/orders/screens/order-task-screen.tsx`
+- UI changes:
+  - `商品` now uses app-style icon rows/tiles for model, color, storage, and IMEI instead of generic label/value rows.
+  - `检测` now uses six compact status tiles with icons and status tones for appearance, function, battery, IMEI, activation lock, and data wipe.
+  - `凭证状态` proof chips now use short readable mobile labels: `客签`, `证正`, `证反`, `设备`, `无票/票据`, `无盒/原盒`, with direct `补/齐` status badges.
+  - No source data contract or buyback summary logic changed.
+- Verification passed:
+  - `npx prettier --write src/features/inventory/screens/inventory-screen.tsx`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npx vitest run --exclude "exports/**" src/features/inventory/model/inventory-buyback-summary.test.ts src/features/inventory/model/inventory-workflow.test.ts src/features/inventory/testing/mock-api.test.ts`
+  - `npm run build` passed in non-sandbox mode; the sandbox build still hits the known Turbopack process/port permission issue.
+- Visual evidence:
+  - `screenshots/figma-ui-system-20260620/inventory-buyback-source-app-style-mobile.png`
+  - `screenshots/figma-ui-system-20260620/inventory-buyback-source-app-style-detection-mobile.png`
+- Playwright 390px overflow metrics passed:
+  - `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`; dialog bounds `x=12`, `width=366`.
+
+## 2026-06-20T20:56:47+02:00 - Inventory Buyback Mobile Finance Area Compact Layout
+
+- Owner pointed to the mobile area below `附件凭证` and asked to optimize the layout for mobile.
+- Scoped implementation to `src/features/inventory/screens/inventory-screen.tsx` only.
+- Did not edit protected mobile order surfaces:
+  - `src/features/orders/screens/order-detail-screen.tsx`
+  - `src/features/orders/screens/order-list-screen.tsx`
+  - `src/features/orders/components/order-list-mobile-header.tsx`
+  - `src/features/orders/screens/order-task-screen.tsx`
+- UI changes:
+  - Replaced the six vertical finance boxes with a single `财务总览` card using a 2-row / 3-column mobile grid: `回收`, `成本`, `挂牌`, `维修`, `其他`, `利润`.
+  - Added a direct `编辑` action to the finance summary card so price/cost edits remain reachable after compaction.
+  - Reduced the empty `附件凭证` placeholder height.
+  - Removed the long `财务流水` description and suppressed duplicate transaction notes when the note equals the transaction label.
+- Verification passed:
+  - `npx prettier --write src/features/inventory/screens/inventory-screen.tsx`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npx vitest run --exclude "exports/**" src/features/inventory/model/inventory-buyback-summary.test.ts src/features/inventory/model/inventory-workflow.test.ts src/features/inventory/testing/mock-api.test.ts`
+  - `npm run build` passed in non-sandbox mode.
+  - `git diff --check -- src/features/inventory/screens/inventory-screen.tsx`
+- Visual evidence:
+  - `screenshots/figma-ui-system-20260620/inventory-buyback-source-finance-compact-mobile.png`
+- Playwright 390px overflow metrics passed:
+  - `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`; dialog bounds `x=12`, `width=366`.
+
 ## Next
 
 - When the Figma MCP limit clears or the plan is upgraded, run generated payloads in order:

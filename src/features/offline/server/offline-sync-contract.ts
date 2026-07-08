@@ -31,6 +31,26 @@ export const repairDeskOfflineServerResultCodes = [
 ] as const;
 export type RepairDeskOfflineServerResultCode = (typeof repairDeskOfflineServerResultCodes)[number];
 
+export const repairDeskOfflineOperationErrorCodes = [
+  "base_updated_at_stale",
+  "customer_not_found",
+  "device_master_update_deferred",
+  "device_not_found_for_customer",
+  "duplicate_customer",
+  "forbidden",
+  "idempotency_conflict",
+  "invalid_customer_snapshot",
+  "invalid_device_snapshot",
+  "invalid_payload",
+  "order_not_found",
+  "retryable_error",
+  "transaction_failed",
+  "unsupported_customer_relationship",
+  "unsupported_device_relationship",
+] as const;
+export type RepairDeskOfflineOperationErrorCode =
+  (typeof repairDeskOfflineOperationErrorCodes)[number];
+
 export type RepairDeskOfflineHandlerResult =
   | { status: "synced"; serverOrderId?: string }
   | { status: "conflict" }
@@ -64,11 +84,28 @@ export type RepairDeskOfflineOperationResponseSummary = {
   resultCode?: RepairDeskOfflineServerResultCode;
 };
 
+const operationResponseSummarySchema = z
+  .object({
+    serverOrderId: z.string().trim().min(1).max(160).optional(),
+    publicNo: z.string().trim().min(1).max(80).optional(),
+    updatedAt: z.string().trim().min(1).max(80).optional(),
+    resultCode: z.enum(repairDeskOfflineServerResultCodes).optional(),
+  })
+  .strict();
+
+const operationErrorCodeSchema = z.enum(repairDeskOfflineOperationErrorCodes);
+
 const text = z.string().trim().min(1).max(512);
 const optionalText = z.string().trim().max(512).optional();
 const idText = z.string().trim().min(1).max(160);
-const isoText = z.string().trim().min(1).max(80);
+const isoText = z.string().trim().datetime({ offset: true }).max(80);
 const moneyAmount = z.coerce.number().finite().min(0).max(999_999);
+const warrantyMonths = z.coerce
+  .number()
+  .int()
+  .refine((value) => [0, 3, 6, 12, 24].includes(value), {
+    message: "Offline warranty months must match an approved warranty preset.",
+  });
 
 export const repairDeskOfflineOperationIdSchema = z
   .string()
@@ -153,10 +190,9 @@ const offlineOrderCreateDraftSchema = z
     internal_tag: optionalText,
     accessory_notes: optionalText,
     warranty_text: optionalText,
-    warranty_months: z.coerce.number().int().min(0).max(120).optional(),
+    warranty_months: warrantyMonths.optional(),
     warranty_change_reason: optionalText,
     fault_prices: z.array(faultPriceSchema).max(30).default([]),
-    deposit_amount: moneyAmount.optional(),
   })
   .strict();
 
@@ -188,7 +224,7 @@ const offlineOrderUpdateChangesSchema = z
     internal_tag: optionalText,
     accessory_notes: optionalText,
     warranty_text: optionalText,
-    warranty_months: z.coerce.number().int().min(0).max(120).optional(),
+    warranty_months: warrantyMonths.optional(),
     warranty_change_reason: optionalText,
   })
   .strict()
@@ -262,6 +298,22 @@ export function assertRepairDeskOfflineOperationMetadataSafe(value: unknown): vo
   if (unsafePath) {
     throw new Error(`Offline operation metadata contains sensitive field: ${unsafePath}.`);
   }
+}
+
+export function parseRepairDeskOfflineOperationResponseSummarySafe(
+  value: unknown,
+): RepairDeskOfflineOperationResponseSummary | undefined {
+  if (value === undefined) return undefined;
+  const parsed = operationResponseSummarySchema.parse(value);
+  assertRepairDeskOfflineOperationMetadataSafe(parsed);
+  return parsed;
+}
+
+export function parseRepairDeskOfflineOperationErrorCodeSafe(
+  value: unknown,
+): RepairDeskOfflineOperationErrorCode | undefined {
+  if (value === undefined) return undefined;
+  return operationErrorCodeSchema.parse(value);
 }
 
 export function createRepairDeskOfflineCanonicalJson(value: unknown): string {

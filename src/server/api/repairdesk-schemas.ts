@@ -52,6 +52,24 @@ import type {
 } from "@/lib/repairdesk/api";
 
 const optionalText = z.string().optional();
+const deviceImeiPattern = /^[A-Za-z0-9._:-]+$/;
+const optionalDeviceImeiText = z
+  .string()
+  .trim()
+  .refine((value) => value.length === 0 || value.length <= 64, {
+    message: "IMEI / 序列号不能超过 64 个字符",
+  })
+  .refine((value) => value.length === 0 || deviceImeiPattern.test(value), {
+    message: "IMEI / 序列号只能包含字母、数字、点、下划线、冒号或连字符",
+  })
+  .optional();
+const patchDeviceImeiText = z
+  .string()
+  .trim()
+  .min(1, "IMEI / 序列号不能为空")
+  .max(64, "IMEI / 序列号不能超过 64 个字符")
+  .regex(deviceImeiPattern, "IMEI / 序列号只能包含字母、数字、点、下划线、冒号或连字符")
+  .optional();
 const repairOrderStatusSchema = z.string().min(1) as z.ZodType<RepairOrderStatus>;
 const repairOrderTypeSchema = z.string().min(1) as z.ZodType<RepairOrderType>;
 const approvalStatusSchema = z.string().min(1) as z.ZodType<ApprovalStatus>;
@@ -384,7 +402,7 @@ export const createOrderSchema = z
     customer_phone: optionalText,
     device_brand: optionalText,
     device_model: optionalText,
-    device_imei: optionalText,
+    device_imei: optionalDeviceImeiText,
     device_notes: optionalText,
     order_type: repairOrderTypeSchema,
     status: repairOrderStatusSchema,
@@ -407,7 +425,7 @@ export const updateOrderInputSchema = z
     customer_phone: z.string(),
     device_brand: z.string(),
     device_model: z.string(),
-    device_imei: optionalText,
+    device_imei: optionalDeviceImeiText,
     device_notes: optionalText,
     issue_description: z.string(),
     diagnosis_result: optionalText,
@@ -433,7 +451,7 @@ export const patchOrderChangesSchema = z
     customer_phone: optionalText,
     device_brand: optionalText,
     device_model: optionalText,
-    device_imei: optionalText,
+    device_imei: patchDeviceImeiText,
     device_notes: optionalText,
     issue_description: optionalText,
     diagnosis_result: optionalText,

@@ -676,3 +676,89 @@ Stop conditions:
 - **Next:** Do not push, deploy, apply migrations, enable runner network sync, or expose customer-facing offline sync from this state. Plan Slice 9G: RPC/transaction design and local un-applied SQL/RPC draft, or stop for Owner approval before database implementation.
 - **Evidence:** superseded by the 10:47:09Z checkpoint above; do not infer additional validation from this automatic record.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-07T11:33:50Z - Slice 9G Local RPC Draft Complete
+
+Status: active / local_slice_9g_rpc_draft_complete.
+
+Completed:
+
+- Resolved current-thread context drift by continuing the existing realtime/offline task instead of the unrelated shared-db onboarding active context.
+- Closed and integrated Slice 9G DATA/SEC/QA read-only sub-agents:
+  - DATA `019f3c50-69f4-72a1-94fa-06d507ca8543` / `Delta`.
+  - SEC `019f3c50-6b12-7d83-b1ec-5697da19983b` / `Aegis`.
+  - QA `019f3c50-6bf1-7d10-8915-347b0cecb3e2` / `Probe`.
+- Added local-only, un-applied RPC draft `supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`.
+- Added static RPC boundary tests in `src/features/offline/server/offline-sync-rpc-draft.test.ts`.
+- Tightened `repairdesk_offline_operations` draft table so `response_summary` permits only `serverOrderId`, `publicNo`, `updatedAt`, and `resultCode`, and `error_code` permits only stable allowlisted codes.
+- Updated `offline-sync-contract.ts` with operation error-code enum, strict response-summary parser, and error-code parser.
+- Updated `offline-sync-service.ts` so executor-provided operation summaries/error codes are allowlisted before operation completion; unsafe executor output fails closed as `retryable_error`.
+- Added contract and service tests proving unsafe response summaries and raw error codes are rejected before persistence.
+
+Verification:
+
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed, 3 files / 35 tests.
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts src/features/offline/model/offline-outbox-sync-runner.test.ts src/server/api/repairdesk-router.test.ts`: passed, 5 files / 48 tests.
+- `npm run typecheck`: passed.
+- `npx eslint src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed.
+- `git diff --check -- src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts supabase/migrations/20260707090000_repairdesk_offline_operations.sql supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`: passed.
+- `npm run build`: sandbox run failed due Turbopack process/port permission error; approved escalated rerun passed.
+
+Verification limitations:
+
+- Full `npm run test` currently fails in unrelated `src/features/platform/server/platform.repository.test.ts`: 75 files passed, 1 failed, 492 passed / 5 failed tests. Failure reason: tests now hit `assertVerifiedEmail()` and receive `请先验证账号邮箱后再继续` instead of the older onboarding validation messages.
+- Full `npm run lint` currently fails outside Slice 9G on unrelated Prettier formatting in `src/features/platform/server/platform.repository.test.ts` and `src/features/stores/server/store.repository.test.ts`.
+- No local or linked Supabase migration apply/dry-run was run.
+
+Current boundary:
+
+- No production migration, linked Supabase dry-run, deployment, push, route exposure, runner-to-server wiring, realtime invalidation from offline sync, Sensitive Vault value sync, attachment upload, payment/message/status automation, or customer-facing sync occurred.
+- The RPC draft remains a local approval artifact. Applying it to any database requires Owner approval, release plan, backup/restore plan, and follow-up DATA/SEC/QA review.
+
+No-screenshot reason:
+
+- Slice 9G is backend SQL/service/test/checkpoint work. It has no browser-visible page, preview route, UI state, or customer-facing workflow to capture.
+
+Next:
+
+1. Slice 9H can plan or implement local default-off route/port integration, but must stop before real network sync.
+2. Before production, run a local Supabase migration rehearsal or owner-approved linked dry-run and add database-backed rollback/concurrency tests.
+3. Resolve unrelated full-suite test/lint failures before claiming a clean repo-wide gate.
+
+## 2026-07-07T12:11:19Z - Slice 9H-A Local RPC Rehearsal Complete
+
+Status: active / local_slice_9h_rpc_rehearsal_complete.
+
+Completed:
+
+- Closed the Slice 9G database-proof gap with a local DB-backed RPC rehearsal.
+- Integrated DATA/SEC/QA read-only sub-agent blockers from:
+  - DATA `019f3c69-ca76-75f1-84ce-676a0d39ed68` / `Gaia the 2nd`.
+  - SEC `019f3c69-cb99-7460-93f7-eb9b34ea471e` / `Aegis the 2nd`.
+  - QA `019f3c69-cc94-77b0-aa32-b5c3db6be7b4` / `Verity the 2nd`.
+- Patched the RPC draft for fresh-claim handling, active store/non-viewer DB guard, handled update timestamp casting, terminal operation replay, no offline deposit/payment collection, and no `operation_id` in order event payload.
+- Patched the offline contract so `warranty_months` matches DB presets `0`, `3`, `6`, `12`, `24`.
+- Started a DB-only isolated Supabase harness under `/private/tmp/repairdesk-rpc-harness-9h`, executed minimal schema creation, loaded the current RPC draft, ran business assertions, verified grants, and stopped the harness.
+
+Verification:
+
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed, 3 files / 39 tests.
+- `npx eslint src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed.
+- `npm run typecheck`: passed.
+- DB-only harness RPC function creation: passed.
+- DB-only harness RPC assertions: passed for create, idempotent replay, hash conflict, cross-store denial, update, stale version, invalid timestamp block, blocked terminal replay, transaction rollback on event failure, failed terminal replay, and sensitive non-persistence.
+- DB-only harness grant query: service_role execute true; authenticated and anon execute false for create/update.
+
+Known blocker:
+
+- Complete local Supabase migration rehearsal with all repo migrations still fails before this RPC draft at `20260611102805_repairdesk_remote_schema_compatibility.sql` because clean-local `inventory_items` does not have `product_channel`. Do not claim full migration rehearsal passed until that baseline issue is fixed or otherwise isolated.
+
+Current boundary:
+
+- No production migration, linked Supabase dry-run, deploy, push, route exposure, runner-to-server wiring, realtime invalidation from offline sync, Sensitive Vault value sync, attachment upload, payment/message/status automation, or customer-facing sync occurred.
+- No screenshot: backend SQL/RPC/test/database harness only, with no browser-visible task page or UI state.
+
+Next:
+
+1. Either fix/isolate the historical clean-local migration blocker, or keep DB rehearsals on explicit minimal harnesses with the limitation documented.
+2. Continue with Slice 9H-B only as local default-off route/port integration; stop before real network sync and before any linked/production database action.

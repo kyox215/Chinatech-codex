@@ -9,6 +9,8 @@ import {
   assertRepairDeskOfflineOrderUpdatePermission,
   createRepairDeskOfflineRequestHash,
   mapRepairDeskOfflineServerResultCodeToHandlerResult,
+  parseRepairDeskOfflineOperationErrorCodeSafe,
+  parseRepairDeskOfflineOperationResponseSummarySafe,
   repairDeskOfflineOrderCreateSyncSchema,
   repairDeskOfflineOrderUpdateSyncSchema,
   resolveRepairDeskOfflineOperationReplay,
@@ -187,21 +189,25 @@ async function runWithOperationClaim({
 
   try {
     const write = await execute();
+    const responseSummary = parseRepairDeskOfflineOperationResponseSummarySafe(
+      write.responseSummary,
+    );
+    const errorCode = parseRepairDeskOfflineOperationErrorCodeSafe(write.errorCode);
     await ports.operationStore.completeOperation({
       ...claimInput,
       status: operationStatusFromResultCode(write.resultCode),
       resultCode: write.resultCode,
-      responseSummary: write.responseSummary,
+      responseSummary,
       targetEntityType: write.targetEntityId ? "repair_order" : undefined,
       targetEntityId: write.targetEntityId,
-      errorCode: write.errorCode,
+      errorCode,
     });
     return buildServiceResult({
       operationId: parsed.operationId,
       operationType,
       requestHash,
       resultCode: write.resultCode,
-      responseSummary: write.responseSummary,
+      responseSummary,
     });
   } catch (error) {
     const resultCode = error instanceof ForbiddenError ? "forbidden" : "retryable_error";

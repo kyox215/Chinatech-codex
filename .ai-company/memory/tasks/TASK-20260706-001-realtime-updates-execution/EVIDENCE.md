@@ -258,6 +258,7 @@ Implemented:
 
 - `auditGeneric()` accepts optional static realtime metadata.
 - Selected audited write paths queue realtime metadata only after `run()` and `writeAuditLog()` complete.
+
 - `queueRealtimeBroadcast()` uses only `actor.storeId` and static metadata.
 - `queueRepairDeskRealtimeBroadcast()` fire-and-forgets the already default-off emitter and suppresses rejected promises.
 - Integrated audited paths:
@@ -563,3 +564,114 @@ No-screenshot reason:
 
 - Slice 9D is a documentation/approval package and task-memory update. It has no browser-visible page, UI state, preview, or customer-facing workflow to capture.
 - `2026-07-07T08:02:23Z` `058e7a2d8c` — .ai-company/memory/tasks/TASK-20260706-001-realtime-updates-execution/OFFLINE_SYNC_IDEMPOTENCY_APPROVAL_PACKAGE.md; EVIDENCE.md Slice 9D; CHECKPOINTS.md Slice 9D
+
+## 2026-07-07T11:33:50Z Local Slice 9G Evidence
+
+Files added:
+
+- `supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`
+- `src/features/offline/server/offline-sync-rpc-draft.test.ts`
+
+Files updated:
+
+- `supabase/migrations/20260707090000_repairdesk_offline_operations.sql`
+- `src/features/offline/server/offline-sync-contract.ts`
+- `src/features/offline/server/offline-sync-contract.test.ts`
+- `src/features/offline/server/offline-sync-service.ts`
+- `src/features/offline/server/offline-sync-service.test.ts`
+- `.ai-company/memory/tasks/TASK-20260706-001-realtime-updates-execution/TASK.md`
+- `.ai-company/memory/tasks/TASK-20260706-001-realtime-updates-execution/CHECKPOINTS.md`
+- `.ai-company/memory/ACTIVE_CONTEXT.md`
+
+Sub-agents:
+
+- DATA `019f3c50-69f4-72a1-94fa-06d507ca8543` / `Delta`: completed; initial finding blocked because no RPC draft existed yet; gates integrated.
+- SEC `019f3c50-6b12-7d83-b1ec-5697da19983b` / `Aegis`: completed; required actual RPC draft, service-role-only grants, fixed `search_path`, and response/error allowlists.
+- QA `019f3c50-6bf1-7d10-8915-347b0cecb3e2` / `Probe`: completed; required static SQL tests for function existence, locks, transaction markers, and forbidden paths.
+
+Implemented:
+
+- Local-only, un-applied RPC draft for offline order create/update with service-role-only functions, fixed `search_path`, operation claim/lock, idempotency conflict/replay handling, same-store customer/device resolution, duplicate-customer review, stale update conflict, order event insert, and minimal response summary finalization.
+- Operation ledger DB constraints for allowlisted `response_summary` keys and stable `error_code` values.
+- Service-layer parsing of executor `responseSummary` and `errorCode`; unsafe executor output fails closed as `retryable_error` and does not persist the unsafe content.
+- Static and unit tests for RPC draft boundaries, response/error allowlists, and unsafe executor-output rejection.
+
+Commands:
+
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed, 3 files / 35 tests.
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts src/features/offline/model/offline-outbox-sync-runner.test.ts src/server/api/repairdesk-router.test.ts`: passed, 5 files / 48 tests.
+- `npm run typecheck`: passed.
+- `npx eslint src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed.
+- `git diff --check -- src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts supabase/migrations/20260707090000_repairdesk_offline_operations.sql supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`: passed.
+- `npm run build`: first sandbox run failed due Turbopack process/port permission error; approved escalated rerun passed.
+
+Verification limitations:
+
+- Full `npm run test` failed outside this slice in `src/features/platform/server/platform.repository.test.ts`: 75 files passed, 1 failed, 492 passed / 5 failed tests; failures are email-verification expectation changes unrelated to offline sync files.
+- Full `npm run lint` failed outside this slice on Prettier formatting in `src/features/platform/server/platform.repository.test.ts` and `src/features/stores/server/store.repository.test.ts`.
+- No local or linked Supabase migration apply/dry-run was run.
+
+No-screenshot reason:
+
+- Slice 9G is backend SQL/service/test/checkpoint work. It has no browser-visible page, preview route, UI state, or customer-facing workflow to capture.
+
+## 2026-07-07T12:11:19Z Local Slice 9H-A Evidence
+
+Files updated:
+
+- `supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`
+- `src/features/offline/server/offline-sync-contract.ts`
+- `src/features/offline/server/offline-sync-contract.test.ts`
+- `src/features/offline/server/offline-sync-rpc-draft.test.ts`
+- `.ai-company/memory/tasks/TASK-20260706-001-realtime-updates-execution/TASK.md`
+- `.ai-company/memory/tasks/TASK-20260706-001-realtime-updates-execution/EVIDENCE.md`
+- `.ai-company/memory/tasks/TASK-20260706-001-realtime-updates-execution/CHECKPOINTS.md`
+- `.ai-company/memory/ACTIVE_CONTEXT.md`
+
+Sub-agents:
+
+- DATA `019f3c69-ca76-75f1-84ce-676a0d39ed68` / `Gaia the 2nd`: found fresh-claim blocker, terminal replay gap, warranty-month contract drift, partial-payment risk, and operation-id payload spread risk.
+- SEC `019f3c69-cb99-7460-93f7-eb9b34ea471e` / `Aegis the 2nd`: found fresh-claim blocker, active-store/non-viewer DB guard gap, timestamp cast outside handled block, payment-scope conflict, and future route auth-source requirements.
+- QA `019f3c69-cc94-77b0-aa32-b5c3db6be7b4` / `Verity the 2nd`: required DB-backed proof for function creation, idempotent replay, hash conflict, stale update, cross-store denial, rollback, and sensitive non-persistence.
+
+Implemented:
+
+- Fresh operation claim now records `v_claimed`; newly inserted operations can proceed, while pre-existing fresh `started` rows still return `retryable_error`.
+- RPC membership checks now require active store, active staff profile, active membership, and non-viewer role.
+- Update `baseUpdatedAt` cast is handled inside the transaction block and invalid timestamps finalize as `blocked_operation` / `invalid_payload`.
+- Offline create no longer accepts deposit/payment collection; first subset writes unpaid state only.
+- Offline schema now restricts `warranty_months` to `0`, `3`, `6`, `12`, `24`.
+- RPC terminal states `conflict`, `blocked`, and `failed` return without re-entering business writes.
+- Order event payloads no longer include `operation_id`.
+
+Commands:
+
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed, 3 files / 39 tests.
+- `npx eslint src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed.
+- `env SUPABASE_TELEMETRY_DISABLED=1 supabase start --workdir /private/tmp/repairdesk-supabase-9h`: failed before Slice 9H-A RPC because historical migration `20260611102805_repairdesk_remote_schema_compatibility.sql` references missing clean-baseline column `inventory_items.product_channel`.
+- `env SUPABASE_TELEMETRY_DISABLED=1 supabase start --workdir /private/tmp/repairdesk-rpc-harness-9h -x edge-runtime,gotrue,imgproxy,kong,logflare,mailpit,postgres-meta,postgrest,realtime,storage-api,studio,supavisor,vector`: passed; DB URL `postgresql://postgres:postgres@127.0.0.1:55522/postgres`.
+- `docker exec supabase_db_repairdesk9hrpc psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/minimal_schema.sql`: passed.
+- `docker exec supabase_db_repairdesk9hrpc psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/offline_rpc.sql`: passed.
+- `docker exec supabase_db_repairdesk9hrpc psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/rehearsal_assertions.sql`: passed; notice `9H-A RPC rehearsal passed: create/replay/conflict/cross-store/update/stale/invalid-time/blocked-replay/rollback/failed-replay/sensitive-boundary`.
+- Permission query: create/update execute grants were `service_role=t`, `authenticated=f`, `anon=f`.
+- `npm run typecheck`: passed.
+- `env SUPABASE_TELEMETRY_DISABLED=1 supabase stop --workdir /private/tmp/repairdesk-rpc-harness-9h`: passed.
+
+DB-only assertion result:
+
+- `succeeded_operations=2`
+- `blocked_operations=3`
+- `conflict_operations=1`
+- `failed_operations=1`
+- `repair_orders=1`
+- `order_events=2`
+
+Verification limitations:
+
+- Complete repo migration rehearsal is not yet clean because historical migration `20260611102805_repairdesk_remote_schema_compatibility.sql` fails against a clean local baseline before the 9H-A RPC migration.
+- The passing DB proof is a minimal local harness for the RPC transaction draft, not a full Supabase project reset/dry-run.
+- No linked Supabase dry-run, production migration, deploy, push, route exposure, or real runner network sync was run.
+
+No-screenshot reason:
+
+- Slice 9H-A is backend SQL/RPC/contract/test/database harness work. It has no browser-visible page, preview route, UI state, or customer-facing workflow to capture.

@@ -33,3 +33,15 @@
   - TASK.md closeout marks acceptance criteria complete.
   - src/server/repairdesk-shared.test.ts guards against supplier:suppliers(*) returning.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-04T10:06:47Z — Production deployment completed for order supplier embed fix; Vercel deployment dpl_CvcGu9WYJmq68Z6bUzAcyt6v5oLa is READY and aliased to www.chinatech.in.
+
+- **Phase:** production_deployed
+- **Completed/current state:** Production deployment completed for order supplier embed fix; Vercel deployment dpl_CvcGu9WYJmq68Z6bUzAcyt6v5oLa is READY and aliased to www.chinatech.in.
+- **Next:** Owner should refresh the authenticated /orders page on mobile; if an error remains, inspect Vercel runtime logs for /api/repairdesk/orders/queue-summary.
+- **Decision:** Deployed from a clean temporary worktree at commit 6fd268a to avoid uploading unrelated dirty workspace files.
+- **Blocker:** No deployment blocker remains.
+- **Evidence:**
+  - vercel deploy --prod --yes completed successfully; deployment URL chinatech-codex-ip82p88dj-kyox120-9295s-projects.vercel.app; alias www.chinatech.in.
+  - curl -I https://www.chinatech.in/orders returned HTTP/2 307 to /login?next=%2Forders from Vercel.
+  - vercel inspect reported production deployment status Ready.
+- **Recorded by:** CEO-Orchestrator

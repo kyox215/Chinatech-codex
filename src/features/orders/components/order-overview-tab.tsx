@@ -1677,7 +1677,7 @@ function DraftTextField({
   );
 }
 
-function ImeiField({
+export function ImeiField({
   value,
   edit,
   onQuickSave,
@@ -1742,7 +1742,7 @@ function ImeiField({
               <Button
                 type="button"
                 size="sm"
-                disabled={quickPending || !onQuickSave}
+                disabled={quickPending || !onQuickSave || !draft.trim()}
                 onClick={async () => {
                   await onQuickSave?.(draft);
                   setOpen(false);

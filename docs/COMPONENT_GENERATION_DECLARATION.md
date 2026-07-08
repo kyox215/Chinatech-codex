@@ -1,5 +1,10 @@
 # RepairDesk 组件生成声明
 
+Status: active
+Owner: Frontend + Documentation / Integration Lead
+Scope: current reusable-component generation, naming, placement, styling, and validation rules for RepairDesk.
+Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+
 > 本声明专门约束“新增可复用组件如何设计、生成、命名、落盘、验收”。
 >
 > 页面级规则见 [`UI_PAGE_GENERATION_DECLARATION.md`](./UI_PAGE_GENERATION_DECLARATION.md)。组件级可执行 class 声明见 `src/lib/component-patterns.ts`。
@@ -190,7 +195,13 @@ export interface ExampleCardProps {
 ### 8.2 RepairOS Compact 业务卡片密度
 
 - 移动列表默认使用 `repairOs.businessCardDense` 或 `RepairOsBusinessCard` 搭配该 class；只有详情预览或低频设置项可以使用更宽松的 `repairOs.businessCard`。
-- KPI 小卡优先使用 `repairOs.metricCard` / `repairOs.metricCardDense`，不要在业务页面继续手写 `glass-card p-4`。
+- 标准业务卡、快捷入口、动作行和紧凑选择行优先使用 `RepairOsBusinessCard` 的 `leading` / `children` / `trailing` slots；可点击动作行可用 `as="button"` 保持原生 button 语义，表单选择行和文件/拍照采集行可用 `as="label"` 搭配原生 input 保留整行点击语义，重选/删除动作必须放在 label 外部；不要在页面里重复手写 `grid-cols-[auto_minmax(0,1fr)_auto]` 的图标、正文、尾部数值/箭头结构。
+- 配置页、权限页、工作流页等后台管理的勾选/推荐/启用动作行也应优先使用 `RepairOsBusinessCard` 的 slot 结构；如果同一行里存在 checkbox 和 button，不要使用 `as="label"` 包裹按钮，改用 `as="div"` 并保持 checkbox/button 的原生交互。
+- 设置开关、模板启用、健康检查和状态反馈这类短行提示优先使用 `RepairOsBusinessCard as="div"` 搭配 `leading` / `trailing`；含 Switch 的行用 `Label htmlFor` 关联开关，避免把 button/switch 嵌套进 label。
+- 列表刷新失败、空结果、加载失败和分页控制这类列表状态面板优先使用 `RepairOsBusinessCard as="div"`；右侧重试/分页按钮放在 `trailing` slot，正文保留 `min-w-0` / `truncate`，不要回退到手写 `flex justify-between rounded-* border bg-*` 外壳。
+- KPI 小卡优先使用 `repairOs.metricCard` / `repairOs.metricCardDense`，指标内容优先交给 `RepairOsInfoTile` 的 `leading` / `trailing` / `meta` slots；不要在业务页面继续手写 `glass-card p-4` 或重复的 label/value/icon 三段结构。
+- 导入预览、批量操作预览、审计摘要等“确认前检查”面板优先使用 `RepairOsBusinessCard` 承载标题/说明/状态，再用 `RepairOsInfoTile` 展示数量和金额；warning 只展示行号、字段和原因，不展示原始敏感值。
+- 状态、标签、数量和风险提示 chip 优先使用 `RepairOsBadge` 或已有业务 badge；不要在业务页面重复手写 `inline-flex rounded-full px-* text-[9px]` 的 pill 结构，长文本必须保留 `min-w-0` / `truncate`。
 - 移动详情和任务页面默认使用 RepairOS Floating Card 组件语言：顶部使用 `repairOs.mobileFloatingHeader*`，正文信息块使用 `repairOs.mobileInfoCard`。
 - 移动详情、任务、报价、收款、扫码、拍照和历史记录组件必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)。订单详情页的“客户信息 / 设备信息 / 维修项目与报价 / 支付信息”是移动卡片字号、间距、色彩强调和信息层级的基准。
 - 新增移动详情组件不得手写固定顶部的 `border-b`、整屏白色顶栏或散落 `pt-[calc(env(safe-area-inset-top)...)]`；这些必须来自 `repairOs.mobileFloatingPage` 和 `repairOs.mobileFloatingHeaderShell`。
@@ -345,7 +356,7 @@ export function ExampleDialog({ open, isPending, onOpenChange, onSubmit }: Examp
 
 每次生成新组件按这个顺序执行：
 
-1. 搜索现有组件：`rg "ComponentName|相似业务词" src/components src/routes`。
+1. 搜索现有组件：`rg "ComponentName|相似业务词" src/components src/features`。
 2. 判断组件类型：Presentational / Container / Domain Primitive。
 3. 选择落盘目录。
 4. 定义 props 类型和状态支持范围。

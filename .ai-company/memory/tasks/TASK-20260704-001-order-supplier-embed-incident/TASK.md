@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["Data/API", "Frontend", "QA"]
 created_at: "2026-07-03T23:35:39Z"
-updated_at: "2026-07-03T23:36:37Z"
+updated_at: "2026-07-04T10:06:47Z"
 ---
 # Task — Fix order page supplier embed incident
 

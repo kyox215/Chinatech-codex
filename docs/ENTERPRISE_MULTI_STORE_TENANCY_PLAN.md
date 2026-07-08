@@ -1,5 +1,10 @@
 # RepairDesk 企业级多店铺与性能完善计划
 
+> Status note, 2026-07-04:
+> This document is historical background for multi-store tenancy work.
+> The current product direction has been reframed from "enterprise branches and employees" to a privacy-first platform for independent partner store owners.
+> Use `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PLAN.md` as the active planning source for future multi-store product, privacy, onboarding, and platform-support decisions.
+
 ## Summary
 
 本计划把当前 RepairDesk 从“单店内部系统”升级为“可供多个独立店铺账号使用的多租户 SaaS 后台”。

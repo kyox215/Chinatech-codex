@@ -1,5 +1,10 @@
 # RepairDesk UI 页面生成声明
 
+Status: active
+Owner: UX + Documentation / Integration Lead
+Scope: current page-generation rules, App Router page bodies, RepairOS UI language, and UI validation expectations.
+Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+
 > 目标：后续新增页面、重构页面、让 AI 生成页面时，必须复用同一套布局、组件、数据和交互契约，避免页面风格漂移。
 >
 > 可执行页面声明在 `src/lib/ui-patterns.ts`；组件生成声明见 [`COMPONENT_GENERATION_DECLARATION.md`](./COMPONENT_GENERATION_DECLARATION.md)；视觉令牌唯一来源在 `src/styles.css`；业务组件优先复用 `src/components/*`。
@@ -138,7 +143,7 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 
 工单状态流转不得只提供一个立即执行按钮。移动端和高频详情页必须先展示可用流转分支；取消、未修取机、返修等需要追溯的分支必须提供预设原因选择和可编辑说明，并把原因写入时间线。
 
-工单主维修流程只表达“收机 / 检测 / 报价 / 配件 / 维修 / 取机 / 结案”。邮寄中、外修、通知状态、配件状态、客户审批状态、异常状态必须作为辅助状态标签或独立处理面板展示，禁止把这些沟通/物流/异常状态混成主流程节点。
+工单日常主流程只表达“接单 / 检测报价 / 维修处理 / 通知取机 / 收款完成”。底层 `workflow_status` 仍保留收机、检测、报价、配件、维修、取机、结案等兼容状态；UI 通过 `order-simple-flow.ts` 聚合展示。邮寄中、外修、通知状态、配件状态、客户审批状态、异常状态必须作为辅助状态标签或独立处理面板展示，禁止把这些沟通/物流/异常状态混成主流程节点。
 
 报价审批必须使用正式的客户审批处理面板：客户同意后选择进入维修或订件，客户拒绝后选择未修取机或取消，并强制填写拒绝原因。审批处理只记录结果和推进状态，不自动发送 WhatsApp；发送消息仍走通知/审批消息入口。
 

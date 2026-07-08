@@ -1,5 +1,10 @@
 # RepairOS Compact 架构与 UI 标准
 
+Status: active
+Owner: UX + Documentation / Integration Lead
+Scope: current RepairOS Compact information architecture and mobile-first UI standards.
+Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+
 更新时间：2026-06-12
 
 ## 目标

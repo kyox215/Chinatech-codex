@@ -135,6 +135,21 @@ describe("onboarding review policy", () => {
     ).toBe("申请人撤回");
   });
 
+  it("redacts reviewer internal identifiers from the requester view", () => {
+    const redacted = redactRequesterOnboardingRequest(
+      request({
+        status: "approved",
+        reviewed_by: "owner_1",
+        reviewed_by_membership_id: "membership_1",
+        resulting_store_id: "store_1",
+      }),
+    );
+
+    expect(redacted.reviewed_by).toBeUndefined();
+    expect(redacted.reviewed_by_membership_id).toBeUndefined();
+    expect(redacted.resulting_store_id).toBe("store_1");
+  });
+
   it("redacts malformed target-store-only join requests for the requester view", () => {
     const redacted = redactRequesterOnboardingRequest(
       request({

@@ -330,16 +330,12 @@ export async function getCustomerDevices(
 }
 async function fetchCustomerTags(storeId: string): Promise<CustomerTag[]> {
   const supabase = getSupabaseAdmin();
-  const result = await supabase
+  const { data, error } = await supabase
     .from("customer_tags")
     .select("*")
     .eq("store_id", storeId)
     .order("name", { ascending: true });
-  const legacyResult = missingStoreColumn(result.error, "customer_tags")
-    ? await supabase.from("customer_tags").select("*").order("name", { ascending: true })
-    : result;
-  fail(legacyResult.error, "读取客户标签失败");
-  const data = legacyResult.data;
+  fail(error, "读取客户标签失败");
   return ((data ?? []) as DbRecord[])
     .map(tagFromRow)
     .filter((tag): tag is CustomerTag => Boolean(tag));
@@ -349,15 +345,11 @@ async function fetchCustomerTagAssignments(
   storeId: string,
 ): Promise<{ customer_id: string; tag_id: string }[]> {
   const supabase = getSupabaseAdmin();
-  const result = await supabase
+  const { data, error } = await supabase
     .from("customer_tag_assignments")
     .select("*")
     .eq("store_id", storeId);
-  const legacyResult = missingStoreColumn(result.error, "customer_tag_assignments")
-    ? await supabase.from("customer_tag_assignments").select("*")
-    : result;
-  fail(legacyResult.error, "读取客户标签绑定失败");
-  const data = legacyResult.data;
+  fail(error, "读取客户标签绑定失败");
   return ((data ?? []) as DbRecord[]).map((row) => ({
     customer_id: requiredString(row.customer_id),
     tag_id: requiredString(row.tag_id),
@@ -665,32 +657,15 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : undefined;
 }
 
-function missingStoreColumn(error: unknown, tableName: string) {
-  const message =
-    typeof error === "object" && error && "message" in error
-      ? String((error as { message?: unknown }).message ?? "")
-      : "";
-  return (
-    message.includes(`${tableName}.store_id`) ||
-    (message.includes("store_id") && message.includes(tableName))
-  );
-}
-
 async function fetchCustomerInteractionsForCustomer(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   storeId: string,
   customerId: string,
 ) {
-  const result = await supabase
-    .from("customer_interactions")
-    .select("*")
-    .eq("store_id", storeId)
-    .eq("customer_id", customerId)
-    .order("created_at", { ascending: false });
-  if (!missingStoreColumn(result.error, "customer_interactions")) return result;
   return supabase
     .from("customer_interactions")
     .select("*")
+    .eq("store_id", storeId)
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false });
 }
@@ -698,16 +673,10 @@ async function fetchCustomerInteractionsForCustomer(
 async function fetchFollowupsForCustomerIds(storeId: string, customerIds: string[]) {
   const supabase = getSupabaseAdmin();
   if (!customerIds.length) return { data: [], error: null };
-  const result = await supabase
-    .from("customer_followups")
-    .select("*")
-    .eq("store_id", storeId)
-    .in("customer_id", customerIds)
-    .order("due_at", { ascending: true });
-  if (!missingStoreColumn(result.error, "customer_followups")) return result;
   return supabase
     .from("customer_followups")
     .select("*")
+    .eq("store_id", storeId)
     .in("customer_id", customerIds)
     .order("due_at", { ascending: true });
 }
@@ -717,16 +686,10 @@ async function fetchFollowupsForCustomer(
   storeId: string,
   customerId: string,
 ) {
-  const result = await supabase
-    .from("customer_followups")
-    .select("*")
-    .eq("store_id", storeId)
-    .eq("customer_id", customerId)
-    .order("due_at", { ascending: true });
-  if (!missingStoreColumn(result.error, "customer_followups")) return result;
   return supabase
     .from("customer_followups")
     .select("*")
+    .eq("store_id", storeId)
     .eq("customer_id", customerId)
     .order("due_at", { ascending: true });
 }
@@ -979,23 +942,6 @@ export async function setCustomerTags(
     .delete()
     .eq("store_id", storeId)
     .eq("customer_id", customerId);
-  if (missingStoreColumn(deleteResult.error, "customer_tag_assignments")) {
-    const legacyDeleteResult = await supabase
-      .from("customer_tag_assignments")
-      .delete()
-      .eq("customer_id", customerId);
-    fail(legacyDeleteResult.error, "清理客户标签失败");
-    if (cleanIds.length) {
-      const legacyInsertResult = await supabase.from("customer_tag_assignments").insert(
-        cleanIds.map((tagId) => ({
-          customer_id: customerId,
-          tag_id: tagId,
-        })),
-      );
-      fail(legacyInsertResult.error, "保存客户标签失败");
-    }
-    return { ok: true };
-  }
   fail(deleteResult.error, "清理客户标签失败");
   if (cleanIds.length) {
     const { error } = await supabase.from("customer_tag_assignments").insert(
@@ -1040,12 +986,6 @@ export async function createCustomerFollowup(
     updated_at: now,
   };
   const { error } = await supabase.from("customer_followups").insert(payload);
-  if (missingStoreColumn(error, "customer_followups")) {
-    const { store_id: _storeId, ...legacyPayload } = payload;
-    const legacyResult = await supabase.from("customer_followups").insert(legacyPayload);
-    fail(legacyResult.error, "创建客户待办失败");
-    return { id };
-  }
   fail(error, "创建客户待办失败");
   return { id };
 }
@@ -1066,19 +1006,6 @@ export async function completeCustomerFollowup(
     .eq("customer_id", customerId)
     .select("id")
     .maybeSingle();
-  if (missingStoreColumn(result.error, "customer_followups")) {
-    await assertCustomerBelongsToStore(supabase, storeId, customerId);
-    const legacyResult = await supabase
-      .from("customer_followups")
-      .update({ status: "done", completed_at: now, updated_at: now })
-      .eq("id", followupId)
-      .eq("customer_id", customerId)
-      .select("id")
-      .maybeSingle();
-    fail(legacyResult.error, "完成客户待办失败");
-    if (!legacyResult.data) throw new Error("客户待办不存在");
-    return { ok: true };
-  }
   fail(result.error, "完成客户待办失败");
   if (!result.data) throw new Error("客户待办不存在");
   return { ok: true };
@@ -1110,7 +1037,6 @@ async function assertCustomerTagsBelongToStore(
     .select("id")
     .eq("store_id", storeId)
     .in("id", tagIds);
-  if (missingStoreColumn(error, "customer_tags")) return;
   fail(error, "检查客户标签失败");
   const foundIds = new Set(((data ?? []) as DbRecord[]).map((row) => requiredString(row.id)));
   if (tagIds.some((tagId) => !foundIds.has(tagId))) throw new Error("客户标签不存在");
@@ -1137,10 +1063,7 @@ async function insertCustomerInteraction(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   payload: Record<string, unknown> & { store_id: string },
 ) {
-  const result = await supabase.from("customer_interactions").insert(payload);
-  if (!missingStoreColumn(result.error, "customer_interactions")) return result;
-  const { store_id: _storeId, ...legacyPayload } = payload;
-  return supabase.from("customer_interactions").insert(legacyPayload);
+  return supabase.from("customer_interactions").insert(payload);
 }
 
 export async function sendCustomerMessage(

@@ -1,0 +1,124 @@
+---
+schema_version: 1
+department: documentation
+status: active
+owner: Documentation Department / Integration Lead
+last_verified_at: 2026-06-20
+review_trigger: relevant-task-or-quarterly-review
+---
+
+# Documentation Department Memory
+
+## Mission and boundary
+
+Authoritative docs, reader journeys, examples, runbooks, versioning, and drift control.
+
+This department advises and maintains its own standards. It does not obtain
+legal, financial, production, or organization authority merely by being named
+as owner of this file.
+
+## Current objectives and work in progress
+
+- Maintain AGENTS, architecture docs, task memory, runbooks, and stale-doc drift controls.
+- First priority: separate current App Router rules from archival TanStack-era docs.
+
+## Verified rules and conventions
+
+- Root `AGENTS.md` and RepairDesk docs override generic AI Company OS templates.
+- `PROJECT_TAKEOVER_REPORT.md` is the initial 2026-06-19 takeover baseline.
+- Documentation changes after code/API/data behavior changes must be synchronized through `documentation-sync`.
+- Cursor/docs ` 2` duplicates reviewed in `TASK-20260619-005` are stale or deprecated and must not override canonical App Router, RepairOS, or AI Company OS guidance.
+- Cleanup tasks must update task-level evidence and project memory after deleting approved duplicate files; `TASK-20260619-009` is the Batch B cleanup record.
+- `scripts/check-agent-rules 2.mjs` is not authoritative and should not override the modular canonical checker architecture; `TASK-20260619-010` recommends delete-only after approval.
+- `.ai-company/memory/BACKLOG.md` is the formal project backlog memory entry point as of `TASK-20260619-011`.
+- `TASK-20260619-012` removed nine current byte-identical duplicate docs; canonical documentation files remain authoritative.
+- `TASK-20260619-013` classified `.ai-company/README 2.md` as a delete-only generic v2 README shadow; canonical `.ai-company/README.md` remains the RepairDesk Codex Native v3 authority.
+- `TASK-20260619-014` deleted `.ai-company/README 2.md`; canonical `.ai-company/README.md` remains the only root README for the `.ai-company` package.
+- `TASK-20260619-015` documented empty directory cleanup separately from generated-output inventory; generated-output duplicate-like names are not documentation/source authority conflicts.
+- `TASK-20260619-018` is the first stale-doc drift inventory after duplicate cleanup. Until follow-up fixes land, do not follow `docs/UI_CHECKLIST.md` for route file placement or `AI智能部门管理/templates/agenda-intake.md` for task-memory path guidance.
+- `TASK-20260619-019` fixed the active route-placement and task-memory-path drift in `docs/UI_CHECKLIST.md` and `AI智能部门管理/templates/agenda-intake.md`. Future UI page work should use App Router thin routes in `src/app/` and feature screens under `src/features/*/screens`; future task memory should use `.ai-company/memory/tasks/<task_id>/`.
+- `docs/ORDERS_SPEC.md`, `docs/ORDERS_FULL_EXPORT.md`, and broad replan/export docs are historical/snapshot context unless they are explicitly refreshed; they must not override current App Router, v3 memory, or RepairOS active standards.
+- `TASK-20260619-020` added archive/snapshot banners to the six highest-risk historical/export/planning docs. Use them as context only; current implementation authority remains root/project rules, active RepairOS docs, and `.ai-company/memory/PROJECT_MEMORY.md`.
+- `TASK-20260619-021` added status, owner, scope, and last-reviewed metadata to the seven core active architecture/UI/responsive docs. Future metadata work should be targeted, not a blind mass edit of all markdown files.
+- `TASK-20260619-022` refreshed `docs/ARCHITECTURE.md` with the then-current legacy-route migration status: only the order-list wrapper had a verified active-source `@/routes` import, and dashboard legacy-route claims were stale unless reverified.
+- `TASK-20260619-023/ORDER_LIST_MIGRATION_IMPLEMENTATION_CONTRACT.md` is the execution contract that L2-021 followed. It is a planning artifact, not the current implementation proof.
+- `TASK-20260619-024/ORDER_LIST_PRE_IMPLEMENTATION_BASELINE.md` is the validation baseline that preceded L2-021.
+- `TASK-20260619-025/ORDER_LIST_MIGRATION_IMPLEMENTATION_REPORT.md` is the current proof that the active order list was moved out of legacy `@/routes/orders.index`; remaining `src/routes/*` cleanup is deferred to a separate task.
+- `TASK-20260620-002/LEGACY_ROUTES_CLASSIFICATION_REPORT.md` is the current classification and approval package for remaining `src/routes/*`: all six files are delete-ready after Owner approval, and no deletion was performed in the classification task.
+- `TASK-20260620-003/LEGACY_ROUTES_DELETION_PREFLIGHT_CONTRACT.md` is the current executable contract for a future Owner-approved deletion task. It does not grant deletion approval.
+- `TASK-20260620-004/PERMISSION_MATRIX_BASELINE.md` is the current local baseline for RepairDesk authentication, roles, tenant controls, sensitive actions, approval levels, and permission risks. It is evidence for policy decisions, not an implementation change.
+- `TASK-20260619-230350-l2-025-role-policy-decision-package/ROLE_POLICY_DECISION_PACKAGE.md` is the current Owner-approval package for role policy. Future agents must not treat Option A as active behavior until Owner approval and implementation evidence exist.
+- `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` is the current audit-log redaction/minimization policy draft. Future agents must not treat it as implemented sanitizer behavior until backend/security/QA implementation tasks close.
+- `TASK-20260619-232315-l2-028-require-closeout-screenshots-for-re` adds an Owner-facing final report rule: include relevant task/result page screenshot paths when UI/browser-visible output exists, or explicitly document the no-screenshot reason and alternate evidence for non-UI tasks.
+- `TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for` fixes the department-label drift: when the Owner asks for departments, AI employees, sub-agents, multi-agent execution, review, or simulation, the Integration Lead must use real Codex sub-agent spawning when tooling is available. Department labels alone are routing metadata unless a no-spawn reason is recorded.
+- `TASK-20260701-004-one-command-mode-v32-integration` integrates Codex One Command Mode v3.2 at `.ai-company/ONE_COMMAND_MODE.md`. Treat root `AGENTS.md` as the executable Owner Simple Mode entry and this adapter as the long-form natural-language task intake reference.
+- `TASK-20260707-005-remove-module-title-blocks` updates active UI generation guidance: list/management page bodies must not repeat AppBar module titles, breadcrumbs, or total subtitles such as `工作台 / 客户`, `客户管理`, or `全部 · 共 ...`; future examples/templates should start from toolbar, KPI, chips, or business content.
+
+## Interfaces and dependencies
+
+| Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
+|---|---|---|---|---|---|
+| TBD | TBD | TBD | TBD | — | unknown |
+
+## SOPs and checklists
+
+- Relevant Skills under `.agents/skills/` are candidate procedures.
+- Project-specific commands and paths require verification before promotion.
+
+## Risks, debt, and open questions
+
+| ID | Risk/debt/question | Impact | Owner | Target/review | Status |
+|---|---|---|---|---|---|
+| DOC-20260619-001 | Stale TanStack-era docs can mislead future agents even after byte-identical doc duplicates were removed | Process drift | Documentation + Architecture | stale-doc audit | open |
+| DOC-20260619-002 | Deprecated department-design duplicate remained in source tree until cleanup approval | Governance drift | Documentation + Operations | resolved by TASK-20260619-006; monitor for re-created stale duplicates | mitigated |
+| DOC-20260619-003 | Active-looking docs contained stale `src/routes` and `.ai-company/runtime-memory/tasks` instructions | Future agents may create work in old locations | Documentation + Memory + Frontend | mitigated by TASK-20260619-019; monitor for reintroduction | mitigated |
+| DOC-20260619-004 | Non-core docs may still lack owner/freshness metadata | Hard to distinguish active standards from historical exports if they are promoted later | Documentation | review when promoting or editing non-core docs | monitoring |
+| DOC-20260620-001 | Historical docs still mention `src/routes/*` even after active migration and classification | Future agents could confuse snapshots with current route authority | Documentation + Architecture | when editing historical docs or deleting legacy routes | monitoring |
+| DOC-20260620-002 | Permission behavior can drift if future agents treat the matrix as implemented policy instead of evidence | Authorization documentation drift | Documentation + Security | update after any role-gate implementation | monitoring |
+| DOC-20260620-003 | Role-policy decision package may be mistaken for implemented authorization behavior | Future agents may claim permissions are enforced before code/tests exist | Documentation + Security + QA | keep marked approval_pending until implementation tasks close | monitoring |
+| DOC-20260620-004 | Audit-log policy may be mistaken for implemented redaction behavior | Future agents may claim sensitive audit payloads are fixed before sanitizer/tests exist | Documentation + Security + Backend + QA | keep marked implementation_pending until follow-up code tasks close | monitoring |
+| DOC-20260620-005 | Final reports may omit screenshot/no-screenshot evidence after visible tasks | Owner loses visual verification trail | Documentation + QA + Integration Lead | check every closeout report and task Evidence | active_rule |
+| DOC-20260620-006 | Department labels may be mistaken for real spawned AI employees | Owner expects separate AI employees, but report could describe label-only routing as execution | Documentation + QA + Integration Lead | require agent ids/results or no-spawn reason in each relevant closeout | active_rule |
+
+## Lessons and anti-patterns
+
+- Do not infer project facts from the generic AI Company OS template.
+- Promote repeated evidence, not stylistic preference, into durable standards.
+
+## Capability and tool notes
+
+| Agent/Skill | Current evidence | Capability | Permission | Limitation |
+|---|---|---|---|---|
+| TBD | none | C0/C1 | task-specific | not evaluated |
+
+## Memory change log
+
+| Date | Change | Source/task | Author/reviewer | Status |
+|---|---|---|---|---|
+| 2026-06-19 | Initial RepairDesk documentation baseline synchronized | TASK-20260619-003 | Integration Lead | active |
+| 2026-06-19 | Added stale docs/cursor duplicate authority boundary | TASK-20260619-005 | Integration Lead | active |
+| 2026-06-19 | Marked deprecated department-design duplicate cleanup as mitigated | TASK-20260619-006 | Integration Lead | active |
+| 2026-06-19 | Recorded Batch B cleanup report and memory synchronization | TASK-20260619-009 | Integration Lead | active |
+| 2026-06-19 | Recorded Batch C review and delete/salvage recommendations | TASK-20260619-010 | Integration Lead | active |
+| 2026-06-19 | Added formal backlog memory and recorded Batch C cleanup closeout | TASK-20260619-011 | Integration Lead | active |
+| 2026-06-19 | Recorded removal of nine current byte-identical duplicate docs | TASK-20260619-012 | Integration Lead | active |
+| 2026-06-19 | Classified `.ai-company/README 2.md` as delete-only and preserved canonical v3 README authority | TASK-20260619-013 | Integration Lead | active |
+| 2026-06-19 | Deleted `.ai-company/README 2.md` after delete-only review | TASK-20260619-014 | Integration Lead | active |
+| 2026-06-19 | Recorded generated-output duplicate-like inventory as non-source documentation evidence | TASK-20260619-015 | Integration Lead | active |
+| 2026-06-19 | Inventoried stale documentation drift and proposed active doc, archive banner, metadata, and legacy-route plan follow-ups | TASK-20260619-018 | Integration Lead | active |
+| 2026-06-19 | Fixed active UI checklist route guidance and agenda-intake task-memory path guidance | TASK-20260619-019 | Integration Lead | active |
+| 2026-06-19 | Added archive/snapshot banners to six historical/export/planning docs | TASK-20260619-020 | Integration Lead | active |
+| 2026-06-19 | Added active metadata convention to seven core architecture/UI/responsive docs | TASK-20260619-021 | Integration Lead | active |
+| 2026-06-19 | Refreshed active architecture legacy-route migration status from current source facts | TASK-20260619-022 | Integration Lead | active |
+| 2026-06-19 | Recorded implementation contract for the next feature-owned order-list migration task | TASK-20260619-023 | Integration Lead | active |
+| 2026-06-19 | Recorded order-list pre-implementation validation baseline | TASK-20260619-024 | Integration Lead | active |
+| 2026-06-19 | Recorded order-list migration implementation report and deferred legacy route cleanup boundary | TASK-20260619-025 | Integration Lead | active |
+| 2026-06-20 | Recorded legacy route classification report and deletion approval boundary | TASK-20260620-002 | Integration Lead | active |
+| 2026-06-20 | Recorded legacy route deletion preflight contract and approval boundary | TASK-20260620-003 | Integration Lead | active |
+| 2026-06-20 | Recorded permission matrix baseline and documentation boundary | TASK-20260620-004 | Integration Lead | active |
+| 2026-06-20 | Recorded role-policy decision package as proposal pending Owner approval | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead | proposed |
+| 2026-06-20 | Recorded audit-log minimization policy as implementation-pending documentation authority | TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio | Integration Lead | policy_drafted |
+| 2026-06-20 | Recorded mandatory screenshot/no-screenshot closeout reporting rule | TASK-20260619-232315-l2-028-require-closeout-screenshots-for-re | Integration Lead | active_rule |
+| 2026-06-20 | Recorded real sub-agent spawning rule and task-package fields after DOC/QA sub-agent review | TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for | Integration Lead | active_rule |
+| 2026-07-01 | Integrated Codex One Command Mode v3.2 as RepairDesk long-form natural-language Owner task intake rules | TASK-20260701-004-one-command-mode-v32-integration | Integration Lead | active_rule |
+| 2026-07-07 | Recorded no-duplicate-module-title guidance for future UI page generation templates | TASK-20260707-005 | Integration Lead | active_rule |

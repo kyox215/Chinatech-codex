@@ -1,0 +1,23 @@
+# CAPABILITY REGISTRY
+
+| Capability ID | Agent/Role | Level | Status | Scope | Risk | Valid until | Evaluation | Owner |
+|---|---|---|---|---|---|---|---|---|
+| CAP-INT-001 | Integration Lead / CEO Agent | C2 | active | Route owner goals into RepairDesk departments, apply scoped docs/code changes, and run proportional verification under L2 | medium | review_on_rule_change | Existing RepairDesk `.agents` model plus TASK-20260619-001 adoption verification | Integration Lead |
+| CAP-DOC-001 | DOC / Documentation Rules | C2 | active | Update project rules, charters, templates, task memory, and governance docs without changing business code | low | review_on_conflict | Existing RepairDesk DOC department plus AI Company OS adoption | Integration Lead |
+| CAP-QA-001 | QA / Verification | C1 | active | Recommend and interpret local verification gates; remains read-only unless explicitly assigned | medium | review_on_gate_change | Existing RepairDesk QA department and package scripts | Integration Lead |
+| CAP-CODEX-V3-001 | Codex Native Skills and Agents | C1 | provisional | Use `.agents/skills/*` and `.codex/agents/*` as task-relevant process/specialist definitions under Integration Lead control | medium | review_after_first_v3_task | TASK-20260619-002 installed v3 structure; validation required | Integration Lead |
+| CAP-TAKEOVER-20260619-EXPLORER | project_explorer | C2 | active | Read-only repository mapping and evidence indexing for RepairDesk | low | review_on_major_repo_change | TASK-20260619-003 `PROJECT_TAKEOVER_REPORT.md` | Integration Lead |
+| CAP-TAKEOVER-20260619-PRODUCT | product_analyst | C1 | active | Convert verified owner/project facts into product scope, assumptions, and L2 task candidates | medium | review_on_business_policy_change | TASK-20260619-003 business map | Integration Lead |
+| CAP-TAKEOVER-20260619-ARCH | solution_architect | C1 | active | Identify architecture boundaries, legacy coupling, and refactor roadmap from local evidence | medium | review_before_architecture_change | TASK-20260619-003 architecture map | Integration Lead |
+| CAP-TAKEOVER-20260619-IMPL | implementer | C1 | active | Execute bounded, approved workspace changes only | medium | review_on_write_task | Existing profile plus TASK-20260619-003 no-code boundary | Integration Lead |
+| CAP-TAKEOVER-20260619-DATA | data_reviewer | C1 | active | Review local migrations, RLS/storage intent, and data unknowns | high | review_before_db_or_prod_data_work | TASK-20260619-003 data map | Integration Lead |
+| CAP-TAKEOVER-20260619-SEC | security_reviewer | C1 | active | Review local auth, roles, tenant isolation, secrets, and PII boundaries | high | review_before_permission_or_secret_work | TASK-20260619-003 permission/security map | Integration Lead |
+| CAP-TAKEOVER-20260619-QA | qa_reviewer | C2 | active | Run and interpret local validation gates, including sandbox-vs-code failure attribution | medium | review_on_gate_or_env_change | TASK-20260619-003 validation evidence E-016..E-021 | Integration Lead |
+| CAP-TAKEOVER-20260619-UX | ux_reviewer | C1 | active | Review RepairOS UI rules and identify when screenshot/browser evidence is required | medium | review_on_ui_change | TASK-20260619-003 design/frontend map | Integration Lead |
+| CAP-TAKEOVER-20260619-DOC | documentation_reviewer | C2 | active | Synchronize docs/rules/memory without overriding RepairDesk authority | low | review_on_rule_or_doc_change | TASK-20260619-003 memory sync | Integration Lead |
+| CAP-TAKEOVER-20260619-REL | release_reviewer | C1 | active | Prepare release/readiness checklists from CI/deploy evidence | high | review_before_release_or_deploy | TASK-20260619-003 deployment map | Integration Lead |
+| CAP-TAKEOVER-20260619-MEM | memory_steward | C2 | active | Maintain task memory, evidence, checkpoints, conflicts, and project facts | medium | review_on_task_close_or_context_resume | TASK-20260619-003 memory artifacts | Integration Lead |
+| CAP-TAKEOVER-20260619-CAPAUD | capability_auditor | C1 | active | Classify agent capability conservatively based on observed task evidence | medium | review_after_agent_failure_or_success_pattern | TASK-20260619-003 capability baseline | Integration Lead |
+| CAP-DUP-REVIEW-20260619 | Integration Lead / QA + OPS hygiene review | C1 | candidate | Classify duplicate files, execute owner-approved low-risk cleanup batches, and preserve protected semantic-conflict files | low/medium | review_after_next_cleanup_batch | TASK-20260619-005 differing duplicate review; TASK-20260619-006 Batch A cleanup with agents:check | Integration Lead |
+
+没有登记和有效评估的能力默认视为 C0/C1，不得用于高风险自治执行。

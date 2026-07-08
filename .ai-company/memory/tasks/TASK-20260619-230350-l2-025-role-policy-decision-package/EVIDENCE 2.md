@@ -1,0 +1,19 @@
+# Evidence Index — TASK-20260619-230350-l2-025-role-policy-decision-package
+
+| Evidence ID | Type | Claim supported | Source/path/command | Result | Collected at | Collector |
+|---|---|---|---|---|---|---|
+| E-001 | request | task exists and title is recorded | `TASK.md` | observed | 2026-06-19T23:03:50Z | Integration Lead / CEO Agent |
+| E-002 | memory baseline | previous permission matrix identified role-policy gap and approval boundaries | `.ai-company/memory/tasks/TASK-20260620-004/PERMISSION_MATRIX_BASELINE.md` | verified local evidence baseline | 2026-06-19T23:07:00Z | Integration Lead / CEO Agent |
+| E-003 | source scan | current store roles and platform-admin types exist | `rg -n "export type StaffRole|PlatformAdmin|StoreInviteInput|OnboardingRequestInput" src/lib/repairdesk/types.ts` | roles verified | 2026-06-19T23:12:00Z | Integration Lead / CEO Agent |
+| E-004 | source scan | router action inventory and explicit gates were scanned | `rg -n "case \"|assertStaffRole|assertInventoryWrite|auditGeneric|allowsPendingStore" src/server/api/repairdesk-router.ts` | action groups verified | 2026-06-19T23:13:00Z | Integration Lead / CEO Agent |
+| E-005 | source scan | order/customer mutations use store context but many lack explicit role gates | `rg -n "export async function|assertStaffRole|requireStoreIdFromActor" src/features/orders/server/order.repository.ts src/features/customers/server/customer.repository.ts` | role-policy gap confirmed | 2026-06-19T23:15:00Z | Integration Lead / CEO Agent |
+| E-006 | source scan | inventory, settings, member, and platform approval gates were scanned | `rg -n "export async function|assertCanManageStoreMembers|assertPlatformAdmin|assertStaffRole|requireStoreIdFromActor" src/features/stores/server src/features/platform/server src/features/messages/server src/features/inventory/server` | explicit controls verified | 2026-06-19T23:16:00Z | Integration Lead / CEO Agent |
+| E-007 | source scan | UI/product role labels match shop language | `src/features/auth/model/onboarding-flow.ts`; `src/features/settings/screens/settings-screen.tsx` | labels verified | 2026-06-19T23:18:00Z | Integration Lead / CEO Agent |
+| E-008 | decision package | Owner-ready role policy package created | `ROLE_POLICY_DECISION_PACKAGE.md` | created and reviewed for scope | 2026-06-19T23:24:00Z | Integration Lead / CEO Agent |
+| E-009 | memory sync | Product/Security/Backend/QA/Documentation and backlog mark the package as proposal pending Owner approval | `.ai-company/memory/departments/*`; `.ai-company/memory/BACKLOG.md`; `.ai-company/memory/PROJECT_MEMORY.md` | synchronized | 2026-06-19T23:08:00Z | Integration Lead / CEO Agent |
+| E-010 | validation | policy-package references and current authorization-source scan completed | `rg -n "ROLE_POLICY_DECISION_PACKAGE|decision_package_ready|Option A|approval_pending|Viewer read-only|viewer read-only" .ai-company/memory`; `rg -n "assertStaffRole|assertInventoryWrite|assertPlatformAdmin|assertCanManageStoreMembers|requireStoreIdFromActor|case \"order|case \"customer|case \"inventory|case \"stores|case \"message|case \"settings" src/server src/features src/lib/repairdesk/types.ts` | passed with expected evidence output | 2026-06-19T23:08:40Z | Integration Lead / CEO Agent |
+| E-011 | validation | governance rule check passed | `npm run agents:check` | Agent config/template/rule checks passed | 2026-06-19T23:09:00Z | Integration Lead / CEO Agent |
+| E-012 | validation | final governance rule check passed after closeout memory timestamp corrections | `npm run agents:check` | Agent config/template/rule checks passed | 2026-06-19T23:10:00Z | Integration Lead / CEO Agent |
+
+Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
+IDs, test reports, screenshots, or concise log references.

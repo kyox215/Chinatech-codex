@@ -16,14 +16,152 @@ export interface CapturePayload {
   targetHref?: string;
 }
 
+export type ImeiCaptureSource =
+  | "camera"
+  | "barcode"
+  | "image"
+  | "ocr"
+  | "manual"
+  | "paste"
+  | "text";
+
+export type ImeiCandidateKind = "imei" | "suspect_imei" | "serial";
+
+export interface ImeiCandidate {
+  id: string;
+  kind: ImeiCandidateKind;
+  raw: string;
+  value: string;
+  label: string;
+  source: ImeiCaptureSource;
+  confidence: "high" | "medium" | "low";
+  isValidImei: boolean;
+  reason?: string;
+}
+
 const IMEI_PATTERN = /^\d{14,17}$/;
 const SERIAL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{5,63}$/;
+const CONTIGUOUS_IMEI_CANDIDATE_PATTERN = /(^|[^A-Za-z0-9])(\d{14,17})(?![A-Za-z0-9])/g;
+const IMEI_DIGIT_CANDIDATE_PATTERN =
+  /(^|[^A-Za-z0-9])((?:\d[\s\-:：_.,/\\|]*){14,17})(?![\s\-:：_.,/\\|]*\d)/g;
+const SERIAL_LABEL_PATTERN =
+  /\b(?:SERIAL\s*NUMBER|SERIAL\s*NO\.?|S\/N|SN|SERIAL)\b\s*(?:[:：#-])?\s*([A-Z0-9][A-Z0-9._:-]{5,63})/gi;
 
 export function normalizeCaptureIdentifier(value: string) {
   return value
     .trim()
     .replace(/[\s\-:：_.,/\\|]+/g, "")
     .replace(/[^A-Za-z0-9]/g, "");
+}
+
+export function isValidImei(value: string) {
+  const normalized = normalizeCaptureIdentifier(value);
+  if (!/^\d{15}$/.test(normalized)) return false;
+
+  let sum = 0;
+  let doubleDigit = false;
+  for (let index = normalized.length - 1; index >= 0; index -= 1) {
+    let digit = Number(normalized[index]);
+    if (doubleDigit) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    doubleDigit = !doubleDigit;
+  }
+  return sum % 10 === 0;
+}
+
+export function extractImeiCandidates(
+  rawValue: string,
+  options: {
+    source?: ImeiCaptureSource;
+    includeGenericSerial?: boolean;
+  } = {},
+) {
+  const raw = rawValue.trim();
+  const source = options.source ?? "text";
+  const candidates: ImeiCandidate[] = [];
+  const seen = new Set<string>();
+
+  const pushCandidate = (candidate: Omit<ImeiCandidate, "id">) => {
+    const key = `${candidate.kind}:${candidate.value}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({
+      ...candidate,
+      id: `${candidate.kind}:${candidate.value}:${candidates.length}`,
+    });
+  };
+
+  const pushNumericCandidate = (candidateRaw: string) => {
+    const value = normalizeCaptureIdentifier(candidateRaw);
+    if (!IMEI_PATTERN.test(value)) return;
+
+    const valid = isValidImei(value);
+    pushCandidate({
+      kind: valid ? "imei" : "suspect_imei",
+      raw: candidateRaw.trim() || value,
+      value,
+      label: valid ? "有效 IMEI" : "疑似 IMEI",
+      source,
+      confidence: valid ? "high" : "medium",
+      isValidImei: valid,
+      reason: valid ? undefined : getSuspectImeiReason(value),
+    });
+  };
+
+  for (const match of raw.matchAll(CONTIGUOUS_IMEI_CANDIDATE_PATTERN)) {
+    pushNumericCandidate(match[2] ?? "");
+  }
+
+  for (const match of raw.matchAll(IMEI_DIGIT_CANDIDATE_PATTERN)) {
+    pushNumericCandidate(match[2] ?? "");
+  }
+
+  for (const match of raw.matchAll(SERIAL_LABEL_PATTERN)) {
+    const value = normalizeCaptureIdentifier(match[1] ?? "");
+    if (!SERIAL_PATTERN.test(value)) continue;
+    pushCandidate({
+      kind: "serial",
+      raw: (match[1] ?? value).trim(),
+      value,
+      label: "序列号",
+      source,
+      confidence: "medium",
+      isValidImei: false,
+    });
+  }
+
+  const normalized = normalizeCaptureIdentifier(raw);
+  const hasSameValueCandidate = candidates.some((candidate) => candidate.value === normalized);
+  if (
+    options.includeGenericSerial &&
+    SERIAL_PATTERN.test(raw) &&
+    normalized.length >= 6 &&
+    !hasSameValueCandidate
+  ) {
+    pushCandidate({
+      kind: "serial",
+      raw,
+      value: normalized,
+      label: "序列号",
+      source,
+      confidence: "medium",
+      isValidImei: false,
+    });
+  }
+
+  return candidates;
+}
+
+export function getPreferredImeiCandidate(candidates: readonly ImeiCandidate[]) {
+  return (
+    candidates.find((candidate) => candidate.kind === "imei") ??
+    candidates.find((candidate) => candidate.kind === "serial") ??
+    candidates[0] ??
+    null
+  );
 }
 
 export function parseBarcodePayload(rawValue: string, origin = "http://localhost:3000") {
@@ -236,6 +374,11 @@ function parseLabeledIdentifier(raw: string): CapturePayload | null {
   }
 
   return null;
+}
+
+function getSuspectImeiReason(value: string) {
+  if (value.length !== 15) return "长度不是标准 15 位 IMEI。";
+  return "15 位数字未通过 IMEI 校验位。";
 }
 
 function isUrl(value: string) {

@@ -945,3 +945,35 @@ Figma screenshots are still blocked by the Figma MCP Starter call limit. Browser
   - Edit screenshot: `screenshots/figma-ui-system-20260620/inventory-buyback-source-edit-dialog-final-mobile.png`
   - Detail metrics: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`, dialog `x=12`, `width=366`.
   - Edit metrics: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`, dialog `x=12`, `width=366`.
+
+## 2026-06-20T20:41:58+02:00 - Inventory Buyback Source App-Style Internal Cards
+
+- Touched application file:
+  - `src/features/inventory/screens/inventory-screen.tsx`
+- Protected mobile order files were not edited in this batch.
+- Verification:
+  - `npx prettier --write src/features/inventory/screens/inventory-screen.tsx`: passed.
+  - `npm run lint`: passed.
+  - `npm run typecheck`: passed.
+  - `npx vitest run --exclude "exports/**" src/features/inventory/model/inventory-buyback-summary.test.ts src/features/inventory/model/inventory-workflow.test.ts src/features/inventory/testing/mock-api.test.ts`: 3 files passed, 16 tests passed.
+  - `npm run build`: sandbox run failed with known Turbopack `creating new process / binding to a port / Operation not permitted`; non-sandbox rerun passed.
+- Playwright visual verification at `http://127.0.0.1:3026/inventory`, viewport `390x844`, device scale factor 2:
+  - Top proof/product screenshot: `screenshots/figma-ui-system-20260620/inventory-buyback-source-app-style-mobile.png`
+  - Detection screenshot: `screenshots/figma-ui-system-20260620/inventory-buyback-source-app-style-detection-mobile.png`
+  - Metrics: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`, dialog `x=12`, `width=366`.
+
+## 2026-06-20T20:56:47+02:00 - Inventory Buyback Source Mobile Finance Compaction
+
+- Touched application file:
+  - `src/features/inventory/screens/inventory-screen.tsx`
+- Protected mobile order files were not edited in this batch.
+- Verification:
+  - `npx prettier --write src/features/inventory/screens/inventory-screen.tsx`: passed.
+  - `npm run lint`: passed.
+  - `npm run typecheck`: passed.
+  - `npx vitest run --exclude "exports/**" src/features/inventory/model/inventory-buyback-summary.test.ts src/features/inventory/model/inventory-workflow.test.ts src/features/inventory/testing/mock-api.test.ts`: 3 files passed, 16 tests passed.
+  - `npm run build`: passed in non-sandbox mode.
+  - `git diff --check -- src/features/inventory/screens/inventory-screen.tsx`: passed.
+- Playwright visual verification at `http://127.0.0.1:3026/inventory`, viewport `390x844`, device scale factor 2:
+  - Finance compact screenshot: `screenshots/figma-ui-system-20260620/inventory-buyback-source-finance-compact-mobile.png`
+  - Metrics: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`, dialog `x=12`, `width=366`.

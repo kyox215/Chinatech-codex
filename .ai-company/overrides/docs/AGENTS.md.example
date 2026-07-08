@@ -1,0 +1,7 @@
+# Documentation Area Instructions
+
+- Identify the reader and authoritative source before editing.
+- Verify commands, examples, API/schema facts, and environment assumptions.
+- Link to authoritative policy/ADR instead of duplicating long volatile text.
+- Mark version, owner, and last verification where operational risk exists.
+- Never include real secrets, internal customer data, or unsupported completion claims.

@@ -1,5 +1,10 @@
 # RepairDesk 全项目重构交接文档
 
+> [历史交接导出 / Snapshot]
+> 本文档保留为 2026-06-11 全项目重构交接快照，部分代码事实可能已经被后续任务替代，不是当前 RepairDesk 实施权威。
+> 当前项目规则以 `AGENTS.md`、`docs/project-charter.md`、`docs/ARCHITECTURE.md`、`docs/UI_PAGE_GENERATION_DECLARATION.md` 和 `.ai-company/memory/PROJECT_MEMORY.md` 为准：路由使用 Next.js App Router `src/app/`，任务记忆使用 `.ai-company/memory/tasks/`，RepairOS 当前规则优先于本文档。
+> Last reviewed: 2026-06-19 by `TASK-20260619-020`.
+
 更新时间：2026-06-11  
 用途：把当前 ChinaTech RepairDesk 项目的真实业务流程、技术架构、数据库状态、权限模型、重构风险和下一轮规划要求一次性导出，方便交给新的 GPT / 工程师重新规划并执行系统级重构。
 

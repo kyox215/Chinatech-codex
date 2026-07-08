@@ -669,6 +669,75 @@ describe("mock order inline editing workflow", () => {
     ).rejects.toThrow("工单已被更新");
   });
 
+  it("patches IMEI only without overwriting linked customer, device, unlock, or order fields", async () => {
+    const id = await createMockOrder({
+      device_imei: "ORIGINAL-IMEI-001",
+      accessory_notes: "SIM卡、手机壳",
+      device_unlock: { method: "pin", value: "001258" },
+      warranty_text: "12个月",
+      warranty_months: 12,
+      warranty_change_reason: "店铺默认",
+      fault_prices: [
+        { name: "屏幕", price: 120, note: "原厂 品质" },
+        { name: "电池", price: 45, note: "标准" },
+      ],
+      deposit_amount: 35,
+    });
+    const created = await getOrder(id);
+    await patchOrder(id, {
+      expected_updated_at: created.order.updated_at,
+      changes: { diagnosis_result: "检测完成，等待客户确认。" },
+    });
+    const before = await getOrder(id);
+
+    const result = await patchOrder(id, {
+      expected_updated_at: before.order.updated_at,
+      changes: { device_imei: "356938035643809" },
+    });
+    const after = await getOrder(id);
+
+    expect(result.updated_at).toBe(after.order.updated_at);
+    expect(after.order.device_snapshot?.serial_or_imei).toBe("356938035643809");
+    expect(after.order.customer_id).toBe(before.order.customer_id);
+    expect(after.order.device_id).toBe(before.order.device_id);
+    expect(after.order.customer_name).toBe(before.order.customer_name);
+    expect(after.order.customer_phone).toBe(before.order.customer_phone);
+    expect(after.order.contact_phones).toEqual(before.order.contact_phones);
+    expect(after.order.device_snapshot?.brand).toBe(before.order.device_snapshot?.brand);
+    expect(after.order.device_snapshot?.model).toBe(before.order.device_snapshot?.model);
+    expect(after.order.device_snapshot?.device_notes).toBe(
+      before.order.device_snapshot?.device_notes,
+    );
+    expect(after.order.device_unlock_method).toBe("pin");
+    expect(after.order.device_unlock_value).toBe("001258");
+    expect(after.order.issue_description).toBe(before.order.issue_description);
+    expect(after.order.diagnosis_result).toBe(before.order.diagnosis_result);
+    expect(after.order.accessory_notes).toBe(before.order.accessory_notes);
+    expect(after.order.warranty_text).toBe(before.order.warranty_text);
+    expect(after.order.warranty_months).toBe(before.order.warranty_months);
+    expect(after.order.warranty_change_reason).toBe(before.order.warranty_change_reason);
+    expect(after.order.fault_prices).toEqual(before.order.fault_prices);
+    expect(after.order.deposit_amount).toBe(before.order.deposit_amount);
+  });
+
+  it("rejects blank IMEI inline patches so order snapshots cannot revive stale device IMEI", async () => {
+    const id = await createMockOrder({ device_imei: "ORIGINAL-IMEI-002" });
+    const before = await getOrder(id);
+
+    await expect(
+      patchOrder(id, {
+        expected_updated_at: before.order.updated_at,
+        changes: { device_imei: "   " },
+      }),
+    ).rejects.toThrow("IMEI / 序列号不能为空");
+
+    const after = await getOrder(id);
+    expect(after.order.updated_at).toBe(before.order.updated_at);
+    expect(after.order.device_snapshot?.serial_or_imei).toBe(
+      before.order.device_snapshot?.serial_or_imei,
+    );
+  });
+
   it("persists device unlock metadata and keeps list/event payloads redacted", async () => {
     const id = await createMockOrder({
       device_unlock: { method: "pin", value: "001258" },

@@ -24,3 +24,12 @@
 - **Evidence:**
   - git diff --check passed for owned files; npm run lint passed; npm run typecheck passed; npm run test passed with 82 files and 531 tests; npm run build passed outside sandbox; targeted localhost dev-runtime Playwright audit for 1536px passed; screenshot saved at screenshots/TASK-20260707-004-order-detail-desktop-density-implementation/order-detail-dialog-1536.png.
 - **Recorded by:** Integration Lead
+## 2026-07-07T14:44:43Z — Pushed scoped order-detail desktop density implementation to origin/main at commit 26497a2. Commit includes the desktop density UI plan, task memory, screenshot evidence, capped order-detail workspace, secondary summary grid, bounded photo panel, action dock breakpoint update, and E2E assertions.
+
+- **Phase:** pushed_main
+- **Completed/current state:** Pushed scoped order-detail desktop density implementation to origin/main at commit 26497a2. Commit includes the desktop density UI plan, task memory, screenshot evidence, capped order-detail workspace, secondary summary grid, bounded photo panel, action dock breakpoint update, and E2E assertions.
+- **Next:** No further action for this pushed UI task unless Owner requests deployment follow-up or cleanup of unrelated dirty worktree changes.
+- **Decision:** Staged only the order-detail density task files. Left unrelated dirty worktree changes unstaged, including ACTIVE_CONTEXT shared-db context, cache-sync edits in touched order files, generic detailWorkspace widening, and unrelated repair-os-mobile lint formatting.
+- **Evidence:**
+  - git diff --cached --check passed before commit; scoped ESLint on changed UI/test files passed; npm run typecheck passed; npm run test passed with 82 files and 531 tests; npm run build passed outside sandbox after Turbopack port binding failed in sandbox; targeted localhost dev-runtime Playwright 1536px order-detail audit passed; git push origin main advanced origin/main from 773d1a9 to 26497a2.
+- **Recorded by:** Integration Lead

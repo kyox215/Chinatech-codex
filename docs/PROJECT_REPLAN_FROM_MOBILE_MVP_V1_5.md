@@ -1,5 +1,10 @@
 # RepairDesk 项目重规划：基于 Mobile Repair MVP v1.5
 
+> [规划快照 / Snapshot]
+> 本文档保留为 2026-06-12 基于外部 MVP 文档的重规划快照，不是当前 RepairDesk 实施权威或任务状态表。
+> 当前项目规则以 `AGENTS.md`、`docs/project-charter.md`、`docs/ARCHITECTURE.md`、`docs/UI_PAGE_GENERATION_DECLARATION.md`、`docs/REPAIROS_MOBILE_DETAIL_STANDARD.md` 和 `.ai-company/memory/PROJECT_MEMORY.md` 为准：路由使用 Next.js App Router `src/app/`，任务记忆使用 `.ai-company/memory/tasks/`，RepairOS 当前规则优先于本文档。
+> Last reviewed: 2026-06-19 by `TASK-20260619-020`.
+
 更新时间：2026-06-12  
 参考文档：`/Users/kyox215/Downloads/codex_mobile_repair_mvp_plan_v1_5_whatsapp_order_communication.md`
 

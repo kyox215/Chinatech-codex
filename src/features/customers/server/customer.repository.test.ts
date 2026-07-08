@@ -4,6 +4,7 @@ import type { AuditActor } from "@/lib/repairdesk/types";
 
 import {
   createCustomerFollowup,
+  listCustomers,
   sendCustomerMessage,
   upsertCustomerDevice,
 } from "./customer.repository";
@@ -91,12 +92,51 @@ describe("customer repository tenant write boundaries", () => {
     expect(customerQuery.eq).toHaveBeenCalledWith("id", "customer_2");
     expect(mocks.supabase.from).not.toHaveBeenCalledWith("customer_interactions");
   });
+
+  it("fails closed when customer child tables lack store_id instead of falling back unscoped", async () => {
+    const customerQuery = createSupabaseQuery({
+      data: [
+        {
+          id: "customer_1",
+          name: "Zhang",
+          phone_e164: "+39000000000",
+          phone_raw: "39000000000",
+          contact_phones: [],
+          created_at: "2026-07-01T00:00:00.000Z",
+          updated_at: "2026-07-01T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+    const devicesQuery = createSupabaseQuery({ data: [], error: null });
+    const followupsQuery = createSupabaseQuery({
+      data: null,
+      error: {
+        code: "42703",
+        message: "Could not find the 'store_id' column of 'customer_followups'",
+      },
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(customerQuery)
+      .mockReturnValueOnce(devicesQuery)
+      .mockReturnValueOnce(followupsQuery);
+
+    await expect(listCustomers({}, storeActor)).rejects.toThrow("读取客户待办失败");
+
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(3);
+    expect(followupsQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(followupsQuery.in).toHaveBeenCalledWith("customer_id", ["customer_1"]);
+  });
 });
 
 function createSupabaseQuery(result: { data: unknown; error: unknown }) {
   const query = {
+    ...result,
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    order: vi.fn(() => query),
+    limit: vi.fn(() => result),
     maybeSingle: vi.fn(() => result),
     insert: vi.fn(() => result),
     update: vi.fn(() => query),

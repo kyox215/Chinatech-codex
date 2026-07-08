@@ -2,13 +2,13 @@
 schema_version: 1
 task_id: "TASK-20260706-001-realtime-updates-execution"
 status: "active"
-phase: "local_slice_6_approval_package_complete"
+phase: "local_slice_9g_rpc_draft_complete"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 created_at: "2026-07-06T05:58:52Z"
-updated_at: "2026-07-07T10:47:31Z"
+updated_at: "2026-07-07T11:33:50Z"
 ---
 # TASK-20260706-001 Real-Time Updates Execution
 
@@ -416,3 +416,113 @@ Current boundary:
 Next:
 
 - Slice 9G should produce a local un-applied RPC/transaction design/draft, including operation row claim/finalize, customer/device/order/event atomicity, stale `started` recovery, rollback behavior, and audit/operation redaction tests.
+
+## Slice 9G Spawned Agents
+
+| Department | Agent type | Mode | Agent ID | Nickname | Status |
+|---|---|---|---|---|---|
+| DATA | data_reviewer | read_only | 019f3c50-69f4-72a1-94fa-06d507ca8543 | Delta | completed: initial block before RPC draft; findings integrated |
+| SEC | security_reviewer | read_only | 019f3c50-6b12-7d83-b1ec-5697da19983b | Aegis | completed: initial block before RPC draft; findings integrated |
+| QA | qa_reviewer | read_only | 019f3c50-6bf1-7d10-8915-347b0cecb3e2 | Probe | completed: initial block before RPC draft; findings integrated |
+
+## Local Slice 9G Result
+
+Implemented local-only, un-applied offline order sync RPC/transaction draft and tightened operation metadata persistence:
+
+- `supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`
+- `src/features/offline/server/offline-sync-rpc-draft.test.ts`
+- `supabase/migrations/20260707090000_repairdesk_offline_operations.sql`
+- `src/features/offline/server/offline-sync-contract.ts`
+- `src/features/offline/server/offline-sync-contract.test.ts`
+- `src/features/offline/server/offline-sync-service.ts`
+- `src/features/offline/server/offline-sync-service.test.ts`
+
+Behavior:
+
+- Added local approval draft RPC functions for offline order create and update. Draft functions are service-role only, use fixed `search_path`, claim operation rows by scoped idempotency key, lock rows with `for update`, and keep operation claim, business write, order event, and operation finalization in one database function body.
+- Order create draft supports explicit existing/new customer and explicit existing/new customer device relationship plans, checks same-store ownership, blocks duplicate same-store customer phones as `needs_review`, and finalizes only minimal non-PII response summary.
+- Order update draft is restricted to order text/warranty fields, checks optimistic `baseUpdatedAt`, blocks device master updates as deferred, and writes an order event.
+- Operation ledger migration now constrains `response_summary` to `serverOrderId`, `publicNo`, `updatedAt`, and `resultCode` only, and constrains `error_code` to a stable allowlist.
+- Service layer now parses and allowlists executor-provided `responseSummary` and `errorCode` before completing an operation; unsafe executor outputs fail closed as `retryable_error`.
+- RPC draft remains un-applied and is not wired to any route, runner, Supabase client, feature flag, production database, deployment, or customer-visible workflow.
+
+Verification:
+
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed, 3 files / 35 tests.
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts src/features/offline/model/offline-outbox-sync-runner.test.ts src/server/api/repairdesk-router.test.ts`: passed, 5 files / 48 tests.
+- `npm run typecheck`: passed.
+- `npx eslint src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed.
+- `git diff --check -- src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts supabase/migrations/20260707090000_repairdesk_offline_operations.sql supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`: passed.
+- `npm run build`: sandbox run failed due Turbopack process/port permission error; approved escalated rerun passed.
+
+Verification limitations:
+
+- `npm run test` full suite currently fails in unrelated `src/features/platform/server/platform.repository.test.ts` email-verification expectations: 75 files passed, 1 failed, 492 passed / 5 failed tests.
+- `npm run lint` full suite currently fails on unrelated Prettier formatting in `src/features/platform/server/platform.repository.test.ts` and `src/features/stores/server/store.repository.test.ts`.
+- No local or linked Supabase migration apply/dry-run was run for Slice 9G.
+
+Current boundary:
+
+- No production migration, linked Supabase dry-run, deployment, push, route exposure, runner-to-server wiring, realtime invalidation from offline sync, Sensitive Vault value sync, attachment upload, payment/message/status automation, or customer-facing sync occurred.
+- The RPC draft is a review artifact under `supabase/migrations/`; applying it to any database requires Owner approval, release plan, backup/restore plan, and DATA/SEC/QA re-review.
+
+Next:
+
+- Slice 9H should add the route/port integration plan or implementation only if it remains local and default-off, and should stop before any real network sync.
+- Before production, run a real local Supabase migration rehearsal or owner-approved linked dry-run, test transaction rollback against a database, and resolve unrelated full-suite test/lint failures.
+
+## Slice 9H-A Spawned Agents
+
+| Department | Agent type | Mode | Agent ID | Nickname | Status |
+|---|---|---|---|---|---|
+| DATA | data_reviewer | read_only | 019f3c69-ca76-75f1-84ce-676a0d39ed68 | Gaia the 2nd | completed: blockers integrated |
+| SEC | security_reviewer | read_only | 019f3c69-cb99-7460-93f7-eb9b34ea471e | Aegis the 2nd | completed: blockers integrated |
+| QA | qa_reviewer | read_only | 019f3c69-cc94-77b0-aa32-b5c3db6be7b4 | Verity the 2nd | completed: blockers integrated |
+
+## Local Slice 9H-A Result
+
+Completed a local database-backed RPC rehearsal for the offline order sync transaction draft.
+
+Files updated:
+
+- `supabase/migrations/20260707110000_repairdesk_offline_order_sync_rpc_draft.sql`
+- `src/features/offline/server/offline-sync-contract.ts`
+- `src/features/offline/server/offline-sync-contract.test.ts`
+- `src/features/offline/server/offline-sync-rpc-draft.test.ts`
+
+Behavior hardened:
+
+- Fixed the fresh operation claim guard so a newly claimed `started` operation can enter business writes; only pre-existing fresh `started` rows return `retryable_error`.
+- Required active store membership, active staff profile, active store status, and non-viewer role inside both RPC functions.
+- Moved update `baseUpdatedAt` casting into the handled transaction block and finalizes invalid timestamps as `blocked_operation` / `invalid_payload`.
+- Removed offline deposit/payment collection from the first RPC subset; create writes `unpaid`, `deposit_amount = 0`, `is_paid = false`, and `balance_amount = quotation_amount`.
+- Aligned offline `warranty_months` validation to the DB check presets: `0`, `3`, `6`, `12`, `24`.
+- Added terminal replay handling for `conflict`, `blocked`, and `failed` operations so they do not re-enter business writes.
+- Removed `operation_id` from order event payloads to avoid spreading operation identifiers into order history.
+
+Local DB rehearsal:
+
+- A full local Supabase start using the complete repo migration set was attempted on isolated 554xx ports and failed before Slice 9H-A RPC at historical migration `20260611102805_repairdesk_remote_schema_compatibility.sql`: `inventory_items.product_channel` does not exist in the clean local baseline.
+- To keep 9H-A focused, a DB-only Supabase harness was started under `/private/tmp/repairdesk-rpc-harness-9h` on port `55522`, with all non-DB services excluded.
+- The harness created a minimal schema, loaded the current RPC draft, and executed DB assertions for create, idempotent replay, hash conflict, cross-store denial, update, stale version, invalid timestamp block, blocked terminal replay, transaction rollback on event failure, failed terminal replay, service-role-only execute grants, and sensitive data non-persistence.
+- Harness result: passed; operation counts were `succeeded=2`, `blocked=3`, `conflict=1`, `failed=1`, `repair_orders=1`, `order_events=2`.
+- The temporary harness was stopped after evidence collection.
+
+Verification:
+
+- `npm run test -- src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed, 3 files / 39 tests.
+- `npx eslint src/features/offline/server/offline-sync-contract.ts src/features/offline/server/offline-sync-contract.test.ts src/features/offline/server/offline-sync-service.ts src/features/offline/server/offline-sync-service.test.ts src/features/offline/server/offline-sync-rpc-draft.test.ts`: passed.
+- `npm run typecheck`: passed.
+- Local DB-only RPC function creation: passed.
+- Local DB-only RPC business assertions: passed.
+- Local DB-only RPC grants: `service_role=true`, `authenticated=false`, `anon=false` for create and update.
+
+Current boundary:
+
+- No production migration, linked Supabase dry-run, deployment, push, route exposure, runner-to-server wiring, realtime invalidation from offline sync, Sensitive Vault value sync, attachment upload, payment/message/status automation, or customer-facing sync occurred.
+- The RPC draft remains local and un-applied. The DB-only harness proves function logic against a minimal local schema, not the complete project migration chain.
+
+Next:
+
+- Resolve or isolate the historical clean-local migration blocker before claiming full local Supabase migration rehearsal.
+- Then continue to Slice 9H-B: local default-off route/port integration plan or implementation, still stopping before real network sync or customer-visible behavior.

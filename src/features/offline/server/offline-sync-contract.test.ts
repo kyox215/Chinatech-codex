@@ -13,6 +13,9 @@ import {
   createRepairDeskOfflineCanonicalJson,
   createRepairDeskOfflineRequestHash,
   mapRepairDeskOfflineServerResultCodeToHandlerResult,
+  parseRepairDeskOfflineOperationErrorCodeSafe,
+  parseRepairDeskOfflineOperationResponseSummarySafe,
+  repairDeskOfflineOperationErrorCodes,
   repairDeskOfflineOrderCreateSyncSchema,
   repairDeskOfflineOrderUpdateSyncSchema,
   resolveRepairDeskOfflineOperationReplay,
@@ -66,7 +69,6 @@ function validCreatePayload() {
         issue_description: "Schermo rotto",
         accessory_notes: "Custodia presente",
         fault_prices: [{ name: "Display", price: 89, currency_code: "EUR" }],
-        deposit_amount: 20,
       },
     },
   };
@@ -95,10 +97,43 @@ describe("offline sync contract schemas", () => {
     expect(parsed.payload.order.order_type).toBe("quick_repair");
   });
 
+  it("keeps offline warranty months aligned to database presets", () => {
+    expect(
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: { ...validCreatePayload().payload.order, warranty_months: 24 },
+        },
+      }).payload.order.warranty_months,
+    ).toBe(24);
+
+    expect(() =>
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: { ...validCreatePayload().payload.order, warranty_months: 5 },
+        },
+      }),
+    ).toThrow();
+
+    expect(() =>
+      repairDeskOfflineOrderUpdateSyncSchema.parse({
+        ...validUpdatePayload(),
+        payload: {
+          ...validUpdatePayload().payload,
+          changes: { warranty_months: 5 },
+        },
+      }),
+    ).toThrow();
+  });
+
   it("rejects high-risk and unexpected create fields before hashing or writing", () => {
     const dangerous = [
       { status: "completed" },
       { device_unlock: { method: "pin", value: "1234" } },
+      { deposit_amount: 20 },
       { payment_status: "paid" },
       { whatsapp_body: "ready" },
       { attachment_storage_path: "private/order/file.jpg" },
@@ -391,6 +426,40 @@ describe("offline sync permissions and safe metadata", () => {
       expect(() => assertRepairDeskOfflineOperationMetadataSafe(metadata)).toThrow();
     }
   });
+
+  it("allowlists persisted response summaries and stable operation error codes", () => {
+    expect(
+      parseRepairDeskOfflineOperationResponseSummarySafe({
+        serverOrderId: "order_1",
+        publicNo: "RD-0001",
+        updatedAt: "2026-07-07T08:03:00.000Z",
+        resultCode: "synced",
+      }),
+    ).toEqual({
+      serverOrderId: "order_1",
+      publicNo: "RD-0001",
+      updatedAt: "2026-07-07T08:03:00.000Z",
+      resultCode: "synced",
+    });
+
+    expect(() =>
+      parseRepairDeskOfflineOperationResponseSummarySafe({
+        serverOrderId: "order_1",
+        phone: "+39 333 000 0000",
+      }),
+    ).toThrow();
+    expect(() =>
+      parseRepairDeskOfflineOperationResponseSummarySafe({
+        serverOrderId: "order_1",
+        rawSqlError: "private failure",
+      }),
+    ).toThrow();
+
+    expect(parseRepairDeskOfflineOperationErrorCodeSafe("duplicate_customer")).toBe(
+      "duplicate_customer",
+    );
+    expect(() => parseRepairDeskOfflineOperationErrorCodeSafe("raw_customer_phone")).toThrow();
+  });
 });
 
 describe("offline operation migration draft", () => {
@@ -405,6 +474,11 @@ describe("offline operation migration draft", () => {
       /repairdesk_offline_operations_unique_operation_idx\s+on public\.repairdesk_offline_operations/i,
     );
     expect(sql).toContain("request_hash ~ '^[a-f0-9]{64}$'");
+    expect(sql).toContain("response_summary\n        - 'serverOrderId'");
+    expect(sql).toContain("- 'publicNo'\n        - 'updatedAt'\n        - 'resultCode'");
+    for (const errorCode of repairDeskOfflineOperationErrorCodes) {
+      expect(sql).toContain(`'${errorCode}'`);
+    }
     expect(sql).toContain(
       "alter table public.repairdesk_offline_operations enable row level security",
     );

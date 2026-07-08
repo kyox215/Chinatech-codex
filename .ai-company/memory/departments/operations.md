@@ -1,0 +1,87 @@
+---
+schema_version: 1
+department: operations
+status: active
+owner: Operations Department / Integration Lead
+last_verified_at: 2026-06-19
+review_trigger: relevant-task-or-quarterly-review
+---
+
+# Business Operations Department Memory
+
+## Mission and boundary
+
+Support, customer communication, vendors, financial/legal escalation, and operating procedures.
+
+This department advises and maintains its own standards. It does not obtain
+legal, financial, production, or organization authority merely by being named
+as owner of this file.
+
+## Current objectives and work in progress
+
+- Maintain runbooks, deployment readiness, backup/restore, incident handoff, and workspace hygiene.
+- First priority: continue workspace hygiene by deciding whether generated/ignored output cleanup is worth doing; source-tree duplicate files and empty duplicate directories are now clean.
+
+## Verified rules and conventions
+
+- Worktree currently includes pre-existing tracked modifications and many untracked files.
+- Duplicate `* 2.*` files must not be deleted without owner confirmation.
+- Differing duplicate review result corrected by `TASK-20260619-006`: 18 remove-after-Owner-confirmation, 12 remove-after-domain-confirmation, and 2 backlog/salvage-only candidates.
+- Batch A cleanup completed in `TASK-20260619-006`; Batch B and Batch C remain intentionally untouched.
+- Batch B semantic confirmation completed in `TASK-20260619-008`; the 12 Batch B duplicates are ready for a separate Owner-approved deletion task.
+- Batch B cleanup completed in `TASK-20260619-009`; the 12 confirmed stale duplicates were deleted, while Batch C and other duplicate-like files remain for separate decisions.
+- Batch C review completed in `TASK-20260619-010`; one file is delete-only and one file should preserve a future E2E backlog idea before deletion.
+- Batch C cleanup completed in `TASK-20260619-011`; both reviewed Batch C duplicate files were deleted after preserving `QA-BACKLOG-20260619-001`.
+- Current byte-identical duplicate cleanup completed in `TASK-20260619-012`; 70 verified byte-identical duplicate files were deleted, and the Git-visible byte-identical duplicate count is now 0.
+- Three now-different duplicate files remain and must be reviewed in a separate task before delete/merge decisions: `.ai-company/README 2.md`, `src/features/orders/components/warranty-picker 2.tsx`, and `src/server/tenant-guard.test 2.ts`.
+- `TASK-20260619-013` reviewed the three now-different duplicate files and classified all three as delete-only candidates for a later explicit cleanup task.
+- `TASK-20260619-014` deleted those three reviewed duplicate files; final Git-visible untracked ` 2` duplicate scan with canonical counterparts reports `same=0 diff=0 missing=0 nonfiles=0`.
+- `TASK-20260619-015` removed the 14 confirmed empty duplicate directories. Remaining duplicate-like paths are generated/ignored outputs only and should not be treated as source-tree conflicts.
+- Production data, deploy, destructive commands, and external communication require explicit owner approval.
+
+## Interfaces and dependencies
+
+| Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
+|---|---|---|---|---|---|
+| TBD | TBD | TBD | TBD | — | unknown |
+
+## SOPs and checklists
+
+- Relevant Skills under `.agents/skills/` are candidate procedures.
+- Project-specific commands and paths require verification before promotion.
+
+## Risks, debt, and open questions
+
+| ID | Risk/debt/question | Impact | Owner | Target/review | Status |
+|---|---|---|---|---|---|
+| OPS-20260619-001 | No verified backup/restore or release rollback procedure in this takeover | Operational risk | Operations + Platform | 30/60-day roadmap | open |
+| OPS-20260619-002 | Dirty worktree plus generated/ignored duplicate-like output can still create noise | Review/release risk | Operations + QA | generated-output cleanup if disk/workspace noise matters | monitoring |
+| OPS-20260619-003 | Duplicate cleanup without fresh scan and explicit path list could remove semantic evidence | Governance/review risk | Operations + QA | before deleting newly discovered or now-different duplicate-like files | open |
+| OPS-20260619-004 | Batch C cleanup could lose the attachment-inventory E2E idea | QA backlog loss | Operations + QA | backlog note created and Batch C duplicates deleted by TASK-20260619-011 | closed |
+
+## Lessons and anti-patterns
+
+- Do not infer project facts from the generic AI Company OS template.
+- Promote repeated evidence, not stylistic preference, into durable standards.
+
+## Capability and tool notes
+
+| Agent/Skill | Current evidence | Capability | Permission | Limitation |
+|---|---|---|---|---|
+| TBD | none | C0/C1 | task-specific | not evaluated |
+
+## Memory change log
+
+| Date | Change | Source/task | Author/reviewer | Status |
+|---|---|---|---|---|
+| 2026-06-19 | Initial RepairDesk operations baseline synchronized | TASK-20260619-003 | Integration Lead | active |
+| 2026-06-19 | Added cleanup-batch decision package from differing duplicate review | TASK-20260619-005 | Integration Lead | active |
+| 2026-06-19 | Removed Batch A stale duplicates and corrected cleanup counts | TASK-20260619-006 | Integration Lead | active |
+| 2026-06-19 | Confirmed Batch B is ready for deletion approval package | TASK-20260619-008 | Integration Lead | active |
+| 2026-06-19 | Removed 12 confirmed stale Batch B duplicate files; Batch C remains | TASK-20260619-009 | Integration Lead | active |
+| 2026-06-19 | Classified Batch C as one delete-only file plus one salvage-first E2E backlog idea | TASK-20260619-010 | Integration Lead | active |
+| 2026-06-19 | Preserved Batch C E2E backlog idea and removed two Batch C duplicate files | TASK-20260619-011 | Integration Lead | active |
+| 2026-06-19 | Removed 70 current byte-identical duplicate files and preserved three now-different duplicates for review | TASK-20260619-012 | Integration Lead | active |
+| 2026-06-19 | Classified the three remaining now-different duplicates as delete-only candidates | TASK-20260619-013 | Integration Lead | active |
+| 2026-06-19 | Deleted the three reviewed remaining duplicate files and cleared Git-visible duplicate-file scan | TASK-20260619-014 | Integration Lead | active |
+| 2026-06-19 | Removed 14 confirmed empty duplicate directories and classified remaining duplicate-like paths as generated output | TASK-20260619-015 | Integration Lead | active |

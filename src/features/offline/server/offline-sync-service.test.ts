@@ -362,6 +362,58 @@ describe("offline sync service draft", () => {
     });
   });
 
+  it("fails closed when executors return unsafe operation summaries or error codes", async () => {
+    const cases = [
+      {
+        operationId: "op:create:unsafe-response",
+        leakedText: "+39 333 000 0000",
+        executeCreate: vi.fn(async () => ({
+          resultCode: "synced" as const,
+          responseSummary: {
+            serverOrderId: "order_1",
+            phone: "+39 333 000 0000",
+          },
+          targetEntityId: "order_1",
+        })),
+      },
+      {
+        operationId: "op:create:unsafe-error-code",
+        leakedText: "raw_customer_phone",
+        executeCreate: vi.fn(async () => ({
+          resultCode: "needs_review" as const,
+          responseSummary: {
+            serverOrderId: "order_1",
+          },
+          errorCode: "raw_customer_phone",
+        })),
+      },
+    ];
+
+    for (const testCase of cases) {
+      const ports = createPorts({
+        executeCreate: testCase.executeCreate,
+      });
+      const service = createRepairDeskOfflineSyncService(ports);
+
+      const result = await service.syncOrderCreate(
+        validCreatePayload({ operationId: testCase.operationId }),
+        actor("sales"),
+      );
+      const persistedCompletion = JSON.stringify(ports.operationStore.completions[0]);
+
+      expect(result.resultCode).toBe("retryable_error");
+      expect(result.handlerResult).toEqual({ status: "retryable_error" });
+      expect(result.responseSummary).toBeUndefined();
+      expect(testCase.executeCreate).toHaveBeenCalledTimes(1);
+      expect(ports.operationStore.completions[0]).toMatchObject({
+        status: "failed",
+        resultCode: "retryable_error",
+        errorCode: "retryable_error",
+      });
+      expect(persistedCompletion).not.toContain(testCase.leakedText);
+    }
+  });
+
   it("converts invalid payload and permission errors to stable generic API error bodies", async () => {
     let invalidPayloadError: unknown;
     try {

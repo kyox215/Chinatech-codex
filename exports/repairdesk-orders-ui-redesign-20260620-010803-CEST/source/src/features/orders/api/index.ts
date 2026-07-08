@@ -1,0 +1,42 @@
+export {
+  batchTransition,
+  createOrder,
+  decideOrderApproval,
+  getOrder,
+  getOrderStats,
+  getRepairDeskOptions,
+  listOrders,
+  patchOrder,
+  patchOrderFinance,
+  recordPayment,
+  sendApprovalRequest,
+  sendNotification,
+  sendWhatsappNotification,
+  transitionOrder,
+  updateOrder,
+} from "@/lib/repairdesk/api";
+
+export type {
+  BatchTransitionResult,
+  CreateOrderInput,
+  FaultPriceItem,
+  MessageLog,
+  OrderApprovalDecisionInput,
+  OrderApprovalDecisionResult,
+  OrderDetail,
+  OrderEvent,
+  OrderListFilters,
+  OrderListItem,
+  OrderStats,
+  OrderWhatsappTemplateKind,
+  PatchOrderFinanceInput,
+  PatchOrderInput,
+  PatchOrderResult,
+  PaymentResult,
+  RepairOrder,
+  RepairDeskOptions,
+  UpdateOrderInput,
+  WhatsappNotificationResult,
+} from "@/lib/repairdesk/api";
+
+export { ordersKeys } from "./query-keys";

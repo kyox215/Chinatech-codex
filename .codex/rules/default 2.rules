@@ -1,0 +1,136 @@
+# AI Company OS baseline execution rules.
+# Rules control commands requested outside the sandbox. They supplement rather
+# than replace the sandbox, human approval, and the decision-rights policy.
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Remote Git writes require operator review.",
+    match = ["git push", "git push origin main", "git push --tags"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "-f", "--force-with-lease"]],
+    decision = "forbidden",
+    justification = "Do not rewrite remote history automatically; prepare a reviewed recovery plan instead.",
+    match = ["git push --force", "git push -f", "git push --force-with-lease"],
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "prompt",
+    justification = "Merging a pull request changes shared state and requires approval.",
+    match = ["gh pr merge 42", "gh pr merge --squash 42"],
+)
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "prompt",
+    justification = "Hard reset can discard local work; inspect the diff and recovery path first.",
+    match = ["git reset --hard", "git reset --hard HEAD~1"],
+)
+
+prefix_rule(
+    pattern = ["git", "clean"],
+    decision = "prompt",
+    justification = "git clean can remove untracked user files; list candidates before deletion.",
+    match = ["git clean -fd", "git clean -fdx"],
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf", "/"],
+    decision = "forbidden",
+    justification = "Never recursively delete the filesystem root. Use an explicitly scoped path after review.",
+    match = ["rm -rf /"],
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf", "/*"],
+    decision = "forbidden",
+    justification = "Never recursively delete all root-level paths. Use an explicitly scoped path after review.",
+    match = ["rm -rf /*"],
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm", "yarn", "bun"], "publish"],
+    decision = "prompt",
+    justification = "Publishing a package is an external release and requires approval.",
+    match = ["npm publish", "pnpm publish", "yarn publish", "bun publish"],
+)
+
+prefix_rule(
+    pattern = ["cargo", "publish"],
+    decision = "prompt",
+    justification = "Publishing a crate is an external release and requires approval.",
+    match = ["cargo publish"],
+)
+
+prefix_rule(
+    pattern = ["twine", "upload"],
+    decision = "prompt",
+    justification = "Uploading a Python distribution is an external release and requires approval.",
+    match = ["twine upload dist/*"],
+)
+
+prefix_rule(
+    pattern = ["docker", "push"],
+    decision = "prompt",
+    justification = "Pushing an image changes an external registry and requires release approval.",
+    match = ["docker push example/app:latest"],
+)
+
+prefix_rule(
+    pattern = ["kubectl", ["apply", "delete", "replace", "patch", "scale", "rollout"]],
+    decision = "prompt",
+    justification = "Kubernetes writes may affect live infrastructure; verify target context and rollback first.",
+    match = ["kubectl apply -f deploy.yaml", "kubectl delete pod demo", "kubectl rollout restart deployment/app"],
+)
+
+prefix_rule(
+    pattern = ["helm", ["install", "upgrade", "uninstall", "rollback"]],
+    decision = "prompt",
+    justification = "Helm mutations may affect live infrastructure and require an approved release plan.",
+    match = ["helm upgrade app chart/", "helm uninstall app"],
+)
+
+prefix_rule(
+    pattern = ["terraform", ["apply", "destroy", "import"]],
+    decision = "prompt",
+    justification = "Terraform mutations can change or destroy infrastructure; review the plan and target workspace.",
+    match = ["terraform apply", "terraform destroy", "terraform import aws_s3_bucket.demo demo"],
+)
+
+prefix_rule(
+    pattern = ["vercel", ["deploy", "--prod"]],
+    decision = "prompt",
+    justification = "Deployment changes an external environment and requires release approval.",
+    match = ["vercel deploy", "vercel --prod"],
+)
+
+prefix_rule(
+    pattern = ["fly", "deploy"],
+    decision = "prompt",
+    justification = "Production deployment requires an approved release and rollback plan.",
+    match = ["fly deploy"],
+)
+
+prefix_rule(
+    pattern = ["supabase", "db", ["push", "reset"]],
+    decision = "prompt",
+    justification = "Database mutation may affect shared data; verify target, backup, migration, and rollback.",
+    match = ["supabase db push", "supabase db reset"],
+)
+
+prefix_rule(
+    pattern = ["npx", "prisma", "migrate", "deploy"],
+    decision = "prompt",
+    justification = "Deploying database migrations requires an approved migration and rollback plan.",
+    match = ["npx prisma migrate deploy"],
+)
+
+prefix_rule(
+    pattern = ["dropdb"],
+    decision = "forbidden",
+    justification = "Do not drop a database automatically. Produce a backup, impact analysis, and human-approved runbook.",
+    match = ["dropdb app_production"],
+)

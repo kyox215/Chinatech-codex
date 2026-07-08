@@ -1081,7 +1081,7 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
     messages: ((messageRows ?? []) as DbRecord[]).map(messageFromRow),
     attachments: attachmentError
       ? []
-      : await attachSignedUrls(supabase, (attachmentRows ?? []) as DbRecord[]),
+      : await attachSignedUrls(supabase, (attachmentRows ?? []) as DbRecord[], storeId, id),
   };
 }
 
@@ -1152,17 +1152,17 @@ export async function uploadOrderAttachment(
   });
   fail(eventError, "写入附件操作记录失败");
 
-  const [attachment] = await attachSignedUrls(supabase, [data as DbRecord]);
+  const [attachment] = await attachSignedUrls(supabase, [data as DbRecord], storeId, id);
   return { attachment };
 }
 
 export async function transitionOrder(
   id: string,
   to: RepairOrderStatus,
-  opts: { reason?: string; operator?: string | AuditActor; storeId?: string } = {},
+  opts: { reason?: string; operator?: string | AuditActor } = {},
 ) {
   const storeId = requireStoreIdFromActor(
-    opts.storeId ?? (typeof opts.operator === "string" ? undefined : opts.operator),
+    typeof opts.operator === "string" ? undefined : opts.operator,
   );
   const operatorName = operatorNameFromActor(opts.operator, "系统");
   const supabase = getSupabaseAdmin();
@@ -1265,13 +1265,12 @@ export async function batchTransition(
   to: RepairOrderStatus,
   operator: string | AuditActor = "前台",
 ) {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
-  const operatorName = operatorNameFromActor(operator);
+  requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   let count = 0;
   const failures: { id: string; reason: string }[] = [];
   for (const id of ids) {
     try {
-      await transitionOrder(id, to, { operator: operatorName, storeId });
+      await transitionOrder(id, to, { operator });
       count++;
     } catch (error) {
       failures.push({ id, reason: (error as Error).message });
@@ -1547,10 +1546,15 @@ function assertAttachmentMagicBytes(bytes: Buffer, mimeType: string) {
 async function attachSignedUrls(
   supabase: SupabaseAdmin,
   rows: DbRecord[] | null | undefined,
+  storeId: string,
+  orderId: string,
 ): Promise<OrderAttachment[]> {
   const attachments = (rows ?? []).map(attachmentFromRow);
   return Promise.all(
     attachments.map(async (attachment) => {
+      if (!isOrderAttachmentStorageScoped(attachment, storeId, orderId)) {
+        return { ...attachment, public_url: undefined, signed_url: undefined };
+      }
       if (attachment.public_url || !attachment.storage_path) return attachment;
       const bucket = attachment.storage_bucket || ORDER_ATTACHMENT_BUCKET;
       const { data, error } = await supabase.storage
@@ -1559,6 +1563,20 @@ async function attachSignedUrls(
       if (error || !data?.signedUrl) return attachment;
       return { ...attachment, signed_url: data.signedUrl };
     }),
+  );
+}
+
+export function isOrderAttachmentStorageScoped(
+  attachment: Pick<OrderAttachment, "store_id" | "order_id" | "storage_bucket" | "storage_path">,
+  storeId: string,
+  orderId: string,
+) {
+  const bucket = attachment.storage_bucket || ORDER_ATTACHMENT_BUCKET;
+  return (
+    attachment.store_id === storeId &&
+    attachment.order_id === orderId &&
+    bucket === ORDER_ATTACHMENT_BUCKET &&
+    attachment.storage_path.startsWith(`${storeId}/${orderId}/`)
   );
 }
 
@@ -2192,6 +2210,7 @@ export async function patchOrder(
         nextSnapshot.model = value;
         break;
       case "device_imei":
+        if (!value) throw new Error("IMEI / 序列号不能为空");
         nextSnapshot.serial_or_imei = value;
         break;
       case "device_notes":

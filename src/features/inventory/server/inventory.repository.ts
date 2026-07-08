@@ -194,7 +194,12 @@ export async function getInventoryItem(id: string, actor?: AuditActor): Promise<
     events: ((eventsResult.data ?? []) as DbRecord[]).map(eventFromRow),
     attachments: attachmentResult.error
       ? []
-      : await attachInventorySignedUrls(supabase, (attachmentResult.data ?? []) as DbRecord[]),
+      : await attachInventorySignedUrls(
+          supabase,
+          (attachmentResult.data ?? []) as DbRecord[],
+          storeId,
+          id,
+        ),
   };
 }
 
@@ -1440,10 +1445,15 @@ function inventoryAttachmentFromRow(row: DbRecord): InventoryAttachment {
 async function attachInventorySignedUrls(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   rows: DbRecord[] | null | undefined,
+  storeId: string,
+  itemId: string,
 ): Promise<InventoryAttachment[]> {
   const attachments = (rows ?? []).map(inventoryAttachmentFromRow);
   return Promise.all(
     attachments.map(async (attachment) => {
+      if (!isInventoryAttachmentStorageScoped(attachment, storeId, itemId)) {
+        return { ...attachment, public_url: undefined, signed_url: undefined };
+      }
       if (attachment.public_url || !attachment.storage_path) return attachment;
       const { data, error } = await supabase.storage
         .from(attachment.storage_bucket || INVENTORY_ATTACHMENT_BUCKET)
@@ -1451,6 +1461,20 @@ async function attachInventorySignedUrls(
       if (error || !data?.signedUrl) return attachment;
       return { ...attachment, signed_url: data.signedUrl };
     }),
+  );
+}
+
+export function isInventoryAttachmentStorageScoped(
+  attachment: Pick<InventoryAttachment, "store_id" | "item_id" | "storage_bucket" | "storage_path">,
+  storeId: string,
+  itemId: string,
+) {
+  const bucket = attachment.storage_bucket || INVENTORY_ATTACHMENT_BUCKET;
+  return (
+    attachment.store_id === storeId &&
+    attachment.item_id === itemId &&
+    bucket === INVENTORY_ATTACHMENT_BUCKET &&
+    attachment.storage_path.startsWith(`${storeId}/${itemId}/`)
   );
 }
 

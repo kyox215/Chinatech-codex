@@ -1,0 +1,8 @@
+# Backend Area Instructions
+
+- Put business invariants and authorization on the trusted server boundary.
+- Preserve API compatibility or provide an approved version/migration path.
+- Define validation, typed errors, idempotency, transactions, retries, timeouts, and audit events.
+- Do not log secrets or sensitive payloads.
+- Add tests for permission, invalid input, duplicate requests, failure, and rollback paths.
+- External writes and production changes follow explicit approval and release policy.

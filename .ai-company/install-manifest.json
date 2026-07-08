@@ -1,0 +1,760 @@
+{
+  "version": "3.0.0",
+  "source": "/Users/kyox215/Downloads/AI_Company_OS_Codex_Native_v3.0",
+  "target": "/Users/kyox215/Documents/文稿 - kyox215的MacBook Pro/Codex/2026-05-17/zip-github",
+  "dry_run": false,
+  "copied": 145,
+  "skipped_identical": 42,
+  "conflicts": 0,
+  "backup_root": null,
+  "actions": [
+    {
+      "path": ".agents/skills/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/agent-team-compose/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/architecture-review/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/capability-review/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/company-task-intake/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/context-rehydrate/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/data-migration-review/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/department-memory-sync/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/documentation-sync/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/handoff-resume/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/implementation-control/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/incident-response/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/memory-checkpoint/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/memory-consolidation/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/product-requirements/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/project-health-check/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/quality-gate/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/release-governance/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/risk-autonomy-classify/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/security-review/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/task-closeout/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/task-plan-and-contract/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".agents/skills/ui-ux-review/SKILL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/.gitignore",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/CAPABILITY_REVIEW.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/DEPENDENCY_SECURITY_TRIAGE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/DOCUMENTATION_DRIFT.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/MEMORY_HYGIENE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/PROJECT_ADOPTION.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/RELEASE_READINESS.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/automation-prompts/WEEKLY_PROJECT_HEALTH.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/ACTIVE_CONTEXT.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/CAPABILITY_REGISTRY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/COMPANY_MEMORY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/DECISION_INDEX.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/GLOSSARY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/LESSONS_LEARNED.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/MEMORY_INDEX.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/OPEN_CONFLICTS.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/PROJECT_MEMORY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/capability_auditor.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/data_reviewer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/documentation_reviewer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/implementer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/memory_steward.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/product_analyst.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/project_explorer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/qa_reviewer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/release_reviewer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/security_reviewer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/solution_architect.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/agents/ux_reviewer.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/archive/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/decisions/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/architecture.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/backend.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/data.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/design.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/documentation.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/frontend.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/memory.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/operations.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/platform.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/product.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/qa.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/departments/security.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/memory/tasks/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/overrides/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/overrides/backend/AGENTS.md.example",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/overrides/database/AGENTS.md.example",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/overrides/docs/AGENTS.md.example",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/overrides/frontend/AGENTS.md.example",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/overrides/infrastructure/AGENTS.md.example",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/AGENT_LEARNING_CAPABILITY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/AGENT_PROTOCOL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/AI_MODEL_TOOL_GOVERNANCE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/CAPABILITY_REGISTRY_POLICY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/CODEX_OPERATING_MODEL.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/CONTEXT_ENGINEERING.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/CONTEXT_MEMORY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/DATA_API_STANDARDS.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/DECISION_RIGHTS.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/DOCUMENTATION_POLICY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/ENGINEERING_STANDARDS.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/GOVERNANCE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/HOOKS_RULES_POLICY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/INCIDENT_RESPONSE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/KNOWLEDGE_GOVERNANCE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/MEMORY_ARCHITECTURE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/MEMORY_DEPARTMENT.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/MEMORY_NATIVE_BRIDGE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/MEMORY_OPERATIONS_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/MEMORY_SYSTEM_PROMPT.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/METRICS_CONTINUOUS_IMPROVEMENT.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/PRODUCT_DESIGN_STANDARDS.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/PROJECT_RULES.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/QA_QUALITY_GATES.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/RACI_MATRIX.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/RELEASE_OPERATIONS.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/SECURITY_POLICY.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/SKILL_GOVERNANCE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/SUBAGENT_GOVERNANCE.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/policies/TASK_FLOW.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/CAPABILITY_EVOLUTION_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/DATABASE_MIGRATION_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/HIGH_RISK_APPROVAL_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/INCIDENT_COMMAND_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/MEMORY_RECOVERY_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/RELEASE_ROLLBACK_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/SUBAGENT_ORCHESTRATION_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/runbooks/TASK_LIFECYCLE_RUNBOOK.md",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/settings.json",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/state/.gitkeep",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/state/runtime.example.json",
+      "action": "copy"
+    },
+    {
+      "path": ".ai-company/templates/ACCESS_REVIEW_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/ADR_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/AGENT_MEMORY_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/AGENT_SCORECARD_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/BOSS_TASK_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/BUSINESS_CASE_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/CAPABILITY_CHANGE_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/CAPABILITY_PROFILE_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/CHANGE_REQUEST_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/CODE_REVIEW_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/CONTEXT_PACKET_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/CUSTOMER_COMMUNICATION_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/DECISION_LOG_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/DEPARTMENT_MEMORY_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/EVIDENCE_INDEX_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/HANDOFF_PACKET_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/INCIDENT_REPORT_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/LESSON_RECORD_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEETING_MINUTES_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEMORY_AUDIT_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEMORY_CHANGE_SET_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEMORY_CONFLICT_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEMORY_DELTA_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEMORY_ENTRY_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEMORY_INCIDENT_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/MEMORY_SNAPSHOT_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/OKR_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/PRD_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/PROJECT_CHARTER_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/RELEASE_CHECKLIST.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/RESUME_PACKET_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/RETRIEVAL_REPORT_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/RISK_REGISTER_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/ROADMAP_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/SECURITY_REVIEW_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/SOP_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/TASK_MEMORY_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/TECH_DESIGN_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/TEST_PLAN_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/VENDOR_EVALUATION_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/WEEKLY_EXECUTIVE_REPORT_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".ai-company/templates/WORK_ORDER_TEMPLATE.md",
+      "action": "identical"
+    },
+    {
+      "path": ".codex/agents/capability-auditor.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/data-reviewer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/documentation-reviewer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/implementer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/memory-steward.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/product-analyst.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/project-explorer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/qa-reviewer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/release-reviewer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/security-reviewer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/solution-architect.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/agents/ux-reviewer.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/config.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/hooks.json",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/hooks/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/hooks/hook_common.py",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/hooks/mark_memory_dirty.py",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/hooks/session_start_memory.py",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/hooks/stop_memory_guard.py",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/hooks/subagent_context.py",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/profiles/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/profiles/audit-readonly.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/profiles/high-risk-plan.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/profiles/standard.toml",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/rules/README.md",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/rules/default.rules",
+      "action": "copy"
+    },
+    {
+      "path": ".codex/user-config-snippet.toml",
+      "action": "copy"
+    },
+    {
+      "path": "tools/ai_company.py",
+      "action": "copy"
+    }
+  ]
+}

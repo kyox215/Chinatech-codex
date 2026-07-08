@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "default_task_class": "T1",
+  "default_risk_level": "R1",
+  "default_autonomy_level": "L2",
+  "context_max_chars": 12000,
+  "context_file_max_chars": 5000,
+  "strict_memory_gate": false,
+  "enable_dirty_tracking": true,
+  "redact_secrets": true,
+  "checkpoint_after_minutes": 45,
+  "allowed_memory_roots": [
+    ".ai-company/memory",
+    ".ai-company/state"
+  ],
+  "subagent_context_max_chars": 9000,
+  "subagent_context_file_max_chars": 3200
+}

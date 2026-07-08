@@ -5,12 +5,23 @@ last_reviewed: "2026-06-18"
 
 canonical_rules:
   - AGENTS.md
+  - .ai-company/REPAIRDESK_ADOPTION.md
+  - .ai-company/policies/CODEX_OPERATING_MODEL.md
+  - .ai-company/policies/PROJECT_RULES.md
+  - .ai-company/policies/TASK_FLOW.md
+  - .ai-company/memory/ACTIVE_CONTEXT.md
   - AI智能部门管理/部门化管理设计.md
   - .agents/README.md
 
 execution_model:
   pattern: manager_led
   integration_owner: main_thread
+  ai_company_version: 3.0.0
+  ai_company_role: CEO Agent
+  codex_native_agents_dir: .codex/agents
+  skills_dir: .agents/skills
+  owner_role: Owner / 老板
+  default_autonomy_level: L2
   handoff_policy: disabled_for_final_write
   default_subagent_mode: read_only
   max_parallel_subagents_default: 3
@@ -21,6 +32,10 @@ execution_model:
   close_completed_agents_before_spawning: true
   nested_agents: forbidden
   stop_condition: integration_complete_and_verification_reported
+  owner_requested_departments_require_real_spawn: true
+  real_spawn_exception_requires_no_spawn_reason: true
+  real_subagent_policy: codex_native_when_available
+  department_label_only_policy: agenda_or_documented_fallback_only
 
 decision_owner:
   id: INT
@@ -45,24 +60,32 @@ task_lifecycle:
   - intake
   - research_decision
   - route_plan
+  - task_memory_decision
   - batch_spawn
   - department_execution
   - debate_and_objection
   - arbitration
   - integration
   - verification
+  - memory_checkpoint
   - run_log
 
 assignment_contract:
   required_fields:
     - task_id
     - department
+    - codex_agent
     - mode
+    - spawn_required
+    - spawn_status
+    - fallback_reason_if_not_spawned
     - goal
     - must_read
     - expected_output
     - acceptance
     - verification
+    - autonomy_level
+    - task_memory
   scoped_write_required_fields:
     - allowed_files
     - forbidden_files
@@ -141,6 +164,7 @@ debate_protocol:
 
 spawn_triggers:
   - user_explicitly_requests_multi_agent
+  - user_explicitly_requests_ai_employees_or_departments
   - crosses_two_or_more_business_domains
   - changes_workflow_payment_inventory_pii_auth_or_database
   - needs_independent_qa_security_or_product_review
@@ -151,6 +175,11 @@ do_not_spawn_for:
   - immediate_blocking_task_on_critical_path
   - duplicate_question_already_assigned
   - vague_exploration_without_concrete_output
+  - subagent_tool_unavailable_or_unsafe
+
+no_spawn_reason_required_when:
+  - owner_requested_ai_employees_or_departments
+  - task_record_lists_multiple_departments_but_no_agent_ids
 
 departments:
   INT:
@@ -160,6 +189,7 @@ departments:
     final_authority: true
   FLOW:
     name: Product Workflow
+    codex_agent: product_analyst
     default_mode: read_only
     triggers:
       - status_flow
@@ -168,6 +198,7 @@ departments:
       - approval
   DATA:
     name: Data Design
+    codex_agent: data_reviewer
     default_mode: read_only
     triggers:
       - schema
@@ -177,6 +208,7 @@ departments:
       - migration
   UX:
     name: Page Design
+    codex_agent: ux_reviewer
     default_mode: read_only
     must_read:
       - docs/UI_PAGE_GENERATION_DECLARATION.md
@@ -188,6 +220,7 @@ departments:
       - src/styles.css
   FE:
     name: Frontend Implementation
+    codex_agent: implementer
     default_mode: scoped_write_when_assigned
     boundaries:
       - src/features
@@ -196,6 +229,7 @@ departments:
       - src/app_thin_routes_only
   API:
     name: Backend API
+    codex_agent: implementer
     default_mode: scoped_write_when_assigned
     boundaries:
       - src/server
@@ -203,12 +237,15 @@ departments:
       - src/lib/repairdesk
   QA:
     name: Verification
+    codex_agent: qa_reviewer
     default_mode: read_only
   SEC:
     name: Security Privacy
+    codex_agent: security_reviewer
     default_mode: read_only
   DOC:
     name: Documentation Rules
+    codex_agent: documentation_reviewer
     default_mode: scoped_write_when_assigned
 
 permission_modes:
@@ -246,8 +283,13 @@ conflict_handling:
     - latest_user_instruction
     - AGENTS.md
     - AI智能部门管理/部门化管理设计.md
+    - .agents_executable_config
     - docs/ARCHITECTURE.md
     - ui_component_responsive_declarations
+    - .ai-company/REPAIRDESK_ADOPTION.md
+    - generic_ai_company_os_policies
+    - codex_native_skills_and_agent_definitions
+    - verified_ai_company_memory
     - existing_code_patterns
     - smallest_safe_change
     - individual_subagent_preference

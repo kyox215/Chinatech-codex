@@ -101,6 +101,11 @@ import {
   revokeAttachmentDraft,
   type AttachmentDraft,
 } from "@/features/capture";
+import {
+  extractImeiCandidates,
+  getPreferredImeiCandidate,
+  type ImeiCandidate,
+} from "@/features/capture/model/barcode-parser";
 import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
 import {
   DeviceUnlockEditor,
@@ -181,6 +186,17 @@ import type {
 } from "@/lib/repairdesk/types";
 
 type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
+const imeiOcrImageAccept =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
+const imeiOcrImageMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+const imeiOcrImageExtensionPattern = /\.(?:jpe?g|png|webp|heic|heif)$/i;
+const imeiOcrDecodeTimeoutMs = 5_000;
 
 export function OrderDetailScreen({
   id,
@@ -299,16 +315,18 @@ export function OrderDetailScreen({
   const quickImeiUpdate = useMutation({
     mutationFn: (imei: string) => {
       if (!data) throw new Error("工单未加载");
+      const normalizedImei = normalizeImeiIdentifier(imei).value;
+      if (!normalizedImei) throw new Error("IMEI / 序列号不能为空");
       return patchOrder(id, {
         expected_updated_at: data.order.updated_at,
-        changes: { device_imei: imei },
+        changes: { device_imei: normalizedImei },
       });
     },
     onSuccess: () => {
       toast.success("IMEI / 序列号已保存");
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: Error) => toast.error(getImeiSaveErrorMessage(error)),
   });
 
   const faultUpdate = useMutation({
@@ -1997,13 +2015,21 @@ function ImeiCaptureSheet({
   const [mode, setMode] = useState<"choice" | "barcode" | "ocr">("choice");
   const [scannerToken, setScannerToken] = useState(0);
   const [ocrText, setOcrText] = useState("");
+  const [ocrCandidates, setOcrCandidates] = useState<ImeiCandidate[]>([]);
+  const [selectedOcrCandidateId, setSelectedOcrCandidateId] = useState("");
   const [ocrPending, setOcrPending] = useState(false);
   const [error, setError] = useState("");
+  const selectedOcrCandidate =
+    ocrCandidates.find((candidate) => candidate.id === selectedOcrCandidateId) ??
+    ocrCandidates[0] ??
+    null;
 
   useEffect(() => {
     if (!open) return;
     setMode("choice");
     setOcrText("");
+    setOcrCandidates([]);
+    setSelectedOcrCandidateId("");
     setError("");
   }, [open]);
 
@@ -2015,23 +2041,47 @@ function ImeiCaptureSheet({
 
   const handleOcrFile = async (file?: File) => {
     if (!file) return;
+    const fileError = validateImeiOcrImageFile(file);
+    if (fileError) {
+      setError(fileError);
+      toast.error(fileError);
+      return;
+    }
+
     setOcrPending(true);
     setError("");
+    setOcrCandidates([]);
+    setSelectedOcrCandidateId("");
     try {
-      const text = await detectTextFromImageFile(file);
-      setOcrText(text);
-      const candidate = extractImeiCandidate(text);
+      const text = await withImeiOcrTimeout(
+        detectTextFromImageFile(file),
+        imeiOcrDecodeTimeoutMs,
+        "OCR 识别超时",
+      );
+      const candidates = extractImeiCandidates(text, {
+        source: "ocr",
+        includeGenericSerial: true,
+      });
+      setOcrText(candidates.length > 0 ? `已识别到 ${candidates.length} 个候选编号。` : "");
+      const candidate = getPreferredImeiCandidate(candidates);
       if (!candidate) {
         setError("未自动识别到 IMEI / 序列号。请检查照片清晰度，或手动确认输入。");
         return;
       }
-      onChange(candidate);
+      if (candidates.length > 1 || candidate.kind === "suspect_imei") {
+        setOcrCandidates(candidates);
+        setSelectedOcrCandidateId(candidate.id);
+        setError(
+          candidates.length > 1
+            ? "找到多个可能的编号，请选择一个后保存。"
+            : "找到疑似编号，请确认后再填入。",
+        );
+        return;
+      }
+      onChange(candidate.value);
       toast.success("已识别并填入 IMEI / 序列号");
     } catch (error) {
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : "OCR 识别失败，请重新拍摄或手动输入。";
+      const message = getImeiOcrErrorMessage(error);
       setError(message);
       toast.error(message);
     } finally {
@@ -2043,7 +2093,7 @@ function ImeiCaptureSheet({
     try {
       await onSave();
     } catch (error) {
-      const message = getOrderPatchSaveErrorMessage(error);
+      const message = getImeiSaveErrorMessage(error);
       setError(message);
     }
   };
@@ -2069,7 +2119,7 @@ function ImeiCaptureSheet({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={imeiOcrImageAccept}
               capture="environment"
               className="hidden"
               onChange={(event) => {
@@ -2158,8 +2208,55 @@ function ImeiCaptureSheet({
                   />
                 </div>
                 {ocrText ? (
-                  <div className="max-h-20 overflow-y-auto rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-                    原始识别：{ocrText}
+                  <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+                    {ocrText}
+                  </div>
+                ) : null}
+                {ocrCandidates.length > 0 ? (
+                  <div className="grid gap-1.5">
+                    {ocrCandidates.map((candidate) => (
+                      <button
+                        key={candidate.id}
+                        type="button"
+                        className={cn(
+                          "min-w-0 rounded-lg border px-2 py-1.5 text-left",
+                          selectedOcrCandidateId === candidate.id
+                            ? "border-primary bg-primary/10"
+                            : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
+                        )}
+                        aria-pressed={selectedOcrCandidateId === candidate.id}
+                        onClick={() => setSelectedOcrCandidateId(candidate.id)}
+                      >
+                        <span className="flex min-w-0 items-center justify-between gap-2">
+                          <span className="truncate text-[10px] font-semibold">
+                            {candidate.label}
+                          </span>
+                          <span className="shrink-0 text-[9px] text-muted-foreground">
+                            {candidate.confidence === "high" ? "高可信" : "需确认"}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block break-all font-mono text-[10px]">
+                          {candidate.value}
+                        </span>
+                        {candidate.reason ? (
+                          <span className="mt-0.5 block text-[9px] leading-3 text-status-warn-foreground">
+                            {candidate.reason}
+                          </span>
+                        ) : null}
+                      </button>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full rounded-lg text-xs"
+                      disabled={!selectedOcrCandidate || pending}
+                      onClick={() => {
+                        if (selectedOcrCandidate) onChange(selectedOcrCandidate.value);
+                      }}
+                    >
+                      使用选择的编号
+                    </Button>
                   </div>
                 ) : null}
                 <Button
@@ -2188,7 +2285,7 @@ function ImeiCaptureSheet({
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs"
-                disabled={pending || ocrPending}
+                disabled={pending}
                 onClick={() => {
                   onChange(savedValue);
                   onOpenChange(false);
@@ -3328,6 +3425,42 @@ function getOrderPatchSaveErrorMessage(error: unknown) {
   return message.startsWith("保存失败") ? message : `保存失败：${message}`;
 }
 
+function getImeiSaveErrorMessage(error: unknown) {
+  const raw = error instanceof Error && error.message ? error.message : "";
+  const message = raw.replace(/^Error:\s*/i, "").trim();
+  if (/IMEI|序列号/i.test(message) && /不能为空|empty|required/i.test(message)) {
+    return "IMEI / 序列号不能为空，请先扫描、上传照片或手动输入。";
+  }
+  if (/工单已被更新|版本|expected_updated_at|conflict/i.test(message)) {
+    return "IMEI / 序列号未保存：工单刚刚被其他操作更新，请刷新后再保存。";
+  }
+  if (/未登录|店铺|权限|unauthorized|forbidden/i.test(message)) {
+    return "IMEI / 序列号未保存：当前账号没有权限或登录状态已失效。";
+  }
+  return "IMEI / 序列号保存失败，请刷新后重试。";
+}
+
+function getImeiOcrErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/当前浏览器暂不支持本机 OCR/.test(message)) {
+    return "当前浏览器暂不支持本机 OCR。请改用二维码/条码扫描或手动输入。";
+  }
+  if (/超时|timeout/i.test(message)) {
+    return "OCR 识别超时，请换一张更清晰的照片或手动输入。";
+  }
+  return "OCR 识别失败，请重新拍摄或手动输入。";
+}
+
+function validateImeiOcrImageFile(file: File) {
+  if (!imeiOcrImageMimeTypes.has(file.type) && !imeiOcrImageExtensionPattern.test(file.name)) {
+    return "仅支持 JPG、PNG、WebP、HEIC 或 HEIF 图片。";
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    return "图片不能超过 8 MB。";
+  }
+  return "";
+}
+
 type BrowserTextDetector = {
   detect: (source: unknown) => Promise<Array<{ rawValue?: string }>>;
 };
@@ -3358,13 +3491,18 @@ async function detectTextFromImageFile(file: File) {
   }
 }
 
-function extractImeiCandidate(text: string) {
-  const chunks = text.match(/[A-Za-z0-9][A-Za-z0-9\s\-:：_./\\|]{5,}/g) ?? [];
-  const normalized = chunks
-    .map((chunk) => normalizeImeiIdentifier(chunk).value)
-    .filter((value) => value.length >= 6);
-  const imeiLike = normalized.find((value) => /^\d{14,17}$/.test(value));
-  return imeiLike ?? normalized.find((value) => value.length >= 8) ?? "";
+async function withImeiOcrTimeout<T>(operation: Promise<T>, timeoutMs: number, message: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }
 
 function isCommunicationStatus(status: RepairOrderStatus) {

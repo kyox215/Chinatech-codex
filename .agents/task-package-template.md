@@ -7,7 +7,11 @@ task_id:
 parent_task_id:
 department:
 department_id:
+codex_agent:
 mode: read_only | scoped_write
+spawn_required: true | false
+spawn_status: queued | spawned | unavailable | skipped_with_reason
+fallback_reason_if_not_spawned:
 status: queued | running | blocked | completed
 goal:
 context:
@@ -95,6 +99,8 @@ agenda:
   risk:
   needs_web_research:
   agents_used:
+  spawned_agent_ids:
+  no_spawn_reason:
   routing_reason:
 
 integration:

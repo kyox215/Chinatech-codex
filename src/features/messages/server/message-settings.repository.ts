@@ -21,20 +21,13 @@ import {
 
 const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 
-export async function getStoreSettings(storeId = DEFAULT_STORE_ID): Promise<StoreSettings> {
+export async function getStoreSettings(storeId: string): Promise<StoreSettings> {
   const supabase = getSupabaseAdmin();
-  const query = supabase.from("store_settings").select("*").eq("store_id", storeId).maybeSingle();
-
-  let { data, error } = await query;
-  if (error && isMissingStoreIdError(error)) {
-    const fallback = await supabase
-      .from("store_settings")
-      .select("*")
-      .eq("id", "default")
-      .maybeSingle();
-    data = fallback.data;
-    error = fallback.error;
-  }
+  const { data, error } = await supabase
+    .from("store_settings")
+    .select("*")
+    .eq("store_id", storeId)
+    .maybeSingle();
   fail(error, "读取消息模板失败");
   if (data) return storeSettingsFromRow(data as DbRecord);
 
@@ -73,13 +66,14 @@ export async function getStoreSettings(storeId = DEFAULT_STORE_ID): Promise<Stor
 export async function updateStoreSettingsRow(
   input: StoreSettingsUpdateInput,
   actorId?: string,
-  storeId = DEFAULT_STORE_ID,
+  storeId?: string,
 ): Promise<StoreSettings> {
+  const resolvedStoreId = requireRepositoryStoreId(storeId, "保存店铺设置");
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const update = sanitizeStoreSettingsInput(input);
 
-  await getStoreSettings(storeId);
+  await getStoreSettings(resolvedStoreId);
   const { data, error } = await supabase
     .from("store_settings")
     .update({
@@ -87,32 +81,22 @@ export async function updateStoreSettingsRow(
       updated_by: actorId ?? null,
       updated_at: now,
     })
-    .eq("store_id", storeId)
+    .eq("store_id", resolvedStoreId)
     .select("*")
     .single();
   fail(error, "保存店铺设置失败");
   return storeSettingsFromRow(data as DbRecord);
 }
 
-export async function listMessageTemplates(storeId = DEFAULT_STORE_ID): Promise<MessageTemplate[]> {
+export async function listMessageTemplates(storeId: string): Promise<MessageTemplate[]> {
   const supabase = getSupabaseAdmin();
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("message_templates")
     .select("*")
     .eq("store_id", storeId)
     .order("domain", { ascending: true })
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
-  if (error && isMissingStoreIdError(error)) {
-    const fallback = await supabase
-      .from("message_templates")
-      .select("*")
-      .order("domain", { ascending: true })
-      .order("sort_order", { ascending: true })
-      .order("label", { ascending: true });
-    data = fallback.data;
-    error = fallback.error;
-  }
   fail(error, "读取消息模板失败");
   const rows = ((data ?? []) as DbRecord[]).map(messageTemplateFromRow);
   if (rows.length) return rows;
@@ -122,40 +106,33 @@ export async function listMessageTemplates(storeId = DEFAULT_STORE_ID): Promise<
 
 export async function getMessageTemplate(
   id: string,
-  storeId = DEFAULT_STORE_ID,
+  storeId?: string,
 ): Promise<MessageTemplate | undefined> {
+  const resolvedStoreId = requireRepositoryStoreId(storeId, "读取消息模板");
   const supabase = getSupabaseAdmin();
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("message_templates")
     .select("*")
     .eq("id", id)
-    .eq("store_id", storeId)
+    .eq("store_id", resolvedStoreId)
     .maybeSingle();
-  if (error && isMissingStoreIdError(error)) {
-    const fallback = await supabase
-      .from("message_templates")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    data = fallback.data;
-    error = fallback.error;
-  }
   fail(error, "读取店铺设置失败");
   if (data) return messageTemplateFromRow(data as DbRecord);
   const seed = getDefaultMessageTemplate(id);
-  return seed ? defaultTemplateFromSeed(seed, storeId) : undefined;
+  return seed ? defaultTemplateFromSeed(seed, resolvedStoreId) : undefined;
 }
 
 export async function updateMessageTemplateRow(
   id: string,
   input: MessageTemplateUpdateInput,
   actorId?: string,
-  storeId = DEFAULT_STORE_ID,
+  storeId?: string,
 ): Promise<MessageTemplate> {
+  const resolvedStoreId = requireRepositoryStoreId(storeId, "保存消息模板");
   const update = sanitizeMessageTemplateInput(input);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
-  await ensureTemplateExists(id, storeId);
+  await ensureTemplateExists(id, resolvedStoreId);
   const { data, error } = await supabase
     .from("message_templates")
     .update({
@@ -164,7 +141,7 @@ export async function updateMessageTemplateRow(
       updated_at: now,
     })
     .eq("id", id)
-    .eq("store_id", storeId)
+    .eq("store_id", resolvedStoreId)
     .select("*")
     .single();
   fail(error, "保存消息模板失败");
@@ -174,14 +151,15 @@ export async function updateMessageTemplateRow(
 export async function resetMessageTemplateRow(
   id: string,
   actorId?: string,
-  storeId = DEFAULT_STORE_ID,
+  storeId?: string,
 ): Promise<MessageTemplate> {
+  const resolvedStoreId = requireRepositoryStoreId(storeId, "恢复消息模板");
   const seed = getDefaultMessageTemplate(id);
   if (!seed) throw new Error("默认模板不存在");
 
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
-  const storeTemplate = defaultTemplateFromSeed(seed, storeId);
+  const storeTemplate = defaultTemplateFromSeed(seed, resolvedStoreId);
   const { data, error } = await supabase
     .from("message_templates")
     .upsert({
@@ -283,7 +261,7 @@ function messageTemplateFromRow(row: DbRecord): MessageTemplate {
 
 function defaultTemplateFromSeed(
   seed: (typeof DEFAULT_MESSAGE_TEMPLATES)[number],
-  storeId = DEFAULT_STORE_ID,
+  storeId: string,
 ): MessageTemplate {
   const now = new Date().toISOString();
   return {
@@ -341,6 +319,7 @@ function storeSettingsIdForStore(storeId: string) {
   return storeId === DEFAULT_STORE_ID ? "default" : `store-settings:${storeId}`;
 }
 
-function isMissingStoreIdError(error: { message?: string; code?: string }) {
-  return error.code === "42703" || error.message?.includes("store_id");
+function requireRepositoryStoreId(storeId: string | undefined, context: string) {
+  if (storeId?.trim()) return storeId;
+  throw new Error(`${context}缺少店铺上下文，请重新登录后再试`);
 }

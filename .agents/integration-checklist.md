@@ -10,6 +10,8 @@ Use this before final response whenever sub-agents, departments, or scoped worke
 - [ ] Record agenda intake.
 - [ ] Record `decision_owner: Integration Lead`.
 - [ ] Generate route plan from `.agents/repairdesk-multiagent.yaml`.
+- [ ] If the Owner requested departments, AI employees, sub-agents, multi-agent work, review, or simulation, call the real sub-agent spawn tool when available.
+- [ ] Record spawned agent id(s), nickname(s), department(s), permission mode(s), and task package(s), or record a concrete no-spawn reason.
 - [ ] Decide why multi-agent is necessary.
 - [ ] Identify the main thread's immediate local work.
 - [ ] Assign only sidecar or disjoint worker tasks.
@@ -22,6 +24,7 @@ Use this before final response whenever sub-agents, departments, or scoped worke
 - [ ] Do not wait unless blocked.
 - [ ] Do not duplicate delegated work.
 - [ ] Keep file ownership disjoint.
+- [ ] Do not mark an agent as “used” until its output has been received and reviewed.
 - [ ] Close completed agents when no longer needed.
 - [ ] Ensure sub-agents report blockers to Integration Lead instead of asking the user directly.
 
@@ -51,6 +54,7 @@ UI changes:
 - [ ] Check `document.documentElement.scrollWidth <= window.innerWidth`.
 - [ ] Check dialog/sheet body scroll and bottom actions.
 - [ ] Check keyboard input does not zoom mobile page.
+- [ ] Capture and save at least one relevant screenshot for the Owner-facing final report.
 
 Data/API changes:
 
@@ -72,7 +76,9 @@ Include:
 - What changed.
 - Key files.
 - Agents/departments used.
+- Spawned agent ids, nicknames, roles, permission modes, and result status; or no-spawn reason if departments were requested but no real sub-agent was created.
 - Sources used if web research was required.
 - Validation run.
+- Screenshot path(s) for relevant task/result page(s), or a clear no-screenshot reason for non-UI/backend/docs tasks.
 - Skipped validation and reason.
 - Remaining risk.

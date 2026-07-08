@@ -44,8 +44,37 @@ create table if not exists public.repairdesk_offline_operations (
     check (target_entity_type is null or target_entity_type = 'repair_order'),
   target_entity_id text,
   response_summary jsonb not null default '{}'::jsonb
-    check (jsonb_typeof(response_summary) = 'object'),
-  error_code text,
+    check (
+      jsonb_typeof(response_summary) = 'object'
+      and (
+        response_summary
+        - 'serverOrderId'
+        - 'publicNo'
+        - 'updatedAt'
+        - 'resultCode'
+      ) = '{}'::jsonb
+    ),
+  error_code text
+    check (
+      error_code is null
+      or error_code in (
+        'base_updated_at_stale',
+        'customer_not_found',
+        'device_master_update_deferred',
+        'device_not_found_for_customer',
+        'duplicate_customer',
+        'forbidden',
+        'idempotency_conflict',
+        'invalid_customer_snapshot',
+        'invalid_device_snapshot',
+        'invalid_payload',
+        'order_not_found',
+        'retryable_error',
+        'transaction_failed',
+        'unsupported_customer_relationship',
+        'unsupported_device_relationship'
+      )
+    ),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '90 days'),
@@ -85,5 +114,7 @@ comment on column public.repairdesk_offline_operations.request_hash is
   'Server-generated HMAC-SHA256 digest of the strict canonical offline sync payload; never a raw payload.';
 comment on column public.repairdesk_offline_operations.response_summary is
   'Minimal replay summary such as serverOrderId, publicNo, updatedAt, and resultCode. Do not store PII, unlock values, attachments, messages, or payment payloads.';
+comment on column public.repairdesk_offline_operations.error_code is
+  'Stable allowlisted operation failure code for offline sync review and replay. Do not store raw database errors, PII, payload fragments, or secrets.';
 comment on column public.repairdesk_offline_operations.expires_at is
   'Retention marker for future approved cleanup jobs. No cleanup job is included in this draft.';

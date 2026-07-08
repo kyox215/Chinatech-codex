@@ -1,0 +1,22 @@
+# Evidence Index — TASK-20260620-004
+
+| Evidence ID | Type | Claim supported | Source/path/command | Result | Collected at | Collector |
+|---|---|---|---|---|---|---|
+| E-001 | request | task exists and title is recorded | `TASK.md` | observed | 2026-06-19T22:51:40Z | Integration Lead / CEO Agent |
+| E-002 | source scan | auth/session/store actor resolution is centralized | `src/server/auth-context.ts`; `src/proxy.ts`; `src/utils/supabase/proxy.ts` | verified local code | 2026-06-19T23:05:00Z | Integration Lead / CEO Agent |
+| E-003 | source scan | RepairDesk router resolves actor and gates inventory writes | `src/server/api/repairdesk-router.ts`; `rg -n "getRequestActor|assertInventoryWrite|auditGeneric" src/server/api/repairdesk-router.ts` | verified local code | 2026-06-19T23:08:00Z | Integration Lead / CEO Agent |
+| E-004 | source scan | platform onboarding approval requires platform admin | `src/features/platform/server/platform.repository.ts`; `rg -n "assertPlatformAdmin" src/features/platform/server/platform.repository.ts` | verified local code | 2026-06-19T23:11:00Z | Integration Lead / CEO Agent |
+| E-005 | source scan | member invites require owner/manager; store create is any logged-in non-system actor | `src/features/stores/server/store.repository.ts`; `rg -n "assertCanManageStoreMembers|createStore|listStoreMembers" src/features/stores/server/store.repository.ts` | verified local code | 2026-06-19T23:13:00Z | Integration Lead / CEO Agent |
+| E-006 | source scan | message settings/template writes require owner/manager | `src/features/messages/server/message-settings.service.ts`; `rg -n "assertStaffRole|requireStoreIdFromActor" src/features/messages/server` | verified local code | 2026-06-19T23:16:00Z | Integration Lead / CEO Agent |
+| E-007 | source scan | order workflow configuration requires owner/manager | `src/features/orders/server/order.repository.ts`; `rg -n "assertStaffRole|setOrderWorkflowStatusEnabled" src/features/orders/server/order.repository.ts` | verified local code | 2026-06-19T23:19:00Z | Integration Lead / CEO Agent |
+| E-008 | source scan | order/customer mutation surfaces require store context but many explicit role gates were not found | `rg -n "export async function ...|assertStaffRole|requireStoreIdFromActor" src/features/orders/server src/features/customers/server` | verified risk from local scan | 2026-06-19T23:23:00Z | Integration Lead / CEO Agent |
+| E-009 | migration scan | local migrations model store tenancy, same-store constraints, member SELECT RLS, platform onboarding, and private attachment storage | `supabase/migrations/20260611005916_harden_store_tenant_constraints.sql`; `20260611074644_repairdesk_auth_multistore_bootstrap_safe.sql`; `20260611080254_platform_onboarding_approvals.sql`; `20260619193655_repairdesk_attachment_storage_repair.sql` | verified local files; remote parity unknown | 2026-06-19T23:27:00Z | Integration Lead / CEO Agent |
+| E-010 | source scan | audit logging can retain raw input/before/after metadata | `src/server/audit.ts`; `src/server/api/repairdesk-router.ts` | verified local code | 2026-06-19T23:30:00Z | Integration Lead / CEO Agent |
+| E-011 | source scan | owner/platform bootstrap uses service role and admin password and must remain approval-gated | `scripts/ensure-owner-admin.ts`; `tests/ensure-owner-admin.test.ts` | verified local code/tests | 2026-06-19T23:34:00Z | Integration Lead / CEO Agent |
+| E-012 | report | permission and sensitive-action matrix created | `PERMISSION_MATRIX_BASELINE.md` | created and reviewed for scope | 2026-06-19T22:58:00Z | Integration Lead / CEO Agent |
+| E-013 | validation | targeted permission source scan completed | `rg -n "assertStaffRole|assertInventoryWrite|requireStoreIdFromActor|allowsPendingStore|isRepairDeskE2eAuthBypassEnabled|assertPlatformAdmin|assertCanManageStoreMembers" src/server src/features src/shared src/utils src/proxy.ts` | passed with expected evidence output | 2026-06-19T22:59:40Z | Integration Lead / CEO Agent |
+| E-014 | validation | governance rule check passed | `npm run agents:check` | Agent config/template/rule checks passed | 2026-06-19T22:59:55Z | Integration Lead / CEO Agent |
+| E-015 | validation | final governance rule check passed after memory updates | `npm run agents:check` | Agent config/template/rule checks passed | 2026-06-19T23:02:00Z | Integration Lead / CEO Agent |
+
+Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
+IDs, test reports, screenshots, or concise log references.

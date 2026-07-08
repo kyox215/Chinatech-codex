@@ -1,0 +1,706 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import "tailwindcss";
+@source "../src";
+@import "../node_modules/tw-animate-css/dist/tw-animate.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * RepairOS Compact theme.
+ * Mobile-first, high-density SaaS tool UI with white cards and a tech-blue brand.
+ */
+
+@theme inline {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 14px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-foreground: var(--status-neutral-foreground);
+  --color-status-info: var(--status-info);
+  --color-status-info-foreground: var(--status-info-foreground);
+  --color-status-progress: var(--status-progress);
+  --color-status-progress-foreground: var(--status-progress-foreground);
+  --color-status-warn: var(--status-warn);
+  --color-status-warn-foreground: var(--status-warn-foreground);
+  --color-status-success: var(--status-success);
+  --color-status-success-foreground: var(--status-success-foreground);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-foreground: var(--status-danger-foreground);
+
+  --color-brand-violet: #315cff;
+  --color-brand-cyan: oklch(0.82 0.13 200);
+
+  --color-chart-1: #315cff;
+  --color-chart-2: oklch(0.82 0.13 200);
+  --color-chart-3: oklch(0.78 0.16 320);
+  --color-chart-4: oklch(0.78 0.18 145);
+  --color-chart-5: oklch(0.76 0.18 60);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --gradient-brand: linear-gradient(135deg, #315cff, oklch(0.82 0.13 220));
+  --gradient-brand-soft: linear-gradient(
+    135deg,
+    color-mix(in oklch, #315cff 18%, transparent),
+    oklch(0.82 0.13 220 / 0.16)
+  );
+  --gradient-surface: linear-gradient(180deg, oklch(1 0 0 / 0.06), oklch(1 0 0 / 0.02));
+
+  --glow-brand:
+    0 0 0 1px color-mix(in oklch, #315cff 35%, transparent),
+    0 8px 32px -8px color-mix(in oklch, #315cff 45%, transparent);
+  --glow-soft: 0 8px 28px -10px color-mix(in oklch, #315cff 22%, transparent);
+  --shadow-action: 0 12px 28px -12px color-mix(in oklch, var(--primary) 62%, transparent);
+  --shadow-action-hover: 0 14px 32px -14px color-mix(in oklch, var(--primary) 72%, transparent);
+  --shadow-glass:
+    0 1px 0 oklch(1 0 0 / 0.06) inset, 0 0 0 1px oklch(1 0 0 / 0.06),
+    0 20px 40px -20px oklch(0 0 0 / 0.5);
+  --shadow-elevated: 0 1px 0 oklch(1 0 0 / 0.06) inset, 0 12px 40px -12px oklch(0 0 0 / 0.5);
+  --shadow-card: 0 1px 0 oklch(1 0 0 / 0.9) inset, 0 14px 34px -28px oklch(0.24 0.035 265 / 0.45);
+  --shadow-card-hover:
+    0 1px 0 oklch(1 0 0 / 0.95) inset, 0 18px 42px -28px oklch(0.24 0.035 265 / 0.55);
+  --shadow-overlay: 0 1px 0 oklch(1 0 0 / 0.05) inset, 0 18px 48px -28px oklch(0 0 0 / 0.42);
+  --shadow-workspace: 0 1px 0 oklch(1 0 0 / 0.08) inset, 0 24px 70px -42px oklch(0 0 0 / 0.4);
+
+  --animate-fade-up: fade-up 0.4s ease-out both;
+  --animate-scale-in: scale-in 0.25s ease-out both;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-pulse-glow: pulse-glow 2.4s ease-in-out infinite;
+  --animate-gradient-shift: gradient-shift 6s ease infinite;
+  --animate-float: float 8s ease-in-out infinite;
+}
+
+/* Light theme retained for toggle */
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(0.985 0.003 247);
+  --foreground: oklch(0.205 0.025 265);
+  --surface: oklch(1 0 0);
+  --surface-muted: oklch(0.97 0.005 247);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0.025 265);
+  --popover: oklch(0.99 0.003 247);
+  --popover-foreground: oklch(0.205 0.025 265);
+
+  --primary: #315cff;
+  --primary-foreground: oklch(0.99 0.005 247);
+
+  --secondary: oklch(0.965 0.008 247);
+  --secondary-foreground: oklch(0.28 0.03 265);
+
+  --muted: oklch(0.965 0.008 247);
+  --muted-foreground: oklch(0.5 0.02 257);
+
+  --accent: color-mix(in oklch, #315cff 8%, white);
+  --accent-foreground: #315cff;
+
+  --destructive: oklch(0.6 0.21 22);
+  --destructive-foreground: oklch(0.99 0.005 247);
+
+  --border: oklch(0.92 0.008 255);
+  --input: oklch(0.94 0.008 255);
+  --ring: #315cff;
+
+  --status-neutral: oklch(0.95 0.005 257);
+  --status-neutral-foreground: oklch(0.36 0.02 257);
+  --status-info: oklch(0.94 0.04 240);
+  --status-info-foreground: oklch(0.38 0.16 250);
+  --status-progress: color-mix(in oklch, #315cff 12%, white);
+  --status-progress-foreground: #315cff;
+  --status-warn: oklch(0.95 0.07 80);
+  --status-warn-foreground: oklch(0.42 0.14 60);
+  --status-success: oklch(0.94 0.06 160);
+  --status-success-foreground: oklch(0.38 0.13 160);
+  --status-danger: oklch(0.94 0.05 22);
+  --status-danger-foreground: oklch(0.45 0.18 22);
+
+  --sidebar: oklch(0.99 0.004 265);
+  --sidebar-foreground: oklch(0.28 0.03 265);
+  --sidebar-primary: #315cff;
+  --sidebar-primary-foreground: oklch(0.99 0.005 247);
+  --sidebar-accent: color-mix(in oklch, #315cff 9%, white);
+  --sidebar-accent-foreground: #315cff;
+  --sidebar-border: oklch(0.9 0.01 265);
+  --sidebar-ring: oklch(0.55 0.2 285);
+
+  --overlay-scrim: oklch(0.18 0.025 265 / 0.42);
+  --surface-workspace: oklch(0.995 0.002 247 / 0.94);
+  --surface-workspace-strong: oklch(1 0 0 / 0.98);
+  --surface-panel: oklch(1 0 0);
+  --surface-panel-muted: oklch(0.972 0.006 255);
+  --border-panel: oklch(0.88 0.012 255 / 0.78);
+  --capture-preview: oklch(0.16 0.02 265);
+  --brand-marker-muted: color-mix(in oklch, var(--primary) 60%, transparent);
+}
+
+.dark {
+  --background: oklch(0.16 0.03 270);
+  --foreground: oklch(0.96 0.01 247);
+  --surface: oklch(1 0 0 / 0.04);
+  --surface-muted: oklch(1 0 0 / 0.06);
+
+  --card: oklch(1 0 0 / 0.04);
+  --card-foreground: oklch(0.96 0.01 247);
+  --popover: oklch(0.22 0.03 270);
+  --popover-foreground: oklch(0.96 0.01 247);
+
+  --primary: #315cff;
+  --primary-foreground: oklch(0.99 0.005 247);
+
+  --secondary: oklch(1 0 0 / 0.06);
+  --secondary-foreground: oklch(0.96 0.01 247);
+
+  --muted: oklch(1 0 0 / 0.05);
+  --muted-foreground: oklch(0.7 0.025 257);
+
+  --accent: color-mix(in oklch, #315cff 18%, transparent);
+  --accent-foreground: oklch(0.92 0.06 260);
+
+  --destructive: oklch(0.68 0.2 22);
+  --destructive-foreground: oklch(0.99 0.005 247);
+
+  --border: oklch(1 0 0 / 0.08);
+  --input: oklch(1 0 0 / 0.1);
+  --ring: #315cff;
+
+  --status-neutral: oklch(1 0 0 / 0.06);
+  --status-neutral-foreground: oklch(0.78 0.02 257);
+  --status-info: oklch(0.55 0.18 245 / 0.2);
+  --status-info-foreground: oklch(0.85 0.12 240);
+  --status-progress: color-mix(in oklch, #315cff 22%, transparent);
+  --status-progress-foreground: oklch(0.86 0.09 260);
+  --status-warn: oklch(0.7 0.18 70 / 0.22);
+  --status-warn-foreground: oklch(0.88 0.14 75);
+  --status-success: oklch(0.7 0.16 160 / 0.2);
+  --status-success-foreground: oklch(0.86 0.13 160);
+  --status-danger: oklch(0.65 0.2 22 / 0.22);
+  --status-danger-foreground: oklch(0.88 0.13 22);
+
+  --sidebar: oklch(0.16 0.03 270);
+  --sidebar-foreground: oklch(0.92 0.01 247);
+  --sidebar-primary: #315cff;
+  --sidebar-primary-foreground: oklch(0.99 0.005 247);
+  --sidebar-accent: color-mix(in oklch, #315cff 20%, transparent);
+  --sidebar-accent-foreground: oklch(0.92 0.06 260);
+  --sidebar-border: oklch(0.28 0.04 270);
+  --sidebar-ring: oklch(0.74 0.18 285);
+
+  --overlay-scrim: oklch(0.08 0.02 270 / 0.58);
+  --surface-workspace: oklch(0.18 0.03 270 / 0.9);
+  --surface-workspace-strong: oklch(0.19 0.03 270 / 0.96);
+  --surface-panel: oklch(1 0 0 / 0.055);
+  --surface-panel-muted: oklch(1 0 0 / 0.035);
+  --border-panel: oklch(1 0 0 / 0.09);
+  --capture-preview: oklch(0.08 0.012 265);
+  --brand-marker-muted: color-mix(in oklch, var(--primary) 65%, transparent);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-image: none;
+    background-attachment: fixed;
+    min-height: 100svh;
+    width: 100%;
+  }
+
+  body[data-order-detail-active="true"] [data-mobile-workspace-trigger="true"],
+  body[data-mobile-workspace-active="true"] [data-mobile-workspace-trigger="true"] {
+    display: none !important;
+  }
+
+  @media (max-width: 767px) {
+    body[data-order-detail-active="true"] [data-app-bar="true"],
+    body[data-mobile-workspace-active="true"] [data-app-bar="true"] {
+      display: none !important;
+    }
+
+    /*
+     * iOS Safari/Chrome automatically zooms the page when focusing editable
+     * controls below 16px. Business screens can still render dense labels and
+     * cards, but the actual editable text must stay at 16px on mobile.
+     */
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select,
+    [contenteditable="true"] {
+      font-size: 16px !important;
+    }
+  }
+
+  .dark body {
+    background-image: none;
+  }
+
+  .font-mono,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    background: var(--card);
+    border: 1px solid var(--border-panel);
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-lg);
+    position: relative;
+  }
+  :root:not(.dark) .glass-card {
+    background: var(--card);
+    border-color: var(--border-panel);
+    box-shadow: var(--shadow-card);
+  }
+  .glass-card::before {
+    content: none;
+    pointer-events: none;
+  }
+
+  .glass-strong {
+    background: var(--popover);
+    border: 1px solid var(--border-panel);
+    box-shadow: var(--shadow-overlay);
+  }
+  :root:not(.dark) .glass-strong {
+    background: var(--popover);
+    border-color: var(--border-panel);
+  }
+
+  .gradient-text {
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .gradient-border {
+    position: relative;
+    border-radius: inherit;
+  }
+  .gradient-border::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--gradient-brand);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .glow-brand {
+    box-shadow: var(--glow-brand);
+  }
+
+  .shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, oklch(1 0 0 / 0.18) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+  .shine:hover::after {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 0 4px transparent;
+    opacity: 1;
+  }
+}
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
+  }
+}
+@keyframes orb-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(40px, -30px, 0) scale(1.05);
+  }
+}
+
+.repair-print-sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A5 landscape;
+    margin: 6mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body.has-repair-print > :not(.repair-print-sheet) {
+    display: none !important;
+  }
+
+  .repair-print-sheet {
+    display: block !important;
+    position: static !important;
+    width: 100%;
+    background: #fff;
+    color: #000;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 7.2pt;
+    line-height: 1.16;
+  }
+
+  .repair-print-page {
+    display: grid;
+    box-sizing: border-box;
+    width: calc(210mm - 12mm);
+    height: calc(148mm - 12mm);
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    border: 1px solid #d4d4d4;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .repair-print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .repair-print-left,
+  .repair-print-right {
+    padding: 2.6mm;
+  }
+
+  .repair-print-left {
+    border-right: 1px dashed #9a9a9a;
+  }
+
+  .repair-print-store,
+  .repair-print-right header {
+    border-bottom: 1px solid #c8c8c8;
+    padding-bottom: 1.2mm;
+  }
+
+  .repair-print-store h2,
+  .repair-print-right h2 {
+    margin: 0;
+    font-size: 8.4pt;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .repair-print-store h1 {
+    margin: 0.8mm 0 0;
+    font-size: 8.8pt;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .repair-print-store p,
+  .repair-print-right p {
+    margin: 0.35mm 0 0;
+    color: #444;
+    font-size: 6.2pt;
+  }
+
+  .repair-print-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8mm 4mm;
+    border-bottom: 1px solid #ddd;
+    padding: 1.2mm 0;
+  }
+
+  .repair-print-meta div,
+  .repair-print-line {
+    display: flex;
+    gap: 1.2mm;
+    margin: 0.45mm 0;
+  }
+
+  .repair-print-meta span,
+  .repair-print-line strong {
+    flex: 0 0 auto;
+    color: #444;
+    font-weight: 700;
+  }
+
+  .repair-print-meta strong,
+  .repair-print-line span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 400;
+  }
+
+  .repair-print-section {
+    break-inside: avoid;
+    border-bottom: 1px solid #ddd;
+    padding: 1.1mm 0;
+  }
+
+  .repair-print-section h2,
+  .repair-print-warranty h3 {
+    margin: 0 0 0.7mm;
+    font-size: 7.2pt;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .repair-print-paragraph {
+    margin: 0.8mm 0 0;
+    color: #333;
+    font-size: 6.4pt;
+  }
+
+  .repair-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    break-inside: avoid;
+  }
+
+  .repair-print-table th,
+  .repair-print-table td {
+    border-bottom: 1px solid #ddd;
+    padding: 0.75mm 0;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .repair-print-table th {
+    color: #444;
+    font-size: 6.1pt;
+    font-weight: 400;
+  }
+
+  .repair-print-table td strong,
+  .repair-print-table td span {
+    display: block;
+  }
+
+  .repair-print-table td span {
+    margin-top: 0.25mm;
+    color: #555;
+    font-size: 5.9pt;
+  }
+
+  .repair-print-table th:last-child,
+  .repair-print-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .repair-print-right {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+  }
+
+  .repair-print-warranty {
+    padding-top: 1.1mm;
+  }
+
+  .repair-print-task-qr {
+    display: grid;
+    grid-template-columns: 24mm minmax(0, 1fr);
+    gap: 2mm;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    padding: 1.4mm 0;
+  }
+
+  .repair-print-task-qr svg {
+    width: 22mm;
+    height: 22mm;
+  }
+
+  .repair-print-task-qr h3 {
+    margin: 0;
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .repair-print-task-qr p {
+    margin: 0.6mm 0;
+    color: #444;
+    font-size: 5.8pt;
+  }
+
+  .repair-print-task-qr strong {
+    display: block;
+    font-size: 7pt;
+    overflow-wrap: anywhere;
+  }
+
+  .repair-print-warranty ul {
+    margin: 0;
+    padding-left: 3mm;
+  }
+
+  .repair-print-warranty li {
+    margin: 0.55mm 0;
+    padding-left: 0.6mm;
+    color: #333;
+    font-size: 5.4pt;
+  }
+
+  .repair-print-footer {
+    margin-top: auto;
+  }
+
+  .repair-print-signature {
+    display: flex;
+    height: 14mm;
+    align-items: flex-end;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #111;
+    font-weight: 800;
+  }
+
+  .repair-print-signature span {
+    transform: translateY(-9mm);
+  }
+
+  .repair-print-footer p {
+    border-top: 1px solid #ddd;
+    margin-top: 1.5mm;
+    padding-top: 1mm;
+    color: #555;
+    font-size: 5.6pt;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
