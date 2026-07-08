@@ -643,6 +643,106 @@ describe("store repository access request boundaries", () => {
     expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
+  it("still lists members when the invite-link table is not deployed yet", async () => {
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ email: "owner@chinatech.in", role: "owner", status: "active" }),
+    ]);
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const inviteLinksQuery = createSupabaseQuery({
+      data: null,
+      error: {
+        code: "PGRST205",
+        message: "Could not find the table 'public.store_invite_links' in the schema cache",
+      },
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(invitationsQuery)
+      .mockReturnValueOnce(inviteLinksQuery);
+
+    const result = await listStoreMembers(storeOwner);
+
+    expect(result.members).toHaveLength(1);
+    expect(result.members[0]).toMatchObject({ email: "owner@chinatech.in", role: "owner" });
+    expect(result.invite_links).toEqual([]);
+    expect(inviteLinksQuery.order).toHaveBeenCalledWith("created_at", { ascending: false });
+  });
+
+  it("does not hide non-schema-cache invite-link read failures", async () => {
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ email: "owner@chinatech.in", role: "owner", status: "active" }),
+    ]);
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const inviteLinksQuery = createSupabaseQuery({
+      data: null,
+      error: {
+        code: "42501",
+        message: "permission denied for table store_invite_links",
+      },
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(invitationsQuery)
+      .mockReturnValueOnce(inviteLinksQuery);
+
+    await expect(listStoreMembers(storeOwner)).rejects.toThrow("读取店铺邀请码失败");
+  });
+
+  it("does not hide schema-cache errors for unrelated tables", async () => {
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ email: "owner@chinatech.in", role: "owner", status: "active" }),
+    ]);
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const inviteLinksQuery = createSupabaseQuery({
+      data: null,
+      error: {
+        code: "PGRST205",
+        message: "Could not find the table 'public.store_memberships' in the schema cache",
+      },
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(invitationsQuery)
+      .mockReturnValueOnce(inviteLinksQuery);
+
+    await expect(listStoreMembers(storeOwner)).rejects.toThrow("读取店铺邀请码失败");
+  });
+
+  it("still fails when employee member rows cannot be read", async () => {
+    const membersQuery = createSupabaseQuery({
+      data: null,
+      error: { message: "connection terminated" },
+    });
+    membersQuery.order
+      .mockReturnValueOnce(membersQuery as unknown as { data: unknown; error: unknown })
+      .mockReturnValueOnce({ data: null, error: { message: "connection terminated" } });
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const inviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(invitationsQuery)
+      .mockReturnValueOnce(inviteLinksQuery);
+
+    await expect(listStoreMembers(storeOwner)).rejects.toThrow("读取店铺成员失败");
+  });
+
+  it("still fails when pending employee invitations cannot be read", async () => {
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ email: "owner@chinatech.in", role: "owner", status: "active" }),
+    ]);
+    const invitationsQuery = createSupabaseQuery({
+      data: null,
+      error: { message: "connection terminated" },
+    });
+    const inviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(invitationsQuery)
+      .mockReturnValueOnce(inviteLinksQuery);
+
+    await expect(listStoreMembers(storeOwner)).rejects.toThrow("读取店铺邀请失败");
+  });
+
   it("lets the owner update an active employee role with minimized audit data", async () => {
     const memberReadQuery = createSupabaseQuery({
       data: membershipRow({ role: "technician", status: "active" }),

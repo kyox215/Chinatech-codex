@@ -213,12 +213,17 @@ export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersR
   ]);
   fail(membersResult.error, "读取店铺成员失败");
   fail(invitationsResult.error, "读取店铺邀请失败");
-  fail(inviteLinksResult.error, "读取店铺邀请码失败");
+  const inviteLinksTableMissing = isMissingStoreInviteLinksTableError(inviteLinksResult.error);
+  if (!inviteLinksTableMissing) {
+    fail(inviteLinksResult.error, "读取店铺邀请码失败");
+  }
 
   return {
     members: ((membersResult.data ?? []) as DbRecord[]).map(memberFromRow),
     invitations: ((invitationsResult.data ?? []) as DbRecord[]).map(invitationFromRow),
-    invite_links: ((inviteLinksResult.data ?? []) as DbRecord[]).map(inviteLinkFromRow),
+    invite_links: inviteLinksTableMissing
+      ? []
+      : ((inviteLinksResult.data ?? []) as DbRecord[]).map(inviteLinkFromRow),
   };
 }
 
@@ -1172,6 +1177,17 @@ function requireActiveStoreId(actor: AuditActor) {
 
 function assertCanManageStoreMembers(actor: AuditActor) {
   assertPermission(actor, "member:manage_basic");
+}
+
+function isMissingStoreInviteLinksTableError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const record = error as Record<string, unknown>;
+  if (typeof record.message !== "string") return false;
+  return (
+    record.code === "PGRST205" &&
+    record.message.includes("store_invite_links") &&
+    record.message.includes("schema cache")
+  );
 }
 
 function assertCanReviewStoreAccessRequests(actor: AuditActor) {

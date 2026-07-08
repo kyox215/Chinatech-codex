@@ -43,3 +43,5 @@
 - Data reviewer `019f42c0-84ed-7df1-bb8c-d4ee851e107c`: confirmed no schema migration is required for base lifecycle; use `store_memberships.role/status`.
 - Security reviewer `019f42c0-a840-7d40-9a20-293b27000069`: required server-side member-list permission, target membership store scoping, manager grant restriction, self-disable protection, and minimized audit.
 - UX reviewer `019f42c0-c523-7d20-86f3-e380c8cf2c8c`: required clearer Settings employee management UI, search/filter, status/actions, loading/empty/error states, and mobile-safe layout.
+- Data reviewer `019f42e6-90d9-7d71-be77-a5caf81a3d9e`: confirmed production `/settings` employee read failure is consistent with missing `store_invite_links` and that narrow list-only fallback is acceptable before production migration approval.
+- QA reviewer `019f42e6-b904-7780-88ba-ab15cf6fa3f3`: required positive and negative fallback tests before hotfix push and noted post-deploy evidence should prove `/api/repairdesk/stores/members` no longer returns 400.
