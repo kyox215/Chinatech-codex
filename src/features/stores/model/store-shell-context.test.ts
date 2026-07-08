@@ -46,6 +46,8 @@ describe("resolveStoreShellContext", () => {
 
     expect(snapshot).toMatchObject({
       userId: "user_1",
+      email: "owner@example.com",
+      displayName: "最高管理员",
       activeStore,
       status: "ready",
       isLoading: false,

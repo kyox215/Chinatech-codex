@@ -10,6 +10,8 @@ export type StoreShellStatus =
 
 export interface StoreShellContextSnapshot {
   userId?: string;
+  email?: string;
+  displayName?: string;
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
   isPlatformAdmin: boolean;
@@ -64,6 +66,8 @@ export function resolveStoreShellContext({
 
   return {
     userId: onboardingStatus?.userId,
+    email: onboardingStatus?.email,
+    displayName: onboardingStatus?.displayName,
     activeStore,
     stores,
     isPlatformAdmin,

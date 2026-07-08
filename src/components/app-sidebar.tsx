@@ -3,9 +3,20 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Wrench, ChevronsUpDown, Store, Settings, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  Wrench,
+  ChevronsUpDown,
+  Loader2,
+  LogOut,
+  Store,
+  Settings,
+  ShieldCheck,
+  UserCircle,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -37,19 +48,24 @@ import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-persistence";
 import { indicatorSpring } from "@/lib/motion";
 import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
 import { getWorkspaceNavItems, isActiveNavItem } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/utils/supabase/client";
 
 export function AppSidebar() {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const shell = useStoreShellContext();
   const { isMobile, setOpenMobile } = useSidebar();
   const nav = getWorkspaceNavItems(shell.isPlatformAdmin);
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
+  const accountDisplayName = shell.displayName?.trim() || "当前账号";
+  const accountEmail = shell.email?.trim() || (shell.isLoading ? "读取账号…" : "未读取邮箱");
   const activeStoreMeta = shell.activeStore
     ? `${shell.activeStore.role} · 在线`
     : shell.isPlatformAdmin
@@ -76,6 +92,22 @@ export function AppSidebar() {
 
   const handleNav = () => {
     if (isMobile) setOpenMobile(false);
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await createClient().auth.signOut();
+      clearBrowserAuthPersistenceCookie();
+      queryClient.clear();
+      toast.success("已退出登录");
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      setIsSigningOut(false);
+      toast.error(error instanceof Error ? error.message : "退出登录失败");
+    }
   };
 
   return (
@@ -192,6 +224,23 @@ export function AppSidebar() {
                   isMobile ? "w-[var(--radix-dropdown-menu-trigger-width)] min-w-[14rem]" : "w-64",
                 )}
               >
+                <DropdownMenuLabel className="pb-2">
+                  <div className="flex min-w-0 items-start gap-2 rounded-lg bg-muted/50 p-2">
+                    <UserCircle className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-medium uppercase text-muted-foreground">
+                        当前账号
+                      </span>
+                      <span className="block truncate text-sm font-semibold text-foreground">
+                        {accountDisplayName}
+                      </span>
+                      <span className="block truncate text-xs font-normal text-muted-foreground">
+                        {accountEmail}
+                      </span>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 <DropdownMenuLabel>店铺</DropdownMenuLabel>
                 {shell.stores.length > 0 ? (
                   shell.stores.map((store) => (
@@ -231,6 +280,22 @@ export function AppSidebar() {
                     <Settings className="size-4" />
                     店铺设置
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={isSigningOut}
+                  className="text-destructive focus:text-destructive"
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void handleSignOut();
+                  }}
+                >
+                  {isSigningOut ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <LogOut className="size-4" />
+                  )}
+                  {isSigningOut ? "正在退出…" : "退出登录"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
