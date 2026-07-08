@@ -42,6 +42,8 @@ type ImeiSelectableCandidate = ImeiCandidate & {
 type ImeiCapturePreview = {
   src: string;
   alt: string;
+  width?: number;
+  height?: number;
 };
 type ImeiRecognitionResult = {
   text: string;
@@ -49,6 +51,10 @@ type ImeiRecognitionResult = {
   detections?: ImeiBarcodeDetection[];
   preview?: ImeiCapturePreview;
   previewCleanup?: () => void;
+};
+type ImeiCaptureViewportSize = {
+  width: number;
+  height: number;
 };
 
 const imeiImageMaxBytes = 8 * 1024 * 1024;
@@ -100,9 +106,13 @@ export function ImeiScannerField({
   const [captureError, setCaptureError] = useState("");
   const [captureCandidates, setCaptureCandidates] = useState<ImeiSelectableCandidate[]>([]);
   const [capturePreview, setCapturePreview] = useState<ImeiCapturePreview | null>(null);
+  const [captureViewportSize, setCaptureViewportSize] = useState<ImeiCaptureViewportSize | null>(
+    null,
+  );
   const [selectedCandidateId, setSelectedCandidateId] = useState("");
   const [scannerManualValue, setScannerManualValue] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const captureViewportRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const capturePreviewCleanupRef = useRef<(() => void) | null>(null);
@@ -152,6 +162,7 @@ export function ImeiScannerField({
     setCaptureError("");
     setCaptureCandidates([]);
     replaceCapturePreview(null);
+    setCaptureViewportSize(null);
     setSelectedCandidateId("");
     setScannerManualValue("");
     setIsImageProcessing(false);
@@ -164,6 +175,37 @@ export function ImeiScannerField({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!scannerOpen || !shouldShowCaptureViewport) {
+      setCaptureViewportSize(null);
+      return;
+    }
+
+    const element = captureViewportRef.current;
+    if (!element) return;
+
+    const updateViewportSize = () => {
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      setCaptureViewportSize((current) =>
+        current && current.width === rect.width && current.height === rect.height
+          ? current
+          : { width: rect.width, height: rect.height },
+      );
+    };
+
+    updateViewportSize();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateViewportSize);
+      return () => window.removeEventListener("resize", updateViewportSize);
+    }
+
+    const observer = new ResizeObserver(updateViewportSize);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [scannerOpen, shouldShowCaptureViewport, capturePreview?.src]);
 
   const commitCandidate = useCallback(
     (candidate: ImeiCandidate) => {
@@ -524,7 +566,10 @@ export function ImeiScannerField({
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}
 
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
-        <DialogContent className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
+        <DialogContent
+          className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -544,12 +589,15 @@ export function ImeiScannerField({
               </DialogDescription>
             </DialogHeader>
             {shouldShowCaptureViewport ? (
-              <div className="relative overflow-hidden rounded-md border bg-[var(--capture-preview)]">
+              <div
+                ref={captureViewportRef}
+                className="relative overflow-hidden rounded-md border bg-[var(--capture-preview)]"
+              >
                 {capturePreview ? (
                   <img
                     src={capturePreview.src}
                     alt={capturePreview.alt}
-                    className={captureViewportClassName}
+                    className={cn(captureViewportClassName, "object-contain")}
                   />
                 ) : (
                   <video
@@ -575,10 +623,11 @@ export function ImeiScannerField({
                               : "border-status-warn-foreground/90 bg-background/10 hover:bg-background/20",
                           )}
                           style={{
-                            left: `${candidate.box.x * 100}%`,
-                            top: `${candidate.box.y * 100}%`,
-                            width: `${candidate.box.width * 100}%`,
-                            height: `${candidate.box.height * 100}%`,
+                            ...getOverlayBoxStyle(
+                              candidate.box,
+                              capturePreview,
+                              captureViewportSize,
+                            ),
                           }}
                           aria-label={`选择画面候选 ${candidate.overlayIndex ?? index + 1}`}
                           aria-pressed={selectedCandidateId === candidate.id}
@@ -774,6 +823,8 @@ async function recognizeTextFromImageFile(file: File): Promise<ImeiRecognitionRe
       preview: {
         src: imageSource.image.src,
         alt: "上传图片预览",
+        width: imageSource.image.naturalWidth || imageSource.image.width,
+        height: imageSource.image.naturalHeight || imageSource.image.height,
       },
       previewCleanup: imageSource.cleanup,
     };
@@ -865,6 +916,8 @@ async function createImageElementFromVideoFrame(video: HTMLVideoElement) {
     preview: {
       src: image.src,
       alt: "当前摄像头画面截图",
+      width,
+      height,
     },
   };
 }
@@ -1034,6 +1087,50 @@ function findDetectionForCandidate(
     normalizeCaptureIdentifier(detection.rawValue).includes(candidate.value),
   );
   return directMatch ?? detections[fallbackIndex] ?? null;
+}
+
+function getOverlayBoxStyle(
+  box: ImeiCaptureBox,
+  preview: ImeiCapturePreview | null,
+  viewport: ImeiCaptureViewportSize | null,
+) {
+  if (!preview?.width || !preview.height || !viewport?.width || !viewport.height) {
+    return {
+      left: `${box.x * 100}%`,
+      top: `${box.y * 100}%`,
+      width: `${box.width * 100}%`,
+      height: `${box.height * 100}%`,
+    };
+  }
+
+  const imageRatio = preview.width / preview.height;
+  const viewportRatio = viewport.width / viewport.height;
+  const rendered =
+    viewportRatio > imageRatio
+      ? {
+          width: viewport.height * imageRatio,
+          height: viewport.height,
+          x: (viewport.width - viewport.height * imageRatio) / 2,
+          y: 0,
+        }
+      : {
+          width: viewport.width,
+          height: viewport.width / imageRatio,
+          x: 0,
+          y: (viewport.height - viewport.width / imageRatio) / 2,
+        };
+
+  const left = rendered.x + box.x * rendered.width;
+  const top = rendered.y + box.y * rendered.height;
+  const width = box.width * rendered.width;
+  const height = box.height * rendered.height;
+
+  return {
+    left: `${(left / viewport.width) * 100}%`,
+    top: `${(top / viewport.height) * 100}%`,
+    width: `${(width / viewport.width) * 100}%`,
+    height: `${(height / viewport.height) * 100}%`,
+  };
 }
 
 function getNormalizedDetectionBox(

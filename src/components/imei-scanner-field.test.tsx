@@ -194,6 +194,18 @@ describe("ImeiScannerField", () => {
     expect(zxingMocks.stop).not.toHaveBeenCalled();
   });
 
+  it("does not autofocus the manual input when the scanner opens", async () => {
+    const user = userEvent.setup();
+    zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
+
+    render(<ImeiScannerField value="" onChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+
+    const manualInput = await screen.findByPlaceholderText("无法识别时可手动输入");
+    expect(manualInput).not.toHaveFocus();
+  });
+
   it("shows multiple camera candidates before committing a value", async () => {
     const user = userEvent.setup({ applyAccept: false });
     const onChange = vi.fn();
@@ -235,12 +247,63 @@ describe("ImeiScannerField", () => {
       HTMLCanvasElement.prototype,
       "toDataURL",
     );
+    const getBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "getBoundingClientRect",
+    );
     const barcodeDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "BarcodeDetector");
 
     zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
+    vi.stubGlobal(
+      "ResizeObserver",
+      class ResizeObserverMock {
+        private readonly callback: ResizeObserverCallback;
+
+        constructor(callback: ResizeObserverCallback) {
+          this.callback = callback;
+        }
+
+        observe() {
+          this.callback([], this);
+        }
+
+        unobserve() {}
+
+        disconnect() {}
+      },
+    );
     Object.defineProperty(HTMLImageElement.prototype, "decode", {
       configurable: true,
       value: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value(this: HTMLElement) {
+        if (this.querySelector('img[alt="当前摄像头画面截图"]')) {
+          return {
+            width: 320,
+            height: 160,
+            top: 0,
+            right: 320,
+            bottom: 160,
+            left: 0,
+            x: 0,
+            y: 0,
+            toJSON: () => undefined,
+          };
+        }
+        return {
+          width: 0,
+          height: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => undefined,
+        };
+      },
     });
     Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
       configurable: true,
@@ -293,10 +356,14 @@ describe("ImeiScannerField", () => {
       expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toBeInTheDocument();
       expect(screen.getByAltText("当前摄像头画面截图")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "选择画面候选 2" })).toBeInTheDocument();
+      const secondOverlayCandidate = screen.getByRole("button", { name: "选择画面候选 2" });
+      expect(secondOverlayCandidate).toBeInTheDocument();
+      await waitFor(() =>
+        expect(parseFloat(secondOverlayCandidate.style.left)).toBeGreaterThan(25),
+      );
       expect(onChange).not.toHaveBeenCalled();
 
-      await user.click(screen.getByRole("button", { name: "选择画面候选 2" }));
+      await user.click(secondOverlayCandidate);
       await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
       expect(onChange).toHaveBeenLastCalledWith("356938035643809");
@@ -315,6 +382,15 @@ describe("ImeiScannerField", () => {
       }
       if (canvasToDataUrlDescriptor) {
         Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", canvasToDataUrlDescriptor);
+      }
+      if (getBoundingClientRectDescriptor) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "getBoundingClientRect",
+          getBoundingClientRectDescriptor,
+        );
+      } else {
+        delete (HTMLElement.prototype as Partial<HTMLElement>).getBoundingClientRect;
       }
       if (barcodeDetectorDescriptor) {
         Object.defineProperty(window, "BarcodeDetector", barcodeDetectorDescriptor);

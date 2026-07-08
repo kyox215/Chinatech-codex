@@ -15,6 +15,16 @@
 | E-011 | screenshot | mobile camera unsupported fallback no longer wastes video space | `screenshots/TASK-20260709-003-imei-overlay-selection/imei-new-order-camera-fallback-mobile-safari.png` | verified | 2026-07-08T23:12:58Z | CEO-Orchestrator |
 | E-012 | screenshot | fake camera mobile candidate and decoded states captured | `screenshots/TASK-20260709-003-imei-overlay-selection/imei-new-order-fake-camera-candidates-chromium-fake-camera-mobile.png`; `screenshots/TASK-20260709-003-imei-overlay-selection/imei-new-order-fake-camera-decoded-chromium-fake-camera-mobile.png` | verified | 2026-07-08T23:12:58Z | CEO-Orchestrator |
 | E-013 | tooling | `tools/ai_company.py checkpoint` unavailable under system Python 3.9 because `tomllib` requires Python 3.11+ | `python3 tools/ai_company.py checkpoint --help`; `python3 --version` | blocked, manual structured checkpoint used | 2026-07-08T23:12:58Z | CEO-Orchestrator |
+| E-014 | bug report | overlay boxes were visually misaligned and scanner open triggered mobile keyboard | owner screenshot and request | observed | 2026-07-08T23:24:57Z | CEO-Orchestrator |
+| E-015 | code | overlay box style now compensates object-contain rendered image offsets using preview dimensions and measured viewport size | `src/components/imei-scanner-field.tsx` | implemented | 2026-07-08T23:24:57Z | CEO-Orchestrator |
+| E-016 | code | scanner dialog open no longer autofocuses the manual input, preventing mobile keyboard auto popup | `src/components/imei-scanner-field.tsx` | implemented | 2026-07-08T23:24:57Z | CEO-Orchestrator |
+| E-017 | test | component regression covers no autofocus and contain-offset overlay compensation | `npm run test -- src/components/imei-scanner-field.test.tsx` | 18 passed | 2026-07-08T23:23:08Z | CEO-Orchestrator |
+| E-018 | static | TypeScript contract valid after bugfix | `npm run typecheck` | passed | 2026-07-08T23:23:08Z | CEO-Orchestrator |
+| E-019 | static | lint rules valid after bugfix | `npm run lint` | passed | 2026-07-08T23:24:15Z | CEO-Orchestrator |
+| E-020 | e2e | mobile/desktop/WebKit capture flow still passes and screenshots refreshed | `REPAIRDESK_E2E_ORDER_AUDIT=1 npx playwright test tests/e2e/imei-capture-ui.spec.ts --config=tests/e2e/imei-capture.playwright.config.ts` | 6 passed | 2026-07-08T23:23:55Z | CEO-Orchestrator |
+| E-021 | e2e | fake camera stream still decodes and commits IMEI on desktop/mobile Chromium | `REPAIRDESK_E2E_ORDER_AUDIT=1 npx playwright test tests/e2e/imei-camera-success.spec.ts --config=tests/e2e/imei-camera-success.playwright.config.ts` | 2 passed | 2026-07-08T23:24:05Z | CEO-Orchestrator |
+| E-022 | regression | full unit regression after bugfix | `npm run test` | 87 files, 604 tests passed | 2026-07-08T23:24:15Z | CEO-Orchestrator |
+| E-023 | build | production build after bugfix | `npm run build` | passed with escalated permissions due Turbopack local port binding | 2026-07-08T23:24:15Z | CEO-Orchestrator |
 
 ## Quality Gate
 
@@ -31,6 +41,7 @@ Test matrix:
 Residual risk:
 
 - Real iOS camera hardware can still differ from Playwright/mobile emulation; current code minimizes restart loops and keeps upload/manual fallback available.
+- Owner-provided screenshot is from a real phone/browser; the code now corrects the likely CSS coordinate cause, but a final live-device check on the same phone remains useful after deployment.
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

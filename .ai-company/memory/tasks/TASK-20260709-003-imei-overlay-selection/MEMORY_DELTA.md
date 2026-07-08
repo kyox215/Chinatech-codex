@@ -16,6 +16,8 @@
 ## Candidate lessons and capability evidence
 
 - System Python 3.9 cannot run `tools/ai_company.py` because it imports `tomllib`; manual checkpoint update is acceptable fallback, but repo tooling should eventually run under Python 3.11+ or include compatibility import. Source: `python3 tools/ai_company.py checkpoint --help`. Status: observed. Owner: platform/tooling. Review trigger: future task memory CLI use.
+- For image barcode overlays, do not draw normalized barcode coordinates directly over an `object-cover`/`object-contain` element without accounting for rendered image offsets. Store preview dimensions and compensate using measured viewport size, or make the image itself the positioning coordinate space. Source: bugfix in `src/components/imei-scanner-field.tsx`. Status: validated. Owner: frontend/UX. Review trigger: future camera/photo overlay features.
+- Scanner dialogs should prevent open autofocus when the first focusable field is a manual fallback input; otherwise mobile browsers can open the keyboard immediately and cover the scanner workflow. Source: `onOpenAutoFocus` fix in `src/components/imei-scanner-field.tsx`. Status: validated. Owner: frontend/UX. Review trigger: future mobile dialogs with fallback inputs.
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.

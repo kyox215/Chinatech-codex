@@ -18,3 +18,13 @@
 - **Decisions:** On mobile, hide the manual input block after candidates exist so the main selection flow fits in one page; on unsupported-camera error, omit the empty black viewport and show upload/manual/retry directly.
 - **Risks/blockers:** `tools/ai_company.py checkpoint` could not run with system Python 3.9 due missing `tomllib`; this structured checkpoint was written manually. Real iOS hardware remains the final hardware-specific confidence layer, but Playwright mobile Safari and upload/manual fallbacks passed.
 - **Next:** stage scoped files, commit, push `main`, then report screenshot paths and validation summary.
+
+## 2026-07-08T23:24:57Z — Bugfix for overlay alignment and mobile keyboard
+
+- **Phase:** bugfix validation.
+- **Completed:** changed frozen-preview overlay positioning to compensate for `object-contain` image scaling/letterboxing by measuring the rendered viewport and using stored preview dimensions. Prevented Radix dialog open autofocus so the manual input no longer opens the phone keyboard on scanner open.
+- **Evidence:** `src/components/imei-scanner-field.tsx`; `src/components/imei-scanner-field.test.tsx`; refreshed screenshots under `screenshots/TASK-20260709-003-imei-overlay-selection/`.
+- **Validation:** `npm run test -- src/components/imei-scanner-field.test.tsx` passed 18 tests; `npm run typecheck` passed; `npm run lint` passed; IMEI capture E2E passed 6 projects; fake-camera E2E passed 2 projects; `npm run test` passed 87 files / 604 tests; `npm run build` passed.
+- **Decisions:** Do not overwrite `.ai-company/memory/ACTIVE_CONTEXT.md` because the workspace already has an unrelated `TASK-20260709-004-customer-kiosk-ipad-plan` active-context change. This checkpoint is stored in the IMEI task directory only.
+- **Risks/blockers:** final confirmation should be done on the same real phone/browser after deployment because the original issue was hardware/browser visual evidence.
+- **Next:** stage only IMEI code/tests/task-memory/screenshots, commit, push `main`, and leave unrelated kiosk-plan files untouched.
