@@ -877,6 +877,13 @@ export const onboardingRequestInputSchema = z
         message: "请填写店铺负责人的邮箱",
       });
     }
+    if (input.request_type === "join_store" && input.target_store_id?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["target_store_id"],
+        message: "加入店铺不能直接指定店铺 id",
+      });
+    }
   }) satisfies z.ZodType<OnboardingRequestInput>;
 
 export const onboardingRequestBodySchema = z.object({

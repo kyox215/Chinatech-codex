@@ -171,7 +171,7 @@ export async function submitOnboardingRequest(
     .insert(payload)
     .select("*")
     .single();
-  fail(error, "提交注册申请失败");
+  failOnboardingRequestWrite(error, "提交注册申请失败");
 
   await writePlatformAuditLog({
     actor,
@@ -704,5 +704,25 @@ function isMissingOnboardingColumnError(
   return (
     new RegExp(`column onboarding_requests\\.${column} does not exist`, "i").test(message) ||
     new RegExp(`Could not find the '${column}' column of 'onboarding_requests'`, "i").test(message)
+  );
+}
+
+function failOnboardingRequestWrite(
+  error: { message?: string } | null | undefined,
+  context: string,
+) {
+  if (!error) return;
+  if (isMissingAnyOnboardingColumnError(error)) {
+    throw new Error(`${context}: 注册申请数据结构尚未同步，请联系管理员同步数据库后重试`);
+  }
+  throw new Error(`${context}: ${error.message ?? "未知错误"}`);
+}
+
+function isMissingAnyOnboardingColumnError(error: { message?: string } | null | undefined) {
+  const message = error?.message;
+  return Boolean(
+    message &&
+    (/column onboarding_requests\.[a-z_]+ does not exist/i.test(message) ||
+      /Could not find the '[a-z_]+' column of 'onboarding_requests'/i.test(message)),
   );
 }

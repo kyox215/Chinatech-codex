@@ -468,6 +468,45 @@ describe("platform repository onboarding boundaries", () => {
     expect(message).not.toContain("more than one relationship");
   });
 
+  it("uses a maintenance message when onboarding request schema is not synchronized", async () => {
+    const existingRequestQuery = createSupabaseQuery({ data: null, error: null });
+    const rateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
+    const ownerMatchQuery = createSupabaseQuery({ data: [], error: null });
+    const insertQuery = createSupabaseQuery({
+      data: null,
+      error: {
+        message:
+          "Could not find the 'request_note' column of 'onboarding_requests' in the schema cache",
+      },
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(existingRequestQuery)
+      .mockReturnValueOnce(rateLimitQuery)
+      .mockReturnValueOnce(ownerMatchQuery)
+      .mockReturnValueOnce(insertQuery);
+
+    let message = "";
+    try {
+      await submitOnboardingRequest(
+        {
+          request_type: "join_store",
+          target_owner_email: "owner@chinatech.in",
+          requested_role: "technician",
+          note: "请加入",
+        },
+        applicantActor,
+      );
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(message).toBe(
+      "提交注册申请失败: 注册申请数据结构尚未同步，请联系管理员同步数据库后重试",
+    );
+    expect(message).not.toContain("request_note");
+    expect(message).not.toContain("schema cache");
+  });
+
   it("rejects requester-supplied target store ids before store lookup", async () => {
     const existingRequestQuery = createSupabaseQuery({ data: null, error: null });
     mocks.supabase.from.mockReturnValueOnce(existingRequestQuery);

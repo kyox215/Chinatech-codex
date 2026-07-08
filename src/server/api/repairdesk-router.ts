@@ -98,6 +98,7 @@ import {
   ForbiddenError,
 } from "@/server/auth-context";
 import { writeAuditLog } from "@/server/audit";
+import { resolveRepairDeskSourceMode } from "@/server/repairdesk-source-mode";
 import {
   queueRepairDeskRealtimeBroadcast,
   type RepairDeskRealtimeMutationBroadcast,
@@ -320,7 +321,11 @@ function assertInventoryWrite(actor: Awaited<ReturnType<typeof getRequestActor>>
 async function source() {
   const { isRepairDeskE2eAuthBypassEnabled } = await import("@/shared/lib/e2e-auth-bypass");
   const { hasSupabaseConfig } = await import("@/server/supabase");
-  if (hasSupabaseConfig() && !isRepairDeskE2eAuthBypassEnabled()) return supabaseSource;
+  const mode = resolveRepairDeskSourceMode({
+    hasSupabaseConfig: hasSupabaseConfig(),
+    e2eAuthBypass: isRepairDeskE2eAuthBypassEnabled(),
+  });
+  if (mode === "supabase") return supabaseSource;
 
   const mock = await import("@/lib/mock/api");
   return {
@@ -329,12 +334,9 @@ async function source() {
       suppliers: mock.suppliers,
       technicians: mock.allTechnicians,
     }),
-    getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => ({
-      userId: actor.id,
-      email: actor.email,
-      displayName: actor.displayName,
-      isPlatformAdmin: Boolean(actor.isPlatformAdmin),
-      activeStore: actor.storeId
+    getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
+      const context = await mock.getStoreContext(actor);
+      const activeStore = actor.storeId
         ? {
             id: actor.storeId,
             name: actor.storeName || "Mock Store",
@@ -342,11 +344,18 @@ async function source() {
             role: actor.storeRole ?? actor.role ?? "owner",
             status: "active" as const,
           }
-        : undefined,
-      stores: actor.stores ?? [],
-      requests: [],
-      availableStores: [],
-    }),
+        : context.activeStore;
+      return {
+        userId: actor.id,
+        email: actor.email,
+        displayName: actor.displayName,
+        isPlatformAdmin: Boolean(actor.isPlatformAdmin),
+        activeStore,
+        stores: activeStore ? context.stores : (actor.stores ?? []),
+        requests: [],
+        availableStores: [],
+      };
+    },
     submitOnboardingRequest: async () => {
       throw new Error("Mock 模式暂不支持注册申请");
     },
@@ -358,12 +367,9 @@ async function source() {
     updateAccountProfile: async (
       input: { display_name: string },
       actor: Awaited<ReturnType<typeof getRequestActor>>,
-    ) => ({
-      userId: actor.id,
-      email: actor.email,
-      displayName: input.display_name.trim() || actor.displayName,
-      isPlatformAdmin: Boolean(actor.isPlatformAdmin),
-      activeStore: actor.storeId
+    ) => {
+      const context = await mock.getStoreContext(actor);
+      const activeStore = actor.storeId
         ? {
             id: actor.storeId,
             name: actor.storeName || "Mock Store",
@@ -371,11 +377,18 @@ async function source() {
             role: actor.storeRole ?? actor.role ?? "owner",
             status: "active" as const,
           }
-        : undefined,
-      stores: actor.stores ?? [],
-      requests: [],
-      availableStores: [],
-    }),
+        : context.activeStore;
+      return {
+        userId: actor.id,
+        email: actor.email,
+        displayName: input.display_name.trim() || actor.displayName,
+        isPlatformAdmin: Boolean(actor.isPlatformAdmin),
+        activeStore,
+        stores: activeStore ? context.stores : (actor.stores ?? []),
+        requests: [],
+        availableStores: [],
+      };
+    },
     approveOnboardingRequest: async () => {
       throw new Error("Mock 模式暂不支持平台审批");
     },

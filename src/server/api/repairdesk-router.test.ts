@@ -12,6 +12,20 @@ describe("repairdesk router pending-store access", () => {
     expect(allowsPendingStore("stores/switch", "POST")).toBe(false);
   });
 
+  it("does not allow public store discovery endpoints before active store", () => {
+    for (const path of [
+      "stores/list",
+      "stores/search",
+      "stores/context",
+      "stores/members",
+      "stores/access-requests",
+      "onboarding/stores",
+    ]) {
+      expect(allowsPendingStore(path, "GET")).toBe(false);
+      expect(allowsPendingStore(path, "POST")).toBe(false);
+    }
+  });
+
   it("uses an exact allowlist for setup endpoints before active store", () => {
     expect(allowsPendingStore("onboarding/status", "GET")).toBe(true);
     expect(allowsPendingStore("onboarding/request", "POST")).toBe(true);

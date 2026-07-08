@@ -238,6 +238,17 @@ describe("repairdesk API schemas", () => {
 
     expect(() =>
       onboardingRequestBodySchema.parse({
+        input: {
+          request_type: "join_store",
+          target_owner_email: "owner@chinatech.in",
+          target_store_id: "5248dda1-2b32-46cd-8ed0-d15386a9e8ed",
+          requested_role: "technician",
+        },
+      }),
+    ).toThrow("加入店铺不能直接指定店铺 id");
+
+    expect(() =>
+      onboardingRequestBodySchema.parse({
         input: { request_type: "create_store" },
       }),
     ).toThrow("创建店铺请使用创建店铺接口");
