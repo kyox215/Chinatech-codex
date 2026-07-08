@@ -135,6 +135,11 @@ describe("platform repository onboarding boundaries", () => {
     const result = await listPlatformOnboardingRequests(platformActor);
 
     expect(result).toEqual([]);
+    expect(storeInsertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        store_code: expect.stringMatching(/^CHINAT-[A-F0-9]{6}$/),
+      }),
+    );
     expect(provisioningMocks.provisionStoreDefaults).toHaveBeenCalledWith(
       mocks.supabase,
       expect.objectContaining({

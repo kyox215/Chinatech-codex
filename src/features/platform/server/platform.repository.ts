@@ -328,9 +328,11 @@ async function autoApproveLegacyCreateStoreRequest(
     request.desired_store_name || `${displayNameFromEmail(request.email)} RepairDesk`,
   );
   const slug = await uniqueStoreSlug(supabase, storeName);
+  const storeCode = generateStoreCode(storeName);
   const { data: storeRow, error: storeError } = await supabase
     .from("stores")
     .insert({
+      store_code: storeCode,
       name: storeName,
       slug,
       owner_user_id: request.requester_user_id,
@@ -684,6 +686,13 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
   return slug.length >= 3 ? slug : `store-${crypto.randomUUID().slice(0, 6)}`;
+}
+
+function generateStoreCode(name: string) {
+  const base = slugify(name).replace(/-/g, "").slice(0, 6).toUpperCase();
+  const prefix = base.length >= 3 ? base : "STORE";
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+  return `${prefix}-${suffix}`.slice(0, 32);
 }
 
 function displayNameFromEmail(email?: string) {

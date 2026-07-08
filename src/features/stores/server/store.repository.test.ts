@@ -216,6 +216,7 @@ describe("store repository access request boundaries", () => {
     expect(mocks.supabase.from).not.toHaveBeenCalledWith("onboarding_requests");
     expect(storeInsertQuery.insert).toHaveBeenCalledWith(
       expect.objectContaining({
+        store_code: expect.stringMatching(/^CHINAT-[A-F0-9]{6}$/),
         name: "ChinaTech Roma",
         slug: expect.stringMatching(/^chinatech-roma-[a-f0-9]{8}$/),
         owner_user_id: "owner_2",

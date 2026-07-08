@@ -81,10 +81,12 @@ export async function createStore(
   await enforceCreateStoreRateLimit(supabase, actor);
   const now = new Date().toISOString();
   const slug = await uniqueStoreSlug(supabase, name);
+  const storeCode = generateStoreCode(name);
 
   const { data: storeRow, error: storeError } = await supabase
     .from("stores")
     .insert({
+      store_code: storeCode,
       name,
       slug,
       owner_user_id: actor.id,
@@ -1487,6 +1489,13 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
   return slug.length >= 3 ? slug : `store-${crypto.randomUUID().slice(0, 6)}`;
+}
+
+function generateStoreCode(name: string) {
+  const base = slugify(name).replace(/-/g, "").slice(0, 6).toUpperCase();
+  const prefix = base.length >= 3 ? base : "STORE";
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+  return `${prefix}-${suffix}`.slice(0, 32);
 }
 
 function toStoreRole(value: unknown): StoreRole {
