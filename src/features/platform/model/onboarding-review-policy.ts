@@ -24,6 +24,8 @@ export function redactRequesterOnboardingRequest(request: OnboardingRequest): On
     target_store_id: undefined,
     target_store_name: undefined,
     resulting_store_id: request.status === "approved" ? request.resulting_store_id : undefined,
+    reviewed_by: undefined,
+    reviewed_by_membership_id: undefined,
   };
 }
 

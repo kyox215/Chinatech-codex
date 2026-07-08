@@ -446,7 +446,7 @@ export function OnboardingScreen() {
                   />
                 </div>
                 <div className="rounded-[var(--radius-lg)] border border-primary/15 bg-primary/5 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                  系统不会展示已有店铺列表。申请会进入该负责人账号的审批队列，批准后才会开通店铺权限。
+                  系统不会展示已有店铺列表。申请提交后等待店铺负责人确认；如果负责人看不到申请，请让负责人发送邀请或邀请码。
                 </div>
               </TabsContent>
 

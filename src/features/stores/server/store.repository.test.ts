@@ -40,15 +40,27 @@ vi.mock("next/headers", () => ({
 const storeOwner: AuditActor = {
   id: "owner_1",
   email: "owner@chinatech.in",
+  emailVerified: true,
   displayName: "Owner",
   storeId: "store_1",
   storeName: "ChinaTech",
   storeRole: "owner",
 };
 
+const storeManager: AuditActor = {
+  id: "manager_1",
+  email: "manager@chinatech.in",
+  emailVerified: true,
+  displayName: "Manager",
+  storeId: "store_1",
+  storeName: "ChinaTech",
+  storeRole: "manager",
+};
+
 const invitedActor: AuditActor = {
   id: "staff_1",
   email: "staff@example.com",
+  emailVerified: true,
   displayName: "Invited Staff",
 };
 
@@ -127,6 +139,7 @@ describe("store repository access request boundaries", () => {
   });
 
   it("creates an independent private store with an active owner membership", async () => {
+    const createRateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
     const slugQuery = createSupabaseQuery({ data: null, error: null });
     const storeInsertQuery = createSupabaseQuery({
       data: {
@@ -138,33 +151,61 @@ describe("store repository access request boundaries", () => {
       error: null,
     });
     const membershipInsertQuery = createSupabaseQuery({ data: null, error: null });
+    const settingsProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const templatesProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const statusesProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const transitionsProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const activateStoreQuery = createSupabaseQuery({
+      data: {
+        id: "store_new",
+        name: "ChinaTech Roma",
+        slug: "chinatech-roma",
+        status: "active",
+      },
+      error: null,
+    });
     const newOwner: AuditActor = {
       id: "owner_2",
       email: " Owner@ChinaTech.IN ",
+      emailVerified: true,
       displayName: "New Owner",
       role: "viewer",
     };
     mocks.supabase.from
+      .mockReturnValueOnce(createRateLimitQuery)
       .mockReturnValueOnce(slugQuery)
       .mockReturnValueOnce(storeInsertQuery)
-      .mockReturnValueOnce(membershipInsertQuery);
+      .mockReturnValueOnce(settingsProvisionQuery)
+      .mockReturnValueOnce(templatesProvisionQuery)
+      .mockReturnValueOnce(statusesProvisionQuery)
+      .mockReturnValueOnce(transitionsProvisionQuery)
+      .mockReturnValueOnce(membershipInsertQuery)
+      .mockReturnValueOnce(activateStoreQuery);
 
     const context = await createStore(
       { name: "  ChinaTech Roma  ", currency_code: "EUR" },
       newOwner,
     );
 
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(3);
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(9);
     expect(mocks.supabase.from).toHaveBeenNthCalledWith(1, "stores");
     expect(mocks.supabase.from).toHaveBeenNthCalledWith(2, "stores");
-    expect(mocks.supabase.from).toHaveBeenNthCalledWith(3, "store_memberships");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(3, "stores");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(4, "store_settings");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(5, "message_templates");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(6, "order_workflow_statuses");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(7, "order_workflow_transitions");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(8, "store_memberships");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(9, "stores");
+    expect(createRateLimitQuery.eq).toHaveBeenCalledWith("owner_user_id", "owner_2");
+    expect(createRateLimitQuery.gte).toHaveBeenCalledWith("created_at", expect.any(String));
     expect(mocks.supabase.from).not.toHaveBeenCalledWith("onboarding_requests");
     expect(storeInsertQuery.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "ChinaTech Roma",
         slug: expect.stringMatching(/^chinatech-roma-[a-f0-9]{8}$/),
         owner_user_id: "owner_2",
-        status: "active",
+        status: "suspended",
         plan: "starter",
         currency_code: "EUR",
       }),
@@ -178,6 +219,78 @@ describe("store repository access request boundaries", () => {
         role: "owner",
         status: "active",
       }),
+    );
+    expect(activateStoreQuery.update).toHaveBeenCalledWith({
+      status: "active",
+      updated_at: expect.any(String),
+    });
+    expect(activateStoreQuery.eq).toHaveBeenCalledWith("id", "store_new");
+    expect(settingsProvisionQuery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        store_id: "store_new",
+        store_name: "ChinaTech Roma",
+        store_address: "",
+        message_signature: "ChinaTech Roma",
+        updated_by: "owner_2",
+      }),
+      { onConflict: "id", ignoreDuplicates: true },
+    );
+    expect(templatesProvisionQuery.upsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          store_id: "store_new",
+          domain: "order",
+          channel: "whatsapp",
+        }),
+      ]),
+      {
+        onConflict: "id",
+        ignoreDuplicates: true,
+      },
+    );
+    expect(statusesProvisionQuery.upsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          store_id: "store_new",
+          code: "new",
+          is_default_create_status: true,
+          allowed_for_create: true,
+          is_system: true,
+        }),
+        expect.objectContaining({
+          store_id: "store_new",
+          code: "repaired",
+          bucket: "repair",
+        }),
+        expect.objectContaining({
+          store_id: "store_new",
+          code: "mail_in_progress",
+          sort_order: 85,
+          bucket: "repair",
+          show_in_order_filters: true,
+        }),
+      ]),
+      { onConflict: "store_id,code", ignoreDuplicates: true },
+    );
+    expect(transitionsProvisionQuery.upsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          store_id: "store_new",
+          from_status_code: "new",
+          to_status_code: "diagnosing",
+          is_primary: true,
+        }),
+        expect.objectContaining({
+          store_id: "store_new",
+          from_status_code: "quoted",
+          to_status_code: "mail_in_progress",
+          sort_order: 35,
+        }),
+      ]),
+      {
+        onConflict: "store_id,from_status_code,to_status_code",
+        ignoreDuplicates: true,
+      },
     );
     expect(mocks.setCookie).toHaveBeenCalledWith(
       "repairdesk-store-id",
@@ -199,17 +312,60 @@ describe("store repository access request boundaries", () => {
     );
   });
 
+  it("rejects unverified accounts before creating a store", async () => {
+    await expect(
+      createStore(
+        { name: "ChinaTech Roma", currency_code: "EUR" },
+        {
+          id: "owner_2",
+          email: "owner@chinatech.in",
+          emailVerified: false,
+          displayName: "New Owner",
+        },
+      ),
+    ).rejects.toThrow("请先验证账号邮箱");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    expect(mocks.setCookie).not.toHaveBeenCalled();
+  });
+
+  it("soft-rate limits repeated store creation before writing stores", async () => {
+    const createRateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 3 });
+    mocks.supabase.from.mockReturnValueOnce(createRateLimitQuery);
+
+    await expect(
+      createStore(
+        { name: "ChinaTech Roma", currency_code: "EUR" },
+        {
+          id: "owner_2",
+          email: "owner@chinatech.in",
+          emailVerified: true,
+          displayName: "New Owner",
+        },
+      ),
+    ).rejects.toThrow("创建店铺过于频繁");
+
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(createRateLimitQuery.insert).not.toHaveBeenCalled();
+    expect(mocks.setCookie).not.toHaveBeenCalled();
+  });
+
   it("rolls back the created store if owner membership creation fails", async () => {
+    const createRateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
     const slugQuery = createSupabaseQuery({ data: null, error: null });
     const storeInsertQuery = createSupabaseQuery({
       data: {
         id: "store_new",
         name: "ChinaTech Roma",
         slug: "chinatech-roma",
-        status: "active",
+        status: "suspended",
       },
       error: null,
     });
+    const settingsProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const templatesProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const statusesProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const transitionsProvisionQuery = createSupabaseQuery({ data: null, error: null });
     const membershipInsertQuery = createSupabaseQuery({
       data: null,
       error: { message: "membership insert failed" },
@@ -221,25 +377,173 @@ describe("store repository access request boundaries", () => {
     const newOwner: AuditActor = {
       id: "owner_2",
       email: "owner@chinatech.in",
+      emailVerified: true,
       displayName: "New Owner",
       role: "viewer",
     };
     mocks.supabase.from
+      .mockReturnValueOnce(createRateLimitQuery)
       .mockReturnValueOnce(slugQuery)
       .mockReturnValueOnce(storeInsertQuery)
+      .mockReturnValueOnce(settingsProvisionQuery)
+      .mockReturnValueOnce(templatesProvisionQuery)
+      .mockReturnValueOnce(statusesProvisionQuery)
+      .mockReturnValueOnce(transitionsProvisionQuery)
       .mockReturnValueOnce(membershipInsertQuery)
+      .mockReturnValueOnce(createSupabaseQuery({ data: null, error: null }))
+      .mockReturnValueOnce(createSupabaseQuery({ data: null, error: null }))
+      .mockReturnValueOnce(createSupabaseQuery({ data: null, error: null }))
+      .mockReturnValueOnce(createSupabaseQuery({ data: null, error: null }))
       .mockReturnValueOnce(rollbackQuery);
 
     await expect(
       createStore({ name: "ChinaTech Roma", currency_code: "EUR" }, newOwner),
-    ).rejects.toThrow("创建店铺成员关系失败: membership insert failed");
+    ).rejects.toThrow("创建店铺成员关系失败，请稍后重试");
 
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(4);
-    expect(mocks.supabase.from).toHaveBeenNthCalledWith(4, "stores");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(13);
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(8, "store_memberships");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(9, "order_workflow_transitions");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(10, "order_workflow_statuses");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(11, "message_templates");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(12, "store_settings");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(13, "stores");
     expect(rollbackQuery.delete).toHaveBeenCalled();
     expect(rollbackQuery.eq).toHaveBeenCalledWith("id", "store_new");
     expect(mocks.setCookie).not.toHaveBeenCalled();
     expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("rolls back the created store if default provisioning fails", async () => {
+    const createRateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
+    const slugQuery = createSupabaseQuery({ data: null, error: null });
+    const storeInsertQuery = createSupabaseQuery({
+      data: {
+        id: "store_new",
+        name: "ChinaTech Roma",
+        slug: "chinatech-roma",
+        status: "suspended",
+      },
+      error: null,
+    });
+    const settingsProvisionQuery = createSupabaseQuery({
+      data: null,
+      error: { message: "settings insert failed" },
+    });
+    const transitionRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const statusRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const templateRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const settingsRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const storeRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const newOwner: AuditActor = {
+      id: "owner_2",
+      email: "owner@chinatech.in",
+      emailVerified: true,
+      displayName: "New Owner",
+      role: "viewer",
+    };
+    mocks.supabase.from
+      .mockReturnValueOnce(createRateLimitQuery)
+      .mockReturnValueOnce(slugQuery)
+      .mockReturnValueOnce(storeInsertQuery)
+      .mockReturnValueOnce(settingsProvisionQuery)
+      .mockReturnValueOnce(transitionRollbackQuery)
+      .mockReturnValueOnce(statusRollbackQuery)
+      .mockReturnValueOnce(templateRollbackQuery)
+      .mockReturnValueOnce(settingsRollbackQuery)
+      .mockReturnValueOnce(storeRollbackQuery);
+
+    await expect(
+      createStore({ name: "ChinaTech Roma", currency_code: "EUR" }, newOwner),
+    ).rejects.toThrow("创建店铺初始化失败，请稍后重试");
+
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(9);
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(5, "order_workflow_transitions");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(6, "order_workflow_statuses");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(7, "message_templates");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(8, "store_settings");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(9, "stores");
+    expect(transitionRollbackQuery.delete).toHaveBeenCalled();
+    expect(statusRollbackQuery.delete).toHaveBeenCalled();
+    expect(templateRollbackQuery.delete).toHaveBeenCalled();
+    expect(settingsRollbackQuery.delete).toHaveBeenCalled();
+    expect(storeRollbackQuery.delete).toHaveBeenCalled();
+    expect(storeRollbackQuery.eq).toHaveBeenCalledWith("id", "store_new");
+    expect(mocks.setCookie).not.toHaveBeenCalled();
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("rolls back defaults and store if final activation fails", async () => {
+    const createRateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
+    const slugQuery = createSupabaseQuery({ data: null, error: null });
+    const storeInsertQuery = createSupabaseQuery({
+      data: {
+        id: "store_new",
+        name: "ChinaTech Roma",
+        slug: "chinatech-roma",
+        status: "suspended",
+      },
+      error: null,
+    });
+    const settingsProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const templatesProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const statusesProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const transitionsProvisionQuery = createSupabaseQuery({ data: null, error: null });
+    const membershipInsertQuery = createSupabaseQuery({ data: null, error: null });
+    const activateStoreQuery = createSupabaseQuery({
+      data: null,
+      error: { message: "activation failed" },
+    });
+    const transitionRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const statusRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const templateRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const settingsRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const storeRollbackQuery = createSupabaseQuery({ data: null, error: null });
+    const newOwner: AuditActor = {
+      id: "owner_2",
+      email: "owner@chinatech.in",
+      emailVerified: true,
+      displayName: "New Owner",
+      role: "viewer",
+    };
+    mocks.supabase.from
+      .mockReturnValueOnce(createRateLimitQuery)
+      .mockReturnValueOnce(slugQuery)
+      .mockReturnValueOnce(storeInsertQuery)
+      .mockReturnValueOnce(settingsProvisionQuery)
+      .mockReturnValueOnce(templatesProvisionQuery)
+      .mockReturnValueOnce(statusesProvisionQuery)
+      .mockReturnValueOnce(transitionsProvisionQuery)
+      .mockReturnValueOnce(membershipInsertQuery)
+      .mockReturnValueOnce(activateStoreQuery)
+      .mockReturnValueOnce(transitionRollbackQuery)
+      .mockReturnValueOnce(statusRollbackQuery)
+      .mockReturnValueOnce(templateRollbackQuery)
+      .mockReturnValueOnce(settingsRollbackQuery)
+      .mockReturnValueOnce(storeRollbackQuery);
+
+    await expect(
+      createStore({ name: "ChinaTech Roma", currency_code: "EUR" }, newOwner),
+    ).rejects.toThrow("创建店铺激活失败，请稍后重试");
+
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(14);
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(9, "stores");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(10, "order_workflow_transitions");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(11, "order_workflow_statuses");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(12, "message_templates");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(13, "store_settings");
+    expect(mocks.supabase.from).toHaveBeenNthCalledWith(14, "stores");
+    expect(storeRollbackQuery.delete).toHaveBeenCalled();
+    expect(storeRollbackQuery.eq).toHaveBeenCalledWith("id", "store_new");
+    expect(mocks.setCookie).not.toHaveBeenCalled();
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("does not let managers invite another manager", async () => {
+    await expect(
+      inviteStoreMember({ email: "new-manager@example.com", role: "manager" }, storeManager),
+    ).rejects.toThrow("当前员工没有权限执行此操作");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
   it("keeps owner invitations pending even when the email already has an account", async () => {
@@ -394,6 +698,18 @@ describe("store repository access request boundaries", () => {
     expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
   });
 
+  it("does not accept invitations for unverified accounts", async () => {
+    await expect(
+      acceptStoreInvitation(
+        { id: "00000000-0000-4000-8000-000000000101" },
+        { ...invitedActor, emailVerified: false },
+      ),
+    ).rejects.toThrow("请先验证账号邮箱");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    expect(mocks.setCookie).not.toHaveBeenCalled();
+  });
+
   it("does not accept revoked invitations", async () => {
     const invitationReadQuery = createSupabaseQuery({ data: null, error: null });
     mocks.supabase.from.mockReturnValueOnce(invitationReadQuery);
@@ -534,6 +850,22 @@ describe("store repository access request boundaries", () => {
     );
   });
 
+  it("does not let managers create manager invite links", async () => {
+    await expect(
+      createStoreInviteLink(
+        {
+          label: "店长",
+          role: "manager",
+          expires_in_days: 7,
+          max_uses: 1,
+        },
+        storeManager,
+      ),
+    ).rejects.toThrow("当前员工没有权限执行此操作");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
   it("redeems an invite link into a pending invitation without creating membership", async () => {
     const attemptsCountQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
     const linkReadQuery = createSupabaseQuery({
@@ -582,12 +914,28 @@ describe("store repository access request boundaries", () => {
     expect(attemptRecordQuery.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         actor_id: "staff_1",
-        actor_email: "staff@example.com",
         code_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
         store_id: "store_1",
         result: "success",
       }),
     );
+    const attemptInsertCalls = attemptRecordQuery.insert.mock.calls as unknown as Array<
+      [Record<string, unknown>]
+    >;
+    const attemptInsertPayload = attemptInsertCalls[0]?.[0];
+    expect(attemptInsertPayload).not.toHaveProperty("actor_email");
+  });
+
+  it("does not redeem invite links for unverified accounts", async () => {
+    await expect(
+      redeemStoreInviteLink(
+        { code: "rd_valid_invite_code" },
+        { ...invitedActor, emailVerified: false },
+      ),
+    ).rejects.toThrow("请先验证账号邮箱");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 
   it("does not create an invitation when invite link claim loses the use-limit race", async () => {
@@ -794,6 +1142,30 @@ describe("store repository access request boundaries", () => {
     }
   });
 
+  it("does not let managers list, approve, or reject store access requests", async () => {
+    await expect(listStoreAccessRequests(storeManager)).rejects.toThrow("只有店主可以处理加入申请");
+    await expect(
+      approveStoreAccessRequest(
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          approved_role: "viewer",
+        },
+        storeManager,
+      ),
+    ).rejects.toThrow("只有店主可以处理加入申请");
+    await expect(
+      rejectStoreAccessRequest(
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          note: "不是本店员工",
+        },
+        storeManager,
+      ),
+    ).rejects.toThrow("只有店主可以处理加入申请");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
   it("does not approve if the store request was already processed", async () => {
     const pendingQuery = createSupabaseQuery({
       data: onboardingRow({
@@ -873,7 +1245,7 @@ describe("store repository access request boundaries", () => {
         },
         storeOwner,
       ),
-    ).rejects.toThrow("同步员工档案失败: internal staff sync details");
+    ).rejects.toThrow("批准加入申请失败，请稍后重试");
 
     expect(compensationQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({

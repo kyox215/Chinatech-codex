@@ -104,7 +104,7 @@ export function validateOnboardingForm(
     return { canSubmit: false, reason: "申请备注不能超过 500 个字符" };
   }
 
-  return { canSubmit: true, reason: "申请会发送给该负责人审批，不会展示系统内已有店铺列表" };
+  return { canSubmit: true, reason: "系统不会展示已有店铺列表，提交后等待负责人确认" };
 }
 
 export function buildOnboardingRequestInput(form: OnboardingFormState): OnboardingRequestInput {

@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
 import { getSupabaseAdmin, hasSupabaseConfig } from "@/server/supabase";
-import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import { cookies, headers } from "next/headers";
+import { assertRepairDeskBrowserAuthMode } from "@/server/repairdesk-source-mode";
+import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import type {
   ActorStoreMembership,
   AuditActor,
@@ -48,6 +49,7 @@ export async function getRequestActor(
 ): Promise<AuditActor> {
   const requestIpHash = await getRequestIpHash();
   if (!hasBrowserAuthConfig()) {
+    assertRepairDeskBrowserAuthMode({ hasBrowserAuthConfig: false });
     if (required) return { ...systemActor, requestIpHash };
     return { ...systemActor, requestIpHash };
   }
@@ -61,16 +63,21 @@ export async function getRequestActor(
   }
 
   const email = typeof claims.email === "string" ? claims.email : undefined;
+  const emailVerifiedFromClaims = isVerifiedEmailClaim(claims);
   if (!hasSupabaseConfig()) {
     return {
       id: claims.sub,
       email,
-      displayName: resolveStaffDisplayName({ email }),
+      emailVerified: emailVerifiedFromClaims,
+      displayName: resolveStaffDisplayName({ email, displayName: email, fallback: "员工" }),
       requestIpHash,
     };
   }
 
   const admin = getSupabaseAdmin();
+  const emailVerified = emailVerifiedFromClaims
+    ? true
+    : await resolveVerifiedEmailFromAuthUser(admin, claims.sub);
   const staff = await ensureStaffProfile({
     admin,
     userId: claims.sub,
@@ -88,10 +95,12 @@ export async function getRequestActor(
   return {
     id: staff.id,
     email: staff.email || email,
+    emailVerified,
     displayName: resolveStaffDisplayName({
       email: staff.email || email,
       displayName: staff.display_name,
       role: activeStore?.role || staff.role,
+      fallback: "员工",
     }),
     role: activeStore?.role || staff.role,
     isPlatformAdmin,
@@ -109,6 +118,11 @@ export function assertStaffRole(actor: AuditActor, roles: readonly string[]) {
   if (!role || !roles.includes(role)) {
     throw new ForbiddenError();
   }
+}
+
+export function assertVerifiedEmail(actor: AuditActor) {
+  if (actor.emailVerified === true) return;
+  throw new ForbiddenError("请先验证账号邮箱后再继续");
 }
 
 async function ensureStaffProfile({
@@ -129,7 +143,7 @@ async function ensureStaffProfile({
   if (profileError) throw new Error(`读取员工档案失败：${profileError.message}`);
   if (profile) return profile as StaffProfile;
 
-  const fallbackName = resolveStaffDisplayName({ email, fallback: "店铺管理员" });
+  const fallbackName = resolveStaffDisplayName({ email, fallback: "Staff" });
   const { data: inserted, error: insertError } = await admin
     .from("staff_profiles")
     .insert({
@@ -214,6 +228,37 @@ async function getRequestIpHash() {
   } catch {
     return undefined;
   }
+}
+
+function isVerifiedEmailClaim(claims: Record<string, unknown>) {
+  if (claims.email_verified === true) return true;
+  if (typeof claims.email_confirmed_at === "string" && claims.email_confirmed_at) return true;
+
+  const userMetadata =
+    claims.user_metadata && typeof claims.user_metadata === "object"
+      ? (claims.user_metadata as Record<string, unknown>)
+      : undefined;
+  if (userMetadata?.email_verified === true) return true;
+
+  const appMetadata =
+    claims.app_metadata && typeof claims.app_metadata === "object"
+      ? (claims.app_metadata as Record<string, unknown>)
+      : undefined;
+  return appMetadata?.email_verified === true;
+}
+
+async function resolveVerifiedEmailFromAuthUser(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  userId: string,
+) {
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error) return false;
+  const user = data.user;
+  if (!user) return false;
+  if (user.email_confirmed_at) return true;
+  if (user.confirmed_at) return true;
+  if (user.user_metadata?.email_verified === true) return true;
+  return user.app_metadata?.email_verified === true;
 }
 
 function toStoreRole(value: unknown): StoreRole {

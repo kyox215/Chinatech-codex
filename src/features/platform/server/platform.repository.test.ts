@@ -18,13 +18,21 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+const provisioningMocks = vi.hoisted(() => ({
+  deleteProvisionedStoreDefaults: vi.fn(),
+  provisionStoreDefaults: vi.fn(),
+}));
+
 vi.mock("@/server/supabase", () => ({
   getSupabaseAdmin: () => mocks.supabase,
 }));
 
+vi.mock("@/features/stores/server/store-provisioning", () => provisioningMocks);
+
 const platformActor: AuditActor = {
   id: "platform_1",
   email: "admin@example.com",
+  emailVerified: true,
   displayName: "Platform Admin",
   isPlatformAdmin: true,
 };
@@ -32,12 +40,15 @@ const platformActor: AuditActor = {
 const applicantActor: AuditActor = {
   id: "user_1",
   email: "staff@example.com",
+  emailVerified: true,
   displayName: "Mario",
 };
 
 describe("platform repository onboarding boundaries", () => {
   beforeEach(() => {
     mocks.supabase.from.mockReset();
+    provisioningMocks.deleteProvisionedStoreDefaults.mockReset();
+    provisioningMocks.provisionStoreDefaults.mockReset();
   });
 
   it("lists only platform-scoped pending requests", async () => {
@@ -49,6 +60,116 @@ describe("platform repository onboarding boundaries", () => {
     expect(mocks.supabase.from).toHaveBeenCalledWith("onboarding_requests");
     expect(query.eq).toHaveBeenCalledWith("status", "pending");
     expect(query.eq).toHaveBeenCalledWith("review_scope", "platform");
+  });
+
+  it("falls back to the legacy queue query when review_scope is missing", async () => {
+    const scopedQuery = createSupabaseQuery({
+      data: null,
+      error: { message: "column onboarding_requests.review_scope does not exist" },
+    });
+    const fallbackQuery = createSupabaseQuery({
+      data: [
+        {
+          ...onboardingRow({ request_type: "join_store", review_scope: "platform" }),
+          review_scope: undefined,
+        },
+      ],
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(scopedQuery).mockReturnValueOnce(fallbackQuery);
+
+    const result = await listPlatformOnboardingRequests(platformActor);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ request_type: "join_store", review_scope: "platform" });
+    expect(scopedQuery.eq).toHaveBeenCalledWith("review_scope", "platform");
+    expect(fallbackQuery.eq).not.toHaveBeenCalledWith("review_scope", "platform");
+  });
+
+  it("auto-approves legacy create-store requests instead of returning them to the queue", async () => {
+    const listQuery = createSupabaseQuery({
+      data: [
+        onboardingRow({
+          request_type: "create_store",
+          review_scope: "platform",
+          requested_role: "owner",
+          desired_store_name: "ChinaTech Roma",
+        }),
+      ],
+      error: null,
+    });
+    const slugQuery = createSupabaseQuery({ data: null, error: null });
+    const storeInsertQuery = createSupabaseQuery({
+      data: {
+        id: "store_1",
+        name: "ChinaTech Roma",
+        slug: "chinatech-roma-12345678",
+        status: "suspended",
+      },
+      error: null,
+    });
+    const membershipInsertQuery = createSupabaseQuery({ data: null, error: null });
+    const activateStoreQuery = createSupabaseQuery({ data: null, error: null });
+    const updateRequestQuery = createSupabaseQuery({
+      data: onboardingRow({
+        request_type: "create_store",
+        review_scope: "platform",
+        requested_role: "owner",
+        desired_store_name: "ChinaTech Roma",
+        status: "approved",
+        decision_note: "系统自动开通店铺，无需平台审批",
+        resulting_store_id: "store_1",
+      }),
+      error: null,
+    });
+    const auditQuery = createSupabaseQuery({ data: null, error: null });
+    mocks.supabase.from
+      .mockReturnValueOnce(listQuery)
+      .mockReturnValueOnce(slugQuery)
+      .mockReturnValueOnce(storeInsertQuery)
+      .mockReturnValueOnce(membershipInsertQuery)
+      .mockReturnValueOnce(activateStoreQuery)
+      .mockReturnValueOnce(updateRequestQuery)
+      .mockReturnValueOnce(auditQuery);
+
+    const result = await listPlatformOnboardingRequests(platformActor);
+
+    expect(result).toEqual([]);
+    expect(provisioningMocks.provisionStoreDefaults).toHaveBeenCalledWith(
+      mocks.supabase,
+      expect.objectContaining({
+        storeId: "store_1",
+        storeName: "ChinaTech Roma",
+        actorId: "user_1",
+      }),
+    );
+    expect(storeInsertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "ChinaTech Roma",
+        owner_user_id: "user_1",
+        status: "suspended",
+        currency_code: "EUR",
+      }),
+    );
+    expect(membershipInsertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        store_id: "store_1",
+        user_id: "user_1",
+        email: "staff@example.com",
+        role: "owner",
+        status: "active",
+      }),
+    );
+    expect(updateRequestQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "approved",
+        decision_note: "系统自动开通店铺，无需平台审批",
+        resulting_store_id: "store_1",
+      }),
+    );
+    expect(auditQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "auto_approve_create_store_request" }),
+    );
   });
 
   it("returns current-email pending invitations without exposing internal store identifiers", async () => {
@@ -88,6 +209,28 @@ describe("platform repository onboarding boundaries", () => {
     expect(result.invitations?.[0]).not.toHaveProperty("store_id");
     expect(result.invitations?.[0]).not.toHaveProperty("invited_by");
     expect(result.invitations?.[0]).not.toHaveProperty("accepted_at");
+  });
+
+  it("does not expose store options in onboarding status", async () => {
+    const requestsQuery = createSupabaseQuery({ data: [], error: null });
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from.mockReturnValueOnce(requestsQuery).mockReturnValueOnce(invitationsQuery);
+
+    const result = await getOnboardingStatus(applicantActor);
+
+    expect(result.availableStores).toEqual([]);
+  });
+
+  it("does not read email-bound invitations before the account email is verified", async () => {
+    const requestsQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from.mockReturnValueOnce(requestsQuery);
+
+    const result = await getOnboardingStatus({ ...applicantActor, emailVerified: false });
+
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.from).toHaveBeenCalledWith("onboarding_requests");
+    expect(result.invitations).toEqual([]);
+    expect(result.availableStores).toEqual([]);
   });
 
   it("sanitizes platform audit profile payloads before persistence", async () => {
@@ -190,6 +333,7 @@ describe("platform repository onboarding boundaries", () => {
 
   it("redacts owner-email routed store details in requester responses and audit payloads", async () => {
     const existingRequestQuery = createSupabaseQuery({ data: null, error: null });
+    const rateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
     const ownerMatchQuery = createSupabaseQuery({
       data: [
         {
@@ -212,6 +356,7 @@ describe("platform repository onboarding boundaries", () => {
     const auditQuery = createSupabaseQuery({ data: null, error: null });
     mocks.supabase.from
       .mockReturnValueOnce(existingRequestQuery)
+      .mockReturnValueOnce(rateLimitQuery)
       .mockReturnValueOnce(ownerMatchQuery)
       .mockReturnValueOnce(insertQuery)
       .mockReturnValueOnce(auditQuery);
@@ -227,7 +372,11 @@ describe("platform repository onboarding boundaries", () => {
     );
 
     expect(ownerMatchQuery.eq).toHaveBeenCalledWith("email", "owner@chinatech.in");
+    expect(ownerMatchQuery.in).toHaveBeenCalledWith("role", ["owner"]);
     expect(ownerMatchQuery.ilike).not.toHaveBeenCalled();
+    expect(rateLimitQuery.eq).toHaveBeenCalledWith("requester_user_id", "user_1");
+    expect(rateLimitQuery.eq).toHaveBeenCalledWith("request_type", "join_store");
+    expect(rateLimitQuery.gte).toHaveBeenCalledWith("created_at", expect.any(String));
     expect(result).toMatchObject({
       request_type: "join_store",
       review_scope: "platform",
@@ -249,6 +398,74 @@ describe("platform repository onboarding boundaries", () => {
     expect(auditPayload.after_data).not.toHaveProperty("target_store_name");
     expect(auditPayload.after_data).not.toHaveProperty("target_owner_email");
     expect(auditPayload.after_data).not.toHaveProperty("request_note");
+  });
+
+  it("rejects unverified join requests before reading onboarding rows", async () => {
+    await expect(
+      submitOnboardingRequest(
+        {
+          request_type: "join_store",
+          target_owner_email: "owner@chinatech.in",
+          requested_role: "technician",
+        },
+        { ...applicantActor, emailVerified: false },
+      ),
+    ).rejects.toThrow("请先验证账号邮箱");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("soft-rate limits repeated owner-email join requests before owner lookup", async () => {
+    const existingRequestQuery = createSupabaseQuery({ data: null, error: null });
+    const rateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 5 });
+    mocks.supabase.from
+      .mockReturnValueOnce(existingRequestQuery)
+      .mockReturnValueOnce(rateLimitQuery);
+
+    await expect(
+      submitOnboardingRequest(
+        {
+          request_type: "join_store",
+          target_owner_email: "owner@chinatech.in",
+          requested_role: "technician",
+        },
+        applicantActor,
+      ),
+    ).rejects.toThrow("提交申请过于频繁");
+
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+    expect(rateLimitQuery.gte).toHaveBeenCalledWith("created_at", expect.any(String));
+    expect(rateLimitQuery.insert).not.toHaveBeenCalled();
+  });
+
+  it("uses a generic owner-email lookup error without leaking database details", async () => {
+    const existingRequestQuery = createSupabaseQuery({ data: null, error: null });
+    const rateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
+    const ownerMatchQuery = createSupabaseQuery({
+      data: null,
+      error: { message: "more than one relationship was found for repair_orders and suppliers" },
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(existingRequestQuery)
+      .mockReturnValueOnce(rateLimitQuery)
+      .mockReturnValueOnce(ownerMatchQuery);
+
+    let message = "";
+    try {
+      await submitOnboardingRequest(
+        {
+          request_type: "join_store",
+          target_owner_email: "owner@chinatech.in",
+          requested_role: "technician",
+        },
+        applicantActor,
+      );
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(message).toBe("提交注册申请失败，请稍后重试");
+    expect(message).not.toContain("more than one relationship");
   });
 
   it("rejects requester-supplied target store ids before store lookup", async () => {
@@ -404,6 +621,7 @@ describe("platform repository onboarding boundaries", () => {
 
   it("normalizes mixed-case owner email before exact matching", async () => {
     const existingRequestQuery = createSupabaseQuery({ data: null, error: null });
+    const rateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
     const ownerMatchQuery = createSupabaseQuery({ data: [], error: null });
     const insertQuery = createSupabaseQuery({
       data: onboardingRow({
@@ -416,6 +634,7 @@ describe("platform repository onboarding boundaries", () => {
     const auditQuery = createSupabaseQuery({ data: null, error: null });
     mocks.supabase.from
       .mockReturnValueOnce(existingRequestQuery)
+      .mockReturnValueOnce(rateLimitQuery)
       .mockReturnValueOnce(ownerMatchQuery)
       .mockReturnValueOnce(insertQuery)
       .mockReturnValueOnce(auditQuery);
@@ -483,11 +702,12 @@ describe("platform repository onboarding boundaries", () => {
   });
 });
 
-function createSupabaseQuery(result: { data: unknown; error: unknown }) {
+function createSupabaseQuery(result: { data: unknown; error: unknown; count?: number }) {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
     gt: vi.fn(() => query),
+    gte: vi.fn(() => result),
     in: vi.fn(() => result),
     ilike: vi.fn(() => query),
     order: vi.fn(() => result),
@@ -509,6 +729,7 @@ async function submitOwnerEmailScenario(
   mocks.supabase.from.mockReset();
   const isUnique = ownerMatches.length === 1;
   const existingRequestQuery = createSupabaseQuery({ data: null, error: null });
+  const rateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
   const ownerMatchQuery = createSupabaseQuery({ data: ownerMatches, error: null });
   const insertedRow = onboardingRow({
     request_type: "join_store",
@@ -521,6 +742,7 @@ async function submitOwnerEmailScenario(
   const auditQuery = createSupabaseQuery({ data: null, error: null });
   mocks.supabase.from
     .mockReturnValueOnce(existingRequestQuery)
+    .mockReturnValueOnce(rateLimitQuery)
     .mockReturnValueOnce(ownerMatchQuery)
     .mockReturnValueOnce(insertQuery)
     .mockReturnValueOnce(auditQuery);

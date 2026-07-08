@@ -15,11 +15,21 @@ import {
   createOnboardingAuditSnapshot,
   redactRequesterOnboardingRequest,
 } from "@/features/platform/model/onboarding-review-policy";
+import {
+  deleteProvisionedStoreDefaults,
+  provisionStoreDefaults,
+} from "@/features/stores/server/store-provisioning";
 import { sanitizeAuditRecord } from "@/server/audit";
-import { ForbiddenError } from "@/server/auth-context";
+import { assertVerifiedEmail, ForbiddenError } from "@/server/auth-context";
 import { type DbRecord, fail, maybeString, requiredString } from "@/server/repairdesk-shared";
 import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import { getSupabaseAdmin } from "@/server/supabase";
+
+const JOIN_REQUEST_WINDOW_MS = 15 * 60 * 1000;
+const JOIN_REQUEST_LIMIT = 5;
+const LEGACY_CREATE_STORE_DECISION_NOTE = "系统自动开通店铺，无需平台审批";
+
+type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
 export async function getOnboardingStatus(actor: AuditActor): Promise<OnboardingStatus> {
   assertLoggedIn(actor);
@@ -31,15 +41,16 @@ export async function getOnboardingStatus(actor: AuditActor): Promise<Onboarding
     .eq("requester_user_id", actor.id)
     .order("created_at", { ascending: false });
   fail(requestsResult.error, "读取注册申请失败");
-  const invitationsResult = actor.email
-    ? await supabase
-        .from("store_invitations")
-        .select("id, email, role, status, expires_at, created_at, updated_at, store:stores(name)")
-        .eq("email", sanitizeEmail(actor.email))
-        .eq("status", "invited")
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false })
-    : { data: [], error: null };
+  const invitationsResult =
+    actor.email && actor.emailVerified
+      ? await supabase
+          .from("store_invitations")
+          .select("id, email, role, status, expires_at, created_at, updated_at, store:stores(name)")
+          .eq("email", sanitizeEmail(actor.email))
+          .eq("status", "invited")
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+      : { data: [], error: null };
   fail(invitationsResult.error, "读取店铺邀请失败");
 
   return {
@@ -72,11 +83,6 @@ export async function updateAccountProfile(
   assertLoggedIn(actor);
   const userId = requiredString(actor.id);
   const displayName = sanitizeDisplayName(input.display_name);
-  const publicDisplayName = resolveStaffDisplayName({
-    email: actor.email,
-    displayName,
-    role: actor.storeRole || actor.role,
-  });
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
 
@@ -99,6 +105,11 @@ export async function updateAccountProfile(
     })
     .eq("user_id", userId);
   fail(membershipError, "同步店铺成员名称失败");
+  const publicDisplayName = resolveStaffDisplayName({
+    email: actor.email,
+    displayName,
+    role: actor.storeRole ?? actor.role,
+  });
 
   await writePlatformAuditLog({
     actor: { ...actor, displayName: publicDisplayName },
@@ -106,7 +117,7 @@ export async function updateAccountProfile(
     entityType: "staff_profile",
     entityId: userId,
     before: { display_name: actor.displayName },
-    after: { display_name: publicDisplayName, email: (data as DbRecord).email },
+    after: { display_name: displayName, email: (data as DbRecord).email },
   });
 
   return getOnboardingStatus({ ...actor, displayName: publicDisplayName });
@@ -117,6 +128,7 @@ export async function submitOnboardingRequest(
   actor: AuditActor,
 ): Promise<OnboardingRequest> {
   assertLoggedIn(actor);
+  assertVerifiedEmail(actor);
   const requestType = input.request_type;
   if (requestType === "create_store") {
     throw new Error("创建店铺请使用创建店铺接口");
@@ -142,6 +154,7 @@ export async function submitOnboardingRequest(
   if (input.target_store_id) {
     throw new Error("加入店铺请填写负责人邮箱；邀请链接和邀请码会在后续版本启用");
   }
+  await enforceJoinRequestRateLimit(supabase, actor);
   if (input.target_owner_email) {
     const ownerEmail = sanitizeTargetOwnerEmail(input.target_owner_email);
     payload.target_owner_email = ownerEmail;
@@ -212,14 +225,24 @@ export async function listPlatformOnboardingRequests(
 ): Promise<OnboardingRequest[]> {
   assertPlatformAdmin(actor);
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("onboarding_requests")
-    .select("*")
-    .eq("status", "pending")
-    .eq("review_scope", "platform")
-    .order("created_at", { ascending: true });
-  fail(error, "读取平台审批列表失败");
-  return ((data ?? []) as DbRecord[]).map(onboardingRequestFromRow);
+  const scopedResult = await queryPlatformOnboardingRequests(supabase, true);
+  const result = isMissingOnboardingColumnError(scopedResult.error, "review_scope")
+    ? await queryPlatformOnboardingRequests(supabase, false)
+    : scopedResult;
+  fail(result.error, "读取平台审批列表失败");
+
+  const requests = ((result.data ?? []) as DbRecord[])
+    .map(onboardingRequestFromRow)
+    .filter((request) => request.status === "pending" && request.review_scope === "platform");
+  const queue: OnboardingRequest[] = [];
+  for (const request of requests) {
+    if (request.request_type === "create_store") {
+      await autoApproveLegacyCreateStoreRequest(supabase, request, actor);
+      continue;
+    }
+    queue.push(request);
+  }
+  return queue;
 }
 
 export async function approveOnboardingRequest(
@@ -289,6 +312,122 @@ async function getLatestOpenRequest(supabase: ReturnType<typeof getSupabaseAdmin
   return data;
 }
 
+async function queryPlatformOnboardingRequests(supabase: SupabaseAdmin, withReviewScope: boolean) {
+  const query = supabase.from("onboarding_requests").select("*").eq("status", "pending");
+  if (withReviewScope) query.eq("review_scope", "platform");
+  return query.order("created_at", { ascending: true });
+}
+
+async function autoApproveLegacyCreateStoreRequest(
+  supabase: SupabaseAdmin,
+  request: OnboardingRequest,
+  actor: AuditActor,
+) {
+  const now = new Date().toISOString();
+  const storeName = sanitizeStoreName(
+    request.desired_store_name || `${displayNameFromEmail(request.email)} RepairDesk`,
+  );
+  const slug = await uniqueStoreSlug(supabase, storeName);
+  const { data: storeRow, error: storeError } = await supabase
+    .from("stores")
+    .insert({
+      name: storeName,
+      slug,
+      owner_user_id: request.requester_user_id,
+      status: "suspended",
+      plan: "starter",
+      timezone: "Europe/Rome",
+      currency_code: "EUR",
+      created_at: now,
+      updated_at: now,
+    })
+    .select("id, name, slug, status")
+    .single();
+  fail(storeError, "自动创建店铺失败");
+
+  const store = storeRow as DbRecord;
+  const storeId = requiredString(store.id);
+  try {
+    await provisionStoreDefaults(supabase, {
+      storeId,
+      storeName,
+      actorId: request.requester_user_id,
+      now,
+    });
+    const { error: membershipError } = await supabase.from("store_memberships").insert({
+      store_id: storeId,
+      user_id: request.requester_user_id,
+      email: sanitizeEmail(request.email),
+      display_name: request.display_name || displayNameFromEmail(request.email),
+      role: "owner",
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    });
+    fail(membershipError, "自动创建店铺成员关系失败");
+
+    const { error: activationError } = await supabase
+      .from("stores")
+      .update({ status: "active", updated_at: now })
+      .eq("id", storeId);
+    fail(activationError, "自动激活店铺失败");
+
+    const approved = await markLegacyCreateStoreRequestApproved(
+      supabase,
+      request,
+      storeId,
+      actor,
+      now,
+    );
+    await writePlatformAuditLog({
+      actor,
+      action: "auto_approve_create_store_request",
+      entityType: "onboarding_request",
+      entityId: request.id,
+      before: createOnboardingAuditSnapshot(request),
+      after: createOnboardingAuditSnapshot(approved),
+    });
+  } catch (error) {
+    await rollbackLegacyCreatedStore(supabase, storeId);
+    throw error;
+  }
+}
+
+async function markLegacyCreateStoreRequestApproved(
+  supabase: SupabaseAdmin,
+  request: OnboardingRequest,
+  storeId: string,
+  actor: AuditActor,
+  now: string,
+) {
+  const { data, error } = await supabase
+    .from("onboarding_requests")
+    .update({
+      status: "approved",
+      reviewed_by: actor.id,
+      reviewed_at: now,
+      decision_note: LEGACY_CREATE_STORE_DECISION_NOTE,
+      resulting_store_id: storeId,
+      updated_at: now,
+    })
+    .eq("id", request.id)
+    .eq("request_type", "create_store")
+    .eq("status", "pending")
+    .select("*")
+    .maybeSingle();
+  fail(error, "自动通过创建店铺申请失败");
+  if (!data) throw new Error("创建店铺申请已处理，请刷新后再试");
+  return onboardingRequestFromRow(data as DbRecord);
+}
+
+async function rollbackLegacyCreatedStore(supabase: SupabaseAdmin, storeId: string) {
+  await deleteProvisionedStoreDefaults(supabase, storeId);
+  const { error } = await supabase.from("stores").delete().eq("id", storeId);
+  if (error) {
+    throw new Error("自动创建店铺失败，回滚未完成店铺失败，请联系管理员处理");
+  }
+}
+
 async function getPendingRequesterRequest(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   id: string,
@@ -330,8 +469,8 @@ async function findSingleApproverStoreByEmail(
     .select("store_id, store:stores(id, name, status)")
     .eq("email", email)
     .eq("status", "active")
-    .in("role", ["owner", "manager"]);
-  fail(error, "匹配店铺负责人失败");
+    .in("role", ["owner"]);
+  if (error) throw new Error("提交注册申请失败，请稍后重试");
 
   const stores = new Map<string, { id: string; name: string }>();
   for (const row of (data ?? []) as DbRecord[]) {
@@ -346,6 +485,24 @@ async function findSingleApproverStoreByEmail(
   }
 
   return stores.size === 1 ? [...stores.values()][0] : undefined;
+}
+
+async function enforceJoinRequestRateLimit(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  actor: AuditActor,
+) {
+  const userId = requiredString(actor.id);
+  const windowStart = new Date(Date.now() - JOIN_REQUEST_WINDOW_MS).toISOString();
+  const { count, error } = await supabase
+    .from("onboarding_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("requester_user_id", userId)
+    .eq("request_type", "join_store")
+    .gte("created_at", windowStart);
+  fail(error, "检查加入申请频率失败");
+  if ((count ?? 0) >= JOIN_REQUEST_LIMIT) {
+    throw new Error("提交申请过于频繁，请稍后再试");
+  }
 }
 
 async function writePlatformAuditLog({
@@ -436,6 +593,13 @@ function sanitizeDisplayName(value: string) {
   return name;
 }
 
+function sanitizeStoreName(value: string) {
+  const name = value.trim().replace(/\s+/g, " ");
+  if (name.length < 2) throw new Error("店铺名称至少需要 2 个字符");
+  if (name.length > 80) throw new Error("店铺名称不能超过 80 个字符");
+  return name;
+}
+
 function sanitizeEmail(value: string) {
   const email = value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("当前账号邮箱格式不正确");
@@ -494,4 +658,51 @@ function toRequestStatus(value: unknown): OnboardingRequest["status"] {
 
 function toReviewScope(value: unknown): OnboardingRequest["review_scope"] {
   return value === "store" ? "store" : "platform";
+}
+
+async function uniqueStoreSlug(supabase: SupabaseAdmin, name: string) {
+  const base = slugify(name);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = `${base}-${crypto.randomUUID().slice(0, 8)}`.slice(0, 64).replace(/-+$/g, "");
+    const { data, error } = await supabase
+      .from("stores")
+      .select("id")
+      .eq("slug", candidate)
+      .maybeSingle();
+    fail(error, "检查店铺标识失败");
+    if (!data) return candidate;
+  }
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`.slice(0, 64).replace(/-+$/g, "");
+}
+
+function slugify(value: string) {
+  const slug = value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return slug.length >= 3 ? slug : `store-${crypto.randomUUID().slice(0, 6)}`;
+}
+
+function displayNameFromEmail(email?: string) {
+  return (
+    email
+      ?.split("@")[0]
+      ?.replace(/[._-]+/g, " ")
+      .trim() || "员工"
+  );
+}
+
+function isMissingOnboardingColumnError(
+  error: { message?: string } | null | undefined,
+  column: string,
+) {
+  const message = error?.message;
+  if (!message) return false;
+  return (
+    new RegExp(`column onboarding_requests\\.${column} does not exist`, "i").test(message) ||
+    new RegExp(`Could not find the '${column}' column of 'onboarding_requests'`, "i").test(message)
+  );
 }

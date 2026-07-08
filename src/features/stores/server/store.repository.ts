@@ -26,14 +26,24 @@ import type {
   StoreRole,
 } from "@/lib/repairdesk/types";
 import { writeAuditLog } from "@/server/audit";
-import { ForbiddenError } from "@/server/auth-context";
+import { assertVerifiedEmail, ForbiddenError } from "@/server/auth-context";
+import { assertPermission } from "@/server/permissions";
 import { type DbRecord, fail, requiredString } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
+import {
+  deleteProvisionedStoreDefaults,
+  provisionStoreDefaults,
+} from "@/features/stores/server/store-provisioning";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const INVITE_LINK_REDEEM_WINDOW_MS = 15 * 60 * 1000;
 const INVITE_LINK_REDEEM_LIMIT = 10;
+const CREATE_STORE_WINDOW_MS = 60 * 60 * 1000;
+const CREATE_STORE_LIMIT = 3;
+const STORE_PROVISIONING_ERROR = "创建店铺初始化失败，请稍后重试";
+const STORE_MEMBERSHIP_ERROR = "创建店铺成员关系失败，请稍后重试";
+const STORE_ACTIVATION_ERROR = "创建店铺激活失败，请稍后重试";
 
 export async function getStoreContext(actor: AuditActor): Promise<StoreContext> {
   return {
@@ -62,9 +72,11 @@ export async function createStore(
   if (!actor.id || actor.isSystem) {
     throw new ForbiddenError("需要登录员工账号后才能创建店铺");
   }
+  assertVerifiedEmail(actor);
 
   const name = sanitizeStoreName(input.name);
   const supabase = getSupabaseAdmin();
+  await enforceCreateStoreRateLimit(supabase, actor);
   const now = new Date().toISOString();
   const slug = await uniqueStoreSlug(supabase, name);
 
@@ -74,7 +86,7 @@ export async function createStore(
       name,
       slug,
       owner_user_id: actor.id,
-      status: "active",
+      status: "suspended",
       plan: "starter",
       timezone: input.timezone || "Europe/Rome",
       currency_code: input.currency_code || "EUR",
@@ -85,9 +97,23 @@ export async function createStore(
     .single();
   fail(storeError, "创建店铺失败");
 
-  const store = storeFromRow(storeRow as DbRecord, "owner");
+  const createdStore = storeFromRow(storeRow as DbRecord, "owner");
+  try {
+    await provisionStoreDefaults(supabase, {
+      storeId: createdStore.id,
+      storeName: createdStore.name,
+      actorId: actor.id,
+      now,
+    });
+  } catch (error) {
+    await rollbackCreatedStore(supabase, createdStore.id, {
+      includeProvisioningRows: true,
+    });
+    throw new Error(STORE_PROVISIONING_ERROR);
+  }
+
   const { error: membershipError } = await supabase.from("store_memberships").insert({
-    store_id: store.id,
+    store_id: createdStore.id,
     user_id: actor.id,
     email: sanitizeEmail(actor.email || `${actor.id}@unknown.local`),
     display_name: actor.displayName,
@@ -97,9 +123,13 @@ export async function createStore(
     updated_at: now,
   });
   if (membershipError) {
-    await rollbackCreatedStore(supabase, store.id, membershipError);
+    await rollbackCreatedStore(supabase, createdStore.id, {
+      includeProvisioningRows: true,
+    });
+    throw new Error(STORE_MEMBERSHIP_ERROR);
   }
-  fail(membershipError, "创建店铺成员关系失败");
+
+  const store = await activateCreatedStore(supabase, createdStore.id, now);
 
   await setActiveStoreCookie(store.id);
   await writeAuditLog({
@@ -113,14 +143,39 @@ export async function createStore(
   return nextContext(actor, store);
 }
 
+async function activateCreatedStore(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  now: string,
+) {
+  try {
+    const { data, error } = await supabase
+      .from("stores")
+      .update({ status: "active", updated_at: now })
+      .eq("id", storeId)
+      .select("id, name, slug, status")
+      .single();
+    fail(error, "激活店铺失败");
+    return storeFromRow(data as DbRecord, "owner");
+  } catch (error) {
+    await rollbackCreatedStore(supabase, storeId, {
+      includeProvisioningRows: true,
+    });
+    throw new Error(STORE_ACTIVATION_ERROR);
+  }
+}
+
 async function rollbackCreatedStore(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   storeId: string,
-  cause: { message: string },
+  options: { includeProvisioningRows?: boolean } = {},
 ) {
+  if (options.includeProvisioningRows) {
+    await deleteProvisionedStoreDefaults(supabase, storeId);
+  }
   const { error } = await supabase.from("stores").delete().eq("id", storeId);
   if (error) {
-    throw new Error(`创建店铺成员关系失败: ${cause.message}; 回滚店铺失败: ${error.message}`);
+    throw new Error("创建店铺失败，回滚未完成店铺失败，请联系管理员处理");
   }
 }
 
@@ -170,6 +225,7 @@ export async function inviteStoreMember(
   const storeId = requireActiveStoreId(actor);
   const email = sanitizeEmail(input.email);
   const role = sanitizeInviteRole(input.role);
+  assertCanGrantStoreRole(actor, role);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -238,6 +294,7 @@ export async function acceptStoreInvitation(
   if (!actor.id || actor.isSystem) {
     throw new ForbiddenError("需要登录员工账号后才能接受邀请");
   }
+  assertVerifiedEmail(actor);
   const email = sanitizeEmail(actor.email || "");
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
@@ -352,6 +409,7 @@ export async function createStoreInviteLink(
   assertCanManageStoreMembers(actor);
   const storeId = requireActiveStoreId(actor);
   const role = sanitizeInviteRole(input.role);
+  assertCanGrantStoreRole(actor, role);
   const label = sanitizeInviteLinkLabel(input.label);
   const expiresInDays = sanitizeInviteLinkExpiry(input.expires_in_days);
   const maxUses = sanitizeInviteLinkMaxUses(input.max_uses);
@@ -434,6 +492,7 @@ export async function redeemStoreInviteLink(
   if (!actor.id || actor.isSystem) {
     throw new ForbiddenError("需要登录员工账号后才能兑换邀请码");
   }
+  assertVerifiedEmail(actor);
   const email = sanitizeEmail(actor.email || "");
   const code = normalizeInviteCode(input.code);
   const tokenHash = hashInviteCode(code);
@@ -582,7 +641,7 @@ export async function redeemStoreInviteLink(
 }
 
 export async function listStoreAccessRequests(actor: AuditActor): Promise<OnboardingRequest[]> {
-  assertCanManageStoreMembers(actor);
+  assertCanReviewStoreAccessRequests(actor);
   const storeId = requireActiveStoreId(actor);
   const supabase = getSupabaseAdmin();
 
@@ -603,7 +662,7 @@ export async function approveStoreAccessRequest(
   input: OnboardingDecisionInput,
   actor: AuditActor,
 ): Promise<OnboardingRequest> {
-  assertCanManageStoreMembers(actor);
+  assertCanReviewStoreAccessRequests(actor);
   const storeId = requireActiveStoreId(actor);
   const supabase = getSupabaseAdmin();
   const request = await getPendingStoreAccessRequest(supabase, input.id, storeId);
@@ -612,6 +671,7 @@ export async function approveStoreAccessRequest(
 
   const now = new Date().toISOString();
   const role = sanitizeAccessRole(input.approved_role ?? request.requested_role);
+  assertCanGrantStoreRole(actor, role);
   const { data, error } = await supabase
     .from("onboarding_requests")
     .update({
@@ -640,9 +700,9 @@ export async function approveStoreAccessRequest(
   try {
     await upsertStaffProfile(supabase, request, role, now);
     await upsertStoreMembership(supabase, request, storeId, role, now);
-  } catch (approvalError) {
+  } catch {
     await markStoreAccessApprovalFailed(supabase, request.id);
-    throw approvalError;
+    throw new Error("批准加入申请失败，请稍后重试");
   }
 
   await writeAuditLog({
@@ -661,7 +721,7 @@ export async function rejectStoreAccessRequest(
   input: OnboardingDecisionInput,
   actor: AuditActor,
 ): Promise<OnboardingRequest> {
-  assertCanManageStoreMembers(actor);
+  assertCanReviewStoreAccessRequests(actor);
   const storeId = requireActiveStoreId(actor);
   const supabase = getSupabaseAdmin();
   const request = await getPendingStoreAccessRequest(supabase, input.id, storeId);
@@ -831,7 +891,6 @@ async function recordInviteLinkAttempt(
   const { error } = await supabase.from("store_invite_link_attempts").insert({
     id: crypto.randomUUID(),
     actor_id: actor.id ?? null,
-    actor_email: actor.email ? sanitizeEmail(actor.email) : null,
     ip_hash: actor.requestIpHash ?? null,
     code_hash: codeHash,
     store_id: storeId ?? null,
@@ -947,9 +1006,39 @@ function requireActiveStoreId(actor: AuditActor) {
 }
 
 function assertCanManageStoreMembers(actor: AuditActor) {
-  const role = actor.storeRole ?? actor.role;
-  if (actor.isSystem || role === "owner" || role === "manager") return;
-  throw new ForbiddenError("只有店铺 owner 或 manager 可以管理员工");
+  assertPermission(actor, "member:manage_basic");
+}
+
+function assertCanReviewStoreAccessRequests(actor: AuditActor) {
+  if (actor.storeRole !== "owner") {
+    throw new ForbiddenError("只有店主可以处理加入申请");
+  }
+  assertPermission(actor, "member:grant_manager");
+}
+
+function assertCanGrantStoreRole(actor: AuditActor, role: StoreRole) {
+  if (role === "manager") {
+    assertPermission(actor, "member:grant_manager");
+    return;
+  }
+  assertPermission(actor, "member:manage_basic");
+}
+
+async function enforceCreateStoreRateLimit(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  actor: AuditActor,
+) {
+  if (!actor.id) throw new ForbiddenError("需要登录员工账号后才能创建店铺");
+  const windowStart = new Date(Date.now() - CREATE_STORE_WINDOW_MS).toISOString();
+  const { count, error } = await supabase
+    .from("stores")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_user_id", actor.id)
+    .gte("created_at", windowStart);
+  fail(error, "检查创建店铺频率失败");
+  if ((count ?? 0) >= CREATE_STORE_LIMIT) {
+    throw new Error("创建店铺过于频繁，请稍后再试");
+  }
 }
 
 async function uniqueStoreSlug(supabase: ReturnType<typeof getSupabaseAdmin>, name: string) {

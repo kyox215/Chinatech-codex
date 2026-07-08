@@ -883,6 +883,7 @@ export interface StaffProfile {
 export interface AuditActor {
   id?: string;
   email?: string;
+  emailVerified?: boolean;
   displayName: string;
   role?: StaffRole;
   isPlatformAdmin?: boolean;
