@@ -1,26 +1,26 @@
 ---
 schema_version: 1
-task_id: "TASK-20260708-014-push-all-main"
-title: "推送全部到 main"
+task_id: "TASK-20260709-001-imei-camera-mobile-black-screen"
+title: "修复 IMEI 扫码移动端摄像头黑屏和反复启用"
 status: "closed"
 task_class: "T1"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-departments: ["engineering", "qa", "release"]
-created_at: "2026-07-08T21:43:30Z"
-updated_at: "2026-07-08T22:04:08Z"
-closed_at: "2026-07-08T22:04:08Z"
+departments: ["frontend", "qa", "ux"]
+created_at: "2026-07-08T22:04:29Z"
+updated_at: "2026-07-08T22:12:37Z"
+closed_at: "2026-07-08T22:12:37Z"
 ---
-# Task — 推送全部到 main
+# Task — 修复 IMEI 扫码移动端摄像头黑屏和反复启用
 
 ## Owner request
 
-推送全部到 main
+修复 IMEI 扫码移动端摄像头黑屏和反复启用
 
 ## Business value
 
-将当前 RepairDesk 工作区中已批准的全部本地改动提交并同步到 origin/main。
+让手机端和桌面移动尺寸下的 IMEI 摄像头扫码稳定显示预览，不反复启停，并保留上传图片和手动输入兜底。
 
 ## Scope in
 
@@ -39,9 +39,10 @@ closed_at: "2026-07-08T22:04:08Z"
 
 ## Acceptance criteria
 
-- [ ] 全部目标改动已暂存并通过 diff 检查
-- [ ] 本地提交已 rebase 远端 main 且无冲突遗留
-- [ ] typecheck、lint、unit tests、build 通过后推送到 origin/main
+- [ ] 移动端/窄屏打开 IMEI 扫码弹窗时摄像头只启动一次，不因布局重渲染反复 stop/start。
+- [ ] 视频流 ready 后显式播放，避免真实手机出现摄像头占用但预览黑屏。
+- [ ] 扫码失败、上传图片、多个候选和手动输入仍可用。
+- [ ] 新增或更新回归测试覆盖摄像头启动稳定性。
 
 ## Facts, assumptions, and unknowns
 

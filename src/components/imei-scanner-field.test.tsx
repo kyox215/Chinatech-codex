@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ImeiScannerField } from "./imei-scanner-field";
@@ -14,6 +15,10 @@ const zxingMocks = vi.hoisted(() => ({
   decodeFromConstraints: vi.fn(),
   decodeFromImageElement: vi.fn(),
   stop: vi.fn(),
+}));
+
+const mediaMocks = vi.hoisted(() => ({
+  play: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -48,6 +53,12 @@ beforeEach(() => {
   zxingMocks.decodeFromConstraints.mockReset();
   zxingMocks.decodeFromImageElement.mockReset();
   zxingMocks.stop.mockReset();
+  mediaMocks.play.mockReset();
+  mediaMocks.play.mockResolvedValue(undefined);
+  Object.defineProperty(HTMLMediaElement.prototype, "play", {
+    configurable: true,
+    value: mediaMocks.play,
+  });
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: {
@@ -143,6 +154,39 @@ describe("ImeiScannerField", () => {
     });
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith("356938035643809"));
     expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
+  });
+
+  it("does not restart the camera when the parent rerenders with a new change handler", async () => {
+    const user = userEvent.setup();
+    zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
+
+    function RerenderingParent({ revision }: { revision: number }) {
+      const [value, setValue] = useState("");
+
+      return (
+        <div data-revision={revision}>
+          <ImeiScannerField
+            value={value}
+            onChange={(nextValue) => {
+              setValue(nextValue);
+            }}
+          />
+        </div>
+      );
+    }
+
+    const { rerender } = render(<RerenderingParent revision={0} />);
+
+    await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("摄像头预览")).toHaveAttribute("autoplay");
+    expect(mediaMocks.play).toHaveBeenCalled();
+
+    rerender(<RerenderingParent revision={1} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1);
+    expect(zxingMocks.stop).not.toHaveBeenCalled();
   });
 
   it("shows multiple camera candidates before committing a value", async () => {

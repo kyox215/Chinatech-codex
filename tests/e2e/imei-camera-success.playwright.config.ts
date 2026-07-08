@@ -29,6 +29,10 @@ export default defineConfig({
       name: "chromium-fake-camera",
       use: { browserName: "chromium" },
     },
+    {
+      name: "chromium-fake-camera-mobile",
+      use: { ...devices["Pixel 7"], browserName: "chromium" },
+    },
   ],
   webServer: {
     command: `REPAIRDESK_E2E_ORDER_AUDIT=1 npx next dev -p ${serverPort} --hostname localhost`,

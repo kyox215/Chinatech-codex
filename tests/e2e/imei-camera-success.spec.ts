@@ -9,7 +9,7 @@ const screenshotDir = "screenshots/TASK-20260708-010-imei-capture-hardening";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for IMEI fake-camera checks.");
 
-test("new order IMEI capture decodes a real browser camera stream", async ({ page }) => {
+test("new order IMEI capture decodes a real browser camera stream", async ({ page }, testInfo) => {
   test.setTimeout(45_000);
   mkdirSync(screenshotDir, { recursive: true });
 
@@ -29,6 +29,6 @@ test("new order IMEI capture decodes a real browser camera stream", async ({ pag
   );
   await expect(captureDialog).toHaveCount(0);
   await deviceSection.screenshot({
-    path: `${screenshotDir}/imei-new-order-fake-camera-decoded-chromium.png`,
+    path: `${screenshotDir}/imei-new-order-fake-camera-decoded-${testInfo.project.name}.png`,
   });
 });

@@ -78,6 +78,8 @@ export function ImeiScannerField({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const scannerRunIdRef = useRef(0);
+  const onChangeRef = useRef(onChange);
   const lastStartScannerTokenRef = useRef(startScannerToken);
   const compact = density === "compact";
   const quiet = appearance === "quiet";
@@ -86,7 +88,12 @@ export function ImeiScannerField({
     captureCandidates[0] ??
     null;
 
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   const stopScanner = useCallback(() => {
+    scannerRunIdRef.current += 1;
     controlsRef.current?.stop();
     controlsRef.current = null;
     setIsStarting(false);
@@ -103,13 +110,13 @@ export function ImeiScannerField({
   const commitCandidate = useCallback(
     (candidate: ImeiCandidate) => {
       setWarning(candidate.reason ?? "");
-      onChange(candidate.value);
+      onChangeRef.current(candidate.value);
       toast.success("已录入 IMEI / 序列号");
       stopScanner();
       setScannerOpen(false);
       resetCaptureState();
     },
-    [onChange, resetCaptureState, stopScanner],
+    [resetCaptureState, stopScanner],
   );
 
   const handleCapturedText = useCallback(
@@ -143,30 +150,27 @@ export function ImeiScannerField({
     [commitCandidate, stopScanner],
   );
 
-  const commitValue = useCallback(
-    (rawValue: string, source: CommitSource) => {
-      if (source === "clear") {
-        setWarning("");
-        onChange("");
-        return;
-      }
+  const commitValue = useCallback((rawValue: string, source: CommitSource) => {
+    if (source === "clear") {
+      setWarning("");
+      onChangeRef.current("");
+      return;
+    }
 
-      const normalized = normalizeImeiIdentifier(rawValue);
-      setWarning(normalized.hadUnsupported ? "已移除不支持的字符；字母数字序列号会被保留。" : "");
-      onChange(normalized.value);
+    const normalized = normalizeImeiIdentifier(rawValue);
+    setWarning(normalized.hadUnsupported ? "已移除不支持的字符；字母数字序列号会被保留。" : "");
+    onChangeRef.current(normalized.value);
 
-      if (source === "scan") {
-        toast.success("已录入 IMEI / 序列号");
-      } else if (source === "paste") {
-        toast.success("已粘贴并整理 IMEI / 序列号");
-      }
+    if (source === "scan") {
+      toast.success("已录入 IMEI / 序列号");
+    } else if (source === "paste") {
+      toast.success("已粘贴并整理 IMEI / 序列号");
+    }
 
-      if (normalized.hadUnsupported && source !== "manual") {
-        toast.warning("检测到非法字符，已自动移除");
-      }
-    },
-    [onChange],
-  );
+    if (normalized.hadUnsupported && source !== "manual") {
+      toast.warning("检测到非法字符，已自动移除");
+    }
+  }, []);
 
   const handleImageFile = useCallback(
     async (file?: File) => {
@@ -228,6 +232,8 @@ export function ImeiScannerField({
     }
 
     let cancelled = false;
+    const runId = scannerRunIdRef.current + 1;
+    scannerRunIdRef.current = runId;
 
     async function startScanner() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -238,7 +244,7 @@ export function ImeiScannerField({
       setIsStarting(true);
       try {
         const { BrowserMultiFormatReader } = await import("@zxing/browser");
-        if (cancelled || !videoRef.current) return;
+        if (cancelled || scannerRunIdRef.current !== runId || !videoRef.current) return;
 
         const reader = new BrowserMultiFormatReader();
         let completedByScan = false;
@@ -258,7 +264,12 @@ export function ImeiScannerField({
             onDecodeResult,
           );
         } catch (error) {
-          if (!shouldRetryWithDefaultCamera(error) || cancelled || !videoRef.current) {
+          if (
+            !shouldRetryWithDefaultCamera(error) ||
+            cancelled ||
+            scannerRunIdRef.current !== runId ||
+            !videoRef.current
+          ) {
             throw error;
           }
           controls = await reader.decodeFromConstraints(
@@ -270,15 +281,21 @@ export function ImeiScannerField({
             onDecodeResult,
           );
         }
-        if (cancelled || completedByScan) {
+        if (cancelled || scannerRunIdRef.current !== runId || completedByScan) {
+          controls.stop();
+          return;
+        }
+        await ensureVideoPreviewPlayback(videoRef.current);
+        if (cancelled || scannerRunIdRef.current !== runId || completedByScan) {
           controls.stop();
           return;
         }
         controlsRef.current = controls;
       } catch (error) {
+        if (cancelled || scannerRunIdRef.current !== runId) return;
         setCaptureError(getCameraErrorMessage(error));
       } finally {
-        if (!cancelled) setIsStarting(false);
+        if (!cancelled && scannerRunIdRef.current === runId) setIsStarting(false);
       }
     }
 
@@ -400,7 +417,14 @@ export function ImeiScannerField({
             }}
           />
           <div className="overflow-hidden rounded-md border bg-[var(--capture-preview)]">
-            <video ref={videoRef} className="aspect-[4/3] w-full object-cover" muted playsInline />
+            <video
+              ref={videoRef}
+              className="aspect-[4/3] w-full object-cover"
+              muted
+              playsInline
+              autoPlay
+              aria-label="摄像头预览"
+            />
           </div>
           {captureError ? (
             <p
@@ -628,6 +652,18 @@ function getCameraErrorMessage(error: unknown) {
 
 function shouldRetryWithDefaultCamera(error: unknown) {
   return getErrorName(error) === "OverconstrainedError";
+}
+
+async function ensureVideoPreviewPlayback(video: HTMLVideoElement | null) {
+  if (!video) return;
+  video.muted = true;
+  video.playsInline = true;
+  try {
+    await video.play();
+  } catch {
+    // ZXing has already attached the stream and will surface camera failures.
+    // Some mobile browsers reject a redundant play() call while still showing/scanning the stream.
+  }
 }
 
 function getErrorName(error: unknown) {
