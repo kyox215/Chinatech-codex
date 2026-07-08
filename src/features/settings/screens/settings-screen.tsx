@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -39,8 +40,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { customersKeys } from "@/features/customers/api/query-keys";
-import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
@@ -57,10 +56,13 @@ import {
 } from "@/features/settings/model/store-settings-readiness";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import {
+  applySwitchedStoreContext,
+  refreshStoreContextQueries,
+} from "@/features/stores/api/tenant-cache";
+import {
   RepairOsBusinessCard,
   RepairOsHeaderActionButton,
   RepairOsListScaffold,
-  RepairOsMetricStrip,
   RepairOsSectionHeader,
 } from "@/shared/ui";
 import {
@@ -119,7 +121,60 @@ type SettingsDraft = Pick<
   | "message_signature"
 >;
 
+type SettingsSectionKey = "account" | "store" | "members" | "notifications" | "rules" | "workflow";
+
+const settingsSections: {
+  key: SettingsSectionKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+  icon: typeof Store;
+}[] = [
+  { key: "account", label: "账号", shortLabel: "账号", description: "名称与身份", icon: UserRound },
+  { key: "store", label: "店铺", shortLabel: "店铺", description: "资料与切换", icon: Store },
+  { key: "members", label: "员工", shortLabel: "员工", description: "成员与邀请", icon: Users },
+  {
+    key: "notifications",
+    label: "通知与打印",
+    shortLabel: "通知",
+    description: "签名与预览",
+    icon: MessageSquare,
+  },
+  { key: "rules", label: "默认规则", shortLabel: "规则", description: "质保规则", icon: Settings2 },
+  {
+    key: "workflow",
+    label: "状态流",
+    shortLabel: "状态",
+    description: "工单流转",
+    icon: GitBranch,
+  },
+];
+
+const settingsSectionKeys = new Set(settingsSections.map((section) => section.key));
+const draftSectionFields: Record<"store" | "notifications" | "rules", (keyof SettingsDraft)[]> = {
+  store: ["store_name", "store_email", "store_phone", "store_whatsapp", "store_address"],
+  notifications: ["print_footer", "message_signature"],
+  rules: [
+    "default_order_warranty_text",
+    "default_order_warranty_months",
+    "default_inventory_warranty_months",
+  ],
+};
+
+function normalizeSettingsSection(value: string | null): SettingsSectionKey {
+  return settingsSectionKeys.has(value as SettingsSectionKey)
+    ? (value as SettingsSectionKey)
+    : "members";
+}
+
+function canSaveDraftInSection(section: SettingsSectionKey) {
+  return section === "store" || section === "notifications" || section === "rules";
+}
+
 export function SettingsScreen() {
+  const router = useRouter();
+  const pathname = usePathname() ?? "/settings";
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const storeContextQuery = useQuery({
     queryKey: storesKeys.context,
@@ -168,6 +223,9 @@ export function SettingsScreen() {
     expires_in_days: 7,
     max_uses: 1,
   });
+  const [accessRequestRoles, setAccessRequestRoles] = useState<Record<string, ApprovedStoreRole>>(
+    {},
+  );
   const [latestInviteCode, setLatestInviteCode] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState<"all" | "active" | "inactive">(
@@ -175,9 +233,6 @@ export function SettingsScreen() {
   );
   const [memberRoleDrafts, setMemberRoleDrafts] = useState<Record<string, ApprovedStoreRole>>({});
   const [memberActionId, setMemberActionId] = useState("");
-  const [accessRequestRoles, setAccessRequestRoles] = useState<Record<string, ApprovedStoreRole>>(
-    {},
-  );
 
   useEffect(() => {
     if (!settingsData) return;
@@ -218,6 +273,27 @@ export function SettingsScreen() {
   const hasAccountNameChange = Boolean(
     accountQuery.data && accountName && accountName !== accountQuery.data.displayName,
   );
+  const selectedSection = normalizeSettingsSection(searchParams.get("section"));
+  const sectionDirtyState = useMemo<Record<SettingsSectionKey, boolean>>(() => {
+    const base = {
+      account: hasAccountNameChange,
+      store: false,
+      members: false,
+      notifications: false,
+      rules: false,
+      workflow: false,
+    };
+    if (!draft || !settingsData) return base;
+    const current = toDraft(settingsData);
+    return {
+      ...base,
+      store: draftSectionFields.store.some((field) => draft[field] !== current[field]),
+      notifications: draftSectionFields.notifications.some(
+        (field) => draft[field] !== current[field],
+      ),
+      rules: draftSectionFields.rules.some((field) => draft[field] !== current[field]),
+    };
+  }, [draft, hasAccountNameChange, settingsData]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -252,15 +328,8 @@ export function SettingsScreen() {
     mutationFn: switchStore,
     onSuccess: async (context) => {
       toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
-      queryClient.removeQueries({ queryKey: ordersKeys.all });
-      queryClient.removeQueries({ queryKey: customersKeys.all });
-      queryClient.removeQueries({ queryKey: inventoryKeys.all });
-      queryClient.removeQueries({ queryKey: messageSettingsKeys.store });
-      queryClient.removeQueries({ queryKey: messageSettingsKeys.templates });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: storesKeys.context }),
-        queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
-      ]);
+      applySwitchedStoreContext(queryClient, context);
+      await refreshStoreContextQueries(queryClient);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "切换店铺失败"),
   });
@@ -417,16 +486,7 @@ export function SettingsScreen() {
 
   if (settingsQuery.isError) {
     return (
-      <RepairOsListScaffold
-        title="设置"
-        subtitle="读取失败"
-        eyebrow="系统 / 设置"
-        chips={[
-          { key: "stores", label: "店铺", shortLabel: "店", count: "-" },
-          { key: "members", label: "成员", shortLabel: "员", count: "-" },
-          { key: "workflow", label: "状态流", shortLabel: "流", count: "-" },
-        ]}
-      >
+      <RepairOsListScaffold title="设置" subtitle="读取失败" eyebrow="系统 / 设置">
         <RepairOsBusinessCard
           as="div"
           data-ui="settings-load-error"
@@ -470,6 +530,42 @@ export function SettingsScreen() {
   const storeReadiness = getStoreSettingsReadiness(draft);
   const messagePreview = buildStoreMessagePreview(draft);
   const printPreview = buildStorePrintPreview(draft);
+  const invitationCount = storeMembersQuery.data?.invitations.length ?? 0;
+  const inviteLinkCount = storeMembersQuery.data?.invite_links?.length ?? 0;
+  const accessRequestCount = storeAccessRequestsQuery.data?.length ?? 0;
+  const pendingMemberWorkCount = accessRequestCount + invitationCount + inviteLinkCount;
+  const activeSection = settingsSections.find((section) => section.key === selectedSection);
+  const sectionNavItems = settingsSections.map((section) => {
+    const status =
+      section.key === "store"
+        ? `${storeCount} 店铺`
+        : section.key === "members"
+          ? `${memberCount} 成员 · ${pendingMemberWorkCount} 项待看`
+          : section.key === "notifications"
+            ? `${storeReadiness.score}% 完整`
+            : section.key === "workflow"
+              ? `${workflowStatusCount} 状态`
+              : section.description;
+    const count =
+      section.key === "members"
+        ? memberCount
+        : section.key === "store"
+          ? storeCount
+          : section.key === "workflow"
+            ? workflowStatusCount
+            : undefined;
+    return {
+      ...section,
+      status,
+      count,
+      dirty: sectionDirtyState[section.key],
+    };
+  });
+  const handleSectionChange = (section: SettingsSectionKey) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("section", section);
+    router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+  };
 
   return (
     <RepairOsListScaffold
@@ -477,44 +573,28 @@ export function SettingsScreen() {
       subtitle={`${storeCount} 店铺 · ${memberCount} 成员`}
       eyebrow="系统 / 设置"
       action={
-        <RepairOsHeaderActionButton
-          ariaLabel="保存设置"
-          disabled={!hasChanges || saveMutation.isPending}
-          onClick={() => saveMutation.mutate()}
-        >
-          <Check className="size-4" />
-        </RepairOsHeaderActionButton>
+        canSaveDraftInSection(selectedSection) ? (
+          <RepairOsHeaderActionButton
+            ariaLabel="保存设置"
+            disabled={!hasChanges || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            <Check className="size-4" />
+          </RepairOsHeaderActionButton>
+        ) : undefined
       }
-      chips={[
-        { key: "stores", label: "店铺", shortLabel: "店", count: storeCount },
-        { key: "members", label: "成员", shortLabel: "员", count: memberCount },
-        { key: "workflow", label: "状态流", shortLabel: "流", count: workflowStatusCount },
-      ]}
       desktopAction={
-        <Button
-          size="sm"
-          className="h-8 shrink-0 gap-1.5 border-0 text-primary-foreground sm:h-9"
-          style={brandGradientStyle}
-          disabled={!hasChanges || saveMutation.isPending}
-          onClick={() => saveMutation.mutate()}
-        >
-          <Check className="size-3.5" /> 保存
-        </Button>
-      }
-      desktopHeaderAddon={
-        <RepairOsMetricStrip
-          metrics={[
-            { label: "店铺", value: storeCount, hint: "可切换", icon: Store, tone: "blue" },
-            { label: "成员", value: memberCount, hint: "权限", icon: Users, tone: "green" },
-            {
-              label: "状态流",
-              value: workflowStatusCount,
-              hint: "工单",
-              icon: GitBranch,
-              tone: "amber",
-            },
-          ]}
-        />
+        canSaveDraftInSection(selectedSection) ? (
+          <Button
+            size="sm"
+            className="h-8 shrink-0 gap-1.5 border-0 text-primary-foreground sm:h-9"
+            style={brandGradientStyle}
+            disabled={!hasChanges || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            <Check className="size-3.5" /> 保存
+          </Button>
+        ) : undefined
       }
       className="pb-8"
     >
@@ -525,280 +605,346 @@ export function SettingsScreen() {
           if (hasChanges && !saveMutation.isPending) saveMutation.mutate();
         }}
       >
-        <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] xl:items-start">
-          <div className="min-w-0 space-y-3">
-            <AccountProfileSection
-              status={accountQuery.data}
-              isLoading={accountQuery.isLoading}
-              nameDraft={accountNameDraft}
-              hasNameChange={hasAccountNameChange}
-              isSaving={updateAccountMutation.isPending}
-              onNameDraftChange={setAccountNameDraft}
-              onSave={() => {
-                if (!hasAccountNameChange || updateAccountMutation.isPending) return;
-                updateAccountMutation.mutate();
-              }}
-            />
-            <StoreManagementSection
-              activeStoreId={storeContextQuery.data?.activeStore?.id}
-              stores={storeContextQuery.data?.stores ?? []}
-              isLoading={storeContextQuery.isLoading}
-              isSwitching={switchStoreMutation.isPending}
-              isCreating={createStoreMutation.isPending}
-              newStoreName={newStoreName}
-              onNewStoreNameChange={setNewStoreName}
-              onSwitchStore={(storeId) => {
-                if (!storeId || storeId === storeContextQuery.data?.activeStore?.id) return;
-                switchStoreMutation.mutate(storeId);
-              }}
-              onCreateStore={() => {
-                const name = newStoreName.trim();
-                if (!name) return;
-                createStoreMutation.mutate({ name });
-              }}
-            />
-            <StoreMembersSection
-              members={storeMembersQuery.data?.members ?? []}
-              invitations={storeMembersQuery.data?.invitations ?? []}
-              inviteLinks={storeMembersQuery.data?.invite_links ?? []}
-              accessRequests={storeAccessRequestsQuery.data ?? []}
-              activeStoreRole={storeContextQuery.data?.activeStore?.role}
-              currentUserId={accountQuery.data?.userId}
-              isLoading={storeMembersQuery.isLoading}
-              isError={storeMembersQuery.isError}
-              isAccessRequestsLoading={storeAccessRequestsQuery.isLoading}
-              inviteDraft={inviteDraft}
-              inviteLinkDraft={inviteLinkDraft}
-              memberSearch={memberSearch}
-              memberStatusFilter={memberStatusFilter}
-              memberRoleDrafts={memberRoleDrafts}
-              accessRequestRoles={accessRequestRoles}
-              latestInviteCode={latestInviteCode}
-              isInviting={inviteMemberMutation.isPending}
-              isCreatingInviteLink={createInviteLinkMutation.isPending}
-              isRevokingInvitation={revokeInvitationMutation.isPending}
-              isRevokingInviteLink={revokeInviteLinkMutation.isPending}
-              isUpdatingMember={
-                updateMemberRoleMutation.isPending ||
-                disableMemberMutation.isPending ||
-                restoreMemberMutation.isPending
-              }
-              memberActionId={memberActionId}
-              isReviewingAccessRequest={
-                approveAccessRequestMutation.isPending || rejectAccessRequestMutation.isPending
-              }
-              onInviteDraftChange={setInviteDraft}
-              onInviteLinkDraftChange={setInviteLinkDraft}
-              onMemberSearchChange={setMemberSearch}
-              onMemberStatusFilterChange={setMemberStatusFilter}
-              onMemberRoleDraftChange={(id, role) =>
-                setMemberRoleDrafts((current) => ({ ...current, [id]: role }))
-              }
-              onAccessRequestRoleChange={(id, role) =>
-                setAccessRequestRoles((current) => ({ ...current, [id]: role }))
-              }
-              onUpdateMemberRole={(id, role) => updateMemberRoleMutation.mutate({ id, role })}
-              onDisableMember={(id) => disableMemberMutation.mutate({ id })}
-              onRestoreMember={(id) => restoreMemberMutation.mutate({ id })}
-              onInvite={() => {
-                const email = inviteDraft.email.trim();
-                if (!email) return;
-                inviteMemberMutation.mutate({ ...inviteDraft, email });
-              }}
-              onCreateInviteLink={() => {
-                createInviteLinkMutation.mutate({
-                  ...inviteLinkDraft,
-                  label: inviteLinkDraft.label?.trim() || undefined,
-                });
-              }}
-              onRevokeInvitation={(id) => revokeInvitationMutation.mutate({ id })}
-              onRevokeInviteLink={(id) => revokeInviteLinkMutation.mutate({ id })}
-              onCopyInviteCode={() => {
-                if (!latestInviteCode) return;
-                void navigator.clipboard?.writeText(latestInviteCode);
-                toast.success("邀请码已复制");
-              }}
-              onApproveAccessRequest={(id, approvedRole) =>
-                approveAccessRequestMutation.mutate({ id, approved_role: approvedRole })
-              }
-              onRejectAccessRequest={(id) =>
-                rejectAccessRequestMutation.mutate({ id, note: "店铺负责人拒绝加入申请" })
-              }
-            />
-            <StoreReadinessSection
-              readiness={storeReadiness}
-              messagePreview={messagePreview}
-              printPreview={printPreview}
-            />
-          </div>
-
-          <div className="min-w-0 space-y-3">
-            <section className={repairOs.adminSection}>
-              <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺资料" />
-              <div className={formLayout.grid}>
-                <Field label="店铺名" htmlFor="store-name">
-                  <Input
-                    id="store-name"
-                    className={compactControlClass}
-                    value={draft.store_name}
-                    onChange={(event) => setDraftField(setDraft, "store_name", event.target.value)}
-                  />
-                </Field>
-                <Field label="邮箱" htmlFor="store-email" icon={Mail}>
-                  <Input
-                    id="store-email"
-                    type="email"
-                    className={compactControlClass}
-                    value={draft.store_email}
-                    onChange={(event) => setDraftField(setDraft, "store_email", event.target.value)}
-                  />
-                </Field>
-                <Field label="电话" htmlFor="store-phone" icon={Phone}>
-                  <Input
-                    id="store-phone"
-                    className={compactControlClass}
-                    value={draft.store_phone}
-                    onChange={(event) => setDraftField(setDraft, "store_phone", event.target.value)}
-                  />
-                </Field>
-                <Field label="WhatsApp" htmlFor="store-whatsapp" icon={MessageSquare}>
-                  <Input
-                    id="store-whatsapp"
-                    className={compactControlClass}
-                    value={draft.store_whatsapp}
-                    onChange={(event) =>
-                      setDraftField(setDraft, "store_whatsapp", event.target.value)
-                    }
-                  />
-                </Field>
-              </div>
-              <Field label="地址" htmlFor="store-address" className="mt-3">
-                <Textarea
-                  id="store-address"
-                  rows={3}
-                  className={compactTextareaClass}
-                  value={draft.store_address}
-                  onChange={(event) => setDraftField(setDraft, "store_address", event.target.value)}
-                />
-              </Field>
-            </section>
-
-            <section className={repairOs.adminSection}>
-              <RepairOsSectionHeader icon={Settings2} iconFrame={false} title="默认规则" />
-              <div className={formLayout.grid}>
-                <Field label="维修默认质保" htmlFor="order-warranty">
-                  <Select
-                    value={String(draft.default_order_warranty_months)}
-                    onValueChange={(value) => {
-                      const months = Number(value);
-                      setDraft((current) =>
-                        current
-                          ? {
-                              ...current,
-                              default_order_warranty_months: months,
-                              default_order_warranty_text: formatWarrantyText(months),
-                            }
-                          : current,
-                      );
-                    }}
-                  >
-                    <SelectTrigger id="order-warranty" className={compactControlClass}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORDER_WARRANTY_OPTIONS.map((option) => (
-                        <SelectItem key={option.months} value={String(option.months)}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="二手库存默认保修月数" htmlFor="inventory-warranty">
-                  <Input
-                    id="inventory-warranty"
-                    type="number"
-                    min={0}
-                    className={compactControlClass}
-                    value={draft.default_inventory_warranty_months}
-                    onChange={(event) =>
-                      setDraftField(
-                        setDraft,
-                        "default_inventory_warranty_months",
-                        Math.max(0, Number(event.target.value || 0)),
-                      )
-                    }
-                  />
-                </Field>
-              </div>
-            </section>
-
-            <section className={repairOs.adminSection}>
-              <RepairOsSectionHeader icon={Printer} iconFrame={false} title="输出配置" />
-              <div className="space-y-3">
-                <Field label="打印页脚" htmlFor="print-footer">
-                  <Textarea
-                    id="print-footer"
-                    rows={3}
-                    className={compactTextareaClass}
-                    value={draft.print_footer}
-                    onChange={(event) =>
-                      setDraftField(setDraft, "print_footer", event.target.value)
-                    }
-                  />
-                </Field>
-                <Field label="客户消息签名" htmlFor="message-signature">
-                  <Textarea
-                    id="message-signature"
-                    rows={3}
-                    className={compactTextareaClass}
-                    value={draft.message_signature}
-                    onChange={(event) =>
-                      setDraftField(setDraft, "message_signature", event.target.value)
-                    }
-                  />
-                </Field>
-              </div>
-            </section>
-          </div>
-        </div>
-
-        <OrderWorkflowSection
-          workflow={workflowQuery.data}
-          isLoading={workflowQuery.isLoading}
-          isError={workflowQuery.isError}
-          errorMessage={
-            workflowQuery.error instanceof Error
-              ? workflowQuery.error.message
-              : "状态流配置暂时不可用"
-          }
-          onRetry={() => void workflowQuery.refetch()}
-          isSaving={
-            createWorkflowStatusMutation.isPending ||
-            updateWorkflowStatusMutation.isPending ||
-            reorderWorkflowStatusesMutation.isPending ||
-            updateWorkflowTransitionsMutation.isPending
-          }
-          onCreateStatus={(input) => createWorkflowStatusMutation.mutate(input)}
-          onUpdateStatus={(id, input) => updateWorkflowStatusMutation.mutate({ id, input })}
-          onReorder={(items) => reorderWorkflowStatusesMutation.mutate({ items })}
-          onUpdateTransitions={(input) => updateWorkflowTransitionsMutation.mutate(input)}
+        <SettingsSectionNav
+          items={sectionNavItems}
+          selectedSection={selectedSection}
+          onSelect={handleSectionChange}
         />
 
-        <div className={repairOs.adminSection}>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">模板预览和客户通知会使用当前店铺资料。</p>
-            <Button
-              type="submit"
-              size="sm"
-              className="h-8 gap-1.5"
-              style={brandGradientStyle}
-              disabled={!hasChanges || saveMutation.isPending}
-            >
-              <Check className="mr-1.5 size-3.5" /> 保存设置
-            </Button>
+        <div
+          className={cn(
+            "grid min-w-0 gap-3 xl:items-start",
+            selectedSection === "workflow" && "hidden",
+            selectedSection === "store" || selectedSection === "notifications"
+              ? "xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]"
+              : "xl:grid-cols-1",
+          )}
+        >
+          <div
+            className={cn(
+              "min-w-0 space-y-3",
+              selectedSection === "rules" && "hidden",
+              selectedSection === "store" || selectedSection === "notifications"
+                ? ""
+                : "xl:max-w-none",
+            )}
+          >
+            {selectedSection === "account" ? (
+              <AccountProfileSection
+                status={accountQuery.data}
+                isLoading={accountQuery.isLoading}
+                nameDraft={accountNameDraft}
+                hasNameChange={hasAccountNameChange}
+                isSaving={updateAccountMutation.isPending}
+                onNameDraftChange={setAccountNameDraft}
+                onSave={() => {
+                  if (!hasAccountNameChange || updateAccountMutation.isPending) return;
+                  updateAccountMutation.mutate();
+                }}
+              />
+            ) : null}
+            {selectedSection === "store" ? (
+              <StoreManagementSection
+                activeStoreId={storeContextQuery.data?.activeStore?.id}
+                stores={storeContextQuery.data?.stores ?? []}
+                isLoading={storeContextQuery.isLoading}
+                isSwitching={switchStoreMutation.isPending}
+                isCreating={createStoreMutation.isPending}
+                newStoreName={newStoreName}
+                onNewStoreNameChange={setNewStoreName}
+                onSwitchStore={(storeId) => {
+                  if (!storeId || storeId === storeContextQuery.data?.activeStore?.id) return;
+                  switchStoreMutation.mutate(storeId);
+                }}
+                onCreateStore={() => {
+                  const name = newStoreName.trim();
+                  if (!name) return;
+                  createStoreMutation.mutate({ name });
+                }}
+              />
+            ) : null}
+            {selectedSection === "members" ? (
+              <StoreMembersSection
+                members={storeMembersQuery.data?.members ?? []}
+                invitations={storeMembersQuery.data?.invitations ?? []}
+                inviteLinks={storeMembersQuery.data?.invite_links ?? []}
+                accessRequests={storeAccessRequestsQuery.data ?? []}
+                activeStoreRole={storeContextQuery.data?.activeStore?.role}
+                currentUserId={accountQuery.data?.userId}
+                isLoading={storeMembersQuery.isLoading}
+                isError={storeMembersQuery.isError}
+                isAccessRequestsLoading={storeAccessRequestsQuery.isLoading}
+                inviteDraft={inviteDraft}
+                inviteLinkDraft={inviteLinkDraft}
+                memberSearch={memberSearch}
+                memberStatusFilter={memberStatusFilter}
+                memberRoleDrafts={memberRoleDrafts}
+                accessRequestRoles={accessRequestRoles}
+                latestInviteCode={latestInviteCode}
+                isInviting={inviteMemberMutation.isPending}
+                isCreatingInviteLink={createInviteLinkMutation.isPending}
+                isRevokingInvitation={revokeInvitationMutation.isPending}
+                isRevokingInviteLink={revokeInviteLinkMutation.isPending}
+                isUpdatingMember={
+                  updateMemberRoleMutation.isPending ||
+                  disableMemberMutation.isPending ||
+                  restoreMemberMutation.isPending
+                }
+                memberActionId={memberActionId}
+                isReviewingAccessRequest={
+                  approveAccessRequestMutation.isPending || rejectAccessRequestMutation.isPending
+                }
+                onInviteDraftChange={setInviteDraft}
+                onInviteLinkDraftChange={setInviteLinkDraft}
+                onMemberSearchChange={setMemberSearch}
+                onMemberStatusFilterChange={setMemberStatusFilter}
+                onMemberRoleDraftChange={(id, role) =>
+                  setMemberRoleDrafts((current) => ({ ...current, [id]: role }))
+                }
+                onAccessRequestRoleChange={(id, role) =>
+                  setAccessRequestRoles((current) => ({ ...current, [id]: role }))
+                }
+                onUpdateMemberRole={(id, role) => updateMemberRoleMutation.mutate({ id, role })}
+                onDisableMember={(id) => disableMemberMutation.mutate({ id })}
+                onRestoreMember={(id) => restoreMemberMutation.mutate({ id })}
+                onInvite={() => {
+                  const email = inviteDraft.email.trim();
+                  if (!email) return;
+                  inviteMemberMutation.mutate({ ...inviteDraft, email });
+                }}
+                onCreateInviteLink={() => {
+                  createInviteLinkMutation.mutate({
+                    ...inviteLinkDraft,
+                    label: inviteLinkDraft.label?.trim() || undefined,
+                  });
+                }}
+                onRevokeInvitation={(id) => revokeInvitationMutation.mutate({ id })}
+                onRevokeInviteLink={(id) => revokeInviteLinkMutation.mutate({ id })}
+                onCopyInviteCode={() => {
+                  if (!latestInviteCode) return;
+                  void navigator.clipboard?.writeText(latestInviteCode);
+                  toast.success("邀请码已复制");
+                }}
+                onApproveAccessRequest={(id, approvedRole) =>
+                  approveAccessRequestMutation.mutate({ id, approved_role: approvedRole })
+                }
+                onRejectAccessRequest={(id) =>
+                  rejectAccessRequestMutation.mutate({ id, note: "店铺负责人拒绝加入申请" })
+                }
+              />
+            ) : null}
+            {selectedSection === "notifications" ? (
+              <StoreReadinessSection
+                readiness={storeReadiness}
+                messagePreview={messagePreview}
+                printPreview={printPreview}
+              />
+            ) : null}
+          </div>
+
+          <div
+            className={cn(
+              "min-w-0 space-y-3",
+              selectedSection === "store" ||
+                selectedSection === "notifications" ||
+                selectedSection === "rules"
+                ? ""
+                : "hidden",
+            )}
+          >
+            {selectedSection === "store" ? (
+              <section className={repairOs.adminSection}>
+                <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺资料" />
+                <div className={formLayout.grid}>
+                  <Field label="店铺名" htmlFor="store-name">
+                    <Input
+                      id="store-name"
+                      className={compactControlClass}
+                      value={draft.store_name}
+                      onChange={(event) =>
+                        setDraftField(setDraft, "store_name", event.target.value)
+                      }
+                    />
+                  </Field>
+                  <Field label="邮箱" htmlFor="store-email" icon={Mail}>
+                    <Input
+                      id="store-email"
+                      type="email"
+                      className={compactControlClass}
+                      value={draft.store_email}
+                      onChange={(event) =>
+                        setDraftField(setDraft, "store_email", event.target.value)
+                      }
+                    />
+                  </Field>
+                  <Field label="电话" htmlFor="store-phone" icon={Phone}>
+                    <Input
+                      id="store-phone"
+                      className={compactControlClass}
+                      value={draft.store_phone}
+                      onChange={(event) =>
+                        setDraftField(setDraft, "store_phone", event.target.value)
+                      }
+                    />
+                  </Field>
+                  <Field label="WhatsApp" htmlFor="store-whatsapp" icon={MessageSquare}>
+                    <Input
+                      id="store-whatsapp"
+                      className={compactControlClass}
+                      value={draft.store_whatsapp}
+                      onChange={(event) =>
+                        setDraftField(setDraft, "store_whatsapp", event.target.value)
+                      }
+                    />
+                  </Field>
+                </div>
+                <Field label="地址" htmlFor="store-address" className="mt-3">
+                  <Textarea
+                    id="store-address"
+                    rows={3}
+                    className={compactTextareaClass}
+                    value={draft.store_address}
+                    onChange={(event) =>
+                      setDraftField(setDraft, "store_address", event.target.value)
+                    }
+                  />
+                </Field>
+              </section>
+            ) : null}
+
+            {selectedSection === "rules" ? (
+              <section className={repairOs.adminSection}>
+                <RepairOsSectionHeader icon={Settings2} iconFrame={false} title="默认规则" />
+                <div className={formLayout.grid}>
+                  <Field label="维修默认质保" htmlFor="order-warranty">
+                    <Select
+                      value={String(draft.default_order_warranty_months)}
+                      onValueChange={(value) => {
+                        const months = Number(value);
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                default_order_warranty_months: months,
+                                default_order_warranty_text: formatWarrantyText(months),
+                              }
+                            : current,
+                        );
+                      }}
+                    >
+                      <SelectTrigger id="order-warranty" className={compactControlClass}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORDER_WARRANTY_OPTIONS.map((option) => (
+                          <SelectItem key={option.months} value={String(option.months)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="二手库存默认保修月数" htmlFor="inventory-warranty">
+                    <Input
+                      id="inventory-warranty"
+                      type="number"
+                      min={0}
+                      className={compactControlClass}
+                      value={draft.default_inventory_warranty_months}
+                      onChange={(event) =>
+                        setDraftField(
+                          setDraft,
+                          "default_inventory_warranty_months",
+                          Math.max(0, Number(event.target.value || 0)),
+                        )
+                      }
+                    />
+                  </Field>
+                </div>
+              </section>
+            ) : null}
+
+            {selectedSection === "notifications" ? (
+              <section className={repairOs.adminSection}>
+                <RepairOsSectionHeader icon={Printer} iconFrame={false} title="输出配置" />
+                <div className="space-y-3">
+                  <Field label="打印页脚" htmlFor="print-footer">
+                    <Textarea
+                      id="print-footer"
+                      rows={3}
+                      className={compactTextareaClass}
+                      value={draft.print_footer}
+                      onChange={(event) =>
+                        setDraftField(setDraft, "print_footer", event.target.value)
+                      }
+                    />
+                  </Field>
+                  <Field label="客户消息签名" htmlFor="message-signature">
+                    <Textarea
+                      id="message-signature"
+                      rows={3}
+                      className={compactTextareaClass}
+                      value={draft.message_signature}
+                      onChange={(event) =>
+                        setDraftField(setDraft, "message_signature", event.target.value)
+                      }
+                    />
+                  </Field>
+                </div>
+              </section>
+            ) : null}
           </div>
         </div>
+
+        {selectedSection === "workflow" ? (
+          <OrderWorkflowSection
+            workflow={workflowQuery.data}
+            isLoading={workflowQuery.isLoading}
+            isError={workflowQuery.isError}
+            errorMessage={
+              workflowQuery.error instanceof Error
+                ? workflowQuery.error.message
+                : "状态流配置暂时不可用"
+            }
+            onRetry={() => void workflowQuery.refetch()}
+            isSaving={
+              createWorkflowStatusMutation.isPending ||
+              updateWorkflowStatusMutation.isPending ||
+              reorderWorkflowStatusesMutation.isPending ||
+              updateWorkflowTransitionsMutation.isPending
+            }
+            onCreateStatus={(input) => createWorkflowStatusMutation.mutate(input)}
+            onUpdateStatus={(id, input) => updateWorkflowStatusMutation.mutate({ id, input })}
+            onReorder={(items) => reorderWorkflowStatusesMutation.mutate({ items })}
+            onUpdateTransitions={(input) => updateWorkflowTransitionsMutation.mutate(input)}
+          />
+        ) : null}
+
+        {canSaveDraftInSection(selectedSection) ? (
+          <div className={repairOs.adminSection}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-foreground">
+                  {activeSection?.label ?? "当前分组"}
+                </p>
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  {sectionDirtyState[selectedSection]
+                    ? "当前分组有未保存修改，保存后会立即影响对应资料和预览。"
+                    : "当前分组没有未保存修改。"}
+                </p>
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                className="h-8 gap-1.5"
+                style={brandGradientStyle}
+                disabled={!hasChanges || saveMutation.isPending}
+              >
+                <Check className="mr-1.5 size-3.5" /> 保存设置
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </form>
     </RepairOsListScaffold>
   );
@@ -812,18 +958,22 @@ const roleLabels: Record<string, string> = {
   viewer: "只读",
 };
 
+const memberStatusLabels: Record<string, string> = {
+  active: "正常",
+  inactive: "已停用",
+  invited: "待接受",
+};
+
+function memberStatusLabel(status: string) {
+  return memberStatusLabels[status] ?? status;
+}
+
 const accountRoleLabels: Record<string, string> = {
   owner: "最高管理员",
   manager: "管理员",
   technician: "技师",
   sales: "前台",
   viewer: "只读账号",
-};
-
-const memberStatusLabels: Record<string, string> = {
-  active: "正常",
-  inactive: "已停用",
-  invited: "待接受",
 };
 
 const approvedRoleOptions: ApprovedStoreRole[] = ["manager", "technician", "sales", "viewer"];
@@ -855,6 +1005,91 @@ const workflowBucketOptions: { value: OrderWorkflowBucket; label: string }[] = [
 
 const compactControlClass = "h-8 text-sm sm:h-9";
 const compactTextareaClass = "min-h-20 text-sm";
+
+function SettingsSectionNav({
+  items,
+  selectedSection,
+  onSelect,
+}: {
+  items: ((typeof settingsSections)[number] & {
+    status: string;
+    count?: number;
+    dirty: boolean;
+  })[];
+  selectedSection: SettingsSectionKey;
+  onSelect: (section: SettingsSectionKey) => void;
+}) {
+  return (
+    <nav
+      aria-label="设置分组"
+      className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)] md:rounded-2xl md:p-1.5"
+    >
+      <div className="grid min-w-0 auto-cols-[minmax(6.25rem,1fr)] grid-flow-col gap-1 overflow-x-auto md:auto-cols-[minmax(8.25rem,1fr)] md:gap-1.5 lg:grid-flow-row lg:grid-cols-6 lg:overflow-visible">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const isActive = item.key === selectedSection;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => onSelect(item.key)}
+              className={cn(
+                "relative flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition-colors md:gap-2 md:rounded-xl md:px-2.5 md:py-2",
+                isActive
+                  ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
+                  : "border-transparent bg-transparent text-foreground hover:border-[var(--border-panel)] hover:bg-accent",
+              )}
+            >
+              <span
+                className={cn(
+                  "grid size-6 shrink-0 place-items-center rounded-lg border md:size-7",
+                  isActive
+                    ? "border-primary-foreground/25 bg-primary-foreground/15"
+                    : "border-[var(--border-panel)] bg-card",
+                )}
+              >
+                <Icon className="size-3.5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-[11px] font-semibold md:text-xs">
+                    {item.label}
+                  </span>
+                  {item.dirty ? (
+                    <span
+                      className={cn(
+                        "size-1.5 shrink-0 rounded-full",
+                        isActive ? "bg-primary-foreground" : "bg-status-warn-foreground",
+                      )}
+                      aria-label="有未保存修改"
+                    />
+                  ) : null}
+                </span>
+                <span
+                  className={cn(
+                    "mt-0.5 hidden truncate text-[10px] leading-3 sm:block",
+                    isActive ? "text-primary-foreground/75" : "text-muted-foreground",
+                  )}
+                >
+                  {item.status}
+                </span>
+              </span>
+              {typeof item.count === "number" ? (
+                <Badge
+                  variant={isActive ? "secondary" : "outline"}
+                  className="h-5 shrink-0 px-1.5 text-[10px]"
+                >
+                  {item.count}
+                </Badge>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
 
 function defaultNewStatusDraft(): OrderWorkflowStatusCreateInput {
   return {
@@ -1141,7 +1376,7 @@ function OrderWorkflowSection({
   };
 
   return (
-    <section className={repairOs.adminSection}>
+    <section className={cn(repairOs.adminSection, "p-2 sm:p-3")}>
       <RepairOsSectionHeader icon={GitBranch} iconFrame={false} title="工单状态流" />
       {isLoading ? (
         <div className="space-y-3">
@@ -1165,8 +1400,8 @@ function OrderWorkflowSection({
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="grid gap-2 rounded-md border border-border/60 bg-surface-muted/30 p-2 lg:grid-cols-[9rem_minmax(0,1fr)_7rem_8rem_6rem_auto]">
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border/60 bg-surface-muted/30 p-1.5 sm:grid-cols-[9rem_minmax(0,1fr)_7rem_8rem_6rem_auto] sm:p-2">
             <Input
               value={newStatus.code}
               onChange={(event) =>
@@ -1234,6 +1469,7 @@ function OrderWorkflowSection({
             <Button
               type="button"
               size="sm"
+              className="h-8 text-xs"
               disabled={isSaving || !newStatus.code.trim() || !newStatus.label.trim()}
               onClick={() => {
                 onCreateStatus(newStatus);
@@ -1244,29 +1480,41 @@ function OrderWorkflowSection({
             </Button>
           </div>
 
-          <div className="space-y-2">
-            {statuses.map((status, index) => (
-              <div key={status.id}>
-                <details className="rounded-lg border border-[var(--border-panel)] bg-card p-2 lg:hidden">
-                  <summary className="flex min-w-0 cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">{status.label}</span>
-                      <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                        {status.code}
+          <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] lg:items-start">
+            <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3 lg:block lg:space-y-1.5">
+              {statuses.map((status, index) => (
+                <div key={status.id} className="min-w-0">
+                  <details className="rounded-lg border border-[var(--border-panel)] bg-card p-1.5 lg:hidden">
+                    <summary className="flex min-w-0 cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-semibold">{status.label}</span>
+                        <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                          {status.code}
+                        </span>
                       </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      <Badge variant="outline" className="text-[10px]">
-                        {getOrderWorkflowBucketLabel(status.bucket)}
-                      </Badge>
-                      {status.is_system ? (
+                      <span className="flex shrink-0 items-center gap-1">
                         <Badge variant="outline" className="text-[10px]">
-                          系统
+                          {getOrderWorkflowBucketLabel(status.bucket)}
                         </Badge>
-                      ) : null}
-                    </span>
-                  </summary>
-                  <div className="mt-2 grid gap-2">
+                        {status.is_system ? (
+                          <Badge variant="outline" className="hidden text-[10px] sm:inline-flex">
+                            系统
+                          </Badge>
+                        ) : null}
+                      </span>
+                    </summary>
+                    <div className="mt-2 grid gap-2">
+                      <WorkflowStatusFields
+                        status={status}
+                        index={index}
+                        total={statuses.length}
+                        isSaving={isSaving}
+                        onMove={moveStatus}
+                        onUpdateStatus={onUpdateStatus}
+                      />
+                    </div>
+                  </details>
+                  <div className="hidden min-w-0 gap-1.5 rounded-md border border-border/60 bg-surface/60 p-1.5 lg:grid lg:grid-cols-[auto_minmax(5.75rem,1fr)_4.25rem_minmax(5.5rem,0.78fr)_4.75rem_repeat(4,auto)_auto]">
                     <WorkflowStatusFields
                       status={status}
                       index={index}
@@ -1276,94 +1524,18 @@ function OrderWorkflowSection({
                       onUpdateStatus={onUpdateStatus}
                     />
                   </div>
-                </details>
-                <div className="hidden gap-2 rounded-md border border-border/60 bg-surface/60 p-2 lg:grid lg:grid-cols-[auto_minmax(7rem,1fr)_4.5rem_minmax(6.5rem,0.85fr)_5rem] xl:grid-cols-[auto_8.5rem_5.5rem_7.5rem_6rem_repeat(4,auto)_auto]">
-                  <WorkflowStatusFields
-                    status={status}
-                    index={index}
-                    total={statuses.length}
-                    isSaving={isSaving}
-                    onMove={moveStatus}
-                    onUpdateStatus={onUpdateStatus}
-                  />
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <div
-            data-ui="settings-workflow-transitions"
-            className="rounded-md border border-border/60 bg-surface-muted/30 p-3"
-          >
-            <div className="mb-3 grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
-              <Field label="来源状态" htmlFor="workflow-from-status">
-                <Select value={fromStatusCode} onValueChange={setFromStatusCode}>
-                  <SelectTrigger id="workflow-from-status" className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((status) => (
-                      <SelectItem key={status.code} value={status.code}>
-                        {status.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <p className="text-xs text-muted-foreground">
-                勾选允许从该状态流转到的目标状态；“主”会成为列表和详情的推荐下一步。
-              </p>
-            </div>
-            <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-              {statuses
-                .filter((status) => status.code !== fromStatusCode)
-                .map((status) => {
-                  const transition = transitions.find(
-                    (item) =>
-                      item.from_status_code === fromStatusCode &&
-                      item.to_status_code === status.code,
-                  );
-                  const enabled = Boolean(transition?.enabled);
-                  return (
-                    <RepairOsBusinessCard
-                      as="div"
-                      key={status.code}
-                      leading={
-                        <Checkbox
-                          checked={enabled}
-                          disabled={isSaving}
-                          onCheckedChange={(checked) =>
-                            updateTransitionTarget(status.code, { enabled: Boolean(checked) })
-                          }
-                        />
-                      }
-                      trailing={
-                        <Button
-                          type="button"
-                          variant={transition?.is_primary ? "default" : "outline"}
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          disabled={isSaving || !enabled}
-                          onClick={() =>
-                            updateTransitionTarget(status.code, {
-                              enabled: true,
-                              is_primary: true,
-                            })
-                          }
-                        >
-                          主
-                        </Button>
-                      }
-                      className="items-center rounded-md border-border/60 bg-surface px-2 py-1.5 shadow-none hover:bg-surface"
-                      leadingClassName="self-center"
-                      bodyClassName="self-center"
-                      trailingClassName="shrink-0 self-center"
-                    >
-                      <span className="block truncate text-xs">{status.label}</span>
-                    </RepairOsBusinessCard>
-                  );
-                })}
-            </div>
+            <WorkflowTransitionsPanel
+              statuses={statuses}
+              transitions={transitions}
+              fromStatusCode={fromStatusCode}
+              isSaving={isSaving}
+              onFromStatusChange={setFromStatusCode}
+              onUpdateTransition={updateTransitionTarget}
+            />
           </div>
         </div>
       )}
@@ -1372,6 +1544,123 @@ function OrderWorkflowSection({
 }
 
 type WorkflowStatusItem = ReturnType<typeof getWorkflowStatuses>[number];
+
+function WorkflowTransitionsPanel({
+  statuses,
+  transitions,
+  fromStatusCode,
+  isSaving,
+  onFromStatusChange,
+  onUpdateTransition,
+}: {
+  statuses: WorkflowStatusItem[];
+  transitions: OrderWorkflow["transitions"];
+  fromStatusCode: string;
+  isSaving: boolean;
+  onFromStatusChange: (code: string) => void;
+  onUpdateTransition: (
+    toStatusCode: string,
+    patch: { enabled?: boolean; is_primary?: boolean },
+  ) => void;
+}) {
+  const renderContent = (fieldId: string) => (
+    <>
+      <div className="mb-2 grid gap-1.5 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+        <Field label="来源状态" htmlFor={fieldId}>
+          <Select value={fromStatusCode} onValueChange={onFromStatusChange}>
+            <SelectTrigger id={fieldId} className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((status) => (
+                <SelectItem key={status.code} value={status.code}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <p className="text-[11px] leading-4 text-muted-foreground">
+          勾选允许目标状态；“主”会成为推荐下一步。
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-1 2xl:grid-cols-2">
+        {statuses
+          .filter((status) => status.code !== fromStatusCode)
+          .map((status) => {
+            const transition = transitions.find(
+              (item) =>
+                item.from_status_code === fromStatusCode && item.to_status_code === status.code,
+            );
+            const enabled = Boolean(transition?.enabled);
+            return (
+              <RepairOsBusinessCard
+                as="div"
+                key={status.code}
+                leading={
+                  <Checkbox
+                    checked={enabled}
+                    disabled={isSaving}
+                    aria-label={`允许流转到 ${status.label}`}
+                    onCheckedChange={(checked) =>
+                      onUpdateTransition(status.code, { enabled: Boolean(checked) })
+                    }
+                  />
+                }
+                trailing={
+                  <Button
+                    type="button"
+                    variant={transition?.is_primary ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px]"
+                    disabled={isSaving || !enabled}
+                    aria-label={`设为推荐流转到 ${status.label}`}
+                    onClick={() =>
+                      onUpdateTransition(status.code, {
+                        enabled: true,
+                        is_primary: true,
+                      })
+                    }
+                  >
+                    主
+                  </Button>
+                }
+                className="items-center rounded-md border-border/60 bg-surface px-1.5 py-1 shadow-none hover:bg-surface"
+                leadingClassName="self-center"
+                bodyClassName="self-center"
+                trailingClassName="shrink-0 self-center"
+              >
+                <span className="block truncate text-[11px]">{status.label}</span>
+              </RepairOsBusinessCard>
+            );
+          })}
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      <details
+        data-ui="settings-workflow-transitions"
+        className="rounded-md border border-border/60 bg-surface-muted/30 p-2 lg:hidden"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
+          <span>流转规则</span>
+          <Badge variant="outline" className="text-[10px]">
+            {Math.max(0, statuses.length - 1)} 项
+          </Badge>
+        </summary>
+        <div className="mt-2">{renderContent("workflow-from-status-mobile")}</div>
+      </details>
+      <div
+        data-ui="settings-workflow-transitions"
+        className="hidden rounded-md border border-border/60 bg-surface-muted/30 p-2 lg:block"
+      >
+        {renderContent("workflow-from-status-desktop")}
+      </div>
+    </>
+  );
+}
 
 function WorkflowStatusFields({
   status,
@@ -1616,10 +1905,13 @@ function StoreMembersSection({
   onRejectAccessRequest: (id: string) => void;
 }) {
   const roleOptions = getRoleOptionsForActor(activeStoreRole);
+  const [roleFilter, setRoleFilter] = useState<StoreRole | "all">("all");
   const searchTerm = memberSearch.trim().toLowerCase();
   const activeCount = members.filter((member) => member.status === "active").length;
   const inactiveCount = members.filter((member) => member.status === "inactive").length;
   const filteredMembers = members.filter((member) => {
+    const matchesRole = roleFilter === "all" ? true : member.role === roleFilter;
+    if (!matchesRole) return false;
     const matchesStatus =
       memberStatusFilter === "all" ? true : member.status === memberStatusFilter;
     if (!matchesStatus) return false;
@@ -1627,6 +1919,97 @@ function StoreMembersSection({
     const display = `${member.display_name ?? ""} ${member.email}`.toLowerCase();
     return display.includes(searchTerm);
   });
+  const renderMemberControls = (member: StoreMember, density: "table" | "card") => {
+    const draftRole = memberRoleDrafts[member.id] ?? toApprovedRole(member.role);
+    const canEditRole =
+      member.status === "active" &&
+      canManageMemberRole(activeStoreRole, member, currentUserId, draftRole);
+    const canChangeStatus = canManageMemberStatus(activeStoreRole, member, currentUserId);
+    const hasRoleChange = member.role !== "owner" && draftRole !== member.role;
+    const isRowPending = isUpdatingMember && memberActionId === member.id;
+    const memberRoleOptions = getRoleOptionsForMember(activeStoreRole, member);
+
+    if (member.role === "owner") {
+      return (
+        <Badge variant="default" className="w-fit text-[10px]">
+          店主
+        </Badge>
+      );
+    }
+
+    return (
+      <div
+        className={cn(
+          "grid min-w-0 gap-1.5",
+          density === "table"
+            ? "grid-cols-[minmax(7rem,1fr)_auto_auto] items-center"
+            : "grid-cols-[minmax(0,1fr)_auto] items-center",
+        )}
+      >
+        <Select
+          value={draftRole}
+          disabled={!canEditRole || !memberRoleOptions.length || isUpdatingMember}
+          onValueChange={(role) => onMemberRoleDraftChange(member.id, role as ApprovedStoreRole)}
+        >
+          <SelectTrigger className={cn(compactControlClass, density === "table" && "h-7")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {memberRoleOptions.map((role) => (
+              <SelectItem key={role} value={role}>
+                {roleLabels[role]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className={cn("px-2", density === "table" ? "h-7 text-xs" : "h-8")}
+          disabled={!canEditRole || !hasRoleChange || isUpdatingMember}
+          onClick={() => onUpdateMemberRole(member.id, draftRole)}
+        >
+          保存
+        </Button>
+        {member.status === "inactive" ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className={cn(
+              "justify-center gap-1.5 px-2",
+              density === "table" ? "h-7 text-xs" : "h-8",
+            )}
+            disabled={!canChangeStatus || isUpdatingMember}
+            onClick={() => onRestoreMember(member.id)}
+          >
+            <RotateCcw className="size-3.5" />
+            {isRowPending ? "恢复中" : "恢复"}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className={cn(
+              "justify-center gap-1.5 px-2 text-destructive hover:text-destructive",
+              density === "table" ? "h-7 text-xs" : "h-8",
+            )}
+            disabled={!canChangeStatus || isUpdatingMember}
+            onClick={() => {
+              if (window.confirm(`停用 ${member.display_name || member.email}？`)) {
+                onDisableMember(member.id);
+              }
+            }}
+          >
+            <UserMinus className="size-3.5" />
+            {isRowPending ? "停用中" : "停用"}
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <section id="settings-members" className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
@@ -1650,6 +2033,78 @@ function StoreMembersSection({
         </div>
       ) : (
         <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              { label: "成员", value: members.length, hint: "已加入" },
+              { label: "正常", value: activeCount, hint: "可使用" },
+              { label: "停用", value: inactiveCount, hint: "不可用" },
+              { label: "待邀请", value: invitations.length, hint: "可撤销" },
+              { label: "邀请码", value: inviteLinks.length, hint: "有效" },
+            ].map((metric) => (
+              <div
+                key={metric.label}
+                className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2"
+              >
+                <div className="truncate text-[10px] font-medium text-muted-foreground">
+                  {metric.label}
+                </div>
+                <div className="mt-1 flex items-end justify-between gap-2">
+                  <span className="font-mono text-lg font-semibold tabular-nums leading-none">
+                    {metric.value}
+                  </span>
+                  <span className="truncate text-[10px] text-muted-foreground">{metric.hint}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+            <div className="relative min-w-0">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="搜索员工"
+                className={cn(compactControlClass, "pl-8")}
+                placeholder="搜索员工姓名或邮箱"
+                value={memberSearch}
+                onChange={(event) => onMemberSearchChange(event.target.value)}
+              />
+            </div>
+            <Select
+              value={roleFilter}
+              onValueChange={(role) => setRoleFilter(role as StoreRole | "all")}
+            >
+              <SelectTrigger className={compactControlClass} aria-label="按角色筛选员工">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部角色</SelectItem>
+                {(["owner", "manager", "technician", "sales", "viewer"] as const).map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {roleLabels[role]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={memberStatusFilter}
+              onValueChange={(status) =>
+                onMemberStatusFilterChange(status as "all" | "active" | "inactive")
+              }
+            >
+              <SelectTrigger className={compactControlClass} aria-label="按状态筛选员工">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                {(["active", "inactive"] as const).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {memberStatusLabel(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {isAccessRequestsLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-16 w-full" />
@@ -1945,71 +2400,70 @@ function StoreMembersSection({
             ) : null}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_9rem]">
-                <Field label="搜索员工" htmlFor="member-search">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="member-search"
-                      className={cn(compactControlClass, "pl-8")}
-                      value={memberSearch}
-                      onChange={(event) => onMemberSearchChange(event.target.value)}
-                      placeholder="姓名或邮箱"
-                    />
-                  </div>
-                </Field>
-                <Field label="状态" htmlFor="member-status-filter">
-                  <Select
-                    value={memberStatusFilter}
-                    onValueChange={(status) =>
-                      onMemberStatusFilterChange(status as "all" | "active" | "inactive")
-                    }
-                  >
-                    <SelectTrigger id="member-status-filter" className={compactControlClass}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部</SelectItem>
-                      <SelectItem value="active">正常</SelectItem>
-                      <SelectItem value="inactive">已停用</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
+          {filteredMembers.length ? (
+            <>
+              <div className="hidden min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] lg:block">
+                <table className="w-full min-w-0 text-left text-xs">
+                  <thead className="border-b border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-2.5 py-2 font-medium">员工</th>
+                      <th className="w-28 px-2.5 py-2 font-medium">角色</th>
+                      <th className="w-24 px-2.5 py-2 font-medium">状态</th>
+                      <th className="w-20 px-2.5 py-2 font-medium">更新</th>
+                      <th className="w-[21rem] px-2.5 py-2 font-medium">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMembers.map((member) => (
+                      <tr
+                        key={member.id}
+                        className="border-b border-[var(--border-panel)]/60 last:border-b-0 hover:bg-accent/40"
+                      >
+                        <td className="min-w-0 px-2.5 py-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium">
+                              {member.display_name || member.email}
+                            </p>
+                            <p
+                              className="truncate text-[11px] text-muted-foreground"
+                              title={member.email}
+                            >
+                              {member.email}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-2.5 py-2">
+                          <Badge
+                            variant={member.role === "owner" ? "default" : "outline"}
+                            className="text-[10px]"
+                          >
+                            {roleLabels[member.role] ?? member.role}
+                          </Badge>
+                        </td>
+                        <td className="px-2.5 py-2">
+                          <Badge
+                            variant={member.status === "active" ? "secondary" : "outline"}
+                            className="text-[10px]"
+                          >
+                            {memberStatusLabel(member.status)}
+                          </Badge>
+                        </td>
+                        <td className="px-2.5 py-2 text-[11px] text-muted-foreground">
+                          {formatDate(member.updated_at)}
+                        </td>
+                        <td className="px-2.5 py-2">{renderMemberControls(member, "table")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                <Badge variant="outline" className="text-[10px]">
-                  共 {members.length}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px]">
-                  正常 {activeCount}
-                </Badge>
-                <Badge variant="outline" className="text-[10px]">
-                  停用 {inactiveCount}
-                </Badge>
-              </div>
-            </div>
 
-            {filteredMembers.length ? (
-              filteredMembers.map((member) => {
-                const draftRole = memberRoleDrafts[member.id] ?? toApprovedRole(member.role);
-                const canEditRole =
-                  member.status === "active" &&
-                  canManageMemberRole(activeStoreRole, member, currentUserId, draftRole);
-                const canChangeStatus = canManageMemberStatus(
-                  activeStoreRole,
-                  member,
-                  currentUserId,
-                );
-                const hasRoleChange = member.role !== "owner" && draftRole !== member.role;
-                const isRowPending = isUpdatingMember && memberActionId === member.id;
-                const memberRoleOptions = getRoleOptionsForMember(activeStoreRole, member);
-                return (
+              <div className="grid gap-2 lg:hidden">
+                {filteredMembers.map((member) => (
                   <RepairOsBusinessCard
                     key={member.id}
                     className={cn(
-                      "grid-cols-1 gap-2 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,auto)] sm:items-center",
+                      "grid-cols-1 gap-2 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] sm:items-center",
                       member.status === "inactive" && "bg-muted/30 opacity-80",
                     )}
                     trailing={
@@ -2025,76 +2479,10 @@ function StoreMembersSection({
                             variant={member.status === "active" ? "secondary" : "outline"}
                             className="text-[10px]"
                           >
-                            {memberStatusLabels[member.status] ?? member.status}
+                            {memberStatusLabel(member.status)}
                           </Badge>
                         </div>
-                        {member.role !== "owner" ? (
-                          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1.5">
-                            <Select
-                              value={draftRole}
-                              disabled={
-                                !canEditRole || !memberRoleOptions.length || isUpdatingMember
-                              }
-                              onValueChange={(role) =>
-                                onMemberRoleDraftChange(member.id, role as ApprovedStoreRole)
-                              }
-                            >
-                              <SelectTrigger className={compactControlClass}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {memberRoleOptions.map((role) => (
-                                  <SelectItem key={role} value={role}>
-                                    {roleLabels[role]}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-2"
-                              disabled={!canEditRole || !hasRoleChange || isUpdatingMember}
-                              onClick={() => onUpdateMemberRole(member.id, draftRole)}
-                            >
-                              保存
-                            </Button>
-                          </div>
-                        ) : null}
-                        {member.role !== "owner" ? (
-                          member.status === "inactive" ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-8 justify-center gap-1.5"
-                              disabled={!canChangeStatus || isUpdatingMember}
-                              onClick={() => onRestoreMember(member.id)}
-                            >
-                              <RotateCcw className="size-3.5" />
-                              {isRowPending ? "恢复中" : "恢复"}
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-8 justify-center gap-1.5 text-destructive hover:text-destructive"
-                              disabled={!canChangeStatus || isUpdatingMember}
-                              onClick={() => {
-                                if (
-                                  window.confirm(`停用 ${member.display_name || member.email}？`)
-                                ) {
-                                  onDisableMember(member.id);
-                                }
-                              }}
-                            >
-                              <UserMinus className="size-3.5" />
-                              {isRowPending ? "停用中" : "停用"}
-                            </Button>
-                          )
-                        ) : null}
+                        {renderMemberControls(member, "card")}
                       </div>
                     }
                     trailingClassName="min-w-0"
@@ -2103,7 +2491,9 @@ function StoreMembersSection({
                       <p className="truncate text-sm font-medium">
                         {member.display_name || member.email}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                      <p className="truncate text-xs text-muted-foreground" title={member.email}>
+                        {member.email}
+                      </p>
                       <p className="truncate text-[11px] text-muted-foreground">
                         更新：{formatDate(member.updated_at)}
                       </p>
@@ -2114,14 +2504,14 @@ function StoreMembersSection({
                       ) : null}
                     </div>
                   </RepairOsBusinessCard>
-                );
-              })
-            ) : (
-              <div className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
-                没有符合条件的员工。
+                ))}
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-xs text-muted-foreground">
+              没有匹配的员工。请调整搜索或筛选条件。
+            </div>
+          )}
 
           {invitations.length ? (
             <div className="grid gap-2">
@@ -2287,11 +2677,6 @@ function SettingsLoading() {
       title="设置"
       subtitle="正在读取配置"
       eyebrow="系统 / 设置"
-      chips={[
-        { key: "stores", label: "店铺", shortLabel: "店", count: "-" },
-        { key: "members", label: "成员", shortLabel: "员", count: "-" },
-        { key: "workflow", label: "状态流", shortLabel: "流", count: "-" },
-      ]}
       className="pb-28"
     >
       <div className="mt-3 space-y-2.5 sm:space-y-3">
