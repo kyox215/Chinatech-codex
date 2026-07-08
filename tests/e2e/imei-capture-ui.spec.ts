@@ -6,7 +6,7 @@ const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
-const screenshotDir = "screenshots/TASK-20260708-010-imei-capture-hardening";
+const screenshotDir = "screenshots/TASK-20260709-002-imei-candidate-selection";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for IMEI capture UI checks.");
 
@@ -38,7 +38,9 @@ test("new order IMEI capture handles camera fallback and numeric OCR candidates"
 
   await captureDialog.locator('input[type="file"]').setInputFiles(makeImeiImageFile());
 
-  await expect(captureDialog.getByText("找到多个可能的编号，请选择一个后保存。")).toBeVisible();
+  await expect(captureDialog.getByRole("alert")).toHaveText(
+    "已识别 2 个候选，请选择要填入的编号。",
+  );
   await expect(captureDialog.getByRole("button", { name: /490154203237518/ })).toBeVisible();
   await expect(captureDialog.getByRole("button", { name: /356938035643809/ })).toBeVisible();
   await captureDialog.screenshot({

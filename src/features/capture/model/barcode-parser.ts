@@ -44,8 +44,10 @@ const SERIAL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{5,63}$/;
 const CONTIGUOUS_IMEI_CANDIDATE_PATTERN = /(^|[^A-Za-z0-9])(\d{14,17})(?![A-Za-z0-9])/g;
 const IMEI_DIGIT_CANDIDATE_PATTERN =
   /(^|[^A-Za-z0-9])((?:\d[\s\-:：_.,/\\|]*){14,17})(?![\s\-:：_.,/\\|]*\d)/g;
-const SERIAL_LABEL_PATTERN =
-  /\b(?:SERIAL\s*NUMBER|SERIAL\s*NO\.?|S\/N|SN|SERIAL)\b\s*(?:[:：#-])?\s*([A-Z0-9][A-Z0-9._:-]{5,63})/gi;
+const LABELED_IMEI_CANDIDATE_PATTERN =
+  /\b(IMEI\s*(?:1|2)?|MEID)\b\s*(?:[:：#-])?\s*((?:\d[\s\-:：_.,/\\|]*){14,17})(?![\s\-:：_.,/\\|]*\d)/gi;
+const LABELED_SERIAL_CANDIDATE_PATTERN =
+  /\b(SERIAL\s*NUMBER|SERIAL\s*NO\.?|S\/N|SN|SERIAL|ECID|EC)\b\s*(?:[:：#-])?\s*([A-Z0-9][A-Z0-9._:-]{5,63})/gi;
 
 export function normalizeCaptureIdentifier(value: string) {
   return value
@@ -94,22 +96,27 @@ export function extractImeiCandidates(
     });
   };
 
-  const pushNumericCandidate = (candidateRaw: string) => {
+  const pushNumericCandidate = (candidateRaw: string, labelHint = "") => {
     const value = normalizeCaptureIdentifier(candidateRaw);
     if (!IMEI_PATTERN.test(value)) return;
 
     const valid = isValidImei(value);
+    const label = normalizeIdentifierLabel(labelHint);
     pushCandidate({
       kind: valid ? "imei" : "suspect_imei",
       raw: candidateRaw.trim() || value,
       value,
-      label: valid ? "有效 IMEI" : "疑似 IMEI",
+      label: getNumericCandidateLabel(valid, label),
       source,
       confidence: valid ? "high" : "medium",
       isValidImei: valid,
       reason: valid ? undefined : getSuspectImeiReason(value),
     });
   };
+
+  for (const match of raw.matchAll(LABELED_IMEI_CANDIDATE_PATTERN)) {
+    pushNumericCandidate(match[2] ?? "", match[1] ?? "");
+  }
 
   for (const match of raw.matchAll(CONTIGUOUS_IMEI_CANDIDATE_PATTERN)) {
     pushNumericCandidate(match[2] ?? "");
@@ -119,14 +126,14 @@ export function extractImeiCandidates(
     pushNumericCandidate(match[2] ?? "");
   }
 
-  for (const match of raw.matchAll(SERIAL_LABEL_PATTERN)) {
-    const value = normalizeCaptureIdentifier(match[1] ?? "");
+  for (const match of raw.matchAll(LABELED_SERIAL_CANDIDATE_PATTERN)) {
+    const value = normalizeCaptureIdentifier(match[2] ?? "");
     if (!SERIAL_PATTERN.test(value)) continue;
     pushCandidate({
       kind: "serial",
-      raw: (match[1] ?? value).trim(),
+      raw: (match[2] ?? value).trim(),
       value,
-      label: "序列号",
+      label: getSerialCandidateLabel(normalizeIdentifierLabel(match[1] ?? "")),
       source,
       confidence: "medium",
       isValidImei: false,
@@ -379,6 +386,28 @@ function parseLabeledIdentifier(raw: string): CapturePayload | null {
 function getSuspectImeiReason(value: string) {
   if (value.length !== 15) return "长度不是标准 15 位 IMEI。";
   return "15 位数字未通过 IMEI 校验位。";
+}
+
+function normalizeIdentifierLabel(label: string) {
+  const normalized = label.toUpperCase().replace(/\s+/g, "");
+  if (normalized === "IMEI1" || normalized === "IMEI2") return normalized;
+  if (normalized === "IMEI" || normalized === "MEID") return normalized;
+  if (normalized === "S/N" || normalized === "SN" || normalized.startsWith("SERIAL")) {
+    return "SN";
+  }
+  if (normalized === "EC" || normalized === "ECID") return "ECID";
+  return "";
+}
+
+function getNumericCandidateLabel(valid: boolean, label: string) {
+  if (label) return valid ? label : `${label}（疑似）`;
+  return valid ? "有效 IMEI" : "疑似 IMEI";
+}
+
+function getSerialCandidateLabel(label: string) {
+  if (label === "ECID") return "ECID";
+  if (label === "SN") return "SN";
+  return "序列号";
 }
 
 function isUrl(value: string) {

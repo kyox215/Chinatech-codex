@@ -93,7 +93,9 @@ describe("ImeiField", () => {
     expect(fileInput).toBeTruthy();
     await user.upload(fileInput!, new File(["image"], "imei.png", { type: "image/png" }));
 
-    expect(await screen.findByText("找到多个可能的编号，请选择一个后保存。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "已识别 2 个候选，请选择要填入的编号。",
+    );
     await user.click(screen.getByRole("button", { name: /356938035643809/ }));
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 

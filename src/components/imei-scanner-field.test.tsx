@@ -152,7 +152,12 @@ describe("ImeiScannerField", () => {
       audio: false,
       video: true,
     });
-    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith("356938035643809"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("已识别 1 个编号，请确认后再填入。");
+    expect(onChange).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
+
+    expect(onChange).toHaveBeenLastCalledWith("356938035643809");
     expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
   });
 
@@ -203,7 +208,9 @@ describe("ImeiScannerField", () => {
 
     await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
 
-    expect(await screen.findByText("找到多个可能的编号，请选择一个后保存。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "已识别 2 个候选，请选择要填入的编号。",
+    );
     expect(onChange).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: /356938035643809/ }));
@@ -211,6 +218,99 @@ describe("ImeiScannerField", () => {
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
     expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
+  });
+
+  it("captures the current camera frame and shows all detected barcode candidates", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      "decode",
+    );
+    const canvasGetContextDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    );
+    const canvasToDataUrlDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "toDataURL",
+    );
+    const barcodeDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "BarcodeDetector");
+
+    zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+      configurable: true,
+      value: vi.fn(() => ({ drawImage: vi.fn() })),
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", {
+      configurable: true,
+      value: vi.fn(() => "data:image/png;base64,iVBORw0KGgo="),
+    });
+    Object.defineProperty(window, "BarcodeDetector", {
+      configurable: true,
+      value: class BarcodeDetectorMock {
+        async detect() {
+          return [
+            { rawValue: "IMEI1: 490154203237518" },
+            { rawValue: "IMEI2: 356938035643809" },
+            { rawValue: "SN:AUNWE02SB05002790" },
+          ];
+        }
+      },
+    });
+
+    try {
+      render(<ImeiScannerField value="" onChange={onChange} />);
+
+      await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+      await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
+
+      const video = screen.getByLabelText("摄像头预览") as HTMLVideoElement;
+      Object.defineProperty(video, "videoWidth", { configurable: true, value: 640 });
+      Object.defineProperty(video, "videoHeight", { configurable: true, value: 480 });
+
+      const captureFrameButton = await screen.findByRole("button", { name: "拍照识别" });
+      await waitFor(() => expect(captureFrameButton).toBeEnabled());
+      await user.click(captureFrameButton);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "已识别 3 个候选，请选择要填入的编号。",
+      );
+      expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: /356938035643809/ }));
+      await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
+
+      expect(onChange).toHaveBeenLastCalledWith("356938035643809");
+    } finally {
+      if (imageDecodeDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);
+      } else {
+        delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+      }
+      if (canvasGetContextDescriptor) {
+        Object.defineProperty(
+          HTMLCanvasElement.prototype,
+          "getContext",
+          canvasGetContextDescriptor,
+        );
+      }
+      if (canvasToDataUrlDescriptor) {
+        Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", canvasToDataUrlDescriptor);
+      }
+      if (barcodeDetectorDescriptor) {
+        Object.defineProperty(window, "BarcodeDetector", barcodeDetectorDescriptor);
+      } else {
+        delete (window as Partial<Window & { BarcodeDetector?: unknown }>).BarcodeDetector;
+      }
+    }
   });
 
   it("rejects unsupported uploaded image types without closing the dialog", async () => {
@@ -271,7 +371,14 @@ describe("ImeiScannerField", () => {
       expect(fileInput).toBeTruthy();
       await user.upload(fileInput!, new File(["image"], "imei-label.heic", { type: "" }));
 
-      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith("490154203237518"));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "已识别 1 个编号，请确认后再填入。",
+      );
+      expect(onChange).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
+
+      expect(onChange).toHaveBeenLastCalledWith("490154203237518");
       expect(toastMocks.error).not.toHaveBeenCalledWith(
         expect.stringContaining("仅支持 JPG、PNG、WebP、HEIC 或 HEIF 图片。"),
       );
@@ -327,9 +434,13 @@ describe("ImeiScannerField", () => {
       expect(fileInput).toBeTruthy();
       await user.upload(fileInput!, new File(["image"], "imei.webp", { type: "image/webp" }));
 
-      expect(
-        await screen.findByText("找到多个可能的编号，请选择一个后保存。", {}, { timeout: 4000 }),
-      ).toBeInTheDocument();
+      await waitFor(
+        () =>
+          expect(screen.getByRole("alert")).toHaveTextContent(
+            "已识别 2 个候选，请选择要填入的编号。",
+          ),
+        { timeout: 4000 },
+      );
       await waitFor(() => expect(screen.queryByText("正在识别图片...")).not.toBeInTheDocument());
 
       await user.click(screen.getByRole("button", { name: /356938035643809/ }));
@@ -395,9 +506,13 @@ describe("ImeiScannerField", () => {
       expect(fileInput).toBeTruthy();
       await user.upload(fileInput!, new File(["image"], "imei.png", { type: "image/png" }));
 
-      expect(
-        await screen.findByText("找到多个可能的编号，请选择一个后保存。", {}, { timeout: 4000 }),
-      ).toBeInTheDocument();
+      await waitFor(
+        () =>
+          expect(screen.getByRole("alert")).toHaveTextContent(
+            "已识别 2 个候选，请选择要填入的编号。",
+          ),
+        { timeout: 4000 },
+      );
       expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
 
@@ -472,9 +587,13 @@ describe("ImeiScannerField", () => {
       expect(fileInput).toBeTruthy();
       await user.upload(fileInput!, new File(["image"], "imei.png", { type: "image/png" }));
 
-      expect(
-        await screen.findByText("找到多个可能的编号，请选择一个后保存。", {}, { timeout: 4000 }),
-      ).toBeInTheDocument();
+      await waitFor(
+        () =>
+          expect(screen.getByRole("alert")).toHaveTextContent(
+            "已识别 2 个候选，请选择要填入的编号。",
+          ),
+        { timeout: 4000 },
+      );
       expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
       expect(toastMocks.error).not.toHaveBeenCalledWith(expect.stringContaining("超时"));

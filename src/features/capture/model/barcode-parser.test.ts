@@ -95,12 +95,14 @@ describe("extractImeiCandidates", () => {
     expect(candidates).toMatchObject([
       {
         kind: "imei",
+        label: "IMEI1",
         value: "490154203237518",
         source: "ocr",
         isValidImei: true,
       },
       {
         kind: "imei",
+        label: "IMEI2",
         value: "356938035643809",
         source: "ocr",
         isValidImei: true,
@@ -153,11 +155,48 @@ describe("extractImeiCandidates", () => {
     expect(extractImeiCandidates("Serial Number F2LXL0ABCDEF")).toMatchObject([
       {
         kind: "serial",
+        label: "SN",
         value: "F2LXL0ABCDEF",
       },
     ]);
 
     expect(extractImeiCandidates("Device label without useful number")).toEqual([]);
+  });
+
+  it("keeps candidate labels from multi-barcode device screens", () => {
+    const candidates = extractImeiCandidates(
+      "EC-890480512036007823800799141943\nIMEI1:356734205071822\nIMEI2:356734205074023\nSN:AUNWE02SB05002790",
+      {
+        source: "ocr",
+        includeGenericSerial: true,
+      },
+    );
+
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "serial",
+          label: "ECID",
+          value: "890480512036007823800799141943",
+        }),
+        expect.objectContaining({
+          kind: "suspect_imei",
+          label: "IMEI1（疑似）",
+          value: "356734205071822",
+        }),
+        expect.objectContaining({
+          kind: "suspect_imei",
+          label: "IMEI2（疑似）",
+          value: "356734205074023",
+        }),
+        expect.objectContaining({
+          kind: "serial",
+          label: "SN",
+          value: "AUNWE02SB05002790",
+        }),
+      ]),
+    );
+    expect(candidates).toHaveLength(4);
   });
 
   it("can include a generic serial for direct barcode payloads", () => {
