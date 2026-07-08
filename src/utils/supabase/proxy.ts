@@ -14,6 +14,8 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isRepairDeskApi = pathname.startsWith("/api/repairdesk");
   const isLoginPage = pathname === "/login";
+  const isPasswordUpdatePage =
+    isLoginPage && request.nextUrl.searchParams.get("mode") === "update-password";
   const isOnboardingPage = pathname === "/onboarding";
   const isAuthPage = isLoginPage || isOnboardingPage;
   const isPublicAsset =
@@ -78,7 +80,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLoginPage && isAuthenticated) {
+  if (isLoginPage && isAuthenticated && !isPasswordUpdatePage) {
     const nextPath = request.nextUrl.searchParams.get("next") || "/";
     const target = request.nextUrl.clone();
     target.pathname = nextPath.startsWith("/") ? nextPath : "/";

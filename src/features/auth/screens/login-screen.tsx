@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { KeyRound, Loader2, LogIn, MapPin, Store, UserPlus } from "lucide-react";
+import { KeyRound, Loader2, LogIn, Mail, MapPin, Store, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,15 +19,23 @@ import {
   persistBrowserAuthPreference,
   readRememberLoginPreference,
 } from "@/features/auth/model/auth-persistence";
+import {
+  authErrorMessage,
+  normalizeAuthEmail,
+  passwordResetSentMessage,
+  validateNewPassword,
+} from "@/features/auth/model/auth-errors";
 import { resolvePostLoginPath } from "@/features/auth/model/post-login-redirect";
 
 export function LoginScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = useMemo(() => searchParams.get("next") || "/", [searchParams]);
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "reset" | "update-password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [rememberMe, setRememberMe] = useState(DEFAULT_REMEMBER_LOGIN);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,22 +44,33 @@ export function LoginScreen() {
     setRememberMe(readRememberLoginPreference());
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get("mode") === "update-password") {
+      setMode("update-password");
+    }
+    if (searchParams.get("auth_error") === "callback") {
+      toast.error("登录链接已失效，请重新发送邮件后再试。");
+    }
+  }, [searchParams]);
+
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedEmail = normalizeAuthEmail(email);
     setIsSubmitting(true);
     persistBrowserAuthPreference(rememberMe);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
     });
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(error.message || "登录失败");
+      toast.error(authErrorMessage(error));
       return;
     }
 
+    setEmail(normalizedEmail);
     const status = await getOnboardingStatus().catch(() => null);
     router.replace(resolvePostLoginPath(status, next));
     router.refresh();
@@ -59,11 +78,12 @@ export function LoginScreen() {
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedEmail = normalizeAuthEmail(email);
     setIsSubmitting(true);
     persistBrowserAuthPreference(rememberMe);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -74,10 +94,11 @@ export function LoginScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(error.message || "注册失败");
+      toast.error(authErrorMessage(error));
       return;
     }
 
+    setEmail(normalizedEmail);
     if (!data.session) {
       toast.success("注册已提交，请先完成邮箱确认后再登录");
       setMode("login");
@@ -85,6 +106,56 @@ export function LoginScreen() {
     }
 
     router.replace("/onboarding");
+    router.refresh();
+  }
+
+  async function handlePasswordResetRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedEmail = normalizeAuthEmail(email);
+    setIsSubmitting(true);
+    const supabase = createClient();
+    const redirectUrl = new URL("/auth/callback", window.location.origin);
+    redirectUrl.searchParams.set("next", "/login?mode=update-password");
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: redirectUrl.toString(),
+    });
+    setIsSubmitting(false);
+
+    if (error) {
+      toast.error(authErrorMessage(error));
+      return;
+    }
+
+    setEmail(normalizedEmail);
+    toast.success(passwordResetSentMessage());
+    setMode("login");
+  }
+
+  async function handlePasswordUpdate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const validationError = validateNewPassword(newPassword, newPasswordConfirmation);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
+    setIsSubmitting(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setIsSubmitting(false);
+
+    if (error) {
+      toast.error(authErrorMessage(error));
+      return;
+    }
+
+    toast.success("密码已更新，请使用新密码登录。");
+    await supabase.auth.signOut();
+    setPassword("");
+    setNewPassword("");
+    setNewPasswordConfirmation("");
+    setMode("login");
+    router.replace("/login");
     router.refresh();
   }
 
@@ -132,53 +203,118 @@ export function LoginScreen() {
             </div>
           </div>
 
-          <Tabs value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">登录</TabsTrigger>
-              <TabsTrigger value="register">注册</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login">
-              <form className="space-y-4" onSubmit={handleLogin}>
-                <LoginFields
-                  email={email}
-                  password={password}
-                  onEmailChange={setEmail}
-                  onPasswordChange={setPassword}
+          {mode === "reset" ? (
+            <form className="space-y-4" onSubmit={handlePasswordResetRequest}>
+              <div className="space-y-1.5">
+                <Label htmlFor="reset-email">邮箱</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
                 />
-                <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
-                <SubmitButton isSubmitting={isSubmitting} icon="login">
-                  登录
-                </SubmitButton>
-              </form>
-            </TabsContent>
+              </div>
+              <SubmitButton isSubmitting={isSubmitting} icon="reset">
+                发送重置邮件
+              </SubmitButton>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => setMode("login")}
+              >
+                返回登录
+              </Button>
+            </form>
+          ) : mode === "update-password" ? (
+            <form className="space-y-4" onSubmit={handlePasswordUpdate}>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password">新密码</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password-confirmation">确认新密码</Label>
+                <Input
+                  id="new-password-confirmation"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPasswordConfirmation}
+                  onChange={(event) => setNewPasswordConfirmation(event.target.value)}
+                  required
+                />
+              </div>
+              <SubmitButton isSubmitting={isSubmitting} icon="reset">
+                更新密码
+              </SubmitButton>
+            </form>
+          ) : (
+            <Tabs value={mode} onValueChange={(value) => setMode(value as "login" | "register")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">登录</TabsTrigger>
+                <TabsTrigger value="register">注册</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="register">
-              <form className="space-y-4" onSubmit={handleRegister}>
-                <div className="space-y-1.5">
-                  <Label htmlFor="displayName">姓名</Label>
-                  <Input
-                    id="displayName"
-                    autoComplete="name"
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    required
+              <TabsContent value="login">
+                <form className="space-y-4" onSubmit={handleLogin}>
+                  <LoginFields
+                    email={email}
+                    password={password}
+                    onEmailChange={setEmail}
+                    onPasswordChange={setPassword}
                   />
-                </div>
-                <LoginFields
-                  email={email}
-                  password={password}
-                  onEmailChange={setEmail}
-                  onPasswordChange={setPassword}
-                  passwordAutoComplete="new-password"
-                />
-                <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
-                <SubmitButton isSubmitting={isSubmitting} icon="register">
-                  注册并继续申请
-                </SubmitButton>
-              </form>
-            </TabsContent>
-          </Tabs>
+                  <div className="flex items-center justify-between gap-3">
+                    <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto px-0 text-xs"
+                      onClick={() => setMode("reset")}
+                    >
+                      忘记密码？
+                    </Button>
+                  </div>
+                  <SubmitButton isSubmitting={isSubmitting} icon="login">
+                    登录
+                  </SubmitButton>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="register">
+                <form className="space-y-4" onSubmit={handleRegister}>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="displayName">姓名</Label>
+                    <Input
+                      id="displayName"
+                      autoComplete="name"
+                      value={displayName}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <LoginFields
+                    email={email}
+                    password={password}
+                    onEmailChange={setEmail}
+                    onPasswordChange={setPassword}
+                    passwordAutoComplete="new-password"
+                  />
+                  <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
+                  <SubmitButton isSubmitting={isSubmitting} icon="register">
+                    注册并继续申请
+                  </SubmitButton>
+                </form>
+              </TabsContent>
+            </Tabs>
+          )}
         </section>
       </div>
     </main>
@@ -253,10 +389,10 @@ function SubmitButton({
   children,
 }: {
   isSubmitting: boolean;
-  icon: "login" | "register";
+  icon: "login" | "register" | "reset";
   children: React.ReactNode;
 }) {
-  const Icon = icon === "register" ? UserPlus : LogIn;
+  const Icon = icon === "register" ? UserPlus : icon === "reset" ? Mail : LogIn;
   return (
     <Button
       type="submit"
