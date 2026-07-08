@@ -28,3 +28,13 @@
 - **Decisions:** Do not overwrite `.ai-company/memory/ACTIVE_CONTEXT.md` because the workspace already has an unrelated `TASK-20260709-004-customer-kiosk-ipad-plan` active-context change. This checkpoint is stored in the IMEI task directory only.
 - **Risks/blockers:** final confirmation should be done on the same real phone/browser after deployment because the original issue was hardware/browser visual evidence.
 - **Next:** stage only IMEI code/tests/task-memory/screenshots, commit, push `main`, and leave unrelated kiosk-plan files untouched.
+
+## 2026-07-08T23:34:03Z — Bugfix for visual top-to-bottom numbering
+
+- **Phase:** bugfix validation.
+- **Completed:** candidates with barcode boxes are now sorted by visual position before numbering, so the top detected barcode is marker/list item 1 and the lower detected barcode is marker/list item 2 even if the browser returns detections in another order.
+- **Evidence:** `src/components/imei-scanner-field.tsx`; `src/components/imei-scanner-field.test.tsx`; `tests/e2e/imei-capture-ui.spec.ts`; `screenshots/TASK-20260709-003-imei-overlay-selection/imei-new-order-upload-candidates-mobile-safari.png`.
+- **Validation:** `npm run test -- src/components/imei-scanner-field.test.tsx` passed 18 tests; scoped `npx eslint src/components/imei-scanner-field.tsx src/components/imei-scanner-field.test.tsx tests/e2e/imei-capture-ui.spec.ts` passed; IMEI capture E2E passed 6 projects.
+- **Decisions:** Sort boxed candidates by normalized `box.y`, then `box.x`, then original order. Non-boxed fallback candidates keep their original order after boxed candidates.
+- **Risks/blockers:** full-repo `npm run typecheck` and `npm run lint` are currently blocked by unrelated uncommitted kiosk/API files; do not interpret those failures as caused by this IMEI change.
+- **Next:** stage only IMEI order-fix files, commit, push `main`, and report the unrelated dirty files separately.

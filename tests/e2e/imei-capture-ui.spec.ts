@@ -68,12 +68,12 @@ async function installCaptureMocks(page: Page) {
       async detect() {
         return [
           {
-            rawValue: "IMEI1: 490154203237518",
-            boundingBox: { x: 0.12, y: 0.22, width: 0.72, height: 0.08 },
-          },
-          {
             rawValue: "IMEI2: 356938035643809",
             boundingBox: { x: 0.18, y: 0.44, width: 0.64, height: 0.08 },
+          },
+          {
+            rawValue: "IMEI1: 490154203237518",
+            boundingBox: { x: 0.12, y: 0.22, width: 0.72, height: 0.08 },
           },
         ];
       }

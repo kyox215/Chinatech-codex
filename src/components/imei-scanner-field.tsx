@@ -245,16 +245,16 @@ export function ImeiScannerField({
           ...candidate,
           id: `${candidate.kind}:${candidate.value}:${index}`,
           box: detection?.box,
-          overlayIndex: detection?.box ? index + 1 : undefined,
         };
       });
-      const preferred = getPreferredImeiCandidate(selectableCandidates);
+      const orderedCandidates = orderCandidatesByVisualPosition(selectableCandidates);
+      const preferred = getPreferredImeiCandidate(orderedCandidates);
       if (options.preview) {
         replaceCapturePreview(options.preview, options.previewCleanup);
       }
-      setCaptureCandidates(selectableCandidates);
-      setSelectedCandidateId(preferred?.id ?? selectableCandidates[0]?.id ?? "");
-      setCaptureError(getCaptureCandidatesMessage(selectableCandidates));
+      setCaptureCandidates(orderedCandidates);
+      setSelectedCandidateId(preferred?.id ?? orderedCandidates[0]?.id ?? "");
+      setCaptureError(getCaptureCandidatesMessage(orderedCandidates));
       stopScanner();
     },
     [replaceCapturePreview, stopScanner],
@@ -1087,6 +1087,34 @@ function findDetectionForCandidate(
     normalizeCaptureIdentifier(detection.rawValue).includes(candidate.value),
   );
   return directMatch ?? detections[fallbackIndex] ?? null;
+}
+
+function orderCandidatesByVisualPosition(candidates: readonly ImeiSelectableCandidate[]) {
+  if (!candidates.some((candidate) => candidate.box)) return [...candidates];
+
+  let nextOverlayIndex = 0;
+  return [...candidates]
+    .map((candidate, originalIndex) => ({ candidate, originalIndex }))
+    .sort((left, right) => {
+      const leftBox = left.candidate.box;
+      const rightBox = right.candidate.box;
+
+      if (leftBox && rightBox) {
+        return (
+          leftBox.y - rightBox.y ||
+          leftBox.x - rightBox.x ||
+          left.originalIndex - right.originalIndex
+        );
+      }
+      if (leftBox) return -1;
+      if (rightBox) return 1;
+      return left.originalIndex - right.originalIndex;
+    })
+    .map(({ candidate }) =>
+      candidate.box
+        ? { ...candidate, overlayIndex: (nextOverlayIndex += 1) }
+        : { ...candidate, overlayIndex: undefined },
+    );
 }
 
 function getOverlayBoxStyle(

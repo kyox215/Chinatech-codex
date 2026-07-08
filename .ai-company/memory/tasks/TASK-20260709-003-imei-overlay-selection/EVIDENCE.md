@@ -25,6 +25,12 @@
 | E-021 | e2e | fake camera stream still decodes and commits IMEI on desktop/mobile Chromium | `REPAIRDESK_E2E_ORDER_AUDIT=1 npx playwright test tests/e2e/imei-camera-success.spec.ts --config=tests/e2e/imei-camera-success.playwright.config.ts` | 2 passed | 2026-07-08T23:24:05Z | CEO-Orchestrator |
 | E-022 | regression | full unit regression after bugfix | `npm run test` | 87 files, 604 tests passed | 2026-07-08T23:24:15Z | CEO-Orchestrator |
 | E-023 | build | production build after bugfix | `npm run build` | passed with escalated permissions due Turbopack local port binding | 2026-07-08T23:24:15Z | CEO-Orchestrator |
+| E-024 | bug report | overlay numbering should follow visual top-to-bottom order, with top marker 1 and bottom marker 2 | owner request | observed | 2026-07-08T23:34:03Z | CEO-Orchestrator |
+| E-025 | code | candidates with boxes are now sorted by visual `y` then `x` position before overlay/list numbering | `src/components/imei-scanner-field.tsx` | implemented | 2026-07-08T23:34:03Z | CEO-Orchestrator |
+| E-026 | test | unit test covers reversed detector-return order while expecting top candidate first in list and overlay numbering | `npm run test -- src/components/imei-scanner-field.test.tsx` | 18 passed | 2026-07-08T23:33:20Z | CEO-Orchestrator |
+| E-027 | static | scoped lint for changed IMEI files | `npx eslint src/components/imei-scanner-field.tsx src/components/imei-scanner-field.test.tsx tests/e2e/imei-capture-ui.spec.ts` | passed | 2026-07-08T23:33:20Z | CEO-Orchestrator |
+| E-028 | e2e | Playwright capture mock returns lower candidate first, but UI still displays top marker 1 and lower marker 2 across Chromium/WebKit/mobile projects | `REPAIRDESK_E2E_ORDER_AUDIT=1 npx playwright test tests/e2e/imei-capture-ui.spec.ts --config=tests/e2e/imei-capture.playwright.config.ts` | 6 passed | 2026-07-08T23:34:03Z | CEO-Orchestrator |
+| E-029 | screenshot | mobile Safari visual proof shows upper box/list item numbered 1 and lower numbered 2 | `screenshots/TASK-20260709-003-imei-overlay-selection/imei-new-order-upload-candidates-mobile-safari.png` | verified | 2026-07-08T23:34:03Z | CEO-Orchestrator |
 
 ## Quality Gate
 
@@ -42,6 +48,7 @@ Residual risk:
 
 - Real iOS camera hardware can still differ from Playwright/mobile emulation; current code minimizes restart loops and keeps upload/manual fallback available.
 - Owner-provided screenshot is from a real phone/browser; the code now corrects the likely CSS coordinate cause, but a final live-device check on the same phone remains useful after deployment.
+- Full-repo `npm run typecheck` and `npm run lint` were blocked during E-024..E-029 validation by unrelated uncommitted kiosk/API files in the workspace; scoped IMEI lint, IMEI unit tests, and IMEI E2E passed.
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

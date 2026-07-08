@@ -319,12 +319,12 @@ describe("ImeiScannerField", () => {
         async detect() {
           return [
             {
-              rawValue: "IMEI1: 490154203237518",
-              boundingBox: { x: 0.12, y: 0.22, width: 0.68, height: 0.08 },
-            },
-            {
               rawValue: "IMEI2: 356938035643809",
               boundingBox: { x: 0.2, y: 0.42, width: 0.6, height: 0.08 },
+            },
+            {
+              rawValue: "IMEI1: 490154203237518",
+              boundingBox: { x: 0.12, y: 0.22, width: 0.68, height: 0.08 },
             },
             {
               rawValue: "SN:AUNWE02SB05002790",
@@ -361,6 +361,9 @@ describe("ImeiScannerField", () => {
       await waitFor(() =>
         expect(parseFloat(secondOverlayCandidate.style.left)).toBeGreaterThan(25),
       );
+      const candidateButtons = screen.getAllByRole("button", { name: /\d{15}/ });
+      expect(candidateButtons[0]).toHaveTextContent("490154203237518");
+      expect(candidateButtons[1]).toHaveTextContent("356938035643809");
       expect(onChange).not.toHaveBeenCalled();
 
       await user.click(secondOverlayCandidate);
