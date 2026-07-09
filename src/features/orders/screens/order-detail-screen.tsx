@@ -23,6 +23,7 @@ import {
   Image as ImageIcon,
   MessageCircle,
   MoreVertical,
+  PackageSearch,
   Phone,
   Plus,
   Printer,
@@ -85,6 +86,7 @@ import {
   decideOrderApproval,
   createKioskSession,
   getOrder,
+  getRepairDeskOptions,
   getStoreSettings,
   listKioskDevices,
   listOrderWorkflow,
@@ -111,6 +113,7 @@ import {
   type ImeiCandidate,
 } from "@/features/capture/model/barcode-parser";
 import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
+import { OrderSupplierPicker } from "@/features/suppliers/components/order-supplier-picker";
 import {
   DeviceUnlockEditor,
   DeviceUnlockViewer,
@@ -188,6 +191,7 @@ import type {
   PatchOrderChanges,
   DeviceUnlockInput,
   StoreSettings,
+  Supplier,
 } from "@/lib/repairdesk/types";
 
 type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
@@ -266,6 +270,11 @@ export function OrderDetailScreen({
     queryKey: ordersKeys.workflow(activeStoreId),
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
+  });
+  const { data: repairDeskOptions } = useQuery({
+    queryKey: ordersKeys.options(activeStoreId),
+    queryFn: ({ signal }) => getRepairDeskOptions({ signal }),
+    staleTime: CACHE_TIMES.options,
   });
   const { data: kioskDevices = [] } = useQuery({
     queryKey: kioskKeys.devices(activeStoreId),
@@ -365,6 +374,21 @@ export function OrderDetailScreen({
     },
     onSuccess: () => {
       toast.success("手机密码已保存");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const partsSupplierUpdate = useMutation({
+    mutationFn: (supplierId: string | null) => {
+      if (!data) throw new Error("工单未加载");
+      return patchOrder(id, {
+        expected_updated_at: data.order.updated_at,
+        changes: { parts_supplier_id: supplierId },
+      });
+    },
+    onSuccess: () => {
+      toast.success("配件供应商已更新");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -603,6 +627,9 @@ export function OrderDetailScreen({
     );
   }
   const { order, customer, device, supplier, events, messages } = data;
+  const supplierOptions = repairDeskOptions?.suppliers ?? [];
+  const partsSupplier =
+    data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id);
   const next = getWorkflowNextActions(workflow, order.status);
   const desktopWorkflowStatus = getOrderWorkflowStatus(order);
   const desktopStageIndex = getWorkflowProgressValue(desktopWorkflowStatus);
@@ -709,6 +736,10 @@ export function OrderDetailScreen({
           onRequestKioskSignature={() => kioskSignatureRequest.mutate()}
           kioskSignaturePending={kioskSignatureRequest.isPending}
           kioskSignatureAvailable={Boolean(activeKioskDevice)}
+          partsSupplier={partsSupplier}
+          supplierOptions={supplierOptions}
+          partsSupplierPending={partsSupplierUpdate.isPending}
+          onPartsSupplierChange={(supplierId) => partsSupplierUpdate.mutate(supplierId)}
           className="md:hidden"
         />
       ) : null}
@@ -804,6 +835,10 @@ export function OrderDetailScreen({
               <OrderRecordsWorkspace
                 order={order}
                 supplier={supplier}
+                partsSupplier={partsSupplier}
+                supplierOptions={supplierOptions}
+                partsSupplierPending={partsSupplierUpdate.isPending}
+                onPartsSupplierChange={(supplierId) => partsSupplierUpdate.mutate(supplierId)}
                 messages={messages}
                 events={events}
                 workflow={workflow}
@@ -916,6 +951,10 @@ export function OrderDetailScreen({
 function OrderRecordsWorkspace({
   order,
   supplier,
+  partsSupplier,
+  supplierOptions,
+  partsSupplierPending,
+  onPartsSupplierChange,
   messages,
   events,
   workflow,
@@ -923,6 +962,10 @@ function OrderRecordsWorkspace({
 }: {
   order: OrderDetail["order"];
   supplier?: OrderDetail["supplier"];
+  partsSupplier?: Supplier;
+  supplierOptions: Supplier[];
+  partsSupplierPending: boolean;
+  onPartsSupplierChange: (supplierId: string | null) => void;
   messages: OrderDetail["messages"];
   events: OrderDetail["events"];
   workflow: Parameters<typeof getWorkflowStatusLabel>[0];
@@ -940,11 +983,55 @@ function OrderRecordsWorkspace({
       )}
     >
       <div className="grid min-w-0 content-start gap-2 sm:gap-3">
+        <OrderPartsSupplierCard
+          supplier={partsSupplier}
+          suppliers={supplierOptions}
+          isUpdating={partsSupplierPending}
+          onChange={onPartsSupplierChange}
+        />
         <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} className="h-fit" />
         <OrderMessagesLog messages={messages} />
       </div>
       <OrderTimelineLog events={events} workflow={workflow} />
     </motion.div>
+  );
+}
+
+function OrderPartsSupplierCard({
+  supplier,
+  suppliers,
+  isUpdating,
+  onChange,
+}: {
+  supplier?: Supplier;
+  suppliers: Supplier[];
+  isUpdating: boolean;
+  onChange: (supplierId: string | null) => void;
+}) {
+  return (
+    <section data-order-parts-supplier-card="true" className={detailWorkspace.flatPanel}>
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+            <PackageSearch className="size-3.5 text-primary" />
+            <span className="truncate">配件供应商</span>
+          </h3>
+          <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
+            仅使用当前店铺设置中的供应商。
+          </p>
+        </div>
+      </div>
+      <div className="mt-2">
+        <OrderSupplierPicker
+          supplier={supplier}
+          suppliers={suppliers}
+          isUpdating={isUpdating}
+          onChange={onChange}
+          mode="dropdown"
+          size="comfortable"
+        />
+      </div>
+    </section>
   );
 }
 
@@ -1436,6 +1523,10 @@ function MobileOrderDetailView({
   onRequestKioskSignature,
   kioskSignaturePending,
   kioskSignatureAvailable,
+  partsSupplier,
+  supplierOptions,
+  partsSupplierPending,
+  onPartsSupplierChange,
   className,
 }: {
   data: OrderDetail;
@@ -1474,6 +1565,10 @@ function MobileOrderDetailView({
   onRequestKioskSignature: () => void;
   kioskSignaturePending: boolean;
   kioskSignatureAvailable: boolean;
+  partsSupplier?: Supplier;
+  supplierOptions: Supplier[];
+  partsSupplierPending: boolean;
+  onPartsSupplierChange: (supplierId: string | null) => void;
   className?: string;
 }) {
   const { order, customer } = data;
@@ -1579,6 +1674,23 @@ function MobileOrderDetailView({
           <MobileMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} />
           <MobileMeta icon={Store} label="门店" value={storeSettings?.store_name || "ChinaTech"} />
         </div>
+      </section>
+
+      <section className={mobileDetailCardClass}>
+        <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
+        <div className="mt-1.5">
+          <OrderSupplierPicker
+            supplier={partsSupplier}
+            suppliers={supplierOptions}
+            isUpdating={partsSupplierPending}
+            onChange={onPartsSupplierChange}
+            mode="sheet"
+            size="comfortable"
+          />
+        </div>
+        <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground">
+          只读取当前店铺设置中的供应商。
+        </p>
       </section>
 
       <button

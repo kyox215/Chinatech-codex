@@ -13,6 +13,7 @@ import {
   storeInviteLinkRedeemBodySchema,
   storeMemberDecisionBodySchema,
   storeMemberRoleUpdateBodySchema,
+  supplierCreateBodySchema,
   updateOrderInputSchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
@@ -345,6 +346,25 @@ describe("repairdesk API schemas", () => {
         changes: { supplier_id: "supplier-1" },
       }),
     ).toThrow();
+  });
+
+  it("validates supplier settings payloads", () => {
+    expect(
+      supplierCreateBodySchema.parse({
+        input: {
+          name: "MOBILAX",
+          short_name: "MOB",
+          color: "#2563eb",
+          phone: "+39 333 000 0000",
+        },
+      }).input,
+    ).toMatchObject({ name: "MOBILAX", short_name: "MOB", color: "#2563eb" });
+
+    expect(() =>
+      supplierCreateBodySchema.parse({
+        input: { name: "MOBILAX", color: "blue" },
+      }),
+    ).toThrow("供应商颜色格式不正确");
   });
 
   it("validates onboarding request mode-specific fields", () => {

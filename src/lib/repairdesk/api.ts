@@ -95,6 +95,8 @@ import type {
   StoreMembersResult,
   StoreSettings,
   StoreSettingsUpdateInput,
+  Supplier,
+  SupplierInput,
   UpdateOrderInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
@@ -241,6 +243,8 @@ export type {
   StoreMembersResult,
   StoreSettings,
   StoreSettingsUpdateInput,
+  Supplier,
+  SupplierInput,
   UpdateOrderInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
@@ -347,6 +351,22 @@ export async function applyElectronicsCsvImport(
 
 export async function getStoreSettings(options?: RepairDeskRequestOptions): Promise<StoreSettings> {
   return requestJson<StoreSettings>("settings/store", {}, options);
+}
+
+export async function listSuppliers(options?: RepairDeskRequestOptions): Promise<Supplier[]> {
+  return requestJson<Supplier[]>("settings/suppliers", {}, options);
+}
+
+export async function createSupplier(input: SupplierInput): Promise<Supplier> {
+  return postJson<Supplier>("settings/suppliers/create", { input });
+}
+
+export async function updateSupplier(id: string, input: SupplierInput): Promise<Supplier> {
+  return postJson<Supplier>("settings/suppliers/update", { id, input });
+}
+
+export async function archiveSupplier(id: string): Promise<Supplier> {
+  return postJson<Supplier>("settings/suppliers/archive", { id });
 }
 
 export async function getStoreContext(options?: RepairDeskRequestOptions): Promise<StoreContext> {

@@ -1077,6 +1077,7 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
     customer: customerFromRow(row.customer),
     device: deviceFromRow(row.device),
     supplier: supplierFromRow(row.supplier),
+    parts_supplier: supplierFromRow(row.parts_supplier),
     events: ((eventRows ?? []) as DbRecord[]).map(eventFromRow),
     messages: ((messageRows ?? []) as DbRecord[]).map(messageFromRow),
     attachments: attachmentError
@@ -2863,7 +2864,8 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
   return {
     suppliers: ((supplierRows ?? []) as DbRecord[])
       .map(supplierFromRow)
-      .filter((supplier): supplier is Supplier => Boolean(supplier)),
+      .filter((supplier): supplier is Supplier => Boolean(supplier))
+      .filter((supplier) => !supplier.archived_at),
     technicians: Array.from(
       new Set(
         ((technicianRows ?? []) as DbRecord[])

@@ -51,6 +51,7 @@ import {
   getSupplier,
   orders,
 } from "@/lib/mock/state";
+import { getMockSupplier } from "@/features/suppliers/testing/mock-api";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
@@ -496,6 +497,7 @@ export async function getOrder(id: string, _actor?: AuditActor) {
     customer: getCustomer(o.customer_id),
     device: getDevice(o.device_id),
     supplier: getSupplier(o.supplier_id),
+    parts_supplier: getMockSupplier(o.parts_supplier_id, { includeArchived: true }),
     events: [...extraEvents.filter((event) => event.order_id === o.id), ...getEvents(o.id)].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     ),
@@ -1149,7 +1151,7 @@ export async function patchOrder(
     }
     if (field === "parts_supplier_id") {
       const supplierId = typeof rawValue === "string" ? rawValue.trim() : null;
-      if (supplierId && !getSupplier(supplierId)) {
+      if (supplierId && !getMockSupplier(supplierId)) {
         throw new Error("配件供应商不存在或不属于当前店铺");
       }
       o.parts_supplier_id = supplierId || undefined;

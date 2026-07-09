@@ -193,11 +193,7 @@ const issues = [
   "无法识别 SIM 卡",
 ];
 
-export const suppliers: Supplier[] = [
-  { id: "sup_1", name: "华强北维修中心", short_name: "华强北", color: "#6366f1" },
-  { id: "sup_2", name: "速达主板维修", short_name: "速达", color: "#10b981" },
-  { id: "sup_3", name: "深修苹果服务商", short_name: "深修", color: "#f59e0b" },
-];
+export const suppliers: Supplier[] = [];
 
 const customerNames = [
   "张伟",
@@ -372,11 +368,8 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     completed_at: status === "completed" ? created : undefined,
     delivered_at: status === "completed" && i % 2 === 0 ? created : undefined,
     cancel_reason: status === "cancelled" ? "客户主动取消" : undefined,
-    supplier_id: i % 6 === 0 ? suppliers[i % suppliers.length].id : undefined,
-    parts_supplier_id:
-      i % 4 === 0 || status === "parts_ordered" || status === "parts_arrived"
-        ? suppliers[(i + 1) % suppliers.length].id
-        : undefined,
+    supplier_id: undefined,
+    parts_supplier_id: undefined,
     original_order_id: status === "rework" ? `ord_${((i + 5) % 40) + 1}` : undefined,
     contact_phones: customer.contact_phones,
     fault_prices,

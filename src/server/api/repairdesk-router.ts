@@ -68,6 +68,18 @@ import {
   updateStoreSettings,
 } from "@/features/messages/server/message-settings.service";
 import {
+  archiveSupplier,
+  createSupplier,
+  listSuppliers,
+  updateSupplier,
+} from "@/features/suppliers/server/supplier.service";
+import {
+  archiveMockSupplier,
+  createMockSupplier,
+  listMockSuppliers,
+  updateMockSupplier,
+} from "@/features/suppliers/testing/mock-api";
+import {
   acceptKioskSession,
   createKioskDevicePairing,
   createKioskSession,
@@ -125,6 +137,7 @@ import type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   RepairDeskOptions,
+  SupplierInput,
   UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 import {
@@ -186,6 +199,9 @@ import {
   storeMemberDecisionBodySchema,
   storeMemberRoleUpdateBodySchema,
   storeSettingsUpdateBodySchema,
+  supplierArchiveBodySchema,
+  supplierCreateBodySchema,
+  supplierUpdateBodySchema,
   storeSwitchBodySchema,
   transitionOrderBodySchema,
   updateOrderBodySchema,
@@ -200,6 +216,7 @@ const supabaseSource = {
   approveOnboardingRequest,
   approveStoreAccessRequest,
   applyElectronicsCsvImport,
+  archiveSupplier,
   cancelOnboardingRequest,
   createCustomer,
   createCustomerFollowup,
@@ -208,6 +225,7 @@ const supabaseSource = {
   createKioskSession,
   createOrder,
   createOrderWorkflowStatus,
+  createSupplier,
   createStore,
   createStoreInviteLink,
   decideOrderApproval,
@@ -223,6 +241,7 @@ const supabaseSource = {
   getRepairDeskOptions,
   getStoreContext,
   getStoreSettings,
+  listSuppliers,
   importElectronicsCsvPreview,
   inviteStoreMember,
   disableStoreMember,
@@ -274,6 +293,7 @@ const supabaseSource = {
   updateOrder,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
+  updateSupplier,
   updateStoreSettings,
   restoreStoreMember,
   updateAccountProfile,
@@ -340,6 +360,11 @@ const realtimeBroadcasts = {
     mutation: "settings_updated",
     queryGroups: ["settings.store", "orders.options"],
   },
+  suppliersChanged: {
+    domain: "settings",
+    mutation: "settings_updated",
+    queryGroups: ["settings.store", "orders.options", "orders.all"],
+  },
   messageTemplateUpdated: {
     domain: "settings",
     mutation: "settings_updated",
@@ -387,10 +412,16 @@ async function source() {
   };
   return {
     ...mock,
+    archiveSupplier: async (id: string, actor: AuditActor) => archiveMockSupplier(id, actor),
+    createSupplier: async (input: SupplierInput, actor: AuditActor) =>
+      createMockSupplier(input, actor),
     getRepairDeskOptions: async () => ({
-      suppliers: mock.suppliers,
+      suppliers: listMockSuppliers().filter((supplier) => !supplier.archived_at),
       technicians: mock.allTechnicians,
     }),
+    listSuppliers: async () => listMockSuppliers(),
+    updateSupplier: async (id: string, input: SupplierInput, actor: AuditActor) =>
+      updateMockSupplier(id, input, actor),
     getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
       const context = await mock.getStoreContext(actor);
       const activeStore = actor.storeId
@@ -547,6 +578,9 @@ export async function handleRepairDeskGet(path: string) {
         return ok(await api.getInventoryStats(actor));
       case "settings/store":
         return ok(await api.getStoreSettings(actor));
+      case "settings/suppliers":
+        assertRepairDeskPermission(actor, "supplier:manage");
+        return ok(await api.listSuppliers(actor));
       case "message-templates":
         return ok(await api.listMessageTemplates(actor));
       case "stores/context":
@@ -1185,6 +1219,39 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
             actor,
             () => api.updateStoreSettings(input, actor),
             realtimeBroadcasts.settingsUpdated,
+          ),
+        );
+      }
+      case "settings/suppliers/create": {
+        assertRepairDeskPermission(actor, "supplier:manage");
+        const { input } = supplierCreateBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createSupplier(input, actor),
+            realtimeBroadcasts.suppliersChanged,
+          ),
+        );
+      }
+      case "settings/suppliers/update": {
+        assertRepairDeskPermission(actor, "supplier:manage");
+        const { id, input } = supplierUpdateBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.updateSupplier(id, input, actor),
+            realtimeBroadcasts.suppliersChanged,
+          ),
+        );
+      }
+      case "settings/suppliers/archive": {
+        assertRepairDeskPermission(actor, "supplier:manage");
+        const { id } = supplierArchiveBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.archiveSupplier(id, actor),
+            realtimeBroadcasts.suppliersChanged,
           ),
         );
       }

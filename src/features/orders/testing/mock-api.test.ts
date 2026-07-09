@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { CreateOrderInput, PatchOrderInput, UpdateOrderInput } from "@/lib/repairdesk/types";
-import { orders as mockOrders, suppliers } from "@/lib/mock/state";
+import { orders as mockOrders } from "@/lib/mock/state";
+import { createMockSupplier, resetMockSuppliers } from "@/features/suppliers/testing/mock-api";
 import {
   createOrder,
   decideOrderApproval,
@@ -828,9 +829,14 @@ describe("mock order inline editing workflow", () => {
   });
 
   it("patches parts supplier without changing order status", async () => {
+    resetMockSuppliers();
     const id = await createMockOrder({}, "Original Tech");
     const before = await getOrder(id);
-    const supplier = suppliers[0];
+    const supplier = createMockSupplier({
+      name: "UTOPYA",
+      short_name: "UTO",
+      color: "#16a34a",
+    });
 
     await patchOrder(id, {
       expected_updated_at: before.order.updated_at,

@@ -68,7 +68,8 @@ export const ORDER_SELECT = `
   *,
   customer:customers(*),
   device:devices(*),
-  supplier:suppliers!repair_orders_supplier_id_fkey(*)
+  supplier:suppliers!repair_orders_supplier_id_fkey(*),
+  parts_supplier:suppliers!repair_orders_parts_supplier_same_store_fkey(*)
 `;
 
 const ORDER_LIST_PAGE_SIZE = 1000;
@@ -273,6 +274,14 @@ export function supplierFromRow(row: unknown): Supplier | undefined {
     name: requiredString(r.name),
     short_name: requiredString(r.short_name),
     color: requiredString(r.color),
+    contact_name: maybeString(r.contact_name),
+    phone: maybeString(r.phone),
+    email: maybeString(r.email),
+    website: maybeString(r.website),
+    notes: maybeString(r.notes),
+    archived_at: maybeString(r.archived_at),
+    created_at: maybeString(r.created_at),
+    updated_at: maybeString(r.updated_at),
   };
 }
 

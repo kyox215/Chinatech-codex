@@ -57,6 +57,25 @@ export interface Supplier {
   name: string;
   short_name: string;
   color: string;
+  contact_name?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  notes?: string;
+  archived_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SupplierInput {
+  name: string;
+  short_name?: string;
+  color?: string;
+  contact_name?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  notes?: string;
 }
 
 export type OrderWorkflowStatusCode =
@@ -429,6 +448,7 @@ export interface OrderDetail {
   customer?: Customer;
   device?: Device;
   supplier?: Supplier;
+  parts_supplier?: Supplier;
   events: OrderEvent[];
   messages: MessageLog[];
   attachments: OrderAttachment[];

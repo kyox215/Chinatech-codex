@@ -3,15 +3,7 @@
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import {
-  AlertTriangle,
-  Check,
-  Clock,
-  Loader2,
-  MoreHorizontal,
-  PackageSearch,
-  Printer,
-} from "lucide-react";
+import { AlertTriangle, Clock, MoreHorizontal, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,7 +11,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -37,6 +28,7 @@ import {
 } from "@/features/orders/model/order-task-flow";
 import { cn } from "@/lib/utils";
 import type { Supplier } from "@/lib/repairdesk/types";
+import { OrderSupplierPicker } from "@/features/suppliers/components/order-supplier-picker";
 
 export const orderQueueDesktopGrid =
   "grid min-w-0 grid-cols-[30px_minmax(126px,0.82fr)_minmax(164px,1.08fr)_minmax(158px,1.02fr)_minmax(88px,0.5fr)_minmax(90px,0.52fr)_32px] items-center xl:grid-cols-[32px_minmax(146px,0.82fr)_minmax(220px,1.12fr)_minmax(214px,1.08fr)_minmax(102px,0.5fr)_minmax(110px,0.54fr)_34px]";
@@ -214,11 +206,12 @@ export function DesktopOrderQueueRow({
           ) : null}
         </div>
         <div className="mt-1 min-w-0" onClick={onStopInteraction}>
-          <PartsSupplierSelector
+          <OrderSupplierPicker
             supplier={partsSupplier}
             suppliers={suppliers}
             isUpdating={isPartsSupplierUpdating}
             onChange={onPartsSupplierChange}
+            mode="dropdown"
           />
         </div>
         {order.device_imei ? (
@@ -290,80 +283,5 @@ export function DesktopOrderQueueRow({
         </DropdownMenu>
       </div>
     </motion.div>
-  );
-}
-
-function PartsSupplierSelector({
-  supplier,
-  suppliers,
-  isUpdating,
-  onChange,
-}: {
-  supplier?: Supplier;
-  suppliers: Supplier[];
-  isUpdating: boolean;
-  onChange: (supplierId: string | null) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={isUpdating}
-          className={cn(
-            "h-6 max-w-full justify-start gap-1 rounded-md px-1.5 text-[10px] font-medium leading-none",
-            supplier
-              ? "bg-primary/10 text-primary hover:bg-primary/15"
-              : "bg-muted/60 text-muted-foreground hover:bg-muted",
-          )}
-          aria-label={supplier ? `配件供应商 ${supplier.name}` : "选择配件供应商"}
-        >
-          {isUpdating ? (
-            <Loader2 className="size-3 shrink-0 animate-spin" />
-          ) : (
-            <PackageSearch className="size-3 shrink-0" />
-          )}
-          <span className="truncate">
-            配件供：{supplier?.short_name || supplier?.name || "未选"}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel className="text-xs">选择配件供应商</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {suppliers.length ? (
-          suppliers.map((item) => (
-            <DropdownMenuItem
-              key={item.id}
-              className="text-xs"
-              disabled={isUpdating || item.id === supplier?.id}
-              onSelect={() => onChange(item.id)}
-            >
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: item.color }}
-                aria-hidden
-              />
-              <span className="min-w-0 flex-1 truncate">{item.name}</span>
-              {item.id === supplier?.id ? <Check className="size-3.5" /> : null}
-            </DropdownMenuItem>
-          ))
-        ) : (
-          <DropdownMenuItem disabled className="text-xs">
-            请先到设置页维护供应商
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="text-xs text-muted-foreground"
-          disabled={isUpdating || !supplier}
-          onSelect={() => onChange(null)}
-        >
-          清除配件供应商
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

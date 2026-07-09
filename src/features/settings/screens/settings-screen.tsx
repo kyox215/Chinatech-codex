@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Archive,
   AlertTriangle,
   ArrowDown,
   ArrowUp,
@@ -12,7 +13,9 @@ import {
   GitBranch,
   Mail,
   MessageSquare,
+  PackageSearch,
   Phone,
+  Pencil,
   Plus,
   Printer,
   RotateCcw,
@@ -48,6 +51,7 @@ import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
+import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 import { formatWarrantyText, ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
 import {
   getOrderWorkflowBucketLabel,
@@ -69,6 +73,8 @@ import {
   acceptKioskSession,
   createStore,
   approveStoreAccessRequest,
+  archiveSupplier,
+  createSupplier,
   createOrderWorkflowStatus,
   createStoreInviteLink,
   disableStoreMember,
@@ -79,6 +85,7 @@ import {
   inviteStoreMember,
   listKioskDevices,
   listKioskSessions,
+  listSuppliers,
   listStoreAccessRequests,
   listOrderWorkflow,
   rejectStoreAccessRequest,
@@ -89,6 +96,7 @@ import {
   revokeStoreInvitation,
   reorderOrderWorkflowStatuses,
   switchStore,
+  updateSupplier,
   updateStoreMemberRole,
   updateAccountProfile,
   updateOrderWorkflowStatus,
@@ -110,6 +118,8 @@ import {
   type ApprovedStoreRole,
   type StoreSettings,
   type StoreRole,
+  type Supplier,
+  type SupplierInput,
 } from "@/lib/repairdesk/api";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
@@ -132,6 +142,7 @@ type SettingsDraft = Pick<
 type SettingsSectionKey =
   | "account"
   | "store"
+  | "suppliers"
   | "members"
   | "kiosk"
   | "notifications"
@@ -147,6 +158,13 @@ const settingsSections: {
 }[] = [
   { key: "account", label: "账号", shortLabel: "账号", description: "名称与身份", icon: UserRound },
   { key: "store", label: "店铺", shortLabel: "店铺", description: "资料与切换", icon: Store },
+  {
+    key: "suppliers",
+    label: "供应商",
+    shortLabel: "供应商",
+    description: "配件与外修来源",
+    icon: PackageSearch,
+  },
   { key: "members", label: "员工", shortLabel: "员工", description: "成员与邀请", icon: Users },
   {
     key: "kiosk",
@@ -204,6 +222,8 @@ export function SettingsScreen() {
     staleTime: CACHE_TIMES.shell,
   });
   const activeStoreId = storeContextQuery.data?.activeStore?.id;
+  const activeStoreRole = storeContextQuery.data?.activeStore?.role;
+  const canManageSuppliers = activeStoreRole === "owner" || activeStoreRole === "manager";
   const settingsQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
@@ -243,6 +263,12 @@ export function SettingsScreen() {
     staleTime: CACHE_TIMES.settings,
     enabled: Boolean(activeStoreId),
   });
+  const suppliersQuery = useQuery({
+    queryKey: suppliersKeys.storeScoped(activeStoreId),
+    queryFn: ({ signal }) => listSuppliers({ signal }),
+    staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId && canManageSuppliers),
+  });
   const settingsData = settingsQuery.data;
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
   const [accountNameDraft, setAccountNameDraft] = useState("");
@@ -257,6 +283,8 @@ export function SettingsScreen() {
     expires_in_days: 7,
     max_uses: 1,
   });
+  const [supplierEditorId, setSupplierEditorId] = useState<string | "new" | null>(null);
+  const [supplierDraft, setSupplierDraft] = useState<SupplierInput>(() => defaultSupplierDraft());
   const [accessRequestRoles, setAccessRequestRoles] = useState<Record<string, ApprovedStoreRole>>(
     {},
   );
@@ -315,6 +343,7 @@ export function SettingsScreen() {
       account: hasAccountNameChange,
       store: false,
       members: false,
+      suppliers: false,
       kiosk: false,
       notifications: false,
       rules: false,
@@ -360,6 +389,38 @@ export function SettingsScreen() {
       ]);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "账号名称保存失败"),
+  });
+  const invalidateSupplierCaches = () => {
+    void queryClient.invalidateQueries({ queryKey: suppliersKeys.storeScoped(activeStoreId) });
+    void queryClient.invalidateQueries({ queryKey: ordersKeys.options(activeStoreId) });
+    void queryClient.invalidateQueries({ queryKey: ordersKeys.all });
+  };
+  const saveSupplierMutation = useMutation({
+    mutationFn: async () => {
+      if (supplierEditorId && supplierEditorId !== "new") {
+        return updateSupplier(supplierEditorId, supplierDraft);
+      }
+      return createSupplier(supplierDraft);
+    },
+    onSuccess: () => {
+      toast.success(supplierEditorId === "new" ? "供应商已添加" : "供应商已保存");
+      setSupplierEditorId(null);
+      setSupplierDraft(defaultSupplierDraft());
+      invalidateSupplierCaches();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "保存供应商失败");
+    },
+  });
+  const archiveSupplierMutation = useMutation({
+    mutationFn: archiveSupplier,
+    onSuccess: () => {
+      toast.success("供应商已归档");
+      invalidateSupplierCaches();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "归档供应商失败");
+    },
   });
   const switchStoreMutation = useMutation({
     mutationFn: switchStore,
@@ -600,6 +661,8 @@ export function SettingsScreen() {
 
   const storeCount = storeContextQuery.data?.stores.length ?? 0;
   const memberCount = storeMembersQuery.data?.members.length ?? 0;
+  const supplierRows = suppliersQuery.data ?? [];
+  const activeSupplierCount = supplierRows.filter((supplier) => !supplier.archived_at).length;
   const kioskDeviceCount =
     kioskDevicesQuery.data?.filter((device) => device.status === "active").length ?? 0;
   const workflowStatusCount = getWorkflowStatuses(workflowQuery.data).length;
@@ -615,27 +678,33 @@ export function SettingsScreen() {
     const status =
       section.key === "store"
         ? `${storeCount} 店铺`
-        : section.key === "members"
-          ? pendingMemberWorkCount > 0
-            ? `${memberCount} 成员 · ${pendingMemberWorkCount} 待处理`
-            : `${memberCount} 成员`
-          : section.key === "kiosk"
-            ? `${kioskDeviceCount} 台可用`
-            : section.key === "notifications"
-              ? `${storeReadiness.score}% 完整`
-              : section.key === "workflow"
-                ? `${workflowStatusCount} 状态`
-                : section.description;
+        : section.key === "suppliers"
+          ? canManageSuppliers
+            ? `${activeSupplierCount} 可选`
+            : "店主/经理维护"
+          : section.key === "members"
+            ? pendingMemberWorkCount > 0
+              ? `${memberCount} 成员 · ${pendingMemberWorkCount} 待处理`
+              : `${memberCount} 成员`
+            : section.key === "kiosk"
+              ? `${kioskDeviceCount} 台可用`
+              : section.key === "notifications"
+                ? `${storeReadiness.score}% 完整`
+                : section.key === "workflow"
+                  ? `${workflowStatusCount} 状态`
+                  : section.description;
     const count =
       section.key === "members"
         ? memberCount
         : section.key === "store"
           ? storeCount
-          : section.key === "kiosk"
-            ? kioskDeviceCount
-            : section.key === "workflow"
-              ? workflowStatusCount
-              : undefined;
+          : section.key === "suppliers"
+            ? activeSupplierCount
+            : section.key === "kiosk"
+              ? kioskDeviceCount
+              : section.key === "workflow"
+                ? workflowStatusCount
+                : undefined;
     return {
       ...section,
       status,
@@ -748,6 +817,35 @@ export function SettingsScreen() {
                   if (!name) return;
                   createStoreMutation.mutate({ name });
                 }}
+              />
+            ) : null}
+            {selectedSection === "suppliers" ? (
+              <SupplierManagementSection
+                suppliers={supplierRows}
+                canManage={canManageSuppliers}
+                isLoading={suppliersQuery.isLoading}
+                isError={suppliersQuery.isError}
+                draft={supplierDraft}
+                editorId={supplierEditorId}
+                isSaving={saveSupplierMutation.isPending}
+                archivePendingId={
+                  archiveSupplierMutation.isPending ? archiveSupplierMutation.variables : undefined
+                }
+                onDraftChange={setSupplierDraft}
+                onCreate={() => {
+                  setSupplierEditorId("new");
+                  setSupplierDraft(defaultSupplierDraft());
+                }}
+                onEdit={(supplier) => {
+                  setSupplierEditorId(supplier.id);
+                  setSupplierDraft(supplierToInput(supplier));
+                }}
+                onCancel={() => {
+                  setSupplierEditorId(null);
+                  setSupplierDraft(defaultSupplierDraft());
+                }}
+                onSave={() => saveSupplierMutation.mutate()}
+                onArchive={(id) => archiveSupplierMutation.mutate(id)}
               />
             ) : null}
             {selectedSection === "members" ? (
@@ -1138,7 +1236,7 @@ function SettingsSectionNav({
       aria-label="设置分组"
       className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-0.5 shadow-[var(--shadow-card)] md:p-1"
     >
-      <div className="grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-8">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === selectedSection;
@@ -2843,6 +2941,282 @@ function StoreManagementSection({
   );
 }
 
+const supplierColorOptions = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
+
+function SupplierManagementSection({
+  suppliers,
+  canManage,
+  isLoading,
+  isError,
+  draft,
+  editorId,
+  isSaving,
+  archivePendingId,
+  onDraftChange,
+  onCreate,
+  onEdit,
+  onCancel,
+  onSave,
+  onArchive,
+}: {
+  suppliers: Supplier[];
+  canManage: boolean;
+  isLoading: boolean;
+  isError: boolean;
+  draft: SupplierInput;
+  editorId: string | "new" | null;
+  isSaving: boolean;
+  archivePendingId?: string;
+  onDraftChange: (draft: SupplierInput) => void;
+  onCreate: () => void;
+  onEdit: (supplier: Supplier) => void;
+  onCancel: () => void;
+  onSave: () => void;
+  onArchive: (id: string) => void;
+}) {
+  const activeSuppliers = suppliers.filter((supplier) => !supplier.archived_at);
+  const archivedSuppliers = suppliers.filter((supplier) => supplier.archived_at);
+  const isEditing = Boolean(editorId);
+
+  return (
+    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
+      <RepairOsSectionHeader
+        icon={PackageSearch}
+        iconFrame={false}
+        title="供应商"
+        description={`${activeSuppliers.length} 个可选`}
+        action={
+          canManage ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={onCreate}
+            >
+              <Plus className="size-3.5" /> 添加
+            </Button>
+          ) : null
+        }
+      />
+
+      {!canManage ? (
+        <div className="rounded-lg border border-[var(--border-panel)] bg-card px-3 py-3 text-xs text-muted-foreground">
+          只有店主或经理可以维护供应商。其他员工只能在有权限的订单流程中选择当前店铺已启用的供应商。
+        </div>
+      ) : null}
+
+      {canManage && isEditing ? (
+        <div
+          className="mb-3 grid gap-2 rounded-lg border border-primary/25 bg-card p-2.5 shadow-[var(--shadow-card)] md:grid-cols-2"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (draft.name.trim()) onSave();
+            }
+          }}
+        >
+          <Field label="名称" htmlFor="supplier-name">
+            <Input
+              id="supplier-name"
+              className={compactControlClass}
+              value={draft.name}
+              onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
+              placeholder="例如 MOBILAX"
+            />
+          </Field>
+          <Field label="简称" htmlFor="supplier-short-name">
+            <Input
+              id="supplier-short-name"
+              className={compactControlClass}
+              value={draft.short_name ?? ""}
+              onChange={(event) => onDraftChange({ ...draft, short_name: event.target.value })}
+              placeholder="列表中显示"
+            />
+          </Field>
+          <Field label="联系人" htmlFor="supplier-contact">
+            <Input
+              id="supplier-contact"
+              className={compactControlClass}
+              value={draft.contact_name ?? ""}
+              onChange={(event) => onDraftChange({ ...draft, contact_name: event.target.value })}
+            />
+          </Field>
+          <Field label="电话" htmlFor="supplier-phone">
+            <Input
+              id="supplier-phone"
+              className={compactControlClass}
+              value={draft.phone ?? ""}
+              onChange={(event) => onDraftChange({ ...draft, phone: event.target.value })}
+            />
+          </Field>
+          <Field label="邮箱" htmlFor="supplier-email">
+            <Input
+              id="supplier-email"
+              className={compactControlClass}
+              value={draft.email ?? ""}
+              onChange={(event) => onDraftChange({ ...draft, email: event.target.value })}
+            />
+          </Field>
+          <Field label="网站" htmlFor="supplier-website">
+            <Input
+              id="supplier-website"
+              className={compactControlClass}
+              value={draft.website ?? ""}
+              onChange={(event) => onDraftChange({ ...draft, website: event.target.value })}
+            />
+          </Field>
+          <div className="md:col-span-2">
+            <Label className="text-[10px] font-medium text-muted-foreground">颜色</Label>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {supplierColorOptions.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={`选择颜色 ${color}`}
+                  className={cn(
+                    "size-7 rounded-lg border shadow-sm",
+                    draft.color === color
+                      ? "border-primary ring-2 ring-primary/25"
+                      : "border-border",
+                  )}
+                  style={{ backgroundColor: color }}
+                  onClick={() => onDraftChange({ ...draft, color })}
+                />
+              ))}
+            </div>
+          </div>
+          <Field label="备注" htmlFor="supplier-notes" className="md:col-span-2">
+            <Textarea
+              id="supplier-notes"
+              className="min-h-20 text-sm"
+              value={draft.notes ?? ""}
+              onChange={(event) => onDraftChange({ ...draft, notes: event.target.value })}
+              placeholder="内部备注，只属于当前店铺"
+            />
+          </Field>
+          <div className="flex flex-wrap justify-end gap-2 md:col-span-2">
+            <Button type="button" variant="ghost" size="sm" className="h-8" onClick={onCancel}>
+              取消
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8"
+              disabled={isSaving || !draft.name.trim()}
+              onClick={onSave}
+            >
+              <Check className="mr-1.5 size-3.5" /> 保存供应商
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {isLoading ? (
+        <div className="grid gap-2">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      ) : isError ? (
+        <div className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-xs text-status-danger-foreground">
+          供应商读取失败，请刷新后重试。
+        </div>
+      ) : activeSuppliers.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-card px-3 py-5 text-center">
+          <PackageSearch className="mx-auto size-5 text-muted-foreground" />
+          <p className="mt-2 text-sm font-semibold">暂无供应商</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            新店铺不会带入 Chinatech 的供应商，请按当前店铺实际合作方添加。
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activeSuppliers.map((supplier) => (
+            <RepairOsBusinessCard
+              key={supplier.id}
+              as="div"
+              className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2"
+              leading={
+                <span
+                  className="mt-1 size-3 rounded-full"
+                  style={{ backgroundColor: supplier.color }}
+                  aria-hidden
+                />
+              }
+              trailing={
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    aria-label={`编辑 ${supplier.name}`}
+                    onClick={() => onEdit(supplier)}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-7 text-muted-foreground"
+                    disabled={archivePendingId === supplier.id}
+                    aria-label={`归档 ${supplier.name}`}
+                    onClick={() => {
+                      if (window.confirm("归档后历史订单仍会显示该供应商，新订单不再可选。")) {
+                        onArchive(supplier.id);
+                      }
+                    }}
+                  >
+                    <Archive className="size-3.5" />
+                  </Button>
+                </div>
+              }
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{supplier.name}</p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {supplier.short_name}
+                  {supplier.phone ? ` · ${supplier.phone}` : ""}
+                </p>
+                {supplier.notes ? (
+                  <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-muted-foreground">
+                    {supplier.notes}
+                  </p>
+                ) : null}
+              </div>
+            </RepairOsBusinessCard>
+          ))}
+        </div>
+      )}
+
+      {archivedSuppliers.length ? (
+        <details className="mt-3 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2 text-xs">
+          <summary className="cursor-pointer font-semibold text-muted-foreground">
+            已归档供应商 {archivedSuppliers.length}
+          </summary>
+          <div className="mt-2 grid gap-1.5">
+            {archivedSuppliers.map((supplier) => (
+              <div
+                key={supplier.id}
+                className="flex min-w-0 items-center gap-2 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1.5"
+              >
+                <span
+                  className="size-2 rounded-full opacity-60"
+                  style={{ backgroundColor: supplier.color }}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate">{supplier.name}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">历史保留</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
 function KioskDevicesSection({
   devices,
   sessions,
@@ -3259,6 +3633,32 @@ function toDraft(settings: StoreSettings): SettingsDraft {
     default_inventory_warranty_months: settings.default_inventory_warranty_months,
     print_footer: settings.print_footer,
     message_signature: settings.message_signature,
+  };
+}
+
+function defaultSupplierDraft(): SupplierInput {
+  return {
+    name: "",
+    short_name: "",
+    color: supplierColorOptions[0],
+    contact_name: "",
+    phone: "",
+    email: "",
+    website: "",
+    notes: "",
+  };
+}
+
+function supplierToInput(supplier: Supplier): SupplierInput {
+  return {
+    name: supplier.name,
+    short_name: supplier.short_name,
+    color: supplier.color,
+    contact_name: supplier.contact_name ?? "",
+    phone: supplier.phone ?? "",
+    email: supplier.email ?? "",
+    website: supplier.website ?? "",
+    notes: supplier.notes ?? "",
   };
 }
 

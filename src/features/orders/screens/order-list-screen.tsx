@@ -779,7 +779,17 @@ export function OrderListScreen() {
             >
               {data.map((order) => (
                 <motion.div key={order.id} variants={fadeUp}>
-                  <OrderMobileCard order={order} />
+                  <OrderMobileCard
+                    order={order}
+                    suppliers={options.suppliers}
+                    isPartsSupplierUpdating={
+                      partsSupplierMutation.isPending &&
+                      partsSupplierMutation.variables?.order.id === order.id
+                    }
+                    onPartsSupplierChange={(supplierId) =>
+                      partsSupplierMutation.mutate({ order, supplierId })
+                    }
+                  />
                 </motion.div>
               ))}
             </motion.div>

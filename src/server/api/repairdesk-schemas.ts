@@ -47,6 +47,7 @@ import type {
   StoreMemberDecisionInput,
   StoreMemberRoleUpdateInput,
   StoreSettingsUpdateInput,
+  SupplierInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
 } from "@/lib/repairdesk/api";
@@ -840,6 +841,36 @@ export const storeSettingsUpdateInputSchema = z
 
 export const storeSettingsUpdateBodySchema = z.object({
   input: storeSettingsUpdateInputSchema,
+});
+
+export const supplierInputSchema = z
+  .object({
+    name: z.string().trim().min(1, "供应商名称不能为空").max(120, "供应商名称不能超过 120 个字符"),
+    short_name: optionalText,
+    color: z
+      .string()
+      .trim()
+      .regex(/^#[0-9a-fA-F]{6}$/, "供应商颜色格式不正确")
+      .optional(),
+    contact_name: optionalText,
+    phone: optionalText,
+    email: optionalText,
+    website: optionalText,
+    notes: optionalText,
+  })
+  .passthrough() satisfies z.ZodType<SupplierInput>;
+
+export const supplierCreateBodySchema = z.object({
+  input: supplierInputSchema,
+});
+
+export const supplierUpdateBodySchema = z.object({
+  id: z.string().min(1, "缺少供应商 id"),
+  input: supplierInputSchema,
+});
+
+export const supplierArchiveBodySchema = z.object({
+  id: z.string().min(1, "缺少供应商 id"),
 });
 
 export const storeCreateInputSchema = z

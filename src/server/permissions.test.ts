@@ -122,6 +122,14 @@ describe("server permission matrix", () => {
     expect(can(actor("manager"), "member:grant_manager")).toBe(false);
   });
 
+  it("allows only owner and manager to manage private suppliers", () => {
+    expect(can(actor("owner"), "supplier:manage")).toBe(true);
+    expect(can(actor("manager"), "supplier:manage")).toBe(true);
+    expect(can(actor("sales"), "supplier:manage")).toBe(false);
+    expect(can(actor("technician"), "supplier:manage")).toBe(false);
+    expect(can(actor("viewer"), "supplier:manage")).toBe(false);
+  });
+
   it("treats owner removal and owner transfer as elevated actions even for owner", () => {
     expect(getPermissionDecision(actor("owner"), "member:remove_owner")).toMatchObject({
       allowed: false,
