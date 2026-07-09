@@ -214,7 +214,7 @@ describe("ImeiScannerField", () => {
     expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
   });
 
-  it("locks the live camera frame immediately when the raw scan already has candidates", async () => {
+  it("locks the live camera frame and enriches a first serial hit with visible IMEI candidates", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
@@ -230,6 +230,7 @@ describe("ImeiScannerField", () => {
       "toDataURL",
     );
     const barcodeDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "BarcodeDetector");
+    const textDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "TextDetector");
     const drawImageMock = vi.fn();
     const barcodeDetectMock = vi.fn();
 
@@ -237,7 +238,7 @@ describe("ImeiScannerField", () => {
       Object.defineProperty(video, "videoWidth", { configurable: true, value: 640 });
       Object.defineProperty(video, "videoHeight", { configurable: true, value: 480 });
       callback({
-        getText: () => "IMEI: 356938035643809",
+        getText: () => "89043051202500726225007991441943",
       });
       return { stop: zxingMocks.stop };
     });
@@ -262,6 +263,14 @@ describe("ImeiScannerField", () => {
         }
       },
     });
+    Object.defineProperty(window, "TextDetector", {
+      configurable: true,
+      value: class TextDetectorMock {
+        async detect() {
+          return [{ rawValue: "IMEI1: 490154203237518" }, { rawValue: "IMEI2: 356938035643809" }];
+        }
+      },
+    });
 
     try {
       render(<ImeiScannerField value="" onChange={onChange} />);
@@ -269,13 +278,18 @@ describe("ImeiScannerField", () => {
       await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "已识别 1 个编号，请确认后再填入。",
+        "已识别 3 个候选，请选择要填入的编号。",
       );
       expect(screen.getByAltText("已锁定的扫码画面")).toBeInTheDocument();
       expect(screen.getByText("画面已锁定")).toBeInTheDocument();
       expect(drawImageMock).toHaveBeenCalled();
-      expect(barcodeDetectMock).not.toHaveBeenCalled();
-      expect(zxingMocks.decodeFromImageElement).not.toHaveBeenCalled();
+      expect(barcodeDetectMock).toHaveBeenCalled();
+      const candidateButtons = screen.getAllByRole("button", {
+        name: /490154203237518|356938035643809|89043051202500726225007991441943/,
+      });
+      expect(candidateButtons[0]).toHaveTextContent("490154203237518");
+      expect(candidateButtons[1]).toHaveTextContent("356938035643809");
+      expect(candidateButtons[2]).toHaveTextContent("89043051202500726225007991441943");
       expect(onChange).not.toHaveBeenCalled();
     } finally {
       if (imageDecodeDescriptor) {
@@ -297,6 +311,11 @@ describe("ImeiScannerField", () => {
         Object.defineProperty(window, "BarcodeDetector", barcodeDetectorDescriptor);
       } else {
         delete (window as Partial<Window & { BarcodeDetector?: unknown }>).BarcodeDetector;
+      }
+      if (textDetectorDescriptor) {
+        Object.defineProperty(window, "TextDetector", textDetectorDescriptor);
+      } else {
+        delete (window as Partial<Window & { TextDetector?: unknown }>).TextDetector;
       }
     }
   });

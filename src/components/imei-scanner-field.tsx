@@ -54,6 +54,12 @@ type ImeiRecognitionResult = {
   preview?: ImeiCapturePreview;
   previewCleanup?: () => void;
 };
+type ImeiCandidateInput = {
+  rawValue: string;
+  source: ImeiCaptureSource;
+  detections?: readonly ImeiBarcodeDetection[];
+  includeGenericSerial?: boolean;
+};
 type ImeiCaptureViewportSize = {
   width: number;
   height: number;
@@ -252,12 +258,16 @@ export function ImeiScannerField({
       source: ImeiCaptureSource,
       options: Pick<ImeiRecognitionResult, "detections" | "preview" | "previewCleanup"> = {},
     ) => {
-      const candidates = extractImeiCandidates(rawValue, {
-        source,
-        includeGenericSerial: true,
-      });
+      const orderedCandidates = buildSelectableCandidatesFromInputs([
+        {
+          rawValue,
+          source,
+          detections: options.detections,
+          includeGenericSerial: true,
+        },
+      ]);
 
-      if (candidates.length === 0) {
+      if (orderedCandidates.length === 0) {
         if (options.preview) {
           replaceCapturePreview(options.preview, options.previewCleanup);
         }
@@ -266,15 +276,34 @@ export function ImeiScannerField({
         return;
       }
 
-      const selectableCandidates = candidates.map((candidate, index) => {
-        const detection = findDetectionForCandidate(candidate, options.detections, index);
-        return {
-          ...candidate,
-          id: `${candidate.kind}:${candidate.value}:${index}`,
-          box: detection?.box,
-        };
-      });
-      const orderedCandidates = orderCandidatesByVisualPosition(selectableCandidates);
+      const preferred = getPreferredImeiCandidate(orderedCandidates);
+      if (options.preview) {
+        replaceCapturePreview(options.preview, options.previewCleanup);
+      }
+      setCaptureCandidates(orderedCandidates);
+      setSelectedCandidateId(preferred?.id ?? orderedCandidates[0]?.id ?? "");
+      setCaptureError(getCaptureCandidatesMessage(orderedCandidates));
+      stopScanner();
+    },
+    [replaceCapturePreview, stopScanner],
+  );
+
+  const handleCapturedCandidateInputs = useCallback(
+    (
+      inputs: readonly ImeiCandidateInput[],
+      options: Pick<ImeiRecognitionResult, "preview" | "previewCleanup"> = {},
+    ) => {
+      const orderedCandidates = buildSelectableCandidatesFromInputs(inputs);
+
+      if (orderedCandidates.length === 0) {
+        if (options.preview) {
+          replaceCapturePreview(options.preview, options.previewCleanup);
+        }
+        setCaptureError("未识别到可用编号。请重拍、上传更清晰照片，或手动输入。");
+        stopScanner();
+        return;
+      }
+
       const preferred = getPreferredImeiCandidate(orderedCandidates);
       if (options.preview) {
         replaceCapturePreview(options.preview, options.previewCleanup);
@@ -409,21 +438,8 @@ export function ImeiScannerField({
         stopScanner();
         replaceCapturePreview(frame.preview);
 
-        const rawCandidates = extractImeiCandidates(rawValue, {
-          source: "camera",
-          includeGenericSerial: true,
-        });
-        if (rawCandidates.length > 0) {
-          handleCapturedText(rawValue, "camera", {
-            preview: frame.preview,
-          });
-          return;
-        }
-
-        const recognition = await recognizeFastBarcodeFromImageElement(frame.image);
-
-        handleCapturedText(recognition.text || rawValue, recognition.source, {
-          ...recognition,
+        const inputs = await collectLockedFrameCandidateInputs(frame.image, rawValue);
+        handleCapturedCandidateInputs(inputs, {
           preview: frame.preview,
         });
       } catch {
@@ -432,7 +448,13 @@ export function ImeiScannerField({
         setIsImageProcessing(false);
       }
     },
-    [activeCameraMode, handleCapturedText, replaceCapturePreview, stopScanner],
+    [
+      activeCameraMode,
+      handleCapturedCandidateInputs,
+      handleCapturedText,
+      replaceCapturePreview,
+      stopScanner,
+    ],
   );
 
   const startCenterCropDecodeLoop = useCallback(
@@ -1041,6 +1063,64 @@ async function recognizeFastBarcodeFromImageElement(
   };
 }
 
+async function collectLockedFrameCandidateInputs(
+  image: HTMLImageElement,
+  rawValue: string,
+): Promise<ImeiCandidateInput[]> {
+  const inputs: ImeiCandidateInput[] = [
+    {
+      rawValue,
+      source: "camera",
+      includeGenericSerial: true,
+    },
+  ];
+
+  const barcodeDetections = await withImageRecognitionTimeout(
+    detectBarcodeValuesFromImageElement(image),
+    imeiBarcodeDecodeTimeoutMs,
+    "条码识别超时",
+  ).catch((): ImeiBarcodeDetection[] => []);
+
+  if (barcodeDetections.length > 0) {
+    inputs.push({
+      rawValue: barcodeDetections.map((detection) => detection.rawValue).join("\n"),
+      source: "barcode",
+      detections: barcodeDetections,
+      includeGenericSerial: true,
+    });
+  } else {
+    const barcodeText = await withImageRecognitionTimeout(
+      decodeBarcodeFromImageElement(image),
+      imeiFastBarcodeDecodeTimeoutMs,
+      "快速条码识别超时",
+    ).catch(() => "");
+    if (barcodeText.trim() && barcodeText.trim() !== rawValue.trim()) {
+      inputs.push({
+        rawValue: barcodeText,
+        source: "image",
+        includeGenericSerial: true,
+      });
+    }
+  }
+
+  if (!hasMultiplePriorityImeiCandidates(inputs)) {
+    const ocrText = await withImageRecognitionTimeout(
+      detectTextFromImageElement(image),
+      imeiOcrDecodeTimeoutMs,
+      "OCR 识别超时",
+    ).catch(() => "");
+    if (ocrText.trim()) {
+      inputs.push({
+        rawValue: ocrText,
+        source: "ocr",
+        includeGenericSerial: true,
+      });
+    }
+  }
+
+  return inputs;
+}
+
 async function createImageElementFromFile(file: File) {
   const imageUrl = URL.createObjectURL(file);
   const image = new Image();
@@ -1369,8 +1449,75 @@ function findDetectionForCandidate(
   return directMatch ?? detections[fallbackIndex] ?? null;
 }
 
-function orderCandidatesByVisualPosition(candidates: readonly ImeiSelectableCandidate[]) {
-  if (!candidates.some((candidate) => candidate.box)) return [...candidates];
+function buildSelectableCandidatesFromInputs(inputs: readonly ImeiCandidateInput[]) {
+  const candidatesByValue = new Map<
+    string,
+    {
+      candidate: ImeiCandidate;
+      box?: ImeiCaptureBox;
+      firstIndex: number;
+    }
+  >();
+  let nextIndex = 0;
+
+  for (const input of inputs) {
+    const candidates = extractImeiCandidates(input.rawValue, {
+      source: input.source,
+      includeGenericSerial: input.includeGenericSerial ?? true,
+    });
+
+    candidates.forEach((candidate, candidateIndex) => {
+      const detection = findDetectionForCandidate(candidate, input.detections, candidateIndex);
+      const existing = candidatesByValue.get(candidate.value);
+      const next = {
+        candidate,
+        box: detection?.box,
+        firstIndex: nextIndex,
+      };
+      nextIndex += 1;
+
+      if (!existing || shouldPreferCandidate(next, existing)) {
+        candidatesByValue.set(candidate.value, next);
+      }
+    });
+  }
+
+  return orderCandidatesByPriorityAndVisualPosition(
+    [...candidatesByValue.values()].map(({ candidate, box }, index) => ({
+      ...candidate,
+      id: `${candidate.kind}:${candidate.value}:${index}`,
+      box,
+    })),
+  );
+}
+
+function hasMultiplePriorityImeiCandidates(inputs: readonly ImeiCandidateInput[]) {
+  return (
+    buildSelectableCandidatesFromInputs(inputs).filter((candidate) => candidate.kind === "imei")
+      .length >= 2
+  );
+}
+
+function shouldPreferCandidate(
+  next: { candidate: ImeiCandidate; box?: ImeiCaptureBox },
+  existing: { candidate: ImeiCandidate; box?: ImeiCaptureBox },
+) {
+  const priorityDifference =
+    getCandidateKindPriority(next.candidate) - getCandidateKindPriority(existing.candidate);
+  if (priorityDifference !== 0) return priorityDifference < 0;
+  if (next.box && !existing.box) return true;
+  return (
+    getCandidateConfidencePriority(next.candidate) <
+    getCandidateConfidencePriority(existing.candidate)
+  );
+}
+
+function orderCandidatesByPriorityAndVisualPosition(
+  candidates: readonly ImeiSelectableCandidate[],
+) {
+  if (!candidates.some((candidate) => candidate.box)) {
+    return [...candidates].sort(compareCandidatesByPriority);
+  }
 
   let nextOverlayIndex = 0;
   return [...candidates]
@@ -1378,6 +1525,8 @@ function orderCandidatesByVisualPosition(candidates: readonly ImeiSelectableCand
     .sort((left, right) => {
       const leftBox = left.candidate.box;
       const rightBox = right.candidate.box;
+      const priorityDifference = compareCandidatesByPriority(left.candidate, right.candidate);
+      if (priorityDifference !== 0) return priorityDifference;
 
       if (leftBox && rightBox) {
         return (
@@ -1395,6 +1544,25 @@ function orderCandidatesByVisualPosition(candidates: readonly ImeiSelectableCand
         ? { ...candidate, overlayIndex: (nextOverlayIndex += 1) }
         : { ...candidate, overlayIndex: undefined },
     );
+}
+
+function compareCandidatesByPriority(left: ImeiCandidate, right: ImeiCandidate) {
+  return (
+    getCandidateKindPriority(left) - getCandidateKindPriority(right) ||
+    getCandidateConfidencePriority(left) - getCandidateConfidencePriority(right)
+  );
+}
+
+function getCandidateKindPriority(candidate: ImeiCandidate) {
+  if (candidate.kind === "imei") return 0;
+  if (candidate.kind === "suspect_imei") return 1;
+  return 2;
+}
+
+function getCandidateConfidencePriority(candidate: ImeiCandidate) {
+  if (candidate.confidence === "high") return 0;
+  if (candidate.confidence === "medium") return 1;
+  return 2;
 }
 
 function getOverlayBoxStyle(
@@ -1522,7 +1690,7 @@ function getScannerStatusText({
   candidateCount: number;
   hasCaptureError: boolean;
 }) {
-  if (isFrameLocked && isImageProcessing) return "已锁定画面，正在快速识别...";
+  if (isFrameLocked && isImageProcessing) return "已锁定画面，正在识别更多编号...";
   if (isImageProcessing) return "正在识别图片 / OCR...";
   if (isStarting) return "正在启动 1x 摄像头，识别时会自动中心裁切增强...";
   if (candidateCount > 0) return `已识别 ${candidateCount} 个候选，请选择要填入的编号。`;
