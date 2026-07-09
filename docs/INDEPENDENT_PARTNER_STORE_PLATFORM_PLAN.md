@@ -10,6 +10,14 @@ RepairDesk should be planned as a privacy-first platform for independent partner
 
 Each store is operated by an independent store owner. Each store owner must control their own customers, orders, payments, inventory, photos, staff, settings, and exports. Platform-level access exists to operate the system, onboard stores, handle billing/cooperation status, and provide support only under clearly defined privacy rules.
 
+## Platform Relationship Declaration
+
+The platform is not a headquarters. Stores are not platform branches, subsidiaries, or departments. The platform is a system service provider for independent store owners.
+
+Each store is an independent operating entity and a private tenant. Store A and Store B must be treated as separate businesses even when they use the same RepairDesk application, database, schema, and migration path. Shared product logic must never imply shared business-data ownership.
+
+Platform operators may manage the system, cooperation status, onboarding controls, abuse controls, billing/cooperation metadata, and owner-granted support controls. Platform operators must not receive default access to store customers, orders, payments, inventory, attachments, messages, settings, staff records, exports, or other business data.
+
 ## Product Positioning
 
 RepairDesk is a multi-tenant repair-shop operating system.
@@ -25,6 +33,7 @@ The platform provides:
 The platform must not behave like:
 
 - A headquarters that owns every store's data.
+- A parent company whose staff can freely administer independent stores as internal branches.
 - A shared staff system where platform operators can freely browse store business records.
 - A public directory of existing stores.
 
