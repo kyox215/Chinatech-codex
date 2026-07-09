@@ -12,6 +12,9 @@
 | E-008 | supabase | table-level follow-up query was blocked by CLI pooler auth after parallel queries | linked catalog/grants queries | pooler auth/circuit-breaker; do not treat as schema absence | 2026-07-10T00:22+02:00 | Codex |
 | E-009 | docs | docs no longer carry current Phase 5R blocker wording | `rg` over updated docs | only historical context line remains | 2026-07-10T00:28+02:00 | Codex |
 | E-010 | validation | docs/rules validation passes | `npm run agents:check`; `git diff --check` | exit 0 | 2026-07-10T00:28+02:00 | Codex |
+| E-011 | git | migration-history residual docs/memory were pushed to main | `git push origin HEAD:main` from `/private/tmp/repairdesk-role-permissions` | `bf5d9610..961e186b  HEAD -> main` | 2026-07-10T00:36+02:00 | Codex |
+| E-012 | git | original checkout was preserved and synced to latest main | original checkout: preservation branch, stash, reset, status | branch `preserve/original-main-before-sync-20260710-0030` at `19e22798`; `stash@{0}` saved dirty/untracked content; `HEAD` now `961e186b`; status clean | 2026-07-10T00:44+02:00 | Codex |
+| E-013 | supabase | permission grant table exists with RLS enabled and restricted table grants | serial `supabase db query --linked` on `store_member_permission_grants` | `relrowsecurity=true`; grants only `postgres:*` and `service_role:*`; no `anon`/`authenticated` table grants | 2026-07-10T00:47+02:00 | Codex |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

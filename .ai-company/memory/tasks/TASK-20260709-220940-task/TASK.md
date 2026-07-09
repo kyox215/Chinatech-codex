@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260709-220940-task"
 title: "残留事项与数据库迁移历史收敛"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["INT", "DATA", "SEC", "QA", "DOC"]
 created_at: "2026-07-09T22:09:40Z"
-updated_at: "2026-07-09T22:19:23Z"
+updated_at: "2026-07-09T22:28:43Z"
+closed_at: "2026-07-09T22:28:43Z"
 ---
 # Task — 残留事项与数据库迁移历史收敛
 
@@ -46,8 +47,8 @@ updated_at: "2026-07-09T22:19:23Z"
 ## Acceptance criteria
 
 - [x] 最新 `origin/main` 权限/Phase D 状态已核查并记录。
-- [x] Linked Supabase dry-run / migration list 已核查；迁移历史残留当前为 no-op/up to date；表级二次查询因 CLI pooler 认证熔断待稍后串行复查。
-- [x] 原工作区 dirty/ahead/behind/untracked 风险已分类，明确哪些能自动处理、哪些需要 Owner 批准。
+- [x] Linked Supabase dry-run / migration list 已核查；迁移历史残留当前为 no-op/up to date；权限授权表级二次查询已串行复查通过。
+- [x] 原工作区 dirty/ahead/behind/untracked 风险已分类，并已用保护分支 + stash 保存后同步到最新 `origin/main`。
 - [x] 不可逆清理动作没有被擅自执行。
 - [x] 任务记忆包含证据、风险、下一步和 no-spawn reason。
 
@@ -56,18 +57,19 @@ updated_at: "2026-07-09T22:19:23Z"
 | Item | Type | Evidence | Status / next action |
 |---|---|---|---|
 | Task title and initial metadata | observed | owner request | verify scope |
-| Clean worktree is at latest remote for this audit | observed | `/private/tmp/repairdesk-role-permissions` fast-forwarded to `bf5d9610` | use as execution surface |
-| Original workspace is dirty and divergent | observed | original `git status`: ahead 2, behind 38 plus many modified/untracked files | do not reset/delete without approval |
+| Clean worktree was used for isolated audit and push | observed | `/private/tmp/repairdesk-role-permissions`; pushed `961e186b` | close task from original synced checkout |
+| Original workspace was dirty and divergent, then preserved and synced | observed | E-003, E-012 | current original `main` is clean at `961e186b`; old state recoverable from branch/stash |
 | Latest remote contains role permission closeout | observed | `origin/main` includes `3db8dacf`, `baca8d16` | verify exact residual scope |
 | Latest remote also contains permission projections | observed | `origin/main` includes `bf5d9610 Add order permission projections` | inspect coverage before more Phase D work |
 | Supabase migration history is now aligned | observed | `supabase migration list --linked`, `supabase db push --linked --dry-run --include-all` | documentation updated; no apply needed |
-| Original workspace local commit `19e22798` is not equivalent upstream | observed | `git cherry -v origin/main HEAD` | preserve before any main reset/sync cleanup |
+| Permission grant table live posture is scoped-verified | observed | serial linked query | `store_member_permission_grants` exists, RLS enabled, table grants restricted to `postgres` and `service_role` |
+| Original workspace local commit `19e22798` was not equivalent upstream | observed | `git cherry -v origin/main HEAD`; E-012 | preserved in `preserve/original-main-before-sync-20260710-0030` before reset |
 
 ## Decision and approval points
 
 - R3/L2: read-only audits, docs/memory updates, dry-runs, and reversible snapshots may proceed.
 - D3/D4 approval required before: deleting/stashing owner work if not reversible, `git reset --hard`, dropping/repairing production migration history, deleting database rows, removing worktrees with unmerged work, or pushing new behavior changes.
-- Next approval point: to make the original checkout match `origin/main`, create a preservation branch for current local `main`, save/stash dirty changes, then reset/switch local `main` to `origin/main`; this must be approved because it changes the owner-visible working tree even though it is recoverable.
+- Owner-visible checkout sync was executed with recoverability: preservation branch plus stash were created before resetting local `main` to `origin/main`.
 - No sub-agents spawned: multi-agent tool policy requires explicit user request for sub-agents/delegation/parallel agent work; owner asked for direct execution. Departments are considered and handled by main thread unless a later explicit sub-agent request is made.
 
 ## Work packages
@@ -77,6 +79,14 @@ updated_at: "2026-07-09T22:19:23Z"
 - WP3 Original dirty worktree preservation and sync plan.
 - WP4 Safe residual cleanup or approval package for unsafe cleanup.
 - WP5 Evidence/checkpoint/closeout.
+
+## Closeout summary
+
+- Main pushed: `961e186b Resolve migration history residual status`.
+- Database residual history resolved for this task: linked migration list aligned through `20260709235000`, dry-run up to date, migration history count/latest verified.
+- Permission grant table residual verified: `store_member_permission_grants` has RLS enabled and only `postgres`/`service_role` table grants in the serial linked query.
+- Original checkout residual resolved: local `main` is clean at `961e186b`; old local state is recoverable from branch `preserve/original-main-before-sync-20260710-0030` and `stash@{0}`.
+- Phase D2/UI redaction and broader live parity audits remain separate follow-up work, not blockers for this residual cleanup.
 
 ## Definition of done
 

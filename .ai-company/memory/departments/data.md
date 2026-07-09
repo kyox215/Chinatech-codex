@@ -33,6 +33,7 @@ as owner of this file.
 - `TASK-20260619-009` removed the three Batch B stale duplicate migration files only; canonical migration history and production data were not changed.
 - `TASK-20260619-012` removed 15 current byte-identical duplicate migration files with ` 2.sql` names after SHA-256 verification; canonical migration files and production data were not changed.
 - `TASK-20260620-004` verified local migrations for store tenancy, same-store foreign keys, member SELECT RLS policies, platform onboarding, audit logs, and private attachment storage. This remains local evidence only; remote Supabase parity is still unknown.
+- `TASK-20260709-220940-task` scoped-verified linked Supabase migration history on 2026-07-10: local/remote migrations aligned through `20260709235000`, `supabase db push --linked --dry-run --include-all` reported up to date, and `store_member_permission_grants` existed with RLS enabled and table grants limited to `postgres`/`service_role`. This does not prove broad production schema/RLS parity beyond that history/table evidence.
 - Because server repositories use the service-role/admin path, server-side authorization remains the decisive write-control boundary even when RLS exists as a database guardrail.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` classifies audit-row retention risk and keeps live audit-row sampling, retention changes, purge, historical redaction/backfill, audit-reader grants, and schema/RLS changes approval-gated.
 
@@ -61,6 +62,7 @@ as owner of this file.
 
 - Do not infer project facts from the generic AI Company OS template.
 - Promote repeated evidence, not stylistic preference, into durable standards.
+- If linked Supabase catalog queries hit pooler auth or circuit-breaker errors after parallel calls, do not infer schema absence; wait briefly and rerun the necessary query serially.
 
 ## Capability and tool notes
 
@@ -79,3 +81,4 @@ as owner of this file.
 | 2026-06-19 | Deleted 15 current byte-identical duplicate migration files without changing canonical history or production data | TASK-20260619-012 | Integration Lead | active |
 | 2026-06-20 | Added local tenant/RLS permission baseline and remote parity risk | TASK-20260620-004 | Integration Lead | active |
 | 2026-06-20 | Added audit retention/live-row approval boundary from L2-027 policy | TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio | Integration Lead | policy_drafted |
+| 2026-07-10 | Added scoped linked migration-history and supplier permission-grant table verification | TASK-20260709-220940-task | Integration Lead | scoped_verified |

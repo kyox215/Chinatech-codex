@@ -24,7 +24,7 @@ as owner of this file.
 
 ## Verified rules and conventions
 
-- Worktree currently includes pre-existing tracked modifications and many untracked files.
+- As of `TASK-20260709-220940-task` closeout on 2026-07-10, the original checkout `main` was protected and synced to `origin/main` at `961e186b`: old local HEAD is preserved at `preserve/original-main-before-sync-20260710-0030`, and pre-sync dirty/untracked work is saved in `stash@{0}`.
 - Duplicate `* 2.*` files must not be deleted without owner confirmation.
 - Differing duplicate review result corrected by `TASK-20260619-006`: 18 remove-after-Owner-confirmation, 12 remove-after-domain-confirmation, and 2 backlog/salvage-only candidates.
 - Batch A cleanup completed in `TASK-20260619-006`; Batch B and Batch C remain intentionally untouched.
@@ -85,3 +85,4 @@ as owner of this file.
 | 2026-06-19 | Classified the three remaining now-different duplicates as delete-only candidates | TASK-20260619-013 | Integration Lead | active |
 | 2026-06-19 | Deleted the three reviewed remaining duplicate files and cleared Git-visible duplicate-file scan | TASK-20260619-014 | Integration Lead | active |
 | 2026-06-19 | Removed 14 confirmed empty duplicate directories and classified remaining duplicate-like paths as generated output | TASK-20260619-015 | Integration Lead | active |
+| 2026-07-10 | Protected dirty original checkout with branch/stash and synced local `main` to latest `origin/main` | TASK-20260709-220940-task | Integration Lead | active |
