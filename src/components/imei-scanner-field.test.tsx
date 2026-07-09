@@ -170,7 +170,7 @@ describe("ImeiScannerField", () => {
     ).toBeInTheDocument();
   });
 
-  it("tries 2x enhanced rear-camera constraints before falling back", async () => {
+  it("starts with 1x high-resolution rear-camera constraints before falling back", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     zxingMocks.decodeFromConstraints
@@ -194,7 +194,6 @@ describe("ImeiScannerField", () => {
         width: { ideal: 1920 },
         height: { ideal: 1080 },
         frameRate: { ideal: 24, max: 30 },
-        advanced: [{ zoom: 2 }],
       },
     });
     expect(zxingMocks.decodeFromConstraints.mock.calls[1]?.[0]).toEqual({
@@ -306,6 +305,7 @@ describe("ImeiScannerField", () => {
       "getBoundingClientRect",
     );
     const barcodeDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "BarcodeDetector");
+    const drawImageMock = vi.fn();
 
     zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
     vi.stubGlobal(
@@ -361,7 +361,7 @@ describe("ImeiScannerField", () => {
     });
     Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
       configurable: true,
-      value: vi.fn(() => ({ drawImage: vi.fn() })),
+      value: vi.fn(() => ({ drawImage: drawImageMock })),
     });
     Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", {
       configurable: true,
@@ -406,6 +406,7 @@ describe("ImeiScannerField", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "已识别 3 个候选，请选择要填入的编号。",
       );
+      expect(drawImageMock).toHaveBeenCalledWith(video, 142, 107, 356, 267, 0, 0, 640, 480);
       expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toBeInTheDocument();
