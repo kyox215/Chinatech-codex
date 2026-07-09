@@ -6,13 +6,11 @@ const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
-const screenshotDir = "screenshots/TASK-20260709-006-order-money-virtual-keypad";
+const screenshotDir = "screenshots/TASK-20260709-009-customer-phone-name-keypad";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for mobile input checks.");
 
-test("new order mobile inputs use numeric hints and virtual money keypad", async ({
-  page,
-}, testInfo) => {
+test("new order mobile inputs use virtual phone and money keypads", async ({ page }, testInfo) => {
   test.setTimeout(45_000);
   mkdirSync(screenshotDir, { recursive: true });
 
@@ -26,7 +24,36 @@ test("new order mobile inputs use numeric hints and virtual money keypad", async
   const deviceSection = page.locator('[data-new-order-section="device-info"]');
   const quotationSection = page.locator('[data-new-order-section="quotation"]');
 
-  await expect(customerSection.locator('input[inputmode="tel"]').first()).toBeVisible();
+  await expect(customerSection.locator('input[inputmode="tel"]').first()).toHaveCount(0);
+  const phoneTrigger = customerSection.locator('[data-phone-keypad-trigger="true"]').first();
+  await expect(phoneTrigger).toBeVisible();
+
+  await phoneTrigger.click();
+  const phoneKeypad = page.locator('[data-phone-keypad="true"]');
+  await expect(phoneKeypad).toBeVisible();
+
+  await phoneKeypad.locator('[data-phone-keypad-key="+39"]').click();
+  await phoneKeypad.locator('[data-phone-keypad-key="3"]').click();
+  await phoneKeypad.locator('[data-phone-keypad-key="3"]').click();
+  await phoneKeypad.locator('[data-phone-keypad-key="3"]').click();
+  await expect(phoneTrigger).toContainText("+39333");
+  await expect(customerSection.locator('[data-customer-intake-results="phone"]')).toBeVisible();
+
+  await phoneKeypad.screenshot({
+    path: `${screenshotDir}/phone-keypad-${testInfo.project.name}.png`,
+  });
+  await customerSection.screenshot({
+    path: `${screenshotDir}/new-order-customer-phone-results-${testInfo.project.name}.png`,
+  });
+  await phoneKeypad.locator('[data-phone-keypad-done="true"]').click();
+
+  const nameInput = customerSection.locator('input[placeholder="搜索客户姓名（可选）"]').first();
+  await expect(nameInput).toBeVisible();
+  await nameInput.fill("12");
+  await expect(
+    customerSection.getByText("姓名搜索只接收姓名，电话号码请在电话栏输入"),
+  ).toBeVisible();
+
   await expect(deviceSection.locator('input[inputmode="numeric"]').first()).toBeVisible();
   await expect(quotationSection.locator('input[inputmode="decimal"]').first()).toHaveCount(0);
 

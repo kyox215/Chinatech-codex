@@ -102,45 +102,57 @@ export function NewOrderCustomerSection({
         className="mb-1.5"
       />
       <div className="grid min-w-0 gap-1.5">
-        <DensePillField
-          label="电话"
-          required
-          leading={<Search className="size-3.5" />}
-          trailing={<UserRound className="size-3.5 text-primary" />}
-        >
-          <CustomerIntakeLookup
-            value={form.customerPhone}
-            selectedCustomerId={form.customerId}
-            selectedDeviceId={form.deviceId}
-            className={visualInputClass}
-            containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
-            placeholder="搜索电话 / 客户"
-            onChange={(customerPhone) => {
-              onClearCustomerContext();
-              setForm({
-                ...form,
-                customerPhone,
-                customerId: undefined,
-                deviceId: undefined,
-              });
-            }}
-            onPickCustomer={onPickCustomer}
-            onPickHistoryDevice={onPickHistoryDevice}
-          />
-        </DensePillField>
-        <DensePillField label="姓名">
-          <Input
-            value={form.customerName}
-            onChange={(event) =>
-              setForm({ ...form, customerName: event.target.value, customerId: undefined })
-            }
-            className={visualInputClass}
-            placeholder="客户姓名（可选）"
-          />
-        </DensePillField>
+        <CustomerIntakeLookup
+          mode="phone"
+          resultsPlacement="inline"
+          fieldLabel="电话"
+          fieldRequired
+          fieldLeading={<Search className="size-3.5" />}
+          fieldTrailing={<UserRound className="size-3.5 text-primary" />}
+          value={form.customerPhone}
+          selectedCustomerId={form.customerId}
+          selectedDeviceId={form.deviceId}
+          className={visualInputClass}
+          containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
+          placeholder="输入电话号码"
+          onChange={(customerPhone) => {
+            onClearCustomerContext();
+            setForm({
+              ...form,
+              customerPhone,
+              customerId: undefined,
+              deviceId: undefined,
+            });
+          }}
+          onPickCustomer={onPickCustomer}
+          onPickHistoryDevice={onPickHistoryDevice}
+        />
+        <CustomerIntakeLookup
+          mode="name"
+          resultsPlacement="inline"
+          fieldLabel="姓名"
+          fieldLeading={<UserRound className="size-3.5" />}
+          value={form.customerName}
+          selectedCustomerId={form.customerId}
+          selectedDeviceId={form.deviceId}
+          className={visualInputClass}
+          containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
+          placeholder="搜索客户姓名（可选）"
+          onChange={(customerName) => {
+            onClearCustomerContext();
+            setForm({
+              ...form,
+              customerName,
+              customerId: undefined,
+              deviceId: undefined,
+            });
+          }}
+          onPickCustomer={onPickCustomer}
+          onPickHistoryDevice={onPickHistoryDevice}
+        />
       </div>
       <p className="mt-1 rounded-lg bg-primary/5 px-2 py-1 text-[9px] leading-3 text-primary">
-        输入电话会即时匹配客户档案与历史维修型号
+        电话和姓名分开实时搜索；电话栏只接收号码，姓名栏只匹配客户姓名
       </p>
     </section>
   );

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyPhoneKeypadKey,
   applyMoneyKeypadKey,
   decimalKeyboardProps,
   imeiKeyboardProps,
   moneyDraftValue,
   normalizeMoneyKeypadDraft,
+  normalizePhoneKeypadDraft,
   parseMoneyDraft,
   phoneKeyboardProps,
 } from "./mobile-input";
@@ -41,5 +43,15 @@ describe("mobile input helpers", () => {
     expect(applyMoneyKeypadKey("12.3", "backspace")).toBe("12.");
     expect(applyMoneyKeypadKey("12.", "backspace")).toBe("12");
     expect(applyMoneyKeypadKey("12", "clear")).toBe("");
+  });
+
+  it("normalizes and edits phone keypad drafts", () => {
+    expect(normalizePhoneKeypadDraft(" +39 333-123 ")).toBe("+39333123");
+    expect(normalizePhoneKeypadDraft("abc333")).toBe("333");
+    expect(applyPhoneKeypadKey("", "+39")).toBe("+39");
+    expect(applyPhoneKeypadKey("+39", "3")).toBe("+393");
+    expect(applyPhoneKeypadKey("+393", "backspace")).toBe("+39");
+    expect(applyPhoneKeypadKey("333", "+39")).toBe("+39333");
+    expect(applyPhoneKeypadKey("+39333", "clear")).toBe("");
   });
 });

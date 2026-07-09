@@ -88,3 +88,43 @@ export function applyMoneyKeypadKey(value: string, key: MoneyKeypadKey) {
   if (draft === "0") return digits === "00" || digits === "0" ? "0" : digits;
   return normalizeMoneyKeypadDraft(`${draft}${digits}`);
 }
+
+export type PhoneKeypadKey =
+  | "0"
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "7"
+  | "8"
+  | "9"
+  | "+39"
+  | "backspace"
+  | "clear";
+
+export function normalizePhoneKeypadDraft(value: string) {
+  const trimmed = value.trim();
+  const hasLeadingPlus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (!digits) return hasLeadingPlus ? "+" : "";
+  return hasLeadingPlus ? `+${digits}` : digits;
+}
+
+export function applyPhoneKeypadKey(value: string, key: PhoneKeypadKey) {
+  const draft = normalizePhoneKeypadDraft(value);
+
+  if (key === "clear") return "";
+  if (key === "backspace") return normalizePhoneKeypadDraft(draft.slice(0, -1));
+  if (key === "+39") {
+    const digits = draft.replace(/\D/g, "");
+    if (!digits || digits === "39") return "+39";
+    if (digits.startsWith("39")) return `+${digits}`;
+    return `+39${digits}`;
+  }
+
+  if (draft === "+") return `+${key}`;
+  return normalizePhoneKeypadDraft(`${draft}${key}`);
+}

@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Clock3, Loader2, Search, Smartphone, UserRound } from "lucide-react";
 
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { customersKeys } from "@/features/customers/api/query-keys";
@@ -14,10 +15,12 @@ import {
   type CustomerIntakeCandidate,
 } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
-import { phoneKeyboardProps } from "@/shared/lib/mobile-input";
+import { normalizePhoneKeypadDraft } from "@/shared/lib/mobile-input";
 import { primaryPhoneRaw } from "@/shared/lib/phone";
 
 const EMPTY_CANDIDATES: CustomerIntakeCandidate[] = [];
+type CustomerIntakeLookupMode = "phone" | "name";
+type CustomerIntakeResultsPlacement = "popover" | "inline";
 
 export function CustomerIntakeLookup({
   value,
@@ -28,10 +31,18 @@ export function CustomerIntakeLookup({
   onPickHistoryDevice,
   className,
   containerClassName,
-  placeholder = "搜索电话 / 客户",
+  rootClassName,
+  placeholder,
   limit = 8,
   deviceLimit = 4,
   disabled,
+  mode = "phone",
+  resultsPlacement = "popover",
+  fieldLabel,
+  fieldRequired,
+  fieldLeading,
+  fieldTrailing,
+  fieldTrailingInteractive,
 }: {
   value: string;
   selectedCustomerId?: string;
@@ -44,18 +55,28 @@ export function CustomerIntakeLookup({
   ) => void | Promise<void>;
   className?: string;
   containerClassName?: string;
+  rootClassName?: string;
   placeholder?: string;
   limit?: number;
   deviceLimit?: number;
   disabled?: boolean;
+  mode?: CustomerIntakeLookupMode;
+  resultsPlacement?: CustomerIntakeResultsPlacement;
+  fieldLabel?: string;
+  fieldRequired?: boolean;
+  fieldLeading?: ReactNode;
+  fieldTrailing?: ReactNode;
+  fieldTrailingInteractive?: boolean;
 }) {
   const listboxId = useId();
   const [focused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const query = value.trim();
-  const rawPhone = primaryPhoneRaw(value);
-  const searchEnabled = query.length >= 2 || rawPhone.length >= 3;
+  const query = mode === "phone" ? normalizePhoneKeypadDraft(value) : value.trim();
+  const rawPhone = primaryPhoneRaw(query);
+  const nameHasDigits = mode === "name" && /\d/.test(query);
+  const searchEnabled =
+    mode === "phone" ? rawPhone.length >= 3 : query.length >= 2 && !nameHasDigits;
   const activeLimit = Math.min(12, Math.max(1, limit));
   const activeDeviceLimit = Math.min(8, Math.max(1, deviceLimit));
   const debouncedQuery = useDebouncedValue(searchEnabled ? query : "", 160);
@@ -63,12 +84,10 @@ export function CustomerIntakeLookup({
   const activeStoreId = shell.activeStore?.id;
 
   const candidateQuery = useQuery({
-    queryKey: customersKeys.intakeSearch(
-      debouncedQuery,
-      activeLimit,
-      activeDeviceLimit,
-      activeStoreId,
-    ),
+    queryKey: [
+      ...customersKeys.intakeSearch(debouncedQuery, activeLimit, activeDeviceLimit, activeStoreId),
+      mode,
+    ] as const,
     queryFn: () => searchCustomerIntakeCandidates(debouncedQuery, activeLimit, activeDeviceLimit),
     enabled: Boolean(debouncedQuery),
     staleTime: 90_000,
@@ -83,8 +102,8 @@ export function CustomerIntakeLookup({
     open && resultCount > 0 ? `${listboxId}-option-${highlightedIndex}` : undefined;
 
   useEffect(() => {
-    setOpen(focused && Boolean(query));
-  }, [focused, query]);
+    setOpen(resultsPlacement === "inline" ? Boolean(query) : focused && Boolean(query));
+  }, [focused, query, resultsPlacement]);
 
   useEffect(() => {
     setHighlightedIndex(0);
@@ -103,166 +122,368 @@ export function CustomerIntakeLookup({
     setOpen(false);
   };
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverAnchor asChild>
-        <div className={cn("relative min-w-0", containerClassName)}>
-          <Input
-            {...phoneKeyboardProps}
-            value={value}
-            disabled={disabled}
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={open}
-            aria-controls={listboxId}
-            aria-activedescendant={activeDescendant}
-            onChange={(event) => {
-              onChange(event.target.value);
-              setFocused(true);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setOpen(false);
-                return;
-              }
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                setOpen(Boolean(query));
-                setHighlightedIndex((index) =>
-                  resultCount ? Math.min(resultCount - 1, index + 1) : 0,
-                );
-                return;
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setHighlightedIndex((index) => (resultCount ? Math.max(0, index - 1) : 0));
-                return;
-              }
-              if (event.key === "Enter" && open && resultCount > 0) {
-                event.preventDefault();
-                const candidate = data[highlightedIndex];
-                if (candidate) pickCustomer(candidate);
-              }
-            }}
-            placeholder={placeholder}
-            className={cn("h-7 font-mono text-base sm:h-9 sm:text-sm", className)}
-            onBlur={() => {
-              setFocused(false);
-              window.setTimeout(() => setOpen(false), 140);
-            }}
-            onFocus={() => {
-              setFocused(true);
-              if (query) setOpen(true);
-            }}
-          />
-        </div>
-      </PopoverAnchor>
-      <PopoverContent
-        align="start"
-        collisionPadding={12}
-        sideOffset={6}
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        className="w-[calc(100vw-24px)] max-w-sm overflow-x-hidden p-1 sm:w-[28rem] sm:max-w-[calc(100vw-24px)] md:w-[32rem]"
-      >
-        <div
-          id={listboxId}
-          role="listbox"
-          aria-label="客户和历史维修型号"
-          className="max-h-80 min-w-0 overflow-y-auto"
+  const placeholderText =
+    placeholder ?? (mode === "phone" ? "输入电话号码" : "搜索客户姓名（可选）");
+  const resultsContent = (
+    <CustomerIntakeResults
+      listboxId={listboxId}
+      mode={mode}
+      searchEnabled={searchEnabled}
+      nameHasDigits={nameHasDigits}
+      isSearching={isSearching}
+      queryError={queryError}
+      data={data}
+      highlightedIndex={highlightedIndex}
+      selectedCustomerId={selectedCustomerId}
+      selectedDeviceId={selectedDeviceId}
+      onHighlight={setHighlightedIndex}
+      onPickCustomer={pickCustomer}
+      onPickDevice={pickDevice}
+    />
+  );
+  const control =
+    mode === "phone" ? (
+      <PhoneKeypadInput
+        value={value}
+        onChange={(nextValue) => {
+          onChange(normalizePhoneKeypadDraft(nextValue));
+          setFocused(true);
+        }}
+        disabled={disabled}
+        ariaLabel="客户电话号码"
+        ariaControls={listboxId}
+        ariaExpanded={open}
+        ariaActiveDescendant={activeDescendant}
+        placeholder={placeholderText}
+        triggerClassName={className}
+        onOpenChange={(nextOpen) => {
+          setFocused(nextOpen || Boolean(query));
+          if (nextOpen && query) setOpen(true);
+        }}
+      />
+    ) : (
+      <Input
+        type="text"
+        value={value}
+        disabled={disabled}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        aria-activedescendant={activeDescendant}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setFocused(true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setOpen(false);
+            return;
+          }
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpen(Boolean(query));
+            setHighlightedIndex((index) =>
+              resultCount ? Math.min(resultCount - 1, index + 1) : 0,
+            );
+            return;
+          }
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setHighlightedIndex((index) => (resultCount ? Math.max(0, index - 1) : 0));
+            return;
+          }
+          if (event.key === "Enter" && open && resultCount > 0) {
+            event.preventDefault();
+            const candidate = data[highlightedIndex];
+            if (candidate) pickCustomer(candidate);
+          }
+        }}
+        placeholder={placeholderText}
+        className={cn("h-7 text-base sm:h-9 sm:text-sm", className)}
+        onBlur={() => {
+          setFocused(false);
+          if (resultsPlacement === "popover") window.setTimeout(() => setOpen(false), 140);
+        }}
+        onFocus={() => {
+          setFocused(true);
+          if (query) setOpen(true);
+        }}
+      />
+    );
+  const lookupBody =
+    resultsPlacement === "popover" ? (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverAnchor asChild>
+          <div className={cn("relative min-w-0", containerClassName)}>{control}</div>
+        </PopoverAnchor>
+        <PopoverContent
+          align="start"
+          collisionPadding={12}
+          sideOffset={6}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          className="w-[calc(100vw-24px)] max-w-sm overflow-x-hidden p-1 sm:w-[28rem] sm:max-w-[calc(100vw-24px)] md:w-[32rem]"
         >
-          {!searchEnabled ? (
-            <LookupHint>输入 2 个字或 3 位号码开始搜索</LookupHint>
-          ) : isSearching && data.length === 0 ? (
-            <LookupHint icon={<Loader2 className="size-3 animate-spin" />}>搜索中…</LookupHint>
-          ) : queryError ? (
-            <LookupHint tone="danger">搜索失败：{queryError}</LookupHint>
-          ) : data.length === 0 ? (
-            <LookupHint>未找到客户，可继续手动录入</LookupHint>
-          ) : (
-            data.map((candidate, index) => {
-              const selected = candidate.customer.id === selectedCustomerId;
-              const highlighted = index === highlightedIndex;
-              return (
-                <div
-                  key={candidate.customer.id}
-                  id={`${listboxId}-option-${index}`}
-                  role="option"
-                  aria-selected={highlighted}
-                  className={cn(
-                    "mb-1 rounded-lg border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)] last:mb-0",
-                    highlighted && "ring-1 ring-primary/25",
-                  )}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                >
-                  <button
-                    type="button"
-                    className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto]"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => pickCustomer(candidate)}
-                  >
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                      <UserRound className="size-4" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span className="min-w-0 break-words text-sm font-bold leading-5 sm:text-xs sm:leading-4">
-                          {candidate.customer.name}
-                        </span>
-                        {candidate.exactMatch ? (
-                          <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-primary">
-                            精确匹配
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="block break-all font-mono text-xs font-medium leading-4 text-muted-foreground sm:text-[11px]">
-                        {candidate.customer.phone_e164}
-                        {candidate.customer.contact_phones.length
-                          ? ` · 备用 ${candidate.customer.contact_phones.length}`
-                          : ""}
-                      </span>
-                    </span>
-                    {selected ? (
-                      <Check className="col-start-2 size-3.5 shrink-0 justify-self-start text-primary sm:col-start-auto sm:justify-self-end" />
-                    ) : (
-                      <span className="col-start-2 shrink-0 justify-self-start text-[10px] font-semibold text-primary sm:col-start-auto sm:justify-self-end">
-                        选择
-                      </span>
-                    )}
-                  </button>
+          {resultsContent}
+        </PopoverContent>
+      </Popover>
+    ) : (
+      <div className={cn("grid min-w-0 gap-1", rootClassName)}>
+        {open && mode === "phone" ? (
+          <div
+            className="max-h-48 min-w-0 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)]"
+            data-customer-intake-results={mode}
+          >
+            {resultsContent}
+          </div>
+        ) : null}
+        <div className={cn("relative min-w-0", containerClassName)}>{control}</div>
+        {open && mode !== "phone" ? (
+          <div
+            className="max-h-72 min-w-0 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)]"
+            data-customer-intake-results={mode}
+          >
+            {resultsContent}
+          </div>
+        ) : null}
+      </div>
+    );
 
-                  <div className="px-1.5 pb-1">
-                    {candidate.historyDevices.length ? (
-                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                        {candidate.historyDevices.map((device) => (
-                          <HistoryDeviceButton
-                            key={device.id}
-                            device={device}
-                            selected={Boolean(
-                              device.device_id && device.device_id === selectedDeviceId,
-                            )}
-                            onClick={() => pickDevice(candidate, device)}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[10px] font-medium leading-3 text-muted-foreground">
-                        暂无历史维修型号
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-          {isSearching && data.length > 0 ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" />
-              正在更新结果…
-            </div>
-          ) : null}
+  if (!fieldLabel) return lookupBody;
+
+  return (
+    <CustomerIntakeFieldShell
+      label={fieldLabel}
+      required={fieldRequired}
+      leading={fieldLeading}
+      trailing={fieldTrailing}
+      trailingInteractive={fieldTrailingInteractive}
+    >
+      {lookupBody}
+    </CustomerIntakeFieldShell>
+  );
+}
+
+function CustomerIntakeResults({
+  listboxId,
+  mode,
+  searchEnabled,
+  nameHasDigits,
+  isSearching,
+  queryError,
+  data,
+  highlightedIndex,
+  selectedCustomerId,
+  selectedDeviceId,
+  onHighlight,
+  onPickCustomer,
+  onPickDevice,
+}: {
+  listboxId: string;
+  mode: CustomerIntakeLookupMode;
+  searchEnabled: boolean;
+  nameHasDigits: boolean;
+  isSearching: boolean;
+  queryError: string;
+  data: CustomerIntakeCandidate[];
+  highlightedIndex: number;
+  selectedCustomerId?: string;
+  selectedDeviceId?: string;
+  onHighlight: (index: number) => void;
+  onPickCustomer: (candidate: CustomerIntakeCandidate) => void;
+  onPickDevice: (
+    candidate: CustomerIntakeCandidate,
+    device: CustomerHistoryDeviceCandidate,
+  ) => void;
+}) {
+  return (
+    <div
+      id={listboxId}
+      role="listbox"
+      aria-label={mode === "phone" ? "客户电话搜索结果" : "客户姓名搜索结果"}
+      className="max-h-80 min-w-0 overflow-y-auto"
+    >
+      {!searchEnabled ? (
+        <LookupHint>
+          {nameHasDigits
+            ? "姓名搜索只接收姓名，电话号码请在电话栏输入"
+            : mode === "phone"
+              ? "输入 3 位号码开始搜索"
+              : "输入 2 个字开始搜索客户姓名"}
+        </LookupHint>
+      ) : isSearching && data.length === 0 ? (
+        <LookupHint icon={<Loader2 className="size-3 animate-spin" />}>搜索中…</LookupHint>
+      ) : queryError ? (
+        <LookupHint tone="danger">搜索失败：{queryError}</LookupHint>
+      ) : data.length === 0 ? (
+        <LookupHint>
+          {mode === "phone" ? "未找到客户，可作为新客户继续创建" : "未找到客户，可继续手动录入姓名"}
+        </LookupHint>
+      ) : (
+        data.map((candidate, index) => {
+          const selected = candidate.customer.id === selectedCustomerId;
+          const highlighted = index === highlightedIndex;
+          return (
+            <CustomerIntakeCandidateCard
+              key={candidate.customer.id}
+              listboxId={listboxId}
+              candidate={candidate}
+              index={index}
+              selected={selected}
+              highlighted={highlighted}
+              selectedDeviceId={selectedDeviceId}
+              onHighlight={() => onHighlight(index)}
+              onPickCustomer={() => onPickCustomer(candidate)}
+              onPickDevice={(device) => onPickDevice(candidate, device)}
+            />
+          );
+        })
+      )}
+      {isSearching && data.length > 0 ? (
+        <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          正在更新结果…
         </div>
-      </PopoverContent>
-    </Popover>
+      ) : null}
+    </div>
+  );
+}
+
+function CustomerIntakeCandidateCard({
+  listboxId,
+  candidate,
+  index,
+  selected,
+  highlighted,
+  selectedDeviceId,
+  onHighlight,
+  onPickCustomer,
+  onPickDevice,
+}: {
+  listboxId: string;
+  candidate: CustomerIntakeCandidate;
+  index: number;
+  selected: boolean;
+  highlighted: boolean;
+  selectedDeviceId?: string;
+  onHighlight: () => void;
+  onPickCustomer: () => void;
+  onPickDevice: (device: CustomerHistoryDeviceCandidate) => void;
+}) {
+  return (
+    <div
+      id={`${listboxId}-option-${index}`}
+      role="option"
+      aria-selected={highlighted}
+      className={cn(
+        "mb-1 rounded-lg border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)] last:mb-0",
+        highlighted && "ring-1 ring-primary/25",
+      )}
+      onMouseEnter={onHighlight}
+    >
+      <button
+        type="button"
+        className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onPickCustomer}
+      >
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+          <UserRound className="size-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="min-w-0 break-words text-sm font-bold leading-5 sm:text-xs sm:leading-4">
+              {candidate.customer.name}
+            </span>
+            {candidate.exactMatch ? (
+              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-primary">
+                精确匹配
+              </span>
+            ) : null}
+          </span>
+          <span className="block break-all font-mono text-xs font-medium leading-4 text-muted-foreground sm:text-[11px]">
+            {candidate.customer.phone_e164}
+            {candidate.customer.contact_phones.length
+              ? ` · 备用 ${candidate.customer.contact_phones.length}`
+              : ""}
+          </span>
+        </span>
+        {selected ? (
+          <Check className="col-start-2 size-3.5 shrink-0 justify-self-start text-primary sm:col-start-auto sm:justify-self-end" />
+        ) : (
+          <span className="col-start-2 shrink-0 justify-self-start text-[10px] font-semibold text-primary sm:col-start-auto sm:justify-self-end">
+            选择
+          </span>
+        )}
+      </button>
+
+      <div className="px-1.5 pb-1">
+        {candidate.historyDevices.length ? (
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            {candidate.historyDevices.map((device) => (
+              <HistoryDeviceButton
+                key={device.id}
+                device={device}
+                selected={Boolean(device.device_id && device.device_id === selectedDeviceId)}
+                onClick={() => onPickDevice(device)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[10px] font-medium leading-3 text-muted-foreground">
+            暂无历史维修型号
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CustomerIntakeFieldShell({
+  label,
+  required,
+  leading,
+  trailing,
+  trailingInteractive,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  leading?: ReactNode;
+  trailing?: ReactNode;
+  trailingInteractive?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rd-new-order-field grid min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
+      <label className="pt-2.5 text-[10.5px] font-semibold leading-4 text-muted-foreground">
+        {label}
+        {required ? <span className="text-destructive"> *</span> : null}
+      </label>
+      <div
+        className={cn(
+          "grid min-w-0 items-start gap-1.5",
+          leading ? "grid-cols-[1rem_minmax(0,1fr)]" : "grid-cols-1",
+        )}
+      >
+        {leading ? (
+          <span className="grid size-4 shrink-0 place-items-center pt-2.5 text-muted-foreground">
+            {leading}
+          </span>
+        ) : null}
+        <div className="min-w-0">{children}</div>
+      </div>
+      {trailing ? (
+        <div
+          className={cn(
+            "flex h-9 shrink-0 items-center gap-1 border-l border-[var(--border-panel)] pl-1.5",
+            !trailingInteractive && "pointer-events-none pl-2",
+          )}
+        >
+          {trailing}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
