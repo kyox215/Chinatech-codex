@@ -85,7 +85,7 @@ closed_at: "2026-07-09T22:28:43Z"
 - Main pushed: `961e186b Resolve migration history residual status`.
 - Database residual history resolved for this task: linked migration list aligned through `20260709235000`, dry-run up to date, migration history count/latest verified.
 - Permission grant table residual verified: `store_member_permission_grants` has RLS enabled and only `postgres`/`service_role` table grants in the serial linked query.
-- Original checkout residual resolved: local `main` is clean at `961e186b`; old local state is recoverable from branch `preserve/original-main-before-sync-20260710-0030` and `stash@{0}`.
+- Original checkout residual resolved: local `main` is clean at `d2e3cff1`; old local HEAD is recoverable from branch `preserve/original-main-before-sync-20260710-0030`; original pre-sync dirty/untracked work is now `stash@{1}`; post-closeout external mobile-performance residual is `stash@{0}`.
 - Phase D2/UI redaction and broader live parity audits remain separate follow-up work, not blockers for this residual cleanup.
 
 ## Definition of done

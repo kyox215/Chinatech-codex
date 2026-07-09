@@ -24,7 +24,7 @@ as owner of this file.
 
 ## Verified rules and conventions
 
-- As of `TASK-20260709-220940-task` closeout on 2026-07-10, the original checkout `main` was protected and synced to `origin/main` at `961e186b`: old local HEAD is preserved at `preserve/original-main-before-sync-20260710-0030`, and pre-sync dirty/untracked work is saved in `stash@{0}`.
+- As of `TASK-20260709-220940-task` closeout on 2026-07-10, the original checkout `main` was protected and synced to `origin/main` at `d2e3cff1`: old local HEAD is preserved at `preserve/original-main-before-sync-20260710-0030`, original pre-sync dirty/untracked work is saved in `stash@{1}`, and later external mobile-performance residual is saved in `stash@{0}`. Use stash messages to identify restore targets because numeric indices can shift.
 - Duplicate `* 2.*` files must not be deleted without owner confirmation.
 - Differing duplicate review result corrected by `TASK-20260619-006`: 18 remove-after-Owner-confirmation, 12 remove-after-domain-confirmation, and 2 backlog/salvage-only candidates.
 - Batch A cleanup completed in `TASK-20260619-006`; Batch B and Batch C remain intentionally untouched.

@@ -29,6 +29,13 @@
 - **Next:** 运行 close-task --allow-dirty，仅关闭本残留任务；提交时使用 path-limited/only 提交本任务与相关部门记忆，不提交移动端性能外部改动。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-09T22:31:00Z — Post-closeout workspace correction
+
+- **Phase:** closeout
+- **Completed/current state:** Later external mobile-performance residual was saved to `stash@{0}`; original pre-sync dirty/untracked work moved to `stash@{1}`; local `main` is clean at pushed `d2e3cff1`.
+- **Next:** Use stash messages, not only numeric indices, when restoring old local work.
+- **Evidence:** E-014.
+- **Recorded by:** CEO-Orchestrator
 ## 2026-07-09T22:28:43Z — Task closeout
 
 - **Status:** closed

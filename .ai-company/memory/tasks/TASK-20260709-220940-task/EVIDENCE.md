@@ -15,6 +15,7 @@
 | E-011 | git | migration-history residual docs/memory were pushed to main | `git push origin HEAD:main` from `/private/tmp/repairdesk-role-permissions` | `bf5d9610..961e186b  HEAD -> main` | 2026-07-10T00:36+02:00 | Codex |
 | E-012 | git | original checkout was preserved and synced to latest main | original checkout: preservation branch, stash, reset, status | branch `preserve/original-main-before-sync-20260710-0030` at `19e22798`; `stash@{0}` saved dirty/untracked content; `HEAD` now `961e186b`; status clean | 2026-07-10T00:44+02:00 | Codex |
 | E-013 | supabase | permission grant table exists with RLS enabled and restricted table grants | serial `supabase db query --linked` on `store_member_permission_grants` | `relrowsecurity=true`; grants only `postgres:*` and `service_role:*`; no `anon`/`authenticated` table grants | 2026-07-10T00:47+02:00 | Codex |
+| E-014 | git | post-closeout external mobile-performance residual was preserved separately and checkout is clean | `git stash push --include-untracked`; `git status --short --branch`; `git stash list` | current checkout clean; `stash@{0}` is `preserve post-closeout external mobile performance residual 2026-07-10`; original pre-sync stash moved to `stash@{1}` | 2026-07-10T00:31+02:00 | Codex |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
