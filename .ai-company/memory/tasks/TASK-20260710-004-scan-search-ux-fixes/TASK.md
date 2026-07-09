@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260710-004-scan-search-ux-fixes"
 title: "扫码查询移动端 UX 修复并推送 main"
-status: "active"
+status: "closed"
 task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["FE", "FLOW", "QA", "RELEASE", "UX"]
 created_at: "2026-07-09T22:32:15Z"
-updated_at: "2026-07-09T22:44:49Z"
+updated_at: "2026-07-09T22:46:16Z"
+closed_at: "2026-07-09T22:46:16Z"
 ---
 # Task — 扫码查询移动端 UX 修复并推送 main
 

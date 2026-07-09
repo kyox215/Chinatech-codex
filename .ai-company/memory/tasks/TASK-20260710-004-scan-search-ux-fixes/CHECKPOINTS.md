@@ -20,3 +20,20 @@
   - /private/tmp/scan-ux-fix-20260710/customers-mobile-q.png
   - /private/tmp/scan-ux-fix-20260710/desktop-global-scan-result.png
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-09T22:46:08Z — Implementation commit 35b12762 Improve scan search mobile UX created after validation. Current tracked task diff is clean; git diff --check passes. Worktree still contains unrelated untracked duplicate task/doc/screenshot files from previous work and they remain unstaged.
+
+- **Phase:** pre-close
+- **Completed/current state:** Implementation commit 35b12762 Improve scan search mobile UX created after validation. Current tracked task diff is clean; git diff --check passes. Worktree still contains unrelated untracked duplicate task/doc/screenshot files from previous work and they remain unstaged.
+- **Next:** Run close-task, stage only closeout memory files, commit closeout, push origin main.
+- **Decision:** Proceed to close task memory, commit closeout, and push main. No database migration required.
+- **Evidence:**
+  - 35b12762
+  - /private/tmp/scan-ux-fix-20260710/report.json
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-09T22:46:16Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** Scan search UX fixes implemented and committed in 35b12762. Acceptance evidence: mobile result sheet actions visible, mobile scan/search controls are 40px, search chip with clear action appears after scan-filled search, camera errors are localized, inventory item deep-link fallback fills search with toast, docs updated, and validation passed lint/typecheck/targeted tests/full tests/build/browser screenshots.
+- **Residual risks:** Browser screenshot validation used local E2E bypass; some list APIs returned 403 in that mode, so screenshots prove layout/search affordances and not live data-row rendering. Unrelated untracked duplicate files from previous tasks remain untouched.
+- **Follow-up:** Optional future work: database-backed short-code lookup/result center and production camera-device matrix testing.
+- **Closed by:** CEO-Orchestrator
