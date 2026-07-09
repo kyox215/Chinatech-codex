@@ -17,3 +17,6 @@ IDs, test reports, screenshots, or concise log references.
 - `2026-07-09T00:00:06Z` `232838050d` — REPAIRDESK_E2E_ORDER_AUDIT=1 npx playwright test tests/e2e/new-order-mobile-dropdown-scroll.spec.ts passed.
 - `2026-07-09T00:00:06Z` `af1e73a334` — npx playwright test tests/e2e/visual-overflow.spec.ts passed with 6 tests.
 - `2026-07-09T00:00:06Z` `d1553d7dec` — Screenshot captured at screenshots/TASK-20260708-003-new-order-dropdowns/new-order-mobile-dropdown-touch-safe.png.
+- `2026-07-09T00:05:49Z` `689965641e` — git diff --cached --name-status shows only ACTIVE_CONTEXT.md, CHECKPOINTS.md, TASK.md for TASK-20260708-003
+- `2026-07-09T00:05:49Z` `6b3267b0a2` — git diff --name-status shows unrelated IMEI/mobile-input edits left unstaged
+- `2026-07-09T00:05:49Z` `a88700c08c` — main and origin/main were aligned at 6e80246e before memory-only closeout commit

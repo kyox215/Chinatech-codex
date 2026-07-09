@@ -44,3 +44,28 @@
   - npx playwright test tests/e2e/visual-overflow.spec.ts passed with 6 tests.
   - Screenshot captured at screenshots/TASK-20260708-003-new-order-dropdowns/new-order-mobile-dropdown-touch-safe.png.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-09T00:02:47Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 手机端新建工单下拉箭头触控误打开已修复并已随 main 提交 6e80246e 推送到 origin/main；品牌、型号、故障细分箭头轻点打开，触摸拖动不打开。
+- **Residual risks:** 当前 6e80246e 同时包含此前 customer kiosk iPad MVP WIP；未重写历史，后续如需拆分提交需单独决策。
+- **Follow-up:** 上线后用真实手机复测 /orders/new 的品牌、型号、故障细分箭头滑动手感。
+- **Closed by:** CEO-Orchestrator
+## 2026-07-09T00:05:49Z — 收尾前 Git 差异已重新验证；暂存区仅包含本任务记忆收尾文件，未暂存 IMEI/mobile-input 改动不属于本任务
+
+- **Phase:** final_repo_state_validated
+- **Completed/current state:** 收尾前 Git 差异已重新验证；暂存区仅包含本任务记忆收尾文件，未暂存 IMEI/mobile-input 改动不属于本任务
+- **Next:** 重新清理 Active Context 为 idle，暂存任务记忆文件，提交并推送 main；继续保留无关未暂存改动
+- **Decision:** 不提交无关 IMEI/mobile-input 工作区改动；只提交本次任务记忆收尾
+- **Evidence:**
+  - git diff --cached --name-status shows only ACTIVE_CONTEXT.md, CHECKPOINTS.md, TASK.md for TASK-20260708-003
+  - git diff --name-status shows unrelated IMEI/mobile-input edits left unstaged
+  - main and origin/main were aligned at 6e80246e before memory-only closeout commit
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-09T00:06:03Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 手机端新建工单品牌、型号、故障细分箭头 touch-drag 误打开已修复；最终 Git 差异已验证，修复代码已在 main/origin/main 的 6e80246e，任务记忆收尾将单独提交推送。
+- **Residual risks:** 当前 6e80246e 同时包含此前 customer kiosk iPad MVP WIP；本收尾提交不改写历史，不提交未暂存 IMEI/mobile-input 改动。
+- **Follow-up:** 上线后用真实手机复测 /orders/new 品牌、型号、故障细分箭头在拖动滚动时不打开菜单。
+- **Closed by:** CEO-Orchestrator

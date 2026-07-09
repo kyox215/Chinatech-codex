@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260708-003-new-order-dropdowns"
 title: "Fix new order dropdown interactivity and sizing"
-status: "active"
+status: "closed"
 task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["Frontend", "UIUX"]
 created_at: "2026-07-07T22:31:36Z"
-updated_at: "2026-07-09T00:00:06Z"
+updated_at: "2026-07-09T00:06:03Z"
+closed_at: "2026-07-09T00:06:03Z"
 ---
 # Task — Fix new order dropdown interactivity and sizing
 
