@@ -1,13 +1,34 @@
 import { describe, expect, it } from "vitest";
 
-import type { PatchOrderFinanceInput, UpdateOrderInput } from "@/lib/repairdesk/types";
+import type {
+  InventoryTransactionInput,
+  PatchOrderFinanceInput,
+  UpdateOrderInput,
+} from "@/lib/repairdesk/types";
 import { ForbiddenError } from "@/server/auth-context";
 
 import { allowsPendingStore } from "./repairdesk-router";
 import {
+  assertCustomerCreatePermission,
+  assertCustomerMessagePermission,
+  assertCustomerTagPermission,
+  assertCustomerUpdatePermission,
+  assertInventoryCreatePermission,
+  assertInventoryQualityCheckPermission,
+  assertInventorySalePermission,
+  assertInventoryTransactionPermission,
+  assertInventoryUpdatePermission,
+  assertMemberInvitePermission,
+  assertMemberManagePermission,
+  assertMemberRevokePermission,
+  assertMessageTemplatePermission,
   assertOrderCreatePermission,
   assertOrderFinancePermission,
+  assertOrderPaymentPermission,
   assertOrderPatchPermission,
+  assertOrderTransitionPermission,
+  assertStoreSettingsUpdatePermission,
+  assertWorkflowConfigurePermission,
   assertOrderUpdatePermission,
   resolveOrderPatchPermissionActions,
   resolveOrderUpdatePermissionActions,
@@ -180,6 +201,106 @@ describe("repairdesk router order write permissions", () => {
       ForbiddenError,
     );
     expect(() => assertOrderFinancePermission(actor("viewer"), financeInput)).toThrow(
+      ForbiddenError,
+    );
+  });
+});
+
+describe("repairdesk router non-order write permissions", () => {
+  it("blocks viewer and unscoped technician customer writes while allowing frontdesk customer work", () => {
+    for (const assertCustomerPermission of [
+      assertCustomerCreatePermission,
+      assertCustomerUpdatePermission,
+      assertCustomerTagPermission,
+      assertCustomerMessagePermission,
+    ]) {
+      expect(() => assertCustomerPermission(actor("owner"))).not.toThrow();
+      expect(() => assertCustomerPermission(actor("sales"))).not.toThrow();
+      expect(() => assertCustomerPermission(actor("technician"))).toThrow(ForbiddenError);
+      expect(() => assertCustomerPermission(actor("viewer"))).toThrow(ForbiddenError);
+    }
+  });
+
+  it("separates normal order payment collection from finance corrections", () => {
+    expect(() => assertOrderPaymentPermission(actor("owner"))).not.toThrow();
+    expect(() => assertOrderPaymentPermission(actor("manager"))).not.toThrow();
+    expect(() => assertOrderPaymentPermission(actor("sales"))).not.toThrow();
+    expect(() => assertOrderPaymentPermission(actor("technician"))).toThrow(ForbiddenError);
+    expect(() => assertOrderPaymentPermission(actor("viewer"))).toThrow(ForbiddenError);
+
+    const financeInput: PatchOrderFinanceInput = {
+      expected_updated_at: "2026-07-08T00:00:00.000Z",
+      fault_prices: [{ name: "Display", price: 120 }],
+      deposit_amount: 20,
+    };
+
+    expect(() => assertOrderFinancePermission(actor("sales"), financeInput)).toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it("blocks viewers from order transitions while preserving operational roles", () => {
+    expect(() => assertOrderTransitionPermission(actor("owner"))).not.toThrow();
+    expect(() => assertOrderTransitionPermission(actor("manager"))).not.toThrow();
+    expect(() => assertOrderTransitionPermission(actor("technician"))).not.toThrow();
+    expect(() => assertOrderTransitionPermission(actor("sales"))).not.toThrow();
+    expect(() => assertOrderTransitionPermission(actor("viewer"))).toThrow(ForbiddenError);
+  });
+
+  it("keeps settings, workflow, and message templates owner-manager only", () => {
+    for (const assertSettingsPermission of [
+      assertStoreSettingsUpdatePermission,
+      assertWorkflowConfigurePermission,
+      assertMessageTemplatePermission,
+    ]) {
+      expect(() => assertSettingsPermission(actor("owner"))).not.toThrow();
+      expect(() => assertSettingsPermission(actor("manager"))).not.toThrow();
+      expect(() => assertSettingsPermission(actor("sales"))).toThrow(ForbiddenError);
+      expect(() => assertSettingsPermission(actor("technician"))).toThrow(ForbiddenError);
+      expect(() => assertSettingsPermission(actor("viewer"))).toThrow(ForbiddenError);
+    }
+  });
+
+  it("uses member management gates before store repository object checks", () => {
+    for (const assertMemberPermission of [
+      assertMemberInvitePermission,
+      assertMemberManagePermission,
+      assertMemberRevokePermission,
+    ]) {
+      expect(() => assertMemberPermission(actor("owner"))).not.toThrow();
+      expect(() => assertMemberPermission(actor("manager"))).not.toThrow();
+      expect(() => assertMemberPermission(actor("sales"))).toThrow(ForbiddenError);
+      expect(() => assertMemberPermission(actor("viewer"))).toThrow(ForbiddenError);
+    }
+  });
+
+  it("maps inventory writes to granular permission actions", () => {
+    expect(() => assertInventoryCreatePermission(actor("owner"))).not.toThrow();
+    expect(() => assertInventoryCreatePermission(actor("technician"))).not.toThrow();
+    expect(() => assertInventoryUpdatePermission(actor("sales"))).not.toThrow();
+    expect(() => assertInventoryQualityCheckPermission(actor("technician"))).not.toThrow();
+    expect(() => assertInventoryQualityCheckPermission(actor("sales"))).toThrow(ForbiddenError);
+    expect(() => assertInventorySalePermission(actor("sales"))).toThrow(ForbiddenError);
+    expect(() => assertInventorySalePermission(actor("owner"))).not.toThrow();
+    expect(() => assertInventoryCreatePermission(actor("viewer"))).toThrow(ForbiddenError);
+  });
+
+  it("requires inventory sale permission for sale payment transactions", () => {
+    const salePayment: InventoryTransactionInput = {
+      transaction_type: "sale_payment",
+      amount: 100,
+    };
+    const repairCost: InventoryTransactionInput = {
+      transaction_type: "repair_cost",
+      amount: 20,
+    };
+
+    expect(() => assertInventoryTransactionPermission(actor("sales"), salePayment)).toThrow(
+      ForbiddenError,
+    );
+    expect(() => assertInventoryTransactionPermission(actor("owner"), salePayment)).not.toThrow();
+    expect(() => assertInventoryTransactionPermission(actor("sales"), repairCost)).not.toThrow();
+    expect(() => assertInventoryTransactionPermission(actor("viewer"), repairCost)).toThrow(
       ForbiddenError,
     );
   });
