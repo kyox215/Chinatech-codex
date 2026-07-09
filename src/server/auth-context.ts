@@ -8,6 +8,7 @@ import type {
   ActorStoreMembership,
   AuditActor,
   StaffProfile,
+  StorePermissionAction,
   StoreMembershipStatus,
   StoreRole,
 } from "@/lib/repairdesk/types";
@@ -91,6 +92,9 @@ export async function getRequestActor(
   if (!activeStore && !options.allowPendingStore) {
     throw new ForbiddenError("账号尚未加入店铺，请先提交申请并等待平台管理员审批");
   }
+  const permissionGrants = activeStore
+    ? await getActiveStorePermissionGrants(admin, staff.id, activeStore.id)
+    : [];
 
   return {
     id: staff.id,
@@ -107,6 +111,7 @@ export async function getRequestActor(
     storeId: activeStore?.id,
     storeName: activeStore?.name,
     storeRole: activeStore?.role,
+    permissionGrants,
     stores: memberships,
     requestIpHash,
   };
@@ -208,6 +213,28 @@ async function getActiveStoreMemberships(
     .filter((store): store is ActorStoreMembership => Boolean(store));
 }
 
+async function getActiveStorePermissionGrants(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  userId: string,
+  storeId: string,
+): Promise<StorePermissionAction[]> {
+  const { data, error } = await admin
+    .from("store_member_permission_grants")
+    .select("action")
+    .eq("store_id", storeId)
+    .eq("user_id", userId)
+    .is("revoked_at", null);
+
+  if (error) {
+    if (isMissingPermissionGrantsTableError(error)) return [];
+    throw new Error(`读取员工权限失败：${error.message}`);
+  }
+
+  return ((data ?? []) as { action?: unknown }[])
+    .map((row) => row.action)
+    .filter(isStorePermissionAction);
+}
+
 async function resolveActiveStore(
   memberships: ActorStoreMembership[],
 ): Promise<ActorStoreMembership | undefined> {
@@ -272,6 +299,19 @@ function toStoreRole(value: unknown): StoreRole {
     return value;
   }
   return "viewer";
+}
+
+function isStorePermissionAction(value: unknown): value is StorePermissionAction {
+  return value === "supplier:read" || value === "supplier:assign" || value === "supplier:manage";
+}
+
+function isMissingPermissionGrantsTableError(error: { message?: string; code?: string }) {
+  const message = error.message ?? "";
+  return (
+    error.code === "PGRST205" &&
+    message.includes("store_member_permission_grants") &&
+    message.includes("schema cache")
+  );
 }
 
 function toMembershipStatus(value: unknown): StoreMembershipStatus {

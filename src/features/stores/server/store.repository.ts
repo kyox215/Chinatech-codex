@@ -21,15 +21,17 @@ import type {
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreMemberDecisionInput,
+  StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
   StoreMember,
   StoreMembersResult,
   StoreMembershipStatus,
+  StorePermissionAction,
   StoreRole,
 } from "@/lib/repairdesk/types";
 import { writeAuditLog } from "@/server/audit";
 import { assertVerifiedEmail, ForbiddenError } from "@/server/auth-context";
-import { assertPermission } from "@/server/permissions";
+import { assertPermission, can } from "@/server/permissions";
 import { type DbRecord, fail, requiredString } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
 import {
@@ -51,6 +53,7 @@ export async function getStoreContext(actor: AuditActor): Promise<StoreContext> 
   return {
     activeStore: activeStoreFromActor(actor),
     stores: actor.stores ?? [],
+    permissions: supplierPermissionsFromActor(actor),
   };
 }
 
@@ -196,9 +199,7 @@ export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersR
       .order("email", { ascending: true }),
     supabase
       .from("store_invitations")
-      .select(
-        "id, email, role, status, invited_by, accepted_at, expires_at, created_at, updated_at",
-      )
+      .select("id, email, role, status, invited_by, accepted_at, expires_at, created_at, updated_at")
       .eq("store_id", storeId)
       .eq("status", "invited")
       .order("created_at", { ascending: false }),
@@ -217,9 +218,14 @@ export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersR
   if (!inviteLinksTableMissing) {
     fail(inviteLinksResult.error, "读取店铺邀请码失败");
   }
+  const grantsByMembership = groupPermissionGrantsByMembership(
+    await listStoreMemberPermissionGrantRows(supabase, storeId),
+  );
 
   return {
-    members: ((membersResult.data ?? []) as DbRecord[]).map(memberFromRow),
+    members: ((membersResult.data ?? []) as DbRecord[]).map((row) =>
+      memberFromRow(row, grantsByMembership.get(requiredString(row.id)) ?? []),
+    ),
     invitations: ((invitationsResult.data ?? []) as DbRecord[]).map(invitationFromRow),
     invite_links: inviteLinksTableMissing
       ? []
@@ -330,6 +336,78 @@ export async function updateStoreMemberRole(
     entityId: member.id,
     before: createMemberAuditSnapshot(member),
     after: createMemberAuditSnapshot(memberFromRow(data as DbRecord)),
+  });
+
+  return listStoreMembers(actor);
+}
+
+export async function updateStoreMemberPermissions(
+  input: StoreMemberPermissionUpdateInput,
+  actor: AuditActor,
+): Promise<StoreMembersResult> {
+  if (actor.storeRole !== "owner") {
+    throw new ForbiddenError("只有店主可以分配供应商权限");
+  }
+  const storeId = requireActiveStoreId(actor);
+  const supabase = getSupabaseAdmin();
+  const member = await readStoreMemberForManagement(supabase, storeId, input.id);
+  if (member.role === "owner") {
+    throw new ForbiddenError("店主默认拥有供应商权限，不需要额外授权");
+  }
+  const permissions = normalizeSupplierPermissions(input.permissions);
+  const now = new Date().toISOString();
+  const { data: activeRows, error: readError } = await supabase
+    .from("store_member_permission_grants")
+    .select("id, action")
+    .eq("store_id", storeId)
+    .eq("membership_id", member.id)
+    .is("revoked_at", null);
+  fail(readError, "读取成员供应商权限失败");
+
+  const activeActions = new Set(
+    ((activeRows ?? []) as DbRecord[]).map((row) => row.action).filter(isStorePermissionAction),
+  );
+  const nextActions = new Set(permissions);
+  const revokeIds = ((activeRows ?? []) as DbRecord[])
+    .filter((row) => {
+      const action = row.action;
+      return isStorePermissionAction(action) && !nextActions.has(action);
+    })
+    .map((row) => requiredString(row.id))
+    .filter(Boolean);
+  const inserts = permissions
+    .filter((action) => !activeActions.has(action))
+    .map((action) => ({
+      store_id: storeId,
+      membership_id: member.id,
+      user_id: member.user_id,
+      action,
+      granted_by: actor.id ?? null,
+      created_at: now,
+      updated_at: now,
+    }));
+
+  if (revokeIds.length) {
+    const { error } = await supabase
+      .from("store_member_permission_grants")
+      .update({ revoked_at: now, revoked_by: actor.id ?? null, updated_at: now })
+      .in("id", revokeIds);
+    fail(error, "撤销成员供应商权限失败");
+  }
+
+  if (inserts.length) {
+    const { error } = await supabase.from("store_member_permission_grants").insert(inserts);
+    fail(error, "授予成员供应商权限失败");
+  }
+
+  await writeAuditLog({
+    actor,
+    action: "update_supplier_permissions",
+    entityType: "store_membership",
+    entityId: member.id,
+    before: { permission_grants: Array.from(activeActions).sort() },
+    after: { permission_grants: permissions },
+    metadata: { target_user_id: member.user_id },
   });
 
   return listStoreMembers(actor);
@@ -1190,6 +1268,83 @@ function isMissingStoreInviteLinksTableError(error: unknown) {
   );
 }
 
+function isMissingStorePermissionGrantsTableError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const record = error as Record<string, unknown>;
+  if (typeof record.message !== "string") return false;
+  return (
+    record.code === "PGRST205" &&
+    record.message.includes("store_member_permission_grants") &&
+    record.message.includes("schema cache")
+  );
+}
+
+async function listStoreMemberPermissionGrantRows(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+) {
+  const source = supabase.from("store_member_permission_grants") as unknown;
+  if (!source || typeof source !== "object" || !("select" in source)) return [];
+  const selected = (source as { select: (columns: string) => unknown }).select(
+    "membership_id, action",
+  );
+  if (!selected || typeof selected !== "object" || !("eq" in selected)) return [];
+  const scoped = (selected as { eq: (column: string, value: string) => unknown }).eq(
+    "store_id",
+    storeId,
+  );
+  if (!scoped || typeof scoped !== "object" || !("is" in scoped)) return [];
+  const result = await (scoped as { is: (column: string, value: null) => Promise<unknown> }).is(
+    "revoked_at",
+    null,
+  );
+  if (!result || typeof result !== "object") return [];
+  const record = result as { data?: unknown; error?: unknown };
+  if (isMissingStorePermissionGrantsTableError(record.error)) return [];
+  fail(record.error, "读取成员权限失败");
+  return (record.data ?? []) as DbRecord[];
+}
+
+function groupPermissionGrantsByMembership(rows: DbRecord[]) {
+  const grants = new Map<string, StorePermissionAction[]>();
+  for (const row of rows) {
+    const membershipId = requiredString(row.membership_id);
+    if (!membershipId || !isStorePermissionAction(row.action)) continue;
+    const current = grants.get(membershipId) ?? [];
+    if (!current.includes(row.action)) current.push(row.action);
+    grants.set(membershipId, current);
+  }
+  for (const [membershipId, actions] of grants.entries()) {
+    grants.set(membershipId, normalizeSupplierPermissions(actions));
+  }
+  return grants;
+}
+
+function normalizeSupplierPermissions(actions: readonly StorePermissionAction[]) {
+  const normalized = new Set(actions.filter(isStorePermissionAction));
+  if (normalized.has("supplier:manage")) {
+    normalized.add("supplier:assign");
+    normalized.add("supplier:read");
+  }
+  if (normalized.has("supplier:assign")) {
+    normalized.add("supplier:read");
+  }
+  const order: StorePermissionAction[] = ["supplier:read", "supplier:assign", "supplier:manage"];
+  return order.filter((action) => normalized.has(action));
+}
+
+function isStorePermissionAction(action: unknown): action is StorePermissionAction {
+  return action === "supplier:read" || action === "supplier:assign" || action === "supplier:manage";
+}
+
+function supplierPermissionsFromActor(actor: AuditActor) {
+  return {
+    canReadSuppliers: can(actor, "supplier:read"),
+    canAssignSuppliers: can(actor, "supplier:assign"),
+    canManageSuppliers: can(actor, "supplier:manage"),
+  };
+}
+
 function assertCanReviewStoreAccessRequests(actor: AuditActor) {
   if (actor.storeRole !== "owner") {
     throw new ForbiddenError("只有店主可以处理加入申请");
@@ -1252,6 +1407,12 @@ function nextContext(actor: AuditActor, activeStore: ActorStoreMembership): Stor
   return {
     activeStore,
     stores: [activeStore, ...stores],
+    permissions: supplierPermissionsFromActor({
+      ...actor,
+      storeId: activeStore.id,
+      storeName: activeStore.name,
+      storeRole: activeStore.role,
+    }),
   };
 }
 
@@ -1278,7 +1439,7 @@ function storeFromRow(row: DbRecord, role: StoreRole): ActorStoreMembership {
   };
 }
 
-function memberFromRow(row: DbRecord): StoreMember {
+function memberFromRow(row: DbRecord, permissionGrants: StorePermissionAction[] = []): StoreMember {
   return {
     id: requiredString(row.id),
     user_id: requiredString(row.user_id),
@@ -1286,6 +1447,7 @@ function memberFromRow(row: DbRecord): StoreMember {
     display_name: requiredString(row.display_name) || undefined,
     role: toStoreRole(row.role),
     status: toMembershipStatus(row.status),
+    permission_grants: permissionGrants,
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };

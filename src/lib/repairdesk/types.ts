@@ -78,6 +78,8 @@ export interface SupplierInput {
   notes?: string;
 }
 
+export type StorePermissionAction = "supplier:read" | "supplier:assign" | "supplier:manage";
+
 export type OrderWorkflowStatusCode =
   | "intake"
   | "diagnosis"
@@ -671,6 +673,11 @@ export interface CustomerMessageInput {
 export interface RepairDeskOptions {
   suppliers: Supplier[];
   technicians: string[];
+  permissions: {
+    canReadSuppliers: boolean;
+    canAssignSuppliers: boolean;
+    canManageSuppliers: boolean;
+  };
 }
 
 export interface BatchTransitionResult {
@@ -730,6 +737,7 @@ export interface StoreMember {
   display_name?: string;
   role: StoreRole;
   status: StoreMembershipStatus;
+  permission_grants?: StorePermissionAction[];
   created_at: string;
   updated_at: string;
 }
@@ -785,6 +793,11 @@ export interface StoreMemberDecisionInput {
   id: string;
 }
 
+export interface StoreMemberPermissionUpdateInput {
+  id: string;
+  permissions: StorePermissionAction[];
+}
+
 export interface StoreInviteLinkCreateInput {
   label?: string;
   role: Exclude<StoreRole, "owner">;
@@ -820,6 +833,11 @@ export interface ActorStoreMembership {
 export interface StoreContext {
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
+  permissions?: {
+    canReadSuppliers: boolean;
+    canAssignSuppliers: boolean;
+    canManageSuppliers: boolean;
+  };
 }
 
 export interface StoreCreateInput {
@@ -919,6 +937,7 @@ export interface AuditActor {
   storeId?: string;
   storeName?: string;
   storeRole?: StoreRole;
+  permissionGrants?: StorePermissionAction[];
   stores?: ActorStoreMembership[];
   requestIpHash?: string;
   isSystem?: boolean;

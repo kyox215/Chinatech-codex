@@ -45,6 +45,7 @@ import type {
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreMemberDecisionInput,
+  StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
   StoreSettingsUpdateInput,
   SupplierInput,
@@ -906,6 +907,19 @@ export const storeMemberRoleUpdateBodySchema = z
     role: z.enum(["manager", "technician", "sales", "viewer"]),
   })
   .passthrough() satisfies z.ZodType<StoreMemberRoleUpdateInput>;
+
+export const storePermissionActionSchema = z.enum([
+  "supplier:read",
+  "supplier:assign",
+  "supplier:manage",
+]);
+
+export const storeMemberPermissionUpdateBodySchema = z
+  .object({
+    id: z.string().uuid("成员 id 不正确"),
+    permissions: z.array(storePermissionActionSchema).max(3),
+  })
+  .passthrough() satisfies z.ZodType<StoreMemberPermissionUpdateInput>;
 
 export const storeMemberDecisionBodySchema = z
   .object({

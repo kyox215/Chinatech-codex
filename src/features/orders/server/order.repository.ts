@@ -92,6 +92,7 @@ import {
   supplierFromRow,
 } from "@/server/repairdesk-shared";
 import { assertStaffRole } from "@/server/auth-context";
+import { can } from "@/server/permissions";
 
 function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
   let result = rows;
@@ -201,6 +202,20 @@ function countWorkflowRows(rows: OrderListItem[]) {
 
 function filtersForWorkflowCounts(filters: OrderListFilters): OrderListFilters {
   return { ...filters, workflowStatuses: undefined };
+}
+
+function filtersForSupplierAccess(filters: OrderListFilters, canReadSuppliers: boolean) {
+  if (canReadSuppliers || !filters.supplierIds?.length) return filters;
+  return { ...filters, supplierIds: undefined };
+}
+
+function applySupplierVisibility<T extends OrderListItem>(order: T, canReadSuppliers: boolean): T {
+  if (canReadSuppliers) return order;
+  return {
+    ...order,
+    supplier_id: undefined,
+    parts_supplier_id: undefined,
+  };
 }
 
 async function readWorkflowCountsFromSupabase(storeId: string, filters: OrderListFilters) {
@@ -628,7 +643,11 @@ export async function listOrders(
   actor?: AuditActor,
 ): Promise<OrderListItem[]> {
   const storeId = requireStoreIdFromActor(actor);
-  return filterOrders((await fetchOrderRows(storeId)).map(decorate), filters);
+  const canReadSuppliers = can(actor, "supplier:read");
+  const safeFilters = filtersForSupplierAccess(filters, canReadSuppliers);
+  return filterOrders((await fetchOrderRows(storeId)).map(decorate), safeFilters).map((order) =>
+    applySupplierVisibility(order, canReadSuppliers),
+  );
 }
 
 export async function listOrdersPage(
@@ -636,6 +655,7 @@ export async function listOrdersPage(
   actor?: AuditActor,
 ): Promise<OrderListResult> {
   const storeId = requireStoreIdFromActor(actor);
+  const canReadSuppliers = can(actor, "supplier:read");
   const { page, pageSize } = normalizePageInput(input);
   const filters: OrderListFilters = {
     search: input.search,
@@ -651,11 +671,16 @@ export async function listOrdersPage(
     paid: input.paid,
     overdue: input.overdue,
   };
+  const safeFilters = filtersForSupplierAccess(filters, canReadSuppliers);
 
-  if (filters.search?.trim() || filters.overdue) {
+  if (safeFilters.search?.trim() || safeFilters.overdue) {
     const rows = (await fetchOrderRows(storeId)).map(decorate);
-    const all = filterOrders(rows, filters);
-    const workflowCounts = countWorkflowRows(filterOrders(rows, filtersForWorkflowCounts(filters)));
+    const all = filterOrders(rows, safeFilters).map((order) =>
+      applySupplierVisibility(order, canReadSuppliers),
+    );
+    const workflowCounts = countWorkflowRows(
+      filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
+    );
     const start = (page - 1) * pageSize;
     return {
       items: all.slice(start, start + pageSize),
@@ -673,32 +698,40 @@ export async function listOrdersPage(
     .select(ORDER_LIST_SELECT, { count: "exact" })
     .eq("store_id", storeId);
 
-  if (filters.statuses?.length) query = query.in("status", filters.statuses);
-  if (filters.workflowStatuses?.length) {
-    query = query.in("workflow_status", filters.workflowStatuses);
+  if (safeFilters.statuses?.length) query = query.in("status", safeFilters.statuses);
+  if (safeFilters.workflowStatuses?.length) {
+    query = query.in("workflow_status", safeFilters.workflowStatuses);
   }
-  if (filters.exceptionStatuses?.length) {
-    query = query.in("exception_status", filters.exceptionStatuses);
+  if (safeFilters.exceptionStatuses?.length) {
+    query = query.in("exception_status", safeFilters.exceptionStatuses);
   }
-  if (filters.paymentStatuses?.length) {
-    query = query.in("payment_status", filters.paymentStatuses);
+  if (safeFilters.paymentStatuses?.length) {
+    query = query.in("payment_status", safeFilters.paymentStatuses);
   }
-  if (filters.partsStatuses?.length) {
-    query = query.in("parts_status", filters.partsStatuses);
+  if (safeFilters.partsStatuses?.length) {
+    query = query.in("parts_status", safeFilters.partsStatuses);
   }
-  if (filters.approvalFlowStatuses?.length) {
-    query = query.in("approval_flow_status", filters.approvalFlowStatuses);
+  if (safeFilters.approvalFlowStatuses?.length) {
+    query = query.in("approval_flow_status", safeFilters.approvalFlowStatuses);
   }
-  if (filters.types?.length) query = query.in("order_type", filters.types);
-  if (filters.technicians?.length) query = query.in("technician_name", filters.technicians);
-  if (filters.supplierIds?.length) query = query.in("supplier_id", filters.supplierIds);
-  if (filters.paid && filters.paid !== "all") query = query.eq("is_paid", filters.paid === "paid");
+  if (safeFilters.types?.length) query = query.in("order_type", safeFilters.types);
+  if (safeFilters.technicians?.length) {
+    query = query.in("technician_name", safeFilters.technicians);
+  }
+  if (safeFilters.supplierIds?.length) query = query.in("supplier_id", safeFilters.supplierIds);
+  if (safeFilters.paid && safeFilters.paid !== "all") {
+    query = query.eq("is_paid", safeFilters.paid === "paid");
+  }
 
   const { data, error, count } = await query;
   if (error && isMissingRepairOrderColumnError(error)) {
     const rows = (await fetchOrderRows(storeId)).map(decorate);
-    const all = filterOrders(rows, filters);
-    const workflowCounts = countWorkflowRows(filterOrders(rows, filtersForWorkflowCounts(filters)));
+    const all = filterOrders(rows, safeFilters).map((order) =>
+      applySupplierVisibility(order, canReadSuppliers),
+    );
+    const workflowCounts = countWorkflowRows(
+      filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
+    );
     const start = (page - 1) * pageSize;
     return {
       items: all.slice(start, start + pageSize),
@@ -711,12 +744,14 @@ export async function listOrdersPage(
   }
   fail(error, "读取工单失败");
 
-  const all = filterOrders(((data ?? []) as DbRecord[]).map(decorate), {});
+  const all = filterOrders(((data ?? []) as DbRecord[]).map(decorate), {}).map((order) =>
+    applySupplierVisibility(order, canReadSuppliers),
+  );
   const total = count ?? all.length;
   const start = (page - 1) * pageSize;
   const workflowCounts = await readWorkflowCountsFromSupabase(
     storeId,
-    filtersForWorkflowCounts(filters),
+    filtersForWorkflowCounts(safeFilters),
   );
   return {
     items: all.slice(start, start + pageSize),
@@ -1031,6 +1066,7 @@ export async function updateOrderWorkflowTransitions(
 
 export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDetail> {
   const storeId = requireStoreIdFromActor(actor);
+  const canReadSuppliers = can(actor, "supplier:read");
   const supabase = getSupabaseAdmin();
   const { data: orderRow, error: orderError } = await supabase
     .from("repair_orders")
@@ -1073,11 +1109,11 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
 
   const row = orderRow as DbRecord;
   return {
-    order: decorate(row),
+    order: applySupplierVisibility(decorate(row), canReadSuppliers),
     customer: customerFromRow(row.customer),
     device: deviceFromRow(row.device),
-    supplier: supplierFromRow(row.supplier),
-    parts_supplier: supplierFromRow(row.parts_supplier),
+    supplier: canReadSuppliers ? supplierFromRow(row.supplier) : undefined,
+    parts_supplier: canReadSuppliers ? supplierFromRow(row.parts_supplier) : undefined,
     events: ((eventRows ?? []) as DbRecord[]).map(eventFromRow),
     messages: ((messageRows ?? []) as DbRecord[]).map(messageFromRow),
     attachments: attachmentError
@@ -2848,21 +2884,24 @@ export async function createOrder(
 }
 export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDeskOptions> {
   const storeId = requireStoreIdFromActor(actor);
+  const canReadSuppliers = can(actor, "supplier:read");
   const supabase = getSupabaseAdmin();
-  const [{ data: supplierRows, error: supplierError }, { data: technicianRows, error: techError }] =
-    await Promise.all([
-      supabase
+  const supplierResult = canReadSuppliers
+    ? await supabase
         .from("suppliers")
         .select("*")
         .eq("store_id", storeId)
-        .order("name", { ascending: true }),
-      supabase.from("repair_orders").select("technician_name").eq("store_id", storeId),
-    ]);
-  fail(supplierError, "读取供应商失败");
+        .order("name", { ascending: true })
+    : { data: [], error: null };
+  const { data: technicianRows, error: techError } = await supabase
+    .from("repair_orders")
+    .select("technician_name")
+    .eq("store_id", storeId);
+  fail(supplierResult.error, "读取供应商失败");
   fail(techError, "读取技师失败");
 
   return {
-    suppliers: ((supplierRows ?? []) as DbRecord[])
+    suppliers: ((supplierResult.data ?? []) as DbRecord[])
       .map(supplierFromRow)
       .filter((supplier): supplier is Supplier => Boolean(supplier))
       .filter((supplier) => !supplier.archived_at),
@@ -2873,5 +2912,10 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
           .filter((name): name is string => Boolean(name)),
       ),
     ).sort((a, b) => a.localeCompare(b, "zh-CN")),
+    permissions: {
+      canReadSuppliers,
+      canAssignSuppliers: can(actor, "supplier:assign"),
+      canManageSuppliers: can(actor, "supplier:manage"),
+    },
   };
 }

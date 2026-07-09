@@ -97,6 +97,7 @@ import {
   reorderOrderWorkflowStatuses,
   switchStore,
   updateSupplier,
+  updateStoreMemberPermissions,
   updateStoreMemberRole,
   updateAccountProfile,
   updateOrderWorkflowStatus,
@@ -115,6 +116,7 @@ import {
   type StoreInviteLinkCreateInput,
   type StoreInviteInput,
   type StoreMember,
+  type StorePermissionAction,
   type ApprovedStoreRole,
   type StoreSettings,
   type StoreRole,
@@ -223,7 +225,13 @@ export function SettingsScreen() {
   });
   const activeStoreId = storeContextQuery.data?.activeStore?.id;
   const activeStoreRole = storeContextQuery.data?.activeStore?.role;
-  const canManageSuppliers = activeStoreRole === "owner" || activeStoreRole === "manager";
+  const supplierPermissions = storeContextQuery.data?.permissions ?? {
+    canReadSuppliers: false,
+    canAssignSuppliers: false,
+    canManageSuppliers: false,
+  };
+  const canReadSuppliers = supplierPermissions.canReadSuppliers;
+  const canManageSuppliers = supplierPermissions.canManageSuppliers;
   const settingsQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
@@ -267,7 +275,7 @@ export function SettingsScreen() {
     queryKey: suppliersKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => listSuppliers({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId && canManageSuppliers),
+    enabled: Boolean(activeStoreId && canReadSuppliers),
   });
   const settingsData = settingsQuery.data;
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
@@ -526,6 +534,23 @@ export function SettingsScreen() {
       ]);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "保存员工角色失败"),
+    onSettled: () => setMemberActionId(""),
+  });
+  const updateMemberPermissionsMutation = useMutation({
+    mutationFn: updateStoreMemberPermissions,
+    onMutate: (input) => {
+      setMemberActionId(input.id);
+    },
+    onSuccess: async () => {
+      toast.success("供应商权限已保存");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: storesKeys.members }),
+        queryClient.invalidateQueries({ queryKey: storesKeys.context }),
+        queryClient.invalidateQueries({ queryKey: ordersKeys.options() }),
+        queryClient.invalidateQueries({ queryKey: ordersKeys.lists() }),
+      ]);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "保存供应商权限失败"),
     onSettled: () => setMemberActionId(""),
   });
   const disableMemberMutation = useMutation({
@@ -822,8 +847,9 @@ export function SettingsScreen() {
             {selectedSection === "suppliers" ? (
               <SupplierManagementSection
                 suppliers={supplierRows}
+                canRead={canReadSuppliers}
                 canManage={canManageSuppliers}
-                isLoading={suppliersQuery.isLoading}
+                isLoading={canReadSuppliers && suppliersQuery.isLoading}
                 isError={suppliersQuery.isError}
                 draft={supplierDraft}
                 editorId={supplierEditorId}
@@ -856,6 +882,7 @@ export function SettingsScreen() {
                 accessRequests={storeAccessRequestsQuery.data ?? []}
                 activeStoreRole={storeContextQuery.data?.activeStore?.role}
                 currentUserId={accountQuery.data?.userId}
+                canManageSupplierPermissions={activeStoreRole === "owner"}
                 isLoading={storeMembersQuery.isLoading}
                 isError={storeMembersQuery.isError}
                 isAccessRequestsLoading={storeAccessRequestsQuery.isLoading}
@@ -872,6 +899,7 @@ export function SettingsScreen() {
                 isRevokingInviteLink={revokeInviteLinkMutation.isPending}
                 isUpdatingMember={
                   updateMemberRoleMutation.isPending ||
+                  updateMemberPermissionsMutation.isPending ||
                   disableMemberMutation.isPending ||
                   restoreMemberMutation.isPending
                 }
@@ -885,6 +913,9 @@ export function SettingsScreen() {
                 onMemberStatusFilterChange={setMemberStatusFilter}
                 onMemberRoleDraftChange={(id, role) =>
                   setMemberRoleDrafts((current) => ({ ...current, [id]: role }))
+                }
+                onUpdateSupplierPermissions={(id, permissions) =>
+                  updateMemberPermissionsMutation.mutate({ id, permissions })
                 }
                 onAccessRequestRoleChange={(id, role) =>
                   setAccessRequestRoles((current) => ({ ...current, [id]: role }))
@@ -1169,6 +1200,12 @@ const roleLabels: Record<string, string> = {
   sales: "销售",
   viewer: "只读",
 };
+
+const supplierPermissionOptions: { action: StorePermissionAction; label: string }[] = [
+  { action: "supplier:read", label: "查看供应商" },
+  { action: "supplier:assign", label: "选择供应商" },
+  { action: "supplier:manage", label: "管理供应商" },
+];
 
 const memberStatusLabels: Record<string, string> = {
   active: "正常",
@@ -2088,6 +2125,7 @@ function StoreMembersSection({
   accessRequests,
   activeStoreRole,
   currentUserId,
+  canManageSupplierPermissions,
   isLoading,
   isError,
   isAccessRequestsLoading,
@@ -2110,6 +2148,7 @@ function StoreMembersSection({
   onMemberSearchChange,
   onMemberStatusFilterChange,
   onMemberRoleDraftChange,
+  onUpdateSupplierPermissions,
   onAccessRequestRoleChange,
   onUpdateMemberRole,
   onDisableMember,
@@ -2135,6 +2174,7 @@ function StoreMembersSection({
   accessRequests: OnboardingRequest[];
   activeStoreRole?: StoreRole;
   currentUserId?: string;
+  canManageSupplierPermissions: boolean;
   isLoading: boolean;
   isError: boolean;
   isAccessRequestsLoading: boolean;
@@ -2157,6 +2197,7 @@ function StoreMembersSection({
   onMemberSearchChange: (value: string) => void;
   onMemberStatusFilterChange: (value: "all" | "active" | "inactive") => void;
   onMemberRoleDraftChange: (id: string, role: ApprovedStoreRole) => void;
+  onUpdateSupplierPermissions: (id: string, permissions: StorePermissionAction[]) => void;
   onAccessRequestRoleChange: (id: string, role: ApprovedStoreRole) => void;
   onUpdateMemberRole: (id: string, role: ApprovedStoreRole) => void;
   onDisableMember: (id: string) => void;
@@ -2195,6 +2236,42 @@ function StoreMembersSection({
     const hasRoleChange = member.role !== "owner" && draftRole !== member.role;
     const isRowPending = isUpdatingMember && memberActionId === member.id;
     const memberRoleOptions = getRoleOptionsForMember(activeStoreRole, member);
+    const supplierPermissionValues = normalizeSupplierPermissions(member.permission_grants ?? []);
+    const canEditSupplierPermissions =
+      canManageSupplierPermissions && member.status === "active" && member.role !== "owner";
+    const supplierPermissionControls =
+      canManageSupplierPermissions && member.role !== "owner" ? (
+        <div
+          className={cn(
+            "grid min-w-0 gap-1 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 py-1",
+            density === "table" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3",
+          )}
+        >
+          {supplierPermissionOptions.map((option) => (
+            <label
+              key={option.action}
+              className="flex min-w-0 cursor-pointer items-center gap-1.5 text-[10px] leading-3 text-muted-foreground"
+            >
+              <Checkbox
+                className="size-3.5 rounded"
+                checked={supplierPermissionValues.includes(option.action)}
+                disabled={!canEditSupplierPermissions || isRowPending}
+                onCheckedChange={(checked) =>
+                  onUpdateSupplierPermissions(
+                    member.id,
+                    nextSupplierPermissions(
+                      supplierPermissionValues,
+                      option.action,
+                      Boolean(checked),
+                    ),
+                  )
+                }
+              />
+              <span className="min-w-0 truncate">{option.label}</span>
+            </label>
+          ))}
+        </div>
+      ) : null;
 
     if (member.role === "owner") {
       if (density === "card") return null;
@@ -2206,78 +2283,81 @@ function StoreMembersSection({
     }
 
     return (
-      <div
-        className={cn(
-          "grid min-w-0 gap-1.5",
-          density === "table"
-            ? "grid-cols-[minmax(7rem,1fr)_auto_auto] items-center"
-            : "grid-cols-[minmax(6.5rem,1fr)_3.5rem_4.5rem] items-center justify-end",
-        )}
-      >
-        <Select
-          value={draftRole}
-          disabled={!canEditRole || !memberRoleOptions.length || isUpdatingMember}
-          onValueChange={(role) => onMemberRoleDraftChange(member.id, role as ApprovedStoreRole)}
-        >
-          <SelectTrigger className={cn(compactControlClass, density === "table" && "h-7")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {memberRoleOptions.map((role) => (
-              <SelectItem key={role} value={role}>
-                {roleLabels[role]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
+      <div className="grid min-w-0 gap-1.5">
+        <div
           className={cn(
-            "whitespace-nowrap px-2",
-            density === "table" ? "h-7 text-xs" : "h-8 text-xs",
+            "grid min-w-0 gap-1.5",
+            density === "table"
+              ? "grid-cols-[minmax(7rem,1fr)_auto_auto] items-center"
+              : "grid-cols-[minmax(6.5rem,1fr)_3.5rem_4.5rem] items-center justify-end",
           )}
-          disabled={!canEditRole || !hasRoleChange || isUpdatingMember}
-          onClick={() => onUpdateMemberRole(member.id, draftRole)}
         >
-          保存
-        </Button>
-        {member.status === "inactive" ? (
+          <Select
+            value={draftRole}
+            disabled={!canEditRole || !memberRoleOptions.length || isUpdatingMember}
+            onValueChange={(role) => onMemberRoleDraftChange(member.id, role as ApprovedStoreRole)}
+          >
+            <SelectTrigger className={cn(compactControlClass, density === "table" && "h-7")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {memberRoleOptions.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {roleLabels[role]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             size="sm"
             variant="outline"
             className={cn(
-              "justify-center gap-1 whitespace-nowrap px-2",
+              "whitespace-nowrap px-2",
               density === "table" ? "h-7 text-xs" : "h-8 text-xs",
             )}
-            disabled={!canChangeStatus || isUpdatingMember}
-            onClick={() => onRestoreMember(member.id)}
+            disabled={!canEditRole || !hasRoleChange || isUpdatingMember}
+            onClick={() => onUpdateMemberRole(member.id, draftRole)}
           >
-            <RotateCcw className="size-3.5" />
-            {isRowPending ? "恢复中" : "恢复"}
+            保存
           </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className={cn(
-              "justify-center gap-1 whitespace-nowrap px-2 text-destructive hover:text-destructive",
-              density === "table" ? "h-7 text-xs" : "h-8 text-xs",
-            )}
-            disabled={!canChangeStatus || isUpdatingMember}
-            onClick={() => {
-              if (window.confirm(`停用 ${member.display_name || member.email}？`)) {
-                onDisableMember(member.id);
-              }
-            }}
-          >
-            <UserMinus className="size-3.5" />
-            {isRowPending ? "停用中" : "停用"}
-          </Button>
-        )}
+          {member.status === "inactive" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className={cn(
+                "justify-center gap-1 whitespace-nowrap px-2",
+                density === "table" ? "h-7 text-xs" : "h-8 text-xs",
+              )}
+              disabled={!canChangeStatus || isUpdatingMember}
+              onClick={() => onRestoreMember(member.id)}
+            >
+              <RotateCcw className="size-3.5" />
+              {isRowPending ? "恢复中" : "恢复"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className={cn(
+                "justify-center gap-1 whitespace-nowrap px-2 text-destructive hover:text-destructive",
+                density === "table" ? "h-7 text-xs" : "h-8 text-xs",
+              )}
+              disabled={!canChangeStatus || isUpdatingMember}
+              onClick={() => {
+                if (window.confirm(`停用 ${member.display_name || member.email}？`)) {
+                  onDisableMember(member.id);
+                }
+              }}
+            >
+              <UserMinus className="size-3.5" />
+              {isRowPending ? "停用中" : "停用"}
+            </Button>
+          )}
+        </div>
+        {supplierPermissionControls}
       </div>
     );
   };
@@ -2704,7 +2784,7 @@ function StoreMembersSection({
                       <th className="w-28 px-2.5 py-2 font-medium">角色</th>
                       <th className="w-24 px-2.5 py-2 font-medium">状态</th>
                       <th className="w-20 px-2.5 py-2 font-medium">更新</th>
-                      <th className="w-[21rem] px-2.5 py-2 font-medium">操作</th>
+                      <th className="w-[25rem] px-2.5 py-2 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2945,6 +3025,7 @@ const supplierColorOptions = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3a
 
 function SupplierManagementSection({
   suppliers,
+  canRead,
   canManage,
   isLoading,
   isError,
@@ -2960,6 +3041,7 @@ function SupplierManagementSection({
   onArchive,
 }: {
   suppliers: Supplier[];
+  canRead: boolean;
   canManage: boolean;
   isLoading: boolean;
   isError: boolean;
@@ -3000,9 +3082,13 @@ function SupplierManagementSection({
         }
       />
 
-      {!canManage ? (
+      {!canRead ? (
         <div className="rounded-lg border border-[var(--border-panel)] bg-card px-3 py-3 text-xs text-muted-foreground">
-          只有店主或经理可以维护供应商。其他员工只能在有权限的订单流程中选择当前店铺已启用的供应商。
+          当前账号没有供应商查看权限。只有店主或被单独授权的员工可以查看供应商列表。
+        </div>
+      ) : !canManage ? (
+        <div className="rounded-lg border border-[var(--border-panel)] bg-card px-3 py-3 text-xs text-muted-foreground">
+          当前账号可以查看供应商，但不能新增、编辑或归档。管理权限需要店主在员工权限中单独授权。
         </div>
       ) : null}
 
@@ -3112,7 +3198,7 @@ function SupplierManagementSection({
         </div>
       ) : null}
 
-      {isLoading ? (
+      {!canRead ? null : isLoading ? (
         <div className="grid gap-2">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
@@ -3144,33 +3230,35 @@ function SupplierManagementSection({
                 />
               }
               trailing={
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="size-7"
-                    aria-label={`编辑 ${supplier.name}`}
-                    onClick={() => onEdit(supplier)}
-                  >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="size-7 text-muted-foreground"
-                    disabled={archivePendingId === supplier.id}
-                    aria-label={`归档 ${supplier.name}`}
-                    onClick={() => {
-                      if (window.confirm("归档后历史订单仍会显示该供应商，新订单不再可选。")) {
-                        onArchive(supplier.id);
-                      }
-                    }}
-                  >
-                    <Archive className="size-3.5" />
-                  </Button>
-                </div>
+                canManage ? (
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-7"
+                      aria-label={`编辑 ${supplier.name}`}
+                      onClick={() => onEdit(supplier)}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 text-muted-foreground"
+                      disabled={archivePendingId === supplier.id}
+                      aria-label={`归档 ${supplier.name}`}
+                      onClick={() => {
+                        if (window.confirm("归档后历史订单仍会显示该供应商，新订单不再可选。")) {
+                          onArchive(supplier.id);
+                        }
+                      }}
+                    >
+                      <Archive className="size-3.5" />
+                    </Button>
+                  </div>
+                ) : null
               }
             >
               <div className="min-w-0">
@@ -3726,6 +3814,41 @@ function kioskSessionStatusLabel(status: KioskSession["status"]) {
 
 function toApprovedRole(role?: StoreRole): ApprovedStoreRole {
   return role && role !== "owner" ? role : "viewer";
+}
+
+function normalizeSupplierPermissions(actions: readonly StorePermissionAction[]) {
+  const normalized = new Set(actions);
+  if (normalized.has("supplier:manage")) {
+    normalized.add("supplier:assign");
+    normalized.add("supplier:read");
+  }
+  if (normalized.has("supplier:assign")) {
+    normalized.add("supplier:read");
+  }
+  return supplierPermissionOptions
+    .map((option) => option.action)
+    .filter((action) => normalized.has(action));
+}
+
+function nextSupplierPermissions(
+  current: readonly StorePermissionAction[],
+  action: StorePermissionAction,
+  checked: boolean,
+) {
+  const next = new Set(normalizeSupplierPermissions(current));
+  if (checked) {
+    next.add(action);
+  } else {
+    next.delete(action);
+    if (action === "supplier:read") {
+      next.delete("supplier:assign");
+      next.delete("supplier:manage");
+    }
+    if (action === "supplier:assign") {
+      next.delete("supplier:manage");
+    }
+  }
+  return normalizeSupplierPermissions(Array.from(next));
 }
 
 function getRoleOptionsForActor(role?: StoreRole): ApprovedStoreRole[] {

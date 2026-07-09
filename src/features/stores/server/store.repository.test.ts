@@ -848,6 +848,7 @@ describe("store repository access request boundaries", () => {
     ]);
     const disabledInvitationsQuery = createSupabaseQuery({ data: [], error: null });
     const disabledInviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    const disabledPermissionGrantsQuery = createSupabaseQuery({ data: [], error: null });
     const inactiveReadQuery = createSupabaseQuery({
       data: membershipRow({ role: "technician", status: "inactive" }),
       error: null,
@@ -861,17 +862,20 @@ describe("store repository access request boundaries", () => {
     ]);
     const restoredInvitationsQuery = createSupabaseQuery({ data: [], error: null });
     const restoredInviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    const restoredPermissionGrantsQuery = createSupabaseQuery({ data: [], error: null });
     mocks.supabase.from
       .mockReturnValueOnce(memberReadQuery)
       .mockReturnValueOnce(disableQuery)
       .mockReturnValueOnce(disabledMembersQuery)
       .mockReturnValueOnce(disabledInvitationsQuery)
       .mockReturnValueOnce(disabledInviteLinksQuery)
+      .mockReturnValueOnce(disabledPermissionGrantsQuery)
       .mockReturnValueOnce(inactiveReadQuery)
       .mockReturnValueOnce(restoreQuery)
       .mockReturnValueOnce(restoredMembersQuery)
       .mockReturnValueOnce(restoredInvitationsQuery)
-      .mockReturnValueOnce(restoredInviteLinksQuery);
+      .mockReturnValueOnce(restoredInviteLinksQuery)
+      .mockReturnValueOnce(restoredPermissionGrantsQuery);
 
     const disabled = await disableStoreMember({ id: "membership_staff" }, storeManager);
     const restored = await restoreStoreMember({ id: "membership_staff" }, storeManager);

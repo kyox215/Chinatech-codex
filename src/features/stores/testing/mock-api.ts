@@ -270,6 +270,11 @@ function context(): StoreContext {
   return {
     activeStore: mockStores.find((store) => store.id === activeStoreId) ?? mockStores[0],
     stores: [...mockStores],
+    permissions: {
+      canReadSuppliers: true,
+      canAssignSuppliers: true,
+      canManageSuppliers: true,
+    },
   };
 }
 

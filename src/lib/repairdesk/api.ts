@@ -91,8 +91,10 @@ import type {
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
   StoreMemberDecisionInput,
+  StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
   StoreMembersResult,
+  StorePermissionAction,
   StoreSettings,
   StoreSettingsUpdateInput,
   Supplier,
@@ -239,8 +241,10 @@ export type {
   StoreInviteInput,
   StoreMember,
   StoreMemberDecisionInput,
+  StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
   StoreMembersResult,
+  StorePermissionAction,
   StoreSettings,
   StoreSettingsUpdateInput,
   Supplier,
@@ -485,6 +489,12 @@ export async function updateStoreMemberRole(
   input: StoreMemberRoleUpdateInput,
 ): Promise<StoreMembersResult> {
   return postJson<StoreMembersResult>("stores/members/update-role", input);
+}
+
+export async function updateStoreMemberPermissions(
+  input: StoreMemberPermissionUpdateInput,
+): Promise<StoreMembersResult> {
+  return postJson<StoreMembersResult>("stores/members/update-permissions", input);
 }
 
 export async function disableStoreMember(

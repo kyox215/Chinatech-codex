@@ -891,7 +891,17 @@ export default function OrdersListPage() {
     staleTime: 15_000,
   });
 
-  const { data: options = { suppliers: [], technicians: [] } } = useQuery({
+  const {
+    data: options = {
+      suppliers: [],
+      technicians: [],
+      permissions: {
+        canReadSuppliers: false,
+        canAssignSuppliers: false,
+        canManageSuppliers: false,
+      },
+    },
+  } = useQuery({
     queryKey: ordersKeys.options(activeStoreId),
     queryFn: () => getRepairDeskOptions(),
   });

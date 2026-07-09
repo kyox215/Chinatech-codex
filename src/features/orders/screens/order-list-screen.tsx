@@ -96,6 +96,15 @@ import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 
 const ORDER_LIST_PAGE_SIZE = 50;
+const emptyOrderOptions = {
+  suppliers: [],
+  technicians: [],
+  permissions: {
+    canReadSuppliers: false,
+    canAssignSuppliers: false,
+    canManageSuppliers: false,
+  },
+};
 
 const orderStageHints: Record<SimpleOrderFlowStageKey | "all", string> = {
   all: "全部客户队列",
@@ -189,7 +198,13 @@ export function OrderListScreen() {
 
   const listResult = queueSummary?.list;
   const workflow = queueSummary?.workflow;
-  const options = queueSummary?.options ?? { suppliers: [], technicians: [] };
+  const options = queueSummary?.options ?? emptyOrderOptions;
+  const canReadSuppliers = options.permissions.canReadSuppliers;
+  const canAssignSuppliers = options.permissions.canAssignSuppliers;
+  const visibleSuppliers = useMemo(
+    () => (canReadSuppliers ? options.suppliers : []),
+    [canReadSuppliers, options.suppliers],
+  );
   const workflowIsError = Boolean(queueSummary?.partialErrors?.workflow);
   const workflowErrorMessage = queueSummary?.partialErrors?.workflow ?? "状态流配置暂时不可用。";
   const statusSubTabs = useMemo<OrderListStatusTab[]>(
@@ -277,15 +292,17 @@ export function OrderListScreen() {
     filters.technicians?.forEach((technician) =>
       chips.push({ key: `technician:${technician}`, label: `技师：${technician}` }),
     );
-    const supplierLabels = new Map(
-      options.suppliers.map((supplier) => [supplier.id, supplier.short_name]),
-    );
-    filters.supplierIds?.forEach((supplierId) =>
-      chips.push({
-        key: `supplier:${supplierId}`,
-        label: `外修：${supplierLabels.get(supplierId) ?? supplierId}`,
-      }),
-    );
+    if (canReadSuppliers) {
+      const supplierLabels = new Map(
+        visibleSuppliers.map((supplier) => [supplier.id, supplier.short_name]),
+      );
+      filters.supplierIds?.forEach((supplierId) =>
+        chips.push({
+          key: `supplier:${supplierId}`,
+          label: `外修：${supplierLabels.get(supplierId) ?? supplierId}`,
+        }),
+      );
+    }
     if (filters.overdue) {
       chips.push({
         key: "overdue",
@@ -299,7 +316,15 @@ export function OrderListScreen() {
     }
 
     return chips;
-  }, [filters, options.suppliers, statusCode, statusGroup, statusGroups, workflowStatuses]);
+  }, [
+    canReadSuppliers,
+    filters,
+    statusCode,
+    statusGroup,
+    statusGroups,
+    visibleSuppliers,
+    workflowStatuses,
+  ]);
   const hasActiveFilters = activeFilterChips.length > 0;
   const isPageOutOfRange = Boolean(
     listResult && listResult.total > 0 && !listResult.items.length && page > pageCount,
@@ -339,8 +364,8 @@ export function OrderListScreen() {
         updated_at: result.updated_at,
       });
       const supplierName =
-        options.suppliers.find((supplier) => supplier.id === vars.supplierId)?.short_name ??
-        options.suppliers.find((supplier) => supplier.id === vars.supplierId)?.name;
+        visibleSuppliers.find((supplier) => supplier.id === vars.supplierId)?.short_name ??
+        visibleSuppliers.find((supplier) => supplier.id === vars.supplierId)?.name;
       toast.success(
         vars.supplierId ? `已标记配件供应商：${supplierName ?? "已选择"}` : "已清除配件供应商",
       );
@@ -459,6 +484,11 @@ export function OrderListScreen() {
     setPage(1);
     setSelected([]);
   }, [effectiveFilters]);
+
+  useEffect(() => {
+    if (canReadSuppliers || !filters.supplierIds?.length) return;
+    setFilters((current) => ({ ...current, supplierIds: undefined }));
+  }, [canReadSuppliers, filters.supplierIds?.length]);
 
   useEffect(() => {
     if (!statusGroups.some((group) => group.key === statusGroup)) {
@@ -754,9 +784,11 @@ export function OrderListScreen() {
                         }
                         onPrint={() => printRows([o])}
                         onStopInteraction={stopRowClick}
-                        suppliers={options.suppliers}
-                        onPartsSupplierChange={(supplierId) =>
-                          partsSupplierMutation.mutate({ order: o, supplierId })
+                        suppliers={visibleSuppliers}
+                        onPartsSupplierChange={
+                          canAssignSuppliers
+                            ? (supplierId) => partsSupplierMutation.mutate({ order: o, supplierId })
+                            : undefined
                         }
                         isPartsSupplierUpdating={
                           partsSupplierMutation.isPending &&
@@ -781,13 +813,15 @@ export function OrderListScreen() {
                 <motion.div key={order.id} variants={fadeUp}>
                   <OrderMobileCard
                     order={order}
-                    suppliers={options.suppliers}
+                    suppliers={visibleSuppliers}
                     isPartsSupplierUpdating={
                       partsSupplierMutation.isPending &&
                       partsSupplierMutation.variables?.order.id === order.id
                     }
-                    onPartsSupplierChange={(supplierId) =>
-                      partsSupplierMutation.mutate({ order, supplierId })
+                    onPartsSupplierChange={
+                      canAssignSuppliers
+                        ? (supplierId) => partsSupplierMutation.mutate({ order, supplierId })
+                        : undefined
                     }
                   />
                 </motion.div>

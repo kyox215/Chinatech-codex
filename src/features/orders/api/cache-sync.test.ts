@@ -129,7 +129,15 @@ function makeQueueSummary(order: OrderListItem): OrderQueueSummary {
       workflowCounts: { all: 1 } as OrderQueueSummary["list"]["workflowCounts"],
     },
     workflow: { statuses: [], transitions: [] },
-    options: { suppliers: [], technicians: [] },
+    options: {
+      suppliers: [],
+      technicians: [],
+      permissions: {
+        canReadSuppliers: false,
+        canAssignSuppliers: false,
+        canManageSuppliers: false,
+      },
+    },
   };
 }
 

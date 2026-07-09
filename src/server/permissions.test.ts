@@ -122,12 +122,33 @@ describe("server permission matrix", () => {
     expect(can(actor("manager"), "member:grant_manager")).toBe(false);
   });
 
-  it("allows only owner and manager to manage private suppliers", () => {
+  it("keeps supplier data owner-only unless an employee has an explicit grant", () => {
     expect(can(actor("owner"), "supplier:manage")).toBe(true);
-    expect(can(actor("manager"), "supplier:manage")).toBe(true);
+    expect(can(actor("owner"), "supplier:read")).toBe(true);
+    expect(can(actor("owner"), "supplier:assign")).toBe(true);
+
+    expect(can(actor("manager"), "supplier:read")).toBe(false);
+    expect(can(actor("manager"), "supplier:assign")).toBe(false);
+    expect(can(actor("manager"), "supplier:manage")).toBe(false);
     expect(can(actor("sales"), "supplier:manage")).toBe(false);
     expect(can(actor("technician"), "supplier:manage")).toBe(false);
     expect(can(actor("viewer"), "supplier:manage")).toBe(false);
+
+    expect(can(actor("sales", { permissionGrants: ["supplier:read"] }), "supplier:read")).toBe(
+      true,
+    );
+    expect(can(actor("sales", { permissionGrants: ["supplier:assign"] }), "supplier:read")).toBe(
+      true,
+    );
+    expect(can(actor("sales", { permissionGrants: ["supplier:assign"] }), "supplier:assign")).toBe(
+      true,
+    );
+    expect(can(actor("sales", { permissionGrants: ["supplier:manage"] }), "supplier:assign")).toBe(
+      true,
+    );
+    expect(can(actor("sales", { permissionGrants: ["supplier:read"] }), "supplier:assign")).toBe(
+      false,
+    );
   });
 
   it("treats owner removal and owner transfer as elevated actions even for owner", () => {
@@ -191,6 +212,9 @@ describe("server permission matrix", () => {
       "inventory:write_off",
       "member:grant_manager",
       "support:grant",
+      "supplier:read",
+      "supplier:assign",
+      "supplier:manage",
       "unlock:read",
       "attachment:read",
     ] as const;

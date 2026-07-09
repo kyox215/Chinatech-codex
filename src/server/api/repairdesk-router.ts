@@ -104,6 +104,7 @@ import {
   revokeStoreInviteLink,
   revokeStoreInvitation,
   switchActiveStore,
+  updateStoreMemberPermissions,
   updateStoreMemberRole,
 } from "@/features/stores/server/store.service";
 import {
@@ -197,6 +198,7 @@ import {
   storeInviteLinkRedeemBodySchema,
   storeInvitationDecisionBodySchema,
   storeMemberDecisionBodySchema,
+  storeMemberPermissionUpdateBodySchema,
   storeMemberRoleUpdateBodySchema,
   storeSettingsUpdateBodySchema,
   supplierArchiveBodySchema,
@@ -286,6 +288,7 @@ const supabaseSource = {
   switchActiveStore,
   transitionInventoryItem,
   transitionOrder,
+  updateStoreMemberPermissions,
   updateStoreMemberRole,
   updateCustomer,
   updateInventoryItem,
@@ -373,7 +376,13 @@ const realtimeBroadcasts = {
   storeMembershipChanged: {
     domain: "settings",
     mutation: "membership_changed",
-    queryGroups: ["stores.context", "stores.members", "stores.access_requests"],
+    queryGroups: [
+      "stores.context",
+      "stores.members",
+      "stores.access_requests",
+      "orders.options",
+      "orders.all",
+    ],
   },
 } as const satisfies Record<string, RepairDeskRealtimeMutationBroadcast>;
 
@@ -402,6 +411,7 @@ async function source() {
           display_name: actor.displayName,
           role: actor.storeRole ?? actor.role ?? "owner",
           status: "active" as const,
+          permission_grants: [],
           created_at: now,
           updated_at: now,
         },
@@ -418,8 +428,15 @@ async function source() {
     getRepairDeskOptions: async () => ({
       suppliers: listMockSuppliers().filter((supplier) => !supplier.archived_at),
       technicians: mock.allTechnicians,
+      permissions: {
+        canReadSuppliers: true,
+        canAssignSuppliers: true,
+        canManageSuppliers: true,
+      },
     }),
     listSuppliers: async () => listMockSuppliers(),
+    updateStoreMemberPermissions: async (_input: unknown, actor: AuditActor) =>
+      getMockStoreMembers(actor),
     updateSupplier: async (id: string, input: SupplierInput, actor: AuditActor) =>
       updateMockSupplier(id, input, actor),
     getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
@@ -579,7 +596,7 @@ export async function handleRepairDeskGet(path: string) {
       case "settings/store":
         return ok(await api.getStoreSettings(actor));
       case "settings/suppliers":
-        assertRepairDeskPermission(actor, "supplier:manage");
+        assertRepairDeskPermission(actor, "supplier:read");
         return ok(await api.listSuppliers(actor));
       case "message-templates":
         return ok(await api.listMessageTemplates(actor));
@@ -713,7 +730,15 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         const options: RepairDeskOptions =
           optionsResult.status === "fulfilled"
             ? optionsResult.value
-            : { suppliers: [], technicians: [] };
+            : {
+                suppliers: [],
+                technicians: [],
+                permissions: {
+                  canReadSuppliers: false,
+                  canAssignSuppliers: false,
+                  canManageSuppliers: false,
+                },
+              };
         const partialErrors =
           workflowResult.status === "rejected" || optionsResult.status === "rejected"
             ? {
@@ -1281,6 +1306,18 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
             realtimeBroadcasts.storeMembershipChanged,
           ),
         );
+      case "stores/members/update-permissions":
+        return ok(
+          await runWithRealtime(
+            actor,
+            () =>
+              api.updateStoreMemberPermissions(
+                storeMemberPermissionUpdateBodySchema.parse(body),
+                actor,
+              ),
+            realtimeBroadcasts.storeMembershipChanged,
+          ),
+        );
       case "stores/members/disable":
         return ok(
           await runWithRealtime(
@@ -1434,7 +1471,11 @@ export function resolveOrderPatchPermissionActions(input: PatchOrderInput): Perm
   ]);
 
   for (const key of Object.keys(input.changes)) {
-    actions.add(repairFields.has(key) ? "order:update_repair" : "order:update_intake");
+    if (key === "parts_supplier_id") {
+      actions.add("supplier:assign");
+    } else {
+      actions.add(repairFields.has(key) ? "order:update_repair" : "order:update_intake");
+    }
   }
 
   return [...actions];

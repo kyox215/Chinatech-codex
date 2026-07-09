@@ -3,7 +3,7 @@
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { AlertTriangle, Clock, MoreHorizontal, Printer } from "lucide-react";
+import { AlertTriangle, Clock, MoreHorizontal, PackageSearch, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,7 +53,7 @@ export function DesktopOrderQueueRow({
   onPrint: () => void;
   onStopInteraction: (event: SyntheticEvent) => void;
   suppliers: Supplier[];
-  onPartsSupplierChange: (supplierId: string | null) => void;
+  onPartsSupplierChange?: (supplierId: string | null) => void;
   isPartsSupplierUpdating?: boolean;
 }) {
   const exceptionStatus = order.exception_status;
@@ -205,15 +205,22 @@ export function DesktopOrderQueueRow({
             />
           ) : null}
         </div>
-        <div className="mt-1 min-w-0" onClick={onStopInteraction}>
-          <OrderSupplierPicker
-            supplier={partsSupplier}
-            suppliers={suppliers}
-            isUpdating={isPartsSupplierUpdating}
-            onChange={onPartsSupplierChange}
-            mode="dropdown"
-          />
-        </div>
+        {onPartsSupplierChange ? (
+          <div className="mt-1 min-w-0" onClick={onStopInteraction}>
+            <OrderSupplierPicker
+              supplier={partsSupplier}
+              suppliers={suppliers}
+              isUpdating={isPartsSupplierUpdating}
+              onChange={onPartsSupplierChange}
+              mode="dropdown"
+            />
+          </div>
+        ) : partsSupplier ? (
+          <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-3 text-primary">
+            <PackageSearch className="size-2.5 shrink-0" />
+            <span className="truncate">{partsSupplier.short_name || partsSupplier.name}</span>
+          </div>
+        ) : null}
         {order.device_imei ? (
           <div
             className="hidden truncate font-mono text-[10px] leading-4 text-muted-foreground xl:block"

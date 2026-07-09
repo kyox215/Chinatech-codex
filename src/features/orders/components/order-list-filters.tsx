@@ -184,27 +184,29 @@ export function FiltersPanel({
             </div>
           </FilterGroup>
 
-          <FilterGroup label="外修供应商">
-            <div className="space-y-2">
-              {options.suppliers.map((s) => (
-                <label
-                  key={s.id}
-                  className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2 text-sm hover:bg-accent"
-                >
-                  <Checkbox
-                    className="size-5 rounded-md"
-                    checked={filters.supplierIds?.includes(s.id) ?? false}
-                    onCheckedChange={() => toggle("supplierIds", s.id)}
-                  />
-                  <span
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ background: s.color }}
-                  />
-                  <span className="min-w-0 truncate">{s.short_name}</span>
-                </label>
-              ))}
-            </div>
-          </FilterGroup>
+          {options.permissions.canReadSuppliers ? (
+            <FilterGroup label="外修供应商">
+              <div className="space-y-2">
+                {options.suppliers.map((s) => (
+                  <label
+                    key={s.id}
+                    className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <Checkbox
+                      className="size-5 rounded-md"
+                      checked={filters.supplierIds?.includes(s.id) ?? false}
+                      onCheckedChange={() => toggle("supplierIds", s.id)}
+                    />
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ background: s.color }}
+                    />
+                    <span className="min-w-0 truncate">{s.short_name}</span>
+                  </label>
+                ))}
+              </div>
+            </FilterGroup>
+          ) : null}
         </div>
       </ScrollArea>
       {onClose && (

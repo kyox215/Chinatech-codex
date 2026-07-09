@@ -14,5 +14,6 @@ export {
   revokeStoreInviteLink,
   revokeStoreInvitation,
   switchActiveStore,
+  updateStoreMemberPermissions,
   updateStoreMemberRole,
 } from "./store.repository";

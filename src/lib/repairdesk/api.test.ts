@@ -136,7 +136,15 @@ describe("repairdesk api client", () => {
                 workflowCounts: { all: 0 },
               },
               workflow: { statuses: [], transitions: [] },
-              options: { suppliers: [], technicians: [] },
+              options: {
+                suppliers: [],
+                technicians: [],
+                permissions: {
+                  canReadSuppliers: false,
+                  canAssignSuppliers: false,
+                  canManageSuppliers: false,
+                },
+              },
             },
           }),
           { status: 200 },

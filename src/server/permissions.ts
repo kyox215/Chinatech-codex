@@ -1,4 +1,4 @@
-import type { AuditActor, StoreRole } from "@/lib/repairdesk/types";
+import type { AuditActor, StorePermissionAction, StoreRole } from "@/lib/repairdesk/types";
 import { ForbiddenError } from "@/server/auth-context";
 
 export const permissionRoles = ["owner", "manager", "technician", "sales", "viewer"] as const;
@@ -36,6 +36,8 @@ export const permissionActions = [
   "inventory:transfer",
   "inventory:write_off",
   "settings:update_store",
+  "supplier:read",
+  "supplier:assign",
   "supplier:manage",
   "settings:update_workflow",
   "settings:update_message_template",
@@ -118,7 +120,24 @@ export const permissionActionDefinitions: Record<PermissionAction, PermissionAct
   "inventory:transfer": { label: "库存转移", requiresStore: true, auditRequired: true },
   "inventory:write_off": { label: "库存报损", requiresStore: true, auditRequired: true },
   "settings:update_store": { label: "更新店铺设置", requiresStore: true, auditRequired: true },
-  "supplier:manage": { label: "管理供应商", requiresStore: true, auditRequired: true },
+  "supplier:read": {
+    label: "查看供应商",
+    requiresStore: true,
+    auditRequired: true,
+    sensitive: true,
+  },
+  "supplier:assign": {
+    label: "选择订单供应商",
+    requiresStore: true,
+    auditRequired: true,
+    sensitive: true,
+  },
+  "supplier:manage": {
+    label: "管理供应商",
+    requiresStore: true,
+    auditRequired: true,
+    sensitive: true,
+  },
   "settings:update_workflow": { label: "更新流程设置", requiresStore: true, auditRequired: true },
   "settings:update_message_template": {
     label: "更新消息模板",
@@ -197,6 +216,8 @@ export const rolePermissions: RolePermissionMatrix = {
     "inventory:transfer": allow,
     "inventory:write_off": allow,
     "settings:update_store": allow,
+    "supplier:read": allow,
+    "supplier:assign": allow,
     "supplier:manage": allow,
     "settings:update_workflow": allow,
     "settings:update_message_template": allow,
@@ -240,7 +261,9 @@ export const rolePermissions: RolePermissionMatrix = {
     "inventory:transfer": allow,
     "inventory:write_off": allow,
     "settings:update_store": allow,
-    "supplier:manage": allow,
+    "supplier:read": deny,
+    "supplier:assign": deny,
+    "supplier:manage": deny,
     "settings:update_workflow": allow,
     "settings:update_message_template": allow,
     "member:invite": allow,
@@ -283,6 +306,8 @@ export const rolePermissions: RolePermissionMatrix = {
     "inventory:transfer": elevated,
     "inventory:write_off": elevated,
     "settings:update_store": deny,
+    "supplier:read": deny,
+    "supplier:assign": deny,
     "supplier:manage": deny,
     "settings:update_workflow": deny,
     "settings:update_message_template": deny,
@@ -326,6 +351,8 @@ export const rolePermissions: RolePermissionMatrix = {
     "inventory:transfer": elevated,
     "inventory:write_off": elevated,
     "settings:update_store": deny,
+    "supplier:read": deny,
+    "supplier:assign": deny,
     "supplier:manage": deny,
     "settings:update_workflow": deny,
     "settings:update_message_template": deny,
@@ -369,6 +396,8 @@ export const rolePermissions: RolePermissionMatrix = {
     "inventory:transfer": deny,
     "inventory:write_off": deny,
     "settings:update_store": deny,
+    "supplier:read": deny,
+    "supplier:assign": deny,
     "supplier:manage": deny,
     "settings:update_workflow": deny,
     "settings:update_message_template": deny,
@@ -419,6 +448,10 @@ export function getPermissionDecision(
 
   if (effect === "allow") {
     return { ...baseDecision, allowed: true, reason: "allowed" };
+  }
+
+  if (hasGrantedPermission(actor, action)) {
+    return { ...baseDecision, allowed: true, reason: "explicit_grant" };
   }
 
   if (effect === "scoped") {
@@ -472,4 +505,23 @@ export function isPermissionAction(value: unknown): value is PermissionAction {
 
 export function isStoreRoleFrontdesk(role: StoreRole) {
   return role === "sales";
+}
+
+function hasGrantedPermission(actor: AuditActor, action: PermissionAction) {
+  if (!isGrantablePermissionAction(action)) return false;
+  const grants = new Set(actor.permissionGrants ?? []);
+  if (grants.has(action)) return true;
+  if (action === "supplier:read") {
+    return grants.has("supplier:assign") || grants.has("supplier:manage");
+  }
+  if (action === "supplier:assign") {
+    return grants.has("supplier:manage");
+  }
+  return false;
+}
+
+export function isGrantablePermissionAction(
+  action: PermissionAction,
+): action is StorePermissionAction {
+  return action === "supplier:read" || action === "supplier:assign" || action === "supplier:manage";
 }

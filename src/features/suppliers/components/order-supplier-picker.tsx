@@ -39,7 +39,7 @@ export function OrderSupplierPicker({
   isUpdating?: boolean;
   onChange: (supplierId: string | null) => void;
   mode?: "dropdown" | "sheet";
-  size?: "compact" | "comfortable";
+  size?: "micro" | "compact" | "comfortable";
   label?: string;
   title?: string;
   className?: string;
@@ -54,7 +54,11 @@ export function OrderSupplierPicker({
       disabled={isUpdating}
       className={cn(
         "max-w-full justify-start gap-1 rounded-md font-medium leading-none",
-        size === "comfortable" ? "h-9 w-full px-2 text-[11px]" : "h-6 px-1.5 text-[10px]",
+        size === "comfortable"
+          ? "h-9 w-full px-2 text-[11px]"
+          : size === "micro"
+            ? "h-5 px-1 text-[9px]"
+            : "h-6 px-1.5 text-[10px]",
         supplier
           ? "bg-primary/10 text-primary hover:bg-primary/15"
           : "bg-muted/60 text-muted-foreground hover:bg-muted",
@@ -63,9 +67,11 @@ export function OrderSupplierPicker({
       aria-label={supplier ? `${label} ${supplier.name}` : title}
     >
       {isUpdating ? (
-        <Loader2 className="size-3 shrink-0 animate-spin" />
+        <Loader2
+          className={cn("shrink-0 animate-spin", size === "micro" ? "size-2.5" : "size-3")}
+        />
       ) : (
-        <PackageSearch className="size-3 shrink-0" />
+        <PackageSearch className={cn("shrink-0", size === "micro" ? "size-2.5" : "size-3")} />
       )}
       <span className="truncate">
         {label}：{supplierLabel}

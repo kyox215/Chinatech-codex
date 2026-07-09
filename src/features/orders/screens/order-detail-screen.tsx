@@ -382,6 +382,9 @@ export function OrderDetailScreen({
   const partsSupplierUpdate = useMutation({
     mutationFn: (supplierId: string | null) => {
       if (!data) throw new Error("工单未加载");
+      if (!repairDeskOptions?.permissions.canAssignSuppliers) {
+        throw new Error("当前账号没有分配供应商权限");
+      }
       return patchOrder(id, {
         expected_updated_at: data.order.updated_at,
         changes: { parts_supplier_id: supplierId },
@@ -627,9 +630,17 @@ export function OrderDetailScreen({
     );
   }
   const { order, customer, device, supplier, events, messages } = data;
-  const supplierOptions = repairDeskOptions?.suppliers ?? [];
-  const partsSupplier =
-    data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id);
+  const supplierPermissions = repairDeskOptions?.permissions ?? {
+    canReadSuppliers: false,
+    canAssignSuppliers: false,
+    canManageSuppliers: false,
+  };
+  const supplierOptions = supplierPermissions.canReadSuppliers
+    ? (repairDeskOptions?.suppliers ?? [])
+    : [];
+  const partsSupplier = supplierPermissions.canReadSuppliers
+    ? (data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id))
+    : undefined;
   const next = getWorkflowNextActions(workflow, order.status);
   const desktopWorkflowStatus = getOrderWorkflowStatus(order);
   const desktopStageIndex = getWorkflowProgressValue(desktopWorkflowStatus);
@@ -739,7 +750,11 @@ export function OrderDetailScreen({
           partsSupplier={partsSupplier}
           supplierOptions={supplierOptions}
           partsSupplierPending={partsSupplierUpdate.isPending}
-          onPartsSupplierChange={(supplierId) => partsSupplierUpdate.mutate(supplierId)}
+          onPartsSupplierChange={
+            supplierPermissions.canAssignSuppliers
+              ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
+              : undefined
+          }
           className="md:hidden"
         />
       ) : null}
@@ -838,7 +853,11 @@ export function OrderDetailScreen({
                 partsSupplier={partsSupplier}
                 supplierOptions={supplierOptions}
                 partsSupplierPending={partsSupplierUpdate.isPending}
-                onPartsSupplierChange={(supplierId) => partsSupplierUpdate.mutate(supplierId)}
+                onPartsSupplierChange={
+                  supplierPermissions.canAssignSuppliers
+                    ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
+                    : undefined
+                }
                 messages={messages}
                 events={events}
                 workflow={workflow}
@@ -965,7 +984,7 @@ function OrderRecordsWorkspace({
   partsSupplier?: Supplier;
   supplierOptions: Supplier[];
   partsSupplierPending: boolean;
-  onPartsSupplierChange: (supplierId: string | null) => void;
+  onPartsSupplierChange?: (supplierId: string | null) => void;
   messages: OrderDetail["messages"];
   events: OrderDetail["events"];
   workflow: Parameters<typeof getWorkflowStatusLabel>[0];
@@ -983,12 +1002,14 @@ function OrderRecordsWorkspace({
       )}
     >
       <div className="grid min-w-0 content-start gap-2 sm:gap-3">
-        <OrderPartsSupplierCard
-          supplier={partsSupplier}
-          suppliers={supplierOptions}
-          isUpdating={partsSupplierPending}
-          onChange={onPartsSupplierChange}
-        />
+        {partsSupplier || supplierOptions.length || onPartsSupplierChange ? (
+          <OrderPartsSupplierCard
+            supplier={partsSupplier}
+            suppliers={supplierOptions}
+            isUpdating={partsSupplierPending}
+            onChange={onPartsSupplierChange}
+          />
+        ) : null}
         <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} className="h-fit" />
         <OrderMessagesLog messages={messages} />
       </div>
@@ -1006,7 +1027,7 @@ function OrderPartsSupplierCard({
   supplier?: Supplier;
   suppliers: Supplier[];
   isUpdating: boolean;
-  onChange: (supplierId: string | null) => void;
+  onChange?: (supplierId: string | null) => void;
 }) {
   return (
     <section data-order-parts-supplier-card="true" className={detailWorkspace.flatPanel}>
@@ -1021,16 +1042,23 @@ function OrderPartsSupplierCard({
           </p>
         </div>
       </div>
-      <div className="mt-2">
-        <OrderSupplierPicker
-          supplier={supplier}
-          suppliers={suppliers}
-          isUpdating={isUpdating}
-          onChange={onChange}
-          mode="dropdown"
-          size="comfortable"
-        />
-      </div>
+      {onChange ? (
+        <div className="mt-2">
+          <OrderSupplierPicker
+            supplier={supplier}
+            suppliers={suppliers}
+            isUpdating={isUpdating}
+            onChange={onChange}
+            mode="dropdown"
+            size="comfortable"
+          />
+        </div>
+      ) : supplier ? (
+        <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+          <PackageSearch className="size-3 shrink-0" />
+          <span className="truncate">{supplier.short_name || supplier.name}</span>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1568,7 +1596,7 @@ function MobileOrderDetailView({
   partsSupplier?: Supplier;
   supplierOptions: Supplier[];
   partsSupplierPending: boolean;
-  onPartsSupplierChange: (supplierId: string | null) => void;
+  onPartsSupplierChange?: (supplierId: string | null) => void;
   className?: string;
 }) {
   const { order, customer } = data;
@@ -1676,22 +1704,31 @@ function MobileOrderDetailView({
         </div>
       </section>
 
-      <section className={mobileDetailCardClass}>
-        <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
-        <div className="mt-1.5">
-          <OrderSupplierPicker
-            supplier={partsSupplier}
-            suppliers={supplierOptions}
-            isUpdating={partsSupplierPending}
-            onChange={onPartsSupplierChange}
-            mode="sheet"
-            size="comfortable"
-          />
-        </div>
-        <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground">
-          只读取当前店铺设置中的供应商。
-        </p>
-      </section>
+      {partsSupplier || supplierOptions.length || onPartsSupplierChange ? (
+        <section className={mobileDetailCardClass}>
+          <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
+          <div className="mt-1.5">
+            {onPartsSupplierChange ? (
+              <OrderSupplierPicker
+                supplier={partsSupplier}
+                suppliers={supplierOptions}
+                isUpdating={partsSupplierPending}
+                onChange={onPartsSupplierChange}
+                mode="sheet"
+                size="comfortable"
+              />
+            ) : partsSupplier ? (
+              <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                <PackageSearch className="size-3 shrink-0" />
+                <span className="truncate">{partsSupplier.short_name || partsSupplier.name}</span>
+              </div>
+            ) : null}
+          </div>
+          <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground">
+            只读取当前店铺设置中的供应商。
+          </p>
+        </section>
+      ) : null}
 
       <button
         type="button"
