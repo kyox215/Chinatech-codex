@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260709-016-supplier-permission-mobile-picker"
+current_task_id: "TASK-20260709-017-store-isolation-release"
 status: "active"
-phase: "intake"
-task_class: "T2"
+phase: "validating"
+task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-09T13:57:54Z"
+last_checkpoint_at: "2026-07-09T14:11:43Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,13 +15,11 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**Supplier permission grants and compact mobile order picker**
+**Store isolation runtime hardening and migration release**
 
 ## Current state
 
-Supplier privacy and mobile picker implementation is in progress in the isolated worktree. The
-feature commit has been created and is being merged with the latest `origin/main` before final
-verification, push, and Supabase migration application.
+Rebased router permission hardening commit over latest origin/main supplier permission commits and reran lint/typecheck/full test/build/agents checks successfully.
 
 ## Blocking decisions
 
@@ -29,12 +27,11 @@ verification, push, and Supabase migration application.
 
 ## Next action
 
-Resolve merge, rerun verification gates, run Supabase dry-run in a linked checkout, then push main
-and apply the approved migration.
+Amend current commit with updated evidence, push HEAD to origin/main, then close task memory.
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260709-016-supplier-permission-mobile-picker/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260709-017-store-isolation-release/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.

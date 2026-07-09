@@ -116,12 +116,7 @@ import {
   submitOnboardingRequest,
   updateAccountProfile,
 } from "@/features/platform/server/platform.service";
-import {
-  assertStaffRole,
-  getRequestActor,
-  UnauthorizedError,
-  ForbiddenError,
-} from "@/server/auth-context";
+import { getRequestActor, UnauthorizedError, ForbiddenError } from "@/server/auth-context";
 import { assertPermission, type PermissionAction } from "@/server/permissions";
 import { writeAuditLog } from "@/server/audit";
 import { resolveRepairDeskSourceMode } from "@/server/repairdesk-source-mode";
@@ -132,6 +127,7 @@ import {
 } from "@/features/realtime/server/realtime-broadcast";
 import type {
   AuditActor,
+  InventoryTransactionInput,
   OrderListItem,
   OrderListResult,
   OrderStats,
@@ -305,8 +301,6 @@ const supabaseSource = {
   upsertCustomerDevice,
 };
 
-const inventoryWriteRoles = ["owner", "manager", "technician", "sales"] as const;
-
 const realtimeBroadcasts = {
   kioskSessionReviewed: {
     domain: "settings",
@@ -385,10 +379,6 @@ const realtimeBroadcasts = {
     ],
   },
 } as const satisfies Record<string, RepairDeskRealtimeMutationBroadcast>;
-
-function assertInventoryWrite(actor: Awaited<ReturnType<typeof getRequestActor>>) {
-  assertStaffRole(actor, inventoryWriteRoles);
-}
 
 async function source() {
   const { isRepairDeskE2eAuthBypassEnabled } = await import("@/shared/lib/e2e-auth-bypass");
@@ -818,6 +808,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/create": {
         const { input } = customerCreateBodySchema.parse(body);
+        assertCustomerCreatePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -832,6 +823,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/update": {
         const { id, input } = customerUpdateBodySchema.parse(body);
+        assertCustomerUpdatePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -846,6 +838,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/device/upsert": {
         const { customerId, input } = customerDeviceUpsertBodySchema.parse(body);
+        assertCustomerUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -856,6 +849,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/device/delete": {
         const { customerId, deviceId } = customerDeviceDeleteBodySchema.parse(body);
+        assertCustomerUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -866,6 +860,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/tags/update": {
         const { customerId, tagIds } = customerTagsUpdateBodySchema.parse(body);
+        assertCustomerTagPermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -876,6 +871,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/followup/create": {
         const { customerId, input } = customerFollowupCreateBodySchema.parse(body);
+        assertCustomerUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -886,6 +882,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/followup/complete": {
         const { customerId, followupId } = customerFollowupCompleteBodySchema.parse(body);
+        assertCustomerUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -896,6 +893,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/message": {
         const { customerId, input } = customerMessageBodySchema.parse(body);
+        assertCustomerMessagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -965,6 +963,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/transition": {
         const { id, to, reason } = transitionOrderBodySchema.parse(body);
+        assertOrderTransitionPermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -979,6 +978,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/batch-transition": {
         const { ids, to } = batchTransitionBodySchema.parse(body);
+        assertOrderTransitionPermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -993,6 +993,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order-workflow/status/create": {
         const { input } = orderWorkflowStatusCreateBodySchema.parse(body);
+        assertWorkflowConfigurePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1007,6 +1008,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order-workflow/status/update": {
         const { id, input } = orderWorkflowStatusUpdateBodySchema.parse(body);
+        assertWorkflowConfigurePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1021,6 +1023,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order-workflow/status/reorder": {
         const input = orderWorkflowStatusReorderBodySchema.parse(body);
+        assertWorkflowConfigurePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1035,6 +1038,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order-workflow/status/enabled": {
         const input = orderWorkflowStatusEnabledBodySchema.parse(body);
+        assertWorkflowConfigurePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1049,6 +1053,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order-workflow/transitions/update": {
         const input = orderWorkflowTransitionsUpdateBodySchema.parse(body);
+        assertWorkflowConfigurePermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1063,6 +1068,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/payment": {
         const { id, amount, method, expected_updated_at } = paymentBodySchema.parse(body);
+        assertOrderPaymentPermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1121,6 +1127,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/approval-decision": {
         const { id, input } = approvalDecisionBodySchema.parse(body);
+        assertOrderTransitionPermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1147,7 +1154,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/intake/create": {
         const { input } = inventoryIntakeCreateBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventoryCreatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1158,7 +1165,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/update": {
         const { id, input } = inventoryUpdateBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventoryUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1169,7 +1176,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/transition": {
         const { id, to, reason } = inventoryTransitionBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventoryUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1180,7 +1187,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/check": {
         const { id, input } = inventoryQualityCheckBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventoryQualityCheckPermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1191,7 +1198,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/attachment/upload": {
         const { id, input } = inventoryAttachmentUploadBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventoryUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1202,7 +1209,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/transaction": {
         const { id, input } = inventoryTransactionBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventoryTransactionPermission(actor, input);
         return ok(
           await runWithRealtime(
             actor,
@@ -1213,7 +1220,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/sell": {
         const { id, input } = inventorySellBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventorySalePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1228,7 +1235,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "inventory/import/electronics/apply": {
         const { csvContent } = electronicsCsvImportBodySchema.parse(body);
-        assertInventoryWrite(actor);
+        assertInventoryCreatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1239,6 +1246,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "settings/store/update": {
         const { input } = storeSettingsUpdateBodySchema.parse(body);
+        assertStoreSettingsUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1290,6 +1298,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "stores/invite-member": {
         const { input } = storeInviteBodySchema.parse(body);
+        assertMemberInvitePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1299,6 +1308,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       }
       case "stores/members/update-role":
+        assertMemberManagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1319,6 +1329,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           ),
         );
       case "stores/members/disable":
+        assertMemberManagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1327,6 +1338,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           ),
         );
       case "stores/members/restore":
+        assertMemberManagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1336,6 +1348,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       case "stores/invite-links/create": {
         const { input } = storeInviteLinkCreateBodySchema.parse(body);
+        assertMemberInvitePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1345,6 +1358,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       }
       case "stores/invite-links/revoke":
+        assertMemberRevokePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1353,6 +1367,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           ),
         );
       case "stores/invitations/revoke":
+        assertMemberRevokePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1378,6 +1393,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       case "message-template/update": {
         const { id, input } = messageTemplateUpdateBodySchema.parse(body);
+        assertMessageTemplatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1388,6 +1404,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "message-template/reset": {
         const { id } = messageTemplateResetBodySchema.parse(body);
+        assertMessageTemplatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1445,6 +1462,82 @@ export function assertOrderPatchPermission(actor: AuditActor, input: PatchOrderI
 
 export function assertOrderFinancePermission(actor: AuditActor, _input: PatchOrderFinanceInput) {
   assertRepairDeskPermission(actor, "payment:adjust");
+}
+
+export function assertOrderPaymentPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "payment:collect");
+}
+
+export function assertOrderTransitionPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "order:transition");
+}
+
+export function assertCustomerCreatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "customer:create");
+}
+
+export function assertCustomerUpdatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "customer:update");
+}
+
+export function assertCustomerTagPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "customer:tag");
+}
+
+export function assertCustomerMessagePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "customer:message");
+}
+
+export function assertInventoryCreatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "inventory:create");
+}
+
+export function assertInventoryUpdatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "inventory:update");
+}
+
+export function assertInventoryQualityCheckPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "inventory:quality_check");
+}
+
+export function assertInventorySalePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "inventory:sale");
+}
+
+export function assertInventoryTransactionPermission(
+  actor: AuditActor,
+  input: InventoryTransactionInput,
+) {
+  if (input.transaction_type === "sale_payment") {
+    assertInventorySalePermission(actor);
+    return;
+  }
+
+  assertInventoryUpdatePermission(actor);
+}
+
+export function assertStoreSettingsUpdatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "settings:update_store");
+}
+
+export function assertWorkflowConfigurePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "settings:update_workflow");
+}
+
+export function assertMessageTemplatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "settings:update_message_template");
+}
+
+export function assertMemberInvitePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "member:invite");
+}
+
+export function assertMemberManagePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "member:manage_basic");
+}
+
+export function assertMemberRevokePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "member:revoke");
 }
 
 export function resolveOrderUpdatePermissionActions(input: UpdateOrderInput): PermissionAction[] {
