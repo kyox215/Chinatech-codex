@@ -214,6 +214,20 @@ describe("extractImeiCandidates", () => {
     ]);
   });
 
+  it("does not add a generic serial when a labeled serial already exists", () => {
+    const candidates = extractImeiCandidates("SN:AUNWE02SB05002790", {
+      source: "barcode",
+      includeGenericSerial: true,
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      kind: "serial",
+      label: "SN",
+      value: "AUNWE02SB05002790",
+    });
+  });
+
   it("does not duplicate a valid IMEI as a generic serial candidate", () => {
     const candidates = extractImeiCandidates("490154203237518", {
       source: "barcode",

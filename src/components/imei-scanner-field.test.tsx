@@ -320,6 +320,113 @@ describe("ImeiScannerField", () => {
     }
   });
 
+  it("does not attach barcode boxes to OCR-only IMEI candidates", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      "decode",
+    );
+    const canvasGetContextDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    );
+    const canvasToDataUrlDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "toDataURL",
+    );
+    const barcodeDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "BarcodeDetector");
+    const textDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "TextDetector");
+
+    zxingMocks.decodeFromConstraints.mockImplementation(async (_constraints, video, callback) => {
+      Object.defineProperty(video, "videoWidth", { configurable: true, value: 640 });
+      Object.defineProperty(video, "videoHeight", { configurable: true, value: 480 });
+      callback({
+        getText: () => "SN:AUNWE02SB05002790",
+      });
+      return { stop: zxingMocks.stop };
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+      configurable: true,
+      value: vi.fn(() => ({ drawImage: vi.fn() })),
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", {
+      configurable: true,
+      value: vi.fn(() => "data:image/png;base64,iVBORw0KGgo="),
+    });
+    Object.defineProperty(window, "BarcodeDetector", {
+      configurable: true,
+      value: class BarcodeDetectorMock {
+        async detect() {
+          return [
+            {
+              rawValue: "SN:AUNWE02SB05002790",
+              boundingBox: { x: 0.25, y: 0.64, width: 0.5, height: 0.08 },
+            },
+          ];
+        }
+      },
+    });
+    Object.defineProperty(window, "TextDetector", {
+      configurable: true,
+      value: class TextDetectorMock {
+        async detect() {
+          return [{ rawValue: "IMEI1: 490154203237518" }, { rawValue: "IMEI2: 356938035643809" }];
+        }
+      },
+    });
+
+    try {
+      render(<ImeiScannerField value="" onChange={onChange} />);
+
+      await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "已识别 3 个候选，请选择要填入的编号。",
+      );
+      const overlayCandidate = screen.getByRole("button", { name: "选择画面候选 1" });
+      expect(overlayCandidate).toHaveTextContent("...05002790");
+      expect(overlayCandidate).not.toHaveTextContent("490154203237518");
+      expect(overlayCandidate).not.toHaveTextContent("356938035643809");
+      expect(screen.queryByRole("button", { name: "选择画面候选 2" })).not.toBeInTheDocument();
+
+      expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toHaveTextContent("画面 1");
+      expect(screen.getByRole("button", { name: /490154203237518/ })).not.toHaveTextContent("画面");
+      expect(screen.getByRole("button", { name: /356938035643809/ })).not.toHaveTextContent("画面");
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {
+      if (imageDecodeDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);
+      } else {
+        delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+      }
+      if (canvasGetContextDescriptor) {
+        Object.defineProperty(
+          HTMLCanvasElement.prototype,
+          "getContext",
+          canvasGetContextDescriptor,
+        );
+      }
+      if (canvasToDataUrlDescriptor) {
+        Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", canvasToDataUrlDescriptor);
+      }
+      if (barcodeDetectorDescriptor) {
+        Object.defineProperty(window, "BarcodeDetector", barcodeDetectorDescriptor);
+      } else {
+        delete (window as Partial<Window & { BarcodeDetector?: unknown }>).BarcodeDetector;
+      }
+      if (textDetectorDescriptor) {
+        Object.defineProperty(window, "TextDetector", textDetectorDescriptor);
+      } else {
+        delete (window as Partial<Window & { TextDetector?: unknown }>).TextDetector;
+      }
+    }
+  });
+
   it("does not restart the camera when the parent rerenders with a new change handler", async () => {
     const user = userEvent.setup();
     zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });

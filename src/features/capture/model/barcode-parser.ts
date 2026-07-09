@@ -146,6 +146,7 @@ export function extractImeiCandidates(
     options.includeGenericSerial &&
     SERIAL_PATTERN.test(raw) &&
     normalized.length >= 6 &&
+    candidates.length === 0 &&
     !hasSameValueCandidate
   ) {
     pushCandidate({

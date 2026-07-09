@@ -752,8 +752,11 @@ export function ImeiScannerField({
                           title={`${candidate.label} ${candidate.value}`}
                           onClick={() => setSelectedCandidateId(candidate.id)}
                         >
-                          <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground">
-                            {candidate.overlayIndex ?? index + 1}
+                          <span className="absolute left-1 top-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground shadow-sm">
+                            <span>{candidate.overlayIndex ?? index + 1}</span>
+                            <span className="min-w-0 truncate font-mono">
+                              {getOverlayDisplayValue(candidate.value)}
+                            </span>
                           </span>
                         </button>
                       ) : null,
@@ -807,7 +810,7 @@ export function ImeiScannerField({
                           <span className="truncate text-xs font-semibold">{candidate.label}</span>
                         </span>
                         <span className="shrink-0 text-[10px] text-muted-foreground">
-                          {candidate.confidence === "high" ? "高可信" : "需确认"}
+                          {getCandidateEvidenceLabel(candidate)}
                         </span>
                       </span>
                       <span className="mt-1 block break-all font-mono text-xs">
@@ -1440,13 +1443,15 @@ function getErrorName(error: unknown) {
 function findDetectionForCandidate(
   candidate: ImeiCandidate,
   detections: readonly ImeiBarcodeDetection[] | undefined,
-  fallbackIndex: number,
 ) {
   if (!detections?.length) return null;
-  const directMatch = detections.find((detection) =>
-    normalizeCaptureIdentifier(detection.rawValue).includes(candidate.value),
-  );
-  return directMatch ?? detections[fallbackIndex] ?? null;
+  return detections.find((detection) => doesDetectionMatchCandidate(detection, candidate)) ?? null;
+}
+
+function doesDetectionMatchCandidate(detection: ImeiBarcodeDetection, candidate: ImeiCandidate) {
+  const detectionValue = normalizeCaptureIdentifier(detection.rawValue);
+  if (!detectionValue || !candidate.value) return false;
+  return detectionValue.includes(candidate.value);
 }
 
 function buildSelectableCandidatesFromInputs(inputs: readonly ImeiCandidateInput[]) {
@@ -1455,10 +1460,8 @@ function buildSelectableCandidatesFromInputs(inputs: readonly ImeiCandidateInput
     {
       candidate: ImeiCandidate;
       box?: ImeiCaptureBox;
-      firstIndex: number;
     }
   >();
-  let nextIndex = 0;
 
   for (const input of inputs) {
     const candidates = extractImeiCandidates(input.rawValue, {
@@ -1466,15 +1469,13 @@ function buildSelectableCandidatesFromInputs(inputs: readonly ImeiCandidateInput
       includeGenericSerial: input.includeGenericSerial ?? true,
     });
 
-    candidates.forEach((candidate, candidateIndex) => {
-      const detection = findDetectionForCandidate(candidate, input.detections, candidateIndex);
+    candidates.forEach((candidate) => {
+      const detection = findDetectionForCandidate(candidate, input.detections);
       const existing = candidatesByValue.get(candidate.value);
       const next = {
         candidate,
         box: detection?.box,
-        firstIndex: nextIndex,
       };
-      nextIndex += 1;
 
       if (!existing || shouldPreferCandidate(next, existing)) {
         candidatesByValue.set(candidate.value, next);
@@ -1515,12 +1516,12 @@ function shouldPreferCandidate(
 function orderCandidatesByPriorityAndVisualPosition(
   candidates: readonly ImeiSelectableCandidate[],
 ) {
-  if (!candidates.some((candidate) => candidate.box)) {
-    return [...candidates].sort(compareCandidatesByPriority);
+  const candidatesWithOverlayIndexes = assignVisualOverlayIndexes(candidates);
+  if (!candidatesWithOverlayIndexes.some((candidate) => candidate.box)) {
+    return [...candidatesWithOverlayIndexes].sort(compareCandidatesByPriority);
   }
 
-  let nextOverlayIndex = 0;
-  return [...candidates]
+  return [...candidatesWithOverlayIndexes]
     .map((candidate, originalIndex) => ({ candidate, originalIndex }))
     .sort((left, right) => {
       const leftBox = left.candidate.box;
@@ -1539,11 +1540,35 @@ function orderCandidatesByPriorityAndVisualPosition(
       if (rightBox) return 1;
       return left.originalIndex - right.originalIndex;
     })
-    .map(({ candidate }) =>
-      candidate.box
-        ? { ...candidate, overlayIndex: (nextOverlayIndex += 1) }
-        : { ...candidate, overlayIndex: undefined },
-    );
+    .map(({ candidate }) => candidate);
+}
+
+function assignVisualOverlayIndexes(candidates: readonly ImeiSelectableCandidate[]) {
+  const overlayIndexById = new Map<string, number>();
+  [...candidates]
+    .map((candidate, originalIndex) => ({ candidate, originalIndex }))
+    .filter(({ candidate }) => Boolean(candidate.box))
+    .sort((left, right) => {
+      const leftBox = left.candidate.box;
+      const rightBox = right.candidate.box;
+      if (leftBox && rightBox) {
+        return (
+          leftBox.y - rightBox.y ||
+          leftBox.x - rightBox.x ||
+          left.originalIndex - right.originalIndex
+        );
+      }
+      return left.originalIndex - right.originalIndex;
+    })
+    .forEach(({ candidate }, index) => {
+      overlayIndexById.set(candidate.id, index + 1);
+    });
+
+  return candidates.map((candidate) =>
+    candidate.box
+      ? { ...candidate, overlayIndex: overlayIndexById.get(candidate.id) }
+      : { ...candidate, overlayIndex: undefined },
+  );
 }
 
 function compareCandidatesByPriority(left: ImeiCandidate, right: ImeiCandidate) {
@@ -1563,6 +1588,21 @@ function getCandidateConfidencePriority(candidate: ImeiCandidate) {
   if (candidate.confidence === "high") return 0;
   if (candidate.confidence === "medium") return 1;
   return 2;
+}
+
+function getOverlayDisplayValue(value: string) {
+  return value.length > 12 ? `...${value.slice(-8)}` : value;
+}
+
+function getCandidateEvidenceLabel(candidate: ImeiSelectableCandidate) {
+  const confidenceLabel = candidate.confidence === "high" ? "高可信" : "需确认";
+  if (candidate.box && candidate.overlayIndex) {
+    return `画面 ${candidate.overlayIndex} · ${confidenceLabel}`;
+  }
+  if (candidate.source === "ocr") {
+    return `OCR · ${confidenceLabel}`;
+  }
+  return confidenceLabel;
 }
 
 function getOverlayBoxStyle(
