@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { customersKeys } from "@/features/customers/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
@@ -65,6 +66,7 @@ import {
 } from "@/features/stores/api/tenant-cache";
 import { RepairOsBusinessCard, RepairOsListScaffold, RepairOsSectionHeader } from "@/shared/ui";
 import {
+  acceptKioskSession,
   createStore,
   approveStoreAccessRequest,
   createOrderWorkflowStatus,
@@ -80,6 +82,7 @@ import {
   listStoreAccessRequests,
   listOrderWorkflow,
   rejectStoreAccessRequest,
+  returnKioskSession,
   revokeKioskDevice,
   restoreStoreMember,
   revokeStoreInviteLink,
@@ -392,6 +395,26 @@ export function SettingsScreen() {
       await queryClient.invalidateQueries({ queryKey: kioskKeys.devices(activeStoreId) });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "撤销 iPad 失败"),
+  });
+  const acceptKioskSessionMutation = useMutation({
+    mutationFn: acceptKioskSession,
+    onSuccess: async () => {
+      toast.success("客户提交已接受");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) }),
+        queryClient.invalidateQueries({ queryKey: ordersKeys.all }),
+        queryClient.invalidateQueries({ queryKey: customersKeys.all }),
+      ]);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "接受 iPad 提交失败"),
+  });
+  const returnKioskSessionMutation = useMutation({
+    mutationFn: returnKioskSession,
+    onSuccess: async () => {
+      toast.success("已退回给客户重填");
+      await queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "退回 iPad 提交失败"),
   });
   const inviteMemberMutation = useMutation({
     mutationFn: inviteStoreMember,
@@ -806,12 +829,17 @@ export function SettingsScreen() {
                 pairingCode={latestKioskPairingCode}
                 isCreating={createKioskPairingMutation.isPending}
                 isRevoking={revokeKioskDeviceMutation.isPending}
+                isReviewing={
+                  acceptKioskSessionMutation.isPending || returnKioskSessionMutation.isPending
+                }
                 onDeviceLabelChange={setKioskDeviceLabel}
                 onCreatePairing={() => {
                   const label = kioskDeviceLabel.trim() || "客户 iPad";
                   createKioskPairingMutation.mutate({ label });
                 }}
                 onRevoke={(id) => revokeKioskDeviceMutation.mutate(id)}
+                onAcceptSession={(id) => acceptKioskSessionMutation.mutate(id)}
+                onReturnSession={(id, reason) => returnKioskSessionMutation.mutate({ id, reason })}
                 onCopyCode={() => {
                   if (!latestKioskPairingCode) return;
                   void navigator.clipboard?.writeText(latestKioskPairingCode);
@@ -2823,9 +2851,12 @@ function KioskDevicesSection({
   pairingCode,
   isCreating,
   isRevoking,
+  isReviewing,
   onDeviceLabelChange,
   onCreatePairing,
   onRevoke,
+  onAcceptSession,
+  onReturnSession,
   onCopyCode,
 }: {
   devices: KioskDevice[];
@@ -2835,13 +2866,18 @@ function KioskDevicesSection({
   pairingCode: string;
   isCreating: boolean;
   isRevoking: boolean;
+  isReviewing: boolean;
   onDeviceLabelChange: (value: string) => void;
   onCreatePairing: () => void;
   onRevoke: (id: string) => void;
+  onAcceptSession: (id: string) => void;
+  onReturnSession: (id: string, reason: string) => void;
   onCopyCode: () => void;
 }) {
   const activeDevices = devices.filter((device) => device.status === "active");
+  const submittedSessions = sessions.filter((session) => session.status === "submitted");
   const recentSessions = sessions.slice(0, 5);
+  const [returnReasons, setReturnReasons] = useState<Record<string, string>>({});
 
   return (
     <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
@@ -2919,6 +2955,40 @@ function KioskDevicesSection({
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-1">
+            <div className="space-y-2 lg:col-span-2 xl:col-span-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-muted-foreground">待员工审核</p>
+                <Badge variant={submittedSessions.length ? "default" : "outline"}>
+                  {submittedSessions.length}
+                </Badge>
+              </div>
+              {submittedSessions.length ? (
+                <div className="grid gap-2">
+                  {submittedSessions.map((session) => {
+                    const reason = returnReasons[session.id] ?? "";
+                    return (
+                      <KioskReviewCard
+                        key={session.id}
+                        session={session}
+                        reason={reason}
+                        isReviewing={isReviewing}
+                        onReasonChange={(value) =>
+                          setReturnReasons((current) => ({
+                            ...current,
+                            [session.id]: value,
+                          }))
+                        }
+                        onAccept={() => onAcceptSession(session.id)}
+                        onReturn={() => onReturnSession(session.id, reason)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyKioskBlock label="暂无待审核提交" />
+              )}
+            </div>
+
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold text-muted-foreground">设备列表</p>
@@ -3007,6 +3077,122 @@ function KioskDevicesSection({
         </div>
       )}
     </section>
+  );
+}
+
+function KioskReviewCard({
+  session,
+  reason,
+  isReviewing,
+  onReasonChange,
+  onAccept,
+  onReturn,
+}: {
+  session: KioskSession;
+  reason: string;
+  isReviewing: boolean;
+  onReasonChange: (value: string) => void;
+  onAccept: () => void;
+  onReturn: () => void;
+}) {
+  const returnReason = reason.trim();
+  const orderNo = kioskPayloadText(session.request_payload, "order_public_no");
+  const deviceLabel = kioskPayloadText(session.request_payload, "device_label");
+  const customerName = kioskPayloadText(session.submission_payload, "customer_name");
+  const customerPhone = kioskPayloadText(session.submission_payload, "customer_phone");
+  const backupPhone = kioskPayloadText(session.submission_payload, "backup_phone");
+  const note = kioskPayloadText(session.submission_payload, "note");
+  const hasSignature = Boolean(kioskPayloadText(session.submission_payload, "signature_data_url"));
+  const confirmed = session.submission_payload?.confirmation_checked === true;
+
+  return (
+    <div className="rounded-lg border border-primary/20 bg-card px-3 py-3 shadow-[var(--shadow-card)]">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-semibold">
+              {kioskSessionTypeLabel(session.session_type)}
+            </p>
+            <Badge variant="default">待审核</Badge>
+          </div>
+          <p className="mt-1 truncate text-[11px] text-muted-foreground">
+            {session.device?.label ?? "客户 iPad"}
+            {orderNo ? ` · 工单 ${orderNo}` : ""}
+            {deviceLabel ? ` · ${deviceLabel}` : ""}
+          </p>
+        </div>
+        <p className="shrink-0 text-[11px] text-muted-foreground">
+          {session.submitted_at ? formatDateTime(session.submitted_at) : "刚提交"}
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <KioskReviewField label="姓名" value={customerName} />
+        <KioskReviewField label="电话" value={customerPhone} icon={Phone} />
+        <KioskReviewField label="备用电话" value={backupPhone} />
+        <KioskReviewField label="客户确认" value={confirmed ? "已勾选" : "未勾选"} />
+        <KioskReviewField label="签名" value={hasSignature ? "已签名" : "未签名"} />
+        <KioskReviewField label="备注" value={note} icon={MessageSquare} />
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        <Label htmlFor={`kiosk-return-${session.id}`} className="text-[11px] font-medium">
+          退回原因
+        </Label>
+        <Textarea
+          id={`kiosk-return-${session.id}`}
+          className="min-h-16 text-xs"
+          value={reason}
+          maxLength={240}
+          placeholder="例如：电话号码不清楚，请客户重新填写"
+          onChange={(event) => onReasonChange(event.target.value)}
+        />
+      </div>
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5"
+          disabled={isReviewing || !returnReason}
+          onClick={onReturn}
+        >
+          <RotateCcw className="size-3.5" />
+          退回重填
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 gap-1.5"
+          disabled={isReviewing}
+          onClick={onAccept}
+        >
+          <Check className="size-3.5" />
+          接受并更新
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function KioskReviewField({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value?: string;
+  icon?: typeof Store;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
+      <p className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+        {Icon ? <Icon className="size-3" /> : null}
+        {label}
+      </p>
+      <p className="mt-0.5 truncate text-xs font-medium">{value || "未填写"}</p>
+    </div>
   );
 }
 
@@ -3099,6 +3285,11 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function kioskPayloadText(payload: Record<string, unknown> | undefined, key: string) {
+  const value = payload?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
 function kioskDeviceStatusLabel(status: KioskDevice["status"]) {

@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
+  normalizeKioskReturnInput,
   normalizeKioskSessionCreateInput,
   normalizeKioskSubmission,
 } from "@/features/kiosk/model/kiosk-session";
@@ -14,8 +15,10 @@ import {
   operatorNameFromActor,
   requireStoreIdFromActor,
   requiredString,
+  stringArray,
   type DbRecord,
 } from "@/server/repairdesk-shared";
+import { normalizePhoneBook, normalizePhoneRaw } from "@/shared/lib/phone";
 import type {
   AuditActor,
   KioskDevice,
@@ -25,6 +28,7 @@ import type {
   KioskPublicSession,
   KioskSession,
   KioskSessionCreateInput,
+  KioskSessionReturnInput,
   KioskSessionSubmitInput,
 } from "@/lib/repairdesk/types";
 
@@ -32,6 +36,17 @@ type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
 const PAIRING_CODE_TTL_MINUTES = 15;
 const SESSION_DEFAULT_TTL_MINUTES = 30;
+
+interface NormalizedKioskSubmission {
+  customer_name?: string;
+  customer_phone?: string;
+  backup_phone?: string;
+  preferred_channel?: "whatsapp" | "sms";
+  language?: "it" | "zh" | "en";
+  confirmation_checked: boolean;
+  has_signature: boolean;
+  note?: string;
+}
 
 export async function listKioskDevices(actor?: AuditActor): Promise<KioskDevice[]> {
   const storeId = requireStoreIdFromActor(actor);
@@ -201,6 +216,114 @@ export async function createKioskSession(
   return sessionFromRow(data as DbRecord);
 }
 
+export async function acceptKioskSession(id: string, actor?: AuditActor): Promise<KioskSession> {
+  const storeId = requireStoreIdFromActor(actor);
+  const operatorName = operatorNameFromActor(actor);
+  const sessionId = id.trim();
+  if (!sessionId) throw new Error("缺少 iPad 任务");
+
+  const supabase = getSupabaseAdmin();
+  const session = await readSubmittedSession(supabase, storeId, sessionId);
+  const submission = submissionFromPayload(session.submission_payload);
+  const now = new Date().toISOString();
+  const order = session.order_id
+    ? await readOrderReviewTarget(supabase, storeId, session.order_id)
+    : undefined;
+  const customerId = session.customer_id ?? order?.customer_id;
+
+  if (session.customer_id && order?.customer_id && session.customer_id !== order.customer_id) {
+    throw new Error("iPad 任务绑定的客户与工单不一致");
+  }
+
+  if (customerId) {
+    await applyKioskCustomerSubmission(supabase, {
+      storeId,
+      customerId,
+      orderId: order?.id,
+      submission,
+      now,
+    });
+  } else if (hasContactSubmission(submission)) {
+    throw new Error("该 iPad 提交未绑定客户，暂不能直接写入客户档案");
+  }
+
+  const { data, error } = await supabase
+    .from("customer_kiosk_sessions")
+    .update({
+      status: "accepted",
+      accepted_by: operatorName,
+      accepted_at: now,
+      updated_at: now,
+    })
+    .eq("store_id", storeId)
+    .eq("id", session.id)
+    .eq("status", "submitted")
+    .select("*, device:store_kiosk_devices(*)")
+    .maybeSingle();
+  fail(error, "接受 iPad 提交失败");
+  if (!data) throw new Error("iPad 任务已被处理，请刷新后再试");
+
+  if (session.order_id) {
+    await writeKioskOrderEvent(supabase, {
+      storeId,
+      orderId: session.order_id,
+      operatorName,
+      action: "kiosk_session_accepted",
+      payload: kioskReviewEventPayload(session, submission),
+    });
+  }
+
+  return sessionFromRow(data as DbRecord);
+}
+
+export async function returnKioskSession(
+  input: KioskSessionReturnInput,
+  actor?: AuditActor,
+): Promise<KioskSession> {
+  const storeId = requireStoreIdFromActor(actor);
+  const operatorName = operatorNameFromActor(actor);
+  const normalized = normalizeKioskReturnInput(input);
+  const supabase = getSupabaseAdmin();
+  const session = await readSubmittedSession(supabase, storeId, normalized.id);
+  const submission = submissionFromPayload(session.submission_payload);
+  const now = new Date().toISOString();
+  const nextSubmissionPayload = {
+    ...(session.submission_payload ?? {}),
+    staff_return_reason: normalized.reason,
+  };
+
+  const { data, error } = await supabase
+    .from("customer_kiosk_sessions")
+    .update({
+      status: "returned",
+      submission_payload: nextSubmissionPayload,
+      returned_at: now,
+      updated_at: now,
+    })
+    .eq("store_id", storeId)
+    .eq("id", session.id)
+    .eq("status", "submitted")
+    .select("*, device:store_kiosk_devices(*)")
+    .maybeSingle();
+  fail(error, "退回 iPad 提交失败");
+  if (!data) throw new Error("iPad 任务已被处理，请刷新后再试");
+
+  if (session.order_id) {
+    await writeKioskOrderEvent(supabase, {
+      storeId,
+      orderId: session.order_id,
+      operatorName,
+      action: "kiosk_session_returned",
+      payload: {
+        ...kioskReviewEventPayload(session, submission),
+        reason_provided: true,
+      },
+    });
+  }
+
+  return sessionFromRow(data as DbRecord);
+}
+
 export async function pairKioskDevice(code: string): Promise<KioskPairResult> {
   const cleanCode = code
     .trim()
@@ -351,6 +474,196 @@ export async function submitKioskPublicSession(
   }
 
   return { ok: true, session_id: session.id };
+}
+
+async function readSubmittedSession(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  id: string,
+): Promise<KioskSession> {
+  const { data, error } = await supabase
+    .from("customer_kiosk_sessions")
+    .select("*, device:store_kiosk_devices(*)")
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .eq("status", "submitted")
+    .maybeSingle();
+  fail(error, "读取 iPad 提交失败");
+  if (!data) throw new Error("没有可审核的 iPad 提交");
+  return sessionFromRow(data as DbRecord);
+}
+
+async function readOrderReviewTarget(supabase: SupabaseAdmin, storeId: string, orderId: string) {
+  const { data, error } = await supabase
+    .from("repair_orders")
+    .select("id,customer_id,contact_phones")
+    .eq("store_id", storeId)
+    .eq("id", orderId)
+    .maybeSingle();
+  fail(error, "读取 iPad 审核工单失败");
+  if (!data) throw new Error("工单不存在或不属于当前店铺");
+  const row = data as DbRecord;
+  return {
+    id: requiredString(row.id),
+    customer_id: requiredString(row.customer_id),
+    contact_phones: stringArray(row.contact_phones),
+  };
+}
+
+async function applyKioskCustomerSubmission(
+  supabase: SupabaseAdmin,
+  input: {
+    storeId: string;
+    customerId: string;
+    orderId?: string;
+    submission: NormalizedKioskSubmission;
+    now: string;
+  },
+) {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id,name,phone_e164,phone_raw,contact_phones,preferred_channel,language")
+    .eq("store_id", input.storeId)
+    .eq("id", input.customerId)
+    .maybeSingle();
+  fail(error, "读取 iPad 审核客户失败");
+  if (!data) throw new Error("客户不存在或不属于当前店铺");
+
+  const row = data as DbRecord;
+  const existingPhones = stringArray(row.contact_phones);
+  const customerUpdate: DbRecord = {};
+  const orderUpdate: DbRecord = {};
+
+  if (input.submission.customer_name) {
+    customerUpdate.name = input.submission.customer_name;
+  }
+  if (input.submission.preferred_channel) {
+    customerUpdate.preferred_channel = input.submission.preferred_channel;
+  }
+  if (input.submission.language) {
+    customerUpdate.language = input.submission.language;
+  }
+
+  if (input.submission.customer_phone || input.submission.backup_phone) {
+    const phoneBook = normalizePhoneBook(
+      input.submission.customer_phone || requiredString(row.phone_e164),
+      [
+        ...(input.submission.backup_phone ? [input.submission.backup_phone] : []),
+        ...existingPhones,
+      ],
+    );
+    if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
+    await assertKioskCustomerPhonesAvailable(
+      supabase,
+      input.storeId,
+      input.customerId,
+      phoneBook.primaryRaw,
+      phoneBook.contacts,
+    );
+    customerUpdate.phone_e164 = phoneBook.primary;
+    customerUpdate.phone_raw = phoneBook.primaryRaw;
+    customerUpdate.contact_phones = phoneBook.contacts;
+    orderUpdate.contact_phones = phoneBook.contacts;
+  }
+
+  if (Object.keys(customerUpdate).length > 0) {
+    const { error: updateError } = await supabase
+      .from("customers")
+      .update({ ...customerUpdate, updated_at: input.now })
+      .eq("store_id", input.storeId)
+      .eq("id", input.customerId);
+    fail(updateError, "更新 iPad 审核客户失败");
+  }
+
+  if (input.orderId && Object.keys(orderUpdate).length > 0) {
+    const { error: orderError } = await supabase
+      .from("repair_orders")
+      .update({ ...orderUpdate, updated_at: input.now })
+      .eq("store_id", input.storeId)
+      .eq("id", input.orderId)
+      .eq("customer_id", input.customerId);
+    fail(orderError, "更新 iPad 审核工单失败");
+  }
+}
+
+async function assertKioskCustomerPhonesAvailable(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  customerId: string,
+  primaryRaw: string,
+  contactPhones: string[],
+) {
+  const raws = Array.from(
+    new Set([
+      primaryRaw,
+      ...contactPhones.map((phone) => normalizePhoneRaw(phone)).filter(Boolean),
+    ]),
+  );
+  if (raws.length === 0) return;
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id,phone_raw")
+    .eq("store_id", storeId)
+    .in("phone_raw", raws);
+  fail(error, "检查 iPad 审核手机号失败");
+  const conflicts = ((data ?? []) as DbRecord[]).filter(
+    (row) => requiredString(row.id) !== customerId,
+  );
+  if (conflicts.length === 0) return;
+  if (conflicts.some((row) => requiredString(row.phone_raw) === primaryRaw)) {
+    throw new Error("该手机号已存在客户档案");
+  }
+  throw new Error("备用号码已属于其他客户档案，请先确认客户资料");
+}
+
+function submissionFromPayload(
+  payload: Record<string, unknown> | undefined,
+): NormalizedKioskSubmission {
+  const source = payload ?? {};
+  return {
+    customer_name: maybeString(source.customer_name),
+    customer_phone: maybeString(source.customer_phone),
+    backup_phone: maybeString(source.backup_phone),
+    preferred_channel:
+      source.preferred_channel === "sms" || source.preferred_channel === "whatsapp"
+        ? source.preferred_channel
+        : undefined,
+    language:
+      source.language === "zh" || source.language === "en" || source.language === "it"
+        ? source.language
+        : undefined,
+    confirmation_checked: source.confirmation_checked === true,
+    has_signature: Boolean(maybeString(source.signature_data_url)),
+    note: maybeString(source.note),
+  };
+}
+
+function hasContactSubmission(submission: NormalizedKioskSubmission) {
+  return Boolean(
+    submission.customer_name ||
+    submission.customer_phone ||
+    submission.backup_phone ||
+    submission.preferred_channel ||
+    submission.language,
+  );
+}
+
+function kioskReviewEventPayload(
+  session: KioskSession,
+  submission: NormalizedKioskSubmission,
+): Record<string, unknown> {
+  return {
+    session_id: session.id,
+    device_id: session.device_id,
+    session_type: session.session_type,
+    submission_version: session.submission_version,
+    has_customer_name: Boolean(submission.customer_name),
+    has_customer_phone: Boolean(submission.customer_phone),
+    has_backup_phone: Boolean(submission.backup_phone),
+    has_signature: submission.has_signature,
+    confirmation_checked: submission.confirmation_checked,
+    has_note: Boolean(submission.note),
+  };
 }
 
 async function readActiveDevice(supabase: SupabaseAdmin, storeId: string, id: string) {

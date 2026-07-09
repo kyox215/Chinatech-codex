@@ -1,8 +1,10 @@
 import {
+  normalizeKioskReturnInput,
   normalizeKioskSessionCreateInput,
   normalizeKioskSubmission,
 } from "@/features/kiosk/model/kiosk-session";
-import { decorate, orders } from "@/lib/mock/state";
+import { customers, decorate, extraEvents, orders } from "@/lib/mock/state";
+import { normalizePhoneBook } from "@/shared/lib/phone";
 import type {
   AuditActor,
   KioskDevice,
@@ -12,6 +14,7 @@ import type {
   KioskPublicSession,
   KioskSession,
   KioskSessionCreateInput,
+  KioskSessionReturnInput,
   KioskSessionSubmitInput,
 } from "@/lib/repairdesk/types";
 
@@ -190,11 +193,133 @@ export async function submitKioskPublicSession(
   return { ok: true, session_id: session.id };
 }
 
+export async function acceptKioskSession(id: string, actor?: AuditActor): Promise<KioskSession> {
+  const session = readSubmittedMockSession(id, actor);
+  const order = session.order_id ? orders.find((item) => item.id === session.order_id) : undefined;
+  const customerId = session.customer_id ?? order?.customer_id;
+  if (session.customer_id && order?.customer_id && session.customer_id !== order.customer_id) {
+    throw new Error("iPad 任务绑定的客户与工单不一致");
+  }
+  const submission = session.submission_payload ?? {};
+  const hasContactSubmission = Boolean(
+    submission.customer_name ||
+    submission.customer_phone ||
+    submission.backup_phone ||
+    submission.preferred_channel ||
+    submission.language,
+  );
+
+  if (customerId) {
+    const customer = customers.find((item) => item.id === customerId);
+    if (!customer) throw new Error("客户不存在或不属于当前店铺");
+    if (typeof submission.customer_name === "string" && submission.customer_name.trim()) {
+      customer.name = submission.customer_name.trim();
+    }
+    if (submission.preferred_channel === "sms" || submission.preferred_channel === "whatsapp") {
+      customer.preferred_channel = submission.preferred_channel;
+    }
+    if (
+      submission.language === "zh" ||
+      submission.language === "en" ||
+      submission.language === "it"
+    ) {
+      customer.language = submission.language;
+    }
+    if (
+      typeof submission.customer_phone === "string" ||
+      typeof submission.backup_phone === "string"
+    ) {
+      const phoneBook = normalizePhoneBook(
+        typeof submission.customer_phone === "string" && submission.customer_phone.trim()
+          ? submission.customer_phone
+          : customer.phone_e164,
+        [
+          ...(typeof submission.backup_phone === "string" && submission.backup_phone.trim()
+            ? [submission.backup_phone]
+            : []),
+          ...customer.contact_phones,
+        ],
+      );
+      if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
+      customer.phone_e164 = phoneBook.primary;
+      customer.phone_raw = phoneBook.primaryRaw;
+      customer.contact_phones = phoneBook.contacts;
+      if (order) order.contact_phones = phoneBook.contacts;
+    }
+  } else if (hasContactSubmission) {
+    throw new Error("该 iPad 提交未绑定客户，暂不能直接写入客户档案");
+  }
+
+  const now = new Date().toISOString();
+  session.status = "accepted";
+  session.accepted_at = now;
+  session.updated_at = now;
+  writeMockKioskEvent(session, actor, "kiosk_session_accepted");
+  return session;
+}
+
+export async function returnKioskSession(
+  input: KioskSessionReturnInput,
+  actor?: AuditActor,
+): Promise<KioskSession> {
+  const normalized = normalizeKioskReturnInput(input);
+  const session = readSubmittedMockSession(normalized.id, actor);
+  const now = new Date().toISOString();
+  session.status = "returned";
+  session.returned_at = now;
+  session.updated_at = now;
+  session.submission_payload = {
+    ...(session.submission_payload ?? {}),
+    staff_return_reason: normalized.reason,
+  };
+  writeMockKioskEvent(session, actor, "kiosk_session_returned");
+  return session;
+}
+
 function readDeviceByToken(token: string) {
   const deviceId = mockTokens.get(token.trim());
   const device = deviceId ? mockDevices.find((item) => item.id === deviceId) : undefined;
   if (!device || device.status !== "active") throw new Error("iPad 未绑定或已撤销");
   return device;
+}
+
+function readSubmittedMockSession(id: string, actor?: AuditActor) {
+  const storeId = actor?.storeId ?? mockStoreId;
+  const session = mockSessions.find(
+    (item) => item.id === id.trim() && item.store_id === storeId && item.status === "submitted",
+  );
+  if (!session) throw new Error("没有可审核的 iPad 提交");
+  return session;
+}
+
+function writeMockKioskEvent(
+  session: KioskSession,
+  actor: AuditActor | undefined,
+  action: "kiosk_session_accepted" | "kiosk_session_returned",
+) {
+  if (!session.order_id) return;
+  const submission = session.submission_payload ?? {};
+  extraEvents.push({
+    id: `mock_kiosk_event_${Date.now()}_${extraEvents.length + 1}`,
+    order_id: session.order_id,
+    event_type: "note",
+    payload: {
+      action,
+      session_id: session.id,
+      device_id: session.device_id,
+      session_type: session.session_type,
+      submission_version: session.submission_version,
+      has_customer_name: Boolean(submission.customer_name),
+      has_customer_phone: Boolean(submission.customer_phone),
+      has_backup_phone: Boolean(submission.backup_phone),
+      has_signature: Boolean(submission.signature_data_url),
+      confirmation_checked: submission.confirmation_checked === true,
+      has_note: Boolean(submission.note),
+      ...(action === "kiosk_session_returned" ? { reason_provided: true } : {}),
+    },
+    operator_name: actor?.displayName ?? actor?.email ?? "前台",
+    created_at: new Date().toISOString(),
+  });
 }
 
 function readMockOrderSummary(orderId?: string) {

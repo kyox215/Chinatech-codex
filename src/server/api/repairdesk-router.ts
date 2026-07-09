@@ -68,10 +68,12 @@ import {
   updateStoreSettings,
 } from "@/features/messages/server/message-settings.service";
 import {
+  acceptKioskSession,
   createKioskDevicePairing,
   createKioskSession,
   listKioskDevices,
   listKioskSessions,
+  returnKioskSession,
   revokeKioskDevice,
 } from "@/features/kiosk/server/kiosk.service";
 import {
@@ -160,6 +162,7 @@ import {
   messageTemplateUpdateBodySchema,
   kioskDevicePairingBodySchema,
   kioskSessionCreateBodySchema,
+  kioskSessionReturnBodySchema,
   notificationBodySchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
@@ -190,6 +193,7 @@ import {
 } from "./repairdesk-schemas";
 
 const supabaseSource = {
+  acceptKioskSession,
   batchTransition,
   completeCustomerFollowup,
   acceptStoreInvitation,
@@ -246,6 +250,7 @@ const supabaseSource = {
   rejectOnboardingRequest,
   rejectStoreAccessRequest,
   redeemStoreInviteLink,
+  returnKioskSession,
   revokeStoreInviteLink,
   revokeStoreInvitation,
   revokeKioskDevice,
@@ -280,6 +285,11 @@ const supabaseSource = {
 const inventoryWriteRoles = ["owner", "manager", "technician", "sales"] as const;
 
 const realtimeBroadcasts = {
+  kioskSessionReviewed: {
+    domain: "settings",
+    mutation: "updated",
+    queryGroups: ["orders.all", "customers.all", "settings.store"],
+  },
   orderCreated: {
     domain: "orders",
     mutation: "created",
@@ -624,6 +634,28 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
             actor,
             () => api.createKioskSession(input, actor),
             realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
+      case "kiosk/sessions/accept": {
+        assertRepairDeskPermission(actor, "order:update_intake");
+        const { id } = idBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.acceptKioskSession(id, actor),
+            realtimeBroadcasts.kioskSessionReviewed,
+          ),
+        );
+      }
+      case "kiosk/sessions/return": {
+        assertRepairDeskPermission(actor, "order:update_intake");
+        const input = kioskSessionReturnBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.returnKioskSession(input, actor),
+            realtimeBroadcasts.kioskSessionReviewed,
           ),
         );
       }

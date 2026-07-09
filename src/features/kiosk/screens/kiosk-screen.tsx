@@ -9,7 +9,14 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { CheckCircle2, ClipboardPenLine, Loader2, RefreshCw, TabletSmartphone } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardPenLine,
+  Loader2,
+  RefreshCw,
+  TabletSmartphone,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,6 +55,7 @@ export function KioskScreen() {
         const next = await fetchKioskSession(token);
         if (!cancelled) {
           setSession(next);
+          if (next?.session.status === "returned") setSubmitted(false);
           setLoadError("");
         }
       } catch (error) {
@@ -145,6 +153,7 @@ export function KioskScreen() {
               void fetchKioskSession(token)
                 .then((next) => {
                   setSession(next);
+                  if (next?.session.status === "returned") setSubmitted(false);
                   setLoadError("");
                 })
                 .catch((error) =>
@@ -158,7 +167,8 @@ export function KioskScreen() {
         </header>
 
         <section className="grid min-h-0 place-items-center">
-          {submitted || session?.session.status === "submitted" ? (
+          {(submitted && session?.session.status !== "returned") ||
+          session?.session.status === "submitted" ? (
             <DoneState />
           ) : session ? (
             <KioskSessionForm
@@ -296,6 +306,13 @@ function KioskSessionForm({
           <p className="text-sm text-muted-foreground">{session.order.device_label}</p>
         ) : null}
       </div>
+
+      {session.session.status === "returned" ? (
+        <p className="inline-flex items-start gap-2 rounded-lg bg-status-warn/25 px-3 py-2 text-sm text-status-warn-foreground">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          Lo staff ha richiesto una correzione. Controlla i dati e invia di nuovo.
+        </p>
+      ) : null}
 
       {requiresContact ? (
         <div className="grid gap-3 sm:grid-cols-2">

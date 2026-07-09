@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  normalizeKioskReturnInput,
   normalizeKioskSessionCreateInput,
   normalizeKioskSubmission,
   sanitizeKioskPayload,
@@ -57,6 +58,16 @@ describe("kiosk-session model", () => {
       customer_phone: "3331234567",
       preferred_channel: "whatsapp",
       confirmation_checked: true,
+    });
+  });
+
+  it("requires a bounded return reason for staff review", () => {
+    expect(() => normalizeKioskReturnInput({ id: "session_1", reason: "  " })).toThrow(
+      "请输入退回原因",
+    );
+    expect(normalizeKioskReturnInput({ id: " session_1 ", reason: " 号码 不清楚 " })).toEqual({
+      id: "session_1",
+      reason: "号码 不清楚",
     });
   });
 });

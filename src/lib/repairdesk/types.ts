@@ -1370,6 +1370,11 @@ export interface KioskSessionSubmitInput {
   note?: string;
 }
 
+export interface KioskSessionReturnInput {
+  id: string;
+  reason: string;
+}
+
 export interface KioskPublicSession {
   session: Pick<
     KioskSession,

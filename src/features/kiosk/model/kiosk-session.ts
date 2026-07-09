@@ -1,4 +1,5 @@
 import type {
+  KioskSessionReturnInput,
   KioskSessionCreateInput,
   KioskSessionSubmitInput,
   KioskSessionType,
@@ -56,6 +57,15 @@ export function normalizeKioskSubmission(input: KioskSessionSubmitInput) {
     ...(signature ? { signature_data_url: signature } : {}),
     ...(note ? { note } : {}),
   };
+}
+
+export function normalizeKioskReturnInput(input: KioskSessionReturnInput) {
+  const id = input.id?.trim();
+  const reason = input.reason?.trim().replace(/\s+/g, " ");
+  if (!id) throw new Error("缺少 iPad 任务");
+  if (!reason) throw new Error("请输入退回原因");
+  if (reason.length > 240) throw new Error("退回原因过长");
+  return { id, reason };
 }
 
 export function sanitizeKioskPayload(value: unknown): Record<string, unknown> {

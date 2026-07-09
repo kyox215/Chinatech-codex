@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  acceptKioskSession,
   getDashboardSummary,
   getInventorySummary,
   getOrderQueueSummary,
   getOrderStats,
+  returnKioskSession,
 } from "./api";
 
 describe("repairdesk api client", () => {
@@ -152,6 +154,51 @@ describe("repairdesk api client", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ page: 2, pageSize: 50 }),
+      }),
+    );
+  });
+
+  it("posts kiosk review decisions to staff endpoints", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "session_1",
+              store_id: "store_1",
+              device_id: "device_1",
+              session_type: "order_contact_signature",
+              status: "accepted",
+              request_payload: {},
+              submission_payload: {},
+              submission_version: 1,
+              expires_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await acceptKioskSession("session_1");
+    await returnKioskSession({ id: "session_1", reason: "号码不清楚" });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/repairdesk/kiosk/sessions/accept",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ id: "session_1" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/repairdesk/kiosk/sessions/return",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ id: "session_1", reason: "号码不清楚" }),
       }),
     );
   });

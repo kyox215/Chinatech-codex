@@ -69,12 +69,14 @@ export {
 } from "@/features/messages/testing/mock-api";
 
 export {
+  acceptKioskSession,
   createKioskDevicePairing,
   createKioskSession,
   getKioskPublicSession,
   listKioskDevices,
   listKioskSessions,
   pairKioskDevice,
+  returnKioskSession,
   revokeKioskDevice,
   submitKioskPublicSession,
 } from "@/features/kiosk/testing/mock-api";

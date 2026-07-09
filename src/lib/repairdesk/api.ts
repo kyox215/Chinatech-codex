@@ -69,6 +69,7 @@ import type {
   KioskDevicePairingResult,
   KioskSession,
   KioskSessionCreateInput,
+  KioskSessionReturnInput,
   SellInventoryItemInput,
   MessageTemplate,
   MessageTemplatePreviewInput,
@@ -204,6 +205,7 @@ export type {
   KioskPublicSession,
   KioskSession,
   KioskSessionCreateInput,
+  KioskSessionReturnInput,
   KioskSessionStatus,
   KioskSessionSubmitInput,
   KioskSessionType,
@@ -419,6 +421,14 @@ export async function listKioskSessions(
   options?: RepairDeskRequestOptions,
 ): Promise<KioskSession[]> {
   return requestJson<KioskSession[]>("kiosk/sessions", {}, options);
+}
+
+export async function acceptKioskSession(id: string): Promise<KioskSession> {
+  return postJson<KioskSession>("kiosk/sessions/accept", { id });
+}
+
+export async function returnKioskSession(input: KioskSessionReturnInput): Promise<KioskSession> {
+  return postJson<KioskSession>("kiosk/sessions/return", input);
 }
 
 export async function listStoreAccessRequests(
