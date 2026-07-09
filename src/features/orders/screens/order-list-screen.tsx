@@ -59,6 +59,7 @@ import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
 import {
   batchTransition,
+  getStoreSettings,
   getOrderQueueSummary,
   patchOrder,
   type OrderListFilters,
@@ -83,6 +84,7 @@ import {
   type SimpleOrderFlowStageKey,
 } from "@/features/orders/model/order-simple-flow";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import {
   invalidateOrderReadCaches,
   isOrderVersionConflict,
@@ -194,6 +196,12 @@ export function OrderListScreen() {
       ),
     placeholderData: keepPreviousData,
     staleTime: CACHE_TIMES.hotList,
+  });
+  const { data: storeSettings } = useQuery({
+    queryKey: messageSettingsKeys.storeScoped(activeStoreId),
+    queryFn: ({ signal }) => getStoreSettings({ signal }),
+    staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId),
   });
 
   const listResult = queueSummary?.list;
@@ -896,7 +904,7 @@ export function OrderListScreen() {
           </motion.div>
         )}
       </AnimatePresence>
-      <OrderListPrintSheet orders={printOrders} />
+      <OrderListPrintSheet orders={printOrders} storeSettings={storeSettings} />
       <Dialog open={newOrderOpen} onOpenChange={setNewOrderOpen}>
         <DialogContent showCloseButton={false} className={componentOverlay.formWorkspace}>
           <DialogHeader className="sr-only">

@@ -119,6 +119,7 @@ export function OrderOverviewTab({
   workflow,
   onShowRecords,
   photoAttachments = [],
+  signatureAttachments = [],
   photoUploadPending = false,
   onPhotoCapture,
   onRequestKioskSignature,
@@ -149,6 +150,7 @@ export function OrderOverviewTab({
   workflow?: OrderWorkflow;
   onShowRecords?: () => void;
   photoAttachments?: OrderAttachment[];
+  signatureAttachments?: OrderAttachment[];
   photoUploadPending?: boolean;
   onPhotoCapture?: () => void;
   onRequestKioskSignature?: () => void;
@@ -182,6 +184,7 @@ export function OrderOverviewTab({
           onRequestKioskSignature={onRequestKioskSignature}
           kioskSignaturePending={kioskSignaturePending}
           kioskSignatureAvailable={kioskSignatureAvailable}
+          signatureAttachments={signatureAttachments}
         />
       </div>
 
@@ -212,6 +215,7 @@ export function OrderOverviewTab({
             onRequestKioskSignature={onRequestKioskSignature}
             kioskSignaturePending={kioskSignaturePending}
             kioskSignatureAvailable={kioskSignatureAvailable}
+            signatureAttachments={signatureAttachments}
           />
           <DeviceIssuePanel
             order={order}
@@ -907,6 +911,7 @@ function MobileCoreInfoPanel({
   onRequestKioskSignature,
   kioskSignaturePending,
   kioskSignatureAvailable,
+  signatureAttachments,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -923,6 +928,7 @@ function MobileCoreInfoPanel({
   onRequestKioskSignature?: () => void;
   kioskSignaturePending: boolean;
   kioskSignatureAvailable: boolean;
+  signatureAttachments: OrderAttachment[];
 }) {
   return (
     <DetailPanel surface={surface}>
@@ -1013,6 +1019,7 @@ function MobileCoreInfoPanel({
           onRequestKioskSignature={onRequestKioskSignature}
           kioskSignaturePending={kioskSignaturePending}
           kioskSignatureAvailable={kioskSignatureAvailable}
+          signatureAttachments={signatureAttachments}
         />
       </div>
     </DetailPanel>
@@ -1027,6 +1034,7 @@ function CustomerPanel({
   onRequestKioskSignature,
   kioskSignaturePending,
   kioskSignatureAvailable,
+  signatureAttachments,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -1035,6 +1043,7 @@ function CustomerPanel({
   onRequestKioskSignature?: () => void;
   kioskSignaturePending: boolean;
   kioskSignatureAvailable: boolean;
+  signatureAttachments: OrderAttachment[];
 }) {
   const dense = surface === "dialog";
   return (
@@ -1059,6 +1068,7 @@ function CustomerPanel({
           onRequestKioskSignature={onRequestKioskSignature}
           kioskSignaturePending={kioskSignaturePending}
           kioskSignatureAvailable={kioskSignatureAvailable}
+          signatureAttachments={signatureAttachments}
         />
       </div>
     </DetailPanel>
@@ -1219,24 +1229,35 @@ function CustomerSignatureSection({
   onRequestKioskSignature,
   kioskSignaturePending = false,
   kioskSignatureAvailable = false,
+  signatureAttachments = [],
 }: {
   order: OrderDetail["order"];
   onRequestKioskSignature?: () => void;
   kioskSignaturePending?: boolean;
   kioskSignatureAvailable?: boolean;
+  signatureAttachments?: OrderAttachment[];
 }) {
   const dense = useDenseDetail();
   const hasKioskAction = Boolean(onRequestKioskSignature);
+  const latestSignature = signatureAttachments[0];
+  const hasSignatureEvidence = Boolean(order.customer_signature || latestSignature);
   const ActionIcon = hasKioskAction ? TabletSmartphone : Signature;
   const actionLabel = hasKioskAction
     ? kioskSignaturePending
       ? "发送中"
       : kioskSignatureAvailable
-        ? "发送到 iPad"
+        ? hasSignatureEvidence
+          ? "重新发送"
+          : "发送到 iPad"
         : "无 iPad"
-    : order.customer_signature
+    : hasSignatureEvidence
       ? "重新签名"
       : "请客户签名";
+  const statusLabel = latestSignature
+    ? "签名证据已保存"
+    : order.customer_signature
+      ? "签名已采集"
+      : "尚未签名";
   return (
     <section className="min-w-0">
       <div
@@ -1272,10 +1293,23 @@ function CustomerSignatureSection({
         className={cn(
           "flex items-center justify-center rounded-md border border-dashed border-border/80 bg-surface-muted/20 text-xs text-muted-foreground",
           dense ? "h-10" : "h-16 sm:h-24 sm:rounded-lg",
-          order.customer_signature && "border-primary/20 bg-accent/30 text-accent-foreground",
+          hasSignatureEvidence && "border-primary/20 bg-accent/30 text-accent-foreground",
         )}
       >
-        {order.customer_signature ? "签名已采集" : "尚未签名"}
+        <div className="grid min-w-0 place-items-center gap-1 px-2 text-center">
+          <span>{statusLabel}</span>
+          {latestSignature?.signed_url ? (
+            <a
+              href={latestSignature.signed_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+            >
+              <ImageIcon className="size-3 shrink-0" />
+              查看签名
+            </a>
+          ) : null}
+        </div>
       </div>
     </section>
   );

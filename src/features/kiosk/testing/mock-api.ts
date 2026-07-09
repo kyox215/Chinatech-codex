@@ -5,6 +5,7 @@ import {
 } from "@/features/kiosk/model/kiosk-session";
 import { customers, decorate, extraEvents, orders } from "@/lib/mock/state";
 import { normalizePhoneBook } from "@/shared/lib/phone";
+import { uploadOrderAttachment } from "@/features/orders/testing/mock-api";
 import type {
   AuditActor,
   KioskDevice,
@@ -250,6 +251,30 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
     throw new Error("该 iPad 提交未绑定客户，暂不能直接写入客户档案");
   }
 
+  if (order && typeof submission.signature_data_url === "string" && submission.signature_data_url) {
+    const signature = signatureUploadFromDataUrl(submission.signature_data_url);
+    const result = await uploadOrderAttachment(
+      order.id,
+      {
+        kind: "signature",
+        file_name: `kiosk-signature-${session.id}.png`,
+        mime_type: signature.mime_type,
+        file_size: signature.file_size,
+        data_base64: signature.data_base64,
+        note: "iPad pickup/customer signature",
+      },
+      actor,
+    );
+    order.customer_signature = `order_attachment:${result.attachment.id}`;
+    session.submission_payload = {
+      ...submission,
+      signature_data_url: undefined,
+      has_signature: true,
+      signature_attachment_id: result.attachment.id,
+    };
+    delete session.submission_payload.signature_data_url;
+  }
+
   const now = new Date().toISOString();
   session.status = "accepted";
   session.accepted_at = now;
@@ -312,7 +337,11 @@ function writeMockKioskEvent(
       has_customer_name: Boolean(submission.customer_name),
       has_customer_phone: Boolean(submission.customer_phone),
       has_backup_phone: Boolean(submission.backup_phone),
-      has_signature: Boolean(submission.signature_data_url),
+      has_signature: Boolean(
+        submission.signature_data_url ||
+        submission.has_signature ||
+        submission.signature_attachment_id,
+      ),
       confirmation_checked: submission.confirmation_checked === true,
       has_note: Boolean(submission.note),
       ...(action === "kiosk_session_returned" ? { reason_provided: true } : {}),
@@ -320,6 +349,23 @@ function writeMockKioskEvent(
     operator_name: actor?.displayName ?? actor?.email ?? "前台",
     created_at: new Date().toISOString(),
   });
+}
+
+function signatureUploadFromDataUrl(dataUrl: string) {
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=\s]+)$/i.exec(dataUrl.trim());
+  if (!match) throw new Error("签名图片格式无效");
+  const dataBase64 = match[2]!.replace(/\s+/g, "");
+  return {
+    mime_type: match[1]!.toLowerCase(),
+    data_base64: dataBase64,
+    file_size: base64ByteLength(dataBase64),
+  };
+}
+
+function base64ByteLength(value: string) {
+  const clean = value.replace(/\s+/g, "");
+  const padding = clean.endsWith("==") ? 2 : clean.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((clean.length * 3) / 4) - padding);
 }
 
 function readMockOrderSummary(orderId?: string) {

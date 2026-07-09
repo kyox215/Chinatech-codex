@@ -2,6 +2,7 @@ import type * as React from "react";
 import { QRCodeSVG } from "qrcode.react";
 
 import type { OrderDetail } from "@/lib/repairdesk/api";
+import type { StoreSettings } from "@/lib/repairdesk/types";
 import {
   formatEuro,
   formatItalianDateTime,
@@ -14,9 +15,19 @@ import {
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import { getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
 import { PrintPortal } from "@/features/orders/components/print-portal";
+import { buildStorePrintProfile } from "@/features/print/model/store-print-profile";
 
-export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; orderUrl: string }) {
+export function RepairOrderPrintSheet({
+  data,
+  orderUrl,
+  storeSettings,
+}: {
+  data: OrderDetail;
+  orderUrl: string;
+  storeSettings?: Partial<StoreSettings> | null;
+}) {
   const { order, customer, device } = data;
+  const storeProfile = buildStorePrintProfile(storeSettings);
   const snapshot = order.device_snapshot;
   const deviceBrand = snapshot?.brand || device?.brand || order.device_label.split(" ")[0] || "-";
   const deviceModel =
@@ -40,8 +51,8 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
         <div className="repair-print-page">
           <div className="repair-print-left">
             <header className="repair-print-store">
-              <h2>ChinaTech</h2>
-              <p>Viale Vittorio Veneto, 7, Floridia (SR) 96014</p>
+              <h2>{storeProfile.storeName}</h2>
+              <p>{storeProfile.storeSummaryLine}</p>
               <h1>ORDINE DI RIPARAZIONE</h1>
               <p>Documento per il cliente</p>
             </header>
@@ -119,8 +130,8 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
           <aside className="repair-print-right">
             <header>
               <h2>GARANZIA E INFORMAZIONI NEGOZIO</h2>
-              <p>ChinaTech</p>
-              <p>Viale Vittorio Veneto, 7, Floridia (SR) 96014</p>
+              <p>{storeProfile.storeName}</p>
+              <p>{storeProfile.storeSummaryLine}</p>
             </header>
 
             <section className="repair-print-task-qr">
@@ -167,8 +178,8 @@ export function RepairOrderPrintSheet({ data, orderUrl }: { data: OrderDetail; o
                 <span>Firma cliente</span>
               </div>
               <p>
-                Conservare questo documento per eventuali garanzie. I dati personali sono trattati
-                secondo la normativa vigente.
+                {storeProfile.printFooter} Conservare questo documento per eventuali garanzie.{" "}
+                {storeProfile.privacyNote}
               </p>
             </footer>
           </aside>

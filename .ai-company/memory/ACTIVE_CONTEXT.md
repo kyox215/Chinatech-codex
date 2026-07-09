@@ -7,11 +7,10 @@ task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-09T13:24:47Z"
+last_checkpoint_at: "2026-07-09T13:57:54Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
-
 # Active Context
 
 ## Current objective
@@ -20,7 +19,9 @@ last_rehydrated_at: null
 
 ## Current state
 
-Task created. Scope, facts, risk, and acceptance evidence require refinement.
+Supplier privacy and mobile picker implementation is in progress in the isolated worktree. The
+feature commit has been created and is being merged with the latest `origin/main` before final
+verification, push, and Supabase migration application.
 
 ## Blocking decisions
 
@@ -28,7 +29,8 @@ Task created. Scope, facts, risk, and acceptance evidence require refinement.
 
 ## Next action
 
-Run task intake and risk classification before implementation.
+Resolve merge, rerun verification gates, run Supabase dry-run in a linked checkout, then push main
+and apply the approved migration.
 
 ## Resume protocol
 
