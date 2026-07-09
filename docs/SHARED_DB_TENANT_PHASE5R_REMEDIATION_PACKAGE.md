@@ -1,8 +1,8 @@
 # Shared DB Tenant Isolation Phase 5R Remediation Package
 
-Last updated: 2026-07-07
+Last updated: 2026-07-10
 Owner: Hexiang Huang / He Xiang
-Status: remediation approval package prepared; no production action authorized
+Status: historical remediation package; superseded by 2026-07-10 linked migration-history alignment recheck
 Related plan: `docs/SHARED_DB_TENANT_PHASE5R_MIGRATION_RECONCILIATION_PLAN.md`
 Related task: `.ai-company/memory/tasks/TASK-20260707-001-shared-db-tenant-onboarding/`
 
@@ -12,9 +12,19 @@ This package defines the decision path after Phase 5R exhausted visible local/Gi
 
 It is an approval and review package only. It does not authorize `supabase db pull`, `supabase migration repair`, linked migration apply, production mutation, schema-cache reload, deploy, push, backfill, anonymization, the full live SQL query pack, or Phase 6.
 
+## 2026-07-10 Current Status
+
+This package is retained as historical background. It is no longer the current operating path for migration-history alignment because a later read-only CLI recheck showed:
+
+- `supabase migration list --linked` aligns local and remote history through `20260709235000`.
+- `supabase db push --linked --dry-run --include-all` reports the remote database is up to date.
+- Linked migration history count is 48 and latest version is `20260709235000`.
+
+Do not use the Option A/B/C/D remediation paths below unless a future migration-list mismatch reappears. Production apply, schema-cache reload, deploy, and full live SQL verification still require separate approval through the Database Application Gate.
+
 ## Current Evidence
 
-The live linked preflight and isolated review agree on the same blocker: remote Supabase migration history contains seven versions with no exact local SQL file:
+Historical evidence before the 2026-07-10 recheck: the live linked preflight and isolated review agreed on the same blocker: remote Supabase migration history contained seven versions with no exact local SQL file:
 
 | Remote-only version | Current status |
 |---|---|
@@ -237,7 +247,7 @@ Before any remote step, require:
 | Gate | Required conclusion |
 |---|---|
 | DATA | reconstructed/local-only classification is coherent; no candidate is presented as exact SQL |
-| SEC | no PII/secret leakage; tenant isolation and RLS/storage verification remains blocked until history state is trustworthy |
+| SEC | no PII/secret leakage; tenant isolation and RLS/storage verification remains gated until the current history baseline and live query-pack evidence are reviewed |
 | QA | acceptance criteria map to evidence; no skipped high-risk check is hidden |
 | RELEASE | rollback, backup/restore proof, operator, timing, and no-go actions are explicit |
 | Owner | chooses Option A, B, C, or D and separately approves any remote command |

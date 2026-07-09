@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-09
 Owner: 鹤祥 / Chinatech
-Status: Phase B server enforcement completed; Phase C local migration file exists but linked database apply is blocked by Phase 5R migration-history reconciliation; Phase D field-level projection pending
+Status: Phase B server enforcement completed; Phase C linked migration history verified aligned on 2026-07-10; Phase D1 order projection completed, Phase D2 scope/UI projection pending
 
 ## 目标
 
@@ -114,7 +114,7 @@ Status: Phase B server enforcement completed; Phase C local migration file exist
   - 使用唯一索引避免同一成员重复有效授权。
 - 本阶段使用 `store_member_permission_grants` 管理供应商权限授权。
 - 生产数据库应用不能只凭本地 migration 文件存在来认定完成；必须先通过 `docs/SHARED_DB_TENANT_ONBOARDING_EXECUTION_PLAN.md` 的 Database Application Gate。
-- 在 Phase 5R 迁移历史 reconciliation 未解除前，`store_member_permission_grants` 只能声明为本地迁移文件/代码路径已准备，不能声明 linked Supabase 已安全应用。
+- 2026-07-10 read-only CLI recheck: `supabase migration list --linked` shows local and remote history aligned through `20260709235000`, and `supabase db push --linked --dry-run --include-all` reports remote database up to date.
 
 ## 分阶段计划
 
@@ -141,23 +141,21 @@ Status: Phase B server enforcement completed; Phase C local migration file exist
 当前状态：
 
 - `supabase/migrations/20260709235000_supplier_permission_grants.sql` 已存在，用于 `store_member_permission_grants`。
-- 该迁移应在 Phase 5R 迁移历史 reconciliation 解除后进入 linked dry-run/apply。
-- 不能在 unresolved remote-only/local-only migration 状态下单独运行宽泛 `supabase db push`。
+- 2026-07-10 linked recheck 显示 migration history 已对齐，latest remote version 为 `20260709235000`。
+- `supabase db push --linked --dry-run --include-all` 当前为 no-op/up to date；无需从本任务重新执行生产 apply。
 
-后续执行条件：
+后续生产数据库执行条件仍然保留：
 
-- Phase 5R 远端/本地迁移历史 mismatch 已解决或有明确批准例外。
 - Pending migration 列表只包含 owner-approved production candidates。
 - `supabase db push --linked --dry-run` 输出符合预期。
 - 备份/恢复、回滚/前滚、PostgREST schema reload、验证查询和观察窗口都已记录。
 
 ### Phase D: 字段级脱敏与范围查询
 
-后续执行：
+当前状态：
 
-- 对订单列表、订单详情、客户详情、历史记录增加 role-aware projection。
-- 为金额、内部备注、供应商、设备解锁、附件链接增加脱敏/隐藏规则。
-- 增加 API 响应级测试，验证技师/前台无法从网络响应拿到 UI 已隐藏的数据。
+- Phase D1 已完成订单列表/订单详情第一批服务端投影：供应商、客户联系方式、金额、解锁信息、消息、事件 payload、附件 URL 对受限角色脱敏。
+- Phase D2 仍需完成 UI 脱敏展示、对象级技师/只读 scope 与审计、客户详情/历史记录更完整投影。
 
 ### Phase E: 设置页可视化配置
 
@@ -171,7 +169,7 @@ Status: Phase B server enforcement completed; Phase C local migration file exist
 
 - [x] 权限矩阵测试覆盖所有角色/动作。
 - [x] 关键 API 写入入口均有服务端权限检查。
-- [ ] 供应商授权 migration 已 linked dry-run 并应用。当前阻塞：Phase 5R 迁移历史 reconciliation 未解除。
+- [x] 供应商授权 migration 已进入 linked migration history；2026-07-10 dry-run 为 up to date。
 - [x] 技师、前台、只读成员无法执行被禁止动作。
-- [ ] 金额、历史、供应商、解锁信息的字段级脱敏进入后续 Phase D 任务并完成响应级测试。当前状态：已规划，未完成。
+- [ ] 金额、历史、供应商、解锁信息的字段级脱敏进入后续 Phase D 任务并完成响应级测试。当前状态：Phase D1 订单投影完成；Phase D2 scope/UI/客户历史仍待完成。
 - [x] 发布前完成 lint/typecheck/test/build。

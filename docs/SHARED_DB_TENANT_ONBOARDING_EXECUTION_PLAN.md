@@ -1,8 +1,8 @@
 # Shared Database Tenant Onboarding Execution Plan
 
-Last updated: 2026-07-09
+Last updated: 2026-07-10
 Owner: Hexiang Huang / 鹤祥
-Status: Active execution plan; Phase 1 through Phase 4 completed locally; Phase 5 read-only CLI preflight is blocked on migration-history mismatch before full live SQL verification; production migration/apply/release remains blocked until Phase 5R reconciliation is resolved
+Status: Active execution plan; Phase 1 through Phase 4 completed locally; Phase 5R migration-history blocker rechecked as resolved on 2026-07-10; full live SQL verification, production apply, and release remain gated by the Database Application Gate
 Scope: Registration, onboarding, store creation, store joining, and same-database tenant isolation
 
 ## Decision
@@ -34,11 +34,12 @@ Before any linked Supabase apply, all of the following must be true:
 7. The owner approves the exact command set for the target environment.
 8. Post-apply verification queries and schema-cache verification are prepared before apply.
 
-Current apply status on 2026-07-09:
+Current apply status on 2026-07-10:
 
 - Supabase CLI is available locally.
-- Linked production apply is still blocked by migration-history reconciliation evidence in `docs/SHARED_DB_TENANT_PHASE5R_MIGRATION_RECONCILIATION_PLAN.md`.
-- Do not run `supabase db push`, `supabase migration repair`, schema-cache reload, or production data mutation from ordinary feature tasks.
+- Read-only `supabase migration list --linked` shows local and remote migration history aligned through `20260709235000`.
+- Read-only `supabase db push --linked --dry-run --include-all` reports the remote database is up to date.
+- The historical Phase 5R mismatch is no longer the active blocker, but ordinary feature tasks still must not run production apply, `supabase migration repair`, schema-cache reload, or production data mutation without an approved command set.
 
 ## Goals
 
@@ -491,7 +492,7 @@ Residual risks deferred to Phase 5:
 
 ### Phase 5: Database Constraints And RLS Defense
 
-Status: owner-approved read-only CLI preflight ran and blocked on migration-history mismatch; full live SQL query pack has not run; linked production apply is blocked until Phase 5R reconciliation passes. Detailed verification materials live at `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`, `docs/SHARED_DB_TENANT_PHASE5_APPROVAL_PACKET.md`, `docs/SHARED_DB_TENANT_PHASE5_QUERY_PACK.md`, `docs/SHARED_DB_TENANT_PHASE5R_MIGRATION_RECONCILIATION_PLAN.md`, and `docs/SHARED_DB_TENANT_PHASE5R_REMEDIATION_PACKAGE.md`.
+Status: migration-history preflight rechecked on 2026-07-10 and now aligns; full live SQL query pack has not run. Linked production apply remains gated by the Database Application Gate, backup/restore proof, DATA/SEC/QA/RELEASE review, and owner approval for the exact command set. Detailed verification materials live at `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`, `docs/SHARED_DB_TENANT_PHASE5_APPROVAL_PACKET.md`, `docs/SHARED_DB_TENANT_PHASE5_QUERY_PACK.md`, `docs/SHARED_DB_TENANT_PHASE5R_MIGRATION_RECONCILIATION_PLAN.md`, and `docs/SHARED_DB_TENANT_PHASE5R_REMEDIATION_PACKAGE.md`.
 
 Goal:
 
@@ -510,7 +511,7 @@ Work:
 - Exclude offline-sync draft migrations from Phase 5 unless the Owner separately approves that scope.
 - Use the approval packet to record target environment, operator, backup/restore proof, offline-draft exclusion, and `actor_email` retention decision before any live or linked Supabase command.
 - Use the query pack index to run checks in a stable order and record redacted evidence.
-- Reconcile remote-only migration history before continuing to the full live SQL query pack.
+- Use the 2026-07-10 aligned migration-history evidence before continuing to the full live SQL query pack.
 
 Validation:
 
@@ -518,7 +519,7 @@ Validation:
 - No destructive migration without owner approval.
 - Production application requires backup/restore and post-apply verification.
 - "Fully isolated" cannot be claimed until live Supabase schema/RLS/storage parity is verified, not just local migration text.
-- Current release status: full live SQL verification is no-go until migration history is reconciled or every mismatch has an Owner-approved remediation plan. Production migration, schema-cache reload, Vercel promote, and Phase 6 global rollout are no-go until the runbook gates pass.
+- Current release status: full live SQL verification is still no-go until the full query pack and runbook gates pass. Production migration, schema-cache reload, Vercel promote, and Phase 6 global rollout remain no-go without explicit release approval.
 - A local migration file or local test may be marked "implemented locally", but not "applied to production" unless the release evidence records the exact linked command, output summary, post-apply verification, and observation result.
 
 ### Phase 6: Unified Feature Rollout Controls

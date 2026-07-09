@@ -1,8 +1,8 @@
 # Shared DB Tenant Isolation Phase 5R Migration History Reconciliation Plan
 
-Last updated: 2026-07-07
+Last updated: 2026-07-10
 Owner: Hexiang Huang / 鹤祥
-Status: remediation package prepared; full live SQL query pack remains blocked
+Status: migration-history alignment rechecked as resolved; full live SQL query pack still requires normal Database Application Gate approval
 Related evidence: `.ai-company/memory/tasks/TASK-20260707-001-shared-db-tenant-onboarding/PHASE5_LIVE_PREFLIGHT_20260707T135039Z.md`
 Related runbook: `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`
 Related query pack: `docs/SHARED_DB_TENANT_PHASE5_QUERY_PACK.md`
@@ -14,9 +14,24 @@ Phase 5R reconciles Supabase migration history before Phase 5 full live SQL veri
 
 This phase does not design new schema. It makes the local migration history and remote migration history explainable enough that `supabase migration list --linked` and `supabase db push --linked --dry-run` can be trusted as release gates.
 
+## 2026-07-10 Recheck Result
+
+Status: current CLI evidence supersedes the old blocker.
+
+- `supabase migration list --linked` now shows every local migration version aligned with the remote history through `20260709235000`.
+- `supabase db push --linked --dry-run --include-all` reports `Remote database is up to date`.
+- Linked migration history contains 48 versions; latest version is `20260709235000`.
+- No `supabase migration repair`, `supabase db pull`, linked apply, production DDL, data mutation, schema-cache reload, deploy, or push was run as part of this recheck.
+
+Impact:
+
+- The historical remote-only/local-only mismatch is no longer the active Phase 5R blocker.
+- The historical investigation below remains useful audit background, but it should not be treated as current migration-list state after the 2026-07-10 recheck.
+- Full live SQL verification and any production apply still require the normal Database Application Gate, current dry-run evidence, backup/restore proof, DATA/SEC/QA/RELEASE review, and owner approval for the exact command set.
+
 ## Current Blocker
 
-Owner-approved linked CLI preflight stopped before the full live SQL query pack because the remote migration history contains versions that are not present as local migration files:
+Historical state before 2026-07-10: owner-approved linked CLI preflight stopped before the full live SQL query pack because the remote migration history contained versions that were not present as local migration files:
 
 | Remote-only version | Current local status | Handling |
 |---|---|---|
@@ -234,7 +249,7 @@ Continue to the full live read-only SQL query pack only if:
 - The first four unknown remote-only versions are not guessed or replaced with placeholder migrations.
 - `migration repair` is not used as a shortcut to hide history divergence.
 - `db pull`, if approved, runs only in an isolated review context and does not become an automatic migration.
-- Full live SQL verification remains blocked until CLI dry-run preflight passes after executed remediation, or every exception has an executed and reviewed Owner-approved remediation outcome plus separate Owner approval for the specific read-only command set.
+- Full live SQL verification remains gated until the current aligned migration-history baseline is paired with an approved live SQL query-pack run, DATA/SEC/QA/RELEASE review, and separate Owner approval for the specific read-only command set.
 
 ## Next Owner Choice
 
