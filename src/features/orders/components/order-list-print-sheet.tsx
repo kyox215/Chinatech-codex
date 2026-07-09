@@ -1,4 +1,5 @@
 import type { OrderListItem } from "@/lib/repairdesk/api";
+import type { StoreSettings } from "@/lib/repairdesk/types";
 import { QRCodeSVG } from "qrcode.react";
 import {
   formatEuro,
@@ -11,9 +12,18 @@ import {
 } from "@/features/orders/model/order-italian";
 import { getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
 import { PrintPortal } from "@/features/orders/components/print-portal";
+import { buildStorePrintProfile } from "@/features/print/model/store-print-profile";
 
-export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
+export function OrderListPrintSheet({
+  orders,
+  storeSettings,
+}: {
+  orders: OrderListItem[];
+  storeSettings?: Partial<StoreSettings> | null;
+}) {
   if (!orders.length) return null;
+
+  const storeProfile = buildStorePrintProfile(storeSettings);
 
   return (
     <PrintPortal>
@@ -22,8 +32,8 @@ export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
           <div className="repair-print-page" key={order.id}>
             <div className="repair-print-left">
               <header className="repair-print-store">
-                <h2>ChinaTech</h2>
-                <p>Viale Vittorio Veneto, 7, Floridia (SR) 96014</p>
+                <h2>{storeProfile.storeName}</h2>
+                <p>{storeProfile.storeSummaryLine}</p>
                 <h1>SCHEDA ORDINE DI RIPARAZIONE</h1>
                 <p>Riepilogo per stampa rapida</p>
               </header>
@@ -85,7 +95,7 @@ export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
             <aside className="repair-print-right">
               <header>
                 <h2>RIEPILOGO SERVIZIO</h2>
-                <p>Documento generato dal gestionale ChinaTech</p>
+                <p>Documento generato dal gestionale {storeProfile.storeName}</p>
               </header>
 
               <section className="repair-print-task-qr">
@@ -123,8 +133,8 @@ export function OrderListPrintSheet({ orders }: { orders: OrderListItem[] }) {
                   <span>Firma cliente</span>
                 </div>
                 <p>
-                  Conservare questo documento per eventuali garanzie. I dati personali sono trattati
-                  secondo la normativa vigente.
+                  {storeProfile.printFooter} Conservare questo documento per eventuali garanzie.{" "}
+                  {storeProfile.privacyNote}
                 </p>
               </footer>
             </aside>

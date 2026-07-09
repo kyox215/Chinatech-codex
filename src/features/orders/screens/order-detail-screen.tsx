@@ -943,7 +943,7 @@ export function OrderDetailScreen({
           });
         }}
       />
-      <RepairOrderPrintSheet data={data} orderUrl={orderUrl} />
+      <RepairOrderPrintSheet data={data} orderUrl={orderUrl} storeSettings={storeSettings} />
     </div>
   );
 }
