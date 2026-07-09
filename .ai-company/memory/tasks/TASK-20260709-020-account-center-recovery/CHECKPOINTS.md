@@ -17,3 +17,10 @@
 - **Evidence:**
   - npm run lint exit 0; npm run typecheck exit 0; npm run test 98 files/655 tests passed; npm run build exit 0; linked DB columns/constraint/index/history verified; screenshots under artifacts/.
 - **Recorded by:** Codex
+## 2026-07-09T18:05:43Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 账号中心、找回密码、重置密码、左下角个人中心入口、手机号保存和 staff_profiles 手机号 migration 均已完成；migration 已应用到 linked Supabase；commit df7bb08c 已推送 main。
+- **Residual risks:** 密码找回邮件实际送达依赖 Supabase Auth 邮件/SMTP 配置；本任务未修改生产邮件服务凭据。
+- **Follow-up:** 如需手机号短信验证/登录，另开任务接入 Supabase phone auth 或短信供应商，并补充手机号验证状态流转。
+- **Closed by:** Codex

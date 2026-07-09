@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260709-020-account-center-recovery"
 title: "账号中心与找回密码上线流程"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "DATA", "DOC", "FE", "FLOW", "INT", "QA", "SEC", "UX"]
 created_at: "2026-07-09T17:36:19Z"
-updated_at: "2026-07-09T18:03:01Z"
+updated_at: "2026-07-09T18:05:43Z"
+closed_at: "2026-07-09T18:05:43Z"
 ---
 # Task — 账号中心与找回密码上线流程
 
@@ -42,11 +43,11 @@ updated_at: "2026-07-09T18:03:01Z"
 
 ## Acceptance criteria
 
-- [ ] 找回密码从登录页进入独立页面，发送重置邮件后通过安全回调进入重置密码页。
-- [ ] 登录后工单页左下角菜单显示当前账号邮箱并提供个人中心与退出登录。
-- [ ] 个人中心可查看邮箱/店铺身份，修改显示名，修改当前密码，保存手机号。
-- [ ] 新增 staff_profiles 手机号字段的兼容 migration，经预检后应用到 Supabase。
-- [ ] lint/typecheck/test/build 通过并推送 main。
+- [x] 找回密码从登录页进入独立页面，发送重置邮件后通过安全回调进入重置密码页。
+- [x] 登录后工单页左下角菜单显示当前账号邮箱并提供个人中心与退出登录。
+- [x] 个人中心可查看邮箱/店铺身份，修改显示名，修改当前密码，保存手机号。
+- [x] 新增 staff_profiles 手机号字段的兼容 migration，经预检后应用到 Supabase。
+- [x] lint/typecheck/test/build 通过并推送 main。
 
 ## Facts, assumptions, and unknowns
 
