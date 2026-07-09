@@ -27,6 +27,10 @@ describe("MoneyKeypadInput", () => {
 
     await user.click(screen.getByRole("button", { name: "报价金额" }));
     expect(await screen.findByRole("group", { name: "报价金额 虚拟金额键盘" })).toBeVisible();
+    expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toHaveClass(
+      "fixed",
+      "justify-center",
+    );
 
     await user.click(screen.getByRole("button", { name: "1" }));
     await user.click(screen.getByRole("button", { name: "2" }));

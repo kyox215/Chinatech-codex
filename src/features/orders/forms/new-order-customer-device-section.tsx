@@ -437,7 +437,9 @@ function DenseOptionMenu({
       <DropdownMenuContent
         align="end"
         collisionPadding={12}
-        className="z-[90] max-h-72 w-[min(18rem,calc(100vw-24px))] overflow-y-auto rounded-xl p-1 shadow-[var(--shadow-overlay)]"
+        side="top"
+        sideOffset={6}
+        className="z-[90] max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] w-[min(18rem,calc(100vw-24px))] overflow-y-auto rounded-xl p-1 shadow-[var(--shadow-overlay)]"
       >
         {options.length ? (
           options.map((option) => {

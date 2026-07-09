@@ -47,7 +47,7 @@ export function CustomerPhoneLookup({
   const query = value.trim();
   const normalizedPhone = primaryPhoneRaw(value);
   const hasMultiplePhones = splitPhoneCandidates(value).length > 1;
-  const searchEnabled = query.length >= 2 || normalizedPhone.length >= 3;
+  const searchEnabled = isLookupSearchReady(query, normalizedPhone);
   const debouncedQuery = useDebouncedValue(searchEnabled ? query : "", 180);
   const activeLimit = Math.min(12, Math.max(1, limit));
   const shell = useStoreShellContext();
@@ -83,8 +83,8 @@ export function CustomerPhoneLookup({
   }, [exactCustomer, onPick, selectedCustomerId]);
 
   useEffect(() => {
-    setOpen(focused && Boolean(query));
-  }, [focused, query]);
+    setOpen(focused && searchEnabled);
+  }, [focused, searchEnabled]);
 
   useEffect(() => {
     setHighlightedIndex(0);
@@ -126,7 +126,7 @@ export function CustomerPhoneLookup({
               }
               if (event.key === "ArrowDown") {
                 event.preventDefault();
-                setOpen(Boolean(query));
+                setOpen(searchEnabled);
                 setHighlightedIndex((index) =>
                   resultCount ? Math.min(resultCount - 1, index + 1) : 0,
                 );
@@ -155,7 +155,7 @@ export function CustomerPhoneLookup({
             }}
             onFocus={() => {
               setFocused(true);
-              if (query) setOpen(true);
+              if (searchEnabled) setOpen(true);
             }}
           />
         </div>
@@ -163,6 +163,7 @@ export function CustomerPhoneLookup({
       <PopoverContent
         align="start"
         collisionPadding={12}
+        side="top"
         sideOffset={6}
         onOpenAutoFocus={(event) => event.preventDefault()}
         className="w-[calc(100vw-24px)] max-w-sm overflow-x-hidden p-1 sm:w-[var(--radix-popover-trigger-width)] sm:max-w-[calc(100vw-24px)]"
@@ -171,7 +172,7 @@ export function CustomerPhoneLookup({
           id={listboxId}
           role="listbox"
           aria-label="客户搜索结果"
-          className="max-h-72 min-w-0 overflow-y-auto"
+          className="max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] min-w-0 overflow-y-auto"
         >
           {!searchEnabled ? (
             <LookupHint>输入 2 个字或 3 位号码开始搜索</LookupHint>
@@ -252,6 +253,11 @@ function LookupHint({
       <span className="min-w-0 flex-1 break-words">{children}</span>
     </div>
   );
+}
+
+function isLookupSearchReady(query: string, rawPhone: string) {
+  const textQuery = query.replace(/[\d\s+().\-_/\\,，;；、]/g, "");
+  return textQuery.length >= 2 || rawPhone.length >= 3;
 }
 
 function useDebouncedValue<T>(value: T, delay: number) {

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Delete, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
 import { cn } from "@/lib/utils";
 import {
   applyMoneyKeypadKey,
@@ -51,6 +51,7 @@ export function MoneyKeypadInput({
 }: MoneyKeypadInputProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizeMoneyKeypadDraft(value));
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open) setDraft(normalizeMoneyKeypadDraft(value));
@@ -65,82 +66,80 @@ export function MoneyKeypadInput({
     onChange(nextDraft);
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (disabled) return;
+    setOpen(nextOpen);
+    if (nextOpen) setDraft(normalizeMoneyKeypadDraft(value));
+  };
+
   return (
-    <Popover
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (disabled) return;
-        setOpen(nextOpen);
-        if (nextOpen) setDraft(normalizeMoneyKeypadDraft(value));
-      }}
-    >
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          data-money-keypad-trigger="true"
-          aria-label={ariaLabel}
-          aria-invalid={invalid || undefined}
-          disabled={disabled}
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        data-money-keypad-trigger="true"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-invalid={invalid || undefined}
+        disabled={disabled}
+        className={cn(
+          "grid h-9 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          invalid && "border-status-danger-foreground/50",
+          className,
+          triggerClassName,
+        )}
+        onClick={() => handleOpenChange(!open)}
+      >
+        <span className="shrink-0 font-mono text-muted-foreground">{currencySymbol}</span>
+        <span
           className={cn(
-            "grid h-9 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-            invalid && "border-status-danger-foreground/50",
-            className,
-            triggerClassName,
+            "min-w-0 truncate font-mono tabular-nums",
+            align === "right" ? "text-right" : "text-left",
+            displayDraft ? "text-foreground" : "text-muted-foreground",
+            valueClassName,
           )}
         >
-          <span className="shrink-0 font-mono text-muted-foreground">{currencySymbol}</span>
-          <span
-            className={cn(
-              "min-w-0 truncate font-mono tabular-nums",
-              align === "right" ? "text-right" : "text-left",
-              displayDraft ? "text-foreground" : "text-muted-foreground",
-              valueClassName,
-            )}
-          >
-            {displayValue}
-          </span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align={align === "right" ? "end" : "start"}
-        sideOffset={6}
-        collisionPadding={12}
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        className={cn(
-          "z-[120] w-[min(19rem,calc(100vw-24px))] rounded-xl border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-overlay)]",
-          contentClassName,
-        )}
-        data-money-keypad="true"
+          {displayValue}
+        </span>
+      </button>
+      <VirtualKeyboardDock
+        open={open}
+        onOpenChange={handleOpenChange}
+        label={`${ariaLabel} 虚拟金额键盘`}
+        triggerRef={triggerRef}
+        panelClassName={contentClassName}
       >
-        <div className="mb-2 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-          <span className="font-mono text-xs text-muted-foreground">{currencySymbol}</span>
-          <span className="truncate text-right font-mono text-sm font-semibold tabular-nums">
-            {draft || "0"}
-          </span>
+        <div data-money-keypad="true">
+          <div className="mb-2 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+            <span className="font-mono text-xs text-muted-foreground">{currencySymbol}</span>
+            <span className="truncate text-right font-mono text-sm font-semibold tabular-nums">
+              {draft || "0"}
+            </span>
+          </div>
+          <div className="grid gap-1.5" role="group" aria-label={`${ariaLabel} 虚拟金额键盘`}>
+            {moneyKeypadRows.map((row, rowIndex) => (
+              <div key={rowIndex} className="grid grid-cols-3 gap-1.5">
+                {row.map((key) => (
+                  <KeypadButton key={key} keypadKey={key} onClick={() => updateDraft(key)} />
+                ))}
+                {row.length === 2 ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-10 rounded-lg text-xs font-semibold"
+                    onClick={() => handleOpenChange(false)}
+                    data-money-keypad-done="true"
+                  >
+                    <Check className="mr-1 size-3.5" />
+                    完成
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="grid gap-1.5" role="group" aria-label={`${ariaLabel} 虚拟金额键盘`}>
-          {moneyKeypadRows.map((row, rowIndex) => (
-            <div key={rowIndex} className="grid grid-cols-3 gap-1.5">
-              {row.map((key) => (
-                <KeypadButton key={key} keypadKey={key} onClick={() => updateDraft(key)} />
-              ))}
-              {row.length === 2 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-10 rounded-lg text-xs font-semibold"
-                  onClick={() => setOpen(false)}
-                  data-money-keypad-done="true"
-                >
-                  <Check className="mr-1 size-3.5" />
-                  完成
-                </Button>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+      </VirtualKeyboardDock>
+    </>
   );
 }
 

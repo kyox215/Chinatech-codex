@@ -102,8 +102,8 @@ export function CustomerIntakeLookup({
     open && resultCount > 0 ? `${listboxId}-option-${highlightedIndex}` : undefined;
 
   useEffect(() => {
-    setOpen(resultsPlacement === "inline" ? Boolean(query) : focused && Boolean(query));
-  }, [focused, query, resultsPlacement]);
+    setOpen(resultsPlacement === "inline" ? searchEnabled : focused && searchEnabled);
+  }, [focused, resultsPlacement, searchEnabled]);
 
   useEffect(() => {
     setHighlightedIndex(0);
@@ -158,7 +158,7 @@ export function CustomerIntakeLookup({
         triggerClassName={className}
         onOpenChange={(nextOpen) => {
           setFocused(nextOpen || Boolean(query));
-          if (nextOpen && query) setOpen(true);
+          if (nextOpen && searchEnabled) setOpen(true);
         }}
       />
     ) : (
@@ -182,7 +182,7 @@ export function CustomerIntakeLookup({
           }
           if (event.key === "ArrowDown") {
             event.preventDefault();
-            setOpen(Boolean(query));
+            setOpen(searchEnabled);
             setHighlightedIndex((index) =>
               resultCount ? Math.min(resultCount - 1, index + 1) : 0,
             );
@@ -207,7 +207,7 @@ export function CustomerIntakeLookup({
         }}
         onFocus={() => {
           setFocused(true);
-          if (query) setOpen(true);
+          if (searchEnabled) setOpen(true);
         }}
       />
     );
@@ -220,6 +220,7 @@ export function CustomerIntakeLookup({
         <PopoverContent
           align="start"
           collisionPadding={12}
+          side="top"
           sideOffset={6}
           onOpenAutoFocus={(event) => event.preventDefault()}
           className="w-[calc(100vw-24px)] max-w-sm overflow-x-hidden p-1 sm:w-[28rem] sm:max-w-[calc(100vw-24px)] md:w-[32rem]"
@@ -301,7 +302,7 @@ function CustomerIntakeResults({
       id={listboxId}
       role="listbox"
       aria-label={mode === "phone" ? "客户电话搜索结果" : "客户姓名搜索结果"}
-      className="max-h-80 min-w-0 overflow-y-auto"
+      className="max-h-[min(20rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] min-w-0 overflow-y-auto"
     >
       {!searchEnabled ? (
         <LookupHint>

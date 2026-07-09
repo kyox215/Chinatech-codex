@@ -50,8 +50,9 @@ test("new order mobile inputs use virtual phone and money keypads", async ({ pag
   const nameInput = customerSection.locator('input[placeholder="搜索客户姓名（可选）"]').first();
   await expect(nameInput).toBeVisible();
   await nameInput.fill("12");
+  await expect(page.getByRole("listbox", { name: "客户姓名搜索结果" })).toHaveCount(0);
   await expect(
-    customerSection.getByText("姓名搜索只接收姓名，电话号码请在电话栏输入"),
+    customerSection.getByText("电话和姓名分开实时搜索；电话栏只接收号码，姓名栏只匹配客户姓名"),
   ).toBeVisible();
 
   await expect(deviceSection.locator('input[inputmode="numeric"]').first()).toBeVisible();

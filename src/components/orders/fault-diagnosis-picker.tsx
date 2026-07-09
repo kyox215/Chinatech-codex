@@ -543,9 +543,11 @@ function FaultCategoryButton({
       <DropdownMenuContent
         align="start"
         collisionPadding={12}
+        side="top"
+        sideOffset={6}
         className={cn(
           componentOverlay.popoverContent,
-          "w-[min(16rem,calc(100vw-24px))] rounded-[var(--radius-lg)] p-1 shadow-[var(--shadow-card)]",
+          "max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] w-[min(16rem,calc(100vw-24px))] overflow-y-auto rounded-[var(--radius-lg)] p-1 shadow-[var(--shadow-card)]",
         )}
       >
         {group.options.map((option) => {

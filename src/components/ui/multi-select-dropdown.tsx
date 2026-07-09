@@ -94,7 +94,13 @@ export function MultiSelectDropdown<TValue extends string = string>({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className={cn("w-[min(18rem,calc(100vw-24px))]", contentClassName)}
+        collisionPadding={12}
+        side="top"
+        sideOffset={6}
+        className={cn(
+          "max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] w-[min(18rem,calc(100vw-24px))] overflow-y-auto",
+          contentClassName,
+        )}
       >
         {options.map((option) => (
           <DropdownMenuCheckboxItem

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Delete, Eye, EyeOff, Grid3X3, LockKeyhole, X } from "lucide-react";
+import { Check, Delete, Eye, EyeOff, Grid3X3, LockKeyhole, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
 import {
   DEVICE_UNLOCK_METHOD_LABELS,
   DEVICE_UNLOCK_PATTERN_MAX_STEPS,
@@ -263,6 +264,8 @@ export function DeviceUnlockListBadge({
 function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const pin = value.replace(/\D/g, "").slice(0, 16);
   const pinRef = useRef(pin);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     pinRef.current = pin;
@@ -297,7 +300,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
     onChange("");
   };
 
-  const handleDisplayKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const handleDisplayKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (/^\d$/.test(event.key)) {
       event.preventDefault();
       appendDigit(event.key);
@@ -317,12 +320,13 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
   return (
     <div className="space-y-1" data-device-unlock-pin-keypad="true">
       <Label className="text-[10px] font-semibold leading-3 text-muted-foreground">数字 PIN</Label>
-      <div
-        role="textbox"
+      <button
+        ref={triggerRef}
+        type="button"
         aria-label="数字 PIN"
-        aria-readonly="true"
-        tabIndex={0}
-        className="flex h-9 min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+        aria-expanded={open}
+        className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-left text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+        onClick={() => setOpen(true)}
         onKeyDown={handleDisplayKeyDown}
       >
         <span
@@ -336,52 +340,84 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
         <span className="shrink-0 text-[10px] font-medium leading-3 text-muted-foreground">
           {pin.length}/16
         </span>
-      </div>
+      </button>
 
-      <div className="grid grid-cols-3 gap-1" aria-label="PIN 数字键盘">
-        {pinKeypadDigits.slice(0, 9).map((digit) => (
-          <button
-            key={digit}
+      <VirtualKeyboardDock
+        open={open}
+        onOpenChange={setOpen}
+        label="PIN 数字键盘"
+        triggerRef={triggerRef}
+      >
+        <div data-device-unlock-pin-keypad-panel="true">
+          <div className="mb-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+            <span
+              className={cn(
+                "min-w-0 truncate font-mono text-sm font-semibold tabular-nums",
+                pin ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {pin || "0"}
+            </span>
+            <span className="shrink-0 text-[10px] font-medium leading-3 text-muted-foreground">
+              {pin.length}/16
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="PIN 数字键盘">
+            {pinKeypadDigits.slice(0, 9).map((digit) => (
+              <button
+                key={digit}
+                type="button"
+                data-device-unlock-pin-digit={digit}
+                className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+                disabled={pin.length >= 16}
+                onClick={() => appendDigit(digit)}
+              >
+                {digit}
+              </button>
+            ))}
+            <button
+              type="button"
+              data-device-unlock-pin-clear="true"
+              className="h-10 rounded-lg border border-[var(--border-panel)] bg-card text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+              disabled={!pin}
+              onClick={clearPin}
+            >
+              清空
+            </button>
+            <button
+              type="button"
+              data-device-unlock-pin-digit="0"
+              className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+              disabled={pin.length >= 16}
+              onClick={() => appendDigit("0")}
+            >
+              0
+            </button>
+            <button
+              type="button"
+              data-device-unlock-pin-backspace="true"
+              aria-label="退格"
+              className="grid h-10 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+              disabled={!pin}
+              onClick={removeLastDigit}
+            >
+              <Delete className="size-4" />
+            </button>
+          </div>
+          <Button
             type="button"
-            data-device-unlock-pin-digit={digit}
-            className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
-            disabled={pin.length >= 16}
-            onClick={() => appendDigit(digit)}
+            size="sm"
+            className="mt-1.5 h-10 w-full rounded-lg text-xs font-semibold"
+            onClick={() => setOpen(false)}
+            data-device-unlock-pin-done="true"
           >
-            {digit}
-          </button>
-        ))}
-        <button
-          type="button"
-          data-device-unlock-pin-clear="true"
-          className="h-10 rounded-lg border border-[var(--border-panel)] bg-card text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
-          disabled={!pin}
-          onClick={clearPin}
-        >
-          清空
-        </button>
-        <button
-          type="button"
-          data-device-unlock-pin-digit="0"
-          className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
-          disabled={pin.length >= 16}
-          onClick={() => appendDigit("0")}
-        >
-          0
-        </button>
-        <button
-          type="button"
-          data-device-unlock-pin-backspace="true"
-          aria-label="退格"
-          className="grid h-10 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
-          disabled={!pin}
-          onClick={removeLastDigit}
-        >
-          <Delete className="size-4" />
-        </button>
-      </div>
+            <Check className="mr-1 size-3.5" />
+            完成
+          </Button>
+        </div>
+      </VirtualKeyboardDock>
       <p className="text-[9px] leading-3 text-muted-foreground">
-        直接点数字输入，不弹出键盘；PIN 会按文本保存，保留前导 0。
+        点击输入框打开底部数字键盘；PIN 会按文本保存，保留前导 0。
       </p>
     </div>
   );
