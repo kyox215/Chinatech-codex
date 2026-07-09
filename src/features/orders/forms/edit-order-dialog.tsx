@@ -30,11 +30,7 @@ import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
 import type { FaultPriceItem, OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
-import {
-  decimalKeyboardProps,
-  moneyDraftValue,
-  parseMoneyDraft,
-} from "@/shared/lib/mobile-input";
+import { decimalKeyboardProps, moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
 
 export function EditOrderDialog({
   open,

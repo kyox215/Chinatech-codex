@@ -26,11 +26,7 @@ import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import {
-  decimalKeyboardProps,
-  moneyDraftValue,
-  parseMoneyDraft,
-} from "@/shared/lib/mobile-input";
+import { decimalKeyboardProps, moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
 
 export function NewOrderQuotationSection({
   form,

@@ -73,6 +73,26 @@ afterEach(() => {
 });
 
 describe("ImeiScannerField", () => {
+  it("requests numeric mobile keyboards for IMEI manual entry without changing text storage", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: undefined,
+    });
+
+    render(<ImeiScannerField value="" onChange={vi.fn()} />);
+
+    const inlineInput = screen.getByPlaceholderText("扫描或输入 IMEI / 序列号");
+    expect(inlineInput).toHaveAttribute("type", "text");
+    expect(inlineInput).toHaveAttribute("inputmode", "numeric");
+
+    await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+
+    const fallbackInput = await screen.findByPlaceholderText("无法识别时可手动输入");
+    expect(fallbackInput).toHaveAttribute("type", "text");
+    expect(fallbackInput).toHaveAttribute("inputmode", "numeric");
+  });
+
   it("keeps camera unsupported errors inline and allows manual fallback", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

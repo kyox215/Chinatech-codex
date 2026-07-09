@@ -23,10 +23,7 @@ export function moneyDraftValue(value: number | null | undefined) {
 }
 
 export function parseMoneyDraft(value: string) {
-  const normalized = value
-    .trim()
-    .replace(/[€\s]/g, "")
-    .replace(",", ".");
+  const normalized = value.trim().replace(/[€\s]/g, "").replace(",", ".");
 
   if (!normalized) return 0;
 
