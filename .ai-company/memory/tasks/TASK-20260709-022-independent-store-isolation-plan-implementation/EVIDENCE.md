@@ -15,3 +15,5 @@
 | E-011 | validation | `npm run agents:templates` | Passed | 2026-07-09T21:48:00Z |
 | E-012 | validation | `npm run agents:check` | Passed | 2026-07-09T21:48:00Z |
 | E-013 | validation | `/opt/homebrew/bin/python3.12 tools/ai_company.py validate` | Failed on pre-existing duplicate `.codex/agents/* 2.toml` agent names; not caused by this diff | 2026-07-09T21:48:00Z |
+| E-014 | release | `git commit -m "Clarify independent store isolation gates"` | Created commit `4a6434d2` | 2026-07-09T21:52:00Z |
+| E-015 | release | `git push origin HEAD:main` | Pushed `9eb141e9..4a6434d2` to `main` | 2026-07-09T21:52:00Z |

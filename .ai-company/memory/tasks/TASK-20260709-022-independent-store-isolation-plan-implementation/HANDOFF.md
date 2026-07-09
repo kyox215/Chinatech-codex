@@ -4,21 +4,17 @@
 
 Worktree: `/private/tmp/repairdesk-isolation-implementation`
 
-The task is in progress. No code, migration, or production database action has been performed.
+The task is complete. Commit `4a6434d2` was pushed to `origin/main`.
+
+No code, migration, or production database action was performed.
 
 ## Next
 
-Update canonical documents:
+No follow-up is required for the documentation/governance slice.
 
-- `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PLAN.md`
-- `docs/SHARED_DB_TENANT_ONBOARDING_EXECUTION_PLAN.md`
-- `docs/ROLE_PERMISSION_CONFIGURATION_PLAN.md`
-- `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PROGRESS.md`
-
-Then validate and push.
+Future runtime/database work must start a new task from latest `origin/main` and resolve Phase 5R before linked database apply.
 
 ## Stop Conditions
 
-- Any required production database action appears necessary.
-- Any change would create or apply a Supabase migration without a resolved migration-history reconciliation package.
-- Unexpected dirty files appear outside the documented scope.
+- Any future task attempts linked database apply without Phase 5R reconciliation.
+- Any future task claims production-grade isolation without live Supabase schema/RLS/storage evidence.
