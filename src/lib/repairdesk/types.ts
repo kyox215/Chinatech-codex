@@ -265,6 +265,9 @@ export interface RepairOrder {
   device_unlock_value?: string;
   device_unlock_pattern?: number[];
   customer_signature?: string;
+  finance_redacted?: boolean;
+  customer_contact_redacted?: boolean;
+  sensitive_redacted?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -217,6 +217,134 @@ function applySupplierVisibility<T extends OrderListItem>(order: T, canReadSuppl
     ...order,
     supplier_id: undefined,
     parts_supplier_id: undefined,
+    supplier_name: undefined,
+    supplier_color: undefined,
+  };
+}
+
+function maskContactValue(value: string | undefined) {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length < 4) return "***";
+  return `***${digits.slice(-4)}`;
+}
+
+function canReadOrderFinance(actor?: AuditActor) {
+  return can(actor, "payment:collect");
+}
+
+function canReadOrderCustomerContact(actor?: AuditActor) {
+  return can(actor, "customer:detail");
+}
+
+function canReadOrderUnlock(actor?: AuditActor) {
+  return can(actor, "unlock:read");
+}
+
+function canReadOrderMessages(actor?: AuditActor) {
+  return can(actor, "customer:message");
+}
+
+function canReadOrderAttachments(actor?: AuditActor) {
+  return can(actor, "attachment:read");
+}
+
+export function projectOrderListItemForActor<T extends OrderListItem>(
+  order: T,
+  actor?: AuditActor,
+): T {
+  let projected = applySupplierVisibility(order, can(actor, "supplier:read"));
+
+  if (!canReadOrderCustomerContact(actor)) {
+    projected = {
+      ...projected,
+      customer_phone: maskContactValue(projected.customer_phone),
+      contact_phones: projected.contact_phones.map(maskContactValue).filter(Boolean),
+      customer_contact_redacted: true,
+    };
+  }
+
+  if (!canReadOrderFinance(actor)) {
+    projected = {
+      ...projected,
+      quotation_amount: 0,
+      deposit_amount: 0,
+      balance_amount: 0,
+      is_paid: false,
+      payment_status: undefined,
+      fault_prices: [],
+      finance_redacted: true,
+    };
+  }
+
+  if (!canReadOrderUnlock(actor)) {
+    projected = {
+      ...projected,
+      device_unlock_method: undefined,
+      device_unlock_value: undefined,
+      device_unlock_pattern: undefined,
+      sensitive_redacted: true,
+    };
+  }
+
+  if (!canReadOrderAttachments(actor)) {
+    projected = {
+      ...projected,
+      customer_signature: undefined,
+      sensitive_redacted: true,
+    };
+  }
+
+  return projected;
+}
+
+function projectCustomerForActor(
+  customer: OrderDetail["customer"],
+  actor?: AuditActor,
+): OrderDetail["customer"] {
+  if (!customer || canReadOrderCustomerContact(actor)) return customer;
+  return {
+    ...customer,
+    phone_e164: maskContactValue(customer.phone_e164),
+    phone_raw: maskContactValue(customer.phone_raw),
+    contact_phones: customer.contact_phones.map(maskContactValue).filter(Boolean),
+    email: undefined,
+    notes: undefined,
+    marketing_notes: undefined,
+    blacklisted_at: undefined,
+    consent_marketing: false,
+    consent_sms: false,
+  };
+}
+
+function projectEventsForActor(events: OrderDetail["events"], actor?: AuditActor) {
+  const canReadPayloads =
+    canReadOrderFinance(actor) &&
+    canReadOrderMessages(actor) &&
+    canReadOrderUnlock(actor) &&
+    canReadOrderAttachments(actor);
+  if (canReadPayloads) return events;
+  return events.map((event) => ({ ...event, payload: {} }));
+}
+
+export function projectOrderDetailForActor(detail: OrderDetail, actor?: AuditActor): OrderDetail {
+  const canReadAttachments = canReadOrderAttachments(actor);
+  return {
+    ...detail,
+    order: projectOrderListItemForActor(detail.order, actor),
+    customer: projectCustomerForActor(detail.customer, actor),
+    supplier: can(actor, "supplier:read") ? detail.supplier : undefined,
+    parts_supplier: can(actor, "supplier:read") ? detail.parts_supplier : undefined,
+    events: projectEventsForActor(detail.events, actor),
+    messages: canReadOrderMessages(actor) ? detail.messages : [],
+    attachments: canReadAttachments
+      ? detail.attachments
+      : detail.attachments.map((attachment) => ({
+          ...attachment,
+          public_url: undefined,
+          signed_url: undefined,
+          storage_path: "",
+        })),
   };
 }
 
@@ -648,7 +776,7 @@ export async function listOrders(
   const canReadSuppliers = can(actor, "supplier:read");
   const safeFilters = filtersForSupplierAccess(filters, canReadSuppliers);
   return filterOrders((await fetchOrderRows(storeId)).map(decorate), safeFilters).map((order) =>
-    applySupplierVisibility(order, canReadSuppliers),
+    projectOrderListItemForActor(order, actor),
   );
 }
 
@@ -678,7 +806,7 @@ export async function listOrdersPage(
   if (safeFilters.search?.trim() || safeFilters.overdue) {
     const rows = (await fetchOrderRows(storeId)).map(decorate);
     const all = filterOrders(rows, safeFilters).map((order) =>
-      applySupplierVisibility(order, canReadSuppliers),
+      projectOrderListItemForActor(order, actor),
     );
     const workflowCounts = countWorkflowRows(
       filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
@@ -729,7 +857,7 @@ export async function listOrdersPage(
   if (error && isMissingRepairOrderColumnError(error)) {
     const rows = (await fetchOrderRows(storeId)).map(decorate);
     const all = filterOrders(rows, safeFilters).map((order) =>
-      applySupplierVisibility(order, canReadSuppliers),
+      projectOrderListItemForActor(order, actor),
     );
     const workflowCounts = countWorkflowRows(
       filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
@@ -747,7 +875,7 @@ export async function listOrdersPage(
   fail(error, "读取工单失败");
 
   const all = filterOrders(((data ?? []) as DbRecord[]).map(decorate), {}).map((order) =>
-    applySupplierVisibility(order, canReadSuppliers),
+    projectOrderListItemForActor(order, actor),
   );
   const total = count ?? all.length;
   const start = (page - 1) * pageSize;
@@ -1110,18 +1238,21 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
   }
 
   const row = orderRow as DbRecord;
-  return {
-    order: applySupplierVisibility(decorate(row), canReadSuppliers),
-    customer: customerFromRow(row.customer),
-    device: deviceFromRow(row.device),
-    supplier: canReadSuppliers ? supplierFromRow(row.supplier) : undefined,
-    parts_supplier: canReadSuppliers ? supplierFromRow(row.parts_supplier) : undefined,
-    events: ((eventRows ?? []) as DbRecord[]).map(eventFromRow),
-    messages: ((messageRows ?? []) as DbRecord[]).map(messageFromRow),
-    attachments: attachmentError
-      ? []
-      : await attachSignedUrls(supabase, (attachmentRows ?? []) as DbRecord[], storeId, id),
-  };
+  return projectOrderDetailForActor(
+    {
+      order: applySupplierVisibility(decorate(row), canReadSuppliers),
+      customer: customerFromRow(row.customer),
+      device: deviceFromRow(row.device),
+      supplier: canReadSuppliers ? supplierFromRow(row.supplier) : undefined,
+      parts_supplier: canReadSuppliers ? supplierFromRow(row.parts_supplier) : undefined,
+      events: ((eventRows ?? []) as DbRecord[]).map(eventFromRow),
+      messages: ((messageRows ?? []) as DbRecord[]).map(messageFromRow),
+      attachments: attachmentError
+        ? []
+        : await attachSignedUrls(supabase, (attachmentRows ?? []) as DbRecord[], storeId, id),
+    },
+    actor,
+  );
 }
 
 export async function uploadOrderAttachment(

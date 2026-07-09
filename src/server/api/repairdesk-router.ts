@@ -576,6 +576,7 @@ export async function handleRepairDeskGet(path: string) {
       case "platform/onboarding/requests":
         return ok(await api.listPlatformOnboardingRequests(actor));
       case "order-stats":
+        assertOrderListPermission(actor);
         return ok(await api.getOrderStats(actor));
       case "order-workflow":
         return ok(await api.listOrderWorkflow(actor));
@@ -600,7 +601,7 @@ export async function handleRepairDeskGet(path: string) {
         assertRepairDeskPermission(actor, "settings:update_store");
         return ok(await api.listKioskDevices(actor));
       case "kiosk/sessions":
-        assertRepairDeskPermission(actor, "order:detail");
+        assertOrderDetailReadPermission(actor);
         return ok(await api.listKioskSessions(actor));
       default:
         return NextResponse.json({ error: "接口不存在" }, { status: 404 });
@@ -701,10 +702,13 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       }
       case "orders/list":
+        assertOrderListPermission(actor);
         return ok(await api.listOrders(orderListFiltersSchema.parse(body), actor));
       case "orders/list-page":
+        assertOrderListPermission(actor);
         return ok(await api.listOrdersPage(orderListPageInputSchema.parse(body), actor));
       case "orders/queue-summary": {
+        assertOrderListPermission(actor);
         const input = orderListPageInputSchema.parse(body);
         const [listResult, workflowResult, optionsResult] = await Promise.allSettled([
           api.listOrdersPage(input, actor),
@@ -742,6 +746,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok({ list: listResult.value, workflow, options, partialErrors });
       }
       case "dashboard/summary": {
+        assertOrderListPermission(actor);
         const { pageSize = 6 } = dashboardSummaryInputSchema.parse(body);
         const [recentOrdersResult, statsResult] = await Promise.allSettled([
           api.listOrdersPage({ page: 1, pageSize }, actor),
@@ -796,6 +801,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       case "order/get": {
         const { id } = idBodySchema.parse(body);
+        assertOrderDetailReadPermission(actor);
         return ok(await api.getOrder(id, actor));
       }
       case "inventory/get": {
@@ -1447,6 +1453,14 @@ export function allowsPendingStore(path: string, method: "GET" | "POST") {
     path === "platform/onboarding/approve" ||
     path === "platform/onboarding/reject"
   );
+}
+
+export function assertOrderListPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "order:list");
+}
+
+export function assertOrderDetailReadPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "order:detail");
 }
 
 export function assertOrderCreatePermission(actor: AuditActor) {

@@ -9,6 +9,8 @@ import { ForbiddenError } from "@/server/auth-context";
 
 import { allowsPendingStore } from "./repairdesk-router";
 import {
+  assertOrderDetailReadPermission,
+  assertOrderListPermission,
   assertCustomerCreatePermission,
   assertCustomerMessagePermission,
   assertCustomerTagPermission,
@@ -84,6 +86,13 @@ describe("repairdesk router pending-store access", () => {
 });
 
 describe("repairdesk router order write permissions", () => {
+  it("requires scoped order read permissions for restricted roles", () => {
+    expect(() => assertOrderListPermission(actor("owner"))).not.toThrow();
+    expect(() => assertOrderDetailReadPermission(actor("sales"))).not.toThrow();
+    expect(() => assertOrderListPermission(actor("technician"))).toThrow(ForbiddenError);
+    expect(() => assertOrderDetailReadPermission(actor("viewer"))).toThrow(ForbiddenError);
+  });
+
   it("rejects viewer order create, full update, and IMEI patch writes", () => {
     const viewer = actor("viewer");
 
