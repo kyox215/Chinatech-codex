@@ -11,3 +11,4 @@
 
 No production migration was applied at this evidence checkpoint.
 - `2026-07-09T12:58:24Z` `a726c7aea9` — supabase/migrations/20260709125247_repairdesk_historical_schema_reconcile.sql; Supabase MCP row-count and violation checks; BEGIN/ROLLBACK preflight success.
+- `2026-07-09T13:05:08Z` `ccc259d8fc` — main commit 26d0417d pushed; remote migration history includes 20260709125247 repairdesk_historical_schema_reconcile; post-apply metadata query returned expected indexes/constraints/function/trigger/policy present.

@@ -1,5 +1,7 @@
 ---
-updated_at: "2026-07-09T12:58:24Z"
+updated_at: "2026-07-09T13:05:17Z"
+status: "closed"
+closed_at: "2026-07-09T13:05:17Z"
 ---
 # TASK-20260709-015 Migration History Reconcile
 
