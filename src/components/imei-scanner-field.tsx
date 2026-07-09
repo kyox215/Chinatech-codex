@@ -72,9 +72,10 @@ type VideoFrameCaptureOptions = {
 
 const imeiImageMaxBytes = 8 * 1024 * 1024;
 const imeiBarcodeDecodeTimeoutMs = 2500;
+const imeiFastBarcodeDecodeTimeoutMs = 450;
 const imeiOcrDecodeTimeoutMs = 8500;
 const imeiCenterCropRecognitionScale = 1.8;
-const imeiCenterCropScanIntervalMs = 1100;
+const imeiCenterCropScanIntervalMs = 250;
 const imeiImageAccept =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
 const imeiImageMimeTypes = new Set([
@@ -117,6 +118,7 @@ export function ImeiScannerField({
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
+  const [isFrameLocked, setIsFrameLocked] = useState(false);
   const [warning, setWarning] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [captureCandidates, setCaptureCandidates] = useState<ImeiSelectableCandidate[]>([]);
@@ -133,6 +135,7 @@ export function ImeiScannerField({
   const controlsRef = useRef<IScannerControls | null>(null);
   const centerCropDecodeIntervalRef = useRef<number | null>(null);
   const capturePreviewCleanupRef = useRef<(() => void) | null>(null);
+  const scannerLockInProgressRef = useRef(false);
   const scannerRunIdRef = useRef(0);
   const onChangeRef = useRef(onChange);
   const lastStartScannerTokenRef = useRef(startScannerToken);
@@ -188,6 +191,8 @@ export function ImeiScannerField({
     setSelectedCandidateId("");
     setScannerManualValue("");
     setIsImageProcessing(false);
+    setIsFrameLocked(false);
+    scannerLockInProgressRef.current = false;
   }, [replaceCapturePreview]);
 
   useEffect(
@@ -317,6 +322,8 @@ export function ImeiScannerField({
 
       stopScanner();
       setIsImageProcessing(true);
+      setIsFrameLocked(false);
+      scannerLockInProgressRef.current = false;
       setCaptureError("");
       setCaptureCandidates([]);
       replaceCapturePreview(null);
@@ -346,6 +353,8 @@ export function ImeiScannerField({
     }
 
     setIsImageProcessing(true);
+    setIsFrameLocked(true);
+    scannerLockInProgressRef.current = true;
     setCaptureError("");
     setCaptureCandidates([]);
     replaceCapturePreview(null);
@@ -376,35 +385,54 @@ export function ImeiScannerField({
 
   const handleCameraDecodeResult = useCallback(
     async (rawValue: string) => {
+      if (scannerLockInProgressRef.current) return;
+      scannerLockInProgressRef.current = true;
+      setIsFrameLocked(true);
+      setIsImageProcessing(true);
+      setCaptureError("");
+      setCaptureCandidates([]);
+      setSelectedCandidateId("");
+
       const video = videoRef.current;
       if (!video) {
         handleCapturedText(rawValue, "camera");
+        setIsImageProcessing(false);
         return;
       }
 
+      let frame: Awaited<ReturnType<typeof createImageElementFromVideoFrame>> | null = null;
       try {
-        const frame = await createImageElementFromVideoFrame(video, {
+        frame = await createImageElementFromVideoFrame(video, {
+          alt: "已锁定的扫码画面",
           cropScale: activeCameraMode === "enhanced" ? imeiCenterCropRecognitionScale : 1,
         });
-        const detections = await withImageRecognitionTimeout(
-          detectBarcodeValuesFromImageElement(frame.image),
-          imeiBarcodeDecodeTimeoutMs,
-          "条码识别超时",
-        ).catch((): ImeiBarcodeDetection[] => []);
+        stopScanner();
+        replaceCapturePreview(frame.preview);
 
-        handleCapturedText(
-          detections.length ? detections.map((d) => d.rawValue).join("\n") : rawValue,
-          "camera",
-          {
-            detections,
+        const rawCandidates = extractImeiCandidates(rawValue, {
+          source: "camera",
+          includeGenericSerial: true,
+        });
+        if (rawCandidates.length > 0) {
+          handleCapturedText(rawValue, "camera", {
             preview: frame.preview,
-          },
-        );
+          });
+          return;
+        }
+
+        const recognition = await recognizeFastBarcodeFromImageElement(frame.image);
+
+        handleCapturedText(recognition.text || rawValue, recognition.source, {
+          ...recognition,
+          preview: frame.preview,
+        });
       } catch {
-        handleCapturedText(rawValue, "camera");
+        handleCapturedText(rawValue, "camera", frame ? { preview: frame.preview } : {});
+      } finally {
+        setIsImageProcessing(false);
       }
     },
-    [activeCameraMode, handleCapturedText],
+    [activeCameraMode, handleCapturedText, replaceCapturePreview, stopScanner],
   );
 
   const startCenterCropDecodeLoop = useCallback(
@@ -419,38 +447,52 @@ export function ImeiScannerField({
 
       let decodeInProgress = false;
       centerCropDecodeIntervalRef.current = window.setInterval(() => {
-        if (decodeInProgress || scannerRunIdRef.current !== runId) return;
+        if (
+          decodeInProgress ||
+          scannerLockInProgressRef.current ||
+          scannerRunIdRef.current !== runId
+        ) {
+          return;
+        }
         const video = videoRef.current;
         if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
 
         decodeInProgress = true;
         void (async () => {
+          let lockedByThisDecode = false;
           try {
             const frame = await createImageElementFromVideoFrame(video, {
+              alt: "中心裁切增强识别截图",
               cropScale: imeiCenterCropRecognitionScale,
             });
-            const recognition = await recognizeBarcodeFromImageElement(frame.image);
-            if (scannerRunIdRef.current !== runId) return;
+            const recognition = await recognizeFastBarcodeFromImageElement(frame.image);
+            if (scannerRunIdRef.current !== runId || scannerLockInProgressRef.current) return;
+            scannerLockInProgressRef.current = true;
+            setIsFrameLocked(true);
+            setIsImageProcessing(true);
+            lockedByThisDecode = true;
+            stopScanner();
+            replaceCapturePreview(frame.preview);
             handleCapturedText(recognition.text, "camera", {
               ...recognition,
-              preview: {
-                ...frame.preview,
-                alt: "中心裁切增强识别截图",
-              },
+              preview: frame.preview,
             });
           } catch {
             // The regular ZXing stream scanner continues running; this loop is only an enhanced
             // center-crop assist for small IMEI labels.
           } finally {
+            if (lockedByThisDecode) setIsImageProcessing(false);
             decodeInProgress = false;
           }
         })();
       }, imeiCenterCropScanIntervalMs);
     },
-    [handleCapturedText],
+    [handleCapturedText, replaceCapturePreview, stopScanner],
   );
 
   const handleRetryCapture = useCallback(() => {
+    scannerLockInProgressRef.current = false;
+    setIsFrameLocked(false);
     setCaptureError("");
     setCaptureCandidates([]);
     setSelectedCandidateId("");
@@ -465,7 +507,7 @@ export function ImeiScannerField({
       return;
     }
 
-    if (captureCandidates.length > 0 || captureError || isImageProcessing) {
+    if (captureCandidates.length > 0 || captureError || isImageProcessing || isFrameLocked) {
       stopScanner();
       return;
     }
@@ -530,6 +572,7 @@ export function ImeiScannerField({
     captureCandidates.length,
     captureError,
     handleCameraDecodeResult,
+    isFrameLocked,
     isImageProcessing,
     resetCaptureState,
     scannerOpen,
@@ -700,6 +743,11 @@ export function ImeiScannerField({
                     {activeCameraMode === "enhanced" ? "1x 取景 · 中心增强" : "1x 兼容扫码"}
                   </div>
                 ) : null}
+                {isFrameLocked && capturePreview ? (
+                  <div className="pointer-events-none absolute left-2 top-2 rounded bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                    画面已锁定
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {captureError ? (
@@ -787,6 +835,7 @@ export function ImeiScannerField({
                 cameraMode: activeCameraMode,
                 candidateCount: captureCandidates.length,
                 hasCaptureError: Boolean(captureError),
+                isFrameLocked,
               })}
             </span>
             {captureCandidates.length > 0 ? (
@@ -957,6 +1006,34 @@ async function recognizeBarcodeFromImageElement(
     decodeBarcodeFromImageElement(image),
     imeiBarcodeDecodeTimeoutMs,
     "条码识别超时",
+  );
+  return {
+    text: barcodeText,
+    source: "image",
+  };
+}
+
+async function recognizeFastBarcodeFromImageElement(
+  image: HTMLImageElement,
+): Promise<ImeiRecognitionResult> {
+  const barcodeDetections = await withImageRecognitionTimeout(
+    detectBarcodeValuesFromImageElement(image),
+    imeiFastBarcodeDecodeTimeoutMs,
+    "快速条码识别超时",
+  ).catch((): ImeiBarcodeDetection[] => []);
+
+  if (barcodeDetections.length > 0) {
+    return {
+      text: barcodeDetections.map((detection) => detection.rawValue).join("\n"),
+      source: "barcode",
+      detections: barcodeDetections,
+    };
+  }
+
+  const barcodeText = await withImageRecognitionTimeout(
+    decodeBarcodeFromImageElement(image),
+    imeiFastBarcodeDecodeTimeoutMs,
+    "快速条码识别超时",
   );
   return {
     text: barcodeText,
@@ -1430,6 +1507,7 @@ function getCaptureCandidatesMessage(candidates: readonly ImeiCandidate[]) {
 
 function getScannerStatusText({
   isImageProcessing,
+  isFrameLocked,
   isStarting,
   isCameraActive,
   cameraMode,
@@ -1437,18 +1515,21 @@ function getScannerStatusText({
   hasCaptureError,
 }: {
   isImageProcessing: boolean;
+  isFrameLocked: boolean;
   isStarting: boolean;
   isCameraActive: boolean;
   cameraMode: ImeiScannerCameraMode;
   candidateCount: number;
   hasCaptureError: boolean;
 }) {
+  if (isFrameLocked && isImageProcessing) return "已锁定画面，正在快速识别...";
   if (isImageProcessing) return "正在识别图片 / OCR...";
   if (isStarting) return "正在启动 1x 摄像头，识别时会自动中心裁切增强...";
   if (candidateCount > 0) return `已识别 ${candidateCount} 个候选，请选择要填入的编号。`;
+  if (isFrameLocked) return "已锁定画面，可选择候选、重试或上传图片。";
   if (hasCaptureError) return "可重试、上传图片或手动输入。";
   if (isCameraActive && cameraMode === "enhanced") {
-    return "1x 取景中；系统会裁切放大中间区域识别，必要时点拍照 OCR。";
+    return "1x 取景中；对准条码会自动锁定画面并快速识别。";
   }
   if (isCameraActive) return "正在扫描，保持条码在画面中；识别后会在下方显示候选。";
   return "摄像头已停止，可上传图片或手动输入。";

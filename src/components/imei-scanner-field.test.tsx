@@ -214,6 +214,93 @@ describe("ImeiScannerField", () => {
     expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
   });
 
+  it("locks the live camera frame immediately when the raw scan already has candidates", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      "decode",
+    );
+    const canvasGetContextDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    );
+    const canvasToDataUrlDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "toDataURL",
+    );
+    const barcodeDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "BarcodeDetector");
+    const drawImageMock = vi.fn();
+    const barcodeDetectMock = vi.fn();
+
+    zxingMocks.decodeFromConstraints.mockImplementation(async (_constraints, video, callback) => {
+      Object.defineProperty(video, "videoWidth", { configurable: true, value: 640 });
+      Object.defineProperty(video, "videoHeight", { configurable: true, value: 480 });
+      callback({
+        getText: () => "IMEI: 356938035643809",
+      });
+      return { stop: zxingMocks.stop };
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+      configurable: true,
+      value: vi.fn(() => ({ drawImage: drawImageMock })),
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", {
+      configurable: true,
+      value: vi.fn(() => "data:image/png;base64,iVBORw0KGgo="),
+    });
+    Object.defineProperty(window, "BarcodeDetector", {
+      configurable: true,
+      value: class BarcodeDetectorMock {
+        async detect() {
+          barcodeDetectMock();
+          return [];
+        }
+      },
+    });
+
+    try {
+      render(<ImeiScannerField value="" onChange={onChange} />);
+
+      await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "已识别 1 个编号，请确认后再填入。",
+      );
+      expect(screen.getByAltText("已锁定的扫码画面")).toBeInTheDocument();
+      expect(screen.getByText("画面已锁定")).toBeInTheDocument();
+      expect(drawImageMock).toHaveBeenCalled();
+      expect(barcodeDetectMock).not.toHaveBeenCalled();
+      expect(zxingMocks.decodeFromImageElement).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {
+      if (imageDecodeDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);
+      } else {
+        delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+      }
+      if (canvasGetContextDescriptor) {
+        Object.defineProperty(
+          HTMLCanvasElement.prototype,
+          "getContext",
+          canvasGetContextDescriptor,
+        );
+      }
+      if (canvasToDataUrlDescriptor) {
+        Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", canvasToDataUrlDescriptor);
+      }
+      if (barcodeDetectorDescriptor) {
+        Object.defineProperty(window, "BarcodeDetector", barcodeDetectorDescriptor);
+      } else {
+        delete (window as Partial<Window & { BarcodeDetector?: unknown }>).BarcodeDetector;
+      }
+    }
+  });
+
   it("does not restart the camera when the parent rerenders with a new change handler", async () => {
     const user = userEvent.setup();
     zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
