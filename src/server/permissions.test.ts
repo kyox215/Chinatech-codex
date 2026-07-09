@@ -99,6 +99,18 @@ describe("server permission matrix", () => {
     expect(can(actor("sales"), "payment:adjust")).toBe(false);
   });
 
+  it("limits batch order transitions to owner and manager", () => {
+    expect(getPermissionDecision(actor("owner"), "order:batch_transition")).toMatchObject({
+      allowed: true,
+      auditRequired: true,
+      sensitive: true,
+    });
+    expect(can(actor("manager"), "order:batch_transition")).toBe(true);
+    expect(can(actor("technician"), "order:batch_transition")).toBe(false);
+    expect(can(actor("sales"), "order:batch_transition")).toBe(false);
+    expect(can(actor("viewer"), "order:batch_transition")).toBe(false);
+  });
+
   it("splits normal payment collection from high-risk money changes", () => {
     expect(can(actor("owner"), "payment:collect")).toBe(true);
     expect(can(actor("manager"), "payment:collect")).toBe(true);
@@ -205,6 +217,7 @@ describe("server permission matrix", () => {
   it("marks high-risk actions as audit-required", () => {
     const highRiskActions = [
       "order:export",
+      "order:batch_transition",
       "customer:export",
       "payment:adjust",
       "payment:refund",

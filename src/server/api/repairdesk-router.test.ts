@@ -20,9 +20,13 @@ import {
   assertInventoryUpdatePermission,
   assertMemberInvitePermission,
   assertMemberManagePermission,
+  assertMemberPermissionGrantPermission,
   assertMemberRevokePermission,
+  assertOrderAttachmentUploadPermission,
+  assertOrderBatchTransitionPermission,
   assertMessageTemplatePermission,
   assertOrderCreatePermission,
+  assertOrderCustomerMessagePermission,
   assertOrderFinancePermission,
   assertOrderPaymentPermission,
   assertOrderPatchPermission,
@@ -247,6 +251,28 @@ describe("repairdesk router non-order write permissions", () => {
     expect(() => assertOrderTransitionPermission(actor("viewer"))).toThrow(ForbiddenError);
   });
 
+  it("restricts batch order transitions to owner and manager", () => {
+    expect(() => assertOrderBatchTransitionPermission(actor("owner"))).not.toThrow();
+    expect(() => assertOrderBatchTransitionPermission(actor("manager"))).not.toThrow();
+    expect(() => assertOrderBatchTransitionPermission(actor("technician"))).toThrow(ForbiddenError);
+    expect(() => assertOrderBatchTransitionPermission(actor("sales"))).toThrow(ForbiddenError);
+    expect(() => assertOrderBatchTransitionPermission(actor("viewer"))).toThrow(ForbiddenError);
+  });
+
+  it("allows operational order photo uploads but blocks customer messaging for technicians", () => {
+    expect(() => assertOrderAttachmentUploadPermission(actor("owner"))).not.toThrow();
+    expect(() => assertOrderAttachmentUploadPermission(actor("manager"))).not.toThrow();
+    expect(() => assertOrderAttachmentUploadPermission(actor("technician"))).not.toThrow();
+    expect(() => assertOrderAttachmentUploadPermission(actor("sales"))).not.toThrow();
+    expect(() => assertOrderAttachmentUploadPermission(actor("viewer"))).toThrow(ForbiddenError);
+
+    expect(() => assertOrderCustomerMessagePermission(actor("owner"))).not.toThrow();
+    expect(() => assertOrderCustomerMessagePermission(actor("manager"))).not.toThrow();
+    expect(() => assertOrderCustomerMessagePermission(actor("sales"))).not.toThrow();
+    expect(() => assertOrderCustomerMessagePermission(actor("technician"))).toThrow(ForbiddenError);
+    expect(() => assertOrderCustomerMessagePermission(actor("viewer"))).toThrow(ForbiddenError);
+  });
+
   it("keeps settings, workflow, and message templates owner-manager only", () => {
     for (const assertSettingsPermission of [
       assertStoreSettingsUpdatePermission,
@@ -272,6 +298,13 @@ describe("repairdesk router non-order write permissions", () => {
       expect(() => assertMemberPermission(actor("sales"))).toThrow(ForbiddenError);
       expect(() => assertMemberPermission(actor("viewer"))).toThrow(ForbiddenError);
     }
+  });
+
+  it("requires owner-level grant permission before editing member supplier permissions", () => {
+    expect(() => assertMemberPermissionGrantPermission(actor("owner"))).not.toThrow();
+    expect(() => assertMemberPermissionGrantPermission(actor("manager"))).toThrow(ForbiddenError);
+    expect(() => assertMemberPermissionGrantPermission(actor("sales"))).toThrow(ForbiddenError);
+    expect(() => assertMemberPermissionGrantPermission(actor("viewer"))).toThrow(ForbiddenError);
   });
 
   it("maps inventory writes to granular permission actions", () => {

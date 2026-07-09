@@ -949,6 +949,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/attachment/upload": {
         const { id, input } = orderAttachmentUploadBodySchema.parse(body);
+        assertOrderAttachmentUploadPermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -978,7 +979,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/batch-transition": {
         const { ids, to } = batchTransitionBodySchema.parse(body);
-        assertOrderTransitionPermission(actor);
+        assertOrderBatchTransitionPermission(actor);
         return ok(
           await auditGeneric(
             actor,
@@ -1083,6 +1084,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/notification": {
         const { id, body: messageBody, channel } = notificationBodySchema.parse(body);
+        assertOrderCustomerMessagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1099,6 +1101,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           transition_to,
           recipient_phone,
         } = whatsappNotificationBodySchema.parse(body);
+        assertOrderCustomerMessagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1117,6 +1120,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "order/approval-request": {
         const { id, body: messageBody, recipient_phone } = approvalRequestBodySchema.parse(body);
+        assertOrderCustomerMessagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1317,6 +1321,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
           ),
         );
       case "stores/members/update-permissions":
+        assertMemberPermissionGrantPermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1472,6 +1477,18 @@ export function assertOrderTransitionPermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "order:transition");
 }
 
+export function assertOrderBatchTransitionPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "order:batch_transition");
+}
+
+export function assertOrderAttachmentUploadPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "order:photo_upload");
+}
+
+export function assertOrderCustomerMessagePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "customer:message");
+}
+
 export function assertCustomerCreatePermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "customer:create");
 }
@@ -1538,6 +1555,10 @@ export function assertMemberManagePermission(actor: AuditActor) {
 
 export function assertMemberRevokePermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "member:revoke");
+}
+
+export function assertMemberPermissionGrantPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "member:grant_manager");
 }
 
 export function resolveOrderUpdatePermissionActions(input: UpdateOrderInput): PermissionAction[] {
