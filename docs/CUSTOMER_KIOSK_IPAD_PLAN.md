@@ -1,29 +1,35 @@
 # Customer Kiosk iPad Plan
 
-Status: MVP foundation implemented locally; production migration not applied
+Status: MVP foundation, staff review, and signature evidence implemented; broad migration history drift remains
 Owner: Hexiang Huang / 鹤祥
 Scope: Chinatech RepairDesk customer-facing iPad mode for intake forms, missing customer details, pickup confirmation, and signatures.
 Last updated: 2026-07-09
 
 ## Implementation Snapshot
 
-Implemented in the local RepairDesk app:
+Implemented in the RepairDesk app:
 
 - Store-scoped kiosk device/session types, client API methods, mock API, and server repository.
-- Supabase expand-only migration draft for `store_kiosk_devices` and `customer_kiosk_sessions`.
+- Supabase expand-only migration for `store_kiosk_devices` and `customer_kiosk_sessions`; remote project `xluzcoduqsdvjoouqhkc` lists `20260709233000_customer_kiosk_ipad_mvp` as applied.
 - Public `/kiosk` customer page with pairing code entry, queued session polling, customer fields, confirmation checkbox, optional signature canvas, and submit state.
 - Public kiosk API routes: `/api/kiosk/pair`, `/api/kiosk/session`, `/api/kiosk/session/submit`.
 - Settings page section for generating iPad pairing codes, listing devices, revoking devices, and viewing recent kiosk sessions.
 - Staff push entry from `/orders/[id]` and `/orders/[id]/task` to send a pickup confirmation session to the active iPad.
 - Public route/provider bypass so `/kiosk` is not wrapped in the staff AppShell and does not require staff login.
+- Staff review/accept/return UI mutates canonical customer/order records only after staff approval.
+- Accepted kiosk submissions with signatures save a private `order_attachments.kind = signature` record, set `repair_orders.customer_signature` to an attachment marker for compatibility, remove the raw signature data URL from the accepted kiosk session payload, and show signature evidence in order detail.
 
 Still planned for later phases:
 
 - `/orders/new` intake push that auto-fills the new order form after staff review.
-- Staff review/accept/return UI that mutates canonical customer/order records after customer submission.
 - Realtime push notification instead of polling.
-- Signature attachment persistence into `order_attachments` and pickup-specific order fields.
+- Pickup-specific completion fields/workflow automation beyond attachment evidence, such as dedicated pickup confirmation payload fields and completion warnings.
 - Owner-approved legal/privacy wording before production customer use.
+
+Database note:
+
+- `supabase db push --linked --dry-run` currently refuses a normal push because 25 historical local migrations are older than the last remote migration and would require `--include-all`. Do not run broad include-all for kiosk work.
+- For the signature evidence phase, read-only remote checks confirmed `public.order_attachments`, `repair_orders.customer_signature`, the private `repairdesk-order-attachments` storage bucket, RLS, and the signature kind constraint already exist.
 
 ## 1. Executive Summary
 

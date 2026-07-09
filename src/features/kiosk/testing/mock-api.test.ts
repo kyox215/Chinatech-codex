@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { customers, orders } from "@/lib/mock/state";
+import { getOrder } from "@/features/orders/testing/mock-api";
 
 import {
   acceptKioskSession,
@@ -72,5 +73,40 @@ describe("kiosk mock API review flow", () => {
     const publicSession = await getKioskPublicSession("demo-kiosk-token");
     expect(publicSession?.session.status).toBe("returned");
     expect(publicSession?.session.request_payload).not.toHaveProperty("staff_return_reason");
+  });
+
+  it("stores accepted iPad signatures as order evidence without retaining the raw data URL", async () => {
+    const order = orders[2]!;
+    const session = await createKioskSession(
+      {
+        device_id: "kiosk_device_demo",
+        session_type: "pickup_signature",
+        order_id: order.id,
+        customer_id: order.customer_id,
+      },
+      actor,
+    );
+
+    await submitKioskPublicSession("demo-kiosk-token", {
+      confirmation_checked: true,
+      signature_data_url:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    });
+
+    const accepted = await acceptKioskSession(session.id, actor);
+    expect(accepted.status).toBe("accepted");
+    expect(accepted.submission_payload).toMatchObject({
+      has_signature: true,
+      signature_attachment_id: expect.any(String),
+    });
+    expect(accepted.submission_payload).not.toHaveProperty("signature_data_url");
+
+    const detail = await getOrder(order.id, actor);
+    expect(detail.order.customer_signature).toContain("order_attachment:");
+    expect(detail.attachments[0]).toMatchObject({
+      kind: "signature",
+      mime_type: "image/png",
+      note: "iPad pickup/customer signature",
+    });
   });
 });

@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
@@ -10,6 +11,7 @@ import {
   ORDER_SELECT,
   decorate,
   fail,
+  failStorageOperation,
   maybeString,
   money,
   operatorNameFromActor,
@@ -36,6 +38,8 @@ type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
 const PAIRING_CODE_TTL_MINUTES = 15;
 const SESSION_DEFAULT_TTL_MINUTES = 30;
+const ORDER_ATTACHMENT_BUCKET = "repairdesk-order-attachments";
+const KIOSK_SIGNATURE_MAX_BYTES = 8 * 1024 * 1024;
 
 interface NormalizedKioskSubmission {
   customer_name?: string;
@@ -45,6 +49,7 @@ interface NormalizedKioskSubmission {
   language?: "it" | "zh" | "en";
   confirmation_checked: boolean;
   has_signature: boolean;
+  signature_data_url?: string;
   note?: string;
 }
 
@@ -247,10 +252,26 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
     throw new Error("该 iPad 提交未绑定客户，暂不能直接写入客户档案");
   }
 
+  const signatureAttachment =
+    session.order_id && submission.signature_data_url
+      ? await persistKioskSignatureAttachment(supabase, {
+          storeId,
+          orderId: session.order_id,
+          session,
+          submission,
+          operatorName,
+          now,
+        })
+      : undefined;
+
   const { data, error } = await supabase
     .from("customer_kiosk_sessions")
     .update({
       status: "accepted",
+      submission_payload: acceptedSubmissionPayload(
+        session.submission_payload,
+        signatureAttachment,
+      ),
       accepted_by: operatorName,
       accepted_at: now,
       updated_at: now,
@@ -269,7 +290,10 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
       orderId: session.order_id,
       operatorName,
       action: "kiosk_session_accepted",
-      payload: kioskReviewEventPayload(session, submission),
+      payload: {
+        ...kioskReviewEventPayload(session, submission),
+        ...(signatureAttachment ? { signature_attachment_id: signatureAttachment.id } : {}),
+      },
     });
   }
 
@@ -633,7 +657,12 @@ function submissionFromPayload(
         ? source.language
         : undefined,
     confirmation_checked: source.confirmation_checked === true,
-    has_signature: Boolean(maybeString(source.signature_data_url)),
+    has_signature: Boolean(
+      maybeString(source.signature_data_url) ||
+      maybeString(source.signature_attachment_id) ||
+      source.has_signature === true,
+    ),
+    signature_data_url: maybeString(source.signature_data_url),
     note: maybeString(source.note),
   };
 }
@@ -664,6 +693,130 @@ function kioskReviewEventPayload(
     confirmation_checked: submission.confirmation_checked,
     has_note: Boolean(submission.note),
   };
+}
+
+function acceptedSubmissionPayload(
+  payload: Record<string, unknown> | undefined,
+  signatureAttachment?: { id: string },
+): Record<string, unknown> {
+  const next = { ...(payload ?? {}) };
+  if (signatureAttachment) {
+    delete next.signature_data_url;
+    next.has_signature = true;
+    next.signature_attachment_id = signatureAttachment.id;
+  }
+  return next;
+}
+
+async function persistKioskSignatureAttachment(
+  supabase: SupabaseAdmin,
+  input: {
+    storeId: string;
+    orderId: string;
+    session: KioskSession;
+    submission: NormalizedKioskSubmission;
+    operatorName: string;
+    now: string;
+  },
+): Promise<{ id: string; mime_type: string; file_size: number }> {
+  if (!input.submission.signature_data_url) throw new Error("缺少客户签名");
+  const parsed = parseKioskSignatureDataUrl(input.submission.signature_data_url);
+  const attachmentId = randomUUID();
+  const fileName = `kiosk-signature-${input.session.id}-v${input.session.submission_version}.${parsed.extension}`;
+  const storagePath = `${input.storeId}/${input.orderId}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(ORDER_ATTACHMENT_BUCKET)
+    .upload(storagePath, parsed.bytes, {
+      contentType: parsed.mimeType,
+      upsert: false,
+    });
+  failStorageOperation(uploadError, "上传 iPad 签名失败", ORDER_ATTACHMENT_BUCKET);
+
+  const row = {
+    id: attachmentId,
+    store_id: input.storeId,
+    order_id: input.orderId,
+    kind: "signature",
+    file_name: fileName,
+    mime_type: parsed.mimeType,
+    file_size: parsed.bytes.byteLength,
+    storage_bucket: ORDER_ATTACHMENT_BUCKET,
+    storage_path: storagePath,
+    note: "iPad pickup/customer signature",
+    uploaded_by: input.operatorName,
+    created_at: input.now,
+    updated_at: input.now,
+  };
+
+  const { error: insertError } = await supabase.from("order_attachments").insert(row);
+  if (insertError) {
+    await supabase.storage
+      .from(ORDER_ATTACHMENT_BUCKET)
+      .remove([storagePath])
+      .catch(() => undefined);
+    fail(insertError, "保存 iPad 签名附件失败");
+  }
+
+  const { error: orderError } = await supabase
+    .from("repair_orders")
+    .update({ customer_signature: `order_attachment:${attachmentId}`, updated_at: input.now })
+    .eq("store_id", input.storeId)
+    .eq("id", input.orderId);
+  fail(orderError, "更新工单签名状态失败");
+
+  await writeKioskOrderEvent(supabase, {
+    storeId: input.storeId,
+    orderId: input.orderId,
+    operatorName: input.operatorName,
+    action: "kiosk_signature_saved",
+    payload: {
+      session_id: input.session.id,
+      session_type: input.session.session_type,
+      attachment_id: attachmentId,
+      mime_type: parsed.mimeType,
+      file_size: parsed.bytes.byteLength,
+    },
+  });
+
+  return { id: attachmentId, mime_type: parsed.mimeType, file_size: parsed.bytes.byteLength };
+}
+
+function parseKioskSignatureDataUrl(dataUrl: string) {
+  const match = /^data:image\/(png|jpeg|webp);base64,([a-z0-9+/=\s]+)$/i.exec(dataUrl.trim());
+  if (!match) throw new Error("签名图片格式无效");
+  const subtype = match[1]!.toLowerCase();
+  const base64 = match[2]!.replace(/\s+/g, "");
+  const bytes = Buffer.from(base64, "base64");
+  if (bytes.byteLength === 0) throw new Error("签名图片为空");
+  if (bytes.byteLength > KIOSK_SIGNATURE_MAX_BYTES) throw new Error("签名图片不能超过 8MB");
+  const mimeType = `image/${subtype === "jpeg" ? "jpeg" : subtype}`;
+  assertKioskSignatureMagicBytes(bytes, mimeType);
+  return {
+    bytes,
+    mimeType,
+    extension: subtype === "jpeg" ? "jpg" : subtype,
+  };
+}
+
+function assertKioskSignatureMagicBytes(bytes: Buffer, mimeType: string) {
+  if (mimeType === "image/jpeg" && bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) {
+    return;
+  }
+  if (
+    mimeType === "image/png" &&
+    bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return;
+  }
+  if (
+    mimeType === "image/webp" &&
+    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+    bytes.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return;
+  }
+  throw new Error("签名图片内容与文件类型不匹配");
 }
 
 async function readActiveDevice(supabase: SupabaseAdmin, storeId: string, id: string) {

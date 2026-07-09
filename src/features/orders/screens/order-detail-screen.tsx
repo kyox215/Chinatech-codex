@@ -645,8 +645,11 @@ export function OrderDetailScreen({
     order.device_snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei || "";
   const deviceNotes = order.device_snapshot?.device_notes || device?.device_notes;
   const accessoryNotes = order.accessory_notes;
-  const photoAttachments = (data.attachments ?? []).filter((attachment) =>
-    attachment.mime_type.startsWith("image/"),
+  const signatureAttachments = (data.attachments ?? []).filter(
+    (attachment) => attachment.kind === "signature",
+  );
+  const photoAttachments = (data.attachments ?? []).filter(
+    (attachment) => attachment.mime_type.startsWith("image/") && attachment.kind !== "signature",
   );
 
   return (
@@ -825,6 +828,7 @@ export function OrderDetailScreen({
               workflow={workflow}
               onShowRecords={scrollToDesktopRecords}
               photoAttachments={photoAttachments}
+              signatureAttachments={signatureAttachments}
               photoUploadPending={attachmentUpload.isPending}
               onPhotoCapture={() => setDesktopPhotoCaptureOpen(true)}
               onRequestKioskSignature={() => kioskSignatureRequest.mutate()}
@@ -1599,7 +1603,10 @@ function MobileOrderDetailView({
   );
   const photoAttachments = useMemo(
     () =>
-      (data.attachments ?? []).filter((attachment) => attachment.mime_type.startsWith("image/")),
+      (data.attachments ?? []).filter(
+        (attachment) =>
+          attachment.mime_type.startsWith("image/") && attachment.kind !== "signature",
+      ),
     [data.attachments],
   );
   const latestEvent = events[0];
