@@ -71,6 +71,7 @@ import {
   ORDER_LIST_SELECT,
   ORDER_SELECT,
   REPAIR_ORDER_CUSTOMER_EMBED,
+  REPAIR_ORDER_DEVICE_EMBED,
   type DbRecord,
   attachmentFromRow,
   customerFromRow,
@@ -2151,7 +2152,7 @@ export async function patchOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      `id,customer_id,device_id,updated_at,device_snapshot,device:devices(*),${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
+      `id,customer_id,device_id,updated_at,device_snapshot,${REPAIR_ORDER_DEVICE_EMBED}(*),${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
     )
     .eq("store_id", storeId)
     .eq("id", id)

@@ -36,6 +36,11 @@ export type DbRecord = Record<string, unknown>;
 export const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 export const REPAIR_ORDER_CUSTOMER_EMBED =
   "customer:customers!repair_orders_customer_same_store_fkey";
+export const REPAIR_ORDER_DEVICE_EMBED = "device:devices!repair_orders_device_same_store_fkey";
+export const REPAIR_ORDER_SUPPLIER_EMBED =
+  "supplier:suppliers!repair_orders_supplier_same_store_fkey";
+export const REPAIR_ORDER_PARTS_SUPPLIER_EMBED =
+  "parts_supplier:suppliers!repair_orders_parts_supplier_same_store_fkey";
 
 export function storeIdFromActor(actor?: Pick<AuditActor, "storeId"> | string | null) {
   if (!actor) return DEFAULT_STORE_ID;
@@ -69,9 +74,9 @@ export function operatorNameFromActor(
 export const ORDER_SELECT = `
   *,
   ${REPAIR_ORDER_CUSTOMER_EMBED}(*),
-  device:devices(*),
-  supplier:suppliers!repair_orders_supplier_id_fkey(*),
-  parts_supplier:suppliers!repair_orders_parts_supplier_same_store_fkey(*)
+  ${REPAIR_ORDER_DEVICE_EMBED}(*),
+  ${REPAIR_ORDER_SUPPLIER_EMBED}(*),
+  ${REPAIR_ORDER_PARTS_SUPPLIER_EMBED}(*)
 `;
 
 const ORDER_LIST_PAGE_SIZE = 1000;
@@ -142,15 +147,15 @@ const ORDER_LIST_COLUMNS = `
 export const ORDER_LIST_SELECT = `
   ${ORDER_LIST_COLUMNS},
   ${REPAIR_ORDER_CUSTOMER_EMBED}(*),
-  device:devices(*),
-  supplier:suppliers!repair_orders_supplier_id_fkey(*)
+  ${REPAIR_ORDER_DEVICE_EMBED}(*),
+  ${REPAIR_ORDER_SUPPLIER_EMBED}(*)
 `;
 
 export const ORDER_LIST_LEGACY_SELECT = `
   ${ORDER_LIST_BASE_COLUMNS},
   ${REPAIR_ORDER_CUSTOMER_EMBED}(*),
-  device:devices(*),
-  supplier:suppliers!repair_orders_supplier_id_fkey(*)
+  ${REPAIR_ORDER_DEVICE_EMBED}(*),
+  ${REPAIR_ORDER_SUPPLIER_EMBED}(*)
 `;
 
 export function fail(error: { message: string } | null | undefined, context: string) {
