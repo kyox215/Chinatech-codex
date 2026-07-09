@@ -34,6 +34,8 @@ import type {
 export type DbRecord = Record<string, unknown>;
 
 export const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
+export const REPAIR_ORDER_CUSTOMER_EMBED =
+  "customer:customers!repair_orders_customer_same_store_fkey";
 
 export function storeIdFromActor(actor?: Pick<AuditActor, "storeId"> | string | null) {
   if (!actor) return DEFAULT_STORE_ID;
@@ -66,7 +68,7 @@ export function operatorNameFromActor(
 
 export const ORDER_SELECT = `
   *,
-  customer:customers(*),
+  ${REPAIR_ORDER_CUSTOMER_EMBED}(*),
   device:devices(*),
   supplier:suppliers!repair_orders_supplier_id_fkey(*),
   parts_supplier:suppliers!repair_orders_parts_supplier_same_store_fkey(*)
@@ -139,14 +141,14 @@ const ORDER_LIST_COLUMNS = `
 
 export const ORDER_LIST_SELECT = `
   ${ORDER_LIST_COLUMNS},
-  customer:customers(*),
+  ${REPAIR_ORDER_CUSTOMER_EMBED}(*),
   device:devices(*),
   supplier:suppliers!repair_orders_supplier_id_fkey(*)
 `;
 
 export const ORDER_LIST_LEGACY_SELECT = `
   ${ORDER_LIST_BASE_COLUMNS},
-  customer:customers(*),
+  ${REPAIR_ORDER_CUSTOMER_EMBED}(*),
   device:devices(*),
   supplier:suppliers!repair_orders_supplier_id_fkey(*)
 `;

@@ -70,6 +70,7 @@ import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/li
 import {
   ORDER_LIST_SELECT,
   ORDER_SELECT,
+  REPAIR_ORDER_CUSTOMER_EMBED,
   type DbRecord,
   attachmentFromRow,
   customerFromRow,
@@ -1960,7 +1961,7 @@ export async function updateOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      "id,updated_at,status,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,fault_prices,approval_status,approval_flow_status,approval_sent_at,approval_confirmed_at,warranty_text,warranty_months,warranty_change_reason,customer:customers(contact_phones)",
+      `id,updated_at,status,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,fault_prices,approval_status,approval_flow_status,approval_sent_at,approval_confirmed_at,warranty_text,warranty_months,warranty_change_reason,${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -2150,7 +2151,7 @@ export async function patchOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      "id,customer_id,device_id,updated_at,device_snapshot,device:devices(*),customer:customers(contact_phones)",
+      `id,customer_id,device_id,updated_at,device_snapshot,device:devices(*),${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
     )
     .eq("store_id", storeId)
     .eq("id", id)
