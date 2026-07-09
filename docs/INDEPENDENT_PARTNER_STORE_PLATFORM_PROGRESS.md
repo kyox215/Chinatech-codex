@@ -30,7 +30,7 @@ Owner confirmed the recommended direction on 2026-07-04:
 | Phase 2.1: Pre-production isolation hardening | Completed locally | Yes before role-policy runtime enforcement | Store-scoped client cache keys and behavior-level customer denial tests; no production changes |
 | Phase 2.2: Role-policy approval package | Completed locally | Yes before runtime enforcement | Store role matrix, decision defaults, server-first enforcement plan, and production preflight drafted |
 | Phase 2.3: Phase B1 server permission module | Completed locally | Yes before route gates | Server-only permission matrix and tests added |
-| Phase 2.4: Role permission runtime gates | In progress | No; owner requested execution, main push, and database application | Server route gates, supplier permission-grant migration, and execution plan; field-level response projection remains Phase D |
+| Phase 2.4: Role permission runtime gates | Completed | No | Server route gates, supplier permission-grant migration, and execution plan completed; field-level response projection remains Phase D |
 | Phase 3: Support access and audit | Not started | Yes | Define platform support access scope and duration |
 | Phase 4: Store lifecycle/cooperation | Not started | Yes | Plans, suspension, export, owner transfer |
 | Phase 5: Unified feature rollout controls | Not started | Yes before enabling high-risk feature flags | One codebase/schema for all stores; store differences through settings/feature flags |
@@ -75,7 +75,7 @@ Phase 1 release gates added:
 
 ### 2026-07-09: Role permission runtime enforcement started
 
-Status: In progress.
+Status: Completed.
 
 Decision:
 

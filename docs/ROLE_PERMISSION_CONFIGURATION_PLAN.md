@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-09
 Owner: 鹤祥 / Chinatech
-Status: Phase B server enforcement in progress
+Status: Phase B server enforcement completed; Phase D field-level projection pending
 
 ## 目标
 
@@ -159,9 +159,9 @@ Status: Phase B server enforcement in progress
 
 ## 验收清单
 
-- [ ] 权限矩阵测试覆盖所有角色/动作。
-- [ ] 关键 API 写入入口均有服务端权限检查。
-- [ ] 供应商授权 migration 已 dry-run 并应用。
-- [ ] 技师、前台、只读成员无法执行被禁止动作。
-- [ ] 金额、历史、供应商、解锁信息的字段级脱敏进入后续 Phase D 任务。
-- [ ] 发布前完成 lint/typecheck/test/build。
+- [x] 权限矩阵测试覆盖所有角色/动作。
+- [x] 关键 API 写入入口均有服务端权限检查。
+- [x] 供应商授权 migration 已 dry-run 并应用。
+- [x] 技师、前台、只读成员无法执行被禁止动作。
+- [x] 金额、历史、供应商、解锁信息的字段级脱敏进入后续 Phase D 任务。
+- [x] 发布前完成 lint/typecheck/test/build。
