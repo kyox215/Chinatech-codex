@@ -199,7 +199,9 @@ export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersR
       .order("email", { ascending: true }),
     supabase
       .from("store_invitations")
-      .select("id, email, role, status, invited_by, accepted_at, expires_at, created_at, updated_at")
+      .select(
+        "id, email, role, status, invited_by, accepted_at, expires_at, created_at, updated_at",
+      )
       .eq("store_id", storeId)
       .eq("status", "invited")
       .order("created_at", { ascending: false }),
@@ -1301,7 +1303,7 @@ async function listStoreMemberPermissionGrantRows(
   if (!result || typeof result !== "object") return [];
   const record = result as { data?: unknown; error?: unknown };
   if (isMissingStorePermissionGrantsTableError(record.error)) return [];
-  fail(record.error, "读取成员权限失败");
+  fail(record.error as { message: string } | null | undefined, "读取成员权限失败");
   return (record.data ?? []) as DbRecord[];
 }
 
