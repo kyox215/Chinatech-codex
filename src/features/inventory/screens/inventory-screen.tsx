@@ -27,6 +27,7 @@ import {
   MoreHorizontal,
   Palette,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -93,6 +94,14 @@ import {
   type InventoryBuybackSummary,
 } from "@/features/inventory/model/inventory-buyback-summary";
 import {
+  buildInventorySaleReceiptData,
+  getInventoryWarrantyState,
+  INVENTORY_SALE_RECEIPT_TERMS,
+  type InventorySaleReceiptData,
+} from "@/features/inventory/model/inventory-sale-receipt";
+import { formatEuro, formatItalianDateTime } from "@/features/orders/model/order-italian";
+import { PrintPortal } from "@/features/orders/components/print-portal";
+import {
   applyElectronicsCsvImport,
   createInventoryIntake,
   getInventoryItem,
@@ -127,6 +136,13 @@ import { cn } from "@/lib/utils";
 const checkOptions = ["unchecked", "pass", "fail", "unknown"] as const;
 const cosmeticOptions = ["unknown", "new", "mint", "good", "fair", "poor", "for_parts"] as const;
 const functionalOptions = ["untested", "passed", "needs_repair", "failed", "for_parts"] as const;
+const inventoryCreateSourceOptions = [
+  "manual_stock",
+  "supplier_purchase",
+  "repair_resale",
+  "buyback",
+] as const;
+const inventoryCreateStatusOptions = ["listed", "ready_for_sale", "intake"] as const;
 const compactInventoryInputClass = "h-8 text-sm sm:h-9";
 const compactInventoryTextareaClass = "min-h-20 text-sm";
 const compactInventorySelectClass =
@@ -139,15 +155,17 @@ const inventoryDialogFooterClass = cn(
   componentOverlay.footer,
   "shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-3 sm:px-4",
 );
-type InventoryActionMode = Exclude<InventoryPrimaryActionKind, "view"> | "import";
+type InventoryItemActionMode = Exclude<InventoryPrimaryActionKind, "view"> | "receipt";
+type InventoryActionMode = InventoryItemActionMode | "import";
 type ElectronicsImportPreviewResult = Awaited<ReturnType<typeof importElectronicsCsvPreview>>;
 const inventoryDetailActions = [
   { mode: "update", label: "编辑价格/成本" },
   { mode: "transition", label: "推进状态" },
   { mode: "check", label: "登记检测" },
   { mode: "sell", label: "售出" },
+  { mode: "receipt", label: "打印保修票据" },
 ] as const satisfies ReadonlyArray<{
-  mode: Exclude<InventoryActionMode, "import">;
+  mode: InventoryItemActionMode;
   label: string;
 }>;
 const EMPTY_INVENTORY_ITEMS: InventoryListItem[] = [];
@@ -218,10 +236,7 @@ export function InventoryScreen() {
     if (id) queryClient.invalidateQueries({ queryKey: inventoryKeys.detail(id) });
   }
 
-  function openActionForItem(
-    item: InventoryListItem,
-    mode: Exclude<InventoryActionMode, "import">,
-  ) {
+  function openActionForItem(item: InventoryListItem, mode: InventoryItemActionMode) {
     setActionItem(item);
     setAction(mode);
   }
@@ -243,7 +258,7 @@ export function InventoryScreen() {
       } 件`}
       eyebrow="工作台 / 库存"
       action={
-        <RepairOsHeaderActionButton ariaLabel="新增入库" onClick={() => setIntakeOpen(true)}>
+        <RepairOsHeaderActionButton ariaLabel="新增商品" onClick={() => setIntakeOpen(true)}>
           <Plus className="size-4" />
         </RepairOsHeaderActionButton>
       }
@@ -280,7 +295,7 @@ export function InventoryScreen() {
             style={brandGradientStyle}
             onClick={() => setIntakeOpen(true)}
           >
-            <Plus className="size-4" /> 新增入库
+            <Plus className="size-4" /> 新增商品
           </Button>
         </div>
       }
@@ -427,6 +442,7 @@ export function InventoryScreen() {
       <InventoryActionDialog
         action={action}
         item={actionItem ?? selectedItem}
+        activeStoreName={shell.activeStore?.name}
         onOpenChange={(open) => {
           if (!open) {
             setAction(null);
@@ -640,7 +656,7 @@ function InventoryDetailDialog({
   id?: string;
   activeStoreId?: string;
   onOpenChange: (open: boolean) => void;
-  onAction: (item: InventoryListItem, action: Exclude<InventoryActionMode, "import">) => void;
+  onAction: (item: InventoryListItem, action: InventoryItemActionMode) => void;
 }) {
   const { data, error, isError, isFetching, isLoading, refetch } = useQuery({
     queryKey: id
@@ -722,7 +738,7 @@ function InventoryDetailBody({
   onAction,
 }: {
   data: InventoryDetail;
-  onAction: (item: InventoryListItem, action: Exclude<InventoryActionMode, "import">) => void;
+  onAction: (item: InventoryListItem, action: InventoryItemActionMode) => void;
 }) {
   const item = data.item;
   const primaryAction = getInventoryPrimaryAction(item);
@@ -730,7 +746,8 @@ function InventoryDetailBody({
     ? primaryAction.actionKind
     : undefined;
   const secondaryActions = inventoryDetailActions.filter(
-    (action) => action.mode !== primaryDialogAction,
+    (action) =>
+      action.mode !== primaryDialogAction && (action.mode !== "receipt" || item.status === "sold"),
   );
   const buybackSummary = buildInventoryBuybackSummary(item);
   const costBasis =
@@ -1461,27 +1478,46 @@ function IntakeDialog({
       <DialogContent className={cn(componentOverlay.formContent, inventoryDialogContentClass)}>
         <form className="flex max-h-[calc(100svh-24px)] min-h-0 flex-col" onSubmit={handleSubmit}>
           <DialogHeader className={cn(componentOverlay.header, inventoryDialogHeaderClass)}>
-            <DialogTitle className={componentOverlay.title}>新增入库</DialogTitle>
+            <DialogTitle className={componentOverlay.title}>新增库存商品</DialogTitle>
             <DialogDescription className={componentOverlay.description}>
-              登记客户交来的设备，后续检测、清除、上架和售出都会进入时间线。
+              录入手机、平板、电脑或配件；后续可按 IMEI/型号查找并登记售卖与保修。
             </DialogDescription>
           </DialogHeader>
           <div className={cn(inventoryDialogBodyClass, "space-y-3")}>
+            <div className="rounded-xl border border-status-info-foreground/15 bg-status-info/10 px-3 py-2 text-xs text-status-info-foreground">
+              默认作为直接库存商品进入已上架状态；如果是回收设备，请选择回收来源并从回收流程补齐报价和凭证。
+            </div>
             <div className={compactInventoryGrid}>
-              <Field name="customer_name" label="客户姓名" required />
-              <Field name="customer_phone" label="客户电话" required />
+              <SelectField
+                name="source_type"
+                label="商品来源"
+                options={inventoryCreateSourceOptions}
+                optionLabel={inventorySourceLabel}
+                defaultValue="manual_stock"
+              />
+              <SelectField
+                name="initial_status"
+                label="入库状态"
+                options={inventoryCreateStatusOptions}
+                optionLabel={(value) => inventoryStatusMeta[value].label}
+                defaultValue="listed"
+              />
               <Field name="brand" label="品牌" required />
               <Field name="model" label="型号" required />
               <Field name="category" label="类别" defaultValue="phone" />
               <Field name="color" label="颜色" />
               <Field name="storage_capacity" label="容量" />
               <Field name="serial_or_imei" label="IMEI/序列号" />
-              <Field name="buyback_price" label="回收价" type="number" step="0.01" />
-              <Field name="list_price" label="预估挂牌价" type="number" step="0.01" />
-              <Field name="payment_method" label="付款方式" />
+              <Field name="buyback_price" label="入库成本" type="number" step="0.01" />
+              <Field name="repair_cost_amount" label="整备成本" type="number" step="0.01" />
+              <Field name="list_price" label="标价" type="number" step="0.01" />
+              <Field name="warranty_months" label="默认保修月数" type="number" defaultValue="12" />
+              <Field name="payment_method" label="采购/入库付款方式" />
+              <Field name="customer_name" label="来源客户/供应商" />
+              <Field name="customer_phone" label="来源电话" />
             </div>
             <div className={formLayout.field}>
-              <Label htmlFor="notes">备注</Label>
+              <Label htmlFor="notes">来源、保修或商品备注</Label>
               <Textarea id="notes" name="notes" className={compactInventoryTextareaClass} />
             </div>
           </div>
@@ -1502,7 +1538,7 @@ function IntakeDialog({
               className={cn("h-8", controls.brandButton)}
               style={brandGradientStyle}
             >
-              创建
+              保存商品
             </Button>
           </DialogFooter>
         </form>
@@ -1514,11 +1550,13 @@ function IntakeDialog({
 function InventoryActionDialog({
   action,
   item,
+  activeStoreName,
   onOpenChange,
   onDone,
 }: {
   action: InventoryActionMode | null;
   item?: InventoryListItem;
+  activeStoreName?: string;
   onOpenChange: (open: boolean) => void;
   onDone: (id?: string) => void;
 }) {
@@ -1568,6 +1606,16 @@ function InventoryActionDialog({
   }
 
   if (!item || !action) return null;
+
+  if (action === "receipt") {
+    return (
+      <InventorySaleReceiptDialog
+        item={item}
+        activeStoreName={activeStoreName}
+        onOpenChange={onOpenChange}
+      />
+    );
+  }
 
   const currentItem = item;
   const currentCostBasis =
@@ -1774,6 +1822,26 @@ function InventoryActionDialog({
               </Button>
             }
           >
+            <div className="grid grid-cols-3 gap-1.5">
+              <InventoryDenseInfoBox
+                label="标价"
+                value={<MoneyText amount={currentItem.list_price || currentItem.sale_price} />}
+                meta="当前商品"
+                tone={currentItem.list_price > 0 ? "info" : "warning"}
+              />
+              <InventoryDenseInfoBox
+                label="成本"
+                value={<MoneyText amount={currentCostBasis} />}
+                meta="入库+整备"
+                tone={currentCostBasis > 0 ? "warning" : "neutral"}
+              />
+              <InventoryDenseInfoBox
+                label="默认保修"
+                value={`${currentItem.warranty_months || 12} 月`}
+                meta="可修改"
+                tone="success"
+              />
+            </div>
             <div className={compactInventoryGrid}>
               <Field name="buyer_name" label="买家姓名" />
               <Field name="buyer_phone" label="买家电话" />
@@ -1787,13 +1855,248 @@ function InventoryActionDialog({
               />
               <Field name="payment_method" label="付款方式" />
               <Field name="sale_channel" label="售卖渠道" defaultValue="store" />
-              <Field name="warranty_months" label="保修月数" type="number" defaultValue="12" />
+              <Field
+                name="warranty_months"
+                label="保修月数"
+                type="number"
+                defaultValue={String(currentItem.warranty_months || 12)}
+              />
             </div>
             <TextAreaField name="notes" label="售卖备注" />
           </ActionForm>
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function InventorySaleReceiptDialog({
+  item,
+  activeStoreName,
+  onOpenChange,
+}: {
+  item: InventoryListItem;
+  activeStoreName?: string;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const receipt = buildInventorySaleReceiptData(item, { storeName: activeStoreName });
+  const warrantyState = getInventoryWarrantyState(item);
+
+  function handlePrint() {
+    window.requestAnimationFrame(() => window.print());
+  }
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className={cn(componentOverlay.formContent, inventoryDialogContentClass)}>
+        <DialogHeader className={cn(componentOverlay.header, inventoryDialogHeaderClass)}>
+          <DialogTitle className={componentOverlay.title}>保修票据</DialogTitle>
+          <DialogDescription className={componentOverlay.description}>
+            {receipt.receipt_no} · {receipt.item_label}
+          </DialogDescription>
+        </DialogHeader>
+        <div className={cn(inventoryDialogBodyClass, "space-y-3")}>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <InventoryDenseInfoBox
+              label="售出时间"
+              value={formatDateTime(receipt.sold_at)}
+              meta="购买日期"
+              tone="info"
+            />
+            <InventoryDenseInfoBox
+              label="成交价"
+              value={<MoneyText amount={receipt.sale_price} />}
+              meta={receipt.payment_method || "未记录付款"}
+              tone="success"
+            />
+            <InventoryDenseInfoBox
+              label="保修期"
+              value={`${receipt.warranty_months} 月`}
+              meta={receipt.warranty_until ? formatDateTime(receipt.warranty_until) : "无截止"}
+              tone={warrantyState.key === "expired" ? "warning" : "success"}
+            />
+            <InventoryDenseInfoBox
+              label="买家"
+              value={receipt.buyer_name || "-"}
+              meta={receipt.buyer_phone || "未记录电话"}
+              tone={receipt.buyer_name ? "neutral" : "warning"}
+            />
+          </div>
+
+          <section className={cn(componentOverlay.flatSection, "p-3")}>
+            <RepairOsSectionHeader
+              title="票据预览"
+              icon={Printer}
+              headingLevel={3}
+              className="mb-2"
+              titleClassName="text-xs"
+              iconWrapperClassName="size-6"
+              iconClassName="size-3.5"
+            />
+            <div className="grid gap-2 text-xs sm:grid-cols-2">
+              <InventoryReceiptPreviewLine label="商品" value={receipt.item_label} />
+              <InventoryReceiptPreviewLine label="IMEI / 序列号" value={receipt.serial_or_imei} />
+              <InventoryReceiptPreviewLine
+                label="颜色 / 容量"
+                value={[receipt.color, receipt.storage_capacity].filter(Boolean).join(" / ")}
+              />
+              <InventoryReceiptPreviewLine label="保修状态" value={warrantyState.label} />
+            </div>
+            <div className="mt-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2">
+              <p className="text-[11px] font-semibold text-foreground">保修条款</p>
+              <ul className="mt-1 space-y-1 text-[11px] leading-4 text-muted-foreground">
+                {receipt.terms.map((term) => (
+                  <li key={term}>{term}</li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        </div>
+        <DialogFooter className={inventoryDialogFooterClass}>
+          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            关闭
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className={cn("gap-2", controls.brandButton)}
+            style={brandGradientStyle}
+            onClick={handlePrint}
+          >
+            <Printer className="size-3.5" />
+            打印票据
+          </Button>
+        </DialogFooter>
+        <InventorySaleReceiptPrintSheet receipt={receipt} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InventoryReceiptPreviewLine({ label, value }: { label: string; value?: React.ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5">
+      <p className="truncate text-[10px] font-medium text-muted-foreground">{label}</p>
+      <p className="truncate text-[12px] font-semibold text-foreground">{value || "-"}</p>
+    </div>
+  );
+}
+
+function InventorySaleReceiptPrintSheet({ receipt }: { receipt: InventorySaleReceiptData }) {
+  const balance = Math.max(0, receipt.sale_price - receipt.deposit_amount);
+
+  return (
+    <PrintPortal>
+      <section className="repair-print-sheet" aria-hidden="true">
+        <div className="repair-print-page">
+          <div className="repair-print-left">
+            <header className="repair-print-store">
+              <h2>{receipt.store_name}</h2>
+              <p>{receipt.store_address}</p>
+              <h1>RICEVUTA VENDITA USATO</h1>
+              <p>Documento garanzia cliente</p>
+            </header>
+
+            <div className="repair-print-meta">
+              <PrintMeta label="Numero ricevuta" value={receipt.receipt_no} />
+              <PrintMeta label="Data vendita" value={formatItalianDateTime(receipt.sold_at)} />
+              <PrintMeta label="Cliente" value={receipt.buyer_name || "-"} />
+              <PrintMeta label="Telefono" value={receipt.buyer_phone || "-"} />
+            </div>
+
+            <PrintSection title="Prodotto venduto">
+              <PrintLine label="Articolo" value={receipt.item_label} />
+              <PrintLine label="Categoria" value={receipt.category || "-"} />
+              <PrintLine
+                label="Colore / Memoria"
+                value={[receipt.color, receipt.storage_capacity].filter(Boolean).join(" / ") || "-"}
+              />
+              <PrintLine label="IMEI / Seriale" value={receipt.serial_or_imei || "-"} />
+              <PrintLine label="Numero interno" value={receipt.item_no} />
+            </PrintSection>
+
+            <PrintSection title="Pagamento">
+              <PrintLine label="Prezzo vendita" value={formatEuro(receipt.sale_price)} />
+              <PrintLine label="Acconto" value={formatEuro(receipt.deposit_amount)} />
+              <PrintLine label="Saldo" value={formatEuro(balance)} />
+              <PrintLine label="Metodo" value={receipt.payment_method || "-"} />
+              <PrintLine label="Canale" value={receipt.sale_channel || "store"} />
+            </PrintSection>
+
+            <PrintSection title="Garanzia">
+              <PrintLine label="Durata" value={`${receipt.warranty_months} mesi`} />
+              <PrintLine
+                label="Scadenza"
+                value={receipt.warranty_until ? formatItalianDateTime(receipt.warranty_until) : "-"}
+              />
+              <PrintParagraph label="Note" value={receipt.notes} />
+            </PrintSection>
+          </div>
+
+          <aside className="repair-print-right">
+            <header>
+              <h2>CONDIZIONI DI GARANZIA</h2>
+              <p>{receipt.store_name}</p>
+              <p>{receipt.store_address}</p>
+            </header>
+
+            <section className="repair-print-warranty">
+              <h3>Termini principali</h3>
+              <ul>
+                {receipt.terms.map((term) => (
+                  <li key={term}>{term}</li>
+                ))}
+              </ul>
+            </section>
+
+            <footer className="repair-print-footer">
+              <div className="repair-print-signature">
+                <span>Firma cliente</span>
+              </div>
+              <p>
+                Conservare questo documento per eventuali garanzie. La garanzia decorre dalla data
+                vendita indicata sulla ricevuta.
+              </p>
+            </footer>
+          </aside>
+        </div>
+      </section>
+    </PrintPortal>
+  );
+}
+
+function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="repair-print-section">
+      <h2>{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function PrintMeta({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <span>{label}:</span>
+      <strong>{value || "-"}</strong>
+    </div>
+  );
+}
+
+function PrintLine({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <p className="repair-print-line">
+      <strong>{label}:</strong> <span>{value || "-"}</span>
+    </p>
+  );
+}
+
+function PrintParagraph({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <p className="repair-print-paragraph">
+      <strong>{label}:</strong> {value}
+    </p>
   );
 }
 
@@ -2159,6 +2462,8 @@ function InventoryDenseInfoBox({
 }
 
 function InventoryProductPanel({ item }: { item: InventoryDetail["item"] }) {
+  const warrantyState = getInventoryWarrantyState(item);
+
   return (
     <div className="grid gap-1.5">
       <InventoryAppInfoRow
@@ -2167,6 +2472,13 @@ function InventoryProductPanel({ item }: { item: InventoryDetail["item"] }) {
         value={item.item_label}
         meta={item.category || "未分类"}
         tone="info"
+      />
+      <InventoryAppInfoRow
+        icon={Layers3}
+        label="来源 / 保修"
+        value={inventorySourceLabel(item.source_type)}
+        meta={warrantyState.label}
+        tone={item.source_type === "buyback" ? "warning" : "neutral"}
       />
       <div className="grid grid-cols-2 gap-1.5">
         <InventoryAppStatusTile
@@ -2433,6 +2745,8 @@ function intakeInput(formData: FormData): CreateInventoryIntakeInput {
   return {
     customer_name: optionalValue(formData, "customer_name"),
     customer_phone: optionalValue(formData, "customer_phone"),
+    source_type: optionalValue(formData, "source_type"),
+    initial_status: optionalValue(formData, "initial_status") as InventoryItemStatus | undefined,
     category: optionalValue(formData, "category"),
     brand: textValue(formData, "brand"),
     model: textValue(formData, "model"),
@@ -2440,7 +2754,9 @@ function intakeInput(formData: FormData): CreateInventoryIntakeInput {
     storage_capacity: optionalValue(formData, "storage_capacity"),
     serial_or_imei: optionalValue(formData, "serial_or_imei"),
     buyback_price: numberValue(formData, "buyback_price"),
+    repair_cost_amount: numberValue(formData, "repair_cost_amount"),
     list_price: numberValue(formData, "list_price"),
+    warranty_months: numberValue(formData, "warranty_months"),
     payment_method: optionalValue(formData, "payment_method"),
     notes: optionalValue(formData, "notes"),
   };
@@ -2481,6 +2797,7 @@ function sellInput(formData: FormData): SellInventoryItemInput {
     payment_method: optionalValue(formData, "payment_method"),
     sale_channel: optionalValue(formData, "sale_channel"),
     warranty_months: numberValue(formData, "warranty_months"),
+    warranty_terms_snapshot: INVENTORY_SALE_RECEIPT_TERMS,
     notes: optionalValue(formData, "notes"),
   };
 }
@@ -2664,7 +2981,7 @@ function inventoryBatteryTone(value?: number | null): InventoryDenseInfoTone {
 
 function isInventoryDialogActionKind(
   actionKind: InventoryPrimaryActionKind,
-): actionKind is Exclude<InventoryActionMode, "import"> {
+): actionKind is Exclude<InventoryPrimaryActionKind, "view"> {
   return actionKind !== "view";
 }
 
@@ -2703,6 +3020,17 @@ function gradeLabel(value?: string) {
     failed: "不通过",
   };
   return labels[value || "unknown"] ?? value ?? "-";
+}
+
+function inventorySourceLabel(value?: string) {
+  const labels: Record<string, string> = {
+    manual_stock: "直接库存",
+    supplier_purchase: "供应商采购",
+    repair_resale: "维修翻新转售",
+    buyback: "客户回收",
+    seatable_electronics: "SeaTable 导入",
+  };
+  return labels[value || ""] ?? value ?? "未知来源";
 }
 
 function checkLabel(value?: string) {

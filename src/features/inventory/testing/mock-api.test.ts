@@ -14,6 +14,7 @@ import {
   createInventoryIntake,
   getInventoryItem,
   recordInventoryCheck,
+  sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
   uploadInventoryAttachment,
@@ -135,6 +136,60 @@ describe("inventory mock buyback workflow", () => {
       issue_summary: expect.stringContaining("屏幕破裂"),
       estimated_repair_cost: 65,
     });
+  });
+
+  it("creates direct stock, sells it, and keeps a warranty receipt snapshot", async () => {
+    const { id } = await createInventoryIntake({
+      source_type: "manual_stock",
+      initial_status: "listed",
+      category: "tablet",
+      brand: "Apple",
+      model: "iPad Air 5",
+      color: "Blue",
+      storage_capacity: "64GB",
+      serial_or_imei: "DMPTEST000001",
+      buyback_price: 260,
+      repair_cost_amount: 15,
+      list_price: 399,
+      warranty_months: 6,
+      notes: "供应商入库，带原装盒",
+    });
+
+    let detail = await getInventoryItem(id);
+    expect(detail.item.status).toBe("listed");
+    expect(detail.item.source_type).toBe("manual_stock");
+    expect(detail.item.buyback_price).toBe(260);
+    expect(detail.item.repair_cost_amount).toBe(15);
+
+    await sellInventoryItem(id, {
+      buyer_name: "Luca Rossi",
+      buyer_phone: "3339001999",
+      sale_price: 389,
+      payment_method: "contanti",
+      sale_channel: "store",
+      warranty_months: 6,
+      sold_at: "2026-07-09T10:00:00.000Z",
+      warranty_terms_snapshot: ["custom warranty term"],
+    });
+
+    detail = await getInventoryItem(id);
+    expect(detail.item.status).toBe("sold");
+    expect(detail.item.buyer_name).toBe("Luca Rossi");
+    expect(detail.item.warranty_until?.slice(0, 10)).toBe("2027-01-09");
+    expect(detail.item.legacy_payload.sale_receipt).toMatchObject({
+      receipt_no: expect.stringMatching(/^I\d+-20260709$/),
+      warranty_months: 6,
+      warranty_until: detail.item.warranty_until,
+      terms: ["custom warranty term"],
+    });
+    expect(detail.transactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          transaction_type: "sale_payment",
+          amount: 389,
+        }),
+      ]),
+    );
   });
 });
 

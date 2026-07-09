@@ -1147,6 +1147,8 @@ export interface CreateInventoryIntakeInput {
   customer_id?: string;
   customer_name?: string;
   customer_phone?: string;
+  source_type?: string;
+  initial_status?: InventoryItemStatus;
   category?: string;
   brand: string;
   model: string;
@@ -1161,6 +1163,7 @@ export interface CreateInventoryIntakeInput {
   repair_cost_amount?: number;
   deposit_amount?: number;
   payment_method?: string;
+  warranty_months?: number;
   notes?: string;
 }
 
@@ -1225,6 +1228,7 @@ export interface SellInventoryItemInput {
   payment_method?: string;
   sale_channel?: string;
   warranty_months?: number;
+  warranty_terms_snapshot?: string[];
   sold_at?: string;
   notes?: string;
 }

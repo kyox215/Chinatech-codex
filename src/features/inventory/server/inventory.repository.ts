@@ -37,12 +37,19 @@ import {
 import { getSupabaseAdmin } from "@/server/supabase";
 import { writeAuditLog } from "@/server/audit";
 import { buildSeaTableElectronicsImport } from "@/features/inventory/import/seatable-electronics";
+import { buildInventorySaleReceiptSnapshot } from "@/features/inventory/model/inventory-sale-receipt";
 import {
   getInventoryProfit,
   isInventoryPipelineStatus,
   validateInventoryTransition,
 } from "@/features/inventory/model/inventory-workflow";
 import { normalizePhoneBook } from "@/shared/lib/phone";
+
+const INVENTORY_DIRECT_CREATE_STATUSES = new Set<InventoryItemStatus>([
+  "intake",
+  "ready_for_sale",
+  "listed",
+]);
 
 const INVENTORY_SELECT = `
   *,
@@ -210,6 +217,8 @@ export async function createInventoryIntake(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
+  const sourceType = clean(input.source_type) || "buyback";
+  const initialStatus = getInventoryInitialStatus(input.initial_status, sourceType);
   const customerId = await resolveCustomer(
     storeId,
     input.customer_id,
@@ -223,8 +232,8 @@ export async function createInventoryIntake(
   const payload = {
     id,
     store_id: storeId,
-    status: "intake",
-    source_type: "buyback",
+    status: initialStatus,
+    source_type: sourceType,
     customer_id: customerId,
     category: clean(input.category) || "phone",
     brand: clean(input.brand),
@@ -239,7 +248,12 @@ export async function createInventoryIntake(
     deposit_amount: money(input.deposit_amount),
     currency_code: CURRENCY_CODE,
     payment_method: nullable(input.payment_method),
+    warranty_months:
+      input.warranty_months === undefined
+        ? 12
+        : Math.max(0, Math.trunc(money(input.warranty_months))),
     notes: nullable(input.notes),
+    ...timestampPatchForStatus(initialStatus, now),
     legacy_payload: {
       ...legacyPayload,
       ...(input.quoted_offer !== undefined || input.quote_expires_at
@@ -263,19 +277,23 @@ export async function createInventoryIntake(
     .insert(payload)
     .select("*")
     .single();
-  fail(error, "创建回收记录失败");
+  fail(error, "创建库存商品失败");
   await insertInventoryEvent(
     storeId,
     id,
     "created",
     undefined,
-    "intake",
+    initialStatus,
     { input: redactInventoryIntakeInput(input) },
     actor,
     now,
   );
 
-  if (payload.buyback_price > 0 && !hasBuybackQuotePayload(legacyPayload)) {
+  if (
+    sourceType === "buyback" &&
+    payload.buyback_price > 0 &&
+    !hasBuybackQuotePayload(legacyPayload)
+  ) {
     await insertInventoryTransaction(
       storeId,
       id,
@@ -756,6 +774,15 @@ export async function sellInventoryItem(
   );
   const previousWarrantyMonths = money(before.warranty_months) || 12;
   const warrantyMonths = input.warranty_months ?? previousWarrantyMonths;
+  const warrantyUntil = addMonthsIso(soldAt, warrantyMonths);
+  const saleReceipt = buildInventorySaleReceiptSnapshot({
+    publicNo: requiredString(before.public_no),
+    soldAt,
+    warrantyMonths,
+    warrantyUntil,
+    terms: input.warranty_terms_snapshot,
+  });
+  const legacyPayload = recordOrEmpty(before.legacy_payload);
   const patch = {
     status: "sold",
     buyer_customer_id: buyerId,
@@ -767,9 +794,13 @@ export async function sellInventoryItem(
     payment_method: nullable(input.payment_method) ?? before.payment_method ?? null,
     sale_channel: nullable(input.sale_channel) ?? before.sale_channel ?? "store",
     warranty_months: warrantyMonths,
-    warranty_until: addMonthsIso(soldAt, warrantyMonths),
+    warranty_until: warrantyUntil,
     sold_at: soldAt,
     notes: nullable(input.notes) ?? before.notes ?? null,
+    legacy_payload: {
+      ...legacyPayload,
+      sale_receipt: saleReceipt,
+    },
     updated_by: actor.id ?? null,
     updated_at: now,
   };
@@ -1483,6 +1514,8 @@ function redactInventoryIntakeInput(input: CreateInventoryIntakeInput) {
     customer_id: input.customer_id,
     has_customer_name: Boolean(input.customer_name?.trim()),
     has_customer_phone: Boolean(input.customer_phone?.trim()),
+    source_type: input.source_type,
+    initial_status: input.initial_status,
     category: input.category,
     brand: input.brand,
     model: input.model,
@@ -1494,6 +1527,7 @@ function redactInventoryIntakeInput(input: CreateInventoryIntakeInput) {
     list_price: input.list_price,
     repair_cost_amount: input.repair_cost_amount,
     payment_method: input.payment_method,
+    warranty_months: input.warranty_months,
   };
 }
 
@@ -1578,7 +1612,15 @@ function maskIdentifier(value: string) {
   return `${text.slice(0, 2)}${"*".repeat(Math.max(2, text.length - 4))}${text.slice(-2)}`;
 }
 
-function timestampPatchForStatus(status: InventoryItemStatus, now: string) {
+function timestampPatchForStatus(
+  status: InventoryItemStatus,
+  now: string,
+): Partial<
+  Record<
+    "purchased_at" | "listed_at" | "sold_at" | "returned_at" | "recycled_at" | "cancelled_at",
+    string
+  >
+> {
   if (status === "purchased") return { purchased_at: now };
   if (status === "listed") return { listed_at: now };
   if (status === "sold") return { sold_at: now };
@@ -1586,6 +1628,15 @@ function timestampPatchForStatus(status: InventoryItemStatus, now: string) {
   if (status === "recycled") return { recycled_at: now };
   if (status === "cancelled") return { cancelled_at: now };
   return {};
+}
+
+function getInventoryInitialStatus(
+  requestedStatus: InventoryItemStatus | undefined,
+  sourceType: string,
+): InventoryItemStatus {
+  if (!requestedStatus) return sourceType === "buyback" ? "intake" : "ready_for_sale";
+  if (sourceType === "buyback") return requestedStatus === "intake" ? "intake" : "intake";
+  return INVENTORY_DIRECT_CREATE_STATUSES.has(requestedStatus) ? requestedStatus : "ready_for_sale";
 }
 
 function addMonthsIso(value: string, months: number) {

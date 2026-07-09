@@ -24,12 +24,19 @@ import type {
 } from "@/lib/repairdesk/types";
 import { customers as fixtureCustomers } from "@/lib/mock/state";
 import { buildSeaTableElectronicsImport } from "@/features/inventory/import/seatable-electronics";
+import { buildInventorySaleReceiptSnapshot } from "@/features/inventory/model/inventory-sale-receipt";
 import {
   getInventoryProfit,
   isInventoryPipelineStatus,
   validateInventoryTransition,
 } from "@/features/inventory/model/inventory-workflow";
 import { normalizePhoneBook } from "@/shared/lib/phone";
+
+const INVENTORY_DIRECT_CREATE_STATUSES = new Set<InventoryItemStatus>([
+  "intake",
+  "ready_for_sale",
+  "listed",
+]);
 
 const now = new Date();
 const day = 24 * 60 * 60 * 1000;
@@ -249,6 +256,8 @@ export async function createInventoryIntake(
   _actor?: AuditActor,
 ) {
   const nowIso = new Date().toISOString();
+  const sourceType = optional(input.source_type) || "buyback";
+  const initialStatus = getInventoryInitialStatus(input.initial_status, sourceType);
   const customerId = resolveMockCustomer(
     input.customer_id,
     input.customer_name,
@@ -261,8 +270,8 @@ export async function createInventoryIntake(
   const item: InventoryItem = {
     id,
     public_no: `I${String(1200 + mockInventoryItems.length + 1).padStart(6, "0")}`,
-    status: "intake",
-    source_type: "buyback",
+    status: initialStatus,
+    source_type: sourceType,
     customer_id: customerId,
     category: input.category?.trim() || "phone",
     brand: input.brand.trim(),
@@ -284,7 +293,9 @@ export async function createInventoryIntake(
     fees_amount: 0,
     currency_code: CURRENCY_CODE,
     payment_method: optional(input.payment_method),
-    warranty_months: 12,
+    warranty_months:
+      input.warranty_months === undefined ? 12 : Math.max(0, Math.trunc(input.warranty_months)),
+    ...timestampPatchForStatus(initialStatus, nowIso),
     notes: optional(input.notes),
     legacy_payload: {
       ...legacyPayload,
@@ -302,7 +313,7 @@ export async function createInventoryIntake(
     updated_at: nowIso,
   };
   mockInventoryItems.unshift(item);
-  addEvent(item.id, "created", undefined, "intake", { input }, nowIso);
+  addEvent(item.id, "created", undefined, initialStatus, { input }, nowIso);
   return { id };
 }
 
@@ -475,6 +486,16 @@ export async function sellInventoryItem(
   item.sale_channel = optional(input.sale_channel) ?? "store";
   item.warranty_months = input.warranty_months ?? item.warranty_months;
   item.warranty_until = addMonthsIso(nowIso, item.warranty_months);
+  item.legacy_payload = {
+    ...recordOrEmpty(item.legacy_payload),
+    sale_receipt: buildInventorySaleReceiptSnapshot({
+      publicNo: item.public_no,
+      soldAt: nowIso,
+      warrantyMonths: item.warranty_months,
+      warrantyUntil: item.warranty_until,
+      terms: input.warranty_terms_snapshot,
+    }),
+  };
   item.sold_at = nowIso;
   item.updated_at = nowIso;
   addEvent(id, "sold", undefined, "sold", asRecord(input), nowIso);
@@ -621,6 +642,29 @@ function addMonthsIso(value: string, months: number) {
   const date = new Date(value);
   date.setMonth(date.getMonth() + months);
   return date.toISOString();
+}
+
+function timestampPatchForStatus(
+  status: InventoryItemStatus,
+  nowIso: string,
+): Partial<
+  Record<"listed_at" | "sold_at" | "returned_at" | "recycled_at" | "cancelled_at", string>
+> {
+  if (status === "listed") return { listed_at: nowIso };
+  if (status === "sold") return { sold_at: nowIso };
+  if (status === "returned") return { returned_at: nowIso };
+  if (status === "recycled") return { recycled_at: nowIso };
+  if (status === "cancelled") return { cancelled_at: nowIso };
+  return {};
+}
+
+function getInventoryInitialStatus(
+  requestedStatus: InventoryItemStatus | undefined,
+  sourceType: string,
+): InventoryItemStatus {
+  if (!requestedStatus) return sourceType === "buyback" ? "intake" : "ready_for_sale";
+  if (sourceType === "buyback") return "intake";
+  return INVENTORY_DIRECT_CREATE_STATUSES.has(requestedStatus) ? requestedStatus : "ready_for_sale";
 }
 
 function roundMoney(value: number) {

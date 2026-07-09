@@ -655,6 +655,8 @@ export const inventoryIntakeInputSchema = z
     customer_id: optionalText,
     customer_name: optionalText,
     customer_phone: optionalText,
+    source_type: optionalText,
+    initial_status: inventoryItemStatusSchema.optional(),
     category: optionalText,
     brand: z.string().min(1, "缺少品牌"),
     model: z.string().min(1, "缺少型号"),
@@ -669,6 +671,7 @@ export const inventoryIntakeInputSchema = z
     repair_cost_amount: z.coerce.number().optional(),
     deposit_amount: z.coerce.number().optional(),
     payment_method: optionalText,
+    warranty_months: z.coerce.number().int().nonnegative().optional(),
     notes: optionalText,
   })
   .passthrough() satisfies z.ZodType<CreateInventoryIntakeInput>;
@@ -800,6 +803,7 @@ export const inventorySellInputSchema = z
     payment_method: optionalText,
     sale_channel: optionalText,
     warranty_months: z.coerce.number().int().nonnegative().optional(),
+    warranty_terms_snapshot: z.array(z.string().min(1)).optional(),
     sold_at: optionalText,
     notes: optionalText,
   })
