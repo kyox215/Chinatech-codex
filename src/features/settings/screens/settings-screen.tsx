@@ -63,12 +63,7 @@ import {
   applySwitchedStoreContext,
   refreshStoreContextQueries,
 } from "@/features/stores/api/tenant-cache";
-import {
-  RepairOsBusinessCard,
-  RepairOsHeaderActionButton,
-  RepairOsListScaffold,
-  RepairOsSectionHeader,
-} from "@/shared/ui";
+import { RepairOsBusinessCard, RepairOsListScaffold, RepairOsSectionHeader } from "@/shared/ui";
 import {
   createStore,
   approveStoreAccessRequest,
@@ -598,7 +593,9 @@ export function SettingsScreen() {
       section.key === "store"
         ? `${storeCount} 店铺`
         : section.key === "members"
-          ? `${memberCount} 成员 · ${pendingMemberWorkCount} 项待看`
+          ? pendingMemberWorkCount > 0
+            ? `${memberCount} 成员 · ${pendingMemberWorkCount} 待处理`
+            : `${memberCount} 成员`
           : section.key === "kiosk"
             ? `${kioskDeviceCount} 台可用`
             : section.key === "notifications"
@@ -636,13 +633,18 @@ export function SettingsScreen() {
       eyebrow="系统 / 设置"
       action={
         canSaveDraftInSection(selectedSection) ? (
-          <RepairOsHeaderActionButton
-            ariaLabel="保存设置"
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 gap-1 rounded-lg border-0 px-2 text-xs text-primary-foreground shadow-[var(--shadow-action)]"
+            style={brandGradientStyle}
+            aria-label="保存设置"
             disabled={!hasChanges || saveMutation.isPending}
             onClick={() => saveMutation.mutate()}
           >
-            <Check className="size-4" />
-          </RepairOsHeaderActionButton>
+            <Check className="size-3.5" />
+            保存
+          </Button>
         ) : undefined
       }
       desktopAction={
@@ -1108,7 +1110,7 @@ function SettingsSectionNav({
       aria-label="设置分组"
       className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-0.5 shadow-[var(--shadow-card)] md:p-1"
     >
-      <div className="grid min-w-0 auto-cols-[minmax(4.85rem,1fr)] grid-flow-col gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:auto-cols-[minmax(7rem,1fr)] lg:grid-flow-row lg:grid-cols-7 lg:overflow-visible">
+      <div className="grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-7">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === selectedSection;
@@ -1119,17 +1121,17 @@ function SettingsSectionNav({
               aria-pressed={isActive}
               onClick={() => onSelect(item.key)}
               className={cn(
-                "relative flex min-w-0 items-center gap-1 rounded-lg border px-1.5 py-1 text-left transition-colors md:gap-1.5 md:px-2 md:py-1.5",
+                "relative flex min-h-11 min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition-colors md:min-h-12 md:px-2.5",
                 isActive
-                  ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
-                  : "border-transparent bg-transparent text-foreground hover:border-[var(--border-panel)] hover:bg-accent",
+                  ? "border-primary bg-primary/10 text-primary shadow-[var(--shadow-card)]"
+                  : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground hover:bg-accent",
               )}
             >
               <span
                 className={cn(
                   "grid size-5 shrink-0 place-items-center rounded-md border md:size-6 md:rounded-lg",
                   isActive
-                    ? "border-primary-foreground/25 bg-primary-foreground/15"
+                    ? "border-primary bg-primary text-primary-foreground"
                     : "border-[var(--border-panel)] bg-card",
                 )}
               >
@@ -1137,7 +1139,7 @@ function SettingsSectionNav({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 items-center gap-1">
-                  <span className="truncate text-[11px] font-semibold md:hidden">
+                  <span className="truncate text-xs font-semibold md:hidden">
                     {item.shortLabel}
                   </span>
                   <span className="hidden truncate text-[11px] font-semibold md:inline lg:text-xs">
@@ -1147,7 +1149,7 @@ function SettingsSectionNav({
                     <span
                       className={cn(
                         "size-1.5 shrink-0 rounded-full",
-                        isActive ? "bg-primary-foreground" : "bg-status-warn-foreground",
+                        isActive ? "bg-primary" : "bg-status-warn-foreground",
                       )}
                       aria-label="有未保存修改"
                     />
@@ -1155,8 +1157,8 @@ function SettingsSectionNav({
                 </span>
                 <span
                   className={cn(
-                    "mt-0.5 hidden truncate text-[10px] leading-3 xl:block",
-                    isActive ? "text-primary-foreground/75" : "text-muted-foreground",
+                    "mt-0.5 block truncate text-[10px] leading-3",
+                    isActive ? "text-primary/80" : "text-muted-foreground",
                   )}
                 >
                   {item.status}
@@ -2069,6 +2071,7 @@ function StoreMembersSection({
     const memberRoleOptions = getRoleOptionsForMember(activeStoreRole, member);
 
     if (member.role === "owner") {
+      if (density === "card") return null;
       return (
         <Badge variant="default" className="w-fit text-[10px]">
           店主
@@ -2082,7 +2085,7 @@ function StoreMembersSection({
           "grid min-w-0 gap-1.5",
           density === "table"
             ? "grid-cols-[minmax(7rem,1fr)_auto_auto] items-center"
-            : "grid-cols-[6.5rem_auto_auto] items-center justify-end",
+            : "grid-cols-[minmax(6.5rem,1fr)_3.5rem_4.5rem] items-center justify-end",
         )}
       >
         <Select
@@ -2105,11 +2108,14 @@ function StoreMembersSection({
           type="button"
           size="sm"
           variant="outline"
-          className={cn("px-2", density === "table" ? "h-7 text-xs" : "h-8")}
+          className={cn(
+            "whitespace-nowrap px-2",
+            density === "table" ? "h-7 text-xs" : "h-8 text-xs",
+          )}
           disabled={!canEditRole || !hasRoleChange || isUpdatingMember}
           onClick={() => onUpdateMemberRole(member.id, draftRole)}
         >
-          {density === "table" ? "保存" : "存"}
+          保存
         </Button>
         {member.status === "inactive" ? (
           <Button
@@ -2117,20 +2123,14 @@ function StoreMembersSection({
             size="sm"
             variant="outline"
             className={cn(
-              "justify-center gap-1.5 px-2",
-              density === "table" ? "h-7 text-xs" : "h-8",
+              "justify-center gap-1 whitespace-nowrap px-2",
+              density === "table" ? "h-7 text-xs" : "h-8 text-xs",
             )}
             disabled={!canChangeStatus || isUpdatingMember}
             onClick={() => onRestoreMember(member.id)}
           >
             <RotateCcw className="size-3.5" />
-            {isRowPending
-              ? density === "table"
-                ? "恢复中"
-                : "…"
-              : density === "table"
-                ? "恢复"
-                : "复"}
+            {isRowPending ? "恢复中" : "恢复"}
           </Button>
         ) : (
           <Button
@@ -2138,8 +2138,8 @@ function StoreMembersSection({
             size="sm"
             variant="outline"
             className={cn(
-              "justify-center gap-1.5 px-2 text-destructive hover:text-destructive",
-              density === "table" ? "h-7 text-xs" : "h-8",
+              "justify-center gap-1 whitespace-nowrap px-2 text-destructive hover:text-destructive",
+              density === "table" ? "h-7 text-xs" : "h-8 text-xs",
             )}
             disabled={!canChangeStatus || isUpdatingMember}
             onClick={() => {
@@ -2149,13 +2149,7 @@ function StoreMembersSection({
             }}
           >
             <UserMinus className="size-3.5" />
-            {isRowPending
-              ? density === "table"
-                ? "停用中"
-                : "…"
-              : density === "table"
-                ? "停用"
-                : "停"}
+            {isRowPending ? "停用中" : "停用"}
           </Button>
         )}
       </div>
