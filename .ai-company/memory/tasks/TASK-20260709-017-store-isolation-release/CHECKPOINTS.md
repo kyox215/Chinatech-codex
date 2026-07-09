@@ -45,3 +45,10 @@
 - **Evidence:**
   - EVIDENCE.md E-017 and E-018; build passed after rebase.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-09T14:12:49Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** Implemented router-level store-isolation permission hardening, validated with lint/typecheck/full test/build/agents checks, and pushed commit 72e3bdc4 to origin/main.
+- **Residual risks:** No database migration was applied because this implementation slice has no DDL. Historical Supabase migration drift remains unsafe for broad db push/include-all and must stay under separate reconciliation tasks.
+- **Follow-up:** Plan a separate object-scope authorization phase for read/list/export/unlock/attachment access and a separate migration-history repair task if strict Supabase history parity is required.
+- **Closed by:** CEO-Orchestrator

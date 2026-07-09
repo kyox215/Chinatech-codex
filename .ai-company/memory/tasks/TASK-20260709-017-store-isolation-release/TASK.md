@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260709-017-store-isolation-release"
 title: "Store isolation runtime hardening and migration release"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["API", "DATA", "DOC", "INT", "QA", "RELEASE", "SECURITY"]
 created_at: "2026-07-09T13:56:38Z"
-updated_at: "2026-07-09T14:11:43Z"
+updated_at: "2026-07-09T14:12:49Z"
+closed_at: "2026-07-09T14:12:49Z"
 ---
 # Task — Store isolation runtime hardening and migration release
 
@@ -57,12 +58,12 @@ Complete the next safe store A/B isolation hardening slice, keep production data
 
 ## Acceptance criteria
 
-- [ ] Use clean worktree based on latest origin/main.
-- [ ] Do not run broad supabase db push or include-all against production.
-- [ ] Produce an explicit migration reconciliation plan before applying any production DDL.
-- [ ] Implement only scoped store-isolation hardening with tests.
-- [ ] Run required lint/typecheck/test/build or record exact blockers.
-- [ ] Push scoped verified commit to origin/main after gates pass.
+- [x] Use clean worktree based on latest origin/main.
+- [x] Do not run broad supabase db push or include-all against production.
+- [x] Produce an explicit migration reconciliation plan before applying any production DDL.
+- [x] Implement only scoped store-isolation hardening with tests.
+- [x] Run required lint/typecheck/test/build or record exact blockers.
+- [x] Push scoped verified commit to origin/main after gates pass.
 
 ## Facts, assumptions, and unknowns
 
