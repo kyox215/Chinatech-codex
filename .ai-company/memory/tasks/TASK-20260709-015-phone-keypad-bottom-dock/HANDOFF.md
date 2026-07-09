@@ -24,6 +24,6 @@ This task fixes the remaining phone virtual keypad positioning bug after the pre
 - Production build passed outside restrictive sandbox.
 - Mobile Playwright passed outside restrictive sandbox.
 
-## First Action On Resume
+## Closeout
 
-Run `git status --short` in `/tmp/repairdesk-phone-keypad-dock` and confirm no unrelated files are staged before committing or pushing.
+Task is closed after pushing fix commit `c316e953128d2944b5bd170189737cfc77aaa76b` to `main`. If resumed, only verify production deployment/preview status if the Owner asks.

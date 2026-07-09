@@ -24,5 +24,6 @@
 | E-020 | typecheck | post-rebase full TypeScript check passes | `npm run typecheck` | passed | 2026-07-09T13:09Z | CEO-Orchestrator |
 | E-021 | test | post-rebase focused keypad and lookup tests pass | `npx vitest run src/components/orders/phone-keypad-input.test.tsx src/components/orders/money-keypad-input.test.tsx src/features/orders/components/device-unlock-fields.test.tsx src/features/orders/forms/customer-lookup-mobile-stability.test.tsx src/features/orders/components/order-option-pickers.test.tsx` | passed, 5 files / 11 tests | 2026-07-09T13:09Z | CEO-Orchestrator |
 | E-022 | build | post-rebase production build passes outside restrictive sandbox | `npm run build` | passed | 2026-07-09T13:09Z | CEO-Orchestrator |
+| E-023 | release | scoped phone keypad fix pushed to `main` | `git push origin HEAD:main` | pushed `83f157b7..c316e953` | 2026-07-09T13:10Z | CEO-Orchestrator |
 
 Build and Playwright required non-sandbox execution because the default sandbox denies local process or port binding. This is an environment restriction, not an application failure.
