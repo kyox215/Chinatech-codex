@@ -24,6 +24,7 @@ import {
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { ApprovalBadge, MoneyText } from "@/components/orders/badges";
+import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   AccessoryNotesPicker,
   AccessoryNotesPills,
@@ -1629,20 +1630,17 @@ function MoneyDraftField({
   onChange: (value: string) => void;
 }) {
   return (
-    <span className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-md bg-card/60 px-1.5 py-0.5 text-xs text-muted-foreground">
-      <span className="font-mono">€</span>
-      <Input
-        aria-label={ariaLabel}
-        value={value}
-        inputMode="decimal"
-        placeholder={placeholder}
-        className={cn(
-          inlineFinanceInputClass,
-          "min-w-0 text-right font-mono text-xs font-medium text-foreground tabular-nums",
-        )}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </span>
+    <MoneyKeypadInput
+      ariaLabel={ariaLabel}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      triggerClassName={cn(
+        "h-7 rounded-md border-0 bg-card/60 px-1.5 py-0.5 text-xs shadow-none",
+        inlineFinanceInputClass,
+      )}
+      valueClassName="text-xs font-medium"
+    />
   );
 }
 

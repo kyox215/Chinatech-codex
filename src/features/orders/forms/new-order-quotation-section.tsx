@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Plus, ReceiptText, ShieldCheck, Trash2 } from "lucide-react";
 
+import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,7 +27,7 @@ import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { decimalKeyboardProps, moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
+import { moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
 
 export function NewOrderQuotationSection({
   form,
@@ -99,20 +100,13 @@ export function NewOrderQuotationSection({
               <OrderWorkspaceQuoteRow
                 key={item.key}
                 price={
-                  <div className="relative min-w-0">
-                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                      €
-                    </span>
-                    <Input
-                      {...decimalKeyboardProps}
-                      value={moneyDraftValue(Number(item.price) || 0)}
-                      onChange={(event) =>
-                        onPatchFault(index, { price: parseMoneyDraft(event.target.value) })
-                      }
-                      className={cn(controlClass, "pl-5 font-mono sm:pl-8")}
-                      placeholder="0"
-                    />
-                  </div>
+                  <MoneyKeypadInput
+                    ariaLabel={`报价项目 ${index + 1} 金额`}
+                    value={moneyDraftValue(Number(item.price) || 0)}
+                    onChange={(value) => onPatchFault(index, { price: parseMoneyDraft(value) })}
+                    triggerClassName={cn(controlClass, "px-2 font-mono")}
+                    placeholder="0"
+                  />
                 }
                 action={
                   <Button
@@ -195,20 +189,13 @@ export function NewOrderQuotationSection({
 
         <div className="grid min-w-0 grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] gap-2">
           <FormItem label="定金">
-            <div className="relative">
-              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                €
-              </span>
-              <Input
-                {...decimalKeyboardProps}
-                value={moneyDraftValue(form.deposit)}
-                onChange={(event) =>
-                  setForm({ ...form, deposit: parseMoneyDraft(event.target.value) })
-                }
-                className={cn(controlClass, "h-9 pl-5 font-mono sm:pl-8")}
-                placeholder="0"
-              />
-            </div>
+            <MoneyKeypadInput
+              ariaLabel="定金"
+              value={moneyDraftValue(form.deposit)}
+              onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
+              triggerClassName={cn(controlClass, "h-9 px-2 font-mono")}
+              placeholder="0"
+            />
           </FormItem>
           <FormItem label="保修">
             <WarrantyPicker

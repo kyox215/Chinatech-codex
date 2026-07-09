@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Banknote, CheckCircle2, CreditCard } from "lucide-react";
 
+import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
@@ -83,17 +83,13 @@ export function PaymentDialog({
               <div className="min-w-0">
                 <Label className="text-xs">本次收款金额</Label>
                 <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
+                  <MoneyKeypadInput
+                    ariaLabel="本次收款金额"
                     value={amountText}
-                    onChange={(e) => setAmountText(e.target.value)}
-                    className={cn(
-                      "h-9 font-mono tabular-nums",
-                      validationMessage && "border-status-danger-foreground/50",
-                    )}
+                    onChange={setAmountText}
+                    invalid={Boolean(validationMessage)}
+                    triggerClassName="h-9 font-mono tabular-nums"
                     placeholder="0"
-                    aria-invalid={Boolean(validationMessage)}
                   />
                   <Button
                     type="button"

@@ -41,6 +41,7 @@ import {
 
 import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
+import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   FaultDiagnosisPicker,
   normalizeFaultPrices,
@@ -3266,6 +3267,24 @@ function MobileDenseFinanceInput({
   align?: "left" | "right";
   mono?: boolean;
 }) {
+  if (inputMode === "decimal") {
+    return (
+      <MoneyKeypadInput
+        ariaLabel={placeholder}
+        value={value}
+        onChange={onValueChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        align={align}
+        triggerClassName={cn(
+          "h-7 rounded-md border border-[var(--border-panel)] bg-card px-2 py-0 text-base shadow-sm md:text-[11px]",
+          mono && "font-mono tabular-nums",
+        )}
+        valueClassName={cn("text-base md:text-[11px]", mono && "font-mono tabular-nums")}
+      />
+    );
+  }
+
   return (
     <span
       className={cn(

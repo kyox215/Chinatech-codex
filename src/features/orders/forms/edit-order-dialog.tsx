@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
+import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   FaultDiagnosisPicker,
   normalizeFaultPrices,
@@ -30,7 +31,7 @@ import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
 import type { FaultPriceItem, OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
-import { decimalKeyboardProps, moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
+import { moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
 
 export function EditOrderDialog({
   open,
@@ -235,13 +236,11 @@ export function EditOrderDialog({
                     onChange={(event) => patchFault(index, { name: event.target.value })}
                     placeholder="项目"
                   />
-                  <Input
-                    {...decimalKeyboardProps}
+                  <MoneyKeypadInput
+                    ariaLabel={`报价项目 ${index + 1} 金额`}
                     value={moneyDraftValue(Number(item.price) || 0)}
-                    onChange={(event) =>
-                      patchFault(index, { price: parseMoneyDraft(event.target.value) })
-                    }
-                    className="font-mono"
+                    onChange={(value) => patchFault(index, { price: parseMoneyDraft(value) })}
+                    triggerClassName="font-mono"
                     placeholder="金额"
                   />
                   <Input
@@ -285,13 +284,11 @@ export function EditOrderDialog({
             </div>
             <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-3">
               <EditField label="押金">
-                <Input
-                  {...decimalKeyboardProps}
+                <MoneyKeypadInput
+                  ariaLabel="押金"
                   value={moneyDraftValue(Number(form.deposit_amount ?? 0))}
-                  onChange={(event) =>
-                    setForm({ ...form, deposit_amount: parseMoneyDraft(event.target.value) })
-                  }
-                  className="font-mono"
+                  onChange={(value) => setForm({ ...form, deposit_amount: parseMoneyDraft(value) })}
+                  triggerClassName="font-mono"
                 />
               </EditField>
               <EditField label="已付金额">

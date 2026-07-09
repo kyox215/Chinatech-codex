@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyMoneyKeypadKey,
   decimalKeyboardProps,
   imeiKeyboardProps,
   moneyDraftValue,
+  normalizeMoneyKeypadDraft,
   parseMoneyDraft,
   phoneKeyboardProps,
 } from "./mobile-input";
@@ -22,5 +24,22 @@ describe("mobile input helpers", () => {
     expect(parseMoneyDraft("€ 25,50")).toBe(25.5);
     expect(parseMoneyDraft(" 35.75 ")).toBe(35.75);
     expect(parseMoneyDraft("-5")).toBe(0);
+  });
+
+  it("normalizes virtual money keypad drafts", () => {
+    expect(normalizeMoneyKeypadDraft("€ 025,555")).toBe("25.55");
+    expect(normalizeMoneyKeypadDraft("00.5.8")).toBe("0.58");
+    expect(normalizeMoneyKeypadDraft("abc")).toBe("");
+  });
+
+  it("applies virtual money keypad keys without cursor-dependent edits", () => {
+    expect(applyMoneyKeypadKey("", "1")).toBe("1");
+    expect(applyMoneyKeypadKey("1", "00")).toBe("100");
+    expect(applyMoneyKeypadKey("", ".")).toBe("0.");
+    expect(applyMoneyKeypadKey("0.", "5")).toBe("0.5");
+    expect(applyMoneyKeypadKey("0.50", "9")).toBe("0.50");
+    expect(applyMoneyKeypadKey("12.3", "backspace")).toBe("12.");
+    expect(applyMoneyKeypadKey("12.", "backspace")).toBe("12");
+    expect(applyMoneyKeypadKey("12", "clear")).toBe("");
   });
 });
