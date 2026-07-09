@@ -1292,6 +1292,105 @@ export interface StoreSettingsUpdateInput {
   message_signature?: string;
 }
 
+export type KioskDeviceStatus = "pairing" | "active" | "suspended" | "revoked";
+export type KioskSessionType = "intake_contact" | "order_contact_signature" | "pickup_signature";
+export type KioskSessionStatus =
+  | "queued"
+  | "active"
+  | "submitted"
+  | "accepted"
+  | "returned"
+  | "cancelled"
+  | "expired";
+
+export interface KioskDevice {
+  id: string;
+  store_id: string;
+  label: string;
+  status: KioskDeviceStatus;
+  last_seen_at?: string;
+  paired_at?: string;
+  pairing_code_expires_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KioskDevicePairingInput {
+  label: string;
+}
+
+export interface KioskDevicePairingResult {
+  device: KioskDevice;
+  pairing_code: string;
+  expires_at: string;
+}
+
+export interface KioskSession {
+  id: string;
+  store_id: string;
+  device_id: string;
+  order_id?: string;
+  customer_id?: string;
+  session_type: KioskSessionType;
+  status: KioskSessionStatus;
+  request_payload: Record<string, unknown>;
+  submission_payload?: Record<string, unknown>;
+  submission_version: number;
+  expires_at: string;
+  submitted_at?: string;
+  accepted_at?: string;
+  cancelled_at?: string;
+  returned_at?: string;
+  created_at: string;
+  updated_at: string;
+  device?: KioskDevice;
+}
+
+export interface KioskSessionCreateInput {
+  device_id: string;
+  session_type: KioskSessionType;
+  order_id?: string;
+  customer_id?: string;
+  request_payload?: Record<string, unknown>;
+  expires_in_minutes?: number;
+}
+
+export interface KioskSessionSubmitInput {
+  customer_name?: string;
+  customer_phone?: string;
+  backup_phone?: string;
+  preferred_channel?: "whatsapp" | "sms";
+  language?: "it" | "zh" | "en";
+  confirmation_checked?: boolean;
+  signature_data_url?: string;
+  note?: string;
+}
+
+export interface KioskPublicSession {
+  session: Pick<
+    KioskSession,
+    "id" | "session_type" | "status" | "request_payload" | "expires_at" | "submitted_at"
+  >;
+  device: Pick<KioskDevice, "id" | "label" | "status">;
+  store: {
+    name: string;
+  };
+  order?: {
+    id: string;
+    public_no: string;
+    customer_name?: string;
+    customer_phone?: string;
+    device_label?: string;
+    balance_amount?: number;
+    status?: RepairOrderStatus;
+  };
+}
+
+export interface KioskPairResult {
+  token: string;
+  device: KioskDevice;
+}
+
 export interface MessageTemplate {
   id: string;
   store_id?: string;

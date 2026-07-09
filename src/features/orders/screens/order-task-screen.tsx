@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Phone,
   Printer,
+  TabletSmartphone,
   Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -46,9 +47,16 @@ import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
 } from "@/features/orders/model/order-transition-reasons";
+import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
-import { getOrder, listOrderWorkflow, transitionOrder } from "@/lib/repairdesk/api";
+import {
+  createKioskSession,
+  getOrder,
+  listKioskDevices,
+  listOrderWorkflow,
+  transitionOrder,
+} from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
@@ -82,8 +90,15 @@ export function OrderTaskScreen({ id }: { id: string }) {
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });
+  const { data: kioskDevices = [] } = useQuery({
+    queryKey: kioskKeys.devices(activeStoreId),
+    queryFn: ({ signal }) => listKioskDevices({ signal }),
+    staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId),
+  });
 
   const order = data?.order;
+  const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const workflowStatus = order
     ? (order.workflow_status ?? workflowStatusFromLegacyStatus(order.status))
     : "intake";
@@ -112,6 +127,30 @@ export function OrderTaskScreen({ id }: { id: string }) {
       setTransitionAction(null);
       setTransitionReason("");
       invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const kioskPickupRequest = useMutation({
+    mutationFn: () => {
+      if (!order) throw new Error("工单未加载");
+      if (!activeKioskDevice) throw new Error("没有可用的客户 iPad");
+      return createKioskSession({
+        device_id: activeKioskDevice.id,
+        order_id: order.id,
+        session_type: "pickup_signature",
+        expires_in_minutes: 30,
+        request_payload: {
+          source: "order_task",
+          order_public_no: order.public_no,
+        },
+      });
+    },
+    onSuccess: async (session) => {
+      toast.success(`已发送到 ${session.device?.label ?? activeKioskDevice?.label ?? "客户 iPad"}`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) }),
+        queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id, activeStoreId) }),
+      ]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -338,6 +377,20 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 </Link>
               </Button>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
+              disabled={!activeKioskDevice || kioskPickupRequest.isPending}
+              onClick={() => kioskPickupRequest.mutate()}
+            >
+              <TabletSmartphone className="size-4" />
+              {kioskPickupRequest.isPending
+                ? "发送中"
+                : activeKioskDevice
+                  ? "发送取机确认到 iPad"
+                  : "无可用 iPad"}
+            </Button>
           </section>
         </div>
       </div>

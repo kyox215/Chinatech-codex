@@ -14,6 +14,7 @@ import {
   type CustomerIntakeCandidate,
 } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { phoneKeyboardProps } from "@/shared/lib/mobile-input";
 import { primaryPhoneRaw } from "@/shared/lib/phone";
 
 const EMPTY_CANDIDATES: CustomerIntakeCandidate[] = [];
@@ -107,6 +108,7 @@ export function CustomerIntakeLookup({
       <PopoverAnchor asChild>
         <div className={cn("relative min-w-0", containerClassName)}>
           <Input
+            {...phoneKeyboardProps}
             value={value}
             disabled={disabled}
             role="combobox"

@@ -26,6 +26,11 @@ import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import {
+  decimalKeyboardProps,
+  moneyDraftValue,
+  parseMoneyDraft,
+} from "@/shared/lib/mobile-input";
 
 export function NewOrderQuotationSection({
   form,
@@ -65,8 +70,6 @@ export function NewOrderQuotationSection({
   const serviceSelectTriggerClass =
     "h-10 rounded-xl border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 text-xs font-medium shadow-none focus:ring-1 focus:ring-ring focus-visible:ring-1";
   const serviceDropdownContentClass = "z-[90] rounded-xl shadow-[var(--shadow-overlay)]";
-  const moneyInputValue = (value: number) => (value === 0 ? "" : String(value));
-  const parseMoneyDraft = (value: string) => (value.trim() === "" ? 0 : Number(value));
   const balance = Math.max(0, total - form.deposit);
   const roleLabel = getOperatorRoleLabel(operatorRole);
 
@@ -105,10 +108,8 @@ export function NewOrderQuotationSection({
                       €
                     </span>
                     <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={moneyInputValue(Number(item.price) || 0)}
+                      {...decimalKeyboardProps}
+                      value={moneyDraftValue(Number(item.price) || 0)}
                       onChange={(event) =>
                         onPatchFault(index, { price: parseMoneyDraft(event.target.value) })
                       }
@@ -203,10 +204,8 @@ export function NewOrderQuotationSection({
                 €
               </span>
               <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={moneyInputValue(form.deposit)}
+                {...decimalKeyboardProps}
+                value={moneyDraftValue(form.deposit)}
                 onChange={(event) =>
                   setForm({ ...form, deposit: parseMoneyDraft(event.target.value) })
                 }

@@ -64,6 +64,11 @@ import type {
   InventoryStats,
   InventorySummary,
   InventoryTransactionInput,
+  KioskDevice,
+  KioskDevicePairingInput,
+  KioskDevicePairingResult,
+  KioskSession,
+  KioskSessionCreateInput,
   SellInventoryItemInput,
   MessageTemplate,
   MessageTemplatePreviewInput,
@@ -191,6 +196,17 @@ export type {
   InventoryTransaction,
   InventoryTransactionInput,
   InventoryTransactionType,
+  KioskDevice,
+  KioskDevicePairingInput,
+  KioskDevicePairingResult,
+  KioskDeviceStatus,
+  KioskPairResult,
+  KioskPublicSession,
+  KioskSession,
+  KioskSessionCreateInput,
+  KioskSessionStatus,
+  KioskSessionSubmitInput,
+  KioskSessionType,
   MessageTemplate,
   MessageTemplateChannel,
   MessageTemplateDomain,
@@ -379,6 +395,30 @@ export async function getStoreMembers(
   options?: RepairDeskRequestOptions,
 ): Promise<StoreMembersResult> {
   return requestJson<StoreMembersResult>("stores/members", {}, options);
+}
+
+export async function listKioskDevices(options?: RepairDeskRequestOptions): Promise<KioskDevice[]> {
+  return requestJson<KioskDevice[]>("kiosk/devices", {}, options);
+}
+
+export async function createKioskDevicePairing(
+  input: KioskDevicePairingInput,
+): Promise<KioskDevicePairingResult> {
+  return postJson<KioskDevicePairingResult>("kiosk/devices/pairing", { input });
+}
+
+export async function revokeKioskDevice(id: string): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>("kiosk/devices/revoke", { id });
+}
+
+export async function createKioskSession(input: KioskSessionCreateInput): Promise<KioskSession> {
+  return postJson<KioskSession>("kiosk/sessions/create", { input });
+}
+
+export async function listKioskSessions(
+  options?: RepairDeskRequestOptions,
+): Promise<KioskSession[]> {
+  return requestJson<KioskSession[]>("kiosk/sessions", {}, options);
 }
 
 export async function listStoreAccessRequests(

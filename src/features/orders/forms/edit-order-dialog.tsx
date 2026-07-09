@@ -30,6 +30,11 @@ import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
 import type { FaultPriceItem, OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
+import {
+  decimalKeyboardProps,
+  moneyDraftValue,
+  parseMoneyDraft,
+} from "@/shared/lib/mobile-input";
 
 export function EditOrderDialog({
   open,
@@ -235,10 +240,11 @@ export function EditOrderDialog({
                     placeholder="项目"
                   />
                   <Input
-                    type="number"
-                    min={0}
-                    value={item.price}
-                    onChange={(event) => patchFault(index, { price: Number(event.target.value) })}
+                    {...decimalKeyboardProps}
+                    value={moneyDraftValue(Number(item.price) || 0)}
+                    onChange={(event) =>
+                      patchFault(index, { price: parseMoneyDraft(event.target.value) })
+                    }
                     className="font-mono"
                     placeholder="金额"
                   />
@@ -284,11 +290,10 @@ export function EditOrderDialog({
             <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-3">
               <EditField label="押金">
                 <Input
-                  type="number"
-                  min={0}
-                  value={form.deposit_amount ?? 0}
+                  {...decimalKeyboardProps}
+                  value={moneyDraftValue(Number(form.deposit_amount ?? 0))}
                   onChange={(event) =>
-                    setForm({ ...form, deposit_amount: Number(event.target.value) })
+                    setForm({ ...form, deposit_amount: parseMoneyDraft(event.target.value) })
                   }
                   className="font-mono"
                 />

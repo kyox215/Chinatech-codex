@@ -22,6 +22,7 @@ import {
   type ImeiCaptureSource,
 } from "@/features/capture/model/barcode-parser";
 import { cn } from "@/lib/utils";
+import { imeiKeyboardProps } from "@/shared/lib/mobile-input";
 
 type CommitSource = "manual" | "paste" | "scan" | "clear";
 type ImeiScannerFieldDensity = "default" | "compact";
@@ -502,6 +503,7 @@ export function ImeiScannerField({
         )}
       >
         <Input
+          {...imeiKeyboardProps}
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}
           placeholder={placeholder}
@@ -511,8 +513,6 @@ export function ImeiScannerField({
               "h-8 min-w-0 text-[13px] placeholder:text-[13px] md:text-[13px] md:placeholder:text-[13px]",
             compact && quiet && "border-0 bg-transparent px-0 shadow-none focus-visible:ring-0",
           )}
-          inputMode="text"
-          autoComplete="off"
         />
         <Button
           type="button"
@@ -698,6 +698,7 @@ export function ImeiScannerField({
             {captureCandidates.length === 0 ? (
               <div className="grid gap-1.5 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 sm:gap-2 sm:p-2">
                 <Input
+                  {...imeiKeyboardProps}
                   value={scannerManualValue}
                   onChange={(event) => setScannerManualValue(event.target.value)}
                   placeholder="无法识别时可手动输入"

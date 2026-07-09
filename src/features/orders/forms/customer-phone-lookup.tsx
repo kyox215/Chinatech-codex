@@ -10,6 +10,7 @@ import { customersKeys } from "@/features/customers/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { searchCustomers, type Customer } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { phoneKeyboardProps } from "@/shared/lib/mobile-input";
 import { normalizePhoneRaw, primaryPhoneRaw, splitPhoneCandidates } from "@/shared/lib/phone";
 
 const EMPTY_CUSTOMERS: Customer[] = [];
@@ -106,6 +107,7 @@ export function CustomerPhoneLookup({
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           ) : null}
           <Input
+            {...phoneKeyboardProps}
             value={value}
             disabled={disabled}
             role="combobox"

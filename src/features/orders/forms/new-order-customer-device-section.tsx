@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Check, ChevronDown, ScanLine, Search, Smartphone, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
@@ -24,6 +24,7 @@ import {
 import type { CustomerHistoryDeviceCandidate, CustomerIntakeCandidate } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useTouchSafeDropdownTrigger } from "@/shared/lib/touch-safe-dropdown-trigger";
 
 type NewOrderCustomerDeviceBaseProps = {
   form: NewOrderFormState;
@@ -405,15 +406,18 @@ function DenseOptionMenu({
   emptyText?: string;
   onSelect: (value: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const normalizedValue = value.trim().toLowerCase();
+  const touchSafeTrigger = useTouchSafeDropdownTrigger(setOpen);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-label={`选择${label}`}
+          {...touchSafeTrigger}
         >
           <ChevronDown className="size-4" />
         </button>

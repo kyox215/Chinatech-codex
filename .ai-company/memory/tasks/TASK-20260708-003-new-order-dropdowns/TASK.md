@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["Frontend", "UIUX"]
 created_at: "2026-07-07T22:31:36Z"
-updated_at: "2026-07-07T22:31:48Z"
+updated_at: "2026-07-09T00:00:06Z"
 ---
 # Task — Fix new order dropdown interactivity and sizing
 
@@ -45,10 +45,10 @@ Fix new order dropdown interactivity and sizing
 
 ## Facts, assumptions, and unknowns
 
-| Item | Type | Evidence | Status / next action |
-|---|---|---|---|
-| Task title and initial metadata | observed | owner request | verify scope |
-| Project implementation details | unknown | repository inspection required | investigate |
+| Item                            | Type     | Evidence                       | Status / next action |
+| ------------------------------- | -------- | ------------------------------ | -------------------- |
+| Task title and initial metadata | observed | owner request                  | verify scope         |
+| Project implementation details  | unknown  | repository inspection required | investigate          |
 
 ## Decision and approval points
 

@@ -68,6 +68,13 @@ import {
   updateStoreSettings,
 } from "@/features/messages/server/message-settings.service";
 import {
+  createKioskDevicePairing,
+  createKioskSession,
+  listKioskDevices,
+  listKioskSessions,
+  revokeKioskDevice,
+} from "@/features/kiosk/server/kiosk.service";
+import {
   acceptStoreInvitation,
   approveStoreAccessRequest,
   createStoreInviteLink,
@@ -151,6 +158,8 @@ import {
   messageTemplatePreviewBodySchema,
   messageTemplateResetBodySchema,
   messageTemplateUpdateBodySchema,
+  kioskDevicePairingBodySchema,
+  kioskSessionCreateBodySchema,
   notificationBodySchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
@@ -191,6 +200,8 @@ const supabaseSource = {
   createCustomer,
   createCustomerFollowup,
   createInventoryIntake,
+  createKioskDevicePairing,
+  createKioskSession,
   createOrder,
   createOrderWorkflowStatus,
   createStore,
@@ -215,6 +226,8 @@ const supabaseSource = {
   listCustomersPage,
   listInventoryItems,
   listInventoryItemsPage,
+  listKioskDevices,
+  listKioskSessions,
   listMessageTemplates,
   listOrderWorkflow,
   listOrders,
@@ -235,6 +248,7 @@ const supabaseSource = {
   redeemStoreInviteLink,
   revokeStoreInviteLink,
   revokeStoreInvitation,
+  revokeKioskDevice,
   searchCustomers,
   searchCustomerIntakeCandidates,
   sendApprovalRequest,
@@ -531,6 +545,12 @@ export async function handleRepairDeskGet(path: string) {
         return ok(await api.listStoreMembers(actor));
       case "stores/access-requests":
         return ok(await api.listStoreAccessRequests(actor));
+      case "kiosk/devices":
+        assertRepairDeskPermission(actor, "settings:update_store");
+        return ok(await api.listKioskDevices(actor));
+      case "kiosk/sessions":
+        assertRepairDeskPermission(actor, "order:detail");
+        return ok(await api.listKioskSessions(actor));
       default:
         return NextResponse.json({ error: "接口不存在" }, { status: 404 });
     }
@@ -573,6 +593,39 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       case "account/profile/update": {
         const { input } = accountProfileUpdateBodySchema.parse(body);
         return ok(await api.updateAccountProfile(input, actor));
+      }
+      case "kiosk/devices/pairing": {
+        assertRepairDeskPermission(actor, "settings:update_store");
+        const { input } = kioskDevicePairingBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createKioskDevicePairing(input, actor),
+            realtimeBroadcasts.settingsUpdated,
+          ),
+        );
+      }
+      case "kiosk/devices/revoke": {
+        assertRepairDeskPermission(actor, "settings:update_store");
+        const { id } = idBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.revokeKioskDevice(id, actor),
+            realtimeBroadcasts.settingsUpdated,
+          ),
+        );
+      }
+      case "kiosk/sessions/create": {
+        assertRepairDeskPermission(actor, "order:update_intake");
+        const { input } = kioskSessionCreateBodySchema.parse(body);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createKioskSession(input, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
       }
       case "orders/list":
         return ok(await api.listOrders(orderListFiltersSchema.parse(body), actor));

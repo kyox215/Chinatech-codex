@@ -16,6 +16,7 @@ import {
   Send,
   Signature,
   Store,
+  TabletSmartphone,
   Trash2,
   UserRound,
   type LucideIcon,
@@ -119,6 +120,9 @@ export function OrderOverviewTab({
   photoAttachments = [],
   photoUploadPending = false,
   onPhotoCapture,
+  onRequestKioskSignature,
+  kioskSignaturePending = false,
+  kioskSignatureAvailable = false,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -146,6 +150,9 @@ export function OrderOverviewTab({
   photoAttachments?: OrderAttachment[];
   photoUploadPending?: boolean;
   onPhotoCapture?: () => void;
+  onRequestKioskSignature?: () => void;
+  kioskSignaturePending?: boolean;
+  kioskSignatureAvailable?: boolean;
 }) {
   const edit =
     isEditing && editDraft && onEditDraftChange
@@ -171,6 +178,9 @@ export function OrderOverviewTab({
           quickImeiPending={quickImeiPending}
           edit={edit}
           surface={surface}
+          onRequestKioskSignature={onRequestKioskSignature}
+          kioskSignaturePending={kioskSignaturePending}
+          kioskSignatureAvailable={kioskSignatureAvailable}
         />
       </div>
 
@@ -193,7 +203,15 @@ export function OrderOverviewTab({
               : "lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
           )}
         >
-          <CustomerPanel order={order} customer={customer} edit={edit} surface={surface} />
+          <CustomerPanel
+            order={order}
+            customer={customer}
+            edit={edit}
+            surface={surface}
+            onRequestKioskSignature={onRequestKioskSignature}
+            kioskSignaturePending={kioskSignaturePending}
+            kioskSignatureAvailable={kioskSignatureAvailable}
+          />
           <DeviceIssuePanel
             order={order}
             deviceBrand={deviceBrand}
@@ -885,6 +903,9 @@ function MobileCoreInfoPanel({
   quickImeiPending,
   edit,
   surface,
+  onRequestKioskSignature,
+  kioskSignaturePending,
+  kioskSignatureAvailable,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -898,6 +919,9 @@ function MobileCoreInfoPanel({
   quickImeiPending: boolean;
   edit: OrderEditContext | null;
   surface: DetailSurface;
+  onRequestKioskSignature?: () => void;
+  kioskSignaturePending: boolean;
+  kioskSignatureAvailable: boolean;
 }) {
   return (
     <DetailPanel surface={surface}>
@@ -983,7 +1007,12 @@ function MobileCoreInfoPanel({
         </section>
 
         <Separator className="my-2 sm:my-3" />
-        <CustomerSignatureSection order={order} />
+        <CustomerSignatureSection
+          order={order}
+          onRequestKioskSignature={onRequestKioskSignature}
+          kioskSignaturePending={kioskSignaturePending}
+          kioskSignatureAvailable={kioskSignatureAvailable}
+        />
       </div>
     </DetailPanel>
   );
@@ -994,11 +1023,17 @@ function CustomerPanel({
   customer,
   edit,
   surface,
+  onRequestKioskSignature,
+  kioskSignaturePending,
+  kioskSignatureAvailable,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
   edit: OrderEditContext | null;
   surface: DetailSurface;
+  onRequestKioskSignature?: () => void;
+  kioskSignaturePending: boolean;
+  kioskSignatureAvailable: boolean;
 }) {
   const dense = surface === "dialog";
   return (
@@ -1018,7 +1053,12 @@ function CustomerPanel({
         <BackupPhones order={order} edit={edit} />
 
         <Separator className={dense ? "my-1" : "my-2 sm:my-3"} />
-        <CustomerSignatureSection order={order} />
+        <CustomerSignatureSection
+          order={order}
+          onRequestKioskSignature={onRequestKioskSignature}
+          kioskSignaturePending={kioskSignaturePending}
+          kioskSignatureAvailable={kioskSignatureAvailable}
+        />
       </div>
     </DetailPanel>
   );
@@ -1173,8 +1213,29 @@ function BackupPhones({
   );
 }
 
-function CustomerSignatureSection({ order }: { order: OrderDetail["order"] }) {
+function CustomerSignatureSection({
+  order,
+  onRequestKioskSignature,
+  kioskSignaturePending = false,
+  kioskSignatureAvailable = false,
+}: {
+  order: OrderDetail["order"];
+  onRequestKioskSignature?: () => void;
+  kioskSignaturePending?: boolean;
+  kioskSignatureAvailable?: boolean;
+}) {
   const dense = useDenseDetail();
+  const hasKioskAction = Boolean(onRequestKioskSignature);
+  const ActionIcon = hasKioskAction ? TabletSmartphone : Signature;
+  const actionLabel = hasKioskAction
+    ? kioskSignaturePending
+      ? "发送中"
+      : kioskSignatureAvailable
+        ? "发送到 iPad"
+        : "无 iPad"
+    : order.customer_signature
+      ? "重新签名"
+      : "请客户签名";
   return (
     <section className="min-w-0">
       <div
@@ -1195,13 +1256,15 @@ function CustomerSignatureSection({ order }: { order: OrderDetail["order"] }) {
           type="button"
           variant="outline"
           size="sm"
+          disabled={hasKioskAction && (!kioskSignatureAvailable || kioskSignaturePending)}
+          onClick={hasKioskAction ? onRequestKioskSignature : undefined}
           className={cn(
             "gap-1 px-1.5 text-[11px]",
             dense ? "h-6" : "h-6 sm:h-7 sm:px-2 sm:text-xs",
           )}
         >
-          <Signature className="size-3" />
-          {order.customer_signature ? "重新签名" : "请客户签名"}
+          <ActionIcon className="size-3" />
+          {actionLabel}
         </Button>
       </div>
       <div

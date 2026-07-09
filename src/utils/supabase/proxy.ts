@@ -13,6 +13,7 @@ export async function updateSession(request: NextRequest) {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const pathname = request.nextUrl.pathname;
   const isRepairDeskApi = pathname.startsWith("/api/repairdesk");
+  const isKioskRoute = pathname === "/kiosk" || pathname.startsWith("/api/kiosk");
   const isLoginPage = pathname === "/login";
   const isPasswordUpdatePage =
     isLoginPage && request.nextUrl.searchParams.get("mode") === "update-password";
@@ -66,7 +67,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.json({ error: "未登录或登录已过期" }, { status: 401 });
   }
 
-  if (!isPublicAsset && !isRepairDeskApi && !isAuthPage && !isAuthenticated) {
+  if (!isPublicAsset && !isRepairDeskApi && !isAuthPage && !isKioskRoute && !isAuthenticated) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);

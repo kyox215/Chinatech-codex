@@ -32,6 +32,7 @@ import {
   Send,
   Smartphone,
   Store,
+  TabletSmartphone,
   Trash2,
   UserRound,
   WalletCards,
@@ -81,8 +82,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   decideOrderApproval,
+  createKioskSession,
   getOrder,
   getStoreSettings,
+  listKioskDevices,
   listOrderWorkflow,
   patchOrder,
   patchOrderFinance,
@@ -152,6 +155,7 @@ import {
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
@@ -262,6 +266,13 @@ export function OrderDetailScreen({
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });
+  const { data: kioskDevices = [] } = useQuery({
+    queryKey: kioskKeys.devices(activeStoreId),
+    queryFn: ({ signal }) => listKioskDevices({ signal }),
+    staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId),
+  });
+  const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
   const {
     state: editOfflineState,
@@ -435,6 +446,32 @@ export function OrderDetailScreen({
           : "WhatsApp 通知已记录",
       );
       invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const kioskSignatureRequest = useMutation({
+    mutationFn: () => {
+      if (!data) throw new Error("工单未加载");
+      if (!activeKioskDevice) throw new Error("没有可用的客户 iPad");
+      return createKioskSession({
+        device_id: activeKioskDevice.id,
+        order_id: data.order.id,
+        customer_id: data.customer?.id ?? data.order.customer_id,
+        session_type: "pickup_signature",
+        expires_in_minutes: 30,
+        request_payload: {
+          source: "order_detail",
+          order_public_no: data.order.public_no,
+        },
+      });
+    },
+    onSuccess: async (session) => {
+      toast.success(`已发送到 ${session.device?.label ?? activeKioskDevice?.label ?? "客户 iPad"}`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) }),
+        queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id, activeStoreId) }),
+      ]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -668,6 +705,9 @@ export function OrderDetailScreen({
           onPrint={() => window.print()}
           onCancel={() => setCancelOpen(true)}
           canCancel={canCancelOrder}
+          onRequestKioskSignature={() => kioskSignatureRequest.mutate()}
+          kioskSignaturePending={kioskSignatureRequest.isPending}
+          kioskSignatureAvailable={Boolean(activeKioskDevice)}
           className="md:hidden"
         />
       ) : null}
@@ -755,6 +795,9 @@ export function OrderDetailScreen({
               photoAttachments={photoAttachments}
               photoUploadPending={attachmentUpload.isPending}
               onPhotoCapture={() => setDesktopPhotoCaptureOpen(true)}
+              onRequestKioskSignature={() => kioskSignatureRequest.mutate()}
+              kioskSignaturePending={kioskSignatureRequest.isPending}
+              kioskSignatureAvailable={Boolean(activeKioskDevice)}
             />
             <div ref={desktopRecordsRef} className="scroll-mt-24">
               <OrderRecordsWorkspace
@@ -1389,6 +1432,9 @@ function MobileOrderDetailView({
   onPrint,
   onCancel,
   canCancel,
+  onRequestKioskSignature,
+  kioskSignaturePending,
+  kioskSignatureAvailable,
   className,
 }: {
   data: OrderDetail;
@@ -1424,6 +1470,9 @@ function MobileOrderDetailView({
   onPrint: () => void;
   onCancel: () => void;
   canCancel: boolean;
+  onRequestKioskSignature: () => void;
+  kioskSignaturePending: boolean;
+  kioskSignatureAvailable: boolean;
   className?: string;
 }) {
   const { order, customer } = data;
@@ -1604,6 +1653,23 @@ function MobileOrderDetailView({
                 <MessageCircle className="shrink-0" />
                 <span className="min-w-0 truncate">WhatsApp</span>
               </a>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+              disabled={!kioskSignatureAvailable || kioskSignaturePending}
+              onClick={onRequestKioskSignature}
+            >
+              <TabletSmartphone className="shrink-0" />
+              <span className="min-w-0 truncate">
+                {kioskSignaturePending
+                  ? "发送中"
+                  : kioskSignatureAvailable
+                    ? "发送到 iPad"
+                    : "无可用 iPad"}
+              </span>
             </Button>
           </div>
         </section>

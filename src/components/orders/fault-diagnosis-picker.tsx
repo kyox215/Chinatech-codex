@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Battery,
   Camera,
@@ -25,6 +26,7 @@ import {
 import { componentOverlay, toneClasses } from "@/lib/component-patterns";
 import type { FaultPriceItem } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { useTouchSafeDropdownTrigger } from "@/shared/lib/touch-safe-dropdown-trigger";
 
 export interface SelectedFault extends FaultPriceItem {
   key: string;
@@ -456,9 +458,11 @@ function FaultCategoryButton({
   const Icon = group.icon;
   const compact = density === "compact";
   const quiet = appearance === "quiet";
+  const [open, setOpen] = useState(false);
+  const touchSafeTrigger = useTouchSafeDropdownTrigger(setOpen);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <div
         className={cn(
           "grid min-w-0 overflow-hidden border text-left transition-colors",
@@ -524,10 +528,11 @@ function FaultCategoryButton({
             type="button"
             aria-label={`展开${group.label}细分选项`}
             className={cn(
-              "grid h-full min-w-8 place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "grid h-full min-w-8 place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               quiet && "border-[var(--border-panel)] hover:bg-accent/30",
               active.length && "border-primary/20 text-primary/70 hover:text-primary",
             )}
+            {...touchSafeTrigger}
           >
             <ChevronDown
               className={compact && quiet ? "size-4" : compact ? "size-3.5" : "size-4"}
