@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -288,16 +288,11 @@ export function BuybackScreen() {
         ) : (
           <>
             <BuybackDesktopTable items={filteredItems} onOpenRecord={setSelectedRecord} />
-            <motion.section
-              variants={stagger(0.035)}
-              className={cn(repairOs.cardList, "mt-2 lg:hidden")}
-            >
+            <section className={cn(repairOs.cardList, "mt-2 lg:hidden")}>
               {filteredItems.map((item) => (
-                <motion.div key={item.id} variants={fadeUp}>
-                  <BuybackQuoteCard item={item} onOpenRecord={setSelectedRecord} />
-                </motion.div>
+                <BuybackQuoteCard key={item.id} item={item} onOpenRecord={setSelectedRecord} />
               ))}
-            </motion.section>
+            </section>
           </>
         )}
 
@@ -520,7 +515,7 @@ function BuybackDesktopTableRow({
   );
 }
 
-function BuybackQuoteCard({
+const BuybackQuoteCard = memo(function BuybackQuoteCard({
   item,
   onOpenRecord,
 }: {
@@ -555,7 +550,7 @@ function BuybackQuoteCard({
     <RepairOsBusinessCard
       className={cn(
         repairOs.businessCardDense,
-        "grid-cols-1 gap-1.5 cursor-pointer select-none touch-manipulation transition-colors hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "grid-cols-1 gap-1.5 cursor-pointer select-none touch-manipulation transition-colors hover:border-primary/35 active:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
       role="button"
       tabIndex={0}
@@ -660,7 +655,7 @@ function BuybackQuoteCard({
       </div>
     </RepairOsBusinessCard>
   );
-}
+});
 
 function BuybackRecordSheet({
   item,

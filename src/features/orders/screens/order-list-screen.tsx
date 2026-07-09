@@ -840,31 +840,24 @@ export function OrderListScreen() {
             </div>
 
             {/* Mobile and tablet cards */}
-            <motion.div
-              data-order-mobile-list="true"
-              variants={stagger(0.04)}
-              initial="hidden"
-              animate="show"
-              className="space-y-1.5 lg:hidden"
-            >
+            <div data-order-mobile-list="true" className="space-y-1.5 lg:hidden">
               {data.map((order) => (
-                <motion.div key={order.id} variants={fadeUp}>
-                  <OrderMobileCard
-                    order={order}
-                    suppliers={visibleSuppliers}
-                    isPartsSupplierUpdating={
-                      partsSupplierMutation.isPending &&
-                      partsSupplierMutation.variables?.order.id === order.id
-                    }
-                    onPartsSupplierChange={
-                      canAssignSuppliers
-                        ? (supplierId) => partsSupplierMutation.mutate({ order, supplierId })
-                        : undefined
-                    }
-                  />
-                </motion.div>
+                <OrderMobileCard
+                  key={order.id}
+                  order={order}
+                  suppliers={visibleSuppliers}
+                  isPartsSupplierUpdating={
+                    partsSupplierMutation.isPending &&
+                    partsSupplierMutation.variables?.order.id === order.id
+                  }
+                  onPartsSupplierChange={
+                    canAssignSuppliers
+                      ? (supplierId) => partsSupplierMutation.mutate({ order, supplierId })
+                      : undefined
+                  }
+                />
               ))}
-            </motion.div>
+            </div>
             <PaginationBar
               page={page}
               pageCount={pageCount}

@@ -288,7 +288,7 @@ export function CustomerMobileCard({
       <RepairOsBusinessCard
         className={cn(
           repairOs.businessCardDense,
-          "cursor-pointer transition-transform active:scale-[0.99]",
+          "cursor-pointer transition active:scale-[0.99] active:bg-accent/15",
         )}
         trailing={
           <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">

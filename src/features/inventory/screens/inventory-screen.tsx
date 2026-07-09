@@ -598,7 +598,7 @@ function InventoryMobileCard({
     <RepairOsBusinessCard
       className={cn(
         repairOs.businessCardDense,
-        "w-full text-left transition-transform active:scale-[0.99]",
+        "w-full select-none text-left transition active:scale-[0.99] active:bg-accent/15",
       )}
       trailing={
         <div className="flex min-w-[4.75rem] flex-col items-end text-right text-xs">
@@ -623,7 +623,7 @@ function InventoryMobileCard({
           <button
             type="button"
             className={cn(
-              "mt-1 max-w-20 truncate rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+              "mt-1 max-w-20 touch-manipulation truncate rounded-md px-1.5 py-0.5 text-[10px] font-medium active:scale-[0.98]",
               inventoryActionBadgeClass(primaryAction.tone),
             )}
             onClick={onPrimaryAction}
@@ -633,7 +633,11 @@ function InventoryMobileCard({
         </div>
       }
     >
-      <button type="button" className="block w-full min-w-0 text-left" onClick={onSelect}>
+      <button
+        type="button"
+        className="block w-full min-w-0 touch-manipulation text-left"
+        onClick={onSelect}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <span className="font-mono text-[11px] font-semibold text-primary">{item.public_no}</span>
           <InventoryStatusBadge status={item.status} className="text-[10px]" />

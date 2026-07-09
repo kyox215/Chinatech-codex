@@ -81,8 +81,13 @@ export function OrderMobileCard({
   ) : null;
 
   return (
-    <article className={cn(repairOs.mobileInfoCard, "group relative overflow-hidden")}>
-      <div className="space-y-1 px-2.5 py-1.5 transition-colors group-hover:bg-accent/10">
+    <article
+      className={cn(
+        repairOs.mobileInfoCard,
+        "group relative touch-manipulation select-none overflow-hidden",
+      )}
+    >
+      <div className="space-y-1 px-2.5 py-1.5 transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
         <Link href={`/orders/${order.id}`} className="block">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
             <div className="flex min-w-0 items-start gap-1.5 rounded-md px-0.5 text-[10px] leading-3 text-muted-foreground">
