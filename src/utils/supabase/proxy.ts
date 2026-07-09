@@ -6,6 +6,7 @@ import {
   applyAuthCookiePersistence,
   parseAuthPersistenceMode,
 } from "@/features/auth/model/auth-persistence";
+import { PASSWORD_RECOVERY_COOKIE } from "@/features/auth/model/password-recovery";
 import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
 
 export async function updateSession(request: NextRequest) {
@@ -15,10 +16,19 @@ export async function updateSession(request: NextRequest) {
   const isRepairDeskApi = pathname.startsWith("/api/repairdesk");
   const isKioskRoute = pathname === "/kiosk" || pathname.startsWith("/api/kiosk");
   const isLoginPage = pathname === "/login";
+  const isForgotPasswordPage = pathname === "/forgot-password";
+  const isResetPasswordPage = pathname === "/reset-password";
+  const isAuthUtilityRoute = pathname.startsWith("/auth/");
   const isPasswordUpdatePage =
-    isLoginPage && request.nextUrl.searchParams.get("mode") === "update-password";
+    isResetPasswordPage ||
+    (isLoginPage && request.nextUrl.searchParams.get("mode") === "update-password");
   const isOnboardingPage = pathname === "/onboarding";
-  const isAuthPage = isLoginPage || isOnboardingPage;
+  const isAuthPage =
+    isLoginPage ||
+    isForgotPasswordPage ||
+    isResetPasswordPage ||
+    isOnboardingPage ||
+    isAuthUtilityRoute;
   const isPublicAsset =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -28,6 +38,7 @@ export async function updateSession(request: NextRequest) {
   const hasAuthCookie = request.cookies
     .getAll()
     .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+  const hasPasswordRecoveryCookie = request.cookies.get(PASSWORD_RECOVERY_COOKIE)?.value === "1";
 
   if (isRepairDeskE2eAuthBypassEnabled()) {
     return NextResponse.next({ request });
@@ -65,6 +76,13 @@ export async function updateSession(request: NextRequest) {
 
   if (isRepairDeskApi && !isAuthenticated) {
     return NextResponse.json({ error: "未登录或登录已过期" }, { status: 401 });
+  }
+
+  if (isResetPasswordPage && (!isAuthenticated || !hasPasswordRecoveryCookie)) {
+    const forgotUrl = request.nextUrl.clone();
+    forgotUrl.pathname = "/forgot-password";
+    forgotUrl.searchParams.set("auth_error", "session");
+    return NextResponse.redirect(forgotUrl);
   }
 
   if (!isPublicAsset && !isRepairDeskApi && !isAuthPage && !isKioskRoute && !isAuthenticated) {

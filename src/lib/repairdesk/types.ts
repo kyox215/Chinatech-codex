@@ -889,6 +889,8 @@ export interface OnboardingStatus {
   userId?: string;
   email?: string;
   displayName: string;
+  phoneE164?: string | null;
+  phoneVerifiedAt?: string | null;
   isPlatformAdmin: boolean;
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
@@ -899,6 +901,7 @@ export interface OnboardingStatus {
 
 export interface AccountProfileUpdateInput {
   display_name: string;
+  phone_e164?: string | null;
 }
 
 export interface OnboardingRequestInput {
@@ -921,6 +924,8 @@ export interface StaffProfile {
   id: string;
   email: string;
   display_name: string;
+  phone_e164?: string | null;
+  phone_verified_at?: string | null;
   role: StaffRole;
   status: StaffStatus;
   created_at: string;
@@ -932,6 +937,8 @@ export interface AuditActor {
   email?: string;
   emailVerified?: boolean;
   displayName: string;
+  phoneE164?: string | null;
+  phoneVerifiedAt?: string | null;
   role?: StaffRole;
   isPlatformAdmin?: boolean;
   storeId?: string;

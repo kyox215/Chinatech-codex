@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserPlus,
+  UserCircle,
   Users,
 } from "lucide-react";
 
@@ -239,6 +240,15 @@ export function getShellPrimaryAction(pathname: string, isPlatformAdmin = true) 
 
 export function getShellCommandActions() {
   return [
+    {
+      id: "account-center",
+      kind: "route",
+      label: "个人中心",
+      shortLabel: "账号",
+      description: "查看账号资料、修改密码和联系手机号",
+      icon: UserCircle,
+      href: "/account",
+    },
     newOrderShellAction,
     workspaceNavItems.find((item) => item.id === "customers")!.primaryAction!,
     workspaceNavItems.find((item) => item.id === "buyback")!.primaryAction!,
@@ -255,6 +265,7 @@ export const routeLabels: Record<string, string> = {
   messages: "消息模板",
   platform: "平台审批",
   settings: "设置",
+  account: "个人中心",
   offline: "离线",
   new: "新建",
   task: "任务",

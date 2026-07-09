@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   normalizePhoneBook,
+  normalizeOptionalE164Phone,
   normalizePhoneRaw,
   primaryPhoneRaw,
   samePhoneRaw,
@@ -43,5 +44,14 @@ describe("phone helpers", () => {
         "+39 329 900 0005 / +39 320 100 2005",
       ]),
     ).toEqual(["+39 329 900 0005"]);
+  });
+
+  it("normalizes optional account phones to E.164", () => {
+    expect(normalizeOptionalE164Phone("+39 333 123 4567")).toBe("+393331234567");
+    expect(normalizeOptionalE164Phone("0039 333 123 4567")).toBe("+393331234567");
+    expect(normalizeOptionalE164Phone("")).toBeNull();
+    expect(() => normalizeOptionalE164Phone("3331234567")).toThrow(
+      "手机号请使用国际格式，例如 +39 333 123 4567",
+    );
   });
 });

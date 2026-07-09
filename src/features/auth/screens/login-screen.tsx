@@ -51,6 +51,9 @@ export function LoginScreen() {
     if (searchParams.get("auth_error") === "callback") {
       toast.error("登录链接已失效，请重新发送邮件后再试。");
     }
+    if (searchParams.get("password_updated") === "1") {
+      toast.success("密码已更新，请使用新密码登录。");
+    }
   }, [searchParams]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
@@ -115,7 +118,7 @@ export function LoginScreen() {
     setIsSubmitting(true);
     const supabase = createClient();
     const redirectUrl = new URL("/auth/callback", window.location.origin);
-    redirectUrl.searchParams.set("next", "/login?mode=update-password");
+    redirectUrl.searchParams.set("next", "/reset-password");
     const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: redirectUrl.toString(),
     });
@@ -277,7 +280,7 @@ export function LoginScreen() {
                       type="button"
                       variant="link"
                       className="h-auto px-0 text-xs"
-                      onClick={() => setMode("reset")}
+                      onClick={() => router.push("/forgot-password")}
                     >
                       忘记密码？
                     </Button>

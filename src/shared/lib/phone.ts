@@ -109,3 +109,16 @@ export function phoneMatches(value: string, query: string) {
 export function samePhoneRaw(left: string, right: string) {
   return primaryPhoneRaw(left) === primaryPhoneRaw(right);
 }
+
+export function normalizeOptionalE164Phone(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+
+  const compact = trimmed.replace(/[\s().-]/g, "");
+  const normalized = compact.startsWith("00") ? `+${compact.slice(2)}` : compact;
+  if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
+    throw new Error("手机号请使用国际格式，例如 +39 333 123 4567");
+  }
+
+  return normalized;
+}

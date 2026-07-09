@@ -230,6 +230,9 @@ export const accountProfileUpdateBodySchema = z.object({
         .trim()
         .min(1, "账号名称不能为空")
         .max(60, "账号名称不能超过 60 个字符"),
+      phone_e164: z
+        .union([z.string().trim().max(32, "手机号不能超过 32 个字符"), z.null()])
+        .optional(),
     })
     .strict() satisfies z.ZodType<AccountProfileUpdateInput>,
 });

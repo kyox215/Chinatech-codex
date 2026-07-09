@@ -106,6 +106,8 @@ export async function getRequestActor(
       role: activeStore?.role || staff.role,
       fallback: "员工",
     }),
+    phoneE164: staff.phone_e164 ?? null,
+    phoneVerifiedAt: staff.phone_verified_at ?? null,
     role: activeStore?.role || staff.role,
     isPlatformAdmin,
     storeId: activeStore?.id,

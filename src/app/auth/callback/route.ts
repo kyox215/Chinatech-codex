@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  PASSWORD_RECOVERY_COOKIE,
+  PASSWORD_RECOVERY_COOKIE_MAX_AGE_SECONDS,
+} from "@/features/auth/model/password-recovery";
 import { createClient } from "@/utils/supabase/server";
 
 export async function GET(request: Request) {
@@ -11,13 +15,23 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(new URL(next, url.origin));
+      const response = NextResponse.redirect(new URL(next, url.origin));
+      if (next === "/reset-password") {
+        response.cookies.set(PASSWORD_RECOVERY_COOKIE, "1", {
+          httpOnly: true,
+          maxAge: PASSWORD_RECOVERY_COOKIE_MAX_AGE_SECONDS,
+          path: "/",
+          sameSite: "lax",
+          secure: url.protocol === "https:",
+        });
+      }
+      return response;
     }
   }
 
-  const loginUrl = new URL("/login", url.origin);
-  loginUrl.searchParams.set("auth_error", "callback");
-  return NextResponse.redirect(loginUrl);
+  const errorUrl = new URL(next === "/reset-password" ? "/forgot-password" : "/login", url.origin);
+  errorUrl.searchParams.set("auth_error", "callback");
+  return NextResponse.redirect(errorUrl);
 }
 
 function safeNextPath(value: string | null) {

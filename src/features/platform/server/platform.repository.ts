@@ -24,6 +24,7 @@ import { assertVerifiedEmail, ForbiddenError } from "@/server/auth-context";
 import { type DbRecord, fail, maybeString, requiredString } from "@/server/repairdesk-shared";
 import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { normalizeOptionalE164Phone } from "@/shared/lib/phone";
 
 const JOIN_REQUEST_WINDOW_MS = 15 * 60 * 1000;
 const JOIN_REQUEST_LIMIT = 5;
@@ -57,6 +58,8 @@ export async function getOnboardingStatus(actor: AuditActor): Promise<Onboarding
     userId: actor.id,
     email: actor.email,
     displayName: actor.displayName,
+    phoneE164: actor.phoneE164 ?? null,
+    phoneVerifiedAt: actor.phoneVerifiedAt ?? null,
     isPlatformAdmin: Boolean(actor.isPlatformAdmin),
     activeStore: actor.storeId
       ? {
@@ -83,15 +86,19 @@ export async function updateAccountProfile(
   assertLoggedIn(actor);
   const userId = requiredString(actor.id);
   const displayName = sanitizeDisplayName(input.display_name);
+  const shouldUpdatePhone = "phone_e164" in input;
+  const phoneE164 = shouldUpdatePhone ? normalizeOptionalE164Phone(input.phone_e164) : undefined;
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
+  const updatePayload: Record<string, unknown> = {
+    display_name: displayName,
+    updated_at: now,
+  };
+  if (shouldUpdatePhone) updatePayload.phone_e164 = phoneE164;
 
   const { data, error } = await supabase
     .from("staff_profiles")
-    .update({
-      display_name: displayName,
-      updated_at: now,
-    })
+    .update(updatePayload)
     .eq("id", userId)
     .select("*")
     .single();
@@ -116,11 +123,19 @@ export async function updateAccountProfile(
     action: "update_account_profile",
     entityType: "staff_profile",
     entityId: userId,
-    before: { display_name: actor.displayName },
-    after: { display_name: displayName, email: (data as DbRecord).email },
+    before: shouldUpdatePhone
+      ? { display_name: actor.displayName, phone_e164: actor.phoneE164 ?? null }
+      : { display_name: actor.displayName },
+    after: shouldUpdatePhone
+      ? { display_name: displayName, phone_e164: phoneE164, email: (data as DbRecord).email }
+      : { display_name: displayName, email: (data as DbRecord).email },
   });
 
-  return getOnboardingStatus({ ...actor, displayName: publicDisplayName });
+  return getOnboardingStatus({
+    ...actor,
+    displayName: publicDisplayName,
+    phoneE164: shouldUpdatePhone ? phoneE164 : actor.phoneE164,
+  });
 }
 
 export async function submitOnboardingRequest(

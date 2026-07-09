@@ -267,6 +267,12 @@ export function AppSidebar() {
                 ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
+                  <Link href="/account" onClick={handleNav}>
+                    <UserCircle className="size-4" />
+                    个人中心
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/settings" onClick={handleNav}>
                     <Settings className="size-4" />
                     店铺设置

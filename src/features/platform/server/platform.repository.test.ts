@@ -269,6 +269,48 @@ describe("platform repository onboarding boundaries", () => {
     });
   });
 
+  it("normalizes account profile phone updates before persistence", async () => {
+    const profileQuery = createSupabaseQuery({
+      data: {
+        id: "user_1",
+        email: "staff@example.com",
+        display_name: "Mario Updated",
+        phone_e164: "+393331234567",
+      },
+      error: null,
+    });
+    const membershipQuery = createSupabaseQuery({ data: null, error: null });
+    const auditQuery = createSupabaseQuery({ data: null, error: null });
+    const requestsQuery = createSupabaseQuery({ data: [], error: null });
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from
+      .mockReturnValueOnce(profileQuery)
+      .mockReturnValueOnce(membershipQuery)
+      .mockReturnValueOnce(auditQuery)
+      .mockReturnValueOnce(requestsQuery)
+      .mockReturnValueOnce(invitationsQuery);
+
+    const status = await updateAccountProfile(
+      { display_name: "Mario Updated", phone_e164: "+39 333 123 4567" },
+      applicantActor,
+    );
+
+    expect(profileQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        display_name: "Mario Updated",
+        phone_e164: "+393331234567",
+      }),
+    );
+    expect(status.phoneE164).toBe("+393331234567");
+  });
+
+  it("rejects invalid account profile phone updates before writing", async () => {
+    await expect(
+      updateAccountProfile({ display_name: "Mario", phone_e164: "3331234567" }, applicantActor),
+    ).rejects.toThrow("手机号请使用国际格式，例如 +39 333 123 4567");
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
   it("does not let platform approval create private-store memberships for join requests", async () => {
     const pendingQuery = createSupabaseQuery({
       data: onboardingRow({
