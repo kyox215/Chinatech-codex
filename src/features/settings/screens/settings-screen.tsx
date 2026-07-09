@@ -8,6 +8,7 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  ChevronDown,
   GitBranch,
   Mail,
   MessageSquare,
@@ -30,6 +31,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -1104,9 +1106,9 @@ function SettingsSectionNav({
   return (
     <nav
       aria-label="设置分组"
-      className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)] md:rounded-2xl md:p-1.5"
+      className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-0.5 shadow-[var(--shadow-card)] md:p-1"
     >
-      <div className="grid min-w-0 auto-cols-[minmax(6.25rem,1fr)] grid-flow-col gap-1 overflow-x-auto md:auto-cols-[minmax(8.25rem,1fr)] md:gap-1.5 lg:grid-flow-row lg:grid-cols-6 lg:overflow-visible">
+      <div className="grid min-w-0 auto-cols-[minmax(4.85rem,1fr)] grid-flow-col gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:auto-cols-[minmax(7rem,1fr)] lg:grid-flow-row lg:grid-cols-7 lg:overflow-visible">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === selectedSection;
@@ -1117,7 +1119,7 @@ function SettingsSectionNav({
               aria-pressed={isActive}
               onClick={() => onSelect(item.key)}
               className={cn(
-                "relative flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition-colors md:gap-2 md:rounded-xl md:px-2.5 md:py-2",
+                "relative flex min-w-0 items-center gap-1 rounded-lg border px-1.5 py-1 text-left transition-colors md:gap-1.5 md:px-2 md:py-1.5",
                 isActive
                   ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
                   : "border-transparent bg-transparent text-foreground hover:border-[var(--border-panel)] hover:bg-accent",
@@ -1125,17 +1127,20 @@ function SettingsSectionNav({
             >
               <span
                 className={cn(
-                  "grid size-6 shrink-0 place-items-center rounded-lg border md:size-7",
+                  "grid size-5 shrink-0 place-items-center rounded-md border md:size-6 md:rounded-lg",
                   isActive
                     ? "border-primary-foreground/25 bg-primary-foreground/15"
                     : "border-[var(--border-panel)] bg-card",
                 )}
               >
-                <Icon className="size-3.5" />
+                <Icon className="size-3 md:size-3.5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-[11px] font-semibold md:text-xs">
+                <span className="flex min-w-0 items-center gap-1">
+                  <span className="truncate text-[11px] font-semibold md:hidden">
+                    {item.shortLabel}
+                  </span>
+                  <span className="hidden truncate text-[11px] font-semibold md:inline lg:text-xs">
                     {item.label}
                   </span>
                   {item.dirty ? (
@@ -1150,7 +1155,7 @@ function SettingsSectionNav({
                 </span>
                 <span
                   className={cn(
-                    "mt-0.5 hidden truncate text-[10px] leading-3 sm:block",
+                    "mt-0.5 hidden truncate text-[10px] leading-3 xl:block",
                     isActive ? "text-primary-foreground/75" : "text-muted-foreground",
                   )}
                 >
@@ -1898,6 +1903,56 @@ function WorkflowCheck({
   );
 }
 
+function CompactActionPanel({
+  open,
+  onOpenChange,
+  title,
+  summary,
+  icon: Icon,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  summary: string;
+  icon: typeof Store;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={onOpenChange}
+      className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]"
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full min-w-0 items-center gap-2 px-2.5 text-left"
+        >
+          <span className="grid size-6 shrink-0 place-items-center rounded-md border border-[var(--border-panel)] bg-card">
+            <Icon className="size-3.5 text-primary" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-xs font-semibold">{title}</span>
+            <span className="block truncate text-[10px] leading-3 text-muted-foreground">
+              {summary}
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-3.5 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t border-[var(--border-panel)] px-2.5 py-2">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function StoreMembersSection({
   members,
   invitations,
@@ -1988,6 +2043,8 @@ function StoreMembersSection({
 }) {
   const roleOptions = getRoleOptionsForActor(activeStoreRole);
   const [roleFilter, setRoleFilter] = useState<StoreRole | "all">("all");
+  const [invitePanelOpen, setInvitePanelOpen] = useState(false);
+  const [inviteCodePanelOpen, setInviteCodePanelOpen] = useState(false);
   const searchTerm = memberSearch.trim().toLowerCase();
   const activeCount = members.filter((member) => member.status === "active").length;
   const inactiveCount = members.filter((member) => member.status === "inactive").length;
@@ -2025,7 +2082,7 @@ function StoreMembersSection({
           "grid min-w-0 gap-1.5",
           density === "table"
             ? "grid-cols-[minmax(7rem,1fr)_auto_auto] items-center"
-            : "grid-cols-[minmax(0,1fr)_auto] items-center",
+            : "grid-cols-[6.5rem_auto_auto] items-center justify-end",
         )}
       >
         <Select
@@ -2052,7 +2109,7 @@ function StoreMembersSection({
           disabled={!canEditRole || !hasRoleChange || isUpdatingMember}
           onClick={() => onUpdateMemberRole(member.id, draftRole)}
         >
-          保存
+          {density === "table" ? "保存" : "存"}
         </Button>
         {member.status === "inactive" ? (
           <Button
@@ -2067,7 +2124,13 @@ function StoreMembersSection({
             onClick={() => onRestoreMember(member.id)}
           >
             <RotateCcw className="size-3.5" />
-            {isRowPending ? "恢复中" : "恢复"}
+            {isRowPending
+              ? density === "table"
+                ? "恢复中"
+                : "…"
+              : density === "table"
+                ? "恢复"
+                : "复"}
           </Button>
         ) : (
           <Button
@@ -2086,7 +2149,13 @@ function StoreMembersSection({
             }}
           >
             <UserMinus className="size-3.5" />
-            {isRowPending ? "停用中" : "停用"}
+            {isRowPending
+              ? density === "table"
+                ? "停用中"
+                : "…"
+              : density === "table"
+                ? "停用"
+                : "停"}
           </Button>
         )}
       </div>
@@ -2094,8 +2163,14 @@ function StoreMembersSection({
   };
 
   return (
-    <section id="settings-members" className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={Users} iconFrame={false} title="员工管理" />
+    <section id="settings-members" className={cn(repairOs.adminSection, "p-2 sm:p-3")}>
+      <RepairOsSectionHeader
+        icon={Users}
+        iconFrame={false}
+        title="员工管理"
+        className="mb-2"
+        titleClassName="text-base"
+      />
       {isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-10 w-full" />
@@ -2114,39 +2189,42 @@ function StoreMembersSection({
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-1.5 lg:grid-cols-6">
             {[
               { label: "成员", value: members.length, hint: "已加入" },
-              { label: "正常", value: activeCount, hint: "可使用" },
+              { label: "正常", value: activeCount, hint: "可用" },
               { label: "停用", value: inactiveCount, hint: "不可用" },
-              { label: "待邀请", value: invitations.length, hint: "可撤销" },
+              { label: "邀请", value: invitations.length, hint: "待接受" },
               { label: "邀请码", value: inviteLinks.length, hint: "有效" },
+              { label: "申请", value: accessRequests.length, hint: "待批" },
             ].map((metric) => (
               <div
                 key={metric.label}
-                className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2"
+                className="grid min-h-11 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5"
               >
-                <div className="truncate text-[10px] font-medium text-muted-foreground">
-                  {metric.label}
+                <div className="min-w-0">
+                  <div className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
+                    {metric.label}
+                  </div>
+                  <div className="truncate text-[9px] leading-3 text-muted-foreground">
+                    {metric.hint}
+                  </div>
                 </div>
-                <div className="mt-1 flex items-end justify-between gap-2">
-                  <span className="font-mono text-lg font-semibold tabular-nums leading-none">
-                    {metric.value}
-                  </span>
-                  <span className="truncate text-[10px] text-muted-foreground">{metric.hint}</span>
-                </div>
+                <span className="font-mono text-base font-semibold tabular-nums leading-none">
+                  {metric.value}
+                </span>
               </div>
             ))}
           </div>
 
-          <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+          <div className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] gap-1.5 lg:grid-cols-[minmax(0,1fr)_10rem_10rem]">
             <div className="relative min-w-0">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 aria-label="搜索员工"
                 className={cn(compactControlClass, "pl-8")}
-                placeholder="搜索员工姓名或邮箱"
+                placeholder="搜索员工"
                 value={memberSearch}
                 onChange={(event) => onMemberSearchChange(event.target.value)}
               />
@@ -2155,7 +2233,10 @@ function StoreMembersSection({
               value={roleFilter}
               onValueChange={(role) => setRoleFilter(role as StoreRole | "all")}
             >
-              <SelectTrigger className={compactControlClass} aria-label="按角色筛选员工">
+              <SelectTrigger
+                className={cn(compactControlClass, "px-2")}
+                aria-label="按角色筛选员工"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2173,7 +2254,10 @@ function StoreMembersSection({
                 onMemberStatusFilterChange(status as "all" | "active" | "inactive")
               }
             >
-              <SelectTrigger className={compactControlClass} aria-label="按状态筛选员工">
+              <SelectTrigger
+                className={cn(compactControlClass, "px-2")}
+                aria-label="按状态筛选员工"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2280,206 +2364,214 @@ function StoreMembersSection({
             </div>
           ) : null}
 
-          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_12rem_auto]">
-            <Field label="员工邮箱" htmlFor="invite-email">
-              <Input
-                id="invite-email"
-                type="email"
-                className={compactControlClass}
-                value={inviteDraft.email}
-                onChange={(event) =>
-                  onInviteDraftChange((current) => ({ ...current, email: event.target.value }))
-                }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    onInvite();
+          <div className="grid gap-1.5 lg:grid-cols-2">
+            <CompactActionPanel
+              open={invitePanelOpen}
+              onOpenChange={setInvitePanelOpen}
+              title="邀请员工"
+              summary={`${invitations.length} 个待接受`}
+              icon={UserPlus}
+            >
+              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_auto]">
+                <Field label="员工邮箱" htmlFor="invite-email">
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    className={compactControlClass}
+                    value={inviteDraft.email}
+                    onChange={(event) =>
+                      onInviteDraftChange((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      }))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        onInvite();
+                      }
+                    }}
+                  />
+                </Field>
+                <Field label="角色" htmlFor="invite-role">
+                  <Select
+                    value={inviteDraft.role}
+                    disabled={!roleOptions.length}
+                    onValueChange={(role) =>
+                      onInviteDraftChange((current) => ({
+                        ...current,
+                        role: role as StoreInviteInput["role"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="invite-role" className={compactControlClass}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roleOptions.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {roleLabels[role]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 self-end"
+                  disabled={
+                    isInviting || !roleOptions.length || inviteDraft.email.trim().length < 3
                   }
-                }}
-              />
-            </Field>
-            <Field label="角色" htmlFor="invite-role">
-              <Select
-                value={inviteDraft.role}
-                disabled={!roleOptions.length}
-                onValueChange={(role) =>
-                  onInviteDraftChange((current) => ({
-                    ...current,
-                    role: role as StoreInviteInput["role"],
-                  }))
-                }
-              >
-                <SelectTrigger id="invite-role" className={compactControlClass}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {roleLabels[role]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5"
-                disabled={isInviting || !roleOptions.length || inviteDraft.email.trim().length < 3}
-                onClick={onInvite}
-              >
-                <UserPlus className="mr-1.5 size-3.5" /> 邀请
-              </Button>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">邀请码</p>
-                <p className="text-[11px] leading-4 text-muted-foreground">
-                  兑换后生成待接受邀请，不会直接开通权限。
-                </p>
-              </div>
-              <Badge variant="outline" className="text-[10px]">
-                {inviteLinks.length} 个有效
-              </Badge>
-            </div>
-            <div className="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_9rem_6rem_6rem_auto]">
-              <Field label="备注" htmlFor="invite-code-label">
-                <Input
-                  id="invite-code-label"
-                  className={compactControlClass}
-                  value={inviteLinkDraft.label ?? ""}
-                  onChange={(event) =>
-                    onInviteLinkDraftChange((current) => ({
-                      ...current,
-                      label: event.target.value,
-                    }))
-                  }
-                  placeholder="例如 临时员工"
-                />
-              </Field>
-              <Field label="角色" htmlFor="invite-code-role">
-                <Select
-                  value={inviteLinkDraft.role}
-                  disabled={!roleOptions.length}
-                  onValueChange={(role) =>
-                    onInviteLinkDraftChange((current) => ({
-                      ...current,
-                      role: role as StoreInviteLinkCreateInput["role"],
-                    }))
-                  }
+                  onClick={onInvite}
                 >
-                  <SelectTrigger id="invite-code-role" className={compactControlClass}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {roleLabels[role]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="天数" htmlFor="invite-code-days">
-                <Input
-                  id="invite-code-days"
-                  type="number"
-                  min={1}
-                  max={30}
-                  className={compactControlClass}
-                  value={inviteLinkDraft.expires_in_days ?? 7}
-                  onChange={(event) =>
-                    onInviteLinkDraftChange((current) => ({
-                      ...current,
-                      expires_in_days: Number(event.target.value) || 7,
-                    }))
-                  }
-                />
-              </Field>
-              <Field label="次数" htmlFor="invite-code-uses">
-                <Input
-                  id="invite-code-uses"
-                  type="number"
-                  min={1}
-                  max={50}
-                  className={compactControlClass}
-                  value={inviteLinkDraft.max_uses ?? 1}
-                  onChange={(event) =>
-                    onInviteLinkDraftChange((current) => ({
-                      ...current,
-                      max_uses: Number(event.target.value) || 1,
-                    }))
-                  }
-                />
-              </Field>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 gap-1.5 self-end"
-                disabled={isCreatingInviteLink || !roleOptions.length}
-                onClick={onCreateInviteLink}
-              >
-                <Plus className="size-3.5" />
-                生成
-              </Button>
-            </div>
-            {latestInviteCode ? (
-              <div className="mt-2 grid gap-2 rounded-md border border-primary/20 bg-card px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <p className="truncate font-mono text-xs font-semibold">{latestInviteCode}</p>
+                  <UserPlus className="size-3.5" /> 邀请
+                </Button>
+              </div>
+            </CompactActionPanel>
+
+            <CompactActionPanel
+              open={inviteCodePanelOpen}
+              onOpenChange={setInviteCodePanelOpen}
+              title="邀请码"
+              summary={`${inviteLinks.length} 个有效`}
+              icon={Plus}
+            >
+              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_auto]">
+                <Field label="备注" htmlFor="invite-code-label">
+                  <Input
+                    id="invite-code-label"
+                    className={compactControlClass}
+                    value={inviteLinkDraft.label ?? ""}
+                    onChange={(event) =>
+                      onInviteLinkDraftChange((current) => ({
+                        ...current,
+                        label: event.target.value,
+                      }))
+                    }
+                    placeholder="例如 临时员工"
+                  />
+                </Field>
+                <Field label="角色" htmlFor="invite-code-role">
+                  <Select
+                    value={inviteLinkDraft.role}
+                    disabled={!roleOptions.length}
+                    onValueChange={(role) =>
+                      onInviteLinkDraftChange((current) => ({
+                        ...current,
+                        role: role as StoreInviteLinkCreateInput["role"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="invite-code-role" className={compactControlClass}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roleOptions.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {roleLabels[role]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="天数" htmlFor="invite-code-days">
+                  <Input
+                    id="invite-code-days"
+                    type="number"
+                    min={1}
+                    max={30}
+                    className={compactControlClass}
+                    value={inviteLinkDraft.expires_in_days ?? 7}
+                    onChange={(event) =>
+                      onInviteLinkDraftChange((current) => ({
+                        ...current,
+                        expires_in_days: Number(event.target.value) || 7,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="次数" htmlFor="invite-code-uses">
+                  <Input
+                    id="invite-code-uses"
+                    type="number"
+                    min={1}
+                    max={50}
+                    className={compactControlClass}
+                    value={inviteLinkDraft.max_uses ?? 1}
+                    onChange={(event) =>
+                      onInviteLinkDraftChange((current) => ({
+                        ...current,
+                        max_uses: Number(event.target.value) || 1,
+                      }))
+                    }
+                  />
+                </Field>
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
-                  className="h-7"
-                  onClick={onCopyInviteCode}
+                  className="h-8 gap-1.5 self-end"
+                  disabled={isCreatingInviteLink || !roleOptions.length}
+                  onClick={onCreateInviteLink}
                 >
-                  复制
+                  <Plus className="size-3.5" />
+                  生成
                 </Button>
               </div>
-            ) : null}
-            {inviteLinks.length ? (
-              <div className="mt-2 grid gap-2">
-                {inviteLinks.map((link) => (
-                  <RepairOsBusinessCard
-                    key={link.id}
-                    className="grid-cols-1 gap-1.5 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                    trailing={
-                      <>
-                        <Badge variant="outline" className="text-[10px]">
-                          {roleLabels[link.role] ?? link.role}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {link.used_count}/{link.max_uses ?? "不限"}
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                          disabled={isRevokingInviteLink}
-                          onClick={() => onRevokeInviteLink(link.id)}
-                        >
-                          撤销
-                        </Button>
-                      </>
-                    }
-                    trailingClassName="flex flex-wrap items-center gap-2"
+              {latestInviteCode ? (
+                <div className="mt-2 grid gap-2 rounded-md border border-primary/20 bg-card px-2.5 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <p className="truncate font-mono text-xs font-semibold">{latestInviteCode}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7"
+                    onClick={onCopyInviteCode}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm">{link.label || "未命名邀请码"}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        到期：{formatDate(link.expires_at)}
-                      </p>
-                    </div>
-                  </RepairOsBusinessCard>
-                ))}
-              </div>
-            ) : null}
+                    复制
+                  </Button>
+                </div>
+              ) : null}
+              {inviteLinks.length ? (
+                <div className="mt-2 grid gap-1.5">
+                  {inviteLinks.map((link) => (
+                    <RepairOsBusinessCard
+                      key={link.id}
+                      className="grid-cols-1 gap-1.5 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      trailing={
+                        <>
+                          <Badge variant="outline" className="text-[10px]">
+                            {roleLabels[link.role] ?? link.role}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {link.used_count}/{link.max_uses ?? "不限"}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            disabled={isRevokingInviteLink}
+                            onClick={() => onRevokeInviteLink(link.id)}
+                          >
+                            撤销
+                          </Button>
+                        </>
+                      }
+                      trailingClassName="flex flex-wrap items-center gap-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm">{link.label || "未命名邀请码"}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          到期：{formatDate(link.expires_at)}
+                        </p>
+                      </div>
+                    </RepairOsBusinessCard>
+                  ))}
+                </div>
+              ) : null}
+            </CompactActionPanel>
           </div>
 
           {filteredMembers.length ? (
@@ -2540,12 +2632,12 @@ function StoreMembersSection({
                 </table>
               </div>
 
-              <div className="grid gap-2 lg:hidden">
+              <div className="grid gap-1.5 lg:hidden">
                 {filteredMembers.map((member) => (
                   <RepairOsBusinessCard
                     key={member.id}
                     className={cn(
-                      "grid-cols-1 gap-2 px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] sm:items-center",
+                      "grid-cols-[minmax(0,1fr)_auto] gap-2 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] sm:items-center",
                       member.status === "inactive" && "bg-muted/30 opacity-80",
                     )}
                     trailing={
@@ -2576,14 +2668,16 @@ function StoreMembersSection({
                       <p className="truncate text-xs text-muted-foreground" title={member.email}>
                         {member.email}
                       </p>
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        更新：{formatDate(member.updated_at)}
-                      </p>
-                      {member.user_id === currentUserId ? (
-                        <Badge variant="outline" className="text-[10px]">
-                          当前账号
-                        </Badge>
-                      ) : null}
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-[10px] text-muted-foreground">
+                          更新 {formatDate(member.updated_at)}
+                        </span>
+                        {member.user_id === currentUserId ? (
+                          <Badge variant="outline" className="h-4 px-1 text-[9px]">
+                            当前
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
                   </RepairOsBusinessCard>
                 ))}
