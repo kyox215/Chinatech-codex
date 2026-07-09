@@ -1,6 +1,6 @@
 # Independent Partner Store Platform Plan
 
-Last updated: 2026-07-07
+Last updated: 2026-07-09
 Owner: Hexiang Huang / 鹤祥
 Status: Active planning source
 
@@ -48,6 +48,30 @@ The platform must not behave like:
 7. Any platform support access to store business data must be explicit, time-limited, and audited.
 8. Frontend hiding is never a permission boundary; service-side checks and database isolation are required.
 
+## Complete Isolation Implementation Contract
+
+The independent-store declaration is a product and security rule, not just UI wording. A feature, API, migration, report, export, cache, or platform admin screen is not complete until it can answer these questions with evidence:
+
+1. Which store owns the data?
+2. Which actor and active store are used for the decision?
+3. Which server-side permission action authorizes the operation?
+4. Which `store_id` predicate or same-store constraint prevents cross-store access?
+5. Which response fields are safe for the actor role?
+6. Which audit event records sensitive access or mutation without storing raw PII/secrets?
+7. Which test proves Store A cannot read, search, mutate, export, infer, or administer Store B data?
+8. Which database/RLS/storage check backs up the service-layer rule before production claims are made?
+
+Completion states:
+
+| State | Meaning |
+|---|---|
+| Product rule | The independent-store requirement is documented and approved. |
+| Local implementation | Code/tests in the repository enforce the rule for a scoped path. |
+| Production-ready | Linked Supabase schema/RLS/storage parity, migration history, backup/restore, and release gates have passed. |
+| Production-applied | The approved migration/release was executed, verified, observed, and recorded. |
+
+Do not collapse these states. A local test or migration file does not prove production isolation until the production-ready and production-applied evidence exists.
+
 ## Tenant Model
 
 ### Platform Account
@@ -88,6 +112,13 @@ This means:
 - Database constraints and RLS as defense in depth.
 - One codebase and one schema path: functional logic and migrations apply to all stores.
 - Store-specific differences are handled through `store_settings`, workflow settings, roles, and feature flags, not database forks or code forks.
+
+Database application gate:
+
+- New migration files are allowed only when they are additive, scoped, reviewed, and tied to an explicit invariant.
+- Linked Supabase dry-run/apply is blocked while migration history has unresolved remote-only or local-only entries.
+- Database application requires the Phase 5R reconciliation gate, backup/restore proof, dry-run evidence, owner approval for the exact command set, and post-apply verification.
+- If those gates are not met, the correct result is "database apply blocked", not an improvised `db push`.
 
 ### Alternatives
 
@@ -262,9 +293,12 @@ Required invariants:
 - All list APIs must filter by active store.
 - All detail APIs must filter by both id and active store.
 - All inserts must set active `store_id` server-side.
+- All updates and deletes must include a `store_id` predicate or same-store repository guard.
 - Cross-table relations must preserve same-store constraints where possible.
 - Search cannot return records from other stores.
 - Export cannot include records from other stores.
+- Cache/query keys must include active store whenever business data can differ.
+- Signed/public attachment URLs must be scoped to the expected store/object path.
 
 ## Security And Privacy Controls
 

@@ -1,8 +1,8 @@
 # Shared Database Tenant Onboarding Execution Plan
 
-Last updated: 2026-07-07
+Last updated: 2026-07-09
 Owner: Hexiang Huang / 鹤祥
-Status: Active execution plan; Phase 1 through Phase 4 completed locally; Phase 5 read-only CLI preflight is blocked on migration-history mismatch before full live SQL verification; production migration/release remains approval-gated
+Status: Active execution plan; Phase 1 through Phase 4 completed locally; Phase 5 read-only CLI preflight is blocked on migration-history mismatch before full live SQL verification; production migration/apply/release remains blocked until Phase 5R reconciliation is resolved
 Scope: Registration, onboarding, store creation, store joining, and same-database tenant isolation
 
 ## Decision
@@ -18,6 +18,27 @@ One database and one codebase.
 All stores receive the same application logic and schema migrations.
 Each store's business data remains private through strict store_id isolation, service-side authorization, database constraints, and RLS defense in depth.
 ```
+
+## Database Application Gate
+
+The shared-database decision does not mean every local migration can be pushed automatically.
+
+Before any linked Supabase apply, all of the following must be true:
+
+1. Phase 5R migration-history reconciliation is resolved, or every remaining mismatch has an owner-approved exception.
+2. No unresolved remote-only migration versions remain without an exact SQL file, reviewed reconstruction, or approved remediation.
+3. Every local-only migration is classified as intended pending, represented remotely, stale, or draft-excluded.
+4. `supabase migration list --linked` and `supabase db push --linked --dry-run` produce an expected pending set with no surprise destructive change.
+5. Backup location, restore proof, operator, maintenance window, target Supabase project, rollback/forward-fix plan, and redaction reviewer are recorded.
+6. DATA, SECURITY, QA, and RELEASE reviews are complete.
+7. The owner approves the exact command set for the target environment.
+8. Post-apply verification queries and schema-cache verification are prepared before apply.
+
+Current apply status on 2026-07-09:
+
+- Supabase CLI is available locally.
+- Linked production apply is still blocked by migration-history reconciliation evidence in `docs/SHARED_DB_TENANT_PHASE5R_MIGRATION_RECONCILIATION_PLAN.md`.
+- Do not run `supabase db push`, `supabase migration repair`, schema-cache reload, or production data mutation from ordinary feature tasks.
 
 ## Goals
 
@@ -470,7 +491,7 @@ Residual risks deferred to Phase 5:
 
 ### Phase 5: Database Constraints And RLS Defense
 
-Status: owner-approved read-only CLI preflight ran and blocked on migration-history mismatch; full live SQL query pack has not run. Detailed verification materials live at `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`, `docs/SHARED_DB_TENANT_PHASE5_APPROVAL_PACKET.md`, and `docs/SHARED_DB_TENANT_PHASE5_QUERY_PACK.md`.
+Status: owner-approved read-only CLI preflight ran and blocked on migration-history mismatch; full live SQL query pack has not run; linked production apply is blocked until Phase 5R reconciliation passes. Detailed verification materials live at `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`, `docs/SHARED_DB_TENANT_PHASE5_APPROVAL_PACKET.md`, `docs/SHARED_DB_TENANT_PHASE5_QUERY_PACK.md`, `docs/SHARED_DB_TENANT_PHASE5R_MIGRATION_RECONCILIATION_PLAN.md`, and `docs/SHARED_DB_TENANT_PHASE5R_REMEDIATION_PACKAGE.md`.
 
 Goal:
 
@@ -498,6 +519,7 @@ Validation:
 - Production application requires backup/restore and post-apply verification.
 - "Fully isolated" cannot be claimed until live Supabase schema/RLS/storage parity is verified, not just local migration text.
 - Current release status: full live SQL verification is no-go until migration history is reconciled or every mismatch has an Owner-approved remediation plan. Production migration, schema-cache reload, Vercel promote, and Phase 6 global rollout are no-go until the runbook gates pass.
+- A local migration file or local test may be marked "implemented locally", but not "applied to production" unless the release evidence records the exact linked command, output summary, post-apply verification, and observation result.
 
 ### Phase 6: Unified Feature Rollout Controls
 

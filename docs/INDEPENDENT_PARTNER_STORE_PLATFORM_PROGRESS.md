@@ -30,7 +30,7 @@ Owner confirmed the recommended direction on 2026-07-04:
 | Phase 2.1: Pre-production isolation hardening | Completed locally | Yes before role-policy runtime enforcement | Store-scoped client cache keys and behavior-level customer denial tests; no production changes |
 | Phase 2.2: Role-policy approval package | Completed locally | Yes before runtime enforcement | Store role matrix, decision defaults, server-first enforcement plan, and production preflight drafted |
 | Phase 2.3: Phase B1 server permission module | Completed locally | Yes before route gates | Server-only permission matrix and tests added |
-| Phase 2.4: Role permission runtime gates | Completed | No | Server route gates, supplier permission-grant migration, and execution plan completed; field-level response projection remains Phase D |
+| Phase 2.4: Role permission runtime gates | Completed locally | Yes before linked DB apply | Server route gates and local supplier permission-grant migration file are prepared; linked DB apply remains blocked until Phase 5R; field-level response projection remains Phase D |
 | Phase 3: Support access and audit | Not started | Yes | Define platform support access scope and duration |
 | Phase 4: Store lifecycle/cooperation | Not started | Yes | Plans, suspension, export, owner transfer |
 | Phase 5: Unified feature rollout controls | Not started | Yes before enabling high-risk feature flags | One codebase/schema for all stores; store differences through settings/feature flags |
@@ -73,6 +73,29 @@ Phase 1 release gates added:
 
 ## Decision Log
 
+### 2026-07-09: Independent-store isolation implementation gates clarified
+
+Status: Completed for documentation/governance; runtime/database work remains gated.
+
+Decision:
+
+- Treat the independent-store statement as an implementation contract across product, permissions, APIs, cache, exports, storage, audit, migrations, and release.
+- Distinguish four states: product rule, local implementation, production-ready, and production-applied.
+- A local migration file or passing local test does not prove production isolation.
+- Linked Supabase apply remains blocked until Phase 5R migration-history reconciliation is resolved and the Database Application Gate passes.
+
+Reason:
+
+- The owner requested execution of the plan plus `main` push and database application.
+- Current project evidence still records unresolved remote-only migration history, so applying database changes from a feature task would be unsafe.
+- The correct implementation step is to make the gate explicit and prevent future false "applied" claims.
+
+Impact:
+
+- `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PLAN.md` now defines the complete isolation implementation contract.
+- `docs/SHARED_DB_TENANT_ONBOARDING_EXECUTION_PLAN.md` now contains the Database Application Gate and current apply status.
+- `docs/ROLE_PERMISSION_CONFIGURATION_PLAN.md` no longer claims the supplier permission migration is linked-applied while Phase 5R remains unresolved.
+
 ### 2026-07-09: Role permission runtime enforcement started
 
 Status: Completed.
@@ -82,7 +105,7 @@ Decision:
 - Use `docs/ROLE_PERMISSION_CONFIGURATION_PLAN.md` as the active role-permission plan.
 - Keep the server permission matrix as the authority for role/action decisions.
 - Apply route-level enforcement first for high-risk writes and notifications.
-- Apply the existing `store_member_permission_grants` migration after linked dry-run confirms scope.
+- Prepare the existing `store_member_permission_grants` migration for apply after Phase 5R migration-history reconciliation and linked dry-run confirm scope.
 - Treat order/customer read-response projection and sensitive field redaction as Phase D follow-up, not part of the current push, to avoid broad UI/API regressions in the same release.
 
 Reason:

@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: null
-status: "idle"
-phase: "none"
-task_class: null
-risk_level: null
-autonomy_level: null
+current_task_id: "TASK-20260709-022-independent-store-isolation-plan-implementation"
+status: "verified"
+phase: "release_pending"
+task_class: "documentation_governance"
+risk_level: "R3_database_gate"
+autonomy_level: "L2_local_only"
 owner: "Integration Lead"
-last_checkpoint_at: "2026-07-09T21:16:00Z"
+last_checkpoint_at: "2026-07-09T21:40:26Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,15 +15,16 @@ last_rehydrated_at: null
 
 ## Current objective
 
-No active task.
+Implement the independent-store isolation plan in canonical docs and governance gates, then push safe scoped changes to `main`.
 
 ## Current state
 
-- Status: idle.
-- `TASK-20260709-021-independent-store-project-declaration` wrote the independent-store relationship rule into the project charter and independent partner store platform plan.
-- Commit `382a28bc` was pushed to `origin/main`.
-- No code, UI, migration, Supabase, or production data changes were included in that slice.
+- Status: verified, release pending.
+- Clean worktree: `/private/tmp/repairdesk-isolation-implementation`.
+- Database apply is currently blocked by unresolved migration-history reconciliation. Do not run linked apply or migration repair in this task.
+- Validation passed: `git diff --check`, `npm run agents:config`, `npm run agents:templates`, and `npm run agents:check`.
+- Extra `tools/ai_company.py validate` failed on pre-existing duplicate `.codex/agents/* 2.toml` names unrelated to this diff.
 
 ## Next action
 
-No active automatic resumption. If continuing tenant-isolation implementation, start a new task from latest `origin/main`.
+Commit and push the scoped documentation/governance update to `main`. Do not apply production database changes from this slice.

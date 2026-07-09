@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-09
 Owner: 鹤祥 / Chinatech
-Status: Phase B server enforcement completed; Phase D field-level projection pending
+Status: Phase B server enforcement completed; Phase C local migration file exists but linked database apply is blocked by Phase 5R migration-history reconciliation; Phase D field-level projection pending
 
 ## 目标
 
@@ -113,6 +113,8 @@ Status: Phase B server enforcement completed; Phase D field-level projection pen
   - 只允许 service role 通过服务端业务逻辑写入。
   - 使用唯一索引避免同一成员重复有效授权。
 - 本阶段使用 `store_member_permission_grants` 管理供应商权限授权。
+- 生产数据库应用不能只凭本地 migration 文件存在来认定完成；必须先通过 `docs/SHARED_DB_TENANT_ONBOARDING_EXECUTION_PLAN.md` 的 Database Application Gate。
+- 在 Phase 5R 迁移历史 reconciliation 未解除前，`store_member_permission_grants` 只能声明为本地迁移文件/代码路径已准备，不能声明 linked Supabase 已安全应用。
 
 ## 分阶段计划
 
@@ -136,10 +138,18 @@ Status: Phase B server enforcement completed; Phase D field-level projection pen
 
 ### Phase C: 数据库落地
 
-本次执行：
+当前状态：
 
-- 预检 `store_member_permission_grants` migration。
-- 确认 pending migration 范围后应用到 linked Supabase。
+- `supabase/migrations/20260709235000_supplier_permission_grants.sql` 已存在，用于 `store_member_permission_grants`。
+- 该迁移应在 Phase 5R 迁移历史 reconciliation 解除后进入 linked dry-run/apply。
+- 不能在 unresolved remote-only/local-only migration 状态下单独运行宽泛 `supabase db push`。
+
+后续执行条件：
+
+- Phase 5R 远端/本地迁移历史 mismatch 已解决或有明确批准例外。
+- Pending migration 列表只包含 owner-approved production candidates。
+- `supabase db push --linked --dry-run` 输出符合预期。
+- 备份/恢复、回滚/前滚、PostgREST schema reload、验证查询和观察窗口都已记录。
 
 ### Phase D: 字段级脱敏与范围查询
 
@@ -161,7 +171,7 @@ Status: Phase B server enforcement completed; Phase D field-level projection pen
 
 - [x] 权限矩阵测试覆盖所有角色/动作。
 - [x] 关键 API 写入入口均有服务端权限检查。
-- [x] 供应商授权 migration 已 dry-run 并应用。
+- [ ] 供应商授权 migration 已 linked dry-run 并应用。当前阻塞：Phase 5R 迁移历史 reconciliation 未解除。
 - [x] 技师、前台、只读成员无法执行被禁止动作。
-- [x] 金额、历史、供应商、解锁信息的字段级脱敏进入后续 Phase D 任务。
+- [ ] 金额、历史、供应商、解锁信息的字段级脱敏进入后续 Phase D 任务并完成响应级测试。当前状态：已规划，未完成。
 - [x] 发布前完成 lint/typecheck/test/build。
