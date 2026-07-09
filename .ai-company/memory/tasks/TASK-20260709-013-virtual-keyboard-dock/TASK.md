@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260709-013-virtual-keyboard-dock"
 title: "Fixed bottom virtual keyboard dock and overlay avoidance"
-status: "released"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["UX", "FE", "QA"]
 created_at: "2026-07-09T11:46:44Z"
-updated_at: "2026-07-09T12:27:07Z"
+updated_at: "2026-07-09T12:30:19Z"
 ---
 # Task - Fixed bottom virtual keyboard dock and overlay avoidance
 
@@ -55,7 +55,7 @@ updated_at: "2026-07-09T12:27:07Z"
 - Passed after final CSS class correction: targeted ESLint, TypeScript check, related Vitest, and diff whitespace check.
 - Passed after non-sandbox rerun: production build and mobile Playwright screenshot/e2e.
 - Passed on clean `origin/main` worktree after cherry-pick conflict resolution: lint, typecheck, full Vitest, production build, and mobile Playwright.
-- Release target: scoped commit to `main`, excluding unrelated kiosk/staff worktree changes.
+- Released: feature commit `e744971a96403ecce39180f31eabd27dce2c5164` was pushed to `origin/main`.
 
 ## Active Context Note
 

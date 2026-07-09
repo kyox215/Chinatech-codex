@@ -34,5 +34,6 @@
 | E-030 | screenshot | phone lookup first digit remains stable | `screenshots/TASK-20260709-012-phone-lookup-mobile-stability/phone-lookup-first-digit-stable-chromium.png` | captured | 2026-07-09T12:25Z | CEO-Orchestrator |
 | E-031 | screenshot | phone lookup 3-digit state remains usable in the mobile form | `screenshots/TASK-20260709-012-phone-lookup-mobile-stability/phone-lookup-three-digits-popover-chromium.png` | captured | 2026-07-09T12:25Z | CEO-Orchestrator |
 | E-032 | release-integration | local release was rebuilt by cherry-picking the task commit onto latest `origin/main`; remote phone keypad changes were preserved and tests were adapted to the current UI | temporary worktree `/tmp/repairdesk-vkbd-main-push`; commit `dee0c11c` before final amend | completed | 2026-07-09T12:27Z | CEO-Orchestrator |
+| E-033 | release | feature release commit was pushed to main | `git push origin HEAD:main` | pushed `1f8fac39..e744971a` to `origin/main` | 2026-07-09T12:30Z | CEO-Orchestrator |
 
 Earlier screenshot evidence was unavailable because the dev server could not bind a local port in the restrictive sandbox. The visual gate later passed outside that sandbox.
