@@ -41,3 +41,10 @@
 - **Evidence:**
   - EVIDENCE.md E-002..E-012
 - **Recorded by:** Integration Lead
+## 2026-07-09T22:35:48Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** Mobile performance/touch-response batch implemented, validated, and pushed to origin/main as c6da2295. No Supabase migration was created; linked dry-run reports remote database is up to date.
+- **Residual risks:** Local workspace contains unrelated external A4 print/scan-search work and duplicate stash artifacts; not staged for this task.
+- **Follow-up:** Handle unrelated external A4 print/scan-search changes in their own tasks; no database apply needed for this mobile batch.
+- **Closed by:** Integration Lead
