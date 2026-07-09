@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, Delete, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
 import { cn } from "@/lib/utils";
 import {
   applyPhoneKeypadKey,
@@ -48,8 +48,6 @@ export function PhoneKeypadInput({
   triggerClassName,
   valueClassName,
   contentClassName,
-  side = "bottom",
-  avoidCollisions = true,
   ariaControls,
   ariaExpanded,
   ariaActiveDescendant,
@@ -57,6 +55,7 @@ export function PhoneKeypadInput({
 }: PhoneKeypadInputProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizePhoneKeypadDraft(value));
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open) setDraft(normalizePhoneKeypadDraft(value));
@@ -98,73 +97,69 @@ export function PhoneKeypadInput({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpenState}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          data-phone-keypad-trigger="true"
-          aria-label={ariaLabel}
-          aria-controls={ariaControls}
-          aria-expanded={ariaExpanded}
-          aria-activedescendant={ariaActiveDescendant}
-          disabled={disabled}
-          className={cn(
-            "flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-            className,
-            triggerClassName,
-          )}
-          onKeyDown={handlePhysicalKey}
-        >
-          <span
-            className={cn(
-              "min-w-0 flex-1 truncate text-left font-mono tabular-nums",
-              displayDraft ? "text-foreground" : "text-muted-foreground",
-              valueClassName,
-            )}
-          >
-            {displayValue}
-          </span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        side={side}
-        sideOffset={6}
-        collisionPadding={12}
-        avoidCollisions={avoidCollisions}
-        onOpenAutoFocus={(event) => event.preventDefault()}
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        data-phone-keypad-trigger="true"
+        aria-label={ariaLabel}
+        aria-controls={ariaControls}
+        aria-expanded={ariaExpanded}
+        aria-activedescendant={ariaActiveDescendant}
+        disabled={disabled}
         className={cn(
-          "z-[120] w-[min(19rem,calc(100vw-24px))] rounded-xl border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-overlay)]",
-          contentClassName,
+          "flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          className,
+          triggerClassName,
         )}
-        data-phone-keypad="true"
+        onClick={() => setOpenState(!open)}
+        onKeyDown={handlePhysicalKey}
       >
-        <div className="mb-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-right font-mono text-sm font-semibold tabular-nums">
-          {draft || "0"}
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-left font-mono tabular-nums",
+            displayDraft ? "text-foreground" : "text-muted-foreground",
+            valueClassName,
+          )}
+        >
+          {displayValue}
+        </span>
+      </button>
+      <VirtualKeyboardDock
+        open={open}
+        onOpenChange={setOpenState}
+        label={`${ariaLabel} 虚拟数字键盘`}
+        triggerRef={triggerRef}
+        panelClassName={contentClassName}
+      >
+        <div data-phone-keypad="true">
+          <div className="mb-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-right font-mono text-sm font-semibold tabular-nums">
+            {draft || "0"}
+          </div>
+          <div className="grid gap-1.5" role="group" aria-label={`${ariaLabel} 虚拟数字键盘`}>
+            {phoneKeypadRows.map((row, rowIndex) => (
+              <div key={rowIndex} className="grid grid-cols-3 gap-1.5">
+                {row.map((key) => (
+                  <PhoneKeypadButton key={key} keypadKey={key} onClick={() => updateDraft(key)} />
+                ))}
+                {row.length === 1 ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="col-span-2 h-10 rounded-lg text-xs font-semibold"
+                    onClick={() => setOpenState(false)}
+                    data-phone-keypad-done="true"
+                  >
+                    <Check className="mr-1 size-3.5" />
+                    完成
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="grid gap-1.5" role="group" aria-label={`${ariaLabel} 虚拟数字键盘`}>
-          {phoneKeypadRows.map((row, rowIndex) => (
-            <div key={rowIndex} className="grid grid-cols-3 gap-1.5">
-              {row.map((key) => (
-                <PhoneKeypadButton key={key} keypadKey={key} onClick={() => updateDraft(key)} />
-              ))}
-              {row.length === 1 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="col-span-2 h-10 rounded-lg text-xs font-semibold"
-                  onClick={() => setOpenState(false)}
-                  data-phone-keypad-done="true"
-                >
-                  <Check className="mr-1 size-3.5" />
-                  完成
-                </Button>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+      </VirtualKeyboardDock>
+    </>
   );
 }
 

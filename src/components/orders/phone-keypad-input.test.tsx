@@ -27,6 +27,10 @@ describe("PhoneKeypadInput", () => {
 
     await user.click(screen.getByRole("button", { name: "客户电话号码" }));
     expect(await screen.findByRole("group", { name: "客户电话号码 虚拟数字键盘" })).toBeVisible();
+    expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toHaveClass(
+      "fixed",
+      "justify-center",
+    );
 
     await user.click(screen.getByRole("button", { name: "+39" }));
     await user.click(screen.getByRole("button", { name: "3" }));

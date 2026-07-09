@@ -31,6 +31,13 @@ test("new order mobile inputs use virtual phone and money keypads", async ({ pag
   await phoneTrigger.click();
   const phoneKeypad = page.locator('[data-phone-keypad="true"]');
   await expect(phoneKeypad).toBeVisible();
+  const phoneDock = page.locator('[data-virtual-keyboard-dock="true"]').filter({
+    has: phoneKeypad,
+  });
+  await expect(phoneDock).toBeVisible();
+  await expect(phoneDock).toHaveCSS("position", "fixed");
+  const phoneDockBox = await phoneDock.boundingBox();
+  expect(phoneDockBox?.y ?? 0).toBeGreaterThan(page.viewportSize()!.height * 0.45);
 
   await phoneKeypad.locator('[data-phone-keypad-key="+39"]').click();
   await phoneKeypad.locator('[data-phone-keypad-key="3"]').click();
