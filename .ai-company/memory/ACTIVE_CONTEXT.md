@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260709-021-independent-store-project-declaration"
-status: "verified"
-phase: "release_pending"
-task_class: "documentation"
-risk_level: "R1"
-autonomy_level: "L2"
+current_task_id: null
+status: "idle"
+phase: "none"
+task_class: null
+risk_level: null
+autonomy_level: null
 owner: "Integration Lead"
-last_checkpoint_at: "2026-07-09T21:09:17Z"
+last_checkpoint_at: "2026-07-09T21:16:00Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,15 +15,15 @@ last_rehydrated_at: null
 
 ## Current objective
 
-Write the independent-store platform relationship rule into the project declaration.
+No active task.
 
 ## Current state
 
-- Status: verified, release pending.
-- Canonical docs updated in `/private/tmp/repairdesk-project-declaration`.
-- No code, UI, migration, Supabase, or production data changes are included in this slice.
-- Validation passed: `git diff --check`, `npm run agents:config`, `npm run agents:templates`, and `npm run agents:check`.
+- Status: idle.
+- `TASK-20260709-021-independent-store-project-declaration` wrote the independent-store relationship rule into the project charter and independent partner store platform plan.
+- Commit `382a28bc` was pushed to `origin/main`.
+- No code, UI, migration, Supabase, or production data changes were included in that slice.
 
 ## Next action
 
-Commit and push the scoped documentation change to `main`.
+No active automatic resumption. If continuing tenant-isolation implementation, start a new task from latest `origin/main`.

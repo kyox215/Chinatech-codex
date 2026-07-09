@@ -1,6 +1,6 @@
 # TASK-20260709-021 Independent Store Project Declaration
 
-Status: verified
+Status: closed
 Owner: Hexiang Huang / 鹤祥
 Executor: Integration Lead / CEO Agent
 Created: 2026-07-09T21:09:17Z
@@ -64,7 +64,7 @@ Departments considered / not spawned:
 
 - Documentation updates are complete and validated.
 - No database migration was needed for this documentation-only owner directive.
-- Release step: commit and push the scoped change to `origin main`.
+- Release completed: commit `382a28bc` pushed to `origin/main`.
 
 ## Files
 
