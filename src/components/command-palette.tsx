@@ -1,5 +1,5 @@
 import { useRouter } from "next/navigation";
-import { Sun, Wrench } from "lucide-react";
+import { ScanLine, Sun, Wrench } from "lucide-react";
 
 import {
   CommandDialog,
@@ -21,9 +21,11 @@ import { getShellCommandActions, getWorkspaceNavItems } from "@/shared/config/na
 export function CommandPalette({
   open,
   onOpenChange,
+  onOpenScanner,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onOpenScanner: () => void;
 }) {
   const router = useRouter();
   const shell = useStoreShellContext();
@@ -48,6 +50,10 @@ export function CommandPalette({
   const toggleTheme = () => {
     toggleThemePreference();
     onOpenChange(false);
+  };
+  const openScanner = () => {
+    onOpenChange(false);
+    onOpenScanner();
   };
   const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin);
   const shellActions = getShellCommandActions();
@@ -105,6 +111,9 @@ export function CommandPalette({
         )}
         <CommandSeparator />
         <CommandGroup heading="动作">
+          <CommandItem value="扫码查询 scan qr barcode imei inventory order" onSelect={openScanner}>
+            <ScanLine className="mr-2 size-4" /> 扫码查询
+          </CommandItem>
           <CommandItem onSelect={toggleTheme}>
             <Sun className="mr-2 size-4" /> 切换主题
           </CommandItem>

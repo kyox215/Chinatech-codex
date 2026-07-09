@@ -273,12 +273,13 @@ function parseInternalLink(raw: string, origin: string): CapturePayload | null {
   }
 
   if (path.startsWith("/inventory")) {
+    const itemId = url.searchParams.get("item") ?? url.searchParams.get("id");
     return {
       kind: "inventory_link",
       raw,
-      value: url.searchParams.get("id") ?? path,
+      value: itemId ?? path,
       label: "库存链接",
-      targetHref: `${path}${url.search}`,
+      targetHref: itemId ? `/inventory?item=${encodeURIComponent(itemId)}` : `${path}${url.search}`,
     };
   }
 
@@ -328,7 +329,7 @@ function parsePrefixedPayload(raw: string): CapturePayload | null {
       raw,
       value,
       label: "库存编号",
-      targetHref: `/inventory?id=${encodeURIComponent(value)}`,
+      targetHref: `/inventory?item=${encodeURIComponent(value)}`,
     };
   }
 

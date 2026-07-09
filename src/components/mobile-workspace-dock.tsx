@@ -6,11 +6,10 @@ import { Command } from "lucide-react";
 
 import {
   AttachmentDraftPanel,
-  BarcodeScannerSheet,
   CameraCaptureSheet,
   revokeAttachmentDraft,
+  ScanSearchSheet,
   type AttachmentDraft,
-  type CapturePayload,
 } from "@/features/capture";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { Button } from "@/components/ui/button";
@@ -71,40 +70,6 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
       openScanner: () => setScannerOpen(true),
       openCamera: () => setCameraOpen(true),
     });
-  };
-
-  const renderScannerActions = (payload: CapturePayload, helpers: { close: () => void }) => {
-    if (payload.targetHref) {
-      return (
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => {
-            helpers.close();
-            router.push(payload.targetHref!);
-          }}
-        >
-          打开目标
-        </Button>
-      );
-    }
-
-    if (payload.kind === "imei" || payload.kind === "serial") {
-      return (
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => {
-            helpers.close();
-            router.push(`/orders/new?imei=${encodeURIComponent(payload.value)}`);
-          }}
-        >
-          新建工单并带入
-        </Button>
-      );
-    }
-
-    return null;
   };
 
   return (
@@ -171,11 +136,7 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
           ) : null}
         </SheetContent>
       </Sheet>
-      <BarcodeScannerSheet
-        open={scannerOpen}
-        onOpenChange={setScannerOpen}
-        renderActions={renderScannerActions}
-      />
+      <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
       <CameraCaptureSheet
         open={cameraOpen}
         onOpenChange={setCameraOpen}

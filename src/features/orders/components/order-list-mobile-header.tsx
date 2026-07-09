@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, Ref, SetStateAction } from "react";
+import type { Dispatch, ReactNode, Ref, SetStateAction } from "react";
 import { AlertTriangle, Filter, Plus, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ export function MobileOrdersFloatingHeader({
   onRemoveFilterChip,
   onClearAllFilters,
   onCreateOrder,
+  scanAction,
   headerRef,
 }: {
   groups: { key: string; label: string; shortLabel?: string; count: number; hint?: string }[];
@@ -55,6 +56,7 @@ export function MobileOrdersFloatingHeader({
   onRemoveFilterChip: (key: string) => void;
   onClearAllFilters: () => void;
   onCreateOrder: () => void;
+  scanAction?: ReactNode;
   headerRef?: Ref<HTMLDivElement>;
 }) {
   const activeGroup = groups.find((group) => group.key === groupValue);
@@ -84,7 +86,12 @@ export function MobileOrdersFloatingHeader({
         </header>
 
         <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px] gap-1.5">
+          <div
+            className={cn(
+              "grid min-w-0 gap-1.5",
+              scanAction ? "grid-cols-[minmax(0,1fr)_40px_40px]" : "grid-cols-[minmax(0,1fr)_40px]",
+            )}
+          >
             <div className={cn(repairOs.searchBar, "h-10 rounded-xl px-2 shadow-none")}>
               <Search className="size-3.5 shrink-0 text-muted-foreground" />
               <Input
@@ -99,6 +106,7 @@ export function MobileOrdersFloatingHeader({
                 className={cn(repairOs.searchInput, "h-9 text-base")}
               />
             </div>
+            {scanAction}
 
             <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
               <SheetTrigger asChild>

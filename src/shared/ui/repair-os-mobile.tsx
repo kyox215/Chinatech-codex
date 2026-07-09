@@ -304,6 +304,7 @@ export interface RepairOsListScaffoldProps {
   searchValue?: string;
   searchPlaceholder?: string;
   onSearchChange?: (value: string) => void;
+  searchAction?: ReactNode;
   filterAction?: ReactNode;
   chips?: RepairOsListHeaderChip[];
   chipsLabel?: string;
@@ -322,6 +323,7 @@ export function RepairOsListScaffold({
   searchValue,
   searchPlaceholder = "搜索",
   onSearchChange,
+  searchAction,
   filterAction,
   chips = [],
   chipsLabel = "状态分组",
@@ -332,6 +334,10 @@ export function RepairOsListScaffold({
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const hasSearch = typeof searchValue === "string" && onSearchChange;
+  const searchTrailingActions = [
+    searchAction,
+    filterAction ?? (!searchAction ? "default-filter" : null),
+  ].filter(Boolean);
   const offsetStyle = {
     "--repair-os-list-header-offset": `${headerHeight + 8}px`,
   } as CSSProperties;
@@ -381,7 +387,12 @@ export function RepairOsListScaffold({
 
           <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
             {hasSearch ? (
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] gap-1.5">
+              <div
+                className="grid min-w-0 gap-1.5"
+                style={{
+                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 32px)`,
+                }}
+              >
                 <div className={cn(repairOs.searchBar, "h-8 rounded-xl px-2 shadow-none")}>
                   <Search className="size-3.5 shrink-0 text-muted-foreground" />
                   <Input
@@ -391,18 +402,20 @@ export function RepairOsListScaffold({
                     className={cn(repairOs.searchInput, "h-7 text-xs")}
                   />
                 </div>
-                {filterAction ?? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="size-8 rounded-xl bg-card"
-                    aria-label="筛选"
-                    disabled
-                  >
-                    <Filter className="size-3.5" />
-                  </Button>
-                )}
+                {searchAction}
+                {filterAction ??
+                  (!searchAction ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-xl bg-card"
+                      aria-label="筛选"
+                      disabled
+                    >
+                      <Filter className="size-3.5" />
+                    </Button>
+                  ) : null)}
               </div>
             ) : null}
 

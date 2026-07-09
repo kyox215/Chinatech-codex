@@ -11,6 +11,7 @@ import { MobileWorkspaceDock } from "@/components/mobile-workspace-dock";
 import { PwaServiceWorker } from "@/components/pwa-service-worker";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { ScanSearchSheet } from "@/features/capture";
 import { RealtimeAppBridge } from "@/features/realtime/components/realtime-app-bridge";
 import { repairDeskQueryDefaultOptions } from "@/lib/query-performance";
 import { appShell } from "@/lib/ui-patterns";
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     () => new QueryClient({ defaultOptions: repairDeskQueryDefaultOptions }),
   );
   const { open, setOpen } = useCommandPalette();
+  const [scannerOpen, setScannerOpen] = useState(false);
   const pathname = usePathname();
 
   if (
@@ -49,13 +51,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-            <AppBar onOpenCommand={() => setOpen(true)} />
+            <AppBar
+              onOpenCommand={() => setOpen(true)}
+              onOpenScanner={() => setScannerOpen(true)}
+            />
             <main className={appShell.content}>{children}</main>
             <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
           </SidebarInset>
         </SidebarProvider>
         <PwaServiceWorker />
-        {open ? <CommandPalette open={open} onOpenChange={setOpen} /> : null}
+        {open ? (
+          <CommandPalette
+            open={open}
+            onOpenChange={setOpen}
+            onOpenScanner={() => setScannerOpen(true)}
+          />
+        ) : null}
+        <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
         <Toaster />
       </RealtimeAppBridge>
     </QueryClientProvider>

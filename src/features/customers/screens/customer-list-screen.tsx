@@ -48,6 +48,7 @@ import {
 import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
 import { CustomerFilters } from "@/features/customers/forms/customer-filters";
 import { CustomerFormDialog } from "@/features/customers/forms/customer-form-dialog";
+import { ScanSearchButton } from "@/features/capture";
 import {
   buildCustomerWorkFilterChips,
   defaultCustomerForm,
@@ -106,6 +107,11 @@ export function CustomerListScreen() {
 
   useEffect(() => {
     if (searchParams.get("new") === "1") setCreateOpen(true);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const query = searchParams.get("q");
+    if (query) setSearchDraft((current) => (current === query ? current : query));
   }, [searchParams]);
 
   const filters = useMemo<CustomerListFilters>(() => {
@@ -195,6 +201,14 @@ export function CustomerListScreen() {
       searchValue={searchDraft}
       onSearchChange={setSearchDraft}
       searchPlaceholder="搜索姓名、电话或设备"
+      searchAction={
+        <ScanSearchButton
+          scope="customers"
+          onSearch={setSearchDraft}
+          className="size-8 rounded-xl bg-card"
+          iconClassName="size-3.5"
+        />
+      }
       filterAction={
         <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
           <SheetTrigger asChild>
@@ -282,6 +296,14 @@ export function CustomerListScreen() {
               </span>
             )}
           </div>
+          <ScanSearchButton
+            scope="customers"
+            onSearch={setSearchDraft}
+            size="sm"
+            showLabel
+            className="h-8 shrink-0 gap-1.5 sm:h-9"
+            iconClassName="size-3.5"
+          />
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 sm:h-9">

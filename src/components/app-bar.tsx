@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { Bell, Search, ShieldCheck, Store } from "lucide-react";
+import { Bell, ScanLine, Search, ShieldCheck, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -31,7 +31,13 @@ function usesRepairOsMobileHeader(pathname: string) {
   );
 }
 
-export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
+export function AppBar({
+  onOpenCommand,
+  onOpenScanner,
+}: {
+  onOpenCommand: () => void;
+  onOpenScanner: () => void;
+}) {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 8));
@@ -92,6 +98,17 @@ export function AppBar({ onOpenCommand }: { onOpenCommand: () => void }) {
             ⌘K
           </kbd>
         </button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="size-10 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:bg-surface/60 md:shadow-none"
+          aria-label="全局扫码查询"
+          onClick={onOpenScanner}
+        >
+          <ScanLine className="size-4" />
+        </Button>
 
         <ThemeToggle className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 

@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type SyntheticEvent,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Download, Filter, Plus, Printer, Search, X } from "lucide-react";
@@ -49,6 +50,7 @@ import {
   OrderStatusFilterControls,
 } from "@/features/orders/components/order-list-filters";
 import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
+import { ScanSearchButton } from "@/features/capture";
 import {
   EmptyOrdersState,
   OrdersErrorState,
@@ -134,6 +136,7 @@ export function OrderListScreen() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
@@ -163,6 +166,13 @@ export function OrderListScreen() {
       window.removeEventListener("resize", updateHeight);
     };
   }, []);
+
+  useEffect(() => {
+    const query = searchParams.get("q");
+    if (!query) return;
+    setFilters((current) => (current.search === query ? current : { ...current, search: query }));
+    setPage(1);
+  }, [searchParams]);
 
   const effectiveFilters = useMemo<OrderListFilters>(() => {
     return {
@@ -572,6 +582,10 @@ export function OrderListScreen() {
     hint: group.hint,
     tone: group.tone,
   }));
+  const applyScanSearch = (value: string) => {
+    setFilters((current) => ({ ...current, search: value || undefined }));
+    setPage(1);
+  };
 
   return (
     <div
@@ -601,6 +615,14 @@ export function OrderListScreen() {
         onRemoveFilterChip={removeFilterChip}
         onClearAllFilters={clearAllFilters}
         onCreateOrder={() => setNewOrderOpen(true)}
+        scanAction={
+          <ScanSearchButton
+            scope="orders"
+            onSearch={applyScanSearch}
+            className="size-10 rounded-xl bg-card"
+            iconClassName="size-3.5"
+          />
+        }
       />
 
       {/* Desktop stage and search toolbar */}
@@ -637,6 +659,14 @@ export function OrderListScreen() {
               className={controls.searchInput}
             />
           </div>
+          <ScanSearchButton
+            scope="orders"
+            onSearch={applyScanSearch}
+            size="sm"
+            showLabel
+            className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"
+            iconClassName="size-3.5"
+          />
           <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
             <SheetTrigger asChild>
               <Button

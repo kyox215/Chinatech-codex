@@ -70,6 +70,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { ScanSearchButton } from "@/features/capture";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   RepairOsBusinessCard,
@@ -265,6 +266,14 @@ export function InventoryScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="搜索编号、客户、型号、IMEI"
+      searchAction={
+        <ScanSearchButton
+          scope="inventory"
+          onSearch={setSearch}
+          className="size-8 rounded-xl bg-card"
+          iconClassName="size-3.5"
+        />
+      }
       filterAction={
         <Button
           type="button"
@@ -338,6 +347,14 @@ export function InventoryScreen() {
               className="h-8 border-0 bg-transparent pl-8 text-sm shadow-none focus-visible:ring-0 sm:h-9 sm:border-border/60 sm:bg-surface/60 sm:shadow-sm"
             />
           </div>
+          <ScanSearchButton
+            scope="inventory"
+            onSearch={setSearch}
+            size="sm"
+            showLabel
+            className="h-8 shrink-0 gap-1.5 sm:h-9"
+            iconClassName="size-3.5"
+          />
         </div>
         <RepairOsChipRow
           chips={listViews.map((item) => ({

@@ -26,7 +26,7 @@ describe("parseBarcodePayload", () => {
   it("recognizes prefixed inventory payloads", () => {
     expect(parseBarcodePayload("inventory:sku-42")).toMatchObject({
       kind: "inventory_link",
-      targetHref: "/inventory?id=sku-42",
+      targetHref: "/inventory?item=sku-42",
     });
   });
 

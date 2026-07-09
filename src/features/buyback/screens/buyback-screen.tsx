@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { BuybackQuoteWorkspace } from "@/features/buyback/components/buyback-quote-workspace";
+import { ScanSearchButton } from "@/features/capture";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { inventoryStatusMeta } from "@/features/inventory/model/inventory-workflow";
@@ -110,6 +111,11 @@ export function BuybackScreen() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    const query = searchParams.get("q");
+    if (query) setSearch((current) => (current === query ? current : query));
+  }, [searchParams]);
+
   const filters = useMemo(
     () => ({
       ...buybackScopeFilters,
@@ -136,6 +142,17 @@ export function BuybackScreen() {
     () => filterBuybackItemsByView(items, activeView),
     [activeView, items],
   );
+  useEffect(() => {
+    const recordId = searchParams.get("id") ?? searchParams.get("record");
+    if (!recordId) return;
+    const match = items.find((item) => item.id === recordId || item.public_no === recordId);
+    if (match) {
+      setSelectedRecord(match);
+      return;
+    }
+    setSearch((current) => current || recordId);
+  }, [items, searchParams]);
+
   const activeViewLabel = getBuybackListViewLabel(activeView);
   const handleQuoteOpenChange = (open: boolean) => {
     setQuoteOpen(open);
@@ -178,18 +195,13 @@ export function BuybackScreen() {
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="搜索客户、设备、IMEI"
-        filterAction={
-          <Button
-            variant="outline"
-            size="icon"
+        searchAction={
+          <ScanSearchButton
+            scope="buyback"
+            onSearch={setSearch}
             className="size-8 rounded-xl bg-card"
-            aria-label="扫码"
-            onClick={() =>
-              toast.info("回收扫码会接入快速查找 IMEI；当前请在报价向导中录入设备信息")
-            }
-          >
-            <ScanLine className="size-3.5" />
-          </Button>
+            iconClassName="size-3.5"
+          />
         }
         chips={views.map((view) => ({
           key: view.key,
@@ -254,17 +266,7 @@ export function BuybackScreen() {
                 className="h-8 border-0 bg-transparent pl-8 text-sm shadow-none focus-visible:ring-0 sm:h-9 sm:border-border/60 sm:bg-surface/60 sm:shadow-sm"
               />
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-9 shrink-0"
-              aria-label="扫码"
-              onClick={() =>
-                toast.info("回收扫码会接入快速查找 IMEI；当前请在报价向导中录入设备信息")
-              }
-            >
-              <ScanLine className="size-4" />
-            </Button>
+            <ScanSearchButton scope="buyback" onSearch={setSearch} className="size-9 shrink-0" />
           </div>
           <RepairOsChipRow
             chips={views.map((view) => ({
