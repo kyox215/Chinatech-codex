@@ -443,6 +443,8 @@
 
 .repair-print-sheet {
   display: none;
+  --repair-print-page-height: calc(148mm - 12mm);
+  --repair-print-page-width: calc(210mm - 12mm);
 }
 
 @media print {
@@ -475,8 +477,8 @@
   .repair-print-page {
     display: grid;
     box-sizing: border-box;
-    width: calc(210mm - 12mm);
-    height: calc(148mm - 12mm);
+    width: var(--repair-print-page-width);
+    height: var(--repair-print-page-height);
     grid-template-columns: 1fr 1fr;
     overflow: hidden;
     border: 1px solid #d4d4d4;

@@ -26,7 +26,7 @@ export function OrderListPrintSheet({
   const storeProfile = buildStorePrintProfile(storeSettings);
 
   return (
-    <PrintPortal>
+    <PrintPortal paperMode="a4-portrait-half">
       <section className="repair-print-sheet" aria-hidden="true">
         {orders.map((order) => (
           <div className="repair-print-page" key={order.id}>

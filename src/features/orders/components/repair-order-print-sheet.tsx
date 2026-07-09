@@ -46,7 +46,7 @@ export function RepairOrderPrintSheet({
   const taskUrl = getOrderTaskUrl(order.id, getPrintOrigin(orderUrl));
 
   return (
-    <PrintPortal>
+    <PrintPortal paperMode="a4-portrait-half">
       <section className="repair-print-sheet" aria-hidden="true">
         <div className="repair-print-page">
           <div className="repair-print-left">
