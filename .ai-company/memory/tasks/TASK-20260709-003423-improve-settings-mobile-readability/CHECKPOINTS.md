@@ -37,3 +37,10 @@
   - rg single-character action labels in settings screen: no matches
   - Playwright browser unavailable; Chrome automation blocked by EPERM/SIGABRT; local page opened but isolated worktree lacked local env/cookies for store data context
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-09T00:48:55Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 设置页移动端可读性优化已实现并推送到 main：顶部保存按钮显示文字；设置分组改为移动两列、平板三列、桌面七列；员工卡片操作按钮显示保存/停用/恢复/停用中/恢复中，不再使用单字；owner 移动卡片不再重复显示第二个店主。验证通过 typecheck、全量 lint、scoped eslint、定向 Vitest、next build --webpack、diff check；实现提交 971ebac5 已推送。
+- **Residual risks:** 本地隔离 worktree 未复制 .env/cookies，页面可打开但店铺数据上下文不可用；Playwright 自带浏览器未安装且系统 Chrome 自动化受 EPERM/SIGABRT 限制，因此无可保存截图。代码级与构建/测试验证已通过。
+- **Follow-up:** 如继续优化，下一轮可在有登录数据的生产/预览环境按真实手机截图微调按钮宽度和顶部卡高度。
+- **Closed by:** CEO-Orchestrator
