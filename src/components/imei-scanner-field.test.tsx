@@ -21,6 +21,13 @@ const mediaMocks = vi.hoisted(() => ({
   play: vi.fn(),
 }));
 
+const tesseractMocks = vi.hoisted(() => ({
+  createWorker: vi.fn(),
+  recognize: vi.fn(),
+  setParameters: vi.fn(),
+  terminate: vi.fn(),
+}));
+
 vi.mock("sonner", () => ({
   toast: toastMocks,
 }));
@@ -32,6 +39,10 @@ vi.mock("@zxing/browser", () => ({
       decodeFromImageElement: zxingMocks.decodeFromImageElement,
     };
   }),
+}));
+
+vi.mock("tesseract.js", () => ({
+  createWorker: tesseractMocks.createWorker,
 }));
 
 beforeAll(() => {
@@ -55,6 +66,18 @@ beforeEach(() => {
   zxingMocks.stop.mockReset();
   mediaMocks.play.mockReset();
   mediaMocks.play.mockResolvedValue(undefined);
+  tesseractMocks.createWorker.mockReset();
+  tesseractMocks.recognize.mockReset();
+  tesseractMocks.setParameters.mockReset();
+  tesseractMocks.terminate.mockReset();
+  tesseractMocks.recognize.mockResolvedValue({ data: { text: "" } });
+  tesseractMocks.setParameters.mockResolvedValue(undefined);
+  tesseractMocks.terminate.mockResolvedValue(undefined);
+  tesseractMocks.createWorker.mockResolvedValue({
+    recognize: tesseractMocks.recognize,
+    setParameters: tesseractMocks.setParameters,
+    terminate: tesseractMocks.terminate,
+  });
   Object.defineProperty(HTMLMediaElement.prototype, "play", {
     configurable: true,
     value: mediaMocks.play,
@@ -147,7 +170,7 @@ describe("ImeiScannerField", () => {
     ).toBeInTheDocument();
   });
 
-  it("falls back to the default camera when rear-camera constraints are unsupported", async () => {
+  it("tries 2x enhanced rear-camera constraints before falling back", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     zxingMocks.decodeFromConstraints
@@ -166,11 +189,22 @@ describe("ImeiScannerField", () => {
     await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(2));
     expect(zxingMocks.decodeFromConstraints.mock.calls[0]?.[0]).toEqual({
       audio: false,
-      video: { facingMode: { ideal: "environment" } },
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 24, max: 30 },
+        advanced: [{ zoom: 2 }],
+      },
     });
     expect(zxingMocks.decodeFromConstraints.mock.calls[1]?.[0]).toEqual({
       audio: false,
-      video: true,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 24, max: 30 },
+      },
     });
     expect(await screen.findByRole("alert")).toHaveTextContent("已识别 1 个编号，请确认后再填入。");
     expect(onChange).not.toHaveBeenCalled();
@@ -299,7 +333,7 @@ describe("ImeiScannerField", () => {
     Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
       configurable: true,
       value(this: HTMLElement) {
-        if (this.querySelector('img[alt="当前摄像头画面截图"]')) {
+        if (this.querySelector('img[alt="当前摄像头画面 OCR 截图"]')) {
           return {
             width: 320,
             height: 160,
@@ -365,7 +399,7 @@ describe("ImeiScannerField", () => {
       Object.defineProperty(video, "videoWidth", { configurable: true, value: 640 });
       Object.defineProperty(video, "videoHeight", { configurable: true, value: 480 });
 
-      const captureFrameButton = await screen.findByRole("button", { name: "拍照识别" });
+      const captureFrameButton = await screen.findByRole("button", { name: "拍照 OCR" });
       await waitFor(() => expect(captureFrameButton).toBeEnabled());
       await user.click(captureFrameButton);
 
@@ -375,7 +409,7 @@ describe("ImeiScannerField", () => {
       expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toBeInTheDocument();
-      expect(screen.getByAltText("当前摄像头画面截图")).toBeInTheDocument();
+      expect(screen.getByAltText("当前摄像头画面 OCR 截图")).toBeInTheDocument();
       const secondOverlayCandidate = screen.getByRole("button", { name: "选择画面候选 2" });
       expect(secondOverlayCandidate).toBeInTheDocument();
       await waitFor(() =>
@@ -634,6 +668,77 @@ describe("ImeiScannerField", () => {
       expect(toastMocks.error).not.toHaveBeenCalledWith(
         expect.stringContaining("decoder failed internally"),
       );
+    } finally {
+      if (imageDecodeDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);
+      } else {
+        delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+      }
+      if (createObjectUrlDescriptor) {
+        Object.defineProperty(URL, "createObjectURL", createObjectUrlDescriptor);
+      }
+      if (revokeObjectUrlDescriptor) {
+        Object.defineProperty(URL, "revokeObjectURL", revokeObjectUrlDescriptor);
+      }
+      if (textDetectorDescriptor) {
+        Object.defineProperty(window, "TextDetector", textDetectorDescriptor);
+      } else {
+        delete (window as Partial<Window & { TextDetector?: unknown }>).TextDetector;
+      }
+    }
+  });
+
+  it("uses Tesseract OCR when browser-native OCR is unavailable", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      "decode",
+    );
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
+    const textDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "TextDetector");
+
+    zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
+    zxingMocks.decodeFromImageElement.mockRejectedValue(new Error("decoder failed internally"));
+    tesseractMocks.recognize.mockResolvedValue({
+      data: { text: "IMEI1 490154203237518\nIMEI2 356938035643809" },
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:imei-photo-tesseract"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    delete (window as Partial<Window & { TextDetector?: unknown }>).TextDetector;
+
+    try {
+      render(<ImeiScannerField value="" onChange={onChange} />);
+
+      await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+      await user.click(await screen.findByRole("button", { name: "上传图片" }));
+
+      const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+      expect(fileInput).toBeTruthy();
+      await user.upload(fileInput!, new File(["image"], "imei.png", { type: "image/png" }));
+
+      await waitFor(
+        () =>
+          expect(screen.getByRole("alert")).toHaveTextContent(
+            "已识别 2 个候选，请选择要填入的编号。",
+          ),
+        { timeout: 4000 },
+      );
+      expect(tesseractMocks.createWorker).toHaveBeenCalledWith("eng");
+      expect(tesseractMocks.terminate).toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
     } finally {
       if (imageDecodeDescriptor) {
         Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);

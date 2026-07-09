@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { IScannerControls } from "@zxing/browser";
+import type { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
 import { Camera, ClipboardPaste, ImagePlus, Loader2, RotateCcw, ScanLine, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +46,7 @@ type ImeiCapturePreview = {
   width?: number;
   height?: number;
 };
+type ImeiScannerCameraMode = "enhanced" | "standard" | "default";
 type ImeiRecognitionResult = {
   text: string;
   source: ImeiCaptureSource;
@@ -57,10 +58,34 @@ type ImeiCaptureViewportSize = {
   width: number;
   height: number;
 };
+type ImeiScannerDecodeCallback = Parameters<BrowserMultiFormatReader["decodeFromConstraints"]>[2];
+type ImeiScannerReader = Pick<BrowserMultiFormatReader, "decodeFromConstraints">;
+type ImeiScannerConstraintPlan = {
+  mode: ImeiScannerCameraMode;
+  constraints: MediaStreamConstraints;
+};
+type ImeiScannerTrackConstraintSet = MediaTrackConstraintSet & {
+  zoom?: number;
+};
+type ImeiScannerTrackCapabilities = MediaTrackCapabilities & {
+  zoom?:
+    | number
+    | {
+        min?: number;
+        max?: number;
+        step?: number;
+      };
+};
+type VideoFrameCaptureOptions = {
+  alt?: string;
+  enhanceForOcr?: boolean;
+  zoom?: number;
+};
 
 const imeiImageMaxBytes = 8 * 1024 * 1024;
 const imeiBarcodeDecodeTimeoutMs = 2500;
-const imeiOcrDecodeTimeoutMs = 5000;
+const imeiOcrDecodeTimeoutMs = 8500;
+const imeiEnhancedScannerZoom = 2;
 const imeiImageAccept =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
 const imeiImageMimeTypes = new Set([
@@ -110,6 +135,7 @@ export function ImeiScannerField({
   const [captureViewportSize, setCaptureViewportSize] = useState<ImeiCaptureViewportSize | null>(
     null,
   );
+  const [activeCameraMode, setActiveCameraMode] = useState<ImeiScannerCameraMode>("enhanced");
   const [selectedCandidateId, setSelectedCandidateId] = useState("");
   const [scannerManualValue, setScannerManualValue] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -164,6 +190,7 @@ export function ImeiScannerField({
     setCaptureCandidates([]);
     replaceCapturePreview(null);
     setCaptureViewportSize(null);
+    setActiveCameraMode("enhanced");
     setSelectedCandidateId("");
     setScannerManualValue("");
     setIsImageProcessing(false);
@@ -331,9 +358,15 @@ export function ImeiScannerField({
     setSelectedCandidateId("");
 
     try {
-      const frame = await createImageElementFromVideoFrame(video);
+      const frame = await createImageElementFromVideoFrame(video, {
+        alt: "当前摄像头画面 OCR 截图",
+        enhanceForOcr: true,
+        zoom: activeCameraMode === "enhanced" ? imeiEnhancedScannerZoom : 1,
+      });
       stopScanner();
-      const recognition = await recognizeTextFromImageElement(frame.image);
+      const recognition = await recognizeTextFromImageElement(frame.image, {
+        preferOcr: true,
+      });
       handleCapturedText(recognition.text, recognition.source, {
         ...recognition,
         preview: frame.preview,
@@ -345,7 +378,7 @@ export function ImeiScannerField({
     } finally {
       setIsImageProcessing(false);
     }
-  }, [handleCapturedText, replaceCapturePreview, stopScanner]);
+  }, [activeCameraMode, handleCapturedText, replaceCapturePreview, stopScanner]);
 
   const handleCameraDecodeResult = useCallback(
     async (rawValue: string) => {
@@ -356,7 +389,9 @@ export function ImeiScannerField({
       }
 
       try {
-        const frame = await createImageElementFromVideoFrame(video);
+        const frame = await createImageElementFromVideoFrame(video, {
+          zoom: activeCameraMode === "enhanced" ? imeiEnhancedScannerZoom : 1,
+        });
         const detections = await withImageRecognitionTimeout(
           detectBarcodeValuesFromImageElement(frame.image),
           imeiBarcodeDecodeTimeoutMs,
@@ -375,7 +410,7 @@ export function ImeiScannerField({
         handleCapturedText(rawValue, "camera");
       }
     },
-    [handleCapturedText],
+    [activeCameraMode, handleCapturedText],
   );
 
   const handleRetryCapture = useCallback(() => {
@@ -421,34 +456,12 @@ export function ImeiScannerField({
           completedByScan = true;
           void handleCameraDecodeResult(result.getText());
         };
-        let controls: IScannerControls;
-        try {
-          controls = await reader.decodeFromConstraints(
-            {
-              audio: false,
-              video: { facingMode: { ideal: "environment" } },
-            },
-            videoRef.current,
-            onDecodeResult,
-          );
-        } catch (error) {
-          if (
-            !shouldRetryWithDefaultCamera(error) ||
-            cancelled ||
-            scannerRunIdRef.current !== runId ||
-            !videoRef.current
-          ) {
-            throw error;
-          }
-          controls = await reader.decodeFromConstraints(
-            {
-              audio: false,
-              video: true,
-            },
-            videoRef.current,
-            onDecodeResult,
-          );
-        }
+        const { controls, mode } = await startScannerWithFallback(
+          reader as ImeiScannerReader,
+          videoRef.current,
+          onDecodeResult,
+          () => cancelled || scannerRunIdRef.current !== runId || !videoRef.current,
+        );
         if (cancelled || scannerRunIdRef.current !== runId || completedByScan) {
           controls.stop();
           return;
@@ -458,7 +471,9 @@ export function ImeiScannerField({
           controls.stop();
           return;
         }
+        await applyScannerTrackEnhancements(videoRef.current, mode);
         controlsRef.current = controls;
+        setActiveCameraMode(mode);
         setIsCameraActive(true);
       } catch (error) {
         if (cancelled || scannerRunIdRef.current !== runId) return;
@@ -642,6 +657,11 @@ export function ImeiScannerField({
                     )}
                   </div>
                 ) : null}
+                {!capturePreview && (isStarting || isCameraActive) ? (
+                  <div className="pointer-events-none absolute left-2 top-2 rounded bg-background/85 px-2 py-1 text-[10px] font-semibold text-foreground shadow-sm">
+                    {activeCameraMode === "enhanced" ? "2x 增强扫码" : "1x 兼容扫码"}
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {captureError ? (
@@ -726,6 +746,7 @@ export function ImeiScannerField({
                 isImageProcessing,
                 isStarting,
                 isCameraActive,
+                cameraMode: activeCameraMode,
                 candidateCount: captureCandidates.length,
                 hasCaptureError: Boolean(captureError),
               })}
@@ -757,7 +778,7 @@ export function ImeiScannerField({
                 ) : (
                   <ScanLine className="mr-1.5 size-3.5" />
                 )}
-                拍照识别
+                拍照 OCR
               </Button>
               <Button
                 type="button"
@@ -837,6 +858,48 @@ async function recognizeTextFromImageFile(file: File): Promise<ImeiRecognitionRe
 
 async function recognizeTextFromImageElement(
   image: HTMLImageElement,
+  options: { preferOcr?: boolean } = {},
+): Promise<ImeiRecognitionResult> {
+  if (options.preferOcr) {
+    const ocrText = await detectTextFromImageElement(image).catch(() => "");
+    if (extractImeiCandidates(ocrText, { source: "ocr", includeGenericSerial: true }).length > 0) {
+      return {
+        text: ocrText,
+        source: "ocr",
+      };
+    }
+
+    const barcodeRecognition = await recognizeBarcodeFromImageElement(image).catch(() => null);
+    if (barcodeRecognition) return barcodeRecognition;
+
+    if (ocrText.trim()) {
+      return {
+        text: ocrText,
+        source: "ocr",
+      };
+    }
+
+    throw new Error(
+      "拍照 OCR 未识别到编号。请使用 2x 对准 IMEI 文字、避免反光，或上传更清晰照片。",
+    );
+  }
+
+  const barcodeRecognition = await recognizeBarcodeFromImageElement(image).catch(() => null);
+  if (barcodeRecognition) return barcodeRecognition;
+
+  const ocrText = await withImageRecognitionTimeout(
+    detectTextFromImageElement(image),
+    imeiOcrDecodeTimeoutMs,
+    "OCR 识别超时",
+  );
+  return {
+    text: ocrText,
+    source: "ocr",
+  };
+}
+
+async function recognizeBarcodeFromImageElement(
+  image: HTMLImageElement,
 ): Promise<ImeiRecognitionResult> {
   const barcodeDetections = await withImageRecognitionTimeout(
     detectBarcodeValuesFromImageElement(image),
@@ -852,28 +915,14 @@ async function recognizeTextFromImageElement(
     };
   }
 
-  try {
-    const barcodeText = await withImageRecognitionTimeout(
-      decodeBarcodeFromImageElement(image),
-      imeiBarcodeDecodeTimeoutMs,
-      "条码识别超时",
-    );
-    return {
-      text: barcodeText,
-      source: "image",
-    };
-  } catch {
-    // Barcode decoding often fails on plain numeric labels; fall through to local OCR.
-  }
-
-  const ocrText = await withImageRecognitionTimeout(
-    detectTextFromImageElement(image),
-    imeiOcrDecodeTimeoutMs,
-    "OCR 识别超时",
+  const barcodeText = await withImageRecognitionTimeout(
+    decodeBarcodeFromImageElement(image),
+    imeiBarcodeDecodeTimeoutMs,
+    "条码识别超时",
   );
   return {
-    text: ocrText,
-    source: "ocr",
+    text: barcodeText,
+    source: "image",
   };
 }
 
@@ -893,22 +942,40 @@ async function createImageElementFromFile(file: File) {
   }
 }
 
-async function createImageElementFromVideoFrame(video: HTMLVideoElement) {
+async function createImageElementFromVideoFrame(
+  video: HTMLVideoElement,
+  options: VideoFrameCaptureOptions = {},
+) {
   const width = video.videoWidth || video.clientWidth;
   const height = video.videoHeight || video.clientHeight;
   if (!width || !height) {
     throw new Error("当前摄像头画面还没有准备好，请稍等后再拍照识别。");
   }
 
+  const crop = getVideoFrameCrop(width, height, options.zoom ?? 1);
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = crop.outputWidth;
+  canvas.height = crop.outputHeight;
   const context = canvas.getContext("2d");
   if (!context) {
     throw new Error("当前浏览器无法读取摄像头画面。请上传图片或手动输入。");
   }
 
-  context.drawImage(video, 0, 0, width, height);
+  context.imageSmoothingEnabled = Boolean(options.enhanceForOcr);
+  if ("filter" in context && options.enhanceForOcr) {
+    context.filter = "grayscale(1) contrast(1.35)";
+  }
+  context.drawImage(
+    video,
+    crop.sourceX,
+    crop.sourceY,
+    crop.sourceWidth,
+    crop.sourceHeight,
+    0,
+    0,
+    crop.outputWidth,
+    crop.outputHeight,
+  );
   const image = new Image();
   image.src = canvas.toDataURL("image/png");
   await decodeImageElement(image);
@@ -916,10 +983,27 @@ async function createImageElementFromVideoFrame(video: HTMLVideoElement) {
     image,
     preview: {
       src: image.src,
-      alt: "当前摄像头画面截图",
-      width,
-      height,
+      alt: options.alt ?? "当前摄像头画面截图",
+      width: crop.outputWidth,
+      height: crop.outputHeight,
     },
+  };
+}
+
+function getVideoFrameCrop(width: number, height: number, zoom: number) {
+  const normalizedZoom = Math.max(1, Math.min(imeiEnhancedScannerZoom, zoom));
+  const sourceWidth = Math.max(1, Math.round(width / normalizedZoom));
+  const sourceHeight = Math.max(1, Math.round(height / normalizedZoom));
+  const sourceX = Math.max(0, Math.round((width - sourceWidth) / 2));
+  const sourceY = Math.max(0, Math.round((height - sourceHeight) / 2));
+
+  return {
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    outputWidth: Math.max(1, Math.min(width, Math.round(sourceWidth * normalizedZoom))),
+    outputHeight: Math.max(1, Math.min(height, Math.round(sourceHeight * normalizedZoom))),
   };
 }
 
@@ -1003,16 +1087,36 @@ type BrowserWindowWithTextDetector = Window & {
 
 async function detectTextFromImageElement(image: HTMLImageElement) {
   const TextDetectorCtor = (window as BrowserWindowWithTextDetector).TextDetector;
-  if (!TextDetectorCtor) {
-    throw new Error("当前浏览器暂不支持本机 OCR。请使用条码照片、摄像头扫码或手动输入。");
+  if (TextDetectorCtor) {
+    const detector = new TextDetectorCtor();
+    const results = await detector.detect(image);
+    const nativeText = results
+      .map((item) => item.rawValue?.trim())
+      .filter((item): item is string => Boolean(item))
+      .join(" ");
+    if (nativeText.trim()) return nativeText;
   }
 
-  const detector = new TextDetectorCtor();
-  const results = await detector.detect(image);
-  return results
-    .map((item) => item.rawValue?.trim())
-    .filter((item): item is string => Boolean(item))
-    .join(" ");
+  return detectTextWithTesseract(image);
+}
+
+async function detectTextWithTesseract(image: HTMLImageElement) {
+  const { createWorker } = await import("tesseract.js");
+  const worker = await createWorker("eng");
+  try {
+    const configurableWorker = worker as unknown as {
+      setParameters?: (parameters: Record<string, string>) => Promise<unknown>;
+    };
+    await configurableWorker.setParameters?.({
+      preserve_interword_spaces: "1",
+      tessedit_char_whitelist:
+        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz:/-_. ",
+    });
+    const result = await worker.recognize(image.src);
+    return result.data.text?.trim() ?? "";
+  } finally {
+    await worker.terminate();
+  }
 }
 
 async function withImageRecognitionTimeout<T>(
@@ -1055,6 +1159,102 @@ function getCameraErrorMessage(error: unknown) {
   }
 
   return "无法打开摄像头，请改用照片上传或手动输入。";
+}
+
+async function startScannerWithFallback(
+  reader: ImeiScannerReader,
+  video: HTMLVideoElement,
+  callback: ImeiScannerDecodeCallback,
+  shouldCancel: () => boolean,
+) {
+  let lastError: unknown;
+  for (const plan of getScannerConstraintPlans()) {
+    if (shouldCancel()) break;
+    try {
+      const controls = await reader.decodeFromConstraints(plan.constraints, video, callback);
+      return {
+        controls,
+        mode: plan.mode,
+      };
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryWithDefaultCamera(error)) throw error;
+    }
+  }
+
+  throw lastError ?? new Error("无法打开摄像头，请改用照片上传或手动输入。");
+}
+
+function getScannerConstraintPlans(): ImeiScannerConstraintPlan[] {
+  return [
+    {
+      mode: "enhanced",
+      constraints: {
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 24, max: 30 },
+          advanced: [{ zoom: imeiEnhancedScannerZoom } as ImeiScannerTrackConstraintSet],
+        } as MediaTrackConstraints,
+      },
+    },
+    {
+      mode: "standard",
+      constraints: {
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 24, max: 30 },
+        },
+      },
+    },
+    {
+      mode: "default",
+      constraints: {
+        audio: false,
+        video: true,
+      },
+    },
+  ];
+}
+
+async function applyScannerTrackEnhancements(
+  video: HTMLVideoElement | null,
+  mode: ImeiScannerCameraMode,
+) {
+  if (!video || mode !== "enhanced") return;
+  const stream =
+    typeof MediaStream !== "undefined" && video.srcObject instanceof MediaStream
+      ? video.srcObject
+      : null;
+  const track = stream?.getVideoTracks()[0];
+  if (!track?.applyConstraints) return;
+
+  try {
+    const capabilities = track.getCapabilities?.() as ImeiScannerTrackCapabilities | undefined;
+    const zoom = getSupportedScannerZoom(capabilities?.zoom);
+    if (!zoom) return;
+    await track.applyConstraints({
+      advanced: [{ zoom } as ImeiScannerTrackConstraintSet],
+    } as MediaTrackConstraints);
+  } catch {
+    // Some iOS/WebKit camera tracks expose no zoom controls. The center-crop capture path still
+    // gives the decoder a 2x region without restarting the camera.
+  }
+}
+
+function getSupportedScannerZoom(capability: ImeiScannerTrackCapabilities["zoom"]) {
+  if (!capability) return null;
+  if (typeof capability === "number") return Math.max(1, capability);
+
+  const min = typeof capability.min === "number" ? capability.min : 1;
+  const max = typeof capability.max === "number" ? capability.max : imeiEnhancedScannerZoom;
+  const target = Math.min(Math.max(imeiEnhancedScannerZoom, min), max);
+  return target > 1 ? target : null;
 }
 
 function shouldRetryWithDefaultCamera(error: unknown) {
@@ -1230,19 +1430,24 @@ function getScannerStatusText({
   isImageProcessing,
   isStarting,
   isCameraActive,
+  cameraMode,
   candidateCount,
   hasCaptureError,
 }: {
   isImageProcessing: boolean;
   isStarting: boolean;
   isCameraActive: boolean;
+  cameraMode: ImeiScannerCameraMode;
   candidateCount: number;
   hasCaptureError: boolean;
 }) {
-  if (isImageProcessing) return "正在识别图片...";
-  if (isStarting) return "正在启动摄像头...";
+  if (isImageProcessing) return "正在识别图片 / OCR...";
+  if (isStarting) return "正在启动摄像头，优先使用 2x 增强扫码...";
   if (candidateCount > 0) return `已识别 ${candidateCount} 个候选，请选择要填入的编号。`;
   if (hasCaptureError) return "可重试、上传图片或手动输入。";
+  if (isCameraActive && cameraMode === "enhanced") {
+    return "2x 增强扫码中；保持 IMEI 条码或文字在中间框，必要时点拍照 OCR。";
+  }
   if (isCameraActive) return "正在扫描，保持条码在画面中；识别后会在下方显示候选。";
   return "摄像头已停止，可上传图片或手动输入。";
 }
