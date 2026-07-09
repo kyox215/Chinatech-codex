@@ -205,8 +205,8 @@ export function CustomerListScreen() {
         <ScanSearchButton
           scope="customers"
           onSearch={setSearchDraft}
-          className="size-8 rounded-xl bg-card"
-          iconClassName="size-3.5"
+          className="size-10 rounded-xl bg-card"
+          iconClassName="size-4"
         />
       }
       filterAction={
@@ -216,10 +216,10 @@ export function CustomerListScreen() {
               type="button"
               variant="outline"
               size="icon"
-              className="relative size-8 rounded-xl bg-card"
+              className="relative size-10 rounded-xl bg-card"
               aria-label="筛选客户"
             >
-              <Filter className="size-3.5" />
+              <Filter className="size-4" />
               {activeFilterCount > 0 ? (
                 <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold leading-4 text-primary-foreground">
                   {activeFilterCount}

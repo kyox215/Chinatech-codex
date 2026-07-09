@@ -2,7 +2,7 @@
 
 Status: active
 Owner: Frontend + Integration Lead
-Last reviewed: 2026-07-09 CEST
+Last reviewed: 2026-07-10 CEST
 
 This document defines the first supported QR/barcode payloads for RepairDesk scan search.
 
@@ -15,15 +15,15 @@ This document defines the first supported QR/barcode payloads for RepairDesk sca
 
 ## Supported Payloads
 
-| Entity | Preferred payload | URL form | Result |
-|---|---|---|---|
-| Order task | existing print QR `/orders/{orderId}/task` | `https://chinatech.in/orders/{orderId}/task` | Open internal task page, or search the scanned id on the current page. |
-| Order detail | `order:{orderId}` | `/orders/{orderId}` | Open order, or search the scanned value. |
-| Customer | `customer:{customerId}` | `/customers/{customerId}` | Open customer, or search the scanned value. |
-| Inventory item | `inventory:{itemId}` | `/inventory?item={itemId}` | Open focused inventory item, or search the scanned value. |
-| Buyback record | `buyback:{recordId}` | `/buyback?id={recordId}` | Open/focus buyback record when available, or search the scanned value. |
-| IMEI | `imei:{imei}` or raw IMEI barcode | none | Search current module or route to module search from global scan. |
-| Serial | `serial:{serial}` / `sn:{serial}` or raw serial barcode | none | Search current module or route to module search from global scan. |
+| Entity         | Preferred payload                                       | URL form                                     | Result                                                                 |
+| -------------- | ------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| Order task     | existing print QR `/orders/{orderId}/task`              | `https://chinatech.in/orders/{orderId}/task` | Open internal task page, or search the scanned id on the current page. |
+| Order detail   | `order:{orderId}`                                       | `/orders/{orderId}`                          | Open order, or search the scanned value.                               |
+| Customer       | `customer:{customerId}`                                 | `/customers/{customerId}`                    | Open customer, or search the scanned value.                            |
+| Inventory item | `inventory:{itemId}`                                    | `/inventory?item={itemId}`                   | Open focused inventory item, or search the scanned value.              |
+| Buyback record | `buyback:{recordId}`                                    | `/buyback?id={recordId}`                     | Open/focus buyback record when available, or search the scanned value. |
+| IMEI           | `imei:{imei}` or raw IMEI barcode                       | none                                         | Search current module or route to module search from global scan.      |
+| Serial         | `serial:{serial}` / `sn:{serial}` or raw serial barcode | none                                         | Search current module or route to module search from global scan.      |
 
 ## Route Query Semantics
 
@@ -31,7 +31,7 @@ This document defines the first supported QR/barcode payloads for RepairDesk sca
 - `/customers?q=value` fills customer search.
 - `/buyback?q=value` fills buyback search.
 - `/inventory?q=value` fills inventory search.
-- `/inventory?item=itemId` focuses an inventory record when present in the current list.
+- `/inventory?item=itemId` focuses an inventory record when present; otherwise the value becomes the inventory search term with an operator-visible fallback notice.
 - `/buyback?id=recordId` focuses a buyback record when present; otherwise the value becomes the buyback search term.
 
 ## Future Approval Points

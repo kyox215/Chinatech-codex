@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -183,6 +183,7 @@ export function InventoryScreen() {
   const [actionItem, setActionItem] = useState<InventoryListItem>();
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [action, setAction] = useState<InventoryActionMode | null>(null);
+  const itemFocusFallbackRef = useRef<string | null>(null);
 
   const filters = useMemo(
     () => ({
@@ -228,9 +229,28 @@ export function InventoryScreen() {
 
   useEffect(() => {
     const focusedItemId = searchParams.get("item");
-    if (!focusedItemId) return;
-    if (items.some((item) => item.id === focusedItemId)) setSelectedId(focusedItemId);
-  }, [items, searchParams]);
+    if (!focusedItemId) {
+      itemFocusFallbackRef.current = null;
+      return;
+    }
+
+    if (items.some((item) => item.id === focusedItemId)) {
+      setSelectedId(focusedItemId);
+      itemFocusFallbackRef.current = null;
+      return;
+    }
+
+    if (
+      isLoading ||
+      isItemsFetching ||
+      isItemsError ||
+      itemFocusFallbackRef.current === focusedItemId
+    )
+      return;
+    itemFocusFallbackRef.current = focusedItemId;
+    setSearch((current) => (current.trim() === focusedItemId ? current : focusedItemId));
+    toast.info("未找到该库存记录，已按编号搜索");
+  }, [isItemsError, isItemsFetching, isLoading, items, searchParams]);
 
   function invalidate(id?: string) {
     queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
@@ -270,8 +290,8 @@ export function InventoryScreen() {
         <ScanSearchButton
           scope="inventory"
           onSearch={setSearch}
-          className="size-8 rounded-xl bg-card"
-          iconClassName="size-3.5"
+          className="size-10 rounded-xl bg-card"
+          iconClassName="size-4"
         />
       }
       filterAction={
@@ -279,11 +299,11 @@ export function InventoryScreen() {
           type="button"
           variant="outline"
           size="icon"
-          className="size-8 rounded-xl bg-card"
+          className="size-10 rounded-xl bg-card"
           aria-label="导入库存"
           onClick={() => setAction("import")}
         >
-          <FileUp className="size-3.5" />
+          <FileUp className="size-4" />
         </Button>
       }
       chips={listViews.map((item) => ({

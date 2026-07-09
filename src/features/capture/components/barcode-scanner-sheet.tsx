@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { parseBarcodePayload, type CapturePayload } from "@/features/capture/model/barcode-parser";
+import { getBarcodeScannerCameraErrorMessage } from "@/features/capture/model/scanner-errors";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +87,7 @@ export function BarcodeScannerSheet({
 
     async function startScanner() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        toast.error("当前浏览器不支持摄像头扫码，请使用手动输入");
+        toast.error(getBarcodeScannerCameraErrorMessage());
         return;
       }
 
@@ -105,8 +106,7 @@ export function BarcodeScannerSheet({
           },
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : "无法打开摄像头";
-        toast.error(message || "无法打开摄像头，请检查权限后重试");
+        toast.error(getBarcodeScannerCameraErrorMessage(error));
       } finally {
         if (!cancelled) setIsStarting(false);
       }
@@ -130,13 +130,23 @@ export function BarcodeScannerSheet({
     }
   };
 
+  const hasResult = Boolean(lastPayload);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+        className={cn(
+          "rounded-t-xl p-0 sm:mx-auto sm:max-w-xl",
+          hasResult ? "h-[min(82svh,42rem)] max-h-[calc(100svh-8px)]" : "max-h-[calc(100svh-16px)]",
+        )}
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+        <div
+          className={cn(
+            "flex min-w-0 flex-col overflow-hidden",
+            hasResult ? "h-full max-h-[calc(100svh-8px)]" : "max-h-[calc(100svh-16px)]",
+          )}
+        >
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <ScanLine className="size-4 text-primary" />
@@ -145,7 +155,15 @@ export function BarcodeScannerSheet({
             <SheetDescription>{description}</SheetDescription>
           </SheetHeader>
 
-          <div className={cn(componentOverlay.body, "space-y-3 pt-3")}>
+          <div
+            className={cn(
+              componentOverlay.body,
+              "min-h-0 flex-1 space-y-3 pt-3",
+              hasResult
+                ? "pb-[calc(env(safe-area-inset-bottom)+4.5rem)]"
+                : "pb-[calc(env(safe-area-inset-bottom)+1rem)]",
+            )}
+          >
             {!lastPayload ? (
               <>
                 <div className="overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--capture-preview)]">
@@ -216,19 +234,21 @@ export function BarcodeScannerSheet({
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={copyValue}>
-                    <Copy className="mr-1.5 size-3.5" />
-                    复制
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={rescan}>
-                    <RotateCcw className="mr-1.5 size-3.5" />
-                    继续扫描
-                  </Button>
-                  {renderActions?.(lastPayload, {
-                    close: () => onOpenChange(false),
-                    rescan,
-                  })}
+                <div className="sticky bottom-0 z-10 -mx-3 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-3 shadow-[var(--shadow-overlay)] sm:-mx-4 sm:px-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={copyValue}>
+                      <Copy className="mr-1.5 size-3.5" />
+                      复制
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={rescan}>
+                      <RotateCcw className="mr-1.5 size-3.5" />
+                      继续扫描
+                    </Button>
+                    {renderActions?.(lastPayload, {
+                      close: () => onOpenChange(false),
+                      rescan,
+                    })}
+                  </div>
                 </div>
               </div>
             )}

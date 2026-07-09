@@ -10,7 +10,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from "react";
-import { Filter, Search, type LucideIcon } from "lucide-react";
+import { Filter, Search, X, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -334,6 +334,7 @@ export function RepairOsListScaffold({
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const hasSearch = typeof searchValue === "string" && onSearchChange;
+  const trimmedSearchValue = hasSearch ? searchValue.trim() : "";
   const searchTrailingActions = [
     searchAction,
     filterAction ?? (!searchAction ? "default-filter" : null),
@@ -390,16 +391,16 @@ export function RepairOsListScaffold({
               <div
                 className="grid min-w-0 gap-1.5"
                 style={{
-                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 32px)`,
+                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 40px)`,
                 }}
               >
-                <div className={cn(repairOs.searchBar, "h-8 rounded-xl px-2 shadow-none")}>
+                <div className={cn(repairOs.searchBar, "h-10 rounded-xl px-2 shadow-none")}>
                   <Search className="size-3.5 shrink-0 text-muted-foreground" />
                   <Input
                     value={searchValue}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
-                    className={cn(repairOs.searchInput, "h-7 text-xs")}
+                    className={cn(repairOs.searchInput, "h-9 text-base")}
                   />
                 </div>
                 {searchAction}
@@ -409,13 +410,30 @@ export function RepairOsListScaffold({
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="size-8 rounded-xl bg-card"
+                      className="size-10 rounded-xl bg-card"
                       aria-label="筛选"
                       disabled
                     >
                       <Filter className="size-3.5" />
                     </Button>
                   ) : null)}
+              </div>
+            ) : null}
+
+            {trimmedSearchValue ? (
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-1 rounded-full border border-[var(--border-panel)] bg-card px-2.5 py-1 text-[11px] font-medium leading-4 text-muted-foreground">
+                  <span className="shrink-0">搜索：</span>
+                  <span className="truncate font-mono text-foreground">{trimmedSearchValue}</span>
+                </span>
+                <button
+                  type="button"
+                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  aria-label="清除搜索"
+                  onClick={() => onSearchChange?.("")}
+                >
+                  <X className="size-3.5" />
+                </button>
               </div>
             ) : null}
 

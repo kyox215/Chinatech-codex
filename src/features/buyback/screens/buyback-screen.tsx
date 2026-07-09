@@ -199,8 +199,8 @@ export function BuybackScreen() {
           <ScanSearchButton
             scope="buyback"
             onSearch={setSearch}
-            className="size-8 rounded-xl bg-card"
-            iconClassName="size-3.5"
+            className="size-10 rounded-xl bg-card"
+            iconClassName="size-4"
           />
         }
         chips={views.map((view) => ({
@@ -266,7 +266,14 @@ export function BuybackScreen() {
                 className="h-8 border-0 bg-transparent pl-8 text-sm shadow-none focus-visible:ring-0 sm:h-9 sm:border-border/60 sm:bg-surface/60 sm:shadow-sm"
               />
             </div>
-            <ScanSearchButton scope="buyback" onSearch={setSearch} className="size-9 shrink-0" />
+            <ScanSearchButton
+              scope="buyback"
+              onSearch={setSearch}
+              size="sm"
+              showLabel
+              className="h-8 shrink-0 gap-1.5 sm:h-9"
+              iconClassName="size-3.5"
+            />
           </div>
           <RepairOsChipRow
             chips={views.map((view) => ({
