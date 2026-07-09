@@ -34,3 +34,8 @@ Screenshots:
 
 - The first sandboxed `npm run build` failed with Turbopack `Operation not permitted` while binding a port.
 - The same build passed after approved sandbox escalation.
+
+## Git Evidence
+
+- Commit: `afcf1402 Add virtual money keypad for order amounts`.
+- Push: `origin/main` updated from `2710f223` to `afcf1402`.

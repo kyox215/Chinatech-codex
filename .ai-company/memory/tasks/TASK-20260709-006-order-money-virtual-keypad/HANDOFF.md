@@ -2,7 +2,7 @@
 
 ## Current State
 
-Implementation and validation are complete. The remaining work is scoped staging, commit, and push to `origin/main`.
+Implementation, validation, commit, and push are complete. A final memory-only closure commit remains if this file is being read before the closure commit is pushed.
 
 ## Files To Stage
 
@@ -29,3 +29,8 @@ Implementation and validation are complete. The remaining work is scoped staging
 - `git diff --check`
 - `git status --short`
 - Confirm `next-env.d.ts` is not staged from build/dev generation.
+
+## Closeout
+
+- Implementation commit pushed: `afcf1402`.
+- Screenshots are stored in `screenshots/TASK-20260709-006-order-money-virtual-keypad/`.

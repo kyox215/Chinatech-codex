@@ -1,5 +1,5 @@
 ---
-updated_at: "2026-07-09T00:39:33Z"
+updated_at: "2026-07-09T00:42:34Z"
 ---
 # TASK-20260709-006-order-money-virtual-keypad
 
@@ -28,6 +28,11 @@ The owner asked to change amount entry from the phone keyboard to an app virtual
 - Replaced native amount `Input` fields in order finance surfaces with the shared virtual keypad trigger.
 - Kept phone and IMEI fields on native numeric/tel keyboard hints.
 - Preserved text inputs for repair item names and notes.
+
+## Final Status
+
+- Completed and pushed to `origin/main`.
+- Implementation commit: `afcf1402 Add virtual money keypad for order amounts`.
 
 ## Files
 
