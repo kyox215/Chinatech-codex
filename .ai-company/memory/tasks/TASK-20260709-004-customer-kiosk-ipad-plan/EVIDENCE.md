@@ -35,4 +35,5 @@
 - `src/features/orders/screens/order-task-screen.tsx`: QR task page sends pickup confirmation to active iPad.
 - `src/utils/supabase/proxy.ts`: allows `/kiosk` and `/api/kiosk/*` without staff login.
 - `src/app/providers.tsx`: renders `/kiosk` without staff AppShell.
-- `supabase/migrations/20260709233000_customer_kiosk_ipad_mvp.sql`: migration draft only; not applied to production in this task.
+- `supabase/migrations/20260709233000_customer_kiosk_ipad_mvp.sql`: migration file for the customer kiosk iPad MVP schema; applied to production on 2026-07-09 via direct SQL execution plus targeted migration history repair.
+- `2026-07-09T00:13:49Z` `d786474af3` — supabase db query --linked --file supabase/migrations/20260709233000_customer_kiosk_ipad_mvp.sql exited 0; migration repair recorded 20260709233000 applied; verification found both kiosk tables with RLS enabled and service_role-only grants.

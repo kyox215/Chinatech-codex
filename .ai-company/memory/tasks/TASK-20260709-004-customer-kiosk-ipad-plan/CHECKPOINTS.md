@@ -48,3 +48,20 @@ Next:
 
 - Commit all current workspace changes and push `main`.
 - Before customer-facing production use, apply the migration through the approved Supabase path and finish review/accept plus legal/privacy copy.
+## 2026-07-09T00:13:49Z — Applied customer kiosk iPad MVP production Supabase migration 20260709233000 by executing the target SQL file directly, then marking only that version as applied.
+
+- **Phase:** migration-applied
+- **Completed/current state:** Applied customer kiosk iPad MVP production Supabase migration 20260709233000 by executing the target SQL file directly, then marking only that version as applied.
+- **Next:** Implement or verify kiosk server APIs against public.store_kiosk_devices and public.customer_kiosk_sessions; reconcile Supabase migration history before using db push.
+- **Decision:** Did not run supabase db push because remote history contains 20260708182631 missing locally and many local-only migrations; direct target SQL plus precise repair avoided applying unrelated migrations.
+- **Blocker:** Migration history remains divergent: remote-only 20260708182631 and multiple local-only versions should be reconciled separately before future db push usage.
+- **Evidence:**
+  - supabase db query --linked --file supabase/migrations/20260709233000_customer_kiosk_ipad_mvp.sql exited 0; migration repair recorded 20260709233000 applied; verification found both kiosk tables with RLS enabled and service_role-only grants.
+- **Recorded by:** codex
+## 2026-07-09T00:14:49Z — Task closeout
+
+- **Status:** conditional
+- **Outcome:** Production Supabase migration 20260709233000 for customer kiosk iPad MVP was applied and recorded; verification confirmed both kiosk tables, RLS, indexes/constraints summary, service_role grants, and migration history entry.
+- **Residual risks:** Supabase migration history remains divergent: remote-only 20260708182631 and multiple local-only migrations still require a separate reconciliation task before future supabase db push usage. Workspace also contains an unrelated untracked ACTIVE_CONTEXT 3.md.
+- **Follow-up:** Reconcile Supabase migration history separately; continue kiosk API/UI acceptance and legal/privacy copy before broad customer-facing use.
+- **Closed by:** codex

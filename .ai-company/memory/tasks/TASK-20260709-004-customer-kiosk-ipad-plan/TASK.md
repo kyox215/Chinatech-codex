@@ -1,14 +1,14 @@
 ---
 schema_version: 1
-task_id: TASK-20260709-004-customer-kiosk-ipad-plan
-status: implemented_mvp_foundation
-owner: CEO-Orchestrator
-risk_level: R3
-autonomy_level: L2
-created_at: 2026-07-09
-updated_at: 2026-07-09
+task_id: "TASK-20260709-004-customer-kiosk-ipad-plan"
+status: "conditional"
+owner: "CEO-Orchestrator"
+risk_level: "R3"
+autonomy_level: "L2"
+created_at: "2026-07-09"
+updated_at: "2026-07-09T00:14:49Z"
+closed_at: "2026-07-09T00:14:49Z"
 ---
-
 # TASK-20260709-004 Customer Kiosk iPad Plan
 
 ## Owner Goal
