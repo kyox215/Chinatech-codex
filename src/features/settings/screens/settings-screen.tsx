@@ -1766,7 +1766,7 @@ function OrderWorkflowSection({
                       />
                     </div>
                   </details>
-                  <div className="hidden min-w-0 gap-1.5 rounded-md border border-border/60 bg-surface/60 p-1.5 lg:grid lg:grid-cols-[auto_minmax(5.75rem,1fr)_4.25rem_minmax(5.5rem,0.78fr)_4.75rem_repeat(4,auto)_auto]">
+                  <div className="hidden min-w-0 gap-1.5 rounded-md border border-border/60 bg-surface/60 p-1.5 lg:grid lg:grid-cols-[auto_minmax(5.75rem,1fr)_4.25rem_minmax(5.5rem,0.78fr)_4.75rem] 2xl:grid-cols-[auto_minmax(5.75rem,1fr)_4.25rem_minmax(5.5rem,0.78fr)_4.75rem_repeat(4,auto)_auto]">
                     <WorkflowStatusFields
                       status={status}
                       index={index}
