@@ -8,7 +8,12 @@ import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import type { StoreContext } from "@/lib/repairdesk/types";
 
-export function clearTenantScopedQueryCache(queryClient: QueryClient) {
+export async function clearTenantScopedQueryCache(queryClient: QueryClient) {
+  await Promise.all(
+    tenantScopedQueryRoots.map((queryKey) =>
+      queryClient.cancelQueries({ queryKey }, { silent: true }),
+    ),
+  );
   for (const queryKey of tenantScopedQueryRoots) {
     queryClient.removeQueries({ queryKey });
   }
@@ -21,9 +26,9 @@ export async function refreshStoreContextQueries(queryClient: QueryClient) {
   ]);
 }
 
-export function applySwitchedStoreContext(queryClient: QueryClient, context: StoreContext) {
+export async function applySwitchedStoreContext(queryClient: QueryClient, context: StoreContext) {
+  await clearTenantScopedQueryCache(queryClient);
   queryClient.setQueryData(storesKeys.context, context);
-  clearTenantScopedQueryCache(queryClient);
 }
 
 const tenantScopedQueryRoots = [
@@ -33,6 +38,7 @@ const tenantScopedQueryRoots = [
   messageSettingsKeys.store,
   messageSettingsKeys.templates,
   messageSettingsKeys.all,
+  storesKeys.context,
   storesKeys.members,
   storesKeys.accessRequests,
   platformKeys.onboardingStatus,

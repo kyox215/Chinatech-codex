@@ -74,7 +74,7 @@ export function AppSidebar() {
     mutationFn: switchStore,
     onSuccess: async (context) => {
       toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
-      applySwitchedStoreContext(queryClient, context);
+      await applySwitchedStoreContext(queryClient, context);
       await refreshStoreContextQueries(queryClient);
       router.refresh();
     },
@@ -89,6 +89,7 @@ export function AppSidebar() {
     if (isSigningOut) return;
     setIsSigningOut(true);
     try {
+      await queryClient.cancelQueries({}, { silent: true });
       await createClient().auth.signOut();
       clearBrowserAuthPersistenceCookie();
       queryClient.clear();

@@ -6,7 +6,11 @@ import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 
-import type { RepairDeskRealtimeEvent, RepairDeskRealtimeQueryGroup } from "./realtime-events";
+import type {
+  RepairDeskRealtimeDomain,
+  RepairDeskRealtimeEvent,
+  RepairDeskRealtimeQueryGroup,
+} from "./realtime-events";
 
 export type RepairDeskRealtimeInvalidationTarget = {
   group: RepairDeskRealtimeQueryGroup;
@@ -18,11 +22,14 @@ export function getRepairDeskRealtimeInvalidationTargets(
 ): RepairDeskRealtimeInvalidationTarget[] {
   return event.queryGroups.map((group) => ({
     group,
-    queryKey: getQueryKeyForGroup(group, event.storeId),
+    queryKey: getRepairDeskRealtimeQueryKeyForGroup(group, event.storeId),
   }));
 }
 
-function getQueryKeyForGroup(group: RepairDeskRealtimeQueryGroup, storeId: string): QueryKey {
+export function getRepairDeskRealtimeQueryKeyForGroup(
+  group: RepairDeskRealtimeQueryGroup,
+  storeId: string,
+): QueryKey {
   switch (group) {
     case "orders.all":
       return ordersKeys.all;
@@ -44,5 +51,31 @@ function getQueryKeyForGroup(group: RepairDeskRealtimeQueryGroup, storeId: strin
       return storesKeys.membersScoped(storeId);
     case "stores.access_requests":
       return storesKeys.accessRequestsScoped(storeId);
+  }
+}
+
+export function getRepairDeskRealtimeQueryGroupsForDomain(
+  domain: RepairDeskRealtimeDomain,
+): RepairDeskRealtimeQueryGroup[] {
+  switch (domain) {
+    case "orders":
+      return ["orders.all"];
+    case "customers":
+      return ["customers.all"];
+    case "inventory":
+      return ["inventory.all"];
+    case "settings":
+      return [
+        "settings.store",
+        "settings.templates",
+        "stores.context",
+        "stores.members",
+        "stores.access_requests",
+        "orders.workflow",
+        "orders.options",
+        "orders.all",
+        "customers.all",
+        "inventory.all",
+      ];
   }
 }

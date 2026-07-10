@@ -12,6 +12,7 @@ import {
   type AttachmentDraft,
 } from "@/features/capture";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { RealtimeSyncIndicator } from "@/features/realtime";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -85,6 +86,7 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
           >
             <Command className="size-3.5" />
             <span>快捷</span>
+            <RealtimeSyncIndicator compact />
           </Button>
         </SheetTrigger>
         <SheetContent side="bottom" className={repairOs.quickSheet}>

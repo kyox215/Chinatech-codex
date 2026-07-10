@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { RealtimeSyncIndicator } from "@/features/realtime";
 import { appShell } from "@/lib/ui-patterns";
 import { getActiveWorkspaceItem, routeLabels } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
@@ -111,6 +112,8 @@ export function AppBar({
         </Button>
 
         <ThemeToggle className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
+
+        <RealtimeSyncIndicator className="hidden md:inline-flex" />
 
         <Button
           variant="ghost"

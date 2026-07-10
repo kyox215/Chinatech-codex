@@ -12,7 +12,8 @@ import { PwaServiceWorker } from "@/components/pwa-service-worker";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { ScanSearchSheet } from "@/features/capture";
-import { RealtimeAppBridge } from "@/features/realtime/components/realtime-app-bridge";
+import { AppPreloadBridge } from "@/features/preload";
+import { RealtimeAppBridge } from "@/features/realtime";
 import { repairDeskQueryDefaultOptions } from "@/lib/query-performance";
 import { appShell } from "@/lib/ui-patterns";
 
@@ -48,27 +49,29 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <RealtimeAppBridge>
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-            <AppBar
-              onOpenCommand={() => setOpen(true)}
+        <AppPreloadBridge>
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
+              <AppBar
+                onOpenCommand={() => setOpen(true)}
+                onOpenScanner={() => setScannerOpen(true)}
+              />
+              <main className={appShell.content}>{children}</main>
+              <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
+            </SidebarInset>
+          </SidebarProvider>
+          <PwaServiceWorker />
+          {open ? (
+            <CommandPalette
+              open={open}
+              onOpenChange={setOpen}
               onOpenScanner={() => setScannerOpen(true)}
             />
-            <main className={appShell.content}>{children}</main>
-            <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
-          </SidebarInset>
-        </SidebarProvider>
-        <PwaServiceWorker />
-        {open ? (
-          <CommandPalette
-            open={open}
-            onOpenChange={setOpen}
-            onOpenScanner={() => setScannerOpen(true)}
-          />
-        ) : null}
-        <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
-        <Toaster />
+          ) : null}
+          <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
+          <Toaster />
+        </AppPreloadBridge>
       </RealtimeAppBridge>
     </QueryClientProvider>
   );

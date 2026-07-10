@@ -11,6 +11,7 @@ import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { OrderListFilters, RepairDeskOptions } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { FiltersPanel } from "@/features/orders/components/order-list-filters";
+import { RealtimeSyncIndicator } from "@/features/realtime";
 import { cn } from "@/lib/utils";
 
 type ActiveFilterChip = {
@@ -69,8 +70,11 @@ export function MobileOrdersFloatingHeader({
           <SidebarTrigger className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
             <p className="truncate text-sm font-semibold leading-5">订单管理</p>
-            <p className="truncate text-[9px] leading-3 text-muted-foreground">
-              {activeGroup?.label ?? "全部"} · 共 {totalOrders} 条
+            <p className="flex items-center justify-center gap-1 truncate text-[9px] leading-3 text-muted-foreground">
+              <span className="truncate">
+                {activeGroup?.label ?? "全部"} · 共 {totalOrders} 条
+              </span>
+              <RealtimeSyncIndicator compact />
             </p>
           </div>
           <Button

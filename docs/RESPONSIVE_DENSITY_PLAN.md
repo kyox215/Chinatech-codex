@@ -162,6 +162,13 @@ iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动�
 4. 移动端主要动作可放到底部 sticky action 或 Sheet。
 5. 桌面列表行点击直接打开详情弹窗，三个点菜单只保留低频动作，不作为唯一详情入口。
 
+### Sync Status
+
+- Realtime 状态属于工作台元数据，不新增 Banner 或独立卡片。
+- 桌面端使用工具栏单图标和 tooltip；移动订单列表把紧凑图标放在悬浮标题副行。
+- 状态必须使用 `role="status"` 与 `aria-live="polite"`，禁用时不占空间。
+- 390px 下状态变化不得改变悬浮标题、搜索栏或流程分组的尺寸。
+
 ### Overlays
 
 所有弹窗、Popover、Dropdown、Sheet 必须限制 viewport 宽度：

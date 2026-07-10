@@ -58,6 +58,18 @@ src/
 - Business writes happen through the database batch RPC; client code never writes order import rows directly.
 - See `docs/ORDER_DATA_ROUNDTRIP.md` for permissions, data lifecycle, limits, and rollback.
 
+### Realtime And Intelligent Preload
+
+- `features/realtime/model/query-freshness-coordinator.ts` owns cache epochs, cancellation, event
+  coalescing, mutation guards, reconnect recovery, and store isolation.
+- `features/*/api/query-options.ts` is the shared query contract used by screens and preload code.
+- `features/preload/components/app-preload-bridge.tsx` performs bounded idle-time warming only after
+  an active store is available.
+- Realtime invalidation always wins over an older preload result; manual refresh and optimistic
+  rollback use the same coordinator.
+- See `docs/REALTIME_PRELOAD_COORDINATION.md` for the conflict matrix, flags, security boundary, and
+  production activation gate.
+
 ## Legacy Route Migration Status
 
 Current verified state as of 2026-06-20 CEST by `TASK-20260620-002`:

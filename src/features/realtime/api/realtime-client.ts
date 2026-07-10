@@ -40,6 +40,9 @@ export type RepairDeskRealtimeChannel = {
 export type RepairDeskRealtimeClient = {
   channel(topic: string, options: { config: { private: true } }): RepairDeskRealtimeChannel;
   removeChannel?(channel: RepairDeskRealtimeChannel): Promise<unknown> | unknown;
+  realtime?: {
+    setAuth(token?: string): Promise<unknown> | unknown;
+  };
 };
 
 export type RepairDeskRealtimeSubscriptionOptions = {
@@ -58,6 +61,10 @@ export function isRepairDeskRealtimeEnabled(
 
 export function createRepairDeskRealtimeClient(): RepairDeskRealtimeClient {
   return createClient() as unknown as RepairDeskRealtimeClient;
+}
+
+export function syncRepairDeskRealtimeAuth(client: RepairDeskRealtimeClient) {
+  return client.realtime?.setAuth();
 }
 
 export function subscribeToRepairDeskRealtimeDomain({

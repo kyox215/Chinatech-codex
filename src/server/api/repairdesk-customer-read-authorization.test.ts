@@ -61,6 +61,9 @@ describe("customer read route authorization wiring", () => {
         const before = reader.mock.calls.length;
         const response = await handleRepairDeskPost(path, body);
         expect(response.status, `${role} ${path}`).toBe(403);
+        expect(response.headers.get("cache-control"), `${role} ${path}`).toBe(
+          "private, no-store, max-age=0",
+        );
         expect(reader.mock.calls.length, `${role} ${path}`).toBe(before);
       }
     }
@@ -74,6 +77,9 @@ describe("customer read route authorization wiring", () => {
         const before = reader.mock.calls.length;
         const response = await handleRepairDeskPost(path, body);
         expect(response.status, `${role} ${path}`).toBe(200);
+        expect(response.headers.get("cache-control"), `${role} ${path}`).toBe(
+          "private, no-store, max-age=0",
+        );
         expect(reader.mock.calls.length, `${role} ${path}`).toBe(before + 1);
         await expect(response.json()).resolves.toHaveProperty("data");
       }

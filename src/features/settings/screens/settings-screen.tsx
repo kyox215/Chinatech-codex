@@ -451,7 +451,7 @@ export function SettingsScreen() {
     mutationFn: switchStore,
     onSuccess: async (context) => {
       toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
-      applySwitchedStoreContext(queryClient, context);
+      await applySwitchedStoreContext(queryClient, context);
       await refreshStoreContextQueries(queryClient);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "切换店铺失败"),

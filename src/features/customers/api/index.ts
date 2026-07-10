@@ -35,3 +35,9 @@ export type {
 } from "@/lib/repairdesk/api";
 
 export { customersKeys } from "./query-keys";
+export {
+  CUSTOMER_LIST_PAGE_SIZE,
+  customerDetailQueryOptions,
+  customerListPageQueryOptions,
+  defaultCustomerListPageInput,
+} from "./query-options";

@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
@@ -11,8 +11,9 @@ import { applySwitchedStoreContext } from "@/features/stores/api/tenant-cache";
 import type { StoreContext } from "@/lib/repairdesk/types";
 
 describe("tenant cache helpers", () => {
-  it("clears old tenant data while preserving the switched store context", () => {
+  it("cancels and clears old tenant data while preserving the switched store context", async () => {
     const queryClient = new QueryClient();
+    const cancelQueries = vi.spyOn(queryClient, "cancelQueries");
     const nextContext: StoreContext = {
       activeStore: {
         id: "store_2",
@@ -33,8 +34,9 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(storesKeys.accessRequestsScoped("store_1"), [{ id: "request_a" }]);
     queryClient.setQueryData(platformKeys.onboardingStatus, { activeStore: { id: "store_1" } });
 
-    applySwitchedStoreContext(queryClient, nextContext);
+    await applySwitchedStoreContext(queryClient, nextContext);
 
+    expect(cancelQueries).toHaveBeenCalledWith({ queryKey: storesKeys.context }, { silent: true });
     expect(queryClient.getQueryData(storesKeys.context)).toEqual(nextContext);
     expect(queryClient.getQueryData(ordersKeys.detail("ord_a", "store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(customersKeys.detail("cust_a", "store_1"))).toBeUndefined();

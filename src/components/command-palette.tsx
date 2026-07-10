@@ -11,9 +11,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useQuery } from "@tanstack/react-query";
-import { ordersKeys } from "@/features/orders/api/query-keys";
-import { listOrders } from "@/lib/repairdesk/api";
-import { CACHE_TIMES } from "@/lib/query-performance";
+import { orderQueueSummaryQueryOptions } from "@/features/orders/api/query-options";
 import { toggleThemePreference } from "@/lib/theme";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { getShellCommandActions, getWorkspaceNavItems } from "@/shared/config/navigation";
@@ -30,12 +28,11 @@ export function CommandPalette({
   const router = useRouter();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
-  const { data = [] } = useQuery({
-    queryKey: ordersKeys.list({}, activeStoreId),
-    queryFn: ({ signal }) => listOrders({}, { signal }),
-    enabled: open,
-    staleTime: CACHE_TIMES.hotList,
+  const { data: queueSummary } = useQuery({
+    ...orderQueueSummaryQueryOptions(undefined, activeStoreId),
+    enabled: open && Boolean(activeStoreId),
   });
+  const data = queueSummary?.list.items ?? [];
 
   const go = (to: string) => {
     onOpenChange(false);

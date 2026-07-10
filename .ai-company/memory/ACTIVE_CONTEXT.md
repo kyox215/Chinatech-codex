@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260710-012-imei-camera-permission-cache"
-status: "closed"
-phase: "closed"
-task_class: "T1"
-risk_level: "R2"
+current_task_id: "TASK-20260710-013-realtime-preload-coordination"
+status: "in_progress"
+phase: "independent_review"
+task_class: "T3"
+risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-10T20:39:58Z"
+last_checkpoint_at: "2026-07-10T22:38:51Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,24 +15,25 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**IMEI 扫码摄像头授权记忆与重复启动控制**
+**实时刷新与智能预加载一致性协调**
 
 ## Current state
 
-IMEI scanner now remembers the last successful camera mode in local storage and reuses it after remount, reducing repeat fallback permission/startup requests. `activeCameraMode` changes no longer rebuild scanner callbacks and restart the camera effect. Validation passed: component test 23/23, scoped ESLint, typecheck and production build.
+实时刷新与内存级智能预加载已完成实现和 Playwright 证据；当前等待 Security、QA、Release 只读复核并准备最终全门禁复跑。
 
 ## Blocking decisions
 
-- Browser/OS camera-use indicators are mandatory privacy UI and cannot be hidden by application code.
-- Stored preference is non-sensitive and contains only granted/mode/timestamp, not media, IMEI, device IDs, customer data or permission tokens.
+- 生产 Supabase migration、Realtime private-only Dashboard 设置和生产环境开关不包含在当前推送授权中。
+- Realtime 只能传 metadata-only invalidation；业务数据只允许 React Query 会话内存缓存，不进入持久浏览器缓存。
+- 原工作区存在其他未提交改动，本任务不得混入。
 
 ## Next action
 
-Commit and push the scoped camera startup fix to `main`.
+整合复核意见，复跑 lint、typecheck、全量 test、build 和目标 E2E，然后提交并推送 `main`。
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260710-012-imei-camera-permission-cache/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260710-013-realtime-preload-coordination/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.

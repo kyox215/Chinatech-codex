@@ -75,7 +75,13 @@ export async function updateSession(request: NextRequest) {
   const isAuthenticated = Boolean(data?.claims && !error);
 
   if (isRepairDeskApi && !isAuthenticated) {
-    return NextResponse.json({ error: "未登录或登录已过期" }, { status: 401 });
+    return NextResponse.json(
+      { error: "未登录或登录已过期" },
+      {
+        status: 401,
+        headers: { "Cache-Control": "private, no-store, max-age=0" },
+      },
+    );
   }
 
   if (isResetPasswordPage && (!isAuthenticated || !hasPasswordRecoveryCookie)) {

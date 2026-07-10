@@ -19,6 +19,11 @@ type RouteContext = {
 };
 
 const ORDER_DATA_MULTIPART_MAX_BYTES = 4_400_000;
+const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
+
+function privateError(error: string, status: number) {
+  return NextResponse.json({ error }, { status, headers: PRIVATE_NO_STORE_HEADERS });
+}
 
 async function readJson(request: NextRequest): Promise<unknown> {
   return request.json().catch(() => ({}));
@@ -37,7 +42,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     Number.isFinite(contentLength) &&
     contentLength > ORDER_DATA_MULTIPART_MAX_BYTES
   ) {
-    return NextResponse.json({ error: "上传文件超过 4 MB 限制" }, { status: 413 });
+    return privateError("上传文件超过 4 MB 限制", 413);
   }
   try {
     assertRepairDeskPostRequestAllowed({
@@ -51,7 +56,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "请求来源无效，请刷新页面后重试";
-    return NextResponse.json({ error: message }, { status: 403 });
+    return privateError(message, 403);
   }
 
   let uploadActor;
@@ -64,7 +69,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         error instanceof UnauthorizedError || error instanceof ForbiddenError
           ? error.message
           : "无法验证当前账号";
-      return NextResponse.json({ error: message }, { status });
+      return privateError(message, status);
     }
   }
 

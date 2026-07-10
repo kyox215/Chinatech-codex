@@ -28,13 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-import {
-  createOrder,
-  getCustomerDetail,
-  listOrderWorkflow,
-  getOnboardingStatus,
-  getStoreSettings,
-} from "@/lib/repairdesk/api";
+import { createOrder, getCustomerDetail, getOnboardingStatus } from "@/lib/repairdesk/api";
 import type {
   CustomerDetail,
   CustomerHistoryDeviceCandidate,
@@ -63,7 +57,8 @@ import {
 } from "@/features/orders/model/new-order-form";
 import { formatWarrantyText, warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { customersKeys } from "@/features/customers/api/query-keys";
-import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
+import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
@@ -119,14 +114,12 @@ export function NewOrderScreen({
     scope: offlineScope,
   });
   const { data: storeSettings } = useQuery({
-    queryKey: messageSettingsKeys.storeScoped(activeStoreId),
-    queryFn: ({ signal }) => getStoreSettings({ signal }),
-    staleTime: CACHE_TIMES.settings,
+    ...storeSettingsQueryOptions(activeStoreId),
+    enabled: Boolean(activeStoreId),
   });
   const { data: workflow } = useQuery({
-    queryKey: ordersKeys.workflow(activeStoreId),
-    queryFn: ({ signal }) => listOrderWorkflow({ signal }),
-    staleTime: CACHE_TIMES.workflow,
+    ...orderWorkflowQueryOptions(activeStoreId),
+    enabled: Boolean(activeStoreId),
   });
   const operatorName = onboardingStatus?.displayName ?? "当前登录账号";
   const operatorRole = onboardingStatus?.activeStore?.role;

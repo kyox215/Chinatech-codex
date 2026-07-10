@@ -33,12 +33,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   createCustomer,
-  getCustomerDetail,
-  listCustomersPage,
   type CustomerCreateInput,
   type CustomerListFilters,
 } from "@/lib/repairdesk/api";
+import {
+  CUSTOMER_LIST_PAGE_SIZE,
+  customerDetailQueryOptions,
+  customerListPageQueryOptions,
+} from "@/features/customers/api/query-options";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { useRealtimeSync } from "@/features/realtime";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   CustomerKpiCard,
@@ -59,7 +63,6 @@ import {
 } from "@/features/customers/model/customer-list";
 import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp } from "@/lib/motion";
-import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   RepairOsBusinessCard,
   RepairOsChipRow,
@@ -76,7 +79,6 @@ import {
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
-const CUSTOMER_PAGE_SIZE = 30;
 const CUSTOMER_SEARCH_DEBOUNCE_MS = 280;
 
 function useDebouncedValue<T>(value: T, delay: number) {
@@ -94,6 +96,7 @@ export function CustomerListScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const realtimeSync = useRealtimeSync();
   const searchParams = useSearchParams();
   const [baseFilters, setBaseFilters] = useState<CustomerListFilters>({
     work: "all",
@@ -126,20 +129,25 @@ export function CustomerListScreen() {
     () => ({
       ...filters,
       page,
-      pageSize: CUSTOMER_PAGE_SIZE,
+      pageSize: CUSTOMER_LIST_PAGE_SIZE,
     }),
     [filters, page],
   );
 
   const { data, error, isError, isFetching, isPending, isPlaceholderData, refetch } = useQuery({
-    queryKey: customersKeys.listPage(queryInput, activeStoreId),
-    queryFn: ({ signal }) => listCustomersPage(queryInput, { signal }),
+    ...customerListPageQueryOptions(queryInput, activeStoreId),
+    enabled: Boolean(activeStoreId),
     placeholderData: keepPreviousData,
-    staleTime: CACHE_TIMES.hotList,
-    gcTime: 5 * 60_000,
-    retry: 1,
     refetchOnWindowFocus: false,
   });
+
+  const refreshCustomerData = useCallback(() => {
+    if (realtimeSync.coordinator) {
+      void realtimeSync.coordinator.refreshGroups(["customers.all"]);
+      return;
+    }
+    void refetch();
+  }, [realtimeSync.coordinator, refetch]);
 
   useEffect(() => {
     setPage(1);
@@ -152,13 +160,18 @@ export function CustomerListScreen() {
 
   const prefetchCustomerDetail = useCallback(
     (customerId: string) => {
-      queryClient.prefetchQuery({
-        queryKey: customersKeys.detail(customerId, activeStoreId),
-        queryFn: ({ signal }) => getCustomerDetail(customerId, { signal }),
-        staleTime: CACHE_TIMES.detail,
-      });
+      const options = customerDetailQueryOptions(customerId, activeStoreId);
+      if (realtimeSync?.coordinator) {
+        void realtimeSync.coordinator.prefetch({
+          group: "customers.all",
+          queryKey: options.queryKey,
+          queryFn: options.queryFn!,
+        });
+        return;
+      }
+      void queryClient.prefetchQuery(options);
     },
-    [activeStoreId, queryClient],
+    [activeStoreId, queryClient, realtimeSync?.coordinator],
   );
 
   const create = useMutation({
@@ -180,7 +193,7 @@ export function CustomerListScreen() {
   const pageRange = getCustomerPageRange({
     total,
     page: displayPage,
-    pageSize: data?.pageSize ?? CUSTOMER_PAGE_SIZE,
+    pageSize: data?.pageSize ?? CUSTOMER_LIST_PAGE_SIZE,
   });
 
   const activeFilterCount = useMemo(() => getCustomerActiveFilterCount(baseFilters), [baseFilters]);
@@ -346,7 +359,7 @@ export function CustomerListScreen() {
               variant="ghost"
               size="sm"
               className="h-7 shrink-0 gap-1 px-2 text-xs"
-              onClick={() => void refetch()}
+              onClick={refreshCustomerData}
             >
               <RefreshCw className="size-3" /> 重试
             </Button>
@@ -359,7 +372,7 @@ export function CustomerListScreen() {
       ) : null}
 
       {isError && !data ? (
-        <CustomerLoadError message={queryErrorMessage} onRetry={() => void refetch()} />
+        <CustomerLoadError message={queryErrorMessage} onRetry={refreshCustomerData} />
       ) : isPending ? (
         <div className={cn("space-y-2", layoutGuards.noPageOverflow)}>
           {Array.from({ length: 6 }).map((_, index) => (
@@ -454,7 +467,7 @@ export function CustomerListScreen() {
             trailingClassName="shrink-0"
           >
             <span className="text-muted-foreground">
-              第 {displayPage} / {pageCount} 页 · 每页 {CUSTOMER_PAGE_SIZE}
+              第 {displayPage} / {pageCount} 页 · 每页 {CUSTOMER_LIST_PAGE_SIZE}
             </span>
           </RepairOsBusinessCard>
         </>

@@ -51,6 +51,7 @@ import {
 } from "@/features/orders/components/order-list-filters";
 import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
 import { ScanSearchButton } from "@/features/capture";
+import { useRealtimeSync } from "@/features/realtime";
 import {
   EmptyOrdersState,
   OrdersErrorState,
@@ -60,8 +61,6 @@ import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
 import {
   batchTransition,
-  getStoreSettings,
-  getOrderQueueSummary,
   patchOrder,
   type OrderListFilters,
   type OrderListItem,
@@ -85,7 +84,11 @@ import {
   type SimpleOrderFlowStageKey,
 } from "@/features/orders/model/order-simple-flow";
 import { ordersKeys } from "@/features/orders/api/query-keys";
-import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import {
+  ORDER_QUEUE_PAGE_SIZE,
+  orderQueueSummaryQueryOptions,
+} from "@/features/orders/api/query-options";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import {
   invalidateOrderReadCaches,
   isOrderVersionConflict,
@@ -95,10 +98,8 @@ import {
 } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
-import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 
-const ORDER_LIST_PAGE_SIZE = 50;
 const emptyOrderOptions = {
   suppliers: [],
   technicians: [],
@@ -139,6 +140,7 @@ export function OrderListScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const { coordinator } = useRealtimeSync();
 
   useEffect(() => {
     document.body.dataset.mobileWorkspaceActive = "true";
@@ -183,6 +185,15 @@ export function OrderListScreen() {
     };
   }, [filters, statusGroup]);
 
+  const queueInput = useMemo(
+    () => ({
+      ...effectiveFilters,
+      page,
+      pageSize: ORDER_QUEUE_PAGE_SIZE,
+    }),
+    [effectiveFilters, page],
+  );
+
   const {
     data: queueSummary,
     isLoading,
@@ -190,26 +201,12 @@ export function OrderListScreen() {
     error: listError,
     refetch: refetchOrders,
   } = useQuery({
-    queryKey: ordersKeys.queueSummary(
-      {
-        ...effectiveFilters,
-        page,
-        pageSize: ORDER_LIST_PAGE_SIZE,
-      },
-      activeStoreId,
-    ),
-    queryFn: ({ signal }) =>
-      getOrderQueueSummary(
-        { ...effectiveFilters, page, pageSize: ORDER_LIST_PAGE_SIZE },
-        { signal },
-      ),
+    ...orderQueueSummaryQueryOptions(queueInput, activeStoreId),
+    enabled: Boolean(activeStoreId),
     placeholderData: keepPreviousData,
-    staleTime: CACHE_TIMES.hotList,
   });
   const { data: storeSettings } = useQuery({
-    queryKey: messageSettingsKeys.storeScoped(activeStoreId),
-    queryFn: ({ signal }) => getStoreSettings({ signal }),
-    staleTime: CACHE_TIMES.settings,
+    ...storeSettingsQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
   });
 
@@ -351,6 +348,14 @@ export function OrderListScreen() {
     invalidateOrderReadCaches(queryClient, orderId);
   };
 
+  const refreshOrderData = (orderId?: string) => {
+    if (coordinator) {
+      void coordinator.refreshGroups(["orders.all"]);
+      return;
+    }
+    invalidate(orderId);
+  };
+
   const bulk = useMutation({
     mutationFn: ({ ids, to }: { ids: string[]; to: RepairOrderStatus }) => batchTransition(ids, to),
     onSuccess: (r, vars) => {
@@ -359,7 +364,7 @@ export function OrderListScreen() {
           (r.failures.length ? `（${r.failures.length} 条失败）` : ""),
       );
       setSelected([]);
-      invalidate();
+      refreshOrderData();
     },
   });
 
@@ -370,10 +375,11 @@ export function OrderListScreen() {
         changes: { parts_supplier_id: supplierId },
       }),
     onMutate: async (vars) => {
+      const freshnessGuard = coordinator?.beginMutation(["orders.all"]);
       await queryClient.cancelQueries({ queryKey: ordersKeys.all });
       const snapshot = snapshotOrderReadCaches(queryClient, vars.order.id);
       patchOrderReadCaches(queryClient, vars.order.id, { parts_supplier_id: vars.supplierId });
-      return { snapshot };
+      return { freshnessGuard, snapshot };
     },
     onSuccess: (result, vars) => {
       patchOrderReadCaches(queryClient, vars.order.id, {
@@ -386,16 +392,21 @@ export function OrderListScreen() {
       toast.success(
         vars.supplierId ? `已标记配件供应商：${supplierName ?? "已选择"}` : "已清除配件供应商",
       );
-      invalidate(vars.order.id);
+      refreshOrderData(vars.order.id);
     },
     onError: (error, vars, context) => {
-      restoreOrderReadCaches(queryClient, context?.snapshot);
+      if (!coordinator || coordinator.canRestoreMutationSnapshot(context?.freshnessGuard)) {
+        restoreOrderReadCaches(queryClient, context?.snapshot);
+      }
       if (isOrderVersionConflict(error)) {
-        invalidate(vars.order.id);
+        refreshOrderData(vars.order.id);
         toast.error("工单已被更新，已刷新最新数据，请确认后重新选择供应商");
         return;
       }
       toast.error(error instanceof Error ? error.message : "保存配件供应商失败");
+    },
+    onSettled: (_data, _error, _vars, context) => {
+      coordinator?.endMutation(context?.freshnessGuard);
     },
   });
 
@@ -727,7 +738,7 @@ export function OrderListScreen() {
             ))}
           </div>
         ) : listIsError ? (
-          <OrdersErrorState message={listErrorMessage} onRetry={() => void refetchOrders()} />
+          <OrdersErrorState message={listErrorMessage} onRetry={() => refreshOrderData()} />
         ) : !data.length ? (
           <EmptyOrdersState hasActiveFilters={hasActiveFilters} onClearFilters={clearAllFilters} />
         ) : (
@@ -831,7 +842,7 @@ export function OrderListScreen() {
             <PaginationBar
               page={page}
               pageCount={pageCount}
-              pageSize={ORDER_LIST_PAGE_SIZE}
+              pageSize={ORDER_QUEUE_PAGE_SIZE}
               total={totalOrders}
               visible={data.length}
               onPageChange={setPage}

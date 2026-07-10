@@ -70,6 +70,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { inventorySummaryQueryOptions } from "@/features/inventory/api/query-options";
+import { useRealtimeSync } from "@/features/realtime";
 import { ScanSearchButton } from "@/features/capture";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
@@ -106,7 +108,6 @@ import {
   applyElectronicsCsvImport,
   createInventoryIntake,
   getInventoryItem,
-  getInventorySummary,
   importElectronicsCsvPreview,
   recordInventoryCheck,
   sellInventoryItem,
@@ -175,6 +176,7 @@ export function InventoryScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const { coordinator } = useRealtimeSync();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -200,11 +202,9 @@ export function InventoryScreen() {
     isLoading,
     refetch: refetchItems,
   } = useQuery({
-    queryKey: inventoryKeys.summary(filters, activeStoreId),
-    queryFn: ({ signal }) => getInventorySummary(filters, { signal }),
+    ...inventorySummaryQueryOptions(filters, activeStoreId),
+    enabled: Boolean(activeStoreId),
     placeholderData: keepPreviousData,
-    retry: 1,
-    staleTime: CACHE_TIMES.hotList,
     refetchOnWindowFocus: false,
   });
 
@@ -217,6 +217,13 @@ export function InventoryScreen() {
   const activeViewLabel = getInventoryListViewLabel(view);
   const hasSearch = Boolean(search.trim());
   const itemsErrorMessage = getErrorMessage(itemsError, "库存列表加载失败");
+  const refreshInventoryData = () => {
+    if (coordinator) {
+      void coordinator.refreshGroups(["inventory.all"]);
+      return;
+    }
+    void refetchItems();
+  };
 
   useEffect(() => {
     if (searchParams.get("new") === "1") setIntakeOpen(true);
@@ -389,9 +396,7 @@ export function InventoryScreen() {
         <InventoryInlineError
           message={`库存列表刷新失败：${itemsErrorMessage}`}
           isRetrying={isItemsFetching}
-          onRetry={() => {
-            void refetchItems();
-          }}
+          onRetry={refreshInventoryData}
         />
       ) : null}
 
@@ -399,9 +404,7 @@ export function InventoryScreen() {
         <InventoryLoadError
           message={itemsErrorMessage}
           isRetrying={isItemsFetching}
-          onRetry={() => {
-            void refetchItems();
-          }}
+          onRetry={refreshInventoryData}
         />
       ) : isLoading ? (
         <div className={dataDisplay.mobileCardList}>

@@ -531,13 +531,20 @@ async function source() {
 }
 
 function ok(data: unknown) {
-  return NextResponse.json({ data });
+  return privateJson({ data });
 }
 
 function binaryResponse(result: { bytes: Buffer; headers: Record<string, string> }) {
   return new NextResponse(new Uint8Array(result.bytes), {
     status: 200,
-    headers: result.headers,
+    headers: { ...result.headers, "Cache-Control": "private, no-store, max-age=0" },
+  });
+}
+
+function privateJson(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "private, no-store, max-age=0" },
   });
 }
 
@@ -573,10 +580,10 @@ function deriveDashboardStatsFromRecentOrders(items: OrderListItem[], total: num
 
 function fail(error: unknown) {
   if (error instanceof UnauthorizedError) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+    return privateJson({ error: error.message }, 401);
   }
   if (error instanceof ForbiddenError) {
-    return NextResponse.json({ error: error.message }, { status: 403 });
+    return privateJson({ error: error.message }, 403);
   }
 
   const message =
@@ -586,7 +593,7 @@ function fail(error: unknown) {
         ? error.message
         : "请求处理失败";
 
-  return NextResponse.json({ error: message }, { status: 400 });
+  return privateJson({ error: message }, 400);
 }
 
 export async function handleRepairDeskGet(path: string) {
@@ -629,7 +636,7 @@ export async function handleRepairDeskGet(path: string) {
         assertOrderDetailReadPermission(actor);
         return ok(await api.listKioskSessions(actor));
       default:
-        return NextResponse.json({ error: "接口不存在" }, { status: 404 });
+        return privateJson({ error: "接口不存在" }, 404);
     }
   } catch (error) {
     return fail(error);
@@ -1516,7 +1523,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           ),
         );
       default:
-        return NextResponse.json({ error: "接口不存在" }, { status: 404 });
+        return privateJson({ error: "接口不存在" }, 404);
     }
   } catch (error) {
     return fail(error);
