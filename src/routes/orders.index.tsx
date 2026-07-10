@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   ArrowRight,
   Clock,
-  Download,
   Filter,
   ListChecks,
   MoreHorizontal,
@@ -1174,24 +1173,6 @@ export default function OrdersListPage() {
     setPrintOrders(rows);
     window.requestAnimationFrame(() => window.print());
   };
-  const exportRows = (rows: OrderListItem[]) => {
-    if (!rows.length) {
-      toast.error("没有可导出的工单");
-      return;
-    }
-    const csv = buildOrdersCsv(rows, workflow);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `repairdesk-orders-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    toast.success(`已导出 ${rows.length} 条工单`);
-  };
-
   const openDetail = (id: string) => setDetailOrderId(id);
   const handleNewOrderCreated = (id: string) => {
     setNewOrderOpen(false);
@@ -1292,17 +1273,6 @@ export default function OrdersListPage() {
               />
             </SheetContent>
           </Sheet>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur sm:inline-flex"
-            disabled={!data.length}
-            onClick={() =>
-              exportRows(selected.length ? data.filter((o) => selected.includes(o.id)) : data)
-            }
-          >
-            <Download className="size-3.5" /> {selected.length ? "导出选中" : "导出当前页"}
-          </Button>
           <Button
             type="button"
             size="sm"
@@ -1553,69 +1523,6 @@ export default function OrdersListPage() {
       </Dialog>
     </div>
   );
-}
-
-function buildOrdersCsv(rows: OrderListItem[], workflow?: OrderWorkflow) {
-  const headers = [
-    "工单号",
-    "客户",
-    "电话",
-    "设备",
-    "IMEI",
-    "故障",
-    "维修项目",
-    "状态",
-    "主流程",
-    "异常",
-    "总价",
-    "定金",
-    "尾款",
-    "付款",
-    "技师",
-    "创建时间",
-    "更新时间",
-  ];
-  const body = rows.map((order) => {
-    const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
-    const repairItems = order.fault_prices
-      .map((item) => `${item.name}${item.price ? ` ${item.price}` : ""}`)
-      .join(" | ");
-    return [
-      order.public_no,
-      order.customer_name,
-      order.customer_phone,
-      order.device_label,
-      order.device_imei,
-      order.issue_description,
-      repairItems,
-      getWorkflowStatusLabel(workflow, order.status),
-      orderWorkflowMeta[workflowStatus].label,
-      order.exception_status ? orderExceptionMeta[order.exception_status].label : "",
-      order.quotation_amount,
-      order.deposit_amount,
-      order.balance_amount,
-      order.is_paid ? "已结清" : "未结清",
-      order.technician_name,
-      formatCsvDate(order.created_at),
-      formatCsvDate(order.updated_at),
-    ];
-  });
-  return [headers, ...body].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
-}
-
-function escapeCsvCell(value: unknown) {
-  const text = String(value ?? "");
-  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function formatCsvDate(value: string) {
-  return new Date(value).toLocaleString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function PaginationBar({

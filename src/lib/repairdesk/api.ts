@@ -25,6 +25,9 @@ import type {
   OrderQueueSummary,
   OrderQueueSummaryInput,
   OrderStats,
+  OrderDataImportApplyResult,
+  OrderDataImportMode,
+  OrderDataImportPreview,
   OrderApprovalDecisionInput,
   OrderApprovalDecisionResult,
   OrderAttachmentUploadInput,
@@ -146,6 +149,9 @@ export type {
   OrderQueueSummary,
   OrderQueueSummaryInput,
   OrderStats,
+  OrderDataImportApplyResult,
+  OrderDataImportMode,
+  OrderDataImportPreview,
   OrderApprovalDecisionInput,
   OrderApprovalDecisionResult,
   OrderAttachment,
@@ -350,6 +356,45 @@ export async function applyElectronicsCsvImport(
 ): Promise<ElectronicsImportReport> {
   return postJson<ElectronicsImportReport>("inventory/import/electronics/apply", {
     csvContent,
+  });
+}
+
+export async function downloadOrderDataTemplate(expectedStoreId: string) {
+  return requestFile("orders/data/template", { expectedStoreId });
+}
+
+export async function exportOrderData(expectedStoreId: string) {
+  return requestFile("orders/data/export", { expectedStoreId });
+}
+
+export async function exportCustomerStats(expectedStoreId: string) {
+  return requestFile("customers/data/stats-export", { expectedStoreId });
+}
+
+export async function previewOrderDataImport(input: {
+  file: File;
+  expectedStoreId: string;
+  mode: OrderDataImportMode;
+}): Promise<OrderDataImportPreview> {
+  const formData = new FormData();
+  formData.set("file", input.file);
+  formData.set("expectedStoreId", input.expectedStoreId);
+  formData.set("mode", input.mode);
+  const response = await requestRaw(
+    "orders/data/import/preview",
+    { method: "POST", body: formData },
+    { timeoutMs: 60_000 },
+    false,
+  );
+  return readJsonResponse<OrderDataImportPreview>(response);
+}
+
+export async function applyOrderDataImport(input: {
+  batchId: string;
+  expectedStoreId: string;
+}): Promise<OrderDataImportApplyResult> {
+  return postJson<OrderDataImportApplyResult>("orders/data/import/apply", input, {
+    timeoutMs: 60_000,
   });
 }
 
@@ -571,6 +616,16 @@ async function requestJson<T>(
   init: RequestInit = {},
   options: RepairDeskRequestOptions = {},
 ): Promise<T> {
+  const response = await requestRaw(path, init, options);
+  return readJsonResponse<T>(response);
+}
+
+async function requestRaw(
+  path: string,
+  init: RequestInit = {},
+  options: RepairDeskRequestOptions = {},
+  includeJsonContentType = true,
+) {
   const { signal, timeoutMs = DEFAULT_REPAIRDESK_REQUEST_TIMEOUT_MS } = options;
   const controller = new AbortController();
   let didTimeout = false;
@@ -596,7 +651,7 @@ async function requestJson<T>(
       ...init,
       signal: controller.signal,
       headers: {
-        "content-type": "application/json",
+        ...(includeJsonContentType ? { "content-type": "application/json" } : {}),
         ...(init.headers ?? {}),
       },
     });
@@ -610,11 +665,34 @@ async function requestJson<T>(
     signal?.removeEventListener("abort", abortRequest);
   }
 
+  return response;
+}
+
+async function readJsonResponse<T>(response: Response) {
   const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: string };
   if (!response.ok) {
     throw new Error(payload.error || `请求失败：${response.status}`);
   }
   return payload.data as T;
+}
+
+async function requestFile(path: string, body: unknown) {
+  const response = await requestRaw(
+    path,
+    { method: "POST", body: JSON.stringify(body) },
+    { timeoutMs: 60_000 },
+  );
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(payload.error || `请求失败：${response.status}`);
+  }
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const fallbackName = disposition.match(/filename="([^"]+)"/i)?.[1] ?? "repairdesk-data.xlsx";
+  return {
+    blob: await response.blob(),
+    fileName: encodedName ? decodeURIComponent(encodedName) : fallbackName,
+  };
 }
 
 function postJson<T>(path: string, body: unknown, options?: RepairDeskRequestOptions): Promise<T> {

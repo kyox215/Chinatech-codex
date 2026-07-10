@@ -88,7 +88,10 @@ export async function getRequestActor(
 
   const isPlatformAdmin = await isActivePlatformAdmin(admin, staff);
   const memberships = await getActiveStoreMemberships(admin, staff);
-  const activeStore = memberships.length ? await resolveActiveStore(memberships) : undefined;
+  const activeStoreResolution = memberships.length
+    ? await resolveActiveStore(memberships)
+    : undefined;
+  const activeStore = activeStoreResolution?.store;
   if (!activeStore && !options.allowPendingStore) {
     throw new ForbiddenError("账号尚未加入店铺，请先提交申请并等待平台管理员审批");
   }
@@ -115,6 +118,7 @@ export async function getRequestActor(
     storeRole: activeStore?.role,
     permissionGrants,
     stores: memberships,
+    activeStoreExplicit: activeStoreResolution?.explicit ?? false,
     requestIpHash,
   };
 }
@@ -239,11 +243,15 @@ async function getActiveStorePermissionGrants(
 
 async function resolveActiveStore(
   memberships: ActorStoreMembership[],
-): Promise<ActorStoreMembership | undefined> {
+): Promise<{ store: ActorStoreMembership; explicit: boolean } | undefined> {
   if (memberships.length === 0) return undefined;
   const cookieStore = await cookies();
   const requestedStoreId = cookieStore.get("repairdesk-store-id")?.value;
-  return memberships.find((store) => store.id === requestedStoreId) ?? memberships[0];
+  const requestedStore = memberships.find((store) => store.id === requestedStoreId);
+  return {
+    store: requestedStore ?? memberships[0],
+    explicit: memberships.length === 1 || Boolean(requestedStore),
+  };
 }
 
 async function getRequestIpHash() {

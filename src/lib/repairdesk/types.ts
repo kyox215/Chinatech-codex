@@ -435,6 +435,64 @@ export interface OrderStats {
   pickupOverdue: number;
 }
 
+export type OrderDataImportMode = "update_only" | "create_and_update";
+export type OrderDataImportAction = "create" | "update" | "skip";
+export type OrderDataImportRowStatus =
+  | "ready"
+  | "invalid"
+  | "applied"
+  | "conflict"
+  | "failed"
+  | "skipped";
+
+export interface OrderDataImportIssue {
+  code: string;
+  message: string;
+  field?: string;
+}
+
+export interface OrderDataImportPreviewRow {
+  rowNumber: number;
+  action: OrderDataImportAction;
+  status: OrderDataImportRowStatus;
+  orderId?: string;
+  publicNo?: string;
+  changedFields: string[];
+  warnings: OrderDataImportIssue[];
+  errors: OrderDataImportIssue[];
+}
+
+export interface OrderDataImportPreview {
+  batchId: string;
+  storeId: string;
+  templateVersion: string;
+  mode: OrderDataImportMode;
+  expiresAt: string;
+  summary: {
+    total: number;
+    ready: number;
+    create: number;
+    update: number;
+    invalid: number;
+    skipped: number;
+  };
+  rows: OrderDataImportPreviewRow[];
+}
+
+export interface OrderDataImportApplyResult {
+  batchId: string;
+  status: "applied" | "partial";
+  applied: number;
+  conflicts: number;
+  failed: number;
+  skipped: number;
+  rows?: {
+    rowNumber: number;
+    status: "applied" | "conflict" | "failed" | "skipped";
+    errors: OrderDataImportIssue[];
+  }[];
+}
+
 export interface DashboardSummaryInput {
   pageSize?: number;
 }
@@ -842,6 +900,8 @@ export interface StoreContext {
     canReadSuppliers: boolean;
     canAssignSuppliers: boolean;
     canManageSuppliers: boolean;
+    canManageOrderData?: boolean;
+    canApplyOrderData?: boolean;
   };
 }
 
@@ -952,6 +1012,7 @@ export interface AuditActor {
   storeRole?: StoreRole;
   permissionGrants?: StorePermissionAction[];
   stores?: ActorStoreMembership[];
+  activeStoreExplicit?: boolean;
   requestIpHash?: string;
   isSystem?: boolean;
 }

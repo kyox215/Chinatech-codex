@@ -176,7 +176,7 @@ describe("server permission matrix", () => {
     });
   });
 
-  it("denies viewer, frontdesk, and technician exports while allowing audited owner/manager exports", () => {
+  it("allows audited exports only for owner role", () => {
     for (const action of ["order:export", "customer:export"] as const) {
       expect(getPermissionDecision(actor("owner"), action)).toMatchObject({
         allowed: true,
@@ -184,13 +184,26 @@ describe("server permission matrix", () => {
         sensitive: true,
       });
       expect(getPermissionDecision(actor("manager"), action)).toMatchObject({
-        allowed: true,
+        allowed: false,
         auditRequired: true,
         sensitive: true,
       });
       expect(can(actor("technician"), action)).toBe(false);
       expect(can(actor("sales"), action)).toBe(false);
       expect(can(actor("viewer"), action)).toBe(false);
+    }
+  });
+
+  it("allows import preview and apply only for owner role", () => {
+    for (const action of ["order:import_preview", "order:import_apply"] as const) {
+      expect(getPermissionDecision(actor("owner"), action)).toMatchObject({
+        allowed: true,
+        auditRequired: true,
+        sensitive: true,
+      });
+      for (const role of ["manager", "technician", "sales", "viewer"] as const) {
+        expect(can(actor(role), action)).toBe(false);
+      }
     }
   });
 

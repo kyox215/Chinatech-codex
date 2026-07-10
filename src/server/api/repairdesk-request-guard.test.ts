@@ -82,4 +82,22 @@ describe("repairdesk request guard", () => {
       }),
     ).toThrow(ForbiddenError);
   });
+
+  it("allows multipart only when the route opts in", () => {
+    const headers = new Headers({
+      "content-type": "multipart/form-data; boundary=repairdesk",
+      origin: requestOrigin,
+      "sec-fetch-site": "same-origin",
+    });
+    expect(() =>
+      assertRepairDeskPostRequestAllowed({
+        headers,
+        requestOrigin,
+        allowedContentTypes: ["multipart/form-data"],
+      }),
+    ).not.toThrow();
+    expect(() => assertRepairDeskPostRequestAllowed({ headers, requestOrigin })).toThrow(
+      ForbiddenError,
+    );
+  });
 });

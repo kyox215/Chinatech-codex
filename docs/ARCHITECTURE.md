@@ -3,7 +3,7 @@
 Status: active
 Owner: Architecture + Documentation / Integration Lead
 Scope: current module boundaries, import rules, migration phases, and quality gates for RepairDesk.
-Last reviewed: 2026-06-19 CEST by `TASK-20260619-025`
+Last reviewed: 2026-07-10 CEST by `TASK-20260710-110532-task`
 
 This project is a modular Next.js App Router application. URLs stay in `src/app`, while business UI, data hooks, and server rules move into feature modules over time.
 
@@ -47,6 +47,16 @@ src/
 - `shared/*` never imports `features/*`.
 - Cross-feature usage goes through each feature's `index.ts`, not deep paths.
 - `src/components/ui/*` remains the shadcn/Radix primitive layer. Business UI goes into feature folders unless it is genuinely shared.
+
+### Order Data Roundtrip
+
+- `features/settings/components/order-data-section.tsx` owns the Settings interaction only.
+- `features/orders/model/order-data-contract.ts` is the single field and workbook-version contract.
+- `features/orders/server/order-data-workbook.ts` owns XLSX creation, ZIP preflight, parsing, and formula rejection.
+- `features/orders/server/order-data.service.ts` coordinates preview/apply; export, access, normalization, and persistence stay in separate server modules.
+- `server/api/repairdesk-router.ts` is the only HTTP dispatch boundary. Multipart is accepted only for `orders/data/import/preview`.
+- Business writes happen through the database batch RPC; client code never writes order import rows directly.
+- See `docs/ORDER_DATA_ROUNDTRIP.md` for permissions, data lifecycle, limits, and rollback.
 
 ## Legacy Route Migration Status
 

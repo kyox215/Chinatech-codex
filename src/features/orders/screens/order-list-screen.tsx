@@ -11,7 +11,7 @@ import {
 import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Download, Filter, Plus, Printer, Search, X } from "lucide-react";
+import { AlertTriangle, Filter, Plus, Printer, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +56,6 @@ import {
   OrdersErrorState,
   PaginationBar,
 } from "@/features/orders/components/order-list-states";
-import { buildOrdersCsv } from "@/features/orders/model/order-list-export";
 import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen";
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
 import {
@@ -545,24 +544,6 @@ export function OrderListScreen() {
     setPrintOrders(rows);
     window.requestAnimationFrame(() => window.print());
   };
-  const exportRows = (rows: OrderListItem[]) => {
-    if (!rows.length) {
-      toast.error("没有可导出的工单");
-      return;
-    }
-    const csv = buildOrdersCsv(rows, workflow);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `repairdesk-orders-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    toast.success(`已导出 ${rows.length} 条工单`);
-  };
-
   const openDetail = (id: string) => setDetailOrderId(id);
   const handleNewOrderCreated = (id: string) => {
     setNewOrderOpen(false);
@@ -691,17 +672,6 @@ export function OrderListScreen() {
               />
             </SheetContent>
           </Sheet>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur sm:inline-flex"
-            disabled={!data.length}
-            onClick={() =>
-              exportRows(selected.length ? data.filter((o) => selected.includes(o.id)) : data)
-            }
-          >
-            <Download className="size-3.5" /> {selected.length ? "导出选中" : "导出当前页"}
-          </Button>
           <Button
             type="button"
             data-order-list-new-button="true"

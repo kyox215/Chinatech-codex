@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
+import { Buffer } from "node:buffer";
 import { z } from "zod";
 
 import { statusGroups } from "@/lib/mock/enums";
@@ -29,6 +30,14 @@ import {
   updateOrder,
   uploadOrderAttachment,
 } from "@/features/orders/server/order.service";
+import {
+  applyOrderDataImport,
+  downloadOrderDataTemplate,
+  exportCustomerStats,
+  exportOrderData,
+  previewOrderDataImport,
+} from "@/features/orders/server/order-data.service";
+import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
 import {
   completeCustomerFollowup,
   createCustomer,
@@ -303,6 +312,11 @@ const supabaseSource = {
   upsertCustomerDevice,
 };
 
+const orderDataStoreBodySchema = z.object({ expectedStoreId: z.string().uuid() }).strict();
+const orderDataApplyBodySchema = orderDataStoreBodySchema
+  .extend({ batchId: z.string().uuid() })
+  .strict();
+
 const realtimeBroadcasts = {
   kioskSessionReviewed: {
     domain: "settings",
@@ -520,6 +534,13 @@ function ok(data: unknown) {
   return NextResponse.json({ data });
 }
 
+function binaryResponse(result: { bytes: Buffer; headers: Record<string, string> }) {
+  return new NextResponse(new Uint8Array(result.bytes), {
+    status: 200,
+    headers: result.headers,
+  });
+}
+
 function emptyOrderListResult(pageSize: number): OrderListResult {
   return {
     items: [],
@@ -615,13 +636,60 @@ export async function handleRepairDeskGet(path: string) {
   }
 }
 
-export async function handleRepairDeskPost(path: string, body: unknown) {
+export function getRepairDeskPostActor(path: string) {
+  return getRequestActor(true, {
+    allowPendingStore: allowsPendingStore(path, "POST"),
+  }).then(async (actor) => {
+    if (path === "orders/data/import/preview") {
+      await assertOrderDataAccess(actor, "order:import_preview", actor.storeId ?? "");
+    }
+    return actor;
+  });
+}
+
+export async function handleRepairDeskPost(path: string, body: unknown, requestActor?: AuditActor) {
   try {
-    const actor = await getRequestActor(true, {
-      allowPendingStore: allowsPendingStore(path, "POST"),
-    });
+    const actor = requestActor ?? (await getRepairDeskPostActor(path));
     const api = await source();
     switch (path) {
+      case "orders/data/template": {
+        const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
+        return binaryResponse(await downloadOrderDataTemplate({ expectedStoreId, actor }));
+      }
+      case "orders/data/export": {
+        const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
+        return binaryResponse(await exportOrderData({ expectedStoreId, actor }));
+      }
+      case "customers/data/stats-export": {
+        const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
+        return binaryResponse(await exportCustomerStats({ expectedStoreId, actor }));
+      }
+      case "orders/data/import/preview": {
+        if (!(body instanceof FormData)) throw new Error("导入文件格式无效");
+        const file = body.get("file");
+        const expectedStoreId = body.get("expectedStoreId");
+        const mode = body.get("mode");
+        if (!file || typeof file === "string") throw new Error("请选择 XLSX 文件");
+        if (file.size > 4 * 1024 * 1024) throw new Error("上传文件超过 4 MB 限制");
+        if (typeof expectedStoreId !== "string") throw new Error("店铺上下文无效");
+        if (mode !== "update_only" && mode !== "create_and_update") {
+          throw new Error("导入模式无效");
+        }
+        return ok(
+          await previewOrderDataImport({
+            actor,
+            expectedStoreId,
+            mode,
+            fileName: file.name,
+            mimeType: file.type,
+            bytes: Buffer.from(await file.arrayBuffer()),
+          }),
+        );
+      }
+      case "orders/data/import/apply": {
+        const { expectedStoreId, batchId } = orderDataApplyBodySchema.parse(body);
+        return ok(await applyOrderDataImport({ actor, expectedStoreId, batchId }));
+      }
       case "onboarding/request": {
         const { input } = onboardingRequestBodySchema.parse(body);
         return ok(await api.submitOnboardingRequest(input, actor));

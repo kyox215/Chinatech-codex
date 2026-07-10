@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   GitBranch,
+  FileSpreadsheet,
   KeyRound,
   Mail,
   MessageSquare,
@@ -51,6 +52,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import { OrderDataSection } from "@/features/settings/components/order-data-section";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
@@ -151,7 +153,8 @@ type SettingsSectionKey =
   | "kiosk"
   | "notifications"
   | "rules"
-  | "workflow";
+  | "workflow"
+  | "order-data";
 
 const settingsSections: {
   key: SettingsSectionKey;
@@ -191,6 +194,13 @@ const settingsSections: {
     shortLabel: "状态",
     description: "工单流转",
     icon: GitBranch,
+  },
+  {
+    key: "order-data",
+    label: "工单数据",
+    shortLabel: "数据",
+    description: "模板与批量整理",
+    icon: FileSpreadsheet,
   },
 ];
 
@@ -234,6 +244,8 @@ export function SettingsScreen() {
   };
   const canReadSuppliers = supplierPermissions.canReadSuppliers;
   const canManageSuppliers = supplierPermissions.canManageSuppliers;
+  const canManageOrderData = supplierPermissions.canManageOrderData === true;
+  const canApplyOrderData = supplierPermissions.canApplyOrderData === true;
   const settingsQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
@@ -347,7 +359,9 @@ export function SettingsScreen() {
   const hasAccountNameChange = Boolean(
     accountQuery.data && accountName && accountName !== accountQuery.data.displayName,
   );
-  const selectedSection = normalizeSettingsSection(searchParams.get("section"));
+  const requestedSection = normalizeSettingsSection(searchParams.get("section"));
+  const selectedSection =
+    requestedSection === "order-data" && !canManageOrderData ? "members" : requestedSection;
   const sectionDirtyState = useMemo<Record<SettingsSectionKey, boolean>>(() => {
     const base = {
       account: hasAccountNameChange,
@@ -358,6 +372,7 @@ export function SettingsScreen() {
       notifications: false,
       rules: false,
       workflow: false,
+      "order-data": false,
     };
     if (!draft || !settingsData) return base;
     const current = toDraft(settingsData);
@@ -701,44 +716,48 @@ export function SettingsScreen() {
   const accessRequestCount = storeAccessRequestsQuery.data?.length ?? 0;
   const pendingMemberWorkCount = accessRequestCount + invitationCount + inviteLinkCount;
   const activeSection = settingsSections.find((section) => section.key === selectedSection);
-  const sectionNavItems = settingsSections.map((section) => {
-    const status =
-      section.key === "store"
-        ? `${storeCount} 店铺`
-        : section.key === "suppliers"
-          ? canManageSuppliers
-            ? `${activeSupplierCount} 可选`
-            : "店主/经理维护"
-          : section.key === "members"
-            ? pendingMemberWorkCount > 0
-              ? `${memberCount} 成员 · ${pendingMemberWorkCount} 待处理`
-              : `${memberCount} 成员`
-            : section.key === "kiosk"
-              ? `${kioskDeviceCount} 台可用`
-              : section.key === "notifications"
-                ? `${storeReadiness.score}% 完整`
-                : section.key === "workflow"
-                  ? `${workflowStatusCount} 状态`
-                  : section.description;
-    const count =
-      section.key === "members"
-        ? memberCount
-        : section.key === "store"
-          ? storeCount
+  const sectionNavItems = settingsSections
+    .filter((section) => section.key !== "order-data" || canManageOrderData)
+    .map((section) => {
+      const status =
+        section.key === "store"
+          ? `${storeCount} 店铺`
           : section.key === "suppliers"
-            ? activeSupplierCount
-            : section.key === "kiosk"
-              ? kioskDeviceCount
-              : section.key === "workflow"
-                ? workflowStatusCount
-                : undefined;
-    return {
-      ...section,
-      status,
-      count,
-      dirty: sectionDirtyState[section.key],
-    };
-  });
+            ? canManageSuppliers
+              ? `${activeSupplierCount} 可选`
+              : "店主/经理维护"
+            : section.key === "members"
+              ? pendingMemberWorkCount > 0
+                ? `${memberCount} 成员 · ${pendingMemberWorkCount} 待处理`
+                : `${memberCount} 成员`
+              : section.key === "kiosk"
+                ? `${kioskDeviceCount} 台可用`
+                : section.key === "notifications"
+                  ? `${storeReadiness.score}% 完整`
+                  : section.key === "workflow"
+                    ? `${workflowStatusCount} 状态`
+                    : section.key === "order-data"
+                      ? "仅店铺创建者"
+                      : section.description;
+      const count =
+        section.key === "members"
+          ? memberCount
+          : section.key === "store"
+            ? storeCount
+            : section.key === "suppliers"
+              ? activeSupplierCount
+              : section.key === "kiosk"
+                ? kioskDeviceCount
+                : section.key === "workflow"
+                  ? workflowStatusCount
+                  : undefined;
+      return {
+        ...section,
+        status,
+        count,
+        dirty: sectionDirtyState[section.key],
+      };
+    });
   const handleSectionChange = (section: SettingsSectionKey) => {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("section", section);
@@ -984,6 +1003,9 @@ export function SettingsScreen() {
                 messagePreview={messagePreview}
                 printPreview={printPreview}
               />
+            ) : null}
+            {selectedSection === "order-data" && activeStoreId ? (
+              <OrderDataSection storeId={activeStoreId} applyEnabled={canApplyOrderData} />
             ) : null}
           </div>
 

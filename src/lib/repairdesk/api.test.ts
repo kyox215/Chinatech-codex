@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   acceptKioskSession,
+  downloadOrderDataTemplate,
   getDashboardSummary,
   getInventorySummary,
   getOrderQueueSummary,
   getOrderStats,
   returnKioskSession,
+  previewOrderDataImport,
 } from "./api";
 
 describe("repairdesk api client", () => {
@@ -44,7 +46,7 @@ describe("repairdesk api client", () => {
 
   it("posts dashboard summary requests to the aggregate endpoint", async () => {
     const fetchMock = vi.fn(
-      async () =>
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
         new Response(
           JSON.stringify({
             data: {
@@ -209,6 +211,67 @@ describe("repairdesk api client", () => {
         body: JSON.stringify({ id: "session_1", reason: "号码不清楚" }),
       }),
     );
+  });
+
+  it("downloads order data files and preserves the server filename", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(new Uint8Array([1, 2, 3]), {
+          status: 200,
+          headers: {
+            "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "content-disposition": "attachment; filename*=UTF-8''repairdesk-template.xlsx",
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      downloadOrderDataTemplate("00000000-0000-0000-0000-000000000001"),
+    ).resolves.toMatchObject({
+      fileName: "repairdesk-template.xlsx",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/repairdesk/orders/data/template",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ expectedStoreId: "00000000-0000-0000-0000-000000000001" }),
+      }),
+    );
+  });
+
+  it("uploads XLSX previews as multipart without overriding the boundary", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            data: {
+              batchId: "batch",
+              storeId: "store",
+              templateVersion: "repairdesk-order-data-v1",
+              mode: "update_only",
+              expiresAt: new Date().toISOString(),
+              summary: { total: 0, ready: 0, create: 0, update: 0, invalid: 0, skipped: 0 },
+              rows: [],
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File([new Uint8Array([0x50, 0x4b])], "orders.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    await previewOrderDataImport({
+      file,
+      expectedStoreId: "00000000-0000-0000-0000-000000000001",
+      mode: "update_only",
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init?.body).toBeInstanceOf(FormData);
+    expect(init?.headers).toEqual({});
   });
 
   it("turns request timeouts into a friendly error", async () => {

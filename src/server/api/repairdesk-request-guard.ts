@@ -29,9 +29,11 @@ export function resolveRepairDeskRequestOrigin({
 export function assertRepairDeskPostRequestAllowed({
   headers,
   requestOrigin,
+  allowedContentTypes = ["application/json"],
 }: {
   headers: Headers;
   requestOrigin: string;
+  allowedContentTypes?: readonly string[];
 }) {
   const fetchSite = headers.get("sec-fetch-site")?.toLowerCase();
   if (fetchSite && !allowedFetchSites.has(fetchSite)) {
@@ -44,7 +46,7 @@ export function assertRepairDeskPostRequestAllowed({
   }
 
   const contentType = headers.get("content-type")?.toLowerCase();
-  if (contentType && !contentType.includes("application/json")) {
+  if (contentType && !allowedContentTypes.some((allowed) => contentType.includes(allowed))) {
     throw new ForbiddenError("请求格式无效，请刷新页面后重试");
   }
 }

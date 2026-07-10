@@ -1,6 +1,6 @@
 # 角色权限配置计划书
 
-Last updated: 2026-07-09
+Last updated: 2026-07-10
 Owner: 鹤祥 / Chinatech
 Status: Phase B server enforcement completed; Phase C linked migration history verified aligned on 2026-07-10; Phase D1 order projection completed, Phase D2 scope/UI projection pending
 
@@ -51,10 +51,11 @@ Status: Phase B server enforcement completed; Phase C linked migration history v
 | 批量流转工单 | 允许 | 允许 | 禁止 | 禁止 | 禁止 |
 | 配置工单流程 | 允许 | 允许 | 禁止 | 禁止 | 禁止 |
 | 上传工单照片 | 允许 | 允许 | 允许 | 允许 | 禁止 |
-| 导出工单 | 允许 | 允许 | 禁止 | 禁止 | 禁止 |
+| 导出工单 | 仅主店主 | 禁止 | 禁止 | 禁止 | 禁止 |
+| 预览/应用工单导入 | 仅主店主 | 禁止 | 禁止 | 禁止 | 禁止 |
 | 查看/编辑客户 | 允许 | 允许 | 范围内 | 允许 | 范围内只读 |
 | 发送客户消息 | 允许 | 允许 | 范围内审批后 | 允许 | 禁止 |
-| 导出客户 | 允许 | 允许 | 禁止 | 禁止 | 禁止 |
+| 导出客户统计 | 仅主店主 | 禁止 | 禁止 | 禁止 | 禁止 |
 | 收款 | 允许 | 允许 | 禁止 | 允许 | 禁止 |
 | 调整金额/退款/强制付款 | 允许 | 允许 | 禁止 | 禁止 | 禁止 |
 | 库存创建/编辑 | 允许 | 允许 | 允许 | 允许 | 禁止 |

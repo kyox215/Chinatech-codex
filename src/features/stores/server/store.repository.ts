@@ -32,6 +32,11 @@ import type {
 import { writeAuditLog } from "@/server/audit";
 import { assertVerifiedEmail, ForbiddenError } from "@/server/auth-context";
 import { assertPermission, can } from "@/server/permissions";
+import { isPrimaryStoreOwner } from "@/features/stores/server/primary-store-owner";
+import {
+  isOrderDataApplyEnabled,
+  isOrderDataExportEnabled,
+} from "@/features/orders/server/order-data-feature-flags";
 import { type DbRecord, fail, requiredString } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
 import {
@@ -53,7 +58,7 @@ export async function getStoreContext(actor: AuditActor): Promise<StoreContext> 
   return {
     activeStore: activeStoreFromActor(actor),
     stores: actor.stores ?? [],
-    permissions: supplierPermissionsFromActor(actor),
+    permissions: await storePermissionsFromActor(actor),
   };
 }
 
@@ -147,7 +152,7 @@ export async function createStore(
     after: { ...store },
   });
 
-  return nextContext(actor, store);
+  return nextContext(actor, store, true);
 }
 
 async function activateCreatedStore(
@@ -1339,11 +1344,14 @@ function isStorePermissionAction(action: unknown): action is StorePermissionActi
   return action === "supplier:read" || action === "supplier:assign" || action === "supplier:manage";
 }
 
-function supplierPermissionsFromActor(actor: AuditActor) {
+async function storePermissionsFromActor(actor: AuditActor) {
+  const canManageOrderData = isOrderDataExportEnabled() && (await isPrimaryStoreOwner(actor));
   return {
     canReadSuppliers: can(actor, "supplier:read"),
     canAssignSuppliers: can(actor, "supplier:assign"),
     canManageSuppliers: can(actor, "supplier:manage"),
+    canManageOrderData,
+    canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
   };
 }
 
@@ -1404,17 +1412,31 @@ async function setActiveStoreCookie(storeId: string) {
   });
 }
 
-function nextContext(actor: AuditActor, activeStore: ActorStoreMembership): StoreContext {
+async function nextContext(
+  actor: AuditActor,
+  activeStore: ActorStoreMembership,
+  primaryOwnerOverride = false,
+): Promise<StoreContext> {
   const stores = actor.stores?.filter((store) => store.id !== activeStore.id) ?? [];
+  const nextActor = {
+    ...actor,
+    storeId: activeStore.id,
+    storeName: activeStore.name,
+    storeRole: activeStore.role,
+    activeStoreExplicit: true,
+  };
   return {
     activeStore,
     stores: [activeStore, ...stores],
-    permissions: supplierPermissionsFromActor({
-      ...actor,
-      storeId: activeStore.id,
-      storeName: activeStore.name,
-      storeRole: activeStore.role,
-    }),
+    permissions: primaryOwnerOverride
+      ? {
+          canReadSuppliers: can(nextActor, "supplier:read"),
+          canAssignSuppliers: can(nextActor, "supplier:assign"),
+          canManageSuppliers: can(nextActor, "supplier:manage"),
+          canManageOrderData: isOrderDataExportEnabled(),
+          canApplyOrderData: isOrderDataExportEnabled() && isOrderDataApplyEnabled(),
+        }
+      : await storePermissionsFromActor(nextActor),
   };
 }
 
