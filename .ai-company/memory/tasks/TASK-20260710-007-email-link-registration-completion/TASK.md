@@ -2,7 +2,7 @@
 schema_version: 1
 task_id: "TASK-20260710-007-email-link-registration-completion"
 title: "邮箱验证链接完成注册流程"
-status: "in_review"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
@@ -10,7 +10,8 @@ owner: "鹤祥"
 departments_considered: ["INT", "FLOW", "SEC", "DATA", "QA", "DOC", "REL"]
 departments_spawned: []
 created_at: "2026-07-10T12:53:57Z"
-updated_at: "2026-07-10T13:00:53Z"
+updated_at: "2026-07-10T13:04:07Z"
+closed_at: "2026-07-10T13:04:07Z"
 ---
 # Task — 邮箱验证链接完成注册流程
 
@@ -54,4 +55,4 @@ Owner asked for direct planning and execution but did not explicitly ask for sub
 - [x] Local Supabase config enables email confirmations.
 - [x] Tests cover callback redirect helper and post-login/register completion routing where appropriate.
 - [x] Lint, typecheck, test, build, screenshots, and Supabase linked dry-run are complete.
-- [ ] Commit and push to `main`.
+- [x] Implementation commit created for `main` push: `5de1195a`.

@@ -38,3 +38,16 @@
   - Production Supabase Auth must have email confirmation enabled and the callback URL allowlisted in Dashboard/config. This is not a Postgres migration and was not changed by `db push`.
 - Next action:
   - Review final diff, stage only current task files, commit, push `main`, and update closeout status.
+
+## 2026-07-10T13:04:07Z — Closeout prepared
+
+- Status: closed after implementation commit `5de1195a`; closeout memory update pending commit and push.
+- Final verification evidence remains:
+  - `npm run lint`: passed.
+  - `npm run typecheck`: passed.
+  - `npm run test`: passed, 679 tests.
+  - `npm run build`: passed after escalated local execution.
+  - `npm run agents:check`: passed.
+  - `supabase db push --linked --dry-run --include-all`: `Remote database is up to date.`
+- Next action:
+  - Commit this closeout memory update and push scoped commits to `main`.

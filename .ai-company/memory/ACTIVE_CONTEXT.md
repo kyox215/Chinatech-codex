@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260710-007-email-link-registration-completion"
-status: "in_review"
-phase: "validating"
+status: "closed"
+phase: "done"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-10T13:00:53Z"
+last_checkpoint_at: "2026-07-10T13:04:07Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -30,6 +30,7 @@ last_rehydrated_at: null
 - `npm run agents:check` passed.
 - Supabase linked dry-run returned `Remote database is up to date`; no database migration was applied.
 - Screenshots captured under `screenshots/TASK-20260710-007-email-link-registration-completion/`.
+- Implementation commit created: `5de1195a`.
 
 ## Blocking decisions
 
@@ -38,7 +39,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-Review final diff, stage only current task files, commit, push `main`, then close the task memory.
+Push scoped commits to `main`, then report final validation, database status, screenshot paths, and commit hashes to owner.
 
 ## Previous context before latest owner request
 

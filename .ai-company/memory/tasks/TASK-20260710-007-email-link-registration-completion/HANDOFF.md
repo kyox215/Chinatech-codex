@@ -2,7 +2,7 @@
 
 ## Current Handoff
 
-- Status: implementation verified; commit and push pending.
+- Status: closed; implementation commit `5de1195a` created and closeout memory update is ready for push.
 - Read first:
   - `src/features/auth/screens/login-screen.tsx`
   - `src/app/auth/callback/route.ts`
@@ -19,3 +19,8 @@
 - `npm run test`: passed, 679 tests.
 - `npm run build`: passed after escalated local execution.
 - `supabase db push --linked --dry-run --include-all`: remote database is up to date.
+
+## Resume Steps
+
+1. Confirm scoped commits were pushed to `main`.
+2. Keep unrelated dirty files unstaged if continuing other work.
