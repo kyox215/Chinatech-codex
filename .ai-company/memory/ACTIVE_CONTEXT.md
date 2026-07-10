@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260710-110532-task"
+current_task_id: "TASK-20260710-010-customer-search-mobile-density"
 status: "closed"
 phase: "closed"
-task_class: "T3"
-risk_level: "R3"
+task_class: "T1"
+risk_level: "R1"
 autonomy_level: "L2"
-owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-10T19:33:34Z"
+owner: "鹤祥"
+last_checkpoint_at: "2026-07-10T20:16:14Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,25 +15,24 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**设置页主店主专用工单详情导入导出实施**
+**新建工单客户搜索移动端紧凑结果面板**
 
 ## Current state
 
-Implementation is complete and pushed to `main` at commit `5eda956e`. Creator-only Settings order-data roundtrip, XLSX security controls, preview ledger, atomic apply RPC, customer stats export, and active order-page CSV export removal are implemented. Release review removed automatic `pg_cron` install/job scheduling from this task migration; cleanup now remains an RPC called before import preview creation. QA blocker fixes are applied for backup-phone preservation, mixed repair-item identifiers, preview row visibility, and final screenshot evidence. Latest validation passed: `git diff --check`, lint, typecheck, full Vitest 108 files / 729 tests, production build, linked dry-run, production dependency audit, final desktop/mobile browser evidence, and linked DB post-apply checks. Linked migration `20260710150000_order_data_roundtrip.sql` is applied and post-verified.
+Customer lookup mobile density fix is complete on a clean worktree based on latest `origin/main`. The production issue was that the prior UI patch was local-only and not pushed with the security/database release. The fix moves inline customer results below the field shell and adds a matched-customer mobile E2E that verifies the panel is close to full section width and has no page overflow.
 
 ## Blocking decisions
 
 - None for this task.
-- Broad database gate issues from TASK-009 remain out of scope and were not changed except this task's reviewed additive migration.
-- A live synthetic import/apply exercise remains separate because it would create or mutate production business data.
+- Generated `next-env.d.ts` and old screenshot changes from verification are excluded from commit.
 
 ## Next action
 
-Task is closed. No required next action.
+Commit and push the scoped UI fix to `main`.
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260710-110532-task/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260710-010-customer-search-mobile-density/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.

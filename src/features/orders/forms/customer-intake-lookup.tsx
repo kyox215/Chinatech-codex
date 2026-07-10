@@ -211,12 +211,14 @@ export function CustomerIntakeLookup({
         }}
       />
     );
+  const controlFrame = <div className={cn("relative min-w-0", containerClassName)}>{control}</div>;
+  const inlineResults = open ? (
+    <CustomerIntakeResultsPanel mode={mode}>{resultsContent}</CustomerIntakeResultsPanel>
+  ) : null;
   const lookupBody =
     resultsPlacement === "popover" ? (
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverAnchor asChild>
-          <div className={cn("relative min-w-0", containerClassName)}>{control}</div>
-        </PopoverAnchor>
+        <PopoverAnchor asChild>{controlFrame}</PopoverAnchor>
         <PopoverContent
           align="start"
           collisionPadding={12}
@@ -230,27 +232,29 @@ export function CustomerIntakeLookup({
       </Popover>
     ) : (
       <div className={cn("grid min-w-0 gap-1", rootClassName)}>
-        {open && mode === "phone" ? (
-          <div
-            className="max-h-48 min-w-0 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)]"
-            data-customer-intake-results={mode}
-          >
-            {resultsContent}
-          </div>
-        ) : null}
-        <div className={cn("relative min-w-0", containerClassName)}>{control}</div>
-        {open && mode !== "phone" ? (
-          <div
-            className="max-h-72 min-w-0 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)]"
-            data-customer-intake-results={mode}
-          >
-            {resultsContent}
-          </div>
-        ) : null}
+        {controlFrame}
+        {inlineResults}
       </div>
     );
 
   if (!fieldLabel) return lookupBody;
+
+  if (resultsPlacement === "inline") {
+    return (
+      <div className={cn("grid min-w-0 gap-1", rootClassName)}>
+        <CustomerIntakeFieldShell
+          label={fieldLabel}
+          required={fieldRequired}
+          leading={fieldLeading}
+          trailing={fieldTrailing}
+          trailingInteractive={fieldTrailingInteractive}
+        >
+          {controlFrame}
+        </CustomerIntakeFieldShell>
+        {inlineResults}
+      </div>
+    );
+  }
 
   return (
     <CustomerIntakeFieldShell
@@ -262,6 +266,26 @@ export function CustomerIntakeLookup({
     >
       {lookupBody}
     </CustomerIntakeFieldShell>
+  );
+}
+
+function CustomerIntakeResultsPanel({
+  mode,
+  children,
+}: {
+  mode: CustomerIntakeLookupMode;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-1 shadow-[var(--shadow-card)]",
+        mode === "phone" ? "max-h-[18rem]" : "max-h-[20rem]",
+      )}
+      data-customer-intake-results={mode}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -384,16 +408,16 @@ function CustomerIntakeCandidateCard({
     >
       <button
         type="button"
-        className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+        className="grid min-h-10 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-md px-1.5 py-1 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring sm:gap-2 sm:px-2"
         onMouseDown={(event) => event.preventDefault()}
         onClick={onPickCustomer}
       >
-        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-          <UserRound className="size-4" />
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <UserRound className="size-3.5" />
         </span>
         <span className="min-w-0">
-          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="min-w-0 break-words text-sm font-bold leading-5 sm:text-xs sm:leading-4">
+          <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+            <span className="min-w-0 truncate text-sm font-bold leading-5 sm:text-xs sm:leading-4">
               {candidate.customer.name}
             </span>
             {candidate.exactMatch ? (
@@ -402,7 +426,7 @@ function CustomerIntakeCandidateCard({
               </span>
             ) : null}
           </span>
-          <span className="block break-all font-mono text-xs font-medium leading-4 text-muted-foreground sm:text-[11px]">
+          <span className="block truncate font-mono text-xs font-medium leading-4 text-muted-foreground sm:text-[11px]">
             {candidate.customer.phone_e164}
             {candidate.customer.contact_phones.length
               ? ` · 备用 ${candidate.customer.contact_phones.length}`
@@ -410,17 +434,17 @@ function CustomerIntakeCandidateCard({
           </span>
         </span>
         {selected ? (
-          <Check className="col-start-2 size-3.5 shrink-0 justify-self-start text-primary sm:col-start-auto sm:justify-self-end" />
+          <Check className="size-3.5 shrink-0 justify-self-end text-primary" />
         ) : (
-          <span className="col-start-2 shrink-0 justify-self-start text-[10px] font-semibold text-primary sm:col-start-auto sm:justify-self-end">
+          <span className="shrink-0 justify-self-end text-[10px] font-semibold text-primary">
             选择
           </span>
         )}
       </button>
 
-      <div className="px-1.5 pb-1">
+      <div className="px-1 pb-0.5">
         {candidate.historyDevices.length ? (
-          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-1">
             {candidate.historyDevices.map((device) => (
               <HistoryDeviceButton
                 key={device.id}
@@ -501,7 +525,7 @@ function HistoryDeviceButton({
     <button
       type="button"
       className={cn(
-        "min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
+        "min-h-10 min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 py-1 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
         selected && "border-primary/45 bg-primary/10 text-primary",
       )}
       onMouseDown={(event) => event.preventDefault()}
@@ -509,13 +533,13 @@ function HistoryDeviceButton({
     >
       <span className="flex min-w-0 items-start gap-1.5">
         <Smartphone className="size-3 shrink-0 text-primary" />
-        <span className="min-w-0 break-words text-[11px] font-bold leading-4">
+        <span className="min-w-0 truncate text-[10.5px] font-bold leading-4">
           {device.brand} {device.model}
         </span>
       </span>
-      <span className="mt-0.5 flex min-w-0 items-start gap-1.5 text-[10px] font-medium leading-4 text-muted-foreground">
+      <span className="mt-0.5 flex min-w-0 items-start gap-1 text-[9.5px] font-medium leading-3 text-muted-foreground">
         <Clock3 className="size-2.5 shrink-0" />
-        <span className="min-w-0 break-all">
+        <span className="min-w-0 truncate">
           {device.serial_or_imei || device.order_public_no || "历史记录"}
         </span>
       </span>
