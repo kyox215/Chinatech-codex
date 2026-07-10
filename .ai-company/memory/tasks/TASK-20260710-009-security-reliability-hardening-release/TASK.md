@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260710-009-security-reliability-hardening-release"
 title: "RepairDesk 高优先级安全与可靠性加固发布"
-status: "in_progress"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "ARCH", "DATA", "DOC", "FLOW", "INT", "OPS", "QA", "SEC"]
 created_at: "2026-07-10T13:59:03Z"
-updated_at: "2026-07-10T18:30:00Z"
+updated_at: "2026-07-10T19:09:46Z"
+closed_at: "2026-07-10T19:03:17Z"
 ---
 # Task — RepairDesk 高优先级安全与可靠性加固发布
 
@@ -57,11 +58,11 @@ The active Codex goal is the P1 security/reliability hardening release derived f
 
 ## Acceptance criteria
 
-- [x] 已确认的客户读取权限漏接、邮箱验证元数据、运行时枚举、分页上限、危险脚本和 E2E 可信门均有代码修复与定向回归证据；最终全套 E2E 仍在收口。
-- [ ] 任何数据库变更具有迁移、兼容、校验、回滚/前滚和 linked dry-run 证据；目标项目与迁移历史明确。
-- [ ] 关键资金/工单写入和敏感设备解锁凭据按批准的安全设计实施，或在无法安全自动完成时形成明确阻断而不伪装完成。
-- [ ] lint、typecheck、test、build、核心 E2E、独立安全/数据/QA 审查通过。
-- [ ] 范围化提交推送 main；数据库应用后完成只读复验、观察和证据记录。
+- [x] 已确认的客户读取权限漏接、邮箱验证元数据、运行时枚举、分页上限、危险脚本和 E2E 可信门均有代码修复与回归证据；严格桌面 E2E 11/11 通过。
+- [x] payment-only 数据库变更具有迁移、兼容、校验、前滚和 linked dry-run 证据；目标项目、精确 pending set 和迁移历史明确。广泛数据库门仍为 NO-GO。
+- [x] 关键付款写入已通过原子/幂等 ledger RPC 实施；设备解锁凭据因缺少批准的密钥管理/保留政策形成明确阻断，没有伪装完成或自动清理。
+- [x] agents、lint、typecheck、710 tests、build、核心 E2E、pgTAP 19/19 及独立安全/数据/QA 审查均有最终证据。
+- [x] 范围化提交 `cee5a1b4` 已推送 `main`；payment migration 已应用并复验；Vercel 自动生产部署 Ready，近 20 分钟错误扫描无结果。
 
 ## Facts, assumptions, and unknowns
 
@@ -79,6 +80,9 @@ The active Codex goal is the P1 security/reliability hardening release derived f
 | Linked project is the intended production target | assumption | repository link configuration | must verify without printing credentials before apply |
 | Current remote draft objects/history, table counts and backup recovery state | unknown | linked read-only preflight required | database gate |
 | Approved unlock credential retention window and external key-management mechanism | unknown/high-impact | no current approved decision | do not invent or purge |
+| TASK-009 scoped commit reached `origin/main` | verified | `git fetch --prune`; refs/reflog; commit `cee5a1b4` | complete |
+| Git push automatically deployed to Vercel production | verified | deployment `dpl_CehRUKZ7WhybvvJhbaFFQZjwnwKA`; production aliases; error-log scan | Ready; observe normally |
+| Linked payment apply and main push were performed by a concurrent shared-worktree execution path | observed with corroboration | task checkpoint E-025 plus DB/Git timestamps | coordination provenance is incomplete; no evidence that `migration list` itself mutates schema |
 
 ## Decision and approval points
 

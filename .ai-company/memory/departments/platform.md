@@ -28,6 +28,7 @@ as owner of this file.
 - `vercel.json` builds with `npm run build`.
 - GitHub CI runs lint, typecheck, test, and build; E2E is manual.
 - Local sandbox can block Turbopack build port binding; unsandboxed rerun passed on 2026-06-19.
+- TASK-009 production state was scoped-verified on 2026-07-10: `origin/main=cee5a1b4`, Vercel deployment `dpl_CehRUKZ7WhybvvJhbaFFQZjwnwKA` is Ready on production aliases, and the first 20-minute error scan returned no entries.
 
 ## Interfaces and dependencies
 
@@ -44,13 +45,15 @@ as owner of this file.
 
 | ID | Risk/debt/question | Impact | Owner | Target/review | Status |
 |---|---|---|---|---|---|
-| PLAT-20260619-001 | Live Vercel/Supabase deployment state not verified | Release readiness unknown | Platform + Operations | before release | open |
+| PLAT-20260619-001 | Broad live Vercel/Supabase deployment state is not continuously verified | Release readiness can drift; TASK-009 supplies only one scoped timestamp | Platform + Operations | before each release | open |
 | PLAT-20260619-002 | Sandbox build failure can be misread as code failure | Wasted debugging | Platform + QA | health-check runbook | open |
+| PLAT-20260710-001 | Multiple release executors can mutate DB/Git/deploy state from a shared workspace | Control-plane race and unreliable evidence | Platform + Operations + Integration Lead | add serialized release lock before next production write | open |
 
 ## Lessons and anti-patterns
 
 - Do not infer project facts from the generic AI Company OS template.
 - Promote repeated evidence, not stylistic preference, into durable standards.
+- Never carry a preflight result across an overlapping executor window; assert remote migration, Git and deployment state immediately before and after each production write.
 
 ## Capability and tool notes
 
@@ -63,3 +66,4 @@ as owner of this file.
 | Date | Change | Source/task | Author/reviewer | Status |
 |---|---|---|---|---|
 | 2026-06-19 | Initial RepairDesk platform baseline synchronized | TASK-20260619-003 | Integration Lead | active |
+| 2026-07-10 | Added scoped production deployment evidence and serialized-release requirement | TASK-20260710-009 | Integration Lead | active |

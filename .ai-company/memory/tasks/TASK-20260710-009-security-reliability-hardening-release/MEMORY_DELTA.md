@@ -19,6 +19,14 @@
 
 - Target-schema clone plus pgTAP is strong compatibility evidence for one migration but cannot substitute for full backup/PITR restore proof.
 - JavaScript money validation must normalize safe integer cents with a tolerance; strict `amount * 100` equality rejects valid values such as 0.29.
+- Parallel Codex tasks sharing one Git/workspace can race on production release state even when each thread believes it is the sole operator. Re-fetch remote Git, linked migration history and deployment state immediately before and after any high-risk release step; preserve append-only timestamps when narratives conflict.
+
+## Consolidation result
+
+- Promoted to project memory: payment RPC/ledger contract, migration-slice-vs-environment Gate distinction, 17-table exposure, from-zero recovery failure and shared-workspace release coordination lesson.
+- Promoted to DATA/SEC/PLATFORM department memory with TASK-009 source and review triggers.
+- Capability result: reviewers produced useful independent evidence, but the concurrent release-control failure prevents any autonomy/permission upgrade. Integration/release capability remains at its existing level and requires a new serialized release-lock control before reconsideration.
+- Not promoted: exact temporary worktree paths, transient sandbox port/listener details and raw command output.
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.

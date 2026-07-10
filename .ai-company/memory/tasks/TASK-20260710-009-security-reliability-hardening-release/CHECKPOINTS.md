@@ -60,3 +60,36 @@
 - **Stop conditions:** do not add unrelated dirty files; do not apply any further migration; do not broaden database changes beyond the payment-only exception.
 - **Evidence:** E-019 through E-027.
 - **Recorded by:** CEO Agent / RepairDesk Integration Lead
+
+## 2026-07-10T19:03:17Z — Conditional closeout after concurrent release reconciliation
+
+- **Phase:** closed / conditional.
+- **Completed/current state:** commit `cee5a1b4` is on `origin/main`; the exact verified code manifest matches that commit. Vercel automatically deployed it to production as `dpl_CehRUKZ7WhybvvJhbaFFQZjwnwKA`, status Ready, with no error entries returned in the first 20-minute scan. The payment migration exists remotely, is least-privilege, and the ledger remained empty during post-apply checks.
+- **Coordination correction:** this thread observed the migration appear during a list-only recheck window, while the shared task record from the concurrent main-worktree release path states that it explicitly ran `supabase db push --linked --yes`. The DB, task-memory and Git timestamps are compatible with concurrent execution. Exact process/terminal provenance is not retained; therefore no CLI-mutation claim or personal blame is made.
+- **UI boundary:** no TASK-010/TASK-011 layout/UI file entered commit `cee5a1b4`; payment TSX changes are behavior-only. Sanitized visual evidence remains at `screenshots/TASK-20260710-009-security-reliability-hardening-release/order-detail-1440x900-mock.png` in the verified clean worktree.
+- **Validation:** agents/lint/typecheck PASS; 106 files/710 tests PASS; standard Turbopack build PASS; strict desktop E2E 11/11 PASS; linked-schema pgTAP 19/19 PASS; post-deploy Vercel status Ready and error scan empty.
+- **Residual high risks:** 17 legacy public tables still expose direct browser-role access with RLS disabled; the full historical migration chain cannot reset from zero; backup/PITR restore proof is missing; one plaintext unlock pattern remains pending an Owner-approved key-management/retention policy.
+- **Decision:** close TASK-009 conditionally because the requested scoped code, database application and `main` release are complete, while broad database safety remains NO-GO and is transferred to explicit P0 follow-ups.
+- **Next:** no further production mutation in TASK-009. Open independent work for legacy-table consumer discovery/containment, recovery-chain repair design and backup/restore drill; keep unlock cleanup blocked until policy approval.
+- **Evidence:** E-028 through E-033 and `CEO_CLOSEOUT_REPORT.md`.
+- **Recorded by:** CEO Agent / RepairDesk Integration Lead
+## 2026-07-10T19:07:38Z — TASK-009范围内发布完成：payment-only migration已应用复验，cee5a1b4已在origin/main，Vercel生产Ready且初始错误扫描为空；现有页面布局/UI未改变。共享工作区并行release executor导致状态同步事件，已追加时间线与控制措施。
+
+- **Phase:** closed
+- **Completed/current state:** TASK-009范围内发布完成：payment-only migration已应用复验，cee5a1b4已在origin/main，Vercel生产Ready且初始错误扫描为空；现有页面布局/UI未改变。共享工作区并行release executor导致状态同步事件，已追加时间线与控制措施。
+- **Next:** TASK-009不再生产写入；另开P0处理17张legacy表consumer discovery/containment、migration recovery基线与backup/PITR restore drill。
+- **Decision:** 任务conditional关闭；payment slice PASS不等于广泛Database Gate PASS；不提升发布自治权限。
+- **Blocker:** 广泛DB工作仍被17表暴露、历史reset失败、恢复证明缺失阻断；unlock历史值等待Owner批准的密钥管理/保留政策。
+- **Evidence:**
+  - E-028..E-033; CEO_CLOSEOUT_REPORT.md
+- **Recorded by:** CEO Agent / RepairDesk Integration Lead
+## 2026-07-10T19:09:46Z — 最终关闭证据已同步：scope release完成且UI未改变，remote main和Vercel Ready，长期/部门/能力记忆已更新；报告断链已修复。
+
+- **Phase:** closed
+- **Completed/current state:** 最终关闭证据已同步：scope release完成且UI未改变，remote main和Vercel Ready，长期/部门/能力记忆已更新；报告断链已修复。
+- **Next:** TASK-009停止生产写入；P0拆分legacy表containment和recovery/restore，P2清理既有重复Codex Agent定义。
+- **Decision:** 任务conditional关闭；保留现有payment forward state；不提升生产自治。
+- **Blocker:** 广泛DB Gate仍NO-GO；全局ai_company validate被12个既有重复Agent名称阻断，核心检查与agents:check通过。
+- **Evidence:**
+  - E-028..E-034; CEO_CLOSEOUT_REPORT.md; agents:check PASS
+- **Recorded by:** CEO Agent / RepairDesk Integration Lead

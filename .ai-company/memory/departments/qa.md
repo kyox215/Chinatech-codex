@@ -77,11 +77,13 @@ as owner of this file.
 | QA-20260620-004 | Audit-log minimization policy lacks runtime tests | Sensitive data could re-enter audit payloads | QA + Security + Backend | add tests with sanitizer implementation | policy_drafted |
 | QA-20260620-005 | Final reports could omit visual proof for UI/task result pages | Owner cannot confirm visible outcome from text alone | QA + Documentation + Integration Lead | enforce on every task closeout | active_rule |
 | QA-20260620-006 | Final reports could claim departments were used without real spawned agents | Owner may not get the AI employee operating model requested | QA + Documentation + Integration Lead | require real agent ids/results or no-spawn reason for department-requested work | active_rule |
+| QA-20260710-001 | Release validation can become stale when another executor changes remote DB/Git/deploy state | A green gate may describe the wrong target state | QA + Platform + Integration Lead | require remote pre/post assertions and serialized release ownership | open |
 
 ## Lessons and anti-patterns
 
 - Do not infer project facts from the generic AI Company OS template.
 - Promote repeated evidence, not stylistic preference, into durable standards.
+- TASK-009 final gate baseline is agents/lint/typecheck PASS, 106 files/710 tests PASS, standard build PASS, strict desktop E2E 11/11 PASS and payment pgTAP 19/19 PASS.
 
 ## Capability and tool notes
 
@@ -113,3 +115,4 @@ as owner of this file.
 | 2026-06-20 | Recorded audit-log policy as non-runtime evidence and added future forbidden-field serialization test need | TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio | Integration Lead | policy_drafted |
 | 2026-06-20 | Added mandatory screenshot/no-screenshot evidence rule for task closeout | TASK-20260619-232315-l2-028-require-closeout-screenshots-for-re | Integration Lead | active_rule |
 | 2026-06-20 | Added real sub-agent evidence gate for Owner-requested department/AI employee work | TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for | Integration Lead | active_rule |
+| 2026-07-10 | Recorded full TASK-009 quality gate and remote-state serialization risk | TASK-20260710-009 | Integration Lead | active |

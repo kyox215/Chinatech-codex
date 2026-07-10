@@ -547,7 +547,7 @@ Next.js 官方也建议明确 Server/Client Component 边界，并把 provider �
 本任务是只读体检和报告，没有创建或改变业务页面，因此**无新任务页面可截图**。替代证据包括：本报告、任务 evidence、质量门命令和现有注册完成页截图。现有截图仅用于证明“注册完成页穿入工作台壳”的 UX 发现，不代表本任务修改后的结果。
 
 - 现有视觉证据：[`screenshots/TASK-20260710-007-email-link-registration-completion/register-complete-mobile.png`](../screenshots/TASK-20260710-007-email-link-registration-completion/register-complete-mobile.png)
-- 本任务证据：[`TASK-20260710-008-project-health-architecture-audit/EVIDENCE.md`](../.ai-company/memory/tasks/TASK-20260710-008-project-health-architecture-audit/EVIDENCE.md)
+- 本任务证据：[`TASK-20260710-009-security-reliability-hardening-release/EVIDENCE.md`](../.ai-company/memory/tasks/TASK-20260710-009-security-reliability-hardening-release/EVIDENCE.md)
 
 ## 14. 术语小字典
 

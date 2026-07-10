@@ -59,3 +59,4 @@
 - [TASK-20260701-004](tasks/TASK-20260701-004-one-command-mode-v32-integration/TASK.md): Codex One Command Mode v3.2 RepairDesk governance integration.
 - [TASK-20260701-005](tasks/TASK-20260701-005-project-garbage-cleanup/TASK.md): Safe generated-artifact cleanup and repository garbage inventory.
 - [TASK-20260701-006](tasks/TASK-20260701-006-project-cleanup-second-pass/TASK.md): Second-pass explicit-path cleanup and unsafe `git clean` inventory.
+- [TASK-20260710-009](tasks/TASK-20260710-009-security-reliability-hardening-release/TASK.md): Conditional closeout of the security/reliability/payment release; scoped main and production are live, with legacy-table and recovery P0 follow-ups.
