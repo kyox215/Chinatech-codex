@@ -2,7 +2,7 @@
 schema_version: 1
 task_id: "TASK-20260710-006-auth-account-self-service-implementation"
 title: "用户注册、找回密码、账号安全中心与邮箱绑定实施"
-status: "in_review"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
@@ -10,7 +10,8 @@ owner: "鹤祥"
 departments_considered: ["INT", "FLOW", "SEC", "DATA", "QA", "DOC", "REL"]
 departments_spawned: []
 created_at: "2026-07-10T12:41:58Z"
-updated_at: "2026-07-10T12:41:58Z"
+updated_at: "2026-07-10T12:48:26Z"
+closed_at: "2026-07-10T12:48:26Z"
 ---
 # Task — 用户注册、找回密码、账号安全中心与邮箱绑定实施
 
@@ -54,4 +55,4 @@ No-spawn reason: owner requested direct execution and did not explicitly ask for
 - [x] Onboarding status exposes email verification state.
 - [x] Unit tests cover auth helper/error additions and onboarding mapping.
 - [x] Lint, typecheck, tests, build, screenshots, and Supabase dry-run are recorded.
-- [ ] Commit and push to `main`.
+- [x] Commit created for `main` push: `0173a182`.

@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260710-006-auth-account-self-service-implementation"
-status: "in_review"
-phase: "closeout"
+status: "closed"
+phase: "done"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-10T12:41:58Z"
+last_checkpoint_at: "2026-07-10T12:48:26Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -30,15 +30,16 @@ last_rehydrated_at: null
 - `npm run build` passed after escalated local execution because sandbox blocked Turbopack port binding.
 - Supabase linked dry-run returned `Remote database is up to date`; no database migration was applied.
 - Screenshots captured under `screenshots/TASK-20260710-006-auth-account-self-service/`.
+- Implementation commit created: `0173a182`.
 
 ## Blocking decisions
 
-- None for commit/push. Owner explicitly requested push to `main`.
+- None. Owner explicitly requested push to `main`; scoped commits are ready to push.
 - Production Supabase dashboard Auth setting changes, email templates, CAPTCHA/MFA enablement, or new audit migrations remain future approval points.
 
 ## Next action
 
-Validate final diff, stage only current task files, commit, push `main`, then update this task memory with commit hash and final status.
+Push scoped commits to `main`, then report final validation, database status, screenshot paths, and commit hashes to owner.
 
 ## Previous context before latest owner request
 
