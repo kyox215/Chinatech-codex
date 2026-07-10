@@ -1,3 +1,5 @@
+export const REGISTRATION_COMPLETE_PATH = "/register/complete";
+
 export function buildAuthCallbackUrl(nextPath: string, origin?: string) {
   const url = new URL("/auth/callback", resolveAuthRedirectOrigin(origin));
   url.searchParams.set("next", safeAuthNextPath(nextPath));

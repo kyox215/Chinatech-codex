@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-10
 Owner: Hexiang Huang / 鹤祥
-Status: P1-P3 implemented on 2026-07-10; P4-P5 remain recommendations
+Status: P1-P3 implemented on 2026-07-10; email-link registration completion added on 2026-07-10; P4-P5 remain recommendations
 Scope: Registration, password recovery, password change, email binding/change, account settings, and auth hardening for RepairDesk
 
 ## Executive Summary
@@ -34,6 +34,20 @@ Still recommended after this implementation:
 
 - P4 abuse protection and audit hygiene, including optional app-side throttling wrappers, CAPTCHA policy, and redacted security audit events.
 - P5 role-aware upgrades, especially optional MFA for owners/managers/platform admins and session management.
+
+## Registration Completion Update — 2026-07-10
+
+Completed in `TASK-20260710-007-email-link-registration-completion`:
+
+- Registration no longer treats an immediate Supabase signup session as completed registration.
+- Signup and resend confirmation emails now use `/auth/callback?next=/register/complete`.
+- `/register/complete` is the verified landing page after the email link callback succeeds.
+- Local Supabase config enables email confirmations under `[auth.email]`.
+
+Production configuration requirement:
+
+- Supabase Auth must have email confirmation enabled and must allow the deployed app callback URL.
+- Dashboard Auth settings, SMTP, email templates, and redirect allowlists are configuration work, not database migrations.
 
 ## Verified Current Facts
 
@@ -72,8 +86,10 @@ User enters name, email, password, and password confirmation on `/login`.
 
 Expected result:
 
-- If email confirmation is required, show "check your email" and offer resend confirmation.
-- If a session is created immediately, route to `/onboarding`.
+- Always show "check your email" and offer resend confirmation after registration submit.
+- If Supabase returns an immediate signup session, sign out and keep the user in the email-link completion flow. That state indicates production Auth config should be checked for email-confirmation parity.
+- The verification email redirects to `/auth/callback?next=/register/complete`.
+- After callback exchange succeeds, `/register/complete` confirms registration completion and continues to onboarding.
 - Onboarding still gates store creation, store join, invitation acceptance, and invite-code redemption behind verified email.
 - New users see three safe paths: create private store, accept pending invitation, or request to join by owner email/invite code.
 

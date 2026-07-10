@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { KeyRound, Loader2, LogIn, Mail, MapPin, Store, UserPlus } from "lucide-react";
+import {
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  LogIn,
+  Mail,
+  MapPin,
+  Store,
+  UserPlus,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,7 +36,10 @@ import {
   validateNewPassword,
   verificationEmailSentMessage,
 } from "@/features/auth/model/auth-errors";
-import { buildAuthCallbackUrl } from "@/features/auth/model/auth-redirect";
+import {
+  REGISTRATION_COMPLETE_PATH,
+  buildAuthCallbackUrl,
+} from "@/features/auth/model/auth-redirect";
 import { resolvePostLoginPath } from "@/features/auth/model/post-login-redirect";
 
 export function LoginScreen() {
@@ -108,26 +120,26 @@ export function LoginScreen() {
         data: {
           display_name: displayName.trim(),
         },
-        emailRedirectTo: buildAuthCallbackUrl("/onboarding"),
+        emailRedirectTo: buildAuthCallbackUrl(REGISTRATION_COMPLETE_PATH),
       },
     });
-    setIsSubmitting(false);
 
     if (error) {
+      setIsSubmitting(false);
       toast.error(authErrorMessage(error));
       return;
     }
 
     setEmail(normalizedEmail);
-    if (!data.session) {
-      toast.success("注册已提交，请先完成邮箱确认后再登录");
-      setVerificationEmail(normalizedEmail);
-      setMode("login");
-      return;
+    setPassword("");
+    setRegistrationPasswordConfirmation("");
+    setVerificationEmail(normalizedEmail);
+    setMode("login");
+    if (data.session) {
+      await supabase.auth.signOut();
     }
-
-    router.replace("/onboarding");
-    router.refresh();
+    setIsSubmitting(false);
+    toast.success("验证邮件已发送，请通过邮箱链接完成注册。");
   }
 
   async function handlePasswordResetRequest(event: React.FormEvent<HTMLFormElement>) {
@@ -162,7 +174,7 @@ export function LoginScreen() {
       type: "signup",
       email: normalizedEmail,
       options: {
-        emailRedirectTo: buildAuthCallbackUrl("/onboarding"),
+        emailRedirectTo: buildAuthCallbackUrl(REGISTRATION_COMPLETE_PATH),
       },
     });
     setIsResendingVerification(false);
@@ -363,7 +375,7 @@ export function LoginScreen() {
                   </div>
                   <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
                   <SubmitButton isSubmitting={isSubmitting} icon="register">
-                    注册并继续申请
+                    发送验证邮件
                   </SubmitButton>
                 </form>
               </TabsContent>
@@ -372,9 +384,13 @@ export function LoginScreen() {
 
           {verificationEmail ? (
             <div className="mt-4 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs leading-5 text-muted-foreground">
-              <p>
-                已向 {verificationEmail} 发送验证邮件。验证完成后登录，系统会继续进入店铺开通流程。
-              </p>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-status-success-foreground" />
+                <p>
+                  已向 {verificationEmail}{" "}
+                  发送注册验证邮件。请打开邮件中的链接完成注册，系统会继续进入店铺开通流程。
+                </p>
+              </div>
               <Button
                 type="button"
                 variant="link"
@@ -382,7 +398,7 @@ export function LoginScreen() {
                 disabled={isResendingVerification}
                 onClick={handleResendVerification}
               >
-                {isResendingVerification ? "正在重发…" : "重新发送验证邮件"}
+                {isResendingVerification ? "正在重发..." : "重新发送完成注册链接"}
               </Button>
             </div>
           ) : null}

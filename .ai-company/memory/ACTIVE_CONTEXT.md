@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260710-006-auth-account-self-service-implementation"
-status: "closed"
-phase: "done"
+current_task_id: "TASK-20260710-007-email-link-registration-completion"
+status: "in_review"
+phase: "validating"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-10T12:48:26Z"
+last_checkpoint_at: "2026-07-10T13:00:53Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,35 +15,36 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**用户注册、找回密码、账号安全中心与邮箱绑定实施**
+**邮箱验证链接完成注册流程**
 
 ## Current state
 
-已完成注册密码确认、注册后邮箱验证提示/重发、找回密码 callback URL helper、账号中心邮箱验证/邮箱变更/改密码入口、设置页账号安全入口，以及 onboarding `emailVerified` 映射。
+已把注册完成标准改为邮箱验证链接回调完成：注册提交后不直接进入 onboarding，验证链接进入 `/register/complete`，再继续店铺开通。
 
 验证已完成：
 
-- Targeted auth/platform tests passed: 32 tests.
 - `npm run lint` passed.
 - `npm run typecheck` passed.
-- `npm run test` passed: 678 tests.
+- `npm run test` passed: 679 tests.
 - `npm run build` passed after escalated local execution because sandbox blocked Turbopack port binding.
+- `npm run agents:check` passed.
 - Supabase linked dry-run returned `Remote database is up to date`; no database migration was applied.
-- Screenshots captured under `screenshots/TASK-20260710-006-auth-account-self-service/`.
-- Implementation commit created: `0173a182`.
+- Screenshots captured under `screenshots/TASK-20260710-007-email-link-registration-completion/`.
 
 ## Blocking decisions
 
-- None. Owner explicitly requested push to `main`; scoped commits are ready to push.
-- Production Supabase dashboard Auth setting changes, email templates, CAPTCHA/MFA enablement, or new audit migrations remain future approval points.
+- Production Supabase dashboard Auth setting changes, email templates, and redirect allowlist remain configuration approval/执行事项；代码任务可继续。
+- 如果 linked Supabase dry-run 显示无关待迁移，停止并请求 owner 决定。
 
 ## Next action
 
-Push scoped commits to `main`, then report final validation, database status, screenshot paths, and commit hashes to owner.
+Review final diff, stage only current task files, commit, push `main`, then close the task memory.
 
 ## Previous context before latest owner request
 
 Previous active task was `TASK-20260710-110532-task` for order import/export and customer statistics planning. It remains a separate planned task and should be resumed from `.ai-company/memory/tasks/TASK-20260710-110532-task/` if the owner returns to that work.
+
+The previous auth self-service task was `TASK-20260710-006-auth-account-self-service-implementation` and was closed/pushed before this follow-up.
 
 ## Resume protocol
 
