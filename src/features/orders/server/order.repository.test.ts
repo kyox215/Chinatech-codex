@@ -1,11 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   isOrderAttachmentStorageScoped,
+  listOrdersPage,
   projectOrderDetailForActor,
   projectOrderListItemForActor,
+  recordPayment,
 } from "@/features/orders/server/order.repository";
 import type { AuditActor, OrderDetail, OrderListItem } from "@/lib/repairdesk/types";
+
+const mocks = vi.hoisted(() => ({
+  supabase: {
+    from: vi.fn(),
+    rpc: vi.fn(),
+  },
+}));
+
+vi.mock("@/server/supabase", () => ({
+  getSupabaseAdmin: () => mocks.supabase,
+}));
 
 const scopedOrderAttachment = {
   store_id: "store_1",
@@ -63,9 +76,17 @@ describe("order repository role projection", () => {
 
     expect(projected.customer_phone).toBe("+39 333 000 0000");
     expect(projected.quotation_amount).toBe(120);
-    expect(projected.device_unlock_value).toBe("1234");
+    expect(projected.device_unlock_method).toBe("pin");
+    expect(projected.device_unlock_value).toBeUndefined();
     expect(projected.supplier_id).toBe("supplier_1");
     expect(projected.finance_redacted).toBeUndefined();
+  });
+
+  it("returns unlock values only inside an authorized detail projection", () => {
+    const projected = projectOrderDetailForActor(detail(), actor("owner"));
+
+    expect(projected.order.device_unlock_method).toBe("pin");
+    expect(projected.order.device_unlock_value).toBe("1234");
   });
 
   it("redacts finance, contact, supplier, and unlock fields for technician list rows", () => {
@@ -99,6 +120,143 @@ describe("order repository role projection", () => {
       signed_url: undefined,
       storage_path: "",
     });
+  });
+});
+
+describe("order repository database pagination", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("reads stable chunks before applying the existing business page order", async () => {
+    const queries: ReturnType<typeof createSupabaseQuery>[] = [];
+    mocks.supabase.from.mockImplementation(() => {
+      const query = createSupabaseQuery({
+        data: Array.from({ length: 101 }, (_, index) =>
+          orderRow({
+            id: `order_${index}`,
+            updated_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+          }),
+        ),
+        error: null,
+        count: 101,
+      });
+      queries.push(query);
+      return query;
+    });
+
+    const result = await listOrdersPage({ page: 2, pageSize: 50 }, actor("owner"));
+
+    expect(result.items).toHaveLength(50);
+    expect(result.items[0]?.id).toBe("order_50");
+    expect(result.total).toBe(101);
+    expect(queries[0]?.order).toHaveBeenNthCalledWith(1, "updated_at", { ascending: false });
+    expect(queries[0]?.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
+    expect(queries[0]?.range).toHaveBeenCalledWith(0, 999);
+  });
+});
+
+describe("order repository atomic payment adapter", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("sends the store, actor, expected version, and idempotency key to the payment RPC", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        ok: true,
+        code: "recorded",
+        payment_id: "00000000-0000-4000-8000-000000000501",
+        balance: 75,
+        is_paid: false,
+        updated_at: "2026-07-10T15:00:00.000Z",
+      },
+      error: null,
+    });
+    const owner = actor("owner");
+
+    const result = await recordPayment(
+      "order_1",
+      25,
+      "现金",
+      owner,
+      "2026-07-10T14:00:00.000Z",
+      "00000000-0000-4000-8000-000000000502",
+    );
+
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("repairdesk_record_order_payment", {
+      p_store_id: "store_1",
+      p_order_id: "order_1",
+      p_actor_id: "staff_owner",
+      p_amount: 25,
+      p_method: "现金",
+      p_expected_updated_at: "2026-07-10T14:00:00.000Z",
+      p_idempotency_key: "00000000-0000-4000-8000-000000000502",
+    });
+    expect(result).toMatchObject({ ok: true, code: "recorded", balance: 75, is_paid: false });
+  });
+
+  it("maps stable database failure codes without falling back to the old multi-write path", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: false, code: "stale_version" },
+      error: null,
+    });
+
+    await expect(
+      recordPayment(
+        "order_1",
+        25,
+        "现金",
+        actor("owner"),
+        "2026-07-10T14:00:00.000Z",
+        "00000000-0000-4000-8000-000000000503",
+      ),
+    ).rejects.toThrow("工单已被更新");
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
+  it.each([0.29, 0.57])("accepts a valid cent amount of %s", async (amount) => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        ok: true,
+        code: "recorded",
+        payment_id: "00000000-0000-4000-8000-000000000504",
+        balance: 75,
+        is_paid: false,
+        updated_at: "2026-07-10T15:00:00.000Z",
+      },
+      error: null,
+    });
+
+    await recordPayment(
+      "order_1",
+      amount,
+      "现金",
+      actor("owner"),
+      "2026-07-10T14:00:00.000Z",
+      "00000000-0000-4000-8000-000000000505",
+    );
+
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_record_order_payment",
+      expect.objectContaining({ p_amount: amount }),
+    );
+  });
+
+  it("rejects sub-cent payment amounts before the RPC", async () => {
+    await expect(
+      recordPayment(
+        "order_1",
+        25.555,
+        "现金",
+        actor("owner"),
+        "2026-07-10T14:00:00.000Z",
+        "00000000-0000-4000-8000-000000000506",
+      ),
+    ).rejects.toThrow("最多保留两位小数");
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -222,4 +380,54 @@ function detail(): OrderDetail {
       },
     ],
   };
+}
+
+function orderRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "order_1",
+    public_no: "R2026001",
+    order_type: "quick_repair",
+    status: "new",
+    customer_id: "customer_1",
+    device_id: "device_1",
+    issue_description: "Screen cracked",
+    quotation_amount: 120,
+    deposit_amount: 20,
+    balance_amount: 100,
+    is_paid: false,
+    approval_status: "pending",
+    technician_name: "Marco",
+    customer_phone: "+39 333 000 0000",
+    contact_phones: [],
+    fault_prices: [],
+    created_at: "2026-07-09T10:00:00.000Z",
+    updated_at: "2026-07-09T10:00:00.000Z",
+    customer: {
+      id: "customer_1",
+      name: "Cliente",
+      phone_e164: "+39 333 000 0000",
+      phone_raw: "393330000000",
+      contact_phones: [],
+    },
+    device: {
+      id: "device_1",
+      customer_id: "customer_1",
+      brand: "Apple",
+      model: "iPhone 13",
+      serial_or_imei: "490154203237518",
+    },
+    ...overrides,
+  };
+}
+
+function createSupabaseQuery(result: { data: unknown; error: unknown; count: number }) {
+  const query = {
+    ...result,
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    order: vi.fn(() => query),
+    range: vi.fn(() => query),
+  };
+  return query;
 }

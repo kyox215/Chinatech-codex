@@ -1,9 +1,24 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import {
+  assertSupabaseAdminMutationTarget,
+  parseCliArgs,
+  stringArg,
+} from "./lib/supabase-admin-safety";
 
-const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 const DEFAULT_BATCH = "AI_TEST_BATCH_20260613";
 const CURRENCY_CODE = "EUR";
+const RESET_TABLES = [
+  "customer_followups",
+  "customer_interactions",
+  "customer_tag_assignments",
+  "message_logs",
+  "order_events",
+  "repair_orders",
+  "devices",
+  "customers",
+] as const;
 
 type RepairOrderStatus =
   | "new"
@@ -216,38 +231,33 @@ function filterRowsForTable(
   );
 }
 
-async function countRows(
+async function backupStoreRows(
   supabase: ReturnType<typeof createClient>,
-  table: string,
   storeId: string,
+  backupDir: string,
 ) {
-  const { count, error } = await supabase
-    .from(table)
-    .select("*", { count: "exact", head: true })
-    .eq("store_id", storeId);
-  if (error) {
-    console.warn(`Skipped optional count for ${table}: ${JSON.stringify(error)}`);
-    return 0;
+  mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+  const backup: Record<string, unknown[]> = {};
+  for (const table of [...RESET_TABLES, "customer_tags"]) {
+    const rows: unknown[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("store_id", storeId)
+        .range(from, from + 999);
+      if (error) throw new Error(`Backup ${table} failed: ${error.message}`);
+      rows.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+    backup[table] = rows;
   }
-  return count ?? 0;
-}
-
-async function printStoreDistribution(supabase: ReturnType<typeof createClient>, table: string) {
-  const { data, error } = await supabase.from(table).select("store_id").range(0, 9999);
-  if (error) throw new Error(`Read ${table} store distribution failed: ${error.message}`);
-  const counts = new Map<string, number>();
-  for (const row of data ?? []) {
-    const key = String((row as { store_id?: string }).store_id ?? "null");
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  if (counts.size === 0) {
-    console.log(`${table} store distribution: no rows`);
-    return;
-  }
-  console.log(`${table} store distribution:`);
-  for (const [key, count] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
-    console.log(`  ${key}: ${count}`);
-  }
+  const filePath = path.join(
+    backupDir,
+    `repairdesk-demo-reset-${storeId}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+  );
+  writeFileSync(filePath, JSON.stringify(backup, null, 2), { mode: 0o600 });
+  return filePath;
 }
 
 function makeDemoData(storeId: string, batch: string) {
@@ -669,15 +679,40 @@ function makeDemoData(storeId: string, batch: string) {
 loadEnvFile(".env.local");
 loadEnvFile(".env");
 
-const confirm = process.argv.includes("--confirm");
-const storeId = process.env.REPAIRDESK_TEST_STORE_ID ?? DEFAULT_STORE_ID;
-const batch = process.env.REPAIRDESK_TEST_BATCH ?? DEFAULT_BATCH;
-const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+const args = parseCliArgs(process.argv.slice(2));
+const apply = args.get("apply") === true;
+const projectRef = stringArg(args, "project-ref");
+const requestedStoreId = stringArg(args, "store-id");
+const confirmation = stringArg(args, "confirm");
+const backupDir = stringArg(args, "backup-dir");
+const batch = stringArg(args, "batch") ?? process.env.REPAIRDESK_TEST_BATCH ?? DEFAULT_BATCH;
+
+if (!apply) {
+  console.log(
+    `Dry-run only. Target store must be explicit; requested=${requestedStoreId ?? "none"}.`,
+  );
+  console.log("Demo reset apply is restricted to an explicit local Supabase target.");
+  process.exit(0);
+}
+
+const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.");
 }
+
+const target = assertSupabaseAdminMutationTarget({
+  apply,
+  supabaseUrl,
+  projectRef,
+  storeId: requestedStoreId,
+  confirmation,
+  localOnly: true,
+  backupDir,
+  requireBackupDir: true,
+});
+const storeId = target.storeId;
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -690,36 +725,10 @@ console.log(
   "Scope: customers, devices, repair orders, order events, message logs, customer CRM records.",
 );
 
-if (!confirm) {
-  const tables = [
-    "repair_orders",
-    "customers",
-    "devices",
-    "order_events",
-    "message_logs",
-    "customer_tag_assignments",
-    "customer_interactions",
-    "customer_followups",
-  ];
-  for (const table of tables) {
-    console.log(`${table}: ${await countRows(supabase, table, storeId)} existing rows`);
-  }
-  await printStoreDistribution(supabase, "repair_orders");
-  await printStoreDistribution(supabase, "customers");
-  console.log("Dry run only. Re-run with --confirm to delete and seed demo data.");
-  process.exit(0);
-}
+const backupPath = await backupStoreRows(supabase, storeId, target.backupDir!);
+console.log(`Backup written to ${backupPath}`);
 
-for (const table of [
-  "customer_followups",
-  "customer_interactions",
-  "customer_tag_assignments",
-  "message_logs",
-  "order_events",
-  "repair_orders",
-  "devices",
-  "customers",
-]) {
+for (const table of RESET_TABLES) {
   await deleteStoreRows(supabase, table, storeId, {
     optional: table.startsWith("customer_"),
   });

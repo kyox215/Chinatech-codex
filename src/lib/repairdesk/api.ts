@@ -724,12 +724,15 @@ export async function recordPayment(
   amount: number,
   method?: string,
   expectedUpdatedAt?: string,
+  idempotencyKey?: string,
 ): Promise<PaymentResult> {
+  if (!idempotencyKey) throw new Error("缺少收款操作标识");
   return postJson<PaymentResult>("order/payment", {
     id,
     amount,
     method,
     expected_updated_at: expectedUpdatedAt,
+    idempotency_key: idempotencyKey,
   });
 }
 

@@ -4,6 +4,7 @@ import type { AuditActor } from "@/lib/repairdesk/types";
 
 import {
   createCustomerFollowup,
+  fetchCustomerRows,
   listCustomers,
   sendCustomerMessage,
   upsertCustomerDevice,
@@ -127,6 +128,21 @@ describe("customer repository tenant write boundaries", () => {
     expect(followupsQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
     expect(followupsQuery.in).toHaveBeenCalledWith("customer_id", ["customer_1"]);
   });
+
+  it("reads customer fallback rows beyond the first 1000 with stable ranges", async () => {
+    const firstPage = Array.from({ length: 1000 }, (_, index) => ({ id: `customer_${index}` }));
+    const firstQuery = createSupabaseQuery({ data: firstPage, error: null });
+    const secondQuery = createSupabaseQuery({ data: [{ id: "customer_1000" }], error: null });
+    mocks.supabase.from.mockReturnValueOnce(firstQuery).mockReturnValueOnce(secondQuery);
+
+    const rows = await fetchCustomerRows("store_1");
+
+    expect(rows).toHaveLength(1001);
+    expect(firstQuery.range).toHaveBeenCalledWith(0, 999);
+    expect(secondQuery.range).toHaveBeenCalledWith(1000, 1999);
+    expect(firstQuery.order).toHaveBeenNthCalledWith(1, "updated_at", { ascending: false });
+    expect(firstQuery.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
+  });
 });
 
 function createSupabaseQuery(result: { data: unknown; error: unknown }) {
@@ -136,6 +152,7 @@ function createSupabaseQuery(result: { data: unknown; error: unknown }) {
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     order: vi.fn(() => query),
+    range: vi.fn(() => result),
     limit: vi.fn(() => result),
     maybeSingle: vi.fn(() => result),
     insert: vi.fn(() => result),

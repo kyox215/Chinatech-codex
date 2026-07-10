@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { assertRepairDeskPostRequestAllowed } from "@/server/api/repairdesk-request-guard";
+import {
+  assertRepairDeskPostRequestAllowed,
+  resolveRepairDeskRequestOrigin,
+} from "@/server/api/repairdesk-request-guard";
 import { handleRepairDeskGet, handleRepairDeskPost } from "@/server/api/repairdesk-router";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +26,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     assertRepairDeskPostRequestAllowed({
       headers: request.headers,
-      requestOrigin: request.nextUrl.origin,
+      requestOrigin: resolveRepairDeskRequestOrigin({
+        headers: request.headers,
+        fallbackOrigin: request.nextUrl.origin,
+      }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "请求来源无效，请刷新页面后重试";

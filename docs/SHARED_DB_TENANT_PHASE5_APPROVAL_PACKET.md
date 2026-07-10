@@ -1,14 +1,25 @@
 # Shared DB Tenant Isolation Phase 5 Read-Only Live Verification Owner Approval Packet
 
-Last updated: 2026-07-07
+Last updated: 2026-07-10
 Owner: Hexiang Huang / 鹤祥
-Status: used for approved CLI preflight; full live SQL query pack is blocked on migration-history mismatch and needs a current approval/remediation decision before continuing
+Status: targeted TASK-009 read-only verification completed; production database application is NO-GO pending legacy-table containment and recovery proof
 Related runbook: `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`
 Related query pack: `docs/SHARED_DB_TENANT_PHASE5_QUERY_PACK.md`
 
 ## Decision Required
 
 Approve or decline Phase 5 read-only live verification for the shared-database tenant isolation rollout.
+
+TASK-009 has now produced enough targeted live evidence to stop normal production apply:
+
+- 17 public legacy tables have RLS disabled and direct `anon/authenticated` privileges; active tables may have unknown old-client consumers.
+- The complete historical local migration chain is not reproducible from zero.
+- No current full backup/PITR artifact plus isolated restore drill is recorded in this packet.
+- The additive payment migration itself passed target-schema clone and pgTAP review, but that slice-level PASS does not override the environment-level NO-GO.
+
+The next Owner decision is therefore not a generic "apply database" confirmation. It is either: remediate the Gate findings first, or explicitly approve a payment-only risk-reduction exception with exact migration hash, DB-first rollout order, backup/recovery risk acceptance, legacy-table containment owner/deadline, post-apply verification, and observation ownership.
+
+2026-07-10 update: the Owner explicitly requested `main` push and database application. TASK-009 treated that as approval for the exact payment-only exception, applied only `20260710145642_order_payment_ledger_atomic_rpc.sql`, and verified that `anon/authenticated` have no direct ledger/RPC access. All broader database work remains under the NO-GO conditions above.
 
 This approval is only for verification. It does not approve production migration, schema changes, data mutation, PostgREST schema-cache reload, Vercel deploy/promote, git push, customer communication, or Phase 6 rollout.
 

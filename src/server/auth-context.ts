@@ -259,15 +259,9 @@ async function getRequestIpHash() {
   }
 }
 
-function isVerifiedEmailClaim(claims: Record<string, unknown>) {
+export function isVerifiedEmailClaim(claims: Record<string, unknown>) {
   if (claims.email_verified === true) return true;
   if (typeof claims.email_confirmed_at === "string" && claims.email_confirmed_at) return true;
-
-  const userMetadata =
-    claims.user_metadata && typeof claims.user_metadata === "object"
-      ? (claims.user_metadata as Record<string, unknown>)
-      : undefined;
-  if (userMetadata?.email_verified === true) return true;
 
   const appMetadata =
     claims.app_metadata && typeof claims.app_metadata === "object"
@@ -284,9 +278,16 @@ async function resolveVerifiedEmailFromAuthUser(
   if (error) return false;
   const user = data.user;
   if (!user) return false;
+  return isVerifiedEmailAuthUser(user);
+}
+
+export function isVerifiedEmailAuthUser(user: {
+  email_confirmed_at?: string | null;
+  confirmed_at?: string | null;
+  app_metadata?: Record<string, unknown> | null;
+  user_metadata?: Record<string, unknown> | null;
+}) {
   if (user.email_confirmed_at) return true;
-  if (user.confirmed_at) return true;
-  if (user.user_metadata?.email_verified === true) return true;
   return user.app_metadata?.email_verified === true;
 }
 

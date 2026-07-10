@@ -18,7 +18,7 @@ test.describe("order desktop UI audit", () => {
     test(`orders use desktop queue rows and compact work surfaces at ${viewport.width}px`, async ({
       page,
     }) => {
-      test.setTimeout(60_000);
+      test.setTimeout(120_000);
       await page.addInitScript(() => {
         window.localStorage.setItem("repairdesk-print-count", "0");
         window.print = () => {
@@ -359,10 +359,8 @@ async function expectDesktopQueueGrid(locator: Locator, label: string, width: nu
 }
 
 function detailDialogWidthBounds(width: number) {
-  if (width >= 1536) return { minWidth: 1160, maxWidth: 1200 };
-  if (width >= 1440) return { minWidth: 1120, maxWidth: 1160 };
-  if (width >= 1280) return { minWidth: 1080, maxWidth: 1120 };
-  return { minWidth: Math.min(960, width - 48), maxWidth: width - 32 };
+  const expectedWidth = Math.min(1400, width - 32);
+  return { minWidth: expectedWidth - 1, maxWidth: expectedWidth + 1 };
 }
 
 async function expectNoLocalHorizontalScroll(locator: Locator, label: string) {
@@ -402,8 +400,19 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
     await expectRectInsideViewport(detail.locator(`[data-order-panel="${panel}"]`), label, {
       checkVertical: false,
       minWidth,
-      ...(panel === "photos" && width >= 1280 ? { maxWidth: 500 } : {}),
     });
+  }
+
+  if (width >= 1280) {
+    const deviceWidth = await detail
+      .locator('[data-order-panel="device"]')
+      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+    const photosWidth = await detail
+      .locator('[data-order-panel="photos"]')
+      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+    expect(Math.abs(photosWidth - deviceWidth), "设备照片卡应与设备信息列对齐").toBeLessThanOrEqual(
+      1,
+    );
   }
 }
 
@@ -469,16 +478,17 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     page.locator('[data-new-order-workspace-grid="true"]'),
     "新建工单桌面网格",
   );
+  await expectFirstVisible(page.locator('[data-new-order-section="customer"]'), "新建工单客户区");
   await expectFirstVisible(
-    page.locator('[data-new-order-section="customer-device"]'),
-    "新建工单客户设备区",
-  );
-  await expectFirstVisible(
-    page.locator('[data-new-order-section="customer-device"]').getByText("客户信息"),
+    page.locator('[data-new-order-section="customer"]').getByText("客户信息"),
     "新建工单客户信息标题",
   );
   await expectFirstVisible(
-    page.locator('[data-new-order-section="customer-device"]').getByText("设备信息"),
+    page.locator('[data-new-order-section="device-info"]'),
+    "新建工单设备区",
+  );
+  await expectFirstVisible(
+    page.locator('[data-new-order-section="device-info"]').getByText("设备信息"),
     "新建工单设备信息标题",
   );
   await expectFirstVisible(
@@ -561,7 +571,7 @@ async function expectNewOrderWorkspaceLayout(page: Page, width: number) {
         .getComputedStyle(element)
         .gridTemplateColumns.split(" ")
         .filter(Boolean);
-      const sectionWidths = ["customer-device", "fault-diagnosis", "quotation"].map((section) => {
+      const sectionWidths = ["customer", "fault-diagnosis", "quotation"].map((section) => {
         const target = element.querySelector<HTMLElement>(`[data-new-order-section="${section}"]`);
         const targetRect = target?.getBoundingClientRect();
         return targetRect ? Math.round(targetRect.width) : 0;

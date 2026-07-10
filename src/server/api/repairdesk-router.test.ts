@@ -11,7 +11,9 @@ import { allowsPendingStore } from "./repairdesk-router";
 import {
   assertOrderDetailReadPermission,
   assertOrderListPermission,
+  assertCustomerDetailReadPermission,
   assertCustomerCreatePermission,
+  assertCustomerListPermission,
   assertCustomerMessagePermission,
   assertCustomerTagPermission,
   assertCustomerUpdatePermission,
@@ -216,6 +218,22 @@ describe("repairdesk router order write permissions", () => {
     expect(() => assertOrderFinancePermission(actor("viewer"), financeInput)).toThrow(
       ForbiddenError,
     );
+  });
+});
+
+describe("repairdesk router customer read permissions", () => {
+  it("allows customer reads only for roles with an unscoped grant", () => {
+    for (const allowedRole of ["owner", "manager", "sales"] as const) {
+      expect(() => assertCustomerListPermission(actor(allowedRole))).not.toThrow();
+      expect(() => assertCustomerDetailReadPermission(actor(allowedRole))).not.toThrow();
+    }
+
+    for (const restrictedRole of ["technician", "viewer"] as const) {
+      expect(() => assertCustomerListPermission(actor(restrictedRole))).toThrow(ForbiddenError);
+      expect(() => assertCustomerDetailReadPermission(actor(restrictedRole))).toThrow(
+        ForbiddenError,
+      );
+    }
   });
 });
 

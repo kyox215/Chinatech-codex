@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -779,8 +781,10 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         return ok({ recentOrders, stats, partialErrors });
       }
       case "customers/list":
+        assertCustomerListPermission(actor);
         return ok(await api.listCustomers(customerListFiltersSchema.parse(body), actor));
       case "customers/list-page":
+        assertCustomerListPermission(actor);
         return ok(await api.listCustomersPage(customerListPageInputSchema.parse(body), actor));
       case "inventory/list":
         return ok(await api.listInventoryItems(inventoryListFiltersSchema.parse(body), actor));
@@ -812,6 +816,7 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customer/get": {
         const { id } = idBodySchema.parse(body);
+        assertCustomerDetailReadPermission(actor);
         return ok(await api.getCustomerDetail(id, actor));
       }
       case "customer/create": {
@@ -1076,16 +1081,22 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
         );
       }
       case "order/payment": {
-        const { id, amount, method, expected_updated_at } = paymentBodySchema.parse(body);
+        const { id, amount, method, expected_updated_at, idempotency_key } =
+          paymentBodySchema.parse(body);
         assertOrderPaymentPermission(actor);
+        const paymentIdempotencyKey = idempotency_key ?? randomUUID();
         return ok(
-          await auditGeneric(
+          await runWithRealtime(
             actor,
-            "payment",
-            "repair_order",
-            id,
-            { amount, method },
-            () => api.recordPayment(id, amount, method, actor, expected_updated_at),
+            () =>
+              api.recordPayment(
+                id,
+                amount,
+                method,
+                actor,
+                expected_updated_at,
+                paymentIdempotencyKey,
+              ),
             realtimeBroadcasts.orderUpdated,
           ),
         );
@@ -1154,14 +1165,17 @@ export async function handleRepairDeskPost(path: string, body: unknown) {
       }
       case "customers/search": {
         const { q, limit } = customerSearchBodySchema.parse(body);
+        assertCustomerListPermission(actor);
         return ok(await api.searchCustomers(q, limit, actor));
       }
       case "customers/intake-search": {
         const { q, limit, deviceLimit } = customerIntakeSearchBodySchema.parse(body);
+        assertCustomerDetailReadPermission(actor);
         return ok(await api.searchCustomerIntakeCandidates(q, limit, deviceLimit, actor));
       }
       case "customers/devices": {
         const { customerId } = customerIdBodySchema.parse(body);
+        assertCustomerDetailReadPermission(actor);
         return ok(await api.getCustomerDevices(customerId, actor));
       }
       case "inventory/intake/create": {
@@ -1503,6 +1517,14 @@ export function assertOrderAttachmentUploadPermission(actor: AuditActor) {
 
 export function assertOrderCustomerMessagePermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "customer:message");
+}
+
+export function assertCustomerListPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "customer:list");
+}
+
+export function assertCustomerDetailReadPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "customer:detail");
 }
 
 export function assertCustomerCreatePermission(actor: AuditActor) {

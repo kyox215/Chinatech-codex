@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  approvalStatusSchema,
+  batchTransitionBodySchema,
   createOrderSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
@@ -14,6 +16,7 @@ import {
   storeMemberDecisionBodySchema,
   storeMemberRoleUpdateBodySchema,
   supplierCreateBodySchema,
+  transitionOrderBodySchema,
   updateOrderInputSchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
@@ -24,13 +27,31 @@ describe("repairdesk API schemas", () => {
       paymentBodySchema.parse({
         id: "R1",
         expected_updated_at: "2026-06-11T00:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000101",
         amount: "25.5",
       }),
     ).toMatchObject({
       id: "R1",
       expected_updated_at: "2026-06-11T00:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000101",
       amount: 25.5,
     });
+  });
+
+  it("requires a valid payment idempotency key and cent precision", () => {
+    const payment = {
+      id: "R1",
+      expected_updated_at: "2026-06-11T00:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000101",
+      amount: 25.5,
+    };
+    expect(paymentBodySchema.parse(payment)).toMatchObject(payment);
+    const { idempotency_key: _legacyKey, ...legacyPayment } = payment;
+    expect(paymentBodySchema.parse(legacyPayment).idempotency_key).toBeUndefined();
+    expect(paymentBodySchema.parse({ ...payment, amount: 0.29 }).amount).toBe(0.29);
+    expect(paymentBodySchema.parse({ ...payment, amount: 0.57 }).amount).toBe(0.57);
+    expect(() => paymentBodySchema.parse({ ...payment, idempotency_key: "retry-1" })).toThrow();
+    expect(() => paymentBodySchema.parse({ ...payment, amount: 25.555 })).toThrow();
   });
 
   it("applies customer search defaults", () => {
@@ -130,14 +151,49 @@ describe("repairdesk API schemas", () => {
     expect(() => storeMemberDecisionBodySchema.parse({ id: "membership_staff" })).toThrow();
   });
 
-  it("rejects incomplete order creation payloads", () => {
+  it("validates order types from the canonical runtime enum", () => {
+    const validOrder = {
+      status: "new",
+      issue_description: "屏幕碎裂",
+      fault_prices: [],
+    };
+
+    expect(createOrderSchema.parse({ ...validOrder, order_type: "quick_repair" }).order_type).toBe(
+      "quick_repair",
+    );
+    expect(
+      createOrderSchema.parse({ ...validOrder, order_type: "dropoff_repair" }).order_type,
+    ).toBe("dropoff_repair");
     expect(() =>
       createOrderSchema.parse({
+        ...validOrder,
         order_type: "normal",
-        status: "new",
-        fault_prices: [],
       }),
     ).toThrow();
+  });
+
+  it("accepts store workflow codes but rejects malformed status values", () => {
+    const validOrder = {
+      order_type: "quick_repair",
+      issue_description: "屏幕碎裂",
+      fault_prices: [],
+    };
+    expect(createOrderSchema.parse({ ...validOrder, status: "waiting_supplier" }).status).toBe(
+      "waiting_supplier",
+    );
+
+    for (const status of ["A_STATUS", "1status", "bad status", "x", `a${"x".repeat(48)}`]) {
+      expect(() => createOrderSchema.parse({ ...validOrder, status })).toThrow();
+      expect(() => transitionOrderBodySchema.parse({ id: "R1", to: status })).toThrow();
+      expect(() => batchTransitionBodySchema.parse({ ids: ["R1"], to: status })).toThrow();
+    }
+  });
+
+  it("validates approval status from the canonical runtime enum", () => {
+    for (const status of ["pending", "approved", "rejected"] as const) {
+      expect(approvalStatusSchema.parse(status)).toBe(status);
+    }
+    expect(() => approvalStatusSchema.parse("accepted")).toThrow();
   });
 
   it("accepts and validates device unlock metadata", () => {

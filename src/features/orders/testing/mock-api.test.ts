@@ -919,16 +919,43 @@ describe("mock order inline editing workflow", () => {
       ),
     ).rejects.toThrow("工单已被更新");
 
-    await expect(recordPayment(id, 10, "现金", "Cashier")).rejects.toThrow("缺少工单版本时间");
     await expect(
-      recordPayment(id, 10, "现金", "Cashier", "2000-01-01T00:00:00.000Z"),
+      recordPayment(id, 10, "现金", "Cashier", undefined, "00000000-0000-4000-8000-000000000201"),
+    ).rejects.toThrow("缺少工单版本时间");
+    await expect(
+      recordPayment(
+        id,
+        10,
+        "现金",
+        "Cashier",
+        "2000-01-01T00:00:00.000Z",
+        "00000000-0000-4000-8000-000000000202",
+      ),
     ).rejects.toThrow("工单已被更新");
 
-    const result = await recordPayment(id, 10, "现金", "Cashier", before.order.updated_at);
+    const result = await recordPayment(
+      id,
+      10,
+      "现金",
+      "Cashier",
+      before.order.updated_at,
+      "00000000-0000-4000-8000-000000000203",
+    );
     const after = await getOrder(id);
     expect(result.updated_at).toBe(after.order.updated_at);
     expect(after.order.balance_amount).toBe(before.order.balance_amount - 10);
     expect(after.order.payment_status).toBe("partial");
+
+    const replay = await recordPayment(
+      id,
+      10,
+      "现金",
+      "Cashier",
+      before.order.updated_at,
+      "00000000-0000-4000-8000-000000000203",
+    );
+    expect(replay.code).toBe("idempotent_replay");
+    expect((await getOrder(id)).order.balance_amount).toBe(after.order.balance_amount);
   });
 
   it("updates finance only through the finance patch flow", async () => {

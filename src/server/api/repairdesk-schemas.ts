@@ -4,7 +4,14 @@ import {
   DEVICE_UNLOCK_PATTERN_MAX_STEPS,
   DEVICE_UNLOCK_PATTERN_MIN_STEPS,
 } from "@/features/orders/model/device-unlock";
-import type { ApprovalStatus, RepairOrderStatus, RepairOrderType } from "@/lib/mock/enums";
+import {
+  approvalStatus,
+  repairOrderType,
+  type ApprovalStatus,
+  type RepairOrderStatus,
+  type RepairOrderType,
+} from "@/lib/mock/enums";
+import { normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AccountProfileUpdateInput,
   CreateOrderInput,
@@ -72,9 +79,8 @@ const patchDeviceImeiText = z
   .max(64, "IMEI / 序列号不能超过 64 个字符")
   .regex(deviceImeiPattern, "IMEI / 序列号只能包含字母、数字、点、下划线、冒号或连字符")
   .optional();
-const repairOrderStatusSchema = z.string().min(1) as z.ZodType<RepairOrderStatus>;
-const repairOrderTypeSchema = z.string().min(1) as z.ZodType<RepairOrderType>;
-const approvalStatusSchema = z.string().min(1) as z.ZodType<ApprovalStatus>;
+const repairOrderTypeSchema = z.enum(repairOrderType) satisfies z.ZodType<RepairOrderType>;
+const approvalStatusSchema = z.enum(approvalStatus) satisfies z.ZodType<ApprovalStatus>;
 const canonicalWorkflowStatusSchema = z.enum([
   "intake",
   "diagnosis",
@@ -111,6 +117,8 @@ const orderWorkflowStatusCodeSchema = z
   .min(2, "状态代码至少 2 个字符")
   .max(48, "状态代码不能超过 48 个字符")
   .regex(/^[a-z][a-z0-9_]*$/, "状态代码只能使用小写字母、数字和下划线，并以字母开头");
+const repairOrderStatusSchema =
+  orderWorkflowStatusCodeSchema satisfies z.ZodType<RepairOrderStatus>;
 const orderWorkflowToneSchema = z.enum([
   "neutral",
   "info",
@@ -530,8 +538,15 @@ export const batchTransitionBodySchema = z.object({
 export const paymentBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   expected_updated_at: z.string().min(1, "缺少版本时间"),
-  amount: z.coerce.number(),
-  method: optionalText,
+  idempotency_key: z.string().uuid("收款操作标识无效").optional(),
+  amount: z.coerce
+    .number()
+    .positive("收款金额必须大于 0")
+    .refine((value) => normalizePositiveCentAmount(value) !== undefined, {
+      message: "收款金额最多保留两位小数",
+    })
+    .transform((value) => normalizePositiveCentAmount(value)!),
+  method: z.string().trim().min(1).max(64).optional(),
 });
 
 export const notificationBodySchema = z.object({

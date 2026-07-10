@@ -103,3 +103,14 @@ Storybook is for reusable states of business components:
 ```bash
 npm run storybook
 ```
+
+## Security And Reliability Hardening — 2026-07-10
+
+- The public API surface remains the single Next.js BFF route. Customer list/detail/search/device reads now enforce the centralized server permission matrix before repository access.
+- `technician` and `viewer` customer reads remain fail closed until a stable object-scope resolver exists. A display name is not an authorization key.
+- Supabase email verification trusts canonical `email_confirmed_at` or server-controlled claims only; user-editable metadata is never authorization evidence.
+- Order, inventory and legacy customer compatibility reads use deterministic batches beyond PostgREST's 1000-row response cap. This is a correctness bridge, not the final high-performance SQL pagination design.
+- Payment recording is designed as an additive immutable ledger plus a service-role-only, security-invoker RPC. It locks the store-scoped idempotency key and order, then writes balance, ledger, event and audit in one transaction.
+- Rollout order for code that requires a new RPC is database expand first, catalog/grant/PostgREST visibility verification second, and application deployment last. A caller must never deploy before its required RPC.
+- Existing page layout and UI are unchanged by TASK-009. UI work from TASK-010 is an independent change set and must not be staged with this release.
+- Production database application still follows the Database Application Gate. A migration that passes targeted schema-clone tests is not automatically safe to apply when linked security or recovery gates fail.

@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260710-007-email-link-registration-completion"
-status: "closed"
-phase: "done"
-task_class: "T2"
-risk_level: "R2"
+current_task_id: "TASK-20260710-009-security-reliability-hardening-release"
+status: "in_progress"
+phase: "release"
+task_class: "T3"
+risk_level: "R4"
 autonomy_level: "L2"
-owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-10T13:04:07Z"
+owner: "鹤祥"
+last_checkpoint_at: "2026-07-10T18:48:01Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,42 +15,25 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**邮箱验证链接完成注册流程**
+**RepairDesk 高优先级安全与可靠性加固发布**
 
 ## Current state
 
-已把注册完成标准改为邮箱验证链接回调完成：注册提交后不直接进入 onboarding，验证链接进入 `/register/complete`，再继续店铺开通。
-
-验证已完成：
-
-- `npm run lint` passed.
-- `npm run typecheck` passed.
-- `npm run test` passed: 679 tests.
-- `npm run build` passed after escalated local execution because sandbox blocked Turbopack port binding.
-- `npm run agents:check` passed.
-- Supabase linked dry-run returned `Remote database is up to date`; no database migration was applied.
-- Screenshots captured under `screenshots/TASK-20260710-007-email-link-registration-completion/`.
-- Implementation commit created: `5de1195a`.
+用户已要求“推送main 以及应用数据库”。本次按 payment-only 有界例外执行：linked dry-run 只包含 `20260710145642_order_payment_ledger_atomic_rpc.sql`，该迁移已应用并通过 post-apply catalog/权限复验；final dry-run 显示 remote database up to date。代码门禁中 typecheck、test、build、desktop E2E 已通过；scoped ESLint 0 errors；`npm run lint` 在本环境挂起未完成。当前已完成 scoped staging 与 cached diff 复验，下一步是 commit/push。
 
 ## Blocking decisions
 
-- Production Supabase dashboard Auth setting changes, email templates, and redirect allowlist remain configuration approval/执行事项；代码任务可继续。
-- 如果 linked Supabase dry-run 显示无关待迁移，停止并请求 owner 决定。
+- Normal Database Application Gate remains NO-GO for broad database work because 17 linked legacy tables are directly exposed, the historical migration chain cannot reset from zero, and current backup/PITR restore proof is missing.
+- Owner approved this payment-only risk-reduction exception by asking to push main and apply the database; this does not approve legacy-table RLS containment, migration repair, destructive cleanup, unlock credential purge or other database work.
+- Unlock credential key-management/retention remains undecided; one plaintext pattern exists and must not be printed or purged automatically.
 
 ## Next action
 
-Push scoped commits to `main`, then report final validation, database status, screenshot paths, and commit hashes to owner.
-
-## Previous context before latest owner request
-
-Previous active task was `TASK-20260710-110532-task` for order import/export and customer statistics planning. It remains a separate planned task and should be resumed from `.ai-company/memory/tasks/TASK-20260710-110532-task/` if the owner returns to that work.
-
-The previous auth self-service task was `TASK-20260710-006-auth-account-self-service-implementation` and was closed/pushed before this follow-up.
+commit staged TASK-009 diff 并 push `main`。TASK-010/TASK-011 UI 改动、截图和重复文件继续排除。
 
 ## Resume protocol
 
-1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md` if present.
-2. Read `.ai-company/memory/tasks/TASK-20260710-006-auth-account-self-service-implementation/TASK.md` and latest checkpoint.
+1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
+2. Read `.ai-company/memory/tasks/TASK-20260710-009-security-reliability-hardening-release/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
-4. Keep unrelated dirty files unstaged.
-5. Reclassify if scope, target environment, or risk changed.
+4. Reclassify if scope, target environment, or risk changed.

@@ -56,6 +56,7 @@ const INVENTORY_SELECT = `
   customer:customers!inventory_items_customer_id_fkey(*),
   buyer:customers!inventory_items_buyer_customer_id_fkey(*)
 `;
+const INVENTORY_LIST_PAGE_SIZE = 1000;
 
 const systemActor: AuditActor = {
   displayName: "系统",
@@ -67,23 +68,7 @@ export async function listInventoryItems(
   actor?: AuditActor,
 ): Promise<InventoryListItem[]> {
   const storeId = requireStoreIdFromActor(actor);
-  const supabase = getSupabaseAdmin();
-  let query = supabase
-    .from("inventory_items")
-    .select(INVENTORY_SELECT)
-    .eq("store_id", storeId)
-    .order("updated_at", {
-      ascending: false,
-    });
-
-  if (filters.statuses?.length) query = query.in("status", filters.statuses);
-  if (filters.sourceTypes?.length) query = query.in("source_type", filters.sourceTypes);
-  if (filters.categories?.length) query = query.in("category", filters.categories);
-
-  const { data, error } = await query.limit(1000);
-  fail(error, "读取回收库存失败");
-
-  const rows = (data ?? []) as DbRecord[];
+  const rows = await fetchInventoryRows(storeId, filters);
   const transactionsByItem = await fetchInventoryTransactionSummaries(
     storeId,
     rows.map((row) => requiredString(row.id)),
@@ -95,6 +80,36 @@ export async function listInventoryItems(
     ),
     filters,
   );
+}
+
+export async function fetchInventoryRows(
+  storeId: string,
+  filters: InventoryListFilters = {},
+): Promise<DbRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const rows: DbRecord[] = [];
+  let from = 0;
+
+  while (true) {
+    let query = supabase.from("inventory_items").select(INVENTORY_SELECT).eq("store_id", storeId);
+
+    if (filters.statuses?.length) query = query.in("status", filters.statuses);
+    if (filters.sourceTypes?.length) query = query.in("source_type", filters.sourceTypes);
+    if (filters.categories?.length) query = query.in("category", filters.categories);
+
+    const { data, error } = await query
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + INVENTORY_LIST_PAGE_SIZE - 1);
+    fail(error, "读取回收库存失败");
+
+    const batch = (data ?? []) as DbRecord[];
+    rows.push(...batch);
+    if (batch.length < INVENTORY_LIST_PAGE_SIZE) break;
+    from += INVENTORY_LIST_PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 export async function listInventoryItemsPage(
@@ -989,18 +1004,36 @@ function decorateInventoryRow(
   };
 }
 
-async function fetchInventoryTransactionSummaries(storeId: string, itemIds: string[]) {
+export async function fetchInventoryTransactionSummaries(storeId: string, itemIds: string[]) {
   const byItem = new Map<string, Pick<InventoryTransaction, "transaction_type" | "amount">[]>();
   if (itemIds.length === 0) return byItem;
 
-  const { data, error } = await getSupabaseAdmin()
-    .from("inventory_transactions")
-    .select("item_id, transaction_type, amount")
-    .eq("store_id", storeId)
-    .in("item_id", itemIds);
-  fail(error, "读取库存成本流水失败");
+  const supabase = getSupabaseAdmin();
+  const rows: DbRecord[] = [];
+  const itemIdChunkSize = 100;
 
-  for (const row of (data ?? []) as DbRecord[]) {
+  for (let chunkStart = 0; chunkStart < itemIds.length; chunkStart += itemIdChunkSize) {
+    const chunk = itemIds.slice(chunkStart, chunkStart + itemIdChunkSize);
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from("inventory_transactions")
+        .select("item_id, transaction_type, amount")
+        .eq("store_id", storeId)
+        .in("item_id", chunk)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + INVENTORY_LIST_PAGE_SIZE - 1);
+      fail(error, "读取库存成本流水失败");
+
+      const batch = (data ?? []) as DbRecord[];
+      rows.push(...batch);
+      if (batch.length < INVENTORY_LIST_PAGE_SIZE) break;
+      from += INVENTORY_LIST_PAGE_SIZE;
+    }
+  }
+
+  for (const row of rows) {
     const itemId = requiredString(row.item_id);
     const transactions = byItem.get(itemId) ?? [];
     transactions.push({

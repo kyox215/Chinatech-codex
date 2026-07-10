@@ -1,8 +1,8 @@
 # Shared DB Tenant Isolation Phase 5 Query Pack
 
-Last updated: 2026-07-07
+Last updated: 2026-07-10
 Owner: Hexiang Huang / 鹤祥
-Status: prepared; full live SQL query pack not executed; CLI preflight is blocked on migration-history mismatch
+Status: prepared; targeted live read-only checks executed and returned NO-GO; full pack and production apply remain blocked
 Source runbook: `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`
 Approval packet: `docs/SHARED_DB_TENANT_PHASE5_APPROVAL_PACKET.md`
 
@@ -10,7 +10,11 @@ Approval packet: `docs/SHARED_DB_TENANT_PHASE5_APPROVAL_PACKET.md`
 
 This file is the execution index for Phase 5 read-only verification. The SQL source of truth remains the runbook; this pack defines execution order, expected evidence, and stop conditions so the verification can be repeated without relying on chat history.
 
-No live or linked Supabase command may run until the Owner approves the approval packet. The previously approved CLI preflight stopped at Step 1 because remote migration history does not match local files; do not continue to Step 2 or later until that mismatch is reconciled or explicitly remediated.
+The Owner's TASK-009 instruction authorized bounded linked verification for the named release. Migration-list columns now align, but targeted advisor/catalog checks found 17 public legacy tables with RLS disabled and direct `anon/authenticated` access. The historical migration chain also fails a complete local reset. Treat those results as hard stop conditions: do not continue to broad production apply until remediated or covered by an explicit, narrowly documented Owner exception.
+
+2026-07-10 update: the Owner explicitly approved push/apply for the release. The only executed exception was payment-only: `20260710145642_order_payment_ledger_atomic_rpc.sql` after linked dry-run listed exactly that file and post-apply checks confirmed remote migration history, object existence and least-privilege grants.
+
+Targeted TASK-009 evidence records only counts, booleans and object names. It does not expose customer rows. It confirms the payment table/RPC are currently absent remotely, one plaintext unlock pattern remains, and the payment migration is the only new reviewed pending file.
 
 ## Pack Metadata
 

@@ -8,6 +8,11 @@ import {
   orders,
   suppliers,
 } from "../src/lib/mock/fixtures";
+import {
+  assertSupabaseAdminMutationTarget,
+  parseCliArgs,
+  stringArg,
+} from "./lib/supabase-admin-safety";
 
 function loadEnvFile(path: string) {
   if (!existsSync(path)) return;
@@ -27,6 +32,10 @@ function stripUndefined<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function rowsForStore<T extends object>(rows: T[], storeId: string) {
+  return rows.map((row) => ({ ...row, store_id: storeId }));
+}
+
 async function upsertRows(table: string, rows: unknown[]) {
   if (rows.length === 0) return;
   const { error } = await supabase.from(table).upsert(stripUndefined(rows), { onConflict: "id" });
@@ -37,29 +46,57 @@ async function upsertRows(table: string, rows: unknown[]) {
 loadEnvFile(".env.local");
 loadEnvFile(".env");
 
-const supabaseUrl =
-  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+const args = parseCliArgs(process.argv.slice(2));
+const apply = args.get("apply") === true;
+const projectRef = stringArg(args, "project-ref");
+const storeId = stringArg(args, "store-id");
+const confirmation = stringArg(args, "confirm");
+
+if (!apply) {
+  console.log(
+    `Dry-run only. Planned fixture rows: suppliers=${suppliers.length}, customers=${customers.length}, devices=${devices.length}, orders=${orders.length}.`,
+  );
+  console.log("Seed apply is restricted to an explicit local Supabase target.");
+  process.exit(0);
+}
+
+const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running db:seed.");
+  throw new Error("Set server-only SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before db:seed.");
 }
+
+const target = assertSupabaseAdminMutationTarget({
+  apply,
+  supabaseUrl,
+  projectRef,
+  storeId,
+  confirmation,
+  localOnly: true,
+});
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-await upsertRows("suppliers", suppliers);
-await upsertRows("customers", customers);
-await upsertRows("devices", devices);
-await upsertRows("repair_orders", orders);
+await upsertRows("suppliers", rowsForStore(suppliers, target.storeId));
+await upsertRows("customers", rowsForStore(customers, target.storeId));
+await upsertRows("devices", rowsForStore(devices, target.storeId));
+await upsertRows("repair_orders", rowsForStore(orders, target.storeId));
 await upsertRows(
   "order_events",
-  orders.flatMap((order) => getEvents(order.id)),
+  rowsForStore(
+    orders.flatMap((order) => getEvents(order.id)),
+    target.storeId,
+  ),
 );
 await upsertRows(
   "message_logs",
-  orders.flatMap((order) => getMessages(order.id)),
+  rowsForStore(
+    orders.flatMap((order) => getMessages(order.id)),
+    target.storeId,
+  ),
 );
 
 console.log("RepairDesk Supabase seed complete.");

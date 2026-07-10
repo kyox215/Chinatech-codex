@@ -1,4 +1,4 @@
-import { CURRENCY_CODE } from "@/lib/money";
+import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
   CreateOrderInput,
@@ -24,6 +24,7 @@ import type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  PaymentResult,
   RepairOrder,
   UpdateOrderInput,
   WhatsappNotificationResult,
@@ -78,6 +79,7 @@ function operatorName(operator: MockOperator = "前台") {
 
 const mockStoreId = "mock-store";
 let extraAttachments: OrderAttachment[] = [];
+const paymentOperations = new Map<string, { fingerprint: string; result: PaymentResult }>();
 let workflowStatuses: OrderWorkflowStatus[] = repairOrderStatus.map((code, index) => ({
   id: `mock-status-${code}`,
   store_id: mockStoreId,
@@ -843,19 +845,38 @@ export async function recordPayment(
   method = "现金",
   operator: MockOperator = "前台",
   expectedUpdatedAt?: string,
+  idempotencyKey?: string,
 ) {
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
+  const normalizedAmount = normalizePositiveCentAmount(amount);
+  if (normalizedAmount === undefined) {
+    throw new Error("收款金额必须大于 0，且最多保留两位小数");
+  }
+  if (!idempotencyKey) throw new Error("缺少收款操作标识");
+  const fingerprint = JSON.stringify({
+    id,
+    amount: normalizedAmount,
+    method,
+    operator: typeof operator === "string" ? operator : operator.id,
+    expectedUpdatedAt,
+  });
+  const existingOperation = paymentOperations.get(idempotencyKey);
+  if (existingOperation) {
+    if (existingOperation.fingerprint !== fingerprint) {
+      throw new Error("该收款操作标识已用于不同请求，请刷新后重试");
+    }
+    return { ...existingOperation.result, code: "idempotent_replay" as const };
+  }
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   if (!expectedUpdatedAt) throw new Error("缺少工单版本时间");
   if (o.updated_at !== expectedUpdatedAt) throw new Error("工单已被更新，请刷新后再试");
   if (o.balance_amount <= 0 || o.is_paid) throw new Error("该工单已结清");
-  if (amount > o.balance_amount) throw new Error("收款金额不能超过未结清尾款");
-  o.balance_amount = Math.max(0, o.balance_amount - amount);
+  if (normalizedAmount > o.balance_amount) throw new Error("收款金额不能超过未结清尾款");
+  o.balance_amount = Math.max(0, o.balance_amount - normalizedAmount);
   if (o.balance_amount === 0) o.is_paid = true;
   o.payment_status = paymentStatusFromMoney({
     isPaid: o.is_paid,
-    depositAmount: amount,
+    depositAmount: normalizedAmount,
     balanceAmount: o.balance_amount,
   });
   const now = new Date().toISOString();
@@ -864,11 +885,25 @@ export async function recordPayment(
     id: `event_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     order_id: id,
     event_type: "payment",
-    payload: { amount, method, balance: o.balance_amount, currency_code: CURRENCY_CODE },
+    payload: {
+      amount: normalizedAmount,
+      method,
+      balance: o.balance_amount,
+      currency_code: CURRENCY_CODE,
+    },
     operator_name: operatorName(operator),
     created_at: now,
   });
-  return { ok: true, balance: o.balance_amount, is_paid: o.is_paid, updated_at: now };
+  const result: PaymentResult = {
+    ok: true,
+    code: "recorded",
+    payment_id: idempotencyKey,
+    balance: o.balance_amount,
+    is_paid: o.is_paid,
+    updated_at: now,
+  };
+  paymentOperations.set(idempotencyKey, { fingerprint, result });
+  return result;
 }
 
 const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {

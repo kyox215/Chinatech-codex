@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { ForbiddenError } from "@/server/auth-context";
 
-import { assertRepairDeskPostRequestAllowed } from "./repairdesk-request-guard";
+import {
+  assertRepairDeskPostRequestAllowed,
+  resolveRepairDeskRequestOrigin,
+} from "./repairdesk-request-guard";
 
 describe("repairdesk request guard", () => {
   const requestOrigin = "https://chinatech.in";
@@ -55,6 +58,27 @@ describe("repairdesk request guard", () => {
           "sec-fetch-site": "same-origin",
         }),
         requestOrigin,
+      }),
+    ).toThrow(ForbiddenError);
+  });
+
+  it("derives the browser-visible origin from Host when Next supplies an internal fallback", () => {
+    expect(
+      resolveRepairDeskRequestOrigin({
+        headers: new Headers({
+          host: "127.0.0.1:3111",
+          "x-forwarded-proto": "http",
+        }),
+        fallbackOrigin: "http://n",
+      }),
+    ).toBe("http://127.0.0.1:3111");
+  });
+
+  it("rejects malformed Host values instead of reflecting them into the trusted origin", () => {
+    expect(() =>
+      resolveRepairDeskRequestOrigin({
+        headers: new Headers({ host: "trusted.example@evil.example" }),
+        fallbackOrigin: requestOrigin,
       }),
     ).toThrow(ForbiddenError);
   });

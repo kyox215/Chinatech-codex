@@ -535,6 +535,8 @@ export async function fetchOrderRows(storeId: string): Promise<DbRecord[]> {
       .from("repair_orders")
       .select(select)
       .eq("store_id", storeId)
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + ORDER_LIST_PAGE_SIZE - 1);
     if (error && !retriedLegacySelect && isMissingRepairOrderColumnError(error)) {
       rows.length = 0;

@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-10
 Owner: Hexiang Huang / 鹤祥
-Status: migration-history alignment rechecked as resolved; full live SQL query pack still requires normal Database Application Gate approval
+Status: CLI history columns align, but recovery reproducibility and live security findings keep the Database Application Gate at NO-GO
 Related evidence: `.ai-company/memory/tasks/TASK-20260707-001-shared-db-tenant-onboarding/PHASE5_LIVE_PREFLIGHT_20260707T135039Z.md`
 Related runbook: `docs/SHARED_DB_TENANT_PHASE5_VERIFICATION_RUNBOOK.md`
 Related query pack: `docs/SHARED_DB_TENANT_PHASE5_QUERY_PACK.md`
@@ -28,6 +28,16 @@ Impact:
 - The historical remote-only/local-only mismatch is no longer the active Phase 5R blocker.
 - The historical investigation below remains useful audit background, but it should not be treated as current migration-list state after the 2026-07-10 recheck.
 - Full live SQL verification and any production apply still require the normal Database Application Gate, current dry-run evidence, backup/restore proof, DATA/SEC/QA/RELEASE review, and owner approval for the exact command set.
+
+## 2026-07-10 TASK-009 Follow-up
+
+- A new payment migration is the only local pending version after `20260709235000`; linked dry-run lists only that reviewed additive file.
+- A targeted database reconstructed from the current linked public schema applies the payment migration and passes its 19 pgTAP assertions.
+- This does not repair historical bootstrap reproducibility. A complete local migration-chain reset fails before the new migration at `20260611102805_repairdesk_remote_schema_compatibility.sql` because the historical chain does not create the assumed `inventory_items.product_channel` column.
+- The first remote baseline local file is a history-alignment placeholder, not exact recovered SQL. Therefore aligned version columns must not be described as a proven disaster-recovery chain.
+- Live read-only advisors/catalog checks also found 17 old public tables with RLS disabled and direct browser-role grants. This independently keeps production apply at NO-GO.
+
+Current interpretation: Phase 5R's old list-mismatch symptom is resolved, but broad database application is not cleared. On 2026-07-10 the Owner explicitly requested `main` push and database application, so TASK-009 executed a bounded payment-only exception for exactly `20260710145642_order_payment_ledger_atomic_rpc.sql` after dry-run showed no other pending migrations. This exception does not change the normal Gate status for any other database work.
 
 ## Current Blocker
 

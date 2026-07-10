@@ -941,8 +941,8 @@ export function OrderDetailScreen({
         open={payOpen}
         onOpenChange={setPayOpen}
         balance={order.balance_amount}
-        onPay={async (amount, method) => {
-          await recordPayment(id, amount, method, order.updated_at);
+        onPay={async (amount, method, idempotencyKey) => {
+          await recordPayment(id, amount, method, order.updated_at, idempotencyKey);
           toast.success(`已收款 ${formatMoney(amount)}`);
           invalidate();
         }}

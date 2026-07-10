@@ -7,7 +7,7 @@ import {
   isPickupOverdue,
 } from "@/lib/mock/workflow";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
-import { CURRENCY_CODE } from "@/lib/money";
+import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
   CreateOrderInput,
@@ -33,6 +33,7 @@ import type {
   OrderWorkflowTransition,
   OrderWorkflowTransitionsUpdateInput,
   OrderWhatsappTemplateKind,
+  PaymentResult,
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
@@ -68,7 +69,6 @@ import {
 } from "@/features/orders/model/order-public-no";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
-  ORDER_LIST_SELECT,
   ORDER_SELECT,
   REPAIR_ORDER_CUSTOMER_EMBED,
   REPAIR_ORDER_DEVICE_EMBED,
@@ -175,7 +175,9 @@ function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
     if (workflowSort !== 0) return workflowSort;
     const statusSort = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
     if (statusSort !== 0) return statusSort;
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    const updatedSort = new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    if (updatedSort !== 0) return updatedSort;
+    return a.id.localeCompare(b.id);
   });
 }
 
@@ -252,6 +254,7 @@ function canReadOrderAttachments(actor?: AuditActor) {
 export function projectOrderListItemForActor<T extends OrderListItem>(
   order: T,
   actor?: AuditActor,
+  options: { includeUnlockSecret?: boolean } = {},
 ): T {
   let projected = applySupplierVisibility(order, can(actor, "supplier:read"));
 
@@ -284,6 +287,12 @@ export function projectOrderListItemForActor<T extends OrderListItem>(
       device_unlock_value: undefined,
       device_unlock_pattern: undefined,
       sensitive_redacted: true,
+    };
+  } else if (!options.includeUnlockSecret) {
+    projected = {
+      ...projected,
+      device_unlock_value: undefined,
+      device_unlock_pattern: undefined,
     };
   }
 
@@ -331,7 +340,7 @@ export function projectOrderDetailForActor(detail: OrderDetail, actor?: AuditAct
   const canReadAttachments = canReadOrderAttachments(actor);
   return {
     ...detail,
-    order: projectOrderListItemForActor(detail.order, actor),
+    order: projectOrderListItemForActor(detail.order, actor, { includeUnlockSecret: true }),
     customer: projectCustomerForActor(detail.customer, actor),
     supplier: can(actor, "supplier:read") ? detail.supplier : undefined,
     parts_supplier: can(actor, "supplier:read") ? detail.parts_supplier : undefined,
@@ -346,51 +355,6 @@ export function projectOrderDetailForActor(detail: OrderDetail, actor?: AuditAct
           storage_path: "",
         })),
   };
-}
-
-async function readWorkflowCountsFromSupabase(storeId: string, filters: OrderListFilters) {
-  const supabase = getSupabaseAdmin();
-
-  const readCount = async (workflowStatus?: OrderWorkflowStatusCode) => {
-    let query = supabase
-      .from("repair_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId);
-
-    if (filters.statuses?.length) query = query.in("status", filters.statuses);
-    if (workflowStatus) query = query.eq("workflow_status", workflowStatus);
-    if (filters.exceptionStatuses?.length) {
-      query = query.in("exception_status", filters.exceptionStatuses);
-    }
-    if (filters.paymentStatuses?.length) {
-      query = query.in("payment_status", filters.paymentStatuses);
-    }
-    if (filters.partsStatuses?.length) query = query.in("parts_status", filters.partsStatuses);
-    if (filters.approvalFlowStatuses?.length) {
-      query = query.in("approval_flow_status", filters.approvalFlowStatuses);
-    }
-    if (filters.types?.length) query = query.in("order_type", filters.types);
-    if (filters.technicians?.length) query = query.in("technician_name", filters.technicians);
-    if (filters.supplierIds?.length) query = query.in("supplier_id", filters.supplierIds);
-    if (filters.paid && filters.paid !== "all") {
-      query = query.eq("is_paid", filters.paid === "paid");
-    }
-
-    const { error, count } = await query;
-    fail(error, "读取流程阶段数量失败");
-    return count ?? 0;
-  };
-
-  const [all, ...stageCounts] = await Promise.all([
-    readCount(),
-    ...orderWorkflowStatuses.map((status) => readCount(status)),
-  ]);
-  const counts = createWorkflowCounts();
-  counts.all = all;
-  orderWorkflowStatuses.forEach((status, index) => {
-    counts[status] = stageCounts[index] ?? 0;
-  });
-  return counts;
 }
 
 function workflowStatusFromRow(row: DbRecord): OrderWorkflowStatus {
@@ -803,92 +767,20 @@ export async function listOrdersPage(
   };
   const safeFilters = filtersForSupplierAccess(filters, canReadSuppliers);
 
-  if (safeFilters.search?.trim() || safeFilters.overdue) {
-    const rows = (await fetchOrderRows(storeId)).map(decorate);
-    const all = filterOrders(rows, safeFilters).map((order) =>
-      projectOrderListItemForActor(order, actor),
-    );
-    const workflowCounts = countWorkflowRows(
-      filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
-    );
-    const start = (page - 1) * pageSize;
-    return {
-      items: all.slice(start, start + pageSize),
-      total: all.length,
-      page,
-      pageSize,
-      pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
-      workflowCounts,
-    };
-  }
-
-  const supabase = getSupabaseAdmin();
-  let query = supabase
-    .from("repair_orders")
-    .select(ORDER_LIST_SELECT, { count: "exact" })
-    .eq("store_id", storeId);
-
-  if (safeFilters.statuses?.length) query = query.in("status", safeFilters.statuses);
-  if (safeFilters.workflowStatuses?.length) {
-    query = query.in("workflow_status", safeFilters.workflowStatuses);
-  }
-  if (safeFilters.exceptionStatuses?.length) {
-    query = query.in("exception_status", safeFilters.exceptionStatuses);
-  }
-  if (safeFilters.paymentStatuses?.length) {
-    query = query.in("payment_status", safeFilters.paymentStatuses);
-  }
-  if (safeFilters.partsStatuses?.length) {
-    query = query.in("parts_status", safeFilters.partsStatuses);
-  }
-  if (safeFilters.approvalFlowStatuses?.length) {
-    query = query.in("approval_flow_status", safeFilters.approvalFlowStatuses);
-  }
-  if (safeFilters.types?.length) query = query.in("order_type", safeFilters.types);
-  if (safeFilters.technicians?.length) {
-    query = query.in("technician_name", safeFilters.technicians);
-  }
-  if (safeFilters.supplierIds?.length) query = query.in("supplier_id", safeFilters.supplierIds);
-  if (safeFilters.paid && safeFilters.paid !== "all") {
-    query = query.eq("is_paid", safeFilters.paid === "paid");
-  }
-
-  const { data, error, count } = await query;
-  if (error && isMissingRepairOrderColumnError(error)) {
-    const rows = (await fetchOrderRows(storeId)).map(decorate);
-    const all = filterOrders(rows, safeFilters).map((order) =>
-      projectOrderListItemForActor(order, actor),
-    );
-    const workflowCounts = countWorkflowRows(
-      filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
-    );
-    const start = (page - 1) * pageSize;
-    return {
-      items: all.slice(start, start + pageSize),
-      total: all.length,
-      page,
-      pageSize,
-      pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
-      workflowCounts,
-    };
-  }
-  fail(error, "读取工单失败");
-
-  const all = filterOrders(((data ?? []) as DbRecord[]).map(decorate), {}).map((order) =>
+  const rows = (await fetchOrderRows(storeId)).map(decorate);
+  const all = filterOrders(rows, safeFilters).map((order) =>
     projectOrderListItemForActor(order, actor),
   );
-  const total = count ?? all.length;
-  const start = (page - 1) * pageSize;
-  const workflowCounts = await readWorkflowCountsFromSupabase(
-    storeId,
-    filtersForWorkflowCounts(safeFilters),
+  const workflowCounts = countWorkflowRows(
+    filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
   );
+  const start = (page - 1) * pageSize;
   return {
     items: all.slice(start, start + pageSize),
-    total,
+    total: all.length,
     page,
     pageSize,
-    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
     workflowCounts,
   };
 }
@@ -1555,62 +1447,59 @@ export async function recordPayment(
   method = "现金",
   operator: string | AuditActor = "前台",
   expectedUpdatedAt?: string,
-) {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
-  const operatorName = operatorNameFromActor(operator);
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error("收款金额必须大于 0");
+  idempotencyKey?: string,
+): Promise<PaymentResult> {
+  const actor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor?.id) throw new Error("登记收款需要已登录员工身份");
+  const normalizedAmount = normalizePositiveCentAmount(amount);
+  if (normalizedAmount === undefined) {
+    throw new Error("收款金额必须大于 0，且最多保留两位小数");
+  }
   if (!expectedUpdatedAt) throw new Error("缺少工单版本时间");
+  if (!idempotencyKey) throw new Error("缺少收款操作标识");
 
   const supabase = getSupabaseAdmin();
-  const { data: current, error: readError } = await supabase
-    .from("repair_orders")
-    .select("updated_at,balance_amount,is_paid")
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .single();
-  fail(readError, "读取尾款失败");
-
-  const currentRow = current as DbRecord;
-  if (requiredString(currentRow.updated_at) !== expectedUpdatedAt) {
-    throw new Error("工单已被更新，请刷新后再试");
-  }
-  const balance = money(currentRow.balance_amount);
-  if (balance <= 0 || currentRow.is_paid) throw new Error("该工单已结清");
-  if (amount > balance) throw new Error("收款金额不能超过未结清尾款");
-
-  const nextBalance = Math.max(0, balance - amount);
-  const isPaid = nextBalance === 0;
-  const now = new Date().toISOString();
-  const updatedAt = await updateVersionedOrderRow({
-    supabase,
-    id,
-    storeId,
-    expectedUpdatedAt,
-    context: "登记收款失败",
-    update: {
-      balance_amount: nextBalance,
-      is_paid: isPaid,
-      payment_status: paymentStatusFromMoney({
-        isPaid,
-        depositAmount: amount,
-        balanceAmount: nextBalance,
-      }),
-      updated_at: now,
-    },
+  const { data, error } = await supabase.rpc("repairdesk_record_order_payment", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: actor.id,
+    p_amount: normalizedAmount,
+    p_method: method.trim() || "现金",
+    p_expected_updated_at: expectedUpdatedAt,
+    p_idempotency_key: idempotencyKey,
   });
+  fail(error, "登记收款失败");
 
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "payment",
-    payload: { amount, method, balance: nextBalance, currency_code: CURRENCY_CODE },
-    operator_name: operatorName,
-    created_at: now,
-  });
-  fail(eventError, "写入收款时间线失败");
+  if (!data || typeof data !== "object") throw new Error("登记收款失败：数据库返回无效");
+  const result = data as Record<string, unknown>;
+  if (result.ok !== true) throw new Error(paymentFailureMessage(requiredString(result.code)));
 
-  return { ok: true, balance: nextBalance, is_paid: nextBalance === 0, updated_at: updatedAt };
+  return {
+    ok: true,
+    code: result.code === "idempotent_replay" ? "idempotent_replay" : "recorded",
+    payment_id: requiredString(result.payment_id) || undefined,
+    balance: money(result.balance),
+    is_paid: Boolean(result.is_paid),
+    updated_at: requiredString(result.updated_at) || undefined,
+  };
+}
+
+function paymentFailureMessage(code: string) {
+  const messages: Record<string, string> = {
+    actor_forbidden: "当前员工没有收款权限",
+    invalid_target: "工单目标无效",
+    invalid_idempotency_key: "收款操作标识无效",
+    missing_expected_version: "缺少工单版本时间",
+    invalid_amount: "收款金额必须大于 0，且最多保留两位小数",
+    invalid_method: "支付方式无效",
+    idempotency_conflict: "该收款操作标识已用于不同请求，请刷新后重试",
+    order_not_found: "工单不存在",
+    stale_version: "工单已被更新，请刷新后再试",
+    already_settled: "该工单已结清",
+    overpayment: "收款金额不能超过未结清尾款",
+  };
+  return messages[code] ?? "登记收款失败";
 }
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;

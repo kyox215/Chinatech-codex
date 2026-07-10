@@ -4,8 +4,13 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 import { buildSeaTableRiparazioneImport } from "../src/features/orders/import/seatable-riparazione";
+import {
+  assertSupabaseAdminMutationTarget,
+  mutationConfirmation,
+  parseCliArgs,
+  stringArg,
+} from "./lib/supabase-admin-safety";
 
-const CLEAR_CONFIRMATION = "CLEAR_REPAIRDESK";
 const require = createRequire(import.meta.url);
 const CLEAR_TABLES: { name: string; deleteColumn: string }[] = [
   {
@@ -35,32 +40,6 @@ function loadEnvFile(filePath: string) {
   }
 }
 
-function parseArgs(argv: string[]) {
-  const args = new Map<string, string | boolean>();
-  for (let index = 0; index < argv.length; index++) {
-    const item = argv[index];
-    if (!item.startsWith("--")) continue;
-    const [key, inlineValue] = item.slice(2).split("=");
-    if (inlineValue !== undefined) {
-      args.set(key, inlineValue);
-      continue;
-    }
-    const next = argv[index + 1];
-    if (next && !next.startsWith("--")) {
-      args.set(key, next);
-      index++;
-    } else {
-      args.set(key, true);
-    }
-  }
-  return args;
-}
-
-function getStringArg(args: Map<string, string | boolean>, key: string) {
-  const value = args.get(key);
-  return typeof value === "string" ? value : undefined;
-}
-
 function stripUndefined<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -71,13 +50,18 @@ function ensureNodeWebSocketTransport() {
   Object.assign(globalThis, { WebSocket });
 }
 
-async function fetchAllRows(client: ReturnType<typeof createClient>, table: string) {
+async function fetchAllRows(
+  client: ReturnType<typeof createClient>,
+  table: string,
+  storeId: string,
+) {
   const pageSize = 1000;
   const rows: unknown[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await client
       .from(table)
       .select("*")
+      .eq("store_id", storeId)
       .range(from, from + pageSize - 1);
     if (error) throw new Error(`Backup ${table} failed: ${error.message}`);
     rows.push(...(data ?? []));
@@ -86,23 +70,31 @@ async function fetchAllRows(client: ReturnType<typeof createClient>, table: stri
   return rows;
 }
 
-async function backupRepairDeskDomain(client: ReturnType<typeof createClient>, backupDir: string) {
-  mkdirSync(backupDir, { recursive: true });
+async function backupRepairDeskDomain(
+  client: ReturnType<typeof createClient>,
+  backupDir: string,
+  storeId: string,
+) {
+  mkdirSync(backupDir, { recursive: true, mode: 0o700 });
   const backup: Record<string, unknown[]> = {};
   for (const table of [...CLEAR_TABLES].reverse()) {
-    backup[table.name] = await fetchAllRows(client, table.name);
+    backup[table.name] = await fetchAllRows(client, table.name, storeId);
   }
   const filePath = path.join(
     backupDir,
     `repairdesk-before-seatable-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
   );
-  writeFileSync(filePath, JSON.stringify(backup, null, 2));
+  writeFileSync(filePath, JSON.stringify(backup, null, 2), { mode: 0o600 });
   return filePath;
 }
 
-async function clearRepairDeskDomain(client: ReturnType<typeof createClient>) {
+async function clearRepairDeskDomain(client: ReturnType<typeof createClient>, storeId: string) {
   for (const table of CLEAR_TABLES) {
-    const { error } = await client.from(table.name).delete().not(table.deleteColumn, "is", null);
+    const { error } = await client
+      .from(table.name)
+      .delete()
+      .eq("store_id", storeId)
+      .not(table.deleteColumn, "is", null);
     if (error) throw new Error(`Clear ${table.name} failed: ${error.message}`);
     console.log(`Cleared ${table.name}`);
   }
@@ -131,17 +123,19 @@ async function upsertRows(client: ReturnType<typeof createClient>, table: string
 async function prepareSuppliers(
   client: ReturnType<typeof createClient>,
   result: ReturnType<typeof buildSeaTableRiparazioneImport>,
+  storeId: string,
 ) {
-  const [{ data: storeRows, error: storeError }, { data: existingRows, error: supplierError }] =
+  const [{ data: storeRow, error: storeError }, { data: existingRows, error: supplierError }] =
     await Promise.all([
-      client.from("stores").select("id").limit(1),
-      client.from("suppliers").select("id,name,short_name"),
+      client.from("stores").select("id").eq("id", storeId).maybeSingle(),
+      client.from("suppliers").select("id,name,short_name").eq("store_id", storeId),
     ]);
   if (storeError) throw new Error(`Read stores failed: ${storeError.message}`);
   if (supplierError) throw new Error(`Read suppliers failed: ${supplierError.message}`);
 
-  const storeId = maybeString(storeRows?.[0]?.id);
-  if (!storeId) throw new Error("No store found. Cannot import SeaTable suppliers.");
+  if (!maybeString(storeRow?.id)) {
+    throw new Error("Target store was not found. Cannot import SeaTable suppliers.");
+  }
 
   const existingByName = new Map<string, Record<string, unknown>>();
   for (const supplier of (existingRows ?? []) as Record<string, unknown>[]) {
@@ -245,18 +239,20 @@ function printReport(result: ReturnType<typeof buildSeaTableRiparazioneImport>) 
 loadEnvFile(".env.local");
 loadEnvFile(".env");
 
-const args = parseArgs(process.argv.slice(2));
-const filePath = getStringArg(args, "file");
+const args = parseCliArgs(process.argv.slice(2));
+const filePath = stringArg(args, "file");
 const apply = args.get("apply") === true;
-const confirm = getStringArg(args, "confirm");
-const backupDir = getStringArg(args, "backup-dir") ?? "/tmp";
-const delimiter = getStringArg(args, "delimiter");
-const limitArg = getStringArg(args, "limit");
+const confirm = stringArg(args, "confirm");
+const backupDir = stringArg(args, "backup-dir");
+const projectRef = stringArg(args, "project-ref");
+const requestedStoreId = stringArg(args, "store-id");
+const delimiter = stringArg(args, "delimiter");
+const limitArg = stringArg(args, "limit");
 const limit = limitArg ? Number(limitArg) : undefined;
 
 if (!filePath) {
   throw new Error(
-    "Usage: npm run db:import:seatable -- --file /tmp/riparazione.csv [--apply --confirm CLEAR_REPAIRDESK]",
+    "Usage: npm run db:import:seatable -- --file /tmp/riparazione.csv [--apply --project-ref local --store-id <uuid> --backup-dir <path> --confirm <target phrase>]",
   );
 }
 
@@ -268,20 +264,31 @@ const result = buildSeaTableRiparazioneImport(csv, {
 printReport(result);
 
 if (!apply) {
-  console.log("Dry-run only. Add --apply --confirm CLEAR_REPAIRDESK to write Supabase.");
+  console.log(
+    "Dry-run only. Destructive apply is restricted to an explicit local Supabase target.",
+  );
   process.exit(0);
 }
 
-if (confirm !== CLEAR_CONFIRMATION) {
-  throw new Error(`Refusing to clear database. Pass --confirm ${CLEAR_CONFIRMATION} to apply.`);
-}
-
-const supabaseUrl =
-  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error("Set SUPABASE_URL/NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+  throw new Error("Set server-only SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
 }
+
+const target = assertSupabaseAdminMutationTarget({
+  apply,
+  supabaseUrl,
+  projectRef,
+  storeId: requestedStoreId,
+  confirmation: confirm,
+  localOnly: true,
+  backupDir,
+  requireBackupDir: true,
+});
+console.log(
+  `Expected confirmation phrase: ${mutationConfirmation(target.projectRef, target.storeId)}`,
+);
 
 ensureNodeWebSocketTransport();
 
@@ -290,10 +297,10 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 const tableColumns = await fetchTableColumns(supabaseUrl, serviceRoleKey);
-const backupPath = await backupRepairDeskDomain(supabase, backupDir);
+const backupPath = await backupRepairDeskDomain(supabase, target.backupDir!, target.storeId);
 console.log(`Backup written to ${backupPath}`);
-await clearRepairDeskDomain(supabase);
-const { suppliersToUpsert, storeId } = await prepareSuppliers(supabase, result);
+await clearRepairDeskDomain(supabase, target.storeId);
+const { suppliersToUpsert, storeId } = await prepareSuppliers(supabase, result, target.storeId);
 await upsertRows(
   supabase,
   "suppliers",

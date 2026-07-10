@@ -490,3 +490,11 @@ RepairDesk 建议：
 
 这些可以在维修工单闭环稳定后再单独规划。
 
+## 19. 2026-07-10 管理脚本安全门
+
+- SeaTable import、demo reset 和 seed 默认只做 dry-run。
+- seed/reset/SeaTable apply 不再接受 `NEXT_PUBLIC_SUPABASE_URL` 作为管理目标；浏览器公开配置不能成为 service-role 脚本的信任源。
+- 写入必须显式提供 project ref、store id 和目标专属确认短语；project/store 任一不匹配即停止。
+- seed/reset 只允许 local Supabase；当前 SeaTable apply 同样限制为 local，生产导入需要独立的 staging/import/swap 方案。
+- 备份与删除必须按 store 过滤；备份目录权限为 0700、JSON 文件为 0600。没有显式备份目录时不得进入破坏性路径。
+- 生产全局清表、默认店铺回退和仅布尔 `--confirm` 均不再属于允许路径。

@@ -327,6 +327,14 @@ These do not block the plan, but they block production behavior changes:
 
 This document is a planning artifact only. It does not change UI or runtime behavior, so no new screenshot is required for this planning task. Future UI implementation tasks must provide screenshots before closeout.
 
+## 2026-07-10 Trusted Email Evidence Update
+
+- Server authorization no longer trusts `user_metadata.email_verified`; users can edit that metadata.
+- `confirmed_at` alone is not accepted as proof that the email address was confirmed because another contact method may have supplied it.
+- Accepted evidence is the canonical `email_confirmed_at` field or an explicitly server-controlled verified claim/app metadata value.
+- Negative tests cover forged user metadata and phone/other confirmation without email confirmation; positive tests cover canonical and server-controlled evidence.
+- This is a server trust-boundary correction only. TASK-009 does not change account page layout, copy or visual behavior.
+
 ## Sources
 
 - Supabase JavaScript `updateUser`: https://supabase.com/docs/reference/javascript/auth-updateuser

@@ -330,27 +330,52 @@ export async function getCustomerDevices(
 }
 async function fetchCustomerTags(storeId: string): Promise<CustomerTag[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("customer_tags")
-    .select("*")
-    .eq("store_id", storeId)
-    .order("name", { ascending: true });
-  fail(error, "读取客户标签失败");
-  return ((data ?? []) as DbRecord[])
-    .map(tagFromRow)
-    .filter((tag): tag is CustomerTag => Boolean(tag));
+  const rows: DbRecord[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("customer_tags")
+      .select("*")
+      .eq("store_id", storeId)
+      .order("name", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + CUSTOMER_LIST_PAGE_SIZE - 1);
+    fail(error, "读取客户标签失败");
+
+    const batch = (data ?? []) as DbRecord[];
+    rows.push(...batch);
+    if (batch.length < CUSTOMER_LIST_PAGE_SIZE) break;
+    from += CUSTOMER_LIST_PAGE_SIZE;
+  }
+
+  return rows.map(tagFromRow).filter((tag): tag is CustomerTag => Boolean(tag));
 }
 
 async function fetchCustomerTagAssignments(
   storeId: string,
 ): Promise<{ customer_id: string; tag_id: string }[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("customer_tag_assignments")
-    .select("*")
-    .eq("store_id", storeId);
-  fail(error, "读取客户标签绑定失败");
-  return ((data ?? []) as DbRecord[]).map((row) => ({
+  const rows: DbRecord[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("customer_tag_assignments")
+      .select("*")
+      .eq("store_id", storeId)
+      .order("customer_id", { ascending: true })
+      .order("tag_id", { ascending: true })
+      .range(from, from + CUSTOMER_LIST_PAGE_SIZE - 1);
+    fail(error, "读取客户标签绑定失败");
+
+    const batch = (data ?? []) as DbRecord[];
+    rows.push(...batch);
+    if (batch.length < CUSTOMER_LIST_PAGE_SIZE) break;
+    from += CUSTOMER_LIST_PAGE_SIZE;
+  }
+
+  return rows.map((row) => ({
     customer_id: requiredString(row.customer_id),
     tag_id: requiredString(row.tag_id),
   }));
@@ -467,34 +492,72 @@ function normalizeCustomerPageInput(input: CustomerListPageInput = {}) {
   return { page, pageSize };
 }
 
+const CUSTOMER_LIST_PAGE_SIZE = 1000;
+
+export async function fetchCustomerRows(storeId: string): Promise<DbRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const rows: DbRecord[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("store_id", storeId)
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + CUSTOMER_LIST_PAGE_SIZE - 1);
+    fail(error, "读取客户失败");
+
+    const batch = (data ?? []) as DbRecord[];
+    rows.push(...batch);
+    if (batch.length < CUSTOMER_LIST_PAGE_SIZE) break;
+    from += CUSTOMER_LIST_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+export async function fetchCustomerDeviceRows(storeId: string): Promise<DbRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const rows: DbRecord[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("devices")
+      .select("*")
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + CUSTOMER_LIST_PAGE_SIZE - 1);
+    fail(error, "读取客户设备失败");
+
+    const batch = (data ?? []) as DbRecord[];
+    rows.push(...batch);
+    if (batch.length < CUSTOMER_LIST_PAGE_SIZE) break;
+    from += CUSTOMER_LIST_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 export async function listCustomers(
   filters: CustomerListFilters = {},
   actor?: AuditActor,
 ): Promise<CustomerListResult> {
   const storeId = requireStoreIdFromActor(actor);
-  const supabase = getSupabaseAdmin();
-  const { data: customerRows, error: customerError } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("store_id", storeId)
-    .limit(1000);
-  fail(customerError, "读取客户失败");
+  const customerRows = await fetchCustomerRows(storeId);
 
   const customers = ((customerRows ?? []) as DbRecord[])
     .map(customerFromRow)
     .filter((customer): customer is Customer => Boolean(customer));
   const customerIds = customers.map((customer) => customer.id);
 
-  const [{ data: deviceRows, error: deviceError }, { data: followupRows, error: followupError }] =
-    await Promise.all([
-      supabase
-        .from("devices")
-        .select("*")
-        .eq("store_id", storeId)
-        .order("created_at", { ascending: false }),
-      fetchFollowupsForCustomerIds(storeId, customerIds),
-    ]);
-  fail(deviceError, "读取客户设备失败");
+  const [deviceRows, { data: followupRows, error: followupError }] = await Promise.all([
+    fetchCustomerDeviceRows(storeId),
+    fetchFollowupsForCustomerIds(storeId, customerIds),
+  ]);
   fail(followupError, "读取客户待办失败");
 
   const devices = ((deviceRows ?? []) as DbRecord[])
@@ -673,12 +736,31 @@ async function fetchCustomerInteractionsForCustomer(
 async function fetchFollowupsForCustomerIds(storeId: string, customerIds: string[]) {
   const supabase = getSupabaseAdmin();
   if (!customerIds.length) return { data: [], error: null };
-  return supabase
-    .from("customer_followups")
-    .select("*")
-    .eq("store_id", storeId)
-    .in("customer_id", customerIds)
-    .order("due_at", { ascending: true });
+  const rows: DbRecord[] = [];
+  const customerIdChunkSize = 100;
+
+  for (let chunkStart = 0; chunkStart < customerIds.length; chunkStart += customerIdChunkSize) {
+    const chunk = customerIds.slice(chunkStart, chunkStart + customerIdChunkSize);
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from("customer_followups")
+        .select("*")
+        .eq("store_id", storeId)
+        .in("customer_id", chunk)
+        .order("due_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + CUSTOMER_LIST_PAGE_SIZE - 1);
+      if (error) return { data: null, error };
+
+      const batch = (data ?? []) as DbRecord[];
+      rows.push(...batch);
+      if (batch.length < CUSTOMER_LIST_PAGE_SIZE) break;
+      from += CUSTOMER_LIST_PAGE_SIZE;
+    }
+  }
+
+  return { data: rows, error: null };
 }
 
 async function fetchFollowupsForCustomer(

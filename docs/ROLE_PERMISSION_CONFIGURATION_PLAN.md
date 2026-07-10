@@ -173,3 +173,11 @@ Status: Phase B server enforcement completed; Phase C linked migration history v
 - [x] 技师、前台、只读成员无法执行被禁止动作。
 - [ ] 金额、历史、供应商、解锁信息的字段级脱敏进入后续 Phase D 任务并完成响应级测试。当前状态：Phase D1 订单投影完成；Phase D2 scope/UI/客户历史仍待完成。
 - [x] 发布前完成 lint/typecheck/test/build。
+
+## 2026-07-10 客户读取接线状态
+
+- `customers/list`、`customers/list-page`、`customers/search` 使用 `customer:list`。
+- `customer/get`、`customers/devices`、`customers/intake-search` 使用 `customer:detail`；intake 返回设备/历史信息，不能按普通最小列表处理。
+- owner、manager、sales 保持允许；technician、viewer 在没有稳定工单分配 scope 时返回 403，并且 repository 不执行。
+- 当前供应商细粒度 grant 不能被解释成通用客户授权。未来若恢复技师有限客户检索，应新增专用最小 DTO 和稳定 user-id/assignment 范围，不能将 `scopeSatisfied` 固定为 true。
+- linked 安全顾问另发现 17 张旧表无 RLS 且直接授权浏览器角色。该生产风险属于独立 Critical containment；在确认旧客户端消费者前禁止批量启用 RLS 或撤权，以免造成未知旧系统中断。

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Banknote, CheckCircle2, CreditCard } from "lucide-react";
 
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
@@ -29,11 +29,12 @@ export function PaymentDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   balance: number;
-  onPay: (amount: number, method: string) => Promise<void>;
+  onPay: (amount: number, method: string, idempotencyKey: string) => Promise<void>;
 }) {
   const [amountText, setAmountText] = useState(() => formatPaymentDraft(balance));
   const [method, setMethod] = useState("现金");
   const [busy, setBusy] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState("");
   const amount = parsePaymentAmount(amountText);
   const balanceAmount = Math.max(0, Number.isFinite(balance) ? balance : 0);
   const remainingAmount =
@@ -49,6 +50,13 @@ export function PaymentDialog({
           ? "收款金额必须大于 0。"
           : "";
 
+  useEffect(() => {
+    if (!open) return;
+    setAmountText(formatPaymentDraft(balanceAmount));
+    setBusy(false);
+    setIdempotencyKey(crypto.randomUUID());
+  }, [balanceAmount, open]);
+
   return (
     <Dialog
       open={open}
@@ -57,6 +65,7 @@ export function PaymentDialog({
         if (v) {
           setAmountText(formatPaymentDraft(balanceAmount));
           setBusy(false);
+          setIdempotencyKey(crypto.randomUUID());
         }
       }}
     >
@@ -86,7 +95,10 @@ export function PaymentDialog({
                   <MoneyKeypadInput
                     ariaLabel="本次收款金额"
                     value={amountText}
-                    onChange={setAmountText}
+                    onChange={(value) => {
+                      setAmountText(value);
+                      setIdempotencyKey(crypto.randomUUID());
+                    }}
                     invalid={Boolean(validationMessage)}
                     triggerClassName="h-9 font-mono tabular-nums"
                     placeholder="0"
@@ -96,7 +108,10 @@ export function PaymentDialog({
                     variant="outline"
                     size="sm"
                     className="h-9 shrink-0 px-2 text-xs"
-                    onClick={() => setAmountText(formatPaymentDraft(balanceAmount))}
+                    onClick={() => {
+                      setAmountText(formatPaymentDraft(balanceAmount));
+                      setIdempotencyKey(crypto.randomUUID());
+                    }}
                   >
                     全额
                   </Button>
@@ -130,7 +145,10 @@ export function PaymentDialog({
                             : "border-[var(--border-panel)] bg-[var(--surface-panel)] text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                         )}
                         aria-pressed={active}
-                        onClick={() => setMethod(item)}
+                        onClick={() => {
+                          setMethod(item);
+                          setIdempotencyKey(crypto.randomUUID());
+                        }}
                       >
                         {item === "现金" ? (
                           <Banknote className="size-3.5 shrink-0" />
@@ -210,7 +228,7 @@ export function PaymentDialog({
               if (amount === undefined) return;
               setBusy(true);
               try {
-                await onPay(amount, method);
+                await onPay(amount, method, idempotencyKey || crypto.randomUUID());
                 onOpenChange(false);
               } finally {
                 setBusy(false);

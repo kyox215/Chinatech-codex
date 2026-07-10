@@ -691,6 +691,8 @@ export interface BatchTransitionResult {
 
 export interface PaymentResult {
   ok: boolean;
+  code?: "recorded" | "idempotent_replay";
+  payment_id?: string;
   balance: number;
   is_paid: boolean;
   updated_at?: string;

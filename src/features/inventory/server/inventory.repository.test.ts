@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isInventoryAttachmentStorageScoped } from "@/features/inventory/server/inventory.repository";
+import {
+  fetchInventoryRows,
+  fetchInventoryTransactionSummaries,
+  isInventoryAttachmentStorageScoped,
+} from "@/features/inventory/server/inventory.repository";
+
+const mocks = vi.hoisted(() => ({
+  supabase: {
+    from: vi.fn(),
+  },
+}));
+
+vi.mock("@/server/supabase", () => ({
+  getSupabaseAdmin: () => mocks.supabase,
+}));
 
 const scopedInventoryAttachment = {
   store_id: "store_1",
@@ -53,3 +67,64 @@ describe("inventory repository tenant storage boundaries", () => {
     ).toBe(false);
   });
 });
+
+describe("inventory repository pagination", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+  });
+
+  it("reads filtered inventory rows beyond the first 1000 with a stable tie-breaker", async () => {
+    const firstPage = Array.from({ length: 1000 }, (_, index) => ({ id: `item_${index}` }));
+    const firstQuery = createSupabaseQuery({ data: firstPage, error: null });
+    const secondQuery = createSupabaseQuery({ data: [{ id: "item_1000" }], error: null });
+    mocks.supabase.from.mockReturnValueOnce(firstQuery).mockReturnValueOnce(secondQuery);
+
+    const rows = await fetchInventoryRows("store_1", {
+      statuses: ["listed"],
+      sourceTypes: ["trade_in"],
+      categories: ["phone"],
+    });
+
+    expect(rows).toHaveLength(1001);
+    expect(firstQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(firstQuery.in).toHaveBeenCalledWith("status", ["listed"]);
+    expect(firstQuery.in).toHaveBeenCalledWith("source_type", ["trade_in"]);
+    expect(firstQuery.in).toHaveBeenCalledWith("category", ["phone"]);
+    expect(firstQuery.order).toHaveBeenNthCalledWith(1, "updated_at", { ascending: false });
+    expect(firstQuery.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
+    expect(firstQuery.range).toHaveBeenCalledWith(0, 999);
+    expect(secondQuery.range).toHaveBeenCalledWith(1000, 1999);
+  });
+
+  it("reads more than 1000 transaction rows before calculating item profit", async () => {
+    const firstPage = Array.from({ length: 1000 }, () => ({
+      item_id: "item_1",
+      transaction_type: "repair_cost",
+      amount: 1,
+    }));
+    const firstQuery = createSupabaseQuery({ data: firstPage, error: null });
+    const secondQuery = createSupabaseQuery({
+      data: [{ item_id: "item_1", transaction_type: "repair_cost", amount: 2 }],
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(firstQuery).mockReturnValueOnce(secondQuery);
+
+    const result = await fetchInventoryTransactionSummaries("store_1", ["item_1"]);
+
+    expect(result.get("item_1")).toHaveLength(1001);
+    expect(firstQuery.in).toHaveBeenCalledWith("item_id", ["item_1"]);
+    expect(firstQuery.range).toHaveBeenCalledWith(0, 999);
+    expect(secondQuery.range).toHaveBeenCalledWith(1000, 1999);
+  });
+});
+
+function createSupabaseQuery(result: { data: unknown; error: unknown }) {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    order: vi.fn(() => query),
+    range: vi.fn(() => result),
+  };
+  return query;
+}

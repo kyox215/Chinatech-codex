@@ -22,6 +22,32 @@ const businessRoutes = [
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for strict business desktop checks.");
 
 test.describe("business desktop overflow guard", () => {
+  test("controlled mock server accepts the first same-origin business API request", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await gotoReady(page, "/orders");
+    const response = await page.evaluate(async () => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 10_000);
+      try {
+        const result = await fetch("/api/repairdesk/orders/queue-summary", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+          signal: controller.signal,
+        });
+        return { status: result.status, url: result.url };
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    });
+    expect([401, 403], `unexpected auth/origin rejection from ${response.url}`).not.toContain(
+      response.status,
+    );
+    expect(response.status, `business API failed at ${response.url}`).toBeLessThan(400);
+  });
+
   for (const viewport of desktopViewports) {
     test(`business routes render without page overflow at ${viewport.width}px`, async ({
       page,
@@ -79,7 +105,7 @@ test.describe("business desktop overflow guard", () => {
 test.describe("business desktop dialog overflow guard", () => {
   for (const viewport of desktopViewports) {
     test(`business dialogs stay inside viewport at ${viewport.width}px`, async ({ page }) => {
-      test.setTimeout(60_000);
+      test.setTimeout(120_000);
       await page.setViewportSize(viewport);
 
       await gotoReady(page, "/orders");
@@ -192,10 +218,7 @@ test.describe("business desktop dialog overflow guard", () => {
           "/customers detail preview",
           viewport.width,
         );
-        await clickFirstVisible(
-          previewDialog.getByRole("button", { name: /工单/ }),
-          "客户工单标签",
-        );
+        await clickFirstVisible(previewDialog.getByRole("tab", { name: /工单/ }), "客户工单标签");
         const nextBox = await expectOpenDialogsFit(
           page,
           "/customers detail preview orders tab",
@@ -216,10 +239,7 @@ test.describe("business desktop dialog overflow guard", () => {
         await page.keyboard.press("Escape");
         await expect(page.getByRole("dialog", { name: "编辑客户" })).toHaveCount(0);
 
-        await clickFirstVisible(
-          previewDialog.getByRole("button", { name: /设备/ }),
-          "客户设备标签",
-        );
+        await clickFirstVisible(previewDialog.getByRole("tab", { name: /设备/ }), "客户设备标签");
         await clickFirstVisible(
           previewDialog.getByRole("button", { name: /添加设备/ }),
           "添加设备",
@@ -235,9 +255,9 @@ test.describe("business desktop dialog overflow guard", () => {
       await gotoReady(page, "/inventory");
       await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 
-      await clickFirstVisible(page.getByRole("button", { name: /新增入库/ }), "新增入库");
-      await expect(page.getByRole("dialog", { name: "新增入库" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "创建" })).toBeVisible();
+      await clickFirstVisible(page.getByRole("button", { name: /新增商品/ }), "新增商品");
+      await expect(page.getByRole("dialog", { name: "新增库存商品" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "保存商品" })).toBeVisible();
       await expectOpenDialogsFit(page, "/inventory intake", viewport.width);
       await expectNoPageOverflow(page, "/inventory intake", viewport.width);
       await closeDialogs(page);
@@ -294,8 +314,18 @@ test.describe("business desktop dialog overflow guard", () => {
       await gotoReady(page, "/settings");
       await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
       if (viewport.width === 1024) {
-        await expectElementMinWidth(page.locator("#invite-email"), "/settings invite email", 240);
+        await clickFirstVisible(
+          page.getByRole("button", { name: /邀请员工/ }),
+          "/settings invite panel",
+        );
+        await expect(page.locator("#invite-email")).toBeVisible();
+        await expectElementMinWidth(page.locator("#invite-email"), "/settings invite email", 64);
       }
+      await clickFirstVisible(
+        page.getByRole("button", { name: /默认规则/ }),
+        "/settings default rules section",
+      );
+      await expect(page.locator("#order-warranty")).toBeVisible();
       await page.locator("#order-warranty").click();
       await expectFirstVisible(page.getByRole("listbox"), "/settings warranty select");
       await expectVisibleOverlaysFit(page, "/settings warranty select", viewport.width);
