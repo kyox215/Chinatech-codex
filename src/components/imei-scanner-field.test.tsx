@@ -78,6 +78,7 @@ beforeEach(() => {
     setParameters: tesseractMocks.setParameters,
     terminate: tesseractMocks.terminate,
   });
+  window.localStorage.clear();
   Object.defineProperty(HTMLMediaElement.prototype, "play", {
     configurable: true,
     value: mediaMocks.play,
@@ -212,6 +213,53 @@ describe("ImeiScannerField", () => {
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
     expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
+  });
+
+  it("remembers the working camera mode and reuses it after reopening the scanner", async () => {
+    const user = userEvent.setup();
+    zxingMocks.decodeFromConstraints
+      .mockRejectedValueOnce(new DOMException("", "OverconstrainedError"))
+      .mockImplementationOnce(async () => ({ stop: zxingMocks.stop }));
+
+    const { unmount } = render(<ImeiScannerField value="" onChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(2));
+    expect(zxingMocks.decodeFromConstraints.mock.calls[1]?.[0]).toEqual({
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 24, max: 30 },
+      },
+    });
+    await waitFor(() =>
+      expect(window.localStorage.getItem("repairdesk:imei-camera-access:v1")).toContain(
+        '"mode":"standard"',
+      ),
+    );
+
+    unmount();
+    zxingMocks.decodeFromConstraints.mockReset();
+    zxingMocks.decodeFromConstraints.mockImplementationOnce(async () => ({
+      stop: zxingMocks.stop,
+    }));
+
+    render(<ImeiScannerField value="" onChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
+    expect(zxingMocks.decodeFromConstraints.mock.calls[0]?.[0]).toEqual({
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 24, max: 30 },
+      },
+    });
   });
 
   it("locks the live camera frame and enriches a first serial hit with visible IMEI candidates", async () => {

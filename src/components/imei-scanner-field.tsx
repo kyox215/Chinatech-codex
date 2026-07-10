@@ -82,6 +82,7 @@ const imeiFastBarcodeDecodeTimeoutMs = 450;
 const imeiOcrDecodeTimeoutMs = 8500;
 const imeiCenterCropRecognitionScale = 1.8;
 const imeiCenterCropScanIntervalMs = 250;
+const imeiCameraAccessPreferenceKey = "repairdesk:imei-camera-access:v1";
 const imeiImageAccept =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
 const imeiImageMimeTypes = new Set([
@@ -143,6 +144,8 @@ export function ImeiScannerField({
   const capturePreviewCleanupRef = useRef<(() => void) | null>(null);
   const scannerLockInProgressRef = useRef(false);
   const scannerRunIdRef = useRef(0);
+  const activeCameraModeRef = useRef<ImeiScannerCameraMode>("enhanced");
+  const rememberedCameraModeRef = useRef<ImeiScannerCameraMode | null>(readRememberedCameraMode());
   const onChangeRef = useRef(onChange);
   const lastStartScannerTokenRef = useRef(startScannerToken);
   const compact = density === "compact";
@@ -193,6 +196,7 @@ export function ImeiScannerField({
     setCaptureCandidates([]);
     replaceCapturePreview(null);
     setCaptureViewportSize(null);
+    activeCameraModeRef.current = "enhanced";
     setActiveCameraMode("enhanced");
     setSelectedCandidateId("");
     setScannerManualValue("");
@@ -430,10 +434,11 @@ export function ImeiScannerField({
       }
 
       let frame: Awaited<ReturnType<typeof createImageElementFromVideoFrame>> | null = null;
+      const cameraMode = activeCameraModeRef.current;
       try {
         frame = await createImageElementFromVideoFrame(video, {
           alt: "已锁定的扫码画面",
-          cropScale: activeCameraMode === "enhanced" ? imeiCenterCropRecognitionScale : 1,
+          cropScale: cameraMode === "enhanced" ? imeiCenterCropRecognitionScale : 1,
         });
         stopScanner();
         replaceCapturePreview(frame.preview);
@@ -448,13 +453,7 @@ export function ImeiScannerField({
         setIsImageProcessing(false);
       }
     },
-    [
-      activeCameraMode,
-      handleCapturedCandidateInputs,
-      handleCapturedText,
-      replaceCapturePreview,
-      stopScanner,
-    ],
+    [handleCapturedCandidateInputs, handleCapturedText, replaceCapturePreview, stopScanner],
   );
 
   const startCenterCropDecodeLoop = useCallback(
@@ -562,6 +561,7 @@ export function ImeiScannerField({
           videoRef.current,
           onDecodeResult,
           () => cancelled || scannerRunIdRef.current !== runId || !videoRef.current,
+          rememberedCameraModeRef.current,
         );
         if (cancelled || scannerRunIdRef.current !== runId || completedByScan) {
           controls.stop();
@@ -573,11 +573,18 @@ export function ImeiScannerField({
           return;
         }
         controlsRef.current = controls;
+        rememberCameraMode(mode);
+        rememberedCameraModeRef.current = mode;
+        activeCameraModeRef.current = mode;
         setActiveCameraMode(mode);
         setIsCameraActive(true);
         startCenterCropDecodeLoop(runId, mode);
       } catch (error) {
         if (cancelled || scannerRunIdRef.current !== runId) return;
+        if (getErrorName(error) === "NotAllowedError") {
+          forgetCameraMode();
+          rememberedCameraModeRef.current = null;
+        }
         setCaptureError(getCameraErrorMessage(error));
       } finally {
         if (!cancelled && scannerRunIdRef.current === runId) setIsStarting(false);
@@ -1364,9 +1371,10 @@ async function startScannerWithFallback(
   video: HTMLVideoElement,
   callback: ImeiScannerDecodeCallback,
   shouldCancel: () => boolean,
+  preferredMode?: ImeiScannerCameraMode | null,
 ) {
   let lastError: unknown;
-  for (const plan of getScannerConstraintPlans()) {
+  for (const plan of getScannerConstraintPlans(preferredMode)) {
     if (shouldCancel()) break;
     try {
       const controls = await reader.decodeFromConstraints(plan.constraints, video, callback);
@@ -1383,8 +1391,8 @@ async function startScannerWithFallback(
   throw lastError ?? new Error("无法打开摄像头，请改用照片上传或手动输入。");
 }
 
-function getScannerConstraintPlans(): ImeiScannerConstraintPlan[] {
-  return [
+function getScannerConstraintPlans(preferredMode?: ImeiScannerCameraMode | null) {
+  const plans: ImeiScannerConstraintPlan[] = [
     {
       mode: "enhanced",
       constraints: {
@@ -1417,6 +1425,11 @@ function getScannerConstraintPlans(): ImeiScannerConstraintPlan[] {
       },
     },
   ];
+  if (!preferredMode || preferredMode === "enhanced") return plans;
+  return [
+    ...plans.filter((plan) => plan.mode === preferredMode),
+    ...plans.filter((plan) => plan.mode !== preferredMode),
+  ];
 }
 
 function shouldRetryWithDefaultCamera(error: unknown) {
@@ -1438,6 +1451,43 @@ async function ensureVideoPreviewPlayback(video: HTMLVideoElement | null) {
 function getErrorName(error: unknown) {
   if (!error || typeof error !== "object" || !("name" in error)) return "";
   return String((error as { name?: unknown }).name ?? "");
+}
+
+function readRememberedCameraMode(): ImeiScannerCameraMode | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const rawPreference = window.localStorage.getItem(imeiCameraAccessPreferenceKey);
+    if (!rawPreference) return null;
+    const preference = JSON.parse(rawPreference) as { mode?: unknown };
+    return isImeiScannerCameraMode(preference.mode) ? preference.mode : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberCameraMode(mode: ImeiScannerCameraMode) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      imeiCameraAccessPreferenceKey,
+      JSON.stringify({ granted: true, mode, updatedAt: Date.now() }),
+    );
+  } catch {
+    // Private browsing or storage restrictions should not block camera scanning.
+  }
+}
+
+function forgetCameraMode() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(imeiCameraAccessPreferenceKey);
+  } catch {
+    // Ignore storage restrictions.
+  }
+}
+
+function isImeiScannerCameraMode(value: unknown): value is ImeiScannerCameraMode {
+  return value === "enhanced" || value === "standard" || value === "default";
 }
 
 function findDetectionForCandidate(

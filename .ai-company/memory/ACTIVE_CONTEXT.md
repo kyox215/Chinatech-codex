@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260710-010-customer-search-mobile-density"
+current_task_id: "TASK-20260710-012-imei-camera-permission-cache"
 status: "closed"
 phase: "closed"
 task_class: "T1"
-risk_level: "R1"
+risk_level: "R2"
 autonomy_level: "L2"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-10T20:16:14Z"
+last_checkpoint_at: "2026-07-10T20:39:58Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,24 +15,24 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**新建工单客户搜索移动端紧凑结果面板**
+**IMEI 扫码摄像头授权记忆与重复启动控制**
 
 ## Current state
 
-Customer lookup mobile density fix is complete on a clean worktree based on latest `origin/main`. The production issue was that the prior UI patch was local-only and not pushed with the security/database release. The fix moves inline customer results below the field shell and adds a matched-customer mobile E2E that verifies the panel is close to full section width and has no page overflow.
+IMEI scanner now remembers the last successful camera mode in local storage and reuses it after remount, reducing repeat fallback permission/startup requests. `activeCameraMode` changes no longer rebuild scanner callbacks and restart the camera effect. Validation passed: component test 23/23, scoped ESLint, typecheck and production build.
 
 ## Blocking decisions
 
-- None for this task.
-- Generated `next-env.d.ts` and old screenshot changes from verification are excluded from commit.
+- Browser/OS camera-use indicators are mandatory privacy UI and cannot be hidden by application code.
+- Stored preference is non-sensitive and contains only granted/mode/timestamp, not media, IMEI, device IDs, customer data or permission tokens.
 
 ## Next action
 
-Commit and push the scoped UI fix to `main`.
+Commit and push the scoped camera startup fix to `main`.
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260710-010-customer-search-mobile-density/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260710-012-imei-camera-permission-cache/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.
