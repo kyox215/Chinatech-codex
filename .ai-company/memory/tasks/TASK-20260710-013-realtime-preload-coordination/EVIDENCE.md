@@ -40,4 +40,11 @@
 - Independent Security review: no code blocker; production Realtime authorization remains a separate approval gate.
 - Independent QA blocker about skipped E2E: resolved by the final gated 2/2 run.
 - Independent Release review conditions: all code-only preconditions satisfied; production Realtime activation remains no-go.
-- Remote hash remains pending the authorized push step.
+- Remote hash verification is recorded below.
+
+## Release Evidence - 2026-07-10T22:51:06Z
+
+- Implementation commit: `96f3197d480a44385bc179d5c27bc342a7f9e186`.
+- Push result: `73eb5095..96f3197d  HEAD -> main`.
+- Verified `origin/main`: `96f3197d480a44385bc179d5c27bc342a7f9e186`.
+- Production database and Realtime activation remained untouched and approval-gated.

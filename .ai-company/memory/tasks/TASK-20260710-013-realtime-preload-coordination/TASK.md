@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260710-013-realtime-preload-coordination"
 title: "实时刷新与智能预加载一致性协调"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["INT", "DATA", "FE", "API", "SEC", "QA", "DOC"]
 created_at: "2026-07-10T21:54:36Z"
-updated_at: "2026-07-10T22:38:51Z"
+updated_at: "2026-07-10T22:51:06Z"
 ---
 # Task
 

@@ -30,3 +30,12 @@
 - **Browser proof:** the order queue request count is exactly one; customer preload count is exactly one and remains one after SPA navigation; 390px mobile layout has one visible compact sync state and no page overflow.
 - **Scope proof:** no Supabase migration, Dashboard change, production environment update, deployment, or production data operation is included.
 - **Next:** fetch latest `origin/main`, resolve only if remote advanced, commit scoped files, push `HEAD:main`, and verify remote hash.
+
+## 2026-07-10T22:51:06Z - Implementation pushed; task closed
+
+- **Phase:** closed.
+- **Implementation commit:** `96f3197d480a44385bc179d5c27bc342a7f9e186`.
+- **Remote proof:** `origin/main` advanced from `73eb5095` to `96f3197d` through `git push origin HEAD:main`.
+- **Workspace proof:** implementation worktree was clean immediately after the push.
+- **Production boundary preserved:** no database migration, Supabase Dashboard setting, production environment flag, production data operation, or manual deployment was performed.
+- **Remaining approval-gated follow-up:** production Realtime activation requires a separate Owner decision and Database Application Gate; current code release keeps client/server Realtime flags off.
