@@ -2,7 +2,7 @@
 
 ## Current state
 
-- Status: release validation in progress; implementation is complete and linked database migration has been applied/post-verified, but commit and push are still pending.
+- Status: closed; implementation is complete, linked database migration has been applied/post-verified, and commit `5eda956e` has been pushed to `main`.
 - Authoritative implementation docs: `docs/ORDER_DATA_ROUNDTRIP.md` and `supabase/migrations/20260710150000_order_data_roundtrip.sql`.
 - Latest verified: 2026-07-10T19:15:00Z.
 - Workspace: isolated worktree `/private/tmp/repairdesk-order-data-roundtrip`, branch `codex/order-data-roundtrip`, rebased onto `cee5a1b4`.
@@ -30,7 +30,7 @@
 
 ## Next action
 
-Stage the final migration correction and memory updates, inspect staged diff, commit, and push `HEAD:main`.
+No required next action for this task. Any live synthetic import/apply exercise should be a separate approved task because it would create or mutate production business data.
 
 ## Stop conditions
 

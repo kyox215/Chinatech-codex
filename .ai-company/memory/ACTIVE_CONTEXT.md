@@ -1,14 +1,14 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260710-110532-task"
-status: "in_progress"
-phase: "release-validation"
+status: "closed"
+phase: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-10T19:31:40Z"
-checkpoint_required: true
+last_checkpoint_at: "2026-07-10T19:33:34Z"
+checkpoint_required: false
 last_rehydrated_at: null
 ---
 # Active Context
@@ -19,17 +19,17 @@ last_rehydrated_at: null
 
 ## Current state
 
-Implementation is rebased onto `23ac0e06` (`Close TASK-009 release evidence`). Creator-only Settings order-data roundtrip, XLSX security controls, preview ledger, atomic apply RPC, customer stats export, and active order-page CSV export removal are implemented. Release review removed automatic `pg_cron` install/job scheduling from this task migration; cleanup now remains an RPC called before import preview creation. QA blocker fixes are applied for backup-phone preservation, mixed repair-item identifiers, preview row visibility, and final screenshot evidence. Latest validation passed: `git diff --check`, lint, typecheck, full Vitest 108 files / 729 tests, production build, linked dry-run listing only `20260710150000_order_data_roundtrip.sql`, and final desktop/mobile browser evidence. Linked migration `20260710150000_order_data_roundtrip.sql` is applied and post-verified.
+Implementation is complete and pushed to `main` at commit `5eda956e`. Creator-only Settings order-data roundtrip, XLSX security controls, preview ledger, atomic apply RPC, customer stats export, and active order-page CSV export removal are implemented. Release review removed automatic `pg_cron` install/job scheduling from this task migration; cleanup now remains an RPC called before import preview creation. QA blocker fixes are applied for backup-phone preservation, mixed repair-item identifiers, preview row visibility, and final screenshot evidence. Latest validation passed: `git diff --check`, lint, typecheck, full Vitest 108 files / 729 tests, production build, linked dry-run, production dependency audit, final desktop/mobile browser evidence, and linked DB post-apply checks. Linked migration `20260710150000_order_data_roundtrip.sql` is applied and post-verified.
 
 ## Blocking decisions
 
-- None for this task after owner approval, provided final linked dry-run still lists only `20260710150000_order_data_roundtrip.sql`.
-- Broad database gate issues from TASK-009 remain out of scope; this task may only apply its reviewed additive migration.
-- Any unrelated pending migrations, unresolved conflicts, destructive SQL, secret exposure, or tenant isolation regression is a hard stop.
+- None for this task.
+- Broad database gate issues from TASK-009 remain out of scope and were not changed except this task's reviewed additive migration.
+- A live synthetic import/apply exercise remains separate because it would create or mutate production business data.
 
 ## Next action
 
-Stage final migration correction and memory updates, commit, push `main`, then close task.
+Task is closed. No required next action.
 
 ## Resume protocol
 

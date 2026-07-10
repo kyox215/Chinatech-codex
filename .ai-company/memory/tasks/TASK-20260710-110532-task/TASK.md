@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260710-110532-task"
 title: "设置页主店主专用工单详情导入导出实施"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["INT", "FLOW", "DATA", "API", "SEC", "QA", "UX"]
 created_at: "2026-07-10T11:05:32Z"
-updated_at: "2026-07-10T15:10:55Z"
+updated_at: "2026-07-10T19:33:34Z"
 ---
 # Task — 设置页主店主专用工单详情导入导出实施
 
@@ -56,7 +56,7 @@ updated_at: "2026-07-10T15:10:55Z"
 - [x] 主店主权限、租户隔离、模板、导出、preview/apply、客户统计和订单页入口移除全部实现。
 - [x] lint、typecheck、unit/integration tests、build、浏览器与截图验证通过。
 - [x] 安全、数据、QA 和发布复核无未接受阻断项。
-- [ ] scoped commit 推送到 `main`，linked 迁移应用并完成 post-apply 验证。
+- [x] scoped commit 推送到 `main`，linked 迁移应用并完成 post-apply 验证。
 
 ## Facts, assumptions, and unknowns
 
@@ -105,6 +105,7 @@ updated_at: "2026-07-10T15:10:55Z"
 - Removed the active order-list browser CSV export and changed manager export permissions to deny.
 - Production dependency audit is clean after pinning ExcelJS `uuid` and Next.js `postcss` patched transitive versions through npm overrides.
 - Linked migration `20260710150000_order_data_roundtrip.sql` was applied successfully after correcting temporary ID columns to match production UUID schema. Post-apply metadata verified migration history, tables, RLS, grants and RPCs.
+- Commit `5eda956e` was pushed to `main`.
 
 ## Definition of done
 

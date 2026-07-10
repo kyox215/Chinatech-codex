@@ -45,6 +45,7 @@
 | E-041 | visual-evidence | final Settings UI screenshots are valid PNGs and show no horizontal overflow | `screenshots/order-data-desktop-final.png`; `screenshots/order-data-mobile-final.png`; Chrome metrics | desktop `scrollWidth=1440`, `innerWidth=1440`; mobile `scrollWidth=390`, `innerWidth=390`; both include 工单数据 | 2026-07-10T19:26:54Z | CEO-Orchestrator |
 | E-042 | validation | final full validation after QA fixes passes | `git diff --check`; `npm run lint`; `npm run typecheck`; `npm run test -- --maxWorkers=2`; `npm run build`; linked dry-run | 108 files / 729 tests; build passed outside sandbox; dry-run only `20260710150000_order_data_roundtrip.sql` | 2026-07-10T19:26:54Z | CEO-Orchestrator |
 | E-043 | migration-apply | linked migration applied and post-apply metadata verified | `supabase db push --linked --include-all`; linked metadata query | migration `20260710150000` present; tables/RPCs present; RLS enabled; no `anon`/`authenticated` table grants; `pg_cron_installed=false` | 2026-07-10T19:31:40Z | CEO-Orchestrator |
+| E-044 | release | scoped commit pushed to `main` | `git commit`; `git push origin HEAD:main` | commit `5eda956e` pushed `23ac0e06..5eda956e` | 2026-07-10T19:33:34Z | CEO-Orchestrator |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
