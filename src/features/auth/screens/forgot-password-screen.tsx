@@ -14,6 +14,7 @@ import {
   normalizeAuthEmail,
   passwordResetSentMessage,
 } from "@/features/auth/model/auth-errors";
+import { buildAuthCallbackUrl } from "@/features/auth/model/auth-redirect";
 import { brandGradientStyle, controls } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
@@ -34,10 +35,8 @@ export function ForgotPasswordScreen() {
     event.preventDefault();
     const normalizedEmail = normalizeAuthEmail(email);
     setIsSubmitting(true);
-    const redirectUrl = new URL("/auth/callback", window.location.origin);
-    redirectUrl.searchParams.set("next", "/reset-password");
     const { error } = await createClient().auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: redirectUrl.toString(),
+      redirectTo: buildAuthCallbackUrl("/reset-password"),
     });
     setIsSubmitting(false);
 

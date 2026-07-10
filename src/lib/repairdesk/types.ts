@@ -891,6 +891,7 @@ export interface OnboardingRequest {
 export interface OnboardingStatus {
   userId?: string;
   email?: string;
+  emailVerified?: boolean;
   displayName: string;
   phoneE164?: string | null;
   phoneVerifiedAt?: string | null;

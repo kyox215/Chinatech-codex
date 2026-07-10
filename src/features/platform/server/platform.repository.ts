@@ -57,6 +57,7 @@ export async function getOnboardingStatus(actor: AuditActor): Promise<Onboarding
   return {
     userId: actor.id,
     email: actor.email,
+    emailVerified: actor.emailVerified === true,
     displayName: actor.displayName,
     phoneE164: actor.phoneE164 ?? null,
     phoneVerifiedAt: actor.phoneVerifiedAt ?? null,

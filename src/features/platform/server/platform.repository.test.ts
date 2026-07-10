@@ -201,6 +201,7 @@ describe("platform repository onboarding boundaries", () => {
 
     const result = await getOnboardingStatus(applicantActor);
 
+    expect(result.emailVerified).toBe(true);
     expect(invitationsQuery.eq).toHaveBeenCalledWith("email", "staff@example.com");
     expect(invitationsQuery.eq).toHaveBeenCalledWith("status", "invited");
     expect(invitationsQuery.gt).toHaveBeenCalledWith("expires_at", expect.any(String));
@@ -232,6 +233,7 @@ describe("platform repository onboarding boundaries", () => {
 
     const result = await getOnboardingStatus({ ...applicantActor, emailVerified: false });
 
+    expect(result.emailVerified).toBe(false);
     expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
     expect(mocks.supabase.from).toHaveBeenCalledWith("onboarding_requests");
     expect(result.invitations).toEqual([]);

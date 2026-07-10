@@ -443,6 +443,7 @@ async function source() {
       return {
         userId: actor.id,
         email: actor.email,
+        emailVerified: actor.emailVerified === true,
         displayName: actor.displayName,
         isPlatformAdmin: Boolean(actor.isPlatformAdmin),
         activeStore,
@@ -489,6 +490,7 @@ async function source() {
       return {
         userId: actor.id,
         email: actor.email,
+        emailVerified: actor.emailVerified === true,
         displayName: input.display_name.trim() || actor.displayName,
         isPlatformAdmin: Boolean(actor.isPlatformAdmin),
         activeStore,

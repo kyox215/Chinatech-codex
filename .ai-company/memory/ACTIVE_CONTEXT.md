@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: null
-status: "idle"
-phase: "none"
-task_class: null
-risk_level: null
-autonomy_level: null
+current_task_id: "TASK-20260710-006-auth-account-self-service-implementation"
+status: "in_review"
+phase: "closeout"
+task_class: "T2"
+risk_level: "R2"
+autonomy_level: "L2"
 owner: "CEO-Orchestrator"
-last_checkpoint_at: "2026-07-10T07:46:37Z"
+last_checkpoint_at: "2026-07-10T12:41:58Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,15 +15,39 @@ last_rehydrated_at: null
 
 ## Current objective
 
-No active task.
+**用户注册、找回密码、账号安全中心与邮箱绑定实施**
 
 ## Current state
 
-- Status: idle
-- Last closed task: `TASK-20260710-072906-audit-and-fix-settings-click-touch-interac`.
-- Settings workflow hit-target fix is ready for/covered by the pushed main commit.
-- Residual unrelated issue: `business-desktop-overflow` fails on `/orders` with request-source invalid in the current E2E run; handle under a separate order E2E/auth-source task if needed.
+已完成注册密码确认、注册后邮箱验证提示/重发、找回密码 callback URL helper、账号中心邮箱验证/邮箱变更/改密码入口、设置页账号安全入口，以及 onboarding `emailVerified` 映射。
+
+验证已完成：
+
+- Targeted auth/platform tests passed: 32 tests.
+- `npm run lint` passed.
+- `npm run typecheck` passed.
+- `npm run test` passed: 678 tests.
+- `npm run build` passed after escalated local execution because sandbox blocked Turbopack port binding.
+- Supabase linked dry-run returned `Remote database is up to date`; no database migration was applied.
+- Screenshots captured under `screenshots/TASK-20260710-006-auth-account-self-service/`.
+
+## Blocking decisions
+
+- None for commit/push. Owner explicitly requested push to `main`.
+- Production Supabase dashboard Auth setting changes, email templates, CAPTCHA/MFA enablement, or new audit migrations remain future approval points.
 
 ## Next action
 
-Create a task with `python tools/ai_company.py new-task --title "..."`.
+Validate final diff, stage only current task files, commit, push `main`, then update this task memory with commit hash and final status.
+
+## Previous context before latest owner request
+
+Previous active task was `TASK-20260710-110532-task` for order import/export and customer statistics planning. It remains a separate planned task and should be resumed from `.ai-company/memory/tasks/TASK-20260710-110532-task/` if the owner returns to that work.
+
+## Resume protocol
+
+1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md` if present.
+2. Read `.ai-company/memory/tasks/TASK-20260710-006-auth-account-self-service-implementation/TASK.md` and latest checkpoint.
+3. Inspect current Git/workspace state before changing files.
+4. Keep unrelated dirty files unstaged.
+5. Reclassify if scope, target environment, or risk changed.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,6 +12,7 @@ import {
   Check,
   ChevronDown,
   GitBranch,
+  KeyRound,
   Mail,
   MessageSquare,
   PackageSearch,
@@ -1437,6 +1439,20 @@ function AccountProfileSection({
           <p className="text-[11px] leading-4 text-muted-foreground">
             名称会用于新建工单、操作记录、成员列表和页面账号信息；账号性质由权限自动显示。
           </p>
+          <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold">邮箱与密码</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                邮箱验证、邮箱换绑、联系手机号和密码修改统一在个人中心维护。
+              </p>
+            </div>
+            <Button asChild type="button" variant="outline" size="sm" className="shrink-0 gap-1.5">
+              <Link href="/account">
+                <KeyRound className="size-3.5" />
+                打开个人中心
+              </Link>
+            </Button>
+          </div>
         </div>
       )}
     </section>

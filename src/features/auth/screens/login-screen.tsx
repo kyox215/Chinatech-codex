@@ -23,8 +23,11 @@ import {
   authErrorMessage,
   normalizeAuthEmail,
   passwordResetSentMessage,
+  validateEmailAddress,
   validateNewPassword,
+  verificationEmailSentMessage,
 } from "@/features/auth/model/auth-errors";
+import { buildAuthCallbackUrl } from "@/features/auth/model/auth-redirect";
 import { resolvePostLoginPath } from "@/features/auth/model/post-login-redirect";
 
 export function LoginScreen() {
@@ -34,11 +37,14 @@ export function LoginScreen() {
   const [mode, setMode] = useState<"login" | "register" | "reset" | "update-password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [registrationPasswordConfirmation, setRegistrationPasswordConfirmation] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
   const [rememberMe, setRememberMe] = useState(DEFAULT_REMEMBER_LOGIN);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   useEffect(() => {
     setRememberMe(readRememberLoginPreference());
@@ -82,6 +88,16 @@ export function LoginScreen() {
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedEmail = normalizeAuthEmail(email);
+    const emailError = validateEmailAddress(normalizedEmail);
+    if (emailError) {
+      toast.error(emailError);
+      return;
+    }
+    const passwordError = validateNewPassword(password, registrationPasswordConfirmation);
+    if (passwordError) {
+      toast.error(passwordError);
+      return;
+    }
     setIsSubmitting(true);
     persistBrowserAuthPreference(rememberMe);
     const supabase = createClient();
@@ -92,6 +108,7 @@ export function LoginScreen() {
         data: {
           display_name: displayName.trim(),
         },
+        emailRedirectTo: buildAuthCallbackUrl("/onboarding"),
       },
     });
     setIsSubmitting(false);
@@ -104,6 +121,7 @@ export function LoginScreen() {
     setEmail(normalizedEmail);
     if (!data.session) {
       toast.success("注册已提交，请先完成邮箱确认后再登录");
+      setVerificationEmail(normalizedEmail);
       setMode("login");
       return;
     }
@@ -117,10 +135,8 @@ export function LoginScreen() {
     const normalizedEmail = normalizeAuthEmail(email);
     setIsSubmitting(true);
     const supabase = createClient();
-    const redirectUrl = new URL("/auth/callback", window.location.origin);
-    redirectUrl.searchParams.set("next", "/reset-password");
     const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: redirectUrl.toString(),
+      redirectTo: buildAuthCallbackUrl("/reset-password"),
     });
     setIsSubmitting(false);
 
@@ -132,6 +148,30 @@ export function LoginScreen() {
     setEmail(normalizedEmail);
     toast.success(passwordResetSentMessage());
     setMode("login");
+  }
+
+  async function handleResendVerification() {
+    const normalizedEmail = normalizeAuthEmail(verificationEmail || email);
+    const emailError = validateEmailAddress(normalizedEmail);
+    if (emailError) {
+      toast.error(emailError);
+      return;
+    }
+    setIsResendingVerification(true);
+    const { error } = await createClient().auth.resend({
+      type: "signup",
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: buildAuthCallbackUrl("/onboarding"),
+      },
+    });
+    setIsResendingVerification(false);
+    if (error) {
+      toast.error(authErrorMessage(error));
+      return;
+    }
+    setVerificationEmail(normalizedEmail);
+    toast.success(verificationEmailSentMessage());
   }
 
   async function handlePasswordUpdate(event: React.FormEvent<HTMLFormElement>) {
@@ -310,6 +350,17 @@ export function LoginScreen() {
                     onPasswordChange={setPassword}
                     passwordAutoComplete="new-password"
                   />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-password-confirmation">确认密码</Label>
+                    <Input
+                      id="register-password-confirmation"
+                      type="password"
+                      autoComplete="new-password"
+                      value={registrationPasswordConfirmation}
+                      onChange={(event) => setRegistrationPasswordConfirmation(event.target.value)}
+                      required
+                    />
+                  </div>
                   <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
                   <SubmitButton isSubmitting={isSubmitting} icon="register">
                     注册并继续申请
@@ -318,6 +369,23 @@ export function LoginScreen() {
               </TabsContent>
             </Tabs>
           )}
+
+          {verificationEmail ? (
+            <div className="mt-4 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs leading-5 text-muted-foreground">
+              <p>
+                已向 {verificationEmail} 发送验证邮件。验证完成后登录，系统会继续进入店铺开通流程。
+              </p>
+              <Button
+                type="button"
+                variant="link"
+                className="mt-1 h-auto px-0 text-xs"
+                disabled={isResendingVerification}
+                onClick={handleResendVerification}
+              >
+                {isResendingVerification ? "正在重发…" : "重新发送验证邮件"}
+              </Button>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
