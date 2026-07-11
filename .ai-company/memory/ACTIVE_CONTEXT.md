@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260711-002-order-detail-preload-skeleton"
-status: "in_progress"
-phase: "release"
+status: "closed"
+phase: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-11T00:19:35Z"
+last_checkpoint_at: "2026-07-11T00:25:27Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -20,7 +20,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-实现、审查修复和最终质量门已完成。订单/客户/详情使用完整骨架；订单详情由订单列表单一调度器有界预取；热缓存、后台刷新、Realtime/store epoch 和 store shell 终态均已验证。当前只剩范围化提交、推送和远端哈希确认。
+订单/客户/详情全框架骨架和订单详情有界预取已通过全部门禁与独立复核，并推送 `main`；实现提交为 `4e60e2d9`。生产数据库、Dashboard、Realtime 环境开关与生产数据未变更。
 
 ## Blocking decisions
 
@@ -31,7 +31,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-接收最终 QA 确认，fetch 最新 origin/main；如未前进则提交 scoped diff 并推送 `HEAD:main`，随后验证远端哈希并关闭任务。
+无当前执行动作。若未来需要无重建的运行时预取熔断或生产预取指标，必须新建独立架构/发布任务。
 
 ## Resume protocol
 

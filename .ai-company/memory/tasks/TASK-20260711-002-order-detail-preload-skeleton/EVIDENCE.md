@@ -54,4 +54,13 @@
 
 - No database schema, migration, Supabase Dashboard, production Realtime flag, secret, production data or deployment operation was changed.
 - `NEXT_PUBLIC_REPAIRDESK_PRELOAD_ENABLED=0` remains the rollback control for a rebuilt client bundle; ordinary queries and Realtime remain independent.
-- Release commit and remote hash will be recorded after the scoped push.
+- Release commit and verified remote hash are recorded below.
+
+## Release Evidence - 2026-07-11T00:25:27Z
+
+- Implementation commit: `4e60e2d9d67675bffb5470b680ee8174d1921d17`.
+- Push result: `e286bbdc..4e60e2d9  HEAD -> main`.
+- Verified local remote-tracking hash: `origin/main@4e60e2d9d67675bffb5470b680ee8174d1921d17`.
+- Verified GitHub remote hash: `refs/heads/main@4e60e2d9d67675bffb5470b680ee8174d1921d17`.
+- Implementation worktree was clean after the push.
+- Production database, Dashboard settings, Realtime activation and production data remained untouched.

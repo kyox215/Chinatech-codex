@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260711-002-order-detail-preload-skeleton"
 title: "订单详情预加载与订单客户全框架骨架屏"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["INT", "FE", "UX", "QA"]
 created_at: "2026-07-10T23:31:51Z"
-updated_at: "2026-07-11T00:22:02Z"
+updated_at: "2026-07-11T00:25:27Z"
 ---
 
 # Task
