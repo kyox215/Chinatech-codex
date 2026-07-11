@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, type FocusEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { AlertTriangle, PackageSearch, ReceiptText, Smartphone, UserRound } from "lucide-react";
 
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
@@ -19,12 +20,15 @@ import type { OrderListItem } from "@/lib/repairdesk/api";
 import type { OrderWorkflowStatusCode, Supplier } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
 
 export interface OrderMobileCardProps {
   order: OrderListItem;
   suppliers?: Supplier[];
   isPartsSupplierUpdating?: boolean;
   onPartsSupplierChange?: (supplierId: string | null) => void;
+  onPrefetch?: () => void;
+  onCancelPrefetch?: () => void;
 }
 
 export function OrderMobileCard({
@@ -32,7 +36,11 @@ export function OrderMobileCard({
   suppliers = [],
   isPartsSupplierUpdating = false,
   onPartsSupplierChange,
+  onPrefetch,
+  onCancelPrefetch,
 }: OrderMobileCardProps) {
+  const hoverTimerRef = useRef<number | null>(null);
+  const detailHref = `/orders/${order.id}`;
   const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
   const exceptionStatus = order.exception_status;
   const hasOverdueException = Boolean(order.approval_overdue || order.pickup_overdue);
@@ -80,15 +88,57 @@ export function OrderMobileCard({
     </span>
   ) : null;
 
+  const clearHoverTimer = () => {
+    if (hoverTimerRef.current === null) return;
+    window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+  };
+  const isOrderDetailLink = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return target.closest("a")?.getAttribute("href") === detailHref;
+  };
+  const handlePointerEnter = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType !== "mouse" || !onPrefetch) return;
+    clearHoverTimer();
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      onPrefetch();
+    }, ORDER_DETAIL_HOVER_DELAY_MS);
+  };
+  const handlePointerDownCapture = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || !isOrderDetailLink(event.target)) return;
+    clearHoverTimer();
+    onPrefetch?.();
+  };
+  const handleFocusCapture = (event: FocusEvent<HTMLElement>) => {
+    if (isOrderDetailLink(event.target)) onPrefetch?.();
+  };
+  const handleBlurCapture = (event: FocusEvent<HTMLElement>) => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))
+      return;
+    clearHoverTimer();
+    onCancelPrefetch?.();
+  };
+
+  useEffect(() => clearHoverTimer, []);
+
   return (
     <article
       className={cn(
         repairOs.mobileInfoCard,
         "group relative touch-manipulation select-none overflow-hidden",
       )}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={() => {
+        clearHoverTimer();
+        onCancelPrefetch?.();
+      }}
+      onPointerDownCapture={handlePointerDownCapture}
+      onFocusCapture={handleFocusCapture}
+      onBlurCapture={handleBlurCapture}
     >
       <div className="space-y-1 px-2.5 py-1.5 transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
-        <Link href={`/orders/${order.id}`} className="block">
+        <Link href={detailHref} className="block">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
             <div className="flex min-w-0 items-start gap-1.5 rounded-md px-0.5 text-[10px] leading-3 text-muted-foreground">
               <span className="grid size-5 shrink-0 place-items-center rounded bg-primary/10 text-primary">
@@ -131,7 +181,7 @@ export function OrderMobileCard({
 
         <div className="min-w-0 rounded-lg bg-surface-muted/70 px-2 py-1.5">
           <div className="flex min-w-0 items-center gap-1.5">
-            <Link href={`/orders/${order.id}`} className="flex min-w-0 flex-1 items-center gap-1.5">
+            <Link href={detailHref} className="flex min-w-0 flex-1 items-center gap-1.5">
               <Smartphone className="size-3 shrink-0 text-muted-foreground" />
               <p className="truncate text-[12px] font-semibold leading-4 text-foreground">
                 {deviceLabel}
@@ -145,7 +195,7 @@ export function OrderMobileCard({
             {supplierControl}
           </div>
 
-          <Link href={`/orders/${order.id}`} className="block">
+          <Link href={detailHref} className="block">
             <p className="truncate text-[10px] leading-3 text-muted-foreground">{issueLabel}</p>
 
             <div className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden text-[9px] leading-3">
@@ -166,7 +216,7 @@ export function OrderMobileCard({
           </Link>
         </div>
 
-        <Link href={`/orders/${order.id}`} className="block">
+        <Link href={detailHref} className="block">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-t border-[var(--border-panel)] pt-1">
             <MobileWorkflowStrip
               workflowStatus={workflowStatus}

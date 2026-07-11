@@ -1,6 +1,8 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ordersKeys } from "@/features/orders/api/query-keys";
+
 import type { RepairDeskRealtimeEvent } from "./realtime-events";
 import { QueryFreshnessCoordinator, StalePreloadError } from "./query-freshness-coordinator";
 
@@ -103,6 +105,64 @@ describe("QueryFreshnessCoordinator", () => {
 
     expect(queryClient.getQueryData(queryKey)).toBeUndefined();
     expect(queryClient.getQueryState(queryKey)?.error).toBeInstanceOf(StalePreloadError);
+    coordinator.dispose();
+  });
+
+  it("prevents an older order detail preload from winning after an order event", async () => {
+    const queryClient = createQueryClient();
+    vi.spyOn(queryClient, "cancelQueries").mockResolvedValue();
+    const coordinator = new QueryFreshnessCoordinator(queryClient, { debounceMs: 100 });
+    coordinator.setStore(storeId);
+    const queryKey = ordersKeys.detail("order_1", storeId);
+    let resolveQuery: ((value: { version: number }) => void) | undefined;
+    const queryFn = vi.fn(
+      () =>
+        new Promise<{ version: number }>((resolve) => {
+          resolveQuery = resolve;
+        }),
+    );
+
+    const prefetch = coordinator.prefetch({
+      group: "orders.all",
+      queryKey,
+      queryFn,
+      staleTime: 30_000,
+    });
+    await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+    coordinator.handleRealtimeEvent(createEvent("evt_order_detail"));
+    resolveQuery?.({ version: 1 });
+    await prefetch;
+
+    expect(queryClient.getQueryData(queryKey)).toBeUndefined();
+    coordinator.dispose();
+  });
+
+  it("prevents an old-store order detail preload from entering cache after a store switch", async () => {
+    const queryClient = createQueryClient();
+    vi.spyOn(queryClient, "cancelQueries").mockResolvedValue();
+    const coordinator = new QueryFreshnessCoordinator(queryClient, { debounceMs: 100 });
+    coordinator.setStore(storeId);
+    const queryKey = ordersKeys.detail("order_1", storeId);
+    let resolveQuery: ((value: { version: number }) => void) | undefined;
+    const queryFn = vi.fn(
+      () =>
+        new Promise<{ version: number }>((resolve) => {
+          resolveQuery = resolve;
+        }),
+    );
+
+    const prefetch = coordinator.prefetch({
+      group: "orders.all",
+      queryKey,
+      queryFn,
+      staleTime: 30_000,
+    });
+    await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+    coordinator.setStore("store_b");
+    resolveQuery?.({ version: 1 });
+    await prefetch;
+
+    expect(queryClient.getQueryData(queryKey)).toBeUndefined();
     coordinator.dispose();
   });
 

@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   Filter,
+  LoaderCircle,
   Plus,
   RefreshCw,
   Search,
@@ -30,7 +31,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   createCustomer,
   type CustomerCreateInput,
@@ -44,11 +44,13 @@ import {
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { useRealtimeSync } from "@/features/realtime";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import {
   CustomerKpiCard,
   CustomerMobileCard,
   CustomerRow,
 } from "@/features/customers/components/customer-list-items";
+import { CustomerListSkeleton } from "@/features/customers/components/customer-list-skeleton";
 import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
 import { CustomerFilters } from "@/features/customers/forms/customer-filters";
 import { CustomerFormDialog } from "@/features/customers/forms/customer-form-dialog";
@@ -201,6 +203,13 @@ export function CustomerListScreen() {
   const activeWorkFilter = baseFilters.work ?? "all";
   const customerHeaderChips = buildCustomerWorkFilterChips(stats);
 
+  if (!data && !isError && (shell.status === "loading" || (Boolean(activeStoreId) && isPending))) {
+    return <CustomerListSkeleton />;
+  }
+  if (!activeStoreId) {
+    return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
+  }
+
   return (
     <RepairOsListScaffold
       title="客户管理"
@@ -303,11 +312,6 @@ export function CustomerListScreen() {
               placeholder="搜索姓名、电话或设备"
               className="h-8 border-0 bg-transparent pl-8 pr-14 text-sm shadow-none focus-visible:ring-0 sm:h-9 sm:border-border/60 sm:bg-surface/60 sm:shadow-sm"
             />
-            {isFetching && (
-              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
-                更新中
-              </span>
-            )}
           </div>
           <ScanSearchButton
             scope="customers"
@@ -373,12 +377,6 @@ export function CustomerListScreen() {
 
       {isError && !data ? (
         <CustomerLoadError message={queryErrorMessage} onRetry={refreshCustomerData} />
-      ) : isPending ? (
-        <div className={cn("space-y-2", layoutGuards.noPageOverflow)}>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 w-full" />
-          ))}
-        </div>
       ) : customers.length === 0 ? (
         <RepairOsBusinessCard
           as="div"
@@ -398,7 +396,16 @@ export function CustomerListScreen() {
             <span>
               筛选结果 {total} 位{total > 0 && ` · ${pageRange.start}-${pageRange.end}`}
             </span>
-            {isPlaceholderData && <span>保留上一页数据中…</span>}
+            {isFetching ? (
+              <LoaderCircle
+                data-ui="customer-list-refreshing"
+                className="size-3.5 animate-spin text-primary"
+                aria-hidden="true"
+              />
+            ) : null}
+            <span className="sr-only" role="status" aria-live="polite">
+              {isFetching ? "正在更新客户数据" : ""}
+            </span>
           </div>
           <div className="glass-card hidden min-w-0 max-w-full overflow-hidden lg:block">
             <div className="max-w-full overflow-x-auto">

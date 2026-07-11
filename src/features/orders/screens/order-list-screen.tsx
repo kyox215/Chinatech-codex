@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -41,10 +42,9 @@ import { brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-p
 import { componentOverlay } from "@/lib/component-patterns";
 import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
-import {
-  DesktopOrderQueueRow,
-  orderQueueDesktopGrid,
-} from "@/features/orders/components/order-list-desktop-row";
+import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
+import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
+import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
 import {
   FiltersPanel,
   OrderStatusFilterControls,
@@ -86,8 +86,15 @@ import {
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import {
   ORDER_QUEUE_PAGE_SIZE,
+  orderDetailQueryOptions,
   orderQueueSummaryQueryOptions,
 } from "@/features/orders/api/query-options";
+import {
+  BoundedPreloadScheduler,
+  getOrderDetailAutomaticPreloadLimit,
+  ORDER_DETAIL_PRELOAD_GC_TIME,
+} from "@/features/preload/model/order-detail-preload";
+import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import {
   invalidateOrderReadCaches,
@@ -97,7 +104,9 @@ import {
   snapshotOrderReadCaches,
 } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 
 const emptyOrderOptions = {
@@ -141,6 +150,8 @@ export function OrderListScreen() {
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const { coordinator } = useRealtimeSync();
+  const detailPreloadScheduler = useMemo(() => new BoundedPreloadScheduler(1), []);
+  const detailPreloadEnabled = isRepairDeskPreloadEnabled();
 
   useEffect(() => {
     document.body.dataset.mobileWorkspaceActive = "true";
@@ -196,7 +207,9 @@ export function OrderListScreen() {
 
   const {
     data: queueSummary,
-    isLoading,
+    isPending,
+    isFetching,
+    isPlaceholderData,
     isError: listIsError,
     error: listError,
     refetch: refetchOrders,
@@ -343,6 +356,70 @@ export function OrderListScreen() {
   const isPageOutOfRange = Boolean(
     listResult && listResult.total > 0 && !listResult.items.length && page > pageCount,
   );
+
+  const runOrderDetailPrefetch = useCallback(
+    (orderId: string) => {
+      if (!detailPreloadEnabled || !activeStoreId || !coordinator) return Promise.resolve();
+      const detailOptions = orderDetailQueryOptions(orderId, activeStoreId);
+      return coordinator.prefetch({
+        group: "orders.all",
+        queryKey: detailOptions.queryKey,
+        queryFn: detailOptions.queryFn!,
+        staleTime: CACHE_TIMES.detail,
+        gcTime: ORDER_DETAIL_PRELOAD_GC_TIME,
+      });
+    },
+    [activeStoreId, coordinator, detailPreloadEnabled],
+  );
+
+  const scheduleOrderDetailPrefetch = useCallback(
+    (orderId: string, priority: "background" | "intent" = "intent") => {
+      if (!detailPreloadEnabled || !activeStoreId || !coordinator) return false;
+      return detailPreloadScheduler.schedule(
+        `${activeStoreId}:${orderId}`,
+        () => runOrderDetailPrefetch(orderId),
+        priority,
+      );
+    },
+    [
+      activeStoreId,
+      coordinator,
+      detailPreloadEnabled,
+      detailPreloadScheduler,
+      runOrderDetailPrefetch,
+    ],
+  );
+
+  const cancelOrderDetailPrefetch = useCallback(
+    (orderId: string) => {
+      if (!activeStoreId) return false;
+      return detailPreloadScheduler.cancel(`${activeStoreId}:${orderId}`);
+    },
+    [activeStoreId, detailPreloadScheduler],
+  );
+
+  useEffect(() => {
+    detailPreloadScheduler.clear();
+  }, [activeStoreId, detailPreloadScheduler]);
+
+  useEffect(() => {
+    return () => detailPreloadScheduler.clear();
+  }, [detailPreloadScheduler]);
+
+  useEffect(() => {
+    if (!data.length || isPlaceholderData || typeof navigator === "undefined") return;
+    const connection = (
+      navigator as Navigator & {
+        connection?: { effectiveType?: string; saveData?: boolean };
+      }
+    ).connection;
+    const limit = getOrderDetailAutomaticPreloadLimit({
+      online: navigator.onLine,
+      effectiveType: connection?.effectiveType,
+      saveData: connection?.saveData,
+    });
+    data.slice(0, limit).forEach((order) => scheduleOrderDetailPrefetch(order.id, "background"));
+  }, [data, isPlaceholderData, scheduleOrderDetailPrefetch]);
 
   const invalidate = (orderId?: string) => {
     invalidateOrderReadCaches(queryClient, orderId);
@@ -555,7 +632,10 @@ export function OrderListScreen() {
     setPrintOrders(rows);
     window.requestAnimationFrame(() => window.print());
   };
-  const openDetail = (id: string) => setDetailOrderId(id);
+  const openDetail = (id: string) => {
+    scheduleOrderDetailPrefetch(id, "intent");
+    setDetailOrderId(id);
+  };
   const handleNewOrderCreated = (id: string) => {
     setNewOrderOpen(false);
     setDetailOrderId(id);
@@ -579,13 +659,28 @@ export function OrderListScreen() {
     setPage(1);
   };
 
+  if (
+    !queueSummary &&
+    !listIsError &&
+    (shell.status === "loading" || (Boolean(activeStoreId) && isPending))
+  ) {
+    return <OrderListSkeleton />;
+  }
+  if (!activeStoreId) {
+    return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
+  }
+
   return (
     <div
       className={cn(repairOs.mobileListFloatingPage, "md:pb-8")}
+      data-order-list-refreshing={isFetching ? "true" : "false"}
+      aria-busy={isFetching}
       style={
-        {
-          "--orders-mobile-header-offset": `${mobileHeaderHeight + 8}px`,
-        } as CSSProperties
+        mobileHeaderHeight > 0
+          ? ({
+              "--orders-mobile-header-offset": `${mobileHeaderHeight + 8}px`,
+            } as CSSProperties)
+          : undefined
       }
     >
       <MobileOrdersFloatingHeader
@@ -729,15 +824,34 @@ export function OrderListScreen() {
         )}
       </div>
 
+      {listIsError && queueSummary ? (
+        <div
+          role="status"
+          className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
+        >
+          <AlertTriangle className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">工单刷新失败，正在显示上次数据。</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 shrink-0 px-2 text-xs"
+            onClick={() => refreshOrderData()}
+          >
+            重试
+          </Button>
+        </div>
+      ) : null}
+
       {/* List */}
       <div className="pb-8">
-        {isLoading || isPageOutOfRange ? (
+        {isPageOutOfRange ? (
           <div className="space-y-1.5">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
-        ) : listIsError ? (
+        ) : listIsError && !queueSummary ? (
           <OrdersErrorState message={listErrorMessage} onRetry={() => refreshOrderData()} />
         ) : !data.length ? (
           <EmptyOrdersState hasActiveFilters={hasActiveFilters} onClearFilters={clearAllFilters} />
@@ -796,6 +910,8 @@ export function OrderListScreen() {
                         workflow={workflow}
                         checked={checked}
                         onOpen={() => openDetail(o.id)}
+                        onPrefetch={() => scheduleOrderDetailPrefetch(o.id, "intent")}
+                        onCancelPrefetch={() => cancelOrderDetailPrefetch(o.id)}
                         onCheckedChange={(value) =>
                           setSelected((prev) =>
                             value ? [...prev, o.id] : prev.filter((id) => id !== o.id),
@@ -826,6 +942,8 @@ export function OrderListScreen() {
                 <OrderMobileCard
                   key={order.id}
                   order={order}
+                  onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
+                  onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
                   suppliers={visibleSuppliers}
                   isPartsSupplierUpdating={
                     partsSupplierMutation.isPending &&

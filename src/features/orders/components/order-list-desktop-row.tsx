@@ -1,6 +1,12 @@
 "use client";
 
-import type { SyntheticEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  type FocusEvent,
+  type PointerEvent as ReactPointerEvent,
+  type SyntheticEvent,
+} from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock, MoreHorizontal, PackageSearch, Printer } from "lucide-react";
@@ -29,15 +35,18 @@ import {
 import { cn } from "@/lib/utils";
 import type { Supplier } from "@/lib/repairdesk/types";
 import { OrderSupplierPicker } from "@/features/suppliers/components/order-supplier-picker";
+import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
+import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
 
-export const orderQueueDesktopGrid =
-  "grid min-w-0 grid-cols-[30px_minmax(126px,0.82fr)_minmax(164px,1.08fr)_minmax(158px,1.02fr)_minmax(88px,0.5fr)_minmax(90px,0.52fr)_32px] items-center xl:grid-cols-[32px_minmax(146px,0.82fr)_minmax(220px,1.12fr)_minmax(214px,1.08fr)_minmax(102px,0.5fr)_minmax(110px,0.54fr)_34px]";
+export { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 
 export function DesktopOrderQueueRow({
   order,
   workflow,
   checked,
   onOpen,
+  onPrefetch,
+  onCancelPrefetch,
   onCheckedChange,
   onPrint,
   onStopInteraction,
@@ -49,6 +58,8 @@ export function DesktopOrderQueueRow({
   workflow?: OrderWorkflow;
   checked: boolean;
   onOpen: () => void;
+  onPrefetch?: () => void;
+  onCancelPrefetch?: () => void;
   onCheckedChange: (checked: boolean) => void;
   onPrint: () => void;
   onStopInteraction: (event: SyntheticEvent) => void;
@@ -56,6 +67,7 @@ export function DesktopOrderQueueRow({
   onPartsSupplierChange?: (supplierId: string | null) => void;
   isPartsSupplierUpdating?: boolean;
 }) {
+  const hoverTimerRef = useRef<number | null>(null);
   const exceptionStatus = order.exception_status;
   const guidance = getOrderTaskGuidance(order);
   const next = getWorkflowNextActions(workflow, order.status);
@@ -78,6 +90,39 @@ export function DesktopOrderQueueRow({
   const stageStep = stageIndex + 1;
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
 
+  const clearHoverTimer = () => {
+    if (hoverTimerRef.current === null) return;
+    window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+  };
+  const isNestedControl = (target: EventTarget | null) =>
+    target instanceof HTMLElement &&
+    Boolean(target.closest("a,button,input,[role=menuitem],[role=checkbox]"));
+  const handlePointerEnter = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse" || !onPrefetch) return;
+    clearHoverTimer();
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      onPrefetch();
+    }, ORDER_DETAIL_HOVER_DELAY_MS);
+  };
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || isNestedControl(event.target)) return;
+    clearHoverTimer();
+    onPrefetch?.();
+  };
+  const handleFocus = (event: FocusEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onPrefetch?.();
+  };
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))
+      return;
+    clearHoverTimer();
+    onCancelPrefetch?.();
+  };
+
+  useEffect(() => clearHoverTimer, []);
+
   return (
     <motion.div
       data-order-row="true"
@@ -85,6 +130,14 @@ export function DesktopOrderQueueRow({
       role="button"
       aria-label={`查看工单详情 ${order.public_no}`}
       tabIndex={0}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={() => {
+        clearHoverTimer();
+        onCancelPrefetch?.();
+      }}
+      onPointerDown={handlePointerDown}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
       onClick={onOpen}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;

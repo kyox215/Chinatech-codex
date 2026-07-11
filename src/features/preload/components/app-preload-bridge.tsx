@@ -97,17 +97,30 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
       await runTarget(target);
     });
 
-    const run = () => {
-      if (!cancelled) void runRepairDeskPreloadQueue(tasks, 2);
-    };
     const idleWindow = window as WindowWithIdleCallback;
-    const idleHandle = idleWindow.requestIdleCallback?.(run, { timeout: 1_500 });
-    const timeoutHandle = idleHandle === undefined ? window.setTimeout(run, 350) : undefined;
+    let idleHandle: number | undefined;
+    let secondaryTimeoutHandle: number | undefined;
+
+    const runSecondary = async () => {
+      if (cancelled) return;
+      await runRepairDeskPreloadQueue(tasks.slice(2), 2);
+    };
+    const scheduleSecondary = () => {
+      if (cancelled) return;
+      idleHandle = idleWindow.requestIdleCallback?.(() => void runSecondary(), { timeout: 1_000 });
+      if (idleHandle === undefined) {
+        secondaryTimeoutHandle = window.setTimeout(() => void runSecondary(), 200);
+      }
+    };
+    const criticalTimeoutHandle = window.setTimeout(() => {
+      void runRepairDeskPreloadQueue(tasks.slice(0, 2), 2).then(scheduleSecondary);
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(criticalTimeoutHandle);
       if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
-      if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+      if (secondaryTimeoutHandle !== undefined) window.clearTimeout(secondaryTimeoutHandle);
     };
   }, [coordinator, pathname, storeId]);
 

@@ -14,8 +14,9 @@ describe("preload plan", () => {
   });
 
   it("prioritizes the active workspace and limits constrained networks", () => {
-    expect(getRepairDeskPreloadTargets("/customers")[0]).toBe("customers");
-    expect(getRepairDeskPreloadTargets("/inventory", true)).toEqual(["inventory", "orders"]);
+    expect(getRepairDeskPreloadTargets("/orders").slice(0, 2)).toEqual(["orders", "customers"]);
+    expect(getRepairDeskPreloadTargets("/customers").slice(0, 2)).toEqual(["customers", "orders"]);
+    expect(getRepairDeskPreloadTargets("/inventory", true)).toEqual(["orders", "customers"]);
   });
 
   it("never exceeds the configured concurrency", async () => {

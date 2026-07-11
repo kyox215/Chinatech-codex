@@ -9,10 +9,10 @@ export const repairDeskPreloadTargets = [
 export type RepairDeskPreloadTarget = (typeof repairDeskPreloadTargets)[number];
 
 const targetPriorityByWorkspace: Record<string, readonly RepairDeskPreloadTarget[]> = {
-  orders: ["orders", "workflow", "settings", "customers", "inventory"],
-  customers: ["customers", "orders", "settings", "workflow", "inventory"],
-  inventory: ["inventory", "orders", "settings", "workflow", "customers"],
-  settings: ["settings", "workflow", "orders", "customers", "inventory"],
+  orders: ["orders", "customers", "workflow", "settings", "inventory"],
+  customers: ["customers", "orders", "workflow", "settings", "inventory"],
+  inventory: ["orders", "customers", "inventory", "settings", "workflow"],
+  settings: ["orders", "customers", "settings", "workflow", "inventory"],
 };
 
 export function isRepairDeskPreloadEnabled(

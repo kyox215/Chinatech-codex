@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
 import { OrderListScreen } from "@/features/orders/screens/order-list-screen";
 
 export const metadata: Metadata = {
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">正在加载工单...</div>}>
+    <Suspense fallback={<OrderListSkeleton />}>
       <OrderListScreen />
     </Suspense>
   );

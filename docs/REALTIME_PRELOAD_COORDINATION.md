@@ -15,24 +15,43 @@ All business data remains in the in-memory TanStack Query cache.
 
 ## Conflict Order
 
-| Situation | Required behavior |
-|---|---|
-| Realtime event during preload | Cancel the request; reject an uncancellable old response through the group/store epoch guard. |
-| Repeated events | Deduplicate event IDs, mark inactive queries stale, and debounce one active refetch per query group. |
-| Manual refresh during preload | Route through the coordinator, cancel stale work, and immediately refetch active queries. |
-| Realtime event during optimistic mutation | Hold the active refetch until mutation settlement; never restore a snapshot whose epoch is old. |
-| Reconnect or long background resume | Mark affected domains stale and run one catch-up refresh. |
-| Store switch or sign-out | Cancel old requests before cache removal; clear event/epoch state and ignore old-store events. |
+| Situation                                 | Required behavior                                                                                    |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Realtime event during preload             | Cancel the request; reject an uncancellable old response through the group/store epoch guard.        |
+| Repeated events                           | Deduplicate event IDs, mark inactive queries stale, and debounce one active refetch per query group. |
+| Manual refresh during preload             | Route through the coordinator, cancel stale work, and immediately refetch active queries.            |
+| Realtime event during optimistic mutation | Hold the active refetch until mutation settlement; never restore a snapshot whose epoch is old.      |
+| Reconnect or long background resume       | Mark affected domains stale and run one catch-up refresh.                                            |
+| Store switch or sign-out                  | Cancel old requests before cache removal; clear event/epoch state and ignore old-store events.       |
 
 ## Preload Policy
 
-Preloading starts only after an authenticated active-store context exists. It runs during browser idle
-time, keeps at most two requests in flight, and prioritizes the current workspace. Data Saver, `2g`,
-and `slow-2g` connections preload only the first two targets. The current targets are the default order
-queue, order workflow, store settings, default customer page, and inventory summary.
+Preloading starts only after an authenticated active-store context exists. The startup critical phase
+warms the default order queue and customer page first, with at most two requests in flight. Secondary
+targets run during browser idle time after that critical phase. Data Saver, `2g`, and `slow-2g`
+connections stop after the two critical targets; offline clients do not preload.
 
-`NEXT_PUBLIC_REPAIRDESK_PRELOAD_ENABLED=0` disables only preloading. Realtime and ordinary screen
-queries continue to work.
+Once the order workspace is mounted, its single store-scoped scheduler warms at most the first two
+visible order details on a normal connection and one on `3g`, always with detail concurrency limited
+to one. It is the only automatic detail-preload owner; the application bridge warms workspaces but does
+not run a second detail queue. Order links also schedule detail preload on focus and primary
+pointer-down, or after a 100 ms hover intent. Pointer leave or focus-out removes work that has not
+started, and the bounded queue keeps only the latest queued intent. The same detail query options are
+used by preload, the detail dialog, and the standalone detail route, so fresh or in-flight data is
+reused instead of requested again.
+
+All detail work runs through the `orders.all` freshness group. Realtime invalidation, manual refresh,
+store change, or sign-out advances that group's epoch before cancellation, preventing a late old-store
+or stale preload response from becoming current data. Detail preload has a short two-minute garbage
+collection window and does not persist authenticated business data.
+
+Cold `/orders`, `/customers`, and order-detail loads render full RepairOS workspace skeletons rather
+than a line of loading copy. Warm navigation and background refresh preserve the current workspace;
+only the initial no-data state uses the skeleton.
+
+`NEXT_PUBLIC_REPAIRDESK_PRELOAD_ENABLED=0` disables only preloading in the generated client bundle.
+Because it is a public Next.js build-time variable, changing it requires a rebuild/redeploy; Realtime
+and ordinary screen queries continue to work.
 
 ## Realtime Policy
 
@@ -53,5 +72,7 @@ not authorize or activate those production changes.
   rollback protection.
 - Provider tests cover auth-before-subscribe and reconnect catch-up state transitions.
 - Tenant tests cover cancellation before old-store cache removal.
-- Playwright checks one customer preload request across warm SPA navigation and verifies the compact
-  mobile status at 390 px without page overflow.
+- Detail scheduler tests cover priority, deduplication, cancellation, network limits, and single-request
+  reuse from pointer/focus intent through dialog open.
+- Playwright checks the bounded two-detail warmup, one customer preload request across warm SPA
+  navigation, full-frame cold skeletons, and page overflow at 390, 430, 1024, and 1440 px.

@@ -339,9 +339,12 @@ export function RepairOsListScaffold({
     searchAction,
     filterAction ?? (!searchAction ? "default-filter" : null),
   ].filter(Boolean);
-  const offsetStyle = {
-    "--repair-os-list-header-offset": `${headerHeight + 8}px`,
-  } as CSSProperties;
+  const offsetStyle =
+    headerHeight > 0
+      ? ({
+          "--repair-os-list-header-offset": `${headerHeight + 8}px`,
+        } as CSSProperties)
+      : undefined;
   const desktopActions = desktopAction ?? action;
   const resolvedDesktopHeader =
     desktopHeader ??

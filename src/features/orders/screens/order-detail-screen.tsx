@@ -79,13 +79,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   decideOrderApproval,
   createKioskSession,
-  getOrder,
   getRepairDeskOptions,
   getStoreSettings,
   listKioskDevices,
@@ -113,6 +111,9 @@ import {
   type ImeiCandidate,
 } from "@/features/capture/model/barcode-parser";
 import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
+import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
+import { orderDetailQueryOptions } from "@/features/orders/api/query-options";
+import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import { OrderSupplierPicker } from "@/features/suppliers/components/order-supplier-picker";
 import {
   DeviceUnlockEditor,
@@ -254,12 +255,12 @@ export function OrderDetailScreen({
     error: detailError,
     isError: detailIsError,
     isLoading,
+    isPending,
     refetch: refetchDetail,
   } = useQuery({
-    queryKey: ordersKeys.detail(id, activeStoreId),
-    queryFn: ({ signal }) => getOrder(id, { signal }),
+    ...orderDetailQueryOptions(id, activeStoreId),
+    enabled: Boolean(activeStoreId),
     retry: false,
-    staleTime: CACHE_TIMES.detail,
   });
   const { data: storeSettings } = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
@@ -582,22 +583,14 @@ export function OrderDetailScreen({
     if (discarded) toast.success("本机编辑草稿已丢弃");
   }, [discardEditOfflinePromptDraft]);
 
-  if (isLoading) {
-    return (
-      <div
-        className={cn(
-          "min-w-0 max-w-full space-y-3 overflow-x-clip",
-          surface === "page"
-            ? "mx-auto w-full max-w-[1200px] px-2.5 pb-28 pt-0 sm:px-4 sm:pb-32 md:px-6"
-            : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
-        )}
-      >
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-9 w-72" />
-        <Skeleton className="h-44 w-full" />
-        <Skeleton className="h-44 w-full" />
-      </div>
-    );
+  if (
+    !data &&
+    (shell.status === "loading" || (Boolean(activeStoreId) && (isLoading || isPending)))
+  ) {
+    return <OrderDetailSkeleton surface={surface} onClose={onClose} />;
+  }
+  if (!activeStoreId) {
+    return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
   }
   if (detailIsError || !data) {
     const message =
@@ -613,18 +606,44 @@ export function OrderDetailScreen({
             : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
         )}
       >
-        <section className="rounded-xl border border-status-danger-foreground/20 bg-status-danger px-4 py-4 text-status-danger-foreground">
-          <p className="text-sm font-semibold">工单详情加载失败</p>
-          <p className="mt-1 break-words text-xs leading-5">{message}</p>
+        {surface === "dialog" && onClose ? (
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="mt-3 h-8 rounded-lg bg-background/80 text-xs"
-            onClick={() => void refetchDetail()}
+            size="icon"
+            className="absolute right-2 top-2 z-40 size-8 rounded-full bg-card/95 shadow-[var(--shadow-card)]"
+            onClick={onClose}
+            aria-label="关闭工单详情"
           >
-            重新加载
+            <X className="size-4" />
           </Button>
+        ) : null}
+        <section className="rounded-xl border border-status-danger-foreground/20 bg-status-danger px-4 py-4 text-status-danger-foreground">
+          <p className="text-sm font-semibold">工单详情加载失败</p>
+          <p className="mt-1 break-words text-xs leading-5">{message}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-lg bg-background/80 text-xs"
+              onClick={() => void refetchDetail()}
+            >
+              重新加载
+            </Button>
+            {surface === "page" ? (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg bg-background/80 text-xs"
+              >
+                <Link href="/orders">
+                  <ArrowLeft className="size-3.5" /> 返回工单
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         </section>
       </div>
     );
