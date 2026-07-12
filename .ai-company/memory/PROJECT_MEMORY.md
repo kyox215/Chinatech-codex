@@ -4,7 +4,7 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-06-20 CEST
+- Last verified: 2026-07-12 CEST
 
 ## Product and business overview
 
@@ -46,6 +46,8 @@ Client components must not import `src/server/*`. Server-side validation is requ
 `TASK-20260619-230350-l2-025-role-policy-decision-package/ROLE_POLICY_DECISION_PACKAGE.md` is the current Owner-approval package for role policy. It recommends Option A, but Option A is not approved or implemented until the Owner explicitly approves and follow-up implementation/test tasks close.
 
 `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` is the current audit-log redaction/minimization policy draft. It defines audit payload field categories, event-specific allowlists, forbidden data classes, approval boundaries, and implementation follow-ups. It is not evidence that audit sanitizer code, retention policy, or production historical cleanup is implemented.
+
+`TASK-20260712-002-global-staff-permissions` implements the Owner-approved global store role policy: archived paid-and-closed/cancelled orders leave the default queue; technicians and front desk can see amounts only on authorized individual orders; aggregate finance, profit and bulk output remain separately gated. Technician object authorization uses same-store `assignee_membership_id` and fails closed before the pending assignment migration. Production migration apply remains a separate approval gate.
 
 ## Environments, build, deploy and operations
 

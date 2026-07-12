@@ -121,6 +121,7 @@ const ORDER_LIST_BASE_COLUMNS = `
 `;
 
 const ORDER_LIST_CANONICAL_COLUMNS = `
+  assignee_membership_id,
   workflow_status,
   exception_status,
   payment_status,
@@ -422,6 +423,7 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     approval_sent_at: maybeString(row.approval_sent_at),
     approval_confirmed_at: maybeString(row.approval_confirmed_at),
     technician_name: requiredString(row.technician_name),
+    assignee_membership_id: maybeString(row.assignee_membership_id),
     internal_tag: maybeString(row.internal_tag),
     accessory_notes: maybeString(row.accessory_notes),
     warranty_text: maybeString(row.warranty_text),
@@ -547,7 +549,11 @@ export async function fetchOrderRows(storeId: string): Promise<DbRecord[]> {
     }
     fail(error, "读取工单失败");
 
-    const batch = (data ?? []) as unknown as DbRecord[];
+    const assignmentSupported = !retriedLegacySelect;
+    const batch = ((data ?? []) as unknown as DbRecord[]).map((row) => ({
+      ...row,
+      __assignment_supported: assignmentSupported,
+    }));
     rows.push(...batch);
 
     if (batch.length < ORDER_LIST_PAGE_SIZE) break;

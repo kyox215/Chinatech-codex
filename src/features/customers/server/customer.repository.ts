@@ -25,6 +25,8 @@ import {
   isCustomerOrderClosed,
 } from "@/features/customers/model/customer-order-state";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { can } from "@/server/permissions";
+import { projectOrderListItemForActor } from "@/features/orders/server/order.repository";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   type DbRecord,
@@ -433,6 +435,15 @@ function buildCustomerListItem(
   };
 }
 
+export function projectCustomerAggregateFinance(
+  customer: CustomerListItem,
+  actor?: AuditActor,
+): CustomerListItem {
+  if (can(actor, "finance:aggregate_read")) return customer;
+  const { total_spent: _totalSpent, unpaid_amount: _unpaidAmount, ...visible } = customer;
+  return { ...visible, finance_redacted: true };
+}
+
 function filterCustomers(customers: CustomerListItem[], filters: CustomerListFilters = {}) {
   let result = customers;
   const query = filters.search?.trim().toLowerCase();
@@ -457,7 +468,7 @@ function filterCustomers(customers: CustomerListItem[], filters: CustomerListFil
   if (filters.work && filters.work !== "all") {
     result = result.filter((customer) => {
       if (filters.work === "active") return customer.active_order_count > 0;
-      if (filters.work === "unpaid") return customer.unpaid_amount > 0;
+      if (filters.work === "unpaid") return (customer.unpaid_amount ?? 0) > 0;
       if (filters.work === "with_devices") return customer.device_count > 0;
       if (filters.work === "repeat") return customer.order_count > 1;
       return true;
@@ -589,7 +600,7 @@ export async function listCustomers(
     total: items.length,
     repeat: items.filter((customer) => customer.order_count > 1).length,
     activeRepairs: items.filter((customer) => customer.active_order_count > 0).length,
-    unpaid: items.filter((customer) => customer.unpaid_amount > 0).length,
+    unpaid: items.filter((customer) => (customer.unpaid_amount ?? 0) > 0).length,
     withDevices: items.filter((customer) => customer.device_count > 0).length,
     dueFollowups: items.filter((customer) => {
       if (!customer.next_followup_at) return false;
@@ -599,7 +610,13 @@ export async function listCustomers(
       .length,
   };
 
-  return { customers: filterCustomers(items, filters), tags, stats };
+  return {
+    customers: filterCustomers(items, filters).map((customer) =>
+      projectCustomerAggregateFinance(customer, actor),
+    ),
+    tags,
+    stats,
+  };
 }
 
 export async function listCustomersPage(
@@ -621,14 +638,14 @@ export async function listCustomersPage(
   };
   const v2Result = await supabase.rpc("repairdesk_customer_list_page_v2", rpcInput);
   if (!v2Result.error && isCustomerListPageResult(v2Result.data)) {
-    return normalizeCustomerPageResult(v2Result.data, page, pageSize);
+    return normalizeCustomerPageResult(v2Result.data, page, pageSize, actor);
   }
 
   if (!input.work || input.work === "all") {
     const { p_work_filter: _workFilter, ...legacyRpcInput } = rpcInput;
     const legacyRpcResult = await supabase.rpc("repairdesk_customer_list_page", legacyRpcInput);
     if (!legacyRpcResult.error && isCustomerListPageResult(legacyRpcResult.data)) {
-      return normalizeCustomerPageResult(legacyRpcResult.data, page, pageSize);
+      return normalizeCustomerPageResult(legacyRpcResult.data, page, pageSize, actor);
     }
 
     try {
@@ -675,12 +692,13 @@ function normalizeCustomerPageResult(
   result: CustomerListPageResult,
   fallbackPage: number,
   fallbackPageSize: number,
+  actor?: AuditActor,
 ): CustomerListPageResult {
   const total = Number(result.total ?? 0);
   const pageSize = Math.min(100, Math.max(10, Number(result.pageSize ?? fallbackPageSize)));
   const page = Math.max(1, Number(result.page ?? fallbackPage));
   return {
-    items: result.items,
+    items: result.items.map((item) => projectCustomerAggregateFinance(item, actor)),
     total,
     page,
     pageSize,
@@ -824,16 +842,20 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
     .map((assignment) => allTags.find((tag) => tag.id === assignment.tag_id))
     .filter((tag): tag is CustomerTag => Boolean(tag));
   const orderStats = customerStatsFromOrders(orders);
+  const canReadAggregateFinance = can(actor, "finance:aggregate_read");
 
   return {
     customer,
     devices,
-    orders,
+    orders: orders.map((order) => projectOrderListItemForActor(order, actor)),
     tags,
     interactions,
     followups,
     stats: {
       ...orderStats,
+      total_spent: canReadAggregateFinance ? orderStats.total_spent : undefined,
+      unpaid_amount: canReadAggregateFinance ? orderStats.unpaid_amount : undefined,
+      finance_redacted: canReadAggregateFinance ? undefined : true,
       device_count: devices.length,
       next_followup_at: nextFollowup(followups)?.due_at,
     },

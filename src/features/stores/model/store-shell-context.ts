@@ -13,6 +13,8 @@ export interface StoreShellContextSnapshot {
   email?: string;
   displayName?: string;
   activeStore?: ActorStoreMembership;
+  permissions?: StoreContext["permissions"];
+  authorityFingerprint: string;
   stores: ActorStoreMembership[];
   isPlatformAdmin: boolean;
   isLoading: boolean;
@@ -32,6 +34,7 @@ export interface ResolveStoreShellContextInput {
   storeContextLoading?: boolean;
   onboardingError?: boolean;
   storeContextError?: boolean;
+  authorityLost?: boolean;
 }
 
 export function resolveStoreShellContext({
@@ -41,20 +44,30 @@ export function resolveStoreShellContext({
   storeContextLoading = false,
   onboardingError = false,
   storeContextError = false,
+  authorityLost = false,
 }: ResolveStoreShellContextInput): StoreShellContextSnapshot {
-  const activeStore = storeContext?.activeStore ?? onboardingStatus?.activeStore;
-  const stores = normalizeStores(activeStore, storeContext?.stores, onboardingStatus?.stores);
+  const activeStore = authorityLost
+    ? undefined
+    : (storeContext?.activeStore ?? onboardingStatus?.activeStore);
+  const stores = authorityLost
+    ? []
+    : normalizeStores(activeStore, storeContext?.stores, onboardingStatus?.stores);
   const isPlatformAdmin = Boolean(onboardingStatus?.isPlatformAdmin);
   const hasUsableIdentity = Boolean(activeStore || isPlatformAdmin);
-  const isInitialLoading = onboardingLoading && !hasUsableIdentity;
+  const isInitialLoading = !authorityLost && onboardingLoading && !hasUsableIdentity;
   const isRefreshing = Boolean(
+    !authorityLost &&
     hasUsableIdentity &&
     (onboardingLoading || (Boolean(onboardingStatus?.activeStore) && storeContextLoading)),
   );
   const isDegraded = Boolean(
-    hasUsableIdentity && (onboardingError || (storeContextError && Boolean(activeStore))),
+    !authorityLost &&
+    hasUsableIdentity &&
+    (onboardingError || (storeContextError && Boolean(activeStore))),
   );
-  const isError = Boolean(!hasUsableIdentity && (onboardingError || storeContextError));
+  const isError = Boolean(
+    authorityLost || (!hasUsableIdentity && (onboardingError || storeContextError)),
+  );
   const status = getStoreShellStatus({
     activeStore,
     isPlatformAdmin,
@@ -63,12 +76,19 @@ export function resolveStoreShellContext({
     isDegraded,
   });
   const copy = getStoreShellStatusCopy(status);
+  const authorityFingerprint = createAuthorityFingerprint({
+    userId: onboardingStatus?.userId,
+    activeStore,
+    permissions: authorityLost ? undefined : storeContext?.permissions,
+  });
 
   return {
     userId: onboardingStatus?.userId,
     email: onboardingStatus?.email,
     displayName: onboardingStatus?.displayName,
     activeStore,
+    permissions: authorityLost ? undefined : storeContext?.permissions,
+    authorityFingerprint,
     stores,
     isPlatformAdmin,
     isLoading: isInitialLoading,
@@ -80,6 +100,28 @@ export function resolveStoreShellContext({
     statusLabel: copy.label,
     statusDescription: copy.description,
   };
+}
+
+export function createAuthorityFingerprint({
+  userId,
+  activeStore,
+  permissions,
+}: {
+  userId?: string;
+  activeStore?: ActorStoreMembership;
+  permissions?: StoreContext["permissions"];
+}) {
+  const permissionBits = Object.entries(permissions ?? {})
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([action, allowed]) => `${action}:${allowed ? 1 : 0}`)
+    .join(",");
+  return [
+    userId ?? "anonymous",
+    activeStore?.id ?? "no-store",
+    activeStore?.membershipId ?? "no-membership",
+    activeStore?.role ?? "no-role",
+    permissionBits || "no-permissions",
+  ].join("|");
 }
 
 function normalizeStores(

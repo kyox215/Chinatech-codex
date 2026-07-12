@@ -38,6 +38,7 @@ export function MobileOrdersFloatingHeader({
   onClearAllFilters,
   onCreateOrder,
   scanAction,
+  viewModeControl,
   headerRef,
 }: {
   groups: { key: string; label: string; shortLabel?: string; count: number; hint?: string }[];
@@ -58,6 +59,7 @@ export function MobileOrdersFloatingHeader({
   onClearAllFilters: () => void;
   onCreateOrder: () => void;
   scanAction?: ReactNode;
+  viewModeControl?: ReactNode;
   headerRef?: Ref<HTMLDivElement>;
 }) {
   const activeGroup = groups.find((group) => group.key === groupValue);
@@ -144,6 +146,8 @@ export function MobileOrdersFloatingHeader({
               </SheetContent>
             </Sheet>
           </div>
+
+          {viewModeControl}
 
           <div
             className="min-w-0 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"

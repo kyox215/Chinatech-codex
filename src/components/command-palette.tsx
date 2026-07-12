@@ -52,7 +52,9 @@ export function CommandPalette({
     onOpenChange(false);
     onOpenScanner();
   };
-  const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin);
+  const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin).filter(
+    (item) => shell.permissions?.canReadInventory || !["inventory", "buyback"].includes(item.id),
+  );
   const shellActions = getShellCommandActions();
 
   return (

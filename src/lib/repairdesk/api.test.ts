@@ -7,6 +7,9 @@ import {
   getInventorySummary,
   getOrderQueueSummary,
   getOrderStats,
+  getStoreContext,
+  isRepairDeskAuthorizationError,
+  RepairDeskApiError,
   returnKioskSession,
   previewOrderDataImport,
 } from "./api";
@@ -291,5 +294,43 @@ describe("repairdesk api client", () => {
     const request = expect(getOrderStats({ timeoutMs: 5 })).rejects.toThrow("请求超时，请稍后重试");
     await vi.advanceTimersByTimeAsync(5);
     await request;
+  });
+
+  it.each([401, 403])(
+    "preserves authorization status %s for authority revocation",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          new Response(JSON.stringify({ error: "Access revoked" }), {
+            status,
+            headers: { "content-type": "application/json" },
+          }),
+        ),
+      );
+
+      const error = await getStoreContext().catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(RepairDeskApiError);
+      expect(error).toMatchObject({ message: "Access revoked", status });
+      expect(isRepairDeskAuthorizationError(error)).toBe(true);
+    },
+  );
+
+  it("does not classify ordinary server failures as authority loss", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "Temporary failure" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    const error = await getStoreContext().catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ status: 500 });
+    expect(isRepairDeskAuthorizationError(error)).toBe(false);
   });
 });

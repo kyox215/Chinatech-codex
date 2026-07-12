@@ -130,6 +130,10 @@ import {
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 import { brandGradientStyle, formLayout, repairOs } from "@/lib/ui-patterns";
+import {
+  canRoleReceiveStorePermissionGrant,
+  normalizeStorePermissionGrants,
+} from "@/entities/staff/model/store-permission-policy";
 
 type SettingsDraft = Pick<
   StoreSettings,
@@ -903,7 +907,7 @@ export function SettingsScreen() {
                 accessRequests={storeAccessRequestsQuery.data ?? []}
                 activeStoreRole={storeContextQuery.data?.activeStore?.role}
                 currentUserId={accountQuery.data?.userId}
-                canManageSupplierPermissions={activeStoreRole === "owner"}
+                canManageMemberPermissions={activeStoreRole === "owner"}
                 isLoading={storeMembersQuery.isLoading}
                 isError={storeMembersQuery.isError}
                 isAccessRequestsLoading={storeAccessRequestsQuery.isLoading}
@@ -935,7 +939,7 @@ export function SettingsScreen() {
                 onMemberRoleDraftChange={(id, role) =>
                   setMemberRoleDrafts((current) => ({ ...current, [id]: role }))
                 }
-                onUpdateSupplierPermissions={(id, permissions) =>
+                onUpdateMemberPermissions={(id, permissions) =>
                   updateMemberPermissionsMutation.mutate({ id, permissions })
                 }
                 onAccessRequestRoleChange={(id, role) =>
@@ -1221,14 +1225,21 @@ const roleLabels: Record<string, string> = {
   owner: "店主",
   manager: "经理",
   technician: "技师",
-  sales: "销售",
+  sales: "前台",
   viewer: "只读",
 };
 
-const supplierPermissionOptions: { action: StorePermissionAction; label: string }[] = [
-  { action: "supplier:read", label: "查看供应商" },
-  { action: "supplier:assign", label: "选择供应商" },
-  { action: "supplier:manage", label: "管理供应商" },
+const memberPermissionOptions: {
+  action: StorePermissionAction;
+  label: string;
+  group: "历史与财务" | "供应商";
+}[] = [
+  { action: "order:archive_browse", label: "浏览历史归档", group: "历史与财务" },
+  { action: "finance:aggregate_read", label: "查看业绩汇总", group: "历史与财务" },
+  { action: "finance:profit_read", label: "查看成本利润", group: "历史与财务" },
+  { action: "supplier:read", label: "查看供应商", group: "供应商" },
+  { action: "supplier:assign", label: "选择供应商", group: "供应商" },
+  { action: "supplier:manage", label: "管理供应商", group: "供应商" },
 ];
 
 const memberStatusLabels: Record<string, string> = {
@@ -2163,7 +2174,7 @@ function StoreMembersSection({
   accessRequests,
   activeStoreRole,
   currentUserId,
-  canManageSupplierPermissions,
+  canManageMemberPermissions,
   isLoading,
   isError,
   isAccessRequestsLoading,
@@ -2186,7 +2197,7 @@ function StoreMembersSection({
   onMemberSearchChange,
   onMemberStatusFilterChange,
   onMemberRoleDraftChange,
-  onUpdateSupplierPermissions,
+  onUpdateMemberPermissions,
   onAccessRequestRoleChange,
   onUpdateMemberRole,
   onDisableMember,
@@ -2212,7 +2223,7 @@ function StoreMembersSection({
   accessRequests: OnboardingRequest[];
   activeStoreRole?: StoreRole;
   currentUserId?: string;
-  canManageSupplierPermissions: boolean;
+  canManageMemberPermissions: boolean;
   isLoading: boolean;
   isError: boolean;
   isAccessRequestsLoading: boolean;
@@ -2235,7 +2246,7 @@ function StoreMembersSection({
   onMemberSearchChange: (value: string) => void;
   onMemberStatusFilterChange: (value: "all" | "active" | "inactive") => void;
   onMemberRoleDraftChange: (id: string, role: ApprovedStoreRole) => void;
-  onUpdateSupplierPermissions: (id: string, permissions: StorePermissionAction[]) => void;
+  onUpdateMemberPermissions: (id: string, permissions: StorePermissionAction[]) => void;
   onAccessRequestRoleChange: (id: string, role: ApprovedStoreRole) => void;
   onUpdateMemberRole: (id: string, role: ApprovedStoreRole) => void;
   onDisableMember: (id: string) => void;
@@ -2274,38 +2285,47 @@ function StoreMembersSection({
     const hasRoleChange = member.role !== "owner" && draftRole !== member.role;
     const isRowPending = isUpdatingMember && memberActionId === member.id;
     const memberRoleOptions = getRoleOptionsForMember(activeStoreRole, member);
-    const supplierPermissionValues = normalizeSupplierPermissions(member.permission_grants ?? []);
-    const canEditSupplierPermissions =
-      canManageSupplierPermissions && member.status === "active" && member.role !== "owner";
-    const supplierPermissionControls =
-      canManageSupplierPermissions && member.role !== "owner" ? (
+    const memberPermissionValues = normalizeStorePermissionGrants(
+      member.permission_grants ?? [],
+      member.role,
+    );
+    const visiblePermissionOptions = memberPermissionOptions.filter((option) =>
+      canRoleReceiveStorePermissionGrant(member.role, option.action),
+    );
+    const canEditMemberPermissions =
+      canManageMemberPermissions && member.status === "active" && member.role !== "owner";
+    const memberPermissionControls =
+      canManageMemberPermissions && member.role !== "owner" && visiblePermissionOptions.length ? (
         <div
           className={cn(
             "grid min-w-0 gap-1 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 py-1",
-            density === "table" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3",
+            density === "table" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-2",
           )}
         >
-          {supplierPermissionOptions.map((option) => (
+          {visiblePermissionOptions.map((option) => (
             <label
               key={option.action}
               className="flex min-w-0 cursor-pointer items-center gap-1.5 text-[10px] leading-3 text-muted-foreground"
             >
               <Checkbox
                 className="size-3.5 rounded"
-                checked={supplierPermissionValues.includes(option.action)}
-                disabled={!canEditSupplierPermissions || isRowPending}
+                checked={memberPermissionValues.includes(option.action)}
+                disabled={!canEditMemberPermissions || isRowPending}
                 onCheckedChange={(checked) =>
-                  onUpdateSupplierPermissions(
+                  onUpdateMemberPermissions(
                     member.id,
-                    nextSupplierPermissions(
-                      supplierPermissionValues,
+                    nextMemberPermissions(
+                      memberPermissionValues,
                       option.action,
                       Boolean(checked),
+                      member.role,
                     ),
                   )
                 }
               />
-              <span className="min-w-0 truncate">{option.label}</span>
+              <span className="min-w-0 truncate" title={`${option.group} · ${option.label}`}>
+                {option.label}
+              </span>
             </label>
           ))}
         </div>
@@ -2395,7 +2415,7 @@ function StoreMembersSection({
             </Button>
           )}
         </div>
-        {supplierPermissionControls}
+        {memberPermissionControls}
       </div>
     );
   };
@@ -3854,26 +3874,13 @@ function toApprovedRole(role?: StoreRole): ApprovedStoreRole {
   return role && role !== "owner" ? role : "viewer";
 }
 
-function normalizeSupplierPermissions(actions: readonly StorePermissionAction[]) {
-  const normalized = new Set(actions);
-  if (normalized.has("supplier:manage")) {
-    normalized.add("supplier:assign");
-    normalized.add("supplier:read");
-  }
-  if (normalized.has("supplier:assign")) {
-    normalized.add("supplier:read");
-  }
-  return supplierPermissionOptions
-    .map((option) => option.action)
-    .filter((action) => normalized.has(action));
-}
-
-function nextSupplierPermissions(
+function nextMemberPermissions(
   current: readonly StorePermissionAction[],
   action: StorePermissionAction,
   checked: boolean,
+  role: StoreRole,
 ) {
-  const next = new Set(normalizeSupplierPermissions(current));
+  const next = new Set(normalizeStorePermissionGrants(current, role));
   if (checked) {
     next.add(action);
   } else {
@@ -3882,11 +3889,10 @@ function nextSupplierPermissions(
       next.delete("supplier:assign");
       next.delete("supplier:manage");
     }
-    if (action === "supplier:assign") {
-      next.delete("supplier:manage");
-    }
+    if (action === "supplier:assign") next.delete("supplier:manage");
+    if (action === "finance:aggregate_read") next.delete("finance:profit_read");
   }
-  return normalizeSupplierPermissions(Array.from(next));
+  return normalizeStorePermissionGrants(Array.from(next), role);
 }
 
 function getRoleOptionsForActor(role?: StoreRole): ApprovedStoreRole[] {

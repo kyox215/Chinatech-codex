@@ -86,6 +86,7 @@ export interface RepairOrder {
   approval_sent_at?: string;
   approval_confirmed_at?: string;
   technician_name: string;
+  assignee_membership_id?: string;
   internal_tag?: string;
   accessory_notes?: string;
   warranty_text?: string;
@@ -359,6 +360,7 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     approval_sent_at: approval !== "pending" || status === "waiting_approval" ? created : undefined,
     approval_confirmed_at: approval === "approved" ? created : undefined,
     technician_name: rand(technicians, i),
+    assignee_membership_id: "11111111-1111-4111-8111-111111111111",
     internal_tag: i % 5 === 0 ? "VIP" : i % 7 === 0 ? "加急" : undefined,
     accessory_notes: i % 9 === 0 ? "SIM卡托、手机壳" : undefined,
     device_unlock_method: i % 10 === 0 ? "pattern" : i % 6 === 0 ? "pin" : undefined,

@@ -274,6 +274,7 @@ function context(): StoreContext {
       canReadSuppliers: true,
       canAssignSuppliers: true,
       canManageSuppliers: true,
+      canReadInventory: true,
       canManageOrderData: true,
       canApplyOrderData: true,
     },

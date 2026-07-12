@@ -124,6 +124,49 @@ describe("server permission matrix", () => {
     expect(can(actor("technician"), "payment:adjust")).toBe(false);
   });
 
+  it("allows per-order amounts without exposing aggregate finance or profit", () => {
+    for (const role of ["owner", "manager", "technician", "sales"] as const) {
+      expect(can(actor(role), "finance:order_read"), role).toBe(true);
+    }
+    for (const role of ["manager", "technician", "sales", "viewer"] as const) {
+      expect(can(actor(role), "finance:aggregate_read"), role).toBe(false);
+      expect(can(actor(role), "finance:profit_read"), role).toBe(false);
+    }
+    expect(can(actor("owner"), "finance:aggregate_read")).toBe(true);
+    expect(can(actor("owner"), "finance:profit_read")).toBe(true);
+  });
+
+  it("lets operational roles search archives while keeping archive browsing owner-gated", () => {
+    for (const role of ["owner", "manager", "technician", "sales"] as const) {
+      expect(
+        can(actor(role), "order:archive_search", {
+          scopeSatisfied: true,
+        }),
+        role,
+      ).toBe(true);
+    }
+    expect(can(actor("technician"), "order:archive_search")).toBe(false);
+    expect(can(actor("owner"), "order:archive_browse")).toBe(true);
+    for (const role of ["manager", "technician", "sales", "viewer"] as const) {
+      expect(can(actor(role), "order:archive_browse"), role).toBe(false);
+    }
+  });
+
+  it("accepts sensitive read grants only for managers", () => {
+    const manager = actor("manager", {
+      permissionGrants: ["order:archive_browse", "finance:aggregate_read", "finance:profit_read"],
+    });
+    expect(can(manager, "order:archive_browse")).toBe(true);
+    expect(can(manager, "finance:aggregate_read")).toBe(true);
+    expect(can(manager, "finance:profit_read")).toBe(true);
+
+    const technician = actor("technician", {
+      permissionGrants: ["finance:aggregate_read", "finance:profit_read"],
+    });
+    expect(can(technician, "finance:aggregate_read")).toBe(false);
+    expect(can(technician, "finance:profit_read")).toBe(false);
+  });
+
   it("requires owner for support grant and manager-role grants", () => {
     expect(can(actor("owner"), "support:grant")).toBe(true);
     expect(can(actor("manager"), "support:grant")).toBe(false);

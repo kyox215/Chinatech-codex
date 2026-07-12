@@ -47,6 +47,7 @@ import {
 } from "@/features/stores/api/tenant-cache";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-persistence";
+import { clearRepairDeskOfflineIndexedDb } from "@/features/offline/model/offline-indexeddb";
 import { indicatorSpring } from "@/lib/motion";
 import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
 import { getWorkspaceNavItems, isActiveNavItem } from "@/shared/config/navigation";
@@ -60,7 +61,9 @@ export function AppSidebar() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const shell = useStoreShellContext();
   const { isMobile, setOpenMobile } = useSidebar();
-  const nav = getWorkspaceNavItems(shell.isPlatformAdmin);
+  const nav = getWorkspaceNavItems(shell.isPlatformAdmin).filter(
+    (item) => shell.permissions?.canReadInventory || !["inventory", "buyback"].includes(item.id),
+  );
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
   const accountDisplayName = shell.displayName?.trim() || "当前账号";
   const accountEmail = shell.email?.trim() || (shell.isLoading ? "读取账号…" : "未读取邮箱");
@@ -93,6 +96,7 @@ export function AppSidebar() {
       await createClient().auth.signOut();
       clearBrowserAuthPersistenceCookie();
       queryClient.clear();
+      await clearRepairDeskOfflineIndexedDb();
       toast.success("已退出登录");
       router.replace("/login");
       router.refresh();

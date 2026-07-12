@@ -2,10 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   isOrderAttachmentStorageScoped,
+  isOrderInActorScope,
+  getOrder,
+  getOrderStats,
   listOrdersPage,
+  patchOrder,
   projectOrderDetailForActor,
   projectOrderListItemForActor,
   recordPayment,
+  sendNotification,
+  transitionOrder,
+  uploadOrderAttachment,
 } from "@/features/orders/server/order.repository";
 import type { AuditActor, OrderDetail, OrderListItem } from "@/lib/repairdesk/types";
 
@@ -89,14 +96,14 @@ describe("order repository role projection", () => {
     expect(projected.order.device_unlock_value).toBe("1234");
   });
 
-  it("redacts finance, contact, supplier, and unlock fields for technician list rows", () => {
+  it("redacts finance and other sensitive fields from technician list rows", () => {
     const projected = projectOrderListItemForActor(order(), actor("technician"));
 
     expect(projected.customer_phone).toBe("***0000");
     expect(projected.contact_phones).toEqual(["***0000"]);
-    expect(projected.quotation_amount).toBe(0);
-    expect(projected.deposit_amount).toBe(0);
-    expect(projected.balance_amount).toBe(0);
+    expect(Object.hasOwn(projected, "quotation_amount")).toBe(false);
+    expect(Object.hasOwn(projected, "deposit_amount")).toBe(false);
+    expect(Object.hasOwn(projected, "balance_amount")).toBe(false);
     expect(projected.fault_prices).toEqual([]);
     expect(projected.device_unlock_method).toBeUndefined();
     expect(projected.device_unlock_value).toBeUndefined();
@@ -105,6 +112,39 @@ describe("order repository role projection", () => {
     expect(projected.finance_redacted).toBe(true);
     expect(projected.customer_contact_redacted).toBe(true);
     expect(projected.sensitive_redacted).toBe(true);
+  });
+
+  it("reveals only the opened order amount to technicians", () => {
+    const projected = projectOrderDetailForActor(detail(), actor("technician"));
+
+    expect(projected.order.quotation_amount).toBe(120);
+    expect(projected.order.deposit_amount).toBe(20);
+    expect(projected.order.balance_amount).toBe(100);
+    expect(projected.order.finance_redacted).toBeUndefined();
+  });
+
+  it.each(["manager", "sales"] as const)(
+    "keeps %s list rows non-aggregatable while preserving single-order detail amounts",
+    (role) => {
+      const listItem = projectOrderListItemForActor(order(), actor(role));
+      const orderDetail = projectOrderDetailForActor(detail(), actor(role));
+
+      expect(Object.hasOwn(listItem, "quotation_amount")).toBe(false);
+      expect(listItem.finance_redacted).toBe(true);
+      expect(orderDetail.order.quotation_amount).toBe(120);
+    },
+  );
+
+  it("requires a stable matching membership for technician order access", () => {
+    const technician = actor("technician");
+    expect(
+      isOrderInActorScope({ assignee_membership_id: "membership_technician" }, technician),
+    ).toBe(true);
+    expect(isOrderInActorScope({ assignee_membership_id: "membership_other" }, technician)).toBe(
+      false,
+    );
+    expect(isOrderInActorScope({ assignee_membership_id: undefined }, technician)).toBe(false);
+    expect(isOrderInActorScope({ assignee_membership_id: undefined }, actor("manager"))).toBe(true);
   });
 
   it("redacts detail customer contact, messages, event payloads, and attachment links", () => {
@@ -154,6 +194,231 @@ describe("order repository database pagination", () => {
     expect(queries[0]?.order).toHaveBeenNthCalledWith(1, "updated_at", { ascending: false });
     expect(queries[0]?.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
     expect(queries[0]?.range).toHaveBeenCalledWith(0, 999);
+  });
+
+  it("defaults to active work, preserves paid active and unpaid closed, and separates archives", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          orderRow({ id: "paid_active", public_no: "R-ACTIVE", is_paid: true }),
+          orderRow({
+            id: "paid_closed",
+            public_no: "R-ARCHIVE",
+            status: "completed",
+            workflow_status: "closed",
+            is_paid: true,
+            balance_amount: 0,
+          }),
+          orderRow({
+            id: "unpaid_closed",
+            public_no: "R-UNPAID",
+            status: "completed",
+            workflow_status: "closed",
+            is_paid: false,
+          }),
+          orderRow({
+            id: "cancelled",
+            public_no: "R-CANCELLED",
+            status: "cancelled",
+            workflow_status: "closed",
+            is_paid: false,
+          }),
+        ],
+        error: null,
+        count: 4,
+      }),
+    );
+
+    const active = await listOrdersPage({}, actor("owner"));
+    expect(active.items.map((item) => item.id).sort()).toEqual(["paid_active", "unpaid_closed"]);
+
+    const archive = await listOrdersPage({ view: "archive" }, actor("owner"));
+    expect(archive.items.map((item) => item.id).sort()).toEqual(["cancelled", "paid_closed"]);
+
+    const stats = await getOrderStats(actor("owner"));
+    expect(stats).toMatchObject({ total: 2, unpaid: 1 });
+  });
+
+  it("allows technicians to search archived orders without granting archive browsing", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          orderRow({
+            id: "paid_closed",
+            public_no: "R-ARCHIVE",
+            status: "completed",
+            workflow_status: "closed",
+            is_paid: true,
+            balance_amount: 0,
+          }),
+        ],
+        error: null,
+        count: 1,
+      }),
+    );
+
+    const search = await listOrdersPage({ search: "R-ARCHIVE" }, actor("technician"));
+    expect(search.items).toHaveLength(1);
+    expect(Object.hasOwn(search.items[0] ?? {}, "quotation_amount")).toBe(false);
+    expect(search.items[0]?.finance_redacted).toBe(true);
+    await expect(listOrdersPage({ view: "archive" }, actor("technician"))).rejects.toThrow(
+      "无权浏览历史归档",
+    );
+  });
+
+  it("does not let short or fuzzy technician searches enumerate archived orders", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          orderRow({
+            id: "paid_closed",
+            public_no: "R-ARCHIVE",
+            status: "completed",
+            workflow_status: "closed",
+            is_paid: true,
+            balance_amount: 0,
+          }),
+        ],
+        error: null,
+        count: 1,
+      }),
+    );
+
+    const shortSearch = await listOrdersPage({ search: "R" }, actor("technician"));
+    const fuzzySearch = await listOrdersPage({ search: "iPhone" }, actor("technician"));
+
+    expect(shortSearch.items).toEqual([]);
+    expect(fuzzySearch.items).toEqual([]);
+  });
+
+  it("keeps explicit archive searches inside the archive view", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          orderRow({
+            id: "paid_closed",
+            public_no: "R-ARCHIVE",
+            status: "completed",
+            workflow_status: "closed",
+            is_paid: true,
+            balance_amount: 0,
+          }),
+          orderRow({
+            id: "active_match",
+            public_no: "R-ARCHIVE-ACTIVE",
+            status: "repairing",
+            workflow_status: "repair",
+          }),
+        ],
+        error: null,
+        count: 2,
+      }),
+    );
+
+    const result = await listOrdersPage({ view: "archive", search: "R-ARCHIVE" }, actor("owner"));
+
+    expect(result.items.map((item) => item.id)).toEqual(["paid_closed"]);
+  });
+
+  it("fails closed for technician lists before the assignment migration", async () => {
+    const legacyRow = orderRow({ technician_name: "Technician" });
+    Reflect.deleteProperty(legacyRow, "assignee_membership_id");
+    mocks.supabase.from
+      .mockReturnValueOnce(
+        createSupabaseQuery({
+          data: null,
+          error: { message: "column repair_orders.assignee_membership_id does not exist" },
+          count: 0,
+        }),
+      )
+      .mockReturnValueOnce(
+        createSupabaseQuery({
+          data: [legacyRow],
+          error: null,
+          count: 1,
+        }),
+      );
+
+    const result = await listOrdersPage({}, actor("technician"));
+
+    expect(result.items).toEqual([]);
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a renamed technician opening a legacy order before loading child data", async () => {
+    const legacyRow = orderRow({ technician_name: "Technician B" });
+    Reflect.deleteProperty(legacyRow, "assignee_membership_id");
+    mocks.supabase.from.mockReturnValueOnce(
+      createSupabaseQuery({ data: legacyRow, error: null, count: 1 }),
+    );
+
+    await expect(
+      getOrder("order_1", { ...actor("technician"), displayName: "Technician B" }),
+    ).rejects.toThrow("当前工单未分配给你");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      "patch",
+      () =>
+        patchOrder(
+          "order_1",
+          {
+            expected_updated_at: "2026-07-09T10:00:00.000Z",
+            changes: { diagnosis_result: "Replace screen" },
+          },
+          { ...actor("technician"), displayName: "Technician B" },
+        ),
+    ],
+    [
+      "transition",
+      () =>
+        transitionOrder("order_1", "repairing", {
+          operator: { ...actor("technician"), displayName: "Technician B" },
+        }),
+    ],
+    [
+      "attachment",
+      () =>
+        uploadOrderAttachment(
+          "order_1",
+          {
+            kind: "fault_photo",
+            file_name: "photo.jpg",
+            mime_type: "image/jpeg",
+            file_size: 1,
+            data_base64: "AA==",
+          },
+          { ...actor("technician"), displayName: "Technician B" },
+        ),
+    ],
+    [
+      "message",
+      () =>
+        sendNotification("order_1", "Ready", "whatsapp", {
+          ...actor("technician"),
+          displayName: "Technician B",
+        }),
+    ],
+  ])("rejects a renamed technician before a legacy %s write", async (_operation, run) => {
+    mockLegacyAssignmentLookup();
+
+    await expect(run()).rejects.toThrow("当前工单未分配给你");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a technician opening another member's order before loading child data", async () => {
+    mocks.supabase.from.mockReturnValueOnce(
+      createSupabaseQuery({
+        data: orderRow({ assignee_membership_id: "membership_other" }),
+        error: null,
+        count: 1,
+      }),
+    );
+
+    await expect(getOrder("order_1", actor("technician"))).rejects.toThrow("当前工单未分配给你");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -267,6 +532,7 @@ function actor(role: NonNullable<AuditActor["storeRole"]>): AuditActor {
     role,
     storeRole: role,
     storeId: "store_1",
+    activeMembershipId: `membership_${role}`,
   };
 }
 
@@ -287,6 +553,7 @@ function order(overrides: Partial<OrderListItem> = {}): OrderListItem {
     is_paid: false,
     approval_status: "pending",
     technician_name: "Marco",
+    assignee_membership_id: "membership_technician",
     supplier_id: "supplier_1",
     parts_supplier_id: "supplier_1",
     contact_phones: ["+39 333 000 0000"],
@@ -397,6 +664,7 @@ function orderRow(overrides: Record<string, unknown> = {}) {
     is_paid: false,
     approval_status: "pending",
     technician_name: "Marco",
+    assignee_membership_id: "membership_technician",
     customer_phone: "+39 333 000 0000",
     contact_phones: [],
     fault_prices: [],
@@ -428,6 +696,27 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count: num
     in: vi.fn(() => query),
     order: vi.fn(() => query),
     range: vi.fn(() => query),
+    single: vi.fn(() => query),
   };
   return query;
+}
+
+function mockLegacyAssignmentLookup() {
+  const legacyRow = orderRow({ technician_name: "Technician B" });
+  Reflect.deleteProperty(legacyRow, "assignee_membership_id");
+  mocks.supabase.from
+    .mockReturnValueOnce(
+      createSupabaseQuery({
+        data: null,
+        error: { message: "column repair_orders.assignee_membership_id does not exist" },
+        count: 0,
+      }),
+    )
+    .mockReturnValueOnce(
+      createSupabaseQuery({
+        data: legacyRow,
+        error: null,
+        count: 1,
+      }),
+    );
 }

@@ -3,7 +3,7 @@ schema_version: 1
 department: security
 status: active
 owner: Security Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-12
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -34,6 +34,7 @@ as owner of this file.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package` recommends Option A: `viewer` read-only, platform/store authority separation, tighter staff roster/store creation policy, and staged server-side gates. This is a proposal pending Owner approval, not active behavior.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` is the current audit-log minimization policy draft. It requires audit payload allowlists and forbids raw request/result rows, secrets, base64/data URLs, signed URLs, raw message bodies, raw contact identifiers, and raw IMEI/serials in audit logs. This is policy only; no sanitizer code is implemented yet.
 - `TASK-20260710-009` enforces customer read authorization before repository calls and no longer trusts user-editable metadata or a generic confirmation timestamp as verified-email authority. Technician/viewer customer reads remain fail closed without an approved object-level scope model.
+- `TASK-20260712-002-global-staff-permissions` closes the approved global staff-policy gap: mutable technician names are never authorization keys, kiosk session review is owner/manager-only, and browser 401/403 authority loss clears tenant-sensitive caches before paint. Production assignment/grant migrations remain unapplied until the separate database gate.
 
 ## Interfaces and dependencies
 
@@ -52,7 +53,7 @@ as owner of this file.
 |---|---|---|---|---|---|
 | SEC-20260619-001 | Production role/platform admin membership is unknown | Over-permission or lockout risk | Security + Owner | before production operations | open |
 | SEC-20260619-002 | Attachment/customer data retention and backup policy not verified | Privacy/operations risk | Security + Operations | before external release | open |
-| SEC-20260620-001 | Store `viewer` may be able to mutate order/customer/payment/message/attachment/approval APIs if it has active store membership | Over-permission and accountability risk | Security + Backend + Owner | decision package ready; Owner approval needed before auth changes | approval_pending |
+| SEC-20260620-001 | Store `viewer` may be able to mutate order/customer/payment/message/attachment/approval APIs if it has active store membership | Over-permission and accountability risk | Security + Backend + Owner | resolved in central server policy by TASK-20260712-002; legacy direct-table risk remains SEC-20260710-001 | closed |
 | SEC-20260620-002 | Audit metadata/before/after can retain raw PII, payment, message, or attachment inputs | Privacy and retention risk | Security + Backend | policy drafted in L2-027; implementation pending before production/customer-visible expansion | policy_drafted |
 | SEC-20260620-003 | `stores/create` allows any logged-in actor to create a store outside platform approval | Tenant lifecycle/governance risk | Security + Product + Owner | decide self-service vs platform-admin-only | open |
 | SEC-20260710-001 | 17 legacy public tables permit direct browser-role access with RLS disabled | Critical customer/business data exposure | Security + Data + Owner | P0 consumer discovery and staged containment | open |
@@ -78,3 +79,4 @@ as owner of this file.
 | 2026-06-20 | Added Option A role-policy decision package and approval boundary | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead | proposed |
 | 2026-06-20 | Drafted audit-log redaction/minimization policy and kept implementation/live data actions approval-gated | TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio | Integration Lead | policy_drafted |
 | 2026-07-10 | Added customer-read/verified-email controls and legacy/unlock residual risks | TASK-20260710-009 | Integration Lead | active |
+| 2026-07-12 | Verified global staff permissions, membership-ID order scope, kiosk PII gate and authority-loss cache purge | TASK-20260712-002-global-staff-permissions | Security reviewer + Integration Lead | active |

@@ -32,6 +32,7 @@ import type {
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
+import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
   DEFAULT_ORDER_WORKFLOW_TRANSITIONS,
@@ -221,6 +222,9 @@ export async function listOrders(
 ): Promise<OrderListItem[]> {
   let result = orders.map(decorate);
   const q = filters.search?.trim().toLowerCase();
+  const view = q ? "all" : (filters.view ?? "active");
+  if (view === "active") result = result.filter((order) => !isOrderArchivedForQueue(order));
+  if (view === "archive") result = result.filter(isOrderArchivedForQueue);
   if (q) {
     result = result.filter(
       (o) =>
@@ -326,11 +330,13 @@ export async function listOrdersPage(
 
 // Used to compute KPIs without re-running filters on the same dataset.
 export async function getOrderStats(_actor?: AuditActor) {
+  const activeOrders = orders.filter((order) => !isOrderArchivedForQueue(order));
   return {
-    total: orders.length,
-    today: orders.filter((o) => new Date(o.created_at).toDateString() === new Date().toDateString())
-      .length,
-    inProgress: orders.filter((o) =>
+    total: activeOrders.length,
+    today: activeOrders.filter(
+      (o) => new Date(o.created_at).toDateString() === new Date().toDateString(),
+    ).length,
+    inProgress: activeOrders.filter((o) =>
       [
         "new",
         "rework",
@@ -342,9 +348,9 @@ export async function getOrderStats(_actor?: AuditActor) {
         "repairing",
       ].includes(o.status),
     ).length,
-    unpaid: orders.filter((o) => !o.is_paid).length,
-    approvalOverdue: orders.filter(isApprovalOverdue).length,
-    pickupOverdue: orders.filter(isPickupOverdue).length,
+    unpaid: activeOrders.filter((o) => !o.is_paid).length,
+    approvalOverdue: activeOrders.filter(isApprovalOverdue).length,
+    pickupOverdue: activeOrders.filter(isPickupOverdue).length,
   };
 }
 
@@ -919,6 +925,7 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_unlock: "手机密码",
   warranty_text: "质保",
   parts_supplier_id: "配件供应商",
+  assignee_membership_id: "负责人",
 };
 
 function applyDeviceUnlock(order: RepairOrder, input: PatchOrderInput["changes"]["device_unlock"]) {
@@ -1180,6 +1187,12 @@ export async function patchOrder(
 
   for (const [field, rawValue] of entries) {
     changedFields.push(PATCH_FIELD_LABELS[field]);
+    if (field === "assignee_membership_id") {
+      const membershipId = typeof rawValue === "string" ? rawValue.trim() : "";
+      o.assignee_membership_id = membershipId || undefined;
+      o.technician_name = membershipId ? "Hexiang" : "未分配";
+      continue;
+    }
     if (field === "device_unlock") {
       applyDeviceUnlock(o, rawValue as PatchOrderInput["changes"]["device_unlock"]);
       continue;

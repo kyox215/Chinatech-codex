@@ -45,6 +45,7 @@ import { OrderListPrintSheet } from "@/features/orders/components/order-list-pri
 import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
+import { OrderListViewMode } from "@/features/orders/components/order-list-view-mode";
 import {
   FiltersPanel,
   OrderStatusFilterControls,
@@ -116,6 +117,10 @@ const emptyOrderOptions = {
     canReadSuppliers: false,
     canAssignSuppliers: false,
     canManageSuppliers: false,
+    canSearchOrderArchive: false,
+    canBrowseOrderArchive: false,
+    canExportOrders: false,
+    canBatchTransitionOrders: false,
   },
 };
 
@@ -228,6 +233,14 @@ export function OrderListScreen() {
   const options = queueSummary?.options ?? emptyOrderOptions;
   const canReadSuppliers = options.permissions.canReadSuppliers;
   const canAssignSuppliers = options.permissions.canAssignSuppliers;
+  const canBrowseOrderArchive = options.permissions.canBrowseOrderArchive === true;
+  const canSearchOrderArchive = options.permissions.canSearchOrderArchive === true;
+  const canExportOrders = options.permissions.canExportOrders === true;
+  const canBatchTransitionOrders = options.permissions.canBatchTransitionOrders === true;
+  const canUseBulkActions = canExportOrders || canBatchTransitionOrders;
+  useEffect(() => {
+    if (!canUseBulkActions) setSelected([]);
+  }, [canUseBulkActions]);
   const visibleSuppliers = useMemo(
     () => (canReadSuppliers ? options.suppliers : []),
     [canReadSuppliers, options.suppliers],
@@ -275,7 +288,18 @@ export function OrderListScreen() {
     const statusLabels = new Map(workflowStatuses.map((status) => [status.code, status.label]));
     const activeGroup = statusGroups.find((group) => group.key === statusGroup);
 
-    if (filters.search?.trim()) chips.push({ key: "search", label: `搜索：${filters.search}` });
+    if (filters.search?.trim()) {
+      chips.push({
+        key: "search",
+        label: `搜索：${filters.search}${canSearchOrderArchive ? "（含历史）" : ""}`,
+      });
+    }
+    if (filters.view && filters.view !== "active") {
+      chips.push({
+        key: "view",
+        label: filters.view === "archive" ? "范围：历史归档" : "范围：全部订单",
+      });
+    }
     if (filters.statuses?.length) {
       filters.statuses.forEach((status) =>
         chips.push({
@@ -345,6 +369,7 @@ export function OrderListScreen() {
     return chips;
   }, [
     canReadSuppliers,
+    canSearchOrderArchive,
     filters,
     statusCode,
     statusGroup,
@@ -504,7 +529,7 @@ export function OrderListScreen() {
   const clearAllFilters = () => {
     setStatusGroup("all");
     setStatusCode("all");
-    setFilters({});
+    setFilters((current) => ({ view: current.view }));
     setPage(1);
   };
 
@@ -519,6 +544,7 @@ export function OrderListScreen() {
       return;
     }
     setFilters((current) => {
+      if (key === "view") return { ...current, view: "active" };
       if (key === "search") return { ...current, search: undefined };
       if (key === "paid") return { ...current, paid: undefined };
       if (key === "overdue") return { ...current, overdue: undefined };
@@ -596,6 +622,11 @@ export function OrderListScreen() {
   }, [canReadSuppliers, filters.supplierIds?.length]);
 
   useEffect(() => {
+    if (canBrowseOrderArchive || !filters.view || filters.view === "active") return;
+    setFilters((current) => ({ ...current, view: "active" }));
+  }, [canBrowseOrderArchive, filters.view]);
+
+  useEffect(() => {
     if (!statusGroups.some((group) => group.key === statusGroup)) {
       setStatusGroup("all");
       setStatusCode("all");
@@ -658,6 +689,12 @@ export function OrderListScreen() {
     setFilters((current) => ({ ...current, search: value || undefined }));
     setPage(1);
   };
+  const orderListView = filters.view ?? "active";
+  const changeOrderListView = (view: "active" | "archive" | "all") => {
+    setFilters((current) => ({ ...current, view }));
+    setSelected([]);
+    setPage(1);
+  };
 
   if (
     !queueSummary &&
@@ -710,6 +747,14 @@ export function OrderListScreen() {
             iconClassName="size-3.5"
           />
         }
+        viewModeControl={
+          <OrderListViewMode
+            value={orderListView}
+            canBrowseArchive={canBrowseOrderArchive}
+            compact
+            onChange={changeOrderListView}
+          />
+        }
       />
 
       {/* Desktop stage and search toolbar */}
@@ -734,9 +779,14 @@ export function OrderListScreen() {
         <div
           className={cn(
             layoutGuards.wrapRow,
-            "min-w-0 items-stretch lg:flex-[1_1_420px] lg:justify-end xl:flex-nowrap",
+            "min-w-0 items-stretch lg:flex-[1_1_420px] lg:justify-end",
           )}
         >
+          <OrderListViewMode
+            value={orderListView}
+            canBrowseArchive={canBrowseOrderArchive}
+            onChange={changeOrderListView}
+          />
           <div className="relative min-w-0 flex-[1_1_260px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -866,12 +916,16 @@ export function OrderListScreen() {
                 <div className="min-w-0">
                   <div className="text-sm font-semibold">工单工作队列</div>
                   <div className="text-[11px] text-muted-foreground">
-                    点击任意工单查看详情，勾选后可批量流转。
+                    {canUseBulkActions
+                      ? "点击查看详情，勾选后可执行批量操作。"
+                      : "点击任意工单查看详情。"}
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  选中 <span className="text-foreground">{selected.length}</span>
-                </span>
+                {canUseBulkActions ? (
+                  <span className="text-xs text-muted-foreground">
+                    选中 <span className="text-foreground">{selected.length}</span>
+                  </span>
+                ) : null}
               </div>
               <div className="space-y-1.5">
                 <div
@@ -880,12 +934,14 @@ export function OrderListScreen() {
                     "rounded-lg border border-border/40 bg-surface/45 px-1 text-[11px] font-medium text-muted-foreground",
                   )}
                 >
-                  <label className="flex min-w-0 cursor-pointer items-center justify-center py-1.5">
-                    <Checkbox
-                      checked={allSelected}
-                      onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
-                      aria-label="选择当前页全部工单"
-                    />
+                  <label className="flex min-w-0 items-center justify-center py-1.5">
+                    {canUseBulkActions ? (
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
+                        aria-label="选择当前页全部工单"
+                      />
+                    ) : null}
                   </label>
                   <div className="min-w-0 px-2 py-1.5">阶段 / 下一步</div>
                   <div className="min-w-0 px-2 py-1.5">工单 / 客户</div>
@@ -909,6 +965,7 @@ export function OrderListScreen() {
                         order={o}
                         workflow={workflow}
                         checked={checked}
+                        selectable={canUseBulkActions}
                         onOpen={() => openDetail(o.id)}
                         onPrefetch={() => scheduleOrderDetailPrefetch(o.id, "intent")}
                         onCancelPrefetch={() => cancelOrderDetailPrefetch(o.id)}
@@ -971,7 +1028,7 @@ export function OrderListScreen() {
 
       {/* Bulk action bar */}
       <AnimatePresence>
-        {selected.length > 0 && (
+        {canUseBulkActions && selected.length > 0 && (
           <motion.div
             variants={floatingBar}
             initial="hidden"
@@ -992,36 +1049,43 @@ export function OrderListScreen() {
                 已选 <span className="gradient-text font-semibold">{selected.length}</span> 条
               </span>
               <Separator orientation="vertical" className="h-5" />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" disabled={!bulkTargets.length}>
-                    批量流转状态
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuLabel>
-                    {bulkTargets.length
-                      ? "可用目标状态"
-                      : hasReasonRequiredBulkTargets
-                        ? "需记录原因的状态请在详情处理"
-                        : "所选工单状态不一致，无共同流转目标"}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {bulkTargets.map((s) => (
-                    <DropdownMenuItem key={s} onClick={() => bulk.mutate({ ids: selected, to: s })}>
-                      {getWorkflowStatusLabel(workflow, s)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => printRows(data.filter((order) => selected.includes(order.id)))}
-              >
-                <Printer className="size-3.5" /> 打印
-              </Button>
+              {canBatchTransitionOrders ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" disabled={!bulkTargets.length}>
+                      批量流转状态
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>
+                      {bulkTargets.length
+                        ? "可用目标状态"
+                        : hasReasonRequiredBulkTargets
+                          ? "需记录原因的状态请在详情处理"
+                          : "所选工单状态不一致，无共同流转目标"}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {bulkTargets.map((s) => (
+                      <DropdownMenuItem
+                        key={s}
+                        onClick={() => bulk.mutate({ ids: selected, to: s })}
+                      >
+                        {getWorkflowStatusLabel(workflow, s)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+              {canExportOrders ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => printRows(data.filter((order) => selected.includes(order.id)))}
+                >
+                  <Printer className="size-3.5" /> 打印
+                </Button>
+              ) : null}
             </div>
           </motion.div>
         )}

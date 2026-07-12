@@ -46,6 +46,21 @@ export function getRepairDeskOfflineIndexedDbFactory():
   return window.indexedDB;
 }
 
+export async function clearRepairDeskOfflineIndexedDb() {
+  if (typeof window === "undefined" || !window.indexedDB) return;
+  await new Promise<void>((resolve) => {
+    const timeout = window.setTimeout(resolve, 2_000);
+    const request = window.indexedDB.deleteDatabase(REPAIRDESK_OFFLINE_DATABASE_NAME);
+    const finish = () => {
+      window.clearTimeout(timeout);
+      resolve();
+    };
+    request.onsuccess = finish;
+    request.onerror = finish;
+    request.onblocked = finish;
+  });
+}
+
 export async function openRepairDeskOfflineIndexedDb({
   factory = getRepairDeskOfflineIndexedDbFactory(),
   databaseName = REPAIRDESK_OFFLINE_DATABASE_NAME,

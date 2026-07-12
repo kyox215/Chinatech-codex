@@ -26,6 +26,7 @@ describe("RealtimeAppBridge", () => {
     renderBridge({ client, enabled: true });
 
     expect(screen.getByTestId("bridge-child")).toBeInTheDocument();
+    expect(useStoreShellContext).toHaveBeenCalledWith({ monitorAuthority: true });
     expect(client.channel).not.toHaveBeenCalled();
   });
 
@@ -90,6 +91,7 @@ function makeShellContext(
     : undefined;
 
   return {
+    authorityFingerprint: "test-authority",
     activeStore: resolvedActiveStore,
     stores: resolvedActiveStore ? [resolvedActiveStore] : [],
     isPlatformAdmin: false,

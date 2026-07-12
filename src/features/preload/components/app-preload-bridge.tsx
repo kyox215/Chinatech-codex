@@ -9,6 +9,7 @@ import { storeSettingsQueryOptions } from "@/features/messages";
 import { orderQueueSummaryQueryOptions, orderWorkflowQueryOptions } from "@/features/orders/api";
 import { useRealtimeSync } from "@/features/realtime";
 import { CACHE_TIMES } from "@/lib/query-performance";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 
 import {
   getRepairDeskPreloadTargets,
@@ -34,6 +35,8 @@ type WindowWithIdleCallback = Window & {
 export function AppPreloadBridge({ children = null }: { children?: ReactNode }) {
   const pathname = usePathname();
   const { coordinator, storeId } = useRealtimeSync();
+  const shell = useStoreShellContext();
+  const canReadInventory = Boolean(shell.permissions?.canReadInventory);
 
   useEffect(() => {
     if (!isRepairDeskPreloadEnabled() || !coordinator || !storeId || !navigator.onLine) return;
@@ -43,7 +46,9 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
       Boolean(connection?.saveData) ||
       connection?.effectiveType === "slow-2g" ||
       connection?.effectiveType === "2g";
-    const targets = getRepairDeskPreloadTargets(pathname, constrainedNetwork);
+    const targets = getRepairDeskPreloadTargets(pathname, constrainedNetwork).filter(
+      (target) => target !== "inventory" || canReadInventory,
+    );
     let cancelled = false;
 
     const runTarget = (target: RepairDeskPreloadTarget) => {
@@ -122,7 +127,7 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
       if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
       if (secondaryTimeoutHandle !== undefined) window.clearTimeout(secondaryTimeoutHandle);
     };
-  }, [coordinator, pathname, storeId]);
+  }, [canReadInventory, coordinator, pathname, storeId]);
 
   return children;
 }

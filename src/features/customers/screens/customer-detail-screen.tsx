@@ -613,7 +613,12 @@ function CustomerDesktopSummaryRail({
           <CustomerRailMetric label="设备" value={stats.device_count} />
           <CustomerRailMetric label="工单" value={stats.order_count} />
           <CustomerRailMetric label="待办" value={openFollowups} />
-          <CustomerRailMetric label="未结清" value={<MoneyText amount={stats.unpaid_amount} />} />
+          <CustomerRailMetric
+            label={stats.finance_redacted ? "金额" : "未结清"}
+            value={
+              stats.finance_redacted ? "受限" : <MoneyText amount={stats.unpaid_amount ?? 0} />
+            }
+          />
         </div>
 
         <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2">

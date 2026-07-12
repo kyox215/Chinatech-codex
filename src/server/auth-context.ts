@@ -4,6 +4,7 @@ import { getSupabaseAdmin, hasSupabaseConfig } from "@/server/supabase";
 import { cookies, headers } from "next/headers";
 import { assertRepairDeskBrowserAuthMode } from "@/server/repairdesk-source-mode";
 import { resolveStaffDisplayName } from "@/server/staff-display-name";
+import { isStorePermissionAction } from "@/entities/staff/model/store-permission-policy";
 import type {
   ActorStoreMembership,
   AuditActor,
@@ -116,6 +117,7 @@ export async function getRequestActor(
     storeId: activeStore?.id,
     storeName: activeStore?.name,
     storeRole: activeStore?.role,
+    activeMembershipId: activeStore?.membershipId,
     permissionGrants,
     stores: memberships,
     activeStoreExplicit: activeStoreResolution?.explicit ?? false,
@@ -205,11 +207,12 @@ async function getActiveStoreMemberships(
   }
 
   return ((data ?? []) as StoreMembershipRow[])
-    .map((row) => {
+    .map((row): ActorStoreMembership | undefined => {
       const store = Array.isArray(row.store) ? row.store[0] : row.store;
       if (!store || store.status !== "active") return undefined;
       return {
         id: String(store.id || row.store_id),
+        ...(row.id ? { membershipId: String(row.id) } : {}),
         name: String(store.name || "RepairDesk"),
         slug: String(store.slug || "store"),
         role: toStoreRole(row.role),
@@ -310,10 +313,6 @@ function toStoreRole(value: unknown): StoreRole {
     return value;
   }
   return "viewer";
-}
-
-function isStorePermissionAction(value: unknown): value is StorePermissionAction {
-  return value === "supplier:read" || value === "supplier:assign" || value === "supplier:manage";
 }
 
 function isMissingPermissionGrantsTableError(error: { message?: string; code?: string }) {

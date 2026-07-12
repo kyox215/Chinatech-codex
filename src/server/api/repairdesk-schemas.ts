@@ -12,6 +12,7 @@ import {
   type RepairOrderType,
 } from "@/lib/mock/enums";
 import { normalizePositiveCentAmount } from "@/lib/money";
+import { storePermissionActions } from "@/entities/staff/model/store-permission-policy";
 import type {
   AccountProfileUpdateInput,
   CreateOrderInput,
@@ -270,6 +271,7 @@ export const customerIdBodySchema = z.object({
 export const orderListFiltersSchema = z
   .object({
     search: optionalText,
+    view: z.enum(["active", "archive", "all"]).optional(),
     statuses: z.array(repairOrderStatusSchema).optional(),
     workflowStatuses: z.array(canonicalWorkflowStatusSchema).optional(),
     exceptionStatuses: z.array(orderExceptionStatusSchema).optional(),
@@ -450,6 +452,7 @@ export const createOrderSchema = z
     warranty_change_reason: optionalText,
     fault_prices: z.array(faultPriceItemSchema),
     deposit_amount: z.coerce.number().optional(),
+    assignee_membership_id: z.string().uuid().optional(),
   })
   .strip() satisfies z.ZodType<CreateOrderInput>;
 
@@ -494,6 +497,7 @@ export const patchOrderChangesSchema = z
     device_unlock: deviceUnlockInputSchema.optional(),
     warranty_text: optionalText,
     parts_supplier_id: z.string().nullable().optional(),
+    assignee_membership_id: z.string().uuid().nullable().optional(),
   })
   .strict();
 
@@ -926,16 +930,12 @@ export const storeMemberRoleUpdateBodySchema = z
   })
   .passthrough() satisfies z.ZodType<StoreMemberRoleUpdateInput>;
 
-export const storePermissionActionSchema = z.enum([
-  "supplier:read",
-  "supplier:assign",
-  "supplier:manage",
-]);
+export const storePermissionActionSchema = z.enum(storePermissionActions);
 
 export const storeMemberPermissionUpdateBodySchema = z
   .object({
     id: z.string().uuid("成员 id 不正确"),
-    permissions: z.array(storePermissionActionSchema).max(3),
+    permissions: z.array(storePermissionActionSchema).max(storePermissionActions.length),
   })
   .passthrough() satisfies z.ZodType<StoreMemberPermissionUpdateInput>;
 

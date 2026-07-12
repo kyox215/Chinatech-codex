@@ -140,13 +140,17 @@ export function DashboardScreen() {
     [dashboardQuery.data?.recentOrders.total, recentOrders],
   );
   const stats = dashboardQuery.data?.stats ?? fallbackStats;
+  const canReadAggregateFinance =
+    queueOverviewQuery.data?.options.permissions.canReadAggregateFinance === true;
   const workInsight = useMemo(
     () => buildDashboardWorkInsight(stats, recentOrders),
     [recentOrders, stats],
   );
-  const recentPaidRevenue = recentOrders
-    .filter((order) => order.is_paid)
-    .reduce((sum, order) => sum + order.quotation_amount, 0);
+  const recentPaidRevenue = canReadAggregateFinance
+    ? recentOrders
+        .filter((order) => order.is_paid && !order.finance_redacted)
+        .reduce((sum, order) => sum + order.quotation_amount, 0)
+    : 0;
   const hasError = dashboardQuery.isError || Boolean(dashboardQuery.data?.partialErrors);
   const queueOverviewItems = queueOverviewQuery.data?.list.items ?? recentOrders;
   const quickActionCount = useMemo(() => {
@@ -169,7 +173,7 @@ export function DashboardScreen() {
   };
 
   const mobileMetrics = [
-    { label: "总工单", value: stats.total, hint: "当前门店", icon: ClipboardList, tone: "blue" },
+    { label: "待处理", value: stats.total, hint: "当前队列", icon: ClipboardList, tone: "blue" },
     { label: "进行中", value: stats.inProgress, hint: "需跟进", icon: Wrench, tone: "amber" },
     { label: "未结清", value: stats.unpaid, hint: "待收款", icon: Euro, tone: "green" },
   ] satisfies RepairOsMetric[];
@@ -204,7 +208,7 @@ export function DashboardScreen() {
   return (
     <RepairOsListScaffold
       title="概览"
-      subtitle={`今日任务 · 共 ${stats.total} 单`}
+      subtitle={`今日任务 · 待处理 ${stats.total} 单`}
       eyebrow="工作台 / 概览"
       chips={mobileMetrics.map((metric) => ({
         key: metric.label,
@@ -232,9 +236,9 @@ export function DashboardScreen() {
           className="hidden min-w-0 gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4"
         >
           <DashboardMetricCard
-            label="总工单"
+            label="待处理工单"
             value={stats.total}
-            hint="当前门店全部工单"
+            hint="当前工作队列"
             icon={ClipboardList}
             tone="info"
           />
@@ -252,13 +256,23 @@ export function DashboardScreen() {
             icon={Euro}
             tone="warn"
           />
-          <DashboardMetricCard
-            label="近期已结清"
-            value={<MoneyText amount={recentPaidRevenue} />}
-            hint="最近工单收入"
-            icon={CheckCircle2}
-            tone="success"
-          />
+          {canReadAggregateFinance ? (
+            <DashboardMetricCard
+              label="活跃单已收"
+              value={<MoneyText amount={recentPaidRevenue} />}
+              hint="当前工作队列"
+              icon={CheckCircle2}
+              tone="success"
+            />
+          ) : (
+            <DashboardMetricCard
+              label="今日新建"
+              value={stats.today}
+              hint="今天录入的工单"
+              icon={Clock3}
+              tone="neutral"
+            />
+          )}
         </motion.div>
 
         {hasError ? (
@@ -679,17 +693,19 @@ function RecentOrderCard({ order }: { order: OrderListItem }) {
           </span>
         }
         trailing={
-          <span className="min-w-0 text-right">
-            <MoneyText amount={order.quotation_amount} className="text-sm font-semibold" />
-            <span
-              className={cn(
-                "mt-1 block truncate text-[10px] leading-4",
-                order.is_paid ? "text-status-success-foreground" : "text-muted-foreground",
-              )}
-            >
-              {order.is_paid ? "已结清" : "未结清"}
+          order.finance_redacted ? undefined : (
+            <span className="min-w-0 text-right">
+              <MoneyText amount={order.quotation_amount} className="text-sm font-semibold" />
+              <span
+                className={cn(
+                  "mt-1 block truncate text-[10px] leading-4",
+                  order.is_paid ? "text-status-success-foreground" : "text-muted-foreground",
+                )}
+              >
+                {order.is_paid ? "已结清" : "未结清"}
+              </span>
             </span>
-          </span>
+          )
         }
         className="px-3 py-2 hover:bg-accent/60"
       >

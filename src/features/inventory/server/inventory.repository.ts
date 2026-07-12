@@ -35,6 +35,7 @@ import {
   stringArray,
 } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { can } from "@/server/permissions";
 import { writeAuditLog } from "@/server/audit";
 import { buildSeaTableElectronicsImport } from "@/features/inventory/import/seatable-electronics";
 import { buildInventorySaleReceiptSnapshot } from "@/features/inventory/model/inventory-sale-receipt";
@@ -64,6 +65,14 @@ const systemActor: AuditActor = {
 };
 
 export async function listInventoryItems(
+  filters: InventoryListFilters = {},
+  actor?: AuditActor,
+): Promise<InventoryListItem[]> {
+  const items = await listInventoryItemsRaw(filters, actor);
+  return items.map((item) => projectInventoryItemForActor(item, actor));
+}
+
+async function listInventoryItemsRaw(
   filters: InventoryListFilters = {},
   actor?: AuditActor,
 ): Promise<InventoryListItem[]> {
@@ -121,24 +130,32 @@ export async function listInventoryItemsPage(
 }
 
 export async function getInventoryStats(actor?: AuditActor): Promise<InventoryStats> {
-  const items = await listInventoryItems({}, actor);
-  return buildInventoryStats(items);
+  const items = await listInventoryItemsRaw({}, actor);
+  return buildInventoryStats(items, actor);
 }
 
 export async function getInventorySummary(
   filters: InventoryListFilters = {},
   actor?: AuditActor,
 ): Promise<InventorySummary> {
-  const allItems = await listInventoryItems({}, actor);
+  const allItems = await listInventoryItemsRaw({}, actor);
   const items = filterInventoryItems(allItems, filters);
   return {
-    list: { items, total: items.length },
-    stats: buildInventoryStats(allItems),
+    list: {
+      items: items.map((item) => projectInventoryItemForActor(item, actor)),
+      total: items.length,
+    },
+    stats: buildInventoryStats(allItems, actor),
   };
 }
 
-function buildInventoryStats(items: InventoryListItem[]): InventoryStats {
-  return {
+export function buildInventoryStats(
+  items: InventoryListItem[],
+  actor?: AuditActor,
+): InventoryStats {
+  const canReadAggregateFinance = can(actor, "finance:aggregate_read");
+  const canReadProfit = can(actor, "finance:profit_read");
+  const stats: InventoryStats = {
     total: items.length,
     inPipeline: items.filter((item) => isInventoryPipelineStatus(item.status)).length,
     readyOrListed: items.filter(
@@ -146,15 +163,70 @@ function buildInventoryStats(items: InventoryListItem[]): InventoryStats {
     ).length,
     reserved: items.filter((item) => item.status === "reserved").length,
     sold: items.filter((item) => item.status === "sold").length,
-    buybackCost: roundMoney(items.reduce((sum, item) => sum + item.buyback_price, 0)),
-    listedValue: roundMoney(
+    finance_redacted: canReadAggregateFinance && canReadProfit ? undefined : true,
+  };
+  if (canReadAggregateFinance) {
+    stats.listedValue = roundMoney(
       items
         .filter((item) => item.status === "ready_for_sale" || item.status === "listed")
         .reduce((sum, item) => sum + item.list_price, 0),
-    ),
-    realizedProfit: roundMoney(
+    );
+  }
+  if (canReadProfit) {
+    stats.buybackCost = roundMoney(items.reduce((sum, item) => sum + item.buyback_price, 0));
+    stats.realizedProfit = roundMoney(
       items.filter((item) => item.status === "sold").reduce((sum, item) => sum + item.profit, 0),
-    ),
+    );
+  }
+  return stats;
+}
+
+export function projectInventoryItemForActor(
+  item: InventoryListItem,
+  actor?: AuditActor,
+): InventoryListItem {
+  if (can(actor, "finance:profit_read")) return item;
+  const {
+    buyback_price: _buybackPrice,
+    repair_cost_amount: _repairCost,
+    fees_amount: _fees,
+    profit: _profit,
+    ...visible
+  } = item;
+  const contactVisible = can(actor, "customer:detail")
+    ? visible
+    : { ...visible, customer_phone: undefined, buyer_phone: undefined };
+  return {
+    ...contactVisible,
+    legacy_payload: redactInventoryFinancePayload(contactVisible.legacy_payload),
+    finance_redacted: true,
+  } as InventoryListItem;
+}
+
+function redactInventoryFinancePayload(value: Record<string, unknown>) {
+  const sensitiveKey = /(profit|cost|fee|offer|price|amount)/i;
+  const redact = (input: unknown): unknown => {
+    if (Array.isArray(input)) return input.map(redact);
+    if (!input || typeof input !== "object") return input;
+    return Object.fromEntries(
+      Object.entries(input as Record<string, unknown>)
+        .filter(([key]) => !sensitiveKey.test(key))
+        .map(([key, nested]) => [key, redact(nested)]),
+    );
+  };
+  return redact(value) as Record<string, unknown>;
+}
+
+function projectInventoryCustomerForActor(customer: Customer | undefined, actor?: AuditActor) {
+  if (!customer || can(actor, "customer:detail")) return customer;
+  return {
+    ...customer,
+    phone_e164: "",
+    phone_raw: "",
+    contact_phones: [],
+    email: undefined,
+    notes: undefined,
+    marketing_notes: undefined,
   };
 }
 
@@ -206,22 +278,27 @@ export async function getInventoryItem(id: string, actor?: AuditActor): Promise<
   const row = itemResult.data as DbRecord;
   const transactions = ((transactionsResult.data ?? []) as DbRecord[]).map(transactionFromRow);
   const item = decorateInventoryRow(row, transactions);
+  const canReadProfit = can(actor, "finance:profit_read");
+  const canReadAttachments = can(actor, "attachment:read");
 
   return {
-    item,
-    customer: customerFromRow(row.customer),
-    buyer: customerFromRow(row.buyer),
+    item: projectInventoryItemForActor(item, actor),
+    customer: projectInventoryCustomerForActor(customerFromRow(row.customer), actor),
+    buyer: projectInventoryCustomerForActor(customerFromRow(row.buyer), actor),
     checks: ((checksResult.data ?? []) as DbRecord[]).map(checkFromRow),
-    transactions,
-    events: ((eventsResult.data ?? []) as DbRecord[]).map(eventFromRow),
-    attachments: attachmentResult.error
-      ? []
-      : await attachInventorySignedUrls(
-          supabase,
-          (attachmentResult.data ?? []) as DbRecord[],
-          storeId,
-          id,
-        ),
+    transactions: canReadProfit ? transactions : [],
+    events: ((eventsResult.data ?? []) as DbRecord[])
+      .map(eventFromRow)
+      .map((event) => (canReadProfit ? event : { ...event, payload: {} })),
+    attachments:
+      attachmentResult.error || !canReadAttachments
+        ? []
+        : await attachInventorySignedUrls(
+            supabase,
+            (attachmentResult.data ?? []) as DbRecord[],
+            storeId,
+            id,
+          ),
   };
 }
 

@@ -44,6 +44,7 @@ export function DesktopOrderQueueRow({
   order,
   workflow,
   checked,
+  selectable = true,
   onOpen,
   onPrefetch,
   onCancelPrefetch,
@@ -57,6 +58,7 @@ export function DesktopOrderQueueRow({
   order: OrderListItem;
   workflow?: OrderWorkflow;
   checked: boolean;
+  selectable?: boolean;
   onOpen: () => void;
   onPrefetch?: () => void;
   onCancelPrefetch?: () => void;
@@ -73,12 +75,20 @@ export function DesktopOrderQueueRow({
   const next = getWorkflowNextActions(workflow, order.status);
   const hasOverdueException = Boolean(order.approval_overdue || order.pickup_overdue);
   const createdDate = new Date(order.created_at).toLocaleDateString("zh-CN");
-  const paymentLabel = order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款";
-  const paymentClass = order.is_paid
-    ? "text-status-success-foreground"
-    : order.deposit_amount > 0
-      ? "text-status-warn-foreground"
-      : "text-status-danger-foreground";
+  const paymentLabel = order.finance_redacted
+    ? "详情可见"
+    : order.is_paid
+      ? "已结清"
+      : order.deposit_amount > 0
+        ? "已付押金"
+        : "未收款";
+  const paymentClass = order.finance_redacted
+    ? "text-muted-foreground"
+    : order.is_paid
+      ? "text-status-success-foreground"
+      : order.deposit_amount > 0
+        ? "text-status-warn-foreground"
+        : "text-status-danger-foreground";
   const primaryRepair = order.fault_prices[0];
   const extraRepairCount = Math.max(0, order.fault_prices.length - 1);
   const allNextActions = [next.primary, ...next.secondary].filter(
@@ -161,11 +171,13 @@ export function DesktopOrderQueueRow({
       />
 
       <div className="px-1.5 py-1.5 pl-2.5" onClick={onStopInteraction}>
-        <Checkbox
-          checked={checked}
-          onCheckedChange={(value) => onCheckedChange(Boolean(value))}
-          aria-label={`选择工单 ${order.public_no}`}
-        />
+        {selectable ? (
+          <Checkbox
+            checked={checked}
+            onCheckedChange={(value) => onCheckedChange(Boolean(value))}
+            aria-label={`选择工单 ${order.public_no}`}
+          />
+        ) : null}
       </div>
 
       <div className="min-w-0 px-1.5 py-1.5">
@@ -285,27 +297,33 @@ export function DesktopOrderQueueRow({
       </div>
 
       <div className="min-w-0 px-2 py-1.5 text-right">
-        <MoneyText
-          amount={order.quotation_amount}
-          className="whitespace-nowrap text-sm font-semibold"
-        />
+        {order.finance_redacted ? (
+          <span className="whitespace-nowrap text-xs text-muted-foreground">金额受限</span>
+        ) : (
+          <MoneyText
+            amount={order.quotation_amount}
+            className="whitespace-nowrap text-sm font-semibold"
+          />
+        )}
         <div className={cn("whitespace-nowrap text-[10px] leading-4", paymentClass)}>
           {paymentLabel}
         </div>
-        <div
-          className={cn(
-            "whitespace-nowrap text-[10px] leading-3",
-            order.balance_amount > 0 ? "text-status-danger-foreground" : "text-muted-foreground",
-          )}
-        >
-          {order.balance_amount > 0 ? (
-            <>
-              尾款 <MoneyText amount={order.balance_amount} />
-            </>
-          ) : (
-            "尾款清"
-          )}
-        </div>
+        {!order.finance_redacted ? (
+          <div
+            className={cn(
+              "whitespace-nowrap text-[10px] leading-3",
+              order.balance_amount > 0 ? "text-status-danger-foreground" : "text-muted-foreground",
+            )}
+          >
+            {order.balance_amount > 0 ? (
+              <>
+                尾款 <MoneyText amount={order.balance_amount} />
+              </>
+            ) : (
+              "尾款清"
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground">

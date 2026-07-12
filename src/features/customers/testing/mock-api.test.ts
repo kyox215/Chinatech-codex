@@ -40,7 +40,7 @@ describe("customer mock api pagination", () => {
 
     const unpaid = await listCustomersPage({ work: "unpaid", pageSize: 20 });
     expect(unpaid.total).toBeGreaterThan(0);
-    expect(unpaid.items.every((customer) => customer.unpaid_amount > 0)).toBe(true);
+    expect(unpaid.items.every((customer) => (customer.unpaid_amount ?? 0) > 0)).toBe(true);
 
     const withDevices = await listCustomersPage({ work: "with_devices", pageSize: 20 });
     expect(withDevices.total).toBeGreaterThan(0);

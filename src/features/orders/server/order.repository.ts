@@ -15,6 +15,7 @@ import type {
   OrderDetail,
   OrderListFilters,
   OrderListItem,
+  OrderAssigneeOption,
   OrderListPageInput,
   OrderListResult,
   OrderStats,
@@ -93,22 +94,133 @@ import {
   stringArray,
   supplierFromRow,
 } from "@/server/repairdesk-shared";
-import { assertStaffRole } from "@/server/auth-context";
+import { assertStaffRole, ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
+import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 
-function filterOrders(rows: OrderListItem[], filters: OrderListFilters = {}) {
+function isTechnicianActor(actor?: AuditActor) {
+  return !actor?.isSystem && (actor?.storeRole ?? actor?.role) === "technician";
+}
+
+export function isOrderInActorScope(
+  order: Pick<OrderListItem, "assignee_membership_id">,
+  actor?: AuditActor,
+) {
+  if (!isTechnicianActor(actor)) return true;
+  return Boolean(
+    actor?.activeMembershipId && order.assignee_membership_id === actor.activeMembershipId,
+  );
+}
+
+function assertOrderInActorScope(
+  order:
+    | (Pick<OrderListItem, "assignee_membership_id"> & {
+        technician_name?: string;
+        __assignment_supported?: boolean;
+      })
+    | DbRecord,
+  actor?: AuditActor,
+) {
+  if (!isTechnicianActor(actor)) return;
+  if (!actor?.activeMembershipId) throw new ForbiddenError("当前工单未分配给你");
+  const hasStableAssignment =
+    order.__assignment_supported === true ||
+    Object.prototype.hasOwnProperty.call(order, "assignee_membership_id");
+  const inScope =
+    hasStableAssignment && maybeString(order.assignee_membership_id) === actor.activeMembershipId;
+  if (!inScope) throw new ForbiddenError("当前工单未分配给你");
+}
+
+function scopeOrderRowsForActor<T extends DbRecord>(rows: T[], actor?: AuditActor) {
+  if (!isTechnicianActor(actor)) return rows;
+  if (!actor?.activeMembershipId) return [];
+
+  return rows.filter((row) => {
+    const hasStableAssignment =
+      row.__assignment_supported === true ||
+      Object.prototype.hasOwnProperty.call(row, "assignee_membership_id");
+    return (
+      hasStableAssignment && maybeString(row.assignee_membership_id) === actor.activeMembershipId
+    );
+  });
+}
+
+type ActorOrderListFilters = OrderListFilters & { archiveSearchExact?: boolean };
+
+function canSearchOrderArchive(actor?: AuditActor) {
+  return can(actor, "order:archive_search", {
+    scopeSatisfied: !isTechnicianActor(actor) || Boolean(actor?.activeMembershipId),
+  });
+}
+
+function isSpecificArchiveIdentifier(value: string | undefined) {
+  const query = value?.trim() ?? "";
+  if (!query) return false;
+  const normalizedPhone = normalizePhoneRaw(query);
+  if (normalizedPhone.length >= 6) return true;
+  return query.replace(/\s+/g, "").length >= 4;
+}
+
+function resolveOrderListView(filters: OrderListFilters, actor?: AuditActor) {
+  const requestedView = filters.view ?? "active";
+  const hasSearch = Boolean(filters.search?.trim());
+
+  if (requestedView !== "active") {
+    if (!can(actor, "order:archive_browse")) {
+      throw new ForbiddenError("当前角色无权浏览历史归档");
+    }
+    return requestedView;
+  }
+  if (hasSearch && isSpecificArchiveIdentifier(filters.search) && canSearchOrderArchive(actor)) {
+    return "all" as const;
+  }
+  return requestedView;
+}
+
+function filtersForActor(filters: OrderListFilters, actor?: AuditActor): ActorOrderListFilters {
+  const canReadSuppliers = can(actor, "supplier:read");
+  const canBrowseArchive = can(actor, "order:archive_browse");
+  const archiveSearchExact = Boolean(
+    filters.search?.trim() &&
+    !canBrowseArchive &&
+    isSpecificArchiveIdentifier(filters.search) &&
+    canSearchOrderArchive(actor),
+  );
+  return {
+    ...filtersForSupplierAccess(filters, canReadSuppliers),
+    view: resolveOrderListView(filters, actor),
+    archiveSearchExact,
+  };
+}
+
+function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}) {
   let result = rows;
+  const view = filters.view ?? "active";
+  if (view === "active") result = result.filter((order) => !isOrderArchivedForQueue(order));
+  if (view === "archive") result = result.filter(isOrderArchivedForQueue);
   const q = filters.search?.trim().toLowerCase();
   if (q) {
-    result = result.filter(
-      (o) =>
+    result = result.filter((o) => {
+      if (filters.archiveSearchExact && isOrderArchivedForQueue(o)) {
+        const normalizedQueryPhone = normalizePhoneRaw(q);
+        return (
+          o.public_no.toLowerCase() === q ||
+          o.device_imei.toLowerCase() === q ||
+          (normalizedQueryPhone.length >= 6 &&
+            [o.customer_phone, ...o.contact_phones].some(
+              (phone) => normalizePhoneRaw(phone) === normalizedQueryPhone,
+            ))
+        );
+      }
+      return (
         o.public_no.toLowerCase().includes(q) ||
         o.customer_name.toLowerCase().includes(q) ||
         phoneMatches(o.customer_phone, q) ||
         o.contact_phones.some((phone) => phoneMatches(phone, q)) ||
         o.device_imei.toLowerCase().includes(q) ||
-        o.device_label.toLowerCase().includes(q),
-    );
+        o.device_label.toLowerCase().includes(q)
+      );
+    });
   }
   if (filters.statuses?.length) {
     result = result.filter((o) => filters.statuses!.includes(o.status));
@@ -231,8 +343,9 @@ function maskContactValue(value: string | undefined) {
   return `***${digits.slice(-4)}`;
 }
 
-function canReadOrderFinance(actor?: AuditActor) {
-  return can(actor, "payment:collect");
+function canReadOrderFinance(actor?: AuditActor, includeRestrictedDetail = false) {
+  if (!can(actor, "finance:order_read")) return false;
+  return includeRestrictedDetail || can(actor, "finance:aggregate_read");
 }
 
 function canReadOrderCustomerContact(actor?: AuditActor) {
@@ -254,7 +367,7 @@ function canReadOrderAttachments(actor?: AuditActor) {
 export function projectOrderListItemForActor<T extends OrderListItem>(
   order: T,
   actor?: AuditActor,
-  options: { includeUnlockSecret?: boolean } = {},
+  options: { includeUnlockSecret?: boolean; includeRestrictedFinance?: boolean } = {},
 ): T {
   let projected = applySupplierVisibility(order, can(actor, "supplier:read"));
 
@@ -267,17 +380,18 @@ export function projectOrderListItemForActor<T extends OrderListItem>(
     };
   }
 
-  if (!canReadOrderFinance(actor)) {
+  if (!canReadOrderFinance(actor, options.includeRestrictedFinance)) {
+    const {
+      quotation_amount: _quotationAmount,
+      deposit_amount: _depositAmount,
+      balance_amount: _balanceAmount,
+      ...visible
+    } = projected;
     projected = {
-      ...projected,
-      quotation_amount: 0,
-      deposit_amount: 0,
-      balance_amount: 0,
-      is_paid: false,
-      payment_status: undefined,
+      ...visible,
       fault_prices: [],
       finance_redacted: true,
-    };
+    } as unknown as T;
   }
 
   if (!canReadOrderUnlock(actor)) {
@@ -328,7 +442,7 @@ function projectCustomerForActor(
 
 function projectEventsForActor(events: OrderDetail["events"], actor?: AuditActor) {
   const canReadPayloads =
-    canReadOrderFinance(actor) &&
+    canReadOrderFinance(actor, true) &&
     canReadOrderMessages(actor) &&
     canReadOrderUnlock(actor) &&
     canReadOrderAttachments(actor);
@@ -340,7 +454,10 @@ export function projectOrderDetailForActor(detail: OrderDetail, actor?: AuditAct
   const canReadAttachments = canReadOrderAttachments(actor);
   return {
     ...detail,
-    order: projectOrderListItemForActor(detail.order, actor, { includeUnlockSecret: true }),
+    order: projectOrderListItemForActor(detail.order, actor, {
+      includeUnlockSecret: true,
+      includeRestrictedFinance: true,
+    }),
     customer: projectCustomerForActor(detail.customer, actor),
     supplier: can(actor, "supplier:read") ? detail.supplier : undefined,
     parts_supplier: can(actor, "supplier:read") ? detail.parts_supplier : undefined,
@@ -737,11 +854,11 @@ export async function listOrders(
   actor?: AuditActor,
 ): Promise<OrderListItem[]> {
   const storeId = requireStoreIdFromActor(actor);
-  const canReadSuppliers = can(actor, "supplier:read");
-  const safeFilters = filtersForSupplierAccess(filters, canReadSuppliers);
-  return filterOrders((await fetchOrderRows(storeId)).map(decorate), safeFilters).map((order) =>
-    projectOrderListItemForActor(order, actor),
-  );
+  const safeFilters = filtersForActor(filters, actor);
+  const rows = scopeOrderRowsForActor(await fetchOrderRows(storeId), actor).map(decorate);
+  const filtered = filterOrders(rows, safeFilters);
+  const bounded = safeFilters.archiveSearchExact ? filtered.slice(0, 20) : filtered;
+  return bounded.map((order) => projectOrderListItemForActor(order, actor));
 }
 
 export async function listOrdersPage(
@@ -749,10 +866,10 @@ export async function listOrdersPage(
   actor?: AuditActor,
 ): Promise<OrderListResult> {
   const storeId = requireStoreIdFromActor(actor);
-  const canReadSuppliers = can(actor, "supplier:read");
   const { page, pageSize } = normalizePageInput(input);
   const filters: OrderListFilters = {
     search: input.search,
+    view: input.view,
     statuses: input.statuses,
     workflowStatuses: input.workflowStatuses,
     exceptionStatuses: input.exceptionStatuses,
@@ -765,104 +882,35 @@ export async function listOrdersPage(
     paid: input.paid,
     overdue: input.overdue,
   };
-  const safeFilters = filtersForSupplierAccess(filters, canReadSuppliers);
+  const safeFilters = filtersForActor(filters, actor);
 
-  const rows = (await fetchOrderRows(storeId)).map(decorate);
-  const all = filterOrders(rows, safeFilters).map((order) =>
+  const rows = scopeOrderRowsForActor(await fetchOrderRows(storeId), actor).map(decorate);
+  const filtered = filterOrders(rows, safeFilters);
+  const all = (safeFilters.archiveSearchExact ? filtered.slice(0, 20) : filtered).map((order) =>
     projectOrderListItemForActor(order, actor),
   );
   const workflowCounts = countWorkflowRows(
     filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
   );
-  const start = (page - 1) * pageSize;
+  const effectivePage = safeFilters.archiveSearchExact ? 1 : page;
+  const effectivePageSize = safeFilters.archiveSearchExact ? 20 : pageSize;
+  const start = (effectivePage - 1) * effectivePageSize;
   return {
-    items: all.slice(start, start + pageSize),
+    items: all.slice(start, start + effectivePageSize),
     total: all.length,
-    page,
-    pageSize,
-    pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
+    page: effectivePage,
+    pageSize: effectivePageSize,
+    pageCount: safeFilters.archiveSearchExact
+      ? 1
+      : Math.max(1, Math.ceil(all.length / effectivePageSize)),
     workflowCounts,
   };
 }
 
 export async function getOrderStats(actor?: AuditActor): Promise<OrderStats> {
   const storeId = requireStoreIdFromActor(actor);
-  const supabase = getSupabaseAdmin();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const approvalCutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-  const pickupCutoff = new Date(Date.now() - 5 * 86400 * 1000).toISOString();
-
-  const [
-    totalResult,
-    todayResult,
-    inProgressResult,
-    unpaidResult,
-    approvalOverdueResult,
-    pickupOverdueResult,
-  ] = await Promise.all([
-    supabase
-      .from("repair_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId),
-    supabase
-      .from("repair_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId)
-      .gte("created_at", today.toISOString()),
-    supabase
-      .from("repair_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId)
-      .in("workflow_status", ["intake", "diagnosis", "quote", "parts", "repair", "pickup"]),
-    supabase
-      .from("repair_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId)
-      .eq("is_paid", false),
-    supabase
-      .from("repair_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId)
-      .eq("approval_flow_status", "waiting_customer")
-      .lt("approval_sent_at", approvalCutoff),
-    supabase
-      .from("repair_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId)
-      .eq("workflow_status", "pickup")
-      .or(
-        `completed_at.lt.${pickupCutoff},and(completed_at.is.null,updated_at.lt.${pickupCutoff})`,
-      ),
-  ]);
-
-  const statErrors = [
-    totalResult.error,
-    todayResult.error,
-    inProgressResult.error,
-    unpaidResult.error,
-    approvalOverdueResult.error,
-    pickupOverdueResult.error,
-  ];
-  if (statErrors.some(isMissingRepairOrderColumnError)) {
-    return deriveOrderStatsFromRows((await fetchOrderRows(storeId)).map(decorate));
-  }
-
-  fail(totalResult.error, "统计工单总数失败");
-  fail(todayResult.error, "统计今日工单失败");
-  fail(inProgressResult.error, "统计进行中工单失败");
-  fail(unpaidResult.error, "统计未结清工单失败");
-  fail(approvalOverdueResult.error, "统计报价超期工单失败");
-  fail(pickupOverdueResult.error, "统计取件超期工单失败");
-
-  return {
-    total: totalResult.count ?? 0,
-    today: todayResult.count ?? 0,
-    inProgress: inProgressResult.count ?? 0,
-    unpaid: unpaidResult.count ?? 0,
-    approvalOverdue: approvalOverdueResult.count ?? 0,
-    pickupOverdue: pickupOverdueResult.count ?? 0,
-  };
+  const scopedRows = scopeOrderRowsForActor(await fetchOrderRows(storeId), actor).map(decorate);
+  return deriveOrderStatsFromRows(scopedRows.filter((order) => !isOrderArchivedForQueue(order)));
 }
 
 export async function listOrderWorkflow(actor?: AuditActor): Promise<OrderWorkflow> {
@@ -1097,6 +1145,7 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
     .eq("id", id)
     .single();
   fail(orderError, "读取工单详情失败");
+  assertOrderInActorScope(orderRow as DbRecord, actor);
 
   const [
     { data: eventRows, error: eventError },
@@ -1155,7 +1204,7 @@ export async function uploadOrderAttachment(
   const storeId = requireStoreIdFromActor(actor);
   const operatorName = operatorNameFromActor(actor);
   const supabase = getSupabaseAdmin();
-  await readOrderStatusRow(supabase, storeId, id, "读取工单失败");
+  await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
 
   const bytes = attachmentPayloadFromInput(input);
   const attachmentId = crypto.randomUUID();
@@ -1228,7 +1277,8 @@ export async function transitionOrder(
   );
   const operatorName = operatorNameFromActor(opts.operator, "系统");
   const supabase = getSupabaseAdmin();
-  const currentRow = await readOrderStatusRow(supabase, storeId, id);
+  const actor = typeof opts.operator === "string" ? undefined : opts.operator;
+  const currentRow = await readOrderStatusRow(supabase, storeId, id, actor);
   const from = currentRow.status as RepairOrderStatus;
   const workflowFrom =
     (maybeString(currentRow.workflow_status) as OrderWorkflowStatusCode | undefined) ??
@@ -1352,7 +1402,8 @@ export async function decideOrderApproval(
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   const operatorName = operatorNameFromActor(operator);
   const supabase = getSupabaseAdmin();
-  const currentRow = await readOrderStatusRow(supabase, storeId, id, "读取审批状态失败");
+  const actor = typeof operator === "string" ? undefined : operator;
+  const currentRow = await readOrderStatusRow(supabase, storeId, id, actor, "读取审批状态失败");
   const from = currentRow.status as RepairOrderStatus;
   const currentApprovalFlow =
     maybeString(currentRow.approval_flow_status) ??
@@ -1504,6 +1555,32 @@ function paymentFailureMessage(code: string) {
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
+const assignableOrderRoles = new Set(["owner", "manager", "technician", "sales"]);
+
+async function readAssignableOrderMember(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  membershipId: string,
+) {
+  const { data, error } = await supabase
+    .from("store_memberships")
+    .select("id,display_name,email,role,status")
+    .eq("store_id", storeId)
+    .eq("id", membershipId)
+    .eq("status", "active")
+    .maybeSingle();
+  fail(error, "校验工单负责人失败");
+  if (!data) throw new Error("负责人不存在、已停用或不属于当前店铺");
+  const row = data as DbRecord;
+  const role = requiredString(row.role);
+  if (!assignableOrderRoles.has(role)) throw new Error("该成员不能被设为工单负责人");
+  const email = requiredString(row.email);
+  return {
+    id: requiredString(row.id),
+    displayName: maybeString(row.display_name) ?? email.split("@")[0] ?? "员工",
+  };
+}
+
 const ORDER_ATTACHMENT_BUCKET = "repairdesk-order-attachments";
 const ORDER_ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 const ORDER_ATTACHMENT_KINDS = [
@@ -1640,6 +1717,7 @@ export function isOrderAttachmentStorageScoped(
 }
 
 const OPTIONAL_ORDER_WRITE_FIELDS = [
+  "assignee_membership_id",
   "workflow_status",
   "exception_status",
   "payment_status",
@@ -1668,29 +1746,34 @@ async function readOrderStatusRow(
   supabase: SupabaseAdmin,
   storeId: string,
   id: string,
+  actor?: AuditActor,
   context = "读取当前状态失败",
-) {
+): Promise<DbRecord> {
   const canonical = await supabase
     .from("repair_orders")
     .select(
-      "id,status,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,approval_status,approval_flow_status",
+      "id,status,assignee_membership_id,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,approval_status,approval_flow_status",
     )
     .eq("store_id", storeId)
     .eq("id", id)
     .single();
   if (!canonical.error || !isMissingRepairOrderColumnError(canonical.error)) {
     fail(canonical.error, context);
-    return canonical.data as DbRecord;
+    const row: DbRecord = { ...(canonical.data as DbRecord), __assignment_supported: true };
+    assertOrderInActorScope(row, actor);
+    return row;
   }
 
   const legacy = await supabase
     .from("repair_orders")
-    .select("id,status,balance_amount,is_paid,approval_status")
+    .select("id,status,technician_name,balance_amount,is_paid,approval_status")
     .eq("store_id", storeId)
     .eq("id", id)
     .single();
   fail(legacy.error, context);
-  return legacy.data as DbRecord;
+  const row: DbRecord = { ...(legacy.data as DbRecord), __assignment_supported: false };
+  assertOrderInActorScope(row, actor);
+  return row;
 }
 
 async function updateOrderRow({
@@ -1803,6 +1886,7 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_unlock: "手机密码",
   warranty_text: "质保",
   parts_supplier_id: "配件供应商",
+  assignee_membership_id: "负责人",
 };
 
 function deviceUnlockUpdateFromInput(input: PatchOrderInput["changes"]["device_unlock"]) {
@@ -1951,7 +2035,8 @@ export async function updateOrder(
   input: UpdateOrderInput,
   operator: string | AuditActor = "前台",
 ): Promise<{ ok: boolean }> {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
+  const requestActor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(requestActor);
   const operatorName = operatorNameFromActor(operator);
   const customerName = input.customer_name.trim();
   const customerPhone = input.customer_phone.trim();
@@ -1979,6 +2064,7 @@ export async function updateOrder(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
+  await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
@@ -2154,7 +2240,8 @@ export async function patchOrder(
   input: PatchOrderInput,
   operator: string | AuditActor = "前台",
 ): Promise<PatchOrderResult> {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
+  const requestActor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(requestActor);
   const operatorName = operatorNameFromActor(operator);
   if (!id) throw new Error("工单 ID 不能为空");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
@@ -2169,10 +2256,17 @@ export async function patchOrder(
   ][];
 
   const supabase = getSupabaseAdmin();
+  const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
+  if (
+    Object.prototype.hasOwnProperty.call(input.changes, "assignee_membership_id") &&
+    accessRow.__assignment_supported !== true
+  ) {
+    throw new Error("负责人功能尚未完成数据库迁移，请联系店主");
+  }
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      `id,customer_id,device_id,updated_at,device_snapshot,${REPAIR_ORDER_DEVICE_EMBED}(*),${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
+      `id,technician_name,customer_id,device_id,updated_at,device_snapshot,${REPAIR_ORDER_DEVICE_EMBED}(*),${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -2202,6 +2296,22 @@ export async function patchOrder(
 
   for (const [field, rawValue] of editableEntries) {
     changedFields.push(PATCH_FIELD_LABELS[field]);
+
+    if (field === "assignee_membership_id") {
+      if (!requestActor?.isSystem && !can(requestActor, "order:assign")) {
+        throw new ForbiddenError("当前角色无权分配工单负责人");
+      }
+      const membershipId = typeof rawValue === "string" ? rawValue.trim() : "";
+      if (!membershipId) {
+        orderUpdate.assignee_membership_id = null;
+        orderUpdate.technician_name = "未分配";
+      } else {
+        const assignee = await readAssignableOrderMember(supabase, storeId, membershipId);
+        orderUpdate.assignee_membership_id = assignee.id;
+        orderUpdate.technician_name = assignee.displayName;
+      }
+      continue;
+    }
 
     if (field === "device_unlock") {
       Object.assign(
@@ -2332,7 +2442,8 @@ export async function patchOrderFinance(
   input: PatchOrderFinanceInput,
   operator: string | AuditActor = "前台",
 ): Promise<PatchOrderResult> {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
+  const requestActor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(requestActor);
   const operatorName = operatorNameFromActor(operator);
   if (!id) throw new Error("工单 ID 不能为空");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
@@ -2344,6 +2455,7 @@ export async function patchOrderFinance(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
+  await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
@@ -2424,6 +2536,7 @@ async function writeWhatsappMessage({
   transitionTo,
   operator = "前台",
   storeId,
+  actor,
   recipientPhone,
   allowInvalidTransition = false,
   markApprovalPending = false,
@@ -2435,6 +2548,7 @@ async function writeWhatsappMessage({
   transitionTo?: RepairOrderStatus;
   operator?: string;
   storeId: string;
+  actor?: AuditActor;
   recipientPhone?: string;
   allowInvalidTransition?: boolean;
   markApprovalPending?: boolean;
@@ -2448,7 +2562,7 @@ async function writeWhatsappMessage({
   const now = new Date().toISOString();
   const messageId = crypto.randomUUID();
 
-  const current = await readOrderStatusRow(supabase, storeId, id, "读取工单失败");
+  const current = await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
   const from = current.status as RepairOrderStatus;
   let statusChanged = false;
   let to: RepairOrderStatus | undefined;
@@ -2569,13 +2683,13 @@ export async function sendNotification(
   const now = new Date().toISOString();
   const messageId = crypto.randomUUID();
 
-  const { error: readError } = await supabase
-    .from("repair_orders")
-    .select("id")
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .single();
-  fail(readError, "读取工单失败");
+  await readOrderStatusRow(
+    supabase,
+    storeId,
+    id,
+    typeof operator === "string" ? undefined : operator,
+    "读取工单失败",
+  );
 
   const { error: messageError } = await supabase.from("message_logs").insert({
     id: messageId,
@@ -2618,7 +2732,8 @@ export async function sendWhatsappNotification(
   operator: string | AuditActor = "前台",
   recipientPhone?: string,
 ) {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
+  const actor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(actor);
   return writeWhatsappMessage({
     id,
     body,
@@ -2627,6 +2742,7 @@ export async function sendWhatsappNotification(
     transitionTo,
     operator: operatorNameFromActor(operator),
     storeId,
+    actor,
     recipientPhone,
   });
 }
@@ -2637,7 +2753,8 @@ export async function sendApprovalRequest(
   operator: string | AuditActor = "前台",
   recipientPhone?: string,
 ) {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
+  const actor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(actor);
   return writeWhatsappMessage({
     id,
     body,
@@ -2646,6 +2763,7 @@ export async function sendApprovalRequest(
     transitionTo: "waiting_approval",
     operator: operatorNameFromActor(operator),
     storeId,
+    actor,
     recipientPhone,
     allowInvalidTransition: true,
     markApprovalPending: true,
@@ -2656,9 +2774,16 @@ export async function createOrder(
   input: CreateOrderInput,
   operator: string | AuditActor = "前台",
 ): Promise<{ id: string }> {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
+  const requestActor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(requestActor);
   const operatorName = operatorNameFromActor(operator);
-  const technicianName = operatorName.trim() || "前台";
+  if (
+    input.assignee_membership_id &&
+    !requestActor?.isSystem &&
+    !can(requestActor, "order:assign")
+  ) {
+    throw new ForbiddenError("当前角色无权分配工单负责人");
+  }
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
 
   const validFaults = input.fault_prices
@@ -2676,6 +2801,16 @@ export async function createOrder(
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
 
   const supabase = getSupabaseAdmin();
+  const requestedAssignee = input.assignee_membership_id?.trim();
+  if (requestedAssignee && !(await isOrderAssignmentSupported(supabase, storeId))) {
+    throw new Error("负责人功能尚未完成数据库迁移，请联系店主");
+  }
+  const assignee = requestedAssignee
+    ? await readAssignableOrderMember(supabase, storeId, requestedAssignee)
+    : requestActor?.activeMembershipId
+      ? { id: requestActor.activeMembershipId, displayName: operatorName }
+      : undefined;
+  const technicianName = assignee?.displayName.trim() || operatorName.trim() || "前台";
   const status = await resolveInitialOrderStatus(supabase, storeId, input.status);
   const now = new Date().toISOString();
   const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
@@ -2841,6 +2976,7 @@ export async function createOrder(
     is_paid: balance === 0,
     approval_status: "pending",
     technician_name: technicianName,
+    assignee_membership_id: assignee?.id ?? null,
     internal_tag: tagInput.internalTag || null,
     accessory_notes: tagInput.accessoryNotes || null,
     device_unlock_method: deviceUnlock.method,
@@ -2908,6 +3044,8 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
   const storeId = requireStoreIdFromActor(actor);
   const canReadSuppliers = can(actor, "supplier:read");
   const supabase = getSupabaseAdmin();
+  const assignmentSupported = await isOrderAssignmentSupported(supabase, storeId);
+  const canAssignOrders = assignmentSupported && can(actor, "order:assign");
   const supplierResult = canReadSuppliers
     ? await supabase
         .from("suppliers")
@@ -2915,12 +3053,33 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
         .eq("store_id", storeId)
         .order("name", { ascending: true })
     : { data: [], error: null };
-  const { data: technicianRows, error: techError } = await supabase
-    .from("repair_orders")
-    .select("technician_name")
-    .eq("store_id", storeId);
+  const technicianResult =
+    isTechnicianActor(actor) && !assignmentSupported
+      ? { data: [], error: null }
+      : await (() => {
+          let query = supabase
+            .from("repair_orders")
+            .select("technician_name")
+            .eq("store_id", storeId);
+          if (isTechnicianActor(actor)) {
+            if (!actor?.activeMembershipId) throw new ForbiddenError("缺少当前店铺成员身份");
+            query = query.eq("assignee_membership_id", actor.activeMembershipId);
+          }
+          return query;
+        })();
+  const { data: technicianRows, error: techError } = technicianResult;
+  const { data: assigneeRows, error: assigneeError } = canAssignOrders
+    ? await supabase
+        .from("store_memberships")
+        .select("id,display_name,email,role,status")
+        .eq("store_id", storeId)
+        .eq("status", "active")
+        .in("role", ["owner", "manager", "technician", "sales"])
+        .order("display_name", { ascending: true })
+    : { data: [], error: null };
   fail(supplierResult.error, "读取供应商失败");
   fail(techError, "读取技师失败");
+  fail(assigneeError, "读取工单负责人失败");
 
   return {
     suppliers: ((supplierResult.data ?? []) as DbRecord[])
@@ -2934,10 +3093,39 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
           .filter((name): name is string => Boolean(name)),
       ),
     ).sort((a, b) => a.localeCompare(b, "zh-CN")),
+    assigneeOptions: ((assigneeRows ?? []) as DbRecord[]).map(
+      (row): OrderAssigneeOption => ({
+        id: requiredString(row.id),
+        display_name:
+          maybeString(row.display_name) ?? requiredString(row.email).split("@")[0] ?? "员工",
+        role: requiredString(row.role) as OrderAssigneeOption["role"],
+      }),
+    ),
     permissions: {
       canReadSuppliers,
       canAssignSuppliers: can(actor, "supplier:assign"),
       canManageSuppliers: can(actor, "supplier:manage"),
+      canReadInventory: can(actor, "inventory:read"),
+      canSearchOrderArchive: can(actor, "order:archive_search"),
+      canBrowseOrderArchive: can(actor, "order:archive_browse"),
+      canReadOrderFinance: can(actor, "finance:order_read"),
+      canReadAggregateFinance: can(actor, "finance:aggregate_read"),
+      canReadProfit: can(actor, "finance:profit_read"),
+      canExportOrders: can(actor, "order:export"),
+      canBatchTransitionOrders: can(actor, "order:batch_transition"),
+      canAssignOrders,
     },
   };
+}
+
+async function isOrderAssignmentSupported(supabase: SupabaseAdmin, storeId: string) {
+  const { error } = await supabase
+    .from("repair_orders")
+    .select("assignee_membership_id")
+    .eq("store_id", storeId)
+    .limit(1);
+  if (!error) return true;
+  if (isMissingRepairOrderColumnError(error)) return false;
+  fail(error, "检查工单负责人功能失败");
+  return false;
 }

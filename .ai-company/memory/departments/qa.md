@@ -3,7 +3,7 @@ schema_version: 1
 department: qa
 status: active
 owner: QA Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-12
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -32,6 +32,7 @@ as owner of this file.
 - `TASK-20260620-002` is classification-only evidence for legacy `src/routes/*` cleanup. It does not prove deletion safety until a later deletion task runs route scans, `agents:check`, lint, typecheck, tests, and build.
 - `TASK-20260620-003` is preflight-only evidence: current baseline passed route scan, `agents:check`, lint, typecheck, and `knip.json` parse. The actual deletion task still needs full tests and build after files are removed.
 - `TASK-20260620-004` is permission-matrix documentation evidence only. It does not prove runtime authorization behavior until role-specific server/API denial tests are added after Owner policy decisions.
+- `TASK-20260712-002-global-staff-permissions` supplies runtime role/object denial evidence and final gates: agents/lint/typecheck pass, 119 Vitest files / 800 tests pass, 22-route production build passes outside the known sandbox port restriction, linked migration dry-run lists two pending files, and desktop/mobile screenshots plus zero browser console errors are recorded.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package` is a decision package only. Treat Option A test cases as proposed test requirements, not executed coverage.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio` is policy evidence only. It does not prove audit redaction behavior until sanitizer implementation and forbidden-field serialization tests pass.
 - `TASK-20260619-232315-l2-028-require-closeout-screenshots-for-re` makes closeout visual evidence mandatory: if a task has a relevant UI, preview, browser-visible result, or task/result page, final QA evidence and Owner report must include screenshot path(s). Non-UI tasks must record a no-screenshot reason and alternate evidence.
@@ -73,7 +74,7 @@ as owner of this file.
 | QA-20260619-006 | Dirty-worktree baseline must be preserved before order-list implementation | Later migration failures could be misattributed | QA + Integration Lead | resolved by TASK-20260619-025 post-change gates | closed |
 | QA-20260620-001 | Broader `npm run test:e2e:desktop` has one unrelated `/platform` 1440px `networkidle` timeout | Full desktop E2E suite cannot be reported as fully green for this dirty workspace | QA + Platform | investigate if timeout repeats outside order-detail task | open |
 | QA-20260620-002 | Classified legacy `src/routes/*` files are not yet deleted | Future search/review noise remains until deletion gates pass | QA + Architecture + Frontend | Owner-approved deletion cleanup task | preflight green; validation pending deletion |
-| QA-20260620-003 | Permission matrix lacks automated role denial coverage for order/customer/payment/message mutation paths | Over-permission regressions may slip | QA + Security + Backend | after Owner role-policy approval; decision package ready | approval_pending |
+| QA-20260620-003 | Permission matrix lacks automated role denial coverage for order/customer/payment/message mutation paths | Over-permission regressions may slip | QA + Security + Backend | resolved for the approved global role scope by TASK-20260712-002 | closed |
 | QA-20260620-004 | Audit-log minimization policy lacks runtime tests | Sensitive data could re-enter audit payloads | QA + Security + Backend | add tests with sanitizer implementation | policy_drafted |
 | QA-20260620-005 | Final reports could omit visual proof for UI/task result pages | Owner cannot confirm visible outcome from text alone | QA + Documentation + Integration Lead | enforce on every task closeout | active_rule |
 | QA-20260620-006 | Final reports could claim departments were used without real spawned agents | Owner may not get the AI employee operating model requested | QA + Documentation + Integration Lead | require real agent ids/results or no-spawn reason for department-requested work | active_rule |
@@ -116,3 +117,4 @@ as owner of this file.
 | 2026-06-20 | Added mandatory screenshot/no-screenshot evidence rule for task closeout | TASK-20260619-232315-l2-028-require-closeout-screenshots-for-re | Integration Lead | active_rule |
 | 2026-06-20 | Added real sub-agent evidence gate for Owner-requested department/AI employee work | TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for | Integration Lead | active_rule |
 | 2026-07-10 | Recorded full TASK-009 quality gate and remote-state serialization risk | TASK-20260710-009 | Integration Lead | active |
+| 2026-07-12 | Recorded final global staff-permission regression, build, migration dry-run and visual evidence gates | TASK-20260712-002-global-staff-permissions | Integration Lead + QA/security reviewers | active |

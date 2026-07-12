@@ -57,12 +57,20 @@ export function OrderMobileCard({
   const primaryRepairLabel = firstFaultPrice?.name || "待确认维修项目";
   const deviceLabel = order.device_label || order.device_imei || "未知设备";
   const issueLabel = order.issue_description || "待补充故障描述";
-  const paymentLabel = order.is_paid ? "已结清" : order.deposit_amount > 0 ? "已付押金" : "未收款";
-  const paymentStatusClass = order.is_paid
-    ? "bg-status-success text-status-success-foreground"
-    : order.deposit_amount > 0
-      ? "bg-status-warn text-status-warn-foreground"
-      : "bg-status-danger text-status-danger-foreground";
+  const paymentLabel = order.finance_redacted
+    ? "详情可见"
+    : order.is_paid
+      ? "已结清"
+      : order.deposit_amount > 0
+        ? "已付押金"
+        : "未收款";
+  const paymentStatusClass = order.finance_redacted
+    ? "bg-muted text-muted-foreground"
+    : order.is_paid
+      ? "bg-status-success text-status-success-foreground"
+      : order.deposit_amount > 0
+        ? "bg-status-warn text-status-warn-foreground"
+        : "bg-status-danger text-status-danger-foreground";
   const paymentTotalClass =
     order.balance_amount > 0 ? "text-status-danger-foreground" : "text-foreground";
   const paymentBalanceClass =
@@ -234,27 +242,33 @@ export function OrderMobileCard({
               >
                 {paymentLabel}
               </span>
-              <p
-                className={cn(
-                  "flex items-baseline justify-end gap-1 text-[10px] leading-4",
-                  paymentTotalClass,
-                )}
-              >
-                <span className="text-muted-foreground">总额</span>
-                <span className="font-mono text-[13px] font-bold tabular-nums">
-                  <MoneyText amount={order.quotation_amount} />
-                </span>
-              </p>
-              <div className="grid min-w-0 gap-0.5 text-[9px] leading-3 text-muted-foreground">
-                <div className="flex min-w-0 justify-end gap-1">
-                  <span className="shrink-0">定金</span>
-                  <MoneyText amount={order.deposit_amount} className="min-w-0 truncate" />
-                </div>
-                <div className={cn("flex min-w-0 justify-end gap-1", paymentBalanceClass)}>
-                  <span className="shrink-0 text-muted-foreground">尾款</span>
-                  <MoneyText amount={order.balance_amount} className="min-w-0 truncate" />
-                </div>
-              </div>
+              {order.finance_redacted ? (
+                <span className="text-[10px] text-muted-foreground">金额受限</span>
+              ) : (
+                <>
+                  <p
+                    className={cn(
+                      "flex items-baseline justify-end gap-1 text-[10px] leading-4",
+                      paymentTotalClass,
+                    )}
+                  >
+                    <span className="text-muted-foreground">总额</span>
+                    <span className="font-mono text-[13px] font-bold tabular-nums">
+                      <MoneyText amount={order.quotation_amount} />
+                    </span>
+                  </p>
+                  <div className="grid min-w-0 gap-0.5 text-[9px] leading-3 text-muted-foreground">
+                    <div className="flex min-w-0 justify-end gap-1">
+                      <span className="shrink-0">定金</span>
+                      <MoneyText amount={order.deposit_amount} className="min-w-0 truncate" />
+                    </div>
+                    <div className={cn("flex min-w-0 justify-end gap-1", paymentBalanceClass)}>
+                      <span className="shrink-0 text-muted-foreground">尾款</span>
+                      <MoneyText amount={order.balance_amount} className="min-w-0 truncate" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </Link>

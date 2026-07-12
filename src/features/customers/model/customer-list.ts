@@ -118,7 +118,7 @@ export function getCustomerDetailHref(customerId: string) {
 export function getCustomerWorkSummary(
   customer: Pick<
     CustomerListItem,
-    "active_order_count" | "unpaid_amount" | "order_count" | "device_count"
+    "active_order_count" | "unpaid_amount" | "order_count" | "device_count" | "finance_redacted"
   >,
 ): CustomerWorkSummary {
   if (customer.active_order_count > 0) {
@@ -129,7 +129,7 @@ export function getCustomerWorkSummary(
       tone: "info",
     };
   }
-  if (customer.unpaid_amount > 0) {
+  if (!customer.finance_redacted && (customer.unpaid_amount ?? 0) > 0) {
     return {
       label: "未结清",
       detail: "客户还有待确认尾款",
@@ -167,6 +167,7 @@ export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWork
   return getCustomerWorkSummary({
     active_order_count: activeOrderCount,
     unpaid_amount: data.stats.unpaid_amount,
+    finance_redacted: data.stats.finance_redacted,
     order_count: data.stats.order_count,
     device_count: data.stats.device_count,
   });

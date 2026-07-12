@@ -350,11 +350,15 @@ export function InventoryScreen() {
           />
           <InventoryKpi icon={ClipboardCheck} label="检测/整备中" value={stats?.inPipeline ?? 0} />
           <InventoryKpi icon={ShoppingBag} label="待售/售卖中" value={stats?.readyOrListed ?? 0} />
-          <InventoryKpi
-            icon={TrendingUp}
-            label="已实现利润"
-            value={<MoneyText amount={stats?.realizedProfit ?? 0} />}
-          />
+          {stats?.finance_redacted ? (
+            <InventoryKpi icon={TrendingUp} label="已售数量" value={stats.sold} />
+          ) : (
+            <InventoryKpi
+              icon={TrendingUp}
+              label="已实现利润"
+              value={<MoneyText amount={stats?.realizedProfit ?? 0} />}
+            />
+          )}
         </motion.div>
       }
     >
@@ -506,9 +510,13 @@ function InventoryTableRow({
 }) {
   const primaryAction = getInventoryPrimaryAction(item);
   const buybackSummary = buildInventoryBuybackSummary(item);
-  const costBasis =
-    buybackSummary?.costBasis ?? item.buyback_price + item.repair_cost_amount + item.fees_amount;
-  const repairCost = buybackSummary?.repairCost ?? item.repair_cost_amount;
+  const costBasis = item.finance_redacted
+    ? 0
+    : (buybackSummary?.costBasis ??
+      item.buyback_price + item.repair_cost_amount + item.fees_amount);
+  const repairCost = item.finance_redacted
+    ? 0
+    : (buybackSummary?.repairCost ?? item.repair_cost_amount);
 
   return (
     <TableRow
@@ -548,23 +556,33 @@ function InventoryTableRow({
         {item.customer_phone ? <PhoneText value={item.customer_phone} /> : null}
       </TableCell>
       <TableCell className="text-right">
-        <div className="font-mono font-medium">
-          <MoneyText amount={item.buyback_price} />
-        </div>
-        <div className="truncate text-[11px] text-muted-foreground">
-          维修 <MoneyText amount={repairCost} /> · 成本 <MoneyText amount={costBasis} />
-        </div>
+        {item.finance_redacted ? (
+          <span className="text-xs text-muted-foreground">成本受限</span>
+        ) : (
+          <>
+            <div className="font-mono font-medium">
+              <MoneyText amount={item.buyback_price} />
+            </div>
+            <div className="truncate text-[11px] text-muted-foreground">
+              维修 <MoneyText amount={repairCost} /> · 成本 <MoneyText amount={costBasis} />
+            </div>
+          </>
+        )}
       </TableCell>
       <TableCell className="text-right">
         <MoneyText amount={item.sale_price || item.list_price} />
       </TableCell>
       <TableCell className="text-right">
-        <MoneyText
-          amount={item.profit}
-          className={
-            item.profit >= 0 ? "text-status-success-foreground" : "text-status-danger-foreground"
-          }
-        />
+        {item.finance_redacted ? (
+          <span className="text-xs text-muted-foreground">受限</span>
+        ) : (
+          <MoneyText
+            amount={item.profit}
+            className={
+              item.profit >= 0 ? "text-status-success-foreground" : "text-status-danger-foreground"
+            }
+          />
+        )}
       </TableCell>
       <TableCell className="min-w-0">
         <div className="truncate">
@@ -614,8 +632,10 @@ function InventoryMobileCard({
 }) {
   const primaryAction = getInventoryPrimaryAction(item);
   const buybackSummary = buildInventoryBuybackSummary(item);
-  const costBasis =
-    buybackSummary?.costBasis ?? item.buyback_price + item.repair_cost_amount + item.fees_amount;
+  const costBasis = item.finance_redacted
+    ? 0
+    : (buybackSummary?.costBasis ??
+      item.buyback_price + item.repair_cost_amount + item.fees_amount);
 
   return (
     <RepairOsBusinessCard
@@ -626,23 +646,33 @@ function InventoryMobileCard({
       trailing={
         <div className="flex min-w-[4.75rem] flex-col items-end text-right text-xs">
           <MoneyText
-            amount={item.sale_price || item.list_price || item.buyback_price}
+            amount={
+              item.sale_price || item.list_price || (item.finance_redacted ? 0 : item.buyback_price)
+            }
             className={repairOs.cardAmount}
           />
           <div className="mt-1 text-[11px] text-muted-foreground">
             电池 {item.battery_health ?? "-"}%
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            成本 <MoneyText amount={costBasis} />
-          </div>
-          <div
-            className={cn(
-              "mt-1 text-[11px]",
-              item.profit >= 0 ? "text-status-success-foreground" : "text-status-danger-foreground",
-            )}
-          >
-            利润 <MoneyText amount={item.profit} />
-          </div>
+          {item.finance_redacted ? (
+            <div className="mt-1 text-[11px] text-muted-foreground">成本与利润受限</div>
+          ) : (
+            <>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                成本 <MoneyText amount={costBasis} />
+              </div>
+              <div
+                className={cn(
+                  "mt-1 text-[11px]",
+                  item.profit >= 0
+                    ? "text-status-success-foreground"
+                    : "text-status-danger-foreground",
+                )}
+              >
+                利润 <MoneyText amount={item.profit} />
+              </div>
+            </>
+          )}
           <button
             type="button"
             className={cn(
@@ -794,10 +824,14 @@ function InventoryDetailBody({
       action.mode !== primaryDialogAction && (action.mode !== "receipt" || item.status === "sold"),
   );
   const buybackSummary = buildInventoryBuybackSummary(item);
-  const costBasis =
-    buybackSummary?.costBasis ?? item.buyback_price + item.repair_cost_amount + item.fees_amount;
-  const repairCost = buybackSummary?.repairCost ?? item.repair_cost_amount;
-  const fees = buybackSummary?.fees ?? item.fees_amount;
+  const costBasis = item.finance_redacted
+    ? 0
+    : (buybackSummary?.costBasis ??
+      item.buyback_price + item.repair_cost_amount + item.fees_amount);
+  const repairCost = item.finance_redacted
+    ? 0
+    : (buybackSummary?.repairCost ?? item.repair_cost_amount);
+  const fees = item.finance_redacted ? 0 : (buybackSummary?.fees ?? item.fees_amount);
 
   return (
     <div className="space-y-2">
@@ -962,15 +996,24 @@ function InventoryDetailBody({
         </main>
 
         <aside className="min-w-0 space-y-2">
-          <InventoryFinancialSummarySection
-            item={item}
-            repairCost={repairCost}
-            fees={fees}
-            costBasis={costBasis}
-            onEditCosts={() => onAction(item, "update")}
-          />
-
-          <InventoryTransactionsSection transactions={data.transactions} />
+          {item.finance_redacted ? (
+            <section
+              className={cn(componentOverlay.flatSection, "p-2 text-xs text-muted-foreground")}
+            >
+              成本、利润与交易流水仅对已授权角色可见。
+            </section>
+          ) : (
+            <>
+              <InventoryFinancialSummarySection
+                item={item}
+                repairCost={repairCost}
+                fees={fees}
+                costBasis={costBasis}
+                onEditCosts={() => onAction(item, "update")}
+              />
+              <InventoryTransactionsSection transactions={data.transactions} />
+            </>
+          )}
 
           <section className={cn(componentOverlay.flatSection, "p-2")}>
             <RepairOsSectionHeader
@@ -1662,8 +1705,9 @@ function InventoryActionDialog({
   }
 
   const currentItem = item;
-  const currentCostBasis =
-    currentItem.buyback_price + currentItem.repair_cost_amount + currentItem.fees_amount;
+  const currentCostBasis = currentItem.finance_redacted
+    ? 0
+    : currentItem.buyback_price + currentItem.repair_cost_amount + currentItem.fees_amount;
   const nextStatuses = getInventoryNextStatuses(currentItem.status);
   const primaryAction = getInventoryPrimaryAction(currentItem);
   const preferredNextStatus =
@@ -1707,7 +1751,7 @@ function InventoryActionDialog({
       <DialogContent className={cn(componentOverlay.formContent, inventoryDialogContentClass)}>
         {action === "update" ? (
           <ActionForm
-            title="编辑价格 / 成本"
+            title={currentItem.finance_redacted ? "编辑挂牌价" : "编辑价格 / 成本"}
             description={currentItem.item_label}
             onSubmit={handleUpdate}
             footer={
@@ -1718,60 +1762,68 @@ function InventoryActionDialog({
                 style={brandGradientStyle}
                 disabled={updateMutation.isPending}
               >
-                保存价格/成本
+                {currentItem.finance_redacted ? "保存挂牌价" : "保存价格/成本"}
               </Button>
             }
           >
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              <InventoryDenseInfoBox
-                label="当前成本"
-                value={<MoneyText amount={currentCostBasis} />}
-                meta="实付+整备"
-                tone="warning"
-              />
-              <InventoryDenseInfoBox
-                label="回收实付"
-                value={<MoneyText amount={currentItem.buyback_price} />}
-                meta="客户成交"
-                tone={currentItem.buyback_price > 0 ? "success" : "neutral"}
-              />
-              <InventoryDenseInfoBox
-                label="挂牌价"
-                value={<MoneyText amount={currentItem.list_price} />}
-                meta={currentItem.list_price > 0 ? "可售价格" : "待录入"}
-                tone={currentItem.list_price > 0 ? "info" : "warning"}
-              />
-              <InventoryDenseInfoBox
-                label="利润"
-                value={<MoneyText amount={currentItem.profit} />}
-                meta="按当前数据"
-                tone={currentItem.profit >= 0 ? "success" : "danger"}
-              />
-            </div>
+            {!currentItem.finance_redacted ? (
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                <InventoryDenseInfoBox
+                  label="当前成本"
+                  value={<MoneyText amount={currentCostBasis} />}
+                  meta="实付+整备"
+                  tone="warning"
+                />
+                <InventoryDenseInfoBox
+                  label="回收实付"
+                  value={<MoneyText amount={currentItem.buyback_price} />}
+                  meta="客户成交"
+                  tone={currentItem.buyback_price > 0 ? "success" : "neutral"}
+                />
+                <InventoryDenseInfoBox
+                  label="挂牌价"
+                  value={<MoneyText amount={currentItem.list_price} />}
+                  meta={currentItem.list_price > 0 ? "可售价格" : "待录入"}
+                  tone={currentItem.list_price > 0 ? "info" : "warning"}
+                />
+                <InventoryDenseInfoBox
+                  label="利润"
+                  value={<MoneyText amount={currentItem.profit} />}
+                  meta="按当前数据"
+                  tone={currentItem.profit >= 0 ? "success" : "danger"}
+                />
+              </div>
+            ) : null}
             <div className={compactInventoryGrid}>
-              <Field
-                name="buyback_price"
-                label="回收实付"
-                type="number"
-                step="0.01"
-                defaultValue={currentItem.buyback_price ? String(currentItem.buyback_price) : ""}
-              />
-              <Field
-                name="repair_cost_amount"
-                label="维修/整备"
-                type="number"
-                step="0.01"
-                defaultValue={
-                  currentItem.repair_cost_amount ? String(currentItem.repair_cost_amount) : ""
-                }
-              />
-              <Field
-                name="fees_amount"
-                label="其他费用"
-                type="number"
-                step="0.01"
-                defaultValue={currentItem.fees_amount ? String(currentItem.fees_amount) : ""}
-              />
+              {!currentItem.finance_redacted ? (
+                <>
+                  <Field
+                    name="buyback_price"
+                    label="回收实付"
+                    type="number"
+                    step="0.01"
+                    defaultValue={
+                      currentItem.buyback_price ? String(currentItem.buyback_price) : ""
+                    }
+                  />
+                  <Field
+                    name="repair_cost_amount"
+                    label="维修/整备"
+                    type="number"
+                    step="0.01"
+                    defaultValue={
+                      currentItem.repair_cost_amount ? String(currentItem.repair_cost_amount) : ""
+                    }
+                  />
+                  <Field
+                    name="fees_amount"
+                    label="其他费用"
+                    type="number"
+                    step="0.01"
+                    defaultValue={currentItem.fees_amount ? String(currentItem.fees_amount) : ""}
+                  />
+                </>
+              ) : null}
               <Field
                 name="list_price"
                 label="挂牌价"

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import type { RepairDeskRealtimeClient } from "@/features/realtime/api/realtime-client";
 import type { RepairDeskRealtimeDomain } from "@/features/realtime/model/realtime-events";
@@ -21,12 +21,12 @@ export function RealtimeAppBridge({
   domains,
   enabled,
 }: RealtimeAppBridgeProps) {
-  const shell = useStoreShellContext();
+  const shell = useStoreShellContext({ monitorAuthority: true });
   const storeId = shell.activeStore?.status === "active" ? shell.activeStore.id : null;
 
   return (
     <RealtimeSyncProvider client={client} domains={domains} enabled={enabled} storeId={storeId}>
-      {children}
+      <Fragment key={shell.authorityFingerprint}>{children}</Fragment>
     </RealtimeSyncProvider>
   );
 }

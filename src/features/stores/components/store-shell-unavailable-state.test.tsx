@@ -29,6 +29,7 @@ describe("StoreShellUnavailableState", () => {
 
 function makeShell(status: StoreShellContextSnapshot["status"]): StoreShellContextSnapshot {
   return {
+    authorityFingerprint: "test-authority",
     stores: [],
     isPlatformAdmin: status === "platform_admin",
     isLoading: false,

@@ -234,10 +234,18 @@ export function CustomerRow({
         </div>
       </td>
       <td className="whitespace-nowrap px-2 py-2 text-right text-xs">
-        <MoneyText amount={customer.total_spent} />
+        {customer.finance_redacted ? (
+          <span className="text-muted-foreground">{customer.order_count} 单</span>
+        ) : (
+          <MoneyText amount={customer.total_spent ?? 0} />
+        )}
       </td>
       <td className="whitespace-nowrap px-2 py-2 text-right text-xs">
-        <MoneyText amount={customer.unpaid_amount} />
+        {customer.finance_redacted ? (
+          <span className="text-muted-foreground">受限</span>
+        ) : (
+          <MoneyText amount={customer.unpaid_amount ?? 0} />
+        )}
       </td>
       <td className="whitespace-nowrap px-2 py-2 text-[11px]">
         <CustomerWorkState summary={summary} />
@@ -292,17 +300,27 @@ export function CustomerMobileCard({
         )}
         trailing={
           <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">
-            <span className="text-[9px] leading-3 text-muted-foreground">总消费</span>
-            <MoneyText amount={customer.total_spent} className={repairOs.cardAmount} />
+            <span className="text-[9px] leading-3 text-muted-foreground">
+              {customer.finance_redacted ? "工单" : "总消费"}
+            </span>
+            {customer.finance_redacted ? (
+              <span className={repairOs.cardAmount}>{customer.order_count} 单</span>
+            ) : (
+              <MoneyText amount={customer.total_spent ?? 0} className={repairOs.cardAmount} />
+            )}
             <span
               className={cn(
                 "mt-0.5 max-w-24 truncate text-[11px] leading-4",
-                customer.unpaid_amount > 0
+                (customer.unpaid_amount ?? 0) > 0
                   ? "text-status-warn-foreground"
                   : "text-muted-foreground",
               )}
             >
-              {customer.unpaid_amount > 0 ? "有未结清" : `${customer.order_count} 个工单`}
+              {customer.finance_redacted
+                ? `${customer.order_count} 个工单`
+                : (customer.unpaid_amount ?? 0) > 0
+                  ? "有未结清"
+                  : `${customer.order_count} 个工单`}
             </span>
             <span className="mt-0.5 grid size-7 place-items-center rounded-lg text-muted-foreground">
               <ArrowUpRight className="size-3.5" />
@@ -346,12 +364,16 @@ export function CustomerMobileCard({
           <RepairOsBadge
             className={cn(
               "gap-1 text-[9px] font-semibold",
-              customer.unpaid_amount > 0
+              !customer.finance_redacted && (customer.unpaid_amount ?? 0) > 0
                 ? "bg-status-warn text-status-warn-foreground"
                 : "bg-status-success text-status-success-foreground",
             )}
           >
-            {customer.unpaid_amount > 0 ? "未结清" : "已结清"}
+            {customer.finance_redacted
+              ? "金额受限"
+              : (customer.unpaid_amount ?? 0) > 0
+                ? "未结清"
+                : "已结清"}
           </RepairOsBadge>
         </div>
       </RepairOsBusinessCard>

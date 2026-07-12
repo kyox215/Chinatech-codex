@@ -78,7 +78,13 @@ export interface SupplierInput {
   notes?: string;
 }
 
-export type StorePermissionAction = "supplier:read" | "supplier:assign" | "supplier:manage";
+export type StorePermissionAction =
+  | "supplier:read"
+  | "supplier:assign"
+  | "supplier:manage"
+  | "order:archive_browse"
+  | "finance:aggregate_read"
+  | "finance:profit_read";
 
 export type OrderWorkflowStatusCode =
   | "intake"
@@ -244,6 +250,7 @@ export interface RepairOrder {
   approval_sent_at?: string;
   approval_confirmed_at?: string;
   technician_name: string;
+  assignee_membership_id?: string;
   internal_tag?: string;
   accessory_notes?: string;
   warranty_text?: string;
@@ -376,6 +383,7 @@ export interface OrderApprovalDecisionResult {
 
 export interface OrderListFilters {
   search?: string;
+  view?: OrderListView;
   statuses?: RepairOrderStatus[];
   workflowStatuses?: OrderWorkflowStatusCode[];
   exceptionStatuses?: OrderExceptionStatus[];
@@ -388,6 +396,8 @@ export interface OrderListFilters {
   paid?: "all" | "paid" | "unpaid";
   overdue?: "approval" | "pickup" | "any";
 }
+
+export type OrderListView = "active" | "archive" | "all";
 
 export interface OrderListPageInput extends OrderListFilters {
   page?: number;
@@ -568,8 +578,9 @@ export interface CustomerListItem extends Customer {
   device_count: number;
   order_count: number;
   active_order_count: number;
-  total_spent: number;
-  unpaid_amount: number;
+  total_spent?: number;
+  unpaid_amount?: number;
+  finance_redacted?: boolean;
   last_order_at?: string;
   next_followup_at?: string;
   latest_device_label?: string;
@@ -611,8 +622,9 @@ export interface CustomerDetail {
   followups: CustomerFollowup[];
   stats: {
     order_count: number;
-    total_spent: number;
-    unpaid_amount: number;
+    total_spent?: number;
+    unpaid_amount?: number;
+    finance_redacted?: boolean;
     device_count: number;
     last_order_at?: string;
     next_followup_at?: string;
@@ -639,6 +651,7 @@ export interface CreateOrderInput {
   warranty_change_reason?: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
+  assignee_membership_id?: string;
 }
 
 export interface UpdateOrderInput {
@@ -674,6 +687,7 @@ export interface PatchOrderChanges {
   device_unlock?: DeviceUnlockInput;
   warranty_text?: string;
   parts_supplier_id?: string | null;
+  assignee_membership_id?: string | null;
 }
 
 export interface PatchOrderInput {
@@ -734,11 +748,27 @@ export interface CustomerMessageInput {
 export interface RepairDeskOptions {
   suppliers: Supplier[];
   technicians: string[];
+  assigneeOptions?: OrderAssigneeOption[];
   permissions: {
     canReadSuppliers: boolean;
     canAssignSuppliers: boolean;
     canManageSuppliers: boolean;
+    canReadInventory?: boolean;
+    canSearchOrderArchive?: boolean;
+    canBrowseOrderArchive?: boolean;
+    canReadOrderFinance?: boolean;
+    canReadAggregateFinance?: boolean;
+    canReadProfit?: boolean;
+    canExportOrders?: boolean;
+    canBatchTransitionOrders?: boolean;
+    canAssignOrders?: boolean;
   };
+}
+
+export interface OrderAssigneeOption {
+  id: string;
+  display_name: string;
+  role: StoreRole;
 }
 
 export interface BatchTransitionResult {
@@ -887,6 +917,7 @@ export interface StoreInviteLinkRedeemInput {
 
 export interface ActorStoreMembership {
   id: string;
+  membershipId?: string;
   name: string;
   slug: string;
   role: StoreRole;
@@ -900,8 +931,15 @@ export interface StoreContext {
     canReadSuppliers: boolean;
     canAssignSuppliers: boolean;
     canManageSuppliers: boolean;
+    canReadInventory?: boolean;
     canManageOrderData?: boolean;
     canApplyOrderData?: boolean;
+    canSearchOrderArchive?: boolean;
+    canBrowseOrderArchive?: boolean;
+    canReadOrderFinance?: boolean;
+    canReadAggregateFinance?: boolean;
+    canReadProfit?: boolean;
+    canExportOrders?: boolean;
   };
 }
 
@@ -1010,6 +1048,7 @@ export interface AuditActor {
   storeId?: string;
   storeName?: string;
   storeRole?: StoreRole;
+  activeMembershipId?: string;
   permissionGrants?: StorePermissionAction[];
   stores?: ActorStoreMembership[];
   activeStoreExplicit?: boolean;
@@ -1116,6 +1155,7 @@ export interface InventoryItem {
   updated_by?: string;
   created_at: string;
   updated_at: string;
+  finance_redacted?: boolean;
 }
 
 export interface InventoryListItem extends InventoryItem {
@@ -1146,9 +1186,10 @@ export interface InventoryStats {
   readyOrListed: number;
   reserved: number;
   sold: number;
-  buybackCost: number;
-  listedValue: number;
-  realizedProfit: number;
+  buybackCost?: number;
+  listedValue?: number;
+  realizedProfit?: number;
+  finance_redacted?: boolean;
 }
 
 export interface InventorySummary {

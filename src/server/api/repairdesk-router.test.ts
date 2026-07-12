@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  AuditActor,
   InventoryTransactionInput,
   PatchOrderFinanceInput,
   UpdateOrderInput,
@@ -21,6 +22,7 @@ import {
   assertInventoryQualityCheckPermission,
   assertInventorySalePermission,
   assertInventoryTransactionPermission,
+  assertKioskSessionReviewPermission,
   assertInventoryUpdatePermission,
   assertMemberInvitePermission,
   assertMemberManagePermission,
@@ -91,7 +93,10 @@ describe("repairdesk router order write permissions", () => {
   it("requires scoped order read permissions for restricted roles", () => {
     expect(() => assertOrderListPermission(actor("owner"))).not.toThrow();
     expect(() => assertOrderDetailReadPermission(actor("sales"))).not.toThrow();
-    expect(() => assertOrderListPermission(actor("technician"))).toThrow(ForbiddenError);
+    expect(() => assertOrderListPermission(actor("technician"))).not.toThrow();
+    expect(() =>
+      assertOrderListPermission(actor("technician", { activeMembershipId: undefined })),
+    ).toThrow(ForbiddenError);
     expect(() => assertOrderDetailReadPermission(actor("viewer"))).toThrow(ForbiddenError);
   });
 
@@ -164,7 +169,7 @@ describe("repairdesk router order write permissions", () => {
       }),
     ).not.toThrow();
     expect(() =>
-      assertOrderPatchPermission(actor("technician"), {
+      assertOrderPatchPermission(actor("technician", { activeMembershipId: undefined }), {
         expected_updated_at: "2026-07-08T00:00:00.000Z",
         changes: { device_imei: "490154203237518" },
       }),
@@ -238,6 +243,16 @@ describe("repairdesk router customer read permissions", () => {
 });
 
 describe("repairdesk router non-order write permissions", () => {
+  it("limits kiosk session review to store owners and managers", () => {
+    expect(() => assertKioskSessionReviewPermission(actor("owner"))).not.toThrow();
+    expect(() => assertKioskSessionReviewPermission(actor("manager"))).not.toThrow();
+    for (const restrictedRole of ["technician", "sales", "viewer"] as const) {
+      expect(() => assertKioskSessionReviewPermission(actor(restrictedRole))).toThrow(
+        ForbiddenError,
+      );
+    }
+  });
+
   it("blocks viewer and unscoped technician customer writes while allowing frontdesk customer work", () => {
     for (const assertCustomerPermission of [
       assertCustomerCreatePermission,
@@ -340,7 +355,7 @@ describe("repairdesk router non-order write permissions", () => {
     expect(() => assertInventoryUpdatePermission(actor("sales"))).not.toThrow();
     expect(() => assertInventoryQualityCheckPermission(actor("technician"))).not.toThrow();
     expect(() => assertInventoryQualityCheckPermission(actor("sales"))).toThrow(ForbiddenError);
-    expect(() => assertInventorySalePermission(actor("sales"))).toThrow(ForbiddenError);
+    expect(() => assertInventorySalePermission(actor("sales"))).not.toThrow();
     expect(() => assertInventorySalePermission(actor("owner"))).not.toThrow();
     expect(() => assertInventoryCreatePermission(actor("viewer"))).toThrow(ForbiddenError);
   });
@@ -355,11 +370,11 @@ describe("repairdesk router non-order write permissions", () => {
       amount: 20,
     };
 
-    expect(() => assertInventoryTransactionPermission(actor("sales"), salePayment)).toThrow(
+    expect(() => assertInventoryTransactionPermission(actor("sales"), salePayment)).not.toThrow();
+    expect(() => assertInventoryTransactionPermission(actor("owner"), salePayment)).not.toThrow();
+    expect(() => assertInventoryTransactionPermission(actor("sales"), repairCost)).toThrow(
       ForbiddenError,
     );
-    expect(() => assertInventoryTransactionPermission(actor("owner"), salePayment)).not.toThrow();
-    expect(() => assertInventoryTransactionPermission(actor("sales"), repairCost)).not.toThrow();
     expect(() => assertInventoryTransactionPermission(actor("viewer"), repairCost)).toThrow(
       ForbiddenError,
     );
@@ -389,12 +404,17 @@ function fullOrderUpdate(overrides: Partial<UpdateOrderInput> = {}): UpdateOrder
   };
 }
 
-function actor(role: "owner" | "manager" | "technician" | "sales" | "viewer") {
+function actor(
+  role: "owner" | "manager" | "technician" | "sales" | "viewer",
+  overrides: Partial<AuditActor> = {},
+): AuditActor {
   return {
     id: `staff_${role}`,
     displayName: role,
     role,
     storeRole: role,
     storeId: "store_1",
+    activeMembershipId: `membership_${role}`,
+    ...overrides,
   };
 }

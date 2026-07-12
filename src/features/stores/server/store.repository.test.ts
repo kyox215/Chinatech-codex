@@ -15,6 +15,7 @@ import {
   rejectStoreAccessRequest,
   restoreStoreMember,
   revokeStoreInvitation,
+  updateStoreMemberPermissions,
   updateStoreMemberRole,
 } from "./store.repository";
 
@@ -748,10 +749,6 @@ describe("store repository access request boundaries", () => {
       data: membershipRow({ role: "technician", status: "active" }),
       error: null,
     });
-    const updateQuery = createSupabaseQuery({
-      data: membershipRow({ role: "sales", status: "active" }),
-      error: null,
-    });
     const membersQuery = createMembershipListQuery([
       membershipRow({ role: "sales", status: "active" }),
     ]);
@@ -759,10 +756,13 @@ describe("store repository access request boundaries", () => {
     const inviteLinksQuery = createSupabaseQuery({ data: [], error: null });
     mocks.supabase.from
       .mockReturnValueOnce(memberReadQuery)
-      .mockReturnValueOnce(updateQuery)
       .mockReturnValueOnce(membersQuery)
       .mockReturnValueOnce(invitationsQuery)
       .mockReturnValueOnce(inviteLinksQuery);
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: [membershipRow({ role: "sales", status: "active" })],
+      error: null,
+    });
 
     const result = await updateStoreMemberRole(
       { id: "membership_staff", role: "sales" },
@@ -771,9 +771,13 @@ describe("store repository access request boundaries", () => {
 
     expect(memberReadQuery.eq).toHaveBeenCalledWith("id", "membership_staff");
     expect(memberReadQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
-    expect(updateQuery.update).toHaveBeenCalledWith(expect.objectContaining({ role: "sales" }));
-    expect(updateQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
-    expect(updateQuery.neq).toHaveBeenCalledWith("role", "owner");
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("repairdesk_update_member_access_rpc", {
+      p_store_id: "store_1",
+      p_membership_id: "membership_staff",
+      p_role: "sales",
+      p_status: null,
+      p_actor_id: "owner_1",
+    });
     expect(result.members[0]).toMatchObject({ role: "sales", status: "active" });
     expect(mocks.writeAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -782,6 +786,68 @@ describe("store repository access request boundaries", () => {
         entityId: "membership_staff",
         before: expect.not.objectContaining({ email: expect.anything() }),
         after: expect.not.objectContaining({ email: expect.anything() }),
+      }),
+    );
+  });
+
+  it("replaces member grants through one serialized transaction RPC", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "manager", status: "active" }),
+      error: null,
+    });
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ role: "manager", status: "active" }),
+    ]);
+    const invitationsQuery = createSupabaseQuery({ data: [], error: null });
+    const inviteLinksQuery = createSupabaseQuery({ data: [], error: null });
+    const grantsQuery = createSupabaseQuery({
+      data: [
+        {
+          membership_id: "membership_staff",
+          action: "finance:aggregate_read",
+        },
+      ],
+      error: null,
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(memberReadQuery)
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(invitationsQuery)
+      .mockReturnValueOnce(inviteLinksQuery)
+      .mockReturnValueOnce(grantsQuery);
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: {
+        before: ["supplier:read"],
+        after: ["finance:aggregate_read", "finance:profit_read"],
+      },
+      error: null,
+    });
+
+    const result = await updateStoreMemberPermissions(
+      {
+        id: "membership_staff",
+        permissions: ["finance:profit_read"],
+      },
+      storeOwner,
+    );
+
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_replace_member_permission_grants_rpc",
+      {
+        p_store_id: "store_1",
+        p_membership_id: "membership_staff",
+        p_actions: ["finance:aggregate_read", "finance:profit_read"],
+        p_actor_id: "owner_1",
+      },
+    );
+    expect(result.members[0]?.permission_grants).toEqual(["finance:aggregate_read"]);
+    expect(mocks.writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "update_member_permissions",
+        before: { permission_grants: ["supplier:read"] },
+        after: {
+          permission_grants: ["finance:aggregate_read", "finance:profit_read"],
+        },
       }),
     );
   });
@@ -839,10 +905,6 @@ describe("store repository access request boundaries", () => {
       data: membershipRow({ role: "technician", status: "active" }),
       error: null,
     });
-    const disableQuery = createSupabaseQuery({
-      data: membershipRow({ role: "technician", status: "inactive" }),
-      error: null,
-    });
     const disabledMembersQuery = createMembershipListQuery([
       membershipRow({ role: "technician", status: "inactive" }),
     ]);
@@ -853,10 +915,6 @@ describe("store repository access request boundaries", () => {
       data: membershipRow({ role: "technician", status: "inactive" }),
       error: null,
     });
-    const restoreQuery = createSupabaseQuery({
-      data: membershipRow({ role: "technician", status: "active" }),
-      error: null,
-    });
     const restoredMembersQuery = createMembershipListQuery([
       membershipRow({ role: "technician", status: "active" }),
     ]);
@@ -865,29 +923,42 @@ describe("store repository access request boundaries", () => {
     const restoredPermissionGrantsQuery = createSupabaseQuery({ data: [], error: null });
     mocks.supabase.from
       .mockReturnValueOnce(memberReadQuery)
-      .mockReturnValueOnce(disableQuery)
       .mockReturnValueOnce(disabledMembersQuery)
       .mockReturnValueOnce(disabledInvitationsQuery)
       .mockReturnValueOnce(disabledInviteLinksQuery)
       .mockReturnValueOnce(disabledPermissionGrantsQuery)
       .mockReturnValueOnce(inactiveReadQuery)
-      .mockReturnValueOnce(restoreQuery)
       .mockReturnValueOnce(restoredMembersQuery)
       .mockReturnValueOnce(restoredInvitationsQuery)
       .mockReturnValueOnce(restoredInviteLinksQuery)
       .mockReturnValueOnce(restoredPermissionGrantsQuery);
+    mocks.supabase.rpc
+      .mockResolvedValueOnce({
+        data: [membershipRow({ role: "technician", status: "inactive" })],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [membershipRow({ role: "technician", status: "active" })],
+        error: null,
+      });
 
     const disabled = await disableStoreMember({ id: "membership_staff" }, storeManager);
     const restored = await restoreStoreMember({ id: "membership_staff" }, storeManager);
 
-    expect(disableQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "inactive" }),
-    );
-    expect(disableQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
-    expect(disableQuery.neq).toHaveBeenCalledWith("role", "owner");
-    expect(restoreQuery.update).toHaveBeenCalledWith(expect.objectContaining({ status: "active" }));
-    expect(restoreQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
-    expect(restoreQuery.neq).toHaveBeenCalledWith("role", "owner");
+    expect(mocks.supabase.rpc).toHaveBeenNthCalledWith(1, "repairdesk_update_member_access_rpc", {
+      p_store_id: "store_1",
+      p_membership_id: "membership_staff",
+      p_role: null,
+      p_status: "inactive",
+      p_actor_id: "manager_1",
+    });
+    expect(mocks.supabase.rpc).toHaveBeenNthCalledWith(2, "repairdesk_update_member_access_rpc", {
+      p_store_id: "store_1",
+      p_membership_id: "membership_staff",
+      p_role: null,
+      p_status: "active",
+      p_actor_id: "manager_1",
+    });
     expect(disabled.members[0]).toMatchObject({ status: "inactive" });
     expect(restored.members[0]).toMatchObject({ status: "active" });
   });
@@ -1624,6 +1695,7 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count?: nu
     gt: vi.fn(() => query),
     gte: vi.fn(() => result),
     in: vi.fn(() => query),
+    is: vi.fn(() => result),
     ilike: vi.fn(() => query),
     order: vi.fn(() => result),
     maybeSingle: vi.fn(() => result),

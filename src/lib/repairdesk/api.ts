@@ -107,6 +107,20 @@ import type {
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 
+export class RepairDeskApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "RepairDeskApiError";
+  }
+}
+
+export function isRepairDeskAuthorizationError(error: unknown) {
+  return error instanceof RepairDeskApiError && (error.status === 401 || error.status === 403);
+}
+
 export type RepairDeskRequestOptions = {
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -671,7 +685,7 @@ async function requestRaw(
 async function readJsonResponse<T>(response: Response) {
   const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: string };
   if (!response.ok) {
-    throw new Error(payload.error || `请求失败：${response.status}`);
+    throw new RepairDeskApiError(payload.error || `请求失败：${response.status}`, response.status);
   }
   return payload.data as T;
 }
@@ -684,7 +698,7 @@ async function requestFile(path: string, body: unknown) {
   );
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(payload.error || `请求失败：${response.status}`);
+    throw new RepairDeskApiError(payload.error || `请求失败：${response.status}`, response.status);
   }
   const disposition = response.headers.get("content-disposition") ?? "";
   const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];

@@ -43,6 +43,10 @@ import {
   deleteProvisionedStoreDefaults,
   provisionStoreDefaults,
 } from "@/features/stores/server/store-provisioning";
+import {
+  isStorePermissionAction,
+  normalizeStorePermissionGrants,
+} from "@/entities/staff/model/store-permission-policy";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -324,17 +328,13 @@ export async function updateStoreMemberRole(
 
   if (member.role === role) return listStoreMembers(actor);
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("store_memberships")
-    .update({ role, updated_at: now })
-    .eq("id", member.id)
-    .eq("store_id", storeId)
-    .neq("role", "owner")
-    .select("id, user_id, email, display_name, role, status, created_at, updated_at")
-    .maybeSingle();
-  fail(error, "更新员工角色失败");
-  if (!data) throw new Error("员工已变更，请刷新后再试");
+  const data = await updateMemberAccessTransaction(supabase, {
+    storeId,
+    membershipId: member.id,
+    actorId: actor.id,
+    role,
+    context: "更新员工角色失败",
+  });
 
   await writeAuditLog({
     actor,
@@ -348,71 +348,62 @@ export async function updateStoreMemberRole(
   return listStoreMembers(actor);
 }
 
+async function updateMemberAccessTransaction(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  input: {
+    storeId: string;
+    membershipId: string;
+    actorId?: string;
+    role?: StoreRole;
+    status?: StoreMembershipStatus;
+    context: string;
+  },
+) {
+  const { data, error } = await supabase.rpc("repairdesk_update_member_access_rpc", {
+    p_store_id: input.storeId,
+    p_membership_id: input.membershipId,
+    p_role: input.role ?? null,
+    p_status: input.status ?? null,
+    p_actor_id: input.actorId ?? null,
+  });
+  fail(error, input.context);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error("员工已变更，请刷新后再试");
+  return row as DbRecord;
+}
+
 export async function updateStoreMemberPermissions(
   input: StoreMemberPermissionUpdateInput,
   actor: AuditActor,
 ): Promise<StoreMembersResult> {
   if (actor.storeRole !== "owner") {
-    throw new ForbiddenError("只有店主可以分配供应商权限");
+    throw new ForbiddenError("只有店主可以分配员工权限");
   }
   const storeId = requireActiveStoreId(actor);
   const supabase = getSupabaseAdmin();
   const member = await readStoreMemberForManagement(supabase, storeId, input.id);
   if (member.role === "owner") {
-    throw new ForbiddenError("店主默认拥有供应商权限，不需要额外授权");
+    throw new ForbiddenError("店主默认拥有全部店铺权限，不需要额外授权");
   }
-  const permissions = normalizeSupplierPermissions(input.permissions);
-  const now = new Date().toISOString();
-  const { data: activeRows, error: readError } = await supabase
-    .from("store_member_permission_grants")
-    .select("id, action")
-    .eq("store_id", storeId)
-    .eq("membership_id", member.id)
-    .is("revoked_at", null);
-  fail(readError, "读取成员供应商权限失败");
-
-  const activeActions = new Set(
-    ((activeRows ?? []) as DbRecord[]).map((row) => row.action).filter(isStorePermissionAction),
-  );
-  const nextActions = new Set(permissions);
-  const revokeIds = ((activeRows ?? []) as DbRecord[])
-    .filter((row) => {
-      const action = row.action;
-      return isStorePermissionAction(action) && !nextActions.has(action);
-    })
-    .map((row) => requiredString(row.id))
-    .filter(Boolean);
-  const inserts = permissions
-    .filter((action) => !activeActions.has(action))
-    .map((action) => ({
-      store_id: storeId,
-      membership_id: member.id,
-      user_id: member.user_id,
-      action,
-      granted_by: actor.id ?? null,
-      created_at: now,
-      updated_at: now,
-    }));
-
-  if (revokeIds.length) {
-    const { error } = await supabase
-      .from("store_member_permission_grants")
-      .update({ revoked_at: now, revoked_by: actor.id ?? null, updated_at: now })
-      .in("id", revokeIds);
-    fail(error, "撤销成员供应商权限失败");
-  }
-
-  if (inserts.length) {
-    const { error } = await supabase.from("store_member_permission_grants").insert(inserts);
-    fail(error, "授予成员供应商权限失败");
-  }
+  const permissions = normalizeStorePermissionGrants(input.permissions, member.role);
+  const { data, error } = await supabase.rpc("repairdesk_replace_member_permission_grants_rpc", {
+    p_store_id: storeId,
+    p_membership_id: member.id,
+    p_actions: permissions,
+    p_actor_id: actor.id ?? null,
+  });
+  fail(error, "更新成员权限失败");
+  const result = (Array.isArray(data) ? data[0] : data) as DbRecord | null;
+  const previousPermissions = Array.isArray(result?.before)
+    ? result.before.filter(isStorePermissionAction)
+    : [];
 
   await writeAuditLog({
     actor,
-    action: "update_supplier_permissions",
+    action: "update_member_permissions",
     entityType: "store_membership",
     entityId: member.id,
-    before: { permission_grants: Array.from(activeActions).sort() },
+    before: { permission_grants: previousPermissions },
     after: { permission_grants: permissions },
     metadata: { target_user_id: member.user_id },
   });
@@ -432,17 +423,13 @@ export async function disableStoreMember(
 
   if (member.status === "inactive") return listStoreMembers(actor);
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("store_memberships")
-    .update({ status: "inactive", updated_at: now })
-    .eq("id", member.id)
-    .eq("store_id", storeId)
-    .neq("role", "owner")
-    .select("id, user_id, email, display_name, role, status, created_at, updated_at")
-    .maybeSingle();
-  fail(error, "停用员工失败");
-  if (!data) throw new Error("员工已变更，请刷新后再试");
+  const data = await updateMemberAccessTransaction(supabase, {
+    storeId,
+    membershipId: member.id,
+    actorId: actor.id,
+    status: "inactive",
+    context: "停用员工失败",
+  });
 
   await writeAuditLog({
     actor,
@@ -469,17 +456,13 @@ export async function restoreStoreMember(
 
   if (member.status === "active") return listStoreMembers(actor);
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("store_memberships")
-    .update({ status: "active", updated_at: now })
-    .eq("id", member.id)
-    .eq("store_id", storeId)
-    .neq("role", "owner")
-    .select("id, user_id, email, display_name, role, status, created_at, updated_at")
-    .maybeSingle();
-  fail(error, "恢复员工失败");
-  if (!data) throw new Error("员工已变更，请刷新后再试");
+  const data = await updateMemberAccessTransaction(supabase, {
+    storeId,
+    membershipId: member.id,
+    actorId: actor.id,
+    status: "active",
+    context: "恢复员工失败",
+  });
 
   await writeAuditLog({
     actor,
@@ -1322,26 +1305,9 @@ function groupPermissionGrantsByMembership(rows: DbRecord[]) {
     grants.set(membershipId, current);
   }
   for (const [membershipId, actions] of grants.entries()) {
-    grants.set(membershipId, normalizeSupplierPermissions(actions));
+    grants.set(membershipId, normalizeStorePermissionGrants(actions));
   }
   return grants;
-}
-
-function normalizeSupplierPermissions(actions: readonly StorePermissionAction[]) {
-  const normalized = new Set(actions.filter(isStorePermissionAction));
-  if (normalized.has("supplier:manage")) {
-    normalized.add("supplier:assign");
-    normalized.add("supplier:read");
-  }
-  if (normalized.has("supplier:assign")) {
-    normalized.add("supplier:read");
-  }
-  const order: StorePermissionAction[] = ["supplier:read", "supplier:assign", "supplier:manage"];
-  return order.filter((action) => normalized.has(action));
-}
-
-function isStorePermissionAction(action: unknown): action is StorePermissionAction {
-  return action === "supplier:read" || action === "supplier:assign" || action === "supplier:manage";
 }
 
 async function storePermissionsFromActor(actor: AuditActor) {
@@ -1350,8 +1316,15 @@ async function storePermissionsFromActor(actor: AuditActor) {
     canReadSuppliers: can(actor, "supplier:read"),
     canAssignSuppliers: can(actor, "supplier:assign"),
     canManageSuppliers: can(actor, "supplier:manage"),
+    canReadInventory: can(actor, "inventory:read"),
     canManageOrderData,
     canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
+    canSearchOrderArchive: can(actor, "order:archive_search"),
+    canBrowseOrderArchive: can(actor, "order:archive_browse"),
+    canReadOrderFinance: can(actor, "finance:order_read"),
+    canReadAggregateFinance: can(actor, "finance:aggregate_read"),
+    canReadProfit: can(actor, "finance:profit_read"),
+    canExportOrders: can(actor, "order:export"),
   };
 }
 
@@ -1464,14 +1437,15 @@ function storeFromRow(row: DbRecord, role: StoreRole): ActorStoreMembership {
 }
 
 function memberFromRow(row: DbRecord, permissionGrants: StorePermissionAction[] = []): StoreMember {
+  const role = toStoreRole(row.role);
   return {
     id: requiredString(row.id),
     user_id: requiredString(row.user_id),
     email: requiredString(row.email),
     display_name: requiredString(row.display_name) || undefined,
-    role: toStoreRole(row.role),
+    role,
     status: toMembershipStatus(row.status),
-    permission_grants: permissionGrants,
+    permission_grants: normalizeStorePermissionGrants(permissionGrants, role),
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };

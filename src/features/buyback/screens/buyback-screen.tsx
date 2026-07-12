@@ -400,10 +400,13 @@ function BuybackDesktopTableRow({
     typeof quotePayload.suggested_low === "number" ? quotePayload.suggested_low : undefined;
   const suggestedHigh =
     typeof quotePayload.suggested_high === "number" ? quotePayload.suggested_high : undefined;
-  const repairCost = summary?.repairCost ?? item.repair_cost_amount;
-  const costBasis =
-    summary?.costBasis ?? item.buyback_price + item.repair_cost_amount + item.fees_amount;
-  const estimatedProfit = Math.max(0, item.list_price - offer - repairCost - item.fees_amount);
+  const repairCost = item.finance_redacted ? 0 : (summary?.repairCost ?? item.repair_cost_amount);
+  const costBasis = item.finance_redacted
+    ? 0
+    : (summary?.costBasis ?? item.buyback_price + item.repair_cost_amount + item.fees_amount);
+  const estimatedProfit = item.finance_redacted
+    ? 0
+    : Math.max(0, item.list_price - offer - repairCost - item.fees_amount);
   const batteryBand =
     typeof item.battery_health === "number"
       ? getBuybackBatteryBand(item.battery_health)
@@ -454,7 +457,11 @@ function BuybackDesktopTableRow({
         </div>
       </TableCell>
       <TableCell className="text-right">
-        <MoneyText amount={offer} className="font-semibold text-primary" />
+        {item.finance_redacted ? (
+          <span className="text-xs text-muted-foreground">金额受限</span>
+        ) : (
+          <MoneyText amount={offer} className="font-semibold text-primary" />
+        )}
         <div className="truncate text-[11px] text-muted-foreground">
           {suggestedLow !== undefined && suggestedHigh !== undefined
             ? `区间 €${suggestedLow}-${suggestedHigh}`
@@ -462,15 +469,21 @@ function BuybackDesktopTableRow({
         </div>
       </TableCell>
       <TableCell className="text-right">
-        <div className="font-mono font-semibold">
-          <MoneyText amount={costBasis} />
-        </div>
-        <div className="truncate text-[11px] text-muted-foreground">
-          回收 <MoneyText amount={item.buyback_price} /> · 修 <MoneyText amount={repairCost} />
-        </div>
-        <div className="truncate text-[11px] text-status-success-foreground">
-          毛利 <MoneyText amount={estimatedProfit} />
-        </div>
+        {item.finance_redacted ? (
+          <span className="text-xs text-muted-foreground">成本与毛利受限</span>
+        ) : (
+          <>
+            <div className="font-mono font-semibold">
+              <MoneyText amount={costBasis} />
+            </div>
+            <div className="truncate text-[11px] text-muted-foreground">
+              回收 <MoneyText amount={item.buyback_price} /> · 修 <MoneyText amount={repairCost} />
+            </div>
+            <div className="truncate text-[11px] text-status-success-foreground">
+              毛利 <MoneyText amount={estimatedProfit} />
+            </div>
+          </>
+        )}
       </TableCell>
       <TableCell className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-1">
@@ -544,10 +557,9 @@ const BuybackQuoteCard = memo(function BuybackQuoteCard({
     typeof item.battery_health === "number"
       ? getBuybackBatteryBand(item.battery_health)
       : undefined;
-  const estimatedProfit = Math.max(
-    0,
-    item.list_price - offer - item.repair_cost_amount - item.fees_amount,
-  );
+  const estimatedProfit = item.finance_redacted
+    ? 0
+    : Math.max(0, item.list_price - offer - item.repair_cost_amount - item.fees_amount);
   const statusMeta = inventoryStatusMeta[item.status];
   const handoff = getBuybackInventoryHandoff(item.status, risk);
   const primaryAction = getBuybackRecordPrimaryAction(item, risk);
@@ -591,9 +603,11 @@ const BuybackQuoteCard = memo(function BuybackQuoteCard({
         </div>
         <div className="shrink-0 text-right">
           <p className="font-mono text-[15px] font-semibold leading-5 tabular-nums text-primary">
-            <MoneyText amount={offer} />
+            {item.finance_redacted ? "受限" : <MoneyText amount={offer} />}
           </p>
-          <p className="text-[9px] leading-3 text-muted-foreground">建议收购价</p>
+          <p className="text-[9px] leading-3 text-muted-foreground">
+            {item.finance_redacted ? "金额权限" : "建议收购价"}
+          </p>
         </div>
       </div>
 
@@ -635,9 +649,9 @@ const BuybackQuoteCard = memo(function BuybackQuoteCard({
             }
           />
           <BuybackCardMetric
-            label="预计毛利"
-            value={<MoneyText amount={estimatedProfit} />}
-            emphasis={estimatedProfit > 0}
+            label={item.finance_redacted ? "金额" : "预计毛利"}
+            value={item.finance_redacted ? "受限" : <MoneyText amount={estimatedProfit} />}
+            emphasis={!item.finance_redacted && estimatedProfit > 0}
           />
         </div>
       </div>
@@ -875,15 +889,31 @@ function BuybackRecordSheet({
               <div className="mt-2 grid grid-cols-3 gap-1.5">
                 <RecordMetric
                   label="系统价"
-                  value={<MoneyText amount={numberValue(quotePayload.system_offer)} />}
+                  value={
+                    item.finance_redacted ? (
+                      "受限"
+                    ) : (
+                      <MoneyText amount={numberValue(quotePayload.system_offer)} />
+                    )
+                  }
                 />
                 <RecordMetric
                   label="口头区间"
-                  value={rangeText(quotePayload.suggested_low, quotePayload.suggested_high)}
+                  value={
+                    item.finance_redacted
+                      ? "受限"
+                      : rangeText(quotePayload.suggested_low, quotePayload.suggested_high)
+                  }
                 />
                 <RecordMetric
                   label="预计毛利"
-                  value={<MoneyText amount={numberValue(quotePayload.expected_profit)} />}
+                  value={
+                    item.finance_redacted ? (
+                      "受限"
+                    ) : (
+                      <MoneyText amount={numberValue(quotePayload.expected_profit)} />
+                    )
+                  }
                 />
               </div>
               <div className="mt-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">

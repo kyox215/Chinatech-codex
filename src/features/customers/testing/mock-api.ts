@@ -325,7 +325,7 @@ function filterCustomerItems(items: CustomerListItem[], filters: CustomerListFil
   if (filters.work && filters.work !== "all") {
     result = result.filter((customer) => {
       if (filters.work === "active") return customer.active_order_count > 0;
-      if (filters.work === "unpaid") return customer.unpaid_amount > 0;
+      if (filters.work === "unpaid") return (customer.unpaid_amount ?? 0) > 0;
       if (filters.work === "with_devices") return customer.device_count > 0;
       if (filters.work === "repeat") return customer.order_count > 1;
       return true;
@@ -363,7 +363,7 @@ export async function listCustomers(
     total: items.length,
     repeat: items.filter((customer) => customer.order_count > 1).length,
     activeRepairs: items.filter((customer) => customer.active_order_count > 0).length,
-    unpaid: items.filter((customer) => customer.unpaid_amount > 0).length,
+    unpaid: items.filter((customer) => (customer.unpaid_amount ?? 0) > 0).length,
     withDevices: items.filter((customer) => customer.device_count > 0).length,
     dueFollowups: items.filter(
       (customer) =>

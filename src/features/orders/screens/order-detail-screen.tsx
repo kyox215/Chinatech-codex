@@ -188,6 +188,7 @@ import type {
   OrderAttachment,
   OrderAttachmentUploadInput,
   OrderDetail,
+  OrderAssigneeOption,
   OrderWorkflow,
   PatchOrderChanges,
   DeviceUnlockInput,
@@ -393,6 +394,24 @@ export function OrderDetailScreen({
     },
     onSuccess: () => {
       toast.success("配件供应商已更新");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const assigneeUpdate = useMutation({
+    mutationFn: (membershipId: string | null) => {
+      if (!data) throw new Error("工单未加载");
+      if (!repairDeskOptions?.permissions.canAssignOrders) {
+        throw new Error("当前账号没有分配工单负责人权限");
+      }
+      return patchOrder(id, {
+        expected_updated_at: data.order.updated_at,
+        changes: { assignee_membership_id: membershipId },
+      });
+    },
+    onSuccess: () => {
+      toast.success("工单负责人已更新");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -657,6 +676,8 @@ export function OrderDetailScreen({
   const supplierOptions = supplierPermissions.canReadSuppliers
     ? (repairDeskOptions?.suppliers ?? [])
     : [];
+  const assigneeOptions = repairDeskOptions?.assigneeOptions ?? [];
+  const canAssignOrders = Boolean(repairDeskOptions?.permissions.canAssignOrders);
   const partsSupplier = supplierPermissions.canReadSuppliers
     ? (data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id))
     : undefined;
@@ -777,6 +798,11 @@ export function OrderDetailScreen({
               ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
               : undefined
           }
+          assigneeOptions={assigneeOptions}
+          assigneePending={assigneeUpdate.isPending}
+          onAssigneeChange={
+            canAssignOrders ? (membershipId) => assigneeUpdate.mutate(membershipId) : undefined
+          }
           className="md:hidden"
         />
       ) : null}
@@ -879,6 +905,13 @@ export function OrderDetailScreen({
                 onPartsSupplierChange={
                   supplierPermissions.canAssignSuppliers
                     ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
+                    : undefined
+                }
+                assigneeOptions={assigneeOptions}
+                assigneePending={assigneeUpdate.isPending}
+                onAssigneeChange={
+                  canAssignOrders
+                    ? (membershipId) => assigneeUpdate.mutate(membershipId)
                     : undefined
                 }
                 messages={messages}
@@ -992,6 +1025,9 @@ export function OrderDetailScreen({
 
 function OrderRecordsWorkspace({
   order,
+  assigneeOptions,
+  assigneePending,
+  onAssigneeChange,
   supplier,
   partsSupplier,
   supplierOptions,
@@ -1003,6 +1039,9 @@ function OrderRecordsWorkspace({
   surface,
 }: {
   order: OrderDetail["order"];
+  assigneeOptions: OrderAssigneeOption[];
+  assigneePending: boolean;
+  onAssigneeChange?: (membershipId: string | null) => void;
   supplier?: OrderDetail["supplier"];
   partsSupplier?: Supplier;
   supplierOptions: Supplier[];
@@ -1025,6 +1064,14 @@ function OrderRecordsWorkspace({
       )}
     >
       <div className="grid min-w-0 content-start gap-2 sm:gap-3">
+        {onAssigneeChange ? (
+          <OrderAssigneeCard
+            order={order}
+            options={assigneeOptions}
+            pending={assigneePending}
+            onChange={onAssigneeChange}
+          />
+        ) : null}
         {partsSupplier || supplierOptions.length || onPartsSupplierChange ? (
           <OrderPartsSupplierCard
             supplier={partsSupplier}
@@ -1038,6 +1085,44 @@ function OrderRecordsWorkspace({
       </div>
       <OrderTimelineLog events={events} workflow={workflow} />
     </motion.div>
+  );
+}
+
+function OrderAssigneeCard({
+  order,
+  options,
+  pending,
+  onChange,
+}: {
+  order: OrderDetail["order"];
+  options: OrderAssigneeOption[];
+  pending: boolean;
+  onChange: (membershipId: string | null) => void;
+}) {
+  return (
+    <section className="rounded-lg border border-border/70 bg-card px-3 py-2.5 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
+        <UserRound className="size-3.5 text-primary" />
+        负责人
+      </div>
+      <Select
+        value={order.assignee_membership_id ?? "unassigned"}
+        onValueChange={(value) => onChange(value === "unassigned" ? null : value)}
+        disabled={pending}
+      >
+        <SelectTrigger className="h-8 rounded-md text-xs">
+          <SelectValue placeholder={order.technician_name || "未分配"} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="unassigned">未分配</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.display_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </section>
   );
 }
 
@@ -1578,6 +1663,9 @@ function MobileOrderDetailView({
   supplierOptions,
   partsSupplierPending,
   onPartsSupplierChange,
+  assigneeOptions,
+  assigneePending,
+  onAssigneeChange,
   className,
 }: {
   data: OrderDetail;
@@ -1620,6 +1708,9 @@ function MobileOrderDetailView({
   supplierOptions: Supplier[];
   partsSupplierPending: boolean;
   onPartsSupplierChange?: (supplierId: string | null) => void;
+  assigneeOptions: OrderAssigneeOption[];
+  assigneePending: boolean;
+  onAssigneeChange?: (membershipId: string | null) => void;
   className?: string;
 }) {
   const { order, customer } = data;
@@ -1729,6 +1820,31 @@ function MobileOrderDetailView({
           <MobileMeta icon={Store} label="门店" value={storeSettings?.store_name || "ChinaTech"} />
         </div>
       </section>
+
+      {onAssigneeChange ? (
+        <section className={mobileDetailCardClass}>
+          <MobileSectionTitle icon={UserRound} title="负责人" />
+          <div className="mt-1.5">
+            <Select
+              value={order.assignee_membership_id ?? "unassigned"}
+              onValueChange={(value) => onAssigneeChange(value === "unassigned" ? null : value)}
+              disabled={assigneePending}
+            >
+              <SelectTrigger className="h-9 rounded-md text-xs">
+                <SelectValue placeholder={order.technician_name || "未分配"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">未分配</SelectItem>
+                {assigneeOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </section>
+      ) : null}
 
       {partsSupplier || supplierOptions.length || onPartsSupplierChange ? (
         <section className={mobileDetailCardClass}>

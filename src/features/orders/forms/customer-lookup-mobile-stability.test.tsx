@@ -136,6 +136,7 @@ function makeShellContext(): StoreShellContextSnapshot {
   } as const;
 
   return {
+    authorityFingerprint: "test-authority",
     activeStore,
     stores: [activeStore],
     isPlatformAdmin: false,

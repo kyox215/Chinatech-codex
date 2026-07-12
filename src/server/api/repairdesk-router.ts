@@ -128,7 +128,11 @@ import {
   updateAccountProfile,
 } from "@/features/platform/server/platform.service";
 import { getRequestActor, UnauthorizedError, ForbiddenError } from "@/server/auth-context";
-import { assertPermission, type PermissionAction } from "@/server/permissions";
+import {
+  assertPermission,
+  type PermissionAction,
+  type PermissionContext,
+} from "@/server/permissions";
 import { writeAuditLog } from "@/server/audit";
 import { resolveRepairDeskSourceMode } from "@/server/repairdesk-source-mode";
 import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
@@ -138,6 +142,7 @@ import {
 } from "@/features/realtime/server/realtime-broadcast";
 import type {
   AuditActor,
+  CreateOrderInput,
   InventoryTransactionInput,
   OrderListItem,
   OrderListResult,
@@ -146,6 +151,7 @@ import type {
   PatchOrderInput,
   RepairDeskOptions,
   SupplierInput,
+  UpdateInventoryItemInput,
   UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 import {
@@ -421,6 +427,32 @@ async function source() {
           created_at: now,
           updated_at: now,
         },
+        {
+          id: "mock_membership_manager",
+          user_id: "mock_user_manager",
+          email: "manager@repairdesk.local",
+          display_name: "演示店长",
+          role: "manager" as const,
+          status: "active" as const,
+          permission_grants: [
+            "order:archive_browse" as const,
+            "finance:aggregate_read" as const,
+            "finance:profit_read" as const,
+          ],
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          id: "mock_membership_technician",
+          user_id: "mock_user_technician",
+          email: "technician@repairdesk.local",
+          display_name: "演示技术员",
+          role: "technician" as const,
+          status: "active" as const,
+          permission_grants: ["supplier:read" as const],
+          created_at: now,
+          updated_at: now,
+        },
       ],
       invitations: [],
       invite_links: [],
@@ -434,10 +466,26 @@ async function source() {
     getRepairDeskOptions: async () => ({
       suppliers: listMockSuppliers().filter((supplier) => !supplier.archived_at),
       technicians: mock.allTechnicians,
+      assigneeOptions: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          display_name: "Hexiang",
+          role: "owner" as const,
+        },
+      ],
       permissions: {
         canReadSuppliers: true,
         canAssignSuppliers: true,
         canManageSuppliers: true,
+        canReadInventory: true,
+        canSearchOrderArchive: true,
+        canBrowseOrderArchive: true,
+        canReadOrderFinance: true,
+        canReadAggregateFinance: true,
+        canReadProfit: true,
+        canExportOrders: true,
+        canBatchTransitionOrders: true,
+        canAssignOrders: true,
       },
     }),
     listSuppliers: async () => listMockSuppliers(),
@@ -615,6 +663,7 @@ export async function handleRepairDeskGet(path: string) {
       case "options":
         return ok(await api.getRepairDeskOptions(actor));
       case "inventory/stats":
+        assertInventoryReadPermission(actor);
         return ok(await api.getInventoryStats(actor));
       case "settings/store":
         return ok(await api.getStoreSettings(actor));
@@ -633,7 +682,7 @@ export async function handleRepairDeskGet(path: string) {
         assertRepairDeskPermission(actor, "settings:update_store");
         return ok(await api.listKioskDevices(actor));
       case "kiosk/sessions":
-        assertOrderDetailReadPermission(actor);
+        assertKioskSessionReviewPermission(actor);
         return ok(await api.listKioskSessions(actor));
       default:
         return privateJson({ error: "接口不存在" }, 404);
@@ -862,13 +911,17 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         assertCustomerListPermission(actor);
         return ok(await api.listCustomersPage(customerListPageInputSchema.parse(body), actor));
       case "inventory/list":
+        assertInventoryReadPermission(actor);
         return ok(await api.listInventoryItems(inventoryListFiltersSchema.parse(body), actor));
       case "inventory/list-page":
+        assertInventoryReadPermission(actor);
         return ok(await api.listInventoryItemsPage(inventoryListFiltersSchema.parse(body), actor));
       case "inventory/summary":
+        assertInventoryReadPermission(actor);
         return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
-      case "orders/create":
-        assertOrderCreatePermission(actor);
+      case "orders/create": {
+        const input = createOrderSchema.parse(body);
+        assertOrderCreatePermission(actor, input);
         return ok(
           await auditGeneric(
             actor,
@@ -876,10 +929,11 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
             "repair_order",
             "new",
             body,
-            () => api.createOrder(createOrderSchema.parse(body), actor),
+            () => api.createOrder(input, actor),
             realtimeBroadcasts.orderCreated,
           ),
         );
+      }
       case "order/get": {
         const { id } = idBodySchema.parse(body);
         assertOrderDetailReadPermission(actor);
@@ -887,6 +941,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/get": {
         const { id } = idBodySchema.parse(body);
+        assertInventoryReadPermission(actor);
         return ok(await api.getInventoryItem(id, actor));
       }
       case "customer/get": {
@@ -1266,7 +1321,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/update": {
         const { id, input } = inventoryUpdateBodySchema.parse(body);
-        assertInventoryUpdatePermission(actor);
+        assertInventoryUpdatePermission(actor, input);
         return ok(
           await runWithRealtime(
             actor,
@@ -1547,26 +1602,27 @@ export function allowsPendingStore(path: string, method: "GET" | "POST") {
 }
 
 export function assertOrderListPermission(actor: AuditActor) {
-  assertRepairDeskPermission(actor, "order:list");
+  assertOrderScopedPermission(actor, "order:list");
 }
 
 export function assertOrderDetailReadPermission(actor: AuditActor) {
-  assertRepairDeskPermission(actor, "order:detail");
+  assertOrderScopedPermission(actor, "order:detail");
 }
 
-export function assertOrderCreatePermission(actor: AuditActor) {
+export function assertOrderCreatePermission(actor: AuditActor, input?: CreateOrderInput) {
   assertRepairDeskPermission(actor, "order:create");
+  if (input?.assignee_membership_id) assertRepairDeskPermission(actor, "order:assign");
 }
 
 export function assertOrderUpdatePermission(actor: AuditActor, _input: UpdateOrderInput) {
   for (const action of resolveOrderUpdatePermissionActions(_input)) {
-    assertRepairDeskPermission(actor, action);
+    assertOrderScopedPermission(actor, action);
   }
 }
 
 export function assertOrderPatchPermission(actor: AuditActor, input: PatchOrderInput) {
   for (const action of resolveOrderPatchPermissionActions(input)) {
-    assertRepairDeskPermission(actor, action);
+    assertOrderScopedPermission(actor, action);
   }
 }
 
@@ -1579,7 +1635,7 @@ export function assertOrderPaymentPermission(actor: AuditActor) {
 }
 
 export function assertOrderTransitionPermission(actor: AuditActor) {
-  assertRepairDeskPermission(actor, "order:transition");
+  assertOrderScopedPermission(actor, "order:transition");
 }
 
 export function assertOrderBatchTransitionPermission(actor: AuditActor) {
@@ -1587,11 +1643,15 @@ export function assertOrderBatchTransitionPermission(actor: AuditActor) {
 }
 
 export function assertOrderAttachmentUploadPermission(actor: AuditActor) {
-  assertRepairDeskPermission(actor, "order:photo_upload");
+  assertOrderScopedPermission(actor, "order:photo_upload");
 }
 
 export function assertOrderCustomerMessagePermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "customer:message");
+}
+
+export function assertInventoryReadPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "inventory:read");
 }
 
 export function assertCustomerListPermission(actor: AuditActor) {
@@ -1622,8 +1682,19 @@ export function assertInventoryCreatePermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "inventory:create");
 }
 
-export function assertInventoryUpdatePermission(actor: AuditActor) {
+export function assertInventoryUpdatePermission(
+  actor: AuditActor,
+  input?: UpdateInventoryItemInput,
+) {
   assertRepairDeskPermission(actor, "inventory:update");
+  if (
+    input &&
+    ["buyback_price", "repair_cost_amount", "fees_amount"].some((field) =>
+      hasOwnField(input, field),
+    )
+  ) {
+    assertRepairDeskPermission(actor, "finance:profit_read");
+  }
 }
 
 export function assertInventoryQualityCheckPermission(actor: AuditActor) {
@@ -1644,9 +1715,14 @@ export function assertInventoryTransactionPermission(
   }
 
   assertInventoryUpdatePermission(actor);
+  assertRepairDeskPermission(actor, "finance:profit_read");
 }
 
 export function assertStoreSettingsUpdatePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "settings:update_store");
+}
+
+export function assertKioskSessionReviewPermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "settings:update_store");
 }
 
@@ -1690,6 +1766,7 @@ export function resolveOrderUpdatePermissionActions(input: UpdateOrderInput): Pe
 
 export function resolveOrderPatchPermissionActions(input: PatchOrderInput): PermissionAction[] {
   const actions = new Set<PermissionAction>();
+  if (hasOwnField(input.changes, "assignee_membership_id")) actions.add("order:assign");
   const repairFields = new Set([
     "diagnosis_result",
     "device_notes",
@@ -1698,7 +1775,9 @@ export function resolveOrderPatchPermissionActions(input: PatchOrderInput): Perm
   ]);
 
   for (const key of Object.keys(input.changes)) {
-    if (key === "parts_supplier_id") {
+    if (key === "assignee_membership_id") {
+      continue;
+    } else if (key === "parts_supplier_id") {
       actions.add("supplier:assign");
     } else {
       actions.add(repairFields.has(key) ? "order:update_repair" : "order:update_intake");
@@ -1727,9 +1806,20 @@ function hasOwnField(input: object, field: string) {
   return Object.prototype.hasOwnProperty.call(input, field);
 }
 
-function assertRepairDeskPermission(actor: AuditActor, action: PermissionAction) {
+function assertOrderScopedPermission(actor: AuditActor, action: PermissionAction) {
+  const role = actor.storeRole ?? actor.role;
+  assertRepairDeskPermission(actor, action, {
+    scopeSatisfied: role === "technician" ? Boolean(actor.activeMembershipId) : false,
+  });
+}
+
+function assertRepairDeskPermission(
+  actor: AuditActor,
+  action: PermissionAction,
+  context?: PermissionContext,
+) {
   if (actor.isSystem && isRepairDeskE2eAuthBypassEnabled()) return;
-  assertPermission(actor, action);
+  assertPermission(actor, action, context);
 }
 
 async function auditGeneric<T>(

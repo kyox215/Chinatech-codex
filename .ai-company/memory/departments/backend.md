@@ -3,7 +3,7 @@ schema_version: 1
 department: backend
 status: active
 owner: Backend Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-12
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -31,6 +31,7 @@ as owner of this file.
 - `TASK-20260620-004` found store context on order/customer mutation repositories, but did not find explicit role gates for many order/customer/payment/message/attachment/approval write paths. Treat this as a policy gap until Owner confirms the intended role matrix.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package` proposes staged server-side implementation after Owner approval: tests first, viewer read-only hardening, order/customer gates, inventory/buyback fine-grain gates, member/store creation hardening, then field-level technician/sales splits.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` establishes the target audit payload contract: deny-by-default sanitizer, event allowlists, safe envelopes instead of raw `metadata.input` or raw `after`, and domain-specific direct-writer sanitization. This is not implemented yet.
+- `TASK-20260712-002-global-staff-permissions` implements the global Owner-approved role contract. Individual-order finance is separate from aggregate/profit/export authority, archived queue access is explicit, and technician object checks use stable same-store membership IDs before every child read or write. Legacy name-based technician authorization is forbidden and fails closed until migration.
 
 ## Interfaces and dependencies
 
@@ -48,7 +49,7 @@ as owner of this file.
 | ID | Risk/debt/question | Impact | Owner | Target/review | Status |
 |---|---|---|---|---|---|
 | BE-20260619-001 | Permission matrix is code-derived but not yet owner-confirmed as business policy | Potential over/under-permission | Backend + Security + Product | before permission changes | open |
-| BE-20260620-001 | Order/customer write paths need an explicit Owner-approved role policy and server-side tests before behavior changes | Staff workflow regression or over-permission | Backend + Security + QA | decision package ready; implement only after Owner approval | approval_pending |
+| BE-20260620-001 | Order/customer write paths need an explicit Owner-approved role policy and server-side tests before behavior changes | Staff workflow regression or over-permission | Backend + Security + QA | resolved by TASK-20260712-002 global policy and negative tests | closed |
 | BE-20260620-002 | Audit writer and generic router currently permit raw before/after/input payloads | Sensitive data over-retention | Backend + Security + QA | implement central sanitizer after Owner confirms behavior change | policy_drafted |
 
 ## Lessons and anti-patterns
@@ -70,3 +71,4 @@ as owner of this file.
 | 2026-06-20 | Added server-side permission matrix baseline and order/customer role-policy gap | TASK-20260620-004 | Integration Lead | active |
 | 2026-06-20 | Added staged implementation boundary for proposed role policy | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead | proposed |
 | 2026-06-20 | Added audit sanitizer/allowlist implementation boundary from L2-027 policy | TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio | Integration Lead | policy_drafted |
+| 2026-07-12 | Recorded global role, archive, finance projection and stable order-assignment contract | TASK-20260712-002-global-staff-permissions | Integration Lead + security reviewer | active |

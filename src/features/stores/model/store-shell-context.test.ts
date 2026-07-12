@@ -11,6 +11,7 @@ function makeStore(overrides: Partial<ActorStoreMembership> = {}): ActorStoreMem
     slug: overrides.slug ?? "chinatech",
     role: overrides.role ?? "owner",
     status: overrides.status ?? "active",
+    membershipId: overrides.membershipId,
   };
 }
 
@@ -80,6 +81,35 @@ describe("resolveStoreShellContext", () => {
     });
   });
 
+  it("fails closed and drops stale store authority after a 401 or 403", () => {
+    const activeStore = makeStore({ membershipId: "membership_1", role: "manager" });
+    const snapshot = resolveStoreShellContext({
+      onboardingStatus: makeOnboardingStatus({ activeStore, stores: [activeStore] }),
+      storeContext: {
+        activeStore,
+        stores: [activeStore],
+        permissions: {
+          canReadSuppliers: false,
+          canAssignSuppliers: false,
+          canManageSuppliers: false,
+          canReadAggregateFinance: true,
+        },
+      },
+      storeContextError: true,
+      authorityLost: true,
+    });
+
+    expect(snapshot).toMatchObject({
+      activeStore: undefined,
+      permissions: undefined,
+      stores: [],
+      status: "error",
+      isError: true,
+      isDegraded: false,
+      authorityFingerprint: "user_1|no-store|no-membership|no-role|no-permissions",
+    });
+  });
+
   it("treats store context loading as a background refresh when onboarding has a store", () => {
     const activeStore = makeStore();
 
@@ -113,6 +143,38 @@ describe("resolveStoreShellContext", () => {
       statusLabel: "平台管理员",
       isError: false,
     });
+  });
+
+  it("changes the authority fingerprint when a grant is revoked", () => {
+    const activeStore = makeStore({ membershipId: "membership_1", role: "manager" });
+    const granted = resolveStoreShellContext({
+      onboardingStatus: makeOnboardingStatus({ activeStore }),
+      storeContext: {
+        activeStore,
+        stores: [activeStore],
+        permissions: {
+          canReadSuppliers: true,
+          canAssignSuppliers: true,
+          canManageSuppliers: false,
+          canReadAggregateFinance: true,
+        },
+      },
+    });
+    const revoked = resolveStoreShellContext({
+      onboardingStatus: makeOnboardingStatus({ activeStore }),
+      storeContext: {
+        activeStore,
+        stores: [activeStore],
+        permissions: {
+          canReadSuppliers: true,
+          canAssignSuppliers: true,
+          canManageSuppliers: false,
+          canReadAggregateFinance: false,
+        },
+      },
+    });
+
+    expect(granted.authorityFingerprint).not.toBe(revoked.authorityFingerprint);
   });
 
   it("distinguishes users who need onboarding from hard loading failures", () => {
