@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260712-002-mobile-interaction-click-reliability"
 title: "移动端点击失效与全项目同类交互修复"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["INT", "UX", "FE", "QA"]
 created_at: "2026-07-12T01:03:34Z"
-updated_at: "2026-07-12T07:15:00Z"
+updated_at: "2026-07-12T07:56:21Z"
 ---
 
 # Task — 移动端点击失效与全项目同类交互修复
@@ -54,17 +54,17 @@ updated_at: "2026-07-12T07:15:00Z"
 
 ## Facts, assumptions, and unknowns
 
-| Item                                                                                                | Type     | Evidence                                                                                                     | Status / next action                                       |
-| --------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Screenshot route is the account center                                                              | observed | owner screenshot; `src/features/account/screens/account-center-screen.tsx`                                   | verify route and shell at runtime                          |
-| Account screen already has uncommitted changes from TASK-20260710-011                               | observed | `git status`; predecessor task memory                                                                        | preserve and build on current file                         |
-| Shared worktree is dirty and main is behind origin                                                  | observed | `git status --short --branch`                                                                                | do not stage, pull, reset, or overwrite                    |
-| Nested Radix modal layers leave `body.style.pointerEvents = "none"` after mobile sidebar navigation | verified | pre-fix Playwright reproduction; `AppSidebar` Sheet + footer `DropdownMenu`; post-fix Chromium/WebKit checks | fixed by assigning mobile modality to the outer Sheet only |
-| Production deployment is required                                                                   | decided  | owner asked to fix project, not deploy                                                                       | no deploy, commit, or push performed                       |
+| Item                                                                                                | Type     | Evidence                                                                                                     | Status / next action                                                                      |
+| --------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Screenshot route is the account center                                                              | observed | owner screenshot; `src/features/account/screens/account-center-screen.tsx`                                   | verify route and shell at runtime                                                         |
+| Account screen already has uncommitted changes from TASK-20260710-011                               | observed | `git status`; predecessor task memory                                                                        | preserve and build on current file                                                        |
+| Shared worktree is dirty and main is behind origin                                                  | observed | `git status --short --branch`                                                                                | do not stage, pull, reset, or overwrite                                                   |
+| Nested Radix modal layers leave `body.style.pointerEvents = "none"` after mobile sidebar navigation | verified | pre-fix Playwright reproduction; `AppSidebar` Sheet + footer `DropdownMenu`; post-fix Chromium/WebKit checks | fixed by assigning mobile modality to the outer Sheet only                                |
+| Direct main release                                                                                 | verified | Owner said `推送main`; remote hash verification                                                              | feature commit `74f83285` is confirmed on `origin/main`; deployment status is not claimed |
 
 ## Risk and autonomy
 
-- **R2:** broad mobile UI regression risk across the shared application shell; no planned data or permission mutation.
+- **R3:** direct `main` release can trigger external CI or Git-connected deployment; no data, permission, payment, secret, dependency, or migration change is included.
 - **L2:** local, reversible code/test/documentation changes and non-destructive verification are allowed.
 - **Reserved decisions:** deployment, production auth/data changes, destructive cleanup, dependency or architecture change.
 
@@ -94,4 +94,4 @@ Acceptance criteria have direct code, test, browser, and screenshot evidence; re
 
 ## Release state
 
-The local implementation and verification are complete. At `2026-07-12T07:15:00Z`, the Owner explicitly authorized a direct push to `main`. The release is R3 because `main` may trigger CI or an external Git-connected deployment; no database, permission, secret, or irreversible data change is included.
+The Owner-authorized release is complete. Commit `74f832852739929014fe2edfd0543558ad4f5cbe` was pushed fast-forward to `origin/main` and independently confirmed with `git ls-remote`; rollback point is `c48aef21`. CI or external deployment completion was not verified in this run.

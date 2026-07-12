@@ -62,3 +62,13 @@
 - **Test hardening:** app-shell tests wait for a successful store-context snapshot and touch helpers retry live-DOM center reads rather than relying on stale elements or `networkidle`.
 - **Latest-main gates:** agents check, full lint, typecheck, 120 Vitest files / 804 tests, production build and interaction E2E 7 passed / 1 intentional desktop-only skip.
 - **Release state:** ready to amend the scoped commit, recheck the final diff and perform a fast-forward-only push to `origin/main`.
+
+## 2026-07-12T07:56:21Z — Main release complete
+
+- **Commit:** `74f832852739929014fe2edfd0543558ad4f5cbe` (`Fix mobile interaction pointer locking`).
+- **Push:** fast-forward `c48aef21..74f83285` to `origin/main`; `git ls-remote` independently returned the same full hash.
+- **Release evidence:** agents check, full lint, typecheck, 120 test files / 804 tests, production build and interaction E2E 7 passed / 1 intentional desktop-only skip on the latest main base.
+- **Scope:** 24 task-owned files; no database, migration, permission policy, dependency, secret, customer communication or unrelated dirty-worktree file was included.
+- **Rollback:** `git revert 74f83285` followed by an Owner-approved main push. No data rollback is required.
+- **Observation:** repository push CI may run and Git-connected deployment may exist, but neither completion state was verified because `gh` is unavailable; do not claim production deployment from the Git push alone.
+- **Closeout:** task closed; original dirty worktree remains intentionally untouched and behind remote.
