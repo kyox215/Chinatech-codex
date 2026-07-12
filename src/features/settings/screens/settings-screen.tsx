@@ -63,7 +63,7 @@ import { getSettingsQueryActivation } from "@/features/settings/api/query-option
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
-import { formatWarrantyText, ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
+import { ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
 import {
   getOrderWorkflowBucketLabel,
   getWorkflowStatuses,
@@ -133,6 +133,7 @@ import {
   updateOrderWorkflowTransitions,
   updateStoreSettings,
   createKioskDevicePairing,
+  RepairDeskApiError,
   type KioskDevice,
   type KioskSession,
   type OnboardingStatus,
@@ -147,7 +148,8 @@ import {
   type StoreMember,
   type StorePermissionAction,
   type ApprovedStoreRole,
-  type StoreSettings,
+  type StoreSettingsSection,
+  type StoreSettingsSectionUpdateRequest,
   type StoreRole,
   type Supplier,
   type SupplierInput,
@@ -160,38 +162,53 @@ import {
   normalizeStorePermissionGrants,
 } from "@/entities/staff/model/store-permission-policy";
 import { SettingsOverviewScreen } from "@/features/settings/screens/settings-overview-screen";
+import {
+  acceptStoreSettingsSaveResult,
+  buildStoreSettingsSectionUpdateRequest,
+  createStoreSettingsDrafts,
+  discardStoreSettingsSectionDraft,
+  getDirtyStoreSettingsSections,
+  hasDirtyStoreSettingsDraft,
+  isStoreSettingsSectionDirty,
+  materializeStoreSettingsDraft,
+  rebaseStoreSettingsSectionDraft,
+  reconcileIncomingStoreSettings,
+  updateStoreSettingsDraft,
+  type StoreSettingsDrafts,
+  type StoreSettingsDraftValues,
+} from "@/features/settings/model/store-settings-draft";
+import { SETTINGS_ERROR_CODES } from "@/features/settings/model/store-settings-errors";
+import {
+  SettingsSaveBar,
+  type SettingsSaveStatus,
+} from "@/features/settings/components/settings-save-bar";
+import { SettingsStateCard } from "@/features/settings/components/settings-state-card";
+import { UnsavedSettingsGuard } from "@/features/settings/components/unsaved-settings-guard";
+import {
+  useNavigationGuard,
+  type NavigationGuardResolution,
+} from "@/components/navigation-guard-provider";
 
-type SettingsDraft = Pick<
-  StoreSettings,
-  | "store_name"
-  | "store_address"
-  | "store_phone"
-  | "store_whatsapp"
-  | "store_email"
-  | "default_order_warranty_text"
-  | "default_order_warranty_months"
-  | "default_inventory_warranty_months"
-  | "print_footer"
-  | "message_signature"
->;
-
-const draftSectionFields: Record<"store" | "notifications" | "rules", (keyof SettingsDraft)[]> = {
-  store: ["store_name", "store_email", "store_phone", "store_whatsapp", "store_address"],
-  notifications: ["print_footer", "message_signature"],
-  rules: [
-    "default_order_warranty_text",
-    "default_order_warranty_months",
-    "default_inventory_warranty_months",
-  ],
+const initialSaveStatus: Record<StoreSettingsSection, SettingsSaveStatus> = {
+  store: "clean",
+  notifications: "clean",
+  rules: "clean",
 };
 
 function canSaveDraftInSection(section: SettingsSectionKey) {
   return section === "store" || section === "notifications" || section === "rules";
 }
 
+function isStoreSettingsDraftSection(
+  section: SettingsSectionKey | null,
+): section is StoreSettingsSection {
+  return section === "store" || section === "notifications" || section === "rules";
+}
+
 export function SettingsScreen() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const { runGuardedTransition } = useNavigationGuard();
   const storeContextQuery = useQuery({
     queryKey: storesKeys.context,
     queryFn: ({ signal }) => getStoreContext({ signal }),
@@ -201,6 +218,9 @@ export function SettingsScreen() {
   const settingsCapabilities = storeContextQuery.data?.permissions;
   const view = parseSettingsView(searchParams.get("section"));
   const selectedSection = view.kind === "section" ? view.section : null;
+  const selectedDraftSection = isStoreSettingsDraftSection(selectedSection)
+    ? selectedSection
+    : null;
   const selectedSectionAccess = selectedSection
     ? resolveSettingsSectionAccess(selectedSection, settingsCapabilities)
     : null;
@@ -271,10 +291,16 @@ export function SettingsScreen() {
     enabled: Boolean(activeStoreId && queryActivation.suppliers),
   });
   const settingsData = settingsQuery.data;
-  const [draft, setDraft] = useState<SettingsDraft | null>(null);
-  const [draftStoreId, setDraftStoreId] = useState<string | null>(null);
+  const [settingsDrafts, setSettingsDrafts] = useState<StoreSettingsDrafts | null>(null);
+  const settingsDraftsRef = useRef<StoreSettingsDrafts | null>(null);
+  const saveInFlightRef = useRef(false);
+  const [saveStatusBySection, setSaveStatusBySection] =
+    useState<Record<StoreSettingsSection, SettingsSaveStatus>>(initialSaveStatus);
+  const [settingsFieldErrors, setSettingsFieldErrors] = useState<Record<string, string[]>>({});
   const [settingsSearch, setSettingsSearch] = useState("");
   const [accountNameDraft, setAccountNameDraft] = useState("");
+  const accountNameDraftRef = useRef("");
+  const accountNameBaseRef = useRef("");
   const [newStoreName, setNewStoreName] = useState("");
   const [inviteDraft, setInviteDraft] = useState<StoreInviteInput>({
     email: "",
@@ -317,8 +343,10 @@ export function SettingsScreen() {
     kioskPairingRequestEpochRef.current += 1;
     setLatestInviteCodeState(null);
     setLatestKioskPairingCodeState(null);
-    setDraft(null);
-    setDraftStoreId(null);
+    settingsDraftsRef.current = null;
+    setSettingsDrafts(null);
+    setSaveStatusBySection(initialSaveStatus);
+    setSettingsFieldErrors({});
     setInviteDraft({ email: "", role: "technician" });
     setInviteLinkDraft({
       label: "",
@@ -365,12 +393,25 @@ export function SettingsScreen() {
 
   useEffect(() => {
     if (!activeStoreId || !settingsData || settingsData.store_id !== activeStoreId) return;
-    setDraft(toDraft(settingsData));
-    setDraftStoreId(activeStoreId);
+    setSettingsDrafts((current) => {
+      const next =
+        current?.storeId === activeStoreId
+          ? reconcileIncomingStoreSettings(current, settingsData)
+          : createStoreSettingsDrafts(settingsData);
+      settingsDraftsRef.current = next;
+      return next;
+    });
   }, [activeStoreId, settingsData]);
 
   useEffect(() => {
     if (!accountQuery.data) return;
+    const wasDirty = isAccountNameDraftDirty(
+      accountNameDraftRef.current,
+      accountNameBaseRef.current,
+    );
+    accountNameBaseRef.current = accountQuery.data.displayName;
+    if (wasDirty) return;
+    accountNameDraftRef.current = accountQuery.data.displayName;
     setAccountNameDraft(accountQuery.data.displayName);
   }, [accountQuery.data]);
 
@@ -394,25 +435,25 @@ export function SettingsScreen() {
     });
   }, [storeAccessRequestsQuery.data]);
 
-  const activeDraft =
-    draft && draftStoreId === activeStoreId && settingsData?.store_id === activeStoreId
-      ? draft
+  const activeDrafts =
+    settingsDrafts?.storeId === activeStoreId && settingsData?.store_id === activeStoreId
+      ? settingsDrafts
       : null;
-  const hasChanges = useMemo(() => {
-    if (!activeDraft || !settingsData) return false;
-    const current = toDraft(settingsData);
-    return JSON.stringify(current) !== JSON.stringify(activeDraft);
-  }, [activeDraft, settingsData]);
-  const accountName = accountNameDraft.trim().replace(/\s+/g, " ");
-  const hasAccountNameChange = Boolean(
-    accountQuery.data && accountName && accountName !== accountQuery.data.displayName,
+  const activeDraft = activeDrafts ? materializeStoreSettingsDraft(activeDrafts) : null;
+  const hasChanges = selectedDraftSection
+    ? isStoreSettingsSectionDirty(activeDrafts, selectedDraftSection)
+    : false;
+  const accountName = normalizeAccountDisplayName(accountNameDraft);
+  const accountNameDirty = Boolean(
+    accountQuery.data && accountName !== normalizeAccountDisplayName(accountQuery.data.displayName),
   );
+  const hasAccountNameChange = Boolean(accountName && accountNameDirty);
   const latestInviteCode = valueForActiveStore(latestInviteCodeState, activeStoreId) ?? "";
   const latestKioskPairingCode =
     valueForActiveStore(latestKioskPairingCodeState, activeStoreId) ?? "";
   const sectionDirtyState = useMemo<Record<SettingsSectionKey, boolean>>(() => {
     const base = {
-      account: hasAccountNameChange,
+      account: accountNameDirty,
       store: false,
       members: false,
       suppliers: false,
@@ -422,26 +463,44 @@ export function SettingsScreen() {
       workflow: false,
       "order-data": false,
     };
-    if (!activeDraft || !settingsData) return base;
-    const current = toDraft(settingsData);
     return {
       ...base,
-      store: draftSectionFields.store.some((field) => activeDraft[field] !== current[field]),
-      notifications: draftSectionFields.notifications.some(
-        (field) => activeDraft[field] !== current[field],
-      ),
-      rules: draftSectionFields.rules.some((field) => activeDraft[field] !== current[field]),
+      store: isStoreSettingsSectionDirty(activeDrafts, "store"),
+      notifications: isStoreSettingsSectionDirty(activeDrafts, "notifications"),
+      rules: isStoreSettingsSectionDirty(activeDrafts, "rules"),
     };
-  }, [activeDraft, hasAccountNameChange, settingsData]);
+  }, [accountNameDirty, activeDrafts]);
+
+  const updateSettingsField = <S extends StoreSettingsSection>(
+    section: S,
+    patch: Partial<StoreSettingsDraftValues[S]>,
+  ) => {
+    const current = settingsDraftsRef.current;
+    if (!current || current.storeId !== activeStoreId) return;
+    const next = updateStoreSettingsDraft(current, section, patch);
+    settingsDraftsRef.current = next;
+    setSettingsDrafts(next);
+    setSaveStatusBySection((statuses) => ({ ...statuses, [section]: "dirty" }));
+    const clearedFields = new Set(Object.keys(patch).map((field) => `input.${field}`));
+    setSettingsFieldErrors((errors) =>
+      Object.fromEntries(Object.entries(errors).filter(([field]) => !clearedFields.has(field))),
+    );
+  };
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeDraft || !activeStoreId) throw new Error("设置未加载或店铺已切换");
+    mutationFn: async ({
+      section,
+      request,
+    }: {
+      section: StoreSettingsSection;
+      request: StoreSettingsSectionUpdateRequest;
+    }) => {
+      if (!activeStoreId) throw new Error("设置未加载或店铺已切换");
       if (!canUpdateStoreSettings) throw new Error("当前账号没有修改店铺设置的权限");
-      const settings = await updateStoreSettings(activeDraft);
-      return { settings, requestedStoreId: activeStoreId };
+      const settings = await updateStoreSettings(request);
+      return { settings, requestedStoreId: activeStoreId, section };
     },
-    onSuccess: ({ settings, requestedStoreId }) => {
+    onSuccess: ({ settings, requestedStoreId, section }) => {
       const currentStoreId = queryClient.getQueryData<{
         activeStore?: { id: string };
       }>(storesKeys.context)?.activeStore?.id;
@@ -450,23 +509,119 @@ export function SettingsScreen() {
         currentStoreId !== requestedStoreId ||
         activeStoreScopeRef.current.storeId !== requestedStoreId
       ) {
-        setDraft(null);
-        setDraftStoreId(null);
+        settingsDraftsRef.current = null;
+        setSettingsDrafts(null);
         toast.error("店铺上下文已变化，旧设置响应未应用，请重新加载当前店铺");
         return;
       }
       toast.success("设置已保存");
-      setDraft(toDraft(settings));
-      setDraftStoreId(requestedStoreId);
+      const current = settingsDraftsRef.current;
+      if (current?.storeId === requestedStoreId) {
+        const next = acceptStoreSettingsSaveResult(current, section, settings);
+        settingsDraftsRef.current = next;
+        setSettingsDrafts(next);
+      }
+      setSettingsFieldErrors({});
+      setSaveStatusBySection((statuses) => ({ ...statuses, [section]: "saved" }));
+      queryClient.setQueryData(messageSettingsKeys.storeScoped(requestedStoreId), settings);
       queryClient.invalidateQueries({ queryKey: messageSettingsKeys.store });
       queryClient.invalidateQueries({ queryKey: messageSettingsKeys.templates });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "保存失败"),
+    onError: (error, variables) => {
+      const status: SettingsSaveStatus =
+        error instanceof RepairDeskApiError && error.code === SETTINGS_ERROR_CODES.versionConflict
+          ? "conflict"
+          : error instanceof RepairDeskApiError &&
+              error.code === SETTINGS_ERROR_CODES.validationFailed
+            ? "validation-error"
+            : typeof navigator !== "undefined" && navigator.onLine === false
+              ? "offline"
+              : "error";
+      setSaveStatusBySection((statuses) => ({ ...statuses, [variables.section]: status }));
+      if (error instanceof RepairDeskApiError && error.fieldErrors) {
+        setSettingsFieldErrors(error.fieldErrors);
+        queueMicrotask(() => focusFirstSettingsError(error.fieldErrors));
+      }
+      if (
+        error instanceof RepairDeskApiError &&
+        (error.code === SETTINGS_ERROR_CODES.versionConflict ||
+          error.code === SETTINGS_ERROR_CODES.contextChanged)
+      ) {
+        void settingsQuery.refetch();
+      }
+      toast.error(error instanceof Error ? error.message : "保存失败");
+    },
   });
+
+  const saveStoreSettingsSection = async (
+    section: StoreSettingsSection,
+  ): Promise<NavigationGuardResolution> => {
+    const current = settingsDraftsRef.current;
+    if (!current || current.storeId !== activeStoreId) return { status: "blocked" };
+    if (!isStoreSettingsSectionDirty(current, section)) return { status: "resolved" };
+    if (saveMutation.isPending || saveInFlightRef.current) return { status: "blocked" };
+    saveInFlightRef.current = true;
+    try {
+      const request = buildStoreSettingsSectionUpdateRequest(current, section);
+      await saveMutation.mutateAsync({ section, request });
+      return { status: "resolved" };
+    } catch (error) {
+      const fieldErrors = error instanceof RepairDeskApiError ? error.fieldErrors : undefined;
+      return {
+        status: "blocked",
+        focus: fieldErrors ? () => focusFirstSettingsError(fieldErrors) : focusSettingsSaveState,
+      };
+    } finally {
+      saveInFlightRef.current = false;
+    }
+  };
+
+  const discardStoreSettingsSection = (section: StoreSettingsSection) => {
+    const current = settingsDraftsRef.current;
+    if (!current || current.storeId !== activeStoreId) return { status: "blocked" } as const;
+    const next = discardStoreSettingsSectionDraft(current, section);
+    settingsDraftsRef.current = next;
+    setSettingsDrafts(next);
+    setSettingsFieldErrors({});
+    setSaveStatusBySection((statuses) => ({ ...statuses, [section]: "clean" }));
+    return { status: "resolved" } as const;
+  };
+
+  const rebaseStoreSettingsSection = (section: StoreSettingsSection) => {
+    const current = settingsDraftsRef.current;
+    if (!current || current.storeId !== activeStoreId) return;
+    const next = rebaseStoreSettingsSectionDraft(current, section);
+    settingsDraftsRef.current = next;
+    setSettingsDrafts(next);
+    setSaveStatusBySection((statuses) => ({ ...statuses, [section]: "dirty" }));
+  };
+
+  const guardSections = getDirtyStoreSettingsSections(activeDrafts, selectedDraftSection);
+  const guardSection = guardSections[0];
+  const guardDirty = hasDirtyStoreSettingsDraft(activeDrafts);
+  const saveAllDirtyStoreSettingsSections = async (): Promise<NavigationGuardResolution> => {
+    const sections = getDirtyStoreSettingsSections(settingsDraftsRef.current, selectedDraftSection);
+    for (const section of sections) {
+      const resolution = await saveStoreSettingsSection(section);
+      if (resolution.status === "blocked") return resolution;
+    }
+    return hasDirtyStoreSettingsDraft(settingsDraftsRef.current)
+      ? { status: "blocked", focus: focusSettingsSaveState }
+      : { status: "resolved" };
+  };
+  const discardAllDirtyStoreSettingsSections = (): NavigationGuardResolution => {
+    const sections = getDirtyStoreSettingsSections(settingsDraftsRef.current, selectedDraftSection);
+    for (const section of sections) discardStoreSettingsSection(section);
+    return hasDirtyStoreSettingsDraft(settingsDraftsRef.current)
+      ? { status: "blocked", focus: focusSettingsSaveState }
+      : { status: "resolved" };
+  };
   const updateAccountMutation = useMutation({
     mutationFn: async () => updateAccountProfile({ display_name: accountName }),
     onSuccess: async (status) => {
       toast.success("账号名称已保存");
+      accountNameDraftRef.current = status.displayName;
+      accountNameBaseRef.current = status.displayName;
       setAccountNameDraft(status.displayName);
       queryClient.setQueryData(platformKeys.onboardingStatus, status);
       await Promise.all([
@@ -479,6 +634,31 @@ export function SettingsScreen() {
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "账号名称保存失败"),
   });
+  const saveAccountNameDraft = async (): Promise<NavigationGuardResolution> => {
+    if (!accountNameDirty) return { status: "resolved" };
+    if (!accountName) {
+      return {
+        status: "blocked",
+        focus: () => document.getElementById("account-display-name")?.focus(),
+      };
+    }
+    try {
+      await updateAccountMutation.mutateAsync();
+      return { status: "resolved" };
+    } catch {
+      return {
+        status: "blocked",
+        focus: () => document.getElementById("account-display-name")?.focus(),
+      };
+    }
+  };
+  const discardAccountNameDraft = (): NavigationGuardResolution => {
+    const baseName = accountQuery.data?.displayName ?? "";
+    accountNameDraftRef.current = baseName;
+    accountNameBaseRef.current = baseName;
+    setAccountNameDraft(baseName);
+    return { status: "resolved" };
+  };
   const invalidateSupplierCaches = () => {
     void queryClient.invalidateQueries({ queryKey: suppliersKeys.storeScoped(activeStoreId) });
     void queryClient.invalidateQueries({ queryKey: ordersKeys.options(activeStoreId) });
@@ -518,8 +698,6 @@ export function SettingsScreen() {
       kioskPairingRequestEpochRef.current += 1;
       setLatestInviteCodeState(null);
       setLatestKioskPairingCodeState(null);
-      setDraft(null);
-      setDraftStoreId(null);
     },
     onSuccess: async (context) => {
       toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
@@ -535,8 +713,6 @@ export function SettingsScreen() {
       kioskPairingRequestEpochRef.current += 1;
       setLatestInviteCodeState(null);
       setLatestKioskPairingCodeState(null);
-      setDraft(null);
-      setDraftStoreId(null);
     },
     onSuccess: async (context) => {
       toast.success(`已创建 ${context.activeStore?.name ?? "新店铺"}`);
@@ -866,6 +1042,20 @@ export function SettingsScreen() {
     !settingsQuery.isLoading &&
     !settingsQuery.isError &&
     activeDraft !== null;
+  const selectedSaveStatus: SettingsSaveStatus = selectedDraftSection
+    ? activeDrafts?.sections[selectedDraftSection].conflict
+      ? "conflict"
+      : saveMutation.isPending && saveMutation.variables?.section === selectedDraftSection
+        ? "saving"
+        : hasChanges
+          ? saveStatusBySection[selectedDraftSection] === "clean" ||
+            saveStatusBySection[selectedDraftSection] === "saved"
+            ? "dirty"
+            : saveStatusBySection[selectedDraftSection]
+          : saveStatusBySection[selectedDraftSection] === "dirty"
+            ? "clean"
+            : saveStatusBySection[selectedDraftSection]
+    : "clean";
 
   return (
     <RepairOsListScaffold
@@ -894,8 +1084,10 @@ export function SettingsScreen() {
             className="h-7 gap-1 rounded-lg border-0 px-2 text-xs text-primary-foreground shadow-[var(--shadow-action)]"
             style={brandGradientStyle}
             aria-label="保存设置"
-            disabled={!hasChanges || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
+            disabled={!hasChanges || saveMutation.isPending || selectedSaveStatus === "conflict"}
+            onClick={() =>
+              selectedDraftSection && void saveStoreSettingsSection(selectedDraftSection)
+            }
           >
             <Check className="size-3.5" />
             保存
@@ -911,8 +1103,10 @@ export function SettingsScreen() {
             size="sm"
             className="h-8 shrink-0 gap-1.5 border-0 text-primary-foreground sm:h-9"
             style={brandGradientStyle}
-            disabled={!hasChanges || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
+            disabled={!hasChanges || saveMutation.isPending || selectedSaveStatus === "conflict"}
+            onClick={() =>
+              selectedDraftSection && void saveStoreSettingsSection(selectedDraftSection)
+            }
           >
             <Check className="size-3.5" /> 保存
           </Button>
@@ -920,6 +1114,34 @@ export function SettingsScreen() {
       }
       className="pb-8"
     >
+      <UnsavedSettingsGuard
+        id="settings-store-draft"
+        dirty={guardDirty}
+        isDirty={() => hasDirtyStoreSettingsDraft(settingsDraftsRef.current)}
+        busy={saveMutation.isPending}
+        label={
+          guardSections.length > 1
+            ? `${guardSections.length} 个设置分组`
+            : guardSection
+              ? `${getSettingsSection(guardSection).label}分组`
+              : "当前设置分组"
+        }
+        onSave={saveAllDirtyStoreSettingsSections}
+        onDiscard={discardAllDirtyStoreSettingsSections}
+        onFocusFallback={focusSettingsSaveState}
+      />
+      <UnsavedSettingsGuard
+        id="settings-account-name-draft"
+        dirty={accountNameDirty}
+        isDirty={() =>
+          isAccountNameDraftDirty(accountNameDraftRef.current, accountNameBaseRef.current)
+        }
+        busy={updateAccountMutation.isPending}
+        label="账号显示名称"
+        onSave={saveAccountNameDraft}
+        onDiscard={discardAccountNameDraft}
+        onFocusFallback={() => document.getElementById("account-display-name")?.focus()}
+      />
       <SettingsLayout
         activeSection={activeSection}
         rail={
@@ -945,8 +1167,13 @@ export function SettingsScreen() {
             className="space-y-3 pb-8"
             onSubmit={(event) => {
               event.preventDefault();
-              if (hasChanges && canUpdateStoreSettings && !saveMutation.isPending) {
-                saveMutation.mutate();
+              if (
+                selectedDraftSection &&
+                hasChanges &&
+                canUpdateStoreSettings &&
+                !saveMutation.isPending
+              ) {
+                void saveStoreSettingsSection(selectedDraftSection);
               }
             }}
           >
@@ -1015,7 +1242,10 @@ export function SettingsScreen() {
                     nameDraft={accountNameDraft}
                     hasNameChange={hasAccountNameChange}
                     isSaving={updateAccountMutation.isPending}
-                    onNameDraftChange={setAccountNameDraft}
+                    onNameDraftChange={(value) => {
+                      accountNameDraftRef.current = value;
+                      setAccountNameDraft(value);
+                    }}
                     onSave={() => {
                       if (!hasAccountNameChange || updateAccountMutation.isPending) return;
                       updateAccountMutation.mutate();
@@ -1033,12 +1263,23 @@ export function SettingsScreen() {
                     onNewStoreNameChange={setNewStoreName}
                     onSwitchStore={(storeId) => {
                       if (!storeId || storeId === storeContextQuery.data?.activeStore?.id) return;
-                      switchStoreMutation.mutate(storeId);
+                      const targetStore = storeContextQuery.data?.stores.find(
+                        (store) => store.id === storeId,
+                      );
+                      runGuardedTransition({
+                        kind: "store-switch",
+                        label: `切换到 ${targetStore?.name ?? "其他店铺"}`,
+                        run: () => switchStoreMutation.mutateAsync(storeId),
+                      });
                     }}
                     onCreateStore={() => {
                       const name = newStoreName.trim();
                       if (!name) return;
-                      createStoreMutation.mutate({ name });
+                      runGuardedTransition({
+                        kind: "store-create",
+                        label: `创建店铺 ${name}`,
+                        run: () => createStoreMutation.mutateAsync({ name }),
+                      });
                     }}
                   />
                 ) : null}
@@ -1256,61 +1497,115 @@ export function SettingsScreen() {
                   <section className={repairOs.adminSection}>
                     <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺资料" />
                     <div className={formLayout.grid}>
-                      <Field label="店铺名" htmlFor="store-name">
+                      <Field
+                        label="店铺名"
+                        htmlFor="store-name"
+                        error={fieldError(settingsFieldErrors, "store_name")}
+                      >
                         <Input
                           id="store-name"
                           className={compactControlClass}
                           value={activeDraft.store_name}
                           disabled={!canUpdateStoreSettings}
+                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_name"))}
+                          aria-describedby={fieldErrorId(
+                            settingsFieldErrors,
+                            "store_name",
+                            "store-name",
+                          )}
                           onChange={(event) =>
-                            setDraftField(setDraft, "store_name", event.target.value)
+                            updateSettingsField("store", { store_name: event.target.value })
                           }
                         />
                       </Field>
-                      <Field label="邮箱" htmlFor="store-email" icon={Mail}>
+                      <Field
+                        label="邮箱"
+                        htmlFor="store-email"
+                        icon={Mail}
+                        error={fieldError(settingsFieldErrors, "store_email")}
+                      >
                         <Input
                           id="store-email"
                           type="email"
                           className={compactControlClass}
                           value={activeDraft.store_email}
                           disabled={!canUpdateStoreSettings}
+                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_email"))}
+                          aria-describedby={fieldErrorId(
+                            settingsFieldErrors,
+                            "store_email",
+                            "store-email",
+                          )}
                           onChange={(event) =>
-                            setDraftField(setDraft, "store_email", event.target.value)
+                            updateSettingsField("store", { store_email: event.target.value })
                           }
                         />
                       </Field>
-                      <Field label="电话" htmlFor="store-phone" icon={Phone}>
+                      <Field
+                        label="电话"
+                        htmlFor="store-phone"
+                        icon={Phone}
+                        error={fieldError(settingsFieldErrors, "store_phone")}
+                      >
                         <Input
                           id="store-phone"
                           className={compactControlClass}
                           value={activeDraft.store_phone}
                           disabled={!canUpdateStoreSettings}
+                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_phone"))}
+                          aria-describedby={fieldErrorId(
+                            settingsFieldErrors,
+                            "store_phone",
+                            "store-phone",
+                          )}
                           onChange={(event) =>
-                            setDraftField(setDraft, "store_phone", event.target.value)
+                            updateSettingsField("store", { store_phone: event.target.value })
                           }
                         />
                       </Field>
-                      <Field label="WhatsApp" htmlFor="store-whatsapp" icon={MessageSquare}>
+                      <Field
+                        label="WhatsApp"
+                        htmlFor="store-whatsapp"
+                        icon={MessageSquare}
+                        error={fieldError(settingsFieldErrors, "store_whatsapp")}
+                      >
                         <Input
                           id="store-whatsapp"
                           className={compactControlClass}
                           value={activeDraft.store_whatsapp}
                           disabled={!canUpdateStoreSettings}
+                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_whatsapp"))}
+                          aria-describedby={fieldErrorId(
+                            settingsFieldErrors,
+                            "store_whatsapp",
+                            "store-whatsapp",
+                          )}
                           onChange={(event) =>
-                            setDraftField(setDraft, "store_whatsapp", event.target.value)
+                            updateSettingsField("store", { store_whatsapp: event.target.value })
                           }
                         />
                       </Field>
                     </div>
-                    <Field label="地址" htmlFor="store-address" className="mt-3">
+                    <Field
+                      label="地址"
+                      htmlFor="store-address"
+                      className="mt-3"
+                      error={fieldError(settingsFieldErrors, "store_address")}
+                    >
                       <Textarea
                         id="store-address"
                         rows={3}
                         className={compactTextareaClass}
                         value={activeDraft.store_address}
                         disabled={!canUpdateStoreSettings}
+                        aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_address"))}
+                        aria-describedby={fieldErrorId(
+                          settingsFieldErrors,
+                          "store_address",
+                          "store-address",
+                        )}
                         onChange={(event) =>
-                          setDraftField(setDraft, "store_address", event.target.value)
+                          updateSettingsField("store", { store_address: event.target.value })
                         }
                       />
                     </Field>
@@ -1321,24 +1616,35 @@ export function SettingsScreen() {
                   <section className={repairOs.adminSection}>
                     <RepairOsSectionHeader icon={Settings2} iconFrame={false} title="默认规则" />
                     <div className={formLayout.grid}>
-                      <Field label="维修默认质保" htmlFor="order-warranty">
+                      <Field
+                        label="维修默认质保"
+                        htmlFor="order-warranty"
+                        error={fieldError(settingsFieldErrors, "default_order_warranty_months")}
+                      >
                         <Select
                           value={String(activeDraft.default_order_warranty_months)}
                           disabled={!canUpdateStoreSettings}
                           onValueChange={(value) => {
-                            const months = Number(value);
-                            setDraft((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    default_order_warranty_months: months,
-                                    default_order_warranty_text: formatWarrantyText(months),
-                                  }
-                                : current,
-                            );
+                            const months = Number(
+                              value,
+                            ) as StoreSettingsDraftValues["rules"]["default_order_warranty_months"];
+                            updateSettingsField("rules", {
+                              default_order_warranty_months: months,
+                            });
                           }}
                         >
-                          <SelectTrigger id="order-warranty" className={compactControlClass}>
+                          <SelectTrigger
+                            id="order-warranty"
+                            className={compactControlClass}
+                            aria-invalid={Boolean(
+                              fieldError(settingsFieldErrors, "default_order_warranty_months"),
+                            )}
+                            aria-describedby={fieldErrorId(
+                              settingsFieldErrors,
+                              "default_order_warranty_months",
+                              "order-warranty",
+                            )}
+                          >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1350,20 +1656,34 @@ export function SettingsScreen() {
                           </SelectContent>
                         </Select>
                       </Field>
-                      <Field label="二手库存默认保修月数" htmlFor="inventory-warranty">
+                      <Field
+                        label="二手库存默认保修月数"
+                        htmlFor="inventory-warranty"
+                        error={fieldError(settingsFieldErrors, "default_inventory_warranty_months")}
+                      >
                         <Input
                           id="inventory-warranty"
                           type="number"
                           min={0}
+                          max={120}
                           className={compactControlClass}
                           value={activeDraft.default_inventory_warranty_months}
                           disabled={!canUpdateStoreSettings}
+                          aria-invalid={Boolean(
+                            fieldError(settingsFieldErrors, "default_inventory_warranty_months"),
+                          )}
+                          aria-describedby={fieldErrorId(
+                            settingsFieldErrors,
+                            "default_inventory_warranty_months",
+                            "inventory-warranty",
+                          )}
                           onChange={(event) =>
-                            setDraftField(
-                              setDraft,
-                              "default_inventory_warranty_months",
-                              Math.max(0, Number(event.target.value || 0)),
-                            )
+                            updateSettingsField("rules", {
+                              default_inventory_warranty_months: Math.min(
+                                120,
+                                Math.max(0, Math.trunc(Number(event.target.value || 0))),
+                              ),
+                            })
                           }
                         />
                       </Field>
@@ -1375,27 +1695,53 @@ export function SettingsScreen() {
                   <section className={repairOs.adminSection}>
                     <RepairOsSectionHeader icon={Printer} iconFrame={false} title="输出配置" />
                     <div className="space-y-3">
-                      <Field label="打印页脚" htmlFor="print-footer">
+                      <Field
+                        label="打印页脚"
+                        htmlFor="print-footer"
+                        error={fieldError(settingsFieldErrors, "print_footer")}
+                      >
                         <Textarea
                           id="print-footer"
                           rows={3}
                           className={compactTextareaClass}
                           value={activeDraft.print_footer}
                           disabled={!canUpdateStoreSettings}
+                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "print_footer"))}
+                          aria-describedby={fieldErrorId(
+                            settingsFieldErrors,
+                            "print_footer",
+                            "print-footer",
+                          )}
                           onChange={(event) =>
-                            setDraftField(setDraft, "print_footer", event.target.value)
+                            updateSettingsField("notifications", {
+                              print_footer: event.target.value,
+                            })
                           }
                         />
                       </Field>
-                      <Field label="客户消息签名" htmlFor="message-signature">
+                      <Field
+                        label="客户消息签名"
+                        htmlFor="message-signature"
+                        error={fieldError(settingsFieldErrors, "message_signature")}
+                      >
                         <Textarea
                           id="message-signature"
                           rows={3}
                           className={compactTextareaClass}
                           value={activeDraft.message_signature}
                           disabled={!canUpdateStoreSettings}
+                          aria-invalid={Boolean(
+                            fieldError(settingsFieldErrors, "message_signature"),
+                          )}
+                          aria-describedby={fieldErrorId(
+                            settingsFieldErrors,
+                            "message_signature",
+                            "message-signature",
+                          )}
                           onChange={(event) =>
-                            setDraftField(setDraft, "message_signature", event.target.value)
+                            updateSettingsField("notifications", {
+                              message_signature: event.target.value,
+                            })
                           }
                         />
                       </Field>
@@ -1439,30 +1785,23 @@ export function SettingsScreen() {
               />
             ) : null}
 
-            {canRenderDraftSection && canUpdateStoreSettings ? (
-              <div className={repairOs.adminSection}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-foreground">
-                      {activeSection?.label ?? "当前分组"}
-                    </p>
-                    <p className="text-[11px] leading-4 text-muted-foreground">
-                      {sectionDirtyState[selectedSection]
-                        ? "当前分组有未保存修改，保存后会立即影响对应资料和预览。"
-                        : "当前分组没有未保存修改。"}
-                    </p>
-                  </div>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    style={brandGradientStyle}
-                    disabled={!hasChanges || saveMutation.isPending}
-                  >
-                    <Check className="mr-1.5 size-3.5" /> 保存设置
-                  </Button>
-                </div>
-              </div>
+            {canRenderDraftSection && canUpdateStoreSettings && selectedDraftSection ? (
+              <>
+                <SettingsStateCard
+                  status={selectedSaveStatus}
+                  fieldErrors={settingsFieldErrors}
+                  onDiscard={() => discardStoreSettingsSection(selectedDraftSection)}
+                  onRebase={() => rebaseStoreSettingsSection(selectedDraftSection)}
+                />
+                <SettingsSaveBar
+                  label={activeSection?.label ?? "当前分组"}
+                  status={selectedSaveStatus}
+                  dirty={hasChanges}
+                  disabled={saveMutation.isPending}
+                  onSave={() => void saveStoreSettingsSection(selectedDraftSection)}
+                  onDiscard={() => discardStoreSettingsSection(selectedDraftSection)}
+                />
+              </>
             ) : null}
           </form>
         )}
@@ -3930,12 +4269,14 @@ function Field({
   htmlFor,
   icon: Icon,
   className,
+  error,
   children,
 }: {
   label: string;
   htmlFor: string;
   icon?: typeof Store;
   className?: string;
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -3947,6 +4288,11 @@ function Field({
         </span>
       </Label>
       {children}
+      {error ? (
+        <p id={`${htmlFor}-error`} className="text-[11px] leading-4 text-status-danger-foreground">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -4059,21 +4405,6 @@ async function copySensitiveCode(value: string, successMessage: string) {
   }
 }
 
-function toDraft(settings: StoreSettings): SettingsDraft {
-  return {
-    store_name: settings.store_name,
-    store_address: settings.store_address,
-    store_phone: settings.store_phone,
-    store_whatsapp: settings.store_whatsapp,
-    store_email: settings.store_email,
-    default_order_warranty_text: settings.default_order_warranty_text,
-    default_order_warranty_months: settings.default_order_warranty_months,
-    default_inventory_warranty_months: settings.default_inventory_warranty_months,
-    print_footer: settings.print_footer,
-    message_signature: settings.message_signature,
-  };
-}
-
 function defaultSupplierDraft(): SupplierInput {
   return {
     name: "",
@@ -4100,12 +4431,48 @@ function supplierToInput(supplier: Supplier): SupplierInput {
   };
 }
 
-function setDraftField<K extends keyof SettingsDraft>(
-  setDraft: React.Dispatch<React.SetStateAction<SettingsDraft | null>>,
-  key: K,
-  value: SettingsDraft[K],
-) {
-  setDraft((current) => (current ? { ...current, [key]: value } : current));
+function fieldError(errors: Record<string, string[]>, field: string) {
+  return errors[`input.${field}`]?.[0];
+}
+
+function fieldErrorId(errors: Record<string, string[]>, field: string, controlId: string) {
+  return fieldError(errors, field) ? `${controlId}-error` : undefined;
+}
+
+function focusFirstSettingsError(fieldErrors?: Record<string, string[]>) {
+  const field = Object.keys(fieldErrors ?? {})[0]?.replace(/^input\./, "");
+  const controlId = field
+    ? {
+        store_name: "store-name",
+        store_address: "store-address",
+        store_phone: "store-phone",
+        store_whatsapp: "store-whatsapp",
+        store_email: "store-email",
+        default_order_warranty_months: "order-warranty",
+        default_inventory_warranty_months: "inventory-warranty",
+        print_footer: "print-footer",
+        message_signature: "message-signature",
+      }[field]
+    : undefined;
+  requestAnimationFrame(() => {
+    const control = controlId ? document.getElementById(controlId) : null;
+    if (control) control.focus();
+    else focusSettingsSaveState();
+  });
+}
+
+function focusSettingsSaveState() {
+  document
+    .querySelector<HTMLElement>("[data-settings-save-state], [data-settings-save-bar]")
+    ?.focus();
+}
+
+function normalizeAccountDisplayName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function isAccountNameDraftDirty(value: string, base: string) {
+  return normalizeAccountDisplayName(value) !== normalizeAccountDisplayName(base);
 }
 
 function formatDate(value: string) {

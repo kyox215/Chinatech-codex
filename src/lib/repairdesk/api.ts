@@ -111,6 +111,8 @@ import type {
   StoreMembersResult,
   StorePermissionAction,
   StoreSettings,
+  StoreSettingsSection,
+  StoreSettingsSectionUpdateRequest,
   StoreSettingsUpdateInput,
   Supplier,
   SupplierInput,
@@ -127,6 +129,8 @@ export class RepairDeskApiError extends Error {
     readonly status: number,
     readonly code?: string,
     readonly details?: Record<string, unknown>,
+    readonly requestId?: string,
+    readonly fieldErrors?: Record<string, string[]>,
   ) {
     super(message);
     this.name = "RepairDeskApiError";
@@ -291,6 +295,8 @@ export type {
   StoreMembersResult,
   StorePermissionAction,
   StoreSettings,
+  StoreSettingsSection,
+  StoreSettingsSectionUpdateRequest,
   StoreSettingsUpdateInput,
   Supplier,
   SupplierInput,
@@ -642,8 +648,10 @@ export async function revokeStoreInvitation(
   return postJson<StoreMembersResult>("stores/invitations/revoke", input);
 }
 
-export async function updateStoreSettings(input: StoreSettingsUpdateInput): Promise<StoreSettings> {
-  return postJson<StoreSettings>("settings/store/update", { input });
+export async function updateStoreSettings(
+  request: StoreSettingsSectionUpdateRequest,
+): Promise<StoreSettings> {
+  return postJson<StoreSettings>("settings/store/update", request);
 }
 
 export async function listMessageTemplates(
@@ -732,6 +740,8 @@ async function readJsonResponse<T>(response: Response) {
     error?: string;
     code?: string;
     details?: Record<string, unknown>;
+    requestId?: string;
+    fieldErrors?: Record<string, string[]>;
   };
   if (!response.ok) {
     throw new RepairDeskApiError(
@@ -739,6 +749,8 @@ async function readJsonResponse<T>(response: Response) {
       response.status,
       payload.code,
       payload.details,
+      payload.requestId,
+      payload.fieldErrors,
     );
   }
   return payload.data as T;

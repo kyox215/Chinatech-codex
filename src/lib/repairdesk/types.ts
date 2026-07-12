@@ -1679,6 +1679,45 @@ export interface StoreSettingsUpdateInput {
   message_signature?: string;
 }
 
+export type StoreSettingsSection = "store" | "notifications" | "rules";
+
+export interface StoreSettingsStoreSectionInput {
+  store_name: string;
+  store_address: string;
+  store_phone: string;
+  store_whatsapp: string;
+  store_email: string;
+}
+
+export interface StoreSettingsNotificationsSectionInput {
+  print_footer: string;
+  message_signature: string;
+}
+
+export interface StoreSettingsRulesSectionInput {
+  default_order_warranty_months: 0 | 3 | 6 | 12 | 24;
+  default_inventory_warranty_months: number;
+}
+
+interface StoreSettingsSectionUpdateBase {
+  expectedStoreId: string;
+  expectedUpdatedAt: string;
+}
+
+export type StoreSettingsSectionUpdateRequest =
+  | (StoreSettingsSectionUpdateBase & {
+      section: "store";
+      input: StoreSettingsStoreSectionInput;
+    })
+  | (StoreSettingsSectionUpdateBase & {
+      section: "notifications";
+      input: StoreSettingsNotificationsSectionInput;
+    })
+  | (StoreSettingsSectionUpdateBase & {
+      section: "rules";
+      input: StoreSettingsRulesSectionInput;
+    });
+
 export type KioskDeviceStatus = "pairing" | "active" | "suspended" | "revoked";
 export type KioskSessionType = "intake_contact" | "order_contact_signature" | "pickup_signature";
 export type KioskSessionStatus =

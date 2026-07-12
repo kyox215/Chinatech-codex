@@ -1,0 +1,197 @@
+import { useState } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { UnsavedSettingsGuard } from "@/features/settings/components/unsaved-settings-guard";
+import { NavigationGuardProvider, useNavigationGuard } from "./navigation-guard-provider";
+
+const navigationMocks = vi.hoisted(() => ({ push: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: navigationMocks.push }),
+}));
+
+describe("NavigationGuardProvider", () => {
+  beforeEach(() => {
+    navigationMocks.push.mockReset();
+    window.history.replaceState({}, "", "/settings?section=store");
+  });
+
+  it("keeps the first link target pending and supports cancel then save", async () => {
+    const user = userEvent.setup();
+    const save = vi.fn();
+    render(
+      <NavigationGuardProvider>
+        <GuardHarness onSave={save} />
+        <a href="/orders">工单</a>
+        <a href="/customers">客户</a>
+      </NavigationGuardProvider>,
+    );
+
+    const ordersLink = screen.getByRole("link", { name: "工单" });
+    const customersLink = screen.getByRole("link", { name: "客户" });
+    await user.click(ordersLink);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    fireEvent.click(customersLink);
+    await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(navigationMocks.push).not.toHaveBeenCalled();
+
+    await user.click(ordersLink);
+    await user.click(screen.getByRole("button", { name: "保存并继续" }));
+    await waitFor(() => expect(navigationMocks.push).toHaveBeenCalledTimes(1));
+    expect(navigationMocks.push).toHaveBeenCalledWith("/orders", { scroll: true });
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("discards once before an imperative transition and blocks double targets", async () => {
+    const user = userEvent.setup();
+    const discard = vi.fn();
+    const first = vi.fn();
+    const second = vi.fn();
+    render(
+      <NavigationGuardProvider>
+        <GuardHarness onDiscard={discard} />
+        <TransitionButton label="第一个" run={first} />
+        <TransitionButton label="第二个" run={second} />
+      </NavigationGuardProvider>,
+    );
+
+    const firstButton = screen.getByRole("button", { name: "第一个" });
+    const secondButton = screen.getByRole("button", { name: "第二个" });
+    await user.click(firstButton);
+    fireEvent.click(secondButton);
+    await user.click(screen.getByRole("button", { name: "放弃修改" }));
+    await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
+    expect(second).not.toHaveBeenCalled();
+    expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses native beforeunload only while dirty and restores history methods on unmount", () => {
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+    const view = render(
+      <NavigationGuardProvider>
+        <GuardHarness />
+      </NavigationGuardProvider>,
+    );
+
+    const event = new Event("beforeunload", { cancelable: true }) as BeforeUnloadEvent;
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(window.history.pushState).not.toBe(originalPushState);
+    expect(window.history.replaceState).not.toBe(originalReplaceState);
+
+    view.unmount();
+    expect(window.history.pushState).toBe(originalPushState);
+    expect(window.history.replaceState).toBe(originalReplaceState);
+  });
+
+  it("runs clean imperative transitions without opening a dialog", async () => {
+    const run = vi.fn();
+    render(
+      <NavigationGuardProvider>
+        <GuardHarness initialDirty={false} />
+        <TransitionButton label="直接前往" run={run} />
+      </NavigationGuardProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "直接前往" }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps a blocked resolution focus target without calling the fallback", async () => {
+    const user = userEvent.setup();
+    const fallback = vi.fn();
+    render(
+      <NavigationGuardProvider>
+        <UnsavedSettingsGuard
+          dirty
+          busy={false}
+          label="店铺资料分组"
+          onSave={async () => ({
+            status: "blocked",
+            focus: () => screen.getByLabelText("错误字段").focus(),
+          })}
+          onDiscard={() => ({ status: "blocked" })}
+          onFocusFallback={fallback}
+        />
+        <input aria-label="错误字段" />
+        <a href="/orders">离开页面</a>
+      </NavigationGuardProvider>,
+    );
+
+    await user.click(screen.getByRole("link", { name: "离开页面" }));
+    await user.click(screen.getByRole("button", { name: "保存并继续" }));
+    await waitFor(() => expect(screen.getByLabelText("错误字段")).toHaveFocus());
+    expect(fallback).not.toHaveBeenCalled();
+    expect(navigationMocks.push).not.toHaveBeenCalled();
+  });
+
+  it("resolves multiple dirty sources before running one transition", async () => {
+    const user = userEvent.setup();
+    const firstSave = vi.fn();
+    const secondSave = vi.fn();
+    render(
+      <NavigationGuardProvider>
+        <GuardHarness id="first" label="第一个草稿" onSave={firstSave} />
+        <GuardHarness id="second" label="第二个草稿" onSave={secondSave} />
+        <a href="/orders">前往工单</a>
+      </NavigationGuardProvider>,
+    );
+
+    await user.click(screen.getByRole("link", { name: "前往工单" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("第二个草稿");
+    await user.click(screen.getByRole("button", { name: "保存并继续" }));
+    await waitFor(() => expect(secondSave).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("第一个草稿");
+    expect(navigationMocks.push).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "保存并继续" }));
+    await waitFor(() => expect(firstSave).toHaveBeenCalledTimes(1));
+    expect(navigationMocks.push).toHaveBeenCalledTimes(1);
+  });
+});
+
+function GuardHarness({
+  id,
+  label = "店铺资料分组",
+  initialDirty = true,
+  onSave,
+  onDiscard,
+}: {
+  id?: string;
+  label?: string;
+  initialDirty?: boolean;
+  onSave?: () => void;
+  onDiscard?: () => void;
+}) {
+  const [dirty, setDirty] = useState(initialDirty);
+  return (
+    <UnsavedSettingsGuard
+      id={id}
+      dirty={dirty}
+      busy={false}
+      label={label}
+      onSave={async () => {
+        onSave?.();
+        setDirty(false);
+        return { status: "resolved" };
+      }}
+      onDiscard={() => {
+        onDiscard?.();
+        setDirty(false);
+        return { status: "resolved" };
+      }}
+    />
+  );
+}
+
+function TransitionButton({ label, run }: { label: string; run: () => void }) {
+  const { runGuardedTransition } = useNavigationGuard();
+  return (
+    <button type="button" onClick={() => runGuardedTransition({ kind: "route", label, run })}>
+      {label}
+    </button>
+  );
+}

@@ -185,6 +185,240 @@ test.describe("settings blocked query gate", () => {
   });
 });
 
+test.describe("settings draft safety", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("guards rail navigation and submits only the active section once", async ({ page }) => {
+    test.setTimeout(60_000);
+    const updateBodies: unknown[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/repairdesk/settings/store/update")) {
+        updateBodies.push(request.postDataJSON());
+      }
+    });
+
+    await gotoReady(page, "/settings?section=store");
+    const nameInput = page.getByLabel("店铺名");
+    await expect(nameInput).toBeVisible();
+    await nameInput.fill("Etna Repair Lab E2E");
+    const saveBar = page.locator("[data-settings-save-bar]");
+    await expect(saveBar).toHaveAttribute("data-save-status", "dirty");
+
+    const rulesLink = page
+      .getByRole("navigation", { name: "设置导航" })
+      .getByRole("link", { name: /默认规则|规则/ });
+    await rulesLink.click();
+    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+    await expect(guard).toBeVisible();
+    await guard.getByRole("button", { name: "取消" }).click();
+    await expect(page).toHaveURL(/section=store/);
+    await expect(nameInput).toHaveValue("Etna Repair Lab E2E");
+    expect(updateBodies).toEqual([]);
+
+    await rulesLink.click();
+    await guard.getByRole("button", { name: "保存并继续" }).click();
+    await expect(page).toHaveURL(/section=rules/);
+    expect(updateBodies).toHaveLength(1);
+    expect(updateBodies[0]).toMatchObject({
+      section: "store",
+      input: { store_name: "Etna Repair Lab E2E" },
+    });
+    expect(updateBodies[0]).not.toHaveProperty("input.print_footer");
+    expect(updateBodies[0]).not.toHaveProperty("input.default_order_warranty_months");
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("guards command palette navigation and releases modal pointer locks", async ({ page }) => {
+    await gotoReady(page, "/settings?section=store");
+    await page.getByLabel("店铺名").fill("Command Palette Draft");
+    await expect(page.locator("[data-settings-save-bar]")).toHaveAttribute(
+      "data-save-status",
+      "dirty",
+    );
+
+    await page.getByRole("button", { name: /搜索工单、客户、库存/ }).click();
+    const paletteInput = page.getByPlaceholder("输入命令、搜索工单或客户…");
+    await expect(paletteInput).toBeVisible();
+    await paletteInput.fill("工单列表");
+    await page.getByRole("option", { name: /工单列表/ }).click();
+
+    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+    await expect(guard).toBeVisible();
+    await guard.getByRole("button", { name: "放弃修改" }).click();
+    await expect(page).toHaveURL(/\/orders$/);
+    await expect(paletteInput).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("guards AppSidebar links before any route transition", async ({ page }) => {
+    test.setTimeout(60_000);
+    await gotoReady(page, "/settings?section=store");
+    await page.getByLabel("店铺名").fill("Sidebar Draft");
+    const ordersLink = page.getByRole("link", { name: "订单管理", exact: true }).first();
+
+    await ordersLink.click();
+    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+    await expect(guard).toBeVisible();
+    await guard.getByRole("button", { name: "取消" }).click();
+    await expect(page).toHaveURL(/section=store/);
+    await expect(page.getByLabel("店铺名")).toHaveValue("Sidebar Draft");
+
+    await ordersLink.click();
+    await guard.getByRole("button", { name: "放弃修改" }).click();
+    await expect(page).toHaveURL(/\/orders$/, { timeout: 15_000 });
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("guards store switching and keeps the current form mounted after a failed switch", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    let switchRequests = 0;
+    await page.route("**/api/repairdesk/stores/context", async (route) => {
+      const response = await route.fetch();
+      const payload = (await response.json()) as {
+        data: {
+          activeStore?: Record<string, unknown>;
+          stores?: Array<Record<string, unknown>>;
+        };
+      };
+      const activeStore = payload.data.activeStore;
+      if (activeStore) {
+        payload.data.stores = [
+          ...(payload.data.stores ?? []),
+          {
+            ...activeStore,
+            id: "store-e2e-b",
+            membershipId: "membership-store-e2e-b",
+            name: "Etna Phone Lab",
+            slug: "etna-phone-lab",
+          },
+        ];
+      }
+      await route.fulfill({ response, json: payload });
+    });
+    await page.route("**/api/repairdesk/stores/switch", async (route) => {
+      switchRequests += 1;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        json: { error: { message: "mock switch failure" } },
+      });
+    });
+
+    await gotoReady(page, "/settings?section=store");
+    const nameInput = page.getByLabel("店铺名");
+    const originalName = await nameInput.inputValue();
+    await nameInput.fill("Switch Draft");
+    const storeSelect = page.getByLabel("当前店铺");
+    await storeSelect.click();
+    await page.getByRole("option", { name: "Etna Phone Lab" }).click();
+    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+    await expect(guard).toBeVisible();
+    expect(switchRequests).toBe(0);
+    await guard.getByRole("button", { name: "取消" }).click();
+    await expect(nameInput).toHaveValue("Switch Draft");
+
+    await storeSelect.click();
+    await page.getByRole("option", { name: "Etna Phone Lab" }).click();
+    await guard.getByRole("button", { name: "放弃修改" }).click();
+    await expect.poll(() => switchRequests).toBe(1);
+    await expect(nameInput).toHaveValue(originalName);
+  });
+
+  test("restores back and forward history until the dirty decision is resolved", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await gotoReady(page, "/settings");
+    await clickOverviewEntry(page, /店铺/);
+    await expect(page).toHaveURL(/section=store/);
+    await page
+      .getByRole("navigation", { name: "设置导航" })
+      .getByRole("link", { name: /默认规则|规则/ })
+      .click();
+    await expect(page).toHaveURL(/section=rules/);
+
+    await page.evaluate(() => window.history.back());
+    await expect(page).toHaveURL(/section=store/);
+    await page.getByLabel("店铺名").fill("Forward Guard Draft");
+
+    await page.evaluate(() => window.history.forward());
+    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+    await expect(guard).toBeVisible();
+    await expect(page).toHaveURL(/section=store/);
+    await guard.getByRole("button", { name: "取消" }).click();
+    await expect(page).toHaveURL(/section=store/);
+
+    await page.evaluate(() => window.history.forward());
+    await expect(guard).toBeVisible();
+    await guard.getByRole("button", { name: "放弃修改" }).click();
+    await expect(page).toHaveURL(/section=rules/);
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+});
+
+test.describe("settings mobile global guard surfaces", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("guards MobileWorkspaceDock route actions", async ({ page }) => {
+    test.setTimeout(60_000);
+    await gotoReady(page, "/settings?section=store");
+    await page.getByLabel("店铺名").fill("Mobile Dock Draft");
+    await page.getByRole("button", { name: "打开快捷操作" }).click();
+    await page.getByRole("button", { name: /当前 · 邀请成员/ }).click();
+
+    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+    await expect(guard).toBeVisible();
+    await guard.getByRole("button", { name: "取消" }).click();
+    await expect(page).toHaveURL(/section=store/);
+    await expect(page.getByLabel("店铺名")).toHaveValue("Mobile Dock Draft");
+
+    await page.getByRole("button", { name: "打开快捷操作" }).click();
+    await page.getByRole("button", { name: /当前 · 邀请成员/ }).click();
+    await guard.getByRole("button", { name: "放弃修改" }).click();
+    await expect(page).toHaveURL(/section=members/, { timeout: 15_000 });
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("guards ScanSearch route actions until the draft decision", async ({ page }) => {
+    test.setTimeout(60_000);
+    await gotoReady(page, "/settings?section=store");
+    await page.getByLabel("店铺名").fill("Scanner Draft");
+    await page.getByRole("button", { name: "打开快捷操作" }).click();
+    await page.getByRole("button", { name: "扫码读取" }).click();
+    const scanner = page.getByRole("dialog", { name: "全局扫码查询" });
+    await scanner
+      .getByPlaceholder("无法扫码时，可手动输入或粘贴")
+      .fill("https://example.com/orders/order_123");
+    await scanner.getByRole("button", { name: "识别内容" }).click();
+    await scanner.getByRole("button", { name: "打开工单" }).click();
+
+    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+    await expect(guard).toBeVisible();
+    await guard.getByRole("button", { name: "取消" }).click();
+    await expect(page).toHaveURL(/section=store/);
+    await expect(scanner).toBeVisible();
+
+    await scanner.getByRole("button", { name: "打开工单" }).click();
+    await guard.getByRole("button", { name: "放弃修改" }).click();
+    await expect(page).toHaveURL(/\/orders\/order_123$/, { timeout: 15_000 });
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+});
+
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.locator("body").waitFor({ state: "visible" });

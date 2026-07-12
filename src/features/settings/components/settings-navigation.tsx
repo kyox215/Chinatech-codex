@@ -63,6 +63,7 @@ export function SettingsNavigation({
       <Link
         href="/settings"
         scroll={false}
+        data-navigation-scroll="preserve"
         aria-current={activeSection === null ? "page" : undefined}
         className={cn(
           "mb-2 flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
@@ -155,6 +156,7 @@ function SettingsNavigationRow({
     <Link
       href={item.href}
       scroll={false}
+      data-navigation-scroll="preserve"
       aria-current={active ? "page" : undefined}
       onClick={(event) => {
         if (onBeforeNavigate && !onBeforeNavigate(item.key)) event.preventDefault();

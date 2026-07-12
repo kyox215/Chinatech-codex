@@ -124,6 +124,7 @@ export function SettingsOverviewScreen({
                   key={item.key}
                   href={item.href}
                   scroll={false}
+                  data-navigation-scroll="preserve"
                   className="min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(event) => {
                     if (onBeforeNavigate && !onBeforeNavigate(item.key)) event.preventDefault();

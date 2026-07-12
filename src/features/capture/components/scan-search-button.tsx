@@ -15,6 +15,7 @@ import {
   type ScanSearchScope,
 } from "@/features/capture/model/scan-search-resolver";
 import { cn } from "@/lib/utils";
+import { useNavigationGuard } from "@/components/navigation-guard-provider";
 
 interface ScanSearchSheetProps {
   open: boolean;
@@ -70,18 +71,26 @@ export function ScanSearchButton({
 
 export function ScanSearchSheet({ open, onOpenChange, scope, onSearch }: ScanSearchSheetProps) {
   const router = useRouter();
+  const { runGuardedTransition } = useNavigationGuard();
 
   const executeAction = (
     action: ScanSearchAction,
     helpers: { close: () => void; rescan: () => void },
   ) => {
-    helpers.close();
     if (action.kind === "search" && onSearch) {
+      helpers.close();
       onSearch(action.searchValue);
       toast.success(`已填入${getScanSearchScopeLabel(scope)}搜索`);
       return;
     }
-    router.push(action.href);
+    runGuardedTransition({
+      kind: "route",
+      label: action.label,
+      run: () => {
+        helpers.close();
+        router.push(action.href);
+      },
+    });
   };
 
   const renderActions = (

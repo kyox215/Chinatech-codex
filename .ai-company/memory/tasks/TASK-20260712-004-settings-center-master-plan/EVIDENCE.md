@@ -26,3 +26,17 @@
   - `screenshots/responsive-density/settings/store-390x844.jpg`
   - `screenshots/responsive-density/settings/overview-768x1024.jpg`
   - `screenshots/responsive-density/settings/overview-1440x800.jpg`
+
+## WP-02
+
+- Strict request/CAS coverage: contract, draft model, repository, service, router, Realtime, API client, and tenant-isolated mock tests.
+- Independent security/architecture review: PASS, P0=0 / P1=0; independent target run 7 files / 51 tests.
+- Independent UI/navigation/QA re-review: PASS, P0=0 / P1=0; independent target run 3 files / 23 tests plus four new navigation E2E scenarios.
+- Static gates on the latest snapshot: agents check, lint, typecheck, and diff check passed.
+- Latest focused regression: 3 files / 24 tests passed, including three-way rebase, multi-section save/discard/failure, multiple guard sources, 422 focus, switch/create failure retention, account-name guard, and empty-name blocking.
+- Latest bounded full regression: 136 files / 887 tests passed with `--maxWorkers=4`.
+- Dedicated Settings E2E: 16/16 passed with one worker across 390x844, 430x932, 768x1024, 1024x768, 1280x800, and 1440x900.
+- E2E navigation surfaces: settings rail, overview/return Links, AppSidebar, CommandPalette, MobileWorkspaceDock, ScanSearch, store switch, browser back/forward, and blocked member-domain zero requests.
+- Production build: passed outside the filesystem sandbox because Turbopack requires local process/port access.
+- Browser evidence remained mock-only and contained no production customer data. WP-02 changes visible interaction states but reuses the WP-01 responsive page layout; final workflow screenshots remain part of WP-08.
+- No database migration, production write, role change, `main` push, or deployment occurred.

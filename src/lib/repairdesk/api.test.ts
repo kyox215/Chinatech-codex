@@ -12,6 +12,7 @@ import {
   RepairDeskApiError,
   returnKioskSession,
   previewOrderDataImport,
+  updateStoreSettings,
 } from "./api";
 
 describe("repairdesk api client", () => {
@@ -326,5 +327,38 @@ describe("repairdesk api client", () => {
 
     expect(error).toMatchObject({ status: 500 });
     expect(isRepairDeskAuthorizationError(error)).toBe(false);
+  });
+
+  it("sends the strict settings request and preserves structured conflict details", async () => {
+    const request = {
+      section: "notifications" as const,
+      expectedStoreId: "5248dda1-2b32-46cd-8ed0-d15386a9e8ed",
+      expectedUpdatedAt: "2026-07-12T10:00:00.000Z",
+      input: { print_footer: "Footer", message_signature: "Firma" },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: "设置已被更新",
+          code: "SETTINGS_VERSION_CONFLICT",
+          requestId: "req_1",
+          fieldErrors: { "input.print_footer": ["冲突"] },
+        }),
+        { status: 409, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const error = await updateStoreSettings(request).catch((caught: unknown) => caught);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/repairdesk/settings/store/update",
+      expect.objectContaining({ method: "POST", body: JSON.stringify(request) }),
+    );
+    expect(error).toMatchObject({
+      status: 409,
+      code: "SETTINGS_VERSION_CONFLICT",
+      requestId: "req_1",
+      fieldErrors: { "input.print_footer": ["冲突"] },
+    });
   });
 });

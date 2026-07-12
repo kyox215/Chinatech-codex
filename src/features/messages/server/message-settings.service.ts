@@ -3,8 +3,11 @@ import type {
   MessageTemplatePreviewInput,
   MessageTemplatePreviewResult,
   MessageTemplateUpdateInput,
+  StoreSettingsSectionUpdateRequest,
   StoreSettingsUpdateInput,
 } from "@/lib/repairdesk/types";
+import { formatWarrantyText } from "@/features/orders/model/order-warranty";
+import { SettingsMutationError } from "@/features/settings/model/store-settings-errors";
 import { writeAuditLog } from "@/server/audit";
 import { assertStaffRole } from "@/server/auth-context";
 import {
@@ -30,21 +33,46 @@ export async function listMessageTemplates(actor?: AuditActor) {
   return listMessageTemplatesRows(requireStoreIdFromActor(actor, "读取消息模板"));
 }
 
-export async function updateStoreSettings(input: StoreSettingsUpdateInput, actor: AuditActor) {
+export async function updateStoreSettings(
+  request: StoreSettingsSectionUpdateRequest,
+  actor: AuditActor,
+) {
   assertStaffRole(actor, ["owner", "manager"]);
   const storeId = requireStoreIdFromActor(actor, "保存店铺设置");
+  if (request.expectedStoreId !== storeId) throw SettingsMutationError.contextChanged();
   const before = await getStoreSettingsRow(storeId, actor.storeName);
-  const after = await updateStoreSettingsRow(input, actor.id, storeId, actor.storeName);
+  if (before.updated_at !== request.expectedUpdatedAt)
+    throw SettingsMutationError.versionConflict();
+  const input = toStoreSettingsUpdateInput(request);
+  const after = await updateStoreSettingsRow({
+    input,
+    expectedUpdatedAt: request.expectedUpdatedAt,
+    actorId: actor.id,
+    storeId,
+  });
+  if (!after) throw SettingsMutationError.versionConflict();
   await writeAuditLog({
     actor,
     action: "update",
     entityType: "store_settings",
     entityId: after.id,
-    before: asRecord(before),
-    after: asRecord(after),
-    metadata: { input },
+    before: { updated_at: before.updated_at },
+    after: { updated_at: after.updated_at },
+    metadata: { section: request.section, changedFields: Object.keys(input) },
   });
   return after;
+}
+
+export function toStoreSettingsUpdateInput(
+  request: StoreSettingsSectionUpdateRequest,
+): StoreSettingsUpdateInput {
+  if (request.section === "store" || request.section === "notifications") {
+    return { ...request.input };
+  }
+  return {
+    ...request.input,
+    default_order_warranty_text: formatWarrantyText(request.input.default_order_warranty_months),
+  };
 }
 
 export async function updateMessageTemplate(

@@ -118,3 +118,48 @@ Create the local WP-00 commit without pushing, then begin WP-01 from the approve
 ### Next executable action
 
 Create the local WP-01 commit without pushing, then begin WP-02 with strict section payloads, `updated_at` compare-and-swap, section drafts, save states, and the shared navigation guard. Database migration is not required for the local WP-02 contract.
+
+## 2026-07-12T12:14:05Z — WP-02 conflict-safe drafts and navigation closeout
+
+### Completed facts
+
+- Replaced the permissive full-row settings update with a strict `store / notifications / rules` discriminated request. The authenticated actor remains the authoritative store; `expectedStoreId` detects stale client context only.
+- Added section-only `store_id + updated_at` compare-and-swap. A stale version returns a stable 409 before audit or Realtime; warranty text is derived on the server.
+- Added store-bound section drafts with explicit base/value/version/conflict state. Background refresh never overwrites local dirty input; explicit conflict rebase uses base/local/server three-way field merging.
+- Added clean, dirty, saving, saved, validation-error, conflict, offline, and generic-error UI states with structured field errors and focus recovery.
+- Added one shared navigation guard for Links, imperative routes, AppSidebar, CommandPalette, MobileWorkspaceDock, ScanSearch, store switch/create, sign-out, back/forward, and native `beforeunload`.
+- Multiple dirty settings sections are saved sequentially with CAS version chaining or discarded together. Multiple independent guard sources resolve before one pending transition runs. Account display-name changes, including an invalid empty value, are guarded.
+- Store switch/create failures no longer clear the current settings draft; successful active-store changes still hide the previous tenant immediately through the active-store scope gate.
+
+### Validation evidence
+
+- Independent security/architecture review: PASS, P0=0 and P1=0; 7 files / 51 security-contract tests passed.
+- Independent UI/navigation/QA re-review after corrections: PASS, P0=0 and P1=0; 3 files / 23 target tests and four added navigation E2E cases passed independently.
+- `npm run agents:check`: passed.
+- `npm run lint`: passed on the latest code snapshot.
+- `npm run typecheck`: passed on the latest code snapshot.
+- Latest targeted draft/guard/screen regression: 3 files / 24 tests passed.
+- Latest bounded full regression: 136 files / 887 tests passed with four workers.
+- Dedicated Settings Playwright: 16/16 passed with one worker. It covers six viewports, nine deep links, blocked-query zero requests, rail, AppSidebar, CommandPalette, MobileWorkspaceDock, ScanSearch, store switching, and back/forward.
+- `npm run build`: passed outside the filesystem sandbox because Turbopack requires local process/port access.
+- `git diff --check`: passed before this checkpoint; `next-env.d.ts` has no remaining generated drift.
+
+### Decisions
+
+- Kept the existing `store_settings.updated_at` column as the optimistic version; WP-02 requires no migration.
+- Kept overlapping local field edits after an explicit rebase while absorbing server-only field changes. Rebase never auto-saves.
+- Kept browser hard reload on the native `beforeunload` contract; a custom three-choice dialog is only promised for application-controlled transitions.
+- Strict legacy `{ input }` compatibility is intentionally not added because it would reopen over-posting and full-row overwrite paths.
+
+### Residual risks / approvals
+
+- Settings update and audit log are not one database transaction. A successful CAS followed by audit failure can return an API failure after the row changed. A transactional RPC or outbox remains a future production-strength option requiring its own approval.
+- Realtime delivery is best-effort; another session can temporarily retain an old cache until normal revalidation.
+- `getStoreSettings()` still initializes a missing row during read. Release preparation must verify one settings row per active store; changing initialization semantics is outside WP-02.
+- The conflict card does not yet render a field-by-field server/local diff. Three-way merging prevents server-only field loss, and overlapping local values survive only after the user explicitly selects rebase.
+- Local Next dev cold compilation can make route assertions slower and can emit canceled RSC `ECONNRESET` noise; the deterministic one-worker 16-test gate passed.
+- No migration, production data action, role change, push, or deployment was performed. All such gates remain closed.
+
+### Next executable action
+
+Create the scoped local WP-02 commit without pushing. Then rehydrate the approved WP-03 child-function scope, start with the unified output-identity recovery link and the account/store workflow slice, and stop at any database, role-semantics, retention, production, push, or deployment gate.

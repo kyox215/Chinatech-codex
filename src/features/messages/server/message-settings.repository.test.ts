@@ -91,49 +91,58 @@ describe("message settings repository tenant boundaries", () => {
     expect(JSON.stringify(result)).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
   });
 
-  it("preserves omitted tenant identity fields during a partial update", async () => {
-    const current = storeSettingsRow({
+  it("updates only submitted section fields with an atomic store and version CAS", async () => {
+    const updated = storeSettingsRow({
       store_id: "store_partner",
       store_name: "Ripara Subito",
-      store_address: "Via Roma 12, Siracusa",
-      store_phone: "+39 0931 000000",
-      print_footer: "Footer partner",
-      message_signature: "Firma partner",
+      store_phone: "+39 333 1111111",
     });
-    const settingsQuery = createSupabaseQuery({ data: current, error: null });
-    const updated = { ...current, store_phone: "+39 333 1111111" };
     const updateQuery = createSupabaseQuery({ data: updated, error: null });
-    mocks.supabase.from.mockReturnValueOnce(settingsQuery).mockReturnValueOnce(updateQuery);
+    mocks.supabase.from.mockReturnValueOnce(updateQuery);
 
-    await updateStoreSettingsRow(
-      { store_phone: "+39 333 1111111" },
-      "actor_1",
-      "store_partner",
-      "Ripara Subito",
-    );
+    await updateStoreSettingsRow({
+      input: { store_phone: "+39 333 1111111" },
+      expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+      actorId: "actor_1",
+      storeId: "store_partner",
+    });
 
     expect(updateQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        store_name: "Ripara Subito",
-        store_address: "Via Roma 12, Siracusa",
         store_phone: "+39 333 1111111",
-        print_footer: "Footer partner",
-        message_signature: "Firma partner",
+        updated_by: "actor_1",
       }),
     );
+    const updatePayload = (updateQuery.update as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(updatePayload).not.toHaveProperty("store_name");
+    expect(updatePayload).not.toHaveProperty("print_footer");
+    expect(updateQuery.eq).toHaveBeenCalledWith("store_id", "store_partner");
+    expect(updateQuery.eq).toHaveBeenCalledWith("updated_at", "2026-07-12T00:00:00.000Z");
+    expect(updateQuery.maybeSingle).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects an explicitly blank store name", async () => {
-    const settingsQuery = createSupabaseQuery({
-      data: storeSettingsRow({ store_id: "store_partner", store_name: "Ripara Subito" }),
-      error: null,
-    });
-    mocks.supabase.from.mockReturnValueOnce(settingsQuery);
+  it("returns null for a lost CAS and defensively rejects a blank store name", async () => {
+    const updateQuery = createSupabaseQuery({ data: null, error: null });
+    mocks.supabase.from.mockReturnValue(updateQuery);
 
     await expect(
-      updateStoreSettingsRow({ store_name: "   " }, "actor_1", "store_partner", "Ripara Subito"),
+      updateStoreSettingsRow({
+        input: { store_name: "   " },
+        expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+        actorId: "actor_1",
+        storeId: "store_partner",
+      }),
     ).rejects.toThrow("店铺名不能为空");
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+
+    await expect(
+      updateStoreSettingsRow({
+        input: { print_footer: "Footer" },
+        expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+        actorId: "actor_1",
+        storeId: "store_partner",
+      }),
+    ).resolves.toBeNull();
   });
 });
 

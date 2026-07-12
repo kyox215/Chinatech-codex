@@ -18,6 +18,23 @@
 - `HANDOFF.md`: WP-02 starting contract and navigation surfaces that must join the dirty guard.
 - `MEMORY_DELTA.md`: stable overview/query/draft decisions.
 
+## WP-02 draft and navigation safety
+
+| Reader             | Impact                                                                                                      | Authoritative update                                                                                                            | Verification                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Store users        | Store/output/rule edits save by section; conflicts and validation failures keep local input; leaving prompts | Save/state cards, unsaved-change dialog, and `ADR-WP02-SETTINGS-DRAFT-SAFETY.md`                                                | SettingsScreen tests and 16-case Settings E2E                                 |
+| Developers         | Settings update is a strict section union with actor-bound store context and `updated_at` CAS                | `store-settings-update-contract.ts`, draft model, message-settings service/repository, navigation guard provider, and WP-02 ADR | Contract/service/repository/router/provider tests and typecheck               |
+| QA                 | Global navigation surfaces must not bypass dirty state; multi-section saves must chain versions             | `tests/e2e/settings-section-interactions.spec.ts` and WP-02 checkpoint                                                           | 16/16 Playwright and 3 files / 24 focused tests                               |
+| Security reviewers | Client store IDs never authorize writes; over-posting is rejected; audit omits setting values                | WP-02 ADR, service/repository implementation, and security review evidence                                                       | Independent PASS, 7 files / 51 tests                                          |
+| Release / SRE      | Frontend and backend strict contract must ship together; no migration was added                              | WP-02 ADR migration/rollback section and `CHECKPOINTS.md`                                                                        | Build passed; production/push/deploy gates remain closed                      |
+
+### WP-02 documentation limits
+
+- Browser hard reload uses the native unsaved-change prompt; the custom three-choice dialog applies only to application-controlled navigation.
+- No database or RLS document changed because WP-02 uses the existing `updated_at` column and adds no migration.
+- Transactional audit/outbox design is intentionally deferred and recorded as a residual risk, not an implemented guarantee.
+- Final user-facing operator documentation and final visual evidence remain deferred until WP-03 through WP-07 workflows stabilize and WP-08 performs closeout.
+
 ## No update required
 
 - Database schema, migration, RLS, deployment, and rollback documents: WP-01 contains no database or production change.

@@ -153,6 +153,11 @@ import {
   queueRepairDeskRealtimeBroadcast,
   type RepairDeskRealtimeMutationBroadcast,
 } from "@/features/realtime/server/realtime-broadcast";
+import { getStoreSettingsValidationFieldErrors } from "@/features/settings/model/store-settings-update-contract";
+import {
+  SETTINGS_ERROR_CODES,
+  SettingsMutationError,
+} from "@/features/settings/model/store-settings-errors";
 import type {
   AuditActor,
   CreateInventoryIntakeInput,
@@ -681,7 +686,17 @@ function fail(error: unknown) {
     return privateJson({ error: error.message }, 401);
   }
   if (error instanceof ForbiddenError) {
-    return privateJson({ error: error.message }, 403);
+    return privateJson({ error: error.message, code: SETTINGS_ERROR_CODES.forbidden }, 403);
+  }
+  if (error instanceof SettingsMutationError) {
+    return privateJson(
+      {
+        error: error.message,
+        code: error.code,
+        ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
+      },
+      error.status,
+    );
   }
 
   if (
@@ -1604,12 +1619,17 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         );
       }
       case "settings/store/update": {
-        const { input } = storeSettingsUpdateBodySchema.parse(body);
         assertStoreSettingsUpdatePermission(actor);
+        const parsed = storeSettingsUpdateBodySchema.safeParse(body);
+        if (!parsed.success) {
+          throw SettingsMutationError.validationFailed(
+            getStoreSettingsValidationFieldErrors(parsed.error),
+          );
+        }
         return ok(
           await runWithRealtime(
             actor,
-            () => api.updateStoreSettings(input, actor),
+            () => api.updateStoreSettings(parsed.data, actor),
             realtimeBroadcasts.settingsUpdated,
           ),
         );

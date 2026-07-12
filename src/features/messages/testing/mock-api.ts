@@ -5,8 +5,9 @@ import type {
   MessageTemplatePreviewResult,
   MessageTemplateUpdateInput,
   StoreSettings,
-  StoreSettingsUpdateInput,
+  StoreSettingsSectionUpdateRequest,
 } from "@/lib/repairdesk/types";
+import { SettingsMutationError } from "@/features/settings/model/store-settings-errors";
 import {
   DEFAULT_MESSAGE_TEMPLATES,
   DEFAULT_STORE_SETTINGS,
@@ -25,11 +26,7 @@ import {
 
 const DEFAULT_MOCK_STORE_ID = "00000000-0000-0000-0000-000000000001";
 
-let storeSettings = withStoreSettingsDefaults({
-  ...DEFAULT_STORE_SETTINGS,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-});
+const storeSettingsByStore = new Map<string, StoreSettings>();
 
 const messageTemplates: MessageTemplate[] = DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
   ...template,
@@ -38,28 +35,55 @@ const messageTemplates: MessageTemplate[] = DEFAULT_MESSAGE_TEMPLATES.map((templ
 }));
 
 export async function getStoreSettings(_actor?: AuditActor): Promise<StoreSettings> {
-  return { ...storeSettings, store_id: _actor?.storeId ?? DEFAULT_MOCK_STORE_ID };
+  const storeId = _actor?.storeId ?? DEFAULT_MOCK_STORE_ID;
+  return { ...getOrCreateStoreSettings(storeId), store_id: storeId };
 }
 
 export async function updateStoreSettings(
-  input: StoreSettingsUpdateInput,
+  request: StoreSettingsSectionUpdateRequest,
   _actor?: AuditActor,
 ): Promise<StoreSettings> {
-  const now = new Date().toISOString();
+  const storeId = _actor?.storeId ?? DEFAULT_MOCK_STORE_ID;
+  if (request.expectedStoreId !== storeId) throw SettingsMutationError.contextChanged();
+  const current = getOrCreateStoreSettings(storeId);
+  if (request.expectedUpdatedAt !== current.updated_at)
+    throw SettingsMutationError.versionConflict();
+  const now = new Date(
+    Math.max(Date.now(), new Date(current.updated_at).getTime() + 1),
+  ).toISOString();
   const defaultOrderWarrantyMonths = normalizeWarrantyMonths(
-    input.default_order_warranty_months ?? storeSettings.default_order_warranty_months,
+    request.section === "rules"
+      ? request.input.default_order_warranty_months
+      : current.default_order_warranty_months,
   );
-  storeSettings = withStoreSettingsDefaults({
-    ...storeSettings,
-    ...input,
+  const next = withStoreSettingsDefaults({
+    ...current,
+    ...request.input,
     default_order_warranty_months: defaultOrderWarrantyMonths,
     default_order_warranty_text: formatWarrantyText(defaultOrderWarrantyMonths),
     default_inventory_warranty_months:
-      input.default_inventory_warranty_months ?? storeSettings.default_inventory_warranty_months,
+      request.section === "rules"
+        ? request.input.default_inventory_warranty_months
+        : current.default_inventory_warranty_months,
     updated_at: now,
-    store_id: _actor?.storeId ?? storeSettings.store_id ?? DEFAULT_MOCK_STORE_ID,
+    store_id: storeId,
   });
-  return { ...storeSettings };
+  storeSettingsByStore.set(storeId, next);
+  return { ...next };
+}
+
+function getOrCreateStoreSettings(storeId: string) {
+  const existing = storeSettingsByStore.get(storeId);
+  if (existing) return existing;
+  const now = new Date().toISOString();
+  const created = withStoreSettingsDefaults({
+    ...DEFAULT_STORE_SETTINGS,
+    store_id: storeId,
+    created_at: now,
+    updated_at: now,
+  });
+  storeSettingsByStore.set(storeId, created);
+  return created;
 }
 
 export async function listMessageTemplates(_actor?: AuditActor): Promise<MessageTemplate[]> {
@@ -115,8 +139,9 @@ export async function renderMessageTemplatePreview(
     ? messageTemplates.find((item) => item.id === input.templateId)
     : undefined;
   const bodyTemplate = input.bodyTemplate ?? template?.body_template ?? "";
+  const storeId = _actor?.storeId ?? DEFAULT_MOCK_STORE_ID;
   const context = {
-    ...createPreviewTemplateContext(storeSettings),
+    ...createPreviewTemplateContext(getOrCreateStoreSettings(storeId)),
     ...(input.context ?? {}),
   };
   return {

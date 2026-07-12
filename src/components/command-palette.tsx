@@ -15,6 +15,7 @@ import { orderListPageQueryOptions } from "@/features/orders/api/query-options";
 import { toggleThemePreference } from "@/lib/theme";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { getShellCommandActions, getWorkspaceNavItems } from "@/shared/config/navigation";
+import { useNavigationGuard } from "@/components/navigation-guard-provider";
 
 export function CommandPalette({
   open,
@@ -26,6 +27,7 @@ export function CommandPalette({
   onOpenScanner: () => void;
 }) {
   const router = useRouter();
+  const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const { data: orderPage } = useQuery({
@@ -36,12 +38,16 @@ export function CommandPalette({
 
   const go = (to: string) => {
     onOpenChange(false);
-    router.push(to);
+    runGuardedTransition({ kind: "route", label: to, run: () => router.push(to) });
   };
 
   const goOrder = (id: string) => {
     onOpenChange(false);
-    router.push(`/orders/${id}`);
+    runGuardedTransition({
+      kind: "route",
+      label: "打开工单",
+      run: () => router.push(`/orders/${id}`),
+    });
   };
 
   const toggleTheme = () => {

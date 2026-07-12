@@ -53,11 +53,13 @@ import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
 import { getWorkspaceNavItems, isActiveNavItem } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { useNavigationGuard } from "@/components/navigation-guard-provider";
 
 export function AppSidebar() {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { runGuardedTransition } = useNavigationGuard();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const shell = useStoreShellContext();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -246,7 +248,11 @@ export function AppSidebar() {
                       disabled={switchStoreMutation.isPending || store.id === shell.activeStore?.id}
                       onSelect={() => {
                         if (store.id === shell.activeStore?.id) return;
-                        switchStoreMutation.mutate(store.id);
+                        runGuardedTransition({
+                          kind: "store-switch",
+                          label: `切换到 ${store.name}`,
+                          run: () => switchStoreMutation.mutateAsync(store.id),
+                        });
                       }}
                     >
                       <Store className="size-4" />
@@ -290,7 +296,11 @@ export function AppSidebar() {
                   className="text-destructive focus:text-destructive"
                   onSelect={(event) => {
                     event.preventDefault();
-                    void handleSignOut();
+                    runGuardedTransition({
+                      kind: "sign-out",
+                      label: "退出登录",
+                      run: handleSignOut,
+                    });
                   }}
                 >
                   {isSigningOut ? (

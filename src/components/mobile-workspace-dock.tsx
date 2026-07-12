@@ -26,6 +26,7 @@ import { repairOs } from "@/lib/ui-patterns";
 import { globalMobileQuickActions, getShellPrimaryAction } from "@/shared/config/navigation";
 import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 import { cn } from "@/lib/utils";
+import { useNavigationGuard } from "@/components/navigation-guard-provider";
 
 interface MobileWorkspaceDockProps {
   onOpenCommand: () => void;
@@ -39,6 +40,7 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
   const attachmentDraftsRef = useRef<AttachmentDraft[]>([]);
   const pathname = usePathname() ?? "/";
   const router = useRouter();
+  const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
   const isOrdersList = pathname === "/orders";
   const isMobileWorkspaceRoute =
@@ -65,7 +67,12 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
   const runAction = (action: (typeof actions)[number]) => {
     runRepairDeskShellAction(action, {
       pathname,
-      push: (href) => router.push(href),
+      push: (href) =>
+        runGuardedTransition({
+          kind: "route",
+          label: action.label,
+          run: () => router.push(href),
+        }),
       close: () => setOpen(false),
       openCommand: onOpenCommand,
       openScanner: () => setScannerOpen(true),

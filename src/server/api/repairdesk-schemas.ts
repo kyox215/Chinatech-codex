@@ -26,6 +26,7 @@ import {
 } from "@/lib/mock/enums";
 import { normalizePositiveCentAmount } from "@/lib/money";
 import { storePermissionActions } from "@/entities/staff/model/store-permission-policy";
+import { storeSettingsSectionUpdateSchema } from "@/features/settings/model/store-settings-update-contract";
 import type {
   AccountProfileUpdateInput,
   CreateOrderInput,
@@ -71,7 +72,6 @@ import type {
   StoreMemberDecisionInput,
   StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
-  StoreSettingsUpdateInput,
   SupplierInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
@@ -1116,24 +1116,7 @@ export const electronicsCsvImportBodySchema = z.object({
   csvContent: z.string().min(1, "缺少 CSV 内容"),
 });
 
-export const storeSettingsUpdateInputSchema = z
-  .object({
-    store_name: optionalText,
-    store_address: optionalText,
-    store_phone: optionalText,
-    store_whatsapp: optionalText,
-    store_email: optionalText,
-    default_order_warranty_text: optionalText,
-    default_order_warranty_months: z.coerce.number().int().nonnegative().optional(),
-    default_inventory_warranty_months: z.coerce.number().int().nonnegative().optional(),
-    print_footer: optionalText,
-    message_signature: optionalText,
-  })
-  .passthrough() satisfies z.ZodType<StoreSettingsUpdateInput>;
-
-export const storeSettingsUpdateBodySchema = z.object({
-  input: storeSettingsUpdateInputSchema,
-});
+export const storeSettingsUpdateBodySchema = storeSettingsSectionUpdateSchema;
 
 export const supplierInputSchema = z
   .object({

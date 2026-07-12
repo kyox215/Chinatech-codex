@@ -41,6 +41,7 @@ vi.mock("@/lib/mock/api", () => ({
 }));
 
 import { handleRepairDeskPost } from "@/server/api/repairdesk-router";
+import { SettingsMutationError } from "@/features/settings/model/store-settings-errors";
 
 describe("repairdesk router realtime integration", () => {
   beforeEach(() => {
@@ -98,7 +99,16 @@ describe("repairdesk router realtime integration", () => {
 
   it("queues realtime metadata after a successful direct settings mutation", async () => {
     const response = await handleRepairDeskPost("settings/store/update", {
-      input: { store_name: "Chinatech Floridia" },
+      section: "store",
+      expectedStoreId: storeId,
+      expectedUpdatedAt: "2026-07-12T10:00:00.000Z",
+      input: {
+        store_name: "Chinatech Floridia",
+        store_address: "Via Roma 1",
+        store_phone: "+39 333 111 2222",
+        store_whatsapp: "+39 333 111 2222",
+        store_email: "owner@example.com",
+      },
     });
 
     expect(response.status).toBe(200);
@@ -108,5 +118,55 @@ describe("repairdesk router realtime integration", () => {
       mutation: "settings_updated",
       queryGroups: ["settings.store", "orders.options"],
     });
+  });
+
+  it("returns stable validation details and never mutates or broadcasts malformed settings", async () => {
+    const response = await handleRepairDeskPost("settings/store/update", {
+      section: "store",
+      expectedStoreId: storeId,
+      expectedUpdatedAt: "2026-07-12T10:00:00.000Z",
+      input: {
+        store_name: "",
+        store_address: "",
+        store_phone: "",
+        store_whatsapp: "",
+        store_email: "invalid",
+      },
+    });
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "SETTINGS_VALIDATION_FAILED",
+      fieldErrors: {
+        "input.store_name": ["店铺名不能为空"],
+        "input.store_email": ["邮箱格式无效"],
+      },
+    });
+    expect(mocks.updateStoreSettings).not.toHaveBeenCalled();
+    expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
+  });
+
+  it("checks permission before validation and never broadcasts conflicts", async () => {
+    mocks.getRequestActor.mockResolvedValueOnce({
+      id: "viewer_1",
+      role: "viewer",
+      storeId,
+      storeRole: "viewer",
+    });
+    const forbidden = await handleRepairDeskPost("settings/store/update", { malformed: true });
+    expect(forbidden.status).toBe(403);
+    await expect(forbidden.json()).resolves.toMatchObject({ code: "FORBIDDEN" });
+    expect(mocks.updateStoreSettings).not.toHaveBeenCalled();
+
+    mocks.updateStoreSettings.mockRejectedValueOnce(SettingsMutationError.versionConflict());
+    const conflict = await handleRepairDeskPost("settings/store/update", {
+      section: "notifications",
+      expectedStoreId: storeId,
+      expectedUpdatedAt: "2026-07-12T10:00:00.000Z",
+      input: { print_footer: "Footer", message_signature: "Firma" },
+    });
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({ code: "SETTINGS_VERSION_CONFLICT" });
+    expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
   });
 });

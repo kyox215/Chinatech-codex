@@ -1,0 +1,93 @@
+import { z } from "zod";
+
+import type { StoreSettingsSectionUpdateRequest } from "@/lib/repairdesk/types";
+
+const expectedStoreIdSchema = z.string().uuid("店铺上下文无效");
+const expectedUpdatedAtSchema = z.string().datetime({ offset: true, message: "设置版本时间无效" });
+
+const optionalContactSchema = z
+  .string()
+  .trim()
+  .max(40, "联系方式不能超过 40 个字符")
+  .refine(
+    (value) => value === "" || (/^[0-9+().\s-]+$/.test(value) && value.length >= 3),
+    "联系方式格式无效",
+  );
+
+const optionalEmailSchema = z
+  .string()
+  .trim()
+  .max(254, "邮箱不能超过 254 个字符")
+  .refine((value) => value === "" || z.string().email().safeParse(value).success, "邮箱格式无效");
+
+const storeInputSchema = z
+  .object({
+    store_name: z.string().trim().min(1, "店铺名不能为空").max(120, "店铺名不能超过 120 个字符"),
+    store_address: z.string().trim().max(500, "地址不能超过 500 个字符"),
+    store_phone: optionalContactSchema,
+    store_whatsapp: optionalContactSchema,
+    store_email: optionalEmailSchema,
+  })
+  .strict();
+
+const notificationsInputSchema = z
+  .object({
+    print_footer: z.string().trim().max(500, "打印页脚不能超过 500 个字符"),
+    message_signature: z.string().trim().max(300, "消息签名不能超过 300 个字符"),
+  })
+  .strict();
+
+const rulesInputSchema = z
+  .object({
+    default_order_warranty_months: z.union([
+      z.literal(0),
+      z.literal(3),
+      z.literal(6),
+      z.literal(12),
+      z.literal(24),
+    ]),
+    default_inventory_warranty_months: z
+      .number()
+      .int("库存保修月数必须是整数")
+      .min(0, "库存保修月数不能小于 0")
+      .max(120, "库存保修月数不能超过 120"),
+  })
+  .strict();
+
+export const storeSettingsSectionUpdateSchema = z.discriminatedUnion("section", [
+  z
+    .object({
+      section: z.literal("store"),
+      expectedStoreId: expectedStoreIdSchema,
+      expectedUpdatedAt: expectedUpdatedAtSchema,
+      input: storeInputSchema,
+    })
+    .strict(),
+  z
+    .object({
+      section: z.literal("notifications"),
+      expectedStoreId: expectedStoreIdSchema,
+      expectedUpdatedAt: expectedUpdatedAtSchema,
+      input: notificationsInputSchema,
+    })
+    .strict(),
+  z
+    .object({
+      section: z.literal("rules"),
+      expectedStoreId: expectedStoreIdSchema,
+      expectedUpdatedAt: expectedUpdatedAtSchema,
+      input: rulesInputSchema,
+    })
+    .strict(),
+]) satisfies z.ZodType<StoreSettingsSectionUpdateRequest>;
+
+export type StoreSettingsValidationFieldErrors = Record<string, string[]>;
+
+export function getStoreSettingsValidationFieldErrors(error: z.ZodError) {
+  const fieldErrors: StoreSettingsValidationFieldErrors = {};
+  for (const issue of error.issues) {
+    const path = issue.path.join(".") || "request";
+    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message];
+  }
+  return fieldErrors;
+}

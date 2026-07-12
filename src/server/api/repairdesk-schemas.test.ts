@@ -31,6 +31,7 @@ import {
   storeInviteLinkRedeemBodySchema,
   storeMemberDecisionBodySchema,
   storeMemberRoleUpdateBodySchema,
+  storeSettingsUpdateBodySchema,
   supplierCreateBodySchema,
   transitionOrderBodySchema,
   updateOrderCustodyBodySchema,
@@ -360,6 +361,28 @@ describe("repairdesk API schemas", () => {
       { code: "rd_valid_invite_code" },
     );
     expect(() => storeInviteLinkRedeemBodySchema.parse({ code: "short" })).toThrow();
+  });
+
+  it("uses a strict non-coercing section contract for store settings", () => {
+    const request = {
+      section: "rules",
+      expectedStoreId: "5248dda1-2b32-46cd-8ed0-d15386a9e8ed",
+      expectedUpdatedAt: "2026-07-12T10:00:00.000Z",
+      input: { default_order_warranty_months: 6, default_inventory_warranty_months: 12 },
+    };
+    expect(storeSettingsUpdateBodySchema.parse(request)).toEqual(request);
+    expect(() =>
+      storeSettingsUpdateBodySchema.parse({
+        ...request,
+        input: { ...request.input, default_order_warranty_text: "Injected" },
+      }),
+    ).toThrow();
+    expect(() =>
+      storeSettingsUpdateBodySchema.parse({
+        ...request,
+        input: { ...request.input, default_inventory_warranty_months: "12" },
+      }),
+    ).toThrow();
   });
 
   it("validates store member lifecycle payloads without accepting owner role", () => {
