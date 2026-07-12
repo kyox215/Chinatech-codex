@@ -45,7 +45,9 @@ describe("tenant guardrails", () => {
 
     expect(sharedSource).toContain("fetchOrderRows(storeId: string)");
     expect(sharedSource).not.toContain("fetchOrderRows(storeId = DEFAULT_STORE_ID)");
-    expect(messageRepositorySource).toContain("getStoreSettings(storeId: string)");
+    expect(messageRepositorySource).toMatch(
+      /getStoreSettings\(\s*storeId: string,\s*fallbackStoreName\?: string/,
+    );
     expect(messageRepositorySource).toContain("listMessageTemplates(storeId: string)");
     expect(messageRepositorySource).toContain("requireRepositoryStoreId");
     expect(messageRepositorySource).not.toContain("isMissingStoreIdError");

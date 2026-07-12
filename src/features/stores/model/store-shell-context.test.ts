@@ -177,6 +177,38 @@ describe("resolveStoreShellContext", () => {
     expect(granted.authorityFingerprint).not.toBe(revoked.authorityFingerprint);
   });
 
+  it("changes the authority fingerprint when a settings capability changes", () => {
+    const activeStore = makeStore({ membershipId: "membership_1", role: "manager" });
+    const editable = resolveStoreShellContext({
+      onboardingStatus: makeOnboardingStatus({ activeStore }),
+      storeContext: {
+        activeStore,
+        stores: [activeStore],
+        permissions: {
+          canReadSuppliers: true,
+          canAssignSuppliers: true,
+          canManageSuppliers: true,
+          canUpdateMessageTemplates: true,
+        },
+      },
+    });
+    const readonly = resolveStoreShellContext({
+      onboardingStatus: makeOnboardingStatus({ activeStore }),
+      storeContext: {
+        activeStore,
+        stores: [activeStore],
+        permissions: {
+          canReadSuppliers: true,
+          canAssignSuppliers: true,
+          canManageSuppliers: true,
+          canUpdateMessageTemplates: false,
+        },
+      },
+    });
+
+    expect(editable.authorityFingerprint).not.toBe(readonly.authorityFingerprint);
+  });
+
   it("distinguishes users who need onboarding from hard loading failures", () => {
     expect(
       resolveStoreShellContext({

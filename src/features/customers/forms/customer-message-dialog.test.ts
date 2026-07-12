@@ -1,0 +1,19 @@
+import { describe, expect, it } from "vitest";
+
+import { buildCustomerMessage } from "@/features/customers/forms/customer-message-dialog";
+import { getCustomerDetail } from "@/features/customers/testing/mock-api";
+import { customers } from "@/lib/mock/state";
+
+describe("customer message identity", () => {
+  it("uses the selected tenant signature and never injects a global store fallback", async () => {
+    const detail = await getCustomerDetail(customers[0].id);
+    const message = buildCustomerMessage(detail, "https://example.test", {
+      storeName: "Etna Phone Lab",
+      messageSignature: "Etna Phone Lab · Assistenza",
+    });
+
+    expect(message).toContain("Etna Phone Lab");
+    expect(message).toContain("Etna Phone Lab · Assistenza");
+    expect(message).not.toMatch(/ChinaTech|Chinatech|Floridia|Viale Vittorio Veneto/i);
+  });
+});

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -19,6 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
+import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import {
   CustomerFollowupsPanel,
   CustomerMessagesPanel,
@@ -94,6 +97,28 @@ export function CustomerDetailScreen({
   const [orderUrl, setOrderUrl] = useState("");
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const storeSettingsQuery = useQuery({
+    ...storeSettingsQueryOptions(activeStoreId),
+    enabled: Boolean(activeStoreId),
+  });
+  const storeOutputIdentity = useMemo(
+    () =>
+      resolveStoreOutputIdentity({
+        activeStore: shell.activeStore,
+        settings: storeSettingsQuery.data,
+        settingsState: storeSettingsQuery.isLoading
+          ? "loading"
+          : storeSettingsQuery.isError
+            ? "error"
+            : "ready",
+      }),
+    [
+      shell.activeStore,
+      storeSettingsQuery.data,
+      storeSettingsQuery.isError,
+      storeSettingsQuery.isLoading,
+    ],
+  );
 
   const { data, error, isError, isFetching, isLoading, refetch } = useQuery({
     queryKey: customersKeys.detail(id, activeStoreId),
@@ -105,6 +130,10 @@ export function CustomerDetailScreen({
   useEffect(() => {
     setOrderUrl(window.location.origin);
   }, []);
+
+  useEffect(() => {
+    setMessageOpen(false);
+  }, [activeStoreId]);
 
   useEffect(() => {
     const header = mobileHeaderRef.current;
@@ -429,6 +458,7 @@ export function CustomerDetailScreen({
         onOpenChange={setMessageOpen}
         data={data}
         appOrigin={orderUrl}
+        storeIdentity={storeOutputIdentity}
         busy={message.isPending}
         onConfirm={(input) => message.mutateAsync(input)}
       />

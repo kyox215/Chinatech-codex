@@ -22,6 +22,7 @@ test.describe("settings section interactions", () => {
     test.use({ viewport: { width: 1280, height: 800 } });
 
     test("section groups update the selected settings panel", async ({ page }) => {
+      await verifyDefaultSettingsSection(page);
       await verifySettingsSections(page, "click");
     });
   });
@@ -30,6 +31,7 @@ test.describe("settings section interactions", () => {
     test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
     test("section groups respond to taps without header hit-target overlap", async ({ page }) => {
+      await verifyDefaultSettingsSection(page);
       await verifySettingsSections(page, "touch");
     });
   });
@@ -77,6 +79,20 @@ async function verifySettingsSections(page: Page, mode: "click" | "touch") {
   }
 }
 
+async function verifyDefaultSettingsSection(page: Page) {
+  await gotoReady(page, "/settings");
+  const nav = page.getByRole("navigation", { name: "设置分组" });
+  const accountButton = sectionButton(nav, /账号/);
+  await expect(accountButton).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
+
+  await gotoReady(page, "/settings?section=unknown");
+  await expect(
+    sectionButton(page.getByRole("navigation", { name: "设置分组" }), /账号/),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
+}
+
 function sectionButton(nav: Locator, name: RegExp) {
   return nav.getByRole("button", { name }).first();
 }
@@ -116,6 +132,10 @@ async function expectButtonCenterHitsSelf(locator: Locator) {
   expect(result.hitsSelf, `button center should hit itself, got ${JSON.stringify(result)}`).toBe(
     true,
   );
+  expect(
+    result.bottom - result.top,
+    "settings target height should be at least 44px",
+  ).toBeGreaterThanOrEqual(44);
 }
 
 async function expectFirstVisible(locator: Locator, label: string) {

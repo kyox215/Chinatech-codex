@@ -38,12 +38,23 @@ describe("store settings readiness", () => {
     expect(readiness.items.find((item) => item.key === "contact")?.completed).toBe(true);
   });
 
+  it("accepts email as the only configured customer contact", () => {
+    const readiness = getStoreSettingsReadiness({
+      ...completeSettings,
+      store_whatsapp: "",
+      store_phone: "",
+    });
+
+    expect(readiness.items.find((item) => item.key === "contact")?.completed).toBe(true);
+  });
+
   it("reports missing fields that affect customer messages and print output", () => {
     const readiness = getStoreSettingsReadiness({
       ...completeSettings,
       store_address: "",
       store_phone: "",
       store_whatsapp: "",
+      store_email: "",
       message_signature: "",
     });
 

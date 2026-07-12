@@ -11,6 +11,7 @@ describe("buildStorePrintProfile", () => {
       store_whatsapp: "+39 333 1111111",
       store_email: "info@ripara.test",
       print_footer: "Grazie per la fiducia.",
+      message_signature: "Ripara Subito · Assistenza",
     });
 
     expect(profile).toMatchObject({
@@ -23,7 +24,7 @@ describe("buildStorePrintProfile", () => {
     });
   });
 
-  it("falls back safely when settings are missing or blank", () => {
+  it("blocks output instead of borrowing another tenant identity", () => {
     const profile = buildStorePrintProfile({
       store_name: "   ",
       store_address: "",
@@ -33,17 +34,23 @@ describe("buildStorePrintProfile", () => {
       print_footer: "",
     });
 
-    expect(profile.storeName).toBe("ChinaTech");
-    expect(profile.storeSummaryLine).toBe("Viale Vittorio Veneto, 7, Floridia (SR)");
-    expect(profile.printFooter).toBe("Grazie per aver scelto ChinaTech.");
+    expect(profile.canOutput).toBe(false);
+    expect(profile.storeName).toBe("");
+    expect(profile.storeSummaryLine).toBe("");
+    expect(profile.printFooter).toBe("");
+    expect(JSON.stringify(profile)).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
   });
 
-  it("uses the custom store name in the generated fallback footer", () => {
+  it("blocks printing when the explicit print footer is missing", () => {
     const profile = buildStorePrintProfile({
       store_name: "Centro Tech Floridia",
+      store_address: "Via Roma 12, Siracusa",
+      store_phone: "+39 0931 000000",
+      message_signature: "Centro Tech Floridia",
       print_footer: "",
     });
 
-    expect(profile.printFooter).toBe("Grazie per aver scelto Centro Tech Floridia.");
+    expect(profile.canOutput).toBe(false);
+    expect(profile.blockReason).toContain("打印页脚");
   });
 });

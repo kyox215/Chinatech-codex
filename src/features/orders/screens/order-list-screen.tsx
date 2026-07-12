@@ -108,6 +108,7 @@ import {
 } from "@/features/preload/model/order-detail-preload";
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
+import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import {
   invalidateOrderReadCaches,
   isOrderVersionConflict,
@@ -321,10 +322,24 @@ export function OrderListScreen() {
     ...orderOptionsQueryOptions(activeStoreId),
     enabled: canLoadOrderData,
   });
-  const { data: storeSettings } = useQuery({
+  const storeSettingsQuery = useQuery({
     ...storeSettingsQueryOptions(activeStoreId),
     enabled: canLoadOrderData,
   });
+  const storeSettings = storeSettingsQuery.data;
+  const storeOutputIdentity = useMemo(
+    () =>
+      resolveStoreOutputIdentity({
+        activeStore: shell.activeStore,
+        settings: storeSettings,
+        settingsState: storeSettingsQuery.isLoading
+          ? "loading"
+          : storeSettingsQuery.isError
+            ? "error"
+            : "ready",
+      }),
+    [shell.activeStore, storeSettings, storeSettingsQuery.isError, storeSettingsQuery.isLoading],
+  );
 
   const options = orderOptions ?? emptyOrderOptions;
   const canReadSuppliers = options.permissions.canReadSuppliers;
@@ -914,6 +929,10 @@ export function OrderListScreen() {
   const printRows = (rows: OrderListItem[]) => {
     if (!rows.length) {
       toast.error("没有可打印的工单");
+      return;
+    }
+    if (!storeOutputIdentity.canOutput) {
+      toast.error(storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印");
       return;
     }
     setPrintOrders(rows);
@@ -1532,7 +1551,11 @@ export function OrderListScreen() {
           </motion.div>
         )}
       </AnimatePresence>
-      <OrderListPrintSheet orders={printOrders} storeSettings={storeSettings} />
+      <OrderListPrintSheet
+        orders={printOrders}
+        storeSettings={storeSettings}
+        activeStore={shell.activeStore}
+      />
       <Dialog open={newOrderOpen} onOpenChange={setNewOrderOpen}>
         <DialogContent showCloseButton={false} className={componentOverlay.formWorkspace}>
           <DialogHeader className="sr-only">

@@ -191,6 +191,7 @@ import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   getWorkflowNextActions,
@@ -306,11 +307,26 @@ export function OrderDetailScreen({
     enabled: Boolean(activeStoreId),
     retry: false,
   });
-  const { data: storeSettings } = useQuery({
+  const storeSettingsQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId),
   });
+  const storeSettings = storeSettingsQuery.data;
+  const storeOutputIdentity = useMemo(
+    () =>
+      resolveStoreOutputIdentity({
+        activeStore: shell.activeStore,
+        settings: storeSettings,
+        settingsState: storeSettingsQuery.isLoading
+          ? "loading"
+          : storeSettingsQuery.isError
+            ? "error"
+            : "ready",
+      }),
+    [shell.activeStore, storeSettings, storeSettingsQuery.isError, storeSettingsQuery.isLoading],
+  );
   const { data: workflow } = useQuery({
     queryKey: ordersKeys.workflow(activeStoreId),
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
@@ -354,6 +370,10 @@ export function OrderDetailScreen({
   useEffect(() => {
     setOrderUrl(window.location.href);
   }, [id]);
+
+  useEffect(() => {
+    setNotifyOpen(false);
+  }, [activeStoreId]);
 
   const transition = useMutation({
     mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) => {
@@ -1031,7 +1051,8 @@ export function OrderDetailScreen({
           whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
           onPay={() => setPayOpen(true)}
           paymentDisabled={!canCollectPayment}
-          onPrint={() => window.print()}
+          onPrint={() => storeOutputIdentity.canOutput && window.print()}
+          printDisabled={!storeOutputIdentity.canOutput}
           onCancel={() => setCancelOpen(true)}
           canCancel={canCancelOrder}
           onRequestKioskSignature={isVoided ? undefined : () => kioskSignatureRequest.mutate()}
@@ -1068,7 +1089,8 @@ export function OrderDetailScreen({
         <div className="relative z-20">
           <OrderHero
             order={order}
-            onPrint={() => window.print()}
+            onPrint={() => storeOutputIdentity.canOutput && window.print()}
+            printDisabled={!storeOutputIdentity.canOutput}
             onCancel={() => setCancelOpen(true)}
             canCancel={canCancelOrder}
             onEdit={
@@ -1080,7 +1102,7 @@ export function OrderDetailScreen({
             }
             onSaveEdit={() => void saveEditing()}
             onCancelEdit={cancelEditing}
-            storeName={storeSettings?.store_name || "ChinaTech"}
+            storeName={storeOutputIdentity.storeName}
             isEditing={isEditing}
             editPending={orderUpdate.isPending}
             editSaveDisabled={!editCanSave}
@@ -1239,6 +1261,7 @@ export function OrderDetailScreen({
           data={data}
           workflow={workflow}
           orderUrl={orderUrl}
+          storeIdentity={storeOutputIdentity}
           busy={whatsappNotification.isPending || approval.isPending}
           onConfirm={async (input) => {
             if (
@@ -1324,7 +1347,12 @@ export function OrderDetailScreen({
           }}
         />
       ) : null}
-      <RepairOrderPrintSheet data={data} orderUrl={orderUrl} storeSettings={storeSettings} />
+      <RepairOrderPrintSheet
+        data={data}
+        orderUrl={orderUrl}
+        storeSettings={storeSettings}
+        activeStore={shell.activeStore}
+      />
     </div>
   );
 }
@@ -2363,6 +2391,7 @@ function MobileOrderDetailView({
   onPay,
   paymentDisabled,
   onPrint,
+  printDisabled,
   onCancel,
   canCancel,
   onRequestKioskSignature,
@@ -2412,6 +2441,7 @@ function MobileOrderDetailView({
   onPay: () => void;
   paymentDisabled: boolean;
   onPrint: () => void;
+  printDisabled: boolean;
   onCancel: () => void;
   canCancel: boolean;
   onRequestKioskSignature?: () => void;
@@ -2522,6 +2552,7 @@ function MobileOrderDetailView({
         nextLabel={next.primary?.label}
         onHeightChange={handleFloatingHeaderHeight}
         onPrint={onPrint}
+        printDisabled={printDisabled}
         onCancel={onCancel}
         canCancel={canCancel}
       />
@@ -2560,7 +2591,7 @@ function MobileOrderDetailView({
             value={formatDateTime(currentStatusChangedAt)}
           />
           <MobileMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} />
-          <MobileMeta icon={Store} label="门店" value={storeSettings?.store_name || "ChinaTech"} />
+          <MobileMeta icon={Store} label="门店" value={storeSettings?.store_name || "未配置"} />
         </div>
       </section>
 
@@ -4164,6 +4195,7 @@ function MobileStickyWorkflowHeader({
   nextLabel,
   onHeightChange,
   onPrint,
+  printDisabled,
   onCancel,
   canCancel,
 }: {
@@ -4174,6 +4206,7 @@ function MobileStickyWorkflowHeader({
   nextLabel?: string;
   onHeightChange?: (height: number) => void;
   onPrint: () => void;
+  printDisabled: boolean;
   onCancel: () => void;
   canCancel: boolean;
 }) {
@@ -4228,6 +4261,7 @@ function MobileStickyWorkflowHeader({
               size="icon"
               className="size-8 rounded-lg"
               aria-label="打印工单"
+              disabled={printDisabled}
               onClick={onPrint}
             >
               <Printer className="size-[18px]" />

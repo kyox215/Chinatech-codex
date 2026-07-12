@@ -41,8 +41,11 @@ export function getStoreSettingsReadiness(
     {
       key: "contact",
       label: "客户联系方式",
-      completed: hasText(settings.store_whatsapp) || hasText(settings.store_phone),
-      hint: "WhatsApp 或电话至少填写一个，方便客户回拨。",
+      completed:
+        hasText(settings.store_whatsapp) ||
+        hasText(settings.store_phone) ||
+        hasText(settings.store_email),
+      hint: "WhatsApp、电话或邮箱至少填写一个，方便客户联系。",
     },
     {
       key: "store_address",

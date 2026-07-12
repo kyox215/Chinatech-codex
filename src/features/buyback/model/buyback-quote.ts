@@ -7,6 +7,7 @@ import type {
   InventoryQualityCheckInput,
   UpdateInventoryItemInput,
 } from "@/lib/repairdesk/types";
+import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 
 import { estimateAppleMarketPricing, type AppleMarketPricingSuggestion } from "./apple-price-guide";
 import {
@@ -1052,7 +1053,11 @@ export function buildBuybackQuoteDraftFromInventoryItem(
   };
 }
 
-export function buildWhatsappQuoteMessage(draft: BuybackQuoteDraft, result: BuybackQuoteResult) {
+export function buildWhatsappQuoteMessage(
+  draft: BuybackQuoteDraft,
+  result: BuybackQuoteResult,
+  storeIdentity: Pick<StoreOutputIdentity, "messageSignature">,
+) {
   const customer = draft.customer_name.trim() || "Cliente";
   const device = [draft.brand, draft.model, draft.storage_capacity].filter(Boolean).join(" ");
   const summary = result.deductions.length
@@ -1071,8 +1076,10 @@ export function buildWhatsappQuoteMessage(draft: BuybackQuoteDraft, result: Buyb
     `Validità offerta: ${result.validDays} giorni`,
     "",
     "Puoi rispondere a questo messaggio per confermare o passare in negozio.",
-    "ChinaTech",
-  ].join("\n");
+    storeIdentity.messageSignature || null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 export function normalizeWhatsappPhone(phone: string) {

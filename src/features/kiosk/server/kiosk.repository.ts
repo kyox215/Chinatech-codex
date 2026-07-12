@@ -7,6 +7,7 @@ import {
   normalizeKioskSubmission,
 } from "@/features/kiosk/model/kiosk-session";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { isLegacyTenantIdentityContamination } from "@/entities/store/model/store-output-identity";
 import {
   ORDER_SELECT,
   decorate,
@@ -937,12 +938,32 @@ async function readOrderSummary(supabase: SupabaseAdmin, storeId: string, orderI
 }
 
 async function readStoreName(supabase: SupabaseAdmin, storeId: string) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("store_settings")
     .select("store_name")
     .eq("store_id", storeId)
     .maybeSingle();
-  return maybeString((data as DbRecord | null)?.store_name) || "ChinaTech";
+  fail(error, "读取 iPad 店铺资料失败");
+  const configuredName = maybeString((data as DbRecord | null)?.store_name);
+  if (
+    configuredName &&
+    !isLegacyTenantIdentityContamination({ storeId, storeName: configuredName })
+  ) {
+    return configuredName;
+  }
+
+  const { data: store, error: storeError } = await supabase
+    .from("stores")
+    .select("name")
+    .eq("id", storeId)
+    .maybeSingle();
+  fail(storeError, "读取 iPad 店铺名称失败");
+  const storeName = maybeString((store as DbRecord | null)?.name);
+  if (!storeName) throw new Error("当前店铺名称未配置");
+  if (isLegacyTenantIdentityContamination({ storeId, storeName })) {
+    throw new Error("当前店铺身份资料需要重新确认");
+  }
+  return storeName;
 }
 
 async function writeKioskOrderEvent(

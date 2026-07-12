@@ -1062,7 +1062,7 @@ export interface StoreInviteLinkCreateInput {
 }
 
 export interface StoreInviteLinkCreateResult {
-  link: StoreInviteLink;
+  link: StoreInviteLink & { store_id: string };
   code: string;
 }
 
@@ -1103,6 +1103,20 @@ export interface StoreContext {
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
     canExportOrders?: boolean;
+    canReadStoreSettings?: boolean;
+    canUpdateStoreSettings?: boolean;
+    canConfigureWorkflow?: boolean;
+    canReadMessageTemplates?: boolean;
+    canUpdateMessageTemplates?: boolean;
+    canListMembers?: boolean;
+    canInviteMembers?: boolean;
+    canManageMembers?: boolean;
+    canRevokeMembers?: boolean;
+    canGrantManager?: boolean;
+    canReviewAccessRequests?: boolean;
+    canManageKioskDevices?: boolean;
+    canReviewKioskSessions?: boolean;
+    canViewAudit?: boolean;
   };
 }
 

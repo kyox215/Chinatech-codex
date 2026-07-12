@@ -16,10 +16,16 @@ describe("order WhatsApp message templates", () => {
     const detail = await getOrder(order.id);
 
     for (const option of orderWhatsappTemplateOptions) {
-      const message = buildOrderWhatsappMessage(detail, option.kind, "https://example.com/order");
+      const message = buildOrderWhatsappMessage(detail, option.kind, "https://example.com/order", {
+        storeIdentity: {
+          storeName: "Ripara Subito",
+          messageSignature: "Ripara Subito · Assistenza",
+        },
+      });
 
       expect(message).toContain(detail.order.public_no);
-      expect(message).toContain("ChinaTech");
+      expect(message).toContain("Ripara Subito");
+      expect(message).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
       expect(message).not.toContain("您好");
     }
   });
@@ -41,6 +47,10 @@ describe("order WhatsApp message templates", () => {
       "https://example.com/order",
       {
         recipientPhone: "+39 333 111 2222",
+        storeIdentity: {
+          storeName: "Etna Phone Lab",
+          messageSignature: "Etna Phone Lab",
+        },
       },
     );
     const updated = replaceOrderWhatsappRecipientPhone(message, "+39 333 999 0000");
@@ -48,6 +58,15 @@ describe("order WhatsApp message templates", () => {
     expect(message).toContain("Telefono cliente: +39 333 111 2222");
     expect(updated).toContain("Telefono cliente: +39 333 999 0000");
     expect(updated).not.toContain("Telefono cliente: +39 333 111 2222");
+  });
+
+  it("uses a tenant-neutral closing when identity is unavailable", async () => {
+    const [order] = await listOrders();
+    const detail = await getOrder(order.id);
+    const message = buildOrderWhatsappMessage(detail, "completed", "");
+
+    expect(message).toContain("Grazie per la fiducia.");
+    expect(message).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
   });
 
   it("uses status-safe notification transitions", () => {

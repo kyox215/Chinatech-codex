@@ -636,7 +636,10 @@ export async function createStoreInviteLink(
     metadata: { role, max_uses: maxUses, expires_in_days: expiresInDays },
   });
 
-  return { link: inviteLinkFromRow(data as DbRecord), code };
+  return {
+    link: { ...inviteLinkFromRow(data as DbRecord), store_id: storeId },
+    code,
+  };
 }
 
 export async function revokeStoreInviteLink(
@@ -1310,8 +1313,15 @@ function groupPermissionGrantsByMembership(rows: DbRecord[]) {
   return grants;
 }
 
-async function storePermissionsFromActor(actor: AuditActor) {
-  const canManageOrderData = isOrderDataExportEnabled() && (await isPrimaryStoreOwner(actor));
+async function storePermissionsFromActor(
+  actor: AuditActor,
+  options: { primaryOwnerOverride?: boolean } = {},
+) {
+  const canManageOrderData =
+    isOrderDataExportEnabled() &&
+    (options.primaryOwnerOverride === true || (await isPrimaryStoreOwner(actor)));
+  const canUpdateStoreSettings = can(actor, "settings:update_store");
+  const canManageMembers = can(actor, "member:manage_basic");
   return {
     canReadSuppliers: can(actor, "supplier:read"),
     canAssignSuppliers: can(actor, "supplier:assign"),
@@ -1325,6 +1335,20 @@ async function storePermissionsFromActor(actor: AuditActor) {
     canReadAggregateFinance: can(actor, "finance:aggregate_read"),
     canReadProfit: can(actor, "finance:profit_read"),
     canExportOrders: can(actor, "order:export"),
+    canReadStoreSettings: Boolean(actor.storeId && !actor.isSystem),
+    canUpdateStoreSettings,
+    canConfigureWorkflow: can(actor, "settings:update_workflow"),
+    canReadMessageTemplates: Boolean(actor.storeId && !actor.isSystem),
+    canUpdateMessageTemplates: can(actor, "settings:update_message_template"),
+    canListMembers: canManageMembers,
+    canInviteMembers: canManageMembers && can(actor, "member:invite"),
+    canManageMembers,
+    canRevokeMembers: canManageMembers && can(actor, "member:revoke"),
+    canGrantManager: can(actor, "member:grant_manager"),
+    canReviewAccessRequests: actor.storeRole === "owner" && can(actor, "member:grant_manager"),
+    canManageKioskDevices: canUpdateStoreSettings,
+    canReviewKioskSessions: canUpdateStoreSettings && can(actor, "order:update_intake"),
+    canViewAudit: can(actor, "support:view_audit"),
   };
 }
 
@@ -1401,15 +1425,7 @@ async function nextContext(
   return {
     activeStore,
     stores: [activeStore, ...stores],
-    permissions: primaryOwnerOverride
-      ? {
-          canReadSuppliers: can(nextActor, "supplier:read"),
-          canAssignSuppliers: can(nextActor, "supplier:assign"),
-          canManageSuppliers: can(nextActor, "supplier:manage"),
-          canManageOrderData: isOrderDataExportEnabled(),
-          canApplyOrderData: isOrderDataExportEnabled() && isOrderDataApplyEnabled(),
-        }
-      : await storePermissionsFromActor(nextActor),
+    permissions: await storePermissionsFromActor(nextActor, { primaryOwnerOverride }),
   };
 }
 

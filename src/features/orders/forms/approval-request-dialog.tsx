@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { OrderDetail } from "@/lib/repairdesk/api";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
+import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import {
   buildOrderWhatsappMessage,
   buildWhatsAppUrl,
@@ -35,6 +36,7 @@ export function ApprovalRequestDialog({
   onOpenChange,
   data,
   orderUrl,
+  storeIdentity,
   busy,
   onConfirm,
 }: {
@@ -42,6 +44,7 @@ export function ApprovalRequestDialog({
   onOpenChange: (value: boolean) => void;
   data: OrderDetail;
   orderUrl: string;
+  storeIdentity: StoreOutputIdentity;
   busy: boolean;
   onConfirm: (input: { body: string; recipientPhone?: string }) => Promise<unknown>;
 }) {
@@ -50,6 +53,7 @@ export function ApprovalRequestDialog({
   const [body, setBody] = useState(() =>
     buildOrderWhatsappMessage(data, "approval_request", orderUrl, {
       recipientPhone: defaultPhone,
+      storeIdentity,
     }),
   );
   const [phone, setPhone] = useState(defaultPhone);
@@ -61,10 +65,11 @@ export function ApprovalRequestDialog({
     setBody(
       buildOrderWhatsappMessage(data, "approval_request", orderUrl, {
         recipientPhone: nextPhone,
+        storeIdentity,
       }),
     );
     setPhone(nextPhone);
-  }, [data, open, orderUrl]);
+  }, [data, open, orderUrl, storeIdentity]);
 
   const updatePhone = (nextPhone: string) => {
     setPhone(nextPhone);
@@ -83,6 +88,14 @@ export function ApprovalRequestDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
+          {!storeIdentity.canOutput ? (
+            <div
+              role="alert"
+              className="mb-2 rounded-md border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
+            >
+              {storeIdentity.blockReason ?? "请先补齐当前店铺资料后再发送客户消息。"}
+            </div>
+          ) : null}
           <div className="grid min-w-0 gap-1.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 text-xs text-muted-foreground sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
             <span className="font-medium text-foreground">WhatsApp</span>
             {phoneOptions.length > 1 ? (
@@ -119,7 +132,7 @@ export function ApprovalRequestDialog({
             取消
           </Button>
           <Button
-            disabled={busy || !body.trim() || !canOpenWhatsApp}
+            disabled={busy || !storeIdentity.canOutput || !body.trim() || !canOpenWhatsApp}
             onClick={async () => {
               const url = buildWhatsAppUrl(phone, body.trim());
               if (!url) {

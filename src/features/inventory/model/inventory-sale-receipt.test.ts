@@ -41,7 +41,10 @@ describe("inventory sale receipt", () => {
     });
 
     const receipt = buildInventorySaleReceiptData(item, {
-      storeName: "ChinaTech",
+      storeIdentity: {
+        storeName: "Ripara Subito",
+        storeAddress: "Via Roma 12, Siracusa",
+      },
       buyerName: "Luca Rossi",
       buyerPhone: "+393330001111",
     });
@@ -50,6 +53,9 @@ describe("inventory sale receipt", () => {
     expect(receipt.item_label).toBe("Apple iPhone 13");
     expect(receipt.buyer_name).toBe("Luca Rossi");
     expect(receipt.terms.length).toBeGreaterThan(0);
+    expect(receipt.store_name).toBe("Ripara Subito");
+    expect(receipt.store_address).toBe("Via Roma 12, Siracusa");
+    expect(JSON.stringify(receipt)).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
     expect(getInventoryWarrantyState(item, new Date("2026-08-01T00:00:00.000Z"))).toMatchObject({
       key: "active",
     });

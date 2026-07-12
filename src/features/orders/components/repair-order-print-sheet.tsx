@@ -23,15 +23,17 @@ export function RepairOrderPrintSheet({
   data,
   orderUrl,
   storeSettings,
+  activeStore,
 }: {
   data: OrderDetail;
   orderUrl: string;
   storeSettings?: Partial<StoreSettings> | null;
+  activeStore?: { id?: string; name?: string } | null;
 }) {
   const { order, customer, device } = data;
   const cancelled = isOrderCancelledForPayment(order);
   const financeRedacted = Boolean(order.finance_redacted);
-  const storeProfile = buildStorePrintProfile(storeSettings);
+  const storeProfile = buildStorePrintProfile(storeSettings, activeStore);
   const snapshot = order.device_snapshot;
   const deviceBrand = snapshot?.brand || device?.brand || order.device_label.split(" ")[0] || "-";
   const deviceModel =
@@ -48,6 +50,8 @@ export function RepairOrderPrintSheet({
     ? order.fault_prices
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
   const taskUrl = getOrderTaskUrl(order.id, getPrintOrigin(orderUrl));
+
+  if (!storeProfile.canOutput) return null;
 
   return (
     <PrintPortal paperMode="a4-portrait-half">

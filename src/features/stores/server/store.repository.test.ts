@@ -8,6 +8,7 @@ import {
   createStore,
   createStoreInviteLink,
   disableStoreMember,
+  getStoreContext,
   inviteStoreMember,
   listStoreMembers,
   listStoreAccessRequests,
@@ -26,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   },
   writeAuditLog: vi.fn(),
   setCookie: vi.fn(),
+  isPrimaryStoreOwner: vi.fn(),
 }));
 
 vi.mock("@/server/supabase", () => ({
@@ -34,6 +36,10 @@ vi.mock("@/server/supabase", () => ({
 
 vi.mock("@/server/audit", () => ({
   writeAuditLog: mocks.writeAuditLog,
+}));
+
+vi.mock("@/features/stores/server/primary-store-owner", () => ({
+  isPrimaryStoreOwner: mocks.isPrimaryStoreOwner,
 }));
 
 vi.mock("next/headers", () => ({
@@ -72,6 +78,22 @@ const storeViewer: AuditActor = {
   storeRole: "viewer",
 };
 
+const storeTechnician: AuditActor = {
+  ...storeViewer,
+  id: "technician_1",
+  email: "technician@chinatech.in",
+  displayName: "Technician",
+  storeRole: "technician",
+};
+
+const storeSales: AuditActor = {
+  ...storeViewer,
+  id: "sales_1",
+  email: "sales@chinatech.in",
+  displayName: "Sales",
+  storeRole: "sales",
+};
+
 const invitedActor: AuditActor = {
   id: "staff_1",
   email: "staff@example.com",
@@ -85,6 +107,86 @@ describe("store repository access request boundaries", () => {
     mocks.supabase.rpc.mockReset();
     mocks.writeAuditLog.mockReset();
     mocks.setCookie.mockReset();
+    mocks.isPrimaryStoreOwner.mockReset();
+    mocks.isPrimaryStoreOwner.mockResolvedValue(false);
+  });
+
+  it("publishes server-computed settings capabilities without client role inference", async () => {
+    const [ownerContext, managerContext, technicianContext, salesContext, viewerContext] =
+      await Promise.all([
+        getStoreContext(storeOwner),
+        getStoreContext(storeManager),
+        getStoreContext(storeTechnician),
+        getStoreContext(storeSales),
+        getStoreContext(storeViewer),
+      ]);
+
+    expect(ownerContext.permissions).toMatchObject({
+      canReadStoreSettings: true,
+      canUpdateStoreSettings: true,
+      canConfigureWorkflow: true,
+      canUpdateMessageTemplates: true,
+      canReadMessageTemplates: true,
+      canListMembers: true,
+      canInviteMembers: true,
+      canManageMembers: true,
+      canRevokeMembers: true,
+      canGrantManager: true,
+      canReviewAccessRequests: true,
+      canManageKioskDevices: true,
+      canReviewKioskSessions: true,
+      canViewAudit: true,
+    });
+    expect(managerContext.permissions).toMatchObject({
+      canReadStoreSettings: true,
+      canUpdateStoreSettings: true,
+      canConfigureWorkflow: true,
+      canUpdateMessageTemplates: true,
+      canReadMessageTemplates: true,
+      canListMembers: true,
+      canInviteMembers: true,
+      canManageMembers: true,
+      canRevokeMembers: true,
+      canGrantManager: false,
+      canReviewAccessRequests: false,
+      canManageKioskDevices: true,
+      canReviewKioskSessions: true,
+      canViewAudit: true,
+    });
+    expect(viewerContext.permissions).toMatchObject({
+      canReadStoreSettings: true,
+      canUpdateStoreSettings: false,
+      canConfigureWorkflow: false,
+      canUpdateMessageTemplates: false,
+      canReadMessageTemplates: true,
+      canListMembers: false,
+      canInviteMembers: false,
+      canManageMembers: false,
+      canRevokeMembers: false,
+      canGrantManager: false,
+      canReviewAccessRequests: false,
+      canManageKioskDevices: false,
+      canReviewKioskSessions: false,
+      canViewAudit: false,
+    });
+    for (const context of [technicianContext, salesContext]) {
+      expect(context.permissions).toMatchObject({
+        canReadStoreSettings: true,
+        canUpdateStoreSettings: false,
+        canConfigureWorkflow: false,
+        canUpdateMessageTemplates: false,
+        canReadMessageTemplates: true,
+        canListMembers: false,
+        canInviteMembers: false,
+        canManageMembers: false,
+        canRevokeMembers: false,
+        canGrantManager: false,
+        canReviewAccessRequests: false,
+        canManageKioskDevices: false,
+        canReviewKioskSessions: false,
+        canViewAudit: false,
+      });
+    }
   });
 
   it("lists only pending store-scoped requests explicitly routed to the active store", async () => {
@@ -318,6 +420,22 @@ describe("store repository access request boundaries", () => {
       name: "ChinaTech Roma",
       role: "owner",
       status: "active",
+    });
+    expect(context.permissions).toMatchObject({
+      canReadStoreSettings: true,
+      canManageOrderData: true,
+      canUpdateStoreSettings: true,
+      canConfigureWorkflow: true,
+      canUpdateMessageTemplates: true,
+      canReadMessageTemplates: true,
+      canListMembers: true,
+      canInviteMembers: true,
+      canManageMembers: true,
+      canRevokeMembers: true,
+      canGrantManager: true,
+      canReviewAccessRequests: true,
+      canManageKioskDevices: true,
+      canReviewKioskSessions: true,
     });
     expect(mocks.writeAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -15,16 +15,16 @@ export type MessageTemplateSeed = Pick<
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   id: "default",
-  store_name: "ChinaTech",
-  store_address: "Viale Vittorio Veneto, 7, Floridia (SR)",
+  store_name: "",
+  store_address: "",
   store_phone: "",
   store_whatsapp: "",
   store_email: "",
   default_order_warranty_text: "6个月",
   default_order_warranty_months: 6,
   default_inventory_warranty_months: 12,
-  print_footer: "Grazie per aver scelto ChinaTech.",
-  message_signature: "ChinaTech - Viale Vittorio Veneto, 7, Floridia (SR)",
+  print_footer: "",
+  message_signature: "",
   created_at: "",
   updated_at: "",
 };

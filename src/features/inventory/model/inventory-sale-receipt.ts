@@ -1,4 +1,5 @@
 import type { InventoryListItem } from "@/lib/repairdesk/types";
+import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 
 export const INVENTORY_SALE_RECEIPT_TERMS = [
   "La garanzia copre solo difetti funzionali presenti sul prodotto venduto e dichiarati nel periodo indicato.",
@@ -81,11 +82,10 @@ export function readInventorySaleReceiptSnapshot(
 export function buildInventorySaleReceiptData(
   item: InventoryListItem,
   options: {
-    storeName?: string;
-    storeAddress?: string;
+    storeIdentity: Pick<StoreOutputIdentity, "storeName" | "storeAddress">;
     buyerName?: string;
     buyerPhone?: string;
-  } = {},
+  },
 ): InventorySaleReceiptData {
   const soldAt = item.sold_at ?? new Date().toISOString();
   const warrantyMonths = Math.max(0, Math.trunc(item.warranty_months || 0));
@@ -100,8 +100,8 @@ export function buildInventorySaleReceiptData(
 
   return {
     ...snapshot,
-    store_name: options.storeName || "ChinaTech",
-    store_address: options.storeAddress || "Viale Vittorio Veneto, 7, Floridia (SR) 96014",
+    store_name: options.storeIdentity.storeName,
+    store_address: options.storeIdentity.storeAddress,
     item_no: item.public_no,
     item_label: item.item_label,
     category: item.category,

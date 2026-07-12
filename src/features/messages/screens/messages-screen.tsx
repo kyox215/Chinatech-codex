@@ -68,6 +68,7 @@ export function MessagesScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const canUpdateMessageTemplates = shell.permissions?.canUpdateMessageTemplates === true;
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>();
@@ -79,11 +80,13 @@ export function MessagesScreen() {
     queryKey: messageSettingsKeys.templatesScoped(activeStoreId),
     queryFn: ({ signal }) => listMessageTemplates({ signal }),
     staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId),
   });
   const storeQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId),
   });
 
   const templates = useMemo(() => templatesQuery.data ?? [], [templatesQuery.data]);
@@ -130,6 +133,7 @@ export function MessagesScreen() {
   const canSaveTemplate = Boolean(hasChanges) && templateHealth.canSave;
 
   function handleInsertVariable(variable: string) {
+    if (!canUpdateMessageTemplates) return;
     const textarea = bodyTextareaRef.current;
     const { bodyTemplate, cursorPosition } = insertTemplateVariable(
       bodyDraft,
@@ -147,6 +151,7 @@ export function MessagesScreen() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedTemplate) throw new Error("请选择模板");
+      if (!canUpdateMessageTemplates) throw new Error("当前账号没有修改消息模板的权限");
       return updateMessageTemplate(selectedTemplate.id, {
         label: labelDraft,
         body_template: bodyDraft,
@@ -164,6 +169,7 @@ export function MessagesScreen() {
   const resetMutation = useMutation({
     mutationFn: async () => {
       if (!selectedTemplate) throw new Error("请选择模板");
+      if (!canUpdateMessageTemplates) throw new Error("当前账号没有修改消息模板的权限");
       return resetMessageTemplate(selectedTemplate.id);
     },
     onSuccess: (template) => {
@@ -228,24 +234,28 @@ export function MessagesScreen() {
       subtitle={`启用 ${enabledCount} · 共 ${templates.length} 个`}
       eyebrow="工作台 / 消息"
       action={
-        <RepairOsHeaderActionButton
-          ariaLabel="保存模板"
-          disabled={!canSaveTemplate || saveMutation.isPending}
-          onClick={() => saveMutation.mutate()}
-        >
-          <Check className="size-4" />
-        </RepairOsHeaderActionButton>
+        canUpdateMessageTemplates ? (
+          <RepairOsHeaderActionButton
+            ariaLabel="保存模板"
+            disabled={!canSaveTemplate || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            <Check className="size-4" />
+          </RepairOsHeaderActionButton>
+        ) : undefined
       }
       desktopAction={
-        <Button
-          size="sm"
-          className={cn("h-9 gap-1.5", controls.brandButton)}
-          style={brandGradientStyle}
-          disabled={!canSaveTemplate || saveMutation.isPending}
-          onClick={() => saveMutation.mutate()}
-        >
-          <Check className="mr-1.5 size-3.5" /> 保存模板
-        </Button>
+        canUpdateMessageTemplates ? (
+          <Button
+            size="sm"
+            className={cn("h-9 gap-1.5", controls.brandButton)}
+            style={brandGradientStyle}
+            disabled={!canSaveTemplate || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            <Check className="mr-1.5 size-3.5" /> 保存模板
+          </Button>
+        ) : undefined
       }
       searchValue={search}
       onSearchChange={setSearch}
@@ -256,6 +266,14 @@ export function MessagesScreen() {
         { key: "customer", label: "客户", shortLabel: "客", count: customerCount },
       ]}
     >
+      {!canUpdateMessageTemplates ? (
+        <div
+          data-ui="messages-template-readonly"
+          className="mb-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground"
+        >
+          当前账号可查看和预览消息模板，但不能修改、恢复或保存。
+        </div>
+      ) : null}
       <section className="grid min-w-0 gap-3 lg:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]">
         <aside className={cn(repairOs.adminSection, "min-w-0 p-2.5 sm:p-3")}>
           <div className="relative hidden md:block">
@@ -291,6 +309,7 @@ export function MessagesScreen() {
                   <Input
                     id="template-label"
                     value={labelDraft}
+                    disabled={!canUpdateMessageTemplates}
                     onChange={(event) => setLabelDraft(event.target.value)}
                     className="h-8 text-sm sm:h-9"
                   />
@@ -305,6 +324,7 @@ export function MessagesScreen() {
                       <Switch
                         id="template-enabled"
                         checked={enabledDraft}
+                        disabled={!canUpdateMessageTemplates}
                         onCheckedChange={setEnabledDraft}
                         aria-label={enabledDraft ? "停用消息模板" : "启用消息模板"}
                       />
@@ -344,6 +364,7 @@ export function MessagesScreen() {
                   id="template-body"
                   rows={12}
                   value={bodyDraft}
+                  disabled={!canUpdateMessageTemplates}
                   onChange={(event) => setBodyDraft(event.target.value)}
                   className="min-h-[260px] font-mono text-base leading-relaxed md:min-h-[340px] md:text-xs"
                 />
@@ -361,6 +382,7 @@ export function MessagesScreen() {
                     className="h-8 gap-1.5"
                     disabled={
                       resetMutation.isPending ||
+                      !canUpdateMessageTemplates ||
                       !findDefaultMessageTemplate(
                         selectedTemplate.domain,
                         selectedTemplate.kind,
@@ -375,7 +397,9 @@ export function MessagesScreen() {
                     size="sm"
                     className={cn("h-8 gap-1.5", controls.brandButton)}
                     style={brandGradientStyle}
-                    disabled={!canSaveTemplate || saveMutation.isPending}
+                    disabled={
+                      !canUpdateMessageTemplates || !canSaveTemplate || saveMutation.isPending
+                    }
                     onClick={() => saveMutation.mutate()}
                   >
                     <Check className="mr-1.5 size-3.5" /> 保存
@@ -406,6 +430,7 @@ export function MessagesScreen() {
                         key={variable.name}
                         as="button"
                         type="button"
+                        disabled={!canUpdateMessageTemplates}
                         onClick={() => handleInsertVariable(variable.name)}
                         className={cn(
                           repairOs.businessCardDense,

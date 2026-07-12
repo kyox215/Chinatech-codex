@@ -23,7 +23,7 @@ import {
 } from "./message-settings.repository";
 
 export async function getStoreSettings(actor?: AuditActor) {
-  return getStoreSettingsRow(requireStoreIdFromActor(actor, "读取店铺设置"));
+  return getStoreSettingsRow(requireStoreIdFromActor(actor, "读取店铺设置"), actor?.storeName);
 }
 
 export async function listMessageTemplates(actor?: AuditActor) {
@@ -33,8 +33,8 @@ export async function listMessageTemplates(actor?: AuditActor) {
 export async function updateStoreSettings(input: StoreSettingsUpdateInput, actor: AuditActor) {
   assertStaffRole(actor, ["owner", "manager"]);
   const storeId = requireStoreIdFromActor(actor, "保存店铺设置");
-  const before = await getStoreSettingsRow(storeId);
-  const after = await updateStoreSettingsRow(input, actor.id, storeId);
+  const before = await getStoreSettingsRow(storeId, actor.storeName);
+  const after = await updateStoreSettingsRow(input, actor.id, storeId, actor.storeName);
   await writeAuditLog({
     actor,
     action: "update",
@@ -92,7 +92,7 @@ export async function renderMessageTemplatePreview(
   actor?: AuditActor,
 ): Promise<MessageTemplatePreviewResult> {
   const storeId = requireStoreIdFromActor(actor, "预览消息模板");
-  const store = await getStoreSettingsRow(storeId);
+  const store = await getStoreSettingsRow(storeId, actor?.storeName);
   const template = input.templateId
     ? await getMessageTemplate(input.templateId, storeId)
     : undefined;

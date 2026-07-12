@@ -21,7 +21,10 @@ import {
 
 const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 
-export async function getStoreSettings(storeId: string): Promise<StoreSettings> {
+export async function getStoreSettings(
+  storeId: string,
+  fallbackStoreName?: string,
+): Promise<StoreSettings> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("store_settings")
@@ -32,10 +35,14 @@ export async function getStoreSettings(storeId: string): Promise<StoreSettings> 
   if (data) return storeSettingsFromRow(data as DbRecord);
 
   const now = new Date().toISOString();
+  const storeName = fallbackStoreName?.trim() ?? "";
   const defaults = withStoreSettingsDefaults({
     ...DEFAULT_STORE_SETTINGS,
     id: storeSettingsIdForStore(storeId),
     store_id: storeId,
+    store_name: storeName,
+    print_footer: storeName ? `Grazie per aver scelto ${storeName}.` : "",
+    message_signature: storeName,
     created_at: now,
     updated_at: now,
   });
@@ -67,13 +74,13 @@ export async function updateStoreSettingsRow(
   input: StoreSettingsUpdateInput,
   actorId?: string,
   storeId?: string,
+  fallbackStoreName?: string,
 ): Promise<StoreSettings> {
   const resolvedStoreId = requireRepositoryStoreId(storeId, "保存店铺设置");
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
-  const update = sanitizeStoreSettingsInput(input);
-
-  await getStoreSettings(resolvedStoreId);
+  const current = await getStoreSettings(resolvedStoreId, fallbackStoreName);
+  const update = sanitizeStoreSettingsInput(input, current);
   const { data, error } = await supabase
     .from("store_settings")
     .update({
@@ -173,33 +180,34 @@ export async function resetMessageTemplateRow(
   return messageTemplateFromRow(data as DbRecord);
 }
 
-function sanitizeStoreSettingsInput(input: StoreSettingsUpdateInput) {
+function sanitizeStoreSettingsInput(input: StoreSettingsUpdateInput, current: StoreSettings) {
   const defaultOrderWarrantyMonths = normalizeWarrantyMonths(
     input.default_order_warranty_months ??
       parseWarrantyMonths(
-        input.default_order_warranty_text,
-        DEFAULT_STORE_SETTINGS.default_order_warranty_months,
+        input.default_order_warranty_text ?? current.default_order_warranty_text,
+        current.default_order_warranty_months,
       ),
   );
+  const storeName = (input.store_name ?? current.store_name).trim();
+  if (!storeName) throw new Error("店铺名不能为空");
   return {
-    store_name: (input.store_name ?? DEFAULT_STORE_SETTINGS.store_name).trim(),
-    store_address: (input.store_address ?? DEFAULT_STORE_SETTINGS.store_address).trim(),
-    store_phone: (input.store_phone ?? "").trim(),
-    store_whatsapp: (input.store_whatsapp ?? "").trim(),
-    store_email: (input.store_email ?? "").trim(),
+    store_name: storeName,
+    store_address: (input.store_address ?? current.store_address).trim(),
+    store_phone: (input.store_phone ?? current.store_phone).trim(),
+    store_whatsapp: (input.store_whatsapp ?? current.store_whatsapp).trim(),
+    store_email: (input.store_email ?? current.store_email).trim(),
     default_order_warranty_text: formatWarrantyText(defaultOrderWarrantyMonths),
     default_order_warranty_months: defaultOrderWarrantyMonths,
     default_inventory_warranty_months: Math.max(
       0,
       Math.floor(
         Number(
-          input.default_inventory_warranty_months ??
-            DEFAULT_STORE_SETTINGS.default_inventory_warranty_months,
+          input.default_inventory_warranty_months ?? current.default_inventory_warranty_months,
         ),
       ),
     ),
-    print_footer: (input.print_footer ?? DEFAULT_STORE_SETTINGS.print_footer).trim(),
-    message_signature: (input.message_signature ?? DEFAULT_STORE_SETTINGS.message_signature).trim(),
+    print_footer: (input.print_footer ?? current.print_footer).trim(),
+    message_signature: (input.message_signature ?? current.message_signature).trim(),
   };
 }
 

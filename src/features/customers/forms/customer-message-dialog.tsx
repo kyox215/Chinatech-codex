@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerMessageInput } from "@/lib/repairdesk/api";
 import { normalizePhoneRaw, uniqueContactPhones } from "@/shared/lib/phone";
+import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 
 const customerMessageChannels = [
   { value: "whatsapp", label: "WhatsApp" },
@@ -36,6 +37,7 @@ export function CustomerMessageDialog({
   onOpenChange,
   data,
   appOrigin,
+  storeIdentity,
   busy,
   onConfirm,
 }: {
@@ -43,6 +45,7 @@ export function CustomerMessageDialog({
   onOpenChange: (value: boolean) => void;
   data: CustomerDetail;
   appOrigin: string;
+  storeIdentity: StoreOutputIdentity;
   busy: boolean;
   onConfirm: (input: CustomerMessageInput) => Promise<unknown>;
 }) {
@@ -51,14 +54,14 @@ export function CustomerMessageDialog({
   );
   const phoneOptions = customerPhoneOptions(data);
   const [phone, setPhone] = useState(phoneOptions[0] ?? "");
-  const [body, setBody] = useState(() => buildCustomerMessage(data, appOrigin));
+  const [body, setBody] = useState(() => buildCustomerMessage(data, appOrigin, storeIdentity));
   useEffect(() => {
     if (open) {
       setChannel(data.customer.preferred_channel ?? "whatsapp");
       setPhone(customerPhoneOptions(data)[0] ?? "");
-      setBody(buildCustomerMessage(data, appOrigin));
+      setBody(buildCustomerMessage(data, appOrigin, storeIdentity));
     }
-  }, [data, open, appOrigin]);
+  }, [data, open, appOrigin, storeIdentity]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={componentOverlay.formContent}>
@@ -69,6 +72,14 @@ export function CustomerMessageDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-2.5">
+          {!storeIdentity.canOutput ? (
+            <div
+              role="alert"
+              className="rounded-md border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
+            >
+              {storeIdentity.blockReason ?? "请先补齐当前店铺资料后再发送客户消息。"}
+            </div>
+          ) : null}
           <Select
             value={channel}
             onValueChange={(value) => setChannel(value as "whatsapp" | "sms")}
@@ -113,7 +124,7 @@ export function CustomerMessageDialog({
             取消
           </Button>
           <Button
-            disabled={busy || !body.trim()}
+            disabled={busy || !storeIdentity.canOutput || !body.trim()}
             onClick={async () => {
               const url =
                 channel === "whatsapp"
@@ -145,20 +156,26 @@ function customerPhoneOptions(data: CustomerDetail) {
   return result;
 }
 
-function buildCustomerMessage(data: CustomerDetail, appOrigin: string) {
+export function buildCustomerMessage(
+  data: CustomerDetail,
+  appOrigin: string,
+  storeIdentity: Pick<StoreOutputIdentity, "storeName" | "messageSignature">,
+) {
   const { customer, orders, stats } = data;
   const latest = orders[0];
   return [
     `Gentile ${customer.name},`,
     "",
-    "la contattiamo da ChinaTech per il servizio di assistenza.",
+    storeIdentity.storeName
+      ? `la contattiamo da ${storeIdentity.storeName} per il servizio di assistenza.`
+      : "la contattiamo per il servizio di assistenza.",
     latest ? `Ultimo ordine: ${latest.public_no} - ${latest.device_label}` : null,
     `Dispositivi registrati: ${stats.device_count}`,
     appOrigin ? `Area assistenza: ${appOrigin}/customers/${customer.id}` : null,
     "",
     "Restiamo a disposizione per qualsiasi necessità.",
     "Grazie,",
-    "ChinaTech",
+    storeIdentity.messageSignature || null,
   ]
     .filter((line): line is string => line !== null)
     .join("\n");

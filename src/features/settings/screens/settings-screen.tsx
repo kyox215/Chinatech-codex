@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -67,6 +67,16 @@ import {
   getStoreSettingsReadiness,
   type StoreSettingsReadiness,
 } from "@/features/settings/model/store-settings-readiness";
+import {
+  normalizeSettingsSection,
+  resolveSettingsSectionAccess,
+  type SettingsSectionKey,
+} from "@/features/settings/model/settings-section-access";
+import {
+  acceptStoreBoundTransientValue,
+  valueForActiveStore,
+  type StoreBoundTransientValue,
+} from "@/features/settings/model/store-bound-transient-state";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import {
   applySwitchedStoreContext,
@@ -149,17 +159,6 @@ type SettingsDraft = Pick<
   | "message_signature"
 >;
 
-type SettingsSectionKey =
-  | "account"
-  | "store"
-  | "suppliers"
-  | "members"
-  | "kiosk"
-  | "notifications"
-  | "rules"
-  | "workflow"
-  | "order-data";
-
 const settingsSections: {
   key: SettingsSectionKey;
   label: string;
@@ -208,7 +207,6 @@ const settingsSections: {
   },
 ];
 
-const settingsSectionKeys = new Set(settingsSections.map((section) => section.key));
 const draftSectionFields: Record<"store" | "notifications" | "rules", (keyof SettingsDraft)[]> = {
   store: ["store_name", "store_email", "store_phone", "store_whatsapp", "store_address"],
   notifications: ["print_footer", "message_signature"],
@@ -218,12 +216,6 @@ const draftSectionFields: Record<"store" | "notifications" | "rules", (keyof Set
     "default_inventory_warranty_months",
   ],
 };
-
-function normalizeSettingsSection(value: string | null): SettingsSectionKey {
-  return settingsSectionKeys.has(value as SettingsSectionKey)
-    ? (value as SettingsSectionKey)
-    : "members";
-}
 
 function canSaveDraftInSection(section: SettingsSectionKey) {
   return section === "store" || section === "notifications" || section === "rules";
@@ -240,36 +232,44 @@ export function SettingsScreen() {
     staleTime: CACHE_TIMES.shell,
   });
   const activeStoreId = storeContextQuery.data?.activeStore?.id;
-  const activeStoreRole = storeContextQuery.data?.activeStore?.role;
-  const supplierPermissions = storeContextQuery.data?.permissions ?? {
-    canReadSuppliers: false,
-    canAssignSuppliers: false,
-    canManageSuppliers: false,
-  };
-  const canReadSuppliers = supplierPermissions.canReadSuppliers;
-  const canManageSuppliers = supplierPermissions.canManageSuppliers;
-  const canManageOrderData = supplierPermissions.canManageOrderData === true;
-  const canApplyOrderData = supplierPermissions.canApplyOrderData === true;
+  const settingsCapabilities = storeContextQuery.data?.permissions;
+  const canReadSuppliers = settingsCapabilities?.canReadSuppliers === true;
+  const canManageSuppliers = settingsCapabilities?.canManageSuppliers === true;
+  const canManageOrderData = settingsCapabilities?.canManageOrderData === true;
+  const canApplyOrderData = settingsCapabilities?.canApplyOrderData === true;
+  const canUpdateStoreSettings = settingsCapabilities?.canUpdateStoreSettings === true;
+  const canConfigureWorkflow = settingsCapabilities?.canConfigureWorkflow === true;
+  const canListMembers = settingsCapabilities?.canListMembers === true;
+  const canInviteMembers = settingsCapabilities?.canInviteMembers === true;
+  const canManageMembers = settingsCapabilities?.canManageMembers === true;
+  const canRevokeMembers = settingsCapabilities?.canRevokeMembers === true;
+  const canGrantManager = settingsCapabilities?.canGrantManager === true;
+  const canReviewAccessRequests = settingsCapabilities?.canReviewAccessRequests === true;
+  const canManageKioskDevices = settingsCapabilities?.canManageKioskDevices === true;
+  const canReviewKioskSessions = settingsCapabilities?.canReviewKioskSessions === true;
   const settingsQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId),
   });
   const storeMembersQuery = useQuery({
     queryKey: storesKeys.membersScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreMembers({ signal }),
     staleTime: CACHE_TIMES.settings,
+    enabled: Boolean(activeStoreId && canListMembers),
   });
   const storeAccessRequestsQuery = useQuery({
     queryKey: storesKeys.accessRequestsScoped(activeStoreId),
     queryFn: ({ signal }) => listStoreAccessRequests({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: storeContextQuery.data?.activeStore?.role === "owner",
+    enabled: Boolean(activeStoreId && canReviewAccessRequests),
   });
   const workflowQuery = useQuery({
     queryKey: ordersKeys.workflow(activeStoreId),
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
+    enabled: Boolean(activeStoreId),
   });
   const accountQuery = useQuery({
     queryKey: platformKeys.onboardingStatus,
@@ -281,13 +281,13 @@ export function SettingsScreen() {
     queryKey: kioskKeys.devices(activeStoreId),
     queryFn: ({ signal }) => listKioskDevices({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId),
+    enabled: Boolean(activeStoreId && canManageKioskDevices),
   });
   const kioskSessionsQuery = useQuery({
     queryKey: kioskKeys.sessions(activeStoreId),
     queryFn: ({ signal }) => listKioskSessions({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId),
+    enabled: Boolean(activeStoreId && canReviewKioskSessions),
   });
   const suppliersQuery = useQuery({
     queryKey: suppliersKeys.storeScoped(activeStoreId),
@@ -314,7 +314,8 @@ export function SettingsScreen() {
   const [accessRequestRoles, setAccessRequestRoles] = useState<Record<string, ApprovedStoreRole>>(
     {},
   );
-  const [latestInviteCode, setLatestInviteCode] = useState("");
+  const [latestInviteCodeState, setLatestInviteCodeState] =
+    useState<StoreBoundTransientValue<string> | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState<"all" | "active" | "inactive">(
     "all",
@@ -322,7 +323,67 @@ export function SettingsScreen() {
   const [memberRoleDrafts, setMemberRoleDrafts] = useState<Record<string, ApprovedStoreRole>>({});
   const [memberActionId, setMemberActionId] = useState("");
   const [kioskDeviceLabel, setKioskDeviceLabel] = useState("前台 iPad");
-  const [latestKioskPairingCode, setLatestKioskPairingCode] = useState("");
+  const [latestKioskPairingCodeState, setLatestKioskPairingCodeState] =
+    useState<StoreBoundTransientValue<string> | null>(null);
+  const activeStoreScopeRef = useRef({ storeId: activeStoreId, epoch: 0 });
+  const inviteCodeRequestEpochRef = useRef(0);
+  const kioskPairingRequestEpochRef = useRef(0);
+
+  useEffect(() => {
+    const currentScope = activeStoreScopeRef.current;
+    if (currentScope.storeId === activeStoreId) return;
+    activeStoreScopeRef.current = {
+      storeId: activeStoreId,
+      epoch: currentScope.epoch + 1,
+    };
+    inviteCodeRequestEpochRef.current += 1;
+    kioskPairingRequestEpochRef.current += 1;
+    setLatestInviteCodeState(null);
+    setLatestKioskPairingCodeState(null);
+    setDraft(null);
+    setInviteDraft({ email: "", role: "technician" });
+    setInviteLinkDraft({
+      label: "",
+      role: "technician",
+      expires_in_days: 7,
+      max_uses: 1,
+    });
+    setSupplierEditorId(null);
+    setSupplierDraft(defaultSupplierDraft());
+    setAccessRequestRoles({});
+    setMemberRoleDrafts({});
+    setMemberSearch("");
+    setMemberStatusFilter("all");
+    setKioskDeviceLabel("前台 iPad");
+  }, [activeStoreId]);
+
+  useEffect(() => {
+    if (!latestInviteCodeState?.expiresAt) return;
+    const remaining = new Date(latestInviteCodeState.expiresAt).getTime() - Date.now();
+    if (remaining <= 0) {
+      setLatestInviteCodeState(null);
+      return;
+    }
+    const timeout = window.setTimeout(
+      () => setLatestInviteCodeState(null),
+      Math.min(remaining, 2_147_483_647),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [latestInviteCodeState]);
+
+  useEffect(() => {
+    if (!latestKioskPairingCodeState?.expiresAt) return;
+    const remaining = new Date(latestKioskPairingCodeState.expiresAt).getTime() - Date.now();
+    if (remaining <= 0) {
+      setLatestKioskPairingCodeState(null);
+      return;
+    }
+    const timeout = window.setTimeout(
+      () => setLatestKioskPairingCodeState(null),
+      Math.min(remaining, 2_147_483_647),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [latestKioskPairingCodeState]);
 
   useEffect(() => {
     if (!settingsData) return;
@@ -364,8 +425,13 @@ export function SettingsScreen() {
     accountQuery.data && accountName && accountName !== accountQuery.data.displayName,
   );
   const requestedSection = normalizeSettingsSection(searchParams.get("section"));
-  const selectedSection =
-    requestedSection === "order-data" && !canManageOrderData ? "members" : requestedSection;
+  const selectedSection = requestedSection;
+  const selectedSectionAccess = resolveSettingsSectionAccess(selectedSection, settingsCapabilities);
+  const canRenderSelectedSection =
+    selectedSectionAccess === "editable" || selectedSectionAccess === "readonly";
+  const latestInviteCode = valueForActiveStore(latestInviteCodeState, activeStoreId) ?? "";
+  const latestKioskPairingCode =
+    valueForActiveStore(latestKioskPairingCodeState, activeStoreId) ?? "";
   const sectionDirtyState = useMemo<Record<SettingsSectionKey, boolean>>(() => {
     const base = {
       account: hasAccountNameChange,
@@ -393,6 +459,7 @@ export function SettingsScreen() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!draft) throw new Error("设置未加载");
+      if (!canUpdateStoreSettings) throw new Error("当前账号没有修改店铺设置的权限");
       return updateStoreSettings(draft);
     },
     onSuccess: (settings) => {
@@ -453,6 +520,12 @@ export function SettingsScreen() {
   });
   const switchStoreMutation = useMutation({
     mutationFn: switchStore,
+    onMutate: () => {
+      inviteCodeRequestEpochRef.current += 1;
+      kioskPairingRequestEpochRef.current += 1;
+      setLatestInviteCodeState(null);
+      setLatestKioskPairingCodeState(null);
+    },
     onSuccess: async (context) => {
       toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
       await applySwitchedStoreContext(queryClient, context);
@@ -462,6 +535,12 @@ export function SettingsScreen() {
   });
   const createStoreMutation = useMutation({
     mutationFn: createStore,
+    onMutate: () => {
+      inviteCodeRequestEpochRef.current += 1;
+      kioskPairingRequestEpochRef.current += 1;
+      setLatestInviteCodeState(null);
+      setLatestKioskPairingCodeState(null);
+    },
     onSuccess: async (context) => {
       toast.success(`已创建 ${context.activeStore?.name ?? "新店铺"}`);
       setNewStoreName("");
@@ -470,11 +549,32 @@ export function SettingsScreen() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "创建店铺失败"),
   });
   const createKioskPairingMutation = useMutation({
-    mutationFn: createKioskDevicePairing,
-    onSuccess: async (result) => {
-      toast.success("iPad 配对码已生成");
-      setLatestKioskPairingCode(result.pairing_code);
-      await queryClient.invalidateQueries({ queryKey: kioskKeys.devices(activeStoreId) });
+    mutationFn: ({
+      input,
+    }: {
+      input: Parameters<typeof createKioskDevicePairing>[0];
+      requestedStoreId: string;
+      requestEpoch: number;
+    }) => createKioskDevicePairing(input),
+    onSuccess: async (result, request) => {
+      const nextValue = acceptStoreBoundTransientValue({
+        requestedStoreId: request.requestedStoreId,
+        responseStoreId: result.device.store_id,
+        currentStoreId: activeStoreScopeRef.current.storeId,
+        requestEpoch: request.requestEpoch,
+        currentEpoch: kioskPairingRequestEpochRef.current,
+        value: result.pairing_code,
+        expiresAt: result.expires_at,
+      });
+      if (nextValue) {
+        setLatestKioskPairingCodeState(nextValue);
+        toast.success("iPad 配对码已生成");
+      } else {
+        toast.error("店铺上下文已变化，旧配对码未显示，请重新生成");
+      }
+      await queryClient.invalidateQueries({
+        queryKey: kioskKeys.devices(request.requestedStoreId),
+      });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "生成配对码失败"),
   });
@@ -516,12 +616,33 @@ export function SettingsScreen() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "邀请失败"),
   });
   const createInviteLinkMutation = useMutation({
-    mutationFn: createStoreInviteLink,
-    onSuccess: async (result) => {
-      toast.success("邀请码已生成，请复制保存");
-      setLatestInviteCode(result.code);
+    mutationFn: ({
+      input,
+    }: {
+      input: StoreInviteLinkCreateInput;
+      requestedStoreId: string;
+      requestEpoch: number;
+    }) => createStoreInviteLink(input),
+    onSuccess: async (result, request) => {
+      const nextValue = acceptStoreBoundTransientValue({
+        requestedStoreId: request.requestedStoreId,
+        responseStoreId: result.link.store_id,
+        currentStoreId: activeStoreScopeRef.current.storeId,
+        requestEpoch: request.requestEpoch,
+        currentEpoch: inviteCodeRequestEpochRef.current,
+        value: result.code,
+        expiresAt: result.link.expires_at,
+      });
+      if (nextValue) {
+        setLatestInviteCodeState(nextValue);
+        toast.success("邀请码已生成，请复制保存");
+      } else {
+        toast.error("店铺上下文已变化，旧邀请码未显示，请重新生成");
+      }
       setInviteLinkDraft((current) => ({ ...current, label: "" }));
-      await queryClient.invalidateQueries({ queryKey: storesKeys.members });
+      await queryClient.invalidateQueries({
+        queryKey: storesKeys.membersScoped(request.requestedStoreId),
+      });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "生成邀请码失败"),
   });
@@ -665,6 +786,45 @@ export function SettingsScreen() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "保存流转关系失败"),
   });
 
+  if (
+    storeContextQuery.isError ||
+    (storeContextQuery.isSuccess && !storeContextQuery.data.activeStore)
+  ) {
+    return (
+      <RepairOsListScaffold title="设置" subtitle="读取失败" eyebrow="系统 / 设置">
+        <RepairOsBusinessCard
+          as="div"
+          data-ui="settings-context-error"
+          role="alert"
+          className="mx-auto mt-16 grid max-w-sm grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-4 py-3 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+          leading={
+            <span className="grid size-9 place-items-center rounded-lg bg-status-danger/10">
+              <Settings2 className="size-4" />
+            </span>
+          }
+          trailing={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 bg-card"
+              onClick={() => storeContextQuery.refetch()}
+            >
+              重新加载
+            </Button>
+          }
+          leadingClassName="self-center"
+          trailingClassName="col-span-2 justify-self-start sm:col-span-1 sm:justify-self-end"
+        >
+          <span className="block text-sm font-semibold">无法读取店铺与权限信息</span>
+          <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80">
+            请重新加载当前店铺上下文后继续使用设置。
+          </span>
+        </RepairOsBusinessCard>
+      </RepairOsListScaffold>
+    );
+  }
+
   if (settingsQuery.isError) {
     return (
       <RepairOsListScaffold title="设置" subtitle="读取失败" eyebrow="系统 / 设置">
@@ -701,7 +861,7 @@ export function SettingsScreen() {
     );
   }
 
-  if (settingsQuery.isLoading || !draft) {
+  if (storeContextQuery.isLoading || settingsQuery.isLoading || !draft) {
     return <SettingsLoading />;
   }
 
@@ -721,7 +881,12 @@ export function SettingsScreen() {
   const pendingMemberWorkCount = accessRequestCount + invitationCount + inviteLinkCount;
   const activeSection = settingsSections.find((section) => section.key === selectedSection);
   const sectionNavItems = settingsSections
-    .filter((section) => section.key !== "order-data" || canManageOrderData)
+    .filter((section) => {
+      if (section.key === "order-data") return canManageOrderData;
+      if (section.key === "members") return canListMembers;
+      if (section.key === "kiosk") return canManageKioskDevices || canReviewKioskSessions;
+      return true;
+    })
     .map((section) => {
       const status =
         section.key === "store"
@@ -729,7 +894,9 @@ export function SettingsScreen() {
           : section.key === "suppliers"
             ? canManageSuppliers
               ? `${activeSupplierCount} 可选`
-              : "店主/经理维护"
+              : canReadSuppliers
+                ? "只读"
+                : "无读取权限"
             : section.key === "members"
               ? pendingMemberWorkCount > 0
                 ? `${memberCount} 成员 · ${pendingMemberWorkCount} 待处理`
@@ -774,7 +941,7 @@ export function SettingsScreen() {
       subtitle={`${storeCount} 店铺 · ${memberCount} 成员`}
       eyebrow="系统 / 设置"
       action={
-        canSaveDraftInSection(selectedSection) ? (
+        canSaveDraftInSection(selectedSection) && canUpdateStoreSettings ? (
           <Button
             type="button"
             size="sm"
@@ -790,7 +957,7 @@ export function SettingsScreen() {
         ) : undefined
       }
       desktopAction={
-        canSaveDraftInSection(selectedSection) ? (
+        canSaveDraftInSection(selectedSection) && canUpdateStoreSettings ? (
           <Button
             size="sm"
             className="h-8 shrink-0 gap-1.5 border-0 text-primary-foreground sm:h-9"
@@ -808,7 +975,9 @@ export function SettingsScreen() {
         className="mt-3 space-y-3 pb-8 sm:mt-4"
         onSubmit={(event) => {
           event.preventDefault();
-          if (hasChanges && !saveMutation.isPending) saveMutation.mutate();
+          if (hasChanges && canUpdateStoreSettings && !saveMutation.isPending) {
+            saveMutation.mutate();
+          }
         }}
       >
         <SettingsSectionNav
@@ -816,6 +985,20 @@ export function SettingsScreen() {
           selectedSection={selectedSection}
           onSelect={handleSectionChange}
         />
+
+        {selectedSectionAccess === "blocked" || selectedSectionAccess === "unavailable" ? (
+          <SettingsSectionAccessState
+            section={selectedSection}
+            unavailable={selectedSectionAccess === "unavailable"}
+          />
+        ) : selectedSectionAccess === "readonly" ? (
+          <div
+            data-ui="settings-section-readonly"
+            className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground"
+          >
+            当前账号可查看此分组，但不能修改配置。
+          </div>
+        ) : null}
 
         <div
           className={cn(
@@ -835,7 +1018,7 @@ export function SettingsScreen() {
                 : "xl:max-w-none",
             )}
           >
-            {selectedSection === "account" ? (
+            {canRenderSelectedSection && selectedSection === "account" ? (
               <AccountProfileSection
                 status={accountQuery.data}
                 isLoading={accountQuery.isLoading}
@@ -849,7 +1032,7 @@ export function SettingsScreen() {
                 }}
               />
             ) : null}
-            {selectedSection === "store" ? (
+            {canRenderSelectedSection && selectedSection === "store" ? (
               <StoreManagementSection
                 activeStoreId={storeContextQuery.data?.activeStore?.id}
                 stores={storeContextQuery.data?.stores ?? []}
@@ -869,8 +1052,9 @@ export function SettingsScreen() {
                 }}
               />
             ) : null}
-            {selectedSection === "suppliers" ? (
+            {canRenderSelectedSection && selectedSection === "suppliers" ? (
               <SupplierManagementSection
+                key={activeStoreId}
                 suppliers={supplierRows}
                 canRead={canReadSuppliers}
                 canManage={canManageSuppliers}
@@ -899,15 +1083,20 @@ export function SettingsScreen() {
                 onArchive={(id) => archiveSupplierMutation.mutate(id)}
               />
             ) : null}
-            {selectedSection === "members" ? (
+            {canRenderSelectedSection && selectedSection === "members" ? (
               <StoreMembersSection
+                key={activeStoreId}
                 members={storeMembersQuery.data?.members ?? []}
                 invitations={storeMembersQuery.data?.invitations ?? []}
                 inviteLinks={storeMembersQuery.data?.invite_links ?? []}
                 accessRequests={storeAccessRequestsQuery.data ?? []}
                 activeStoreRole={storeContextQuery.data?.activeStore?.role}
                 currentUserId={accountQuery.data?.userId}
-                canManageMemberPermissions={activeStoreRole === "owner"}
+                canInviteMembers={canInviteMembers}
+                canManageMembers={canManageMembers}
+                canRevokeMembers={canRevokeMembers}
+                canReviewAccessRequests={canReviewAccessRequests}
+                canManageMemberPermissions={canGrantManager}
                 isLoading={storeMembersQuery.isLoading}
                 isError={storeMembersQuery.isError}
                 isAccessRequestsLoading={storeAccessRequestsQuery.isLoading}
@@ -940,44 +1129,67 @@ export function SettingsScreen() {
                   setMemberRoleDrafts((current) => ({ ...current, [id]: role }))
                 }
                 onUpdateMemberPermissions={(id, permissions) =>
-                  updateMemberPermissionsMutation.mutate({ id, permissions })
+                  canGrantManager && updateMemberPermissionsMutation.mutate({ id, permissions })
                 }
                 onAccessRequestRoleChange={(id, role) =>
                   setAccessRequestRoles((current) => ({ ...current, [id]: role }))
                 }
-                onUpdateMemberRole={(id, role) => updateMemberRoleMutation.mutate({ id, role })}
-                onDisableMember={(id) => disableMemberMutation.mutate({ id })}
-                onRestoreMember={(id) => restoreMemberMutation.mutate({ id })}
+                onUpdateMemberRole={(id, role) =>
+                  canManageMembers && updateMemberRoleMutation.mutate({ id, role })
+                }
+                onDisableMember={(id) => canManageMembers && disableMemberMutation.mutate({ id })}
+                onRestoreMember={(id) => canManageMembers && restoreMemberMutation.mutate({ id })}
                 onInvite={() => {
                   const email = inviteDraft.email.trim();
-                  if (!email) return;
+                  if (!email || !canInviteMembers) return;
                   inviteMemberMutation.mutate({ ...inviteDraft, email });
                 }}
                 onCreateInviteLink={() => {
+                  const requestedStoreId = activeStoreScopeRef.current.storeId;
+                  if (!requestedStoreId || !canInviteMembers) return;
+                  const requestEpoch = inviteCodeRequestEpochRef.current + 1;
+                  inviteCodeRequestEpochRef.current = requestEpoch;
+                  setLatestInviteCodeState(null);
                   createInviteLinkMutation.mutate({
-                    ...inviteLinkDraft,
-                    label: inviteLinkDraft.label?.trim() || undefined,
+                    input: {
+                      ...inviteLinkDraft,
+                      label: inviteLinkDraft.label?.trim() || undefined,
+                    },
+                    requestedStoreId,
+                    requestEpoch,
                   });
                 }}
-                onRevokeInvitation={(id) => revokeInvitationMutation.mutate({ id })}
-                onRevokeInviteLink={(id) => revokeInviteLinkMutation.mutate({ id })}
+                onRevokeInvitation={(id) =>
+                  canRevokeMembers && revokeInvitationMutation.mutate({ id })
+                }
+                onRevokeInviteLink={(id) =>
+                  canRevokeMembers && revokeInviteLinkMutation.mutate({ id })
+                }
                 onCopyInviteCode={() => {
-                  if (!latestInviteCode) return;
-                  void navigator.clipboard?.writeText(latestInviteCode);
-                  toast.success("邀请码已复制");
+                  const currentCode = valueForActiveStore(
+                    latestInviteCodeState,
+                    activeStoreScopeRef.current.storeId,
+                  );
+                  if (!currentCode) return;
+                  void copySensitiveCode(currentCode, "邀请码已复制");
                 }}
                 onApproveAccessRequest={(id, approvedRole) =>
+                  canReviewAccessRequests &&
                   approveAccessRequestMutation.mutate({ id, approved_role: approvedRole })
                 }
                 onRejectAccessRequest={(id) =>
+                  canReviewAccessRequests &&
                   rejectAccessRequestMutation.mutate({ id, note: "店铺负责人拒绝加入申请" })
                 }
               />
             ) : null}
-            {selectedSection === "kiosk" ? (
+            {canRenderSelectedSection && selectedSection === "kiosk" ? (
               <KioskDevicesSection
+                key={activeStoreId}
                 devices={kioskDevicesQuery.data ?? []}
                 sessions={kioskSessionsQuery.data ?? []}
+                canManageDevices={canManageKioskDevices}
+                canReviewSessions={canReviewKioskSessions}
                 isLoading={kioskDevicesQuery.isLoading || kioskSessionsQuery.isLoading}
                 deviceLabel={kioskDeviceLabel}
                 pairingCode={latestKioskPairingCode}
@@ -989,27 +1201,47 @@ export function SettingsScreen() {
                 onDeviceLabelChange={setKioskDeviceLabel}
                 onCreatePairing={() => {
                   const label = kioskDeviceLabel.trim() || "客户 iPad";
-                  createKioskPairingMutation.mutate({ label });
+                  const requestedStoreId = activeStoreScopeRef.current.storeId;
+                  if (!requestedStoreId || !canManageKioskDevices) return;
+                  const requestEpoch = kioskPairingRequestEpochRef.current + 1;
+                  kioskPairingRequestEpochRef.current = requestEpoch;
+                  setLatestKioskPairingCodeState(null);
+                  createKioskPairingMutation.mutate({
+                    input: { label },
+                    requestedStoreId,
+                    requestEpoch,
+                  });
                 }}
-                onRevoke={(id) => revokeKioskDeviceMutation.mutate(id)}
-                onAcceptSession={(id) => acceptKioskSessionMutation.mutate(id)}
-                onReturnSession={(id, reason) => returnKioskSessionMutation.mutate({ id, reason })}
+                onRevoke={(id) => canManageKioskDevices && revokeKioskDeviceMutation.mutate(id)}
+                onAcceptSession={(id) =>
+                  canReviewKioskSessions && acceptKioskSessionMutation.mutate(id)
+                }
+                onReturnSession={(id, reason) =>
+                  canReviewKioskSessions && returnKioskSessionMutation.mutate({ id, reason })
+                }
                 onCopyCode={() => {
-                  if (!latestKioskPairingCode) return;
-                  void navigator.clipboard?.writeText(latestKioskPairingCode);
-                  toast.success("iPad 配对码已复制");
+                  const currentCode = valueForActiveStore(
+                    latestKioskPairingCodeState,
+                    activeStoreScopeRef.current.storeId,
+                  );
+                  if (!currentCode) return;
+                  void copySensitiveCode(currentCode, "iPad 配对码已复制");
                 }}
               />
             ) : null}
-            {selectedSection === "notifications" ? (
+            {canRenderSelectedSection && selectedSection === "notifications" ? (
               <StoreReadinessSection
                 readiness={storeReadiness}
                 messagePreview={messagePreview}
                 printPreview={printPreview}
               />
             ) : null}
-            {selectedSection === "order-data" && activeStoreId ? (
-              <OrderDataSection storeId={activeStoreId} applyEnabled={canApplyOrderData} />
+            {canRenderSelectedSection && selectedSection === "order-data" && activeStoreId ? (
+              <OrderDataSection
+                key={activeStoreId}
+                storeId={activeStoreId}
+                applyEnabled={canApplyOrderData}
+              />
             ) : null}
           </div>
 
@@ -1023,7 +1255,7 @@ export function SettingsScreen() {
                 : "hidden",
             )}
           >
-            {selectedSection === "store" ? (
+            {canRenderSelectedSection && selectedSection === "store" ? (
               <section className={repairOs.adminSection}>
                 <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺资料" />
                 <div className={formLayout.grid}>
@@ -1032,6 +1264,7 @@ export function SettingsScreen() {
                       id="store-name"
                       className={compactControlClass}
                       value={draft.store_name}
+                      disabled={!canUpdateStoreSettings}
                       onChange={(event) =>
                         setDraftField(setDraft, "store_name", event.target.value)
                       }
@@ -1043,6 +1276,7 @@ export function SettingsScreen() {
                       type="email"
                       className={compactControlClass}
                       value={draft.store_email}
+                      disabled={!canUpdateStoreSettings}
                       onChange={(event) =>
                         setDraftField(setDraft, "store_email", event.target.value)
                       }
@@ -1053,6 +1287,7 @@ export function SettingsScreen() {
                       id="store-phone"
                       className={compactControlClass}
                       value={draft.store_phone}
+                      disabled={!canUpdateStoreSettings}
                       onChange={(event) =>
                         setDraftField(setDraft, "store_phone", event.target.value)
                       }
@@ -1063,6 +1298,7 @@ export function SettingsScreen() {
                       id="store-whatsapp"
                       className={compactControlClass}
                       value={draft.store_whatsapp}
+                      disabled={!canUpdateStoreSettings}
                       onChange={(event) =>
                         setDraftField(setDraft, "store_whatsapp", event.target.value)
                       }
@@ -1075,6 +1311,7 @@ export function SettingsScreen() {
                     rows={3}
                     className={compactTextareaClass}
                     value={draft.store_address}
+                    disabled={!canUpdateStoreSettings}
                     onChange={(event) =>
                       setDraftField(setDraft, "store_address", event.target.value)
                     }
@@ -1083,13 +1320,14 @@ export function SettingsScreen() {
               </section>
             ) : null}
 
-            {selectedSection === "rules" ? (
+            {canRenderSelectedSection && selectedSection === "rules" ? (
               <section className={repairOs.adminSection}>
                 <RepairOsSectionHeader icon={Settings2} iconFrame={false} title="默认规则" />
                 <div className={formLayout.grid}>
                   <Field label="维修默认质保" htmlFor="order-warranty">
                     <Select
                       value={String(draft.default_order_warranty_months)}
+                      disabled={!canUpdateStoreSettings}
                       onValueChange={(value) => {
                         const months = Number(value);
                         setDraft((current) =>
@@ -1122,6 +1360,7 @@ export function SettingsScreen() {
                       min={0}
                       className={compactControlClass}
                       value={draft.default_inventory_warranty_months}
+                      disabled={!canUpdateStoreSettings}
                       onChange={(event) =>
                         setDraftField(
                           setDraft,
@@ -1135,7 +1374,7 @@ export function SettingsScreen() {
               </section>
             ) : null}
 
-            {selectedSection === "notifications" ? (
+            {canRenderSelectedSection && selectedSection === "notifications" ? (
               <section className={repairOs.adminSection}>
                 <RepairOsSectionHeader icon={Printer} iconFrame={false} title="输出配置" />
                 <div className="space-y-3">
@@ -1145,6 +1384,7 @@ export function SettingsScreen() {
                       rows={3}
                       className={compactTextareaClass}
                       value={draft.print_footer}
+                      disabled={!canUpdateStoreSettings}
                       onChange={(event) =>
                         setDraftField(setDraft, "print_footer", event.target.value)
                       }
@@ -1156,6 +1396,7 @@ export function SettingsScreen() {
                       rows={3}
                       className={compactTextareaClass}
                       value={draft.message_signature}
+                      disabled={!canUpdateStoreSettings}
                       onChange={(event) =>
                         setDraftField(setDraft, "message_signature", event.target.value)
                       }
@@ -1167,8 +1408,9 @@ export function SettingsScreen() {
           </div>
         </div>
 
-        {selectedSection === "workflow" ? (
+        {canRenderSelectedSection && selectedSection === "workflow" ? (
           <OrderWorkflowSection
+            key={activeStoreId}
             workflow={workflowQuery.data}
             isLoading={workflowQuery.isLoading}
             isError={workflowQuery.isError}
@@ -1184,14 +1426,23 @@ export function SettingsScreen() {
               reorderWorkflowStatusesMutation.isPending ||
               updateWorkflowTransitionsMutation.isPending
             }
-            onCreateStatus={(input) => createWorkflowStatusMutation.mutate(input)}
-            onUpdateStatus={(id, input) => updateWorkflowStatusMutation.mutate({ id, input })}
-            onReorder={(items) => reorderWorkflowStatusesMutation.mutate({ items })}
-            onUpdateTransitions={(input) => updateWorkflowTransitionsMutation.mutate(input)}
+            onCreateStatus={(input) =>
+              canConfigureWorkflow && createWorkflowStatusMutation.mutate(input)
+            }
+            onUpdateStatus={(id, input) =>
+              canConfigureWorkflow && updateWorkflowStatusMutation.mutate({ id, input })
+            }
+            onReorder={(items) =>
+              canConfigureWorkflow && reorderWorkflowStatusesMutation.mutate({ items })
+            }
+            onUpdateTransitions={(input) =>
+              canConfigureWorkflow && updateWorkflowTransitionsMutation.mutate(input)
+            }
+            canEdit={canConfigureWorkflow}
           />
         ) : null}
 
-        {canSaveDraftInSection(selectedSection) ? (
+        {canSaveDraftInSection(selectedSection) && canUpdateStoreSettings ? (
           <div className={repairOs.adminSection}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -1308,7 +1559,7 @@ function SettingsSectionNav({
       aria-label="设置分组"
       className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-0.5 shadow-[var(--shadow-card)] md:p-1"
     >
-      <div className="grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === selectedSection;
@@ -1615,6 +1866,7 @@ function OrderWorkflowSection({
   onUpdateStatus,
   onReorder,
   onUpdateTransitions,
+  canEdit,
 }: {
   workflow?: OrderWorkflow;
   isLoading: boolean;
@@ -1626,6 +1878,7 @@ function OrderWorkflowSection({
   onUpdateStatus: (id: string, input: Parameters<typeof updateOrderWorkflowStatus>[1]) => void;
   onReorder: (items: { id: string; sort_order: number }[]) => void;
   onUpdateTransitions: (input: OrderWorkflowTransitionsUpdateInput) => void;
+  canEdit: boolean;
 }) {
   const statuses = useMemo(() => getWorkflowStatuses(workflow), [workflow]);
   const [newStatus, setNewStatus] = useState<OrderWorkflowStatusCreateInput>(defaultNewStatusDraft);
@@ -1638,6 +1891,7 @@ function OrderWorkflowSection({
   }, [fromStatusCode, statuses]);
 
   const moveStatus = (index: number, direction: -1 | 1) => {
+    if (!canEdit) return;
     const next = [...statuses];
     const target = index + direction;
     if (target < 0 || target >= next.length) return;
@@ -1651,6 +1905,7 @@ function OrderWorkflowSection({
     toStatusCode: string,
     patch: { enabled?: boolean; is_primary?: boolean },
   ) => {
+    if (!canEdit) return;
     if (!fromStatusCode) return;
     const nextTransitions = statuses
       .filter((status) => status.code !== fromStatusCode)
@@ -1702,84 +1957,86 @@ function OrderWorkflowSection({
         </div>
       ) : (
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border/60 bg-surface-muted/30 p-1.5 sm:grid-cols-[9rem_minmax(0,1fr)_7rem_8rem_6rem_auto] sm:p-2">
-            <Input
-              value={newStatus.code}
-              onChange={(event) =>
-                setNewStatus((current) => ({
-                  ...current,
-                  code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                }))
-              }
-              placeholder="status_code"
-              className="h-8 text-xs"
-            />
-            <Input
-              value={newStatus.label}
-              onChange={(event) =>
-                setNewStatus((current) => ({ ...current, label: event.target.value }))
-              }
-              placeholder="状态名称"
-              className="h-8 text-xs"
-            />
-            <Input
-              value={newStatus.short_label}
-              onChange={(event) =>
-                setNewStatus((current) => ({ ...current, short_label: event.target.value }))
-              }
-              placeholder="短标签"
-              className="h-8 text-xs"
-            />
-            <Select
-              value={newStatus.bucket}
-              onValueChange={(bucket) =>
-                setNewStatus((current) => ({
-                  ...current,
-                  bucket: bucket as OrderWorkflowBucket,
-                }))
-              }
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {workflowBucketOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={newStatus.tone}
-              onValueChange={(tone) =>
-                setNewStatus((current) => ({ ...current, tone: tone as OrderWorkflowTone }))
-              }
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {workflowToneOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 text-xs"
-              disabled={isSaving || !newStatus.code.trim() || !newStatus.label.trim()}
-              onClick={() => {
-                onCreateStatus(newStatus);
-                setNewStatus(defaultNewStatusDraft());
-              }}
-            >
-              <Plus className="mr-1.5 size-3.5" /> 新增状态
-            </Button>
-          </div>
+          {canEdit ? (
+            <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border/60 bg-surface-muted/30 p-1.5 sm:grid-cols-[9rem_minmax(0,1fr)_7rem_8rem_6rem_auto] sm:p-2">
+              <Input
+                value={newStatus.code}
+                onChange={(event) =>
+                  setNewStatus((current) => ({
+                    ...current,
+                    code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
+                  }))
+                }
+                placeholder="status_code"
+                className="h-8 text-xs"
+              />
+              <Input
+                value={newStatus.label}
+                onChange={(event) =>
+                  setNewStatus((current) => ({ ...current, label: event.target.value }))
+                }
+                placeholder="状态名称"
+                className="h-8 text-xs"
+              />
+              <Input
+                value={newStatus.short_label}
+                onChange={(event) =>
+                  setNewStatus((current) => ({ ...current, short_label: event.target.value }))
+                }
+                placeholder="短标签"
+                className="h-8 text-xs"
+              />
+              <Select
+                value={newStatus.bucket}
+                onValueChange={(bucket) =>
+                  setNewStatus((current) => ({
+                    ...current,
+                    bucket: bucket as OrderWorkflowBucket,
+                  }))
+                }
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {workflowBucketOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={newStatus.tone}
+                onValueChange={(tone) =>
+                  setNewStatus((current) => ({ ...current, tone: tone as OrderWorkflowTone }))
+                }
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {workflowToneOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={isSaving || !newStatus.code.trim() || !newStatus.label.trim()}
+                onClick={() => {
+                  onCreateStatus(newStatus);
+                  setNewStatus(defaultNewStatusDraft());
+                }}
+              >
+                <Plus className="mr-1.5 size-3.5" /> 新增状态
+              </Button>
+            </div>
+          ) : null}
 
           <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] lg:items-start">
             <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3 lg:block lg:space-y-1.5">
@@ -1810,6 +2067,7 @@ function OrderWorkflowSection({
                         index={index}
                         total={statuses.length}
                         isSaving={isSaving}
+                        canEdit={canEdit}
                         onMove={moveStatus}
                         onUpdateStatus={onUpdateStatus}
                       />
@@ -1821,6 +2079,7 @@ function OrderWorkflowSection({
                       index={index}
                       total={statuses.length}
                       isSaving={isSaving}
+                      canEdit={canEdit}
                       onMove={moveStatus}
                       onUpdateStatus={onUpdateStatus}
                     />
@@ -1834,6 +2093,7 @@ function OrderWorkflowSection({
               transitions={transitions}
               fromStatusCode={fromStatusCode}
               isSaving={isSaving}
+              canEdit={canEdit}
               onFromStatusChange={setFromStatusCode}
               onUpdateTransition={updateTransitionTarget}
             />
@@ -1851,6 +2111,7 @@ function WorkflowTransitionsPanel({
   transitions,
   fromStatusCode,
   isSaving,
+  canEdit,
   onFromStatusChange,
   onUpdateTransition,
 }: {
@@ -1858,6 +2119,7 @@ function WorkflowTransitionsPanel({
   transitions: OrderWorkflow["transitions"];
   fromStatusCode: string;
   isSaving: boolean;
+  canEdit: boolean;
   onFromStatusChange: (code: string) => void;
   onUpdateTransition: (
     toStatusCode: string,
@@ -1901,7 +2163,7 @@ function WorkflowTransitionsPanel({
                 leading={
                   <Checkbox
                     checked={enabled}
-                    disabled={isSaving}
+                    disabled={!canEdit || isSaving}
                     aria-label={`允许流转到 ${status.label}`}
                     onCheckedChange={(checked) =>
                       onUpdateTransition(status.code, { enabled: Boolean(checked) })
@@ -1914,7 +2176,7 @@ function WorkflowTransitionsPanel({
                     variant={transition?.is_primary ? "default" : "outline"}
                     size="sm"
                     className="h-6 px-1.5 text-[10px]"
-                    disabled={isSaving || !enabled}
+                    disabled={!canEdit || isSaving || !enabled}
                     aria-label={`设为推荐流转到 ${status.label}`}
                     onClick={() =>
                       onUpdateTransition(status.code, {
@@ -1968,6 +2230,7 @@ function WorkflowStatusFields({
   index,
   total,
   isSaving,
+  canEdit,
   onMove,
   onUpdateStatus,
 }: {
@@ -1975,6 +2238,7 @@ function WorkflowStatusFields({
   index: number;
   total: number;
   isSaving: boolean;
+  canEdit: boolean;
   onMove: (index: number, direction: -1 | 1) => void;
   onUpdateStatus: (id: string, input: Parameters<typeof updateOrderWorkflowStatus>[1]) => void;
 }) {
@@ -1986,7 +2250,7 @@ function WorkflowStatusFields({
           variant="ghost"
           size="icon"
           className="size-7"
-          disabled={isSaving || index === 0}
+          disabled={!canEdit || isSaving || index === 0}
           onClick={() => onMove(index, -1)}
           aria-label="上移状态"
         >
@@ -1997,7 +2261,7 @@ function WorkflowStatusFields({
           variant="ghost"
           size="icon"
           className="size-7"
-          disabled={isSaving || index === total - 1}
+          disabled={!canEdit || isSaving || index === total - 1}
           onClick={() => onMove(index, 1)}
           aria-label="下移状态"
         >
@@ -2007,6 +2271,7 @@ function WorkflowStatusFields({
       <Input
         defaultValue={status.label}
         className="h-8 text-xs"
+        disabled={!canEdit}
         onBlur={(event) => {
           const label = event.target.value.trim();
           if (label && label !== status.label) onUpdateStatus(status.id, { label });
@@ -2015,6 +2280,7 @@ function WorkflowStatusFields({
       <Input
         defaultValue={status.short_label}
         className="h-8 text-xs"
+        disabled={!canEdit}
         onBlur={(event) => {
           const shortLabel = event.target.value.trim();
           if (shortLabel !== status.short_label) {
@@ -2024,6 +2290,7 @@ function WorkflowStatusFields({
       />
       <Select
         value={status.bucket}
+        disabled={!canEdit}
         onValueChange={(bucket) =>
           onUpdateStatus(status.id, { bucket: bucket as OrderWorkflowBucket })
         }
@@ -2041,6 +2308,7 @@ function WorkflowStatusFields({
       </Select>
       <Select
         value={status.tone}
+        disabled={!canEdit}
         onValueChange={(tone) => onUpdateStatus(status.id, { tone: tone as OrderWorkflowTone })}
       >
         <SelectTrigger className="h-8 text-xs">
@@ -2057,25 +2325,25 @@ function WorkflowStatusFields({
       <WorkflowCheck
         label="启用"
         checked={status.enabled}
-        disabled={isSaving || status.is_default_create_status}
+        disabled={!canEdit || isSaving || status.is_default_create_status}
         onChange={(checked) => onUpdateStatus(status.id, { enabled: checked })}
       />
       <WorkflowCheck
         label="列表"
         checked={status.show_in_order_filters}
-        disabled={isSaving}
+        disabled={!canEdit || isSaving}
         onChange={(checked) => onUpdateStatus(status.id, { show_in_order_filters: checked })}
       />
       <WorkflowCheck
         label="新建"
         checked={status.allowed_for_create}
-        disabled={isSaving || status.is_default_create_status}
+        disabled={!canEdit || isSaving || status.is_default_create_status}
         onChange={(checked) => onUpdateStatus(status.id, { allowed_for_create: checked })}
       />
       <WorkflowCheck
         label="默认"
         checked={status.is_default_create_status}
-        disabled={isSaving || status.is_default_create_status || !status.enabled}
+        disabled={!canEdit || isSaving || status.is_default_create_status || !status.enabled}
         onChange={(checked) =>
           checked && onUpdateStatus(status.id, { is_default_create_status: true })
         }
@@ -2174,6 +2442,10 @@ function StoreMembersSection({
   accessRequests,
   activeStoreRole,
   currentUserId,
+  canInviteMembers,
+  canManageMembers,
+  canRevokeMembers,
+  canReviewAccessRequests,
   canManageMemberPermissions,
   isLoading,
   isError,
@@ -2223,6 +2495,10 @@ function StoreMembersSection({
   accessRequests: OnboardingRequest[];
   activeStoreRole?: StoreRole;
   currentUserId?: string;
+  canInviteMembers: boolean;
+  canManageMembers: boolean;
+  canRevokeMembers: boolean;
+  canReviewAccessRequests: boolean;
   canManageMemberPermissions: boolean;
   isLoading: boolean;
   isError: boolean;
@@ -2279,9 +2555,11 @@ function StoreMembersSection({
   const renderMemberControls = (member: StoreMember, density: "table" | "card") => {
     const draftRole = memberRoleDrafts[member.id] ?? toApprovedRole(member.role);
     const canEditRole =
+      canManageMembers &&
       member.status === "active" &&
       canManageMemberRole(activeStoreRole, member, currentUserId, draftRole);
-    const canChangeStatus = canManageMemberStatus(activeStoreRole, member, currentUserId);
+    const canChangeStatus =
+      canManageMembers && canManageMemberStatus(activeStoreRole, member, currentUserId);
     const hasRoleChange = member.role !== "owner" && draftRole !== member.role;
     const isRowPending = isUpdatingMember && memberActionId === member.id;
     const memberRoleOptions = getRoleOptionsForMember(activeStoreRole, member);
@@ -2529,11 +2807,11 @@ function StoreMembersSection({
             </Select>
           </div>
 
-          {isAccessRequestsLoading ? (
+          {canReviewAccessRequests && isAccessRequestsLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-16 w-full" />
             </div>
-          ) : accessRequests.length ? (
+          ) : canReviewAccessRequests && accessRequests.length ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-medium text-muted-foreground">加入申请</p>
@@ -2623,213 +2901,220 @@ function StoreMembersSection({
           ) : null}
 
           <div className="grid gap-1.5 lg:grid-cols-2">
-            <CompactActionPanel
-              open={invitePanelOpen}
-              onOpenChange={setInvitePanelOpen}
-              title="邀请员工"
-              summary={`${invitations.length} 个待接受`}
-              icon={UserPlus}
-            >
-              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_auto]">
-                <Field label="员工邮箱" htmlFor="invite-email">
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    className={compactControlClass}
-                    value={inviteDraft.email}
-                    onChange={(event) =>
-                      onInviteDraftChange((current) => ({
-                        ...current,
-                        email: event.target.value,
-                      }))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        onInvite();
+            {canInviteMembers ? (
+              <CompactActionPanel
+                open={invitePanelOpen}
+                onOpenChange={setInvitePanelOpen}
+                title="邀请员工"
+                summary={`${invitations.length} 个待接受`}
+                icon={UserPlus}
+              >
+                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_auto]">
+                  <Field label="员工邮箱" htmlFor="invite-email">
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      className={compactControlClass}
+                      value={inviteDraft.email}
+                      onChange={(event) =>
+                        onInviteDraftChange((current) => ({
+                          ...current,
+                          email: event.target.value,
+                        }))
                       }
-                    }}
-                  />
-                </Field>
-                <Field label="角色" htmlFor="invite-role">
-                  <Select
-                    value={inviteDraft.role}
-                    disabled={!roleOptions.length}
-                    onValueChange={(role) =>
-                      onInviteDraftChange((current) => ({
-                        ...current,
-                        role: role as StoreInviteInput["role"],
-                      }))
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          onInvite();
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Field label="角色" htmlFor="invite-role">
+                    <Select
+                      value={inviteDraft.role}
+                      disabled={!roleOptions.length}
+                      onValueChange={(role) =>
+                        onInviteDraftChange((current) => ({
+                          ...current,
+                          role: role as StoreInviteInput["role"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="invite-role" className={compactControlClass}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {roleLabels[role]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 self-end"
+                    disabled={
+                      isInviting || !roleOptions.length || inviteDraft.email.trim().length < 3
                     }
+                    onClick={onInvite}
                   >
-                    <SelectTrigger id="invite-role" className={compactControlClass}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {roleLabels[role]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5 self-end"
-                  disabled={
-                    isInviting || !roleOptions.length || inviteDraft.email.trim().length < 3
-                  }
-                  onClick={onInvite}
-                >
-                  <UserPlus className="size-3.5" /> 邀请
-                </Button>
-              </div>
-            </CompactActionPanel>
+                    <UserPlus className="size-3.5" /> 邀请
+                  </Button>
+                </div>
+              </CompactActionPanel>
+            ) : null}
 
-            <CompactActionPanel
-              open={inviteCodePanelOpen}
-              onOpenChange={setInviteCodePanelOpen}
-              title="邀请码"
-              summary={`${inviteLinks.length} 个有效`}
-              icon={Plus}
-            >
-              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_auto]">
-                <Field label="备注" htmlFor="invite-code-label">
-                  <Input
-                    id="invite-code-label"
-                    className={compactControlClass}
-                    value={inviteLinkDraft.label ?? ""}
-                    onChange={(event) =>
-                      onInviteLinkDraftChange((current) => ({
-                        ...current,
-                        label: event.target.value,
-                      }))
-                    }
-                    placeholder="例如 临时员工"
-                  />
-                </Field>
-                <Field label="角色" htmlFor="invite-code-role">
-                  <Select
-                    value={inviteLinkDraft.role}
-                    disabled={!roleOptions.length}
-                    onValueChange={(role) =>
-                      onInviteLinkDraftChange((current) => ({
-                        ...current,
-                        role: role as StoreInviteLinkCreateInput["role"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger id="invite-code-role" className={compactControlClass}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {roleLabels[role]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="天数" htmlFor="invite-code-days">
-                  <Input
-                    id="invite-code-days"
-                    type="number"
-                    min={1}
-                    max={30}
-                    className={compactControlClass}
-                    value={inviteLinkDraft.expires_in_days ?? 7}
-                    onChange={(event) =>
-                      onInviteLinkDraftChange((current) => ({
-                        ...current,
-                        expires_in_days: Number(event.target.value) || 7,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field label="次数" htmlFor="invite-code-uses">
-                  <Input
-                    id="invite-code-uses"
-                    type="number"
-                    min={1}
-                    max={50}
-                    className={compactControlClass}
-                    value={inviteLinkDraft.max_uses ?? 1}
-                    onChange={(event) =>
-                      onInviteLinkDraftChange((current) => ({
-                        ...current,
-                        max_uses: Number(event.target.value) || 1,
-                      }))
-                    }
-                  />
-                </Field>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 gap-1.5 self-end"
-                  disabled={isCreatingInviteLink || !roleOptions.length}
-                  onClick={onCreateInviteLink}
-                >
-                  <Plus className="size-3.5" />
-                  生成
-                </Button>
-              </div>
-              {latestInviteCode ? (
-                <div className="mt-2 grid gap-2 rounded-md border border-primary/20 bg-card px-2.5 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                  <p className="truncate font-mono text-xs font-semibold">{latestInviteCode}</p>
+            {canInviteMembers || canRevokeMembers ? (
+              <CompactActionPanel
+                open={inviteCodePanelOpen}
+                onOpenChange={setInviteCodePanelOpen}
+                title="邀请码"
+                summary={`${inviteLinks.length} 个有效`}
+                icon={Plus}
+              >
+                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_auto]">
+                  <Field label="备注" htmlFor="invite-code-label">
+                    <Input
+                      id="invite-code-label"
+                      className={compactControlClass}
+                      value={inviteLinkDraft.label ?? ""}
+                      disabled={!canInviteMembers}
+                      onChange={(event) =>
+                        onInviteLinkDraftChange((current) => ({
+                          ...current,
+                          label: event.target.value,
+                        }))
+                      }
+                      placeholder="例如 临时员工"
+                    />
+                  </Field>
+                  <Field label="角色" htmlFor="invite-code-role">
+                    <Select
+                      value={inviteLinkDraft.role}
+                      disabled={!canInviteMembers || !roleOptions.length}
+                      onValueChange={(role) =>
+                        onInviteLinkDraftChange((current) => ({
+                          ...current,
+                          role: role as StoreInviteLinkCreateInput["role"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="invite-code-role" className={compactControlClass}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {roleLabels[role]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="天数" htmlFor="invite-code-days">
+                    <Input
+                      id="invite-code-days"
+                      type="number"
+                      min={1}
+                      max={30}
+                      className={compactControlClass}
+                      value={inviteLinkDraft.expires_in_days ?? 7}
+                      disabled={!canInviteMembers}
+                      onChange={(event) =>
+                        onInviteLinkDraftChange((current) => ({
+                          ...current,
+                          expires_in_days: Number(event.target.value) || 7,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="次数" htmlFor="invite-code-uses">
+                    <Input
+                      id="invite-code-uses"
+                      type="number"
+                      min={1}
+                      max={50}
+                      className={compactControlClass}
+                      value={inviteLinkDraft.max_uses ?? 1}
+                      disabled={!canInviteMembers}
+                      onChange={(event) =>
+                        onInviteLinkDraftChange((current) => ({
+                          ...current,
+                          max_uses: Number(event.target.value) || 1,
+                        }))
+                      }
+                    />
+                  </Field>
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
-                    className="h-7"
-                    onClick={onCopyInviteCode}
+                    className="h-8 gap-1.5 self-end"
+                    disabled={!canInviteMembers || isCreatingInviteLink || !roleOptions.length}
+                    onClick={onCreateInviteLink}
                   >
-                    复制
+                    <Plus className="size-3.5" />
+                    生成
                   </Button>
                 </div>
-              ) : null}
-              {inviteLinks.length ? (
-                <div className="mt-2 grid gap-1.5">
-                  {inviteLinks.map((link) => (
-                    <RepairOsBusinessCard
-                      key={link.id}
-                      className="grid-cols-1 gap-1.5 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                      trailing={
-                        <>
-                          <Badge variant="outline" className="text-[10px]">
-                            {roleLabels[link.role] ?? link.role}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {link.used_count}/{link.max_uses ?? "不限"}
-                          </span>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-xs"
-                            disabled={isRevokingInviteLink}
-                            onClick={() => onRevokeInviteLink(link.id)}
-                          >
-                            撤销
-                          </Button>
-                        </>
-                      }
-                      trailingClassName="flex flex-wrap items-center gap-2"
+                {latestInviteCode ? (
+                  <div className="mt-2 grid gap-2 rounded-md border border-primary/20 bg-card px-2.5 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <p className="truncate font-mono text-xs font-semibold">{latestInviteCode}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7"
+                      onClick={onCopyInviteCode}
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm">{link.label || "未命名邀请码"}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          到期：{formatDate(link.expires_at)}
-                        </p>
-                      </div>
-                    </RepairOsBusinessCard>
-                  ))}
-                </div>
-              ) : null}
-            </CompactActionPanel>
+                      复制
+                    </Button>
+                  </div>
+                ) : null}
+                {inviteLinks.length ? (
+                  <div className="mt-2 grid gap-1.5">
+                    {inviteLinks.map((link) => (
+                      <RepairOsBusinessCard
+                        key={link.id}
+                        className="grid-cols-1 gap-1.5 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                        trailing={
+                          <>
+                            <Badge variant="outline" className="text-[10px]">
+                              {roleLabels[link.role] ?? link.role}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {link.used_count}/{link.max_uses ?? "不限"}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              disabled={!canRevokeMembers || isRevokingInviteLink}
+                              onClick={() => onRevokeInviteLink(link.id)}
+                            >
+                              撤销
+                            </Button>
+                          </>
+                        }
+                        trailingClassName="flex flex-wrap items-center gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm">{link.label || "未命名邀请码"}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            到期：{formatDate(link.expires_at)}
+                          </p>
+                        </div>
+                      </RepairOsBusinessCard>
+                    ))}
+                  </div>
+                ) : null}
+              </CompactActionPanel>
+            ) : null}
           </div>
 
           {filteredMembers.length ? (
@@ -2966,7 +3251,7 @@ function StoreMembersSection({
                         variant="outline"
                         size="sm"
                         className="h-7 px-2 text-xs"
-                        disabled={isRevokingInvitation}
+                        disabled={!canRevokeMembers || isRevokingInvitation}
                         onClick={() => onRevokeInvitation(invitation.id)}
                       >
                         撤销
@@ -3366,6 +3651,8 @@ function SupplierManagementSection({
 function KioskDevicesSection({
   devices,
   sessions,
+  canManageDevices,
+  canReviewSessions,
   isLoading,
   deviceLabel,
   pairingCode,
@@ -3381,6 +3668,8 @@ function KioskDevicesSection({
 }: {
   devices: KioskDevice[];
   sessions: KioskSession[];
+  canManageDevices: boolean;
+  canReviewSessions: boolean;
   isLoading: boolean;
   deviceLabel: string;
   pairingCode: string;
@@ -3419,6 +3708,7 @@ function KioskDevicesSection({
                     value={deviceLabel}
                     placeholder="前台 iPad"
                     maxLength={80}
+                    disabled={!canManageDevices}
                     onChange={(event) => onDeviceLabelChange(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -3431,7 +3721,7 @@ function KioskDevicesSection({
                     type="button"
                     size="sm"
                     className="h-8 gap-1.5"
-                    disabled={isCreating}
+                    disabled={!canManageDevices || isCreating}
                     onClick={onCreatePairing}
                   >
                     <Plus className="size-3.5" />
@@ -3491,7 +3781,7 @@ function KioskDevicesSection({
                         key={session.id}
                         session={session}
                         reason={reason}
-                        isReviewing={isReviewing}
+                        isReviewing={!canReviewSessions || isReviewing}
                         onReasonChange={(value) =>
                           setReturnReasons((current) => ({
                             ...current,
@@ -3532,7 +3822,7 @@ function KioskDevicesSection({
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-[11px]"
-                          disabled={device.status === "revoked" || isRevoking}
+                          disabled={!canManageDevices || device.status === "revoked" || isRevoking}
                           onClick={() => onRevoke(device.id)}
                         >
                           撤销
@@ -3758,13 +4048,61 @@ function SettingsLoading() {
       eyebrow="系统 / 设置"
       className="pb-28"
     >
-      <div className="mt-3 space-y-2.5 sm:space-y-3">
+      <div data-ui="settings-loading" className="mt-3 space-y-2.5 sm:space-y-3">
         <Skeleton className="h-32 w-full rounded-lg" />
         <Skeleton className="h-28 w-full rounded-lg" />
         <Skeleton className="h-40 w-full rounded-lg" />
       </div>
     </RepairOsListScaffold>
   );
+}
+
+function SettingsSectionAccessState({
+  section,
+  unavailable,
+}: {
+  section: SettingsSectionKey;
+  unavailable: boolean;
+}) {
+  const sectionLabel = settingsSections.find((item) => item.key === section)?.label ?? "此设置";
+  return (
+    <section
+      data-ui={
+        unavailable ? "settings-permission-unavailable" : `settings-${section}-no-permission`
+      }
+      aria-label={`${sectionLabel}访问状态`}
+      className="rounded-xl border border-[var(--border-panel)] bg-card px-4 py-4 shadow-[var(--shadow-card)]"
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+          <ShieldCheck className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">
+            {unavailable ? `无法确认${sectionLabel}权限` : `无法打开${sectionLabel}`}
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {unavailable
+              ? "当前店铺的权限状态不可用，请重新加载页面后再试。"
+              : "当前账号不具备此分组所需的店铺权限。页面未读取或显示相关业务数据。"}
+          </p>
+          <Button asChild type="button" size="sm" variant="outline" className="mt-3 h-8">
+            <Link href="/settings?section=account">返回账号设置</Link>
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+async function copySensitiveCode(value: string, successMessage: string) {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
+    await navigator.clipboard.writeText(value);
+    toast.success(successMessage);
+  } catch {
+    toast.error("复制失败，请长按或手动选择代码复制");
+  }
 }
 
 function toDraft(settings: StoreSettings): SettingsDraft {

@@ -102,7 +102,7 @@ export function KioskScreen() {
               <TabletSmartphone className="size-5" />
             </span>
             <div className="min-w-0">
-              <h1 className="text-lg font-semibold">ChinaTech Customer Kiosk</h1>
+              <h1 className="text-lg font-semibold">Customer Kiosk</h1>
               <p className="text-sm text-muted-foreground">
                 Inserisci il codice fornito dallo staff.
               </p>
@@ -140,7 +140,7 @@ export function KioskScreen() {
       <div className="mx-auto grid min-h-[calc(100dvh-2rem)] w-full max-w-3xl grid-rows-[auto_minmax(0,1fr)] gap-4">
         <header className="flex min-w-0 items-center justify-between gap-3 border-b border-border pb-3">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-primary">{session?.store.name ?? "ChinaTech"}</p>
+            <p className="text-sm font-medium text-primary">{session?.store.name ?? "Negozio"}</p>
             <h1 className="truncate text-xl font-semibold">Customer Kiosk</h1>
           </div>
           <Button

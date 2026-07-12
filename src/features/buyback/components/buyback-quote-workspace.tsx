@@ -90,6 +90,7 @@ import type { InventoryItemStatus, InventoryListItem } from "@/lib/repairdesk/ty
 import { componentOverlay } from "@/lib/component-patterns";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import {
   RepairOsBusinessCard,
   RepairOsInfoLine,
@@ -113,6 +114,7 @@ interface BuybackQuoteWorkspaceProps {
   targetItem?: InventoryListItem | null;
   canCaptureEvidence?: boolean;
   canFinalize?: boolean;
+  storeIdentity: StoreOutputIdentity;
 }
 
 type DraftKey = keyof BuybackQuoteDraft;
@@ -136,6 +138,7 @@ export function BuybackQuoteWorkspace({
   targetItem,
   canCaptureEvidence: canCaptureEvidencePermission = false,
   canFinalize: canFinalizePermission = false,
+  storeIdentity,
 }: BuybackQuoteWorkspaceProps) {
   const queryClient = useQueryClient();
   const stepContentRef = useRef<HTMLDivElement>(null);
@@ -468,11 +471,15 @@ export function BuybackQuoteWorkspace({
   }
 
   function openWhatsappQuote() {
+    if (!storeIdentity.canOutput) {
+      toast.error(storeIdentity.blockReason ?? "请先补齐当前店铺资料后再发送报价");
+      return;
+    }
     if (!phone) {
       toast.error("请先填写可用的客户 WhatsApp 电话");
       return;
     }
-    const message = buildWhatsappQuoteMessage(draft, result);
+    const message = buildWhatsappQuoteMessage(draft, result, storeIdentity);
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
   }
 

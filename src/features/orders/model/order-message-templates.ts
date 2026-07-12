@@ -1,5 +1,6 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderDetail, OrderWhatsappTemplateKind } from "@/lib/repairdesk/types";
+import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import {
   formatEuro,
   statusItalian,
@@ -54,7 +55,10 @@ export function buildOrderWhatsappMessage(
   data: OrderDetail,
   kind: OrderWhatsappTemplateKind,
   orderUrl: string,
-  options: { recipientPhone?: string } = {},
+  options: {
+    recipientPhone?: string;
+    storeIdentity?: Pick<StoreOutputIdentity, "storeName" | "messageSignature">;
+  } = {},
 ) {
   const ctx = getTemplateContext(data, orderUrl, options);
 
@@ -76,7 +80,7 @@ export function buildOrderWhatsappMessage(
           "",
           "La preghiamo di confermare se desidera procedere con la riparazione.",
           "Grazie,",
-          "ChinaTech",
+          ctx.messageSignature || null,
         ];
       case "pickup_ready":
         return [
@@ -89,7 +93,7 @@ export function buildOrderWhatsappMessage(
           ...ctx.financeLines,
           "",
           "Puo passare in negozio per il ritiro.",
-          "ChinaTech - Viale Vittorio Veneto, 7, Floridia (SR)",
+          ctx.messageSignature || null,
         ];
       case "unfixed_pickup":
         return [
@@ -103,7 +107,7 @@ export function buildOrderWhatsappMessage(
           ...ctx.financeLines,
           "",
           "Puo passare in negozio per il ritiro.",
-          "ChinaTech",
+          ctx.messageSignature || null,
         ];
       case "parts_update":
         return [
@@ -118,7 +122,7 @@ export function buildOrderWhatsappMessage(
           ctx.status === "parts_arrived"
             ? "I ricambi sono arrivati e procederemo con la riparazione."
             : "I ricambi necessari sono stati ordinati. La informeremo appena saranno disponibili.",
-          "ChinaTech",
+          ctx.messageSignature || null,
         ];
       case "cancelled":
         return [
@@ -129,7 +133,7 @@ export function buildOrderWhatsappMessage(
           ctx.cancelReason ? `Motivo: ${ctx.cancelReason}` : null,
           "",
           "Per qualsiasi chiarimento puo contattarci.",
-          "ChinaTech",
+          ctx.messageSignature || null,
         ];
       case "completed":
         return [
@@ -140,7 +144,7 @@ export function buildOrderWhatsappMessage(
           ctx.recipientPhone ? `Telefono cliente: ${ctx.recipientPhone}` : null,
           ...ctx.financeLines,
           "",
-          "Grazie per aver scelto ChinaTech.",
+          ctx.storeName ? `Grazie per aver scelto ${ctx.storeName}.` : "Grazie per la fiducia.",
         ];
       case "repair_status":
       default:
@@ -157,7 +161,7 @@ export function buildOrderWhatsappMessage(
           ctx.orderUrl ? `Link ordine: ${ctx.orderUrl}` : null,
           "",
           "Per qualsiasi domanda siamo a disposizione.",
-          "ChinaTech",
+          ctx.messageSignature || null,
         ];
     }
   })();
@@ -193,7 +197,10 @@ export function replaceOrderWhatsappRecipientPhone(body: string, recipientPhone:
 function getTemplateContext(
   data: OrderDetail,
   orderUrl: string,
-  options: { recipientPhone?: string } = {},
+  options: {
+    recipientPhone?: string;
+    storeIdentity?: Pick<StoreOutputIdentity, "storeName" | "messageSignature">;
+  } = {},
 ) {
   const { order, customer, device } = data;
   const snapshot = order.device_snapshot;
@@ -235,5 +242,7 @@ function getTemplateContext(
     financeLines,
     orderUrl,
     recipientPhone: options.recipientPhone?.trim() ?? "",
+    storeName: options.storeIdentity?.storeName.trim() ?? "",
+    messageSignature: options.storeIdentity?.messageSignature.trim() ?? "",
   };
 }

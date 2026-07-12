@@ -35,6 +35,7 @@ import {
 } from "@/features/orders/model/order-message-templates";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 
 export function NotifyDialog({
   open,
@@ -42,6 +43,7 @@ export function NotifyDialog({
   data,
   workflow,
   orderUrl,
+  storeIdentity,
   busy,
   onConfirm,
 }: {
@@ -50,6 +52,7 @@ export function NotifyDialog({
   data: OrderDetail;
   workflow?: OrderWorkflow;
   orderUrl: string;
+  storeIdentity: StoreOutputIdentity;
   busy: boolean;
   onConfirm: (input: {
     body: string;
@@ -68,7 +71,10 @@ export function NotifyDialog({
   const defaultPhone = phoneOptions[0] ?? "";
   const [templateKind, setTemplateKind] = useState<OrderWhatsappTemplateKind>(defaultKind);
   const [body, setBody] = useState(() =>
-    buildOrderWhatsappMessage(data, defaultKind, orderUrl, { recipientPhone: defaultPhone }),
+    buildOrderWhatsappMessage(data, defaultKind, orderUrl, {
+      recipientPhone: defaultPhone,
+      storeIdentity,
+    }),
   );
   const [phone, setPhone] = useState(defaultPhone);
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
@@ -79,13 +85,20 @@ export function NotifyDialog({
     const nextKind = getDefaultOrderWhatsappTemplateKind(effectiveStatus);
     const nextPhone = getOrderContactPhoneOptions(data)[0] ?? "";
     setTemplateKind(nextKind);
-    setBody(buildOrderWhatsappMessage(data, nextKind, orderUrl, { recipientPhone: nextPhone }));
+    setBody(
+      buildOrderWhatsappMessage(data, nextKind, orderUrl, {
+        recipientPhone: nextPhone,
+        storeIdentity,
+      }),
+    );
     setPhone(nextPhone);
-  }, [data, effectiveStatus, open, orderUrl]);
+  }, [data, effectiveStatus, open, orderUrl, storeIdentity]);
 
   const updateTemplate = (kind: OrderWhatsappTemplateKind) => {
     setTemplateKind(kind);
-    setBody(buildOrderWhatsappMessage(data, kind, orderUrl, { recipientPhone: phone }));
+    setBody(
+      buildOrderWhatsappMessage(data, kind, orderUrl, { recipientPhone: phone, storeIdentity }),
+    );
   };
 
   const updatePhone = (nextPhone: string) => {
@@ -105,6 +118,14 @@ export function NotifyDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
+          {!storeIdentity.canOutput ? (
+            <div
+              role="alert"
+              className="mb-2 rounded-md border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
+            >
+              {storeIdentity.blockReason ?? "请先补齐当前店铺资料后再发送客户消息。"}
+            </div>
+          ) : null}
           <div className="grid min-w-0 gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 sm:grid-cols-[1fr_1.25fr]">
             <div className="min-w-0">
               <Label className="text-xs">通知类型</Label>
@@ -166,7 +187,7 @@ export function NotifyDialog({
             取消
           </Button>
           <Button
-            disabled={busy || !body.trim() || !canOpenWhatsApp}
+            disabled={busy || !storeIdentity.canOutput || !body.trim() || !canOpenWhatsApp}
             onClick={async () => {
               const url = buildWhatsAppUrl(phone, body.trim());
               if (!url || !canOpenWhatsApp) {

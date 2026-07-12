@@ -46,7 +46,9 @@ import { BuybackQuoteWorkspace } from "@/features/buyback/components/buyback-quo
 import { BUYBACK_SENSITIVE_WORKFLOW_ENABLED } from "@/features/buyback/model/buyback-evidence-policy";
 import { ScanSearchButton } from "@/features/capture";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { inventoryStatusMeta } from "@/features/inventory/model/inventory-workflow";
 import { buildInventoryBuybackSummary } from "@/features/inventory/model/inventory-buyback-summary";
 import {
@@ -95,6 +97,28 @@ export function BuybackScreen() {
   const router = useRouter();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const storeSettingsQuery = useQuery({
+    ...storeSettingsQueryOptions(activeStoreId),
+    enabled: Boolean(activeStoreId),
+  });
+  const storeOutputIdentity = useMemo(
+    () =>
+      resolveStoreOutputIdentity({
+        activeStore: shell.activeStore,
+        settings: storeSettingsQuery.data,
+        settingsState: storeSettingsQuery.isLoading
+          ? "loading"
+          : storeSettingsQuery.isError
+            ? "error"
+            : "ready",
+      }),
+    [
+      shell.activeStore,
+      storeSettingsQuery.data,
+      storeSettingsQuery.isError,
+      storeSettingsQuery.isLoading,
+    ],
+  );
   const searchParams = useSearchParams();
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [quoteInitialDraft, setQuoteInitialDraft] = useState<BuybackQuoteDraft | null>(null);
@@ -309,6 +333,11 @@ export function BuybackScreen() {
           onOpenChange={handleQuoteOpenChange}
           initialDraft={quoteInitialDraft}
           targetItem={quoteTargetRecord}
+          canCaptureEvidence={
+            shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager"
+          }
+          canFinalize={shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager"}
+          storeIdentity={storeOutputIdentity}
         />
         <BuybackRecordSheet
           item={selectedRecord}

@@ -71,9 +71,14 @@ import {
 } from "@/components/ui/table";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { inventorySummaryQueryOptions } from "@/features/inventory/api/query-options";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { useRealtimeSync } from "@/features/realtime";
 import { ScanSearchButton } from "@/features/capture";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import {
+  resolveStoreOutputIdentity,
+  type StoreOutputIdentity,
+} from "@/entities/store/model/store-output-identity";
 import {
   RepairOsBusinessCard,
   RepairOsChipRow,
@@ -177,6 +182,19 @@ export function InventoryScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const storeSettingsQuery = useQuery({
+    ...storeSettingsQueryOptions(activeStoreId),
+    enabled: Boolean(activeStoreId),
+  });
+  const storeOutputIdentity = resolveStoreOutputIdentity({
+    activeStore: shell.activeStore,
+    settings: storeSettingsQuery.data,
+    settingsState: storeSettingsQuery.isLoading
+      ? "loading"
+      : storeSettingsQuery.isError
+        ? "error"
+        : "ready",
+  });
   const { coordinator } = useRealtimeSync();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
@@ -487,7 +505,7 @@ export function InventoryScreen() {
       <InventoryActionDialog
         action={action}
         item={actionItem ?? selectedItem}
-        activeStoreName={shell.activeStore?.name}
+        storeOutputIdentity={storeOutputIdentity}
         onOpenChange={(open) => {
           if (!open) {
             setAction(null);
@@ -1651,13 +1669,13 @@ function IntakeDialog({
 function InventoryActionDialog({
   action,
   item,
-  activeStoreName,
+  storeOutputIdentity,
   onOpenChange,
   onDone,
 }: {
   action: InventoryActionMode | null;
   item?: InventoryListItem;
-  activeStoreName?: string;
+  storeOutputIdentity: StoreOutputIdentity;
   onOpenChange: (open: boolean) => void;
   onDone: (id?: string) => void;
 }) {
@@ -1712,7 +1730,7 @@ function InventoryActionDialog({
     return (
       <InventorySaleReceiptDialog
         item={item}
-        activeStoreName={activeStoreName}
+        storeOutputIdentity={storeOutputIdentity}
         onOpenChange={onOpenChange}
       />
     );
@@ -1991,17 +2009,20 @@ function InventoryActionDialog({
 
 function InventorySaleReceiptDialog({
   item,
-  activeStoreName,
+  storeOutputIdentity,
   onOpenChange,
 }: {
   item: InventoryListItem;
-  activeStoreName?: string;
+  storeOutputIdentity: StoreOutputIdentity;
   onOpenChange: (open: boolean) => void;
 }) {
-  const receipt = buildInventorySaleReceiptData(item, { storeName: activeStoreName });
+  const receipt = buildInventorySaleReceiptData(item, {
+    storeIdentity: storeOutputIdentity,
+  });
   const warrantyState = getInventoryWarrantyState(item);
 
   function handlePrint() {
+    if (!storeOutputIdentity.canOutput) return;
     window.requestAnimationFrame(() => window.print());
   }
 
@@ -2015,6 +2036,14 @@ function InventorySaleReceiptDialog({
           </DialogDescription>
         </DialogHeader>
         <div className={cn(inventoryDialogBodyClass, "space-y-3")}>
+          {!storeOutputIdentity.canOutput ? (
+            <div
+              role="alert"
+              className="rounded-lg border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
+            >
+              {storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印票据。"}
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
             <InventoryDenseInfoBox
               label="售出时间"
@@ -2053,6 +2082,8 @@ function InventorySaleReceiptDialog({
               iconClassName="size-3.5"
             />
             <div className="grid gap-2 text-xs sm:grid-cols-2">
+              <InventoryReceiptPreviewLine label="店铺" value={receipt.store_name} />
+              <InventoryReceiptPreviewLine label="店铺地址" value={receipt.store_address} />
               <InventoryReceiptPreviewLine label="商品" value={receipt.item_label} />
               <InventoryReceiptPreviewLine label="IMEI / 序列号" value={receipt.serial_or_imei} />
               <InventoryReceiptPreviewLine
@@ -2080,13 +2111,16 @@ function InventorySaleReceiptDialog({
             size="sm"
             className={cn("gap-2", controls.brandButton)}
             style={brandGradientStyle}
+            disabled={!storeOutputIdentity.canOutput}
             onClick={handlePrint}
           >
             <Printer className="size-3.5" />
             打印票据
           </Button>
         </DialogFooter>
-        <InventorySaleReceiptPrintSheet receipt={receipt} />
+        {storeOutputIdentity.canOutput ? (
+          <InventorySaleReceiptPrintSheet receipt={receipt} />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -2111,7 +2145,7 @@ function InventorySaleReceiptPrintSheet({ receipt }: { receipt: InventorySaleRec
           <div className="repair-print-left">
             <header className="repair-print-store">
               <h2>{receipt.store_name}</h2>
-              <p>{receipt.store_address}</p>
+              {receipt.store_address ? <p>{receipt.store_address}</p> : null}
               <h1>RICEVUTA VENDITA USATO</h1>
               <p>Documento garanzia cliente</p>
             </header>

@@ -342,7 +342,7 @@ function OrderOverviewDesktopContextStrip({
       <OverviewMeta
         icon={Store}
         label={supplier ? "外修 / 门店" : "门店"}
-        value={supplier?.short_name || storeSettings?.store_name || "ChinaTech"}
+        value={supplier?.short_name || storeSettings?.store_name || "未配置"}
         compact
         color={supplier?.color}
       />

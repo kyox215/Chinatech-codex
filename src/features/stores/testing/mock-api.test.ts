@@ -87,6 +87,7 @@ describe("store mock api invitation parity", () => {
     });
 
     expect(created.code).toMatch(/^rd_/);
+    expect(created.link.store_id).toBeTruthy();
     expect((await api.listStoreMembers()).invite_links?.[0]).toMatchObject({
       id: created.link.id,
       label: "测试邀请码",
@@ -127,5 +128,25 @@ describe("store mock api invitation parity", () => {
 
     await api.revokeStoreInviteLink({ id: created.link.id });
     expect((await api.listStoreMembers()).invite_links).toHaveLength(0);
+  });
+
+  it("publishes the complete owner settings capability contract", async () => {
+    const context = await api.getStoreContext();
+
+    expect(context.permissions).toMatchObject({
+      canReadStoreSettings: true,
+      canUpdateStoreSettings: true,
+      canConfigureWorkflow: true,
+      canUpdateMessageTemplates: true,
+      canReadMessageTemplates: true,
+      canListMembers: true,
+      canInviteMembers: true,
+      canManageMembers: true,
+      canRevokeMembers: true,
+      canGrantManager: true,
+      canReviewAccessRequests: true,
+      canManageKioskDevices: true,
+      canReviewKioskSessions: true,
+    });
   });
 });

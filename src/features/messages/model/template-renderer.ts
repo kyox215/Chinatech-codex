@@ -13,7 +13,7 @@ import {
   translateFaultName,
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
-import { DEFAULT_STORE_SETTINGS, withStoreSettingsDefaults } from "./message-template-defaults";
+import { withStoreSettingsDefaults } from "./message-template-defaults";
 
 export type TemplateContext = Record<string, string | number | boolean | null | undefined>;
 
@@ -231,14 +231,16 @@ export function renderCustomerTemplateMessage({
 
 export function buildStoreTemplateContext(settings?: Partial<StoreSettings> | null) {
   const store = withStoreSettingsDefaults(settings);
+  const storeName = store.store_name.trim();
   return {
-    store_name: store.store_name,
+    store_name: storeName,
     store_address: store.store_address,
     store_phone: store.store_phone,
     store_whatsapp: store.store_whatsapp,
     store_email: store.store_email,
-    message_signature: store.message_signature,
-    print_footer: store.print_footer,
+    message_signature: store.message_signature.trim() || storeName,
+    print_footer:
+      store.print_footer.trim() || (storeName ? `Grazie per aver scelto ${storeName}.` : ""),
     default_order_warranty_text: store.default_order_warranty_text,
     default_order_warranty_months: String(store.default_order_warranty_months),
     default_inventory_warranty_months: String(store.default_inventory_warranty_months),
@@ -277,7 +279,7 @@ export function buildOrderTemplateContext(
       : "I ricambi necessari sono stati ordinati. La informeremo appena saranno disponibili.";
 
   return {
-    ...buildStoreTemplateContext(storeSettings ?? DEFAULT_STORE_SETTINGS),
+    ...buildStoreTemplateContext(storeSettings),
     customer_name: customer?.name || order.customer_name || "Cliente",
     order_no: order.public_no,
     device_label: deviceLabel,
@@ -309,7 +311,7 @@ export function buildCustomerTemplateContext(
   const customerUrl = appOrigin ? `${appOrigin}/customers/${customer.id}` : "";
 
   return {
-    ...buildStoreTemplateContext(storeSettings ?? DEFAULT_STORE_SETTINGS),
+    ...buildStoreTemplateContext(storeSettings),
     customer_name: customer.name || "Cliente",
     latest_order_no: latest?.public_no ?? "",
     latest_device_label: latest?.device_label ?? "",

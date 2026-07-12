@@ -42,12 +42,13 @@ import { cn } from "@/lib/utils";
 export function OrderHero({
   order,
   onPrint,
+  printDisabled = false,
   onCancel,
   canCancel = false,
   onEdit,
   onSaveEdit,
   onCancelEdit,
-  storeName = "ChinaTech",
+  storeName = "",
   isEditing = false,
   editPending = false,
   editSaveDisabled = false,
@@ -61,6 +62,7 @@ export function OrderHero({
 }: {
   order: OrderDetail["order"];
   onPrint: () => void;
+  printDisabled?: boolean;
   onCancel: () => void;
   canCancel?: boolean;
   onEdit?: () => void;
@@ -112,7 +114,14 @@ export function OrderHero({
   const missingItems = readiness.filter((item) => !item.done);
   const heroActions = (
     <div className="flex min-w-0 shrink-0 items-center justify-end gap-1">
-      <Button size="icon" variant="outline" className="size-7" onClick={onPrint} aria-label="打印">
+      <Button
+        size="icon"
+        variant="outline"
+        className="size-7"
+        disabled={printDisabled}
+        onClick={onPrint}
+        aria-label={printDisabled ? "请先补齐店铺资料后打印" : "打印"}
+      >
         <Printer className="size-4" />
       </Button>
       <DropdownMenu>

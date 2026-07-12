@@ -4,7 +4,7 @@ import { KioskScreen } from "@/features/kiosk";
 
 export const metadata: Metadata = {
   title: "Customer Kiosk",
-  description: "ChinaTech customer intake and pickup confirmation kiosk",
+  description: "Customer intake and pickup confirmation kiosk",
 };
 
 export default function Page() {

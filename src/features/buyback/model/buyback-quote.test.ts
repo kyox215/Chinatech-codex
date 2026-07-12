@@ -10,6 +10,7 @@ import {
   buildBuybackQuoteDraftFromInventoryItem,
   buildBuybackQuoteUpdateInput,
   buildBuybackQualityCheckInput,
+  buildWhatsappQuoteMessage,
   calculateBuybackQuote,
   defaultBuybackQuoteDraft,
   buybackQuoteSteps,
@@ -64,6 +65,16 @@ describe("buyback quote calculation", () => {
       "proof",
       "box",
     ]);
+  });
+
+  it("signs WhatsApp quotes with the selected tenant identity", () => {
+    const result = calculateBuybackQuote(pricedQuoteDraft);
+    const message = buildWhatsappQuoteMessage(pricedQuoteDraft, result, {
+      messageSignature: "Etna Phone Lab · Assistenza",
+    });
+
+    expect(message).toContain("Etna Phone Lab · Assistenza");
+    expect(message).not.toMatch(/ChinaTech|Chinatech|Floridia|Viale Vittorio Veneto/i);
   });
 
   it("keeps a manual offer and flags manager approval when it exceeds the range", () => {

@@ -19,13 +19,16 @@ import { buildStorePrintProfile } from "@/features/print/model/store-print-profi
 export function OrderListPrintSheet({
   orders,
   storeSettings,
+  activeStore,
 }: {
   orders: OrderListItem[];
   storeSettings?: Partial<StoreSettings> | null;
+  activeStore?: { id?: string; name?: string } | null;
 }) {
   if (!orders.length) return null;
 
-  const storeProfile = buildStorePrintProfile(storeSettings);
+  const storeProfile = buildStorePrintProfile(storeSettings, activeStore);
+  if (!storeProfile.canOutput) return null;
 
   return (
     <PrintPortal paperMode="a4-portrait-half">

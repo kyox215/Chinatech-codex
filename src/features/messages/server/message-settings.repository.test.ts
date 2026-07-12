@@ -4,6 +4,7 @@ import {
   getMessageTemplate,
   getStoreSettings,
   listMessageTemplates,
+  updateStoreSettingsRow,
 } from "@/features/messages/server/message-settings.repository";
 
 const mocks = vi.hoisted(() => ({
@@ -59,6 +60,81 @@ describe("message settings repository tenant boundaries", () => {
     expect(templateQuery.eq).toHaveBeenCalledWith("id", "tpl_1");
     expect(templateQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
   });
+
+  it("initializes missing settings with the authenticated tenant name and no foreign address", async () => {
+    const settingsQuery = createSupabaseQuery({ data: null, error: null });
+    const insertedRow = storeSettingsRow({
+      store_id: "store_partner",
+      store_name: "Ripara Subito",
+      print_footer: "Grazie per aver scelto Ripara Subito.",
+      message_signature: "Ripara Subito",
+    });
+    const insertQuery = createSupabaseQuery({ data: insertedRow, error: null });
+    mocks.supabase.from.mockReturnValueOnce(settingsQuery).mockReturnValueOnce(insertQuery);
+
+    const result = await getStoreSettings("store_partner", "Ripara Subito");
+
+    expect(insertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        store_id: "store_partner",
+        store_name: "Ripara Subito",
+        store_address: "",
+        print_footer: "Grazie per aver scelto Ripara Subito.",
+        message_signature: "Ripara Subito",
+      }),
+    );
+    expect(result).toMatchObject({
+      store_id: "store_partner",
+      store_name: "Ripara Subito",
+      store_address: "",
+    });
+    expect(JSON.stringify(result)).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
+  });
+
+  it("preserves omitted tenant identity fields during a partial update", async () => {
+    const current = storeSettingsRow({
+      store_id: "store_partner",
+      store_name: "Ripara Subito",
+      store_address: "Via Roma 12, Siracusa",
+      store_phone: "+39 0931 000000",
+      print_footer: "Footer partner",
+      message_signature: "Firma partner",
+    });
+    const settingsQuery = createSupabaseQuery({ data: current, error: null });
+    const updated = { ...current, store_phone: "+39 333 1111111" };
+    const updateQuery = createSupabaseQuery({ data: updated, error: null });
+    mocks.supabase.from.mockReturnValueOnce(settingsQuery).mockReturnValueOnce(updateQuery);
+
+    await updateStoreSettingsRow(
+      { store_phone: "+39 333 1111111" },
+      "actor_1",
+      "store_partner",
+      "Ripara Subito",
+    );
+
+    expect(updateQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 333 1111111",
+        print_footer: "Footer partner",
+        message_signature: "Firma partner",
+      }),
+    );
+  });
+
+  it("rejects an explicitly blank store name", async () => {
+    const settingsQuery = createSupabaseQuery({
+      data: storeSettingsRow({ store_id: "store_partner", store_name: "Ripara Subito" }),
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(settingsQuery);
+
+    await expect(
+      updateStoreSettingsRow({ store_name: "   " }, "actor_1", "store_partner", "Ripara Subito"),
+    ).rejects.toThrow("店铺名不能为空");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+  });
 });
 
 function createSupabaseQuery(result: { data: unknown; error: unknown }) {
@@ -67,7 +143,30 @@ function createSupabaseQuery(result: { data: unknown; error: unknown }) {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
     order: vi.fn(() => query),
+    insert: vi.fn(() => query),
+    update: vi.fn(() => query),
     maybeSingle: vi.fn(() => result),
+    single: vi.fn(() => result),
   };
   return query;
+}
+
+function storeSettingsRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "store-settings:store_partner",
+    store_id: "store_partner",
+    store_name: "Ripara Subito",
+    store_address: "",
+    store_phone: "",
+    store_whatsapp: "",
+    store_email: "",
+    default_order_warranty_text: "6个月",
+    default_order_warranty_months: 6,
+    default_inventory_warranty_months: 12,
+    print_footer: "",
+    message_signature: "",
+    created_at: "2026-07-12T00:00:00.000Z",
+    updated_at: "2026-07-12T00:00:00.000Z",
+    ...overrides,
+  };
 }
