@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RepairDeskRealtimeChannel, RepairDeskRealtimeClient } from "../api/realtime-client";
@@ -49,7 +50,76 @@ describe("RealtimeAppBridge", () => {
       config: { private: true },
     });
   });
+
+  it("keeps shell children mounted when the initial store authority finishes loading", () => {
+    const client = createMockRealtimeClient();
+    const onMount = vi.fn();
+    const onUnmount = vi.fn();
+    let shellContext = {
+      ...makeShellContext({ id: storeId }),
+      authorityFingerprint: `user|${storeId}|membership|owner|no-permissions`,
+      isRefreshing: true,
+    };
+    vi.mocked(useStoreShellContext).mockImplementation(() => shellContext);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const renderTree = () => (
+      <QueryClientProvider client={queryClient}>
+        <RealtimeAppBridge client={client} enabled={false}>
+          <LifecycleProbe onMount={onMount} onUnmount={onUnmount} />
+        </RealtimeAppBridge>
+      </QueryClientProvider>
+    );
+    const view = render(renderTree());
+
+    shellContext = {
+      ...shellContext,
+      authorityFingerprint: `user|${storeId}|membership|owner|orders.read:1`,
+      isRefreshing: false,
+    };
+    view.rerender(renderTree());
+
+    expect(onMount).toHaveBeenCalledOnce();
+    expect(onUnmount).not.toHaveBeenCalled();
+  });
+
+  it("remounts shell children after a later stable authority change", async () => {
+    const client = createMockRealtimeClient();
+    const onMount = vi.fn();
+    const onUnmount = vi.fn();
+    let shellContext = {
+      ...makeShellContext({ id: storeId }),
+      authorityFingerprint: `user|${storeId}|membership|owner|orders.read:1`,
+    };
+    vi.mocked(useStoreShellContext).mockImplementation(() => shellContext);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const renderTree = () => (
+      <QueryClientProvider client={queryClient}>
+        <RealtimeAppBridge client={client} enabled={false}>
+          <LifecycleProbe onMount={onMount} onUnmount={onUnmount} />
+        </RealtimeAppBridge>
+      </QueryClientProvider>
+    );
+    const view = render(renderTree());
+
+    shellContext = {
+      ...shellContext,
+      authorityFingerprint: `user|${storeId}|membership|owner|orders.read:0`,
+    };
+    view.rerender(renderTree());
+
+    await waitFor(() => expect(onMount).toHaveBeenCalledTimes(2));
+    expect(onUnmount).toHaveBeenCalledOnce();
+  });
 });
+
+function LifecycleProbe({ onMount, onUnmount }: { onMount: () => void; onUnmount: () => void }) {
+  useEffect(() => {
+    onMount();
+    return onUnmount;
+  }, [onMount, onUnmount]);
+
+  return <div data-testid="bridge-child" />;
+}
 
 function renderBridge({
   client,

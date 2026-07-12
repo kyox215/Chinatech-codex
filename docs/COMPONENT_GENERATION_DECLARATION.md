@@ -3,7 +3,7 @@
 Status: active
 Owner: Frontend + Documentation / Integration Lead
 Scope: current reusable-component generation, naming, placement, styling, and validation rules for RepairDesk.
-Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+Last reviewed: 2026-07-12 CEST by `TASK-20260712-002-mobile-interaction-click-reliability`
 
 > 本声明专门约束“新增可复用组件如何设计、生成、命名、落盘、验收”。
 >
@@ -180,6 +180,7 @@ export interface ExampleCardProps {
 ### 8.1 Dialog / Sheet / Popover 生成标准
 
 - 默认复用 `src/components/ui/*` 的 `Dialog`、`Sheet`、`Popover`，不要自造 Portal、Overlay 或关闭按钮。
+- `Dialog` / `Sheet` 内嵌 `DropdownMenu` 时，如果菜单动作会导航、卸载或同批关闭外层浮层，内层菜单必须使用 `modal={false}`，由外层浮层统一管理焦点和 pointer lock；回归测试必须确认最终 `document.body.style.pointerEvents !== "none"`。
 - `Dialog` 用于桌面详情、确认、新建/编辑；`Sheet` 用于移动筛选、接近全屏流程或侧向辅助面板；`Popover` 只承载轻量菜单、筛选、日期/状态选择，不放长表单或详情页。
 - `Dialog` / `Sheet` 必须包含 title 和 description；视觉隐藏时使用 `sr-only`。`PopoverTrigger` 必须有可访问名称，内容无可见标题时补 `aria-label` 或 `aria-labelledby`。
 - 内容 class 复用 `componentOverlay.content`、`componentOverlay.responsiveContent` 或 `surfaces.popover`；所有浮层限制在 `max-w-[calc(100vw-24px)]` 内，移动 Sheet 接近全屏时使用 `h-[calc(100svh-16px)]`。
@@ -202,6 +203,7 @@ export interface ExampleCardProps {
 - KPI 小卡优先使用 `repairOs.metricCard` / `repairOs.metricCardDense`，指标内容优先交给 `RepairOsInfoTile` 的 `leading` / `trailing` / `meta` slots；不要在业务页面继续手写 `glass-card p-4` 或重复的 label/value/icon 三段结构。
 - 导入预览、批量操作预览、审计摘要等“确认前检查”面板优先使用 `RepairOsBusinessCard` 承载标题/说明/状态，再用 `RepairOsInfoTile` 展示数量和金额；warning 只展示行号、字段和原因，不展示原始敏感值。
 - 状态、标签、数量和风险提示 chip 优先使用 `RepairOsBadge` 或已有业务 badge；不要在业务页面重复手写 `inline-flex rounded-full px-* text-[9px]` 的 pill 结构，长文本必须保留 `min-w-0` / `truncate`。
+- 仅展示数量、进度或状态的 chip 不得渲染为无处理逻辑的 `<button>`；只有存在真实动作时才使用按钮语义，并提供键盘、触摸和状态变化反馈。
 - 移动详情和任务页面默认使用 RepairOS Floating Card 组件语言：顶部使用 `repairOs.mobileFloatingHeader*`，正文信息块使用 `repairOs.mobileInfoCard`。
 - 移动详情、任务、报价、收款、扫码、拍照和历史记录组件必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)。订单详情页的“客户信息 / 设备信息 / 维修项目与报价 / 支付信息”是移动卡片字号、间距、色彩强调和信息层级的基准。
 - 新增移动详情组件不得手写固定顶部的 `border-b`、整屏白色顶栏或散落 `pt-[calc(env(safe-area-inset-top)...)]`；这些必须来自 `repairOs.mobileFloatingPage` 和 `repairOs.mobileFloatingHeaderShell`。

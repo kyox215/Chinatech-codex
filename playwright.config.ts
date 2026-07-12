@@ -4,6 +4,10 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER
   ? process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1"
   : !process.env.CI;
+const browserProject =
+  process.env.PLAYWRIGHT_BROWSER === "webkit"
+    ? { name: "webkit", use: { ...devices["Desktop Safari"] } }
+    : { name: "chromium", use: { ...devices["Desktop Chrome"] } };
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -14,12 +18,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
+  projects: [browserProject],
   webServer: {
     command: process.env.PLAYWRIGHT_WEBSERVER_COMMAND ?? "npm run dev",
     url: baseURL,

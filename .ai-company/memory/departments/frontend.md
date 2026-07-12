@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-12
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -28,6 +28,9 @@ as owner of this file.
 - UI should reuse `src/components/ui/*`, `src/lib/ui-patterns.ts`, and feature query key factories.
 - New navigation pages must update `AppSidebar`, `AppBar`, and command palette.
 - RepairOS list/management pages must not render a page-body module title block that duplicates AppBar context, such as `工作台 / 客户`, `客户管理`, or `全部 · 共 ...`; `RepairOsListScaffold` keeps desktop actions/add-ons but no longer default-renders `eyebrow/title/subtitle` in the desktop body.
+- A `DropdownMenu` nested in a mobile `Sheet`/`Dialog` must use `modal={false}` when its action navigates, unmounts, or closes the outer layer in the same transition; the outer layer owns focus/pointer locking, and regression tests must assert that `document.body.style.pointerEvents` is released afterward.
+- Initial store-permission hydration must not key-remount the interactive App Shell. Preserve Sidebar/AppBar/Dock state through the first stable `stores/context` snapshot; later real authority-fingerprint changes may still remount guarded children and clear sensitive query state.
+- Informational progress/count chips must render as static content. Use button semantics only when a real handler exists; shared mobile menu triggers should retain a practical touch target (40px in the current RepairOS list header).
 - Order detail manual status flow uses an inline desktop panel in `src/features/orders/screens/order-detail-screen.tsx`; do not reintroduce the old second desktop `状态流转` Dialog. Mobile may keep the bottom Sheet pattern for the same action list.
 - `TASK-20260620-001` is the current evidence for order detail status-flow UI behavior and target E2E verification.
 - `TASK-20260620-002` classified the remaining legacy `src/routes/*` files as delete-ready after Owner approval. Live page bodies remain feature screens imported by `src/app/*`; do not use `src/routes/*` as a UI source.
@@ -75,3 +78,5 @@ as owner of this file.
 | 2026-06-20 | Recorded legacy `src/routes/*` delete-ready classification and no-reuse frontend boundary | TASK-20260620-002 | Integration Lead | active |
 | 2026-06-20 | Recorded legacy route deletion preflight boundary: delete only classified files after approval | TASK-20260620-003 | Integration Lead | active |
 | 2026-07-07 | Recorded RepairOS list/management page rule removing duplicate page-body module title blocks | TASK-20260707-005 | Integration Lead | active |
+| 2026-07-12 | Recorded verified nested mobile modality, pointer-lock regression, and control-semantics rules | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |
+| 2026-07-12 | Added initial authority-hydration shell-stability rule while preserving later permission-change reset | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |

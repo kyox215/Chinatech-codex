@@ -379,7 +379,7 @@ export function RepairOsListScaffold({
       <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
         <section className={repairOs.mobileFloatingHeaderCard}>
           <header className={repairOs.mobileFloatingHeaderNav}>
-            <SidebarTrigger className="size-7 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
+            <SidebarTrigger className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
             <div className="min-w-0 text-center">
               <p className="truncate text-sm font-semibold leading-5">{title}</p>
               {subtitle ? (
@@ -472,44 +472,59 @@ function RepairOsHeaderStepper({
           aria-hidden
           className="absolute left-[calc(100%/16)] right-[calc(100%/16)] top-3 h-px bg-border"
         />
-        {chips.map((chip) => (
-          <button
-            key={chip.key}
-            type="button"
-            onClick={chip.onClick}
-            className="relative z-10 grid min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
-            aria-pressed={chip.active}
-          >
-            <span
-              className={cn(
-                "grid size-6 place-items-center rounded-full border text-[11px] font-semibold leading-none transition-colors",
-                chip.active
-                  ? "border-primary bg-primary text-primary-foreground shadow-none"
-                  : "border-border bg-surface-muted text-muted-foreground",
-              )}
+        {chips.map((chip) => {
+          const content = (
+            <>
+              <span
+                className={cn(
+                  "grid size-6 place-items-center rounded-full border text-[11px] font-semibold leading-none transition-colors",
+                  chip.active
+                    ? "border-primary bg-primary text-primary-foreground shadow-none"
+                    : "border-border bg-surface-muted text-muted-foreground",
+                )}
+              >
+                {chip.shortLabel ?? chip.label.slice(0, 1)}
+              </span>
+              <span
+                className={cn(
+                  "flex max-w-full items-center justify-center gap-0.5 truncate text-[9px] leading-3",
+                  chip.active ? "font-semibold text-primary" : "text-muted-foreground",
+                )}
+              >
+                <span className="truncate">{chip.label}</span>
+                {chip.count !== undefined ? (
+                  <span
+                    className={cn(
+                      "font-mono text-[9px] tabular-nums",
+                      chip.active ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    {chip.count}
+                  </span>
+                ) : null}
+              </span>
+            </>
+          );
+
+          return chip.onClick ? (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={chip.onClick}
+              className="relative z-10 grid min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
+              aria-pressed={chip.active}
             >
-              {chip.shortLabel ?? chip.label.slice(0, 1)}
-            </span>
-            <span
-              className={cn(
-                "flex max-w-full items-center justify-center gap-0.5 truncate text-[9px] leading-3",
-                chip.active ? "font-semibold text-primary" : "text-muted-foreground",
-              )}
+              {content}
+            </button>
+          ) : (
+            <div
+              key={chip.key}
+              className="relative z-10 grid min-w-0 cursor-default justify-items-center gap-0.5 px-0.5 text-center"
             >
-              <span className="truncate">{chip.label}</span>
-              {chip.count !== undefined ? (
-                <span
-                  className={cn(
-                    "font-mono text-[9px] tabular-nums",
-                    chip.active ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {chip.count}
-                </span>
-              ) : null}
-            </span>
-          </button>
-        ))}
+              {content}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -522,7 +537,7 @@ export function RepairOsHeaderActionButton({
   disabled,
 }: {
   children: ReactNode;
-  onClick?: () => void;
+  onClick: () => void;
   ariaLabel: string;
   disabled?: boolean;
 }) {

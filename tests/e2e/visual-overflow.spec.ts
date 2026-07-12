@@ -1,12 +1,20 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const enabled =
+  process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
+  process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
+
+test.skip(!enabled, "Set a RepairDesk E2E bypass flag for responsive route checks.");
+
+const mobileInteractionsOnly = process.env.REPAIRDESK_E2E_MOBILE_INTERACTIONS === "1";
 const viewports = [
   { width: 390, height: 844 },
+  { width: 430, height: 932 },
   { width: 768, height: 1024 },
   { width: 1024, height: 768 },
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
-] as const;
+].filter(({ width }) => !mobileInteractionsOnly || width <= 430);
 
 const routes = [
   "/",
@@ -17,6 +25,7 @@ const routes = [
   "/inventory",
   "/messages",
   "/settings",
+  "/account",
   "/platform",
 ];
 
@@ -32,17 +41,19 @@ async function expectNoPageOverflow(page: Page) {
 test.describe("responsive overflow guard", () => {
   for (const viewport of viewports) {
     test(`primary routes fit within ${viewport.width}px`, async ({ page }) => {
+      test.setTimeout(120_000);
       await page.setViewportSize(viewport);
 
       for (const route of routes) {
-        await page.goto(route);
-        await page.waitForLoadState("networkidle");
+        await page.goto(route, { waitUntil: "domcontentloaded" });
+        await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
         await expectNoPageOverflow(page);
       }
     });
   }
 
   test("orders detail dialog keeps page width stable", async ({ page }) => {
+    test.skip(mobileInteractionsOnly, "The interaction gate only runs the mobile route matrix.");
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto("/orders");
     await page.waitForLoadState("networkidle");

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import type { RepairDeskRealtimeClient } from "@/features/realtime/api/realtime-client";
 import type { RepairDeskRealtimeDomain } from "@/features/realtime/model/realtime-events";
@@ -23,10 +23,22 @@ export function RealtimeAppBridge({
 }: RealtimeAppBridgeProps) {
   const shell = useStoreShellContext({ monitorAuthority: true });
   const storeId = shell.activeStore?.status === "active" ? shell.activeStore.id : null;
+  const [authorityBoundaryKey, setAuthorityBoundaryKey] = useState("authority-bootstrap");
+  const stableAuthorityFingerprintRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (shell.isLoading || shell.isRefreshing) return;
+
+    const previousFingerprint = stableAuthorityFingerprintRef.current;
+    stableAuthorityFingerprintRef.current = shell.authorityFingerprint;
+    if (!previousFingerprint || previousFingerprint === shell.authorityFingerprint) return;
+
+    setAuthorityBoundaryKey(shell.authorityFingerprint);
+  }, [shell.authorityFingerprint, shell.isLoading, shell.isRefreshing]);
 
   return (
     <RealtimeSyncProvider client={client} domains={domains} enabled={enabled} storeId={storeId}>
-      <Fragment key={shell.authorityFingerprint}>{children}</Fragment>
+      <Fragment key={authorityBoundaryKey}>{children}</Fragment>
     </RealtimeSyncProvider>
   );
 }

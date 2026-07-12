@@ -53,6 +53,14 @@ only the initial no-data state uses the skeleton.
 Because it is a public Next.js build-time variable, changing it requires a rebuild/redeploy; Realtime
 and ordinary screen queries continue to work.
 
+## Authority Bootstrap And Shell Stability
+
+The app shell stays mounted while the initial `stores/context` permission snapshot replaces the
+fail-closed `no-permissions` bootstrap state. This prevents an already opened Sidebar, menu, or quick
+action from being destroyed during first-load authority hydration. After the first stable authority
+snapshot, a real store, membership, role, or permission fingerprint change still remounts the guarded
+children and the store-shell hook clears authority-sensitive query state.
+
 ## Realtime Policy
 
 Private store/domain channels carry metadata-only invalidation events. The client refreshes Realtime
@@ -71,6 +79,7 @@ not authorize or activate those production changes.
 - Coordinator tests cover stale preload rejection, burst coalescing, store isolation, and optimistic
   rollback protection.
 - Provider tests cover auth-before-subscribe and reconnect catch-up state transitions.
+- App-bridge tests cover stable first authority hydration and later permission-change remounts.
 - Tenant tests cover cancellation before old-store cache removal.
 - Detail scheduler tests cover priority, deduplication, cancellation, network limits, and single-request
   reuse from pointer/focus intent through dialog open.

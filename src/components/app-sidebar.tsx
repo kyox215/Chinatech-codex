@@ -187,7 +187,8 @@ export function AppSidebar() {
       <SidebarFooter className={appShell.sidebarFooter}>
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
+            {/* The mobile Sheet owns modality; a nested modal menu can leave body pointer-locked after navigation. */}
+            <DropdownMenu modal={!isMobile}>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"

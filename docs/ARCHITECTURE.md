@@ -3,7 +3,7 @@
 Status: active
 Owner: Architecture + Documentation / Integration Lead
 Scope: current module boundaries, import rules, migration phases, and quality gates for RepairDesk.
-Last reviewed: 2026-07-10 CEST by `TASK-20260710-110532-task`
+Last reviewed: 2026-07-12 CEST by `TASK-20260712-002-mobile-interaction-click-reliability`
 
 This project is a modular Next.js App Router application. URLs stay in `src/app`, while business UI, data hooks, and server rules move into feature modules over time.
 
@@ -118,6 +118,12 @@ This runs lint, typecheck, unit tests, and build. E2E is intentionally separate:
 
 ```bash
 npm run test:e2e
+```
+
+The strict mock-backed shell and mobile interaction regression is:
+
+```bash
+npm run test:e2e:interactions:mock
 ```
 
 Storybook is for reusable states of business components:

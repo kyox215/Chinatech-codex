@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { Bell, ScanLine, Search, ShieldCheck, Store } from "lucide-react";
+import { ScanLine, Search, ShieldCheck, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -47,6 +47,8 @@ export function AppBar({
   const shell = useStoreShellContext();
   const activeModule = getActiveWorkspaceItem(pathname, shell.isPlatformAdmin);
   const hideOnMobile = usesRepairOsMobileHeader(pathname);
+  const mobileContextTitle =
+    routeLabels[pathname.split("/").filter(Boolean)[0] ?? ""] ?? activeModule.title;
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
 
   return (
@@ -62,8 +64,11 @@ export function AppBar({
         <SidebarTrigger className="size-10 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 
         <div className="min-w-0 flex-1 md:hidden">
-          <p className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70">
-            {activeModule.title}
+          <p
+            data-app-bar-context="true"
+            className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70"
+          >
+            {mobileContextTitle}
           </p>
           <p className="truncate text-sm font-semibold leading-5 text-foreground">
             {activeStoreName}
@@ -114,15 +119,6 @@ export function AppBar({
         <ThemeToggle className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 
         <RealtimeSyncIndicator className="hidden md:inline-flex" />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden size-9 md:inline-flex"
-          aria-label="通知"
-        >
-          <Bell className="size-4" />
-        </Button>
 
         {shell.isPlatformAdmin ? (
           <Link
