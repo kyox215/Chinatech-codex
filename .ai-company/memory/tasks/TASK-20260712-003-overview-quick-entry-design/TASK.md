@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260712-003-overview-quick-entry-design"
 title: "概览页快速接单与快速回收报价入口"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["INT", "FLOW", "UX", "FE", "QA"]
 created_at: "2026-07-12T01:10:40Z"
-updated_at: "2026-07-12T03:45:32Z"
+updated_at: "2026-07-12T03:47:38Z"
+closed_at: "2026-07-12T03:47:38Z"
 ---
 # Task
 
@@ -57,4 +58,4 @@ updated_at: "2026-07-12T03:45:32Z"
 
 ## Current state
 
-业务实现、错误态修正、独立 UX/FE 复核、7 项 Playwright、两张最终截图和全量门禁已完成。并发的员工权限任务已合并，财务脱敏与“待处理”口径均保留；范围化提交和推送仍在进行。
+任务已关闭。业务实现、错误态修正、独立 UX/FE 复核、7 项 Playwright、两张最终截图和全量门禁均完成；并发员工权限任务已合并，财务脱敏与“待处理”口径均保留。实现提交 `5a956c5faab606e8b513d5bc02725ce437d25598` 已推送并由 GitHub `refs/heads/main` 验证。

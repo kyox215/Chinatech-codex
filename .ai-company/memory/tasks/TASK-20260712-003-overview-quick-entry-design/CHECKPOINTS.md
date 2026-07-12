@@ -74,3 +74,10 @@
 - **Evidence:**
   - origin/main@f34ef2d293b6; Vitest 119 files/800 tests; Playwright 7/7; build 22 pages; final 390/1440 screenshots
 - **Recorded by:** Integration Lead
+## 2026-07-12T03:47:38Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 概览页已上线快速接单和快速回收报价入口，准确区分加载/空/错误状态，并保留最新员工权限与财务脱敏逻辑；实现提交已推送 main 且远端哈希已验证
+- **Residual risks:** 快捷入口仍以目标页和服务端作为最终授权边界；Sales 完整回收的多步写入与质量检查权限风险为既有问题，本任务未扩大
+- **Follow-up:** 无本任务必需后续；如需按钮级 capability 锁定或回收幂等，应另建独立任务
+- **Closed by:** Integration Lead

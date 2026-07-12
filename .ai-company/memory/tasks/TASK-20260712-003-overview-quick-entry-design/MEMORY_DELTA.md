@@ -16,3 +16,10 @@
 
 - Sales buyback completion permission and multi-step write atomicity are pre-existing follow-up risks, not changed or resolved here.
 - No capability or autonomy upgrade is justified by a single task.
+
+## Closeout consolidation
+
+- Project memory: no promotion. The action-first/error-state rule remains a task-level candidate until repeated by another workspace task.
+- Department memory: no sync required. This task changed no department SOP, cross-department interface, ownership boundary or risk policy.
+- Capability review: no C0-C4 level, permission or autonomy change. The three read-only reviewers produced useful evidence, but one successful task is insufficient for promotion.
+- Documentation: the task PRD, acceptance E2E and evidence index are sufficient; no API, workflow or operator SOP document changed.
