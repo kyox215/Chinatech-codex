@@ -26,3 +26,12 @@
 - **Evidence:**
   - .ai-company/memory/tasks/TASK-20260712-005-order-custody-archive/EVIDENCE.md
 - **Recorded by:** RepairDesk Integration Lead
+## 2026-07-12T23:48:17Z — 功能提交1d037709已推送到origin/main；验收、生产修复、完整门禁和可视证据均完成；项目长期归档规则与后端/数据部门记忆正在同步，能力等级和权限不升级。
+
+- **Phase:** closeout
+- **Completed/current state:** 功能提交1d037709已推送到origin/main；验收、生产修复、完整门禁和可视证据均完成；项目长期归档规则与后端/数据部门记忆正在同步，能力等级和权限不升级。
+- **Next:** 完成Frontend/Security记忆同步，关闭TASK并将ACTIVE_CONTEXT置为idle，提交纯关闭文档，推送并验证远端main最终SHA。
+- **Decision:** 任务可无条件关闭；保留一般状态事件非原子和精确历史搜索回归边界为有owner的后续风险。
+- **Evidence:**
+  - .ai-company/memory/tasks/TASK-20260712-005-order-custody-archive/EVIDENCE.md
+- **Recorded by:** RepairDesk Integration Lead

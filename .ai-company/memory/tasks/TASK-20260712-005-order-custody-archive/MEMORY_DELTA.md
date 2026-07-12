@@ -21,5 +21,11 @@
 - The production correction completed a patch rollback rehearsal, formal apply, selective restore rollback rehearsal and independent verification without cross-store or finance changes.
 - Full local verification passed 121 files / 818 tests, production build, desktop/mobile browser checks and zero console errors.
 
+## Consolidation result
+
+- Promoted the archive invariant to `PROJECT_MEMORY.md` and synchronized Backend, Data, Frontend and Security department memory.
+- No conflict record was needed; this task explicitly supersedes only the older archive predicate from `TASK-20260712-002-global-staff-permissions`.
+- Capability review result: no C-level, permission or autonomy change. One high-risk production repair is evidence for the existing controlled process, not grounds for broader autonomous production authority; the QA retry produced no result and is not counted as capability evidence.
+
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.

@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260712-005-order-custody-archive"
 title: "全平台在店设备与订单归档修正"
-status: "ready_for_release"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "DATA", "FE", "INT", "PRODUCT", "QA", "RELEASE", "SEC"]
 created_at: "2026-07-12T14:06:14Z"
-updated_at: "2026-07-12T23:41:42Z"
+updated_at: "2026-07-12T23:48:17Z"
+closed_at: "2026-07-12T23:48:17Z"
 ---
 # Task — 全平台在店设备与订单归档修正
 
@@ -52,7 +53,7 @@ updated_at: "2026-07-12T23:41:42Z"
 - [x] SeaTable复合状态分别写入主流程、通知、交付字段且未来导入不再误归档
 - [x] 精确审计并安全修复受影响生产数据，金额、客户、租户和后续业务活动不变
 - [x] 桌面和移动端工作队列、待取机、待收款、历史搜索通过验证
-- [ ] 完整测试、安全/数据复核、迁移或数据回滚证据通过，并仅推送本任务到main
+- [x] 完整测试、安全/数据复核、迁移或数据回滚证据通过，并仅推送本任务到main
 
 ## Facts, assumptions, and unknowns
 

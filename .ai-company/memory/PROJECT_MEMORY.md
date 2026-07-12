@@ -4,7 +4,7 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-12 CEST
+- Last verified: 2026-07-13 CEST
 
 ## Product and business overview
 
@@ -47,7 +47,7 @@ Client components must not import `src/server/*`. Server-side validation is requ
 
 `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` is the current audit-log redaction/minimization policy draft. It defines audit payload field categories, event-specific allowlists, forbidden data classes, approval boundaries, and implementation follow-ups. It is not evidence that audit sanitizer code, retention policy, or production historical cleanup is implemented.
 
-`TASK-20260712-002-global-staff-permissions` implements the Owner-approved global store role policy: archived paid-and-closed/cancelled orders leave the default queue; technicians and front desk can see amounts only on authorized individual orders; aggregate finance, profit and bulk output remain separately gated. Technician object authorization uses same-store `assignee_membership_id` and fails closed before the pending assignment migration. Production migration apply remains a separate approval gate.
+`TASK-20260712-002-global-staff-permissions` implements the Owner-approved global store role policy: technicians and front desk can see amounts only on authorized individual orders; aggregate finance, profit and bulk output remain separately gated. Technician object authorization uses same-store `assignee_membership_id` and fails closed before the pending assignment migration. `TASK-20260712-005-order-custody-archive` supersedes its archive predicate: an order leaves the default queue only when it is terminal, workflow-closed, explicitly delivered, and exactly settled (`balance_amount=0`, `is_paid=true`, `payment_status=paid`). Cancelled orders without confirmed device return stay visible. Production migration apply remains a separate approval gate.
 
 ## Environments, build, deploy and operations
 

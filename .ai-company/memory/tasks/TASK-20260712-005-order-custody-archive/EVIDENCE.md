@@ -17,6 +17,8 @@
 | E-013 | interaction | queue tabs change the actual result set | local mock browser verification | `待交付` returned 12; `需核对` returned 6 | 2026-07-12 | INT |
 | E-014 | independent review | state matrix, data boundaries and security risks reviewed | PRODUCT, DATA and SECURITY read-only subagents | required findings incorporated; residuals documented below | 2026-07-12 | INT |
 | E-015 | QA accountability | independent QA retry did not return within two bounded waits | read-only QA subagent `019f58af-b354-70d1-9bf8-cb89787ba712` | closed while running; no result claimed; main-thread full gates and browser checks remain the QA evidence | 2026-07-12 | INT |
+| E-016 | release | verified task implementation reached `main` | commit `1d03770982451c7627abff984474fe686d268695`; `git push origin HEAD:main` | remote advanced `a76852f6..1d037709` | 2026-07-12T23:45Z | INT |
+| E-017 | governance closeout | task-specific agent rules remain valid; broad historical validator has unrelated debt | `npm run agents:check`; bundled Python 3.12 `tools/ai_company.py validate` | task checks passed; broad validator reported 12 pre-existing duplicate Agent names outside this task | 2026-07-12T23:49Z | INT |
 
 ## Residual risks
 
@@ -28,3 +30,4 @@ Do not record secrets or unsupported “passed” claims. Prefer stable paths, c
 IDs, test reports, screenshots, or concise log references.
 - `2026-07-12T23:17:16Z` `40cd1a2a00` — .ai-company/memory/tasks/TASK-20260712-005-order-custody-archive/EVIDENCE.md
 - `2026-07-12T23:41:42Z` `40cd1a2a00` — .ai-company/memory/tasks/TASK-20260712-005-order-custody-archive/EVIDENCE.md
+- `2026-07-12T23:48:17Z` `40cd1a2a00` — .ai-company/memory/tasks/TASK-20260712-005-order-custody-archive/EVIDENCE.md

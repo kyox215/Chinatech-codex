@@ -3,7 +3,7 @@ schema_version: 1
 department: data
 status: active
 owner: Data Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-13
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -35,6 +35,8 @@ as owner of this file.
 - `TASK-20260620-004` verified local migrations for store tenancy, same-store foreign keys, member SELECT RLS policies, platform onboarding, audit logs, and private attachment storage. This remains local evidence only; remote Supabase parity is still unknown.
 - `TASK-20260709-220940-task` scoped-verified linked Supabase migration history on 2026-07-10: local/remote migrations aligned through `20260709235000`, `supabase db push --linked --dry-run --include-all` reported up to date, and `store_member_permission_grants` existed with RLS enabled and table grants limited to `postgres`/`service_role`. This does not prove broad production schema/RLS parity beyond that history/table evidence.
 - `TASK-20260710-009` scoped-verified the live payment ledger/RPC at migration `20260710145642`: immutable ledger, validated constraints, RLS, no browser-role table/function privileges, service-role-only command path, invoker/empty search path, advisory idempotency lock and order row lock. This is a migration-slice PASS, not an environment Gate PASS.
+- SeaTable status is authoritative for status, notification and handover evidence. `到货已通知` and `修好已通知` set notification state but never delivery timestamps; problem/work text must not override these compound states.
+- `TASK-20260712-005-order-custody-archive` validates the production repair SOP: exact store/source scope, minimal before-image, no-later-activity guard, forced patch rollback rehearsal, formal apply, selective restore rollback rehearsal, and independent post-check. Its 51-row batch changed only workflow/status evidence and audit events, with no customer, device, finance, attachment or cross-store mutation.
 - Because server repositories use the service-role/admin path, server-side authorization remains the decisive write-control boundary even when RLS exists as a database guardrail.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` classifies audit-row retention risk and keeps live audit-row sampling, retention changes, purge, historical redaction/backfill, audit-reader grants, and schema/RLS changes approval-gated.
 
@@ -87,3 +89,4 @@ as owner of this file.
 | 2026-06-20 | Added audit retention/live-row approval boundary from L2-027 policy | TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio | Integration Lead | policy_drafted |
 | 2026-07-10 | Added scoped linked migration-history and supplier permission-grant table verification | TASK-20260709-220940-task | Integration Lead | scoped_verified |
 | 2026-07-10 | Added payment transaction contract, legacy-table exposure and recovery-chain risks | TASK-20260710-009 | Integration Lead | scoped_verified |
+| 2026-07-13 | Added SeaTable authority rules and verified guarded production status-repair SOP | TASK-20260712-005-order-custody-archive | Integration Lead + data reviewer | scoped_verified |

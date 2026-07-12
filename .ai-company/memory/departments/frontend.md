@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-07-12
+last_verified_at: 2026-07-13
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -32,6 +32,7 @@ as owner of this file.
 - Initial store-permission hydration must not key-remount the interactive App Shell. Preserve Sidebar/AppBar/Dock state through the first stable `stores/context` snapshot; later real authority-fingerprint changes may still remount guarded children and clear sensitive query state.
 - Informational progress/count chips must render as static content. Use button semantics only when a real handler exists; shared mobile menu triggers should retain a practical touch target (40px in the current RepairOS list header).
 - Order detail manual status flow uses an inline desktop panel in `src/features/orders/screens/order-detail-screen.tsx`; do not reintroduce the old second desktop `状态流转` Dialog. Mobile may keep the bottom Sheet pattern for the same action list.
+- Active order lists use operational queue groups `处理中`, `待交付`, `待结算`, and `需核对`. `到货`/`修好`/notification states stay visible until explicit handover; only the shared archive invariant may remove a row from the default list. Desktop may use compact labels, while mobile must expose the full accessible names.
 - `TASK-20260620-001` is the current evidence for order detail status-flow UI behavior and target E2E verification.
 - `TASK-20260620-002` classified the remaining legacy `src/routes/*` files as delete-ready after Owner approval. Live page bodies remain feature screens imported by `src/app/*`; do not use `src/routes/*` as a UI source.
 - `TASK-20260620-003` confirms the deletion preflight baseline is green without touching App Router or feature screen files. Future deletion must not modify `src/app/*` or `src/features/*`.
@@ -80,3 +81,4 @@ as owner of this file.
 | 2026-07-07 | Recorded RepairOS list/management page rule removing duplicate page-body module title blocks | TASK-20260707-005 | Integration Lead | active |
 | 2026-07-12 | Recorded verified nested mobile modality, pointer-lock regression, and control-semantics rules | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |
 | 2026-07-12 | Added initial authority-hydration shell-stability rule while preserving later permission-change reset | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |
+| 2026-07-13 | Added active custody queue groups and responsive list contract | TASK-20260712-005-order-custody-archive | Integration Lead | active |
