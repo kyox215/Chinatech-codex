@@ -395,7 +395,7 @@ export function RepairOsListScaffold({
                 <p className="truncate text-[9px] leading-3 text-muted-foreground">{subtitle}</p>
               ) : null}
             </div>
-            <div className="flex h-7 min-w-7 shrink-0 items-center justify-end">{action}</div>
+            <div className="flex min-h-11 min-w-11 shrink-0 items-center justify-end">{action}</div>
           </header>
 
           <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>

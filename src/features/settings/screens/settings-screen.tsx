@@ -14,8 +14,6 @@ import {
   ChevronDown,
   GitBranch,
   FileSpreadsheet,
-  KeyRound,
-  Mail,
   MessageSquare,
   PackageSearch,
   Phone,
@@ -29,7 +27,6 @@ import {
   Store,
   TabletSmartphone,
   UserMinus,
-  UserRound,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -54,6 +51,7 @@ import { customersKeys } from "@/features/customers/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { OrderDataSection } from "@/features/settings/components/order-data-section";
+import { SettingsField as Field } from "@/features/settings/components/settings-field";
 import { SettingsLayout } from "@/features/settings/components/settings-layout";
 import {
   SettingsNavigation,
@@ -63,6 +61,14 @@ import { getSettingsQueryActivation } from "@/features/settings/api/query-option
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
+import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import { buildAccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
+import {
+  getSettingsFieldError as fieldError,
+  getSettingsFieldErrorId as fieldErrorId,
+} from "@/features/settings/model/settings-field-errors";
+import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
+import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
 import { ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
 import {
   getOrderWorkflowBucketLabel,
@@ -136,7 +142,6 @@ import {
   RepairDeskApiError,
   type KioskDevice,
   type KioskSession,
-  type OnboardingStatus,
   type OnboardingRequest,
   type OrderWorkflow,
   type OrderWorkflowBucket,
@@ -178,6 +183,7 @@ import {
   type StoreSettingsDraftValues,
 } from "@/features/settings/model/store-settings-draft";
 import { SETTINGS_ERROR_CODES } from "@/features/settings/model/store-settings-errors";
+import { validateStoreSettingsSectionUpdateRequest } from "@/features/settings/model/store-settings-update-contract";
 import {
   SettingsSaveBar,
   type SettingsSaveStatus,
@@ -563,7 +569,20 @@ export function SettingsScreen() {
     saveInFlightRef.current = true;
     try {
       const request = buildStoreSettingsSectionUpdateRequest(current, section);
-      await saveMutation.mutateAsync({ section, request });
+      const validation = validateStoreSettingsSectionUpdateRequest(request);
+      if (!validation.success) {
+        setSettingsFieldErrors(validation.fieldErrors);
+        setSaveStatusBySection((statuses) => ({
+          ...statuses,
+          [section]: "validation-error",
+        }));
+        queueMicrotask(() => focusFirstSettingsError(validation.fieldErrors));
+        return {
+          status: "blocked",
+          focus: () => focusFirstSettingsError(validation.fieldErrors),
+        };
+      }
+      await saveMutation.mutateAsync({ section, request: validation.data });
       return { status: "resolved" };
     } catch (error) {
       const fieldErrors = error instanceof RepairDeskApiError ? error.fieldErrors : undefined;
@@ -1003,7 +1022,26 @@ export function SettingsScreen() {
   }
 
   const supplierRows = suppliersQuery.data ?? [];
+  const accountSummary = buildAccountSettingsSummary(accountQuery.data);
+  const savedStoreSettings = settingsData?.store_id === activeStoreId ? settingsData : null;
+  const savedStoreReadiness = savedStoreSettings
+    ? getStoreSettingsReadiness(savedStoreSettings)
+    : null;
   const storeReadiness = activeDraft ? getStoreSettingsReadiness(activeDraft) : null;
+  const scopedDraftStoreSettings =
+    activeDraft && activeDrafts ? { ...activeDraft, store_id: activeDrafts.storeId } : null;
+  const savedStoreOutputIdentity = savedStoreSettings
+    ? resolveStoreOutputIdentity({
+        activeStore: storeContextQuery.data?.activeStore,
+        settings: savedStoreSettings,
+      })
+    : null;
+  const draftStoreOutputIdentity = scopedDraftStoreSettings
+    ? resolveStoreOutputIdentity({
+        activeStore: storeContextQuery.data?.activeStore,
+        settings: scopedDraftStoreSettings,
+      })
+    : null;
   const messagePreview = activeDraft ? buildStoreMessagePreview(activeDraft) : "";
   const printPreview = activeDraft ? buildStorePrintPreview(activeDraft) : "";
   const activeSection = selectedSection ? getSettingsSection(selectedSection) : null;
@@ -1081,7 +1119,7 @@ export function SettingsScreen() {
           <Button
             type="button"
             size="sm"
-            className="h-7 gap-1 rounded-lg border-0 px-2 text-xs text-primary-foreground shadow-[var(--shadow-action)]"
+            className="min-h-11 gap-1 rounded-lg border-0 px-3 text-xs text-primary-foreground shadow-[var(--shadow-action)]"
             style={brandGradientStyle}
             aria-label="保存设置"
             disabled={!hasChanges || saveMutation.isPending || selectedSaveStatus === "conflict"}
@@ -1187,7 +1225,9 @@ export function SettingsScreen() {
                 data-ui="settings-section-readonly"
                 className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground"
               >
-                当前账号可查看此分组，但不能修改配置。
+                {selectedSection === "store"
+                  ? "当前账号不能修改当前店铺资料，但仍可按账号资格创建新的独立店铺。"
+                  : "当前账号可查看此分组，但不能修改配置。"}
               </div>
             ) : null}
 
@@ -1219,7 +1259,7 @@ export function SettingsScreen() {
               className={cn(
                 "grid min-w-0 gap-3 xl:items-start",
                 selectedSection === "workflow" && "hidden",
-                selectedSection === "store" || selectedSection === "notifications"
+                selectedSection === "notifications"
                   ? "xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]"
                   : "xl:grid-cols-1",
               )}
@@ -1236,13 +1276,22 @@ export function SettingsScreen() {
                 {canRenderSelectedSection &&
                 selectedSection === "account" &&
                 !accountQuery.isError ? (
-                  <AccountProfileSection
-                    status={accountQuery.data}
+                  <AccountSettingsSection
+                    summary={accountSummary}
                     isLoading={accountQuery.isLoading}
                     nameDraft={accountNameDraft}
                     hasNameChange={hasAccountNameChange}
                     isSaving={updateAccountMutation.isPending}
+                    saveError={
+                      updateAccountMutation.isError
+                        ? updateAccountMutation.error instanceof Error
+                          ? updateAccountMutation.error.message
+                          : "账号名称保存失败"
+                        : undefined
+                    }
+                    hasSaved={updateAccountMutation.isSuccess && !hasAccountNameChange}
                     onNameDraftChange={(value) => {
+                      updateAccountMutation.reset();
                       accountNameDraftRef.current = value;
                       setAccountNameDraft(value);
                     }}
@@ -1253,14 +1302,31 @@ export function SettingsScreen() {
                   />
                 ) : null}
                 {canRenderSelectedSection && selectedSection === "store" ? (
-                  <StoreManagementSection
+                  <StoreSettingsSectionContent
                     activeStoreId={storeContextQuery.data?.activeStore?.id}
                     stores={storeContextQuery.data?.stores ?? []}
-                    isLoading={storeContextQuery.isLoading}
+                    isContextLoading={storeContextQuery.isLoading}
                     isSwitching={switchStoreMutation.isPending}
                     isCreating={createStoreMutation.isPending}
+                    switchError={
+                      switchStoreMutation.isError
+                        ? switchStoreMutation.error instanceof Error
+                          ? switchStoreMutation.error.message
+                          : "切换店铺失败"
+                        : undefined
+                    }
+                    createError={
+                      createStoreMutation.isError
+                        ? createStoreMutation.error instanceof Error
+                          ? createStoreMutation.error.message
+                          : "创建店铺失败"
+                        : undefined
+                    }
                     newStoreName={newStoreName}
-                    onNewStoreNameChange={setNewStoreName}
+                    onNewStoreNameChange={(value) => {
+                      createStoreMutation.reset();
+                      setNewStoreName(value);
+                    }}
                     onSwitchStore={(storeId) => {
                       if (!storeId || storeId === storeContextQuery.data?.activeStore?.id) return;
                       const targetStore = storeContextQuery.data?.stores.find(
@@ -1274,13 +1340,22 @@ export function SettingsScreen() {
                     }}
                     onCreateStore={() => {
                       const name = newStoreName.trim();
-                      if (!name) return;
+                      if (name.length < 2) return;
                       runGuardedTransition({
                         kind: "store-create",
                         label: `创建店铺 ${name}`,
                         run: () => createStoreMutation.mutateAsync({ name }),
                       });
                     }}
+                    draft={activeDraft ?? undefined}
+                    savedReadiness={savedStoreReadiness ?? undefined}
+                    draftReadiness={storeReadiness ?? undefined}
+                    savedOutputIdentity={savedStoreOutputIdentity ?? undefined}
+                    draftOutputIdentity={draftStoreOutputIdentity ?? undefined}
+                    isDraftDirty={sectionDirtyState.store}
+                    canUpdateSettings={canUpdateStoreSettings}
+                    fieldErrors={settingsFieldErrors}
+                    onDraftChange={(patch) => updateSettingsField("store", patch)}
                   />
                 ) : null}
                 {canRenderSelectedSection && selectedSection === "suppliers" ? (
@@ -1486,132 +1561,11 @@ export function SettingsScreen() {
               <div
                 className={cn(
                   "min-w-0 space-y-3",
-                  selectedSection === "store" ||
-                    selectedSection === "notifications" ||
-                    selectedSection === "rules"
+                  selectedSection === "notifications" || selectedSection === "rules"
                     ? ""
                     : "hidden",
                 )}
               >
-                {canRenderDraftSection && selectedSection === "store" ? (
-                  <section className={repairOs.adminSection}>
-                    <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺资料" />
-                    <div className={formLayout.grid}>
-                      <Field
-                        label="店铺名"
-                        htmlFor="store-name"
-                        error={fieldError(settingsFieldErrors, "store_name")}
-                      >
-                        <Input
-                          id="store-name"
-                          className={compactControlClass}
-                          value={activeDraft.store_name}
-                          disabled={!canUpdateStoreSettings}
-                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_name"))}
-                          aria-describedby={fieldErrorId(
-                            settingsFieldErrors,
-                            "store_name",
-                            "store-name",
-                          )}
-                          onChange={(event) =>
-                            updateSettingsField("store", { store_name: event.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field
-                        label="邮箱"
-                        htmlFor="store-email"
-                        icon={Mail}
-                        error={fieldError(settingsFieldErrors, "store_email")}
-                      >
-                        <Input
-                          id="store-email"
-                          type="email"
-                          className={compactControlClass}
-                          value={activeDraft.store_email}
-                          disabled={!canUpdateStoreSettings}
-                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_email"))}
-                          aria-describedby={fieldErrorId(
-                            settingsFieldErrors,
-                            "store_email",
-                            "store-email",
-                          )}
-                          onChange={(event) =>
-                            updateSettingsField("store", { store_email: event.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field
-                        label="电话"
-                        htmlFor="store-phone"
-                        icon={Phone}
-                        error={fieldError(settingsFieldErrors, "store_phone")}
-                      >
-                        <Input
-                          id="store-phone"
-                          className={compactControlClass}
-                          value={activeDraft.store_phone}
-                          disabled={!canUpdateStoreSettings}
-                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_phone"))}
-                          aria-describedby={fieldErrorId(
-                            settingsFieldErrors,
-                            "store_phone",
-                            "store-phone",
-                          )}
-                          onChange={(event) =>
-                            updateSettingsField("store", { store_phone: event.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field
-                        label="WhatsApp"
-                        htmlFor="store-whatsapp"
-                        icon={MessageSquare}
-                        error={fieldError(settingsFieldErrors, "store_whatsapp")}
-                      >
-                        <Input
-                          id="store-whatsapp"
-                          className={compactControlClass}
-                          value={activeDraft.store_whatsapp}
-                          disabled={!canUpdateStoreSettings}
-                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_whatsapp"))}
-                          aria-describedby={fieldErrorId(
-                            settingsFieldErrors,
-                            "store_whatsapp",
-                            "store-whatsapp",
-                          )}
-                          onChange={(event) =>
-                            updateSettingsField("store", { store_whatsapp: event.target.value })
-                          }
-                        />
-                      </Field>
-                    </div>
-                    <Field
-                      label="地址"
-                      htmlFor="store-address"
-                      className="mt-3"
-                      error={fieldError(settingsFieldErrors, "store_address")}
-                    >
-                      <Textarea
-                        id="store-address"
-                        rows={3}
-                        className={compactTextareaClass}
-                        value={activeDraft.store_address}
-                        disabled={!canUpdateStoreSettings}
-                        aria-invalid={Boolean(fieldError(settingsFieldErrors, "store_address"))}
-                        aria-describedby={fieldErrorId(
-                          settingsFieldErrors,
-                          "store_address",
-                          "store-address",
-                        )}
-                        onChange={(event) =>
-                          updateSettingsField("store", { store_address: event.target.value })
-                        }
-                      />
-                    </Field>
-                  </section>
-                ) : null}
-
                 {canRenderDraftSection && selectedSection === "rules" ? (
                   <section className={repairOs.adminSection}>
                     <RepairOsSectionHeader icon={Settings2} iconFrame={false} title="默认规则" />
@@ -1841,14 +1795,6 @@ function memberStatusLabel(status: string) {
   return memberStatusLabels[status] ?? status;
 }
 
-const accountRoleLabels: Record<string, string> = {
-  owner: "最高管理员",
-  manager: "管理员",
-  technician: "技师",
-  sales: "前台",
-  viewer: "只读账号",
-};
-
 const approvedRoleOptions: ApprovedStoreRole[] = ["manager", "technician", "sales", "viewer"];
 const basicRoleOptions: ApprovedStoreRole[] = ["technician", "sales", "viewer"];
 
@@ -1891,106 +1837,6 @@ function defaultNewStatusDraft(): OrderWorkflowStatusCreateInput {
     allowed_for_create: false,
     is_default_create_status: false,
   };
-}
-
-function AccountProfileSection({
-  status,
-  isLoading,
-  nameDraft,
-  hasNameChange,
-  isSaving,
-  onNameDraftChange,
-  onSave,
-}: {
-  status?: OnboardingStatus;
-  isLoading: boolean;
-  nameDraft: string;
-  hasNameChange: boolean;
-  isSaving: boolean;
-  onNameDraftChange: (value: string) => void;
-  onSave: () => void;
-}) {
-  const accountRole = status?.activeStore?.role;
-  const roleLabel = status?.isPlatformAdmin
-    ? "最高管理员"
-    : accountRole
-      ? (accountRoleLabels[accountRole] ?? accountRole)
-      : "未加入店铺";
-
-  return (
-    <section id="settings-account" className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={UserRound} iconFrame={false} title="我的账号" />
-      {isLoading ? (
-        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_auto]">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_auto] md:items-end">
-            <Field label="显示名称" htmlFor="account-display-name" icon={UserRound}>
-              <Input
-                id="account-display-name"
-                className={compactControlClass}
-                value={nameDraft}
-                maxLength={60}
-                placeholder="输入自己的名字"
-                onChange={(event) => onNameDraftChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    onSave();
-                  }
-                }}
-              />
-            </Field>
-            <div className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
-                  账号性质
-                </span>
-                <Badge variant="outline" className="h-5 shrink-0 gap-1 px-1.5 text-[9px]">
-                  <ShieldCheck className="size-3" />
-                  {roleLabel}
-                </Badge>
-              </div>
-              <p className="mt-1 truncate text-[10px] leading-3 text-muted-foreground">
-                权限决定，不在这里修改
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 gap-1.5"
-              style={brandGradientStyle}
-              disabled={!hasNameChange || isSaving}
-              onClick={onSave}
-            >
-              <Check className="size-3.5" /> 保存名称
-            </Button>
-          </div>
-          <p className="text-[11px] leading-4 text-muted-foreground">
-            名称会用于新建工单、操作记录、成员列表和页面账号信息；账号性质由权限自动显示。
-          </p>
-          <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold">邮箱与密码</p>
-              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                邮箱验证、邮箱换绑、联系手机号和密码修改统一在个人中心维护。
-              </p>
-            </div>
-            <Button asChild type="button" variant="outline" size="sm" className="shrink-0 gap-1.5">
-              <Link href="/account">
-                <KeyRound className="size-3.5" />
-                打开个人中心
-              </Link>
-            </Button>
-          </div>
-        </div>
-      )}
-    </section>
-  );
 }
 
 function StoreReadinessSection({
@@ -3521,99 +3367,6 @@ function StoreMembersSection({
   );
 }
 
-function StoreManagementSection({
-  activeStoreId,
-  stores,
-  isLoading,
-  isSwitching,
-  isCreating,
-  newStoreName,
-  onNewStoreNameChange,
-  onSwitchStore,
-  onCreateStore,
-}: {
-  activeStoreId?: string;
-  stores: { id: string; name: string; slug: string; role: string }[];
-  isLoading: boolean;
-  isSwitching: boolean;
-  isCreating: boolean;
-  newStoreName: string;
-  onNewStoreNameChange: (value: string) => void;
-  onSwitchStore: (storeId: string) => void;
-  onCreateStore: () => void;
-}) {
-  return (
-    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺管理" />
-      {isLoading ? (
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : (
-        <div className="grid gap-2 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <Field label="当前店铺" htmlFor="active-store">
-            <Select
-              value={activeStoreId}
-              onValueChange={onSwitchStore}
-              disabled={isSwitching || stores.length === 0}
-            >
-              <SelectTrigger id="active-store" className={compactControlClass}>
-                <SelectValue placeholder="选择店铺" />
-              </SelectTrigger>
-              <SelectContent>
-                {stores.map((store) => (
-                  <SelectItem key={store.id} value={store.id}>
-                    {store.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="新增店铺" htmlFor="new-store">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="new-store"
-                className={compactControlClass}
-                value={newStoreName}
-                onChange={(event) => onNewStoreNameChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    onCreateStore();
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5"
-                disabled={isCreating || newStoreName.trim().length < 2}
-                onClick={onCreateStore}
-              >
-                <Plus className="mr-1.5 size-3.5" /> 新建
-              </Button>
-            </div>
-          </Field>
-          <div className="flex flex-wrap gap-2 md:col-span-2">
-            {stores.map((store) => (
-              <Badge
-                key={store.id}
-                variant={store.id === activeStoreId ? "default" : "outline"}
-                className="max-w-full gap-1"
-              >
-                <span className="truncate">{store.name}</span>
-                <span className="text-[10px] uppercase opacity-70">{store.role}</span>
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 const supplierColorOptions = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
 
 function SupplierManagementSection({
@@ -4264,39 +4017,6 @@ function EmptyKioskBlock({ label }: { label: string }) {
   );
 }
 
-function Field({
-  label,
-  htmlFor,
-  icon: Icon,
-  className,
-  error,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  icon?: typeof Store;
-  className?: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn(formLayout.field, className)}>
-      <Label htmlFor={htmlFor} className={formLayout.label}>
-        <span className="inline-flex items-center gap-1.5">
-          {Icon ? <Icon className="size-3.5 text-muted-foreground" /> : null}
-          {label}
-        </span>
-      </Label>
-      {children}
-      {error ? (
-        <p id={`${htmlFor}-error`} className="text-[11px] leading-4 text-status-danger-foreground">
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function SettingsLoading() {
   return (
     <RepairOsListScaffold
@@ -4429,14 +4149,6 @@ function supplierToInput(supplier: Supplier): SupplierInput {
     website: supplier.website ?? "",
     notes: supplier.notes ?? "",
   };
-}
-
-function fieldError(errors: Record<string, string[]>, field: string) {
-  return errors[`input.${field}`]?.[0];
-}
-
-function fieldErrorId(errors: Record<string, string[]>, field: string, controlId: string) {
-  return fieldError(errors, field) ? `${controlId}-error` : undefined;
 }
 
 function focusFirstSettingsError(fieldErrors?: Record<string, string[]>) {

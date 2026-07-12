@@ -58,3 +58,20 @@
   - `screenshots/responsive-density/settings/output-recovery-390x844.png`
   - `screenshots/responsive-density/settings/output-recovery-1440x900.png`
 - No migration, production write, role change, external message, `main` push, or deployment occurred.
+- `2026-07-12T14:03:54Z` `9bca3ef2b0` — branch codex/settings-center-v2-20260712 ahead 4; uncommitted settings WP03B files/screenshots preserved; no production/push
+
+## WP-03B — Account and store settings
+
+- Independent security review: PASS; P0=0/P1=0.
+- Independent UI/accessibility review: PASS; P0=0/P1=0.
+- Settings Playwright: 21/21 passed across 390–1440px, including 44px actions, saved-vs-draft output state, semantic read-only profile, confirmed independent-store creation, mobile return guard, no floating dock on Settings, and focused-address pointer hit.
+- Production build passed outside the sandbox after the sandboxed run failed only because Turbopack could not bind its helper port.
+- Typecheck, changed-file ESLint, and diff check passed.
+- Full-suite exploratory Vitest failures were unrelated 5-second timing limits; `order-option-pickers` and order-data workbook each passed 5/5 alone.
+- Screenshots:
+  - `screenshots/responsive-density/settings/wp03b-account-390x844.png`
+  - `screenshots/responsive-density/settings/wp03b-store-1280x800.png`
+  - `screenshots/responsive-density/settings/wp03b-store-create-confirm-1280x800.png`
+  - `screenshots/responsive-density/settings/wp03b-store-draft-390x844.png`
+  - `screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png`
+- No migration, production write, role/retention change, external message, `main` push, or deployment occurred.

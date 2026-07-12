@@ -206,3 +206,54 @@ Create the scoped local WP-02 commit without pushing. Then rehydrate the approve
 ### Next executable action
 
 Create the scoped local WP03-A commit without pushing. Verify the boundary, then begin WP03-B account/store extraction and completion while preserving current queries, strict section payloads, CAS, dirty guards, capabilities, and store-switch semantics.
+## 2026-07-12T14:03:54Z — Owner转向P0在店设备与订单归档修正；设置中心WP00-WP02及WP03A已本地提交，WP03B账号/店铺拆分存在未提交工作与3张响应式截图，当前快照未完成最终验证，必须原样保留
+
+- **Phase:** paused_for_order_archive_p0
+- **Completed/current state:** Owner转向P0在店设备与订单归档修正；设置中心WP00-WP02及WP03A已本地提交，WP03B账号/店铺拆分存在未提交工作与3张响应式截图，当前快照未完成最终验证，必须原样保留
+- **Next:** 恢复时从/private/tmp/repairdesk-settings-center-20260712读取TASK/CHECKPOINTS/HANDOFF，先审查未提交WP03B diff并完成目标测试，不得把新归档任务改动混入
+- **Decision:** 设置中心任务暂停但不关闭，不提交、不推送、不清理现有工作
+- **Blocker:** Owner已将P0订单可见性修正设为当前优先事项
+- **Evidence:**
+  - branch codex/settings-center-v2-20260712 ahead 4; uncommitted settings WP03B files/screenshots preserved; no production/push
+- **Recorded by:** Integration Lead
+
+## 2026-07-12T14:54:32Z — WP03-B account and store settings completed
+
+### Completed facts
+
+- Extracted account and store presentation from `SettingsScreen` while keeping query, mutation, CAS, dirty guard, capability, active-store scope, switching, creation, and cache orchestration in one owner.
+- Account now separates account nature, email verification, and current-store role; `/account` remains the only email/password/contact security workflow.
+- Store now separates workspace switching, editable or semantic read-only profile, customer-output readiness, and independent-store creation with explicit confirmation.
+- Saved customer-output state and unsaved draft projection are distinct. Materialized drafts now carry `activeDrafts.storeId` into the tenant resolver; a draft can never masquerade as active or lose its tenant scope.
+- The client prevalidates user-editable fields with the same input schemas used by the API; store scope, CAS metadata, permissions, and full validation remain server-authoritative.
+- Account save, store switch, and store creation failures render inline recovery while preserving drafts. Dirty settings block confirmed store creation until the user resolves the existing navigation guard.
+- Settings routes no longer render the global mobile quick dock because it covered form controls. Mobile return remains guarded, and `elementFromPoint` verifies a focused address field stays the top hit target.
+- Mobile save and independent-store confirmation actions are at least 44px; viewer copy distinguishes current-store read-only access from account-qualified independent-store creation.
+
+### Review and validation
+
+- Independent security review: PASS, P0=0/P1=0.
+- Independent UI/accessibility review: PASS, P0=0/P1=0.
+- Dedicated Settings Playwright: 21/21 passed with one worker across 390, 430, 768, 1024, 1280, and 1440 widths.
+- Focused component/model/screen/dock regressions passed, including ready-to-ready and blocked-to-projected-ready output identity, local validation without API calls, creation confirmation plus dirty guard, read-only semantics, and dock visibility.
+- `npm run typecheck`, changed-file ESLint, `git diff --check`, and production `npm run build` passed. Build required sandbox escalation because Turbopack binds a local helper port.
+- An exploratory full Vitest run was not a clean gate because unrelated 5-second timeouts recurred in `order-option-pickers` and order-data workbook tests under suite load. Both failing files passed 5/5 alone; no Settings test failed in the final focused runs.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/wp03b-account-390x844.png`
+- `screenshots/responsive-density/settings/wp03b-store-1280x800.png`
+- `screenshots/responsive-density/settings/wp03b-store-create-confirm-1280x800.png`
+- `screenshots/responsive-density/settings/wp03b-store-draft-390x844.png`
+- `screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png`
+
+### Residual risks / approvals
+
+- Self-service store creation retains the current authenticated, email-verified account policy. Changing that role/product policy remains an Owner gate.
+- Account profile updates and audit writes remain non-transactional; no database or architecture change was introduced.
+- Mock screenshots can show the Next dev indicator; it is not a production control.
+- No migration, production data action, role or retention change, external message, push, or deployment occurred.
+
+### Next executable action
+
+Create one scoped local WP03-B commit without pushing, verify its file boundary, then begin WP03-C notifications/rules extraction and completion.

@@ -7,7 +7,7 @@ const enabled =
 const sections = [
   { key: "account", label: /账号/, heading: "我的账号" },
   { key: "members", label: /员工/, heading: "员工管理" },
-  { key: "store", label: /店铺/, heading: "店铺管理" },
+  { key: "store", label: /店铺/, heading: "店铺工作区" },
   { key: "suppliers", label: /供应商/, heading: "供应商" },
   { key: "kiosk", label: /客户 iPad|iPad/, heading: "客户 iPad" },
   { key: "rules", label: /默认规则|规则/, heading: "默认规则" },
@@ -118,7 +118,7 @@ test.describe("settings navigation and deep links", () => {
     await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
     await page.goForward();
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByRole("heading", { name: "店铺管理" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "店铺工作区" })).toBeVisible();
   });
 });
 
@@ -138,7 +138,13 @@ test.describe("settings mobile touch targets", () => {
     const storeLink = overview.getByRole("link", { name: /店铺/ }).first();
     await tapLocatorCenter(page, storeLink);
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByRole("heading", { name: "店铺管理" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "店铺工作区" })).toBeVisible();
+    const mobileSaveBox = await page
+      .getByRole("button", { name: "保存设置" })
+      .first()
+      .boundingBox();
+    expect(mobileSaveBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(mobileSaveBox?.width ?? 0).toBeGreaterThanOrEqual(44);
     const returnLink = page.getByRole("link", { name: "返回设置总览" }).first();
     await expectLinkCenterHitsSelf(returnLink);
     await tapLocatorCenter(page, returnLink);
@@ -185,6 +191,142 @@ test.describe("settings blocked query gate", () => {
   });
 });
 
+test.describe("settings account and store workspace details", () => {
+  test("renders the account identity and security workflow on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, "/settings?section=account");
+
+    await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
+    await expect(page.getByText("账号性质", { exact: true })).toBeVisible();
+    await expect(page.getByText("当前店铺角色", { exact: true })).toBeVisible();
+    await expect(page.getByText("登录邮箱", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "打开个人中心" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+    await expectNoPageOverflow(page, "account settings 390px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03b-account-390x844.png",
+      fullPage: true,
+    });
+  });
+
+  test("separates workspace, profile, output readiness, and confirmed creation on desktop", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoReady(page, "/settings?section=store");
+
+    for (const heading of ["店铺工作区", "店铺资料", "客户输出就绪度", "创建独立店铺"]) {
+      await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    }
+    await expectNoPageOverflow(page, "store settings 1280px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03b-store-1280x800.png",
+      fullPage: true,
+    });
+    await page.getByLabel("新店铺名称").fill("Second Repair Lab");
+    await page.getByRole("button", { name: "创建并切换" }).click();
+    const confirm = page.getByRole("alertdialog", { name: "确认创建独立店铺？" });
+    await expect(confirm).toContainText("Second Repair Lab");
+    await expect(confirm).toContainText("当前店铺的数据与权限不会复制");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03b-store-create-confirm-1280x800.png",
+    });
+    await confirm.getByRole("button", { name: "取消" }).click();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("shows semantic read-only profile values without hiding independent creation", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route("**/api/repairdesk/stores/context", async (route) => {
+      const response = await route.fetch();
+      const payload = (await response.json()) as {
+        data: {
+          activeStore?: { role?: string };
+          permissions?: Record<string, boolean>;
+        };
+      };
+      if (payload.data.activeStore) payload.data.activeStore.role = "viewer";
+      payload.data.permissions = {
+        ...(payload.data.permissions ?? {}),
+        canReadStoreSettings: true,
+        canUpdateStoreSettings: false,
+      };
+      await route.fulfill({ response, json: payload });
+    });
+
+    await gotoReady(page, "/settings?section=store");
+    await expect(
+      page.getByText("当前账号不能修改当前店铺资料，但仍可按账号资格创建新的独立店铺。"),
+    ).toBeVisible();
+    await expect(page.getByText("当前账号可查看店铺资料；修改请联系店主或经理。")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "店铺名", exact: true })).toHaveCount(0);
+    await expect(page.locator("dt").filter({ hasText: /^店铺名$/ })).toBeVisible();
+    await expect(page.getByLabel("新店铺名称")).toBeEnabled();
+    await page.getByLabel("新店铺名称").fill("Viewer Store");
+    await page.getByRole("button", { name: "创建并切换" }).click();
+    const confirm = page.getByRole("alertdialog", { name: "确认创建独立店铺？" });
+    for (const buttonName of ["取消", "确认创建并切换"]) {
+      const box = await confirm.getByRole("button", { name: buttonName }).boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    await confirm.getByRole("button", { name: "取消" }).click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expectNoPageOverflow(page, "readonly store settings 390px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png",
+      fullPage: true,
+    });
+  });
+
+  test("keeps actual output blocked while a mobile draft only projects recovery", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route(/\/api\/repairdesk\/settings\/store(?:\?.*)?$/, async (route) => {
+      const response = await route.fetch();
+      const payload = (await response.json()) as {
+        data: Record<string, unknown>;
+      };
+      payload.data = {
+        ...payload.data,
+        store_name: "ChinaTech",
+        store_address: "",
+        store_phone: "+39 0931 000000",
+        message_signature: "ChinaTech · Assistenza",
+        print_footer: "Grazie per aver scelto ChinaTech.",
+      };
+      await route.fulfill({ response, json: payload });
+    });
+
+    await gotoReady(page, "/settings?section=store");
+    await expect(page.getByText("当前已暂停")).toBeVisible();
+    await page.getByLabel("地址").fill("Via Roma 12, Floridia");
+    await expect(page.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
+    await expect(page.getByText("当前已暂停")).toBeVisible();
+    await expectNoPageOverflow(page, "store draft projection 390px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03b-store-draft-390x844.png",
+      fullPage: true,
+    });
+  });
+
+  test("keeps the store subpage readable at the tablet breakpoint", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await gotoReady(page, "/settings?section=store");
+
+    await expect(page.getByRole("link", { name: "返回设置总览" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "店铺资料" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "客户输出就绪度" })).toBeVisible();
+    await expectNoPageOverflow(page, "store settings 768px");
+  });
+});
+
 test.describe("settings draft safety", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -198,7 +340,7 @@ test.describe("settings draft safety", () => {
     });
 
     await gotoReady(page, "/settings?section=store");
-    const nameInput = page.getByLabel("店铺名");
+    const nameInput = page.getByLabel("店铺名", { exact: true });
     await expect(nameInput).toBeVisible();
     await nameInput.fill("Etna Repair Lab E2E");
     const saveBar = page.locator("[data-settings-save-bar]");
@@ -232,7 +374,7 @@ test.describe("settings draft safety", () => {
 
   test("guards command palette navigation and releases modal pointer locks", async ({ page }) => {
     await gotoReady(page, "/settings?section=store");
-    await page.getByLabel("店铺名").fill("Command Palette Draft");
+    await page.getByLabel("店铺名", { exact: true }).fill("Command Palette Draft");
     await expect(page.locator("[data-settings-save-bar]")).toHaveAttribute(
       "data-save-status",
       "dirty",
@@ -257,7 +399,7 @@ test.describe("settings draft safety", () => {
   test("guards AppSidebar links before any route transition", async ({ page }) => {
     test.setTimeout(60_000);
     await gotoReady(page, "/settings?section=store");
-    await page.getByLabel("店铺名").fill("Sidebar Draft");
+    await page.getByLabel("店铺名", { exact: true }).fill("Sidebar Draft");
     const ordersLink = page.getByRole("link", { name: "订单管理", exact: true }).first();
 
     await ordersLink.click();
@@ -265,7 +407,7 @@ test.describe("settings draft safety", () => {
     await expect(guard).toBeVisible();
     await guard.getByRole("button", { name: "取消" }).click();
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByLabel("店铺名")).toHaveValue("Sidebar Draft");
+    await expect(page.getByLabel("店铺名", { exact: true })).toHaveValue("Sidebar Draft");
 
     await ordersLink.click();
     await guard.getByRole("button", { name: "放弃修改" }).click();
@@ -313,7 +455,7 @@ test.describe("settings draft safety", () => {
     });
 
     await gotoReady(page, "/settings?section=store");
-    const nameInput = page.getByLabel("店铺名");
+    const nameInput = page.getByLabel("店铺名", { exact: true });
     const originalName = await nameInput.inputValue();
     await nameInput.fill("Switch Draft");
     const storeSelect = page.getByLabel("当前店铺");
@@ -347,7 +489,7 @@ test.describe("settings draft safety", () => {
 
     await page.evaluate(() => window.history.back());
     await expect(page).toHaveURL(/section=store/);
-    await page.getByLabel("店铺名").fill("Forward Guard Draft");
+    await page.getByLabel("店铺名", { exact: true }).fill("Forward Guard Draft");
 
     await page.evaluate(() => window.history.forward());
     const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
@@ -366,56 +508,47 @@ test.describe("settings draft safety", () => {
   });
 });
 
-test.describe("settings mobile global guard surfaces", () => {
+test.describe("settings mobile overlay and guard safety", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test("guards MobileWorkspaceDock route actions", async ({ page }) => {
+  test("guards the mobile return link without a floating quick-action overlay", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
     await gotoReady(page, "/settings?section=store");
-    await page.getByLabel("店铺名").fill("Mobile Dock Draft");
-    await page.getByRole("button", { name: "打开快捷操作" }).click();
-    await page.getByRole("button", { name: /当前 · 邀请成员/ }).click();
+    await expect(page.locator('[data-mobile-workspace-trigger="true"]')).toHaveCount(0);
+    await page.getByLabel("店铺名", { exact: true }).fill("Mobile Return Draft");
+    const returnLink = page.getByRole("link", { name: "返回设置总览" }).first();
+    await returnLink.click();
 
     const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
     await expect(guard).toBeVisible();
     await guard.getByRole("button", { name: "取消" }).click();
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByLabel("店铺名")).toHaveValue("Mobile Dock Draft");
+    await expect(page.getByLabel("店铺名", { exact: true })).toHaveValue("Mobile Return Draft");
 
-    await page.getByRole("button", { name: "打开快捷操作" }).click();
-    await page.getByRole("button", { name: /当前 · 邀请成员/ }).click();
+    await returnLink.click();
     await guard.getByRole("button", { name: "放弃修改" }).click();
-    await expect(page).toHaveURL(/section=members/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/settings$/, { timeout: 15_000 });
     await expect
       .poll(() => page.evaluate(() => document.body.style.pointerEvents))
       .not.toBe("none");
   });
 
-  test("guards ScanSearch route actions until the draft decision", async ({ page }) => {
-    test.setTimeout(60_000);
+  test("keeps the focused address field as the top hit target", async ({ page }) => {
     await gotoReady(page, "/settings?section=store");
-    await page.getByLabel("店铺名").fill("Scanner Draft");
-    await page.getByRole("button", { name: "打开快捷操作" }).click();
-    await page.getByRole("button", { name: "扫码读取" }).click();
-    const scanner = page.getByRole("dialog", { name: "全局扫码查询" });
-    await scanner
-      .getByPlaceholder("无法扫码时，可手动输入或粘贴")
-      .fill("https://example.com/orders/order_123");
-    await scanner.getByRole("button", { name: "识别内容" }).click();
-    await scanner.getByRole("button", { name: "打开工单" }).click();
+    const address = page.getByLabel("地址");
+    await address.scrollIntoViewIfNeeded();
+    await address.focus();
+    const box = await address.boundingBox();
+    expect(box).not.toBeNull();
+    const hitAddress = await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.id === "store-address",
+      { x: (box?.x ?? 0) + (box?.width ?? 0) - 16, y: (box?.y ?? 0) + (box?.height ?? 0) - 16 },
+    );
 
-    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
-    await expect(guard).toBeVisible();
-    await guard.getByRole("button", { name: "取消" }).click();
-    await expect(page).toHaveURL(/section=store/);
-    await expect(scanner).toBeVisible();
-
-    await scanner.getByRole("button", { name: "打开工单" }).click();
-    await guard.getByRole("button", { name: "放弃修改" }).click();
-    await expect(page).toHaveURL(/\/orders\/order_123$/, { timeout: 15_000 });
-    await expect
-      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
-      .not.toBe("none");
+    expect(hitAddress).toBe(true);
+    await expect(page.locator('[data-mobile-workspace-trigger="true"]')).toHaveCount(0);
   });
 });
 

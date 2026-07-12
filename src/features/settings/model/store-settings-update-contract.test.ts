@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getStoreSettingsValidationFieldErrors,
   storeSettingsSectionUpdateSchema,
+  validateStoreSettingsSectionUpdateRequest,
 } from "./store-settings-update-contract";
 
 const storeId = "5248dda1-2b32-46cd-8ed0-d15386a9e8ed";
@@ -86,6 +87,28 @@ describe("store settings update contract", () => {
     if (parsed.success) return;
     expect(getStoreSettingsValidationFieldErrors(parsed.error)).toMatchObject({
       "input.store_name": ["店铺名不能为空"],
+      "input.store_email": ["邮箱格式无效"],
+    });
+  });
+
+  it("validates a client request with the same contract used by the API", () => {
+    const result = validateStoreSettingsSectionUpdateRequest({
+      section: "store",
+      expectedStoreId: storeId,
+      expectedUpdatedAt: updatedAt,
+      input: {
+        store_name: "Repair Lab",
+        store_address: "Via Roma 12",
+        store_phone: "invalid phone!",
+        store_whatsapp: "",
+        store_email: "invalid",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.fieldErrors).toMatchObject({
+      "input.store_phone": ["联系方式格式无效"],
       "input.store_email": ["邮箱格式无效"],
     });
   });

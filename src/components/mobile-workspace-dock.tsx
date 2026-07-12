@@ -33,19 +33,24 @@ interface MobileWorkspaceDockProps {
 }
 
 export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps) {
+  const pathname = usePathname() ?? "/";
+  if (shouldHideMobileWorkspaceDock(pathname)) return null;
+
+  return <MobileWorkspaceDockContent pathname={pathname} onOpenCommand={onOpenCommand} />;
+}
+
+function MobileWorkspaceDockContent({
+  pathname,
+  onOpenCommand,
+}: MobileWorkspaceDockProps & { pathname: string }) {
   const [open, setOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [attachmentDrafts, setAttachmentDrafts] = useState<AttachmentDraft[]>([]);
   const attachmentDraftsRef = useRef<AttachmentDraft[]>([]);
-  const pathname = usePathname() ?? "/";
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
-  const isOrdersList = pathname === "/orders";
-  const isMobileWorkspaceRoute =
-    isOrdersList || pathname === "/orders/new" || /^\/orders\/[^/]+(?:\/task)?$/.test(pathname);
-
   attachmentDraftsRef.current = attachmentDrafts;
 
   useEffect(() => {
@@ -153,4 +158,12 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
       />
     </>
   );
+}
+
+export function shouldHideMobileWorkspaceDock(pathname: string) {
+  const isSettingsRoute = pathname === "/settings" || pathname.startsWith("/settings/");
+  const isOrdersList = pathname === "/orders";
+  const isMobileWorkspaceRoute =
+    isOrdersList || pathname === "/orders/new" || /^\/orders\/[^/]+(?:\/task)?$/.test(pathname);
+  return isSettingsRoute || isMobileWorkspaceRoute;
 }

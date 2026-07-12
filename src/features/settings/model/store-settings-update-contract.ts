@@ -83,6 +83,27 @@ export const storeSettingsSectionUpdateSchema = z.discriminatedUnion("section", 
 
 export type StoreSettingsValidationFieldErrors = Record<string, string[]>;
 
+export function validateStoreSettingsSectionUpdateRequest(
+  request: StoreSettingsSectionUpdateRequest,
+):
+  | { success: true; data: StoreSettingsSectionUpdateRequest }
+  | { success: false; fieldErrors: StoreSettingsValidationFieldErrors } {
+  const inputSchema =
+    request.section === "store"
+      ? storeInputSchema
+      : request.section === "notifications"
+        ? notificationsInputSchema
+        : rulesInputSchema;
+  // The client validates only user-editable input. Store scope and CAS metadata remain
+  // server-authoritative and are validated again by storeSettingsSectionUpdateSchema.
+  const result = z.object({ input: inputSchema }).safeParse({ input: request.input });
+  if (result.success) return { success: true, data: request };
+  return {
+    success: false,
+    fieldErrors: getStoreSettingsValidationFieldErrors(result.error),
+  };
+}
+
 export function getStoreSettingsValidationFieldErrors(error: z.ZodError) {
   const fieldErrors: StoreSettingsValidationFieldErrors = {};
   for (const issue of error.issues) {

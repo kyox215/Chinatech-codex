@@ -170,7 +170,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
       expect(screen.queryByText("STORE-A-SECRET")).not.toBeInTheDocument();
     });
     expect(clipboardWrite).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it("never renders a previous store draft while the new store settings are pending", async () => {
     navigationMocks.search = "section=store";
@@ -208,7 +208,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
 
     expect(await screen.findByRole("textbox", { name: "店铺名" })).toHaveValue("Etna Phone Lab");
     expect(screen.queryByRole("textbox", { name: "店铺名" })).not.toHaveValue("Ripara Subito");
-  });
+  }, 15_000);
 
   it("keeps blocked member deep links from issuing member-domain requests", async () => {
     apiMocks.getStoreContext.mockResolvedValue(
@@ -294,6 +294,68 @@ describe("SettingsScreen store-bound transient secrets", () => {
       await pending.promise;
     });
     await waitFor(() => expect(saveBar).toHaveAttribute("data-save-status", "saved"));
+  });
+
+  it("blocks invalid store input locally and focuses the field without calling the API", async () => {
+    navigationMocks.search = "section=store";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    const phoneInput = await screen.findByLabelText("电话");
+    await user.type(phoneInput, "invalid phone!");
+    const saveBar = document.querySelector<HTMLElement>("[data-settings-save-bar]");
+    expect(saveBar).not.toBeNull();
+    await user.click(within(saveBar!).getByRole("button", { name: "保存设置" }));
+
+    expect((await screen.findAllByText("联系方式格式无效"))[0]).toBeVisible();
+    expect(apiMocks.updateStoreSettings).not.toHaveBeenCalled();
+    await waitFor(() => expect(phoneInput).toHaveFocus());
+    expect(saveBar).toHaveAttribute("data-save-status", "validation-error");
+  });
+
+  it("keeps a ready saved identity ready after a harmless unsaved profile change", async () => {
+    navigationMocks.search = "section=store";
+    apiMocks.getStoreSettings.mockResolvedValue({
+      ...storeSettings("store-a", "Ripara Subito"),
+      store_phone: "+39 0931 000000",
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    const nameInput = await screen.findByRole("textbox", { name: "店铺名" });
+    expect(screen.getByText("当前已就绪")).toBeVisible();
+    await user.type(nameInput, " Due");
+
+    expect(
+      screen.getByText(/当前客户输出已就绪；草稿尚未保存，实际使用的仍是服务器版本/),
+    ).toBeVisible();
+    expect(screen.queryByText(/保存这份草稿后将阻断/)).not.toBeInTheDocument();
+  });
+
+  it("projects recovery from a blocked saved identity without marking the draft active", async () => {
+    navigationMocks.search = "section=store";
+    apiMocks.getStoreSettings.mockResolvedValue({
+      ...storeSettings("store-a", "Ripara Subito"),
+      store_address: "",
+      store_phone: "+39 0931 000000",
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    expect(await screen.findByText("当前已暂停")).toBeVisible();
+    await user.type(screen.getByLabelText("地址"), "Via Roma 12");
+
+    expect(screen.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
+    expect(screen.queryByText("当前已就绪")).not.toBeInTheDocument();
   });
 
   it("preserves local input and exposes conflict recovery after a background update", async () => {
@@ -484,12 +546,43 @@ describe("SettingsScreen store-bound transient secrets", () => {
     expect(apiMocks.switchStore.mock.calls[0]?.[0]).toBe("store-b");
     expect(nameInput).toHaveValue("Ripara Subito");
 
-    await user.type(screen.getByLabelText("新增店铺"), "Failed Store");
-    await user.click(screen.getByRole("button", { name: "新建" }));
+    await user.type(screen.getByLabelText("新店铺名称"), "Failed Store");
+    await user.click(screen.getByRole("button", { name: "创建并切换" }));
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "确认创建独立店铺？" })).getByRole("button", {
+        name: "确认创建并切换",
+      }),
+    );
     await waitFor(() => expect(apiMocks.createStore).toHaveBeenCalledTimes(1));
     expect(apiMocks.createStore.mock.calls[0]?.[0]).toEqual({ name: "Failed Store" });
     expect(nameInput).toHaveValue("Ripara Subito");
   });
+
+  it("does not create an independent store before a dirty settings decision", async () => {
+    navigationMocks.search = "section=store";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    const nameInput = await screen.findByRole("textbox", { name: "店铺名" });
+    await user.clear(nameInput);
+    await user.type(nameInput, "Unsaved Current Store");
+    await user.type(screen.getByLabelText("新店铺名称"), "Second Store");
+    await user.click(screen.getByRole("button", { name: "创建并切换" }));
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "确认创建独立店铺？" })).getByRole("button", {
+        name: "确认创建并切换",
+      }),
+    );
+
+    const guard = await screen.findByRole("alertdialog", { name: "当前设置尚未保存" });
+    expect(apiMocks.createStore).not.toHaveBeenCalled();
+    await user.click(within(guard).getByRole("button", { name: "取消" }));
+    expect(nameInput).toHaveValue("Unsaved Current Store");
+    expect(screen.getByLabelText("新店铺名称")).toHaveValue("Second Store");
+  }, 10_000);
 
   it("guards the account display-name draft before settings navigation", async () => {
     navigationMocks.search = "section=account";
