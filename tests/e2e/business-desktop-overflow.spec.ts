@@ -313,7 +313,10 @@ test.describe("business desktop dialog overflow guard", () => {
 
       await gotoReady(page, "/settings");
       await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+      const settingsNavigation = page.getByRole("navigation", { name: "设置导航" });
       if (viewport.width === 1024) {
+        await settingsNavigation.getByRole("link", { name: /员工/ }).click();
+        await expect(page.getByRole("heading", { name: "员工管理" })).toBeVisible();
         await clickFirstVisible(
           page.getByRole("button", { name: /邀请员工/ }),
           "/settings invite panel",
@@ -321,10 +324,8 @@ test.describe("business desktop dialog overflow guard", () => {
         await expect(page.locator("#invite-email")).toBeVisible();
         await expectElementMinWidth(page.locator("#invite-email"), "/settings invite email", 64);
       }
-      await clickFirstVisible(
-        page.getByRole("button", { name: /默认规则/ }),
-        "/settings default rules section",
-      );
+      await settingsNavigation.getByRole("link", { name: /默认规则/ }).click();
+      await expect(page.getByRole("heading", { name: "默认规则" })).toBeVisible();
       await expect(page.locator("#order-warranty")).toBeVisible();
       await page.locator("#order-warranty").click();
       await expectFirstVisible(page.getByRole("listbox"), "/settings warranty select");

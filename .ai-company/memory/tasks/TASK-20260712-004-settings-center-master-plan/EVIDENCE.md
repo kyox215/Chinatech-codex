@@ -11,3 +11,18 @@
 - Production build: passed after rerunning outside the sandbox due a Turbopack internal port-bind restriction.
 - Independent security review: PASS; no remaining P0/P1 blocker.
 - Visual evidence: deferred to WP-01/03 because WP-00 is primarily security/capability/output-contract work; no production or customer data was used.
+
+## WP-01
+
+- Independent integration/security closeout: PASS; no remaining P0/P1 blocker.
+- Static gates: agents check, lint, typecheck, and diff check passed.
+- Full regression: 132 files / 854 tests passed with two workers.
+- Dedicated Settings E2E: 9/9 passed across 390x844, 430x932, 768x1024, 1024x768, 1280x800, and 1440x900.
+- E2E also passed all nine deep links, unknown fallback, back/forward, mobile center hit targets, page overflow, and blocked member-domain zero requests.
+- Production build passed outside the sandbox due Turbopack internal port binding.
+- Browser inspection found no error overlay or console errors and confirmed 44x44 mobile return, tablet rail hidden, 1440 rail at 240px sticky, and content width at 884px.
+- Screenshots:
+  - `screenshots/responsive-density/settings/overview-390x844.jpg`
+  - `screenshots/responsive-density/settings/store-390x844.jpg`
+  - `screenshots/responsive-density/settings/overview-768x1024.jpg`
+  - `screenshots/responsive-density/settings/overview-1440x800.jpg`

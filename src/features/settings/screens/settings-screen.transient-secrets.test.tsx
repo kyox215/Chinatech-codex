@@ -23,10 +23,12 @@ const apiMocks = vi.hoisted(() => ({
   listSuppliers: vi.fn(),
 }));
 
+const navigationMocks = vi.hoisted(() => ({ search: "section=members" }));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/settings",
   useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams("section=members"),
+  useSearchParams: () => new URLSearchParams(navigationMocks.search),
 }));
 
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
@@ -58,6 +60,7 @@ beforeAll(() => {
 describe("SettingsScreen store-bound transient secrets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    navigationMocks.search = "section=members";
     apiMocks.getStoreContext.mockResolvedValue(storeContext("store-a", "Ripara Subito"));
     apiMocks.getStoreSettings.mockResolvedValue(storeSettings("store-a", "Ripara Subito"));
     apiMocks.getStoreMembers.mockResolvedValue({
@@ -101,7 +104,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "员工管理" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /邀请码/ }));
+    await user.click(await screen.findByRole("button", { name: /邀请码/ }));
     await user.click(screen.getByRole("button", { name: "生成" }));
     expect(apiMocks.createStoreInviteLink).toHaveBeenCalledTimes(1);
 
@@ -130,11 +133,80 @@ describe("SettingsScreen store-bound transient secrets", () => {
     });
     expect(clipboardWrite).not.toHaveBeenCalled();
   });
+
+  it("never renders a previous store draft while the new store settings are pending", async () => {
+    navigationMocks.search = "section=store";
+    const pendingStoreB = deferred<StoreSettings>();
+    apiMocks.getStoreSettings
+      .mockResolvedValueOnce(storeSettings("store-a", "Ripara Subito"))
+      .mockReturnValueOnce(pendingStoreB.promise);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SidebarProvider>
+          <SettingsScreen />
+        </SidebarProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByDisplayValue("Ripara Subito")).toBeInTheDocument();
+
+    await act(async () => {
+      queryClient.setQueryData(storesKeys.context, storeContext("store-b", "Etna Phone Lab"));
+    });
+
+    expect(screen.queryByDisplayValue("Ripara Subito")).not.toBeInTheDocument();
+    expect(document.querySelector('[data-ui="settings-section-loading"]')).toBeInTheDocument();
+
+    await act(async () => {
+      pendingStoreB.resolve(storeSettings("store-b", "Etna Phone Lab"));
+      await pendingStoreB.promise;
+    });
+
+    expect(await screen.findByDisplayValue("Etna Phone Lab")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Ripara Subito")).not.toBeInTheDocument();
+  });
+
+  it("keeps blocked member deep links from issuing member-domain requests", async () => {
+    apiMocks.getStoreContext.mockResolvedValue(
+      storeContext("store-a", "Ripara Subito", {
+        canListMembers: false,
+        canInviteMembers: false,
+        canManageMembers: false,
+        canRevokeMembers: false,
+        canReviewAccessRequests: true,
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SidebarProvider>
+          <SettingsScreen />
+        </SidebarProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("无法打开员工")).toBeInTheDocument();
+    expect(apiMocks.getStoreMembers).not.toHaveBeenCalled();
+    expect(apiMocks.listStoreAccessRequests).not.toHaveBeenCalled();
+    expect(apiMocks.getOnboardingStatus).not.toHaveBeenCalled();
+  });
 });
 
-function storeContext(id: string, name: string): StoreContext {
+function storeContext(
+  id: string,
+  name: string,
+  permissionOverrides: Partial<NonNullable<StoreContext["permissions"]>> = {},
+): StoreContext {
   const activeStore = {
     id,
+    membershipId: `membership-${id}`,
     name,
     slug: name.toLowerCase().replace(/\s+/g, "-"),
     role: "owner" as const,
@@ -149,6 +221,7 @@ function storeContext(id: string, name: string): StoreContext {
       canManageSuppliers: true,
       canManageOrderData: true,
       canApplyOrderData: true,
+      canReadStoreSettings: true,
       canUpdateStoreSettings: true,
       canConfigureWorkflow: true,
       canUpdateMessageTemplates: true,
@@ -160,6 +233,7 @@ function storeContext(id: string, name: string): StoreContext {
       canReviewAccessRequests: true,
       canManageKioskDevices: true,
       canReviewKioskSessions: true,
+      ...permissionOverrides,
     },
   };
 }

@@ -298,6 +298,7 @@ export interface RepairOsListScaffoldProps {
   title: string;
   subtitle?: ReactNode;
   eyebrow?: ReactNode;
+  mobileLeading?: ReactNode;
   action?: ReactNode;
   desktopAction?: ReactNode;
   desktopHeaderAddon?: ReactNode;
@@ -317,6 +318,7 @@ export function RepairOsListScaffold({
   title,
   subtitle,
   eyebrow,
+  mobileLeading,
   action,
   desktopAction,
   desktopHeaderAddon,
@@ -378,8 +380,15 @@ export function RepairOsListScaffold({
     <div className={cn(repairOs.mobileUnifiedListPage, className)} style={offsetStyle}>
       <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
         <section className={repairOs.mobileFloatingHeaderCard}>
-          <header className={repairOs.mobileFloatingHeaderNav}>
-            <SidebarTrigger className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
+          <header
+            className={cn(
+              repairOs.mobileFloatingHeaderNav,
+              mobileLeading && "grid-cols-[44px_minmax(0,1fr)_auto]",
+            )}
+          >
+            {mobileLeading ?? (
+              <SidebarTrigger className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
+            )}
             <div className="min-w-0 text-center">
               <p className="truncate text-sm font-semibold leading-5">{title}</p>
               {subtitle ? (

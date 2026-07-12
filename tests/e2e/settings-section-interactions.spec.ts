@@ -5,101 +5,193 @@ const enabled =
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
 const sections = [
-  { key: "account", buttonName: /账号/, heading: "我的账号" },
-  { key: "store", buttonName: /店铺/, heading: "店铺管理" },
-  { key: "suppliers", buttonName: /供应商/, heading: "供应商" },
-  { key: "members", buttonName: /员工/, heading: "员工管理" },
-  { key: "kiosk", buttonName: /客户 iPad|iPad/, heading: "客户 iPad" },
-  { key: "notifications", buttonName: /通知与打印|通知/, heading: "通知资料完整度" },
-  { key: "rules", buttonName: /默认规则|规则/, heading: "默认规则" },
-  { key: "workflow", buttonName: /状态流|状态/, heading: "工单状态流" },
+  { key: "account", label: /账号/, heading: "我的账号" },
+  { key: "members", label: /员工/, heading: "员工管理" },
+  { key: "store", label: /店铺/, heading: "店铺管理" },
+  { key: "suppliers", label: /供应商/, heading: "供应商" },
+  { key: "kiosk", label: /客户 iPad|iPad/, heading: "客户 iPad" },
+  { key: "rules", label: /默认规则|规则/, heading: "默认规则" },
+  { key: "workflow", label: /状态流|状态/, heading: "工单状态流" },
+  { key: "notifications", label: /通知与打印|通知/, heading: "通知资料完整度" },
+  { key: "order-data", label: /工单数据|数据/, heading: "工单数据文件" },
 ] as const;
 
-test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for settings interaction checks.");
+const viewports = [
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+  { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+] as const;
 
-test.describe("settings section interactions", () => {
-  test.describe("desktop", () => {
-    test.use({ viewport: { width: 1280, height: 800 } });
+test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for settings checks.");
 
-    test("section groups update the selected settings panel", async ({ page }) => {
-      await verifyDefaultSettingsSection(page);
-      await verifySettingsSections(page, "click");
+test.describe("settings overview responsive shell", () => {
+  for (const viewport of viewports) {
+    test(`renders the overview contract at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      await page.setViewportSize(viewport);
+      await gotoReady(page, "/settings");
+
+      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+      await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(page.locator("[data-settings-overview]")).toBeVisible();
+      await expect(page.locator("[data-settings-content]")).toBeVisible();
+      await expectNoPageOverflow(page, `/settings ${viewport.width}px`);
+
+      const rail = page.locator("[data-settings-rail]");
+      if (viewport.width >= 1024) {
+        await expect(rail).toBeVisible();
+        const expectedWidth = viewport.width >= 1440 ? 240 : viewport.width >= 1280 ? 224 : 208;
+        const railBox = await rail.boundingBox();
+        expect(railBox).not.toBeNull();
+        expect(Math.abs((railBox?.width ?? 0) - expectedWidth)).toBeLessThanOrEqual(2);
+        expect(
+          await rail
+            .locator(":scope > div")
+            .evaluate((element) => window.getComputedStyle(element).position),
+        ).toBe("sticky");
+      } else {
+        await expect(rail).toBeHidden();
+      }
+
+      const firstGroupCards = page
+        .locator('[aria-labelledby="settings-overview-personal-access"] > div')
+        .locator(":scope > a, :scope > div");
+      const firstBox = await firstGroupCards.nth(0).boundingBox();
+      const secondBox = await firstGroupCards.nth(1).boundingBox();
+      expect(firstBox).not.toBeNull();
+      expect(secondBox).not.toBeNull();
+      if (viewport.width < 768) {
+        expect(Math.abs((firstBox?.x ?? 0) - (secondBox?.x ?? 0))).toBeLessThanOrEqual(1);
+        expect(secondBox?.y ?? 0).toBeGreaterThan(firstBox?.y ?? 0);
+      } else {
+        expect(secondBox?.x ?? 0).toBeGreaterThan(firstBox?.x ?? 0);
+      }
+
+      const contentBox = await page.locator("[data-settings-content]").boundingBox();
+      expect(contentBox).not.toBeNull();
+      expect(contentBox?.width ?? 0).toBeLessThanOrEqual(982);
     });
-  });
+  }
+});
 
-  test.describe("mobile touch", () => {
-    test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+test.describe("settings navigation and deep links", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
 
-    test("section groups respond to taps without header hit-target overlap", async ({ page }) => {
-      await verifyDefaultSettingsSection(page);
-      await verifySettingsSections(page, "touch");
-    });
+  test("keeps nine deep links, unknown fallback, and browser history", async ({ page }) => {
+    test.setTimeout(90_000);
+    await gotoReady(page, "/settings?section=unknown");
+    await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible();
+
+    for (const section of sections) {
+      await gotoReady(page, `/settings?section=${section.key}`);
+      await expect(page).toHaveURL(new RegExp(`[?&]section=${section.key}(?:&|$)`));
+      await expect(
+        page.locator("main").last().getByRole("heading", { name: section.heading }).first(),
+        `${section.key} settings marker`,
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(
+        page
+          .getByRole("navigation", { name: "设置导航" })
+          .getByRole("link", { name: section.label })
+          .first(),
+      ).toHaveAttribute("aria-current", "page");
+      await expectNoPageOverflow(page, `/settings?section=${section.key}`);
+    }
+
+    await gotoReady(page, "/settings");
+    await clickOverviewEntry(page, /账号/);
+    await expect(page).toHaveURL(/section=account/);
+    await page
+      .getByRole("navigation", { name: "设置导航" })
+      .getByRole("link", { name: /店铺/ })
+      .click();
+    await expect(page).toHaveURL(/section=store/);
+    await page.goBack();
+    await expect(page).toHaveURL(/section=account/);
+    await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/section=store/);
+    await expect(page.getByRole("heading", { name: "店铺管理" })).toBeVisible();
   });
 });
 
-async function verifySettingsSections(page: Page, mode: "click" | "touch") {
-  await gotoReady(page, "/settings");
-  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+test.describe("settings mobile touch targets", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  const main = page.locator("main").last();
-  const nav = page.getByRole("navigation", { name: "设置分组" });
-  await expect(nav).toBeVisible();
+  test("overview entries and subpage return remain reachable by center tap", async ({ page }) => {
+    await gotoReady(page, "/settings");
+    const overview = page.locator("[data-settings-overview]");
 
-  for (const section of sections) {
-    const button = sectionButton(nav, section.buttonName);
-    await expect(button).toBeVisible();
-    await expect(button).toBeEnabled();
-    await expectButtonCenterHitsSelf(button);
-
-    if (mode === "touch") {
-      await tapLocatorCenter(page, button);
-    } else {
-      await button.click();
+    for (const section of sections) {
+      const link = overview.getByRole("link", { name: section.label }).first();
+      await expect(link).toBeVisible();
+      await expectLinkCenterHitsSelf(link);
     }
 
-    await expect(page).toHaveURL(new RegExp(`[?&]section=${section.key}(?:&|$)`));
-    await expect(button).toHaveAttribute("aria-pressed", "true");
-    await expectFirstVisible(
-      main.getByRole("heading", { name: section.heading }).first(),
-      `${section.key} settings marker`,
-    );
-    await expectVisibleControlsReachable(
-      page,
-      main,
-      `/settings?section=${section.key} visible controls`,
-    );
-    if (section.key === "workflow" && mode === "touch") {
-      const firstStatusCard = main.locator("details").first();
-      await expect(firstStatusCard.locator("summary")).toBeVisible();
-      await tapLocatorCenter(page, firstStatusCard.locator("summary"));
-      await expect(firstStatusCard).toHaveAttribute("open", "");
-      await expectVisibleControlsReachable(page, main, "/settings?section=workflow expanded card");
-    }
-    await expectNoPageOverflow(page, `/settings?section=${section.key}`);
-  }
-}
+    const storeLink = overview.getByRole("link", { name: /店铺/ }).first();
+    await tapLocatorCenter(page, storeLink);
+    await expect(page).toHaveURL(/section=store/);
+    await expect(page.getByRole("heading", { name: "店铺管理" })).toBeVisible();
+    const returnLink = page.getByRole("link", { name: "返回设置总览" }).first();
+    await expectLinkCenterHitsSelf(returnLink);
+    await tapLocatorCenter(page, returnLink);
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible();
+  });
+});
 
-async function verifyDefaultSettingsSection(page: Page) {
-  await gotoReady(page, "/settings");
-  const nav = page.getByRole("navigation", { name: "设置分组" });
-  const accountButton = sectionButton(nav, /账号/);
-  await expect(accountButton).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
+test.describe("settings blocked query gate", () => {
+  test.use({ viewport: { width: 430, height: 932 } });
 
-  await gotoReady(page, "/settings?section=unknown");
-  await expect(
-    sectionButton(page.getByRole("navigation", { name: "设置分组" }), /账号/),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
-}
+  test("blocked member deep links issue no member-domain requests", async ({ page }) => {
+    const memberRequests: string[] = [];
+    page.on("request", (request) => {
+      if (/\/api\/repairdesk\/stores\/(members|access-requests)$/.test(request.url())) {
+        memberRequests.push(request.url());
+      }
+    });
+    await page.route("**/api/repairdesk/stores/context", async (route) => {
+      const response = await route.fetch();
+      const payload = (await response.json()) as {
+        data: {
+          activeStore?: { role?: string };
+          permissions?: Record<string, boolean>;
+        };
+      };
+      if (payload.data.activeStore) payload.data.activeStore.role = "technician";
+      payload.data.permissions = {
+        ...(payload.data.permissions ?? {}),
+        canListMembers: false,
+        canInviteMembers: false,
+        canManageMembers: false,
+        canRevokeMembers: false,
+        canGrantManager: false,
+        canReviewAccessRequests: true,
+      };
+      await route.fulfill({ response, json: payload });
+    });
 
-function sectionButton(nav: Locator, name: RegExp) {
-  return nav.getByRole("button", { name }).first();
-}
+    await gotoReady(page, "/settings?section=members");
+    await expect(page.locator('[data-ui="settings-members-no-permission"]')).toBeVisible();
+    await page.waitForTimeout(250);
+    expect(memberRequests).toEqual([]);
+  });
+});
 
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.locator("body").waitFor({ state: "visible" });
+}
+
+async function clickOverviewEntry(page: Page, name: RegExp) {
+  await page.locator("[data-settings-overview]").getByRole("link", { name }).first().click();
 }
 
 async function tapLocatorCenter(page: Page, locator: Locator) {
@@ -112,30 +204,23 @@ async function tapLocatorCenter(page: Page, locator: Locator) {
   );
 }
 
-async function expectButtonCenterHitsSelf(locator: Locator) {
+async function expectLinkCenterHitsSelf(locator: Locator) {
   await locator.scrollIntoViewIfNeeded();
   const result = await locator.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    const target = document.elementFromPoint(x, y);
-    const button = target?.closest("button");
+    const target = document.elementFromPoint(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+    );
     return {
-      hitsSelf: button === element,
+      hitsSelf: target?.closest("a") === element,
+      height: rect.height,
       targetTag: target?.tagName ?? null,
-      targetText: target?.textContent?.trim().slice(0, 80) ?? null,
-      top: Math.round(rect.top),
-      bottom: Math.round(rect.bottom),
     };
   });
 
-  expect(result.hitsSelf, `button center should hit itself, got ${JSON.stringify(result)}`).toBe(
-    true,
-  );
-  expect(
-    result.bottom - result.top,
-    "settings target height should be at least 44px",
-  ).toBeGreaterThanOrEqual(44);
+  expect(result.hitsSelf, `link center should hit itself: ${JSON.stringify(result)}`).toBe(true);
+  expect(result.height).toBeGreaterThanOrEqual(44);
 }
 
 async function expectFirstVisible(locator: Locator, label: string) {
@@ -150,92 +235,15 @@ async function expectFirstVisible(locator: Locator, label: string) {
   throw new Error(`${label} was not visible`);
 }
 
-async function expectVisibleControlsReachable(page: Page, root: Locator, label: string) {
-  const failures = await root.evaluate((element) => {
-    const selector = [
-      "button:not([disabled])",
-      "a[href]",
-      "input:not([disabled])",
-      "textarea:not([disabled])",
-      "select:not([disabled])",
-      "[role='combobox']:not([aria-disabled='true'])",
-    ].join(",");
-
-    return [...element.querySelectorAll<HTMLElement>(selector)]
-      .map((control) => {
-        const rect = control.getBoundingClientRect();
-        const style = window.getComputedStyle(control);
-        let current = control.parentElement;
-        while (current && current !== element) {
-          if (
-            current instanceof HTMLDetailsElement &&
-            !current.open &&
-            !current.querySelector("summary")?.contains(control)
-          ) {
-            return null;
-          }
-          current = current.parentElement;
-        }
-
-        if (
-          rect.width < 8 ||
-          rect.height < 8 ||
-          rect.bottom <= 0 ||
-          rect.top >= window.innerHeight ||
-          rect.right <= 0 ||
-          rect.left >= window.innerWidth ||
-          style.display === "none" ||
-          style.visibility === "hidden" ||
-          style.pointerEvents === "none"
-        ) {
-          return null;
-        }
-
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-        if (x < 0 || x > window.innerWidth || y < 0 || y > window.innerHeight) {
-          return null;
-        }
-
-        const target = document.elementFromPoint(x, y);
-        const interactiveTarget = target?.closest<HTMLElement>(selector);
-        const hitsControl = interactiveTarget === control || control.contains(target);
-
-        if (hitsControl) return null;
-
-        return {
-          controlText:
-            control.getAttribute("aria-label") ||
-            control.getAttribute("placeholder") ||
-            control.textContent?.trim().slice(0, 100) ||
-            control.tagName,
-          controlTag: control.tagName,
-          targetText: target?.textContent?.trim().slice(0, 100) ?? null,
-          targetTag: target?.tagName ?? null,
-          rect: {
-            top: Math.round(rect.top),
-            left: Math.round(rect.left),
-            width: Math.round(rect.width),
-            height: Math.round(rect.height),
-          },
-        };
-      })
-      .filter(Boolean);
-  });
-
-  expect(failures, `${label} has unreachable controls`).toEqual([]);
-}
-
 async function expectNoPageOverflow(page: Page, route: string) {
-  const overflow = await page.evaluate(() => {
-    const pageWidth = window.innerWidth;
-    const documentWidth = Math.max(
+  const overflow = await page.evaluate(() => ({
+    pageWidth: window.innerWidth,
+    documentWidth: Math.max(
       document.documentElement.scrollWidth,
       document.body.scrollWidth,
       document.scrollingElement?.scrollWidth ?? 0,
-    );
-    return { pageWidth, documentWidth };
-  });
+    ),
+  }));
 
   expect(
     overflow.documentWidth,

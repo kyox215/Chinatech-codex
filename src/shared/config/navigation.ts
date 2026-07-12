@@ -168,7 +168,7 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
       shortLabel: "成员",
       description: "进入成员权限与邀请",
       icon: UserPlus,
-      href: "/settings#settings-members",
+      href: "/settings?section=members",
     },
   },
 ];

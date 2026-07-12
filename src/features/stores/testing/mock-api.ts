@@ -22,13 +22,14 @@ const mockStores = [
     slug: "chinatech",
     role: "owner",
     status: "active",
+    membershipId: "mock_membership_owner",
   },
 ] satisfies StoreContext["stores"];
 
 let activeStoreId = mockStores[0].id;
 const mockMembers: StoreMember[] = [
   {
-    id: "mock_member_owner",
+    id: "mock_membership_owner",
     user_id: "mock_user_owner",
     email: "owner@repairdesk.local",
     display_name: "店铺管理员",
@@ -68,6 +69,7 @@ export async function createStore(
     slug: mockStoreSlug(name),
     role: "owner",
     status: "active",
+    membershipId: `mock_member_${id}`,
   });
   mockMembers.unshift({
     id: `mock_member_${id}`,

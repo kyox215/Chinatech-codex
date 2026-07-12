@@ -38,6 +38,7 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
   const { coordinator, storeId } = useRealtimeSync();
   const shell = useStoreShellContext();
   const canReadInventory = Boolean(shell.permissions?.canReadInventory);
+  const canReadStoreSettings = shell.permissions?.canReadStoreSettings === true;
 
   useEffect(() => {
     if (
@@ -59,7 +60,8 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
     const targets = getRepairDeskPreloadTargets(pathname, constrainedNetwork).filter(
       (target) =>
         !isRepairDeskPreloadTargetOwnedByWorkspaceHome(currentPathname, target) &&
-        (target !== "inventory" || canReadInventory),
+        (target !== "inventory" || canReadInventory) &&
+        (target !== "settings" || canReadStoreSettings),
     );
     let cancelled = false;
 
@@ -144,7 +146,14 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
       if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
       if (secondaryTimeoutHandle !== undefined) window.clearTimeout(secondaryTimeoutHandle);
     };
-  }, [canReadInventory, coordinator, pathname, shell.isRefreshing, storeId]);
+  }, [
+    canReadInventory,
+    canReadStoreSettings,
+    coordinator,
+    pathname,
+    shell.isRefreshing,
+    storeId,
+  ]);
 
   return children;
 }

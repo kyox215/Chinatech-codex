@@ -18,6 +18,7 @@ describe("preload plan", () => {
     expect(getRepairDeskPreloadTargets("/orders").slice(0, 2)).toEqual(["orders", "customers"]);
     expect(getRepairDeskPreloadTargets("/customers").slice(0, 2)).toEqual(["customers", "orders"]);
     expect(getRepairDeskPreloadTargets("/inventory", true)).toEqual(["orders", "customers"]);
+    expect(getRepairDeskPreloadTargets("/settings")).toEqual([]);
   });
 
   it("does not preload data already owned by the active workspace home", () => {

@@ -46,6 +46,19 @@ describe("RepairOsListScaffold header chips", () => {
     fireEvent.click(screen.getByRole("button", { name: /处理中/ }));
     expect(onClick).toHaveBeenCalledOnce();
   });
+
+  it("supports a settings subpage return action without nesting it in the menu trigger", () => {
+    render(
+      <SidebarProvider>
+        <RepairOsListScaffold title="店铺设置" mobileLeading={<a href="/settings">返回设置总览</a>}>
+          <div>内容</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "返回设置总览" })).toHaveAttribute("href", "/settings");
+    expect(screen.queryByRole("button", { name: /侧边栏|菜单/ })).not.toBeInTheDocument();
+  });
 });
 
 function renderScaffold(chips: React.ComponentProps<typeof RepairOsListScaffold>["chips"]) {

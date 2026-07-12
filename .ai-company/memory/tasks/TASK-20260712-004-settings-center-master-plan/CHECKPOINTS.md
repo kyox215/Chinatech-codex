@@ -69,3 +69,52 @@ Implement WP-01 section registry, overview, mobile single-column entry list, des
 ### Next executable action
 
 Create the local WP-00 commit without pushing, then begin WP-01 from the approved section-registry, overview, responsive-shell, and query-activation contract.
+
+## 2026-07-12T10:42:20Z — WP-01 overview and responsive shell closeout
+
+### Completed facts
+
+- `/settings` now opens a compact, searchable overview grouped into personal/access, store operations, business rules, and output/data; all nine existing `?section=` deep links remain compatible.
+- Navigation uses real links and `aria-current`, so refresh, browser back, and browser forward preserve the selected section. Invalid section values fail safely to overview.
+- The responsive shell uses a mobile single-column overview, a two-column tablet overview, and a desktop sticky settings rail measuring 208/224/240px at the approved 1024/1280/1440 breakpoints. Content remains at or below 980px.
+- Store context is the only shell-level query. Account, settings, suppliers, members, access requests, Kiosk, and workflow queries activate only for the current view and required server capability. `/settings` no longer triggers the global workspace preload.
+- Settings and message-template drafts are bound to the active store. Settings save results are accepted only when request store, response store, cached active store, and active store scope still agree.
+- Member self-management protection now compares the active `membershipId` with `StoreMember.id`; the account query is no longer loaded as a hidden dependency of the member section.
+- Store settings/account load failures are section-local. Blocked/unavailable deep links do not render protected data or issue the blocked domain query.
+- The global “邀请成员” shortcut now points to `/settings?section=members`.
+
+### Validation evidence
+
+- Independent WP-01 integration/security closeout: PASS; no P0/P1 blocker.
+- `npm run agents:check`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- Full unit/integration regression: 132 files, 854 tests passed with two workers.
+- Dedicated settings Playwright: 9/9 passed, covering six viewports, nine deep links, invalid fallback, history, mobile center taps, page overflow, and blocked member-domain zero requests.
+- `npm run build`: passed on the latest snapshot outside the filesystem sandbox because Turbopack requires an internal port bind.
+- In-app browser: meaningful content, no framework error overlay, no console errors, 390px and 768px document width matched viewport, 44x44 mobile return target, 1440px rail 240px/sticky, desktop content 884px.
+- `git diff --check`: passed before this checkpoint.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/overview-390x844.jpg` — 390px viewport, full-page mobile overview.
+- `screenshots/responsive-density/settings/store-390x844.jpg` — 390px viewport, full-page mobile store subpage.
+- `screenshots/responsive-density/settings/overview-768x1024.jpg` — tablet two-column overview with settings rail hidden.
+- `screenshots/responsive-density/settings/overview-1440x800.jpg` — desktop overview with global sidebar and 240px settings rail.
+- The two 390px artifacts are full-page captures, so their pixel heights exceed the viewport height named in the files.
+
+### Documentation impact
+
+- Added `DOCUMENTATION_IMPACT.md` with user, developer, QA, security, and release mapping.
+- No database, public API, deployment, or rollback documentation changed because WP-01 made no schema or production change.
+- A user operator guide remains deferred until WP-03 through WP-07 finish the child workflows.
+
+### Non-blocking follow-up
+
+- WP-02 must route rail links, overview cards, mobile return, tablet return, app navigation, store switching, and browser history through the shared dirty guard; native hard reload can only use `beforeunload`.
+- Add response-store verification to message-template mutations as later defense in depth; current store-bound drafts already prevent cross-store rendering.
+- Kiosk and member/access partial-query failure detail remains in their later child-function work packages.
+
+### Next executable action
+
+Create the local WP-01 commit without pushing, then begin WP-02 with strict section payloads, `updated_at` compare-and-swap, section drafts, save states, and the shared navigation guard. Database migration is not required for the local WP-02 contract.

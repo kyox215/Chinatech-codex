@@ -1,3 +1,5 @@
+import type { StoreContext } from "@/lib/repairdesk/types";
+
 export type SettingsSectionKey =
   | "account"
   | "store"
@@ -11,32 +13,7 @@ export type SettingsSectionKey =
 
 export type SettingsSectionAccess = "editable" | "readonly" | "blocked" | "unavailable";
 
-export interface SettingsSectionCapabilities {
-  canReadSuppliers?: boolean;
-  canManageSuppliers?: boolean;
-  canUpdateStoreSettings?: boolean;
-  canConfigureWorkflow?: boolean;
-  canListMembers?: boolean;
-  canManageKioskDevices?: boolean;
-  canReviewKioskSessions?: boolean;
-  canManageOrderData?: boolean;
-}
-
-const sectionKeys = new Set<SettingsSectionKey>([
-  "account",
-  "store",
-  "suppliers",
-  "members",
-  "kiosk",
-  "notifications",
-  "rules",
-  "workflow",
-  "order-data",
-]);
-
-export function normalizeSettingsSection(value: string | null): SettingsSectionKey {
-  return sectionKeys.has(value as SettingsSectionKey) ? (value as SettingsSectionKey) : "account";
-}
+export type SettingsSectionCapabilities = Partial<NonNullable<StoreContext["permissions"]>>;
 
 export function resolveSettingsSectionAccess(
   section: SettingsSectionKey,
@@ -46,6 +23,8 @@ export function resolveSettingsSectionAccess(
   if (!capabilities) return "unavailable";
 
   if (section === "store" || section === "notifications" || section === "rules") {
+    if (capabilities.canReadStoreSettings === undefined) return "unavailable";
+    if (!capabilities.canReadStoreSettings) return "blocked";
     return capabilities.canUpdateStoreSettings === true ? "editable" : "readonly";
   }
   if (section === "suppliers") {
@@ -55,7 +34,13 @@ export function resolveSettingsSectionAccess(
   }
   if (section === "members") {
     if (capabilities.canListMembers === undefined) return "unavailable";
-    return capabilities.canListMembers ? "editable" : "blocked";
+    if (!capabilities.canListMembers) return "blocked";
+    return capabilities.canInviteMembers === true ||
+      capabilities.canManageMembers === true ||
+      capabilities.canRevokeMembers === true ||
+      capabilities.canReviewAccessRequests === true
+      ? "editable"
+      : "readonly";
   }
   if (section === "kiosk") {
     if (

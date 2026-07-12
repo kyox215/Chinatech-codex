@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  normalizeSettingsSection,
-  resolveSettingsSectionAccess,
-} from "@/features/settings/model/settings-section-access";
+import { resolveSettingsSectionAccess } from "@/features/settings/model/settings-section-access";
 
 describe("settings section access", () => {
-  it("uses account as the stable default for missing or invalid sections", () => {
-    expect(normalizeSettingsSection(null)).toBe("account");
-    expect(normalizeSettingsSection("unknown")).toBe("account");
-    expect(normalizeSettingsSection("members")).toBe("members");
-  });
-
   it("does not mistake missing permissions for an explicit denial", () => {
     expect(resolveSettingsSectionAccess("order-data", undefined)).toBe("unavailable");
     expect(resolveSettingsSectionAccess("order-data", {})).toBe("unavailable");
@@ -42,12 +33,24 @@ describe("settings section access", () => {
   });
 
   it("makes store-backed draft sections readonly without update capability", () => {
-    expect(resolveSettingsSectionAccess("store", { canUpdateStoreSettings: false })).toBe(
-      "readonly",
-    );
-    expect(resolveSettingsSectionAccess("rules", { canUpdateStoreSettings: true })).toBe(
-      "editable",
-    );
+    expect(
+      resolveSettingsSectionAccess("store", {
+        canReadStoreSettings: true,
+        canUpdateStoreSettings: false,
+      }),
+    ).toBe("readonly");
+    expect(
+      resolveSettingsSectionAccess("rules", {
+        canReadStoreSettings: true,
+        canUpdateStoreSettings: true,
+      }),
+    ).toBe("editable");
+    expect(
+      resolveSettingsSectionAccess("notifications", {
+        canReadStoreSettings: false,
+        canUpdateStoreSettings: true,
+      }),
+    ).toBe("blocked");
   });
 
   it("keeps workflow readable while reserving edits for configurators", () => {

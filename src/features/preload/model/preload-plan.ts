@@ -19,7 +19,7 @@ const targetPriorityByWorkspace: Record<string, readonly RepairDeskPreloadTarget
   orders: ["orders", "customers", "workflow", "settings", "inventory"],
   customers: ["customers", "orders", "workflow", "settings", "inventory"],
   inventory: ["orders", "customers", "inventory", "settings", "workflow"],
-  settings: ["orders", "customers", "settings", "workflow", "inventory"],
+  settings: [],
 };
 
 export function isRepairDeskPreloadEnabled(

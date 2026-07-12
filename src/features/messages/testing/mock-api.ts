@@ -23,6 +23,8 @@ import {
   normalizeWarrantyMonths,
 } from "@/features/orders/model/order-warranty";
 
+const DEFAULT_MOCK_STORE_ID = "00000000-0000-0000-0000-000000000001";
+
 let storeSettings = withStoreSettingsDefaults({
   ...DEFAULT_STORE_SETTINGS,
   created_at: new Date().toISOString(),
@@ -36,7 +38,7 @@ const messageTemplates: MessageTemplate[] = DEFAULT_MESSAGE_TEMPLATES.map((templ
 }));
 
 export async function getStoreSettings(_actor?: AuditActor): Promise<StoreSettings> {
-  return { ...storeSettings };
+  return { ...storeSettings, store_id: _actor?.storeId ?? DEFAULT_MOCK_STORE_ID };
 }
 
 export async function updateStoreSettings(
@@ -55,6 +57,7 @@ export async function updateStoreSettings(
     default_inventory_warranty_months:
       input.default_inventory_warranty_months ?? storeSettings.default_inventory_warranty_months,
     updated_at: now,
+    store_id: _actor?.storeId ?? storeSettings.store_id ?? DEFAULT_MOCK_STORE_ID,
   });
   return { ...storeSettings };
 }

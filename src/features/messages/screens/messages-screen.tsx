@@ -68,6 +68,8 @@ export function MessagesScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
+  const canReadMessageTemplates = shell.permissions?.canReadMessageTemplates === true;
+  const canReadStoreSettings = shell.permissions?.canReadStoreSettings === true;
   const canUpdateMessageTemplates = shell.permissions?.canUpdateMessageTemplates === true;
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [search, setSearch] = useState("");
@@ -75,18 +77,20 @@ export function MessagesScreen() {
   const [labelDraft, setLabelDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
   const [enabledDraft, setEnabledDraft] = useState(true);
+  const [draftStoreId, setDraftStoreId] = useState<string>();
+  const [draftTemplateId, setDraftTemplateId] = useState<string>();
 
   const templatesQuery = useQuery({
     queryKey: messageSettingsKeys.templatesScoped(activeStoreId),
     queryFn: ({ signal }) => listMessageTemplates({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId),
+    enabled: Boolean(activeStoreId && canReadMessageTemplates),
   });
   const storeQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId),
+    enabled: Boolean(activeStoreId && canReadStoreSettings),
   });
 
   const templates = useMemo(() => templatesQuery.data ?? [], [templatesQuery.data]);
@@ -97,46 +101,69 @@ export function MessagesScreen() {
     templates[0];
 
   useEffect(() => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || !activeStoreId) {
+      setDraftStoreId(undefined);
+      setDraftTemplateId(undefined);
+      return;
+    }
     setSelectedId(selectedTemplate.id);
     setLabelDraft(selectedTemplate.label);
     setBodyDraft(selectedTemplate.body_template);
     setEnabledDraft(selectedTemplate.enabled);
-  }, [selectedTemplate]);
+    setDraftStoreId(activeStoreId);
+    setDraftTemplateId(selectedTemplate.id);
+  }, [activeStoreId, selectedTemplate]);
 
-  const usedVariables = useMemo(() => extractTemplateVariables(bodyDraft), [bodyDraft]);
+  const draftMatchesActiveTemplate = Boolean(
+    selectedTemplate &&
+    activeStoreId &&
+    draftStoreId === activeStoreId &&
+    draftTemplateId === selectedTemplate.id,
+  );
+  const activeLabelDraft = draftMatchesActiveTemplate
+    ? labelDraft
+    : (selectedTemplate?.label ?? "");
+  const activeBodyDraft = draftMatchesActiveTemplate
+    ? bodyDraft
+    : (selectedTemplate?.body_template ?? "");
+  const activeEnabledDraft = draftMatchesActiveTemplate
+    ? enabledDraft
+    : (selectedTemplate?.enabled ?? false);
+
+  const usedVariables = useMemo(() => extractTemplateVariables(activeBodyDraft), [activeBodyDraft]);
   const unknownVariables = useMemo(
-    () => getUnknownTemplateVariables(bodyDraft, messageTemplateVariableNames),
-    [bodyDraft],
+    () => getUnknownTemplateVariables(activeBodyDraft, messageTemplateVariableNames),
+    [activeBodyDraft],
   );
   const enabledCount = templates.filter((template) => template.enabled).length;
   const orderCount = templates.filter((template) => template.domain === "order").length;
   const customerCount = templates.filter((template) => template.domain === "customer").length;
   const preview = useMemo(
-    () => renderTemplate(bodyDraft, createPreviewTemplateContext(storeQuery.data)),
-    [bodyDraft, storeQuery.data],
+    () => renderTemplate(activeBodyDraft, createPreviewTemplateContext(storeQuery.data)),
+    [activeBodyDraft, storeQuery.data],
   );
   const templateHealth = useMemo(
     () =>
       evaluateTemplateHealth({
-        bodyTemplate: bodyDraft,
+        bodyTemplate: activeBodyDraft,
         allowedVariables: messageTemplateVariableNames,
-        enabled: enabledDraft,
+        enabled: activeEnabledDraft,
       }),
-    [bodyDraft, enabledDraft],
+    [activeBodyDraft, activeEnabledDraft],
   );
   const hasChanges =
     selectedTemplate &&
-    (labelDraft !== selectedTemplate.label ||
-      bodyDraft !== selectedTemplate.body_template ||
-      enabledDraft !== selectedTemplate.enabled);
+    draftMatchesActiveTemplate &&
+    (activeLabelDraft !== selectedTemplate.label ||
+      activeBodyDraft !== selectedTemplate.body_template ||
+      activeEnabledDraft !== selectedTemplate.enabled);
   const canSaveTemplate = Boolean(hasChanges) && templateHealth.canSave;
 
   function handleInsertVariable(variable: string) {
     if (!canUpdateMessageTemplates) return;
     const textarea = bodyTextareaRef.current;
     const { bodyTemplate, cursorPosition } = insertTemplateVariable(
-      bodyDraft,
+      activeBodyDraft,
       variable,
       textarea?.selectionStart,
       textarea?.selectionEnd,
@@ -152,10 +179,11 @@ export function MessagesScreen() {
     mutationFn: async () => {
       if (!selectedTemplate) throw new Error("请选择模板");
       if (!canUpdateMessageTemplates) throw new Error("当前账号没有修改消息模板的权限");
+      if (!draftMatchesActiveTemplate) throw new Error("模板草稿与当前店铺不一致");
       return updateMessageTemplate(selectedTemplate.id, {
-        label: labelDraft,
-        body_template: bodyDraft,
-        enabled: enabledDraft,
+        label: activeLabelDraft,
+        body_template: activeBodyDraft,
+        enabled: activeEnabledDraft,
       });
     },
     onSuccess: (template) => {
@@ -180,8 +208,26 @@ export function MessagesScreen() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "恢复失败"),
   });
 
-  if (templatesQuery.isLoading) {
+  if (shell.isLoading || (canReadMessageTemplates && templatesQuery.isLoading)) {
     return <MessagesLoading />;
+  }
+
+  if (!canReadMessageTemplates) {
+    return (
+      <RepairOsListScaffold title="消息模板" subtitle="需要权限" eyebrow="工作台 / 消息">
+        <RepairOsBusinessCard
+          as="div"
+          data-ui="messages-template-no-permission"
+          className="mx-auto mt-16 max-w-sm"
+          role="status"
+        >
+          <span className="block text-sm font-semibold">无法打开消息模板</span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+            当前账号不具备读取消息模板的店铺权限，页面未发送模板查询。
+          </span>
+        </RepairOsBusinessCard>
+      </RepairOsListScaffold>
+    );
   }
 
   if (templatesQuery.isError) {
@@ -308,7 +354,7 @@ export function MessagesScreen() {
                   </Label>
                   <Input
                     id="template-label"
-                    value={labelDraft}
+                    value={activeLabelDraft}
                     disabled={!canUpdateMessageTemplates}
                     onChange={(event) => setLabelDraft(event.target.value)}
                     className="h-8 text-sm sm:h-9"
@@ -323,10 +369,10 @@ export function MessagesScreen() {
                     trailing={
                       <Switch
                         id="template-enabled"
-                        checked={enabledDraft}
+                        checked={activeEnabledDraft}
                         disabled={!canUpdateMessageTemplates}
                         onCheckedChange={setEnabledDraft}
-                        aria-label={enabledDraft ? "停用消息模板" : "启用消息模板"}
+                        aria-label={activeEnabledDraft ? "停用消息模板" : "启用消息模板"}
                       />
                     }
                     trailingClassName="shrink-0 self-center"
@@ -335,7 +381,7 @@ export function MessagesScreen() {
                       htmlFor="template-enabled"
                       className="block cursor-pointer text-xs sm:text-sm"
                     >
-                      {enabledDraft ? "启用" : "停用"}
+                      {activeEnabledDraft ? "启用" : "停用"}
                     </Label>
                   </RepairOsBusinessCard>
                 </div>
@@ -363,7 +409,7 @@ export function MessagesScreen() {
                   ref={bodyTextareaRef}
                   id="template-body"
                   rows={12}
-                  value={bodyDraft}
+                  value={activeBodyDraft}
                   disabled={!canUpdateMessageTemplates}
                   onChange={(event) => setBodyDraft(event.target.value)}
                   className="min-h-[260px] font-mono text-base leading-relaxed md:min-h-[340px] md:text-xs"
@@ -462,7 +508,7 @@ export function MessagesScreen() {
                   description={templateHealth.detail}
                   action={
                     <Badge className={templateHealthToneClass(templateHealth.tone)}>
-                      {templateHealth.canSend ? "可发送" : enabledDraft ? "不可发送" : "停用"}
+                      {templateHealth.canSend ? "可发送" : activeEnabledDraft ? "不可发送" : "停用"}
                     </Badge>
                   }
                 />
