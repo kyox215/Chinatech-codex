@@ -37,3 +37,20 @@
 - **Evidence:**
   - agents/lint/typecheck PASS；119/800 Vitest PASS；build 22 routes PASS；dry-run only two migrations；security PASS；browser screenshots and zero console errors
 - **Recorded by:** Integration Lead
+## 2026-07-12T03:16:51Z — 功能提交397901b5已推送且远端main SHA验证一致；所有验收项已有证据，CEO closeout已生成
+
+- **Phase:** closeout
+- **Completed/current state:** 功能提交397901b5已推送且远端main SHA验证一致；所有验收项已有证据，CEO closeout已生成
+- **Next:** 执行close-task，提交并推送closeout-only记录，验证最终远端SHA
+- **Decision:** 代码任务可关闭；生产两份migration apply与17表RLS风险保持独立门禁
+- **Blocker:** 无任务内阻断
+- **Evidence:**
+  - git push origin HEAD:main PASS；ls-remote main=397901b52751b737017a7d0749ac00edbabd6b24
+- **Recorded by:** Integration Lead
+## 2026-07-12T03:17:08Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 全平台员工权限、订单归档、单单金额/汇总利润隔离、稳定负责人对象鉴权、撤权缓存和设置界面已完成；119文件/800测试、22路由构建、截图、dry-run、安全复核及远端功能提交均通过
+- **Residual risks:** 生产两份迁移尚未apply；应用前技术员legacy订单访问fail-closed。17张legacy public表RLS/浏览器授权仍是独立生产NO-GO风险。
+- **Follow-up:** 另行批准并执行迁移发布与apply后校验；独立开展17表消费者发现和分阶段RLS containment。
+- **Closed by:** Integration Lead

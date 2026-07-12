@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260712-002-global-staff-permissions"
 title: "全平台员工权限与已结清订单归档"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "FE", "FLOW", "INT", "QA", "SEC", "UX"]
 created_at: "2026-07-12T00:08:43Z"
-updated_at: "2026-07-12T03:13:37Z"
+updated_at: "2026-07-12T03:17:08Z"
+closed_at: "2026-07-12T03:17:08Z"
 ---
 # Task — 全平台员工权限与已结清订单归档
 
@@ -49,7 +50,7 @@ updated_at: "2026-07-12T03:13:37Z"
 - [x] 技术员可以查看单张授权订单金额，但不能查看全店金额汇总、利润或批量导出。
 - [x] 店主可按全局角色模板和成员级授权管理店长、前台、技术员、查看员权限。
 - [x] 服务端、缓存、导出和聚合接口均执行权限，角色负向测试通过。
-- [ ] 桌面和移动端可视验证及完整质量门通过，仅本任务变更提交并推送 main。
+- [x] 桌面和移动端可视验证及完整质量门通过，仅本任务变更提交并推送 main。
 
 ## Facts, assumptions, and unknowns
 

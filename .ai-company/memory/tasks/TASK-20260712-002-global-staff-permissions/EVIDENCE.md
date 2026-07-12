@@ -16,8 +16,10 @@
 | E-012 | focused security tests | renamed/inactive legacy technician assignment, kiosk review, API status and authority-loss cache attack paths are covered | targeted Vitest command for order/router/API/store-shell/cache files | pass: 6 files / 72 tests | 2026-07-12T05:03+02:00 | Integration Lead |
 | E-013 | independent security review | final role/object authorization, kiosk PII gate and cache revocation have no remaining S1/S2 merge blocker | read-only `security_reviewer` agent `019f53a7-e39d-7d22-9ba0-63d9db991c34` | PASS; legacy technician access fails closed until assignment migration | 2026-07-12T05:08+02:00 | Security reviewer |
 | E-014 | diff hygiene | final task diff has no whitespace errors or unrecognized generated output | `git diff --check`, scoped status/stat review | pass | 2026-07-12T05:11+02:00 | Integration Lead |
+| E-015 | Git release | only the isolated task commit reached remote main | commit `397901b52751b737017a7d0749ac00edbabd6b24`; `git push origin HEAD:main`; `git ls-remote origin refs/heads/main` | pass; remote main equals commit | 2026-07-12T05:16+02:00 | Integration Lead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
 - `2026-07-12T01:34:32Z` `21f0959d9c` — typecheck/lint/agents:check passed; 112 targeted tests passed; linked Supabase dry-run lists exactly two pending migrations
 - `2026-07-12T03:13:37Z` `6d5e3e7e03` — agents/lint/typecheck PASS；119/800 Vitest PASS；build 22 routes PASS；dry-run only two migrations；security PASS；browser screenshots and zero console errors
+- `2026-07-12T03:16:51Z` `c3c9df1fb1` — git push origin HEAD:main PASS；ls-remote main=397901b52751b737017a7d0749ac00edbabd6b24
