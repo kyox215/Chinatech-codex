@@ -87,12 +87,12 @@ export function buildDashboardWorkInsight(
 
   if (stats.total === 0) {
     return {
-      headline: "今天还没有工单压力",
-      description: "可以先整理客户、回收、库存和消息模板。",
+      headline: "开始第一笔业务",
+      description: "维修设备从快速接单开始；iPhone 旧机估价从快速回收报价开始。",
       tone: "neutral",
-      primaryLabel: "查看客户",
-      primaryHref: "/customers",
-      reasons: ["无待处理工单"],
+      primaryLabel: "快速接单",
+      primaryHref: "/orders/new",
+      reasons: ["暂无工单记录"],
     };
   }
 

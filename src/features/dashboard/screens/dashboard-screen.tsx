@@ -9,10 +9,12 @@ import {
   ArrowUpRight,
   CheckCircle2,
   ClipboardList,
+  ClipboardPlus,
   Clock3,
   Euro,
   Package,
   Recycle,
+  RefreshCw,
   Smartphone,
   Users,
   Wrench,
@@ -55,6 +57,32 @@ import { cn } from "@/lib/utils";
 
 const RECENT_PAGE_SIZE = 6;
 const QUEUE_OVERVIEW_PAGE_SIZE = 50;
+
+const quickStartActions = [
+  {
+    id: "new-order",
+    label: "快速接单",
+    description: "客户维修 · 新建工单",
+    href: "/orders/new",
+    icon: ClipboardPlus,
+    primary: true,
+  },
+  {
+    id: "buyback-quote",
+    label: "快速回收报价",
+    description: "iPhone 旧机估价",
+    href: "/buyback?new=1",
+    icon: Recycle,
+    primary: false,
+  },
+] satisfies Array<{
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  primary: boolean;
+}>;
 
 const quickModules = [
   {
@@ -135,13 +163,18 @@ export function DashboardScreen() {
     () =>
       deriveFallbackStats(
         recentOrders,
-        dashboardQuery.data?.recentOrders.total ?? recentOrders.length,
+        dashboardQuery.data?.recentOrders.total ??
+          queueOverviewQuery.data?.list.total ??
+          recentOrders.length,
       ),
-    [dashboardQuery.data?.recentOrders.total, recentOrders],
+    [dashboardQuery.data?.recentOrders.total, queueOverviewQuery.data?.list.total, recentOrders],
   );
   const stats = dashboardQuery.data?.stats ?? fallbackStats;
   const canReadAggregateFinance =
     queueOverviewQuery.data?.options.permissions.canReadAggregateFinance === true;
+  const dashboardIsLoading = dashboardQuery.isLoading && !dashboardQuery.data;
+  const dashboardHasHardError = dashboardQuery.isError && !dashboardQuery.data;
+  const queueHasHardError = queueOverviewQuery.isError && !queueOverviewQuery.data;
   const workInsight = useMemo(
     () => buildDashboardWorkInsight(stats, recentOrders),
     [recentOrders, stats],
@@ -151,7 +184,9 @@ export function DashboardScreen() {
         .filter((order) => order.is_paid && !order.finance_redacted)
         .reduce((sum, order) => sum + order.quotation_amount, 0)
     : 0;
-  const hasError = dashboardQuery.isError || Boolean(dashboardQuery.data?.partialErrors);
+  const hasPartialError =
+    Boolean(dashboardQuery.data?.partialErrors) ||
+    (dashboardQuery.isError && Boolean(dashboardQuery.data));
   const queueOverviewItems = queueOverviewQuery.data?.list.items ?? recentOrders;
   const quickActionCount = useMemo(() => {
     const workflow = queueOverviewQuery.data?.workflow;
@@ -170,6 +205,10 @@ export function DashboardScreen() {
     exceptionCount: stats.approvalOverdue + stats.pickupOverdue,
     quickActionCount,
     isLoading: queueOverviewQuery.isLoading && !queueOverviewQuery.data,
+    hasError: queueHasHardError,
+    onRetry: () => {
+      void queueOverviewQuery.refetch();
+    },
   };
 
   const mobileMetrics = [
@@ -208,29 +247,36 @@ export function DashboardScreen() {
   return (
     <RepairOsListScaffold
       title="概览"
-      subtitle={`今日任务 · 待处理 ${stats.total} 单`}
+      subtitle={
+        dashboardIsLoading
+          ? "正在读取今日任务"
+          : dashboardHasHardError
+            ? "今日统计暂时不可用"
+            : `今日任务 · 待处理 ${stats.total} 单`
+      }
       eyebrow="工作台 / 概览"
       chips={mobileMetrics.map((metric) => ({
         key: metric.label,
         label: metric.label,
         shortLabel: metric.label.slice(0, 1),
-        count: <AnimatedNumber value={metric.value} />,
+        count:
+          dashboardIsLoading || dashboardHasHardError ? (
+            <span
+              aria-label={
+                dashboardIsLoading ? `${metric.label}正在加载` : `${metric.label}暂时不可用`
+              }
+            >
+              —
+            </span>
+          ) : (
+            <AnimatedNumber value={metric.value} />
+          ),
       }))}
-      desktopAction={
-        <Button
-          asChild
-          size="sm"
-          className={cn("h-9 gap-1.5", controls.brandButton)}
-          style={brandGradientStyle}
-        >
-          <Link href="/orders">
-            <ClipboardList className="size-3.5" />
-            进入工单
-          </Link>
-        </Button>
-      }
+      desktopAction={<DashboardDesktopQuickStart />}
     >
       <motion.div variants={stagger(0.035)} initial="hidden" animate="show" className="space-y-3">
+        <DashboardMobileQuickStart />
+
         <motion.div
           variants={stagger(0.025)}
           className="hidden min-w-0 gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4"
@@ -241,6 +287,8 @@ export function DashboardScreen() {
             hint="当前工作队列"
             icon={ClipboardList}
             tone="info"
+            isLoading={dashboardIsLoading}
+            isUnavailable={dashboardHasHardError}
           />
           <DashboardMetricCard
             label="进行中"
@@ -248,6 +296,8 @@ export function DashboardScreen() {
             hint="检测、维修、配件中"
             icon={Wrench}
             tone="progress"
+            isLoading={dashboardIsLoading}
+            isUnavailable={dashboardHasHardError}
           />
           <DashboardMetricCard
             label="未结清"
@@ -255,6 +305,8 @@ export function DashboardScreen() {
             hint="仍需确认收款"
             icon={Euro}
             tone="warn"
+            isLoading={dashboardIsLoading}
+            isUnavailable={dashboardHasHardError}
           />
           {canReadAggregateFinance ? (
             <DashboardMetricCard
@@ -263,6 +315,8 @@ export function DashboardScreen() {
               hint="当前工作队列"
               icon={CheckCircle2}
               tone="success"
+              isLoading={dashboardIsLoading}
+              isUnavailable={dashboardHasHardError}
             />
           ) : (
             <DashboardMetricCard
@@ -271,11 +325,13 @@ export function DashboardScreen() {
               hint="今天录入的工单"
               icon={Clock3}
               tone="neutral"
+              isLoading={dashboardIsLoading}
+              isUnavailable={dashboardHasHardError}
             />
           )}
         </motion.div>
 
-        {hasError ? (
+        {hasPartialError ? (
           <motion.div variants={fadeUp}>
             <RepairOsBusinessCard
               as="div"
@@ -298,7 +354,20 @@ export function DashboardScreen() {
         ) : null}
 
         <motion.section variants={fadeUp}>
-          <WorkInsightCard insight={workInsight} />
+          {dashboardIsLoading ? (
+            <WorkInsightSkeleton />
+          ) : dashboardHasHardError ? (
+            <DashboardDataUnavailable
+              dataUi="dashboard-summary-error"
+              title="今日统计读取失败"
+              description="快速接单和回收报价仍可使用；请重试读取工单数据。"
+              onRetry={() => {
+                void dashboardQuery.refetch();
+              }}
+            />
+          ) : (
+            <WorkInsightCard insight={workInsight} />
+          )}
         </motion.section>
 
         <motion.section variants={fadeUp}>
@@ -326,13 +395,18 @@ export function DashboardScreen() {
             />
             <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-3 lg:grid-cols-3">
               {tasks.map((task) => (
-                <TaskCard key={task.label} task={task} />
+                <TaskCard
+                  key={task.label}
+                  task={task}
+                  isLoading={dashboardIsLoading}
+                  isUnavailable={dashboardHasHardError}
+                />
               ))}
             </div>
           </motion.section>
 
           <motion.section variants={fadeUp} className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-            <RepairOsSectionHeader title="快捷模块" description="常用业务入口" />
+            <RepairOsSectionHeader title="业务模块" description="查看业务列表与历史记录" />
             <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-1">
               {quickModules.map((module) => (
                 <QuickModuleLink key={module.href} module={module} />
@@ -357,6 +431,24 @@ export function DashboardScreen() {
           <div className="mt-3 grid min-w-0 gap-2 xl:grid-cols-2">
             {dashboardQuery.isLoading ? (
               <RecentOrdersSkeleton />
+            ) : dashboardHasHardError ? (
+              <RepairOsBusinessCard
+                as="div"
+                data-ui="dashboard-recent-orders-error"
+                className="xl:col-span-2 grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground shadow-none"
+                leading={
+                  <span className="grid size-8 place-items-center rounded-lg bg-status-danger/20">
+                    <AlertTriangle className="size-4" />
+                  </span>
+                }
+                leadingClassName="self-center"
+                role="alert"
+              >
+                <span className="block text-sm font-semibold">最近工单暂时不可用</span>
+                <span className="mt-0.5 block truncate text-[11px] leading-4">
+                  统计恢复后会自动显示最近接入的维修业务。
+                </span>
+              </RepairOsBusinessCard>
             ) : recentOrders.length > 0 ? (
               recentOrders.map((order) => <RecentOrderCard key={order.id} order={order} />)
             ) : (
@@ -391,6 +483,107 @@ interface QueueOverview {
   exceptionCount: number;
   quickActionCount: number;
   isLoading: boolean;
+  hasError: boolean;
+  onRetry: () => void;
+}
+
+function DashboardDesktopQuickStart() {
+  return (
+    <div
+      data-ui="dashboard-quick-start-desktop"
+      className="flex min-w-0 flex-wrap justify-end gap-2"
+    >
+      {quickStartActions.map((action) => (
+        <Button
+          key={action.id}
+          asChild
+          size="sm"
+          variant={action.primary ? "default" : "outline"}
+          className={cn(
+            "h-11 gap-1.5 rounded-xl px-3 text-xs",
+            action.primary
+              ? controls.brandButton
+              : "border-[var(--border-panel)] bg-card hover:bg-accent/60",
+          )}
+          style={action.primary ? brandGradientStyle : undefined}
+        >
+          <Link
+            href={action.href}
+            data-dashboard-quick-start={action.id}
+            aria-label={`${action.label}，${action.description}`}
+          >
+            <action.icon className="size-3.5" aria-hidden />
+            {action.label}
+          </Link>
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function DashboardMobileQuickStart() {
+  return (
+    <motion.section
+      variants={fadeUp}
+      data-ui="dashboard-quick-start-mobile"
+      className={cn(repairOs.adminSection, "p-2.5 md:hidden")}
+    >
+      <RepairOsSectionHeader title="快速开始" description="选择要办理的业务" />
+      <div className="mt-2 grid min-w-0 grid-cols-2 gap-2">
+        {quickStartActions.map((action) => (
+          <Link
+            key={action.id}
+            href={action.href}
+            data-dashboard-quick-start={action.id}
+            aria-label={`${action.label}，${action.description}`}
+            className="block min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <RepairOsBusinessCard
+              as="div"
+              leading={
+                <span
+                  className={cn(
+                    "grid size-9 place-items-center rounded-lg",
+                    action.primary
+                      ? "bg-primary-foreground/15 text-primary-foreground"
+                      : "bg-primary/10 text-primary",
+                  )}
+                >
+                  <action.icon className="size-4" aria-hidden />
+                </span>
+              }
+              trailing={
+                <ArrowUpRight
+                  className={cn(
+                    "size-3.5",
+                    action.primary ? "text-primary-foreground/80" : "text-muted-foreground",
+                  )}
+                  aria-hidden
+                />
+              }
+              className={cn(
+                "min-h-20 items-center rounded-xl px-2.5 py-2 shadow-none transition-transform active:scale-[0.98]",
+                action.primary
+                  ? "border-0 text-primary-foreground hover:bg-transparent"
+                  : "border-[var(--border-panel)] bg-card hover:bg-accent/60",
+              )}
+              style={action.primary ? brandGradientStyle : undefined}
+            >
+              <span className="block text-xs font-semibold leading-4">{action.label}</span>
+              <span
+                className={cn(
+                  "mt-1 block text-[10px] leading-3.5",
+                  action.primary ? "text-primary-foreground/80" : "text-muted-foreground",
+                )}
+              >
+                {action.description}
+              </span>
+            </RepairOsBusinessCard>
+          </Link>
+        ))}
+      </div>
+    </motion.section>
+  );
 }
 
 function QueueOverviewSection({ overview }: { overview: QueueOverview }) {
@@ -440,12 +633,60 @@ function QueueOverviewSection({ overview }: { overview: QueueOverview }) {
           </Button>
         }
       />
-      <div className="mt-3 grid min-w-0 gap-2 md:grid-cols-3">
-        {metrics.map((metric) => (
-          <QueueOverviewCard key={metric.label} metric={metric} isLoading={overview.isLoading} />
-        ))}
-      </div>
+      {overview.hasError ? (
+        <div className="mt-3">
+          <DashboardDataUnavailable
+            dataUi="dashboard-queue-error"
+            title="工单队列读取失败"
+            description="暂时无法判断队列风险和可直接处理数量。"
+            onRetry={overview.onRetry}
+          />
+        </div>
+      ) : (
+        <div className="mt-3 grid min-w-0 gap-2 md:grid-cols-3">
+          {metrics.map((metric) => (
+            <QueueOverviewCard key={metric.label} metric={metric} isLoading={overview.isLoading} />
+          ))}
+        </div>
+      )}
     </section>
+  );
+}
+
+function DashboardDataUnavailable({
+  dataUi,
+  title,
+  description,
+  onRetry,
+}: {
+  dataUi: string;
+  title: string;
+  description: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      data-ui={dataUi}
+      role="alert"
+      className="grid min-w-0 gap-2 rounded-2xl border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2.5 text-status-danger-foreground shadow-[var(--shadow-card)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-semibold leading-5">{title}</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-status-danger-foreground/80">
+          {description}
+        </p>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-8 gap-1.5 rounded-xl border-status-danger-foreground/25 bg-card px-3 text-xs"
+        onClick={onRetry}
+      >
+        <RefreshCw className="size-3" aria-hidden />
+        重试
+      </Button>
+    </div>
   );
 }
 
@@ -532,6 +773,24 @@ function WorkInsightCard({ insight }: { insight: DashboardWorkInsight }) {
     </div>
   );
 }
+
+function WorkInsightSkeleton() {
+  return (
+    <div
+      data-ui="dashboard-work-insight-loading"
+      role="status"
+      aria-label="正在加载今日优先级"
+      className="grid min-w-0 gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 py-2.5 shadow-[var(--shadow-card)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+    >
+      <div className="min-w-0 space-y-2">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-5 w-48 max-w-full" />
+        <Skeleton className="h-3 w-64 max-w-full" />
+      </div>
+      <Skeleton className="h-8 w-24 rounded-xl" />
+    </div>
+  );
+}
 type Tone = "neutral" | "info" | "progress" | "warn" | "success" | "danger";
 
 const toneClasses: Record<Tone, { card: string; icon: string; marker: string; value: string }> = {
@@ -588,12 +847,16 @@ function DashboardMetricCard({
   hint,
   icon: Icon,
   tone,
+  isLoading = false,
+  isUnavailable = false,
 }: {
   label: string;
   value: number | ReactNode;
   hint: string;
   icon: LucideIcon;
   tone: Tone;
+  isLoading?: boolean;
+  isUnavailable?: boolean;
 }) {
   const toneClass = toneClasses[tone];
   return (
@@ -607,7 +870,17 @@ function DashboardMetricCard({
       <div className="flex min-w-0 items-start justify-between gap-2">
         <RepairOsInfoTile
           label={label}
-          value={typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+          value={
+            isLoading ? (
+              <Skeleton className="h-5 w-14" />
+            ) : isUnavailable ? (
+              <span aria-label={`${label}暂时不可用`}>—</span>
+            ) : typeof value === "number" ? (
+              <AnimatedNumber value={value} />
+            ) : (
+              value
+            )
+          }
           frame="plain"
           className="min-w-0"
           labelClassName="text-[10px] uppercase tracking-widest text-muted-foreground/70"
@@ -625,7 +898,15 @@ function DashboardMetricCard({
   );
 }
 
-function TaskCard({ task }: { task: DashboardTask }) {
+function TaskCard({
+  task,
+  isLoading = false,
+  isUnavailable = false,
+}: {
+  task: DashboardTask;
+  isLoading?: boolean;
+  isUnavailable?: boolean;
+}) {
   const toneClass = toneClasses[task.tone];
   return (
     <Link
@@ -639,9 +920,20 @@ function TaskCard({ task }: { task: DashboardTask }) {
           </span>
         }
         trailing={
-          <span className={cn("font-mono text-lg font-semibold tabular-nums", toneClass.value)}>
-            <AnimatedNumber value={task.value} />
-          </span>
+          isLoading ? (
+            <Skeleton className="h-5 w-8" />
+          ) : isUnavailable ? (
+            <span
+              aria-label={`${task.label}暂时不可用`}
+              className={cn("font-mono text-lg font-semibold tabular-nums", toneClass.value)}
+            >
+              —
+            </span>
+          ) : (
+            <span className={cn("font-mono text-lg font-semibold tabular-nums", toneClass.value)}>
+              <AnimatedNumber value={task.value} />
+            </span>
+          )
         }
         className={cn("items-center px-3 py-2 hover:bg-accent/60", toneClass.card)}
       >

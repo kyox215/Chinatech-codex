@@ -66,7 +66,7 @@ describe("dashboard work insights", () => {
     expect(insight.primaryHref).toBe("/orders/pickup_1");
   });
 
-  it("points to customers when there are no orders", () => {
+  it("points first-time users to quick intake when there are no orders", () => {
     const insight = buildDashboardWorkInsight({
       total: 0,
       today: 0,
@@ -77,7 +77,9 @@ describe("dashboard work insights", () => {
     });
 
     expect(insight.tone).toBe("neutral");
-    expect(insight.primaryHref).toBe("/customers");
-    expect(insight.reasons).toEqual(["无待处理工单"]);
+    expect(insight.headline).toBe("开始第一笔业务");
+    expect(insight.primaryLabel).toBe("快速接单");
+    expect(insight.primaryHref).toBe("/orders/new");
+    expect(insight.reasons).toEqual(["暂无工单记录"]);
   });
 });
