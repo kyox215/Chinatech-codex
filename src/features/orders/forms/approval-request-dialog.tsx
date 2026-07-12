@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { StoreOutputIdentityRecovery } from "@/components/store/store-output-identity-recovery";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,10 @@ export function ApprovalRequestDialog({
   data,
   orderUrl,
   storeIdentity,
+  canReadStoreSettings,
+  canUpdateStoreSettings,
+  onRetryStoreSettings,
+  onReloadStoreContext,
   busy,
   onConfirm,
 }: {
@@ -45,6 +50,10 @@ export function ApprovalRequestDialog({
   data: OrderDetail;
   orderUrl: string;
   storeIdentity: StoreOutputIdentity;
+  canReadStoreSettings: boolean;
+  canUpdateStoreSettings: boolean;
+  onRetryStoreSettings?: () => void | Promise<unknown>;
+  onReloadStoreContext?: () => void | Promise<unknown>;
   busy: boolean;
   onConfirm: (input: { body: string; recipientPhone?: string }) => Promise<unknown>;
 }) {
@@ -88,18 +97,19 @@ export function ApprovalRequestDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
-          {!storeIdentity.canOutput ? (
-            <div
-              role="alert"
-              className="mb-2 rounded-md border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
-            >
-              {storeIdentity.blockReason ?? "请先补齐当前店铺资料后再发送客户消息。"}
-            </div>
-          ) : null}
+          <StoreOutputIdentityRecovery
+            identity={storeIdentity}
+            canReadSettings={canReadStoreSettings}
+            canUpdateSettings={canUpdateStoreSettings}
+            onRetrySettings={onRetryStoreSettings}
+            onReloadStoreContext={onReloadStoreContext}
+            openSettingsInNewTab
+            className="mb-2"
+          />
           <div className="grid min-w-0 gap-1.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 text-xs text-muted-foreground sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
             <span className="font-medium text-foreground">WhatsApp</span>
             {phoneOptions.length > 1 ? (
-              <Select value={phone} onValueChange={updatePhone}>
+              <Select value={phone} disabled={!storeIdentity.canOutput} onValueChange={updatePhone}>
                 <SelectTrigger className="h-8 w-full font-mono text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -120,8 +130,10 @@ export function ApprovalRequestDialog({
           <div className="mt-2">
             <div className="mb-1 text-xs font-medium text-muted-foreground">审批消息内容</div>
             <Textarea
+              aria-label="审批消息内容"
               rows={10}
               value={body}
+              disabled={!storeIdentity.canOutput}
               onChange={(event) => setBody(event.target.value)}
               className="min-h-[260px] resize-none font-mono text-xs leading-relaxed"
             />

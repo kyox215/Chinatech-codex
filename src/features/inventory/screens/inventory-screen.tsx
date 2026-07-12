@@ -42,6 +42,7 @@ import {
 import { toast } from "sonner";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
+import { StoreOutputIdentityRecovery } from "@/components/store/store-output-identity-recovery";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -506,6 +507,10 @@ export function InventoryScreen() {
         action={action}
         item={actionItem ?? selectedItem}
         storeOutputIdentity={storeOutputIdentity}
+        canReadStoreSettings={shell.permissions?.canReadStoreSettings === true}
+        canUpdateStoreSettings={shell.permissions?.canUpdateStoreSettings === true}
+        onRetryStoreSettings={storeSettingsQuery.refetch}
+        onReloadStoreContext={shell.retry}
         onOpenChange={(open) => {
           if (!open) {
             setAction(null);
@@ -1670,12 +1675,20 @@ function InventoryActionDialog({
   action,
   item,
   storeOutputIdentity,
+  canReadStoreSettings,
+  canUpdateStoreSettings,
+  onRetryStoreSettings,
+  onReloadStoreContext,
   onOpenChange,
   onDone,
 }: {
   action: InventoryActionMode | null;
   item?: InventoryListItem;
   storeOutputIdentity: StoreOutputIdentity;
+  canReadStoreSettings: boolean;
+  canUpdateStoreSettings: boolean;
+  onRetryStoreSettings?: () => void | Promise<unknown>;
+  onReloadStoreContext?: () => void | Promise<unknown>;
   onOpenChange: (open: boolean) => void;
   onDone: (id?: string) => void;
 }) {
@@ -1731,6 +1744,10 @@ function InventoryActionDialog({
       <InventorySaleReceiptDialog
         item={item}
         storeOutputIdentity={storeOutputIdentity}
+        canReadStoreSettings={canReadStoreSettings}
+        canUpdateStoreSettings={canUpdateStoreSettings}
+        onRetryStoreSettings={onRetryStoreSettings}
+        onReloadStoreContext={onReloadStoreContext}
         onOpenChange={onOpenChange}
       />
     );
@@ -2010,10 +2027,18 @@ function InventoryActionDialog({
 function InventorySaleReceiptDialog({
   item,
   storeOutputIdentity,
+  canReadStoreSettings,
+  canUpdateStoreSettings,
+  onRetryStoreSettings,
+  onReloadStoreContext,
   onOpenChange,
 }: {
   item: InventoryListItem;
   storeOutputIdentity: StoreOutputIdentity;
+  canReadStoreSettings: boolean;
+  canUpdateStoreSettings: boolean;
+  onRetryStoreSettings?: () => void | Promise<unknown>;
+  onReloadStoreContext?: () => void | Promise<unknown>;
   onOpenChange: (open: boolean) => void;
 }) {
   const receipt = buildInventorySaleReceiptData(item, {
@@ -2036,14 +2061,14 @@ function InventorySaleReceiptDialog({
           </DialogDescription>
         </DialogHeader>
         <div className={cn(inventoryDialogBodyClass, "space-y-3")}>
-          {!storeOutputIdentity.canOutput ? (
-            <div
-              role="alert"
-              className="rounded-lg border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
-            >
-              {storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印票据。"}
-            </div>
-          ) : null}
+          <StoreOutputIdentityRecovery
+            identity={storeOutputIdentity}
+            canReadSettings={canReadStoreSettings}
+            canUpdateSettings={canUpdateStoreSettings}
+            onRetrySettings={onRetryStoreSettings}
+            onReloadStoreContext={onReloadStoreContext}
+            openSettingsInNewTab
+          />
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
             <InventoryDenseInfoBox
               label="售出时间"

@@ -20,13 +20,13 @@
 
 ## WP-02 draft and navigation safety
 
-| Reader             | Impact                                                                                                      | Authoritative update                                                                                                            | Verification                                                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Store users        | Store/output/rule edits save by section; conflicts and validation failures keep local input; leaving prompts | Save/state cards, unsaved-change dialog, and `ADR-WP02-SETTINGS-DRAFT-SAFETY.md`                                                | SettingsScreen tests and 16-case Settings E2E                                 |
-| Developers         | Settings update is a strict section union with actor-bound store context and `updated_at` CAS                | `store-settings-update-contract.ts`, draft model, message-settings service/repository, navigation guard provider, and WP-02 ADR | Contract/service/repository/router/provider tests and typecheck               |
-| QA                 | Global navigation surfaces must not bypass dirty state; multi-section saves must chain versions             | `tests/e2e/settings-section-interactions.spec.ts` and WP-02 checkpoint                                                           | 16/16 Playwright and 3 files / 24 focused tests                               |
-| Security reviewers | Client store IDs never authorize writes; over-posting is rejected; audit omits setting values                | WP-02 ADR, service/repository implementation, and security review evidence                                                       | Independent PASS, 7 files / 51 tests                                          |
-| Release / SRE      | Frontend and backend strict contract must ship together; no migration was added                              | WP-02 ADR migration/rollback section and `CHECKPOINTS.md`                                                                        | Build passed; production/push/deploy gates remain closed                      |
+| Reader             | Impact                                                                                                       | Authoritative update                                                                                                            | Verification                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Store users        | Store/output/rule edits save by section; conflicts and validation failures keep local input; leaving prompts | Save/state cards, unsaved-change dialog, and `ADR-WP02-SETTINGS-DRAFT-SAFETY.md`                                                | SettingsScreen tests and 16-case Settings E2E                   |
+| Developers         | Settings update is a strict section union with actor-bound store context and `updated_at` CAS                | `store-settings-update-contract.ts`, draft model, message-settings service/repository, navigation guard provider, and WP-02 ADR | Contract/service/repository/router/provider tests and typecheck |
+| QA                 | Global navigation surfaces must not bypass dirty state; multi-section saves must chain versions              | `tests/e2e/settings-section-interactions.spec.ts` and WP-02 checkpoint                                                          | 16/16 Playwright and 3 files / 24 focused tests                 |
+| Security reviewers | Client store IDs never authorize writes; over-posting is rejected; audit omits setting values                | WP-02 ADR, service/repository implementation, and security review evidence                                                      | Independent PASS, 7 files / 51 tests                            |
+| Release / SRE      | Frontend and backend strict contract must ship together; no migration was added                              | WP-02 ADR migration/rollback section and `CHECKPOINTS.md`                                                                       | Build passed; production/push/deploy gates remain closed        |
 
 ### WP-02 documentation limits
 
@@ -40,6 +40,22 @@
 - Database schema, migration, RLS, deployment, and rollback documents: WP-01 contains no database or production change.
 - Public API documentation: no public endpoint or payload changed.
 - Account self-service plan: `/settings?section=account` remains a thin link to `/account` for security actions.
+
+## WP-03A customer-output recovery
+
+| Reader             | Impact                                                                                                             | Authoritative update                                                             | Verification                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Store users        | Blocked messages/receipts now explain the missing area, preserve the dialog, open exact Settings, and can recheck  | `StoreOutputIdentityRecovery`, four dialog integrations, and the two screenshots | 2/2 responsive recovery E2E                                         |
+| Developers         | Output blocking has stable semantic cause/field/target metadata; callers provide capability and retry callbacks    | `store-output-identity.ts` and `ADR-WP03-OUTPUT-IDENTITY-RECOVERY.md`            | Resolver/component/dialog tests and typecheck                       |
+| QA                 | Recheck must move blocked UI to ready without weakening send/print guards; first mobile order must remain tappable | `tests/e2e/store-output-recovery.spec.ts` and the WP03-A checkpoint              | 5 files / 21 focused tests, 18 Playwright cases, 139/902 full tests |
+| Security reviewers | Mismatch never links Settings; blocked output fields remain empty; URLs carry no store/customer data               | Resolver invariants and permission-aware shared component                        | Independent PASS, P0=0 / P1=0                                       |
+| Release / SRE      | Additive frontend/domain contract only; no migration, external message, production write, push, or deploy          | WP03 ADR rollout/rollback section, `CHECKPOINTS.md`, and current hard-stop list  | Production build passed locally                                     |
+
+### WP-03A documentation limits
+
+- Public Kiosk must not reuse the private recovery component; authenticated/public Kiosk recovery remains a later reviewed slice.
+- Toast-only order-list/buyback feedback, silent order-detail print, and Messages template-health composition remain WP03 follow-ups.
+- Settings-query retry is best effort; persistent server errors continue to fail closed.
 
 ## Deferred documentation
 

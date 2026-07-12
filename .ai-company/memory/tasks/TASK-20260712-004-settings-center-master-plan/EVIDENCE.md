@@ -40,3 +40,21 @@
 - Production build: passed outside the filesystem sandbox because Turbopack requires local process/port access.
 - Browser evidence remained mock-only and contained no production customer data. WP-02 changes visible interaction states but reuses the WP-01 responsive page layout; final workflow screenshots remain part of WP-08.
 - No database migration, production write, role change, `main` push, or deployment occurred.
+
+## WP-03A — Customer-output recovery
+
+- Resolver matrix: ready, loading, failed read, missing store binding, tenant mismatch, legacy contamination, missing store profile, notification-only gaps, and mixed gaps.
+- Focused regression: 5 files / 21 tests passed. Three message dialogs keep selectors/body and primary send actions disabled while identity is blocked.
+- Independent security review after corrections: PASS, P0=0 / P1=0. Blocked results still clear all five output fields; recovery URLs contain no store/customer ID or field value.
+- Independent UI/accessibility review after corrections: PASS, P0=0 / P1=0. Cross-tab repair has a deterministic recheck; blocked message drafts cannot be overwritten; new-tab name, `aria-busy`, labels, and mobile 44px targets are covered.
+- Static gates: agents check, lint, typecheck, and diff check passed.
+- Bounded full regression: 139 files / 902 tests passed with two workers.
+- A four-worker exploratory run hit two timing failures in the pre-existing Radix order-option-picker test. The same file passed 5/5 alone, and the complete two-worker run passed 902/902; no product-code failure remained.
+- Dedicated output-recovery Playwright: 2/2 passed at 390x844 and 1440x900. It verifies exact PII-free Settings href, new-tab isolation, disabled send/edit controls, 44px mobile actions, no page overflow, recheck-to-ready, and pointer-lock cleanup after dialogs close.
+- Dedicated Settings Playwright after WP03-A: 16/16 passed across all six approved viewports and global dirty-guard surfaces. Dev-server canceled RSC `ECONNRESET` noise appeared only after successful assertions and did not fail the gate.
+- Production build: passed outside the filesystem sandbox because Turbopack requires local process/port access.
+- Browser testing exposed and verified a related interaction defect: the mobile orders header was first measured while only the skeleton existed, so the 160px fallback covered the first card. The effect now remeasures after the initial orders request settles; standard Playwright click reaches the first order without `force`.
+- Screenshots use mock data and mask notification type, phone, and message body:
+  - `screenshots/responsive-density/settings/output-recovery-390x844.png`
+  - `screenshots/responsive-density/settings/output-recovery-1440x900.png`
+- No migration, production write, role change, external message, `main` push, or deployment occurred.

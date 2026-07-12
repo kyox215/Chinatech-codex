@@ -14,3 +14,8 @@
 - One pending navigation transition must resolve every dirty section and every registered draft source before it runs. Application Links, imperative routes, store mutations, sign-out, and history use the shared guard; hard reload uses native `beforeunload`.
 - Store switch/create failures clear transient one-time codes but do not clear the current settings draft. Successful active-store changes still reset all tenant-scoped local state.
 - Settings update and audit are not transactionally atomic, Realtime is best-effort, and missing settings rows still initialize on read; these are explicit release risks, not completed guarantees.
+- Customer-output recovery is semantic, not string-parsed: resolver block codes and sanitized missing-field IDs choose wait, retry, context reload, store, or notification recovery while `canOutput` remains the only authorization-to-output decision.
+- Tenant mismatch and missing settings-store binding never produce a Settings link. Every blocked result still clears store name, address, contact, signature, and footer.
+- Dialog recovery links open a new tab to preserve context, and the original dialog has an explicit settings refetch action. Message selectors/body remain disabled until identity is ready so the recovery transition cannot overwrite user edits.
+- Private recovery links require the server-projected settings read capability. Public Kiosk must use a separate generic recovery surface and must never reuse internal Settings URLs or detailed private error copy.
+- Mobile floating-list header measurement must run after skeleton-backed data settles; measuring only on initial mount can leave the fallback offset under the real fixed header and make the first list action untappable.

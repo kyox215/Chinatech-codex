@@ -163,3 +163,46 @@ Create the local WP-01 commit without pushing, then begin WP-02 with strict sect
 ### Next executable action
 
 Create the scoped local WP-02 commit without pushing. Then rehydrate the approved WP-03 child-function scope, start with the unified output-identity recovery link and the account/store workflow slice, and stop at any database, role-semantics, retention, production, push, or deployment gate.
+
+## 2026-07-12T13:01:37Z — WP-03A recoverable customer-output blockers
+
+### Completed facts
+
+- Added stable output block codes, sanitized missing-field identifiers, and recovery targets without changing the WP-00 readiness requirements or `canOutput` decision.
+- Added one shared responsive recovery card for loading, failed settings read, store-context mismatch, store-profile gaps, and notification-only gaps.
+- Integrated the card into customer messages, order notifications, approval requests, and inventory sale receipts. All existing send/print guards remain active while blocked.
+- Settings recovery opens a new tab with `noopener noreferrer`, preserves the original dialog, and provides “重新检查资料” using the existing actor-bound query refetch.
+- Message selectors and body are disabled while identity is blocked, so a loading/retry/context recovery cannot silently overwrite an editable draft.
+- Added defensive failure closure when active-store settings lack a `store_id`; mismatch and missing binding never expose a Settings destination.
+- Browser verification found the mobile order header effect ran before the header mounted behind the initial skeleton. The fallback offset covered the first customer link. Remeasuring after the first orders request settles restores standard pointer interaction without forced clicks.
+
+### Review and validation
+
+- Independent security review after corrections: PASS, P0=0 / P1=0.
+- Independent UI/accessibility review after corrections: PASS, P0=0 / P1=0.
+- Focused regression: 5 files / 21 tests passed.
+- Static gates: agents check, lint, typecheck, and diff check passed.
+- Full bounded regression: 139 files / 902 tests passed with two workers.
+- Output-recovery Playwright: 2/2 passed at 390x844 and 1440x900.
+- Settings Playwright: 16/16 passed across the six approved viewports and global dirty-guard surfaces.
+- Production build passed outside the filesystem sandbox due Turbopack local process/port requirements.
+- A four-worker exploratory run produced two timing failures in an unrelated pre-existing Radix picker file; that file passed 5/5 alone and the full two-worker gate passed 902/902.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/output-recovery-390x844.png`
+- `screenshots/responsive-density/settings/output-recovery-1440x900.png`
+- Both are mock-only and mask notification type, phone, and message body.
+
+### Residual risks / follow-up
+
+- Recheck success can remove the focused button; explicit post-recovery focus transfer remains a P2 accessibility follow-up.
+- React Query refetch may resolve an error result rather than throw; persistent failure still remains visibly blocked, but inline retry-failure copy is best effort.
+- A ready-to-ready background identity update can still regenerate an open message draft; a later dirty guard should distinguish background refresh from explicit template regeneration.
+- Inventory receipt has source-level triple guards and shared-component coverage but no isolated UI unit harness; the responsive E2E covers the order-message integration.
+- Toast-only order-list/buyback, silent detail print, Messages health, and authenticated/public Kiosk recovery remain separate WP03 slices.
+- No migration, production action, role change, retention change, external message, push, or deployment occurred.
+
+### Next executable action
+
+Create the scoped local WP03-A commit without pushing. Verify the boundary, then begin WP03-B account/store extraction and completion while preserving current queries, strict section payloads, CAS, dirty guards, capabilities, and store-switch semantics.

@@ -1,7 +1,7 @@
 ---
 task_id: TASK-20260712-004-settings-center-master-plan
 status: in_progress
-phase: wp03_scope_rehydration
+phase: wp03b_account_store
 risk_level: R3
 autonomy_level: L2
 owner: CEO-Orchestrator
@@ -9,7 +9,7 @@ integration_lead: RepairDesk Integration Lead
 baseline: a76852f61b09f1b84ccf0def957312026d6eb3b3
 branch: codex/settings-center-v2-20260712
 worktree: /private/tmp/repairdesk-settings-center-20260712
-updated_at: 2026-07-12T12:14:05Z
+updated_at: 2026-07-12T13:01:37Z
 ---
 
 # Settings Center v2
@@ -28,8 +28,10 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 
 ## Current status
 
-- WP-00, WP-01, and WP-02 are implemented, validated on their latest snapshots, and independently reviewed with no remaining P0/P1 blocker.
-- WP-02 is ready for its scoped local commit. WP-03 scope rehydration is the next phase; its first recorded slice is the unified store-profile recovery action for blocked customer output.
+- WP-00, WP-01, and WP-02 are implemented, validated, independently reviewed, and committed locally as `6851117c`, `c62223b0`, and `19895c2d`.
+- WP-03 scope is rehydrated in `WP03_CONTEXT_PACKET.md`. WP03-A is implemented, validated, independently reviewed with P0=0/P1=0, and ready for its scoped local-only commit.
+- WP03-A keeps output fail-closed while adding semantic recovery metadata, a shared responsive recovery component, four dialog integrations, deterministic recheck after cross-tab repair, and a mobile first-card reachability fix discovered by browser testing.
+- WP03-B account/store extraction and completion is the next local phase. It must preserve current query, CAS, dirty, capability, and store-switch semantics.
 - No production database, push, or deployment action has been performed.
 
 ## Acceptance gates

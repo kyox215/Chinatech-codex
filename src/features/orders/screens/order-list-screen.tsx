@@ -276,7 +276,6 @@ export function OrderListScreen() {
     },
     [],
   );
-
   useEffect(() => {
     const query = searchParams.get("q");
     if (!isOnline || !query) return;

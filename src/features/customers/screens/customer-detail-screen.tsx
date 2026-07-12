@@ -459,6 +459,10 @@ export function CustomerDetailScreen({
         data={data}
         appOrigin={orderUrl}
         storeIdentity={storeOutputIdentity}
+        canReadStoreSettings={shell.permissions?.canReadStoreSettings === true}
+        canUpdateStoreSettings={shell.permissions?.canUpdateStoreSettings === true}
+        onRetryStoreSettings={storeSettingsQuery.refetch}
+        onReloadStoreContext={shell.retry}
         busy={message.isPending}
         onConfirm={(input) => message.mutateAsync(input)}
       />

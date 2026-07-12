@@ -25,7 +25,10 @@ describe("resolveStoreOutputIdentity", () => {
       contactLine: "Tel: +39 0931 000000",
       messageSignature: "Ripara Subito · Assistenza",
       printFooter: "Grazie per aver scelto Ripara Subito.",
+      missingFields: [],
     });
+    expect(identity.blockCode).toBeUndefined();
+    expect(identity.recoveryTarget).toBeUndefined();
     for (const value of forbidden) expect(JSON.stringify(identity)).not.toContain(value);
   });
 
@@ -38,6 +41,11 @@ describe("resolveStoreOutputIdentity", () => {
     expect(identity.canOutput).toBe(false);
     expect(identity.storeAddress).toBe("");
     expect(identity.blockReason).toContain("门店地址");
+    expect(identity).toMatchObject({
+      blockCode: "missing_required_fields",
+      missingFields: ["store_address", "contact", "message_signature", "print_footer"],
+      recoveryTarget: "store",
+    });
   });
 
   it("quarantines the legacy ChinaTech identity fingerprint for non-default stores", () => {
@@ -55,6 +63,11 @@ describe("resolveStoreOutputIdentity", () => {
 
     expect(identity.canOutput).toBe(false);
     expect(identity.blockReason).toContain("旧店铺身份资料");
+    expect(identity).toMatchObject({
+      blockCode: "legacy_identity",
+      missingFields: [],
+      recoveryTarget: "store",
+    });
     expect(JSON.stringify(identity)).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
   });
 
@@ -77,11 +90,28 @@ describe("resolveStoreOutputIdentity", () => {
     expect(identity.canOutput).toBe(true);
   });
 
-  it("blocks missing, loading, failed, and cross-store identities", () => {
-    expect(resolveStoreOutputIdentity({}).canOutput).toBe(false);
-    expect(resolveStoreOutputIdentity({ settingsState: "loading" }).canOutput).toBe(false);
-    expect(resolveStoreOutputIdentity({ settingsState: "error" }).canOutput).toBe(false);
+  it("publishes stable recovery metadata for missing, loading, and failed identities", () => {
+    expect(resolveStoreOutputIdentity({})).toMatchObject({
+      canOutput: false,
+      blockCode: "missing_store_name",
+      missingFields: ["store_name"],
+      recoveryTarget: "store",
+    });
+    expect(resolveStoreOutputIdentity({ settingsState: "loading" })).toMatchObject({
+      canOutput: false,
+      blockCode: "settings_loading",
+      missingFields: [],
+      recoveryTarget: "wait",
+    });
+    expect(resolveStoreOutputIdentity({ settingsState: "error" })).toMatchObject({
+      canOutput: false,
+      blockCode: "settings_load_failed",
+      missingFields: [],
+      recoveryTarget: "retry_settings",
+    });
+  });
 
+  it("blocks cross-store identities without offering a settings destination", () => {
     const mismatched = resolveStoreOutputIdentity({
       activeStore: { id: "store-b", name: "Etna Phone Lab" },
       settings: {
@@ -90,8 +120,73 @@ describe("resolveStoreOutputIdentity", () => {
         store_address: "Via Roma 12, Siracusa",
       },
     });
-    expect(mismatched.canOutput).toBe(false);
+    expect(mismatched).toMatchObject({
+      canOutput: false,
+      blockCode: "store_context_mismatch",
+      missingFields: [],
+      recoveryTarget: "reload_store_context",
+    });
     expect(JSON.stringify(mismatched)).not.toContain("Ripara Subito");
     expect(JSON.stringify(mismatched)).not.toContain("Via Roma 12");
+  });
+
+  it("fails closed when settings are not bound to the active store", () => {
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-a", name: "Ripara Subito" },
+      settings: {
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        message_signature: "Ripara Subito · Assistenza",
+        print_footer: "Grazie per aver scelto Ripara Subito.",
+      },
+    });
+
+    expect(identity).toMatchObject({
+      canOutput: false,
+      blockCode: "store_context_mismatch",
+      missingFields: [],
+      recoveryTarget: "reload_store_context",
+    });
+    expect(identity.storeName).toBe("");
+    expect(JSON.stringify(identity)).not.toContain("Ripara Subito");
+  });
+
+  it("routes notification-only gaps to notification settings", () => {
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-a", name: "Ripara Subito" },
+      settings: {
+        store_id: "store-a",
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+      },
+    });
+
+    expect(identity).toMatchObject({
+      blockCode: "missing_required_fields",
+      missingFields: ["message_signature", "print_footer"],
+      recoveryTarget: "notifications",
+    });
+  });
+
+  it("routes a legacy notification-only fingerprint to notification settings", () => {
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-partner", name: "Ripara Subito" },
+      settings: {
+        store_id: "store-partner",
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        message_signature: "ChinaTech - Floridia",
+        print_footer: "Grazie per il tuo acquisto.",
+      },
+    });
+
+    expect(identity).toMatchObject({
+      blockCode: "legacy_identity",
+      recoveryTarget: "notifications",
+    });
+    expect(JSON.stringify(identity)).not.toMatch(/ChinaTech|Floridia/i);
   });
 });

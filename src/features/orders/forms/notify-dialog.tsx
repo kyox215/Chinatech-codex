@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { StoreOutputIdentityRecovery } from "@/components/store/store-output-identity-recovery";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,10 @@ export function NotifyDialog({
   workflow,
   orderUrl,
   storeIdentity,
+  canReadStoreSettings,
+  canUpdateStoreSettings,
+  onRetryStoreSettings,
+  onReloadStoreContext,
   busy,
   onConfirm,
 }: {
@@ -53,6 +58,10 @@ export function NotifyDialog({
   workflow?: OrderWorkflow;
   orderUrl: string;
   storeIdentity: StoreOutputIdentity;
+  canReadStoreSettings: boolean;
+  canUpdateStoreSettings: boolean;
+  onRetryStoreSettings?: () => void | Promise<unknown>;
+  onReloadStoreContext?: () => void | Promise<unknown>;
   busy: boolean;
   onConfirm: (input: {
     body: string;
@@ -118,19 +127,21 @@ export function NotifyDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
-          {!storeIdentity.canOutput ? (
-            <div
-              role="alert"
-              className="mb-2 rounded-md border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
-            >
-              {storeIdentity.blockReason ?? "请先补齐当前店铺资料后再发送客户消息。"}
-            </div>
-          ) : null}
+          <StoreOutputIdentityRecovery
+            identity={storeIdentity}
+            canReadSettings={canReadStoreSettings}
+            canUpdateSettings={canUpdateStoreSettings}
+            onRetrySettings={onRetryStoreSettings}
+            onReloadStoreContext={onReloadStoreContext}
+            openSettingsInNewTab
+            className="mb-2"
+          />
           <div className="grid min-w-0 gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 sm:grid-cols-[1fr_1.25fr]">
             <div className="min-w-0">
               <Label className="text-xs">通知类型</Label>
               <Select
                 value={templateKind}
+                disabled={!storeIdentity.canOutput}
                 onValueChange={(value) => updateTemplate(value as OrderWhatsappTemplateKind)}
               >
                 <SelectTrigger className="mt-1 h-8 text-xs">
@@ -148,7 +159,11 @@ export function NotifyDialog({
             <div className="min-w-0">
               <Label className="text-xs">WhatsApp</Label>
               {phoneOptions.length > 1 ? (
-                <Select value={phone} onValueChange={updatePhone}>
+                <Select
+                  value={phone}
+                  disabled={!storeIdentity.canOutput}
+                  onValueChange={updatePhone}
+                >
                   <SelectTrigger className="mt-1 h-8 font-mono text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -175,8 +190,10 @@ export function NotifyDialog({
           <div className="mt-2">
             <Label className="text-xs">通知内容</Label>
             <Textarea
+              aria-label="通知内容"
               rows={10}
               value={body}
+              disabled={!storeIdentity.canOutput}
               onChange={(e) => setBody(e.target.value)}
               className="mt-1 min-h-[260px] resize-none font-mono text-xs leading-relaxed"
             />

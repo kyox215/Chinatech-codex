@@ -1,5 +1,27 @@
 import type { StoreSettings } from "@/lib/repairdesk/types";
 
+export type StoreOutputIdentityBlockCode =
+  | "settings_loading"
+  | "settings_load_failed"
+  | "store_context_mismatch"
+  | "legacy_identity"
+  | "missing_store_name"
+  | "missing_required_fields";
+
+export type StoreOutputIdentityMissingField =
+  | "store_name"
+  | "store_address"
+  | "contact"
+  | "message_signature"
+  | "print_footer";
+
+export type StoreOutputIdentityRecoveryTarget =
+  | "wait"
+  | "retry_settings"
+  | "reload_store_context"
+  | "store"
+  | "notifications";
+
 export interface StoreOutputIdentity {
   storeName: string;
   storeAddress: string;
@@ -7,7 +29,10 @@ export interface StoreOutputIdentity {
   messageSignature: string;
   printFooter: string;
   canOutput: boolean;
+  blockCode?: StoreOutputIdentityBlockCode;
   blockReason?: string;
+  missingFields: StoreOutputIdentityMissingField[];
+  recoveryTarget?: StoreOutputIdentityRecoveryTarget;
   warnings: string[];
 }
 
@@ -24,29 +49,62 @@ export function resolveStoreOutputIdentity({
   settings,
   settingsState = "ready",
 }: ResolveStoreOutputIdentityInput): StoreOutputIdentity {
-  if (settingsState === "loading") return blocked("正在读取当前店铺资料");
-  if (settingsState === "error") return blocked("无法读取当前店铺资料");
+  if (settingsState === "loading") {
+    return blocked({
+      blockCode: "settings_loading",
+      blockReason: "正在读取当前店铺资料",
+      recoveryTarget: "wait",
+    });
+  }
+  if (settingsState === "error") {
+    return blocked({
+      blockCode: "settings_load_failed",
+      blockReason: "无法读取当前店铺资料",
+      recoveryTarget: "retry_settings",
+    });
+  }
 
   const activeStoreId = cleanText(activeStore?.id);
   const settingsStoreId = cleanText(settings?.store_id);
+  if (activeStoreId && !settingsStoreId) {
+    return blocked({
+      blockCode: "store_context_mismatch",
+      blockReason: "当前店铺资料缺少所属店铺标识",
+      recoveryTarget: "reload_store_context",
+    });
+  }
   if (activeStoreId && settingsStoreId && activeStoreId !== settingsStoreId) {
-    return blocked("当前店铺资料与设置所属店铺不一致");
+    return blocked({
+      blockCode: "store_context_mismatch",
+      blockReason: "当前店铺资料与设置所属店铺不一致",
+      recoveryTarget: "reload_store_context",
+    });
   }
 
-  if (
-    isLegacyTenantIdentityContamination({
-      storeId: activeStoreId || settingsStoreId,
-      storeName: settings?.store_name,
-      storeAddress: settings?.store_address,
-      messageSignature: settings?.message_signature,
-      printFooter: settings?.print_footer,
-    })
-  ) {
-    return blocked("检测到需要重新确认的旧店铺身份资料，请先更新店铺资料");
+  const legacyIdentityFields = getLegacyTenantIdentityContaminatedFields({
+    storeId: activeStoreId || settingsStoreId,
+    storeName: settings?.store_name,
+    storeAddress: settings?.store_address,
+    messageSignature: settings?.message_signature,
+    printFooter: settings?.print_footer,
+  });
+  if (legacyIdentityFields.length) {
+    return blocked({
+      blockCode: "legacy_identity",
+      blockReason: "检测到需要重新确认的旧店铺身份资料，请先更新店铺资料",
+      recoveryTarget: getSettingsRecoveryTarget(legacyIdentityFields),
+    });
   }
 
   const storeName = cleanText(settings?.store_name) || cleanText(activeStore?.name);
-  if (!storeName) return blocked("请先在设置中填写当前店铺名称");
+  if (!storeName) {
+    return blocked({
+      blockCode: "missing_store_name",
+      blockReason: "请先在设置中填写当前店铺名称",
+      missingFields: ["store_name"],
+      recoveryTarget: "store",
+    });
+  }
 
   const storeAddress = cleanText(settings?.store_address);
   const contactLine = [
@@ -58,13 +116,18 @@ export function resolveStoreOutputIdentity({
     .join(" · ");
   const messageSignature = cleanText(settings?.message_signature);
   const printFooter = cleanText(settings?.print_footer);
-  const missing: string[] = [];
-  if (!storeAddress) missing.push("门店地址");
-  if (!contactLine) missing.push("客户联系方式");
-  if (!messageSignature) missing.push("消息签名");
-  if (!printFooter) missing.push("打印页脚");
-  if (missing.length) {
-    return blocked(`请先补齐当前店铺资料：${missing.join("、")}`);
+  const missingFields: StoreOutputIdentityMissingField[] = [];
+  if (!storeAddress) missingFields.push("store_address");
+  if (!contactLine) missingFields.push("contact");
+  if (!messageSignature) missingFields.push("message_signature");
+  if (!printFooter) missingFields.push("print_footer");
+  if (missingFields.length) {
+    return blocked({
+      blockCode: "missing_required_fields",
+      blockReason: `请先补齐当前店铺资料：${missingFields.map(getMissingFieldLabel).join("、")}`,
+      missingFields,
+      recoveryTarget: getSettingsRecoveryTarget(missingFields),
+    });
   }
 
   return {
@@ -74,6 +137,7 @@ export function resolveStoreOutputIdentity({
     messageSignature,
     printFooter,
     canOutput: true,
+    missingFields: [],
     warnings: [],
   };
 }
@@ -91,22 +155,60 @@ export function isLegacyTenantIdentityContamination({
   messageSignature?: string | null;
   printFooter?: string | null;
 }) {
+  return (
+    getLegacyTenantIdentityContaminatedFields({
+      storeId,
+      storeName,
+      storeAddress,
+      messageSignature,
+      printFooter,
+    }).length > 0
+  );
+}
+
+function getLegacyTenantIdentityContaminatedFields({
+  storeId,
+  storeName,
+  storeAddress,
+  messageSignature,
+  printFooter,
+}: {
+  storeId?: string | null;
+  storeName?: string | null;
+  storeAddress?: string | null;
+  messageSignature?: string | null;
+  printFooter?: string | null;
+}): StoreOutputIdentityMissingField[] {
   const resolvedStoreId = cleanText(storeId);
-  if (!resolvedStoreId || resolvedStoreId === LEGACY_DEFAULT_STORE_ID) return false;
+  if (!resolvedStoreId || resolvedStoreId === LEGACY_DEFAULT_STORE_ID) return [];
 
   const name = normalizedIdentityText(storeName);
   const address = normalizedIdentityText(storeAddress);
   const signature = normalizedIdentityText(messageSignature);
   const footer = normalizedIdentityText(printFooter);
-  return (
-    name === "chinatech" ||
-    (address.includes("viale vittorio veneto") && address.includes("floridia")) ||
-    footer === "grazie per aver scelto chinatech." ||
-    (signature.includes("chinatech") && signature.includes("floridia"))
-  );
+  const fields: StoreOutputIdentityMissingField[] = [];
+  if (name === "chinatech") fields.push("store_name");
+  if (address.includes("viale vittorio veneto") && address.includes("floridia")) {
+    fields.push("store_address");
+  }
+  if (signature.includes("chinatech") && signature.includes("floridia")) {
+    fields.push("message_signature");
+  }
+  if (footer === "grazie per aver scelto chinatech.") fields.push("print_footer");
+  return fields;
 }
 
-function blocked(blockReason: string): StoreOutputIdentity {
+function blocked({
+  blockCode,
+  blockReason,
+  missingFields = [],
+  recoveryTarget,
+}: {
+  blockCode: StoreOutputIdentityBlockCode;
+  blockReason: string;
+  missingFields?: StoreOutputIdentityMissingField[];
+  recoveryTarget: StoreOutputIdentityRecoveryTarget;
+}): StoreOutputIdentity {
   return {
     storeName: "",
     storeAddress: "",
@@ -114,9 +216,39 @@ function blocked(blockReason: string): StoreOutputIdentity {
     messageSignature: "",
     printFooter: "",
     canOutput: false,
+    blockCode,
     blockReason,
+    missingFields,
+    recoveryTarget,
     warnings: [],
   };
+}
+
+function getSettingsRecoveryTarget(
+  fields: StoreOutputIdentityMissingField[],
+): Extract<StoreOutputIdentityRecoveryTarget, "store" | "notifications"> {
+  return fields.some((field) =>
+    (["store_name", "store_address", "contact"] as StoreOutputIdentityMissingField[]).includes(
+      field,
+    ),
+  )
+    ? "store"
+    : "notifications";
+}
+
+function getMissingFieldLabel(field: StoreOutputIdentityMissingField) {
+  switch (field) {
+    case "store_name":
+      return "店铺名称";
+    case "store_address":
+      return "门店地址";
+    case "contact":
+      return "客户联系方式";
+    case "message_signature":
+      return "消息签名";
+    case "print_footer":
+      return "打印页脚";
+  }
 }
 
 function formatContact(label: string, value?: string | null) {

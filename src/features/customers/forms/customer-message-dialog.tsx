@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { StoreOutputIdentityRecovery } from "@/components/store/store-output-identity-recovery";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,10 @@ export function CustomerMessageDialog({
   data,
   appOrigin,
   storeIdentity,
+  canReadStoreSettings,
+  canUpdateStoreSettings,
+  onRetryStoreSettings,
+  onReloadStoreContext,
   busy,
   onConfirm,
 }: {
@@ -46,6 +51,10 @@ export function CustomerMessageDialog({
   data: CustomerDetail;
   appOrigin: string;
   storeIdentity: StoreOutputIdentity;
+  canReadStoreSettings: boolean;
+  canUpdateStoreSettings: boolean;
+  onRetryStoreSettings?: () => void | Promise<unknown>;
+  onReloadStoreContext?: () => void | Promise<unknown>;
   busy: boolean;
   onConfirm: (input: CustomerMessageInput) => Promise<unknown>;
 }) {
@@ -72,16 +81,17 @@ export function CustomerMessageDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-2.5">
-          {!storeIdentity.canOutput ? (
-            <div
-              role="alert"
-              className="rounded-md border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
-            >
-              {storeIdentity.blockReason ?? "请先补齐当前店铺资料后再发送客户消息。"}
-            </div>
-          ) : null}
+          <StoreOutputIdentityRecovery
+            identity={storeIdentity}
+            canReadSettings={canReadStoreSettings}
+            canUpdateSettings={canUpdateStoreSettings}
+            onRetrySettings={onRetryStoreSettings}
+            onReloadStoreContext={onReloadStoreContext}
+            openSettingsInNewTab
+          />
           <Select
             value={channel}
+            disabled={!storeIdentity.canOutput}
             onValueChange={(value) => setChannel(value as "whatsapp" | "sms")}
           >
             <SelectTrigger className={compactControlClass}>
@@ -96,7 +106,7 @@ export function CustomerMessageDialog({
             </SelectContent>
           </Select>
           {phoneOptions.length > 1 ? (
-            <Select value={phone} onValueChange={setPhone}>
+            <Select value={phone} disabled={!storeIdentity.canOutput} onValueChange={setPhone}>
               <SelectTrigger className="h-8 min-w-0 font-mono text-xs sm:h-9">
                 <SelectValue />
               </SelectTrigger>
@@ -114,7 +124,9 @@ export function CustomerMessageDialog({
             </div>
           )}
           <Textarea
+            aria-label="客户消息内容"
             value={body}
+            disabled={!storeIdentity.canOutput}
             onChange={(event) => setBody(event.target.value)}
             className="min-h-56 font-mono text-xs leading-relaxed sm:min-h-64"
           />

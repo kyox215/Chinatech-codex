@@ -1262,6 +1262,10 @@ export function OrderDetailScreen({
           workflow={workflow}
           orderUrl={orderUrl}
           storeIdentity={storeOutputIdentity}
+          canReadStoreSettings={shell.permissions?.canReadStoreSettings === true}
+          canUpdateStoreSettings={shell.permissions?.canUpdateStoreSettings === true}
+          onRetryStoreSettings={storeSettingsQuery.refetch}
+          onReloadStoreContext={shell.retry}
           busy={whatsappNotification.isPending || approval.isPending}
           onConfirm={async (input) => {
             if (
