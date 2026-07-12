@@ -67,6 +67,7 @@ import {
   type OrderListItem,
 } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import type { OrderQueueGroup } from "@/lib/repairdesk/types";
 import {
   getCommonWorkflowTargets,
   getWorkflowStatusLabel,
@@ -79,11 +80,9 @@ import {
   orderWorkflowMeta,
 } from "@/features/orders/model/canonical-order-status";
 import {
-  getSimpleOrderFlowCounts,
-  getSimpleOrderFlowWorkflowStatuses,
-  simpleOrderFlowStages,
-  type SimpleOrderFlowStageKey,
-} from "@/features/orders/model/order-simple-flow";
+  orderQueueGroupMeta,
+  orderQueueGroups,
+} from "@/features/orders/model/order-queue-classification";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import {
   ORDER_QUEUE_PAGE_SIZE,
@@ -124,13 +123,12 @@ const emptyOrderOptions = {
   },
 };
 
-const orderStageHints: Record<SimpleOrderFlowStageKey | "all", string> = {
+const orderStageHints: Record<OrderQueueGroup | "all", string> = {
   all: "全部客户队列",
-  intake: "接单资料待补齐",
-  quote: "检测、报价与客户确认",
-  repair: "配件、外修和维修执行",
-  pickup: "通知、尾款和交付",
-  closed: "已收款完成归档",
+  processing: orderQueueGroupMeta.processing.hint,
+  handover: orderQueueGroupMeta.handover.hint,
+  settlement: orderQueueGroupMeta.settlement.hint,
+  review: orderQueueGroupMeta.review.hint,
 };
 
 type ActiveFilterChip = {
@@ -139,7 +137,7 @@ type ActiveFilterChip = {
 };
 
 export function OrderListScreen() {
-  const [statusGroup, setStatusGroup] = useState<"all" | SimpleOrderFlowStageKey>("all");
+  const [statusGroup, setStatusGroup] = useState<"all" | OrderQueueGroup>("all");
   const [statusCode, setStatusCode] = useState<string>("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
   const [page, setPage] = useState(1);
@@ -194,10 +192,7 @@ export function OrderListScreen() {
   const effectiveFilters = useMemo<OrderListFilters>(() => {
     return {
       ...filters,
-      workflowStatuses:
-        statusGroup === "all"
-          ? filters.workflowStatuses
-          : getSimpleOrderFlowWorkflowStatuses(statusGroup),
+      queueGroups: statusGroup === "all" ? filters.queueGroups : [statusGroup],
     };
   }, [filters, statusGroup]);
 
@@ -261,26 +256,45 @@ export function OrderListScreen() {
   const totalOrders = listResult?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
   const statusGroups = useMemo(() => {
-    const simpleCounts = getSimpleOrderFlowCounts(listResult?.workflowCounts);
+    const activeView = (filters.view ?? "active") === "active";
+    const queueCounts = listResult?.queueCounts ?? {
+      all: totalOrders,
+      processing: 0,
+      handover: 0,
+      settlement: 0,
+      review: 0,
+    };
+    if (!activeView) {
+      return [
+        {
+          key: "all" as const,
+          label: filters.view === "archive" ? "全部历史" : "全部订单",
+          shortLabel: "全",
+          tone: "neutral" as const,
+          count: totalOrders,
+          hint: filters.view === "archive" ? "已归档订单" : "全部订单",
+        },
+      ];
+    }
     return [
       {
         key: "all" as const,
-        label: "全部",
+        label: "全部待办",
         shortLabel: "全",
         tone: "neutral" as const,
-        count: simpleCounts.all,
+        count: queueCounts.all,
         hint: orderStageHints.all,
       },
-      ...simpleOrderFlowStages.map((stage) => ({
-        key: stage.key,
-        label: stage.label,
-        shortLabel: stage.shortLabel,
-        tone: stage.tone,
-        count: simpleCounts[stage.key],
-        hint: orderStageHints[stage.key],
+      ...orderQueueGroups.map((key) => ({
+        key,
+        label: orderQueueGroupMeta[key].label,
+        shortLabel: orderQueueGroupMeta[key].shortLabel,
+        tone: orderQueueGroupMeta[key].tone,
+        count: queueCounts[key],
+        hint: orderStageHints[key],
       })),
     ];
-  }, [listResult?.workflowCounts]);
+  }, [filters.view, listResult?.queueCounts, totalOrders]);
   const listErrorMessage =
     listError instanceof Error ? listError.message : "请检查网络、登录状态或数据库迁移。";
   const activeFilterChips = useMemo<ActiveFilterChip[]>(() => {
@@ -322,7 +336,7 @@ export function OrderListScreen() {
     } else if (statusGroup !== "all") {
       chips.push({
         key: "phase",
-        label: `流程：${activeGroup?.label ?? statusGroup}`,
+        label: `队列：${activeGroup?.label ?? statusGroup}`,
       });
     }
     filters.exceptionStatuses?.forEach((status) =>
@@ -594,12 +608,13 @@ export function OrderListScreen() {
   };
 
   const handleStatusGroupChange = (nextGroup: string) => {
-    setStatusGroup(nextGroup as "all" | SimpleOrderFlowStageKey);
+    setStatusGroup(nextGroup as "all" | OrderQueueGroup);
     setStatusCode("all");
     setFilters((current) => ({
       ...current,
       statuses: undefined,
       workflowStatuses: undefined,
+      queueGroups: undefined,
       overdue: undefined,
     }));
     setPage(1);
@@ -691,7 +706,8 @@ export function OrderListScreen() {
   };
   const orderListView = filters.view ?? "active";
   const changeOrderListView = (view: "active" | "archive" | "all") => {
-    setFilters((current) => ({ ...current, view }));
+    setStatusGroup("all");
+    setFilters((current) => ({ ...current, view, queueGroups: undefined }));
     setSelected([]);
     setPage(1);
   };

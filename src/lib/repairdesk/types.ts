@@ -386,6 +386,7 @@ export interface OrderListFilters {
   view?: OrderListView;
   statuses?: RepairOrderStatus[];
   workflowStatuses?: OrderWorkflowStatusCode[];
+  queueGroups?: OrderQueueGroup[];
   exceptionStatuses?: OrderExceptionStatus[];
   paymentStatuses?: OrderPaymentStatus[];
   partsStatuses?: OrderPartsStatus[];
@@ -398,6 +399,7 @@ export interface OrderListFilters {
 }
 
 export type OrderListView = "active" | "archive" | "all";
+export type OrderQueueGroup = "processing" | "handover" | "settlement" | "review";
 
 export interface OrderListPageInput extends OrderListFilters {
   page?: number;
@@ -422,6 +424,7 @@ export interface OrderListResult {
   pageSize: number;
   pageCount: number;
   workflowCounts: Record<OrderWorkflowStatusCode | "all", number>;
+  queueCounts: Record<OrderQueueGroup | "all", number>;
 }
 
 export type OrderQueueSummaryInput = OrderListPageInput;

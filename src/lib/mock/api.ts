@@ -2,6 +2,7 @@
 
 export {
   batchTransition,
+  confirmCancelledOrderReturn,
   createOrder,
   createOrderWorkflowStatus,
   decideOrderApproval,

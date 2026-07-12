@@ -804,6 +804,21 @@ export async function transitionOrder(
   return postJson("order/transition", { id, to, reason: opts.reason });
 }
 
+export async function confirmCancelledOrderReturn(
+  id: string,
+  expectedUpdatedAt: string,
+  idempotencyKey: string,
+) {
+  return postJson<{ ok: boolean; alreadyConfirmed: boolean; delivered_at: string }>(
+    "order/cancelled-return",
+    {
+      id,
+      expected_updated_at: expectedUpdatedAt,
+      idempotency_key: idempotencyKey,
+    },
+  );
+}
+
 export async function batchTransition(
   ids: string[],
   to: RepairOrderStatus,

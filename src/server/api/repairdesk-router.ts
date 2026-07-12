@@ -7,6 +7,7 @@ import { z } from "zod";
 import { statusGroups } from "@/lib/mock/enums";
 import {
   batchTransition,
+  confirmCancelledOrderReturn,
   createOrderWorkflowStatus,
   createOrder,
   decideOrderApproval,
@@ -159,6 +160,7 @@ import {
   approvalDecisionBodySchema,
   approvalRequestBodySchema,
   batchTransitionBodySchema,
+  confirmCancelledOrderReturnBodySchema,
   createOrderSchema,
   customerCreateBodySchema,
   customerDeviceDeleteBodySchema,
@@ -226,6 +228,7 @@ import {
 const supabaseSource = {
   acceptKioskSession,
   batchTransition,
+  confirmCancelledOrderReturn,
   completeCustomerFollowup,
   acceptStoreInvitation,
   approveOnboardingRequest,
@@ -604,6 +607,13 @@ function emptyOrderListResult(pageSize: number): OrderListResult {
     pageSize,
     pageCount: 1,
     workflowCounts: { all: 0 } as OrderListResult["workflowCounts"],
+    queueCounts: {
+      all: 0,
+      processing: 0,
+      handover: 0,
+      settlement: 0,
+      review: 0,
+    },
   };
 }
 
@@ -1116,6 +1126,27 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
             id,
             { to, reason },
             () => api.transitionOrder(id, to, { reason, operator: actor }),
+            realtimeBroadcasts.orderTransitioned,
+          ),
+        );
+      }
+      case "order/cancelled-return": {
+        const { id, expected_updated_at, idempotency_key } =
+          confirmCancelledOrderReturnBodySchema.parse(body);
+        assertOrderTransitionPermission(actor);
+        return ok(
+          await auditGeneric(
+            actor,
+            "transition",
+            "repair_order",
+            id,
+            { action: "custody_return_confirmed" },
+            () =>
+              api.confirmCancelledOrderReturn(id, {
+                expectedUpdatedAt: expected_updated_at,
+                idempotencyKey: idempotency_key,
+                operator: actor,
+              }),
             realtimeBroadcasts.orderTransitioned,
           ),
         );

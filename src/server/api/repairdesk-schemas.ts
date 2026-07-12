@@ -274,6 +274,7 @@ export const orderListFiltersSchema = z
     view: z.enum(["active", "archive", "all"]).optional(),
     statuses: z.array(repairOrderStatusSchema).optional(),
     workflowStatuses: z.array(canonicalWorkflowStatusSchema).optional(),
+    queueGroups: z.array(z.enum(["processing", "handover", "settlement", "review"])).optional(),
     exceptionStatuses: z.array(orderExceptionStatusSchema).optional(),
     paymentStatuses: z.array(orderPaymentStatusSchema).optional(),
     partsStatuses: z.array(orderPartsStatusSchema).optional(),
@@ -532,6 +533,12 @@ export const transitionOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   to: repairOrderStatusSchema,
   reason: optionalText,
+});
+
+export const confirmCancelledOrderReturnBodySchema = z.object({
+  id: z.string().min(1, "缺少 id"),
+  expected_updated_at: z.string().min(1, "缺少版本时间"),
+  idempotency_key: z.string().uuid("退还操作标识无效"),
 });
 
 export const batchTransitionBodySchema = z.object({

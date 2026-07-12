@@ -97,6 +97,11 @@ import {
 import { assertStaffRole, ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
+import {
+  countOrderQueueGroups,
+  getOrderQueueGroup,
+  orderQueueGroupMeta,
+} from "@/features/orders/model/order-queue-classification";
 
 function isTechnicianActor(actor?: AuditActor) {
   return !actor?.isSystem && (actor?.storeRole ?? actor?.role) === "technician";
@@ -232,6 +237,9 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
       ),
     );
   }
+  if (filters.queueGroups?.length) {
+    result = result.filter((o) => filters.queueGroups!.includes(getOrderQueueGroup(o)));
+  }
   if (filters.exceptionStatuses?.length) {
     result = result.filter(
       (o) => o.exception_status && filters.exceptionStatuses!.includes(o.exception_status),
@@ -276,6 +284,10 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
   }
 
   return result.sort((a, b) => {
+    const queueSort =
+      orderQueueGroupMeta[getOrderQueueGroup(a)].sortOrder -
+      orderQueueGroupMeta[getOrderQueueGroup(b)].sortOrder;
+    if (queueSort !== 0) return queueSort;
     const aWorkflow = a.workflow_status ?? workflowStatusFromLegacyStatus(a.status);
     const bWorkflow = b.workflow_status ?? workflowStatusFromLegacyStatus(b.status);
     const simpleProgressSort =
@@ -318,6 +330,10 @@ function countWorkflowRows(rows: OrderListItem[]) {
 
 function filtersForWorkflowCounts(filters: OrderListFilters): OrderListFilters {
   return { ...filters, workflowStatuses: undefined };
+}
+
+function filtersForQueueCounts(filters: OrderListFilters): OrderListFilters {
+  return { ...filters, queueGroups: undefined };
 }
 
 function filtersForSupplierAccess(filters: OrderListFilters, canReadSuppliers: boolean) {
@@ -559,10 +575,6 @@ function orderBalanceAmount(row: { balance_amount?: unknown }) {
   return money(row.balance_amount);
 }
 
-function isOrderFinanciallyPaid(row: { balance_amount?: unknown; is_paid?: unknown }) {
-  return Boolean(row.is_paid) || orderBalanceAmount(row) <= 0;
-}
-
 function isApprovalDecisionBypass(
   from: RepairOrderStatus,
   to: RepairOrderStatus,
@@ -666,9 +678,9 @@ function deriveCanonicalUpdateFromLegacyStatus(status: RepairOrderStatus, now: s
     approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
     parts_status: partsStatusFromLegacyStatus(status),
     notify_status: status === "completed" ? "sent" : notifyStatusFromLegacyStatus(status),
-    ...(workflowStatus === "closed" || status === "completed"
+    ...(status === "completed"
       ? { completed_at: now, delivered_at: now }
-      : {}),
+      : { completed_at: null, delivered_at: null }),
     ...(status === "waiting_approval" ? { approval_sent_at: now } : {}),
   };
 }
@@ -872,6 +884,7 @@ export async function listOrdersPage(
     view: input.view,
     statuses: input.statuses,
     workflowStatuses: input.workflowStatuses,
+    queueGroups: input.queueGroups,
     exceptionStatuses: input.exceptionStatuses,
     paymentStatuses: input.paymentStatuses,
     partsStatuses: input.partsStatuses,
@@ -892,6 +905,7 @@ export async function listOrdersPage(
   const workflowCounts = countWorkflowRows(
     filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
   );
+  const queueCounts = countOrderQueueGroups(filterOrders(rows, filtersForQueueCounts(safeFilters)));
   const effectivePage = safeFilters.archiveSearchExact ? 1 : page;
   const effectivePageSize = safeFilters.archiveSearchExact ? 20 : pageSize;
   const start = (effectivePage - 1) * effectivePageSize;
@@ -904,6 +918,7 @@ export async function listOrdersPage(
       ? 1
       : Math.max(1, Math.ceil(all.length / effectivePageSize)),
     workflowCounts,
+    queueCounts,
   };
 }
 
@@ -1308,13 +1323,6 @@ export async function transitionOrder(
       `流转到「${await readWorkflowStatusLabel(supabase, storeId, legacyTo)}」需要填写原因`,
     );
   }
-  if (
-    legacyTo === "completed" &&
-    (orderBalanceAmount(currentRow) > 0 || !isOrderFinanciallyPaid(currentRow))
-  ) {
-    throw new Error("工单仍有未结清尾款，不能直接结案");
-  }
-
   const now = new Date().toISOString();
   const update: DbRecord = {
     status: legacyTo,
@@ -1323,14 +1331,6 @@ export async function transitionOrder(
     workflow_status: workflowTo,
   };
   if (legacyTo === "cancelled") update.cancel_reason = cleanReason || "未填写";
-  if (legacyTo === "completed") {
-    update.is_paid = true;
-    update.payment_status = paymentStatusFromMoney({
-      isPaid: true,
-      depositAmount: money(currentRow.deposit_amount),
-      balanceAmount: orderBalanceAmount(currentRow),
-    });
-  }
   if (legacyTo === "unfixed_pickup" && cleanReason) {
     update.diagnosis_result = buildTransitionDiagnosisResult(
       maybeString(currentRow.diagnosis_result),
@@ -1338,10 +1338,14 @@ export async function transitionOrder(
     );
   }
 
-  await updateOrderRow({
+  const expectedUpdatedAt = maybeString(currentRow.updated_at);
+  if (!expectedUpdatedAt) throw new Error("缺少工单版本，请刷新后重试");
+
+  await updateVersionedOrderRow({
     supabase,
     id,
     storeId,
+    expectedUpdatedAt,
     update,
     context: "更新工单状态失败",
   });
@@ -1357,6 +1361,9 @@ export async function transitionOrder(
       workflow_from: workflowFrom,
       workflow_to: workflowTo,
       reason: cleanReason,
+      ...(legacyTo === "completed"
+        ? { handover_confirmed: true, custody_outcome: "delivered" }
+        : {}),
     },
     operator_name: operatorName,
     created_at: now,
@@ -1364,6 +1371,90 @@ export async function transitionOrder(
   fail(eventError, "写入状态时间线失败");
 
   return { ok: true, from, to: legacyTo };
+}
+
+export async function confirmCancelledOrderReturn(
+  id: string,
+  opts: {
+    expectedUpdatedAt: string;
+    idempotencyKey: string;
+    operator?: string | AuditActor;
+  },
+) {
+  const storeId = requireStoreIdFromActor(
+    typeof opts.operator === "string" ? undefined : opts.operator,
+  );
+  const operatorName = operatorNameFromActor(opts.operator, "系统");
+  const actor = typeof opts.operator === "string" ? undefined : opts.operator;
+  const supabase = getSupabaseAdmin();
+  const current = await readOrderStatusRow(supabase, storeId, id, actor);
+
+  if (current.status !== "cancelled") throw new Error("只有已取消工单可以确认设备退还");
+  if (!opts.expectedUpdatedAt) throw new Error("缺少工单版本，请刷新后重试");
+  if (!opts.idempotencyKey) throw new Error("缺少退还操作标识");
+  if (maybeString(current.delivered_at)) {
+    return {
+      ok: true,
+      alreadyConfirmed: true,
+      delivered_at: maybeString(current.delivered_at),
+    };
+  }
+
+  const now = new Date().toISOString();
+  const completedBefore = maybeString(current.completed_at) || null;
+  const updatedAtAfter = await updateVersionedOrderRow({
+    supabase,
+    id,
+    storeId,
+    expectedUpdatedAt: opts.expectedUpdatedAt,
+    update: {
+      completed_at: completedBefore ?? now,
+      delivered_at: now,
+      updated_at: now,
+    },
+    context: "确认设备退还失败",
+  });
+
+  const { error: eventError } = await supabase.from("order_events").insert({
+    id: crypto.randomUUID(),
+    store_id: storeId,
+    order_id: id,
+    event_type: "status_changed",
+    payload: {
+      from: "cancelled",
+      to: "cancelled",
+      action: "custody_return_confirmed",
+      handover_confirmed: true,
+      custody_outcome: "returned",
+      idempotency_key: opts.idempotencyKey,
+    },
+    operator_name: operatorName,
+    created_at: now,
+  });
+
+  if (eventError) {
+    try {
+      await updateVersionedOrderRow({
+        supabase,
+        id,
+        storeId,
+        expectedUpdatedAt: updatedAtAfter,
+        update: {
+          completed_at: completedBefore,
+          delivered_at: null,
+          updated_at: opts.expectedUpdatedAt,
+        },
+        context: "退还时间线失败后的恢复失败",
+      });
+    } catch (restoreError) {
+      throw new Error(
+        `退还记录写入失败且自动恢复失败：${eventError.message}; ${(restoreError as Error).message}`,
+      );
+    }
+    fail(eventError, "写入设备退还时间线失败");
+  }
+
+  return { ok: true, alreadyConfirmed: false, delivered_at: now };
 }
 
 function buildTransitionDiagnosisResult(current: string | undefined, reason: string) {
@@ -1752,7 +1843,7 @@ async function readOrderStatusRow(
   const canonical = await supabase
     .from("repair_orders")
     .select(
-      "id,status,assignee_membership_id,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,approval_status,approval_flow_status",
+      "id,status,assignee_membership_id,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,payment_status,approval_status,approval_flow_status,notify_status,completed_at,delivered_at,updated_at",
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -1766,7 +1857,9 @@ async function readOrderStatusRow(
 
   const legacy = await supabase
     .from("repair_orders")
-    .select("id,status,technician_name,balance_amount,is_paid,approval_status")
+    .select(
+      "id,status,technician_name,balance_amount,is_paid,approval_status,completed_at,delivered_at,updated_at",
+    )
     .eq("store_id", storeId)
     .eq("id", id)
     .single();
@@ -2581,12 +2674,6 @@ async function writeWhatsappMessage({
     if (!transition.ok) {
       if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
     } else {
-      if (
-        transitionTo === "completed" &&
-        (orderBalanceAmount(current) > 0 || !isOrderFinanciallyPaid(current))
-      ) {
-        throw new Error("工单仍有未结清尾款，不能直接结案");
-      }
       statusChanged = true;
       to = transitionTo;
     }
@@ -2601,14 +2688,6 @@ async function writeWhatsappMessage({
   if (statusChanged && to) {
     update.status = to;
     Object.assign(update, deriveCanonicalUpdateFromLegacyStatus(to, now));
-    if (to === "completed") {
-      update.is_paid = true;
-      update.payment_status = paymentStatusFromMoney({
-        isPaid: true,
-        depositAmount: money(current.deposit_amount),
-        balanceAmount: orderBalanceAmount(current),
-      });
-    }
     if (to === "waiting_approval") update.approval_sent_at = now;
   }
 

@@ -127,6 +127,7 @@ function makeQueueSummary(order: OrderListItem): OrderQueueSummary {
       pageSize: 50,
       pageCount: 1,
       workflowCounts: { all: 1 } as OrderQueueSummary["list"]["workflowCounts"],
+      queueCounts: { all: 1 } as OrderQueueSummary["list"]["queueCounts"],
     },
     workflow: { statuses: [], transitions: [] },
     options: {

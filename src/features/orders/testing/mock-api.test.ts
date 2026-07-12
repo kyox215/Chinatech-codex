@@ -4,6 +4,7 @@ import type { CreateOrderInput, PatchOrderInput, UpdateOrderInput } from "@/lib/
 import { orders as mockOrders } from "@/lib/mock/state";
 import { createMockSupplier, resetMockSuppliers } from "@/features/suppliers/testing/mock-api";
 import {
+  confirmCancelledOrderReturn,
   createOrder,
   decideOrderApproval,
   getOrder,
@@ -269,6 +270,16 @@ describe("mock order WhatsApp notification workflow", () => {
     const detail = await getOrder(id);
     expect(detail.order.status).toBe("cancelled");
     expect(detail.order.cancel_reason).toBe("客户主动取消本次维修。");
+    expect(detail.order.delivered_at).toBeUndefined();
+
+    const returned = await confirmCancelledOrderReturn(id, {
+      expectedUpdatedAt: detail.order.updated_at,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(returned.alreadyConfirmed).toBe(false);
+    const afterReturn = await getOrder(id);
+    expect(afterReturn.order.status).toBe("cancelled");
+    expect(afterReturn.order.delivered_at).toBeDefined();
   });
 
   it("supports external repair handoff after an in-house repair attempt", async () => {
@@ -300,16 +311,23 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(repaired.order.status).toBe("repaired");
   });
 
-  it("does not complete an unpaid order", async () => {
+  it("records handover without erasing an unpaid balance", async () => {
     const id = await createMockOrder();
     await transitionOrder(id, "diagnosing");
     await transitionOrder(id, "repairing");
     await transitionOrder(id, "repaired");
 
-    await expect(transitionOrder(id, "completed")).rejects.toThrow("未结清尾款");
+    await transitionOrder(id, "completed");
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("completed");
+    expect(detail.order.balance_amount).toBe(100);
+    expect(detail.order.is_paid).toBe(false);
+    expect(detail.order.payment_status).not.toBe("paid");
+    expect(detail.order.delivered_at).toBeDefined();
   });
 
-  it("normalizes stale zero-balance orders during completion", async () => {
+  it("does not hide contradictory payment evidence during completion", async () => {
     const id = await createMockOrder();
     await transitionOrder(id, "diagnosing");
     await transitionOrder(id, "repairing");
@@ -325,8 +343,8 @@ describe("mock order WhatsApp notification workflow", () => {
     const detail = await getOrder(id);
     expect(detail.order.status).toBe("completed");
     expect(detail.order.balance_amount).toBe(0);
-    expect(detail.order.is_paid).toBe(true);
-    expect(detail.order.payment_status).toBe("paid");
+    expect(detail.order.is_paid).toBe(false);
+    expect(detail.order.payment_status).toBe("unpaid");
     expect(detail.order.completed_at).toBeDefined();
     expect(detail.order.delivered_at).toBeDefined();
   });

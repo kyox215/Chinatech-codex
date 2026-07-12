@@ -3,6 +3,13 @@ import crypto from "node:crypto";
 import type { RepairOrderStatus, RepairOrderType } from "@/lib/mock/enums";
 import { CURRENCY_CODE } from "@/lib/money";
 import { normalizePhoneBook } from "@/shared/lib/phone";
+import {
+  approvalFlowStatusFromLegacyStatus,
+  notifyStatusFromLegacyStatus,
+  partsStatusFromLegacyStatus,
+  paymentStatusFromMoney,
+  workflowStatusFromLegacyStatus,
+} from "@/features/orders/model/canonical-order-status";
 
 export interface SeaTableImportOptions {
   now?: Date;
@@ -147,7 +154,7 @@ export function buildSeaTableRiparazioneImport(
       warnings,
     );
     const deliveredAt =
-      row.dataRitiro && shouldUsePickupTimestamp(status, row.stato, row.daRiparare, row.problema)
+      row.dataRitiro && shouldUsePickupTimestamp(row.stato)
         ? parseSeaTableDate(row.dataRitiro, now, row.rowNumber, "DATA RITIRO", warnings)
         : undefined;
     const quotation = parseMoney(row.prezzoTotale, row.rowNumber, "PREZZO TOTALE", warnings);
@@ -235,6 +242,16 @@ export function buildSeaTableRiparazioneImport(
       public_no: `SEA-${String(row.rowNumber - 1).padStart(6, "0")}`,
       order_type: orderType,
       status,
+      workflow_status: workflowStatusFromLegacyStatus(status),
+      exception_status: exceptionStatusFromLegacyStatus(status),
+      payment_status: paymentStatusFromMoney({
+        isPaid: balance === 0,
+        depositAmount: deposit,
+        balanceAmount: balance,
+      }),
+      approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
+      parts_status: partsStatusFromLegacyStatus(status),
+      notify_status: notifyStatusFromSourceStatus(status, row.stato),
       status_raw: row.stato || null,
       customer_id: customer.id,
       device_id: deviceId,
@@ -280,7 +297,6 @@ export function buildSeaTableRiparazioneImport(
         source_row: row.rowNumber,
         source_status: row.stato || null,
         source_supplier: supplier?.name ?? null,
-        raw: row.raw,
         currency_code: CURRENCY_CODE,
       },
       operator_name: "SeaTable 导入",
@@ -365,16 +381,21 @@ export function mapSeaTableStatus(
   warnings: SeaTableImportWarning[] = [],
 ): RepairOrderStatus {
   const status = `${statusValue} ${problemValue}`.toLowerCase();
+  const statusOnly = statusValue.trim().toLowerCase();
+  const authoritativeStatus = mapAuthoritativeSeaTableStatus(statusOnly);
+  if (authoritativeStatus) return authoritativeStatus;
   if (/(annull|cancel|作废|取消)/i.test(status)) return "cancelled";
   if (/(non\s*riparat|未修|不修|unfixed)/i.test(status)) return "unfixed_pickup";
-  if (/(consegn|ritirat|completed|fatto|完成|取走)/i.test(status)) return "completed";
-  if (/(avvis|notificat|已通知)/i.test(status)) return "notified";
-  if (/(pronto|riparat|修好|可取)/i.test(status)) return "repaired";
-  if (/(arrivat|到货)/i.test(status)) return "parts_arrived";
+  if (/(consegn|ritirat|completed|fatto|完成|取走|拿走)/i.test(status)) return "completed";
+  if (hasPartsArrivedMarker(status)) return "parts_arrived";
+  if (hasRepairedMarker(status)) return "repaired";
   if (/(pezzi|ricambi|ordinat|配件|订|下单)/i.test(status)) return "parts_ordered";
   if (/(sped|mail|laboratorio|寄修|外修)/i.test(status)) return "mail_in_progress";
+  if (hasNotifyMarker(status)) return "notified";
   if (/(approv|preventiv|报价|确认)/i.test(status)) return "waiting_approval";
-  if (/(incorso|in corso|诊断|检查|controll|检测)/i.test(status)) return "diagnosing";
+  if (/(incorso|in corso|诊断|检查|controll|检测|处理中|正在处理|进行中)/i.test(status)) {
+    return "diagnosing";
+  }
   if (status.trim()) {
     warnings.push({
       row,
@@ -386,18 +407,47 @@ export function mapSeaTableStatus(
   return "diagnosing";
 }
 
-function shouldUsePickupTimestamp(
-  status: RepairOrderStatus,
-  statusValue: string,
-  workValue: string,
-  problemValue: string,
-) {
-  const text = `${statusValue} ${workValue} ${problemValue}`.toLowerCase();
-  return (
-    status === "completed" ||
-    status === "unfixed_pickup" ||
-    /(consegn|ritirat|completed|完成|取走|fatto|修好已通知|作废已通知)/i.test(text)
-  );
+function mapAuthoritativeSeaTableStatus(statusOnly: string): RepairOrderStatus | undefined {
+  if (/^(作废|作废已通知)$/.test(statusOnly)) return "cancelled";
+  if (/^(fatto|ritirato|consegnato|completed|完成|欠款\s*已拿走)$/.test(statusOnly)) {
+    return "completed";
+  }
+  if (/^(incorso|in\s+corso)$/.test(statusOnly)) return "diagnosing";
+  if (/^(到货|到货已通知|到货一通知)$/.test(statusOnly)) return "parts_arrived";
+  if (/^(修好|修好已通知|修好一通知)$/.test(statusOnly)) return "repaired";
+  if (/^(寄修|外修)$/.test(statusOnly)) return "mail_in_progress";
+  if (/^(下单|已经下单了|pezzi\s+ordinati)$/.test(statusOnly)) return "parts_ordered";
+  return undefined;
+}
+
+function exceptionStatusFromLegacyStatus(status: RepairOrderStatus) {
+  if (status === "cancelled") return "cancelled";
+  if (status === "unfixed_pickup") return "returned_unfixed";
+  if (status === "rework") return "rework";
+  return null;
+}
+
+function notifyStatusFromSourceStatus(status: RepairOrderStatus, statusValue: string) {
+  const text = statusValue.toLowerCase();
+  if (hasNotifyMarker(text)) return "sent";
+  return notifyStatusFromLegacyStatus(status);
+}
+
+function hasNotifyMarker(value: string) {
+  return /(avvis|notificat|已通知|一通知|通知|contatt)/i.test(value);
+}
+
+function hasPartsArrivedMarker(value: string) {
+  return /(arrivat|到货)/i.test(value);
+}
+
+function hasRepairedMarker(value: string) {
+  return /(pronto|riparat|修好|可取)/i.test(value);
+}
+
+function shouldUsePickupTimestamp(statusValue: string) {
+  const text = statusValue.toLowerCase();
+  return /(consegn|ritirat|completed|完成|取走|拿走|fatto|已退还)/i.test(text);
 }
 
 export function parseMoney(

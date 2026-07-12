@@ -373,8 +373,8 @@ export function followupFromRow(row: DbRecord): CustomerFollowup {
 export function orderFromRow(row: DbRecord): RepairOrder {
   const status = row.status as RepairOrder["status"];
   const balanceAmount = money(row.balance_amount);
-  const isPaid = Boolean(row.is_paid) || balanceAmount <= 0;
-  const paymentStatus = paymentStatusFromMoney({
+  const isPaid = row.is_paid === true;
+  const derivedPaymentStatus = paymentStatusFromMoney({
     isPaid,
     depositAmount: money(row.deposit_amount),
     balanceAmount,
@@ -400,7 +400,7 @@ export function orderFromRow(row: DbRecord): RepairOrder {
             : maybeString(row.pause_reason)
               ? "paused"
               : undefined),
-    payment_status: isPaid ? paymentStatus : (storedPaymentStatus ?? paymentStatus),
+    payment_status: storedPaymentStatus ?? derivedPaymentStatus,
     approval_flow_status:
       (maybeString(row.approval_flow_status) as RepairOrder["approval_flow_status"]) ??
       approvalFlowStatusFromLegacyStatus(status, maybeString(row.approval_status)),

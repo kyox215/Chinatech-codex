@@ -48,6 +48,9 @@ describe("SeaTable RIPARAZIONE import mapper", () => {
     expect(result.repairOrders[0]).toMatchObject({
       id: "ord_import_2",
       status: "diagnosing",
+      workflow_status: "diagnosis",
+      payment_status: "partial",
+      notify_status: "not_sent",
       supplier_id: result.suppliers[0].id,
       quotation_amount: 80,
       deposit_amount: 20,
@@ -61,6 +64,7 @@ describe("SeaTable RIPARAZIONE import mapper", () => {
       event_type: "created",
       payload: { source: "RIPARAZIONE", source_row: 2 },
     });
+    expect(result.orderEvents[0].payload).not.toHaveProperty("raw");
   });
 
   it("reuses customers by primary phone while merging backup phones", () => {
@@ -104,8 +108,54 @@ describe("SeaTable RIPARAZIONE import mapper", () => {
       "diagnosing",
     );
     expect(mapSeaTableStatus("PEZZI ORDINATI", "", undefined, 2)).toBe("parts_ordered");
+    expect(mapSeaTableStatus("到货已通知", "未修", undefined, 2)).toBe("parts_arrived");
+    expect(mapSeaTableStatus("修好", "下单 配件", undefined, 2)).toBe("repaired");
+    expect(mapSeaTableStatus("修好已通知", "未修", undefined, 2)).toBe("repaired");
+    expect(mapSeaTableStatus("寄修", "未修", undefined, 2)).toBe("mail_in_progress");
     expect(mapSeaTableStatus("RITIRATO", "", undefined, 2)).toBe("completed");
+    expect(mapSeaTableStatus("欠款 已拿走", "", undefined, 2)).toBe("completed");
     expect(mapSeaTableStatus("ANNULLATO", "", undefined, 2)).toBe("cancelled");
+  });
+
+  it("keeps notification separate from handover evidence", () => {
+    const csv = [
+      "STATO,NOME,NUMERO TELEFONO,PREZZO TOTALE,ACCONTO,MARCA,MODELLO,PROBLEMA,DATA RITIRO,DATA AGGIUNTA",
+      "到货已通知,Mario,+39 333 111 222,80,20,Apple,14,Display,20/05/2026,18/05/2026",
+      "修好已通知,Luigi,+39 333 222 333,50,50,Samsung,S24,客户说取走旧电池,21/05/2026,19/05/2026",
+      "作废已通知,Anna,+39 333 333 444,30,0,Xiaomi,14,Software,22/05/2026,20/05/2026",
+      "修好,Paolo,+39 333 444 555,60,0,Apple,13,尚未通知客户且客户说取走旧电池,23/05/2026,21/05/2026",
+    ].join("\n");
+
+    const result = buildSeaTableRiparazioneImport(csv, {
+      idFactory: (prefix, row) => `${prefix}_${row}`,
+      now: new Date("2026-06-01T10:00:00.000Z"),
+    });
+
+    expect(result.repairOrders[0]).toMatchObject({
+      status: "parts_arrived",
+      workflow_status: "parts",
+      parts_status: "arrived",
+      notify_status: "sent",
+      delivered_at: null,
+    });
+    expect(result.repairOrders[1]).toMatchObject({
+      status: "repaired",
+      workflow_status: "repair",
+      notify_status: "sent",
+      delivered_at: null,
+    });
+    expect(result.repairOrders[2]).toMatchObject({
+      status: "cancelled",
+      workflow_status: "closed",
+      notify_status: "sent",
+      delivered_at: null,
+    });
+    expect(result.repairOrders[3]).toMatchObject({
+      status: "repaired",
+      workflow_status: "repair",
+      notify_status: "not_sent",
+      delivered_at: null,
+    });
   });
 
   it("parses Italian money formats", () => {

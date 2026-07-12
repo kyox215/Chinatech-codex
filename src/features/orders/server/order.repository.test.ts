@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  confirmCancelledOrderReturn,
   isOrderAttachmentStorageScoped,
   isOrderInActorScope,
   getOrder,
@@ -207,7 +208,9 @@ describe("order repository database pagination", () => {
             status: "completed",
             workflow_status: "closed",
             is_paid: true,
+            payment_status: "paid",
             balance_amount: 0,
+            delivered_at: "2026-07-09T11:00:00.000Z",
           }),
           orderRow({
             id: "unpaid_closed",
@@ -230,13 +233,17 @@ describe("order repository database pagination", () => {
     );
 
     const active = await listOrdersPage({}, actor("owner"));
-    expect(active.items.map((item) => item.id).sort()).toEqual(["paid_active", "unpaid_closed"]);
+    expect(active.items.map((item) => item.id).sort()).toEqual([
+      "cancelled",
+      "paid_active",
+      "unpaid_closed",
+    ]);
 
     const archive = await listOrdersPage({ view: "archive" }, actor("owner"));
-    expect(archive.items.map((item) => item.id).sort()).toEqual(["cancelled", "paid_closed"]);
+    expect(archive.items.map((item) => item.id)).toEqual(["paid_closed"]);
 
     const stats = await getOrderStats(actor("owner"));
-    expect(stats).toMatchObject({ total: 2, unpaid: 1 });
+    expect(stats).toMatchObject({ total: 3, unpaid: 2 });
   });
 
   it("allows technicians to search archived orders without granting archive browsing", async () => {
@@ -249,7 +256,9 @@ describe("order repository database pagination", () => {
             status: "completed",
             workflow_status: "closed",
             is_paid: true,
+            payment_status: "paid",
             balance_amount: 0,
+            delivered_at: "2026-07-09T11:00:00.000Z",
           }),
         ],
         error: null,
@@ -276,7 +285,9 @@ describe("order repository database pagination", () => {
             status: "completed",
             workflow_status: "closed",
             is_paid: true,
+            payment_status: "paid",
             balance_amount: 0,
+            delivered_at: "2026-07-09T11:00:00.000Z",
           }),
         ],
         error: null,
@@ -301,7 +312,9 @@ describe("order repository database pagination", () => {
             status: "completed",
             workflow_status: "closed",
             is_paid: true,
+            payment_status: "paid",
             balance_amount: 0,
+            delivered_at: "2026-07-09T11:00:00.000Z",
           }),
           orderRow({
             id: "active_match",
@@ -525,6 +538,100 @@ describe("order repository atomic payment adapter", () => {
   });
 });
 
+describe("order repository custody writes", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("version-locks normal status transitions before writing the event", async () => {
+    const readQuery = createSupabaseQuery({
+      data: orderRow({ status: "new", workflow_status: "intake" }),
+      error: null,
+      count: 1,
+    });
+    const targetQuery = createSupabaseQuery({
+      data: { code: "repairing", label: "维修中", enabled: true },
+      error: null,
+      count: 1,
+    });
+    const updateQuery = createSupabaseQuery({
+      data: { updated_at: "2026-07-09T10:01:00.000Z" },
+      error: null,
+      count: 1,
+    });
+    const eventQuery = createSupabaseQuery({ data: null, error: null, count: 1 });
+    mocks.supabase.from
+      .mockReturnValueOnce(readQuery)
+      .mockReturnValueOnce(targetQuery)
+      .mockReturnValueOnce(updateQuery)
+      .mockReturnValueOnce(eventQuery);
+
+    await transitionOrder("order_1", "repairing", { operator: actor("owner") });
+
+    expect(updateQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "repairing", workflow_status: "repair" }),
+    );
+    expect(updateQuery.eq).toHaveBeenCalledWith("updated_at", "2026-07-09T10:00:00.000Z");
+    expect(eventQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        store_id: "store_1",
+        order_id: "order_1",
+        event_type: "status_changed",
+      }),
+    );
+  });
+
+  it("confirms a cancelled return without mutating finance fields", async () => {
+    const readQuery = createSupabaseQuery({
+      data: orderRow({
+        status: "cancelled",
+        workflow_status: "closed",
+        completed_at: null,
+        delivered_at: null,
+      }),
+      error: null,
+      count: 1,
+    });
+    const updateQuery = createSupabaseQuery({
+      data: { updated_at: "2026-07-09T10:01:00.000Z" },
+      error: null,
+      count: 1,
+    });
+    const eventQuery = createSupabaseQuery({ data: null, error: null, count: 1 });
+    mocks.supabase.from
+      .mockReturnValueOnce(readQuery)
+      .mockReturnValueOnce(updateQuery)
+      .mockReturnValueOnce(eventQuery);
+
+    const result = await confirmCancelledOrderReturn("order_1", {
+      expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+      idempotencyKey: "00000000-0000-4000-8000-000000000601",
+      operator: actor("owner"),
+    });
+
+    const update = updateQuery.update.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(update).toMatchObject({
+      completed_at: expect.any(String),
+      delivered_at: expect.any(String),
+    });
+    expect(update).not.toHaveProperty("quotation_amount");
+    expect(update).not.toHaveProperty("deposit_amount");
+    expect(update).not.toHaveProperty("balance_amount");
+    expect(update).not.toHaveProperty("is_paid");
+    expect(eventQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          action: "custody_return_confirmed",
+          handover_confirmed: true,
+          custody_outcome: "returned",
+        }),
+      }),
+    );
+    expect(result).toMatchObject({ ok: true, alreadyConfirmed: false });
+  });
+});
+
 function actor(role: NonNullable<AuditActor["storeRole"]>): AuditActor {
   return {
     id: `staff_${role}`,
@@ -692,11 +799,14 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count: num
   const query = {
     ...result,
     select: vi.fn(() => query),
+    update: vi.fn((_value: unknown) => query),
+    insert: vi.fn((_value: unknown) => query),
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     order: vi.fn(() => query),
     range: vi.fn(() => query),
     single: vi.fn(() => query),
+    maybeSingle: vi.fn(() => query),
   };
   return query;
 }

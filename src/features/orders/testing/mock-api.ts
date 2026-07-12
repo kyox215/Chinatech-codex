@@ -34,6 +34,11 @@ import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/li
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
+  countOrderQueueGroups,
+  getOrderQueueGroup,
+  orderQueueGroupMeta,
+} from "@/features/orders/model/order-queue-classification";
+import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
   DEFAULT_ORDER_WORKFLOW_TRANSITIONS,
   getStatusListSortIndex,
@@ -209,6 +214,10 @@ function filtersForWorkflowCounts(filters: OrderListFilters): OrderListFilters {
   return { ...filters, workflowStatuses: undefined };
 }
 
+function filtersForQueueCounts(filters: OrderListFilters): OrderListFilters {
+  return { ...filters, queueGroups: undefined };
+}
+
 function redactOrderListSecrets(order: OrderListItem): OrderListItem {
   const safeOrder = { ...order };
   delete safeOrder.device_unlock_value;
@@ -245,6 +254,9 @@ export async function listOrders(
         o.workflow_status ?? workflowStatusFromLegacyStatus(o.status),
       ),
     );
+  }
+  if (filters.queueGroups?.length) {
+    result = result.filter((o) => filters.queueGroups!.includes(getOrderQueueGroup(o)));
   }
   if (filters.exceptionStatuses?.length) {
     result = result.filter(
@@ -291,6 +303,10 @@ export async function listOrders(
   // Workflow-first sort, then updated_at desc.
   return result
     .sort((a, b) => {
+      const queueSort =
+        orderQueueGroupMeta[getOrderQueueGroup(a)].sortOrder -
+        orderQueueGroupMeta[getOrderQueueGroup(b)].sortOrder;
+      if (queueSort !== 0) return queueSort;
       const aWorkflow = a.workflow_status ?? workflowStatusFromLegacyStatus(a.status);
       const bWorkflow = b.workflow_status ?? workflowStatusFromLegacyStatus(b.status);
       const simpleProgressSort =
@@ -317,6 +333,7 @@ export async function listOrdersPage(
   const workflowCounts = countWorkflowRows(
     await listOrders(filtersForWorkflowCounts(input), actor),
   );
+  const queueCounts = countOrderQueueGroups(await listOrders(filtersForQueueCounts(input), actor));
   const start = (page - 1) * pageSize;
   return {
     items: all.slice(start, start + pageSize),
@@ -325,6 +342,7 @@ export async function listOrdersPage(
     pageSize,
     pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
     workflowCounts,
+    queueCounts,
   };
 }
 
@@ -569,11 +587,6 @@ export async function uploadOrderAttachment(
   return { attachment };
 }
 
-// POST /api/orders/[id]/transition
-function isMockOrderFinanciallyPaid(order: Pick<OrderListItem, "balance_amount" | "is_paid">) {
-  return order.is_paid || order.balance_amount <= 0;
-}
-
 function isApprovalDecisionBypass(
   from: RepairOrderStatus,
   to: RepairOrderStatus,
@@ -668,9 +681,6 @@ export async function transitionOrder(
     const label = workflowStatuses.find((status) => status.code === legacyTo)?.label ?? legacyTo;
     throw new Error(`流转到「${label}」需要填写原因`);
   }
-  if (legacyTo === "completed" && (o.balance_amount > 0 || !isMockOrderFinanciallyPaid(o))) {
-    throw new Error("工单仍有未结清尾款，不能直接结案");
-  }
   const from = o.status;
   const now = new Date().toISOString();
   o.status = legacyTo;
@@ -687,6 +697,10 @@ export async function transitionOrder(
   o.parts_status = partsStatusFromLegacyStatus(legacyTo);
   o.notify_status = notifyStatusFromLegacyStatus(legacyTo);
   o.updated_at = now;
+  if (legacyTo !== "completed") {
+    o.completed_at = undefined;
+    o.delivered_at = undefined;
+  }
   if (legacyTo === "cancelled") o.cancel_reason = cleanReason || "未填写";
   if (legacyTo === "unfixed_pickup" && cleanReason) {
     o.diagnosis_result = buildMockTransitionDiagnosisResult(o.diagnosis_result, cleanReason);
@@ -694,12 +708,6 @@ export async function transitionOrder(
   if (legacyTo === "completed") {
     o.completed_at = o.updated_at;
     o.delivered_at = o.updated_at;
-    o.is_paid = true;
-    o.payment_status = paymentStatusFromMoney({
-      isPaid: true,
-      depositAmount: o.deposit_amount,
-      balanceAmount: o.balance_amount,
-    });
   }
   if (legacyTo === "waiting_approval") o.approval_sent_at = o.updated_at;
   extraEvents.unshift({
@@ -712,11 +720,49 @@ export async function transitionOrder(
       workflow_from: workflowFrom,
       workflow_to: workflowTo,
       reason: cleanReason,
+      ...(legacyTo === "completed"
+        ? { handover_confirmed: true, custody_outcome: "delivered" }
+        : {}),
     },
     operator_name: operatorName(opts.operator),
     created_at: now,
   });
   return { ok: true, from, to: legacyTo };
+}
+
+export async function confirmCancelledOrderReturn(
+  id: string,
+  opts: { expectedUpdatedAt: string; idempotencyKey: string; operator?: MockOperator },
+) {
+  const order = orders.find((item) => item.id === id);
+  if (!order) throw new Error("工单不存在");
+  if (order.status !== "cancelled") throw new Error("只有已取消工单可以确认设备退还");
+  if (order.updated_at !== opts.expectedUpdatedAt) throw new Error("工单已被更新，请刷新后再试");
+  if (!opts.idempotencyKey) throw new Error("缺少退还操作标识");
+  if (order.delivered_at) {
+    return { ok: true, alreadyConfirmed: true, delivered_at: order.delivered_at };
+  }
+
+  const now = new Date().toISOString();
+  order.completed_at = order.completed_at ?? now;
+  order.delivered_at = now;
+  order.updated_at = now;
+  extraEvents.unshift({
+    id: `evt_return_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: id,
+    event_type: "status_changed",
+    payload: {
+      from: "cancelled",
+      to: "cancelled",
+      action: "custody_return_confirmed",
+      handover_confirmed: true,
+      custody_outcome: "returned",
+      idempotency_key: opts.idempotencyKey,
+    },
+    operator_name: operatorName(opts.operator),
+    created_at: now,
+  });
+  return { ok: true, alreadyConfirmed: false, delivered_at: now };
 }
 
 function buildMockTransitionDiagnosisResult(current: string | undefined, reason: string) {
@@ -1426,12 +1472,6 @@ function writeMockWhatsappMessage({
         throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
       }
     } else {
-      if (
-        transitionTo === "completed" &&
-        (o.balance_amount > 0 || !isMockOrderFinanciallyPaid(o))
-      ) {
-        throw new Error("工单仍有未结清尾款，不能直接结案");
-      }
       statusChanged = true;
       to = transitionTo;
       o.status = to;
@@ -1450,12 +1490,9 @@ function writeMockWhatsappMessage({
       if (to === "completed") {
         o.completed_at = now;
         o.delivered_at = now;
-        o.is_paid = true;
-        o.payment_status = paymentStatusFromMoney({
-          isPaid: true,
-          depositAmount: o.deposit_amount,
-          balanceAmount: o.balance_amount,
-        });
+      } else {
+        o.completed_at = undefined;
+        o.delivered_at = undefined;
       }
       if (to === "waiting_approval") o.approval_sent_at = now;
     }

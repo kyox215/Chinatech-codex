@@ -23,6 +23,7 @@ import {
   Image as ImageIcon,
   MessageCircle,
   MoreVertical,
+  PackageCheck,
   PackageSearch,
   Phone,
   Plus,
@@ -83,6 +84,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   decideOrderApproval,
+  confirmCancelledOrderReturn,
   createKioskSession,
   getRepairDeskOptions,
   getStoreSettings,
@@ -229,6 +231,7 @@ export function OrderDetailScreen({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelledReturnOpen, setCancelledReturnOpen] = useState(false);
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
@@ -318,6 +321,19 @@ export function OrderDetailScreen({
       transitionOrder(id, vars.to, { reason: vars.reason }),
     onSuccess: (_r, vars) => {
       toast.success(`已流转为「${getWorkflowStatusLabel(workflow, vars.to)}」`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelledReturn = useMutation({
+    mutationFn: () => {
+      if (!data) throw new Error("工单未加载");
+      return confirmCancelledOrderReturn(id, data.order.updated_at, crypto.randomUUID());
+    },
+    onSuccess: () => {
+      toast.success("设备退还已确认");
+      setCancelledReturnOpen(false);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -726,6 +742,29 @@ export function OrderDetailScreen({
           <X className="size-4" />
         </Button>
       ) : null}
+      {order.status === "cancelled" && !order.delivered_at ? (
+        <section
+          className={cn(
+            "mb-2 flex min-w-0 items-center gap-2 border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground md:rounded-lg",
+            surface === "dialog" && "pr-12",
+          )}
+        >
+          <PackageCheck className="size-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold">设备退还尚未确认</p>
+            <p className="truncate text-[11px] opacity-80">该工单会保留在需核对队列。</p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 shrink-0 bg-background/80 text-xs"
+            onClick={() => setCancelledReturnOpen(true)}
+          >
+            确认已退还
+          </Button>
+        </section>
+      ) : null}
       {surface === "page" ? (
         <MobileOrderDetailView
           data={data}
@@ -1006,6 +1045,34 @@ export function OrderDetailScreen({
           await transition.mutateAsync({ to: "cancelled", reason });
         }}
       />
+      <Dialog open={cancelledReturnOpen} onOpenChange={setCancelledReturnOpen}>
+        <DialogContent className={componentOverlay.modalSm}>
+          <DialogHeader>
+            <DialogTitle>确认设备已退还</DialogTitle>
+            <DialogDescription>
+              此操作只记录设备已交还客户，不会自动收款、退款或更改订单金额。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={cancelledReturn.isPending}
+              onClick={() => setCancelledReturnOpen(false)}
+            >
+              返回
+            </Button>
+            <Button
+              type="button"
+              disabled={cancelledReturn.isPending}
+              onClick={() => cancelledReturn.mutate()}
+            >
+              <PackageCheck className="size-4" />
+              确认退还
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <CameraCaptureSheet
         open={desktopPhotoCaptureOpen}
         onOpenChange={setDesktopPhotoCaptureOpen}
