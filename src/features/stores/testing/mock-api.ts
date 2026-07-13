@@ -18,6 +18,10 @@ import type {
   StoreMembersResult,
 } from "@/lib/repairdesk/types";
 import { normalizeStorePermissionGrants } from "@/entities/staff/model/store-permission-policy";
+import {
+  isOrderDataApplyEnabled,
+  isOrderDataExportEnabled,
+} from "@/features/orders/server/order-data-feature-flags";
 import { can } from "@/server/permissions";
 
 const mockStores = [
@@ -425,6 +429,13 @@ function context(actor?: AuditActor): StoreContext {
   const canManageMembers = can(scopedActor, "member:manage_basic");
   const canInviteMembers = canManageMembers && can(scopedActor, "member:invite");
   const canUpdateStoreSettings = can(scopedActor, "settings:update_store");
+  const primaryOwnerUserId = storeMembers(activeStoreId).find(
+    (member) => member.role === "owner" && member.status === "active",
+  )?.user_id;
+  const canManageOrderData =
+    isOrderDataExportEnabled() &&
+    scopedActor.storeRole === "owner" &&
+    scopedActor.id === primaryOwnerUserId;
   return {
     activeStore,
     stores: mockStores.map((store) => (store.id === activeStoreId ? activeStore : store)),
@@ -433,8 +444,8 @@ function context(actor?: AuditActor): StoreContext {
       canAssignSuppliers: can(scopedActor, "supplier:assign"),
       canManageSuppliers: can(scopedActor, "supplier:manage"),
       canReadInventory: can(scopedActor, "inventory:read"),
-      canManageOrderData: scopedActor.storeRole === "owner",
-      canApplyOrderData: scopedActor.storeRole === "owner",
+      canManageOrderData,
+      canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
       canReadStoreSettings: true,
       canUpdateStoreSettings,
       canConfigureWorkflow: can(scopedActor, "settings:update_workflow"),

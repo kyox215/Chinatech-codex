@@ -49,3 +49,11 @@
 - Unknown or custom concrete status codes have no canonical lifecycle semantics. They remain non-terminal for projection and must fail closed for order creation, manual/configured transitions, and notification-driven transitions until a dedicated server mapping is approved.
 - Controlled Sheet/Dialog flows without a declarative trigger need explicit close-focus restoration. Responsive E2E must verify Escape, focus, pointer-event release, `aria-hidden`/`inert` cleanup, and a real `elementFromPoint` hit after closing.
 - WP-06 production release remains closed until historical custom/default/closed rows are audited, revision/CAS and one transactional RPC exist, active-order compatibility is checked, and audit/outbox behavior is atomic.
+- Order-data export, preview, history, and Apply are high-risk primary-owner operations. Both real and mock capability paths must bind to the active store's primary owner; clients never recreate this rule.
+- High-risk order-data flags fail closed: only exact `ORDER_DATA_EXPORT_ENABLED=1` opens export/preview/history, and Apply additionally requires exact `ORDER_DATA_APPLY_ENABLED=1`.
+- Maximum-contract indexing must preserve original repair-sheet row order. Fast identifier-signature lookup cannot reorder `fault_prices`, because order changes customer-visible quotation and display semantics.
+- Complete preview and Apply reports use formula-safe UTF-8 CSV. UI rendering is progressive (10 initial, 100 maximum) and is not the complete evidence source.
+- Batch history is an explicit lazy read of the current store's latest 20 allowlisted summaries. It never returns staged rows, before/after data, workbook contents, or customer fields.
+- Raw database messages are server-only. Apply recovery uses an allowlisted typed repository error; public/service copy never depends on or returns raw RPC text.
+- Preview expiry disables Apply but does not prove deletion. Production export/preview remains closed until cleanup scheduling, monitoring, a streaming body limit, rate/concurrency controls, and capacity evidence exist.
+- Order-data Apply remains closed until staging is atomic, normal-create workflow/default-warranty/audit semantics are shared, the safe transaction cap is measured, results are runtime-validated, and impact/recovery plus linked database evidence are approved.

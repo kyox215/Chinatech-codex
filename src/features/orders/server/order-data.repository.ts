@@ -1,6 +1,10 @@
 import type { AuditActor, OrderDataImportMode } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
-import { fail, type DbRecord } from "@/server/repairdesk-shared";
+import { type DbRecord } from "@/server/repairdesk-shared";
+import {
+  extractOrderDataApplyFailureCode,
+  OrderDataApplyRepositoryError,
+} from "@/features/orders/model/order-data-errors";
 
 const ORDER_DATA_SELECT = `
   id,
@@ -79,7 +83,7 @@ export async function listOrderDataExportRows(storeId: string) {
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
       .range(from, from + EXPORT_PAGE_SIZE - 1);
-    fail(error, "读取工单导出数据失败");
+    failOrderData(error, "读取工单导出数据失败");
     const batch = (data ?? []) as unknown as OrderDataDbRow[];
     if (rows.length + batch.length > MAX_EXPORT_ROWS) {
       throw new Error(`工单数量超过 ${MAX_EXPORT_ROWS} 条同步导出限制，请联系管理员`);
@@ -99,7 +103,7 @@ export async function listOrderExternalRefs(storeId: string, orderIds: string[])
       .select("order_id,source_system,external_record_id")
       .eq("store_id", storeId)
       .in("order_id", ids);
-    fail(error, "读取工单外部引用失败");
+    failOrderData(error, "读取工单外部引用失败");
     for (const row of (data ?? []) as {
       order_id: string;
       source_system: string;
@@ -133,7 +137,7 @@ export async function loadOrderDataCandidates(input: {
       .select(ORDER_DATA_SELECT)
       .eq("store_id", input.storeId)
       .in("id", ids);
-    fail(error, "匹配工单失败");
+    failOrderData(error, "匹配工单失败");
     addCandidates((data ?? []) as unknown as OrderDataDbRow[], byId, byPublicNo);
   }
 
@@ -143,7 +147,7 @@ export async function loadOrderDataCandidates(input: {
       .select(ORDER_DATA_SELECT)
       .eq("store_id", input.storeId)
       .in("public_no", publicNos);
-    fail(error, "匹配工单编号失败");
+    failOrderData(error, "匹配工单编号失败");
     addCandidates((data ?? []) as unknown as OrderDataDbRow[], byId, byPublicNo);
   }
 
@@ -158,7 +162,7 @@ export async function loadOrderDataCandidates(input: {
       .eq("store_id", input.storeId)
       .in("source_system", sourceSystems)
       .in("external_record_id", externalIds);
-    fail(error, "匹配外部工单引用失败");
+    failOrderData(error, "匹配外部工单引用失败");
     const orderIds = unique(((data ?? []) as { order_id: string }[]).map((row) => row.order_id));
     for (const ids of chunk(orderIds, LOOKUP_CHUNK_SIZE)) {
       const { data: orderRows, error: orderError } = await supabase
@@ -166,7 +170,7 @@ export async function loadOrderDataCandidates(input: {
         .select(ORDER_DATA_SELECT)
         .eq("store_id", input.storeId)
         .in("id", ids);
-      fail(orderError, "读取外部引用工单失败");
+      failOrderData(orderError, "读取外部引用工单失败");
       addCandidates((orderRows ?? []) as unknown as OrderDataDbRow[], byId, byPublicNo);
     }
     for (const ref of (data ?? []) as {
@@ -187,7 +191,7 @@ export async function loadOrderDataCandidates(input: {
       .select("id,name,phone_raw,updated_at")
       .eq("store_id", input.storeId)
       .in("phone_raw", phoneRaws);
-    fail(error, "检查导入客户手机号失败");
+    failOrderData(error, "检查导入客户手机号失败");
     for (const row of (data ?? []) as {
       id: string;
       name: string;
@@ -221,7 +225,7 @@ export async function createExportBatch(input: {
     })
     .select("id,expires_at")
     .single();
-  fail(error, "创建导出批次失败");
+  failOrderData(error, "创建导出批次失败");
   return data as { id: string; expires_at: string };
 }
 
@@ -231,7 +235,7 @@ export async function completeExportBatch(input: {
   fileHash: string;
   rowCount: number;
 }) {
-  const { error } = await getSupabaseAdmin()
+  const { data, error } = await getSupabaseAdmin()
     .from("order_data_batches")
     .update({
       status: "completed",
@@ -240,8 +244,11 @@ export async function completeExportBatch(input: {
     })
     .eq("id", input.batchId)
     .eq("store_id", input.storeId)
-    .eq("status", "building");
-  fail(error, "完成导出批次失败");
+    .eq("status", "building")
+    .select("id")
+    .maybeSingle();
+  failOrderData(error, "完成导出批次失败");
+  if (!data) throw new Error("完成导出批次失败");
 }
 
 export async function assertValidExportBatch(input: {
@@ -259,7 +266,7 @@ export async function assertValidExportBatch(input: {
     .eq("status", "completed")
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
-  fail(error, "验证导出批次失败");
+  failOrderData(error, "验证导出批次失败");
   if (!data) throw new Error("导出文件已过期或不属于当前店铺，请重新导出");
 }
 
@@ -277,7 +284,7 @@ export async function createImportBatch(input: {
 }) {
   const supabase = getSupabaseAdmin();
   const cleanupResult = await supabase.rpc("repairdesk_cleanup_expired_order_data_batches");
-  fail(cleanupResult.error, "清理过期工单数据批次失败");
+  failOrderData(cleanupResult.error, "清理过期工单数据批次失败");
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   const { data: batch, error: batchError } = await supabase
     .from("order_data_batches")
@@ -298,7 +305,7 @@ export async function createImportBatch(input: {
     })
     .select("id,expires_at")
     .single();
-  fail(batchError, "保存导入预览失败");
+  failOrderData(batchError, "保存导入预览失败");
   const batchRecord = batch as { id: string; expires_at: string };
 
   for (const rows of chunk(input.rows, 250)) {
@@ -311,7 +318,7 @@ export async function createImportBatch(input: {
     );
     if (rowError) {
       await supabase.from("order_data_batches").delete().eq("id", batchRecord.id);
-      fail(rowError, "保存导入预览行失败");
+      failOrderData(rowError, "保存导入预览行失败");
     }
   }
   return { id: batchRecord.id, expiresAt: batchRecord.expires_at };
@@ -329,8 +336,57 @@ export async function applyImportBatch(input: {
     p_actor_email: input.actor.email ?? null,
     p_actor_name: input.actor.displayName,
   });
-  fail(error, "应用工单导入失败");
+  if (error) {
+    logOrderDataError(error, "应用工单导入失败");
+    const safeCode = extractOrderDataApplyFailureCode(error.message);
+    if (safeCode) throw new OrderDataApplyRepositoryError(safeCode);
+    throw new Error("应用工单导入失败");
+  }
   return data;
+}
+
+export async function listOrderDataBatchSummaries(input: { storeId: string; limit?: number }) {
+  const limit = Math.min(Math.max(input.limit ?? 20, 1), 50);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("order_data_batches")
+    .select(
+      "id,store_id,actor_id,kind,mode,status,summary,created_at,previewed_at,applied_at,expires_at",
+    )
+    .eq("store_id", input.storeId)
+    .order("created_at", { ascending: false })
+    .limit(limit + 1);
+  failOrderData(error, "读取工单数据批次失败");
+  const batchRows = (data ?? []) as DbRecord[];
+  const actorIds = unique(batchRows.map((row) => stringValue(row.actor_id)));
+  const actorNames = new Map<string, string>();
+  if (actorIds.length > 0) {
+    const { data: actors, error: actorError } = await supabase
+      .from("staff_profiles")
+      .select("id,display_name")
+      .in("id", actorIds);
+    failOrderData(actorError, "读取工单数据批次操作人失败");
+    for (const actor of (actors ?? []) as DbRecord[]) {
+      actorNames.set(stringValue(actor.id), stringValue(actor.display_name));
+    }
+  }
+
+  return {
+    items: batchRows.slice(0, limit).map((row) => ({
+      id: stringValue(row.id),
+      storeId: stringValue(row.store_id),
+      kind: stringValue(row.kind),
+      mode: stringValue(row.mode) || undefined,
+      status: stringValue(row.status),
+      actorDisplayName: actorNames.get(stringValue(row.actor_id)) || undefined,
+      createdAt: stringValue(row.created_at),
+      previewedAt: stringValue(row.previewed_at) || undefined,
+      appliedAt: stringValue(row.applied_at) || undefined,
+      expiresAt: stringValue(row.expires_at),
+      summary: sanitizeBatchSummary(row.summary),
+    })),
+    hasMore: batchRows.length > limit,
+  };
 }
 
 export function relationRecord(value: unknown): DbRecord | undefined {
@@ -363,4 +419,46 @@ function chunk<T>(values: T[], size: number) {
   for (let index = 0; index < values.length; index += size)
     chunks.push(values.slice(index, index + size));
   return chunks;
+}
+
+function sanitizeBatchSummary(value: unknown) {
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const keys = [
+    "total",
+    "ready",
+    "create",
+    "update",
+    "invalid",
+    "skipped",
+    "rows",
+    "applied",
+    "conflicts",
+    "failed",
+  ] as const;
+  return Object.fromEntries(
+    keys.flatMap((key) => {
+      const number = Number(source[key]);
+      return Number.isFinite(number) && number >= 0 ? [[key, number]] : [];
+    }),
+  );
+}
+
+function stringValue(value: unknown) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function failOrderData(
+  error: { code?: string; message?: string } | null | undefined,
+  publicMessage: string,
+) {
+  if (!error) return;
+  logOrderDataError(error, publicMessage);
+  throw new Error(publicMessage);
+}
+
+function logOrderDataError(error: { code?: string; message?: string }, publicMessage: string) {
+  console.error(`[order-data] ${publicMessage}`, {
+    code: error.code,
+    message: error.message,
+  });
 }

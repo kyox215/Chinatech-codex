@@ -1,7 +1,7 @@
 ---
 task_id: "TASK-20260712-004-settings-center-master-plan"
 status: "in_progress"
-phase: "wp06_local_conditional_closeout"
+phase: "wp07_local_conditional_closeout"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
@@ -9,7 +9,7 @@ integration_lead: "RepairDesk Integration Lead"
 baseline: "a76852f61b09f1b84ccf0def957312026d6eb3b3"
 branch: "codex/settings-center-v2-20260712"
 worktree: "/private/tmp/repairdesk-settings-center-20260712"
-updated_at: "2026-07-13T21:43:16Z"
+updated_at: "2026-07-13T22:40:19Z"
 ---
 # Settings Center v2
 
@@ -42,6 +42,10 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 - Custom/unmapped statuses can no longer fall through to canonical `closed`, cannot be used as real create/transition/notification targets, and foreign-store workflow snapshots are rejected by the local draft boundary.
 - Final WP-06 evidence is 162 files / 1052 Vitest tests, 7 focused files / 98 tests, six responsive Playwright cases, full lint/typecheck/agents/diff checks, and a production build. Four final synthetic screenshots cover mobile, Sheet, review, and desktop states.
 - WP-06 is only a local conditional close. Apply remains disabled until a store-scoped revision/CAS contract, one transactional RPC, active-order compatibility validation, atomic audit/outbox, and a production historical-data preflight receive separate Owner approval.
+- WP-07 order data is locally implemented and independently reviewed at P0=0/P1=0. The Settings flow is store-bound, responsive, progressively renders previews, exports complete formula-safe reports, locks expired/processed batches, protects dirty navigation, and exposes only lazy-loaded sanitized batch summaries.
+- Maximum-contract normalization no longer performs a 10,000 × 50,000 scan and preserves repair-sheet row order. Export rejects more than 50,000 repair items before workbook construction. Both high-risk flags now require exact `1`, and real/mock access requires the active primary store owner.
+- Final WP-07 evidence is 167 files / 1073 Vitest tests, 9 focused files / 104 tests, dedicated Playwright 10/10 across six widths, broader Settings regression status PASS for 56 cases, full lint/typecheck/agents/diff checks, and a production build. Five synthetic screenshots cover mobile, desktop, preview, final confirmation, and partial recovery.
+- WP-07 is only a local conditional close. Production export/preview remains disabled until PII cleanup scheduling/monitoring, a true streaming body limit, rate/concurrency controls, and capacity proof exist. Apply additionally requires atomic staging, normal-create workflow/warranty/audit parity, safe batch sizing, runtime result validation, impact evidence, and separately approved database/release execution.
 - No production database, push, or deployment action has been performed.
 
 ## Acceptance gates

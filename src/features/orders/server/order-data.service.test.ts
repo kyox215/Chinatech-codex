@@ -1,12 +1,14 @@
 import { Buffer } from "node:buffer";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuditActor } from "@/lib/repairdesk/types";
 
 const mocks = vi.hoisted(() => ({
   parseOrderDataWorkbook: vi.fn(),
+  applyImportBatch: vi.fn(),
   createImportBatch: vi.fn(),
+  listOrderDataBatchSummaries: vi.fn(),
   loadOrderDataCandidates: vi.fn(),
   assertValidExportBatch: vi.fn(),
   assertPrimaryStoreOwner: vi.fn(),
@@ -21,7 +23,7 @@ vi.mock("@/features/orders/server/order-data-workbook", () => ({
   workbookDownloadHeaders: vi.fn(),
 }));
 vi.mock("@/features/orders/server/order-data.repository", () => ({
-  applyImportBatch: vi.fn(),
+  applyImportBatch: mocks.applyImportBatch,
   assertValidExportBatch: mocks.assertValidExportBatch,
   completeExportBatch: vi.fn(),
   createExportBatch: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("@/features/orders/server/order-data.repository", () => ({
     `${source.trim().toLowerCase()}\u0000${id.trim()}`,
   listOrderDataExportRows: vi.fn(),
   listOrderExternalRefs: vi.fn(),
+  listOrderDataBatchSummaries: mocks.listOrderDataBatchSummaries,
   loadOrderDataCandidates: mocks.loadOrderDataCandidates,
   relationRecord: (value: unknown) => value,
 }));
@@ -38,7 +41,13 @@ vi.mock("@/features/stores/server/primary-store-owner", () => ({
 }));
 vi.mock("@/server/audit", () => ({ writeAuditLog: mocks.writeAuditLog }));
 
-import { previewOrderDataImport } from "./order-data.service";
+import { OrderDataApplyRepositoryError } from "@/features/orders/model/order-data-errors";
+
+import {
+  applyOrderDataImport,
+  listOrderDataBatchHistory,
+  previewOrderDataImport,
+} from "./order-data.service";
 
 const storeId = "00000000-0000-0000-0000-000000000001";
 const actor: AuditActor = {
@@ -51,13 +60,61 @@ const actor: AuditActor = {
 describe("order data import preview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "1");
+    vi.stubEnv("ORDER_DATA_APPLY_ENABLED", "1");
     mocks.assertPrimaryStoreOwner.mockResolvedValue({ actorId: actor.id, storeId });
     mocks.assertValidExportBatch.mockResolvedValue(undefined);
+    mocks.listOrderDataBatchSummaries.mockResolvedValue({ items: [], hasMore: false });
     mocks.createImportBatch.mockResolvedValue({
       id: "00000000-0000-0000-0000-000000000020",
       expiresAt: "2026-07-11T12:00:00.000Z",
     });
   });
+
+  it("binds batch history to the asserted store and fixed safe page size", async () => {
+    mocks.listOrderDataBatchSummaries.mockResolvedValue({
+      items: [
+        {
+          id: "batch-1",
+          storeId,
+          kind: "import",
+          mode: "update_only",
+          status: "previewed",
+          actorDisplayName: "Owner",
+          createdAt: "2026-07-13T08:00:00.000Z",
+          expiresAt: "2026-07-14T08:00:00.000Z",
+          summary: { total: 1, ready: 1 },
+        },
+      ],
+      hasMore: true,
+    });
+
+    await expect(listOrderDataBatchHistory({ actor, expectedStoreId: storeId })).resolves.toEqual({
+      storeId,
+      items: [expect.objectContaining({ id: "batch-1", storeId })],
+      hasMore: true,
+    });
+    expect(mocks.assertPrimaryStoreOwner).toHaveBeenCalledWith(actor);
+    expect(mocks.listOrderDataBatchSummaries).toHaveBeenCalledWith({ storeId, limit: 20 });
+  });
+
+  it.each([
+    ["batch_not_found", "导入批次不存在或不属于当前店铺"],
+    ["batch_not_applicable", "导入预览已过期或已处理"],
+    ["batch_has_invalid_rows", "预览仍有错误行，不能应用"],
+    ["batch_has_no_ready_rows", "没有可应用的数据行"],
+  ] as const)(
+    "maps safe Apply recovery code %s without raw database text",
+    async (code, message) => {
+      mocks.applyImportBatch.mockRejectedValue(new OrderDataApplyRepositoryError(code));
+
+      await expect(
+        applyOrderDataImport({ actor, expectedStoreId: storeId, batchId: "batch-1" }),
+      ).rejects.toThrow(message);
+    },
+  );
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("keeps blank cells unchanged and stages only explicit differences", async () => {
     const order = existingOrder();

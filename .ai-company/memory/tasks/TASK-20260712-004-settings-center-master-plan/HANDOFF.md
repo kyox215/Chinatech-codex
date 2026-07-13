@@ -42,4 +42,10 @@ Final WP-06 evidence: independent architecture, data/security, and UX/QA reviews
 
 Do not describe WP-06 Apply as available or production-ready. The legacy endpoints remain non-transactional and revision-free. Production needs a store-scoped historical custom-status audit, revision/CAS, a single transactional RPC, active-order compatibility checks, atomic audit/outbox, and a separately approved data-repair plan if old rows are already misclassified.
 
-The next safe package is WP-07 rehydration from the approved Settings plan. Do not push, deploy, apply migrations, enable either Kiosk flag, change role/retention semantics, unlock workflow Apply, or inspect/correct historical production rows without Owner approval.
+WP-07 order data is now locally conditionally closed and ready for one scoped local commit. It uses exact-`1` default-off flags, active-primary-owner/store checks, indexed but order-preserving maximum-contract matching, a pre-workbook repair-item cap, store-scoped sanitized batch history, complete formula-safe reports, expiry and duplicate protection, final confirmation, partial recovery, dirty navigation, and 44px mobile controls.
+
+Final WP-07 evidence: architecture/security/UI reviews P0=0/P1=0; 9 focused files / 104 tests; full 167 files / 1073 tests; dedicated Playwright 10/10 across six widths; broader Settings run passed; lint, typecheck, Agent rules, diff check, and production build pass. Five synthetic screenshots cover default mobile/desktop, preview, confirmation, and partial recovery.
+
+Do not enable real export/preview until reliable PII cleanup scheduling/monitoring, a streaming request-body hard limit, rate/concurrency governance, abandoned-batch cleanup, and capacity proof exist. Apply additionally requires atomic staging, normal-create workflow/default-warranty/audit parity, measured safe transaction sizing, runtime result validation, complete impact/recovery evidence, and separately approved migration/linked verification.
+
+The next safe package is WP-08 whole-plan quality, operator/release documentation, evidence reconciliation, and approval-ready rollback packaging. Do not push, deploy, apply migrations, enable Kiosk or order-data flags, change role/retention semantics, unlock workflow/order-data Apply, or inspect/correct production rows without Owner approval.

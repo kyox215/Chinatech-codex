@@ -42,6 +42,7 @@ import {
   downloadOrderDataTemplate,
   exportCustomerStats,
   exportOrderData,
+  listOrderDataBatchHistory,
   previewOrderDataImport,
 } from "@/features/orders/server/order-data.service";
 import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
@@ -766,6 +767,10 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       case "customers/data/stats-export": {
         const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
         return binaryResponse(await exportCustomerStats({ expectedStoreId, actor }));
+      }
+      case "orders/data/batches": {
+        const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
+        return ok(await listOrderDataBatchHistory({ expectedStoreId, actor }));
       }
       case "orders/data/import/preview": {
         if (!(body instanceof FormData)) throw new Error("导入文件格式无效");

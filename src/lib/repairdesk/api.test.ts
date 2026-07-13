@@ -9,6 +9,7 @@ import {
   getOrderStats,
   getStoreContext,
   isRepairDeskAuthorizationError,
+  listOrderDataBatchHistory,
   RepairDeskApiError,
   returnKioskSession,
   previewOrderDataImport,
@@ -242,6 +243,31 @@ describe("repairdesk api client", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ expectedStoreId: "00000000-0000-0000-0000-000000000001" }),
+      }),
+    );
+  });
+
+  it("requests store-bound order data batch history", async () => {
+    const expectedStoreId = "00000000-0000-0000-0000-000000000001";
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ data: { storeId: expectedStoreId, items: [], hasMore: false } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listOrderDataBatchHistory(expectedStoreId)).resolves.toEqual({
+      storeId: expectedStoreId,
+      items: [],
+      hasMore: false,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/repairdesk/orders/data/batches",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ expectedStoreId }),
       }),
     );
   });

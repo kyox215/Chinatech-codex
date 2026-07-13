@@ -234,3 +234,58 @@ All screenshots use synthetic workflow/store labels and contain no customer PII,
 - Change review currently aggregates some availability/transition differences; concrete edge-level audit detail is required before Apply can be unlocked.
 - No database, migration, role/retention change, external message, push, deployment, or production action occurred.
 - `2026-07-13T21:43:16Z` `1165633fee` — Independent architecture, data/security, and UX/QA reviews P0=0/P1=0; focused 7 files/98 tests; full 162 files/1052 tests; WP06 Playwright 6/6; agents check, lint, typecheck, diff check, and final production build pass; four synthetic screenshots inspected.
+
+## WP-07 — Order data center local safe slice
+
+### Quality decision
+
+- Local WP-07 acceptance: **CONDITIONAL PASS**. Independent architecture/QA, security, and UI/UX final reviews report P0=0/P1=0 after four discovered code/UI P1 issues were fixed and independently retested.
+- Production export/preview and Apply: **NO-GO**. Both real flags remain default-off; local evidence does not satisfy retention, ingress, limiting, database, load, or release gates.
+
+### Acceptance-to-evidence matrix
+
+| Acceptance                                                     | Evidence                                                                        | Result |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ |
+| Store/primary-owner/default-off access fails closed            | flag, mock, store repository, service, blocked E2E tests                        | PASS   |
+| 10k orders / 50k repair items avoid quadratic scan and reorder | max-contract and interleaved-signature normalizer tests                         | PASS   |
+| Export rejects over 50k repair items before workbook build     | bounded export implementation and architecture review                           | PASS   |
+| Preview shows store/mode/file/expiry/public number             | component tests, 101-row mobile E2E, screenshots                                | PASS   |
+| Complete preview/error output is formula-safe                  | report model tests and UI download actions                                      | PASS   |
+| Expiry, duplicate, pending, confirmation, partial recovery     | component plus final-confirmation/partial-result E2E                            | PASS   |
+| Dirty order-data flow cannot fake a save                       | shared guard integration and mobile leave/discard E2E                           | PASS   |
+| Batch history is lazy, store-bound, 20-item, and sanitized     | repository/service/API/UI tests and mobile E2E                                  | PASS   |
+| Six widths and mobile interactive targets                      | 390/430/768/1024/1280/1440, stable 44px controls, no page overflow               | PASS   |
+| Production retention/ingress/limit/Apply guarantees            | Owner approval packet                                                           | BLOCKED |
+
+### Executed verification
+
+- Focused WP-07 regression: 9 files / 104 tests passed.
+- Full Vitest: 167 files / 1073 tests passed.
+- Dedicated WP-07 Playwright: 10/10 passed with one worker. A broader Settings run declared 56 cases and recorded passed status; the final WP07 delta was rerun in the dedicated suite.
+- `npm run agents:check`, full lint, typecheck, and `git diff --check`: passed.
+- Production build: passed outside the filesystem sandbox, including TypeScript and 22/22 static pages. The sandbox-only attempt failed solely because Turbopack could not bind its internal helper port.
+
+### Independent-review corrections
+
+- Indexed repair matching now sorts collected candidate row indexes before consumption, preserving sheet order across different identifier signatures.
+- Apply repository errors expose only four typed allowlist codes internally and fixed public text; service recovery copy no longer parses raw database messages.
+- The no-permission return action and mobile Select options are at least 44px after stable layout, with direct browser assertions.
+- Historical WP03–WP06 screenshots rewritten by broad E2E were restored; only five new WP07 images remain in the scoped diff.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/wp07-order-data-390x844.png`
+- `screenshots/responsive-density/settings/wp07-order-data-1440x900.png`
+- `screenshots/responsive-density/settings/wp07-order-data-preview-390x844.png`
+- `screenshots/responsive-density/settings/wp07-order-data-confirm-1280x800.png`
+- `screenshots/responsive-density/settings/wp07-order-data-partial-1280x800.png`
+
+All screenshots use synthetic data, hide the Next development indicator, and contain no real customer PII, credentials, secrets, tokens, or production records.
+
+### Residual release gates
+
+- Reliable preview PII cleanup requires a scheduler, monitoring, failure alert, deletion evidence, and approved retention/GDPR policy; opportunity cleanup is not a timed guarantee.
+- The deployed ingress must enforce a streaming body limit for missing/chunked `Content-Length`, plus per-user/store rate, concurrency, volume, timeout, and abandoned-batch controls.
+- Apply staging must be atomic. New-order status/workflow/default warranty and warranty audit fields must share the normal creation contract.
+- Maximum Apply transaction size, locks/timeouts, runtime result validation, before/after impact, rollback/recovery, linked migration/RLS/grant proof, production smoke, push, and deployment require separate Owner approval.
+- No database, migration apply, production data, role/retention decision, real flag enable, external message, push, or deployment occurred.

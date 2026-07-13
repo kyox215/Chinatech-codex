@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as StoreMockApi from "./mock-api";
 
@@ -7,8 +7,12 @@ let api: typeof StoreMockApi;
 describe("store mock api invitation parity", () => {
   beforeEach(async () => {
     vi.resetModules();
+    vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "1");
+    vi.stubEnv("ORDER_DATA_APPLY_ENABLED", "1");
     api = await import("./mock-api");
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("blocks invitations for emails that are already active members", async () => {
     await expect(
@@ -148,6 +152,22 @@ describe("store mock api invitation parity", () => {
       canReviewAccessRequests: true,
       canManageKioskDevices: true,
       canReviewKioskSessions: true,
+      canManageOrderData: true,
+      canApplyOrderData: true,
+    });
+  });
+
+  it("does not treat a secondary owner membership as the primary store owner", async () => {
+    const context = await api.getStoreContext({
+      id: "mock_user_secondary_owner",
+      email: "secondary-owner@repairdesk.local",
+      displayName: "Secondary owner",
+      storeRole: "owner",
+    });
+
+    expect(context.permissions).toMatchObject({
+      canManageOrderData: false,
+      canApplyOrderData: false,
     });
   });
 

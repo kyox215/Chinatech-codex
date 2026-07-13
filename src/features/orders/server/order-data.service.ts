@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
 
 import { ORDER_DATA_PARSER_VERSION } from "@/features/orders/model/order-data-contract";
+import { OrderDataApplyRepositoryError } from "@/features/orders/model/order-data-errors";
 import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
 import {
   normalizeOrderDataRows,
@@ -11,11 +12,13 @@ import {
   applyImportBatch,
   assertValidExportBatch,
   createImportBatch,
+  listOrderDataBatchSummaries,
   loadOrderDataCandidates,
 } from "@/features/orders/server/order-data.repository";
 import { parseOrderDataWorkbook } from "@/features/orders/server/order-data-workbook";
 import type {
   AuditActor,
+  OrderDataBatchHistory,
   OrderDataImportApplyResult,
   OrderDataImportMode,
   OrderDataImportPreview,
@@ -28,6 +31,23 @@ export {
   exportCustomerStats,
   exportOrderData,
 } from "@/features/orders/server/order-data-export.service";
+
+export async function listOrderDataBatchHistory(input: {
+  actor: AuditActor;
+  expectedStoreId: string;
+}): Promise<OrderDataBatchHistory> {
+  const { storeId } = await assertOrderDataAccess(
+    input.actor,
+    "order:export",
+    input.expectedStoreId,
+  );
+  const history = await listOrderDataBatchSummaries({ storeId, limit: 20 });
+  return {
+    storeId,
+    items: history.items as OrderDataBatchHistory["items"],
+    hasMore: history.hasMore,
+  };
+}
 
 export async function previewOrderDataImport(input: {
   actor: AuditActor;
@@ -133,11 +153,12 @@ export async function applyOrderDataImport(input: {
   try {
     result = await applyImportBatch({ batchId: input.batchId, actor: input.actor, storeId });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes("batch_not_found")) throw new Error("导入批次不存在或不属于当前店铺");
-    if (message.includes("batch_not_applicable")) throw new Error("导入预览已过期或已处理");
-    if (message.includes("batch_has_invalid_rows")) throw new Error("预览仍有错误行，不能应用");
-    if (message.includes("batch_has_no_ready_rows")) throw new Error("没有可应用的数据行");
+    if (error instanceof OrderDataApplyRepositoryError) {
+      if (error.code === "batch_not_found") throw new Error("导入批次不存在或不属于当前店铺");
+      if (error.code === "batch_not_applicable") throw new Error("导入预览已过期或已处理");
+      if (error.code === "batch_has_invalid_rows") throw new Error("预览仍有错误行，不能应用");
+      if (error.code === "batch_has_no_ready_rows") throw new Error("没有可应用的数据行");
+    }
     throw new Error("应用工单导入失败，请重新生成预览后重试");
   }
   if (!result || typeof result !== "object") throw new Error("导入结果格式无效");

@@ -103,7 +103,6 @@ export function normalizeOrderDataRows(input: {
   candidates: OrderDataCandidates;
 }) {
   const repairItems = parseRepairItems(input.repairItemRows);
-  const consumedRepairItemKeys = new Set<string>();
   const previewRows: OrderDataImportPreviewRow[] = [];
   const stagedRows: OrderDataStagedRow[] = [];
 
@@ -130,7 +129,7 @@ export function normalizeOrderDataRows(input: {
     }
 
     const normalizedData = normalizeEditableData(raw, action, issues.errors);
-    const rowRepairItems = collectRepairItemsForOrderRow(raw, repairItems, consumedRepairItemKeys);
+    const rowRepairItems = collectRepairItemsForOrderRow(raw, repairItems);
     if (rowRepairItems) normalizedData.fault_prices = rowRepairItems;
     else if (action === "create") normalizedData.fault_prices = [];
     if (action === "create") {
@@ -221,7 +220,7 @@ export function normalizeOrderDataRows(input: {
     });
   });
 
-  assertAllRepairItemsMatched(repairItems, consumedRepairItemKeys);
+  assertAllRepairItemsMatched(repairItems);
   markDuplicateAndSharedConflicts(previewRows, stagedRows);
 
   return { previewRows, stagedRows, summary: summarizePreview(previewRows) };
@@ -366,7 +365,8 @@ function parseRepairItems(rows: Record<string, string>[]) {
       rowNumber: number;
       consumed: boolean;
     }[];
-  } = { rows: [] };
+    rowIndexesBySignature: Map<string, Set<number>>;
+  } = { rows: [], rowIndexesBySignature: new Map() };
   rows.forEach((row, index) => {
     const keys = repairRowMatchKeys(row);
     if (keys.length === 0)
@@ -374,6 +374,7 @@ function parseRepairItems(rows: Record<string, string>[]) {
     const name = row["项目名称"]?.trim();
     const price = parseMoney(row["金额"] ?? "");
     if (!name || price === undefined) throw new Error("维修项目名称不能为空，金额必须是非负数字");
+    const rowIndex = groups.rows.length;
     groups.rows.push({
       keys,
       rowNumber: Number(row.__row_number || 0) || index + 2,
@@ -385,6 +386,10 @@ function parseRepairItems(rows: Record<string, string>[]) {
         ...(row["备注"] ? { note: row["备注"] } : {}),
       },
     });
+    const signature = repairMatchSignature(keys);
+    const matchingRows = groups.rowIndexesBySignature.get(signature) ?? new Set<number>();
+    matchingRows.add(rowIndex);
+    groups.rowIndexesBySignature.set(signature, matchingRows);
   });
   return groups;
 }
@@ -412,23 +417,28 @@ function rowMatchKeys(row: Record<string, string>) {
 function collectRepairItemsForOrderRow(
   row: Record<string, string>,
   groups: ReturnType<typeof parseRepairItems>,
-  _consumedKeys: Set<string>,
 ) {
-  const items: FaultPriceItem[] = [];
-  const orderKeys = new Set(rowMatchKeys(row));
-  for (const repairRow of groups.rows) {
-    if (repairRow.consumed) continue;
-    if (!repairRow.keys.every((key) => orderKeys.has(key))) continue;
-    repairRow.consumed = true;
-    items.push(repairRow.item);
+  const matchingIndexes = new Set<number>();
+  const orderKeys = rowMatchKeys(row);
+  for (const signature of repairMatchSubsets(orderKeys)) {
+    const matchingRows = groups.rowIndexesBySignature.get(signature);
+    if (!matchingRows) continue;
+    for (const rowIndex of matchingRows) {
+      matchingIndexes.add(rowIndex);
+    }
+    matchingRows.clear();
   }
+  const items = [...matchingIndexes]
+    .sort((left, right) => left - right)
+    .map((rowIndex) => {
+      const repairRow = groups.rows[rowIndex];
+      repairRow.consumed = true;
+      return repairRow.item;
+    });
   return items.length > 0 ? items : undefined;
 }
 
-function assertAllRepairItemsMatched(
-  groups: ReturnType<typeof parseRepairItems>,
-  _consumedKeys: Set<string>,
-) {
+function assertAllRepairItemsMatched(groups: ReturnType<typeof parseRepairItems>) {
   const unmatchedRows = groups.rows
     .filter((row) => !row.consumed)
     .map((row) => row.rowNumber)
@@ -438,6 +448,19 @@ function assertAllRepairItemsMatched(
       `维修项目第 ${unmatchedRows.join("、")} 行没有匹配的工单行，请检查工单ID、工单编号或外部记录ID`,
     );
   }
+}
+
+function repairMatchSignature(keys: string[]) {
+  return [...keys].sort().join("\u0001");
+}
+
+function repairMatchSubsets(keys: string[]) {
+  const signatures: string[] = [];
+  for (let mask = 1; mask < 1 << keys.length; mask += 1) {
+    const subset = keys.filter((_key, index) => (mask & (1 << index)) !== 0);
+    signatures.push(repairMatchSignature(subset));
+  }
+  return signatures;
 }
 
 function removeUnchangedFields(data: Record<string, unknown>, current: OrderDataDbRow) {

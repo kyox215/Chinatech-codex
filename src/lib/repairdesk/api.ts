@@ -32,6 +32,7 @@ import type {
   OrderQueueSummaryInput,
   OrderStats,
   OrderDataImportApplyResult,
+  OrderDataBatchHistory,
   OrderDataImportMode,
   OrderDataImportPreview,
   OrderApprovalDecisionInput,
@@ -435,6 +436,12 @@ export async function exportOrderData(expectedStoreId: string) {
 
 export async function exportCustomerStats(expectedStoreId: string) {
   return requestFile("customers/data/stats-export", { expectedStoreId });
+}
+
+export async function listOrderDataBatchHistory(
+  expectedStoreId: string,
+): Promise<OrderDataBatchHistory> {
+  return postJson<OrderDataBatchHistory>("orders/data/batches", { expectedStoreId });
 }
 
 export async function previewOrderDataImport(input: {

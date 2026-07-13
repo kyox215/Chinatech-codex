@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuditActor, OnboardingRequest } from "@/lib/repairdesk/types";
 
@@ -110,6 +110,8 @@ describe("store repository access request boundaries", () => {
     mocks.isPrimaryStoreOwner.mockReset();
     mocks.isPrimaryStoreOwner.mockResolvedValue(false);
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("publishes server-computed settings capabilities without client role inference", async () => {
     const [ownerContext, managerContext, technicianContext, salesContext, viewerContext] =
@@ -259,6 +261,8 @@ describe("store repository access request boundaries", () => {
   });
 
   it("creates an independent private store with an active owner membership", async () => {
+    vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "1");
+    vi.stubEnv("ORDER_DATA_APPLY_ENABLED", "1");
     const createRateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
     const slugQuery = createSupabaseQuery({ data: null, error: null });
     const storeInsertQuery = createSupabaseQuery({

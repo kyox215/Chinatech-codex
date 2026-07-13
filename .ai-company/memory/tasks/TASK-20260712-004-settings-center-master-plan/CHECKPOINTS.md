@@ -408,3 +408,21 @@ Create the scoped local WP-05 commit without pushing. Then stop for Owner decisi
 - **Evidence:**
   - Independent architecture, data/security, and UX/QA reviews P0=0/P1=0; focused 7 files/98 tests; full 162 files/1052 tests; WP06 Playwright 6/6; agents check, lint, typecheck, diff check, and final production build pass; four synthetic screenshots inspected.
 - **Recorded by:** RepairDesk-Integration-Lead
+
+## 2026-07-13T22:37:08Z — WP-07 order data local safe slice is implemented and validated; primary-owner/store/default-off boundaries, order-preserving maximum-contract indexing, responsive previews/reports/history, expiry/confirmation/recovery, and mobile targets pass.
+
+- **Phase:** wp07_local_conditional_closeout
+- **Completed/current state:** WP-07 is locally conditionally closed at P0=0/P1=0 after final architecture, security, and UI/UX review. Five synthetic screenshots and complete local gates are green.
+- **Next:** Create one scoped local WP-07 commit without pushing, verify the clean boundary, then start WP-08 whole-plan quality/release documentation. Keep every database, production-data, retention, real-flag, push, and deployment gate closed.
+- **Decision:** Exact-`1` default-off flags and active-primary-owner/store binding remain mandatory. Preview expiry is not deletion proof. Apply is not production-ready and must stay off.
+- **Blocker:** Production export/preview needs scheduled/monitored PII cleanup, a streaming body hard limit, rate/concurrency governance, abandoned-batch cleanup, and capacity proof. Apply additionally needs atomic staging, normal-create workflow/warranty/audit parity, safe transaction sizing, runtime result/impact/recovery evidence, and approved linked database/release execution.
+- **Evidence:**
+  - Independent architecture/QA, security, and UI/UX terminal reviews P0=0/P1=0; focused 9 files/104 tests; full 167 files/1073 tests; dedicated Playwright 10/10; broader Settings passed status; agents, lint, typecheck, diff check, and production build pass; five screenshots inspected.
+- **Recorded by:** RepairDesk-Integration-Lead
+## 2026-07-13T22:40:19Z — WP-07 order data local safe slice is conditionally closed at P0=0/P1=0. Default-off primary-owner/store access, order-preserving maximum-contract indexing, responsive preview/reports/sanitized history, expiry/confirmation/partial recovery, full 167-file/1073-test regression, WP07 Playwright 10/10, lint/typecheck/agents/diff/build, and five synthetic screenshots pass. Production export/preview and Apply remain NO-GO.
+
+- **Phase:** wp07_local_conditional_closeout
+- **Completed/current state:** WP-07 order data local safe slice is conditionally closed at P0=0/P1=0. Default-off primary-owner/store access, order-preserving maximum-contract indexing, responsive preview/reports/sanitized history, expiry/confirmation/partial recovery, full 167-file/1073-test regression, WP07 Playwright 10/10, lint/typecheck/agents/diff/build, and five synthetic screenshots pass. Production export/preview and Apply remain NO-GO.
+- **Next:** Create one scoped local WP-07 commit without push, verify a clean boundary, then begin WP-08 whole-plan quality, operator/release documentation, evidence reconciliation, and rollback packaging. Keep database, production data, retention, real flags, push, and deployment closed.
+- **Evidence:** none added by this command; use the immediately preceding WP-07 evidence checkpoint and `EVIDENCE.md` rather than inferring validation from this command.
+- **Recorded by:** CEO-Orchestrator

@@ -152,3 +152,20 @@
 - Do not describe the four legacy mutation routes as atomic, revision-safe, or suitable for client orchestration.
 - No schema, migration, public API, deployment, role matrix, retention, or production runbook was changed in this slice.
 - Final end-user Settings operator documentation remains deferred until WP-07 stabilizes and WP-08 performs release closeout.
+
+## WP-07 order data center
+
+| Reader             | Impact                                                                                                                       | Authoritative update                                                                                              | Verification                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Store users        | Primary owners get store-bound export, preview, complete reports, final confirmation, partial recovery, and sanitized history | `order-data-section.tsx`, `ORDER_DATA_ROUNDTRIP.md`, and five WP07 screenshots                                    | WP07 Playwright 10/10 across six widths           |
+| Developers         | Flags fail closed; matching is indexed/order-preserving; history and Apply errors use safe typed/store-scoped contracts       | order-data feature flag, normalizer, repository/service/API/types, `WP07_CONTEXT_PACKET.md`                       | 9 focused files / 104 tests; full 1073 tests      |
+| QA                 | 10/100 progressive preview, expiry, reports, dirty leave, 44px options, confirmation, partial result, and blocked zero-request | `tests/e2e/settings-order-data.spec.ts`, component tests, screenshots                                             | Dedicated 10/10 and broader Settings status PASS  |
+| Security reviewers | Active primary owner plus expected store is required; history is an allowlist; DB details are not returned                     | order-data access/repository/error model, `WP07_OWNER_APPROVAL_PACKET.md`                                         | Independent security final P0=0/P1=0 locally      |
+| Release / data     | Real flags remain off; retention, ingress/body limits, limiting, atomic staging, invariants, DB proof, push/deploy are blocked | `WP07_OWNER_APPROVAL_PACKET.md`, `ORDER_DATA_ROUNDTRIP.md`, checkpoint, Active Context                            | Local build only; no DB/production/release action |
+
+### WP-07 documentation limits
+
+- Do not describe 24-hour preview expiry as timed deletion or the 30-day SQL policy as a guaranteed physical maximum; cleanup is currently opportunity-based.
+- Do not describe export/preview or Apply as enabled in any real environment. Both flags require exact `1` and remain default-off.
+- UI/mock/CSV/browser evidence is not linked PostgreSQL, RLS/grant, load, rollback, retention, ingress, or production proof.
+- Apply does not yet have approved normal-create workflow/default-warranty parity, atomic staging, safe maximum transaction sizing, or complete before/after impact evidence.

@@ -523,6 +523,50 @@ export interface OrderDataImportApplyResult {
   }[];
 }
 
+export type OrderDataBatchKind = "template" | "order_export" | "customer_stats" | "import";
+export type OrderDataBatchStatus =
+  | "building"
+  | "completed"
+  | "previewed"
+  | "applying"
+  | "applied"
+  | "partial"
+  | "failed"
+  | "expired"
+  | "rolled_back"
+  | "rollback_partial";
+
+export interface OrderDataBatchSummary {
+  id: string;
+  storeId: string;
+  kind: OrderDataBatchKind;
+  mode?: OrderDataImportMode;
+  status: OrderDataBatchStatus;
+  actorDisplayName?: string;
+  createdAt: string;
+  previewedAt?: string;
+  appliedAt?: string;
+  expiresAt: string;
+  summary: {
+    total?: number;
+    ready?: number;
+    create?: number;
+    update?: number;
+    invalid?: number;
+    skipped?: number;
+    rows?: number;
+    applied?: number;
+    conflicts?: number;
+    failed?: number;
+  };
+}
+
+export interface OrderDataBatchHistory {
+  storeId: string;
+  items: OrderDataBatchSummary[];
+  hasMore: boolean;
+}
+
 export interface DashboardSummaryInput {
   limit?: number;
 }

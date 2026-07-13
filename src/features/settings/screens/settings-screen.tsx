@@ -295,6 +295,7 @@ export function SettingsScreen() {
   const [memberSectionDirty, setMemberSectionDirty] = useState(false);
   const [supplierSectionDirty, setSupplierSectionDirty] = useState(false);
   const [workflowSectionDirty, setWorkflowSectionDirty] = useState(false);
+  const [orderDataSectionDirty, setOrderDataSectionDirty] = useState(false);
   const [latestInviteCodeState, setLatestInviteCodeState] =
     useState<StoreBoundTransientValue<string> | null>(null);
   const [memberActionId, setMemberActionId] = useState("");
@@ -333,6 +334,7 @@ export function SettingsScreen() {
     setMemberSectionDirty(false);
     setSupplierSectionDirty(false);
     setWorkflowSectionDirty(false);
+    setOrderDataSectionDirty(false);
   }, [activeStoreId]);
 
   useEffect(() => {
@@ -436,7 +438,7 @@ export function SettingsScreen() {
       notifications: false,
       rules: false,
       workflow: workflowSectionDirty,
-      "order-data": false,
+      "order-data": orderDataSectionDirty,
     };
     return {
       ...base,
@@ -450,6 +452,7 @@ export function SettingsScreen() {
     kioskReturnDraftDirty,
     memberSectionDirty,
     supplierSectionDirty,
+    orderDataSectionDirty,
     workflowSectionDirty,
   ]);
 
@@ -1823,7 +1826,9 @@ export function SettingsScreen() {
                   <OrderDataSection
                     key={activeStoreId}
                     storeId={activeStoreId}
+                    storeName={storeContextQuery.data?.activeStore?.name ?? "当前店铺"}
                     applyEnabled={canApplyOrderData}
+                    onDirtyChange={setOrderDataSectionDirty}
                   />
                 ) : null}
               </div>
@@ -1956,7 +1961,7 @@ function SettingsSectionAccessState({
               ? "当前店铺的权限状态不可用，请重新加载页面后再试。"
               : "当前账号不具备此分组所需的店铺权限。页面未读取或显示相关业务数据。"}
           </p>
-          <Button asChild type="button" size="sm" variant="outline" className="mt-3 h-8">
+          <Button asChild type="button" size="sm" variant="outline" className="mt-3 min-h-11">
             <Link href="/settings">返回设置总览</Link>
           </Button>
         </div>

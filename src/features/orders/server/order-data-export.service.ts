@@ -5,6 +5,7 @@ import { listCustomersPage } from "@/features/customers/server/customer.service"
 import { deviceCustodyLabel, isDeviceCustodyStatus } from "@/features/orders/model/device-custody";
 import {
   ORDER_DATA_PARSER_VERSION,
+  ORDER_DATA_MAX_REPAIR_ITEM_ROWS,
   ORDER_DATA_TEMPLATE_VERSION,
 } from "@/features/orders/model/order-data-contract";
 import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
@@ -65,7 +66,16 @@ export async function exportOrderData(input: { expectedStoreId: string; actor: A
     rows.map((row) => String(row.id)),
   );
   const workbookRows = rows.map((row) => exportOrderRow(row, refs.get(String(row.id))));
-  const repairRows = rows.flatMap((row) => exportRepairItemRows(row, refs.get(String(row.id))));
+  const repairRows: WorkbookDataRow[] = [];
+  for (const row of rows) {
+    const nextRows = exportRepairItemRows(row, refs.get(String(row.id)));
+    if (repairRows.length + nextRows.length > ORDER_DATA_MAX_REPAIR_ITEM_ROWS) {
+      throw new Error(
+        `维修项目超过 ${ORDER_DATA_MAX_REPAIR_ITEM_ROWS} 行同步导出限制，请联系管理员`,
+      );
+    }
+    repairRows.push(...nextRows);
+  }
   const bytes = await buildOrderDataWorkbook({
     kind: "export",
     exportBatchId: batch.id,

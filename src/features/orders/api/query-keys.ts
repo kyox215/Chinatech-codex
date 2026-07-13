@@ -23,4 +23,6 @@ export const ordersKeys = {
     ["repairdesk-options", ...storeQueryScope(storeId)] as const,
   workflow: (storeId?: string | null) =>
     [...ordersKeys.all, "workflow", ...storeQueryScope(storeId)] as const,
+  dataBatches: (storeId?: string | null) =>
+    [...ordersKeys.all, "data-batches", ...storeQueryScope(storeId)] as const,
 };
