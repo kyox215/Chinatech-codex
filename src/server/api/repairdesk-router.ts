@@ -624,6 +624,16 @@ function emptyOrderListResult(pageSize: number): OrderListResult {
       repaired: 0,
       repaired_notified: 0,
     },
+    resultGroupCounts: {
+      processing: 0,
+      ordered: 0,
+      arrived: 0,
+      arrived_notified: 0,
+      repaired: 0,
+      repaired_notified: 0,
+      completed: 0,
+      cancelled: 0,
+    },
   };
 }
 

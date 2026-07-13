@@ -2,7 +2,6 @@ import { Buffer } from "node:buffer";
 
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
-  getStatusListSortIndex,
   isApprovalOverdue,
   isPickupOverdue,
 } from "@/lib/mock/workflow";
@@ -55,7 +54,6 @@ import {
   paymentStatusFromMoney,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
-import { getSimpleOrderFlowStageIndexForWorkflow } from "@/features/orders/model/order-simple-flow";
 import {
   formatWarrantyText,
   normalizeWarrantyMonths,
@@ -100,8 +98,11 @@ import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visi
 import {
   countOrderQueueGroups,
   getOrderQueueGroup,
-  orderQueueGroupMeta,
 } from "@/features/orders/model/order-queue-classification";
+import {
+  compareOrdersForQueue,
+  countOrderResultGroups,
+} from "@/features/orders/model/order-list-grouping";
 
 function isTechnicianActor(actor?: AuditActor) {
   return !actor?.isSystem && (actor?.storeRole ?? actor?.role) === "technician";
@@ -285,28 +286,7 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
     );
   }
 
-  return result.sort((a, b) => {
-    const archiveSort = Number(isOrderArchivedForQueue(a)) - Number(isOrderArchivedForQueue(b));
-    if (archiveSort !== 0) return archiveSort;
-    const queueSort =
-      orderQueueGroupMeta[getOrderQueueGroup(a)].sortOrder -
-      orderQueueGroupMeta[getOrderQueueGroup(b)].sortOrder;
-    if (queueSort !== 0) return queueSort;
-    const aWorkflow = a.workflow_status ?? workflowStatusFromLegacyStatus(a.status);
-    const bWorkflow = b.workflow_status ?? workflowStatusFromLegacyStatus(b.status);
-    const simpleProgressSort =
-      getSimpleOrderFlowStageIndexForWorkflow(aWorkflow) -
-      getSimpleOrderFlowStageIndexForWorkflow(bWorkflow);
-    if (simpleProgressSort !== 0) return simpleProgressSort;
-    const workflowSort =
-      orderWorkflowStatuses.indexOf(aWorkflow) - orderWorkflowStatuses.indexOf(bWorkflow);
-    if (workflowSort !== 0) return workflowSort;
-    const statusSort = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
-    if (statusSort !== 0) return statusSort;
-    const updatedSort = new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    if (updatedSort !== 0) return updatedSort;
-    return a.id.localeCompare(b.id);
-  });
+  return result.sort(compareOrdersForQueue);
 }
 
 function createWorkflowCounts(): Record<OrderWorkflowStatusCode | "all", number> {
@@ -903,13 +883,13 @@ export async function listOrdersPage(
 
   const rows = scopeOrderRowsForActor(await fetchOrderRows(storeId), actor).map(decorate);
   const filtered = filterOrders(rows, safeFilters);
-  const all = (safeFilters.archiveSearchExact ? filtered.slice(0, 20) : filtered).map((order) =>
-    projectOrderListItemForActor(order, actor),
-  );
+  const bounded = safeFilters.archiveSearchExact ? filtered.slice(0, 20) : filtered;
+  const all = bounded.map((order) => projectOrderListItemForActor(order, actor));
   const workflowCounts = countWorkflowRows(
     filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
   );
   const queueCounts = countOrderQueueGroups(filterOrders(rows, filtersForQueueCounts(safeFilters)));
+  const resultGroupCounts = countOrderResultGroups(bounded);
   const effectivePage = safeFilters.archiveSearchExact ? 1 : page;
   const effectivePageSize = safeFilters.archiveSearchExact ? 20 : pageSize;
   const start = (effectivePage - 1) * effectivePageSize;
@@ -923,6 +903,7 @@ export async function listOrdersPage(
       : Math.max(1, Math.ceil(all.length / effectivePageSize)),
     workflowCounts,
     queueCounts,
+    resultGroupCounts,
   };
 }
 

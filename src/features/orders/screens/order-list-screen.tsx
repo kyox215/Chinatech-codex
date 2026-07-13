@@ -12,7 +12,7 @@ import {
 import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Filter, Plus, Printer, Search, X } from "lucide-react";
+import { AlertTriangle, Filter, LoaderCircle, Plus, Printer, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,8 @@ import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
 import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
+import { OrderResultGroupHeader } from "@/features/orders/components/order-result-group-header";
+import { OrderSearchFeedback } from "@/features/orders/components/order-search-feedback";
 import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
 import { OrderListViewMode } from "@/features/orders/components/order-list-view-mode";
 import {
@@ -83,6 +85,12 @@ import {
   orderQueueGroupMeta,
   orderQueueGroups,
 } from "@/features/orders/model/order-queue-classification";
+import {
+  createOrderResultGroupCounts,
+  groupOrderListItems,
+  orderResultGroupMeta,
+} from "@/features/orders/model/order-list-grouping";
+import { useOrderSearchInput } from "@/features/orders/model/use-order-search-input";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import {
   ORDER_QUEUE_PAGE_SIZE,
@@ -157,6 +165,17 @@ export function OrderListScreen() {
   const { coordinator } = useRealtimeSync();
   const detailPreloadScheduler = useMemo(() => new BoundedPreloadScheduler(1), []);
   const detailPreloadEnabled = isRepairDeskPreloadEnabled();
+  const commitSearch = useCallback((value: string) => {
+    const nextSearch = value || undefined;
+    setFilters((current) =>
+      current.search === nextSearch ? current : { ...current, search: nextSearch },
+    );
+    setPage(1);
+  }, []);
+  const searchInput = useOrderSearchInput({
+    value: filters.search,
+    onCommit: commitSearch,
+  });
 
   useEffect(() => {
     document.body.dataset.mobileWorkspaceActive = "true";
@@ -265,8 +284,10 @@ export function OrderListScreen() {
   );
 
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
+  const groupedData = useMemo(() => groupOrderListItems(data), [data]);
   const totalOrders = listResult?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
+  const resultGroupCounts = listResult?.resultGroupCounts ?? createOrderResultGroupCounts();
   const statusGroups = useMemo(() => {
     const activeView = (filters.view ?? "active") === "active";
     const queueCounts = listResult?.queueCounts ?? {
@@ -311,6 +332,10 @@ export function OrderListScreen() {
   }, [filters.view, listResult?.queueCounts, totalOrders]);
   const listErrorMessage =
     listError instanceof Error ? listError.message : "请检查网络、登录状态或数据库迁移。";
+  const searchBusy =
+    searchInput.isDebouncing ||
+    (isFetching && (Boolean(searchInput.committedValue) || isPlaceholderData));
+  const searchHasError = listIsError && Boolean(searchInput.committedValue);
   const activeFilterChips = useMemo<ActiveFilterChip[]>(() => {
     const chips: ActiveFilterChip[] = [];
     const statusLabels = new Map(workflowStatuses.map((status) => [status.code, status.label]));
@@ -715,8 +740,7 @@ export function OrderListScreen() {
     tone: group.tone,
   }));
   const applyScanSearch = (value: string) => {
-    setFilters((current) => ({ ...current, search: value || undefined }));
-    setPage(1);
+    searchInput.commitNow(value);
   };
   const orderListView = filters.view ?? "active";
   const changeOrderListView = (view: "active" | "archive" | "all") => {
@@ -768,6 +792,26 @@ export function OrderListScreen() {
         onStatusFilterChange={resetWorkflowFilters}
         onClearAllFilters={clearAllFilters}
         onCreateOrder={() => setNewOrderOpen(true)}
+        searchValue={searchInput.draftValue}
+        searchBusy={searchBusy}
+        onSearchChange={searchInput.setDraftValue}
+        onSearchSubmit={() => searchInput.commitNow()}
+        onSearchClear={searchInput.clearSearch}
+        searchFeedback={
+          <OrderSearchFeedback
+            compact
+            draftValue={searchInput.draftValue}
+            committedValue={searchInput.committedValue}
+            isDebouncing={searchInput.isDebouncing}
+            isFetching={isFetching}
+            isPlaceholderData={isPlaceholderData}
+            hasError={searchHasError}
+            total={totalOrders}
+            resultGroupCounts={listResult?.resultGroupCounts}
+            canSearchArchive={canSearchOrderArchive}
+            onRetry={() => void refetchOrders()}
+          />
+        }
         scanAction={
           <ScanSearchButton
             scope="orders"
@@ -814,11 +858,37 @@ export function OrderListScreen() {
           <div className="relative min-w-0 flex-[1_1_260px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              value={filters.search ?? ""}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined })}
+              value={searchInput.draftValue}
+              onChange={(event) => searchInput.setDraftValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                searchInput.commitNow();
+              }}
               placeholder="搜索工单号、客户姓名、电话或 IMEI"
-              className={controls.searchInput}
+              aria-label="搜索工单、客户、电话或 IMEI"
+              className={cn(controls.searchInput, "pr-16")}
+              aria-busy={searchBusy}
             />
+            <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+              {searchBusy ? (
+                <LoaderCircle
+                  className="pointer-events-none size-4 shrink-0 animate-spin text-primary"
+                  aria-hidden="true"
+                />
+              ) : null}
+              {searchInput.draftValue ? (
+                <button
+                  type="button"
+                  onClick={searchInput.clearSearch}
+                  className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  aria-label="清除搜索"
+                  title="清除搜索"
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
+            </div>
           </div>
           <ScanSearchButton
             scope="orders"
@@ -863,6 +933,18 @@ export function OrderListScreen() {
             <Plus className="size-3.5" /> 新建工单
           </Button>
         </div>
+        <OrderSearchFeedback
+          draftValue={searchInput.draftValue}
+          committedValue={searchInput.committedValue}
+          isDebouncing={searchInput.isDebouncing}
+          isFetching={isFetching}
+          isPlaceholderData={isPlaceholderData}
+          hasError={searchHasError}
+          total={totalOrders}
+          resultGroupCounts={listResult?.resultGroupCounts}
+          canSearchArchive={canSearchOrderArchive}
+          onRetry={() => void refetchOrders()}
+        />
         {workflowIsError && (
           <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn/10 px-2.5 py-2 text-xs text-status-warn-foreground">
             <AlertTriangle className="size-3.5 shrink-0" />
@@ -898,7 +980,7 @@ export function OrderListScreen() {
         )}
       </div>
 
-      {listIsError && queueSummary ? (
+      {listIsError && queueSummary && !searchInput.committedValue ? (
         <div
           role="status"
           className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
@@ -928,7 +1010,11 @@ export function OrderListScreen() {
         ) : listIsError && !queueSummary ? (
           <OrdersErrorState message={listErrorMessage} onRetry={() => refreshOrderData()} />
         ) : !data.length ? (
-          <EmptyOrdersState hasActiveFilters={hasActiveFilters} onClearFilters={clearAllFilters} />
+          <EmptyOrdersState
+            hasActiveFilters={hasActiveFilters}
+            searchQuery={searchInput.committedValue}
+            onClearFilters={clearAllFilters}
+          />
         ) : (
           <>
             {/* Desktop work queue */}
@@ -974,68 +1060,108 @@ export function OrderListScreen() {
                   <div className="px-2 py-1.5">负责人 / 时间</div>
                   <div className="px-2 py-1.5 text-right">{data.length}</div>
                 </div>
-                <motion.div
-                  role="list"
-                  variants={stagger(0.025)}
-                  initial="hidden"
-                  animate="show"
-                  className="space-y-1.5"
-                >
-                  {data.map((o) => {
-                    const checked = selected.includes(o.id);
-                    return (
-                      <DesktopOrderQueueRow
-                        key={o.id}
-                        order={o}
-                        workflow={workflow}
-                        checked={checked}
-                        selectable={canUseBulkActions}
-                        onOpen={() => openDetail(o.id)}
-                        onPrefetch={() => scheduleOrderDetailPrefetch(o.id, "intent")}
-                        onCancelPrefetch={() => cancelOrderDetailPrefetch(o.id)}
-                        onCheckedChange={(value) =>
-                          setSelected((prev) =>
-                            value ? [...prev, o.id] : prev.filter((id) => id !== o.id),
-                          )
-                        }
-                        onPrint={() => printRows([o])}
-                        onStopInteraction={stopRowClick}
-                        suppliers={visibleSuppliers}
-                        onPartsSupplierChange={
-                          canAssignSuppliers
-                            ? (supplierId) => partsSupplierMutation.mutate({ order: o, supplierId })
-                            : undefined
-                        }
-                        isPartsSupplierUpdating={
-                          partsSupplierMutation.isPending &&
-                          partsSupplierMutation.variables?.order.id === o.id
-                        }
+                <div className="space-y-3">
+                  {groupedData.map((section) => (
+                    <section
+                      key={section.group}
+                      className="space-y-1.5"
+                      aria-labelledby={`desktop-order-group-${section.group}`}
+                    >
+                      <OrderResultGroupHeader
+                        headingId={`desktop-order-group-${section.group}`}
+                        group={section.group}
+                        pageCount={section.items.length}
+                        totalCount={resultGroupCounts[section.group]}
+                        oldestCreatedAt={section.items[0].created_at}
                       />
-                    );
-                  })}
-                </motion.div>
+                      <motion.div
+                        role="list"
+                        aria-label={`${orderResultGroupMeta[section.group].label}工单分组`}
+                        variants={stagger(0.025)}
+                        initial="hidden"
+                        animate="show"
+                        className="space-y-1.5"
+                      >
+                        {section.items.map((order) => {
+                          const checked = selected.includes(order.id);
+                          return (
+                            <div key={order.id} role="listitem">
+                              <DesktopOrderQueueRow
+                                order={order}
+                                workflow={workflow}
+                                checked={checked}
+                                selectable={canUseBulkActions}
+                                onOpen={() => openDetail(order.id)}
+                                onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
+                                onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
+                                onCheckedChange={(value) =>
+                                  setSelected((previous) =>
+                                    value
+                                      ? [...previous, order.id]
+                                      : previous.filter((id) => id !== order.id),
+                                  )
+                                }
+                                onPrint={() => printRows([order])}
+                                onStopInteraction={stopRowClick}
+                                suppliers={visibleSuppliers}
+                                onPartsSupplierChange={
+                                  canAssignSuppliers
+                                    ? (supplierId) =>
+                                        partsSupplierMutation.mutate({ order, supplierId })
+                                    : undefined
+                                }
+                                isPartsSupplierUpdating={
+                                  partsSupplierMutation.isPending &&
+                                  partsSupplierMutation.variables?.order.id === order.id
+                                }
+                              />
+                            </div>
+                          );
+                        })}
+                      </motion.div>
+                    </section>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Mobile and tablet cards */}
-            <div data-order-mobile-list="true" className="space-y-1.5 lg:hidden">
-              {data.map((order) => (
-                <OrderMobileCard
-                  key={order.id}
-                  order={order}
-                  onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
-                  onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
-                  suppliers={visibleSuppliers}
-                  isPartsSupplierUpdating={
-                    partsSupplierMutation.isPending &&
-                    partsSupplierMutation.variables?.order.id === order.id
-                  }
-                  onPartsSupplierChange={
-                    canAssignSuppliers
-                      ? (supplierId) => partsSupplierMutation.mutate({ order, supplierId })
-                      : undefined
-                  }
-                />
+            <div data-order-mobile-list="true" className="space-y-3 lg:hidden">
+              {groupedData.map((section) => (
+                <section
+                  key={section.group}
+                  className="space-y-1.5"
+                  aria-labelledby={`mobile-order-group-${section.group}`}
+                >
+                  <OrderResultGroupHeader
+                    headingId={`mobile-order-group-${section.group}`}
+                    group={section.group}
+                    pageCount={section.items.length}
+                    totalCount={resultGroupCounts[section.group]}
+                    oldestCreatedAt={section.items[0].created_at}
+                  />
+                  <div className="space-y-1.5" role="list">
+                    {section.items.map((order) => (
+                      <div key={order.id} role="listitem">
+                        <OrderMobileCard
+                          order={order}
+                          onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
+                          onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
+                          suppliers={visibleSuppliers}
+                          isPartsSupplierUpdating={
+                            partsSupplierMutation.isPending &&
+                            partsSupplierMutation.variables?.order.id === order.id
+                          }
+                          onPartsSupplierChange={
+                            canAssignSuppliers
+                              ? (supplierId) => partsSupplierMutation.mutate({ order, supplierId })
+                              : undefined
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
             <PaginationBar

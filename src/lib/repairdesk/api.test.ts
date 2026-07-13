@@ -61,6 +61,7 @@ describe("repairdesk api client", () => {
                 pageCount: 1,
                 workflowCounts: { all: 0 },
                 queueCounts: { all: 0 },
+                resultGroupCounts: {},
               },
               stats: {
                 total: 0,
@@ -141,6 +142,7 @@ describe("repairdesk api client", () => {
                 pageCount: 1,
                 workflowCounts: { all: 0 },
                 queueCounts: { all: 0 },
+                resultGroupCounts: {},
               },
               workflow: { statuses: [], transitions: [] },
               options: {

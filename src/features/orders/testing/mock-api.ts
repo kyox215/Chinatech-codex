@@ -36,12 +36,14 @@ import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visi
 import {
   countOrderQueueGroups,
   getOrderQueueGroup,
-  orderQueueGroupMeta,
 } from "@/features/orders/model/order-queue-classification";
+import {
+  compareOrdersForQueue,
+  countOrderResultGroups,
+} from "@/features/orders/model/order-list-grouping";
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
   DEFAULT_ORDER_WORKFLOW_TRANSITIONS,
-  getStatusListSortIndex,
   isApprovalOverdue,
   isPickupOverdue,
 } from "@/lib/mock/workflow";
@@ -69,7 +71,6 @@ import {
   paymentStatusFromMoney,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
-import { getSimpleOrderFlowStageIndexForWorkflow } from "@/features/orders/model/order-simple-flow";
 import {
   formatWarrantyText,
   normalizeWarrantyPayload,
@@ -302,29 +303,7 @@ export async function listOrders(
           : o.approval_overdue || o.pickup_overdue,
     );
   }
-  // Workflow-first sort, then updated_at desc.
-  return result
-    .sort((a, b) => {
-      const archiveSort = Number(isOrderArchivedForQueue(a)) - Number(isOrderArchivedForQueue(b));
-      if (archiveSort !== 0) return archiveSort;
-      const queueSort =
-        orderQueueGroupMeta[getOrderQueueGroup(a)].sortOrder -
-        orderQueueGroupMeta[getOrderQueueGroup(b)].sortOrder;
-      if (queueSort !== 0) return queueSort;
-      const aWorkflow = a.workflow_status ?? workflowStatusFromLegacyStatus(a.status);
-      const bWorkflow = b.workflow_status ?? workflowStatusFromLegacyStatus(b.status);
-      const simpleProgressSort =
-        getSimpleOrderFlowStageIndexForWorkflow(aWorkflow) -
-        getSimpleOrderFlowStageIndexForWorkflow(bWorkflow);
-      if (simpleProgressSort !== 0) return simpleProgressSort;
-      const workflowSort =
-        orderWorkflowStatuses.indexOf(aWorkflow) - orderWorkflowStatuses.indexOf(bWorkflow);
-      if (workflowSort !== 0) return workflowSort;
-      const statusSort = getStatusListSortIndex(a.status) - getStatusListSortIndex(b.status);
-      if (statusSort !== 0) return statusSort;
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    })
-    .map(redactOrderListSecrets);
+  return result.sort(compareOrdersForQueue).map(redactOrderListSecrets);
 }
 
 export async function listOrdersPage(
@@ -338,6 +317,7 @@ export async function listOrdersPage(
     await listOrders(filtersForWorkflowCounts(input), actor),
   );
   const queueCounts = countOrderQueueGroups(await listOrders(filtersForQueueCounts(input), actor));
+  const resultGroupCounts = countOrderResultGroups(all);
   const start = (page - 1) * pageSize;
   return {
     items: all.slice(start, start + pageSize),
@@ -347,6 +327,7 @@ export async function listOrdersPage(
     pageCount: Math.max(1, Math.ceil(all.length / pageSize)),
     workflowCounts,
     queueCounts,
+    resultGroupCounts,
   };
 }
 

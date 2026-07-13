@@ -8,11 +8,15 @@ import { brandGradientStyle, stateBlocks } from "@/lib/ui-patterns";
 
 export function EmptyOrdersState({
   hasActiveFilters,
+  searchQuery,
   onClearFilters,
 }: {
   hasActiveFilters: boolean;
+  searchQuery?: string;
   onClearFilters: () => void;
 }) {
+  const normalizedSearch = searchQuery?.trim();
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
@@ -23,16 +27,22 @@ export function EmptyOrdersState({
         <Search className="size-7" />
       </div>
       <h3 className="font-display text-lg font-semibold">
-        {hasActiveFilters ? "暂无符合条件的工单" : "暂无工单"}
+        {normalizedSearch
+          ? `未找到“${normalizedSearch}”`
+          : hasActiveFilters
+            ? "暂无符合条件的工单"
+            : "暂无工单"}
       </h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        {hasActiveFilters
-          ? "当前有筛选条件生效，可以清除后再查看。"
-          : "新建第一张维修工单后会显示在这里。"}
+        {normalizedSearch
+          ? "可以检查订单号、姓名、电话号码或 IMEI，也可以清除条件后重试。"
+          : hasActiveFilters
+            ? "当前有筛选条件生效，可以清除后再查看。"
+            : "新建第一张维修工单后会显示在这里。"}
       </p>
       {hasActiveFilters && (
         <Button variant="outline" size="sm" className="mt-3 h-8" onClick={onClearFilters}>
-          清除全部筛选
+          {normalizedSearch ? "清除搜索和筛选" : "清除全部筛选"}
         </Button>
       )}
     </motion.div>

@@ -44,6 +44,10 @@ import { PhoneContactMenu } from "@/features/orders/components/order-contact-men
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import { getWorkflowStatusLabel } from "@/features/orders/model/order-workflow";
+import {
+  findCurrentOrderStatusChangedAt,
+  formatOrderDateTime,
+} from "@/features/orders/model/order-date";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -294,13 +298,29 @@ function OrderOverviewDesktopContextStrip({
   const latestMeta = latestEvent
     ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name}`
     : "记录会在流转、通知和收款后生成";
+  const currentStatusChangedAt = findCurrentOrderStatusChangedAt({
+    status: order.status,
+    createdAt: order.created_at,
+    events,
+  });
 
   return (
     <section
       data-order-detail-context-strip="true"
-      className="grid min-w-0 gap-2 rounded-lg border border-[var(--border-panel)] bg-card/95 p-2 shadow-sm lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(220px,1.2fr)]"
+      className="grid min-w-0 gap-2 rounded-lg border border-[var(--border-panel)] bg-card/95 p-2 shadow-sm md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(220px,1.2fr)]"
     >
-      <OverviewMeta icon={Calendar} label="创建" value={formatDateTime(order.created_at)} compact />
+      <OverviewMeta
+        icon={Calendar}
+        label="送修时间"
+        value={formatDateTime(order.created_at)}
+        compact
+      />
+      <OverviewMeta
+        icon={Clock3}
+        label="状态时间"
+        value={formatDateTime(currentStatusChangedAt)}
+        compact
+      />
       <OverviewMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} compact />
       <OverviewMeta
         icon={Store}
@@ -1923,12 +1943,7 @@ function OverviewMeta({
 
 function formatDateTime(value?: string) {
   if (!value) return "-";
-  return new Date(value).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatOrderDateTime(value);
 }
 
 function getLatestEventSummary(event: OrderDetail["events"][number], workflow?: OrderWorkflow) {

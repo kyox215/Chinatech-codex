@@ -406,6 +406,7 @@ export type OrderQueueGroup =
   | "arrived_notified"
   | "repaired"
   | "repaired_notified";
+export type OrderResultGroup = OrderQueueGroup | "completed" | "cancelled";
 
 export interface OrderListPageInput extends OrderListFilters {
   page?: number;
@@ -431,6 +432,7 @@ export interface OrderListResult {
   pageCount: number;
   workflowCounts: Record<OrderWorkflowStatusCode | "all", number>;
   queueCounts: Record<OrderQueueGroup | "all", number>;
+  resultGroupCounts: Record<OrderResultGroup, number>;
 }
 
 export type OrderQueueSummaryInput = OrderListPageInput;

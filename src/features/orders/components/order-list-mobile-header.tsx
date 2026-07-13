@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Filter,
   ListTodo,
+  LoaderCircle,
   PackageCheck,
   PackagePlus,
   Plus,
@@ -83,6 +84,12 @@ export function MobileOrdersFloatingHeader({
   onClearAllFilters,
   onCreateOrder,
   scanAction,
+  searchValue,
+  searchBusy,
+  onSearchChange,
+  onSearchSubmit,
+  onSearchClear,
+  searchFeedback,
   viewModeControl,
   headerRef,
 }: {
@@ -110,6 +117,12 @@ export function MobileOrdersFloatingHeader({
   onClearAllFilters: () => void;
   onCreateOrder: () => void;
   scanAction?: ReactNode;
+  searchValue: string;
+  searchBusy: boolean;
+  onSearchChange: (value: string) => void;
+  onSearchSubmit: () => void;
+  onSearchClear: () => void;
+  searchFeedback?: ReactNode;
   viewModeControl?: ReactNode;
   headerRef?: Ref<HTMLDivElement>;
 }) {
@@ -149,19 +162,40 @@ export function MobileOrdersFloatingHeader({
               scanAction ? "grid-cols-[minmax(0,1fr)_40px_40px]" : "grid-cols-[minmax(0,1fr)_40px]",
             )}
           >
-            <div className={cn(repairOs.searchBar, "h-10 rounded-xl px-2 shadow-none")}>
+            <div
+              className={cn(repairOs.searchBar, "h-10 rounded-xl px-2 shadow-none")}
+              aria-busy={searchBusy}
+            >
               <Search className="size-3.5 shrink-0 text-muted-foreground" />
               <Input
-                value={filters.search ?? ""}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    search: event.target.value || undefined,
-                  }))
-                }
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  onSearchSubmit();
+                }}
                 placeholder="搜索订单、客户、手机"
+                aria-label="搜索订单、客户或手机"
                 className={cn(repairOs.searchInput, "h-9 text-base")}
               />
+              {searchBusy ? (
+                <LoaderCircle
+                  className="size-3.5 shrink-0 animate-spin text-primary"
+                  aria-hidden="true"
+                />
+              ) : null}
+              {searchValue ? (
+                <button
+                  type="button"
+                  className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  onClick={onSearchClear}
+                  aria-label="清除搜索"
+                  title="清除搜索"
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
             </div>
             {scanAction}
 
@@ -198,6 +232,8 @@ export function MobileOrdersFloatingHeader({
             </Sheet>
           </div>
 
+          {searchFeedback}
+
           {viewModeControl}
 
           <div className="grid min-w-0 grid-cols-2 gap-1" role="group" aria-label="待处理状态">
@@ -230,7 +266,11 @@ export function MobileOrdersFloatingHeader({
             })}
           </div>
 
-          <span className="sr-only" role="status" aria-live="polite">
+          <span
+            className="sr-only"
+            role={searchValue ? undefined : "status"}
+            aria-live={searchValue ? "off" : "polite"}
+          >
             当前显示 {activeGroup?.label ?? "全部待办"}，共 {activeGroup?.count ?? totalOrders} 条
           </span>
 

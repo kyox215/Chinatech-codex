@@ -170,13 +170,14 @@ describe("order repository database pagination", () => {
     mocks.supabase.rpc.mockReset();
   });
 
-  it("reads stable chunks before applying the existing business page order", async () => {
+  it("reads stable chunks before applying status and oldest-created-first page order", async () => {
     const queries: ReturnType<typeof createSupabaseQuery>[] = [];
     mocks.supabase.from.mockImplementation(() => {
       const query = createSupabaseQuery({
         data: Array.from({ length: 101 }, (_, index) =>
           orderRow({
             id: `order_${index}`,
+            created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
             updated_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
           }),
         ),
@@ -232,6 +233,7 @@ describe("order repository database pagination", () => {
         .filter(([key]) => key !== "all")
         .reduce((sum, [, count]) => sum + count, 0),
     ).toBe(55);
+    expect(result.resultGroupCounts.processing).toBe(55);
   });
 
   it("defaults to nonterminal work and keeps every completed or cancelled order in history", async () => {
@@ -281,6 +283,7 @@ describe("order repository database pagination", () => {
       repaired: 0,
       repaired_notified: 0,
     });
+    expect(active.resultGroupCounts).toMatchObject({ processing: 1, completed: 0, cancelled: 0 });
 
     const archive = await listOrdersPage({ view: "archive" }, actor("owner"));
     expect(archive.items.map((item) => item.id).sort()).toEqual([
@@ -288,6 +291,7 @@ describe("order repository database pagination", () => {
       "paid_closed",
       "unpaid_closed",
     ]);
+    expect(archive.resultGroupCounts).toMatchObject({ completed: 2, cancelled: 1 });
 
     const stats = await getOrderStats(actor("owner"));
     expect(stats).toMatchObject({ total: 1, unpaid: 0 });
@@ -314,6 +318,7 @@ describe("order repository database pagination", () => {
 
     const search = await listOrdersPage({ search: "R-ARCHIVE" }, actor("technician"));
     expect(search.items).toHaveLength(1);
+    expect(search.resultGroupCounts.completed).toBe(1);
     expect(Object.hasOwn(search.items[0] ?? {}, "quotation_amount")).toBe(false);
     expect(search.items[0]?.finance_redacted).toBe(true);
     const groupedSearch = await listOrdersPage(

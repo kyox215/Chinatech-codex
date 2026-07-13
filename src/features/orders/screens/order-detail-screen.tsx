@@ -161,6 +161,10 @@ import {
 } from "@/features/orders/model/order-fault-description";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
+import {
+  findCurrentOrderStatusChangedAt,
+  formatOrderDateTime,
+} from "@/features/orders/model/order-date";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
@@ -1815,6 +1819,11 @@ function MobileOrderDetailView({
     [data.attachments],
   );
   const latestEvent = events[0];
+  const currentStatusChangedAt = findCurrentOrderStatusChangedAt({
+    status: order.status,
+    createdAt: order.created_at,
+    events,
+  });
   const normalizedFinance = useMemo(
     () => normalizeFinanceDraft(financeDraft, paidAmount),
     [financeDraft, paidAmount],
@@ -1881,8 +1890,13 @@ function MobileOrderDetailView({
 
       <section data-mobile-order-first-card="true" className={mobileDetailCardClass}>
         <MobileSectionTitle icon={Calendar} title="基础信息" />
-        <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1">
-          <MobileMeta icon={Calendar} label="创建时间" value={formatDateTime(order.created_at)} />
+        <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-4">
+          <MobileMeta icon={Calendar} label="送修时间" value={formatDateTime(order.created_at)} />
+          <MobileMeta
+            icon={Clock3}
+            label="状态时间"
+            value={formatDateTime(currentStatusChangedAt)}
+          />
           <MobileMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} />
           <MobileMeta icon={Store} label="门店" value={storeSettings?.store_name || "ChinaTech"} />
         </div>
@@ -4150,12 +4164,7 @@ function normalizePhoneDigits(value: string) {
 }
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatOrderDateTime(value);
 }
 
 function formatShortDate(value: string) {

@@ -106,9 +106,11 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(active.items.map((order) => order.id)).toEqual([activeId]);
     expect(active.total).toBe(1);
     expect(active.queueCounts).toMatchObject({ all: 1, repaired: 1 });
+    expect(active.resultGroupCounts).toMatchObject({ repaired: 1, completed: 0, cancelled: 0 });
     expect(history.items.map((order) => order.id).sort()).toEqual(
       [completedId, cancelledId].sort(),
     );
+    expect(history.resultGroupCounts).toMatchObject({ completed: 1, cancelled: 1 });
 
     const completedNo = (await getOrder(completedId)).order.public_no;
     const groupedHistorySearch = await listOrdersPage({

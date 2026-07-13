@@ -33,6 +33,7 @@ import {
   orderTaskStages,
   type OrderTaskStage,
 } from "@/features/orders/model/order-task-flow";
+import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -228,7 +229,7 @@ export function OrderHero({
               <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] leading-3 text-muted-foreground">
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <Clock3 className="size-3 shrink-0" />
-                  <span className="truncate">创建 {formatHeroDate(order.created_at)}</span>
+                  <span className="truncate">送修 {formatOrderDateTime(order.created_at)}</span>
                 </span>
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <UserRound className="size-3 shrink-0" />
@@ -327,14 +328,4 @@ export function OrderHero({
       </div>
     </div>
   );
-}
-
-function formatHeroDate(value?: string) {
-  if (!value) return "-";
-  return new Date(value).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

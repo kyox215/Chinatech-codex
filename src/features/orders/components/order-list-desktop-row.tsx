@@ -38,6 +38,7 @@ import type { Supplier } from "@/lib/repairdesk/types";
 import { OrderSupplierPicker } from "@/features/suppliers/components/order-supplier-picker";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
+import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/model/order-date";
 
 export { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 
@@ -75,7 +76,8 @@ export function DesktopOrderQueueRow({
   const guidance = getOrderTaskGuidance(order);
   const next = getWorkflowNextActions(workflow, order.status);
   const hasOverdueException = Boolean(order.approval_overdue || order.pickup_overdue);
-  const createdDate = new Date(order.created_at).toLocaleDateString("zh-CN");
+  const createdDate = formatOrderListDate(order.created_at);
+  const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
   const paymentLabel = order.finance_redacted
     ? "详情可见"
     : order.is_paid
@@ -332,6 +334,9 @@ export function DesktopOrderQueueRow({
         <div className="flex min-w-0 items-center gap-1 whitespace-nowrap">
           <Clock className="size-3 shrink-0" />
           {createdDate}
+        </div>
+        <div className="truncate text-[10px] leading-3" title={relativeCreatedDate}>
+          {relativeCreatedDate}
         </div>
         <div className="mt-0.5">
           <OrderTypeBadge type={order.order_type} className="max-w-full text-[10px]" />

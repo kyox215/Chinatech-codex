@@ -239,8 +239,10 @@ batchTransition(ids[], to): Promise<{ ok: true, count }>
 createOrder(input: Partial<RepairOrder>): Promise<{ id, ...input }>
 ```
 
-**列表排序**：`created_at DESC`（默认）。
+**列表排序**：先按业务分组固定顺序排列：`处理中 → 下单 → 到货 → 到货已通知 → 修好 → 修好已通知 → 完成 → 作废`；每组内按 `created_at ASC`（最早送修优先），同一时间再按 `public_no`、`id` 稳定排序。默认待处理视图不包含完成和作废。
 **搜索匹配字段**：`public_no | customer_name | customer_phone | device_imei | device_label`，全部小写包含匹配。
+**搜索反馈**：输入停顿 300ms 后提交，Enter/扫码立即提交；请求期间保留上次结果并显示加载状态，完成后显示总数、待办数与按权限可见的历史数。
+**详情日期**：统一使用 `Europe/Rome`；当前状态时间只采用 `from != to` 且进入当前状态的 `status_changed` 事件，无匹配历史时回退到送修时间。
 **React Query Key 约定**：
 - 列表：`["orders", effectiveFilters]`
 - 详情：`["order", id]`

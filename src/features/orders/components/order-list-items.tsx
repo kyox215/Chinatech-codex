@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, type FocusEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { AlertTriangle, PackageSearch, ReceiptText, Smartphone, UserRound } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  PackageSearch,
+  ReceiptText,
+  Smartphone,
+  UserRound,
+} from "lucide-react";
 
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
@@ -22,6 +29,7 @@ import type { OrderWorkflowStatusCode, Supplier } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
+import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/model/order-date";
 
 export interface OrderMobileCardProps {
   order: OrderListItem;
@@ -58,6 +66,8 @@ export function OrderMobileCard({
   const primaryRepairLabel = firstFaultPrice?.name || "待确认维修项目";
   const deviceLabel = order.device_label || order.device_imei || "未知设备";
   const issueLabel = order.issue_description || "待补充故障描述";
+  const createdDate = formatOrderListDate(order.created_at);
+  const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
   const paymentLabel = order.finance_redacted
     ? "详情可见"
     : order.is_paid
@@ -170,6 +180,14 @@ export function OrderMobileCard({
               <OrderQueueStageBadge order={order} className="max-w-[108px]" />
               <p className="max-w-[72px] truncate text-right text-[10px] font-semibold leading-3 text-muted-foreground">
                 {order.technician_name || "未分配"}
+              </p>
+              <p
+                className="flex max-w-[128px] items-center justify-end gap-0.5 whitespace-nowrap text-[9px] leading-3 text-muted-foreground"
+                title={`送修时间 ${createdDate}，${relativeCreatedDate}`}
+              >
+                <CalendarDays className="size-2.5 shrink-0" />
+                <span>{createdDate}</span>
+                <span>· {relativeCreatedDate}</span>
               </p>
               {exceptionStatus ? (
                 <StatusBadge
