@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
+import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
 import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
@@ -182,12 +183,7 @@ export function DesktopOrderQueueRow({
 
       <div className="min-w-0 px-1.5 py-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1">
-          <StatusBadge
-            status={order.status}
-            label={guidance.stage.shortLabel}
-            tone={guidance.stage.tone}
-            className="max-w-full text-[10px]"
-          />
+          <OrderQueueStageBadge order={order} className="max-w-full text-[10px]" />
           {exceptionStatus ? (
             <StatusBadge
               status={order.status}

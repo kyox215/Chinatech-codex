@@ -274,7 +274,18 @@ export const orderListFiltersSchema = z
     view: z.enum(["active", "archive", "all"]).optional(),
     statuses: z.array(repairOrderStatusSchema).optional(),
     workflowStatuses: z.array(canonicalWorkflowStatusSchema).optional(),
-    queueGroups: z.array(z.enum(["processing", "handover", "settlement", "review"])).optional(),
+    queueGroups: z
+      .array(
+        z.enum([
+          "processing",
+          "ordered",
+          "arrived",
+          "arrived_notified",
+          "repaired",
+          "repaired_notified",
+        ]),
+      )
+      .optional(),
     exceptionStatuses: z.array(orderExceptionStatusSchema).optional(),
     paymentStatuses: z.array(orderPaymentStatusSchema).optional(),
     partsStatuses: z.array(orderPartsStatusSchema).optional(),

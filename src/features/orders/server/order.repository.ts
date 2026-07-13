@@ -238,7 +238,9 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
     );
   }
   if (filters.queueGroups?.length) {
-    result = result.filter((o) => filters.queueGroups!.includes(getOrderQueueGroup(o)));
+    result = result.filter(
+      (o) => !isOrderArchivedForQueue(o) && filters.queueGroups!.includes(getOrderQueueGroup(o)),
+    );
   }
   if (filters.exceptionStatuses?.length) {
     result = result.filter(
@@ -284,6 +286,8 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
   }
 
   return result.sort((a, b) => {
+    const archiveSort = Number(isOrderArchivedForQueue(a)) - Number(isOrderArchivedForQueue(b));
+    if (archiveSort !== 0) return archiveSort;
     const queueSort =
       orderQueueGroupMeta[getOrderQueueGroup(a)].sortOrder -
       orderQueueGroupMeta[getOrderQueueGroup(b)].sortOrder;

@@ -197,7 +197,44 @@ describe("order repository database pagination", () => {
     expect(queries[0]?.range).toHaveBeenCalledWith(0, 999);
   });
 
-  it("defaults to active work, preserves paid active and unpaid closed, and separates archives", async () => {
+  it("filters terminal rows before pending totals, group counts, and pagination", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          ...Array.from({ length: 55 }, (_, index) =>
+            orderRow({ id: `active_${index}`, public_no: `R-ACTIVE-${index}` }),
+          ),
+          ...Array.from({ length: 70 }, (_, index) =>
+            orderRow({
+              id: `terminal_${index}`,
+              public_no: `R-TERMINAL-${index}`,
+              status: index % 2 === 0 ? "completed" : "cancelled",
+              workflow_status: "closed",
+              is_paid: false,
+              payment_status: "unpaid",
+              balance_amount: 80,
+            }),
+          ),
+        ],
+        error: null,
+        count: 125,
+      }),
+    );
+
+    const result = await listOrdersPage({ page: 2, pageSize: 50 }, actor("owner"));
+
+    expect(result.total).toBe(55);
+    expect(result.pageCount).toBe(2);
+    expect(result.items).toHaveLength(5);
+    expect(result.queueCounts.all).toBe(55);
+    expect(
+      Object.entries(result.queueCounts)
+        .filter(([key]) => key !== "all")
+        .reduce((sum, [, count]) => sum + count, 0),
+    ).toBe(55);
+  });
+
+  it("defaults to nonterminal work and keeps every completed or cancelled order in history", async () => {
     mocks.supabase.from.mockImplementation(() =>
       createSupabaseQuery({
         data: [
@@ -233,17 +270,27 @@ describe("order repository database pagination", () => {
     );
 
     const active = await listOrdersPage({}, actor("owner"));
-    expect(active.items.map((item) => item.id).sort()).toEqual([
+    expect(active.items.map((item) => item.id)).toEqual(["paid_active"]);
+    expect(active.total).toBe(1);
+    expect(active.queueCounts).toEqual({
+      all: 1,
+      processing: 1,
+      ordered: 0,
+      arrived: 0,
+      arrived_notified: 0,
+      repaired: 0,
+      repaired_notified: 0,
+    });
+
+    const archive = await listOrdersPage({ view: "archive" }, actor("owner"));
+    expect(archive.items.map((item) => item.id).sort()).toEqual([
       "cancelled",
-      "paid_active",
+      "paid_closed",
       "unpaid_closed",
     ]);
 
-    const archive = await listOrdersPage({ view: "archive" }, actor("owner"));
-    expect(archive.items.map((item) => item.id)).toEqual(["paid_closed"]);
-
     const stats = await getOrderStats(actor("owner"));
-    expect(stats).toMatchObject({ total: 3, unpaid: 2 });
+    expect(stats).toMatchObject({ total: 1, unpaid: 0 });
   });
 
   it("allows technicians to search archived orders without granting archive browsing", async () => {
@@ -251,14 +298,13 @@ describe("order repository database pagination", () => {
       createSupabaseQuery({
         data: [
           orderRow({
-            id: "paid_closed",
+            id: "unpaid_closed",
             public_no: "R-ARCHIVE",
             status: "completed",
             workflow_status: "closed",
-            is_paid: true,
-            payment_status: "paid",
-            balance_amount: 0,
-            delivered_at: "2026-07-09T11:00:00.000Z",
+            is_paid: false,
+            payment_status: "partial",
+            balance_amount: 35,
           }),
         ],
         error: null,
@@ -270,6 +316,11 @@ describe("order repository database pagination", () => {
     expect(search.items).toHaveLength(1);
     expect(Object.hasOwn(search.items[0] ?? {}, "quotation_amount")).toBe(false);
     expect(search.items[0]?.finance_redacted).toBe(true);
+    const groupedSearch = await listOrdersPage(
+      { search: "R-ARCHIVE", queueGroups: ["processing"] },
+      actor("technician"),
+    );
+    expect(groupedSearch.items).toEqual([]);
     await expect(listOrdersPage({ view: "archive" }, actor("technician"))).rejects.toThrow(
       "无权浏览历史归档",
     );

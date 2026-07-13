@@ -233,6 +233,32 @@ export function FiltersPanel({
 const filterChipClass =
   "min-h-10 rounded-lg border px-2.5 py-2 text-center text-xs font-medium leading-tight transition-colors";
 
+function queueToneButtonClass(tone: StatusTone, active: boolean, isAll: boolean) {
+  if (isAll || tone === "neutral" || tone === "progress") {
+    return active
+      ? "border-primary/40 bg-primary/10 text-foreground shadow-sm"
+      : "border-border/50 bg-surface/65 text-muted-foreground hover:bg-accent/60 hover:text-foreground";
+  }
+  if (tone === "info") {
+    return active
+      ? "border-status-info-foreground/45 bg-status-info text-status-info-foreground shadow-sm"
+      : "border-status-info-foreground/25 bg-status-info/55 text-status-info-foreground";
+  }
+  if (tone === "warn") {
+    return active
+      ? "border-status-warn-foreground/45 bg-status-warn text-status-warn-foreground shadow-sm"
+      : "border-status-warn-foreground/25 bg-status-warn/55 text-status-warn-foreground";
+  }
+  if (tone === "success") {
+    return active
+      ? "border-status-success-foreground/45 bg-status-success text-status-success-foreground shadow-sm"
+      : "border-status-success-foreground/25 bg-status-success/55 text-status-success-foreground";
+  }
+  return active
+    ? "border-status-danger-foreground/45 bg-status-danger text-status-danger-foreground shadow-sm"
+    : "border-status-danger-foreground/25 bg-status-danger/55 text-status-danger-foreground";
+}
+
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -302,7 +328,7 @@ export function OrderStatusFilterControls({
 
       <div
         data-order-desktop-flow-rail="true"
-        className="hidden min-w-0 gap-1 sm:grid sm:grid-cols-3 lg:grid-cols-6"
+        className="hidden min-w-0 gap-1 sm:grid sm:grid-cols-3 lg:grid-cols-7"
       >
         {groups.map((group, index) => {
           const active = groupValue === group.key;
@@ -317,9 +343,7 @@ export function OrderStatusFilterControls({
               className={cn(
                 "relative grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-md border py-1 text-left transition-all",
                 embedded ? "px-1.5" : "px-2",
-                active
-                  ? "border-primary/40 bg-primary/10 text-foreground shadow-sm"
-                  : "border-border/50 bg-surface/65 text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                queueToneButtonClass(tone, active, isAll),
               )}
               title={`${group.label} · ${group.count}`}
             >
@@ -346,9 +370,11 @@ export function OrderStatusFilterControls({
                             ? "bg-status-success text-status-success-foreground"
                             : tone === "warn"
                               ? "bg-status-warn text-status-warn-foreground"
-                              : tone === "progress"
-                                ? "bg-status-progress text-status-progress-foreground"
-                                : "bg-surface-muted",
+                              : tone === "info"
+                                ? "bg-status-info text-status-info-foreground"
+                                : tone === "progress"
+                                  ? "bg-status-progress text-status-progress-foreground"
+                                  : "bg-surface-muted",
                       )}
                     >
                       {isAll ? "全" : index}
@@ -364,9 +390,11 @@ export function OrderStatusFilterControls({
         })}
       </div>
 
-      <div className="flex min-w-0 snap-x gap-1.5 overflow-x-auto pb-1 sm:hidden">
+      <div className="grid min-w-0 grid-cols-2 gap-1.5 pb-1 sm:hidden">
         {groups.map((group) => {
           const active = groupValue === group.key;
+          const isAll = group.key === "all";
+          const tone = group.tone ?? "neutral";
           return (
             <button
               key={group.key}
@@ -374,19 +402,16 @@ export function OrderStatusFilterControls({
               aria-pressed={active}
               onClick={() => onGroupChange(group.key)}
               className={cn(
-                "inline-flex h-9 shrink-0 snap-start items-center gap-2 rounded-full border px-2.5 text-xs font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                  : "border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)]",
+                "inline-flex h-9 min-w-0 items-center justify-between gap-2 rounded-md border px-2.5 text-xs font-medium transition-colors",
+                isAll && "col-span-2",
+                queueToneButtonClass(tone, active, isAll),
               )}
             >
               <span>{group.label}</span>
               <span
                 className={cn(
                   "font-mono text-[10px] font-semibold leading-none tabular-nums",
-                  active
-                    ? "border-l border-primary-foreground/35 pl-2 text-primary-foreground"
-                    : "rounded-full bg-surface-muted px-1.5 py-0.5 text-foreground",
+                  "rounded-full bg-card/55 px-1.5 py-0.5 text-current",
                 )}
               >
                 {group.count}

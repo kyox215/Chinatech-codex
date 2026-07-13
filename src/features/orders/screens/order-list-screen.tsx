@@ -126,9 +126,11 @@ const emptyOrderOptions = {
 const orderStageHints: Record<OrderQueueGroup | "all", string> = {
   all: "全部客户队列",
   processing: orderQueueGroupMeta.processing.hint,
-  handover: orderQueueGroupMeta.handover.hint,
-  settlement: orderQueueGroupMeta.settlement.hint,
-  review: orderQueueGroupMeta.review.hint,
+  ordered: orderQueueGroupMeta.ordered.hint,
+  arrived: orderQueueGroupMeta.arrived.hint,
+  arrived_notified: orderQueueGroupMeta.arrived_notified.hint,
+  repaired: orderQueueGroupMeta.repaired.hint,
+  repaired_notified: orderQueueGroupMeta.repaired_notified.hint,
 };
 
 type ActiveFilterChip = {
@@ -146,7 +148,7 @@ export function OrderListScreen() {
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
+  const mobileHeaderCleanupRef = useRef<() => void>(() => undefined);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -163,24 +165,34 @@ export function OrderListScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    const header = mobileHeaderRef.current;
-    if (!header) return;
+  const setMobileHeaderRef = useCallback((header: HTMLDivElement | null) => {
+    mobileHeaderCleanupRef.current();
+
+    if (!header) {
+      mobileHeaderCleanupRef.current = () => undefined;
+      return;
+    }
 
     const updateHeight = () => {
       setMobileHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
     };
+    const observer = new ResizeObserver(updateHeight);
 
     updateHeight();
-    const observer = new ResizeObserver(updateHeight);
     observer.observe(header);
     window.addEventListener("resize", updateHeight);
-
-    return () => {
+    mobileHeaderCleanupRef.current = () => {
       observer.disconnect();
       window.removeEventListener("resize", updateHeight);
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      mobileHeaderCleanupRef.current();
+    },
+    [],
+  );
 
   useEffect(() => {
     const query = searchParams.get("q");
@@ -260,9 +272,11 @@ export function OrderListScreen() {
     const queueCounts = listResult?.queueCounts ?? {
       all: totalOrders,
       processing: 0,
-      handover: 0,
-      settlement: 0,
-      review: 0,
+      ordered: 0,
+      arrived: 0,
+      arrived_notified: 0,
+      repaired: 0,
+      repaired_notified: 0,
     };
     if (!activeView) {
       return [
@@ -737,7 +751,7 @@ export function OrderListScreen() {
       }
     >
       <MobileOrdersFloatingHeader
-        headerRef={mobileHeaderRef}
+        headerRef={setMobileHeaderRef}
         groups={statusGroupItems}
         groupValue={statusGroup}
         filters={filters}
@@ -752,7 +766,6 @@ export function OrderListScreen() {
         workflowErrorMessage={workflowErrorMessage}
         onGroupChange={handleStatusGroupChange}
         onStatusFilterChange={resetWorkflowFilters}
-        onRemoveFilterChip={removeFilterChip}
         onClearAllFilters={clearAllFilters}
         onCreateOrder={() => setNewOrderOpen(true)}
         scanAction={
@@ -778,12 +791,12 @@ export function OrderListScreen() {
         data-order-desktop-unified-toolbar="true"
         className={cn(
           repairOs.mobileInfoCard,
-          "mb-3 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 md:flex lg:flex-row lg:items-end xl:items-center",
+          "mb-3 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 md:flex",
         )}
       >
         <OrderStatusFilterControls
           embedded
-          className="min-w-0 lg:flex-[1_1_520px] xl:flex-[1_1_560px]"
+          className="min-w-0"
           groups={statusGroupItems}
           subTabs={statusSubTabs}
           groupValue={statusGroup}
@@ -792,12 +805,7 @@ export function OrderListScreen() {
           onStatusChange={handleStatusCodeChange}
         />
 
-        <div
-          className={cn(
-            layoutGuards.wrapRow,
-            "min-w-0 items-stretch lg:flex-[1_1_420px] lg:justify-end",
-          )}
-        >
+        <div className={cn(layoutGuards.wrapRow, "min-w-0 items-stretch justify-end")}>
           <OrderListViewMode
             value={orderListView}
             canBrowseArchive={canBrowseOrderArchive}

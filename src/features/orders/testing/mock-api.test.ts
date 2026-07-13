@@ -87,6 +87,38 @@ describe("mock order WhatsApp notification workflow", () => {
     ]);
   });
 
+  it("keeps terminal mock orders in history and counts only nonterminal pending work", async () => {
+    const technician = `QueueVisibility${"x".repeat(seq + 1)}`;
+    const activeId = await createMockOrder({}, technician);
+    const completedId = await createMockOrder({}, technician);
+    const cancelledId = await createMockOrder({}, technician);
+    await transitionOrder(activeId, "repaired");
+    await transitionOrder(completedId, "completed");
+    await transitionOrder(cancelledId, "cancelled", { reason: "测试作废" });
+
+    const active = await listOrdersPage({ technicians: [technician], pageSize: 10 });
+    const history = await listOrdersPage({
+      view: "archive",
+      technicians: [technician],
+      pageSize: 10,
+    });
+
+    expect(active.items.map((order) => order.id)).toEqual([activeId]);
+    expect(active.total).toBe(1);
+    expect(active.queueCounts).toMatchObject({ all: 1, repaired: 1 });
+    expect(history.items.map((order) => order.id).sort()).toEqual(
+      [completedId, cancelledId].sort(),
+    );
+
+    const completedNo = (await getOrder(completedId)).order.public_no;
+    const groupedHistorySearch = await listOrdersPage({
+      search: completedNo,
+      queueGroups: ["processing"],
+      pageSize: 10,
+    });
+    expect(groupedHistorySearch.items).toEqual([]);
+  });
+
   it("creates an intake timeline event for new mock orders", async () => {
     const id = await createMockOrder({ order_type: "dropoff_repair" }, "ALESSIO");
 

@@ -1,7 +1,21 @@
 "use client";
 
 import type { Dispatch, ReactNode, Ref, SetStateAction } from "react";
-import { AlertTriangle, Filter, Plus, Search, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  BadgeCheck,
+  Bell,
+  CheckCircle2,
+  Filter,
+  ListTodo,
+  PackageCheck,
+  PackagePlus,
+  Plus,
+  Search,
+  Wrench,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +24,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { OrderListFilters, RepairDeskOptions } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import type { StatusTone } from "@/lib/mock/enums";
 import { FiltersPanel } from "@/features/orders/components/order-list-filters";
 import { RealtimeSyncIndicator } from "@/features/realtime";
 import { cn } from "@/lib/utils";
@@ -18,6 +33,37 @@ type ActiveFilterChip = {
   key: string;
   label: string;
 };
+
+const groupIcons: Record<string, LucideIcon> = {
+  all: ListTodo,
+  processing: Wrench,
+  ordered: PackagePlus,
+  arrived: PackageCheck,
+  arrived_notified: Bell,
+  repaired: CheckCircle2,
+  repaired_notified: BadgeCheck,
+};
+
+function groupToneClass(tone: StatusTone | undefined, active: boolean) {
+  if (tone === "info") {
+    return active
+      ? "border-status-info-foreground/45 bg-status-info text-status-info-foreground ring-1 ring-inset ring-status-info-foreground/25"
+      : "border-status-info-foreground/25 bg-status-info/65 text-status-info-foreground";
+  }
+  if (tone === "warn") {
+    return active
+      ? "border-status-warn-foreground/45 bg-status-warn text-status-warn-foreground ring-1 ring-inset ring-status-warn-foreground/25"
+      : "border-status-warn-foreground/25 bg-status-warn/65 text-status-warn-foreground";
+  }
+  if (tone === "success") {
+    return active
+      ? "border-status-success-foreground/45 bg-status-success text-status-success-foreground ring-1 ring-inset ring-status-success-foreground/25"
+      : "border-status-success-foreground/25 bg-status-success/65 text-status-success-foreground";
+  }
+  return active
+    ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
+    : "border-[var(--border-panel)] bg-surface-muted text-muted-foreground";
+}
 
 export function MobileOrdersFloatingHeader({
   groups,
@@ -34,14 +80,20 @@ export function MobileOrdersFloatingHeader({
   workflowErrorMessage,
   onGroupChange,
   onStatusFilterChange,
-  onRemoveFilterChip,
   onClearAllFilters,
   onCreateOrder,
   scanAction,
   viewModeControl,
   headerRef,
 }: {
-  groups: { key: string; label: string; shortLabel?: string; count: number; hint?: string }[];
+  groups: {
+    key: string;
+    label: string;
+    shortLabel?: string;
+    count: number;
+    hint?: string;
+    tone?: StatusTone;
+  }[];
   groupValue: string;
   filters: OrderListFilters;
   setFilters: Dispatch<SetStateAction<OrderListFilters>>;
@@ -55,7 +107,6 @@ export function MobileOrdersFloatingHeader({
   workflowErrorMessage: string;
   onGroupChange: (value: string) => void;
   onStatusFilterChange: () => void;
-  onRemoveFilterChip: (key: string) => void;
   onClearAllFilters: () => void;
   onCreateOrder: () => void;
   scanAction?: ReactNode;
@@ -149,70 +200,62 @@ export function MobileOrdersFloatingHeader({
 
           {viewModeControl}
 
-          <div
-            className="min-w-0 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="流程分组"
-          >
-            <div className="grid w-full grid-cols-6 gap-1">
-              {groups.map((group) => {
-                const active = groupValue === group.key;
+          <div className="grid min-w-0 grid-cols-2 gap-1" role="group" aria-label="待处理状态">
+            {groups.map((group) => {
+              const active = groupValue === group.key;
+              const Icon = groupIcons[group.key] ?? ListTodo;
 
-                return (
-                  <button
-                    key={group.key}
-                    type="button"
-                    onClick={() => onGroupChange(group.key)}
-                    className={cn(
-                      "grid h-10 min-w-0 snap-start justify-items-center gap-0.5 rounded-[8px] border px-1 py-1 text-center transition-colors active:scale-[0.98]",
-                      active
-                        ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
-                        : "border-[var(--border-panel)] bg-surface-muted text-muted-foreground shadow-none",
-                    )}
-                    aria-pressed={active}
-                    aria-label={`${group.label} ${group.count} 条`}
-                  >
-                    <span
-                      className={cn(
-                        "min-w-0 truncate text-[9px] font-semibold leading-none",
-                        active ? "text-primary-foreground" : "text-foreground",
-                      )}
-                    >
-                      {group.label}
-                    </span>
-                    <span
-                      className={cn(
-                        "font-mono text-[9px] font-semibold leading-none tabular-nums",
-                        active ? "text-primary-foreground/90" : "text-muted-foreground",
-                      )}
-                    >
-                      {group.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+              return (
+                <button
+                  key={group.key}
+                  type="button"
+                  onClick={() => onGroupChange(group.key)}
+                  className={cn(
+                    "grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-[8px] border px-2 py-1 text-left transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                    group.key === "all" && "col-span-2",
+                    groupToneClass(group.tone, active),
+                  )}
+                  aria-pressed={active}
+                  aria-label={`${group.label} ${group.count} 条`}
+                >
+                  <span className="flex min-w-0 items-center gap-1 text-[9px] font-semibold leading-none">
+                    <Icon className="size-3 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{group.label}</span>
+                  </span>
+                  <span className="font-mono text-[9px] font-semibold leading-none tabular-nums opacity-80">
+                    {group.count > 999 ? "999+" : group.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
+          <span className="sr-only" role="status" aria-live="polite">
+            当前显示 {activeGroup?.label ?? "全部待办"}，共 {activeGroup?.count ?? totalOrders} 条
+          </span>
+
           {activeFilterChips.length > 0 ? (
-            <div className="flex min-w-0 snap-x gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              {activeFilterChips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() => onRemoveFilterChip(chip.key)}
-                  className="inline-flex h-6 max-w-[180px] shrink-0 snap-start items-center gap-1 rounded-full border border-[var(--border-panel)] bg-surface-muted px-2 text-[10px] font-medium text-muted-foreground"
-                  title="点击移除此筛选"
-                >
-                  <span className="truncate">{chip.label}</span>
-                  <X className="size-2.5 shrink-0" />
-                </button>
-              ))}
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1 pb-0.5">
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(true)}
+                className="flex h-6 min-w-0 items-center gap-1 rounded-full border border-[var(--border-panel)] bg-surface-muted px-2 text-left text-[10px] font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                aria-label={`查看当前 ${activeFilterCount} 项筛选`}
+              >
+                <Filter className="size-2.5 shrink-0" />
+                <span className="truncate">{activeFilterChips[0]?.label}</span>
+                {activeFilterCount > 1 ? (
+                  <span className="shrink-0 font-mono text-primary">+{activeFilterCount - 1}</span>
+                ) : null}
+              </button>
               <button
                 type="button"
                 onClick={onClearAllFilters}
-                className="h-6 shrink-0 rounded-full px-2 text-[10px] font-medium text-primary"
+                className="grid size-6 shrink-0 place-items-center rounded-full text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                aria-label="清除全部筛选"
+                title="清除全部筛选"
               >
-                清除
+                <X className="size-3" />
               </button>
             </div>
           ) : null}

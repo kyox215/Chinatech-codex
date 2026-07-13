@@ -5,32 +5,9 @@ import { isOrderArchivedForQueue } from "./order-list-visibility";
 const deliveredAt = "2026-07-12T12:00:00.000Z";
 
 describe("order list visibility", () => {
-  it("archives only terminal orders with delivery, closure, and an exact paid tuple", () => {
-    expect(
-      isOrderArchivedForQueue({
-        status: "completed",
-        workflow_status: "closed",
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
-        delivered_at: deliveredAt,
-      }),
-    ).toBe(true);
-    expect(
-      isOrderArchivedForQueue({
-        status: "cancelled",
-        workflow_status: "closed",
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
-        delivered_at: deliveredAt,
-      }),
-    ).toBe(true);
-  });
-
   it.each([
     {
-      name: "closed and paid without handover",
+      name: "completed without handover",
       order: {
         status: "completed",
         workflow_status: "closed" as const,
@@ -40,7 +17,7 @@ describe("order list visibility", () => {
       },
     },
     {
-      name: "cancelled while custody is unresolved",
+      name: "cancelled with unresolved custody",
       order: {
         status: "cancelled",
         workflow_status: "closed" as const,
@@ -50,7 +27,7 @@ describe("order list visibility", () => {
       },
     },
     {
-      name: "delivered with outstanding balance",
+      name: "completed with an outstanding balance",
       order: {
         status: "completed",
         workflow_status: "closed" as const,
@@ -61,7 +38,7 @@ describe("order list visibility", () => {
       },
     },
     {
-      name: "zero balance with contradictory payment flags",
+      name: "completed with contradictory payment flags",
       order: {
         status: "completed",
         workflow_status: "closed" as const,
@@ -71,39 +48,37 @@ describe("order list visibility", () => {
         delivered_at: deliveredAt,
       },
     },
-    {
-      name: "active status with stale terminal fields",
-      order: {
-        status: "repaired",
-        workflow_status: "closed" as const,
-        is_paid: true,
-        payment_status: "paid" as const,
-        balance_amount: 0,
-        delivered_at: deliveredAt,
-      },
-    },
-  ])("keeps $name in the operational queue", ({ order }) => {
-    expect(isOrderArchivedForQueue(order)).toBe(false);
+  ])("keeps $name out of the default pending queue", ({ order }) => {
+    expect(isOrderArchivedForQueue(order)).toBe(true);
   });
 
-  it("uses the legacy status when canonical workflow is absent", () => {
-    expect(
-      isOrderArchivedForQueue({
-        status: "completed",
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
-        delivered_at: deliveredAt,
-      }),
-    ).toBe(true);
-    expect(
-      isOrderArchivedForQueue({
-        status: "notified",
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
-        delivered_at: deliveredAt,
-      }),
-    ).toBe(false);
-  });
+  it.each(["new", "mail_in_progress", "parts_ordered", "parts_arrived", "repaired", "notified"])(
+    "keeps nonterminal status %s visible even with stale closed, delivered, and paid fields",
+    (status) => {
+      expect(
+        isOrderArchivedForQueue({
+          status,
+          workflow_status: "closed",
+          is_paid: true,
+          payment_status: "paid",
+          balance_amount: 0,
+          delivered_at: deliveredAt,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it.each(["completed", "cancelled"])(
+    "uses terminal status %s when canonical fields are absent",
+    (status) => {
+      expect(
+        isOrderArchivedForQueue({
+          status,
+          is_paid: false,
+          payment_status: "unpaid",
+          balance_amount: 80,
+        }),
+      ).toBe(true);
+    },
+  );
 });

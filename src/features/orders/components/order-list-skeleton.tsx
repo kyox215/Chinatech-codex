@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -75,6 +77,7 @@ export function OrderListSkeleton() {
     <div
       data-ui="order-list-skeleton"
       className={cn(repairOs.mobileListFloatingPage, "md:pb-8")}
+      style={{ "--orders-mobile-header-offset": "22rem" } as CSSProperties}
       aria-busy="true"
     >
       <span className="sr-only" role="status" aria-live="polite">
@@ -98,9 +101,13 @@ export function OrderListSkeleton() {
                 <Skeleton className="size-10 rounded-xl" />
                 <Skeleton className="size-10 rounded-xl" />
               </div>
-              <div className="grid grid-cols-5 gap-1">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <Skeleton key={index} className="h-9 rounded-lg" />
+              <Skeleton className="h-9 rounded-md" />
+              <div className="grid grid-cols-2 gap-1">
+                {Array.from({ length: 7 }).map((_, index) => (
+                  <Skeleton
+                    key={index}
+                    className={cn("h-10 rounded-lg", index === 0 && "col-span-2")}
+                  />
                 ))}
               </div>
             </div>
@@ -110,11 +117,11 @@ export function OrderListSkeleton() {
         <div
           className={cn(
             repairOs.mobileInfoCard,
-            "mb-3 mt-3 hidden min-w-0 gap-2 p-2.5 md:flex md:flex-col lg:flex-row",
+            "mb-3 mt-3 hidden min-w-0 gap-2 p-2.5 md:flex md:flex-col",
           )}
         >
-          <div className="grid flex-1 grid-cols-5 gap-1.5">
-            {Array.from({ length: 5 }).map((_, index) => (
+          <div className="grid flex-1 grid-cols-7 gap-1.5">
+            {Array.from({ length: 7 }).map((_, index) => (
               <Skeleton key={index} className="h-9" />
             ))}
           </div>

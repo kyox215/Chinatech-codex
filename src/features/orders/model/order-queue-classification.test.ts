@@ -2,81 +2,91 @@ import { describe, expect, it } from "vitest";
 
 import { countOrderQueueGroups, getOrderQueueGroup } from "./order-queue-classification";
 
-const deliveredAt = "2026-07-12T12:00:00.000Z";
-
 describe("order queue classification", () => {
   it.each([
-    ["parts_arrived", "parts", "processing"],
+    ["parts_arrived", "parts", "arrived"],
     ["mail_in_progress", "repair", "processing"],
-    ["repaired", "repair", "handover"],
-    ["notified", "pickup", "handover"],
+    ["parts_ordered", "parts", "ordered"],
+    ["repaired", "repair", "repaired"],
+    ["notified", "pickup", "repaired_notified"],
+    ["waiting_pickup", "pickup", "repaired_notified"],
+    ["unfixed_pickup", "pickup", "processing"],
   ] as const)("classifies %s as %s work", (status, workflow_status, expected) => {
     expect(
       getOrderQueueGroup({
         status,
         workflow_status,
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
       }),
     ).toBe(expected);
   });
 
-  it("keeps delivered debt in settlement and contradictory evidence in review", () => {
+  it("splits arrival and repair notification states without changing the repair stage", () => {
     expect(
       getOrderQueueGroup({
-        status: "completed",
-        workflow_status: "closed",
-        is_paid: false,
-        payment_status: "partial",
-        balance_amount: 35,
-        delivered_at: deliveredAt,
+        status: "parts_arrived",
+        workflow_status: "parts",
+        parts_status: "arrived",
+        notify_status: "not_sent",
       }),
-    ).toBe("settlement");
+    ).toBe("arrived");
     expect(
       getOrderQueueGroup({
-        status: "cancelled",
-        workflow_status: "closed",
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
+        status: "parts_arrived",
+        workflow_status: "parts",
+        parts_status: "arrived",
+        notify_status: "sent",
       }),
-    ).toBe("review");
+    ).toBe("arrived_notified");
+    expect(
+      getOrderQueueGroup({ status: "repaired", workflow_status: "repair", notify_status: "sent" }),
+    ).toBe("repaired_notified");
   });
+
+  it.each(["rework", "mail_in_progress", "unfixed_pickup"])(
+    "keeps explicit non-repaired status %s in processing when workflow data is stale",
+    (status) => {
+      expect(getOrderQueueGroup({ status, workflow_status: "pickup", notify_status: "sent" })).toBe(
+        "processing",
+      );
+    },
+  );
 
   it("produces one operational group per active order", () => {
     const counts = countOrderQueueGroups([
       {
+        status: "parts_ordered",
+        workflow_status: "parts",
+        parts_status: "ordered",
+      },
+      {
         status: "parts_arrived",
         workflow_status: "parts",
-        is_paid: false,
-        payment_status: "unpaid",
-        balance_amount: 20,
+        parts_status: "arrived",
+        notify_status: "sent",
       },
       {
         status: "repaired",
         workflow_status: "repair",
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
+        notify_status: "not_sent",
       },
       {
         status: "completed",
         workflow_status: "closed",
-        is_paid: false,
-        payment_status: "partial",
-        balance_amount: 20,
-        delivered_at: deliveredAt,
       },
       {
         status: "cancelled",
         workflow_status: "closed",
-        is_paid: true,
-        payment_status: "paid",
-        balance_amount: 0,
       },
     ]);
 
-    expect(counts).toEqual({ all: 4, processing: 1, handover: 1, settlement: 1, review: 1 });
+    expect(counts).toEqual({
+      all: 3,
+      processing: 0,
+      ordered: 1,
+      arrived: 0,
+      arrived_notified: 1,
+      repaired: 1,
+      repaired_notified: 0,
+    });
   });
 });

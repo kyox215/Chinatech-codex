@@ -752,7 +752,7 @@ export function OrderDetailScreen({
           <PackageCheck className="size-4 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold">设备退还尚未确认</p>
-            <p className="truncate text-[11px] opacity-80">该工单会保留在需核对队列。</p>
+            <p className="truncate text-[11px] opacity-80">该工单已移入历史，退还提醒仍保留。</p>
           </div>
           <Button
             type="button"

@@ -11,10 +11,9 @@ afterEach(cleanup);
 describe("RepairOS loading skeletons", () => {
   it("renders complete order and customer loading frames without the old visible text", () => {
     const { container, rerender } = render(<OrderListSkeleton />);
-    expect(container.querySelector('[data-ui="order-list-skeleton"]')).toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
+    const orderListSkeleton = container.querySelector('[data-ui="order-list-skeleton"]');
+    expect(orderListSkeleton).toHaveAttribute("aria-busy", "true");
+    expect(orderListSkeleton).toHaveStyle({ "--orders-mobile-header-offset": "22rem" });
     expect(screen.queryByText("正在加载工单...")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("正在准备订单管理");
 

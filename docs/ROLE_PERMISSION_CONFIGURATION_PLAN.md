@@ -157,7 +157,7 @@ Status: Phase D2/E code completed globally; two production migrations pending in
 
 - Phase D1 已完成订单列表/订单详情第一批服务端投影：供应商、客户联系方式、金额、解锁信息、消息、事件 payload、附件 URL 对受限角色脱敏。
 - Phase D2 已完成：订单使用同店 `assignee_membership_id` 做技师对象鉴权；列表、搜索、详情、状态流转、附件和通知统一执行相同 scope。迁移前技术员对象访问一律 fail-closed，不再把可修改的 `technician_name` 或显示名当作授权键；列存在后只认 membership ID。
-- 默认队列和首页统计统一隐藏取消单以及“完成且结清”订单；完成未结清和付款未完成仍显示。
+- 默认队列和首页统计统一隐藏所有 `completed` 与 `cancelled` 订单，不再以付款、交付或设备返还字段把终态订单拉回首页；异常仍保留在授权历史、精确搜索和单笔详情中。
 - 无 `finance:aggregate_read` 的集合响应删除订单金额、客户累计消费和未结清金额字段；单张已授权订单详情仍可显示金额。
 - 无 `finance:profit_read` 的库存/回收响应删除成本、利润、敏感报价字段和交易流水；库存读取另受 `inventory:read` 控制。
 - 仅有历史搜索权限的角色只能用完整工单号、电话或 IMEI 精确命中，最多返回 20 条且不可翻页枚举；浏览全部历史需要 `order:archive_browse`。
@@ -188,7 +188,7 @@ Status: Phase D2/E code completed globally; two production migrations pending in
 - 规则作用于所有现有和未来店铺，不包含 ChinaTech 特例。
 - `owner` 全店可见；`manager` 与前台可查看单张订单金额，但集合金额默认删除；`technician` 只能访问分配给自己 membership 的订单；`viewer` 默认拒绝订单和库存敏感读取。
 - 批量流转仅店主/店长；批量打印和导出仅店主现有导出权限；无批量能力时列表不显示选择框或批量栏。
-- 已完成结清和取消订单不修改数据库状态，只由统一函数派生为历史归档。
+- 完成和取消订单不修改数据库状态，只由统一函数派生为历史归档；付款、交付或设备返还矛盾继续保留在授权历史与单笔详情中。
 
 ### 待应用迁移
 

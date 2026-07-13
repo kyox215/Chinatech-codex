@@ -6,6 +6,7 @@ import { AlertTriangle, PackageSearch, ReceiptText, Smartphone, UserRound } from
 
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
+import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
 import {
   orderExceptionMeta,
   workflowStatusFromLegacyStatus,
@@ -165,7 +166,8 @@ export function OrderMobileCard({
               </div>
             </div>
 
-            <div className="flex min-w-[62px] shrink-0 flex-col items-end gap-1">
+            <div className="flex min-w-[88px] shrink-0 flex-col items-end gap-1">
+              <OrderQueueStageBadge order={order} className="max-w-[108px]" />
               <p className="max-w-[72px] truncate text-right text-[10px] font-semibold leading-3 text-muted-foreground">
                 {order.technician_name || "未分配"}
               </p>

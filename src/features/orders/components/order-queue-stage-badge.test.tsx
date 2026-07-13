@@ -1,0 +1,52 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { OrderQueueStageBadge } from "./order-queue-stage-badge";
+
+afterEach(cleanup);
+
+describe("OrderQueueStageBadge", () => {
+  it.each([
+    [{ status: "parts_ordered", workflow_status: "parts" }, "下单", "ordered"],
+    [
+      {
+        status: "parts_arrived",
+        workflow_status: "parts",
+        parts_status: "arrived",
+        notify_status: "not_sent",
+      },
+      "到货",
+      "arrived",
+    ],
+    [
+      {
+        status: "parts_arrived",
+        workflow_status: "parts",
+        parts_status: "arrived",
+        notify_status: "sent",
+      },
+      "到货已通知",
+      "arrived_notified",
+    ],
+    [{ status: "repaired", workflow_status: "repair" }, "修好", "repaired"],
+    [
+      { status: "repaired", workflow_status: "repair", notify_status: "sent" },
+      "修好已通知",
+      "repaired_notified",
+    ],
+  ] as const)("renders %s as %s", (order, label, key) => {
+    const { container } = render(<OrderQueueStageBadge order={order} />);
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(container.querySelector(`[data-order-queue-stage="${key}"]`)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["completed", "完成"],
+    ["cancelled", "作废"],
+  ] as const)("marks terminal status %s as history-only", (status, label) => {
+    render(<OrderQueueStageBadge order={{ status, workflow_status: "closed" }} />);
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+});

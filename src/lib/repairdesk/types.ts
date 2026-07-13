@@ -399,7 +399,13 @@ export interface OrderListFilters {
 }
 
 export type OrderListView = "active" | "archive" | "all";
-export type OrderQueueGroup = "processing" | "handover" | "settlement" | "review";
+export type OrderQueueGroup =
+  | "processing"
+  | "ordered"
+  | "arrived"
+  | "arrived_notified"
+  | "repaired"
+  | "repaired_notified";
 
 export interface OrderListPageInput extends OrderListFilters {
   page?: number;

@@ -32,7 +32,7 @@ as owner of this file.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package` proposes staged server-side implementation after Owner approval: tests first, viewer read-only hardening, order/customer gates, inventory/buyback fine-grain gates, member/store creation hardening, then field-level technician/sales splits.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` establishes the target audit payload contract: deny-by-default sanitizer, event allowlists, safe envelopes instead of raw `metadata.input` or raw `after`, and domain-specific direct-writer sanitization. This is not implemented yet.
 - `TASK-20260712-002-global-staff-permissions` implements the global Owner-approved role contract. Individual-order finance is separate from aggregate/profit/export authority, archived queue access is explicit, and technician object checks use stable same-store membership IDs before every child read or write. Legacy name-based technician authorization is forbidden and fails closed until migration.
-- `TASK-20260712-005-order-custody-archive` centralizes archive eligibility: terminal status, `workflow_status=closed`, explicit `delivered_at`, and exact paid evidence must all agree. Completion records handover without mutating payment evidence; cancelled-device return is a separate version-locked, same-store transition action that preserves all finance fields.
+- `TASK-20260713-001-order-active-status-homepage` supersedes the default-home predicate from the custody task: the server filters `completed` and `cancelled` before counts and pagination, independent of payment, delivery or custody evidence. Every nonterminal order remains operationally visible. Completion and cancelled-device actions still preserve finance fields and remain available through authorized history/detail paths.
 
 ## Interfaces and dependencies
 
@@ -75,3 +75,4 @@ as owner of this file.
 | 2026-06-20 | Added audit sanitizer/allowlist implementation boundary from L2-027 policy | TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio | Integration Lead | policy_drafted |
 | 2026-07-12 | Recorded global role, archive, finance projection and stable order-assignment contract | TASK-20260712-002-global-staff-permissions | Integration Lead + security reviewer | active |
 | 2026-07-13 | Superseded archive eligibility, separated handover from payment, and added explicit cancelled-device return | TASK-20260712-005-order-custody-archive | Integration Lead + Data/Security reviewers | active |
+| 2026-07-13 | Simplified default-home visibility to terminal status and moved filtering before counts/pagination | TASK-20260713-001-order-active-status-homepage | Integration Lead + QA reviewer | active |

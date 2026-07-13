@@ -8,6 +8,7 @@ import {
   customerSearchBodySchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
+  orderListFiltersSchema,
   patchOrderInputSchema,
   paymentBodySchema,
   storeInviteLinkCreateBodySchema,
@@ -65,6 +66,21 @@ describe("repairdesk API schemas", () => {
       pageSize: 75,
     });
     expect(() => customerListPageInputSchema.parse({ pageSize: 101 })).toThrow();
+  });
+
+  it("accepts the active order queue groups and rejects retired queue keys", () => {
+    const queueGroups = [
+      "processing",
+      "ordered",
+      "arrived",
+      "arrived_notified",
+      "repaired",
+      "repaired_notified",
+    ] as const;
+
+    expect(orderListFiltersSchema.parse({ queueGroups }).queueGroups).toEqual(queueGroups);
+    expect(() => orderListFiltersSchema.parse({ queueGroups: ["settlement"] })).toThrow();
+    expect(() => orderListFiltersSchema.parse({ queueGroups: ["review"] })).toThrow();
   });
 
   it("accepts WhatsApp notification template metadata", () => {

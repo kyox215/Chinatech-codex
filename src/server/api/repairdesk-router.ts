@@ -610,9 +610,11 @@ function emptyOrderListResult(pageSize: number): OrderListResult {
     queueCounts: {
       all: 0,
       processing: 0,
-      handover: 0,
-      settlement: 0,
-      review: 0,
+      ordered: 0,
+      arrived: 0,
+      arrived_notified: 0,
+      repaired: 0,
+      repaired_notified: 0,
     },
   };
 }
