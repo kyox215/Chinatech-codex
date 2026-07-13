@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "DATA", "FE", "FLOW", "INT", "QA", "REL", "SEC", "UX"]
 created_at: "2026-07-12T13:06:48Z"
-updated_at: "2026-07-13T08:33:26Z"
+updated_at: "2026-07-13T08:41:36Z"
 ---
 # Task — 回收小白引导、证件签名与安全成交闭环
 

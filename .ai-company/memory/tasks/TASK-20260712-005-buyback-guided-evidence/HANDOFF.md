@@ -2,10 +2,10 @@
 
 ## Current handoff
 
-- **Status:** pre-release freeze; code and browser gates are green, push gate still pending.
-- **Last verified:** 2026-07-13T08:33:00Z
+- **Status:** release-ready; post-rebase code, security, full regression, build and browser gates are green; push gate still pending.
+- **Last verified:** 2026-07-13T08:41:36Z
 - **Workspace/branch:** `/private/tmp/repairdesk-buyback-guided-20260712` / `codex/buyback-guided-v2-20260712`.
-- **First action:** obtain final read-only security conclusion, fetch/rebase on current `origin/main`, rerun final gates, commit the closeout evidence and push `HEAD:main` without applying the migration.
+- **First action:** commit the release checkpoint, confirm `origin/main` has not moved, push `HEAD:main`, verify the remote SHA, then record the exact closeout evidence without applying the migration.
 
 ## Verified implementation
 

@@ -37,3 +37,13 @@
 - **Evidence:**
   - EVIDENCE.md E-002至E-009；screenshots/buyback-390-step5-evidence.png、buyback-390-success.png、buyback-1440-step5-evidence.png、buyback-1440-success.png。
 - **Recorded by:** RepairDesk Integration Lead
+## 2026-07-13T08:41:36Z — 已 rebase origin/main@67157606 并保留上游订单改动；当前实现提交 fd30c7e1。Post-rebase 安全聚焦12文件152测试、全量127文件883测试、lint、typecheck、标准Turbopack build与10条Playwright流程全部通过；最终安全结论为代码推送PASS。
+
+- **Phase:** release-ready
+- **Completed/current state:** 已 rebase origin/main@67157606 并保留上游订单改动；当前实现提交 fd30c7e1。Post-rebase 安全聚焦12文件152测试、全量127文件883测试、lint、typecheck、标准Turbopack build与10条Playwright流程全部通过；最终安全结论为代码推送PASS。
+- **Next:** 更新任务关闭证据并提交 closeout；确认origin/main未漂移后推送HEAD:main并核对远端SHA。
+- **Decision:** 生产Supabase migration和部署仍NO-GO；真实RPC/RLS/grants/storage/并发、staged清理、retention/legal-hold与意大利语法律文本专业复核必须另行批准验证。
+- **Blocker:** 无代码推送阻塞；仅生产启用门禁保持阻塞。
+- **Evidence:**
+  - commit fd30c7e1；安全结论代码推送PASS；12/152 focused、127/883 full、10/10 Playwright、npm run build PASS；四张移动/桌面截图已入提交。
+- **Recorded by:** RepairDesk Integration Lead
