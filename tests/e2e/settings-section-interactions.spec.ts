@@ -77,6 +77,14 @@ test.describe("settings overview responsive shell", () => {
       const contentBox = await page.locator("[data-settings-content]").boundingBox();
       expect(contentBox).not.toBeNull();
       expect(contentBox?.width ?? 0).toBeLessThanOrEqual(982);
+
+      if (viewport.width === 390 || viewport.width === 1440) {
+        await hideNextDevIndicators(page);
+        await page.screenshot({
+          path: `screenshots/responsive-density/settings/wp08-overview-${viewport.width}x${viewport.height}.png`,
+          fullPage: true,
+        });
+      }
     });
   }
 });
@@ -192,6 +200,49 @@ test.describe("settings blocked query gate", () => {
 });
 
 test.describe("settings account and store workspace details", () => {
+  test("keeps both recovery actions tappable on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    let contextUnavailable = true;
+    await page.route("**/api/repairdesk/stores/context", async (route) => {
+      if (contextUnavailable) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "synthetic" } }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await gotoReady(page, "/settings");
+    const contextRetry = page
+      .locator('[data-ui="settings-context-error"]')
+      .getByRole("button", { name: "重新加载" });
+    await expect(contextRetry).toBeVisible();
+    expect((await contextRetry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+    contextUnavailable = false;
+    await page.unroute("**/api/repairdesk/stores/context");
+    await page.route("**/api/repairdesk/settings/store", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "synthetic" } }),
+      });
+    });
+    await gotoReady(page, "/settings?section=store");
+    const sectionError = page.locator('[data-ui="settings-section-load-error"]');
+    await expect(sectionError).toBeVisible();
+    const sectionRetry = sectionError.getByRole("button", { name: "重新加载" });
+    expect((await sectionRetry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp08-store-recovery-390x844.png",
+      fullPage: true,
+    });
+  });
+
   test("renders the account identity and security workflow on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoReady(page, "/settings?section=account");
@@ -474,6 +525,7 @@ test.describe("settings notifications and default rules", () => {
     await expect
       .poll(() => page.evaluate(() => document.body.style.pointerEvents))
       .not.toBe("none");
+    await page.unrouteAll({ behavior: "wait" });
   });
 
   test("keeps both child pages responsive at 768 and 1024 with maximum-length output", async ({
@@ -735,6 +787,11 @@ test.describe("settings members and suppliers workspace", () => {
     );
     await technicianRow.getByRole("button", { name: "管理" }).click();
     const sheet = page.getByRole("dialog", { name: "演示技术员" });
+    await expect(sheet).toBeVisible();
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp08-member-drawer-1280x800.png",
+    });
     await sheet.getByRole("combobox").click();
     await page.getByRole("option", { name: "前台" }).click();
     await expect(sheet.getByLabel("管理供应商")).toBeDisabled();
@@ -1198,10 +1255,16 @@ test.describe("WP06 settings workflow draft contract", () => {
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.locator("body").waitFor({ state: "visible" });
+  await hideNextDevIndicators(page);
 }
 
 async function hideNextDevIndicators(page: Page) {
   await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+  await page.evaluate(() => {
+    for (const portal of document.querySelectorAll<HTMLElement>("nextjs-portal")) {
+      portal.style.setProperty("display", "none", "important");
+    }
+  });
 }
 
 async function clickOverviewEntry(page: Page, name: RegExp) {

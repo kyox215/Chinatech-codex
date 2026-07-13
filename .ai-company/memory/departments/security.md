@@ -44,6 +44,9 @@ as owner of this file.
 - `TASK-20260714-002-buyback-supabase-schema-staging` adds only dormant production objects: agreement RLS is enabled with no access policy, the private bucket has no upload/read policy, and `public`/`anon`/`authenticated`/`service_role` retain no agreement-table or finalize-RPC runtime access. This fail-closed schema state does not authorize identity/signature collection.
 - `TASK-20260716-003-customer-finance-order-correction-plan` enforces terminal-order authority in router/repository/database layers: Manager/Owner may correct or reopen, Owner alone may void, and browser roles cannot execute terminal RPCs. `order_terminal_operations` intentionally uses RLS with no policy while only `service_role` has RPC EXECUTE; the UI is only a projection. Finance-restricted customer reads omit amounts rather than returning misleading zeros.
 - `TASK-20260716-004-device-left-status-plan` proposes that customer-held devices cannot retain unlock credentials and that custody changes reuse server-side `order:update_intake`, tenant scope, version locking and redacted audit events. This remains proposed until implementation/security tests close.
+- Settings Kiosk and order-data routes use exact default-off dual flags. Any confirmed cross-store data,
+  transient secret, output identity, unauthorized write, missing high-risk audit, or post-failure partial
+  write is a zero-tolerance release stop; local flags and mocks are not production proof.
 
 ## Interfaces and dependencies
 
@@ -70,6 +73,7 @@ as owner of this file.
 | SEC-20260710-002 | One plaintext unlock pattern remains and no approved retention/key-management policy exists | Sensitive device-access secret risk | Security + Data + Owner | policy decision before encryption migration, purge or export | blocked_by_policy |
 | SEC-20260713-003 | Buyback evidence retention, staged-file deletion, runtime bucket/RLS grants, legal wording and advanced file sanitization are not production-verified | Identity-document/privacy exposure | Security + Data + Operations + Owner | approved production-readiness/legal task before evidence activation | contained_by_feature_off_and_revoked_runtime_acl |
 | SEC-20260716-004 | Device-custody and unlock-clear behavior is planned but not implemented | False custody evidence or retained device-access secrets | Security + Backend + Product + Owner | implementation WP-01 through WP-05 | proposed |
+| SEC-20260713-001 | Kiosk limiting/token/retention/signature policy and order-data ingress/retention/limiting remain unapproved | PII abuse, leakage or over-retention | Security + Data + Operations + Owner | before Kiosk or order-data production unit | open |
 
 ## Lessons and anti-patterns
 
@@ -101,3 +105,4 @@ as owner of this file.
 | 2026-07-16 | Verified actor-scoped Dashboard priority, compact DTO denylist and cached-data permission-revocation hiding | TASK-20260716-001-dashboard-handoff-priority | Security reviewer + Integration Lead | active |
 | 2026-07-16 | Verified service-role-only terminal RPCs, layered bypass denial and finance-redacted customer projection | TASK-20260716-003-customer-finance-order-correction-plan | Security reviewer + Integration Lead | scoped_verified |
 | 2026-07-16 | Recorded proposed custody permission, tenant and unlock-secret controls with explicit non-implementation boundary | TASK-20260716-004-device-left-status-plan | Security reviewer + Integration Lead | proposed |
+| 2026-07-13 | Recorded Settings dual-flag containment and zero-tolerance tenant/PII/partial-write stops | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_contract |

@@ -1214,7 +1214,7 @@ export function SettingsScreen() {
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 bg-card"
+              className="min-h-11 bg-card px-3 sm:min-h-9"
               onClick={() => storeContextQuery.refetch()}
             >
               重新加载
@@ -1920,7 +1920,13 @@ function SettingsSectionDataState({
       }
       trailing={
         onRetry ? (
-          <Button type="button" size="sm" variant="outline" className="h-8" onClick={onRetry}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-h-11 px-3 sm:min-h-9"
+            onClick={onRetry}
+          >
             重新加载
           </Button>
         ) : null

@@ -53,6 +53,10 @@ as owner of this file.
 - `TASK-20260619-014` deleted the three reviewed duplicate files and verified the final Git-visible untracked duplicate scan reports `same=0 diff=0 missing=0 nonfiles=0`; `npm run agents:check` passed.
 - `TASK-20260619-015` removed 14 confirmed empty duplicate directories, confirmed the empty-dir scan is clean, and recorded 56 generated/ignored duplicate-like output paths without deleting them.
 - `TASK-20260712-002-mobile-interaction-click-reliability` adds `npm run test:e2e:interactions:mock` to the manual GitHub Actions E2E workflow. It verifies touch-center hit-testing, Sidebar/Dropdown navigation, account controls, pointer-lock release, overlay close, a representative modal handoff and primary-route overflow at 390px and 430px; WebKit remains a local Safari-like regression option through `PLAYWRIGHT_BROWSER=webkit`.
+- Settings closeout requires the exact interaction command, six target widths, store/role/error/draft and
+  overlay evidence, clean synthetic screenshots, and a fresh rerun after latest-main integration. An E2E
+  `route.fetch` callback still running at test teardown is test-infrastructure failure and must be awaited,
+  not ignored as browser noise.
 - App-shell interaction tests must wait for the first successful `stores/context` snapshot instead of `networkidle`, then verify controls against live DOM because authority and Realtime bridges may legitimately rerender. Unit coverage separately proves that first permission hydration does not unmount shell controls and later stable authority changes still reset them.
 - Guided-buyback role E2E must start the dev server itself with `REPAIRDESK_E2E_BUSINESS_DESKTOP=1`; setting the flag only on Playwright leaves server actors fail-closed. `TASK-20260712-005-buyback-guided-evidence` final post-rebase gate is 12 files/152 focused tests, 127 files/883 full tests, lint/typecheck/build PASS and 10/10 guided-buyback/dashboard Playwright flows plus four reviewed screenshots.
 - If the full parallel Vitest run fails only through fixed 5s timeouts in Radix/user-event tests on a constrained host, rerun the failed files in isolation and the complete suite with one worker before classifying the result as a product regression. Keep the original failure and both rerun results in evidence.
@@ -92,6 +96,7 @@ Proposed verification contract from `TASK-20260716-004-device-left-status-plan`:
 | QA-20260620-006 | Final reports could claim departments were used without real spawned agents | Owner may not get the AI employee operating model requested | QA + Documentation + Integration Lead | require real agent ids/results or no-spawn reason for department-requested work | active_rule |
 | QA-20260710-001 | Release validation can become stale when another executor changes remote DB/Git/deploy state | A green gate may describe the wrong target state | QA + Platform + Integration Lead | require remote pre/post assertions and serialized release ownership | open |
 | QA-20260712-001 | Default parallel Vitest can exceed fixed 5s test timeouts in existing Radix/user-event suites under local resource contention | False regression classification | QA | review test concurrency/timeout policy in a dedicated test-infrastructure task | observed; serial full suite green |
+| QA-20260713-001 | Settings five-role, offline/409, full overlay and 50+ member E2E matrix remains incomplete | Local representative green can overstate release coverage | QA + Frontend + Security | latest-main integrated WP08 gate | open |
 
 ## Lessons and anti-patterns
 
@@ -139,3 +144,4 @@ Proposed verification contract from `TASK-20260716-004-device-left-status-plan`:
 | 2026-07-16 | Recorded Orders queue loading/race/offline, bounded-query, realtime/preload, full-suite and responsive visual gates | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + QA/SEC/UX reviewers | active |
 | 2026-07-16 | Recorded customer finance/lifecycle SQL, permission, atomicity, full-suite, responsive and production postcheck matrix | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + QA/DATA/SEC/UX reviewers | active |
 | 2026-07-16 | Recorded proposed device-custody regression and visual-evidence matrix; runtime validation remains pending implementation | TASK-20260716-004-device-left-status-plan | Integration Lead + QA/SEC reviewer | proposed |
+| 2026-07-13 | Recorded Settings exact interaction/screenshot/post-integration gates and remaining matrix gaps | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 QA reviewer | conditional |

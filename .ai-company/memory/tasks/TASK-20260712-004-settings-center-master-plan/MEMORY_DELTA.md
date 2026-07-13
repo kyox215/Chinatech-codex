@@ -57,3 +57,15 @@
 - Raw database messages are server-only. Apply recovery uses an allowlisted typed repository error; public/service copy never depends on or returns raw RPC text.
 - Preview expiry disables Apply but does not prove deletion. Production export/preview remains closed until cleanup scheduling, monitoring, a streaming body limit, rate/concurrency controls, and capacity evidence exist.
 - Order-data Apply remains closed until staging is atomic, normal-create workflow/default-warranty/audit semantics are shared, the safe transaction cap is measured, results are runtime-validated, and impact/recovery plus linked database evidence are approved.
+- Settings release packaging must be split: WP00–WP03 code-only, WP04 member/supplier, WP05 Kiosk
+  containment/database/enablement, WP06 workflow, WP07 export/preview, and WP07 Apply are independent
+  units. The combined branch is not a deployment artifact.
+- Settings-related migrations are chronologically order-data → member grants → Kiosk expand. A generic
+  linked apply can sweep unreviewed earlier files; exact history and dry-run output are mandatory, and
+  `--include-all` is not an acceptable drift bypass.
+- Member writes and workflow Apply lack independent production kill switches. Exclude them from release
+  units until default-off interlocks and atomic server contracts exist.
+- Local UI/error evidence requires mobile recovery actions of at least 44px and clean synthetic
+  screenshots. Early WP03–WP05 images are reference-only until recaptured as release evidence.
+- The Settings operator guide and WP08 release/acceptance packets are local contracts only. The old
+  Kiosk implementation plan is a historical snapshot and cannot authorize production use.

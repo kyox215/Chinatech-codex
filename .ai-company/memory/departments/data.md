@@ -39,6 +39,9 @@ as owner of this file.
 - `TASK-20260712-001` verified an exact-manifest status reclassification pattern: source provenance plus expected old tuple/timestamp, short row locks, minimized before-image, forced rollback before commit, independent post-check, and selective recovery that stops after later business activity.
 - SeaTable status is authoritative for status, notification and handover evidence. `到货已通知` and `修好已通知` set notification state but never delivery timestamps; problem/work text must not override these compound states.
 - `TASK-20260712-005-order-custody-archive` validates the production repair SOP: exact store/source scope, minimal before-image, no-later-activity guard, forced patch rollback rehearsal, formal apply, selective restore rollback rehearsal, and independent post-check. Its 51-row batch changed only workflow/status evidence and audit events, with no customer, device, finance, attachment or cross-store mutation.
+- Settings migration order is order-data `20260710150000`, member grants `20260712002317`, then Kiosk
+  expand `20260713144316`. A linked dry-run must contain only the reviewed set; never use `--include-all`
+  to bypass drift. Preview expiry is not PII deletion, and batch header plus rows require atomic staging.
 - Because server repositories use the service-role/admin path, server-side authorization remains the decisive write-control boundary even when RLS exists as a database guardrail.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` classifies audit-row retention risk and keeps live audit-row sampling, retention changes, purge, historical redaction/backfill, audit-reader grants, and schema/RLS changes approval-gated.
 - `TASK-20260712-005-buyback-guided-evidence` adds a local migration contract for private restricted evidence, agreement/payment/evidence atomic finalize, idempotency and serial locking. It is not production evidence: linked dry-run, dual-schema fixtures, RPC grants/RLS, `storage.objects` policies, concurrent calls and cleanup/retention behavior must pass before apply.
@@ -73,6 +76,7 @@ as owner of this file.
 | DATA-20260710-002 | Historical migration chain cannot reset from zero at `20260611102805`; backup/PITR restore proof is absent | Disaster recovery cannot be demonstrated | Data + Operations | P0 trusted baseline reconstruction and isolated restore drill | open |
 | DATA-20260713-003 | Buyback restricted-evidence runtime grants, staged cleanup and retention/legal-hold behavior remain unverified for activation; dormant schema is present but empty and revoked | PII exposure, orphan files or noncompliant retention | Data + Security + Operations + Owner | separate approved production-readiness task before evidence activation | contained_by_feature_off_and_revoked_runtime_acl |
 | DATA-20260716-004 | Order device-custody migration and legacy NULL preservation exist only as a proposal | False historical custody, rollout mismatch, or silent field loss | Data + API + Security + Owner | implementation WP-01 and D3 production gate | proposed |
+| DATA-20260713-001 | Settings candidate migrations, scheduled cleanup, transaction sizing and restore evidence are not linked-environment proven | Data loss/privacy/release risk | Data + Security + Operations + Owner | exact preflight/dry-run/apply/post-check gates | open |
 
 ## Lessons and anti-patterns
 
@@ -109,3 +113,4 @@ as owner of this file.
 | 2026-07-14 | Applied and catalog/ACL/empty-state verified dormant buyback schema staging without runtime enable | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + DATA/SEC/REL reviewers | scoped_verified |
 | 2026-07-16 | Verified and postchecked a production Orders query optimization that required no migration, DDL, RPC or data write | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + DATA/SEC reviewer | scoped_verified_no_write |
 | 2026-07-16 | Applied and postchecked four customer finance/order lifecycle migrations after exact PG17 replay | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/release reviewers | scoped_verified |
+| 2026-07-13 | Recorded Settings migration order, exact-set dry-run, retention and atomic-staging boundaries | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_contract |

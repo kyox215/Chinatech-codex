@@ -289,3 +289,45 @@ All screenshots use synthetic data, hide the Next development indicator, and con
 - Apply staging must be atomic. New-order status/workflow/default warranty and warranty audit fields must share the normal creation contract.
 - Maximum Apply transaction size, locks/timeouts, runtime result validation, before/after impact, rollback/recovery, linked migration/RLS/grant proof, production smoke, push, and deployment require separate Owner approval.
 - No database, migration apply, production data, role/retention decision, real flag enable, external message, push, or deployment occurred.
+
+## WP-08 — Whole-plan local package and release NO-GO
+
+### Decision and review
+
+- Three independent read-only WP08 reviewers completed QA acceptance, release/data/security, and
+  operator/UI/documentation audits. P0=0. Their P1 documentation, touch-target, E2E lifecycle, release
+  split, migration-order, and evidence-authority findings were corrected or recorded as open gates.
+- Local WP08 package: complete. Master task: `in_progress`. Production: NO-GO.
+
+### Executed verification
+
+- `npm run agents:check`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run test`: 167 files / 1073 tests passed.
+- `npm run build`: passed outside the known Turbopack sandbox port restriction; 22/22 pages generated.
+- `npm run test:e2e:interactions:mock`: final rerun 54 passed / 1 existing conditional skip.
+- A route-callback teardown race discovered during screenshot regeneration was fixed with awaited route
+  cleanup; the focused failing case then passed 1/1 before the final complete rerun.
+- Playwright dev-server `ECONNRESET` messages during fast overflow navigation remained log noise; the
+  selected final process exited 0.
+
+### WP08 visual evidence
+
+- `screenshots/responsive-density/settings/wp08-overview-390x844.png`
+- `screenshots/responsive-density/settings/wp08-overview-1440x900.png`
+- `screenshots/responsive-density/settings/wp08-member-drawer-1280x800.png`
+- `screenshots/responsive-density/settings/wp08-store-recovery-390x844.png`
+- All four were visually inspected: synthetic data only, no production PII/credentials/tokens/signatures,
+  and no Next development indicator. Historical screenshots auto-rewritten by E2E were restored.
+
+### Open acceptance and production gates
+
+- After this package the branch is 12 ahead / 8 behind `origin/main` with 24 overlapping paths. No
+  latest-main integration or post-integration gate has run.
+- Full five-role/nine-section, offline/409, browser late-store response, every overlay, and 50+ member
+  E2E coverage remains incomplete.
+- Member, Kiosk, workflow, and order-data production transaction/data/retention/capacity/recovery gates
+  remain open. No Owner exception is recorded.
+- No database command, production read/write, real flag change, push, PR, deployment, or external
+  communication occurred.

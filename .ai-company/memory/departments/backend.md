@@ -39,6 +39,9 @@ as owner of this file.
 - Dashboard priority uses `dashboard/priority-summary`: apply the existing actor-aware active-order repository scope first, rank the complete visible set, then slice and return the compact allowlist. Keep the previous `dashboard/summary` response during the rolling-client compatibility window. Dashboard mutations remain out of scope; order task/detail routes own all permission-checked writes.
 - Orders list reads must first select store/view/technician-scoped narrow index rows, then issue one store-scoped detail query for at most 50 IDs. Keep legacy `pageSize <= 100` input compatibility but clamp the effective detail page size to 50, preserve actor response projections, and fail closed when technician assignment schema is unavailable.
 - Order update authority is field/capability scoped and clients send changed fields only. Terminal correction/reopen/void and cancelled-custody confirmation are dedicated atomic repository/RPC commands with store/member role validation, row/version locks, idempotency, reason and immutable before/after evidence; generic update and batch paths must not bypass them.
+- Settings APIs must treat server capability projection and `expectedStoreId`/version checks as authority;
+  typed 403/409/422 errors preserve recoverable drafts. High-risk member, workflow, Kiosk, or order-data
+  Apply work may not sequence legacy endpoints and claim atomicity.
 
 ## Interfaces and dependencies
 
@@ -66,6 +69,7 @@ Proposed cross-department contract from `TASK-20260716-004-device-left-status-pl
 | BE-20260716-001 | Dashboard priority currently reads and ranks the complete visible active set in memory | Correct but may become expensive at materially larger store volume | Backend + Data | measure volume/latency before moving ranking into a database read model | monitoring |
 | BE-20260716-002 | Legacy `dashboard/summary` remains for rolling-client compatibility and generic priority read failures map to HTTP 400 | Contract debt and weaker unavailable-service observability | Backend + QA | deprecate old endpoint and introduce a 503-class error in a separate compatibility task | monitoring |
 | BE-20260716-003 | Orders archive/all still scans narrow index batches up to 1,000 and the two-phase read is not a transactional snapshot | Higher-volume latency or a transient missed row during concurrent change | Backend + Data | observe production p95/volume; introduce a database read model only with measured evidence | monitoring |
+| BE-20260713-003 | Member and workflow writes lack independent production kill switches and proven atomic RPCs | Partial writes or weak containment | Backend + Security + Data | before either production release unit | open |
 
 ## Lessons and anti-patterns
 
@@ -95,3 +99,4 @@ Proposed cross-department contract from `TASK-20260716-004-device-left-status-pl
 | 2026-07-16 | Added complete actor-scoped Dashboard priority endpoint, allowlisted DTO and legacy rolling compatibility boundary | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + ARCH/SEC reviewers | active |
 | 2026-07-16 | Added bounded two-phase Orders list repository contract with tenant/assignment and projection preservation | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + DATA/SEC/performance reviewers | active |
 | 2026-07-16 | Added changed-fields-only order updates and audited atomic terminal command boundary | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/QA reviewers | active |
+| 2026-07-13 | Recorded Settings expected-store/typed-conflict authority and atomic-Apply boundary | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_verified |

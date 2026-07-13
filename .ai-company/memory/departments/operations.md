@@ -43,6 +43,9 @@ as owner of this file.
 - `TASK-20260714-002-buyback-supabase-schema-staging` serialized the production database release from frozen `main@66aa468e`: exact dry-run selected one migration, official CLI apply succeeded, post-apply dry-run is up to date and delayed observation stayed empty/revoked. Eight completed physical backups were visible, but PITR is off and no restore drill was performed; recovery remains feature-off plus revoke/forward-fix.
 - `TASK-20260716-003-customer-finance-order-correction-plan` observed one successful exception path using an isolated worktree and serialized DB executor when CLI authentication was unavailable: exact pending migration parity, current-schema PG17 restore/replay, pgTAP, immediate migration-list re-read and metadata/ACL/data/advisor postchecks before application push. Treat this as a proposed bounded exception requiring Owner/release approval, not an approved general fallback and not proof that CLI dry-run, historical migration reset or PITR restore is healthy.
 - The same task's application release is scoped-verified at Vercel deployment `dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq` for exact SHA `e83527379ddc048940ac628fb72821d60b2c8c91`. An initial author-identity rejection was contained before build/alias change; the Owner-linked retry reached `READY`, passed anonymous login/protected-route/API checks, and showed no scoped runtime error cluster or error/fatal log during observation.
+- Settings must be split into independent code-only, member, Kiosk, workflow, order-data preview/export,
+  and order-data Apply release units. Use a clean latest-main worktree, serialized release owner, exact
+  target/config/migration assertions, observation owner, and rollback/forward-fix record.
 
 ## Interfaces and dependencies
 
@@ -64,6 +67,7 @@ as owner of this file.
 | OPS-20260619-002 | Dirty worktree plus generated/ignored duplicate-like output can still create noise | Review/release risk | Operations + QA | generated-output cleanup if disk/workspace noise matters | monitoring |
 | OPS-20260619-003 | Duplicate cleanup without fresh scan and explicit path list could remove semantic evidence | Governance/review risk | Operations + QA | before deleting newly discovered or now-different duplicate-like files | open |
 | OPS-20260619-004 | Batch C cleanup could lose the attachment-inventory E2E idea | QA backlog loss | Operations + QA | backlog note created and Batch C duplicates deleted by TASK-20260619-011 | closed |
+| OPS-20260713-001 | Settings branch is 12 ahead / 8 behind with 24 overlaps after its WP08 package and has no target, baseline, on-call, window or recovery owner | Wrong artifact or uncontained release | Operations + Integration Lead + Owner | before push/PR/deploy | open |
 
 ## Lessons and anti-patterns
 
@@ -97,3 +101,4 @@ as owner of this file.
 | 2026-07-14 | Recorded serialized dormant-schema apply, exact migration parity, backup/PITR evidence and forward-fix recovery boundary | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + release reviewer | scoped_verified |
 | 2026-07-16 | Recorded serialized four-migration DB-first apply with clone replay and exact postchecks | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/QA reviewers | scoped_verified |
 | 2026-07-17 | Recorded exact-SHA Vercel release, contained identity block, production auth-boundary smoke and clean runtime observation | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + release reviewers | scoped_verified |
+| 2026-07-13 | Recorded Settings split-release, serialized integration, observation and rollback ownership contract | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | no_go |

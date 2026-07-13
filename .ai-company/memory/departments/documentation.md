@@ -58,6 +58,9 @@ as owner of this file.
 - `TASK-20260716-001-dashboard-handoff-priority` and `docs/UI_PAGE_GENERATION_DECLARATION.md` are the current Dashboard generation authority: no Dashboard status chips, two quick starts, complete actor-scoped ranking before slice, allowlisted non-financial projection, navigation-only actions and distinct loading/empty/filtered/error/permission states.
 - `TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md` is the current Orders mobile queue/loading performance release authority: compact responsive queues, explicit transition/offline states, bounded two-phase list reads, exact production proof and the evidence-based no-migration decision.
 - For customer finance and terminal-order behavior, use `TASK-20260716-003-customer-finance-order-correction-plan`, `docs/CUSTOMER_MANAGEMENT_WORKBENCH_PLAN.md` and active `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`: `累计订单额/待收`, orthogonal repair/payment states, finance omission on restricted reads, changed-fields-only routine edits and audited correction/reopen/Owner void are the current contract. `docs/ORDERS_SPEC.md` remains a historical snapshot and only points to the active standard.
+- `docs/SETTINGS_CENTER_OPERATOR_GUIDE.md` and WP08 release/acceptance packets are active local
+  contracts, not production authorization. `docs/CUSTOMER_KIOSK_IPAD_PLAN.md` is a historical planning
+  snapshot and must not override the WP05-B/WP08 production NO-GO status.
 
 ## Interfaces and dependencies
 
@@ -85,6 +88,7 @@ as owner of this file.
 | DOC-20260620-004 | Audit-log policy may be mistaken for implemented redaction behavior | Future agents may claim sensitive audit payloads are fixed before sanitizer/tests exist | Documentation + Security + Backend + QA | keep marked implementation_pending until follow-up code tasks close | monitoring |
 | DOC-20260620-005 | Final reports may omit screenshot/no-screenshot evidence after visible tasks | Owner loses visual verification trail | Documentation + QA + Integration Lead | check every closeout report and task Evidence | active_rule |
 | DOC-20260620-006 | Department labels may be mistaken for real spawned AI employees | Owner expects separate AI employees, but report could describe label-only routing as execution | Documentation + QA + Integration Lead | require agent ids/results or no-spawn reason in each relevant closeout | active_rule |
+| DOC-20260713-001 | Local Settings operator/release evidence could be mistaken for deployed behavior | Unsafe production use or false status reporting | Documentation + Operations + Owner | keep production NO-GO metadata until approved release evidence exists | active_rule |
 
 ## Lessons and anti-patterns
 
@@ -133,3 +137,4 @@ as owner of this file.
 | 2026-07-16 | Synchronized active Dashboard UI/API/security/visual rules with the handoff implementation | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
 | 2026-07-16 | Synchronized Orders mobile UI/query/release authority and closeout evidence | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + department reviewers | active |
 | 2026-07-16 | Synchronized customer finance, dual-state and terminal-action docs with code, migration and release evidence | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + department reviewers | active |
+| 2026-07-13 | Recorded Settings operator/release package authority boundary and historical Kiosk snapshot label | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 documentation reviewer | local_contract |

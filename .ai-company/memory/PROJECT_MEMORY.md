@@ -122,6 +122,16 @@ Client components must not import `src/server/*`. Server-side validation is requ
 
 ## Current roadmap and work in progress
 
+- Active `TASK-20260712-004-settings-center-master-plan` has locally implemented nine capability-driven
+  Settings sections through WP07 and a WP08 operator/release package. It is not closed or production
+  ready: after the WP08 package the branch is 12 commits ahead / 8 behind current `origin/main`, shares 24 changed paths, and
+  must be split into code-only, member, Kiosk, workflow, order-data export/preview, and order-data Apply
+  release units before any production decision.
+- Settings database order is `20260710150000_order_data_roundtrip.sql` →
+  `20260712002317_global_staff_permission_grants.sql` →
+  `20260713144316_kiosk_integrity_expand.sql`. Linked history and exact dry-run output must be verified;
+  stop if a database command would include any unreviewed migration. Kiosk/order-data flags stay exactly
+  off, and member/workflow writes remain excluded until independent kill switches and atomic contracts exist.
 - Latest conditionally closed task: `TASK-20260710-009-security-reliability-hardening-release`. Customer read/auth/schema/pagination/script/E2E hardening and atomic/idempotent payment recording are live at `cee5a1b4`; existing page layout/UI was preserved.
 - TASK-009 established a durable payment command boundary: BFF authorization and validation, service-role-only invoker RPC, immutable ledger/idempotency key, advisory lock and order row lock in one transaction. A migration-slice PASS must never be summarized as an environment-wide Database Gate PASS.
 - TASK-009 linked audit found 17 legacy public tables with RLS disabled and direct browser-role access, a from-zero migration reset failure at `20260611102805`, missing backup/PITR restore proof and one plaintext unlock pattern pending policy. These are independent P0/policy follow-ups.
@@ -166,6 +176,9 @@ Client components must not import `src/server/*`. Server-side validation is requ
 - `.ai-company/memory/tasks/TASK-20260619-232315-l2-028-require-closeout-screenshots-for-re/TASK.md`
 - `.ai-company/memory/tasks/TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for/SUBAGENT_REVIEW_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260619-234449-l2-030-audit-project-for-similar-governanc/GOVERNANCE_EXECUTION_DRIFT_AUDIT.md`
+- `.ai-company/memory/tasks/TASK-20260712-004-settings-center-master-plan/WP08_ACCEPTANCE_MATRIX.md`
+- `.ai-company/memory/tasks/TASK-20260712-004-settings-center-master-plan/WP08_RELEASE_READINESS_PACKET.md`
+- `docs/SETTINGS_CENTER_OPERATOR_GUIDE.md`
 - `.ai-company/memory/BACKLOG.md`
 - `AGENTS.md`
 - `AI智能部门管理/部门化管理设计.md`

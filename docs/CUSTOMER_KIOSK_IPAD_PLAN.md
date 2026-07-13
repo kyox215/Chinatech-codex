@@ -1,6 +1,8 @@
 # Customer Kiosk iPad Plan
 
-Status: MVP foundation, staff review, and signature evidence implemented; broad migration history drift remains
+> **历史规划快照：** 本文记录早期实现路径，不是当前生产启用证明。当前发布状态以 WP05-B ADR、数据库批准包和 WP08 发布就绪包为准；在双开关、数据库、原子性、保留与 Owner 门禁完成前均为生产 NO-GO。
+
+Status: historical implementation snapshot; production NO-GO pending WP05-B and WP08 gates
 Owner: Hexiang Huang / 鹤祥
 Scope: Chinatech RepairDesk customer-facing iPad mode for intake forms, missing customer details, pickup confirmation, and signatures.
 Last updated: 2026-07-09

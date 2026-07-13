@@ -49,3 +49,16 @@ Final WP-07 evidence: architecture/security/UI reviews P0=0/P1=0; 9 focused file
 Do not enable real export/preview until reliable PII cleanup scheduling/monitoring, a streaming request-body hard limit, rate/concurrency governance, abandoned-batch cleanup, and capacity proof exist. Apply additionally requires atomic staging, normal-create workflow/default-warranty/audit parity, measured safe transaction sizing, runtime result validation, complete impact/recovery evidence, and separately approved migration/linked verification.
 
 The next safe package is WP-08 whole-plan quality, operator/release documentation, evidence reconciliation, and approval-ready rollback packaging. Do not push, deploy, apply migrations, enable Kiosk or order-data flags, change role/retention semantics, unlock workflow/order-data Apply, or inspect/correct production rows without Owner approval.
+
+WP-08 local packaging is now complete. Read `WP08_ACCEPTANCE_MATRIX.md`,
+`WP08_RELEASE_READINESS_PACKET.md`, `WP08_CLOSEOUT_REPORT.md`, `WP08_VISUAL_EVIDENCE.md`, and
+`docs/SETTINGS_CENTER_OPERATOR_GUIDE.md` before continuing. Final local gates pass: 167 files / 1073
+Vitest tests, exact interaction E2E 54 passed / 1 existing conditional skip, agents, lint, typecheck, and
+22-page build. Four clean WP08 screenshots cover mobile/desktop overview, desktop member Drawer, and
+mobile store recovery.
+
+Do not mark the master task closed. After its WP08 package the branch is 12 ahead / 8 behind
+`origin/main` and has 24 overlapping paths. The next recommended action is an Owner-authorized clean
+latest-main integration and PR-preparation scope with split release units. Linked preflight/dry-run/apply,
+real flags, production data, push, deployment, retention/role decisions, and customer communication each
+remain separate approval gates.
