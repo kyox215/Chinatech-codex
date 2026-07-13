@@ -141,9 +141,9 @@ describe("SettingsScreen store-bound transient secrets", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole("heading", { name: "员工管理" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "员工与权限" })).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /邀请码/ }));
-    await user.click(screen.getByRole("button", { name: "生成" }));
+    await user.click(screen.getByRole("button", { name: "生成当前店铺邀请码" }));
     expect(apiMocks.createStoreInviteLink).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -780,6 +780,7 @@ function storeContext(
       canManageMembers: true,
       canRevokeMembers: true,
       canGrantManager: true,
+      memberInviteRoles: ["manager", "technician", "sales", "viewer"],
       canReviewAccessRequests: true,
       canManageKioskDevices: true,
       canReviewKioskSessions: true,

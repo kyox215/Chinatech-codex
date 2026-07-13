@@ -26,6 +26,7 @@ export const repairDeskRealtimeQueryGroups = [
   "inventory.all",
   "settings.store",
   "settings.templates",
+  "suppliers.all",
   "stores.context",
   "stores.members",
   "stores.access_requests",

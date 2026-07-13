@@ -5,6 +5,7 @@ import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
+import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 
 import type {
   RepairDeskRealtimeDomain,
@@ -45,6 +46,8 @@ export function getRepairDeskRealtimeQueryKeyForGroup(
       return messageSettingsKeys.storeScoped(storeId);
     case "settings.templates":
       return messageSettingsKeys.templatesScoped(storeId);
+    case "suppliers.all":
+      return suppliersKeys.storeScoped(storeId);
     case "stores.context":
       return storesKeys.context;
     case "stores.members":
@@ -68,6 +71,7 @@ export function getRepairDeskRealtimeQueryGroupsForDomain(
       return [
         "settings.store",
         "settings.templates",
+        "suppliers.all",
         "stores.context",
         "stores.members",
         "stores.access_requests",

@@ -64,16 +64,33 @@
 
 ## WP-03C notifications, print, and default rules
 
-| Reader             | Impact                                                                                                          | Authoritative update                                                                                              | Verification                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Store users        | Notification/print previews update from the current section draft; restoring defaults still requires Save       | `notifications-settings-section.tsx`, `rules-settings-section.tsx`, and six WP03-C screenshots                    | 28-case Settings E2E and in-app browser inspection          |
-| Developers         | Warranty uses omitted/zero/positive semantics; intake snapshots the tenant default and sale never rereads it    | `store-setting-defaults.ts`, API schemas, `inventory-warranty-default.repository.ts`, and inventory repository    | Focused repository/schema/mock/receipt tests                |
-| QA                 | Editable/read-only child pages, long previews, dirty navigation, confirmation focus, and six widths are covered | `tests/e2e/settings-section-interactions.spec.ts` and WP03-C checkpoint                                            | 10 files / 72 focused tests and 28/28 Playwright            |
-| Security reviewers | Template links require the server capability; tenant default reads are store-scoped and fail closed             | Settings screen capability projection and inventory warranty repository                                          | Independent PASS, P0=0/P1=0                                |
-| Release / SRE      | No schema, migration, environment, production write, role/retention, push, or deployment step was introduced    | `CHECKPOINTS.md`, `EVIDENCE.md`, and the existing release hard-stop list                                          | Full 149-file regression, lint, typecheck, build, diff check |
+| Reader             | Impact                                                                                                          | Authoritative update                                                                                           | Verification                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Store users        | Notification/print previews update from the current section draft; restoring defaults still requires Save       | `notifications-settings-section.tsx`, `rules-settings-section.tsx`, and six WP03-C screenshots                 | 28-case Settings E2E and in-app browser inspection           |
+| Developers         | Warranty uses omitted/zero/positive semantics; intake snapshots the tenant default and sale never rereads it    | `store-setting-defaults.ts`, API schemas, `inventory-warranty-default.repository.ts`, and inventory repository | Focused repository/schema/mock/receipt tests                 |
+| QA                 | Editable/read-only child pages, long previews, dirty navigation, confirmation focus, and six widths are covered | `tests/e2e/settings-section-interactions.spec.ts` and WP03-C checkpoint                                        | 10 files / 72 focused tests and 28/28 Playwright             |
+| Security reviewers | Template links require the server capability; tenant default reads are store-scoped and fail closed             | Settings screen capability projection and inventory warranty repository                                        | Independent PASS, P0=0/P1=0                                  |
+| Release / SRE      | No schema, migration, environment, production write, role/retention, push, or deployment step was introduced    | `CHECKPOINTS.md`, `EVIDENCE.md`, and the existing release hard-stop list                                       | Full 149-file regression, lint, typecheck, build, diff check |
 
 ### WP-03C documentation limits
 
 - SeaTable import warranty behavior is unchanged and must not be described as inheriting the Settings default.
 - Historical inventory keeps its intake snapshot; changing a store default affects only later intake records that omit an override.
 - Final operator documentation remains deferred until WP-04 through WP-07 stabilize the remaining child functions.
+
+## WP-04 members, access requests, and suppliers
+
+| Reader             | Impact                                                                                                                    | Authoritative update                                                                                                 | Verification                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Store users        | Member roles/grants are staged and confirmed; access requests are reviewable; supplier edit/archive works responsively    | Member/supplier Settings sections and three WP-04 screenshots                                                        | 33-case Settings E2E                                        |
+| Developers         | Member management is server-projected; stale responses are epoch-gated; supplier UI/API share one strict input contract   | `store.repository.ts`, `settings-screen.tsx`, store/supplier mock APIs, supplier contract, realtime invalidation map | Targeted 29-file regression and typecheck                   |
+| QA                 | Role-only vs grant-only saves, access approve/reject, duplicate confirms, focus, 44px, and six widths are contractual     | `tests/e2e/settings-section-interactions.spec.ts` and WP-04 checkpoint                                               | 220 targeted tests, 989 full tests, 33/33 Playwright        |
+| Security reviewers | Inactive targets fail closed; object management remains server-authoritative; over-posted supplier store IDs are rejected | Server projection/repository guards and strict Zod contract                                                          | Independent security PASS, P0=0/P1=0                        |
+| Release / SRE      | Local UI/API slice is ready, but production member RPC and transaction guarantees remain blocked                          | `CHECKPOINTS.md`, `EVIDENCE.md`, and Owner gate list                                                                 | Local build only; no migration, push, deploy, or production |
+
+### WP-04 documentation limits
+
+- Do not document member role/status/grant changes as production-ready until the pending RPC migration and post-apply verification are approved and completed.
+- Do not promise atomic member/access/audit writes or supplier-name uniqueness; both remain recorded production-strength follow-ups.
+- The email invitation workflow creates an in-system pending invitation and does not automatically send email.
+- Final end-user Settings operator documentation remains deferred until WP-05 through WP-07 stabilize the remaining child functions.

@@ -418,7 +418,7 @@ const realtimeBroadcasts = {
   suppliersChanged: {
     domain: "settings",
     mutation: "settings_updated",
-    queryGroups: ["settings.store", "orders.options", "orders.all"],
+    queryGroups: ["suppliers.all", "orders.options", "orders.all"],
   },
   messageTemplateUpdated: {
     domain: "settings",
@@ -449,58 +449,15 @@ async function source() {
 
   const mock = await import("@/lib/mock/api");
   const getMockStoreMembers = async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
-    const now = new Date().toISOString();
-    return {
-      members: [
-        {
-          id: "mock_membership_owner",
-          user_id: actor.id ?? "mock_user",
-          email: actor.email ?? "owner@example.com",
-          display_name: actor.displayName,
-          role: actor.storeRole ?? actor.role ?? "owner",
-          status: "active" as const,
-          permission_grants: [],
-          created_at: now,
-          updated_at: now,
-        },
-        {
-          id: "mock_membership_manager",
-          user_id: "mock_user_manager",
-          email: "manager@repairdesk.local",
-          display_name: "演示店长",
-          role: "manager" as const,
-          status: "active" as const,
-          permission_grants: [
-            "order:archive_browse" as const,
-            "finance:aggregate_read" as const,
-            "finance:profit_read" as const,
-          ],
-          created_at: now,
-          updated_at: now,
-        },
-        {
-          id: "mock_membership_technician",
-          user_id: "mock_user_technician",
-          email: "technician@repairdesk.local",
-          display_name: "演示技术员",
-          role: "technician" as const,
-          status: "active" as const,
-          permission_grants: ["supplier:read" as const],
-          created_at: now,
-          updated_at: now,
-        },
-      ],
-      invitations: [],
-      invite_links: [],
-    };
+    return mock.listStoreMembers(actor);
   };
   return {
     ...mock,
     archiveSupplier: async (id: string, actor: AuditActor) => archiveMockSupplier(id, actor),
     createSupplier: async (input: SupplierInput, actor: AuditActor) =>
       createMockSupplier(input, actor),
-    getRepairDeskOptions: async () => ({
-      suppliers: listMockSuppliers().filter((supplier) => !supplier.archived_at),
+    getRepairDeskOptions: async (actor: AuditActor) => ({
+      suppliers: listMockSuppliers(actor).filter((supplier) => !supplier.archived_at),
       technicians: mock.allTechnicians,
       assigneeOptions: [
         {
@@ -524,9 +481,8 @@ async function source() {
         canAssignOrders: true,
       },
     }),
-    listSuppliers: async () => listMockSuppliers(),
-    updateStoreMemberPermissions: async (_input: unknown, actor: AuditActor) =>
-      getMockStoreMembers(actor),
+    listSuppliers: async (actor: AuditActor) => listMockSuppliers(actor),
+    updateStoreMemberPermissions: mock.updateStoreMemberPermissions,
     updateSupplier: async (id: string, input: SupplierInput, actor: AuditActor) =>
       updateMockSupplier(id, input, actor),
     getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
@@ -559,20 +515,11 @@ async function source() {
       throw new Error("Mock 模式暂不支持取消申请");
     },
     listStoreMembers: getMockStoreMembers,
-    updateStoreMemberRole: async (
-      _input: unknown,
-      actor: Awaited<ReturnType<typeof getRequestActor>>,
-    ) => getMockStoreMembers(actor),
-    disableStoreMember: async (
-      _input: unknown,
-      actor: Awaited<ReturnType<typeof getRequestActor>>,
-    ) => getMockStoreMembers(actor),
-    restoreStoreMember: async (
-      _input: unknown,
-      actor: Awaited<ReturnType<typeof getRequestActor>>,
-    ) => getMockStoreMembers(actor),
+    updateStoreMemberRole: mock.updateStoreMemberRole,
+    disableStoreMember: mock.disableStoreMember,
+    restoreStoreMember: mock.restoreStoreMember,
     listPlatformOnboardingRequests: async () => [],
-    listStoreAccessRequests: async () => [],
+    listStoreAccessRequests: mock.listStoreAccessRequests,
     updateAccountProfile: async (
       input: { display_name: string },
       actor: Awaited<ReturnType<typeof getRequestActor>>,
@@ -605,12 +552,8 @@ async function source() {
     rejectOnboardingRequest: async () => {
       throw new Error("Mock 模式暂不支持平台审批");
     },
-    approveStoreAccessRequest: async () => {
-      throw new Error("Mock 模式暂不支持加入申请审批");
-    },
-    rejectStoreAccessRequest: async () => {
-      throw new Error("Mock 模式暂不支持加入申请审批");
-    },
+    approveStoreAccessRequest: mock.approveStoreAccessRequest,
+    rejectStoreAccessRequest: mock.rejectStoreAccessRequest,
   };
 }
 

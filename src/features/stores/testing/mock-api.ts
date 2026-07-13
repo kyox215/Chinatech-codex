@@ -12,8 +12,13 @@ import type {
   StoreInvitation,
   StoreInviteInput,
   StoreMember,
+  StoreMemberDecisionInput,
+  StoreMemberPermissionUpdateInput,
+  StoreMemberRoleUpdateInput,
   StoreMembersResult,
 } from "@/lib/repairdesk/types";
+import { normalizeStorePermissionGrants } from "@/entities/staff/model/store-permission-policy";
+import { can } from "@/server/permissions";
 
 const mockStores = [
   {
@@ -22,29 +27,82 @@ const mockStores = [
     slug: "chinatech",
     role: "owner",
     status: "active",
-    membershipId: "mock_membership_owner",
+    membershipId: "10000000-0000-4000-8000-000000000001",
   },
 ] satisfies StoreContext["stores"];
 
 let activeStoreId = mockStores[0].id;
-const mockMembers: StoreMember[] = [
-  {
-    id: "mock_membership_owner",
-    user_id: "mock_user_owner",
-    email: "owner@repairdesk.local",
-    display_name: "店铺管理员",
-    role: "owner",
-    status: "active",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+const mockMembersByStore = new Map<string, StoreMember[]>([
+  [
+    activeStoreId,
+    [
+      {
+        id: "10000000-0000-4000-8000-000000000001",
+        user_id: "mock_user_owner",
+        email: "owner@repairdesk.local",
+        display_name: "店铺管理员",
+        role: "owner",
+        status: "active",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: "10000000-0000-4000-8000-000000000002",
+        user_id: "mock_user_manager",
+        email: "manager@repairdesk.local",
+        display_name: "演示店长",
+        role: "manager",
+        status: "active",
+        permission_grants: [
+          "order:archive_browse",
+          "finance:aggregate_read",
+          "finance:profit_read",
+        ],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: "10000000-0000-4000-8000-000000000003",
+        user_id: "mock_user_technician",
+        email: "technician@repairdesk.local",
+        display_name: "演示技术员",
+        role: "technician",
+        status: "active",
+        permission_grants: ["supplier:read"],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  ],
+]);
 const mockInvitations: StoreMembersResult["invitations"] = [];
 const mockInviteLinks: NonNullable<StoreMembersResult["invite_links"]> = [];
 const mockInviteLinkHashes = new Map<string, string>();
+const mockAccessRequestsByStore = new Map<string, OnboardingRequest[]>([
+  [
+    activeStoreId,
+    [
+      {
+        id: "20000000-0000-4000-8000-000000000001",
+        requester_user_id: "mock_user_applicant",
+        email: "applicant@repairdesk.local",
+        display_name: "演示申请人",
+        request_type: "join_store",
+        target_store_id: activeStoreId,
+        target_store_name: "ChinaTech",
+        request_note: "希望加入当前门店协助前台接待。",
+        review_scope: "store",
+        requested_role: "sales",
+        status: "pending",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  ],
+]);
 
-export async function getStoreContext(_actor?: AuditActor): Promise<StoreContext> {
-  return context();
+export async function getStoreContext(actor?: AuditActor): Promise<StoreContext> {
+  return context(actor);
 }
 
 export async function switchActiveStore(
@@ -53,7 +111,7 @@ export async function switchActiveStore(
 ): Promise<StoreContext> {
   if (!mockStores.some((store) => store.id === storeId)) throw new Error("店铺不存在");
   activeStoreId = storeId;
-  return context();
+  return context(_actor);
 }
 
 export async function createStore(
@@ -63,16 +121,17 @@ export async function createStore(
   const name = input.name.trim();
   if (name.length < 2) throw new Error("店铺名称至少需要 2 个字符");
   const id = crypto.randomUUID();
+  const membershipId = crypto.randomUUID();
   mockStores.unshift({
     id,
     name,
     slug: mockStoreSlug(name),
     role: "owner",
     status: "active",
-    membershipId: `mock_member_${id}`,
+    membershipId,
   });
-  mockMembers.unshift({
-    id: `mock_member_${id}`,
+  storeMembers(id).unshift({
+    id: membershipId,
     user_id: actor?.id ?? "mock_user_owner",
     email: actor?.email ?? "owner@repairdesk.local",
     display_name: actor?.displayName ?? "店铺管理员",
@@ -82,39 +141,121 @@ export async function createStore(
     updated_at: new Date().toISOString(),
   });
   activeStoreId = id;
-  return context();
+  return context(actor);
 }
 
-export async function listStoreMembers(_actor?: AuditActor): Promise<StoreMembersResult> {
-  return members();
+export async function listStoreMembers(actor?: AuditActor): Promise<StoreMembersResult> {
+  assertMockPermission(actor, "member:manage_basic");
+  return members(actor);
 }
 
-export async function listStoreAccessRequests(_actor?: AuditActor): Promise<OnboardingRequest[]> {
-  return [];
+export async function updateStoreMemberRole(input: StoreMemberRoleUpdateInput, actor?: AuditActor) {
+  assertMockPermission(actor, "member:manage_basic");
+  const member = requireMockManageableMember(input.id, actor);
+  const management = mockMemberManagement(member, actor);
+  if (!management.allowed_roles.includes(input.role)) throw new Error("不能修改该成员角色");
+  member.role = input.role;
+  member.permission_grants = [];
+  member.updated_at = new Date().toISOString();
+  return members(actor);
+}
+
+export async function updateStoreMemberPermissions(
+  input: StoreMemberPermissionUpdateInput,
+  actor?: AuditActor,
+) {
+  assertMockPermission(actor, "member:grant_manager");
+  const member = requireMockManageableMember(input.id, actor);
+  if (!mockMemberManagement(member, actor).can_update_permissions) {
+    throw new Error("只有店主可以分配员工权限");
+  }
+  member.permission_grants = normalizeStorePermissionGrants(input.permissions, member.role);
+  member.updated_at = new Date().toISOString();
+  return members(actor);
+}
+
+export async function disableStoreMember(input: StoreMemberDecisionInput, actor?: AuditActor) {
+  assertMockPermission(actor, "member:manage_basic");
+  const member = requireMockManageableMember(input.id, actor);
+  if (!mockMemberManagement(member, actor).can_disable) throw new Error("不能停用该成员");
+  member.status = "inactive";
+  member.permission_grants = [];
+  member.updated_at = new Date().toISOString();
+  return members(actor);
+}
+
+export async function restoreStoreMember(input: StoreMemberDecisionInput, actor?: AuditActor) {
+  assertMockPermission(actor, "member:manage_basic");
+  const member = requireMockManageableMember(input.id, actor);
+  if (!mockMemberManagement(member, actor).can_restore) throw new Error("不能恢复该成员");
+  member.status = "active";
+  member.updated_at = new Date().toISOString();
+  return members(actor);
+}
+
+export async function listStoreAccessRequests(actor?: AuditActor): Promise<OnboardingRequest[]> {
+  assertMockAccessRequestReview(actor);
+  return storeAccessRequests().filter((request) => request.status === "pending");
 }
 
 export async function approveStoreAccessRequest(
-  _input: OnboardingDecisionInput,
-  _actor?: AuditActor,
+  input: OnboardingDecisionInput,
+  actor?: AuditActor,
 ): Promise<OnboardingRequest> {
-  throw new Error("Mock 模式暂不支持加入申请审批");
+  assertMockAccessRequestReview(actor);
+  const request = requirePendingMockAccessRequest(input.id);
+  const requestedRole = request.requested_role === "owner" ? "viewer" : request.requested_role;
+  const role = sanitizeInviteRole(input.approved_role ?? requestedRole);
+  const now = new Date().toISOString();
+  request.status = "approved";
+  request.approved_role = role;
+  request.reviewed_by = actor?.id;
+  request.reviewed_by_membership_id = actor?.activeMembershipId;
+  request.reviewed_at = now;
+  request.decision_note = input.note?.trim() || undefined;
+  request.resulting_store_id = activeStoreId;
+  request.updated_at = now;
+  if (!storeMembers().some((member) => member.user_id === request.requester_user_id)) {
+    storeMembers().push({
+      id: crypto.randomUUID(),
+      user_id: request.requester_user_id,
+      email: request.email,
+      display_name: request.display_name,
+      role,
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    });
+  }
+  return { ...request };
 }
 
 export async function rejectStoreAccessRequest(
-  _input: OnboardingDecisionInput,
-  _actor?: AuditActor,
+  input: OnboardingDecisionInput,
+  actor?: AuditActor,
 ): Promise<OnboardingRequest> {
-  throw new Error("Mock 模式暂不支持加入申请审批");
+  assertMockAccessRequestReview(actor);
+  const request = requirePendingMockAccessRequest(input.id);
+  const now = new Date().toISOString();
+  request.status = "rejected";
+  request.reviewed_by = actor?.id;
+  request.reviewed_by_membership_id = actor?.activeMembershipId;
+  request.reviewed_at = now;
+  request.decision_note = input.note?.trim() || undefined;
+  request.updated_at = now;
+  return { ...request };
 }
 
 export async function inviteStoreMember(
   input: StoreInviteInput,
-  _actor?: AuditActor,
+  actor?: AuditActor,
 ): Promise<StoreMembersResult> {
+  assertMockPermission(actor, "member:invite");
   const email = input.email.trim().toLowerCase();
   const role = sanitizeInviteRole(input.role);
+  assertMockInviteRole(actor, role);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("邮箱格式不正确");
-  if (mockMembers.some((member) => member.email.toLowerCase() === email)) {
+  if (storeMembers().some((member) => member.email.toLowerCase() === email)) {
     throw new Error("该邮箱已经是当前店铺成员");
   }
   const now = new Date().toISOString();
@@ -142,7 +283,7 @@ export async function inviteStoreMember(
   } else {
     mockInvitations.unshift(nextInvite);
   }
-  return members();
+  return members(actor);
 }
 
 export async function acceptStoreInvitation(
@@ -161,8 +302,8 @@ export async function acceptStoreInvitation(
   invitation.status = "active";
   invitation.accepted_at = new Date().toISOString();
   invitation.updated_at = invitation.accepted_at;
-  mockMembers.unshift({
-    id: `mock_member_${input.id}`,
+  storeMembers(storeId).unshift({
+    id: crypto.randomUUID(),
     user_id: actor?.id ?? "mock_user_invited",
     email: invitation.email,
     display_name: actor?.displayName ?? invitation.email,
@@ -172,15 +313,17 @@ export async function acceptStoreInvitation(
     updated_at: invitation.accepted_at,
   });
   activeStoreId = store.id;
-  return context();
+  return context(actor);
 }
 
 export async function createStoreInviteLink(
   input: StoreInviteLinkCreateInput,
   _actor?: AuditActor,
 ): Promise<StoreInviteLinkCreateResult> {
+  assertMockPermission(_actor, "member:invite");
   const now = new Date().toISOString();
   const role = sanitizeInviteRole(input.role);
+  assertMockInviteRole(_actor, role);
   const code = `rd_${crypto.randomUUID().replace(/-/g, "")}`;
   const link = {
     id: crypto.randomUUID(),
@@ -207,13 +350,15 @@ export async function revokeStoreInviteLink(
   input: StoreInviteLinkDecisionInput,
   _actor?: AuditActor,
 ): Promise<StoreMembersResult> {
+  assertMockPermission(_actor, "member:revoke");
   const link = mockInviteLinks.find((item) => item.id === input.id && item.status === "active");
+  if (link?.store_id !== activeStoreId) throw new Error("邀请码不存在或已处理");
   if (!link) throw new Error("邀请码不存在或已处理");
   link.status = "inactive";
   link.revoked_by = _actor?.id;
   link.revoked_at = new Date().toISOString();
   link.updated_at = link.revoked_at;
-  return members();
+  return members(_actor);
 }
 
 export async function redeemStoreInviteLink(input: StoreInviteLinkRedeemInput, actor?: AuditActor) {
@@ -228,7 +373,7 @@ export async function redeemStoreInviteLink(input: StoreInviteLinkRedeemInput, a
   if (link.max_uses !== undefined && link.used_count >= link.max_uses) {
     throw new Error("邀请码不存在或已失效");
   }
-  if (mockMembers.some((member) => member.email.toLowerCase() === email)) {
+  if (storeMembers(link.store_id).some((member) => member.email.toLowerCase() === email)) {
     throw new Error("你已经是该店铺成员");
   }
   const existingInvite = mockInvitations.find(
@@ -259,49 +404,120 @@ export async function revokeStoreInvitation(
   input: StoreInvitationDecisionInput,
   _actor?: AuditActor,
 ): Promise<StoreMembersResult> {
+  assertMockPermission(_actor, "member:revoke");
   const invitation = mockInvitations.find(
-    (item) => item.id === input.id && item.status === "invited",
+    (item) => item.id === input.id && item.store_id === activeStoreId && item.status === "invited",
   );
   if (!invitation) throw new Error("邀请不存在或已处理");
   invitation.status = "inactive";
   invitation.updated_at = new Date().toISOString();
-  return members();
+  return members(_actor);
 }
 
-function context(): StoreContext {
+function context(actor?: AuditActor): StoreContext {
+  const scopedActor = mockActor(actor);
+  const activeStoreBase = mockStores.find((store) => store.id === activeStoreId) ?? mockStores[0];
+  const activeStore = {
+    ...activeStoreBase,
+    role: scopedActor.storeRole ?? "owner",
+    membershipId: actor?.activeMembershipId ?? activeStoreBase.membershipId,
+  };
+  const canManageMembers = can(scopedActor, "member:manage_basic");
+  const canInviteMembers = canManageMembers && can(scopedActor, "member:invite");
+  const canUpdateStoreSettings = can(scopedActor, "settings:update_store");
   return {
-    activeStore: mockStores.find((store) => store.id === activeStoreId) ?? mockStores[0],
-    stores: [...mockStores],
+    activeStore,
+    stores: mockStores.map((store) => (store.id === activeStoreId ? activeStore : store)),
     permissions: {
-      canReadSuppliers: true,
-      canAssignSuppliers: true,
-      canManageSuppliers: true,
-      canReadInventory: true,
-      canManageOrderData: true,
-      canApplyOrderData: true,
+      canReadSuppliers: can(scopedActor, "supplier:read"),
+      canAssignSuppliers: can(scopedActor, "supplier:assign"),
+      canManageSuppliers: can(scopedActor, "supplier:manage"),
+      canReadInventory: can(scopedActor, "inventory:read"),
+      canManageOrderData: scopedActor.storeRole === "owner",
+      canApplyOrderData: scopedActor.storeRole === "owner",
       canReadStoreSettings: true,
-      canUpdateStoreSettings: true,
-      canConfigureWorkflow: true,
+      canUpdateStoreSettings,
+      canConfigureWorkflow: can(scopedActor, "settings:update_workflow"),
       canReadMessageTemplates: true,
-      canUpdateMessageTemplates: true,
-      canListMembers: true,
-      canInviteMembers: true,
-      canManageMembers: true,
-      canRevokeMembers: true,
-      canGrantManager: true,
-      canReviewAccessRequests: true,
-      canManageKioskDevices: true,
-      canReviewKioskSessions: true,
-      canViewAudit: true,
+      canUpdateMessageTemplates: can(scopedActor, "settings:update_message_template"),
+      canListMembers: canManageMembers,
+      canInviteMembers,
+      memberInviteRoles: canInviteMembers
+        ? scopedActor.storeRole === "owner"
+          ? ["manager", "technician", "sales", "viewer"]
+          : ["technician", "sales", "viewer"]
+        : [],
+      canManageMembers,
+      canRevokeMembers: canManageMembers && can(scopedActor, "member:revoke"),
+      canGrantManager: can(scopedActor, "member:grant_manager"),
+      canReviewAccessRequests:
+        scopedActor.storeRole === "owner" && can(scopedActor, "member:grant_manager"),
+      canManageKioskDevices: canUpdateStoreSettings,
+      canReviewKioskSessions: canUpdateStoreSettings && can(scopedActor, "order:update_intake"),
+      canViewAudit: can(scopedActor, "support:view_audit"),
     },
   };
 }
 
-function members(): StoreMembersResult {
+function members(actor?: AuditActor): StoreMembersResult {
   return {
-    members: [...mockMembers],
-    invitations: mockInvitations.filter((invitation) => invitation.status === "invited"),
-    invite_links: mockInviteLinks.filter((link) => link.status === "active"),
+    members: storeMembers().map((member) => ({
+      ...member,
+      management: mockMemberManagement(member, actor),
+    })),
+    invitations: mockInvitations.filter(
+      (invitation) => invitation.store_id === activeStoreId && invitation.status === "invited",
+    ),
+    invite_links: mockInviteLinks.filter(
+      (link) => link.store_id === activeStoreId && link.status === "active",
+    ),
+  };
+}
+
+function storeMembers(storeId = activeStoreId) {
+  const existing = mockMembersByStore.get(storeId);
+  if (existing) return existing;
+  const created: StoreMember[] = [];
+  mockMembersByStore.set(storeId, created);
+  return created;
+}
+
+function storeAccessRequests(storeId = activeStoreId) {
+  const existing = mockAccessRequestsByStore.get(storeId);
+  if (existing) return existing;
+  const created: OnboardingRequest[] = [];
+  mockAccessRequestsByStore.set(storeId, created);
+  return created;
+}
+
+function requireMockManageableMember(id: string, actor?: AuditActor) {
+  const member = storeMembers().find((item) => item.id === id);
+  if (!member) throw new Error("员工不存在或不属于当前店铺");
+  if (member.role === "owner" || member.user_id === actor?.id) {
+    throw new Error("不能管理店主或自己的当前店铺权限");
+  }
+  return member;
+}
+
+function mockMemberManagement(member: StoreMember, actor?: AuditActor) {
+  const actorRole = actor?.storeRole ?? "owner";
+  const isSelf = member.user_id === actor?.id || member.id === actor?.activeMembershipId;
+  const targetBlocked = member.role === "owner" || isSelf;
+  const canManageTarget =
+    !targetBlocked &&
+    (actorRole === "owner" || (actorRole === "manager" && member.role !== "manager"));
+  const allowedRoles =
+    canManageTarget && member.status === "active"
+      ? actorRole === "owner"
+        ? (["manager", "technician", "sales", "viewer"] as const)
+        : (["technician", "sales", "viewer"] as const)
+      : [];
+  return {
+    allowed_roles: [...allowedRoles],
+    can_update_role: allowedRoles.length > 0,
+    can_update_permissions: actorRole === "owner" && !targetBlocked && member.status === "active",
+    can_disable: canManageTarget && member.status === "active",
+    can_restore: canManageTarget && member.status === "inactive",
   };
 }
 
@@ -326,6 +542,45 @@ function sanitizeInviteRole(role: StoreInviteInput["role"]) {
     throw new Error("不能邀请 owner 角色");
   }
   return role;
+}
+
+function mockActor(actor?: AuditActor): AuditActor {
+  return {
+    id: actor?.id ?? "mock_user_owner",
+    email: actor?.email ?? "owner@repairdesk.local",
+    displayName: actor?.displayName ?? "店铺管理员",
+    role: actor?.role ?? actor?.storeRole ?? "owner",
+    storeId: activeStoreId,
+    storeName: mockStores.find((store) => store.id === activeStoreId)?.name,
+    storeRole: actor?.storeRole ?? actor?.role ?? "owner",
+    activeMembershipId: actor?.activeMembershipId,
+    permissionGrants: actor?.permissionGrants,
+  };
+}
+
+function assertMockPermission(actor: AuditActor | undefined, action: Parameters<typeof can>[1]) {
+  if (!can(mockActor(actor), action)) throw new Error("当前员工没有权限执行此操作");
+}
+
+function assertMockInviteRole(actor: AuditActor | undefined, role: StoreInviteInput["role"]) {
+  if (role === "manager" && !can(mockActor(actor), "member:grant_manager")) {
+    throw new Error("当前员工没有权限授予店长角色");
+  }
+}
+
+function assertMockAccessRequestReview(actor?: AuditActor) {
+  const scopedActor = mockActor(actor);
+  if (scopedActor.storeRole !== "owner" || !can(scopedActor, "member:grant_manager")) {
+    throw new Error("只有店主可以处理加入申请");
+  }
+}
+
+function requirePendingMockAccessRequest(id: string) {
+  const request = storeAccessRequests().find(
+    (item) => item.id === id && item.target_store_id === activeStoreId && item.status === "pending",
+  );
+  if (!request) throw new Error("加入申请不存在、已处理或不属于当前店铺");
+  return request;
 }
 
 function mockHashInviteCode(value: string) {

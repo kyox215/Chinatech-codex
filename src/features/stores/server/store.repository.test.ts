@@ -129,6 +129,7 @@ describe("store repository access request boundaries", () => {
       canReadMessageTemplates: true,
       canListMembers: true,
       canInviteMembers: true,
+      memberInviteRoles: ["manager", "technician", "sales", "viewer"],
       canManageMembers: true,
       canRevokeMembers: true,
       canGrantManager: true,
@@ -145,6 +146,7 @@ describe("store repository access request boundaries", () => {
       canReadMessageTemplates: true,
       canListMembers: true,
       canInviteMembers: true,
+      memberInviteRoles: ["technician", "sales", "viewer"],
       canManageMembers: true,
       canRevokeMembers: true,
       canGrantManager: false,
@@ -161,6 +163,7 @@ describe("store repository access request boundaries", () => {
       canReadMessageTemplates: true,
       canListMembers: false,
       canInviteMembers: false,
+      memberInviteRoles: [],
       canManageMembers: false,
       canRevokeMembers: false,
       canGrantManager: false,
@@ -787,6 +790,81 @@ describe("store repository access request boundaries", () => {
     expect(inviteLinksQuery.order).toHaveBeenCalledWith("created_at", { ascending: false });
   });
 
+  it("projects object-level member actions from the server for owners", async () => {
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ id: "membership_owner", user_id: "owner_1", role: "owner" }),
+      membershipRow({ id: "membership_manager", user_id: "manager_2", role: "manager" }),
+      membershipRow({
+        id: "membership_inactive",
+        user_id: "staff_2",
+        role: "sales",
+        status: "inactive",
+      }),
+    ]);
+    mocks.supabase.from
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(createSupabaseQuery({ data: [], error: null }))
+      .mockReturnValueOnce(createSupabaseQuery({ data: [], error: null }));
+
+    const result = await listStoreMembers(storeOwner);
+
+    expect(result.members.find((member) => member.id === "membership_owner")?.management).toEqual({
+      allowed_roles: [],
+      can_update_role: false,
+      can_update_permissions: false,
+      can_disable: false,
+      can_restore: false,
+    });
+    expect(result.members.find((member) => member.id === "membership_manager")?.management).toEqual(
+      {
+        allowed_roles: ["manager", "technician", "sales", "viewer"],
+        can_update_role: true,
+        can_update_permissions: true,
+        can_disable: true,
+        can_restore: false,
+      },
+    );
+    expect(
+      result.members.find((member) => member.id === "membership_inactive")?.management,
+    ).toEqual({
+      allowed_roles: [],
+      can_update_role: false,
+      can_update_permissions: false,
+      can_disable: false,
+      can_restore: true,
+    });
+  });
+
+  it("projects manager actions without exposing manager or grant controls", async () => {
+    const membersQuery = createMembershipListQuery([
+      membershipRow({ id: "membership_manager_2", user_id: "manager_2", role: "manager" }),
+      membershipRow({ id: "membership_staff", user_id: "staff_2", role: "technician" }),
+    ]);
+    mocks.supabase.from
+      .mockReturnValueOnce(membersQuery)
+      .mockReturnValueOnce(createSupabaseQuery({ data: [], error: null }))
+      .mockReturnValueOnce(createSupabaseQuery({ data: [], error: null }));
+
+    const result = await listStoreMembers(storeManager);
+
+    expect(
+      result.members.find((member) => member.id === "membership_manager_2")?.management,
+    ).toEqual({
+      allowed_roles: [],
+      can_update_role: false,
+      can_update_permissions: false,
+      can_disable: false,
+      can_restore: false,
+    });
+    expect(result.members.find((member) => member.id === "membership_staff")?.management).toEqual({
+      allowed_roles: ["technician", "sales", "viewer"],
+      can_update_role: true,
+      can_update_permissions: false,
+      can_disable: true,
+      can_restore: false,
+    });
+  });
+
   it("does not hide non-schema-cache invite-link read failures", async () => {
     const membersQuery = createMembershipListQuery([
       membershipRow({ email: "owner@chinatech.in", role: "owner", status: "active" }),
@@ -968,6 +1046,37 @@ describe("store repository access request boundaries", () => {
         },
       }),
     );
+  });
+
+  it("rejects role changes for inactive members before calling the RPC", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "technician", status: "inactive" }),
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(memberReadQuery);
+
+    await expect(
+      updateStoreMemberRole({ id: "membership_staff", role: "sales" }, storeOwner),
+    ).rejects.toThrow("停用员工不能修改角色");
+
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects grant changes for inactive members before calling the RPC", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "technician", status: "inactive" }),
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(memberReadQuery);
+
+    await expect(
+      updateStoreMemberPermissions(
+        { id: "membership_staff", permissions: ["supplier:read"] },
+        storeOwner,
+      ),
+    ).rejects.toThrow("停用员工不能修改额外权限");
+
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 
   it("does not let managers grant the manager role", async () => {

@@ -5,6 +5,7 @@ import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
+import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 
 import type { RepairDeskRealtimeEvent } from "./realtime-events";
 import { getRepairDeskRealtimeInvalidationTargets } from "./query-invalidation-map";
@@ -26,6 +27,7 @@ describe("RepairDesk realtime invalidation map", () => {
       "inventory.all",
       "settings.store",
       "settings.templates",
+      "suppliers.all",
       "orders.workflow",
       "orders.options",
       "stores.context",
@@ -37,6 +39,7 @@ describe("RepairDesk realtime invalidation map", () => {
       { group: "inventory.all", queryKey: inventoryKeys.all },
       { group: "settings.store", queryKey: messageSettingsKeys.storeScoped(storeId) },
       { group: "settings.templates", queryKey: messageSettingsKeys.templatesScoped(storeId) },
+      { group: "suppliers.all", queryKey: suppliersKeys.storeScoped(storeId) },
       { group: "orders.workflow", queryKey: ordersKeys.workflow(storeId) },
       { group: "orders.options", queryKey: ordersKeys.options(storeId) },
       { group: "stores.context", queryKey: storesKeys.context },

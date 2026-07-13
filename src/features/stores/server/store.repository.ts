@@ -7,6 +7,7 @@ import {
 } from "@/features/platform/model/onboarding-review-policy";
 import type {
   ActorStoreMembership,
+  ApprovedStoreRole,
   AuditActor,
   OnboardingDecisionInput,
   OnboardingRequest,
@@ -234,9 +235,10 @@ export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersR
   );
 
   return {
-    members: ((membersResult.data ?? []) as DbRecord[]).map((row) =>
-      memberFromRow(row, grantsByMembership.get(requiredString(row.id)) ?? []),
-    ),
+    members: ((membersResult.data ?? []) as DbRecord[]).map((row) => {
+      const member = memberFromRow(row, grantsByMembership.get(requiredString(row.id)) ?? []);
+      return { ...member, management: projectStoreMemberManagement(actor, member) };
+    }),
     invitations: ((invitationsResult.data ?? []) as DbRecord[]).map(invitationFromRow),
     invite_links: inviteLinksTableMissing
       ? []
@@ -325,6 +327,9 @@ export async function updateStoreMemberRole(
   const supabase = getSupabaseAdmin();
   const member = await readStoreMemberForManagement(supabase, storeId, input.id);
   assertCanManageStoreMember(actor, member, { nextRole: role });
+  if (member.status !== "active") {
+    throw new ForbiddenError("停用员工不能修改角色，请先恢复员工");
+  }
 
   if (member.role === role) return listStoreMembers(actor);
 
@@ -384,6 +389,9 @@ export async function updateStoreMemberPermissions(
   const member = await readStoreMemberForManagement(supabase, storeId, input.id);
   if (member.role === "owner") {
     throw new ForbiddenError("店主默认拥有全部店铺权限，不需要额外授权");
+  }
+  if (member.status !== "active") {
+    throw new ForbiddenError("停用员工不能修改额外权限，请先恢复员工");
   }
   const permissions = normalizeStorePermissionGrants(input.permissions, member.role);
   const { data, error } = await supabase.rpc("repairdesk_replace_member_permission_grants_rpc", {
@@ -1149,6 +1157,46 @@ function assertCanManageStoreMember(
   assertPermission(actor, "member:manage_basic");
 }
 
+function projectStoreMemberManagement(actor: AuditActor, member: StoreMember) {
+  const allowedRoles = (["manager", "technician", "sales", "viewer"] as const).filter((role) =>
+    permits(() => {
+      if (member.status !== "active") throw new ForbiddenError();
+      assertCanGrantStoreRole(actor, role);
+      assertCanManageStoreMember(actor, member, { nextRole: role });
+    }),
+  );
+  const canDisable = permits(() => {
+    if (member.status !== "active") throw new ForbiddenError();
+    assertCanManageStoreMember(actor, member, { disable: true });
+  });
+  const canRestore = permits(() => {
+    if (member.status !== "inactive") throw new ForbiddenError();
+    assertCanManageStoreMember(actor, member, { restore: true });
+    assertCanGrantStoreRole(actor, member.role);
+  });
+  const canUpdatePermissions =
+    member.status === "active" &&
+    member.role !== "owner" &&
+    actor.storeRole === "owner" &&
+    can(actor, "member:grant_manager");
+  return {
+    allowed_roles: allowedRoles,
+    can_update_role: allowedRoles.length > 0,
+    can_update_permissions: canUpdatePermissions,
+    can_disable: canDisable,
+    can_restore: canRestore,
+  };
+}
+
+function permits(check: () => void) {
+  try {
+    check();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function createMemberAuditSnapshot(member: StoreMember): Record<string, unknown> {
   return {
     id: member.id,
@@ -1322,6 +1370,7 @@ async function storePermissionsFromActor(
     (options.primaryOwnerOverride === true || (await isPrimaryStoreOwner(actor)));
   const canUpdateStoreSettings = can(actor, "settings:update_store");
   const canManageMembers = can(actor, "member:manage_basic");
+  const canInviteMembers = canManageMembers && can(actor, "member:invite");
   return {
     canReadSuppliers: can(actor, "supplier:read"),
     canAssignSuppliers: can(actor, "supplier:assign"),
@@ -1341,7 +1390,12 @@ async function storePermissionsFromActor(
     canReadMessageTemplates: Boolean(actor.storeId && !actor.isSystem),
     canUpdateMessageTemplates: can(actor, "settings:update_message_template"),
     canListMembers: canManageMembers,
-    canInviteMembers: canManageMembers && can(actor, "member:invite"),
+    canInviteMembers,
+    memberInviteRoles: (canInviteMembers
+      ? actor.storeRole === "owner"
+        ? ["manager", "technician", "sales", "viewer"]
+        : ["technician", "sales", "viewer"]
+      : []) as ApprovedStoreRole[],
     canManageMembers,
     canRevokeMembers: canManageMembers && can(actor, "member:revoke"),
     canGrantManager: can(actor, "member:grant_manager"),

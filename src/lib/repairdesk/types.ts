@@ -994,8 +994,17 @@ export interface StoreMember {
   role: StoreRole;
   status: StoreMembershipStatus;
   permission_grants?: StorePermissionAction[];
+  management?: StoreMemberManagement;
   created_at: string;
   updated_at: string;
+}
+
+export interface StoreMemberManagement {
+  allowed_roles: ApprovedStoreRole[];
+  can_update_role: boolean;
+  can_update_permissions: boolean;
+  can_disable: boolean;
+  can_restore: boolean;
 }
 
 export interface StoreInvitation {
@@ -1110,6 +1119,7 @@ export interface StoreContext {
     canUpdateMessageTemplates?: boolean;
     canListMembers?: boolean;
     canInviteMembers?: boolean;
+    memberInviteRoles?: ApprovedStoreRole[];
     canManageMembers?: boolean;
     canRevokeMembers?: boolean;
     canGrantManager?: boolean;

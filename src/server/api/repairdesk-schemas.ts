@@ -27,6 +27,7 @@ import {
 import { normalizePositiveCentAmount } from "@/lib/money";
 import { storePermissionActions } from "@/entities/staff/model/store-permission-policy";
 import { storeSettingsSectionUpdateSchema } from "@/features/settings/model/store-settings-update-contract";
+import { supplierInputSchema } from "@/features/suppliers/model/supplier-input-contract";
 import type {
   AccountProfileUpdateInput,
   CreateOrderInput,
@@ -72,7 +73,6 @@ import type {
   StoreMemberDecisionInput,
   StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
-  SupplierInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
   VoidOrderInput,
@@ -1124,23 +1124,6 @@ export const electronicsCsvImportBodySchema = z.object({
 });
 
 export const storeSettingsUpdateBodySchema = storeSettingsSectionUpdateSchema;
-
-export const supplierInputSchema = z
-  .object({
-    name: z.string().trim().min(1, "供应商名称不能为空").max(120, "供应商名称不能超过 120 个字符"),
-    short_name: optionalText,
-    color: z
-      .string()
-      .trim()
-      .regex(/^#[0-9a-fA-F]{6}$/, "供应商颜色格式不正确")
-      .optional(),
-    contact_name: optionalText,
-    phone: optionalText,
-    email: optionalText,
-    website: optionalText,
-    notes: optionalText,
-  })
-  .passthrough() satisfies z.ZodType<SupplierInput>;
 
 export const supplierCreateBodySchema = z.object({
   input: supplierInputSchema,

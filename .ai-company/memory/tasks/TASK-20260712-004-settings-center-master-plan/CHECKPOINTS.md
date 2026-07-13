@@ -206,6 +206,7 @@ Create the scoped local WP-02 commit without pushing. Then rehydrate the approve
 ### Next executable action
 
 Create the scoped local WP03-A commit without pushing. Verify the boundary, then begin WP03-B account/store extraction and completion while preserving current queries, strict section payloads, CAS, dirty guards, capabilities, and store-switch semantics.
+
 ## 2026-07-12T14:03:54Z — Owner转向P0在店设备与订单归档修正；设置中心WP00-WP02及WP03A已本地提交，WP03B账号/店铺拆分存在未提交工作与3张响应式截图，当前快照未完成最终验证，必须原样保留
 
 - **Phase:** paused_for_order_archive_p0
@@ -301,3 +302,45 @@ Create one scoped local WP03-B commit without pushing, verify its file boundary,
 ### Next executable action
 
 Create the scoped local WP03-C commit without pushing. Then rehydrate WP-04 members/access and suppliers, audit existing role and supplier-grant semantics before editing, and stop at any role-semantics, database, production, push, or deployment gate.
+
+## 2026-07-13T02:03:44Z — WP-04 members, access requests, and suppliers locally conditionally closed
+
+### Completed facts
+
+- Replaced the embedded member/supplier bodies with bounded responsive sections while retaining API/query/mutation orchestration in `SettingsScreen`.
+- Real member rows now include a server-computed management projection. The client no longer carries a duplicate actor/target role matrix.
+- Role and grant changes are staged in one editor but saved through exactly one existing endpoint. A role change disables grant editing, saves role alone, and requires a refetch/reopen before a later grant save.
+- Direct role/grant mutations reject inactive members before any RPC. Store/epoch reconciliation rejects late member responses before cache writes and invalidates the scoped key instead.
+- Member, invitation, invite-link, and access-request mocks are UUID-compatible, store-scoped, actor-capability aware, and stateful. Mock approval/rejection now changes request state and approval can create a member.
+- Dangerous member/access/supplier actions use pending-locked confirmations, inline failure, duplicate-submit protection, and explicit focus restoration. Clipboard and store-bound one-time-code protections remain unchanged.
+- Supplier UI and API share one strict Zod contract. Short names use the real repository limit of 32 characters; email and HTTP(S) URL validation, unknown-key rejection, store scoping, realtime invalidation, and archive-without-restore semantics are covered.
+- The member table intentionally starts at 1280px rather than 1024px because the global sidebar plus Settings rail makes the 1024px content column too narrow; 1024px keeps responsive cards.
+
+### Review and validation
+
+- Independent security/data final review: PASS, P0=0/P1=0.
+- Independent UI/UX final review: PASS, P0=0/P1=0, including the three WP-04 screenshots.
+- Independent architecture/QA strict review: the final access-request mock gap was fixed after review; its targeted unit and E2E cases pass.
+- Targeted Settings/store/supplier/realtime regression: 29 files / 220 tests passed with two workers.
+- Full regression: 153 files / 989 tests passed with one worker. Earlier higher-concurrency exploratory runs only hit unrelated pre-existing 5-second timing limits.
+- Dedicated Settings Playwright: 33/33 passed with one worker across 390, 430, 768, 1024, 1280, and 1440 widths.
+- Static and build gates: agents check, full lint, typecheck, `git diff --check`, and production build passed. The sandboxed build failed only because Turbopack could not bind an internal local port; the approved outside-sandbox build completed all routes.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/wp04-member-grant-confirm-390x844.png`
+- `screenshots/responsive-density/settings/wp04-supplier-card-390x844.png`
+- `screenshots/responsive-density/settings/wp04-supplier-created-1280x800.png`
+- The screenshots use mock data, hide the Next development indicator, and contain no production customer PII.
+
+### Conditional-close residual risks and Owner gates
+
+- `20260712002317_global_staff_permission_grants.sql` has no approved production apply or post-apply verification evidence. Production member role/status/grant writes remain DB NO-GO.
+- The candidate member RPC still needs explicit actor membership/role revalidation and CAS review. Member/access business writes and audit side effects are not transactionally atomic.
+- Active supplier-name uniqueness is still check-then-write without an approved database uniqueness constraint.
+- Mock state uses a module-level active store and is evidence only for single-session local/E2E behavior, not concurrent multi-session tenant isolation.
+- No migration, production data change, role/retention change, external message, push, or deployment occurred.
+
+### Next executable action
+
+Create the scoped local WP-04 commit without pushing. Then begin WP-05 Kiosk/customer-iPad rehydration and read-only audit. Stop at any database, role-semantics, production, push, or deployment gate.

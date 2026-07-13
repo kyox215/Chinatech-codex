@@ -93,6 +93,7 @@ export {
   approveStoreAccessRequest,
   createStore,
   createStoreInviteLink,
+  disableStoreMember,
   getStoreContext,
   inviteStoreMember,
   listStoreAccessRequests,
@@ -102,6 +103,9 @@ export {
   revokeStoreInviteLink,
   revokeStoreInvitation,
   switchActiveStore,
+  restoreStoreMember,
+  updateStoreMemberPermissions,
+  updateStoreMemberRole,
 } from "@/features/stores/testing/mock-api";
 
 export { allTechnicians, customers, devices, suppliers } from "@/lib/mock/state";

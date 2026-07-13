@@ -6,7 +6,7 @@ const enabled =
 
 const sections = [
   { key: "account", label: /账号/, heading: "我的账号" },
-  { key: "members", label: /员工/, heading: "员工管理" },
+  { key: "members", label: /员工/, heading: "员工与权限" },
   { key: "store", label: /店铺/, heading: "店铺工作区" },
   { key: "suppliers", label: /供应商/, heading: "供应商" },
   { key: "kiosk", label: /客户 iPad|iPad/, heading: "客户 iPad" },
@@ -519,6 +519,203 @@ test.describe("settings notifications and default rules", () => {
   });
 });
 
+test.describe("settings members and suppliers workspace", () => {
+  test("stages a sensitive member grant and submits only the permission endpoint on mobile", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const permissionRequests: unknown[] = [];
+    const roleRequests: unknown[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/repairdesk/stores/members/update-permissions")) {
+        permissionRequests.push(request.postDataJSON());
+      }
+      if (request.url().endsWith("/api/repairdesk/stores/members/update-role")) {
+        roleRequests.push(request.postDataJSON());
+      }
+    });
+
+    await gotoReady(page, "/settings?section=members");
+    await expect(page.getByRole("heading", { name: "员工与权限" })).toBeVisible();
+    const technicianCard = page.locator(
+      '[data-member-id="10000000-0000-4000-8000-000000000003"]:visible',
+    );
+    await technicianCard.getByRole("button", { name: "管理" }).click();
+    const sheet = page.getByRole("dialog", { name: "演示技术员" });
+    await expect(sheet).toBeVisible();
+    expect((await sheet.getByRole("button", { name: "Close" }).boundingBox())?.height ?? 0).toBe(
+      44,
+    );
+    expect(
+      (await sheet.locator('label[for="member-permission-supplier:manage"]').boundingBox())
+        ?.height ?? 0,
+    ).toBeGreaterThanOrEqual(44);
+    await sheet.getByLabel("管理供应商").click();
+    expect(permissionRequests).toEqual([]);
+    expect(roleRequests).toEqual([]);
+
+    await sheet.getByRole("button", { name: "保存员工变更" }).click();
+    const confirm = page.getByRole("alertdialog", { name: "确认授予敏感员工权限？" });
+    await expect(confirm).toContainText("供应商管理");
+    expect(permissionRequests).toEqual([]);
+    await confirm.getByRole("button", { name: "取消" }).click();
+    await expect(sheet.getByRole("button", { name: "保存员工变更" })).toBeFocused();
+    await sheet.getByRole("button", { name: "保存员工变更" }).click();
+    await expect(confirm).toBeVisible();
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp04-member-grant-confirm-390x844.png",
+      fullPage: true,
+    });
+    await confirm.getByRole("button", { name: "确认并保存" }).click();
+
+    await expect.poll(() => permissionRequests.length).toBe(1);
+    expect(roleRequests).toEqual([]);
+    expect(permissionRequests[0]).toMatchObject({
+      id: "10000000-0000-4000-8000-000000000003",
+      permissions: ["supplier:read", "supplier:assign", "supplier:manage"],
+    });
+    await expect(sheet).toBeHidden();
+    await expectNoPageOverflow(page, "member editor 390px");
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("saves a role change alone and disables grants until the member is reloaded", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const permissionRequests: unknown[] = [];
+    const roleRequests: unknown[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/repairdesk/stores/members/update-permissions")) {
+        permissionRequests.push(request.postDataJSON());
+      }
+      if (request.url().endsWith("/api/repairdesk/stores/members/update-role")) {
+        roleRequests.push(request.postDataJSON());
+      }
+    });
+
+    await gotoReady(page, "/settings?section=members");
+    const technicianRow = page.locator(
+      '[data-member-id="10000000-0000-4000-8000-000000000003"]:visible',
+    );
+    await technicianRow.getByRole("button", { name: "管理" }).click();
+    const sheet = page.getByRole("dialog", { name: "演示技术员" });
+    await sheet.getByRole("combobox").click();
+    await page.getByRole("option", { name: "前台" }).click();
+    await expect(sheet.getByLabel("管理供应商")).toBeDisabled();
+    await expect(sheet.getByText(/请先保存角色并重新读取成员/)).toBeVisible();
+    await sheet.getByRole("button", { name: "保存员工变更" }).click();
+
+    await expect.poll(() => roleRequests.length).toBe(1);
+    expect(permissionRequests).toEqual([]);
+    expect(roleRequests[0]).toMatchObject({
+      id: "10000000-0000-4000-8000-000000000003",
+      role: "sales",
+    });
+  });
+
+  test("reviews a mock access request through the real confirmation flow", async ({ page }) => {
+    await page.setViewportSize({ width: 430, height: 932 });
+    const rejectRequests: unknown[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/repairdesk/stores/access-requests/reject")) {
+        rejectRequests.push(request.postDataJSON());
+      }
+    });
+
+    await gotoReady(page, "/settings?section=members");
+    await expect(page.getByText("演示申请人")).toBeVisible();
+    const trigger = page.getByRole("button", { name: "拒绝" });
+    await trigger.click();
+    const confirm = page.getByRole("alertdialog", { name: "拒绝加入申请？" });
+    await confirm.getByRole("button", { name: "取消" }).click();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await confirm.getByRole("button", { name: "确认拒绝" }).click();
+
+    await expect.poll(() => rejectRequests.length).toBe(1);
+    expect(rejectRequests[0]).toMatchObject({
+      id: "20000000-0000-4000-8000-000000000001",
+    });
+    await expect(page.getByText("演示申请人")).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("validates, creates, and confirms irreversible supplier archive on desktop", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoReady(page, "/settings?section=suppliers");
+
+    await page.getByRole("button", { name: "添加供应商" }).click();
+    const sheet = page.getByRole("dialog", { name: "添加供应商" });
+    await sheet.getByLabel("名称").fill("WP04 Test Supplier");
+    await sheet.getByLabel("网站").fill("javascript:alert(1)");
+    await sheet.getByRole("button", { name: "保存供应商" }).click();
+    await expect(sheet.getByText("供应商网站只允许 http 或 https")).toBeVisible();
+    await expect(sheet.getByLabel("网站")).toBeFocused();
+
+    await sheet.getByLabel("网站").fill("https://supplier.example.test");
+    await sheet.getByRole("button", { name: "保存供应商" }).click();
+    const supplierCard = page.locator("[data-supplier-id]:visible", {
+      hasText: "WP04 Test Supplier",
+    });
+    await expect(supplierCard).toBeVisible();
+    await expectNoPageOverflow(page, "supplier settings 1280px");
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp04-supplier-created-1280x800.png",
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectNoPageOverflow(page, "supplier card 390px");
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp04-supplier-card-390x844.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    await supplierCard.getByRole("button", { name: "归档" }).click();
+    const confirm = page.getByRole("alertdialog", {
+      name: "归档 WP04 Test Supplier？",
+    });
+    await expect(confirm).toContainText("当前没有恢复归档 API");
+    await confirm.getByRole("button", { name: "确认归档" }).click();
+    await expect(supplierCard).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("keeps member and supplier child pages responsive across six target widths", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await gotoReady(page, "/settings?section=members");
+      await expect(page.getByRole("heading", { name: "员工与权限" })).toBeVisible();
+      const memberTable = page.locator("#settings-members table");
+      if (viewport.width >= 1280) await expect(memberTable).toBeVisible();
+      else await expect(memberTable).toBeHidden();
+      await expectNoPageOverflow(page, `members settings ${viewport.width}px`);
+
+      await gotoReady(page, "/settings?section=suppliers");
+      await expect(page.getByRole("heading", { name: "供应商", exact: true })).toBeVisible();
+      await expectNoPageOverflow(page, `supplier settings ${viewport.width}px`);
+    }
+  });
+});
+
 test.describe("settings draft safety", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -747,6 +944,10 @@ test.describe("settings mobile overlay and guard safety", () => {
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.locator("body").waitFor({ state: "visible" });
+}
+
+async function hideNextDevIndicators(page: Page) {
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
 }
 
 async function clickOverviewEntry(page: Page, name: RegExp) {

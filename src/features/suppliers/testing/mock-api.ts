@@ -1,19 +1,26 @@
 import type { AuditActor, Supplier, SupplierInput } from "@/lib/repairdesk/types";
 
-const mockSuppliers: Supplier[] = [];
+const DEFAULT_MOCK_STORE_ID = "mock-default-store";
+const mockSuppliersByStore = new Map<string, Supplier[]>();
 
-export function listMockSuppliers() {
-  return mockSuppliers.slice().sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+export function listMockSuppliers(actor?: AuditActor) {
+  return storeSuppliers(actor)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
 }
 
-export function getMockSupplier(id?: string, options: { includeArchived?: boolean } = {}) {
+export function getMockSupplier(
+  id?: string,
+  options: { includeArchived?: boolean } = {},
+  actor?: AuditActor,
+) {
   if (!id) return undefined;
-  return mockSuppliers.find(
+  return storeSuppliers(actor).find(
     (supplier) => supplier.id === id && (options.includeArchived || !supplier.archived_at),
   );
 }
 
-export function createMockSupplier(input: SupplierInput, _actor?: AuditActor) {
+export function createMockSupplier(input: SupplierInput, actor?: AuditActor) {
   const now = new Date().toISOString();
   const supplier: Supplier = {
     id: crypto.randomUUID(),
@@ -21,26 +28,27 @@ export function createMockSupplier(input: SupplierInput, _actor?: AuditActor) {
     created_at: now,
     updated_at: now,
   };
-  mockSuppliers.push(supplier);
+  storeSuppliers(actor).push(supplier);
   return supplier;
 }
 
-export function updateMockSupplier(id: string, input: SupplierInput, _actor?: AuditActor) {
-  const index = mockSuppliers.findIndex((supplier) => supplier.id === id);
-  if (index < 0 || mockSuppliers[index]?.archived_at) {
+export function updateMockSupplier(id: string, input: SupplierInput, actor?: AuditActor) {
+  const suppliers = storeSuppliers(actor);
+  const index = suppliers.findIndex((supplier) => supplier.id === id);
+  if (index < 0 || suppliers[index]?.archived_at) {
     throw new Error("供应商不存在或不属于当前店铺");
   }
   const supplier: Supplier = {
-    ...mockSuppliers[index],
+    ...suppliers[index],
     ...sanitizeMockSupplierInput(input),
     updated_at: new Date().toISOString(),
   };
-  mockSuppliers[index] = supplier;
+  suppliers[index] = supplier;
   return supplier;
 }
 
-export function archiveMockSupplier(id: string, _actor?: AuditActor) {
-  const supplier = mockSuppliers.find((item) => item.id === id);
+export function archiveMockSupplier(id: string, actor?: AuditActor) {
+  const supplier = storeSuppliers(actor).find((item) => item.id === id);
   if (!supplier) throw new Error("供应商不存在或不属于当前店铺");
   if (!supplier.archived_at) {
     supplier.archived_at = new Date().toISOString();
@@ -50,7 +58,16 @@ export function archiveMockSupplier(id: string, _actor?: AuditActor) {
 }
 
 export function resetMockSuppliers() {
-  mockSuppliers.splice(0, mockSuppliers.length);
+  mockSuppliersByStore.clear();
+}
+
+function storeSuppliers(actor?: AuditActor) {
+  const storeId = actor?.storeId ?? DEFAULT_MOCK_STORE_ID;
+  const existing = mockSuppliersByStore.get(storeId);
+  if (existing) return existing;
+  const created: Supplier[] = [];
+  mockSuppliersByStore.set(storeId, created);
+  return created;
 }
 
 function sanitizeMockSupplierInput(input: SupplierInput) {

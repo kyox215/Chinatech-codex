@@ -35,7 +35,8 @@ vi.mock("@/shared/lib/e2e-auth-bypass", () => ({
   isRepairDeskE2eAuthBypassEnabled: mocks.isRepairDeskE2eAuthBypassEnabled,
 }));
 
-vi.mock("@/lib/mock/api", () => ({
+vi.mock("@/lib/mock/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/mock/api")>()),
   createOrder: mocks.createOrder,
   updateStoreSettings: mocks.updateStoreSettings,
 }));
@@ -117,6 +118,20 @@ describe("repairdesk router realtime integration", () => {
       domain: "settings",
       mutation: "settings_updated",
       queryGroups: ["settings.store", "orders.options"],
+    });
+  });
+
+  it("broadcasts supplier mutations to the store-scoped supplier query group", async () => {
+    const response = await handleRepairDeskPost("settings/suppliers/create", {
+      input: { name: "Realtime Supplier" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.queueRepairDeskRealtimeBroadcast).toHaveBeenCalledWith({
+      storeId,
+      domain: "settings",
+      mutation: "settings_updated",
+      queryGroups: ["suppliers.all", "orders.options", "orders.all"],
     });
   });
 

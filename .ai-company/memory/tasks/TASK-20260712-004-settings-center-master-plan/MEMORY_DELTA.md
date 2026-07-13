@@ -25,3 +25,12 @@
 - Inventory intake snapshots the resolved warranty before any customer/inventory write. Sale uses that snapshot or an explicit override and never rereads the current Settings value, so later rule changes do not rewrite historical commercial terms.
 - Controlled Radix confirmation dialogs still require an actual trigger relationship when focus restoration is part of acceptance; cancel and confirm must return focus to the initiating control.
 - Responsive child workflows require direct viewport tests, not only overview tests. WP03-C directly covers 390, 430, 768, 1024, 1280, and 1440 widths with long preview content.
+- Member-object actions must come from a server management projection; clients must not recreate actor/target role matrices.
+- Role and extra grants share an editor but not an atomic save. A changed role saves alone, clears role-ineligible grants on the server, and requires refetch/reopen before a later grant save.
+- Inactive members cannot receive role or extra-grant changes. Restore is a separate confirmed action, and old grants are not restored implicitly.
+- Store-scoped member mutation responses must pass both store and request-epoch checks before cache writes. Stale responses invalidate only their scoped query and never modify the current UI.
+- Dangerous controlled dialogs need local ref-based duplicate-submit locks in addition to mutation pending props; failures stay inline and preserve the draft/dialog.
+- Mock IDs and behavior must satisfy the same Router schemas and role/object rules as real APIs. Static fake-success mutations are not acceptable E2E evidence.
+- Supplier form limits must match the repository exactly. The shared current contract uses 120-character names, 32-character short names, strict email, HTTP(S)-only URLs, and unknown-key rejection.
+- Supplier archive is one-way in the current API. The UI must not display restore until a separately reviewed restore endpoint exists.
+- WP-04 remains production DB NO-GO until pending member RPC application, actor/CAS review, transaction/audit integrity, and supplier active-name uniqueness receive Owner approval and post-apply evidence.

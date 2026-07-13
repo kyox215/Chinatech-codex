@@ -76,6 +76,20 @@
   - `screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png`
 - No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
 
+## WP-04 — Members, access requests, and suppliers
+
+- Independent final reviews: security/data PASS P0=0/P1=0; UI/UX PASS P0=0/P1=0; architecture/QA strict access-request gap fixed and revalidated.
+- Targeted regression: 29 files / 220 tests passed with two workers.
+- Full Vitest regression: 153 files / 989 tests passed with one worker.
+- Settings Playwright: 33/33 passed with one worker across 390x844, 430x932, 768x1024, 1024x768, 1280x800, and 1440x900.
+- E2E covers sensitive grant confirmation, role-only save, stateful access-request rejection, supplier validation/create/archive, 44px targets, focus restoration, duplicate-submit protection, blocked-query zero requests, and no page overflow.
+- Static and build gates: agents check, full lint, typecheck, diff check, and production build passed. Turbopack required local process/port permission; no deployment occurred.
+- Screenshots:
+  - `screenshots/responsive-density/settings/wp04-member-grant-confirm-390x844.png`
+  - `screenshots/responsive-density/settings/wp04-supplier-card-390x844.png`
+  - `screenshots/responsive-density/settings/wp04-supplier-created-1280x800.png`
+- No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
+
 ## WP-03C — Notifications, print, and default rules
 
 - Independent security/data closeout: PASS; P0=0/P1=0. P2: add a real-database intake-to-sale chain test before production release.
