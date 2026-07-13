@@ -19,7 +19,6 @@ import {
   Phone,
   Pencil,
   Plus,
-  Printer,
   RotateCcw,
   Search,
   Settings2,
@@ -68,8 +67,9 @@ import {
   getSettingsFieldErrorId as fieldErrorId,
 } from "@/features/settings/model/settings-field-errors";
 import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
+import { NotificationsSettingsSection } from "@/features/settings/sections/notifications-settings-section";
+import { RulesSettingsSection } from "@/features/settings/sections/rules-settings-section";
 import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
-import { ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
 import {
   getOrderWorkflowBucketLabel,
   getWorkflowStatuses,
@@ -78,7 +78,6 @@ import {
   buildStoreMessagePreview,
   buildStorePrintPreview,
   getStoreSettingsReadiness,
-  type StoreSettingsReadiness,
 } from "@/features/settings/model/store-settings-readiness";
 import {
   resolveSettingsSectionAccess,
@@ -247,6 +246,7 @@ export function SettingsScreen() {
   const canReviewAccessRequests = settingsCapabilities?.canReviewAccessRequests === true;
   const canManageKioskDevices = settingsCapabilities?.canManageKioskDevices === true;
   const canReviewKioskSessions = settingsCapabilities?.canReviewKioskSessions === true;
+  const canReadMessageTemplates = settingsCapabilities?.canReadMessageTemplates === true;
   const settingsQuery = useQuery({
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
@@ -1027,23 +1027,41 @@ export function SettingsScreen() {
   const savedStoreReadiness = savedStoreSettings
     ? getStoreSettingsReadiness(savedStoreSettings)
     : null;
-  const storeReadiness = activeDraft ? getStoreSettingsReadiness(activeDraft) : null;
-  const scopedDraftStoreSettings =
-    activeDraft && activeDrafts ? { ...activeDraft, store_id: activeDrafts.storeId } : null;
+  const storeSectionDraftSettings =
+    savedStoreSettings && activeDrafts
+      ? { ...savedStoreSettings, ...activeDrafts.sections.store.value }
+      : null;
+  const notificationSectionDraftSettings =
+    savedStoreSettings && activeDrafts
+      ? { ...savedStoreSettings, ...activeDrafts.sections.notifications.value }
+      : null;
+  const storeReadiness = storeSectionDraftSettings
+    ? getStoreSettingsReadiness(storeSectionDraftSettings)
+    : null;
   const savedStoreOutputIdentity = savedStoreSettings
     ? resolveStoreOutputIdentity({
         activeStore: storeContextQuery.data?.activeStore,
         settings: savedStoreSettings,
       })
     : null;
-  const draftStoreOutputIdentity = scopedDraftStoreSettings
+  const draftStoreOutputIdentity = storeSectionDraftSettings
     ? resolveStoreOutputIdentity({
         activeStore: storeContextQuery.data?.activeStore,
-        settings: scopedDraftStoreSettings,
+        settings: storeSectionDraftSettings,
       })
     : null;
-  const messagePreview = activeDraft ? buildStoreMessagePreview(activeDraft) : "";
-  const printPreview = activeDraft ? buildStorePrintPreview(activeDraft) : "";
+  const draftNotificationOutputIdentity = notificationSectionDraftSettings
+    ? resolveStoreOutputIdentity({
+        activeStore: storeContextQuery.data?.activeStore,
+        settings: notificationSectionDraftSettings,
+      })
+    : null;
+  const messagePreview = notificationSectionDraftSettings
+    ? buildStoreMessagePreview(notificationSectionDraftSettings)
+    : "";
+  const printPreview = notificationSectionDraftSettings
+    ? buildStorePrintPreview(notificationSectionDraftSettings)
+    : "";
   const activeSection = selectedSection ? getSettingsSection(selectedSection) : null;
   const navigationGroups: readonly SettingsNavigationGroup[] = SETTINGS_SECTION_GROUPS.map(
     (group) => ({
@@ -1257,22 +1275,11 @@ export function SettingsScreen() {
 
             <div
               className={cn(
-                "grid min-w-0 gap-3 xl:items-start",
+                "grid min-w-0 gap-3 xl:grid-cols-1 xl:items-start",
                 selectedSection === "workflow" && "hidden",
-                selectedSection === "notifications"
-                  ? "xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]"
-                  : "xl:grid-cols-1",
               )}
             >
-              <div
-                className={cn(
-                  "min-w-0 space-y-3",
-                  selectedSection === "rules" && "hidden",
-                  selectedSection === "store" || selectedSection === "notifications"
-                    ? ""
-                    : "xl:max-w-none",
-                )}
-              >
+              <div className="min-w-0 space-y-3 xl:max-w-none">
                 {canRenderSelectedSection &&
                 selectedSection === "account" &&
                 !accountQuery.isError ? (
@@ -1347,7 +1354,7 @@ export function SettingsScreen() {
                         run: () => createStoreMutation.mutateAsync({ name }),
                       });
                     }}
-                    draft={activeDraft ?? undefined}
+                    draft={activeDrafts?.sections.store.value}
                     savedReadiness={savedStoreReadiness ?? undefined}
                     draftReadiness={storeReadiness ?? undefined}
                     savedOutputIdentity={savedStoreOutputIdentity ?? undefined}
@@ -1542,11 +1549,31 @@ export function SettingsScreen() {
                     }}
                   />
                 ) : null}
-                {canRenderDraftSection && selectedSection === "notifications" && storeReadiness ? (
-                  <StoreReadinessSection
-                    readiness={storeReadiness}
+                {canRenderDraftSection &&
+                selectedSection === "notifications" &&
+                activeDrafts &&
+                savedStoreOutputIdentity &&
+                draftNotificationOutputIdentity ? (
+                  <NotificationsSettingsSection
+                    draft={activeDrafts.sections.notifications.value}
+                    savedOutputIdentity={savedStoreOutputIdentity}
+                    draftOutputIdentity={draftNotificationOutputIdentity}
+                    isDraftDirty={sectionDirtyState.notifications}
+                    canUpdateSettings={canUpdateStoreSettings}
+                    canReadMessageTemplates={canReadMessageTemplates}
+                    fieldErrors={settingsFieldErrors}
                     messagePreview={messagePreview}
                     printPreview={printPreview}
+                    onDraftChange={(patch) => updateSettingsField("notifications", patch)}
+                  />
+                ) : null}
+                {canRenderDraftSection && selectedSection === "rules" && activeDrafts ? (
+                  <RulesSettingsSection
+                    draft={activeDrafts.sections.rules.value}
+                    isDraftDirty={sectionDirtyState.rules}
+                    canUpdateSettings={canUpdateStoreSettings}
+                    fieldErrors={settingsFieldErrors}
+                    onDraftChange={(patch) => updateSettingsField("rules", patch)}
                   />
                 ) : null}
                 {canRenderSelectedSection && selectedSection === "order-data" && activeStoreId ? (
@@ -1555,152 +1582,6 @@ export function SettingsScreen() {
                     storeId={activeStoreId}
                     applyEnabled={canApplyOrderData}
                   />
-                ) : null}
-              </div>
-
-              <div
-                className={cn(
-                  "min-w-0 space-y-3",
-                  selectedSection === "notifications" || selectedSection === "rules"
-                    ? ""
-                    : "hidden",
-                )}
-              >
-                {canRenderDraftSection && selectedSection === "rules" ? (
-                  <section className={repairOs.adminSection}>
-                    <RepairOsSectionHeader icon={Settings2} iconFrame={false} title="默认规则" />
-                    <div className={formLayout.grid}>
-                      <Field
-                        label="维修默认质保"
-                        htmlFor="order-warranty"
-                        error={fieldError(settingsFieldErrors, "default_order_warranty_months")}
-                      >
-                        <Select
-                          value={String(activeDraft.default_order_warranty_months)}
-                          disabled={!canUpdateStoreSettings}
-                          onValueChange={(value) => {
-                            const months = Number(
-                              value,
-                            ) as StoreSettingsDraftValues["rules"]["default_order_warranty_months"];
-                            updateSettingsField("rules", {
-                              default_order_warranty_months: months,
-                            });
-                          }}
-                        >
-                          <SelectTrigger
-                            id="order-warranty"
-                            className={compactControlClass}
-                            aria-invalid={Boolean(
-                              fieldError(settingsFieldErrors, "default_order_warranty_months"),
-                            )}
-                            aria-describedby={fieldErrorId(
-                              settingsFieldErrors,
-                              "default_order_warranty_months",
-                              "order-warranty",
-                            )}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ORDER_WARRANTY_OPTIONS.map((option) => (
-                              <SelectItem key={option.months} value={String(option.months)}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <Field
-                        label="二手库存默认保修月数"
-                        htmlFor="inventory-warranty"
-                        error={fieldError(settingsFieldErrors, "default_inventory_warranty_months")}
-                      >
-                        <Input
-                          id="inventory-warranty"
-                          type="number"
-                          min={0}
-                          max={120}
-                          className={compactControlClass}
-                          value={activeDraft.default_inventory_warranty_months}
-                          disabled={!canUpdateStoreSettings}
-                          aria-invalid={Boolean(
-                            fieldError(settingsFieldErrors, "default_inventory_warranty_months"),
-                          )}
-                          aria-describedby={fieldErrorId(
-                            settingsFieldErrors,
-                            "default_inventory_warranty_months",
-                            "inventory-warranty",
-                          )}
-                          onChange={(event) =>
-                            updateSettingsField("rules", {
-                              default_inventory_warranty_months: Math.min(
-                                120,
-                                Math.max(0, Math.trunc(Number(event.target.value || 0))),
-                              ),
-                            })
-                          }
-                        />
-                      </Field>
-                    </div>
-                  </section>
-                ) : null}
-
-                {canRenderDraftSection && selectedSection === "notifications" ? (
-                  <section className={repairOs.adminSection}>
-                    <RepairOsSectionHeader icon={Printer} iconFrame={false} title="输出配置" />
-                    <div className="space-y-3">
-                      <Field
-                        label="打印页脚"
-                        htmlFor="print-footer"
-                        error={fieldError(settingsFieldErrors, "print_footer")}
-                      >
-                        <Textarea
-                          id="print-footer"
-                          rows={3}
-                          className={compactTextareaClass}
-                          value={activeDraft.print_footer}
-                          disabled={!canUpdateStoreSettings}
-                          aria-invalid={Boolean(fieldError(settingsFieldErrors, "print_footer"))}
-                          aria-describedby={fieldErrorId(
-                            settingsFieldErrors,
-                            "print_footer",
-                            "print-footer",
-                          )}
-                          onChange={(event) =>
-                            updateSettingsField("notifications", {
-                              print_footer: event.target.value,
-                            })
-                          }
-                        />
-                      </Field>
-                      <Field
-                        label="客户消息签名"
-                        htmlFor="message-signature"
-                        error={fieldError(settingsFieldErrors, "message_signature")}
-                      >
-                        <Textarea
-                          id="message-signature"
-                          rows={3}
-                          className={compactTextareaClass}
-                          value={activeDraft.message_signature}
-                          disabled={!canUpdateStoreSettings}
-                          aria-invalid={Boolean(
-                            fieldError(settingsFieldErrors, "message_signature"),
-                          )}
-                          aria-describedby={fieldErrorId(
-                            settingsFieldErrors,
-                            "message_signature",
-                            "message-signature",
-                          )}
-                          onChange={(event) =>
-                            updateSettingsField("notifications", {
-                              message_signature: event.target.value,
-                            })
-                          }
-                        />
-                      </Field>
-                    </div>
-                  </section>
                 ) : null}
               </div>
             </div>
@@ -1823,7 +1704,6 @@ const workflowBucketOptions: { value: OrderWorkflowBucket; label: string }[] = [
 });
 
 const compactControlClass = "h-8 text-sm sm:h-9";
-const compactTextareaClass = "min-h-20 text-sm";
 
 function defaultNewStatusDraft(): OrderWorkflowStatusCreateInput {
   return {
@@ -1837,118 +1717,6 @@ function defaultNewStatusDraft(): OrderWorkflowStatusCreateInput {
     allowed_for_create: false,
     is_default_create_status: false,
   };
-}
-
-function StoreReadinessSection({
-  readiness,
-  messagePreview,
-  printPreview,
-}: {
-  readiness: StoreSettingsReadiness;
-  messagePreview: string;
-  printPreview: string;
-}) {
-  return (
-    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={MessageSquare} iconFrame={false} title="通知资料完整度" />
-      <div className="grid gap-2 2xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold">客户通知与打印资料</div>
-              <div className="text-[11px] text-muted-foreground">
-                {readiness.completedCount}/{readiness.totalCount} 项已完成
-              </div>
-            </div>
-            <Badge
-              variant="outline"
-              className={cn("shrink-0", readinessBadgeClass(readiness.tone))}
-            >
-              {readiness.score}%
-            </Badge>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border/60">
-            <div
-              className={cn("h-full rounded-full", readinessProgressClass(readiness.tone))}
-              style={{ width: `${readiness.score}%` }}
-            />
-          </div>
-          <div className="mt-2 grid gap-1.5">
-            {readiness.items.map((item) => (
-              <RepairOsBusinessCard
-                key={item.key}
-                leading={
-                  <span
-                    className={cn(
-                      "grid size-4 place-items-center rounded-full text-[10px]",
-                      item.completed
-                        ? "bg-status-success text-status-success-foreground"
-                        : "bg-status-warn text-status-warn-foreground",
-                    )}
-                  >
-                    {item.completed ? <Check className="size-3" /> : "!"}
-                  </span>
-                }
-                className="grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-md border-0 bg-card px-2 py-1.5 shadow-none"
-                leadingClassName="mt-0.5"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-xs font-medium">{item.label}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {item.hint}
-                  </span>
-                </span>
-              </RepairOsBusinessCard>
-            ))}
-          </div>
-          {readiness.missingLabels.length ? (
-            <p className="mt-2 text-[11px] text-status-warn-foreground">
-              建议补齐：{readiness.missingLabels.join("、")}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <PreviewPanel title="客户消息预览" icon={MessageSquare} value={messagePreview} />
-          <PreviewPanel title="打印页脚预览" icon={Printer} value={printPreview} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PreviewPanel({
-  title,
-  icon: Icon,
-  value,
-}: {
-  title: string;
-  icon: typeof Store;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-card p-2.5">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
-        <Icon className="size-3.5 text-primary" />
-        {title}
-      </div>
-      <pre className="max-h-40 min-w-0 whitespace-pre-wrap break-words rounded-md bg-[var(--surface-panel-muted)] p-2 text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
-        {value}
-      </pre>
-    </div>
-  );
-}
-
-function readinessBadgeClass(tone: StoreSettingsReadiness["tone"]) {
-  if (tone === "ready") return "border-status-success-foreground/30 text-status-success-foreground";
-  if (tone === "warning") return "border-status-warn-foreground/30 text-status-warn-foreground";
-  return "border-status-danger-foreground/30 text-status-danger-foreground";
-}
-
-function readinessProgressClass(tone: StoreSettingsReadiness["tone"]) {
-  if (tone === "ready") return "bg-status-success-foreground";
-  if (tone === "warning") return "bg-status-warn-foreground";
-  return "bg-status-danger-foreground";
 }
 
 function OrderWorkflowSection({

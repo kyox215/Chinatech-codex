@@ -1,4 +1,5 @@
 import type { MessageTemplate, StoreSettings } from "@/lib/repairdesk/types";
+import { STORE_RULE_DEFAULTS } from "@/entities/store/model/store-setting-defaults";
 
 export type MessageTemplateSeed = Pick<
   MessageTemplate,
@@ -21,8 +22,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   store_whatsapp: "",
   store_email: "",
   default_order_warranty_text: "6个月",
-  default_order_warranty_months: 6,
-  default_inventory_warranty_months: 12,
+  default_order_warranty_months: STORE_RULE_DEFAULTS.default_order_warranty_months,
+  default_inventory_warranty_months: STORE_RULE_DEFAULTS.default_inventory_warranty_months,
   print_footer: "",
   message_signature: "",
   created_at: "",

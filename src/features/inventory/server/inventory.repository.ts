@@ -63,6 +63,8 @@ import {
 } from "@/features/inventory/model/inventory-workflow";
 import { normalizePhoneBook } from "@/shared/lib/phone";
 import { ForbiddenError } from "@/server/auth-context";
+import { resolveStoredInventoryWarrantyMonths } from "@/entities/store/model/store-setting-defaults";
+import { resolveInventoryIntakeWarrantyMonths } from "@/features/inventory/server/inventory-warranty-default.repository";
 
 const INVENTORY_DIRECT_CREATE_STATUSES = new Set<InventoryItemStatus>([
   "intake",
@@ -341,6 +343,7 @@ export async function createInventoryIntake(
   const now = new Date().toISOString();
   const sourceType = clean(input.source_type) || "buyback";
   const initialStatus = getInventoryInitialStatus(input.initial_status, sourceType);
+  const warrantyMonths = await resolveInventoryIntakeWarrantyMonths(storeId, input.warranty_months);
   const customerId = await resolveCustomer(
     storeId,
     input.customer_id,
@@ -370,10 +373,7 @@ export async function createInventoryIntake(
     deposit_amount: money(input.deposit_amount),
     currency_code: CURRENCY_CODE,
     payment_method: nullable(input.payment_method),
-    warranty_months:
-      input.warranty_months === undefined
-        ? 12
-        : Math.max(0, Math.trunc(money(input.warranty_months))),
+    warranty_months: warrantyMonths,
     notes: nullable(input.notes),
     ...timestampPatchForStatus(initialStatus, now),
     legacy_payload: {
@@ -1135,9 +1135,9 @@ export async function sellInventoryItem(
     input.buyer_phone,
     now,
   );
-  const previousWarrantyMonths = money(before.warranty_months) || 12;
+  const previousWarrantyMonths = resolveStoredInventoryWarrantyMonths(before.warranty_months);
   const warrantyMonths = input.warranty_months ?? previousWarrantyMonths;
-  const warrantyUntil = addMonthsIso(soldAt, warrantyMonths);
+  const warrantyUntil = warrantyMonths > 0 ? addMonthsIso(soldAt, warrantyMonths) : undefined;
   const saleReceipt = buildInventorySaleReceiptSnapshot({
     publicNo: requiredString(before.public_no),
     soldAt,
@@ -1157,7 +1157,7 @@ export async function sellInventoryItem(
     payment_method: nullable(input.payment_method) ?? before.payment_method ?? null,
     sale_channel: nullable(input.sale_channel) ?? before.sale_channel ?? "store",
     warranty_months: warrantyMonths,
-    warranty_until: warrantyUntil,
+    warranty_until: warrantyUntil ?? null,
     sold_at: soldAt,
     notes: nullable(input.notes) ?? before.notes ?? null,
     legacy_payload: {

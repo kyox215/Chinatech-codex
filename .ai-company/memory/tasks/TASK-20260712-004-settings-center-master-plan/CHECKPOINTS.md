@@ -257,3 +257,47 @@ Create the scoped local WP03-A commit without pushing. Verify the boundary, then
 ### Next executable action
 
 Create one scoped local WP03-B commit without pushing, verify its file boundary, then begin WP03-C notifications/rules extraction and completion.
+
+## 2026-07-13T00:00:20Z — WP03-C notifications, print previews, and default rules completed
+
+### Completed facts
+
+- Extracted notifications/print and default-rules presentation from `SettingsScreen` into capability-aware sections. Editable users keep section-scoped drafts; read-only users receive semantic definition lists rather than inert controls.
+- Notification and print previews are derived from the saved tenant snapshot plus only the active notifications draft. Hidden store/rules drafts cannot pollute customer-facing preview identity.
+- Message-template navigation is a real `/messages` link gated by the server-projected capability and routed through the shared dirty-navigation guard. No template query, test send, or duplicate template editor was introduced.
+- Default-rule restoration is preview-and-confirm only. Confirming changes the rules draft; the existing section save/CAS flow remains required, and cancel/confirm restore focus to the trigger.
+- Centralized default warranty semantics: omitted means resolve the current tenant setting, `0` means no warranty, and positive integers mean months. Empty HTML input becomes omitted; `null` and booleans are rejected rather than coerced.
+- Inventory intake resolves and snapshots the tenant default before customer or inventory writes. Later sale uses the stored snapshot or an explicit override and never rereads the current setting; explicit zero remains zero with no expiry.
+- The mobile warranty field uses an empty value plus a visible current-default hint, 16px text, and 44px controls so an untouched form delegates resolution to the server without iOS zoom or accidental fallback.
+
+### Review and validation
+
+- Independent security/data review: PASS, P0=0/P1=0. One P2 future recommendation remains for a real-database intake-to-sale chain test.
+- Independent UI/accessibility review: PASS, P0=0/P1=0. One P2 closeout recommendation remains to capture final WP-08 screenshots without the Next development indicator.
+- Focused WP03-C regression: 10 files / 72 tests passed.
+- Full regression: 149 files / 957 tests passed with two workers.
+- Dedicated Settings Playwright: 28/28 passed with one worker, including direct notifications/rules pages at 390, 430, 768, 1024, 1280, and 1440 widths; long 300/500-character content caused no page overflow.
+- AlertDialog cancel and confirm both restored focus to the restore trigger; dirty navigation to `/messages` remained blocked until resolved.
+- `npm run agents:check`, full lint, typecheck, production build, and `git diff --check` passed. Build required local process/port permission for Turbopack and performed no deployment.
+- In-app browser verification at 390px confirmed no horizontal overflow, a 114px multiline input hit target, visible dirty save state, guarded `/messages` navigation, cleared dialog pointer lock, and zero error/warn console entries.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/wp03c-notifications-dirty-390x844.png`
+- `screenshots/responsive-density/settings/wp03c-notifications-1280x800.png`
+- `screenshots/responsive-density/settings/wp03c-notifications-readonly-430x932.png`
+- `screenshots/responsive-density/settings/wp03c-rules-dirty-390x844.png`
+- `screenshots/responsive-density/settings/wp03c-rules-restore-1280x800.png`
+- `screenshots/responsive-density/settings/wp03c-rules-readonly-1440x900.png`
+
+### Decisions and residual risks
+
+- The real consumer of the default inventory warranty is implemented in the intake repository rather than only in Settings preview text; old inventory records retain their historical snapshot by design.
+- SeaTable import retains its existing fixed warranty behavior because changing import semantics was not approved in WP03-C.
+- The Settings draft is the only state changed by “restore defaults”; no implicit write, migration, or production mutation is allowed.
+- Screenshots are mock-only and may contain the Next development indicator. WP-08 should capture final release evidence without it.
+- No migration, production data action, role/retention change, external message, push, or deployment occurred.
+
+### Next executable action
+
+Create the scoped local WP03-C commit without pushing. Then rehydrate WP-04 members/access and suppliers, audit existing role and supplier-grant semantics before editing, and stop at any role-semantics, database, production, push, or deployment gate.

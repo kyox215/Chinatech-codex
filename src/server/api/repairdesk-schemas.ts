@@ -80,6 +80,13 @@ import type {
 } from "@/lib/repairdesk/api";
 
 const optionalText = z.string().optional();
+// The JSON boundary may receive form-like numeric strings, but every consumer sees
+// only the validated number/undefined output. Empty strings keep omission semantics.
+const optionalNonnegativeInteger = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : Number(trimmed);
+}, z.number().int().nonnegative().optional()) as z.ZodType<number | undefined>;
 const deviceImeiPattern = /^[A-Za-z0-9._:-]+$/;
 const optionalDeviceImeiText = z
   .string()
@@ -838,7 +845,7 @@ export const inventoryIntakeInputSchema = z
     repair_cost_amount: z.coerce.number().optional(),
     deposit_amount: z.coerce.number().optional(),
     payment_method: optionalText,
-    warranty_months: z.coerce.number().int().nonnegative().optional(),
+    warranty_months: optionalNonnegativeInteger,
     notes: optionalText,
   })
   .passthrough() satisfies z.ZodType<CreateInventoryIntakeInput>;
@@ -866,7 +873,7 @@ export const inventoryUpdateInputSchema = z
     quote_payload: z.record(z.string(), z.unknown()).optional(),
     payment_method: optionalText,
     sale_channel: optionalText,
-    warranty_months: z.coerce.number().int().nonnegative().optional(),
+    warranty_months: optionalNonnegativeInteger,
     notes: optionalText,
   })
   .passthrough() satisfies z.ZodType<UpdateInventoryItemInput>;
@@ -1100,7 +1107,7 @@ export const inventorySellInputSchema = z
     deposit_amount: z.coerce.number().nonnegative().optional(),
     payment_method: optionalText,
     sale_channel: optionalText,
-    warranty_months: z.coerce.number().int().nonnegative().optional(),
+    warranty_months: optionalNonnegativeInteger,
     warranty_terms_snapshot: z.array(z.string().min(1)).optional(),
     sold_at: optionalText,
     notes: optionalText,

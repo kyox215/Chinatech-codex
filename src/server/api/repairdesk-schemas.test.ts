@@ -19,7 +19,10 @@ import {
   customerSearchBodySchema,
   dashboardPrioritySummaryInputSchema,
   dashboardSummaryInputSchema,
+  inventoryIntakeInputSchema,
   inventoryQualityCheckInputSchema,
+  inventorySellInputSchema,
+  inventoryUpdateInputSchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
   orderListFiltersSchema,
@@ -383,6 +386,36 @@ describe("repairdesk API schemas", () => {
         input: { ...request.input, default_inventory_warranty_months: "12" },
       }),
     ).toThrow();
+  });
+
+  it("preserves omitted versus explicit zero inventory warranty semantics", () => {
+    const intakeBase = { brand: "Apple", model: "iPhone 13" };
+    expect(inventoryIntakeInputSchema.parse(intakeBase).warranty_months).toBeUndefined();
+    expect(
+      inventoryIntakeInputSchema.parse({ ...intakeBase, warranty_months: "" }).warranty_months,
+    ).toBeUndefined();
+    expect(
+      inventoryIntakeInputSchema.parse({ ...intakeBase, warranty_months: 0 }).warranty_months,
+    ).toBe(0);
+    expect(inventoryUpdateInputSchema.parse({ warranty_months: "6" }).warranty_months).toBe(6);
+    expect(
+      inventorySellInputSchema.parse({ sale_price: 100, warranty_months: "" }).warranty_months,
+    ).toBeUndefined();
+    expect(() =>
+      inventoryIntakeInputSchema.parse({ ...intakeBase, warranty_months: -1 }),
+    ).toThrow();
+    expect(() =>
+      inventoryIntakeInputSchema.parse({ ...intakeBase, warranty_months: 1.5 }),
+    ).toThrow();
+    for (const invalid of [null, false, true]) {
+      expect(() =>
+        inventoryIntakeInputSchema.parse({ ...intakeBase, warranty_months: invalid }),
+      ).toThrow();
+      expect(() => inventoryUpdateInputSchema.parse({ warranty_months: invalid })).toThrow();
+      expect(() =>
+        inventorySellInputSchema.parse({ sale_price: 100, warranty_months: invalid }),
+      ).toThrow();
+    }
   });
 
   it("validates store member lifecycle payloads without accepting owner role", () => {

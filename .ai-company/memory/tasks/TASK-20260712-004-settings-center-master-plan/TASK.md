@@ -1,7 +1,7 @@
 ---
 task_id: "TASK-20260712-004-settings-center-master-plan"
 status: "in_progress"
-phase: "wp03c_notifications_rules"
+phase: "wp03c_ready_for_local_commit"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
@@ -9,7 +9,7 @@ integration_lead: "RepairDesk Integration Lead"
 baseline: "a76852f61b09f1b84ccf0def957312026d6eb3b3"
 branch: "codex/settings-center-v2-20260712"
 worktree: "/private/tmp/repairdesk-settings-center-20260712"
-updated_at: "2026-07-12T14:54:32Z"
+updated_at: "2026-07-13T00:00:20Z"
 ---
 # Settings Center v2
 
@@ -27,10 +27,9 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 
 ## Current status
 
-- WP-00, WP-01, and WP-02 are implemented, validated, independently reviewed, and committed locally as `6851117c`, `c62223b0`, and `19895c2d`.
-- WP-03 scope is rehydrated in `WP03_CONTEXT_PACKET.md`. WP03-A is committed locally as `9e9916ba`.
-- WP03-A keeps output fail-closed while adding semantic recovery metadata, a shared responsive recovery component, four dialog integrations, deterministic recheck after cross-tab repair, and a mobile first-card reachability fix discovered by browser testing.
-- WP03-B account/store extraction is implemented and fully reviewed with P0=0/P1=0. Its scoped local-only commit is the next action; WP03-C notifications/rules follows.
+- WP-00, WP-01, WP-02, WP03-A, and WP03-B are implemented, validated, independently reviewed, and committed locally as `6851117c`, `c62223b0`, `19895c2d`, `9e9916ba`, and `e2ef6ce6`.
+- WP03-C notifications/print/default-rules is implemented, fully validated, and independently reviewed with P0=0/P1=0. Its scoped local-only commit is the next action; WP-04 members/access follows.
+- Notification previews isolate the saved snapshot plus only the current notifications draft. Default warranty rules use a shared 0/positive/omitted contract, and inventory intake snapshots the current tenant default while later sale never rereads it.
 - No production database, push, or deployment action has been performed.
 
 ## Acceptance gates

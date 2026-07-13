@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { STORE_INVENTORY_WARRANTY_RANGE } from "@/entities/store/model/store-setting-defaults";
 import type { StoreSettingsSectionUpdateRequest } from "@/lib/repairdesk/types";
 
 const expectedStoreIdSchema = z.string().uuid("店铺上下文无效");
@@ -47,10 +48,19 @@ const rulesInputSchema = z
       z.literal(24),
     ]),
     default_inventory_warranty_months: z
-      .number()
+      .number({
+        required_error: "请输入库存保修月数",
+        invalid_type_error: "请输入库存保修月数",
+      })
       .int("库存保修月数必须是整数")
-      .min(0, "库存保修月数不能小于 0")
-      .max(120, "库存保修月数不能超过 120"),
+      .min(
+        STORE_INVENTORY_WARRANTY_RANGE.min,
+        `库存保修月数不能小于 ${STORE_INVENTORY_WARRANTY_RANGE.min}`,
+      )
+      .max(
+        STORE_INVENTORY_WARRANTY_RANGE.max,
+        `库存保修月数不能超过 ${STORE_INVENTORY_WARRANTY_RANGE.max}`,
+      ),
   })
   .strict();
 

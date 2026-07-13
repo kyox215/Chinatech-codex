@@ -19,6 +19,10 @@ import {
   hashBuybackAgreementSnapshot,
 } from "@/features/buyback/model/buyback-agreement";
 import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
+import {
+  getStoreSettings as getMockStoreSettings,
+  updateStoreSettings as updateMockStoreSettings,
+} from "@/features/messages/testing/mock-api";
 import type { AuditActor, BuybackFinalizeInput } from "@/lib/repairdesk/types";
 
 import {
@@ -335,6 +339,72 @@ describe("inventory mock buyback workflow", () => {
     expect(detail.item.legacy_payload.sale_receipt).toMatchObject({
       warranty_months: 6,
       terms: ["custom warranty term"],
+    });
+  });
+
+  it("snapshots the current store default and preserves explicit zero through sale", async () => {
+    const actor: AuditActor = {
+      displayName: "Warranty Test Owner",
+      storeId: "00000000-0000-4000-8000-000000009901",
+    };
+    const initialSettings = await getMockStoreSettings(actor);
+    const eighteenMonthSettings = await updateMockStoreSettings(
+      {
+        section: "rules",
+        expectedStoreId: actor.storeId!,
+        expectedUpdatedAt: initialSettings.updated_at,
+        input: {
+          default_order_warranty_months: 6,
+          default_inventory_warranty_months: 18,
+        },
+      },
+      actor,
+    );
+
+    const { id: defaultedId } = await createInventoryIntake(
+      {
+        source_type: "manual_stock",
+        initial_status: "listed",
+        brand: "Apple",
+        model: "iPhone Default Snapshot",
+      },
+      actor,
+    );
+    expect((await getInventoryItem(defaultedId, actor)).item.warranty_months).toBe(18);
+
+    await updateMockStoreSettings(
+      {
+        section: "rules",
+        expectedStoreId: actor.storeId!,
+        expectedUpdatedAt: eighteenMonthSettings.updated_at,
+        input: {
+          default_order_warranty_months: 6,
+          default_inventory_warranty_months: 24,
+        },
+      },
+      actor,
+    );
+    await sellInventoryItem(defaultedId, { sale_price: 500 }, actor);
+    const soldDefaulted = await getInventoryItem(defaultedId, actor);
+    expect(soldDefaulted.item.warranty_months).toBe(18);
+
+    const { id: zeroId } = await createInventoryIntake(
+      {
+        source_type: "manual_stock",
+        initial_status: "listed",
+        brand: "Samsung",
+        model: "Galaxy No Warranty",
+        warranty_months: 0,
+      },
+      actor,
+    );
+    await sellInventoryItem(zeroId, { sale_price: 300 }, actor);
+    const soldZero = await getInventoryItem(zeroId, actor);
+    expect(soldZero.item.warranty_months).toBe(0);
+    expect(soldZero.item.warranty_until).toBeUndefined();
+    expect(soldZero.item.legacy_payload.sale_receipt).toMatchObject({
+      warranty_months: 0,
+      warranty_until: undefined,
     });
   });
 });

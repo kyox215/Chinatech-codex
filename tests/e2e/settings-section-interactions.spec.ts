@@ -12,7 +12,7 @@ const sections = [
   { key: "kiosk", label: /客户 iPad|iPad/, heading: "客户 iPad" },
   { key: "rules", label: /默认规则|规则/, heading: "默认规则" },
   { key: "workflow", label: /状态流|状态/, heading: "工单状态流" },
-  { key: "notifications", label: /通知与打印|通知/, heading: "通知资料完整度" },
+  { key: "notifications", label: /通知与打印|通知/, heading: "输出配置" },
   { key: "order-data", label: /工单数据|数据/, heading: "工单数据文件" },
 ] as const;
 
@@ -272,8 +272,12 @@ test.describe("settings account and store workspace details", () => {
     await page.getByRole("button", { name: "创建并切换" }).click();
     const confirm = page.getByRole("alertdialog", { name: "确认创建独立店铺？" });
     for (const buttonName of ["取消", "确认创建并切换"]) {
-      const box = await confirm.getByRole("button", { name: buttonName }).boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await expect
+        .poll(async () => {
+          const box = await confirm.getByRole("button", { name: buttonName }).boundingBox();
+          return box?.height ?? 0;
+        })
+        .toBeGreaterThanOrEqual(44);
     }
     await confirm.getByRole("button", { name: "取消" }).click();
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -324,6 +328,194 @@ test.describe("settings account and store workspace details", () => {
     await expect(page.getByRole("heading", { name: "店铺资料" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "客户输出就绪度" })).toBeVisible();
     await expectNoPageOverflow(page, "store settings 768px");
+  });
+});
+
+test.describe("settings notifications and default rules", () => {
+  test("keeps saved output distinct from a mobile notification draft", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await routeCompleteStoreSettings(page);
+    await gotoReady(page, "/settings?section=notifications");
+
+    const section = page.locator("[data-settings-notifications-section]");
+    await expect(section.getByRole("heading", { name: "输出配置" })).toBeVisible();
+    await expect(section.getByText("当前已就绪")).toBeVisible();
+    const signature = section.getByLabel("客户消息签名");
+    await signature.fill("Repair Lab · Pending signature");
+    await expect(section.getByText("未保存草稿预估")).toBeVisible();
+    await expect(section.getByText("未保存草稿 · 客户消息")).toBeVisible();
+
+    for (const target of [signature, section.getByRole("link", { name: /打开消息模板/ })]) {
+      const box = await target.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    await expectNoPageOverflow(page, "notification settings dirty 390px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03c-notifications-dirty-390x844.png",
+      fullPage: true,
+    });
+  });
+
+  test("renders notification previews without desktop overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await routeCompleteStoreSettings(page);
+    await gotoReady(page, "/settings?section=notifications");
+
+    const section = page.locator("[data-settings-notifications-section]");
+    await expect(section.getByText("客户消息预览")).toBeVisible();
+    await expect(section.getByText("打印页脚预览")).toBeVisible();
+    await expect(section.getByRole("link", { name: /打开消息模板/ })).toHaveAttribute(
+      "href",
+      "/messages",
+    );
+    await expectNoPageOverflow(page, "notification settings 1280px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03c-notifications-1280x800.png",
+      fullPage: true,
+    });
+  });
+
+  test("uses semantic read-only notification values and locks the template link", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 430, height: 932 });
+    await routeCompleteStoreSettings(page);
+    await routeReadonlySettingsContext(page);
+    await gotoReady(page, "/settings?section=notifications");
+
+    const section = page.locator("[data-settings-notifications-section]");
+    await expect(section.locator("dl")).toBeVisible();
+    await expect(section.getByRole("textbox")).toHaveCount(0);
+    await expect(section.getByRole("link", { name: /打开消息模板/ })).toHaveCount(0);
+    await expect(section.getByText("当前账号无模板读取权限")).toBeVisible();
+    await expectNoPageOverflow(page, "readonly notification settings 430px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03c-notifications-readonly-430x932.png",
+      fullPage: true,
+    });
+  });
+
+  test("preserves zero as no warranty in the mobile rule draft", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await routeCompleteStoreSettings(page);
+    await gotoReady(page, "/settings?section=rules");
+
+    const section = page.locator("[data-settings-rules-section]");
+    const inventoryWarranty = section.getByLabel("新库存商品默认保修月数");
+    await inventoryWarranty.fill("0");
+    await expect(section.getByText(/0 表示新库存默认无保修/)).toBeVisible();
+    await expect(page.locator("[data-settings-save-bar]")).toHaveAttribute(
+      "data-save-status",
+      "dirty",
+    );
+    const restoreBox = await section.getByRole("button", { name: "恢复系统默认" }).boundingBox();
+    expect(restoreBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect((await inventoryWarranty.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await expectNoPageOverflow(page, "rules settings dirty 390px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03c-rules-dirty-390x844.png",
+      fullPage: true,
+    });
+  });
+
+  test("previews restore defaults and saves only after explicit confirmation", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await routeCompleteStoreSettings(page, {
+      default_order_warranty_text: "两年",
+      default_order_warranty_months: 24,
+      default_inventory_warranty_months: 36,
+    });
+    const updates: unknown[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/repairdesk/settings/store/update")) {
+        updates.push(request.postDataJSON());
+      }
+    });
+    await gotoReady(page, "/settings?section=rules");
+
+    const restoreButton = page.getByRole("button", { name: "恢复系统默认" });
+    await restoreButton.click();
+    const dialog = page.getByRole("alertdialog", { name: "把系统默认值应用到草稿？" });
+    await expect(dialog).toContainText("两年");
+    await expect(dialog).toContainText("36 个月");
+    await dialog.getByRole("button", { name: "取消" }).click();
+    await expect(restoreButton).toBeFocused();
+    await restoreButton.click();
+    await expect(dialog).toBeVisible();
+    await expect
+      .poll(async () => {
+        const box = await dialog.getByRole("button", { name: "应用默认值到草稿" }).boundingBox();
+        return box?.height ?? 0;
+      })
+      .toBeGreaterThanOrEqual(44);
+    expect(updates).toEqual([]);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03c-rules-restore-1280x800.png",
+    });
+    await dialog.getByRole("button", { name: "应用默认值到草稿" }).click();
+    await expect(restoreButton).toBeFocused();
+    expect(updates).toEqual([]);
+    await expect(page.locator("[data-settings-save-bar]")).toHaveAttribute(
+      "data-save-status",
+      "dirty",
+    );
+    await page
+      .locator("[data-settings-save-bar]")
+      .getByRole("button", { name: "保存设置" })
+      .click();
+    await expect.poll(() => updates.length).toBe(1);
+    expect(updates[0]).toMatchObject({
+      section: "rules",
+      input: {
+        default_order_warranty_months: 6,
+        default_inventory_warranty_months: 12,
+      },
+    });
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
+  });
+
+  test("keeps both child pages responsive at 768 and 1024 with maximum-length output", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await routeCompleteStoreSettings(page, {
+      message_signature: "S".repeat(300),
+      print_footer: "F".repeat(500),
+    });
+
+    for (const viewport of [
+      { width: 768, height: 1024 },
+      { width: 1024, height: 768 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await gotoReady(page, "/settings?section=notifications");
+      await expect(page.locator("[data-settings-notifications-section]")).toBeVisible();
+      await expectNoPageOverflow(page, `notification settings ${viewport.width}px`);
+
+      await gotoReady(page, "/settings?section=rules");
+      await expect(page.locator("[data-settings-rules-section]")).toBeVisible();
+      await expectNoPageOverflow(page, `rules settings ${viewport.width}px`);
+    }
+  });
+
+  test("renders desktop rule values as read-only semantics", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await routeCompleteStoreSettings(page);
+    await routeReadonlySettingsContext(page);
+    await gotoReady(page, "/settings?section=rules");
+
+    const section = page.locator("[data-settings-rules-section]");
+    await expect(section.locator("dl")).toBeVisible();
+    await expect(section.getByRole("combobox")).toHaveCount(0);
+    await expect(section.getByRole("spinbutton")).toHaveCount(0);
+    await expect(section.getByRole("button", { name: "恢复系统默认" })).toHaveCount(0);
+    await expectNoPageOverflow(page, "readonly rules settings 1440px");
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp03c-rules-readonly-1440x900.png",
+      fullPage: true,
+    });
   });
 });
 
@@ -616,4 +808,47 @@ async function expectNoPageOverflow(page: Page, route: string) {
     overflow.documentWidth,
     `${route} overflowed: documentWidth=${overflow.documentWidth}, pageWidth=${overflow.pageWidth}`,
   ).toBeLessThanOrEqual(overflow.pageWidth);
+}
+
+async function routeCompleteStoreSettings(page: Page, overrides: Record<string, unknown> = {}) {
+  await page.route(/\/api\/repairdesk\/settings\/store(?:\?.*)?$/, async (route) => {
+    const response = await route.fetch();
+    const payload = (await response.json()) as { data: Record<string, unknown> };
+    payload.data = {
+      ...payload.data,
+      store_name: "Repair Lab",
+      store_address: "Via Roma 12, Siracusa",
+      store_phone: "+39 0931 000000",
+      store_whatsapp: "",
+      store_email: "repair@example.test",
+      default_order_warranty_text: "6个月",
+      default_order_warranty_months: 6,
+      default_inventory_warranty_months: 12,
+      message_signature: "Repair Lab · Assistenza",
+      print_footer: "Grazie per aver scelto Repair Lab.",
+      ...overrides,
+    };
+    await route.fulfill({ response, json: payload });
+  });
+}
+
+async function routeReadonlySettingsContext(page: Page) {
+  await page.route("**/api/repairdesk/stores/context", async (route) => {
+    const response = await route.fetch();
+    const payload = (await response.json()) as {
+      data: {
+        activeStore?: { role?: string };
+        permissions?: Record<string, boolean>;
+      };
+    };
+    if (payload.data.activeStore) payload.data.activeStore.role = "viewer";
+    payload.data.permissions = {
+      ...(payload.data.permissions ?? {}),
+      canReadStoreSettings: true,
+      canUpdateStoreSettings: false,
+      canReadMessageTemplates: false,
+      canUpdateMessageTemplates: false,
+    };
+    await route.fulfill({ response, json: payload });
+  });
 }

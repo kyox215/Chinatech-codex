@@ -358,6 +358,101 @@ describe("SettingsScreen store-bound transient secrets", () => {
     expect(screen.queryByText("当前已就绪")).not.toBeInTheDocument();
   });
 
+  it("builds notification previews from saved settings plus only the notification draft", async () => {
+    navigationMocks.search = "section=store";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    const view = render(settingsTree(queryClient));
+
+    const storeName = await screen.findByLabelText("店铺名");
+    await user.clear(storeName);
+    await user.type(storeName, "Hidden Store Draft");
+
+    navigationMocks.search = "section=rules";
+    view.rerender(settingsTree(queryClient));
+    const inventoryWarranty = await screen.findByLabelText("新库存商品默认保修月数");
+    await user.clear(inventoryWarranty);
+    await user.type(inventoryWarranty, "24");
+
+    navigationMocks.search = "section=notifications";
+    view.rerender(settingsTree(queryClient));
+    const messagePreview = (await screen.findByText("客户消息预览")).closest("div");
+    const printPreview = screen.getByText("打印页脚预览").closest("div");
+
+    expect(messagePreview).toHaveTextContent("Ripara Subito");
+    expect(messagePreview).not.toHaveTextContent("Hidden Store Draft");
+    expect(printPreview).toHaveTextContent("Garanzia usato: 12 mesi");
+    expect(printPreview).not.toHaveTextContent("Garanzia usato: 24 mesi");
+    expect(screen.getByRole("link", { name: /打开消息模板/ })).toHaveAttribute("href", "/messages");
+  });
+
+  it("restores rule defaults into the draft and saves only the rules section", async () => {
+    navigationMocks.search = "section=rules";
+    apiMocks.getStoreSettings.mockResolvedValue({
+      ...storeSettings("store-a", "Ripara Subito"),
+      default_order_warranty_text: "两年",
+      default_order_warranty_months: 24,
+      default_inventory_warranty_months: 36,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    await user.click(await screen.findByRole("button", { name: "恢复系统默认" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "把系统默认值应用到草稿？",
+    });
+    expect(dialog).toHaveTextContent("两年");
+    expect(dialog).toHaveTextContent("36 个月");
+    await user.click(within(dialog).getByRole("button", { name: "应用默认值到草稿" }));
+
+    expect(apiMocks.updateStoreSettings).not.toHaveBeenCalled();
+    expect(screen.getByText(/默认值已应用到草稿，仍需点击“保存”才会生效/)).toBeVisible();
+    const saveBar = document.querySelector<HTMLElement>("[data-settings-save-bar]");
+    expect(saveBar).not.toBeNull();
+    await user.click(within(saveBar!).getByRole("button", { name: "保存设置" }));
+
+    await waitFor(() => expect(apiMocks.updateStoreSettings).toHaveBeenCalledTimes(1));
+    expect(apiMocks.updateStoreSettings).toHaveBeenCalledWith({
+      section: "rules",
+      expectedStoreId: "store-a",
+      expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+      input: {
+        default_order_warranty_months: 6,
+        default_inventory_warranty_months: 12,
+      },
+    });
+    await waitFor(() => expect(saveBar).toHaveAttribute("data-save-status", "saved"));
+    expect(
+      screen.queryByText("默认值已应用到草稿，仍需点击“保存”才会生效。"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("guards the real messages link while the notification draft is dirty", async () => {
+    navigationMocks.search = "section=notifications";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    const signature = await screen.findByLabelText("客户消息签名");
+    await user.clear(signature);
+    await user.type(signature, "Pending message signature");
+    await user.click(screen.getByRole("link", { name: /打开消息模板/ }));
+
+    const guard = await screen.findByRole("alertdialog", { name: "当前设置尚未保存" });
+    expect(guard).toHaveTextContent("通知与打印分组");
+    expect(apiMocks.updateStoreSettings).not.toHaveBeenCalled();
+    expect(navigationMocks.push).not.toHaveBeenCalled();
+    await user.click(within(guard).getByRole("button", { name: "取消" }));
+    expect(signature).toHaveValue("Pending message signature");
+  });
+
   it("preserves local input and exposes conflict recovery after a background update", async () => {
     navigationMocks.search = "section=store";
     const queryClient = new QueryClient({
@@ -678,6 +773,7 @@ function storeContext(
       canReadStoreSettings: true,
       canUpdateStoreSettings: true,
       canConfigureWorkflow: true,
+      canReadMessageTemplates: true,
       canUpdateMessageTemplates: true,
       canListMembers: true,
       canInviteMembers: true,

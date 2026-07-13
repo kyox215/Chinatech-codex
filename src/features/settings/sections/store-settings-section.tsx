@@ -34,6 +34,7 @@ import {
 } from "@/features/settings/model/settings-field-errors";
 import type { StoreSettingsDraftValues } from "@/features/settings/model/store-settings-draft";
 import type { StoreSettingsReadiness } from "@/features/settings/model/store-settings-readiness";
+import { getStoreOutputDraftProjectionCopy } from "@/features/settings/model/store-output-draft-projection";
 import type { ActorStoreMembership, StoreRole } from "@/lib/repairdesk/types";
 import { formLayout, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -501,7 +502,10 @@ function StoreOutputReadinessCard({
   const savedScore = Math.round((savedCompletedCount / savedItems.length) * 100);
   const draftScore = Math.round((draftCompletedCount / draftItems.length) * 100);
   const projection = isDraftDirty
-    ? getDraftProjectionCopy(savedOutputIdentity.canOutput, draftOutputIdentity.canOutput)
+    ? getStoreOutputDraftProjectionCopy(
+        savedOutputIdentity.canOutput,
+        draftOutputIdentity.canOutput,
+      )
     : null;
   const outputSurfaces = [
     { label: "客户消息", icon: MessageSquare },
@@ -619,16 +623,4 @@ function StoreOutputReadinessCard({
 
 function customerOutputItems(readiness: StoreSettingsReadiness) {
   return readiness.items.filter((item) => item.key !== "default_inventory_warranty_months");
-}
-
-function getDraftProjectionCopy(savedReady: boolean, draftReady: boolean) {
-  if (!savedReady && draftReady) {
-    return "当前客户输出仍然阻断；保存这份草稿后预计解除阻断。";
-  }
-  if (savedReady && !draftReady) {
-    return "当前客户输出仍可使用；保存这份草稿后将阻断客户消息、打印和票据。";
-  }
-  return savedReady
-    ? "当前客户输出已就绪；草稿尚未保存，实际使用的仍是服务器版本。"
-    : "当前客户输出仍然阻断；草稿尚未保存，实际缺失状态没有变化。";
 }

@@ -33,6 +33,7 @@ import {
 } from "@/features/buyback/model/buyback-agreement";
 import { assertBuybackSensitiveWorkflowEnabled } from "@/features/buyback/model/buyback-evidence-policy";
 import { buildInventorySaleReceiptSnapshot } from "@/features/inventory/model/inventory-sale-receipt";
+import { getStoreSettings as getMockStoreSettings } from "@/features/messages/testing/mock-api";
 import {
   getInventoryProfit,
   isInventoryPipelineStatus,
@@ -278,7 +279,7 @@ export async function getInventoryItem(id: string, actor?: AuditActor): Promise<
 
 export async function createInventoryIntake(
   input: CreateInventoryIntakeInput,
-  _actor?: AuditActor,
+  actor?: AuditActor,
 ) {
   const sourceType = optional(input.source_type) || "buyback";
   if (sourceType === "buyback" && Number(input.buyback_price ?? 0) !== 0) {
@@ -322,7 +323,9 @@ export async function createInventoryIntake(
     currency_code: CURRENCY_CODE,
     payment_method: optional(input.payment_method),
     warranty_months:
-      input.warranty_months === undefined ? 12 : Math.max(0, Math.trunc(input.warranty_months)),
+      input.warranty_months === undefined
+        ? (await getMockStoreSettings(actor)).default_inventory_warranty_months
+        : Math.max(0, Math.trunc(input.warranty_months)),
     ...timestampPatchForStatus(initialStatus, nowIso),
     notes: optional(input.notes),
     legacy_payload: {
@@ -814,7 +817,8 @@ export async function sellInventoryItem(
   item.payment_method = optional(input.payment_method) ?? item.payment_method;
   item.sale_channel = optional(input.sale_channel) ?? "store";
   item.warranty_months = input.warranty_months ?? item.warranty_months;
-  item.warranty_until = addMonthsIso(nowIso, item.warranty_months);
+  item.warranty_until =
+    item.warranty_months > 0 ? addMonthsIso(nowIso, item.warranty_months) : undefined;
   item.legacy_payload = {
     ...recordOrEmpty(item.legacy_payload),
     sale_receipt: buildInventorySaleReceiptSnapshot({

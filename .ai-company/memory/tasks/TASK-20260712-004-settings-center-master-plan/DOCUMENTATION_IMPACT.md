@@ -61,3 +61,19 @@
 
 - A user-facing Settings operator guide should be written after WP-03 through WP-07 complete the nine child functions; writing it now would document incomplete workflows.
 - WP-02 must document the exact limits of the unsaved-change guard, especially native browser reload behavior.
+
+## WP-03C notifications, print, and default rules
+
+| Reader             | Impact                                                                                                          | Authoritative update                                                                                              | Verification                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Store users        | Notification/print previews update from the current section draft; restoring defaults still requires Save       | `notifications-settings-section.tsx`, `rules-settings-section.tsx`, and six WP03-C screenshots                    | 28-case Settings E2E and in-app browser inspection          |
+| Developers         | Warranty uses omitted/zero/positive semantics; intake snapshots the tenant default and sale never rereads it    | `store-setting-defaults.ts`, API schemas, `inventory-warranty-default.repository.ts`, and inventory repository    | Focused repository/schema/mock/receipt tests                |
+| QA                 | Editable/read-only child pages, long previews, dirty navigation, confirmation focus, and six widths are covered | `tests/e2e/settings-section-interactions.spec.ts` and WP03-C checkpoint                                            | 10 files / 72 focused tests and 28/28 Playwright            |
+| Security reviewers | Template links require the server capability; tenant default reads are store-scoped and fail closed             | Settings screen capability projection and inventory warranty repository                                          | Independent PASS, P0=0/P1=0                                |
+| Release / SRE      | No schema, migration, environment, production write, role/retention, push, or deployment step was introduced    | `CHECKPOINTS.md`, `EVIDENCE.md`, and the existing release hard-stop list                                          | Full 149-file regression, lint, typecheck, build, diff check |
+
+### WP-03C documentation limits
+
+- SeaTable import warranty behavior is unchanged and must not be described as inheriting the Settings default.
+- Historical inventory keeps its intake snapshot; changing a store default affects only later intake records that omit an override.
+- Final operator documentation remains deferred until WP-04 through WP-07 stabilize the remaining child functions.

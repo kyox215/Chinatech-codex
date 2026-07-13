@@ -75,3 +75,22 @@
   - `screenshots/responsive-density/settings/wp03b-store-draft-390x844.png`
   - `screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png`
 - No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
+
+## WP-03C — Notifications, print, and default rules
+
+- Independent security/data closeout: PASS; P0=0/P1=0. P2: add a real-database intake-to-sale chain test before production release.
+- Independent UI/accessibility closeout: PASS; P0=0/P1=0. P2: remove the Next development indicator from final WP-08 release screenshots.
+- Focused regression: 10 files / 72 tests passed.
+- Full Vitest regression: 149 files / 957 tests passed with two workers.
+- Settings Playwright: 28/28 passed with one worker across the six approved viewport widths and direct notification/rule child pages.
+- Responsive cases covered editable/read-only states, 300/500-character unbroken content, no page overflow, dirty `/messages` navigation, restore confirmation, and focus restoration after cancel and confirm.
+- Static and build gates: agents check, full lint, typecheck, diff check, and production build passed. Turbopack required local process/port permission; no deployment occurred.
+- In-app browser at 390px confirmed `scrollWidth === innerWidth`, correct hit targeting, dirty save state, navigation guard, pointer-lock cleanup, and no error/warn console entries.
+- Screenshots:
+  - `screenshots/responsive-density/settings/wp03c-notifications-dirty-390x844.png`
+  - `screenshots/responsive-density/settings/wp03c-notifications-1280x800.png`
+  - `screenshots/responsive-density/settings/wp03c-notifications-readonly-430x932.png`
+  - `screenshots/responsive-density/settings/wp03c-rules-dirty-390x844.png`
+  - `screenshots/responsive-density/settings/wp03c-rules-restore-1280x800.png`
+  - `screenshots/responsive-density/settings/wp03c-rules-readonly-1440x900.png`
+- No migration, production write, role/retention change, external message, `main` push, or deployment occurred.

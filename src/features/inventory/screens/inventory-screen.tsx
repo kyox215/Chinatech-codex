@@ -491,6 +491,7 @@ export function InventoryScreen() {
 
       <IntakeDialog
         open={intakeOpen}
+        defaultWarrantyMonths={storeSettingsQuery.data?.default_inventory_warranty_months}
         onOpenChange={setIntakeOpen}
         onDone={(id) => {
           invalidate(id);
@@ -1575,10 +1576,12 @@ function InventoryDetailEmptyLine({
 
 function IntakeDialog({
   open,
+  defaultWarrantyMonths,
   onOpenChange,
   onDone,
 }: {
   open: boolean;
+  defaultWarrantyMonths?: number;
   onOpenChange: (open: boolean) => void;
   onDone: (id: string) => void;
 }) {
@@ -1635,7 +1638,20 @@ function IntakeDialog({
               <Field name="buyback_price" label="入库成本" type="number" step="0.01" />
               <Field name="repair_cost_amount" label="整备成本" type="number" step="0.01" />
               <Field name="list_price" label="标价" type="number" step="0.01" />
-              <Field name="warranty_months" label="默认保修月数" type="number" defaultValue="12" />
+              <Field
+                name="warranty_months"
+                label="默认保修月数"
+                type="number"
+                min="0"
+                step="1"
+                defaultValue=""
+                placeholder={
+                  defaultWarrantyMonths === undefined
+                    ? "留空按当前店铺默认"
+                    : `留空按当前店铺默认（${inventoryWarrantyLabel(defaultWarrantyMonths)}）`
+                }
+                hint="只有手动填写才会覆盖；留空时由服务器读取提交时的店铺默认值。"
+              />
               <Field name="payment_method" label="采购/入库付款方式" />
               <Field name="customer_name" label="来源客户/供应商" />
               <Field name="customer_phone" label="来源电话" />
@@ -1991,7 +2007,7 @@ function InventoryActionDialog({
               />
               <InventoryDenseInfoBox
                 label="默认保修"
-                value={`${currentItem.warranty_months || 12} 月`}
+                value={inventoryWarrantyLabel(currentItem.warranty_months)}
                 meta="可修改"
                 tone="success"
               />
@@ -2013,7 +2029,7 @@ function InventoryActionDialog({
                 name="warranty_months"
                 label="保修月数"
                 type="number"
-                defaultValue={String(currentItem.warranty_months || 12)}
+                defaultValue={String(currentItem.warranty_months)}
               />
             </div>
             <TextAreaField name="notes" label="售卖备注" />
@@ -2858,9 +2874,13 @@ function inventoryProofShortLabel(row: InventoryBuybackSummary["proofRows"][numb
 }
 
 function Field(
-  props: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string },
+  props: React.InputHTMLAttributes<HTMLInputElement> & {
+    label: string;
+    name: string;
+    hint?: React.ReactNode;
+  },
 ) {
-  const { label, name, required, ...inputProps } = props;
+  const { label, name, required, hint, ...inputProps } = props;
   return (
     <div className={formLayout.field}>
       <Label htmlFor={name}>
@@ -2874,6 +2894,7 @@ function Field(
         className={compactInventoryInputClass}
         {...inputProps}
       />
+      {hint ? <p className="text-[10px] leading-4 text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
@@ -2938,6 +2959,10 @@ function intakeInput(formData: FormData): CreateInventoryIntakeInput {
     payment_method: optionalValue(formData, "payment_method"),
     notes: optionalValue(formData, "notes"),
   };
+}
+
+function inventoryWarrantyLabel(months: number) {
+  return months <= 0 ? "无保修" : `${months} 月`;
 }
 
 function checkInput(formData: FormData, expectedUpdatedAt: string): InventoryQualityCheckInput {

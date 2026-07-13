@@ -60,6 +60,28 @@ describe("inventory sale receipt", () => {
       key: "active",
     });
   });
+
+  it("represents an explicit zero-month sale as no warranty without an expiry", () => {
+    const item = inventoryItem({
+      warranty_months: 0,
+      warranty_until: undefined,
+      legacy_payload: {
+        sale_receipt: buildInventorySaleReceiptSnapshot({
+          publicNo: "I001301",
+          soldAt: "2026-07-09T10:00:00.000Z",
+          warrantyMonths: 0,
+        }),
+      },
+    });
+
+    const receipt = buildInventorySaleReceiptData(item, {
+      storeIdentity: { storeName: "Repair Lab", storeAddress: "Via Roma 12" },
+    });
+
+    expect(receipt.warranty_months).toBe(0);
+    expect(receipt.warranty_until).toBeUndefined();
+    expect(getInventoryWarrantyState(item)).toEqual({ key: "none", label: "无保修" });
+  });
 });
 
 function inventoryItem(overrides: Partial<InventoryListItem> = {}): InventoryListItem {

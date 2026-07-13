@@ -19,3 +19,9 @@
 - Dialog recovery links open a new tab to preserve context, and the original dialog has an explicit settings refetch action. Message selectors/body remain disabled until identity is ready so the recovery transition cannot overwrite user edits.
 - Private recovery links require the server-projected settings read capability. Public Kiosk must use a separate generic recovery surface and must never reuse internal Settings URLs or detailed private error copy.
 - Mobile floating-list header measurement must run after skeleton-backed data settles; measuring only on initial mount can leave the fallback offset under the real fixed header and make the first list action untappable.
+- Customer-output previews must derive from the saved tenant snapshot plus only the current notifications-section draft. Drafts from hidden sections cannot change another section's preview.
+- “Restore defaults” is a draft operation, not a write. Confirmation updates only the rules draft; the normal validation, dirty guard, CAS save, and conflict contract still apply.
+- Inventory warranty has three distinct states end to end: omitted resolves the current store default at intake, explicit `0` means no warranty, and a positive integer means months. Empty text maps to omitted; `null` and booleans are invalid.
+- Inventory intake snapshots the resolved warranty before any customer/inventory write. Sale uses that snapshot or an explicit override and never rereads the current Settings value, so later rule changes do not rewrite historical commercial terms.
+- Controlled Radix confirmation dialogs still require an actual trigger relationship when focus restoration is part of acceptance; cancel and confirm must return focus to the initiating control.
+- Responsive child workflows require direct viewport tests, not only overview tests. WP03-C directly covers 390, 430, 768, 1024, 1280, and 1440 widths with long preview content.
