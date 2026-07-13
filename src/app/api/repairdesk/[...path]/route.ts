@@ -10,6 +10,7 @@ import {
   handleRepairDeskPost,
 } from "@/server/api/repairdesk-router";
 import { ForbiddenError, UnauthorizedError } from "@/server/auth-context";
+import { BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,6 +44,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     contentLength > ORDER_DATA_MULTIPART_MAX_BYTES
   ) {
     return privateError("上传文件超过 4 MB 限制", 413);
+  }
+  if (
+    path === "inventory/attachment/upload" &&
+    Number.isFinite(contentLength) &&
+    contentLength > BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES
+  ) {
+    return privateError("附件请求过大，请压缩至 2.4MB 后重试", 413);
   }
   try {
     assertRepairDeskPostRequestAllowed({

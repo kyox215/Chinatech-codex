@@ -1,10 +1,15 @@
+import { createHash } from "node:crypto";
+
 import { CURRENCY_CODE } from "@/lib/money";
 import type {
   AuditActor,
+  BuybackFinalizeInput,
+  BuybackFinalizeResult,
   CreateInventoryIntakeInput,
   Customer,
   ElectronicsImportPreview,
   InventoryAttachment,
+  InventoryAttachmentAccessResult,
   InventoryAttachmentUploadInput,
   InventoryAttachmentUploadResult,
   InventoryDetail,
@@ -35,9 +40,17 @@ import {
   stringArray,
 } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
-import { can } from "@/server/permissions";
+import { assertPermission, can } from "@/server/permissions";
 import { writeAuditLog } from "@/server/audit";
 import { buildSeaTableElectronicsImport } from "@/features/inventory/import/seatable-electronics";
+import {
+  BUYBACK_AGREEMENT_LANGUAGE,
+  BUYBACK_AGREEMENT_VERSION,
+  BUYBACK_PRIVACY_NOTICE_VERSION,
+  hasCurrentBuybackLegalDocuments,
+  hashBuybackAgreementSnapshot,
+} from "@/features/buyback/model/buyback-agreement";
+import { BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
 import { buildInventorySaleReceiptSnapshot } from "@/features/inventory/model/inventory-sale-receipt";
 import {
   getInventoryProfit,
@@ -185,7 +198,10 @@ export function projectInventoryItemForActor(
   item: InventoryListItem,
   actor?: AuditActor,
 ): InventoryListItem {
-  if (can(actor, "finance:profit_read")) return item;
+  const legacyPayload = can(actor, "buyback:evidence_read")
+    ? item.legacy_payload
+    : redactBuybackIdentityPayload(item.legacy_payload);
+  if (can(actor, "finance:profit_read")) return { ...item, legacy_payload: legacyPayload };
   const {
     buyback_price: _buybackPrice,
     repair_cost_amount: _repairCost,
@@ -198,9 +214,14 @@ export function projectInventoryItemForActor(
     : { ...visible, customer_phone: undefined, buyer_phone: undefined };
   return {
     ...contactVisible,
-    legacy_payload: redactInventoryFinancePayload(contactVisible.legacy_payload),
+    legacy_payload: redactInventoryFinancePayload(legacyPayload),
     finance_redacted: true,
   } as InventoryListItem;
+}
+
+function redactBuybackIdentityPayload(value: Record<string, unknown>) {
+  const { buyback_customer: _buybackCustomer, ...visible } = value;
+  return visible;
 }
 
 function redactInventoryFinancePayload(value: Record<string, unknown>) {
@@ -293,12 +314,15 @@ export async function getInventoryItem(id: string, actor?: AuditActor): Promise<
     attachments:
       attachmentResult.error || !canReadAttachments
         ? []
-        : await attachInventorySignedUrls(
-            supabase,
-            (attachmentResult.data ?? []) as DbRecord[],
-            storeId,
-            id,
-          ),
+        : ((attachmentResult.data ?? []) as DbRecord[])
+            .map(inventoryAttachmentFromRow)
+            .filter(
+              (attachment) =>
+                can(actor, "buyback:evidence_read") ||
+                (attachment.sensitivity !== "restricted" &&
+                  !isRestrictedBuybackEvidenceKind(attachment.kind)),
+            )
+            .map(projectInventoryAttachmentMetadata),
   };
 }
 
@@ -306,6 +330,7 @@ export async function createInventoryIntake(
   input: CreateInventoryIntakeInput,
   actor: AuditActor = systemActor,
 ): Promise<{ id: string }> {
+  assertInventoryIntakeDoesNotBypassBuybackFinalize(input);
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
@@ -319,7 +344,7 @@ export async function createInventoryIntake(
     now,
   );
   const id = crypto.randomUUID();
-  const legacyPayload = input.quote_payload ?? {};
+  const legacyPayload = sanitizeBuybackLegacyPayload(input.quote_payload ?? {});
   const buybackQuotePayload = recordOrEmpty(legacyPayload.buyback_quote);
   const payload = {
     id,
@@ -381,25 +406,6 @@ export async function createInventoryIntake(
     now,
   );
 
-  if (
-    sourceType === "buyback" &&
-    payload.buyback_price > 0 &&
-    !hasBuybackQuotePayload(legacyPayload)
-  ) {
-    await insertInventoryTransaction(
-      storeId,
-      id,
-      {
-        transaction_type: "buyback_payment",
-        amount: payload.buyback_price,
-        method: input.payment_method,
-        note: "回收付款",
-      },
-      actor,
-      now,
-    );
-  }
-
   await writeAuditLog({
     actor,
     action: "create",
@@ -411,6 +417,98 @@ export async function createInventoryIntake(
   return { id };
 }
 
+export function assertInventoryIntakeDoesNotBypassBuybackFinalize(
+  input: CreateInventoryIntakeInput,
+) {
+  const sourceType = clean(input.source_type) || "buyback";
+  if (sourceType === "buyback" && money(input.buyback_price) !== 0) {
+    throw new Error("回收成本只能由带证件、签名与幂等保护的确认成交操作写入");
+  }
+}
+
+export function assertInventoryUpdateDoesNotBypassBuybackAgreement(
+  input: UpdateInventoryItemInput,
+  before: Record<string, unknown>,
+) {
+  if (maybeString(before.source_type) !== "buyback") return;
+  if (Object.prototype.hasOwnProperty.call(input, "buyback_price")) {
+    throw new Error("回收成本不能通过通用库存更新修改，请使用专用成交或更正流程");
+  }
+
+  const status = maybeString(before.status);
+  const agreementLocked =
+    Boolean(before.purchased_at) || !["intake", "evaluating", "offer_made"].includes(status ?? "");
+  if (!agreementLocked) return;
+  const signedFields = [
+    "customer_name",
+    "customer_phone",
+    "brand",
+    "model",
+    "storage_capacity",
+    "serial_or_imei",
+    "payment_method",
+    "quote_payload",
+  ] as const;
+  if (signedFields.some((field) => Object.prototype.hasOwnProperty.call(input, field))) {
+    throw new Error("已成交回收的签署资料不能通过通用库存更新修改");
+  }
+}
+
+export function assertInventoryTransitionDoesNotBypassBuybackReversal(
+  to: InventoryItemStatus,
+  before: Record<string, unknown>,
+) {
+  if (maybeString(before.source_type) !== "buyback" || to !== "cancelled") return;
+  if (Boolean(before.purchased_at) || maybeString(before.status) === "purchased") {
+    throw new Error("已成交回收不能通过通用状态流直接取消，请使用专用冲正流程");
+  }
+}
+
+export function assertInventoryTransitionActor(actor: AuditActor, to: InventoryItemStatus) {
+  if (to === "recycled" && !actor.isSystem) {
+    assertPermission(actor, "inventory:write_off");
+  }
+}
+
+export function assertBuybackSaleReadiness(
+  before: Record<string, unknown>,
+  target: InventoryItemStatus,
+) {
+  if (maybeString(before.source_type) !== "buyback") return;
+  if (!["ready_for_sale", "listed", "reserved", "sold"].includes(target)) return;
+  if (maybeString(before.data_wipe_status) !== "pass") {
+    throw new Error("设备资料尚未确认清除，不能进入待售或售出流程");
+  }
+  if (maybeString(before.imei_check_status) !== "pass") {
+    throw new Error("IMEI / 序列号核验未通过，不能进入待售或售出流程");
+  }
+  if (maybeString(before.activation_lock_status) !== "pass") {
+    throw new Error("账号锁 / Find My 未确认关闭，不能进入待售或售出流程");
+  }
+}
+
+export function inventoryMutationCas(before: Record<string, unknown>) {
+  const status = maybeString(before.status);
+  const updatedAt = maybeString(before.updated_at);
+  if (!status || !updatedAt) throw new Error("库存记录缺少并发版本，请刷新后重试");
+  return {
+    status,
+    updatedAt,
+  };
+}
+
+export function returnedBuybackInspectionReset(
+  before: Record<string, unknown>,
+  target: InventoryItemStatus,
+) {
+  if (target !== "returned" || maybeString(before.source_type) !== "buyback") return {};
+  return {
+    imei_check_status: "unchecked",
+    activation_lock_status: "unchecked",
+    data_wipe_status: "unchecked",
+  } as const;
+}
+
 export async function updateInventoryItem(
   id: string,
   input: UpdateInventoryItemInput,
@@ -419,16 +517,34 @@ export async function updateInventoryItem(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const before = await fetchInventoryRow(id, storeId);
+  assertInventoryUpdateDoesNotBypassBuybackAgreement(input, before);
+  const cas = inventoryMutationCas(before);
   const now = new Date().toISOString();
   const patch = sanitizeItemPatch(input, before, actor, now);
+  if (
+    Object.prototype.hasOwnProperty.call(input, "customer_name") ||
+    Object.prototype.hasOwnProperty.call(input, "customer_phone")
+  ) {
+    patch.customer_id =
+      (await resolveCustomer(
+        storeId,
+        maybeString(before.customer_id),
+        input.customer_name,
+        input.customer_phone,
+        now,
+      )) ?? null;
+  }
   const { data, error } = await supabase
     .from("inventory_items")
     .update(patch)
     .eq("store_id", storeId)
     .eq("id", id)
+    .eq("status", cas.status)
+    .eq("updated_at", cas.updatedAt)
     .select("*")
-    .single();
+    .maybeSingle();
   fail(error, "更新库存商品失败");
+  if (!data) throw new Error("库存资料已被其他人更新，请刷新后重试");
 
   await insertInventoryEvent(
     storeId,
@@ -436,7 +552,7 @@ export async function updateInventoryItem(
     "updated",
     before.status as InventoryItemStatus,
     undefined,
-    { input },
+    summarizeInventoryUpdateInput(input),
     actor,
     now,
   );
@@ -445,8 +561,8 @@ export async function updateInventoryItem(
     action: "update",
     entityType: "inventory_item",
     entityId: id,
-    before,
-    after: data as Record<string, unknown>,
+    before: redactInventoryRowForAudit(before),
+    after: redactInventoryRowForAudit(data),
   });
   return { ok: true };
 }
@@ -459,29 +575,37 @@ export async function transitionInventoryItem(
 ): Promise<{ ok: boolean; from: InventoryItemStatus; to: InventoryItemStatus }> {
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
+  assertInventoryTransitionActor(actor, to);
   const before = await fetchInventoryRow(id, storeId);
   const from = before.status as InventoryItemStatus;
+  const cas = inventoryMutationCas(before);
+  if (to === "purchased") {
+    throw new Error("回收成交必须使用带签名、版本与幂等保护的原子成交操作");
+  }
+  assertInventoryTransitionDoesNotBypassBuybackReversal(to, before);
+  assertBuybackSaleReadiness(before, to);
   validateInventoryTransition(from, to);
 
   if (from === to) return { ok: true, from, to };
 
   const now = new Date().toISOString();
-  if (to === "purchased") {
-    await assertBuybackPurchaseEvidence(supabase, storeId, id, before);
-  }
   const { data, error } = await supabase
     .from("inventory_items")
     .update({
       status: to,
       ...timestampPatchForStatus(to, now),
+      ...returnedBuybackInspectionReset(before, to),
       updated_by: actor.id ?? null,
       updated_at: now,
     })
     .eq("store_id", storeId)
     .eq("id", id)
+    .eq("status", from)
+    .eq("updated_at", cas.updatedAt)
     .select("*")
-    .single();
+    .maybeSingle();
   fail(error, "推进库存状态失败");
+  if (!data) throw new Error("库存资料已被其他人更新，请刷新后重试");
 
   await insertInventoryEvent(
     storeId,
@@ -493,9 +617,6 @@ export async function transitionInventoryItem(
     actor,
     now,
   );
-  if (to === "purchased") {
-    await insertBuybackPurchaseTransaction(storeId, id, data as DbRecord, actor, now);
-  }
   await writeAuditLog({
     actor,
     action: "transition",
@@ -509,161 +630,6 @@ export async function transitionInventoryItem(
   return { ok: true, from, to };
 }
 
-async function assertBuybackPurchaseEvidence(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  storeId: string,
-  itemId: string,
-  row: DbRecord,
-) {
-  if (maybeString(row.source_type) !== "buyback") return;
-  const legacyPayload = recordOrEmpty(row.legacy_payload);
-  if (!hasBuybackQuotePayload(legacyPayload)) {
-    throw new Error("回收成交必须先保存回收报价资料");
-  }
-
-  const quotePayload = recordOrEmpty(legacyPayload.buyback_quote);
-  if (maybeString(quotePayload.intent_outcome) !== "accepted") {
-    throw new Error("客户未确认接受报价，不能成交入库");
-  }
-  if (quotePayload.hard_block === true) {
-    throw new Error("高风险回收设备不能直接成交入库");
-  }
-  const acceptedOffer = money(quotePayload.final_offer);
-  const currentBuybackPrice = money(row.buyback_price);
-  if (acceptedOffer <= 0) {
-    throw new Error("客户接受报价金额必须大于 0");
-  }
-  if (currentBuybackPrice <= 0) {
-    throw new Error("回收成交金额必须大于 0");
-  }
-  if (Math.abs(currentBuybackPrice - acceptedOffer) > 0.01) {
-    throw new Error("回收成交金额与客户接受报价不一致");
-  }
-  if (!maybeString(row.serial_or_imei)) {
-    throw new Error("回收成交必须记录 IMEI / 序列号");
-  }
-  assertInventoryCheckPassed(row.imei_check_status, "IMEI / 序列号");
-  assertInventoryCheckPassed(row.activation_lock_status, "账号锁 / Find My");
-  assertInventoryCheckPassed(row.data_wipe_status, "数据抹除");
-  const latestCheck = await fetchLatestInventoryQualityCheck(supabase, storeId, itemId);
-  assertBuybackRequiredChecksCompleted(latestCheck);
-
-  const devicePayload = recordOrEmpty(legacyPayload.buyback_device);
-  const requiredKinds = new Set<InventoryAttachment["kind"]>([
-    "device_photo",
-    "signature",
-    "id_front",
-    "id_back",
-  ]);
-  if (devicePayload.purchase_proof !== true) requiredKinds.add("invoice_photo");
-  if (devicePayload.box_included !== true) requiredKinds.add("box_photo");
-
-  const { data, error } = await supabase
-    .from("inventory_attachments")
-    .select("kind")
-    .eq("store_id", storeId)
-    .eq("item_id", itemId)
-    .in("kind", Array.from(requiredKinds));
-  if (isMissingInventoryAttachmentsTableError(error)) {
-    throw new Error("库存附件表尚未部署，无法保存回收成交凭证");
-  }
-  fail(error, "读取回收成交凭证失败");
-
-  const existingKinds = new Set((data ?? []).map((item) => maybeString(item.kind)).filter(Boolean));
-  const missingKinds = Array.from(requiredKinds).filter((kind) => !existingKinds.has(kind));
-  if (missingKinds.length > 0) {
-    throw new Error(`缺少成交凭证：${missingKinds.map(inventoryAttachmentKindLabel).join("、")}`);
-  }
-}
-
-async function fetchLatestInventoryQualityCheck(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  storeId: string,
-  itemId: string,
-) {
-  const { data, error } = await supabase
-    .from("inventory_quality_checks")
-    .select(
-      "screen_status, touch_status, camera_status, buttons_status, ports_status, speaker_status, microphone_status, wifi_status, bluetooth_status, cellular_status",
-    )
-    .eq("store_id", storeId)
-    .eq("item_id", itemId)
-    .order("checked_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  fail(error, "读取回收功能检测记录失败");
-  if (!data) throw new Error("回收成交前必须完成完整功能检测");
-  return data as DbRecord;
-}
-
-function assertBuybackRequiredChecksCompleted(check: DbRecord) {
-  const requiredChecks = [
-    ["screen_status", "屏幕显示"],
-    ["touch_status", "触控"],
-    ["camera_status", "前后摄像头"],
-    ["microphone_status", "麦克风"],
-    ["speaker_status", "听筒/扬声器"],
-    ["buttons_status", "按键 / 静音键"],
-    ["ports_status", "充电口"],
-    ["wifi_status", "Wi-Fi"],
-    ["bluetooth_status", "蓝牙"],
-    ["cellular_status", "蜂窝 / SIM"],
-  ] as const;
-  for (const [field, label] of requiredChecks) {
-    assertInventoryCheckRecorded(check[field], label);
-  }
-}
-
-function assertInventoryCheckRecorded(value: unknown, label: string) {
-  const status = maybeString(value);
-  if (status === "pass" || status === "fail") return;
-  throw new Error(`${label}未完成检测，不能成交入库`);
-}
-
-function assertInventoryCheckPassed(value: unknown, label: string) {
-  const status = maybeString(value);
-  if (status === "pass") return;
-  if (status === "fail") {
-    throw new Error(`${label}检测异常，不能成交入库`);
-  }
-  throw new Error(`${label}尚未检测通过，不能成交入库`);
-}
-
-async function insertBuybackPurchaseTransaction(
-  storeId: string,
-  itemId: string,
-  row: DbRecord,
-  actor: AuditActor,
-  now: string,
-) {
-  if (maybeString(row.source_type) !== "buyback") return;
-  const amount = money(row.buyback_price);
-  if (amount <= 0) return;
-  const { data, error } = await getSupabaseAdmin()
-    .from("inventory_transactions")
-    .select("id")
-    .eq("store_id", storeId)
-    .eq("item_id", itemId)
-    .eq("transaction_type", "buyback_payment")
-    .limit(1);
-  fail(error, "读取回收付款流水失败");
-  if ((data ?? []).length > 0) return;
-
-  await insertInventoryTransaction(
-    storeId,
-    itemId,
-    {
-      transaction_type: "buyback_payment",
-      amount,
-      method: maybeString(row.payment_method),
-      note: "回收成交付款",
-    },
-    actor,
-    now,
-  );
-}
-
 export async function recordInventoryCheck(
   id: string,
   input: InventoryQualityCheckInput,
@@ -672,6 +638,10 @@ export async function recordInventoryCheck(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const before = await fetchInventoryRow(id, storeId);
+  const cas = inventoryMutationCas(before);
+  if (input.expected_updated_at && input.expected_updated_at !== cas.updatedAt) {
+    throw new Error("库存资料已被其他人更新，请刷新后重试");
+  }
   const now = new Date().toISOString();
   const checkId = crypto.randomUUID();
   const payload = {
@@ -687,25 +657,27 @@ export async function recordInventoryCheck(
   const { error } = await supabase.from("inventory_quality_checks").insert(payload);
   fail(error, "记录检测失败");
 
-  const itemPatch = {
-    battery_health: input.battery_health ?? before.battery_health ?? null,
-    cosmetic_grade: input.cosmetic_grade ?? before.cosmetic_grade ?? "unknown",
-    functional_grade: input.functional_grade ?? before.functional_grade ?? "untested",
-    imei_check_status: input.imei_check_status ?? before.imei_check_status ?? "unchecked",
-    activation_lock_status:
-      input.activation_lock_status ?? before.activation_lock_status ?? "unchecked",
-    data_wipe_status: input.data_wipe_status ?? before.data_wipe_status ?? "unchecked",
-    updated_by: actor.id ?? null,
-    updated_at: now,
-  };
+  const itemPatch = buildInventoryCheckItemPatch(input, actor, now);
   const { data: after, error: updateError } = await supabase
     .from("inventory_items")
     .update(itemPatch)
     .eq("store_id", storeId)
     .eq("id", id)
+    .eq("status", cas.status)
+    .eq("updated_at", cas.updatedAt)
     .select("*")
-    .single();
-  fail(updateError, "同步检测结果到商品失败");
+    .maybeSingle();
+  if (updateError || !after) {
+    const { error: cleanupError } = await supabase
+      .from("inventory_quality_checks")
+      .delete()
+      .eq("store_id", storeId)
+      .eq("item_id", id)
+      .eq("id", checkId);
+    fail(cleanupError, "检测结果冲突且暂存记录清理失败");
+    fail(updateError, "同步检测结果到商品失败");
+    throw new Error("库存资料已被其他人更新，请刷新后重试");
+  }
 
   await insertInventoryEvent(
     storeId,
@@ -735,37 +707,63 @@ export async function uploadInventoryAttachment(
   actor: AuditActor = systemActor,
 ): Promise<InventoryAttachmentUploadResult> {
   const storeId = requireStoreIdFromActor(actor);
+  const kind = normalizeInventoryAttachmentKind(input.kind);
   const operatorName = actor.displayName || actor.email || "system";
   const supabase = getSupabaseAdmin();
-  await fetchInventoryRow(id, storeId);
+  const item = await fetchInventoryRow(id, storeId);
+  const isBuybackEvidence = maybeString(item.source_type) === "buyback";
+  const isRestricted = isBuybackEvidence || isRestrictedBuybackEvidenceKind(kind);
+  assertBuybackEvidenceCaptureActor(actor, kind, maybeString(item.source_type));
 
   const bytes = attachmentPayloadFromInput(input);
   const attachmentId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const safeName = sanitizeAttachmentFileName(input.file_name);
   const extension = extensionFromAttachment(input);
-  const storagePath = `${storeId}/${id}/${attachmentId}.${extension}`;
+  const safeName = isRestricted
+    ? `${inventoryAttachmentKindLabel(kind)}.${extension}`
+    : sanitizeAttachmentFileName(input.file_name);
+  if (isRestricted && !isBuybackEvidence) {
+    throw new Error("证件与客户签名只能绑定回收记录");
+  }
+  if (kind === "signature" && !input.agreement_hash) {
+    throw new Error("客户签名必须绑定成交摘要");
+  }
+  if (isRestricted && input.mime_type === "application/pdf") {
+    throw new Error("证件与签名只支持图片格式");
+  }
+  if (kind === "signature" && !["image/png", "image/jpeg"].includes(input.mime_type)) {
+    throw new Error("客户签名只支持 PNG 或 JPEG");
+  }
+  const storageBucket = isRestricted ? BUYBACK_EVIDENCE_BUCKET : INVENTORY_ATTACHMENT_BUCKET;
+  const storagePath = `${storeId}/${id}/${kind}/${attachmentId}.${extension}`;
 
   const { error: uploadError } = await supabase.storage
-    .from(INVENTORY_ATTACHMENT_BUCKET)
+    .from(storageBucket)
     .upload(storagePath, bytes, {
       contentType: input.mime_type,
       upsert: false,
     });
-  failStorageOperation(uploadError, "上传库存附件失败", INVENTORY_ATTACHMENT_BUCKET);
+  failStorageOperation(uploadError, "上传库存附件失败", storageBucket);
 
   const row = {
     id: attachmentId,
     store_id: storeId,
     item_id: id,
-    kind: normalizeInventoryAttachmentKind(input.kind),
+    kind,
     file_name: safeName,
     mime_type: input.mime_type,
     file_size: bytes.byteLength,
-    storage_bucket: INVENTORY_ATTACHMENT_BUCKET,
+    storage_bucket: storageBucket,
     storage_path: storagePath,
-    note: input.note?.trim() || null,
+    note: isRestricted ? null : input.note?.trim() || null,
     uploaded_by: operatorName,
+    sensitivity: isRestricted ? "restricted" : "internal",
+    evidence_status: isBuybackEvidence ? "staged" : "bound",
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    agreement_hash: input.agreement_hash ?? null,
+    staging_expires_at: isBuybackEvidence
+      ? new Date(Date.now() + BUYBACK_EVIDENCE_STAGING_TTL_MS).toISOString()
+      : null,
     created_at: now,
     updated_at: now,
   };
@@ -777,7 +775,7 @@ export async function uploadInventoryAttachment(
     .single();
   if (error) {
     await supabase.storage
-      .from(INVENTORY_ATTACHMENT_BUCKET)
+      .from(storageBucket)
       .remove([storagePath])
       .catch(() => undefined);
     fail(error, "保存库存附件失败");
@@ -792,7 +790,7 @@ export async function uploadInventoryAttachment(
     {
       attachment_id: attachmentId,
       kind: row.kind,
-      file_name: safeName,
+      ...(isRestricted ? {} : { file_name: safeName }),
       mime_type: input.mime_type,
       file_size: bytes.byteLength,
     },
@@ -816,11 +814,253 @@ export async function uploadInventoryAttachment(
   return { attachment: inventoryAttachmentFromRow(data as DbRecord) };
 }
 
+export function assertBuybackEvidenceCaptureActor(
+  actor: AuditActor,
+  kind: InventoryAttachment["kind"],
+  sourceType?: string,
+) {
+  if (sourceType === "buyback" || isRestrictedBuybackEvidenceKind(kind)) {
+    assertPermission(actor, "buyback:evidence_capture");
+  }
+}
+
+export async function accessInventoryAttachment(
+  id: string,
+  attachmentId: string,
+  actor: AuditActor = systemActor,
+): Promise<InventoryAttachmentAccessResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("inventory_attachments")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("item_id", id)
+    .eq("id", attachmentId)
+    .single();
+  fail(error, "读取库存附件失败");
+  const attachment = inventoryAttachmentFromRow(data as DbRecord);
+  if (!isInventoryAttachmentStorageScoped(attachment, storeId, id)) {
+    throw new Error("附件存储路径与当前店铺不一致");
+  }
+
+  const restricted =
+    attachment.sensitivity === "restricted" || isRestrictedBuybackEvidenceKind(attachment.kind);
+  assertPermission(actor, restricted ? "buyback:evidence_read" : "attachment:read");
+  assertInventoryAttachmentAccessState(attachment, restricted);
+
+  const expiresInSeconds = restricted ? 120 : 300;
+  const { data: signed, error: signedError } = await supabase.storage
+    .from(attachment.storage_bucket)
+    .createSignedUrl(attachment.storage_path, expiresInSeconds);
+  failStorageOperation(signedError, "生成附件临时查看链接失败", attachment.storage_bucket);
+  if (!signed?.signedUrl) throw new Error("生成附件临时查看链接失败");
+
+  await writeAuditLog({
+    actor,
+    action: "read_attachment",
+    entityType: "inventory_attachment",
+    entityId: attachment.id,
+    metadata: {
+      item_id: id,
+      kind: attachment.kind,
+      restricted,
+      expires_in_seconds: expiresInSeconds,
+    },
+  });
+
+  return {
+    attachment_id: attachment.id,
+    signed_url: signed.signedUrl,
+    expires_at: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+  };
+}
+
+export function assertInventoryAttachmentAccessState(
+  attachment: Pick<InventoryAttachment, "evidence_status" | "staging_expires_at">,
+  restricted: boolean,
+  now = Date.now(),
+) {
+  if (attachment.evidence_status === "rejected" || attachment.evidence_status === "deleted") {
+    throw new Error("该附件已被拒绝或删除，不能继续查看");
+  }
+  if (
+    restricted &&
+    attachment.evidence_status !== "staged" &&
+    attachment.evidence_status !== "bound"
+  ) {
+    throw new Error("受限凭证状态无效，不能继续查看");
+  }
+  if (
+    restricted &&
+    attachment.evidence_status === "staged" &&
+    (!attachment.staging_expires_at || new Date(attachment.staging_expires_at).getTime() <= now)
+  ) {
+    throw new Error("受限凭证暂存期已过，请重新采集");
+  }
+}
+
+export async function finalizeBuybackPurchase(
+  id: string,
+  input: BuybackFinalizeInput,
+  actor: AuditActor = systemActor,
+): Promise<BuybackFinalizeResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor.id) throw new Error("确认回收成交需要已登录员工身份");
+
+  const calculatedHash = await hashBuybackAgreementSnapshot(input.agreement_snapshot);
+  if (calculatedHash !== input.agreement_hash) {
+    throw new Error("成交摘要已变化，请让客户重新签名");
+  }
+  if (!/^[A-Za-z0-9]{1,4}$/.test(input.document_no_last4)) {
+    throw new Error("证件号码后四位无效");
+  }
+  if (
+    input.agreement_version !== BUYBACK_AGREEMENT_VERSION ||
+    input.privacy_notice_version !== BUYBACK_PRIVACY_NOTICE_VERSION ||
+    input.language !== BUYBACK_AGREEMENT_LANGUAGE ||
+    input.agreement_snapshot.agreement_version !== BUYBACK_AGREEMENT_VERSION ||
+    input.agreement_snapshot.privacy_notice_version !== BUYBACK_PRIVACY_NOTICE_VERSION ||
+    input.agreement_snapshot.language !== BUYBACK_AGREEMENT_LANGUAGE
+  ) {
+    throw new Error("回收协议版本无效，请刷新后重试");
+  }
+  if (!hasCurrentBuybackLegalDocuments(input.agreement_snapshot)) {
+    throw new Error("隐私告知或回收条款内容无效，请刷新后让客户重新确认");
+  }
+  const snapshotPayment = recordOrEmpty(input.agreement_snapshot.payment);
+  const paymentMethod = clean(input.payment_method) || "cash";
+  if (paymentMethod !== clean(maybeString(snapshotPayment.method))) {
+    throw new Error("成交资料已变化，请让客户重新签名");
+  }
+
+  const safePatch = sanitizeBuybackFinalizeItemPatch(input.item_patch, input.agreement_snapshot);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_finalize_buyback", {
+    p_store_id: storeId,
+    p_item_id: id,
+    p_actor_id: actor.id,
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_item_patch: safePatch,
+    p_quality_check: input.quality_check,
+    p_agreement_snapshot: input.agreement_snapshot,
+    p_agreement_hash: input.agreement_hash,
+    p_agreement_version: input.agreement_version,
+    p_privacy_notice_version: input.privacy_notice_version,
+    p_language: input.language,
+    p_document_type: input.document_type,
+    p_document_no_last4: input.document_no_last4,
+    p_signature_attachment_id: input.signature_attachment_id,
+    p_evidence_attachment_ids: input.evidence_attachment_ids,
+    p_payment_method: paymentMethod,
+  });
+  fail(error, "确认回收成交失败");
+  if (!data || typeof data !== "object") throw new Error("确认回收成交失败：数据库返回无效");
+
+  const result = data as Record<string, unknown>;
+  if (result.ok !== true)
+    throw new Error(buybackFinalizeFailureMessage(requiredString(result.code)));
+  const code = result.code === "idempotent_replay" ? "idempotent_replay" : "finalized";
+  return {
+    ok: true,
+    code,
+    item_id: requiredString(result.item_id),
+    agreement_id: requiredString(result.agreement_id),
+    payment_id: requiredString(result.payment_id),
+    updated_at: requiredString(result.updated_at),
+  };
+}
+
+function sanitizeBuybackFinalizeItemPatch(
+  patch: UpdateInventoryItemInput,
+  agreementSnapshot: Record<string, unknown>,
+) {
+  const snapshot = recordOrEmpty(agreementSnapshot);
+  const snapshotDevice = recordOrEmpty(snapshot.device);
+  const seller = recordOrEmpty(snapshot.seller);
+  const snapshotPayment = recordOrEmpty(snapshot.payment);
+  const quotePayload = recordOrEmpty(patch.quote_payload);
+  const buybackCustomer = recordOrEmpty(quotePayload.buyback_customer);
+  const buybackQuote = recordOrEmpty(quotePayload.buyback_quote);
+  const buybackDevice = recordOrEmpty(quotePayload.buyback_device);
+  const boundDevice = {
+    brand: clean(patch.brand),
+    model: clean(patch.model),
+    storage_capacity: clean(patch.storage_capacity),
+    serial_or_imei: clean(patch.serial_or_imei),
+  };
+  if (
+    boundDevice.brand !== clean(maybeString(snapshotDevice.brand)) ||
+    boundDevice.model !== clean(maybeString(snapshotDevice.model)) ||
+    boundDevice.storage_capacity !== clean(maybeString(snapshotDevice.storage_capacity)) ||
+    boundDevice.serial_or_imei !== clean(maybeString(snapshotDevice.serial_or_imei)) ||
+    Boolean(buybackDevice.purchase_proof) !== Boolean(snapshotDevice.purchase_proof) ||
+    Boolean(buybackDevice.box_included) !== Boolean(snapshotDevice.box_included) ||
+    (clean(patch.payment_method) || "cash") !== clean(maybeString(snapshotPayment.method))
+  ) {
+    throw new Error("成交资料已变化，请让客户重新签名");
+  }
+  const amount = money(patch.buyback_price ?? buybackQuote.final_offer);
+  return {
+    category: clean(patch.category) || "phone",
+    brand: boundDevice.brand,
+    model: boundDevice.model,
+    color: clean(patch.color) || undefined,
+    storage_capacity: boundDevice.storage_capacity || undefined,
+    serial_or_imei: boundDevice.serial_or_imei || undefined,
+    buyback_price: amount,
+    list_price: money(patch.list_price),
+    repair_cost_amount: money(patch.repair_cost_amount),
+    payment_method: clean(patch.payment_method) || undefined,
+    notes: `回收成交 €${amount.toFixed(2)}；身份与签名资料保存在受限协议记录`,
+    quote_payload: {
+      ...sanitizeBuybackLegacyPayload(quotePayload),
+      buyback_customer: {
+        document_type:
+          maybeString(seller.document_type) || maybeString(buybackCustomer.document_type),
+        document_no_masked: maybeString(seller.document_no_last4)
+          ? `••••${maybeString(seller.document_no_last4)}`
+          : null,
+        signature_status: "signed",
+        signature_captured: true,
+        id_front_captured: true,
+        id_back_captured: maybeString(seller.document_type) === "passport" ? false : true,
+        device_photo_captured: true,
+      },
+    },
+  } satisfies UpdateInventoryItemInput;
+}
+
+function buybackFinalizeFailureMessage(code: string) {
+  const messages: Record<string, string> = {
+    actor_forbidden: "当前员工没有确认回收成交的权限",
+    invalid_target: "回收记录无效",
+    invalid_idempotency_key: "成交操作标识无效",
+    missing_expected_version: "缺少回收记录版本时间",
+    invalid_payload: "成交资料不完整或格式无效",
+    idempotency_conflict: "该成交操作标识已用于不同请求，请刷新后重试",
+    item_not_found: "回收记录不存在",
+    stale_version: "回收记录已被其他人更新，请刷新后重新确认",
+    invalid_state: "当前回收状态不能确认成交",
+    hard_blocked: "设备存在高风险，不能直接成交",
+    quote_mismatch: "成交金额与客户接受报价不一致",
+    inspection_missing: "功能检测未完成",
+    inspection_blocked: "IMEI 或账号锁未通过，不能成交",
+    evidence_missing: "证件、设备照片或签名凭证不完整",
+    evidence_mismatch: "成交凭证与当前回收记录不匹配",
+    signature_stale: "成交摘要已变化，请让客户重新签名",
+    seller_mismatch: "卖家资料与关联客户不一致，请核对客户后重新签名",
+    already_finalized: "该回收记录已完成成交",
+  };
+  return messages[code] ?? "确认回收成交失败";
+}
+
 export async function recordInventoryTransaction(
   id: string,
   input: InventoryTransactionInput,
   actor: AuditActor = systemActor,
 ): Promise<{ id: string }> {
+  assertDirectInventoryTransactionAllowed(input);
   const storeId = requireStoreIdFromActor(actor);
   const row = await fetchInventoryRow(id, storeId);
   const now = new Date().toISOString();
@@ -846,6 +1086,12 @@ export async function recordInventoryTransaction(
   return { id: transactionId };
 }
 
+export function assertDirectInventoryTransactionAllowed(input: InventoryTransactionInput) {
+  if (input.transaction_type === "buyback_payment") {
+    throw new Error("回收付款只能由带证件、签名与幂等保护的确认成交操作生成");
+  }
+}
+
 export async function sellInventoryItem(
   id: string,
   input: SellInventoryItemInput,
@@ -854,6 +1100,8 @@ export async function sellInventoryItem(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const before = await fetchInventoryRow(id, storeId);
+  const cas = inventoryMutationCas(before);
+  assertBuybackSaleReadiness(before, "sold");
   validateInventoryTransition(before.status as InventoryItemStatus, "sold");
   const now = new Date().toISOString();
   const soldAt = input.sold_at || now;
@@ -902,9 +1150,12 @@ export async function sellInventoryItem(
     .update(patch)
     .eq("store_id", storeId)
     .eq("id", id)
+    .eq("status", cas.status)
+    .eq("updated_at", cas.updatedAt)
     .select("*")
-    .single();
+    .maybeSingle();
   fail(error, "登记售出失败");
+  if (!data) throw new Error("库存资料已被其他人更新，请刷新后重试");
 
   await insertInventoryTransaction(
     storeId,
@@ -939,14 +1190,19 @@ export async function sellInventoryItem(
   return { ok: true };
 }
 
-export function importElectronicsCsvPreview(csvContent: string): ElectronicsImportPreview {
+export function importElectronicsCsvPreview(
+  csvContent: string,
+  actor: AuditActor,
+): ElectronicsImportPreview {
+  assertLegacyElectronicsImportActor(actor);
   return buildSeaTableElectronicsImport(csvContent);
 }
 
 export async function applyElectronicsCsvImport(
   csvContent: string,
-  actor: AuditActor = systemActor,
+  actor: AuditActor,
 ): Promise<ElectronicsImportPreview["report"]> {
+  assertLegacyElectronicsImportActor(actor);
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const preview = buildSeaTableElectronicsImport(csvContent);
@@ -1004,11 +1260,28 @@ export async function applyElectronicsCsvImport(
     action: "import",
     entityType: "inventory_item",
     entityId: "seatable:电子产品",
-    after: { report: preview.report },
+    after: {
+      report: {
+        totalRows: preview.report.totalRows,
+        importedRows: preview.report.importedRows,
+        itemCount: preview.report.itemCount,
+        customerCount: preview.report.customerCount,
+        transactionCount: preview.report.transactionCount,
+        eventCount: preview.report.eventCount,
+        totalBuyback: preview.report.totalBuyback,
+        totalListPrice: preview.report.totalListPrice,
+        totalSalePrice: preview.report.totalSalePrice,
+        warningCount: preview.report.warnings.length,
+      },
+    },
     metadata: { source: "seatable:电子产品" },
   });
 
   return preview.report;
+}
+
+export function assertLegacyElectronicsImportActor(actor: AuditActor) {
+  assertPermission(actor, "inventory:legacy_import");
 }
 
 function inventoryFromRow(row: DbRecord): InventoryItem {
@@ -1243,12 +1516,29 @@ async function resolveCustomer(
   if (id) {
     const { data, error } = await supabase
       .from("customers")
-      .select("id")
+      .select("id,name,phone_e164,phone_raw")
       .eq("store_id", storeId)
       .eq("id", id)
       .maybeSingle();
     fail(error, "查找客户失败");
     if (!data) throw new Error("客户不存在或不属于当前店铺");
+    const existingCustomer = data as DbRecord;
+    if (
+      clean(name) &&
+      normalizeCustomerIdentityName(requiredString(existingCustomer.name)) !==
+        normalizeCustomerIdentityName(clean(name))
+    ) {
+      throw new Error("该客户编号与卖家姓名不一致，请重新选择客户");
+    }
+    if (clean(phone)) {
+      const requestedPhone = normalizePhoneBook(clean(phone)).primaryRaw;
+      const existingPhone = normalizePhoneBook(
+        maybeString(existingCustomer.phone_e164) || maybeString(existingCustomer.phone_raw) || "",
+      ).primaryRaw;
+      if (!requestedPhone || requestedPhone !== existingPhone) {
+        throw new Error("该客户编号与卖家电话不一致，请重新选择客户");
+      }
+    }
     return id;
   }
   const cleanName = clean(name);
@@ -1262,12 +1552,18 @@ async function resolveCustomer(
 
   const { data: existing, error } = await supabase
     .from("customers")
-    .select("id,contact_phones")
+    .select("id,name,contact_phones")
     .eq("store_id", storeId)
     .eq("phone_raw", phoneRaw)
     .maybeSingle();
   fail(error, "查找客户失败");
   if (existing) {
+    if (
+      normalizeCustomerIdentityName(requiredString((existing as DbRecord).name)) !==
+      normalizeCustomerIdentityName(cleanName)
+    ) {
+      throw new Error("该电话已绑定其他客户，请选择正确客户或先更新客户资料");
+    }
     await mergeCustomerContacts(
       storeId,
       requiredString((existing as DbRecord).id),
@@ -1294,6 +1590,10 @@ async function resolveCustomer(
   });
   fail(insertError, "创建客户失败");
   return customerId;
+}
+
+function normalizeCustomerIdentityName(value: string) {
+  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
 }
 
 async function mergeCustomerContacts(
@@ -1409,10 +1709,206 @@ function sanitizeItemPatch(
     if (field in input) patch[field] = money(input[field]);
   }
   if (input.quote_payload !== undefined) {
-    patch.legacy_payload = mergeLegacyPayload(before.legacy_payload, input.quote_payload);
+    patch.legacy_payload = mergeLegacyPayload(
+      before.legacy_payload,
+      sanitizeBuybackLegacyPayload(input.quote_payload),
+    );
   }
   if (input.warranty_months !== undefined) patch.warranty_months = input.warranty_months;
   return patch;
+}
+
+const BUYBACK_INTENT_OUTCOMES = new Set(["undecided", "accepted", "rejected", "deferred"]);
+const BUYBACK_RISK_LEVELS = new Set(["low", "medium", "high"]);
+const BUYBACK_DOCUMENT_TYPES = new Set([
+  "id_card",
+  "passport",
+  "residence_permit",
+  "driver_license",
+  "other",
+]);
+const BUYBACK_SIGNATURE_STATUSES = new Set(["pending", "signed"]);
+const BUYBACK_INSPECTION_STATUSES = new Set(["pass", "fail", "unchecked", "not_applicable"]);
+const BUYBACK_FUNCTION_CHECK_KEYS = [
+  "imei_check_status",
+  "face_id_status",
+  "screen_display_status",
+  "touch_status",
+  "front_camera_status",
+  "back_camera_status",
+  "camera_status",
+  "flash_status",
+  "charging_status",
+  "wireless_charging_status",
+  "microphone_status",
+  "receiver_status",
+  "speaker_status",
+  "buttons_status",
+  "vibration_status",
+  "wifi_status",
+  "bluetooth_status",
+  "cellular_status",
+  "gps_status",
+  "nfc_status",
+  "true_tone_status",
+  "water_damage_status",
+  "repair_history_status",
+  "data_wipe_status",
+] as const;
+
+/**
+ * Keep the compatibility payload useful for the buyback UI without allowing
+ * arbitrary nested data (including seller PII) to reach legacy_payload.
+ */
+export function sanitizeBuybackLegacyPayload(value: unknown): Record<string, unknown> {
+  const source = recordOrEmpty(value);
+  const sanitized: Record<string, unknown> = {};
+
+  const quote = sanitizeBuybackQuotePayload(source.buyback_quote);
+  if (Object.keys(quote).length) sanitized.buyback_quote = quote;
+
+  const device = sanitizeBuybackDevicePayload(source.buyback_device);
+  if (Object.keys(device).length) sanitized.buyback_device = device;
+
+  const repairPlan = recordOrEmpty(source.buyback_repair_plan);
+  const estimatedRepairCost = safeLegacyNumber(repairPlan.estimated_repair_cost);
+  if (estimatedRepairCost !== undefined) {
+    sanitized.buyback_repair_plan = { estimated_repair_cost: estimatedRepairCost };
+  }
+
+  const checks = recordOrEmpty(source.buyback_function_checks);
+  const safeChecks: Record<string, string> = {};
+  for (const key of BUYBACK_FUNCTION_CHECK_KEYS) {
+    const status = safeLegacyEnum(checks[key], BUYBACK_INSPECTION_STATUSES);
+    if (status) safeChecks[key] = status;
+  }
+  if (Object.keys(safeChecks).length) sanitized.buyback_function_checks = safeChecks;
+
+  const customer = sanitizeBuybackCustomerPayload(source.buyback_customer);
+  if (Object.keys(customer).length) sanitized.buyback_customer = customer;
+
+  const declarations = recordOrEmpty(source.buyback_declarations);
+  const safeDeclarations: Record<string, boolean> = {};
+  for (const key of [
+    "ownership_confirmed",
+    "data_wipe_authorized",
+    "privacy_notice_accepted",
+    "agreement_accepted",
+    "no_invoice_confirmed",
+    "no_box_confirmed",
+  ] as const) {
+    if (typeof declarations[key] === "boolean") safeDeclarations[key] = declarations[key];
+  }
+  if (Object.keys(safeDeclarations).length) sanitized.buyback_declarations = safeDeclarations;
+
+  return sanitized;
+}
+
+function sanitizeBuybackQuotePayload(value: unknown) {
+  const source = recordOrEmpty(value);
+  const sanitized: Record<string, unknown> = {};
+  const outcome = safeLegacyEnum(source.intent_outcome, BUYBACK_INTENT_OUTCOMES);
+  if (outcome) sanitized.intent_outcome = outcome;
+  for (const key of [
+    "final_offer",
+    "system_offer",
+    "suggested_low",
+    "suggested_high",
+    "market_min",
+    "market_max",
+    "pricing_floor",
+    "pricing_ceiling",
+    "estimated_repair_cost",
+    "expected_profit",
+    "target_profit",
+  ] as const) {
+    const amount = safeLegacyNumber(source[key]);
+    if (amount !== undefined) sanitized[key] = amount;
+  }
+  const riskLevel = safeLegacyEnum(source.risk_level, BUYBACK_RISK_LEVELS);
+  if (riskLevel) sanitized.risk_level = riskLevel;
+  if (typeof source.hard_block === "boolean") sanitized.hard_block = source.hard_block;
+  const quoteExpiresAt = safeLegacyIsoTimestamp(source.quote_expires_at);
+  if (quoteExpiresAt) sanitized.quote_expires_at = quoteExpiresAt;
+  return sanitized;
+}
+
+function sanitizeBuybackDevicePayload(value: unknown) {
+  const source = recordOrEmpty(value);
+  const sanitized: Record<string, unknown> = {};
+  for (const key of [
+    "purchase_region",
+    "warranty_status",
+    "cosmetic_grade",
+    "screen_condition",
+    "body_condition",
+  ] as const) {
+    const label = safeLegacyLabel(source[key]);
+    if (label) sanitized[key] = label;
+  }
+  const batteryHealth = safeLegacyNumber(source.battery_health, 0, 100);
+  if (batteryHealth !== undefined) sanitized.battery_health = batteryHealth;
+  const cosmeticScore = safeLegacyNumber(source.cosmetic_grade_score, 0, 100);
+  if (cosmeticScore !== undefined) sanitized.cosmetic_grade_score = cosmeticScore;
+  for (const key of ["box_included", "purchase_proof"] as const) {
+    if (typeof source[key] === "boolean") sanitized[key] = source[key];
+  }
+  return sanitized;
+}
+
+function sanitizeBuybackCustomerPayload(value: unknown) {
+  const source = recordOrEmpty(value);
+  const sanitized: Record<string, unknown> = {};
+  const documentType = safeLegacyEnum(source.document_type, BUYBACK_DOCUMENT_TYPES);
+  if (documentType) sanitized.document_type = documentType;
+  const maskedDocument =
+    typeof source.document_no_masked === "string"
+      ? source.document_no_masked.trim().toUpperCase()
+      : "";
+  if (/^••••[A-Z0-9]{1,4}$/.test(maskedDocument)) {
+    sanitized.document_no_masked = maskedDocument;
+  }
+  const signatureStatus = safeLegacyEnum(source.signature_status, BUYBACK_SIGNATURE_STATUSES);
+  if (signatureStatus) sanitized.signature_status = signatureStatus;
+  for (const key of [
+    "signature_captured",
+    "id_front_captured",
+    "id_back_captured",
+    "device_photo_captured",
+    "invoice_photo_captured",
+    "box_photo_captured",
+  ] as const) {
+    if (typeof source[key] === "boolean") sanitized[key] = source[key];
+  }
+  return sanitized;
+}
+
+function safeLegacyEnum(value: unknown, allowed: ReadonlySet<string>) {
+  return typeof value === "string" && allowed.has(value) ? value : undefined;
+}
+
+function safeLegacyNumber(value: unknown, minimum = 0, maximum = 10_000_000) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  if (value < minimum || value > maximum) return undefined;
+  return roundMoney(value);
+}
+
+function safeLegacyLabel(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const label = clean(value).slice(0, 64);
+  const hasControlCharacter = [...label].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+  if (!label || hasControlCharacter) return undefined;
+  if (/\d{5,}|@|https?:\/\//i.test(label)) return undefined;
+  return label;
+}
+
+function safeLegacyIsoTimestamp(value: unknown) {
+  if (typeof value !== "string" || value.length > 35) return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)) return undefined;
+  return Number.isNaN(Date.parse(value)) ? undefined : value;
 }
 
 function mergeLegacyPayload(
@@ -1420,28 +1916,37 @@ function mergeLegacyPayload(
   nextValue: Record<string, unknown>,
 ): Record<string, unknown> {
   const current = recordOrEmpty(currentValue);
+  const currentBuyback = sanitizeBuybackLegacyPayload(current);
+  const nonBuyback = Object.fromEntries(
+    Object.entries(current).filter(([key]) => !key.startsWith("buyback_")),
+  );
   return {
-    ...current,
+    ...nonBuyback,
+    ...currentBuyback,
     ...nextValue,
     buyback_quote: {
-      ...recordOrEmpty(current.buyback_quote),
+      ...recordOrEmpty(currentBuyback.buyback_quote),
       ...recordOrEmpty(nextValue.buyback_quote),
     },
     buyback_device: {
-      ...recordOrEmpty(current.buyback_device),
+      ...recordOrEmpty(currentBuyback.buyback_device),
       ...recordOrEmpty(nextValue.buyback_device),
     },
     buyback_function_checks: {
-      ...recordOrEmpty(current.buyback_function_checks),
+      ...recordOrEmpty(currentBuyback.buyback_function_checks),
       ...recordOrEmpty(nextValue.buyback_function_checks),
     },
     buyback_customer: {
-      ...recordOrEmpty(current.buyback_customer),
+      ...recordOrEmpty(currentBuyback.buyback_customer),
       ...recordOrEmpty(nextValue.buyback_customer),
     },
     buyback_repair_plan: {
-      ...recordOrEmpty(current.buyback_repair_plan),
+      ...recordOrEmpty(currentBuyback.buyback_repair_plan),
       ...recordOrEmpty(nextValue.buyback_repair_plan),
+    },
+    buyback_declarations: {
+      ...recordOrEmpty(currentBuyback.buyback_declarations),
+      ...recordOrEmpty(nextValue.buyback_declarations),
     },
   };
 }
@@ -1468,8 +1973,33 @@ function defaultCheckPayload(input: InventoryQualityCheckInput) {
   };
 }
 
+export function buildInventoryCheckItemPatch(
+  input: InventoryQualityCheckInput,
+  actor: AuditActor,
+  now: string,
+) {
+  const patch: Record<string, unknown> = {
+    updated_by: actor.id ?? null,
+    updated_at: now,
+  };
+  const itemFields = [
+    "battery_health",
+    "cosmetic_grade",
+    "functional_grade",
+    "imei_check_status",
+    "activation_lock_status",
+    "data_wipe_status",
+  ] as const;
+  for (const field of itemFields) {
+    if (input[field] !== undefined) patch[field] = input[field];
+  }
+  return patch;
+}
+
 const INVENTORY_ATTACHMENT_BUCKET = "repairdesk-inventory-attachments";
-const INVENTORY_ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
+const BUYBACK_EVIDENCE_BUCKET = "repairdesk-buyback-evidence";
+const INVENTORY_ATTACHMENT_MAX_BYTES = BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES;
+const BUYBACK_EVIDENCE_STAGING_TTL_MS = 24 * 60 * 60 * 1000;
 const INVENTORY_ATTACHMENT_KINDS = [
   "device_photo",
   "id_front",
@@ -1504,6 +2034,16 @@ function normalizeInventoryAttachmentKind(kind: string): InventoryAttachment["ki
     : "other";
 }
 
+function isRestrictedBuybackEvidenceKind(kind: InventoryAttachment["kind"]) {
+  return (
+    kind === "id_front" ||
+    kind === "id_back" ||
+    kind === "signature" ||
+    kind === "invoice_photo" ||
+    kind === "box_photo"
+  );
+}
+
 function sanitizeAttachmentFileName(fileName: string) {
   const trimmed = fileName
     .trim()
@@ -1530,8 +2070,8 @@ function attachmentPayloadFromInput(input: InventoryAttachmentUploadInput) {
   }
   const bytes = Buffer.from(input.data_base64, "base64");
   if (bytes.byteLength === 0) throw new Error("附件内容为空");
-  if (bytes.byteLength > INVENTORY_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 8MB");
-  if (input.file_size > INVENTORY_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 8MB");
+  if (bytes.byteLength > INVENTORY_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 2.4MB");
+  if (input.file_size > INVENTORY_ATTACHMENT_MAX_BYTES) throw new Error("附件不能超过 2.4MB");
   if (input.file_size !== bytes.byteLength) throw new Error("附件大小与实际内容不一致");
   assertAttachmentMagicBytes(bytes, input.mime_type);
   return bytes;
@@ -1578,31 +2118,43 @@ function inventoryAttachmentFromRow(row: DbRecord): InventoryAttachment {
     signed_url: maybeString(row.signed_url),
     note: maybeString(row.note),
     uploaded_by: maybeString(row.uploaded_by),
+    sensitivity:
+      row.sensitivity === "restricted" || row.sensitivity === "internal"
+        ? row.sensitivity
+        : undefined,
+    evidence_status:
+      row.evidence_status === "staged" ||
+      row.evidence_status === "bound" ||
+      row.evidence_status === "rejected" ||
+      row.evidence_status === "deleted"
+        ? row.evidence_status
+        : undefined,
+    sha256: maybeString(row.sha256),
+    agreement_hash: maybeString(row.agreement_hash),
+    agreement_id: maybeString(row.agreement_id),
+    staging_expires_at: maybeString(row.staging_expires_at),
+    retention_until: maybeString(row.retention_until),
+    legal_hold_until: maybeString(row.legal_hold_until),
+    bound_at: maybeString(row.bound_at),
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };
 }
 
-async function attachInventorySignedUrls(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  rows: DbRecord[] | null | undefined,
-  storeId: string,
-  itemId: string,
-): Promise<InventoryAttachment[]> {
-  const attachments = (rows ?? []).map(inventoryAttachmentFromRow);
-  return Promise.all(
-    attachments.map(async (attachment) => {
-      if (!isInventoryAttachmentStorageScoped(attachment, storeId, itemId)) {
-        return { ...attachment, public_url: undefined, signed_url: undefined };
-      }
-      if (attachment.public_url || !attachment.storage_path) return attachment;
-      const { data, error } = await supabase.storage
-        .from(attachment.storage_bucket || INVENTORY_ATTACHMENT_BUCKET)
-        .createSignedUrl(attachment.storage_path, 60 * 60);
-      if (error || !data?.signedUrl) return attachment;
-      return { ...attachment, signed_url: data.signedUrl };
-    }),
-  );
+function projectInventoryAttachmentMetadata(attachment: InventoryAttachment): InventoryAttachment {
+  const restricted =
+    attachment.sensitivity === "restricted" || isRestrictedBuybackEvidenceKind(attachment.kind);
+  return {
+    ...attachment,
+    file_name: restricted ? inventoryAttachmentKindLabel(attachment.kind) : attachment.file_name,
+    storage_bucket: "",
+    storage_path: "",
+    public_url: undefined,
+    signed_url: undefined,
+    sha256: undefined,
+    agreement_hash: undefined,
+    note: restricted ? undefined : attachment.note,
+  };
 }
 
 export function isInventoryAttachmentStorageScoped(
@@ -1614,7 +2166,7 @@ export function isInventoryAttachmentStorageScoped(
   return (
     attachment.store_id === storeId &&
     attachment.item_id === itemId &&
-    bucket === INVENTORY_ATTACHMENT_BUCKET &&
+    (bucket === INVENTORY_ATTACHMENT_BUCKET || bucket === BUYBACK_EVIDENCE_BUCKET) &&
     attachment.storage_path.startsWith(`${storeId}/${itemId}/`)
   );
 }
@@ -1638,6 +2190,18 @@ function redactInventoryIntakeInput(input: CreateInventoryIntakeInput) {
     repair_cost_amount: input.repair_cost_amount,
     payment_method: input.payment_method,
     warranty_months: input.warranty_months,
+  };
+}
+
+function summarizeInventoryUpdateInput(input: UpdateInventoryItemInput) {
+  const changedFields = Object.keys(input)
+    .filter((key) => key !== "quote_payload")
+    .sort();
+  return {
+    changed_fields: changedFields,
+    buyback_payload: input.quote_payload
+      ? summarizeLegacyPayload(sanitizeBuybackLegacyPayload(input.quote_payload))
+      : undefined,
   };
 }
 

@@ -5,6 +5,19 @@ import {
   DEVICE_UNLOCK_PATTERN_MIN_STEPS,
 } from "@/features/orders/model/device-unlock";
 import {
+  BUYBACK_AGREEMENT_LANGUAGE,
+  BUYBACK_AGREEMENT_VERSION,
+  BUYBACK_PRIVACY_NOTICE_SHA256,
+  BUYBACK_PRIVACY_NOTICE_TEXT_IT,
+  BUYBACK_PRIVACY_NOTICE_VERSION,
+  BUYBACK_TERMS_SHA256,
+  BUYBACK_TERMS_TEXT_IT,
+} from "@/features/buyback/model/buyback-agreement";
+import {
+  BUYBACK_EVIDENCE_UPLOAD_MAX_BASE64_LENGTH,
+  BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES,
+} from "@/features/buyback/model/buyback-evidence-policy";
+import {
   approvalStatus,
   repairOrderType,
   type ApprovalStatus,
@@ -25,6 +38,7 @@ import type {
   CustomerMessageInput,
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
+  BuybackFinalizeInput,
   InventoryAttachmentUploadInput,
   InventoryItemStatus,
   InventoryListFilters,
@@ -729,6 +743,8 @@ export const inventoryIntakeCreateBodySchema = z.object({
 
 export const inventoryUpdateInputSchema = z
   .object({
+    customer_name: optionalText,
+    customer_phone: optionalText,
     category: optionalText,
     brand: optionalText,
     model: optionalText,
@@ -762,6 +778,7 @@ export const inventoryTransitionBodySchema = z.object({
 
 export const inventoryQualityCheckInputSchema = z
   .object({
+    expected_updated_at: z.string().datetime({ offset: true }).optional(),
     screen_status: inventoryCheckStatusSchema.optional(),
     touch_status: inventoryCheckStatusSchema.optional(),
     camera_status: inventoryCheckStatusSchema.optional(),
@@ -811,13 +828,16 @@ export const inventoryAttachmentUploadInputSchema = z
     kind: inventoryAttachmentKindSchema,
     file_name: z.string().min(1).max(180),
     mime_type: attachmentMimeTypeSchema,
-    file_size: z.coerce
-      .number()
-      .int()
+    file_size: z.coerce.number().int().min(1).max(BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES),
+    data_base64: z
+      .string()
       .min(1)
-      .max(8 * 1024 * 1024),
-    data_base64: z.string().min(1),
+      .max(BUYBACK_EVIDENCE_UPLOAD_MAX_BASE64_LENGTH, "附件内容超过 2.4MB 限制"),
     note: optionalText,
+    agreement_hash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
   })
   .strict() satisfies z.ZodType<InventoryAttachmentUploadInput>;
 
@@ -825,6 +845,131 @@ export const inventoryAttachmentUploadBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: inventoryAttachmentUploadInputSchema,
 });
+
+export const inventoryAttachmentAccessBodySchema = z
+  .object({
+    id: z.string().min(1, "缺少库存 id"),
+    attachment_id: z.string().min(1, "缺少附件 id"),
+  })
+  .strict();
+
+const buybackDocumentTypeSchema = z.enum([
+  "id_card",
+  "passport",
+  "residence_permit",
+  "driver_license",
+  "other",
+]);
+
+const buybackVerificationNoteSchema = z
+  .string()
+  .trim()
+  .max(160)
+  .refine((value) => {
+    const normalized = value.normalize("NFKC");
+    if (normalized.replace(/\D/g, "").length > 4) return false;
+    const compact = normalized.replace(/[^A-Za-z0-9]/g, "");
+    return !/(?=[a-z0-9]*\d)[a-z0-9]{5,}/i.test(compact);
+  }, "核验备注不能包含完整证件号或长数字标识")
+  .optional();
+
+const buybackAgreementSnapshotSchema = z
+  .object({
+    agreement_version: z.literal(BUYBACK_AGREEMENT_VERSION),
+    privacy_notice_version: z.literal(BUYBACK_PRIVACY_NOTICE_VERSION),
+    language: z.literal(BUYBACK_AGREEMENT_LANGUAGE),
+    legal_documents: z
+      .object({
+        privacy_notice: z
+          .object({
+            version: z.literal(BUYBACK_PRIVACY_NOTICE_VERSION),
+            sha256: z.literal(BUYBACK_PRIVACY_NOTICE_SHA256),
+            text: z.literal(BUYBACK_PRIVACY_NOTICE_TEXT_IT),
+          })
+          .strict(),
+        buyback_terms: z
+          .object({
+            version: z.literal(BUYBACK_AGREEMENT_VERSION),
+            sha256: z.literal(BUYBACK_TERMS_SHA256),
+            text: z.literal(BUYBACK_TERMS_TEXT_IT),
+          })
+          .strict(),
+      })
+      .strict(),
+    device: z
+      .object({
+        brand: z.string().trim().min(1).max(80),
+        model: z.string().trim().min(1).max(120),
+        storage_capacity: z.string().trim().min(1).max(40),
+        serial_or_imei: z.string().trim().min(1).max(128),
+        purchase_proof: z.boolean(),
+        box_included: z.boolean(),
+      })
+      .strict(),
+    quote: z
+      .object({
+        amount: z.coerce.number().positive().max(1_000_000),
+        currency_code: z.literal("EUR"),
+      })
+      .strict(),
+    seller: z
+      .object({
+        name: z.string().trim().min(1).max(160),
+        phone: z.string().trim().min(3).max(64),
+        document_type: buybackDocumentTypeSchema,
+        document_no_last4: z
+          .string()
+          .trim()
+          .regex(/^[A-Za-z0-9]{1,4}$/),
+        verification_note: buybackVerificationNoteSchema,
+      })
+      .strict(),
+    payment: z
+      .object({
+        method: z.enum(["cash", "bank_transfer", "store_credit", "other"]),
+      })
+      .strict(),
+    declarations: z
+      .object({
+        ownership_confirmed: z.boolean(),
+        data_wipe_authorized: z.boolean(),
+        privacy_notice_accepted: z.boolean(),
+        agreement_accepted: z.boolean(),
+        no_invoice_confirmed: z.boolean(),
+        no_box_confirmed: z.boolean(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const buybackFinalizeInputSchema = z
+  .object({
+    expected_updated_at: z.string().datetime({ offset: true }),
+    idempotency_key: z.string().uuid(),
+    item_patch: inventoryUpdateInputSchema,
+    quality_check: inventoryQualityCheckInputSchema,
+    agreement_snapshot: buybackAgreementSnapshotSchema,
+    agreement_hash: z.string().regex(/^[a-f0-9]{64}$/),
+    agreement_version: z.literal(BUYBACK_AGREEMENT_VERSION),
+    privacy_notice_version: z.literal(BUYBACK_PRIVACY_NOTICE_VERSION),
+    language: z.literal(BUYBACK_AGREEMENT_LANGUAGE),
+    document_type: buybackDocumentTypeSchema,
+    document_no_last4: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9]{1,4}$/),
+    signature_attachment_id: z.string().uuid(),
+    evidence_attachment_ids: z.array(z.string().uuid()).min(3).max(12),
+    payment_method: z.string().trim().max(64).optional(),
+  })
+  .strict() satisfies z.ZodType<BuybackFinalizeInput>;
+
+export const buybackFinalizeBodySchema = z
+  .object({
+    id: z.string().min(1, "缺少库存 id"),
+    input: buybackFinalizeInputSchema,
+  })
+  .strict();
 
 export const inventoryTransactionInputSchema = z
   .object({

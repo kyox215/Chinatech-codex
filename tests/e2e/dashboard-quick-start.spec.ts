@@ -52,7 +52,8 @@ for (const viewport of viewports) {
     await gotoReady(page, "/");
     await page.locator('[data-dashboard-quick-start="buyback-quote"]:visible').click();
     await expect(page).toHaveURL(/\/buyback\?new=1$/);
-    await expect(page.getByRole("dialog", { name: "回收报价" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByText("引导式回收", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "选择 iPhone", exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
   });

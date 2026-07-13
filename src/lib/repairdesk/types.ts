@@ -1279,6 +1279,15 @@ export interface InventoryAttachment {
   signed_url?: string;
   note?: string;
   uploaded_by?: string;
+  sensitivity?: "internal" | "restricted";
+  evidence_status?: "staged" | "bound" | "rejected" | "deleted";
+  sha256?: string;
+  agreement_hash?: string;
+  agreement_id?: string;
+  staging_expires_at?: string;
+  retention_until?: string;
+  legal_hold_until?: string;
+  bound_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -1290,10 +1299,50 @@ export interface InventoryAttachmentUploadInput {
   file_size: number;
   data_base64: string;
   note?: string;
+  agreement_hash?: string;
 }
 
 export interface InventoryAttachmentUploadResult {
   attachment: InventoryAttachment;
+}
+
+export interface InventoryAttachmentAccessResult {
+  attachment_id: string;
+  signed_url: string;
+  expires_at: string;
+}
+
+export type BuybackDocumentType =
+  | "id_card"
+  | "passport"
+  | "residence_permit"
+  | "driver_license"
+  | "other";
+
+export interface BuybackFinalizeInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  item_patch: UpdateInventoryItemInput;
+  quality_check: InventoryQualityCheckInput;
+  agreement_snapshot: Record<string, unknown>;
+  agreement_hash: string;
+  agreement_version: string;
+  privacy_notice_version: string;
+  language: string;
+  document_type: BuybackDocumentType;
+  document_no_last4: string;
+  signature_attachment_id: string;
+  evidence_attachment_ids: string[];
+  payment_method?: string;
+}
+
+export interface BuybackFinalizeResult {
+  ok: true;
+  code: "finalized" | "idempotent_replay";
+  item_id: string;
+  agreement_id: string;
+  payment_id: string;
+  updated_at: string;
 }
 
 export interface InventoryDetail {
@@ -1331,6 +1380,8 @@ export interface CreateInventoryIntakeInput {
 }
 
 export interface UpdateInventoryItemInput {
+  customer_name?: string;
+  customer_phone?: string;
   category?: string;
   brand?: string;
   model?: string;
@@ -1356,6 +1407,7 @@ export interface InventoryTransitionInput {
 }
 
 export interface InventoryQualityCheckInput {
+  expected_updated_at?: string;
   screen_status?: InventoryCheckStatus;
   touch_status?: InventoryCheckStatus;
   camera_status?: InventoryCheckStatus;

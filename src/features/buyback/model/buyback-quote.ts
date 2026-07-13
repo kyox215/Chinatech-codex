@@ -9,12 +9,26 @@ import type {
 } from "@/lib/repairdesk/types";
 
 import { estimateAppleMarketPricing, type AppleMarketPricingSuggestion } from "./apple-price-guide";
+import {
+  BUYBACK_AGREEMENT_LANGUAGE,
+  BUYBACK_AGREEMENT_VERSION,
+  BUYBACK_PRIVACY_NOTICE_SHA256,
+  BUYBACK_PRIVACY_NOTICE_TEXT_IT,
+  BUYBACK_PRIVACY_NOTICE_VERSION,
+  BUYBACK_TERMS_SHA256,
+  BUYBACK_TERMS_TEXT_IT,
+  documentNumberLast4,
+  isSafeBuybackVerificationNote,
+  type BuybackAgreementSnapshot,
+} from "./buyback-agreement";
 
 export const buybackQuoteSteps = [
-  { key: "estimate", label: "简易估价" },
-  { key: "intent", label: "客户确认" },
-  { key: "function", label: "功能检测" },
-  { key: "intake", label: "成交资料" },
+  { key: "device", label: "选择设备" },
+  { key: "quote", label: "查看报价" },
+  { key: "inspection", label: "检查手机" },
+  { key: "seller", label: "登记卖家" },
+  { key: "evidence", label: "证件与签名" },
+  { key: "confirm", label: "确认成交" },
 ] as const;
 
 export type BuybackQuoteStep = (typeof buybackQuoteSteps)[number]["key"];
@@ -37,6 +51,13 @@ export interface BuybackQuoteDraft {
   customer_document_no: string;
   customer_signature_status: "pending" | "signed";
   customer_signature_note: string;
+  ownership_confirmed: boolean;
+  data_wipe_authorized: boolean;
+  privacy_notice_accepted: boolean;
+  agreement_accepted: boolean;
+  no_invoice_confirmed: boolean;
+  no_box_confirmed: boolean;
+  payment_method: "cash" | "bank_transfer" | "store_credit" | "other";
   brand: string;
   model: string;
   storage_capacity: string;
@@ -362,7 +383,7 @@ export const buybackFunctionTestItems = [
   { key: "true_tone_status", label: "True Tone", required: false },
   { key: "water_damage_status", label: "进水 / 液体", required: true },
   { key: "repair_history_status", label: "拆修痕迹", required: false },
-  { key: "data_wipe_status", label: "数据抹除", required: true },
+  { key: "data_wipe_status", label: "数据可清除性", required: false },
 ] as const satisfies readonly {
   key: keyof Pick<
     BuybackQuoteDraft,
@@ -398,7 +419,7 @@ export const buybackFunctionTestGroups = [
   {
     key: "identity",
     label: "身份与安全",
-    hint: "先确认 IMEI、账号锁和数据抹除。",
+    hint: "先确认 IMEI、账号锁；正式清除在成交后执行。",
     itemKeys: ["imei_check_status", "data_wipe_status"] as const,
   },
   {
@@ -452,6 +473,13 @@ export const defaultBuybackQuoteDraft: BuybackQuoteDraft = {
   customer_document_no: "",
   customer_signature_status: "pending",
   customer_signature_note: "",
+  ownership_confirmed: false,
+  data_wipe_authorized: false,
+  privacy_notice_accepted: false,
+  agreement_accepted: false,
+  no_invoice_confirmed: false,
+  no_box_confirmed: false,
+  payment_method: "cash",
   brand: "Apple",
   model: "",
   storage_capacity: "",
@@ -734,8 +762,9 @@ export function buildBuybackQuoteCreateInput(
     quoted_offer: result.finalOffer,
     quote_expires_at: quoteExpiresAt,
     list_price: result.resaleReference,
-    buyback_price: result.finalOffer,
+    buyback_price: 0,
     repair_cost_amount: result.estimatedRepairCost,
+    payment_method: draft.payment_method,
     notes: buildBuybackQuoteNotes(draft, result),
     quote_payload: buildBuybackQuotePayload(draft, result, quoteExpiresAt, "accepted"),
   };
@@ -763,6 +792,7 @@ export function buildBuybackQuoteDraftInput(
     list_price: result.resaleReference,
     buyback_price: 0,
     repair_cost_amount: result.estimatedRepairCost,
+    payment_method: draft.payment_method,
     notes: `${buildBuybackQuoteNotes(draft, result)}\n客户意向：${intentOutcomeLabel(outcome)}`,
     quote_payload: buildBuybackQuotePayload(draft, result, quoteExpiresAt, outcome),
   };
@@ -772,8 +802,20 @@ export function buildBuybackQuoteUpdateInput(
   draft: BuybackQuoteDraft,
   result: BuybackQuoteResult,
 ): UpdateInventoryItemInput {
+  return {
+    ...buildBuybackQuoteReviewUpdateInput(draft, result),
+    buyback_price: result.finalOffer,
+  };
+}
+
+export function buildBuybackQuoteReviewUpdateInput(
+  draft: BuybackQuoteDraft,
+  result: BuybackQuoteResult,
+): UpdateInventoryItemInput {
   const createInput = buildBuybackQuoteCreateInput(draft, result);
-  return inventoryUpdateFromIntakeInput(createInput);
+  const updateInput = inventoryUpdateFromIntakeInput(createInput);
+  delete updateInput.buyback_price;
+  return updateInput;
 }
 
 export function buildBuybackQuoteDraftUpdateInput(
@@ -782,13 +824,17 @@ export function buildBuybackQuoteDraftUpdateInput(
   outcome: Extract<BuybackCustomerIntentOutcome, "deferred"> = "deferred",
 ): UpdateInventoryItemInput {
   const draftInput = buildBuybackQuoteDraftInput(draft, result, outcome);
-  return inventoryUpdateFromIntakeInput(draftInput);
+  const updateInput = inventoryUpdateFromIntakeInput(draftInput);
+  delete updateInput.buyback_price;
+  return updateInput;
 }
 
 function inventoryUpdateFromIntakeInput(
   createInput: CreateInventoryIntakeInput,
 ): UpdateInventoryItemInput {
   return {
+    customer_name: createInput.customer_name,
+    customer_phone: createInput.customer_phone,
     category: createInput.category,
     brand: createInput.brand,
     model: createInput.model,
@@ -798,6 +844,7 @@ function inventoryUpdateFromIntakeInput(
     buyback_price: createInput.buyback_price,
     list_price: createInput.list_price,
     repair_cost_amount: createInput.repair_cost_amount,
+    payment_method: createInput.payment_method,
     notes: createInput.notes,
     quote_payload: createInput.quote_payload,
   };
@@ -865,11 +912,8 @@ function buildBuybackQuotePayload(
       buybackFunctionTestItems.map((item) => [item.key, draft[item.key]]),
     ),
     buyback_customer: {
-      name: optional(draft.customer_name) ?? null,
-      phone: optional(draft.customer_phone) ?? null,
       document_type: draft.customer_document_type,
       document_type_label: documentTypeLabel(draft.customer_document_type),
-      document_no_masked: maskSensitiveId(draft.customer_document_no),
       signature_status: draft.customer_signature_status,
       signature_status_label: signatureStatusLabel(draft.customer_signature_status),
       signature_captured: draft.signature_captured,
@@ -878,6 +922,14 @@ function buildBuybackQuotePayload(
       device_photo_captured: draft.device_photo_captured,
       invoice_photo_captured: draft.invoice_photo_captured,
       box_photo_captured: draft.box_photo_captured,
+    },
+    buyback_declarations: {
+      ownership_confirmed: draft.ownership_confirmed,
+      data_wipe_authorized: draft.data_wipe_authorized,
+      privacy_notice_accepted: draft.privacy_notice_accepted,
+      agreement_accepted: draft.agreement_accepted,
+      no_invoice_confirmed: draft.no_invoice_confirmed,
+      no_box_confirmed: draft.no_box_confirmed,
     },
   };
 }
@@ -1047,15 +1099,23 @@ export function validateBuybackIntake(
   if (!draft.customer_name.trim()) missing.push("客户姓名");
   if (!normalizeWhatsappPhone(draft.customer_phone)) missing.push("客户电话");
   if (!draft.customer_document_no.trim()) missing.push("证件号码");
+  if (!isSafeBuybackVerificationNote(draft.customer_signature_note)) {
+    missing.push("核验备注不能包含完整证件号或超过 160 字");
+  }
   if (draft.customer_signature_status !== "signed" || !draft.signature_captured) {
     missing.push("客户签名");
   }
   if (!draft.device_photo_captured) missing.push("设备照片");
   if (!draft.id_front_captured) missing.push("证件正面照片");
-  if (!draft.id_back_captured) missing.push("证件反面照片");
-  if (!draft.purchase_proof && !draft.invoice_photo_captured)
-    missing.push("无发票时的来源确认/证件补充");
-  if (!draft.box_included && !draft.box_photo_captured) missing.push("无原装盒时的确认记录");
+  if (draft.customer_document_type !== "passport" && !draft.id_back_captured) {
+    missing.push("证件反面照片");
+  }
+  if (!draft.ownership_confirmed) missing.push("设备所有权声明");
+  if (!draft.data_wipe_authorized) missing.push("数据清除授权");
+  if (!draft.privacy_notice_accepted) missing.push("隐私告知确认");
+  if (!draft.agreement_accepted) missing.push("回收协议确认");
+  if (!draft.purchase_proof && !draft.no_invoice_confirmed) missing.push("无发票声明");
+  if (!draft.box_included && !draft.no_box_confirmed) missing.push("无原装盒声明");
 
   for (const item of buybackFunctionTestItems) {
     if (!item.required) continue;
@@ -1071,6 +1131,59 @@ export function validateBuybackIntake(
     canSave: missing.length === 0 && hardBlockReasons.length === 0,
     missing: Array.from(new Set(missing)),
     hardBlockReasons: Array.from(new Set(hardBlockReasons)),
+  };
+}
+
+export function buildBuybackAgreementSnapshot(
+  draft: BuybackQuoteDraft,
+  result: BuybackQuoteResult,
+): BuybackAgreementSnapshot {
+  return {
+    agreement_version: BUYBACK_AGREEMENT_VERSION,
+    privacy_notice_version: BUYBACK_PRIVACY_NOTICE_VERSION,
+    language: BUYBACK_AGREEMENT_LANGUAGE,
+    legal_documents: {
+      privacy_notice: {
+        version: BUYBACK_PRIVACY_NOTICE_VERSION,
+        sha256: BUYBACK_PRIVACY_NOTICE_SHA256,
+        text: BUYBACK_PRIVACY_NOTICE_TEXT_IT,
+      },
+      buyback_terms: {
+        version: BUYBACK_AGREEMENT_VERSION,
+        sha256: BUYBACK_TERMS_SHA256,
+        text: BUYBACK_TERMS_TEXT_IT,
+      },
+    },
+    device: {
+      brand: draft.brand.trim(),
+      model: draft.model.trim(),
+      storage_capacity: draft.storage_capacity.trim(),
+      serial_or_imei: draft.serial_or_imei.trim(),
+      purchase_proof: draft.purchase_proof,
+      box_included: draft.box_included,
+    },
+    quote: {
+      amount: roundMoney(result.finalOffer),
+      currency_code: "EUR",
+    },
+    seller: {
+      name: draft.customer_name.trim(),
+      phone: draft.customer_phone.trim(),
+      document_type: draft.customer_document_type,
+      document_no_last4: documentNumberLast4(draft.customer_document_no),
+      verification_note: draft.customer_signature_note.trim() || undefined,
+    },
+    payment: {
+      method: draft.payment_method,
+    },
+    declarations: {
+      ownership_confirmed: draft.ownership_confirmed,
+      data_wipe_authorized: draft.data_wipe_authorized,
+      privacy_notice_accepted: draft.privacy_notice_accepted,
+      agreement_accepted: draft.agreement_accepted,
+      no_invoice_confirmed: draft.no_invoice_confirmed,
+      no_box_confirmed: draft.no_box_confirmed,
+    },
   };
 }
 
@@ -1113,16 +1226,11 @@ function buildBuybackQuoteNotes(draft: BuybackQuoteDraft, result: BuybackQuoteRe
     `检测摘要：${result.inspectionItems.map((item) => `${item.label} ${item.value}`).join(" / ")}`,
   ];
   if (draft.manual_reason.trim()) lines.push(`人工改价原因：${draft.manual_reason.trim()}`);
-  const customerLines = [
-    optional(draft.customer_name) ? `客户：${draft.customer_name.trim()}` : "",
-    optional(draft.customer_phone) ? `电话：${draft.customer_phone.trim()}` : "",
-    optional(draft.customer_document_no)
-      ? `证件：${documentTypeLabel(draft.customer_document_type)} ${maskSensitiveId(draft.customer_document_no)}`
-      : "",
-    `签名：${signatureStatusLabel(draft.customer_signature_status)}`,
-    draft.device_photo_captured ? "设备照片：已记录" : "",
-  ].filter(Boolean);
-  if (customerLines.length) lines.push(`成交资料：${customerLines.join(" / ")}`);
+  lines.push(
+    `成交凭证：${documentTypeLabel(draft.customer_document_type)} / ${signatureStatusLabel(
+      draft.customer_signature_status,
+    )} / ${draft.device_photo_captured ? "设备照片已记录" : "待记录"}`,
+  );
   if (result.marketSuggestion) {
     lines.push(
       `行情参考：${result.marketSuggestion.matched.sourceLabel} ${result.marketSuggestion.matched.observedAt}，建议转售价 €${result.marketSuggestion.resaleReference}`,

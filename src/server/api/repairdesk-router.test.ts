@@ -19,9 +19,12 @@ import {
   assertCustomerTagPermission,
   assertCustomerUpdatePermission,
   assertInventoryCreatePermission,
+  assertInventoryIntakeDoesNotBypassBuybackFinalize,
   assertInventoryQualityCheckPermission,
   assertInventorySalePermission,
   assertInventoryTransactionPermission,
+  assertInventoryTransitionPermission,
+  assertLegacyElectronicsImportPermission,
   assertKioskSessionReviewPermission,
   assertInventoryUpdatePermission,
   assertMemberInvitePermission,
@@ -358,6 +361,15 @@ describe("repairdesk router non-order write permissions", () => {
     expect(() => assertInventorySalePermission(actor("sales"))).not.toThrow();
     expect(() => assertInventorySalePermission(actor("owner"))).not.toThrow();
     expect(() => assertInventoryCreatePermission(actor("viewer"))).toThrow(ForbiddenError);
+    expect(() => assertInventoryTransitionPermission(actor("owner"), "recycled")).not.toThrow();
+    expect(() => assertInventoryTransitionPermission(actor("manager"), "recycled")).not.toThrow();
+    expect(() => assertInventoryTransitionPermission(actor("sales"), "recycled")).toThrow(
+      ForbiddenError,
+    );
+    expect(() => assertInventoryTransitionPermission(actor("technician"), "recycled")).toThrow(
+      ForbiddenError,
+    );
+    expect(() => assertInventoryTransitionPermission(actor("sales"), "evaluating")).not.toThrow();
   });
 
   it("requires inventory sale permission for sale payment transactions", () => {
@@ -369,6 +381,10 @@ describe("repairdesk router non-order write permissions", () => {
       transaction_type: "repair_cost",
       amount: 20,
     };
+    const directBuybackPayment: InventoryTransactionInput = {
+      transaction_type: "buyback_payment",
+      amount: 200,
+    };
 
     expect(() => assertInventoryTransactionPermission(actor("sales"), salePayment)).not.toThrow();
     expect(() => assertInventoryTransactionPermission(actor("owner"), salePayment)).not.toThrow();
@@ -378,6 +394,40 @@ describe("repairdesk router non-order write permissions", () => {
     expect(() => assertInventoryTransactionPermission(actor("viewer"), repairCost)).toThrow(
       ForbiddenError,
     );
+    expect(() =>
+      assertInventoryTransactionPermission(actor("owner"), directBuybackPayment),
+    ).toThrow(/只能由.*确认成交操作生成/);
+  });
+
+  it("blocks legacy implicit buyback payments and owner-gates historical imports", () => {
+    expect(() =>
+      assertInventoryIntakeDoesNotBypassBuybackFinalize({
+        brand: "Apple",
+        model: "iPhone 13",
+        buyback_price: 250,
+      }),
+    ).toThrow(/回收成本只能由.*确认成交操作写入/);
+    expect(() =>
+      assertInventoryIntakeDoesNotBypassBuybackFinalize({
+        brand: "Apple",
+        model: "iPhone 13",
+        buyback_price: 250,
+        quote_payload: { buyback_quote: { final_offer: 250 } },
+      }),
+    ).toThrow(/回收成本只能由.*确认成交操作写入/);
+    expect(() =>
+      assertInventoryIntakeDoesNotBypassBuybackFinalize({
+        brand: "Apple",
+        model: "iPhone 13",
+        buyback_price: 0,
+        quote_payload: { buyback_quote: { final_offer: 250 } },
+      }),
+    ).not.toThrow();
+
+    expect(() => assertLegacyElectronicsImportPermission(actor("owner"))).not.toThrow();
+    for (const role of ["manager", "technician", "sales", "viewer"] as const) {
+      expect(() => assertLegacyElectronicsImportPermission(actor(role))).toThrow(ForbiddenError);
+    }
   });
 });
 

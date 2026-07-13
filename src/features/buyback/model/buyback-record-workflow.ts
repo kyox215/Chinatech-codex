@@ -168,7 +168,9 @@ export function getBuybackNextActionLabel(
   status: InventoryItemStatus,
   risk: BuybackQuoteRiskLevel,
 ) {
-  if (risk === "high") return "下一步：负责人复核风险后再成交";
+  if (risk === "high" && isBuybackQuoteResumableStatus(status)) {
+    return "下一步：负责人复核风险后再成交";
+  }
   if (status === "intake") return "下一步：补充估价或客户确认";
   if (status === "evaluating") return "下一步：完成功能检测";
   if (status === "offer_made") return "下一步：等待客户确认报价";
@@ -199,7 +201,7 @@ export function getBuybackInventoryHandoff(
     };
   }
 
-  if (risk === "high") {
+  if (risk === "high" && isBuybackQuoteResumableStatus(status)) {
     return {
       target: "risk_review",
       label: "负责人复核",
@@ -398,7 +400,7 @@ export function getBuybackRecordReadiness(
     };
   }
 
-  if (risk === "high" || hardBlock) {
+  if ((risk === "high" || hardBlock) && isBuybackQuoteResumableStatus(item.status)) {
     return {
       state: "blocked",
       label: "先复核风险",
@@ -408,7 +410,7 @@ export function getBuybackRecordReadiness(
     };
   }
 
-  if (!estimateReady || item.status === "intake") {
+  if (isBuybackQuoteResumableStatus(item.status) && (!estimateReady || item.status === "intake")) {
     const missing = [
       !item.model?.trim() ? "选择 iPhone 型号" : "",
       offer <= 0 ? "生成口头报价区间" : "",
@@ -491,9 +493,10 @@ export function getBuybackRecordPrimaryAction(
   const handoff = getBuybackInventoryHandoff(item.status, risk);
   const guidance = getBuybackRecordTaskGuidance(item.status, risk);
   const canResumeQuote =
-    handoff.target === "quote" ||
-    handoff.target === "inspection" ||
-    handoff.target === "risk_review";
+    isBuybackQuoteResumableStatus(item.status) &&
+    (handoff.target === "quote" ||
+      handoff.target === "inspection" ||
+      handoff.target === "risk_review");
 
   if (readiness.state === "blocked") {
     return {
@@ -537,6 +540,10 @@ export function getBuybackRecordPrimaryAction(
     canResumeQuote,
     missingCount: readiness.missing.length,
   };
+}
+
+function isBuybackQuoteResumableStatus(status: InventoryItemStatus) {
+  return status === "intake" || status === "evaluating" || status === "offer_made";
 }
 
 export function getBuybackRecordStepIndex(status: InventoryItemStatus) {
@@ -583,22 +590,32 @@ function getRequiredCheckMissing(item: InventoryListItem, checksPayload: Record<
 }
 
 function getProofMissing(item: InventoryListItem, customerPayload: Record<string, unknown>) {
+  const legacyPayload = asRecord(item.legacy_payload);
+  const declarations = asRecord(legacyPayload.buyback_declarations);
+  const isPassport = customerPayload.document_type === "passport";
   const missing = [
     !customerPayload.name && !item.customer_name ? "客户姓名" : "",
     !customerPayload.phone && !item.customer_phone ? "客户电话" : "",
     !customerPayload.document_no_masked ? "证件号码" : "",
     customerPayload.signature_captured !== true ? "客户签名" : "",
     customerPayload.id_front_captured !== true ? "证件正面照片" : "",
-    customerPayload.id_back_captured !== true ? "证件反面照片" : "",
+    !isPassport && customerPayload.id_back_captured !== true ? "证件反面照片" : "",
     customerPayload.device_photo_captured !== true ? "设备照片" : "",
   ].filter(Boolean);
 
-  const legacyPayload = asRecord(item.legacy_payload);
   const devicePayload = asRecord(legacyPayload.buyback_device);
-  if (devicePayload.purchase_proof === false && customerPayload.invoice_photo_captured !== true) {
+  if (
+    devicePayload.purchase_proof === false &&
+    customerPayload.invoice_photo_captured !== true &&
+    declarations.no_invoice_confirmed !== true
+  ) {
     missing.push("无发票确认");
   }
-  if (devicePayload.box_included === false && customerPayload.box_photo_captured !== true) {
+  if (
+    devicePayload.box_included === false &&
+    customerPayload.box_photo_captured !== true &&
+    declarations.no_box_confirmed !== true
+  ) {
     missing.push("无原装盒确认");
   }
   return missing;

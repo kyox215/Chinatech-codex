@@ -59,6 +59,9 @@ import type {
   InventoryAttachmentKind,
   InventoryAttachmentUploadInput,
   InventoryAttachmentUploadResult,
+  InventoryAttachmentAccessResult,
+  BuybackFinalizeInput,
+  BuybackFinalizeResult,
   InventoryItemStatus,
   InventoryListFilters,
   InventoryListItem,
@@ -206,6 +209,10 @@ export type {
   InventoryAttachmentKind,
   InventoryAttachmentUploadInput,
   InventoryAttachmentUploadResult,
+  InventoryAttachmentAccessResult,
+  BuybackDocumentType,
+  BuybackFinalizeInput,
+  BuybackFinalizeResult,
   InventoryDetail,
   InventoryEvent,
   InventoryFunctionalGrade,
@@ -341,6 +348,23 @@ export async function uploadInventoryAttachment(
   input: InventoryAttachmentUploadInput,
 ): Promise<InventoryAttachmentUploadResult> {
   return postJson<InventoryAttachmentUploadResult>("inventory/attachment/upload", { id, input });
+}
+
+export async function accessInventoryAttachment(
+  id: string,
+  attachmentId: string,
+): Promise<InventoryAttachmentAccessResult> {
+  return postJson<InventoryAttachmentAccessResult>("inventory/attachment/access", {
+    id,
+    attachment_id: attachmentId,
+  });
+}
+
+export async function finalizeBuybackPurchase(
+  id: string,
+  input: BuybackFinalizeInput,
+): Promise<BuybackFinalizeResult> {
+  return postJson<BuybackFinalizeResult>("inventory/buyback/finalize", { id, input });
 }
 
 export async function recordInventoryTransaction(

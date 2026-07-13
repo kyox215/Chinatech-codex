@@ -17,3 +17,4 @@ export {
   type RepairOsListHeaderChip,
   type RepairOsMetric,
 } from "@/shared/ui/repair-os-mobile";
+export { SignaturePad, type SignatureCapture } from "@/shared/ui/signature-pad";

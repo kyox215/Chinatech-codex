@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -41,8 +41,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import {
   buildBuybackQuoteCreateInput,
+  buildBuybackAgreementSnapshot,
   buildBuybackQuoteDraftInput,
   buildBuybackQuoteDraftUpdateInput,
+  buildBuybackQuoteReviewUpdateInput,
   buildBuybackQuoteUpdateInput,
   buildBuybackQualityCheckInput,
   buybackFunctionTestGroups,
@@ -60,8 +62,22 @@ import {
   type BuybackQuoteDraft,
 } from "@/features/buyback/model/buyback-quote";
 import {
+  BUYBACK_AGREEMENT_LANGUAGE,
+  BUYBACK_AGREEMENT_VERSION,
+  BUYBACK_PRIVACY_NOTICE_TEXT_IT,
+  BUYBACK_PRIVACY_NOTICE_VERSION,
+  BUYBACK_TERMS_TEXT_IT,
+  canonicalizeBuybackAgreement,
+  documentNumberLast4,
+  hashBuybackAgreementSnapshot,
+  isSafeBuybackVerificationNote,
+  requiredBuybackDocumentSides,
+} from "@/features/buyback/model/buyback-agreement";
+import { BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
+import {
   createInventoryIntake,
-  recordInventoryCheck,
+  finalizeBuybackPurchase,
+  getInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
   uploadInventoryAttachment,
@@ -75,6 +91,7 @@ import {
   RepairOsInfoLine,
   RepairOsInfoTile,
   RepairOsSectionHeader,
+  SignaturePad,
 } from "@/shared/ui";
 import {
   estimateAppleMarketPricing,
@@ -90,11 +107,14 @@ interface BuybackQuoteWorkspaceProps {
   onOpenChange: (open: boolean) => void;
   initialDraft?: BuybackQuoteDraft | null;
   targetItem?: InventoryListItem | null;
+  canCaptureEvidence?: boolean;
+  canFinalize?: boolean;
 }
 
 type DraftKey = keyof BuybackQuoteDraft;
 type StepKey = (typeof buybackQuoteSteps)[number]["key"];
 type AttachmentDraft = Partial<Record<BuybackAttachmentKind, File>>;
+type UploadedEvidence = Partial<Record<BuybackAttachmentKind, string>>;
 
 const quoteCardClass = cn(repairOs.mobileInfoCard, "space-y-2");
 
@@ -103,16 +123,41 @@ export function BuybackQuoteWorkspace({
   onOpenChange,
   initialDraft,
   targetItem,
+  canCaptureEvidence = false,
+  canFinalize = false,
 }: BuybackQuoteWorkspaceProps) {
   const queryClient = useQueryClient();
+  const workingItemIdRef = useRef<string | null>(null);
+  const expectedUpdatedAtRef = useRef<string | null>(null);
+  const uploadedEvidenceRef = useRef<UploadedEvidence>({});
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<BuybackQuoteDraft>(defaultBuybackQuoteDraft);
   const [attachments, setAttachments] = useState<AttachmentDraft>({});
+  const [signatureHash, setSignatureHash] = useState("");
+  const [signatureBindingCanonical, setSignatureBindingCanonical] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [completion, setCompletion] = useState<{
+    id: string;
+    agreementId?: string;
+    reviewOnly?: boolean;
+  } | null>(null);
   const result = useMemo(() => calculateBuybackQuote(draft), [draft]);
+  const agreementSnapshot = useMemo(
+    () => buildBuybackAgreementSnapshot(draft, result),
+    [draft, result],
+  );
+  const agreementCanonical = useMemo(
+    () => canonicalizeBuybackAgreement(agreementSnapshot),
+    [agreementSnapshot],
+  );
   const intakeValidation = useMemo(() => validateBuybackIntake(draft, result), [draft, result]);
   const currentStep = buybackQuoteSteps[stepIndex];
   const estimateGateMessage = getEstimateGateMessage(draft);
   const functionGateMessage = useMemo(() => getFunctionGateMessage(draft, result), [draft, result]);
+  const sellerGateMessage = canCaptureEvidence
+    ? getSellerGateMessage(draft)
+    : getSellerReviewGateMessage(draft);
   const phone = normalizeWhatsappPhone(draft.customer_phone);
   const footerHint = getCurrentFooterHint(
     currentStep.key,
@@ -120,23 +165,76 @@ export function BuybackQuoteWorkspace({
     intakeValidation,
     estimateGateMessage,
     functionGateMessage,
+    draft,
+    canCaptureEvidence,
   );
 
   useEffect(() => {
     if (!open) return;
     setStepIndex(0);
-    setDraft(initialDraft ?? defaultBuybackQuoteDraft);
+    setDraft(
+      initialDraft
+        ? {
+            ...initialDraft,
+            customer_signature_status: "pending",
+            signature_captured: false,
+            device_photo_captured: false,
+            id_front_captured: false,
+            id_back_captured: false,
+            invoice_photo_captured: false,
+            box_photo_captured: false,
+          }
+        : defaultBuybackQuoteDraft,
+    );
     setAttachments({});
-  }, [initialDraft, open]);
+    setSignatureHash("");
+    setSignatureBindingCanonical("");
+    setSaveError("");
+    setCompletion(null);
+    workingItemIdRef.current = targetItem?.id ?? null;
+    expectedUpdatedAtRef.current = targetItem?.updated_at ?? null;
+    uploadedEvidenceRef.current = {};
+    idempotencyKeyRef.current = crypto.randomUUID();
+  }, [initialDraft, open, targetItem?.id, targetItem?.updated_at]);
+
+  useEffect(() => {
+    if (!signatureBindingCanonical || signatureBindingCanonical === agreementCanonical) return;
+    setAttachments((current) => {
+      const next = { ...current };
+      delete next.signature;
+      return next;
+    });
+    delete uploadedEvidenceRef.current.signature;
+    setDraft((current) => ({
+      ...current,
+      customer_signature_status: "pending",
+      signature_captured: false,
+    }));
+    setSignatureHash("");
+    setSignatureBindingCanonical("");
+    setSaveError("成交资料已变化，请让客户重新签名");
+  }, [agreementCanonical, signatureBindingCanonical]);
 
   function resetWorkspace() {
     setStepIndex(0);
     setDraft(defaultBuybackQuoteDraft);
     setAttachments({});
+    setSignatureHash("");
+    setSignatureBindingCanonical("");
+    setSaveError("");
+    setCompletion(null);
+    workingItemIdRef.current = null;
+    expectedUpdatedAtRef.current = null;
+    uploadedEvidenceRef.current = {};
+    idempotencyKeyRef.current = crypto.randomUUID();
   }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      setSaveError("");
+      if (!canFinalize) {
+        throw new Error("当前员工不能确认回收成交，请交由店主或店长处理");
+      }
       const validation = validateBuybackIntake(draft, result);
       if (!validation.canSave) {
         throw new Error(
@@ -144,29 +242,68 @@ export function BuybackQuoteWorkspace({
             "成交资料未完成",
         );
       }
+      if (!signatureHash || !attachments.signature) {
+        throw new Error("客户签名尚未绑定当前成交摘要");
+      }
+      const currentHash = await hashBuybackAgreementSnapshot(agreementSnapshot);
+      if (currentHash !== signatureHash) throw new Error("成交资料已变化，请让客户重新签名");
+
+      let id = workingItemIdRef.current;
+      const mode = targetItem ? ("updated" as const) : ("created" as const);
+      if (!id) {
+        const created = await createInventoryIntake(buildBuybackQuoteCreateInput(draft, result));
+        id = created.id;
+        workingItemIdRef.current = id;
+      }
       if (targetItem) {
-        const id = targetItem.id;
-        await updateInventoryItem(id, buildBuybackQuoteUpdateInput(draft, result));
-        await recordInventoryCheck(id, buildBuybackQualityCheckInput(draft));
-        await uploadBuybackAttachments(id, attachments);
-        await advanceBuybackPurchase(id, targetItem.status, result);
-        return { id, mode: "updated" as const };
+        await updateInventoryItem(id, buildBuybackQuoteReviewUpdateInput(draft, result));
+      }
+      const currentDetail = await getInventoryItem(id);
+      expectedUpdatedAtRef.current = currentDetail.item.updated_at;
+      const evidence = await uploadBuybackAttachments(
+        id,
+        attachments,
+        uploadedEvidenceRef.current,
+        signatureHash,
+      );
+      uploadedEvidenceRef.current = evidence;
+      const signatureAttachmentId = evidence.signature;
+      if (!signatureAttachmentId) throw new Error("客户签名上传未完成");
+      const requiredSides = requiredBuybackDocumentSides(draft.customer_document_type);
+      if (!evidence.device_photo || requiredSides.some((kind) => !evidence[kind])) {
+        throw new Error("设备或证件照片上传未完成");
       }
 
-      const input = buildBuybackQuoteCreateInput(draft, result);
-      const { id } = await createInventoryIntake(input);
-      await recordInventoryCheck(id, buildBuybackQualityCheckInput(draft));
-      await uploadBuybackAttachments(id, attachments);
-      await advanceBuybackPurchase(id, "intake", result);
-      return { id, mode: "created" as const };
+      const expectedUpdatedAt = expectedUpdatedAtRef.current;
+      if (!expectedUpdatedAt) throw new Error("缺少回收记录版本，请关闭后重新打开");
+      const finalized = await finalizeBuybackPurchase(id, {
+        expected_updated_at: expectedUpdatedAt,
+        idempotency_key: idempotencyKeyRef.current,
+        item_patch: buildBuybackQuoteUpdateInput(draft, result),
+        quality_check: buildBuybackQualityCheckInput(draft),
+        agreement_snapshot: agreementSnapshot,
+        agreement_hash: signatureHash,
+        agreement_version: BUYBACK_AGREEMENT_VERSION,
+        privacy_notice_version: BUYBACK_PRIVACY_NOTICE_VERSION,
+        language: BUYBACK_AGREEMENT_LANGUAGE,
+        document_type: draft.customer_document_type,
+        document_no_last4: documentNumberLast4(draft.customer_document_no),
+        signature_attachment_id: signatureAttachmentId,
+        evidence_attachment_ids: Object.values(evidence).filter(Boolean) as string[],
+        payment_method: draft.payment_method,
+      });
+      return { id, mode, agreementId: finalized.agreement_id };
     },
-    onSuccess: async ({ mode }) => {
-      toast.success(mode === "updated" ? "回收成交单已更新并转入库存" : "回收成交单已保存");
+    onSuccess: async ({ id, mode, agreementId }) => {
+      toast.success(mode === "updated" ? "回收成交单已更新并转入库存" : "回收成交已完成");
       await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
-      onOpenChange(false);
-      resetWorkspace();
+      setCompletion({ id, agreementId, reviewOnly: false });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "保存报价失败"),
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "保存报价失败";
+      setSaveError(message);
+      toast.error(message);
+    },
   });
 
   const deferMutation = useMutation({
@@ -196,11 +333,63 @@ export function BuybackQuoteWorkspace({
     onError: (error) => toast.error(error instanceof Error ? error.message : "保存考虑中报价失败"),
   });
 
+  const reviewMutation = useMutation({
+    mutationFn: async () => {
+      if (canCaptureEvidence) throw new Error("当前员工可以继续采集证件，无需提交交接");
+      const gate = getSellerReviewGateMessage(draft);
+      if (gate) throw new Error(gate);
+
+      if (targetItem) {
+        const patch = buildBuybackQuoteReviewUpdateInput(draft, result);
+        delete patch.repair_cost_amount;
+        await updateInventoryItem(targetItem.id, patch);
+        if (targetItem.status === "intake" || targetItem.status === "evaluating") {
+          await transitionInventoryItem(targetItem.id, "offer_made", {
+            reason: "报价与检测已完成，等待负责人采集证件和签名",
+          });
+        }
+        return { id: targetItem.id };
+      }
+
+      const input = buildBuybackQuoteCreateInput(draft, result);
+      delete input.repair_cost_amount;
+      const { id } = await createInventoryIntake(input);
+      await transitionInventoryItem(id, "offer_made", {
+        reason: "报价与检测已完成，等待负责人采集证件和签名",
+      });
+      return { id };
+    },
+    onSuccess: async ({ id }) => {
+      toast.success("报价与检测已提交负责人");
+      await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
+      setCompletion({ id, reviewOnly: true });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "提交负责人失败，请稍后重试"),
+  });
+
   function updateDraft<K extends DraftKey>(key: K, value: BuybackQuoteDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
   function updateAttachment(kind: BuybackAttachmentKind, file?: File) {
+    delete uploadedEvidenceRef.current[kind];
+    if (kind !== "signature" && signatureHash) {
+      delete uploadedEvidenceRef.current.signature;
+      setSignatureHash("");
+      setSignatureBindingCanonical("");
+      setDraft((current) => ({
+        ...current,
+        customer_signature_status: "pending",
+        signature_captured: false,
+      }));
+      setAttachments((current) => {
+        const next = { ...current };
+        delete next.signature;
+        return next;
+      });
+      setSaveError("凭证已变化，请让客户重新签名");
+    }
     setAttachments((current) => {
       const next = { ...current };
       if (file) next[kind] = file;
@@ -211,6 +400,22 @@ export function BuybackQuoteWorkspace({
     if (capturedKey) {
       updateDraft(capturedKey, Boolean(file) as BuybackQuoteDraft[typeof capturedKey]);
     }
+  }
+
+  async function updateSignature(file?: File) {
+    if (!file) {
+      updateAttachment("signature", undefined);
+      setSignatureHash("");
+      setSignatureBindingCanonical("");
+      updateDraft("customer_signature_status", "pending");
+      return;
+    }
+    const hash = await hashBuybackAgreementSnapshot(agreementSnapshot);
+    updateAttachment("signature", file);
+    setSignatureHash(hash);
+    setSignatureBindingCanonical(agreementCanonical);
+    updateDraft("customer_signature_status", "signed");
+    setSaveError("");
   }
 
   function openWhatsappQuote() {
@@ -226,6 +431,29 @@ export function BuybackQuoteWorkspace({
     toast.info("客户未接受报价，本次未保存库存记录");
     onOpenChange(false);
     resetWorkspace();
+  }
+
+  if (completion) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className={cn(
+            componentOverlay.bottomSheet,
+            "left-1/2 right-auto h-[calc(100svh-0.5rem)] max-h-[calc(100svh-0.5rem)] w-[min(430px,calc(100vw-0.5rem))] -translate-x-1/2 rounded-t-xl p-0 md:bottom-4 md:h-auto md:max-h-[calc(100svh-2rem)] md:w-[min(720px,calc(100vw-2rem))] md:rounded-xl [&>button.absolute]:hidden",
+          )}
+        >
+          <BuybackSuccess
+            itemId={completion.id}
+            amount={result.finalOffer}
+            reviewOnly={completion.reviewOnly}
+            onNew={() => resetWorkspace()}
+            onInventory={() => window.location.assign("/inventory")}
+            onClose={() => onOpenChange(false)}
+          />
+        </SheetContent>
+      </Sheet>
+    );
   }
 
   return (
@@ -249,7 +477,7 @@ export function BuybackQuoteWorkspace({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="size-8 shrink-0 rounded-lg"
+                  className="size-11 shrink-0 rounded-lg"
                   onClick={() => onOpenChange(false)}
                   aria-label="关闭回收报价"
                 >
@@ -257,7 +485,7 @@ export function BuybackQuoteWorkspace({
                 </Button>
                 <div className="min-w-0 text-center">
                   <SheetTitle className="truncate text-xs font-semibold leading-4">
-                    回收报价
+                    引导式回收
                   </SheetTitle>
                   <p className="truncate text-[9px] leading-3 text-muted-foreground">
                     {currentStep.label} · {stepSubtitle(currentStep.key, result, draft)}
@@ -270,7 +498,7 @@ export function BuybackQuoteWorkspace({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 shrink-0 gap-1 rounded-lg px-2 text-[11px]"
+                  className="h-11 shrink-0 gap-1 rounded-lg px-2 text-[11px]"
                   onClick={() => toast.info("保存成交后，可在库存详情里查看历史记录和附件凭证")}
                 >
                   <History className="size-3.5" />
@@ -302,10 +530,10 @@ export function BuybackQuoteWorkspace({
           <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5 md:px-3">
             <div className="mx-auto grid w-full max-w-[430px] gap-2 md:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="min-w-0">
-                {currentStep.key === "estimate" ? (
+                {currentStep.key === "device" ? (
                   <QuickEstimateStep draft={draft} result={result} updateDraft={updateDraft} />
                 ) : null}
-                {currentStep.key === "intent" ? (
+                {currentStep.key === "quote" ? (
                   <IntentStep
                     result={result}
                     onDefer={() => deferMutation.mutate()}
@@ -313,17 +541,34 @@ export function BuybackQuoteWorkspace({
                     isDeferring={deferMutation.isPending}
                   />
                 ) : null}
-                {currentStep.key === "function" ? (
+                {currentStep.key === "inspection" ? (
                   <FunctionStep draft={draft} result={result} updateDraft={updateDraft} />
                 ) : null}
-                {currentStep.key === "intake" ? (
-                  <CustomerIntakeStep
+                {currentStep.key === "seller" ? (
+                  <SellerStep
+                    draft={draft}
+                    updateDraft={updateDraft}
+                    collectEvidenceDetails={canCaptureEvidence}
+                  />
+                ) : null}
+                {currentStep.key === "evidence" ? (
+                  <EvidenceStep
                     draft={draft}
                     result={result}
                     updateDraft={updateDraft}
                     attachments={attachments}
                     updateAttachment={updateAttachment}
                     validation={intakeValidation}
+                    onSignature={updateSignature}
+                    signatureResetKey={agreementCanonical}
+                  />
+                ) : null}
+                {currentStep.key === "confirm" ? (
+                  <ConfirmStep
+                    draft={draft}
+                    result={result}
+                    validation={intakeValidation}
+                    saveError={saveError}
                     onWhatsapp={openWhatsappQuote}
                   />
                 ) : null}
@@ -343,50 +588,61 @@ export function BuybackQuoteWorkspace({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 shrink-0 rounded-lg px-2 text-xs"
+                className="h-11 shrink-0 rounded-lg px-2 text-xs"
                 disabled={stepIndex === 0}
                 onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
               >
                 <ChevronLeft className="size-3.5" />
                 上一步
               </Button>
-              <div className="line-clamp-2 min-w-0 text-center text-[10px] leading-3 text-muted-foreground">
+              <div className="hidden line-clamp-2 min-w-0 text-center text-[10px] leading-3 text-muted-foreground sm:block">
                 {footerHint}
               </div>
               {stepIndex < buybackQuoteSteps.length - 1 ? (
                 <Button
                   type="button"
                   size="sm"
-                  className={cn("h-9 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
+                  className={cn("h-11 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
                   style={brandGradientStyle}
                   disabled={
-                    (currentStep.key === "estimate" && Boolean(estimateGateMessage)) ||
-                    (currentStep.key === "function" && Boolean(functionGateMessage))
+                    reviewMutation.isPending ||
+                    (currentStep.key === "device" && Boolean(estimateGateMessage)) ||
+                    (currentStep.key === "inspection" && Boolean(functionGateMessage)) ||
+                    (currentStep.key === "seller" && Boolean(sellerGateMessage)) ||
+                    (currentStep.key === "evidence" && Boolean(getEvidenceGateMessage(draft)))
                   }
                   onClick={() => {
-                    if (currentStep.key === "intent") {
+                    if (currentStep.key === "quote") {
                       updateDraft("customer_intent_outcome", "accepted");
                       updateDraft("customer_intent_confirmed", true);
+                    }
+                    if (currentStep.key === "seller" && !canCaptureEvidence) {
+                      reviewMutation.mutate();
+                      return;
                     }
                     setStepIndex((current) => Math.min(buybackQuoteSteps.length - 1, current + 1));
                   }}
                 >
-                  {nextButtonLabel(currentStep.key, draft)}
+                  {reviewMutation.isPending && currentStep.key === "seller"
+                    ? "正在提交…"
+                    : nextButtonLabel(currentStep.key, draft, canCaptureEvidence)}
                   <ChevronRight className="size-3.5" />
                 </Button>
               ) : (
                 <Button
                   type="button"
                   size="sm"
-                  className={cn("h-9 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
+                  className={cn("h-11 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
                   style={brandGradientStyle}
                   disabled={
                     saveMutation.isPending || !draft.model.trim() || !intakeValidation.canSave
                   }
                   onClick={() => saveMutation.mutate()}
                 >
-                  <FileText className="size-3.5" />
-                  保存资料
+                  <ShieldCheck className="size-3.5" />
+                  {saveMutation.isPending
+                    ? "正在安全成交…"
+                    : `完成回收并转入库存 · €${result.finalOffer.toFixed(0)}`}
                 </Button>
               )}
             </div>
@@ -400,7 +656,7 @@ export function BuybackQuoteWorkspace({
 function QuoteStepper({ activeIndex }: { activeIndex: number }) {
   return (
     <div className="mt-1.5">
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-6 gap-1" aria-label={`步骤 ${activeIndex + 1} / 6`}>
         {buybackQuoteSteps.map((step, index) => {
           const active = index === activeIndex;
           const complete = index < activeIndex;
@@ -423,7 +679,7 @@ function QuoteStepper({ activeIndex }: { activeIndex: number }) {
               </span>
               <p
                 className={cn(
-                  "mt-0.5 truncate text-[9px] leading-3",
+                  "mt-0.5 hidden truncate text-[9px] leading-3 sm:block",
                   active ? "font-medium text-primary" : "text-muted-foreground",
                 )}
               >
@@ -442,13 +698,15 @@ function stepSubtitle(
   result: ReturnType<typeof calculateBuybackQuote>,
   draft: BuybackQuoteDraft,
 ) {
-  if (step === "estimate") {
+  if (step === "device") {
     const gate = getEstimateGateMessage(draft);
     return gate || `先估 €${result.suggestedLow}-${result.suggestedHigh}`;
   }
-  if (step === "intent") return "客户同意后再检测";
-  if (step === "function") return "检测账号锁与功能";
-  return "登记证件与签名";
+  if (step === "quote") return "向客户说明价格";
+  if (step === "inspection") return "检测账号锁与功能";
+  if (step === "seller") return "只登记成交所需资料";
+  if (step === "evidence") return "拍证件并现场签名";
+  return "最后核对并安全成交";
 }
 
 function stepHelper(
@@ -456,26 +714,32 @@ function stepHelper(
   result: ReturnType<typeof calculateBuybackQuote>,
   draft: BuybackQuoteDraft,
 ) {
-  if (step === "estimate") return getEstimateGateMessage(draft) || "无需客户资料 · 先给口头区间";
-  if (step === "intent") return `简易估价 €${result.finalOffer.toFixed(0)} · 等客户确认`;
-  if (step === "function") return "客户已同意 · 开始正式检测";
-  return "资料齐全后保存回收单";
+  if (step === "device") return getEstimateGateMessage(draft) || "先选设备，系统自动计算";
+  if (step === "quote") return `当前报价 €${result.finalOffer.toFixed(0)} · 等客户确认`;
+  if (step === "inspection") return "客户已同意 · 按清单逐项检查";
+  if (step === "seller") return "姓名、电话、证件类型和声明";
+  if (step === "evidence") return "证件进入私有受限存储";
+  return "成交后自动生成付款并转入库存";
 }
 
 function stepBadgeLabel(step: StepKey, result: ReturnType<typeof calculateBuybackQuote>) {
   if (result.hardBlock) return "风险";
-  if (step === "estimate") return "简易";
-  if (step === "intent") return "待确认";
-  if (step === "function") return "检测中";
-  return "待保存";
+  if (step === "device") return "第 1 / 6 步";
+  if (step === "quote") return "待确认";
+  if (step === "inspection") return "检测中";
+  if (step === "seller") return "登记中";
+  if (step === "evidence") return "受限资料";
+  return "待成交";
 }
 
 function stepFooterHint(step: StepKey, result: ReturnType<typeof calculateBuybackQuote>) {
   if (result.hardBlock) return "风险待处理";
-  if (step === "estimate") return `建议 €${result.suggestedLow}-${result.suggestedHigh}`;
-  if (step === "intent") return "客户同意后继续";
-  if (step === "function") return `最终 €${result.finalOffer.toFixed(0)}`;
-  return "资料齐全可保存";
+  if (step === "device") return `建议 €${result.suggestedLow}-${result.suggestedHigh}`;
+  if (step === "quote") return "客户同意后继续";
+  if (step === "inspection") return `检测后 €${result.finalOffer.toFixed(0)}`;
+  if (step === "seller") return "仅收集必要资料";
+  if (step === "evidence") return "签名需绑定当前摘要";
+  return "所有写入一次完成";
 }
 
 function getCurrentFooterHint(
@@ -484,12 +748,23 @@ function getCurrentFooterHint(
   validation: ReturnType<typeof validateBuybackIntake>,
   estimateGateMessage: string,
   functionGateMessage: string,
+  draft: BuybackQuoteDraft,
+  canCaptureEvidence: boolean,
 ) {
-  if (step === "intake" && !validation.canSave) {
+  if (step === "confirm" && !validation.canSave) {
     return [...validation.missing, ...validation.hardBlockReasons][0] ?? "需补齐资料";
   }
-  if (step === "estimate" && estimateGateMessage) return estimateGateMessage;
-  if (step === "function" && functionGateMessage) return functionGateMessage;
+  if (step === "device" && estimateGateMessage) return estimateGateMessage;
+  if (step === "inspection" && functionGateMessage) return functionGateMessage;
+  if (step === "seller") {
+    const sellerGate = canCaptureEvidence
+      ? getSellerGateMessage(draft)
+      : getSellerReviewGateMessage(draft);
+    return (
+      sellerGate || (canCaptureEvidence ? stepFooterHint(step, result) : "负责人继续采集证件与签名")
+    );
+  }
+  if (step === "evidence") return getEvidenceGateMessage(draft) || stepFooterHint(step, result);
   return stepFooterHint(step, result);
 }
 
@@ -521,30 +796,78 @@ function getFunctionGateMessage(
   return `${missingRequiredItem.label}还未检测`;
 }
 
-function nextButtonLabel(step: StepKey, draft: BuybackQuoteDraft) {
-  if (step === "estimate") {
+function nextButtonLabel(step: StepKey, draft: BuybackQuoteDraft, canCaptureEvidence: boolean) {
+  if (step === "device") {
     if (!draft.model.trim()) return "先选型号";
     if (!draft.storage_capacity.trim()) return "先选容量";
     if (!draft.battery_health.trim()) return "先选电池";
-    return "客户确认";
+    return "下一步：查看回收价格";
   }
-  if (step === "intent") return "客户同意，检测";
-  if (step === "function") return "登记资料";
+  if (step === "quote") return "客户接受，开始检查手机";
+  if (step === "inspection") return "检测完成，登记卖家";
+  if (step === "seller") {
+    return canCaptureEvidence ? "下一步：拍摄证件" : "提交负责人继续回收";
+  }
+  if (step === "evidence") return "确认签名";
   return "下一步";
 }
 
-async function uploadBuybackAttachments(id: string, attachments: AttachmentDraft) {
+function getSellerGateMessage(draft: BuybackQuoteDraft) {
+  if (!draft.customer_name.trim()) return "请填写卖家姓名";
+  if (!normalizeWhatsappPhone(draft.customer_phone)) return "请填写可用电话";
+  if (!draft.customer_document_no.trim()) return "请填写证件号码";
+  if (!draft.ownership_confirmed) return "请确认卖家拥有设备";
+  if (!draft.purchase_proof && !draft.no_invoice_confirmed) return "请确认无发票声明";
+  if (!draft.box_included && !draft.no_box_confirmed) return "请确认无原装盒声明";
+  return "";
+}
+
+function getSellerReviewGateMessage(draft: BuybackQuoteDraft) {
+  if (!draft.customer_name.trim()) return "请填写卖家姓名";
+  if (!normalizeWhatsappPhone(draft.customer_phone)) return "请填写可用电话";
+  if (!draft.ownership_confirmed) return "请确认卖家拥有设备";
+  if (!draft.purchase_proof && !draft.no_invoice_confirmed) return "请确认无发票声明";
+  if (!draft.box_included && !draft.no_box_confirmed) return "请确认无原装盒声明";
+  return "";
+}
+
+function getEvidenceGateMessage(draft: BuybackQuoteDraft) {
+  if (!draft.device_photo_captured) return "请拍摄设备照片";
+  if (!draft.id_front_captured) return "请拍摄证件资料面";
+  if (draft.customer_document_type !== "passport" && !draft.id_back_captured) {
+    return "请拍摄证件反面";
+  }
+  if (!draft.data_wipe_authorized) return "请确认数据清除授权";
+  if (!draft.privacy_notice_accepted) return "请确认隐私告知";
+  if (!draft.agreement_accepted) return "请确认回收协议";
+  if (!isSafeBuybackVerificationNote(draft.customer_signature_note)) {
+    return "核验备注不能包含完整证件号或超过 160 字";
+  }
+  if (!draft.signature_captured) return "请让客户在下方签名";
+  return "";
+}
+
+async function uploadBuybackAttachments(
+  id: string,
+  attachments: AttachmentDraft,
+  uploaded: UploadedEvidence,
+  agreementHash: string,
+) {
+  const next = { ...uploaded };
   for (const [kind, file] of Object.entries(attachments) as [BuybackAttachmentKind, File][]) {
     if (!file) continue;
-    const dataBase64 = await fileToBase64(file);
-    const mimeType = file.type || mimeTypeFromFileName(file.name) || "image/jpeg";
-    await uploadInventoryAttachment(id, {
+    if (next[kind]) continue;
+    const uploadFile = await prepareBuybackEvidenceFile(file, kind === "signature");
+    const dataBase64 = await fileToBase64(uploadFile);
+    const mimeType = uploadFile.type || mimeTypeFromFileName(uploadFile.name) || "image/jpeg";
+    const result = await uploadInventoryAttachment(id, {
       kind,
-      file_name: file.name || `${kind}.jpg`,
+      file_name: uploadFile.name || `${kind}.jpg`,
       mime_type: mimeType,
-      file_size: file.size,
+      file_size: uploadFile.size,
       data_base64: dataBase64,
       note: buybackAttachmentLabel(kind),
+      agreement_hash: kind === "signature" ? agreementHash : undefined,
     }).catch((error) => {
       throw new Error(
         `${buybackAttachmentLabel(kind)}上传失败：${
@@ -552,33 +875,9 @@ async function uploadBuybackAttachments(id: string, attachments: AttachmentDraft
         }`,
       );
     });
+    next[kind] = result.attachment.id;
   }
-}
-
-async function advanceBuybackPurchase(
-  id: string,
-  currentStatus: InventoryItemStatus,
-  result: ReturnType<typeof calculateBuybackQuote>,
-) {
-  let status = currentStatus;
-  const transition = async (to: InventoryItemStatus, reason: string) => {
-    if (status === to) return;
-    await transitionInventoryItem(id, to, { reason });
-    status = to;
-  };
-
-  if (status === "intake") {
-    await transition("evaluating", "客户同意回收报价，进入正式检测与资料登记");
-  }
-  if (!result.hardBlock && status === "evaluating") {
-    await transition("offer_made", `检测后建议报价 €${result.finalOffer.toFixed(2)}`);
-  }
-  if (!result.hardBlock && status === "offer_made") {
-    await transition(
-      "purchased",
-      `客户已签名并提交证件/设备照片，回收成交 €${result.finalOffer.toFixed(2)}`,
-    );
-  }
+  return next;
 }
 
 async function advanceDeferredBuybackQuote(
@@ -589,6 +888,91 @@ async function advanceDeferredBuybackQuote(
   if (currentStatus !== "intake" && currentStatus !== "evaluating") return;
   await transitionInventoryItem(id, "offer_made", {
     reason: `客户考虑中，初步报价 €${result.finalOffer.toFixed(2)}`,
+  });
+}
+
+async function prepareBuybackEvidenceFile(file: File, preserveOriginal: boolean) {
+  if (file.size <= BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES) return file;
+  if (preserveOriginal) {
+    throw new Error("客户签名文件过大，请清除后重新签名");
+  }
+  const mimeType = file.type || mimeTypeFromFileName(file.name) || "";
+  if (!mimeType.startsWith("image/")) {
+    throw new Error("照片过大，请改用 JPG、PNG 或 WebP 图片后重试");
+  }
+
+  let decoded: Awaited<ReturnType<typeof decodeBuybackUploadImage>> | undefined;
+  try {
+    decoded = await decodeBuybackUploadImage(file);
+    let scale = Math.min(1, 2200 / Math.max(decoded.width, decoded.height));
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const width = Math.max(1, Math.round(decoded.width * scale));
+      const height = Math.max(1, Math.round(decoded.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("当前浏览器无法处理照片");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(decoded.source, 0, 0, width, height);
+      const blob = await canvasToBlob(canvas, "image/jpeg", Math.max(0.58, 0.84 - attempt * 0.07));
+      if (blob.size <= BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES) {
+        const baseName = file.name.replace(/\.[^.]+$/, "") || "buyback-evidence";
+        return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
+      }
+      scale *= 0.78;
+    }
+  } catch (error) {
+    throw new Error(
+      `照片过大且自动压缩失败，请在相机中选择兼容格式后重拍：${
+        error instanceof Error ? error.message : "无法读取图片"
+      }`,
+    );
+  } finally {
+    decoded?.dispose();
+  }
+  throw new Error("照片压缩后仍然过大，请靠近证件重新拍摄");
+}
+
+async function decodeBuybackUploadImage(file: File) {
+  if (typeof globalThis.createImageBitmap === "function") {
+    const bitmap = await globalThis.createImageBitmap(file);
+    return {
+      source: bitmap as CanvasImageSource,
+      width: bitmap.width,
+      height: bitmap.height,
+      dispose: () => bitmap.close(),
+    };
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const candidate = new Image();
+      candidate.onload = () => resolve(candidate);
+      candidate.onerror = () => reject(new Error("浏览器无法解码该图片"));
+      candidate.src = objectUrl;
+    });
+    return {
+      source: image as CanvasImageSource,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      dispose: () => URL.revokeObjectURL(objectUrl),
+    };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("浏览器无法生成压缩图片"))),
+      mimeType,
+      quality,
+    );
   });
 }
 
@@ -1913,93 +2297,20 @@ function FunctionStep({
   );
 }
 
-function CustomerIntakeStep({
+function SellerStep({
   draft,
-  result,
   updateDraft,
-  attachments,
-  updateAttachment,
-  validation,
-  onWhatsapp,
+  collectEvidenceDetails,
 }: {
   draft: BuybackQuoteDraft;
-  result: ReturnType<typeof calculateBuybackQuote>;
   updateDraft: <K extends DraftKey>(key: K, value: BuybackQuoteDraft[K]) => void;
-  attachments: AttachmentDraft;
-  updateAttachment: (kind: BuybackAttachmentKind, file?: File) => void;
-  validation: ReturnType<typeof validateBuybackIntake>;
-  onWhatsapp: () => void;
+  collectEvidenceDetails: boolean;
 }) {
   return (
-    <div className="space-y-1.5">
-      <DeviceSummaryCard draft={draft} result={result} showDeviceMeta />
-
+    <div className="space-y-2">
       <section className={quoteCardClass}>
-        <div className="flex items-center gap-2">
-          <h3 className="text-[11px] font-semibold leading-4">检测结果总览</h3>
-          <Badge variant="secondary" className="text-[11px]">
-            {result.inspectionItems.length} 项检测
-          </Badge>
-        </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {result.inspectionItems.map((item) => (
-            <div
-              key={item.label}
-              className="flex min-w-0 items-center justify-between gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
-            >
-              <span className="truncate text-[11px] font-medium leading-4">{item.label}</span>
-              <Badge className={cn("shrink-0 text-[10px]", inspectionToneClass(item.tone))}>
-                {item.value}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <QuoteSummaryCard
-        title="最终报价"
-        result={result}
-        badgeLabel={result.hardBlock ? "风险待处理" : "建议接受"}
-      >
+        <SectionTitle icon={UserRound} title="登记卖家" subtitle="只收集完成本次回收所需的信息。" />
         <div className="grid gap-2 sm:grid-cols-2">
-          <div className="min-w-0">
-            <p className="mb-1 text-[11px] font-semibold leading-4">扣减明细</p>
-            <div className="space-y-1">
-              {result.deductions.slice(0, 5).map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between gap-2 text-[10px] leading-4"
-                >
-                  <span className="min-w-0 truncate text-muted-foreground">{item.label}</span>
-                  <span className="font-mono">- €{item.amount}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="min-w-0 border-t border-primary/15 pt-2 sm:border-l sm:border-t-0 sm:pl-2 sm:pt-0">
-            <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold leading-4">
-              <AlertTriangle className="size-3 text-status-warn-foreground" />
-              风险提示
-            </p>
-            <p className="text-[10px] leading-4 text-muted-foreground">
-              {result.riskNotes.length ? result.riskNotes.join("；") : "账号已退出，核心风险正常。"}
-            </p>
-            {result.approvalReasons.length ? (
-              <p className="mt-1 text-[10px] leading-4 text-status-warn-foreground">
-                需复核：{result.approvalReasons.join("；")}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </QuoteSummaryCard>
-
-      <section className={quoteCardClass}>
-        <SectionTitle
-          icon={UserRound}
-          title="成交资料"
-          subtitle="客户同意后再登记姓名、电话、证件和签名。"
-        />
-        <div className="grid grid-cols-2 gap-1.5">
           <TextField
             label="客户姓名"
             value={draft.customer_name}
@@ -2013,7 +2324,9 @@ function CustomerIntakeStep({
             placeholder="+39 333..."
             inputMode="tel"
           />
-          <div className="col-span-2 space-y-1 rounded-lg bg-[var(--surface-panel-muted)] p-2">
+        </div>
+        {collectEvidenceDetails ? (
+          <div className="space-y-2 rounded-xl bg-[var(--surface-panel-muted)] p-2.5">
             <ChoiceGroup
               label="证件类型"
               value={draft.customer_document_type}
@@ -2027,39 +2340,94 @@ function CustomerIntakeStep({
               ]}
             />
             <TextField
-              label="证件号码"
+              label="证件号码（系统只保留后四位）"
               value={draft.customer_document_no}
               onChange={(value) => updateDraft("customer_document_no", value)}
-              placeholder="证件号码 / Document ID"
+              placeholder="Document ID"
             />
           </div>
-          <div className="col-span-2 space-y-1 rounded-lg bg-[var(--surface-panel-muted)] p-2">
-            <ChoiceGroup
-              label="客户签名"
-              value={draft.customer_signature_status}
-              onChange={(value) => updateDraft("customer_signature_status", value)}
-              options={[
-                ["pending", "待签名"],
-                ["signed", "已签名"],
-              ]}
-            />
-            <Textarea
-              value={draft.customer_signature_note}
-              onChange={(event) => updateDraft("customer_signature_note", event.target.value)}
-              placeholder="来源说明、证件核验备注或门店确认说明"
-              className="min-h-16 resize-none rounded-lg text-base"
-            />
-          </div>
-        </div>
+        ) : (
+          <p className="rounded-lg bg-primary/8 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground">
+            你只需登记姓名和电话。证件、签名与付款由店主或店长接手采集。
+          </p>
+        )}
+        <ChoiceGroup
+          label="付款方式"
+          value={draft.payment_method}
+          onChange={(value) => updateDraft("payment_method", value)}
+          options={[
+            ["cash", "现金"],
+            ["bank_transfer", "转账"],
+            ["store_credit", "店内额度"],
+            ["other", "其他"],
+          ]}
+        />
       </section>
 
       <section className={quoteCardClass}>
         <SectionTitle
-          icon={Camera}
-          title="成交凭证"
-          subtitle="拍照记录会保存到私有附件，后续可追溯。"
+          icon={ShieldCheck}
+          title="卖家声明"
+          subtitle="点击确认，不要求上传假的“无票照片”。"
         />
-        <div className="grid grid-cols-2 gap-1.5">
+        <ToggleRow
+          label="卖家确认设备归本人所有，并有权出售"
+          checked={draft.ownership_confirmed}
+          onChange={(value) => updateDraft("ownership_confirmed", value)}
+        />
+        {!draft.purchase_proof ? (
+          <ToggleRow
+            label="卖家确认无法提供发票或购买凭证"
+            checked={draft.no_invoice_confirmed}
+            onChange={(value) => updateDraft("no_invoice_confirmed", value)}
+          />
+        ) : null}
+        {!draft.box_included ? (
+          <ToggleRow
+            label="卖家确认未提供原装盒"
+            checked={draft.no_box_confirmed}
+            onChange={(value) => updateDraft("no_box_confirmed", value)}
+          />
+        ) : null}
+        {collectEvidenceDetails ? (
+          <p className="rounded-lg bg-primary/8 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground">
+            完整证件号码不会写入普通库存备注、日志或浏览器缓存。
+          </p>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function EvidenceStep({
+  draft,
+  result,
+  updateDraft,
+  attachments,
+  updateAttachment,
+  validation,
+  onSignature,
+  signatureResetKey,
+}: {
+  draft: BuybackQuoteDraft;
+  result: ReturnType<typeof calculateBuybackQuote>;
+  updateDraft: <K extends DraftKey>(key: K, value: BuybackQuoteDraft[K]) => void;
+  attachments: AttachmentDraft;
+  updateAttachment: (kind: BuybackAttachmentKind, file?: File) => void;
+  validation: ReturnType<typeof validateBuybackIntake>;
+  onSignature: (file?: File) => Promise<void>;
+  signatureResetKey: string;
+}) {
+  const needsBack = draft.customer_document_type !== "passport";
+  return (
+    <div className="space-y-2">
+      <section className={quoteCardClass}>
+        <SectionTitle
+          icon={Camera}
+          title="拍摄证件与设备"
+          subtitle="证件和签名进入私有受限存储；护照只拍资料页。"
+        />
+        <div className="grid gap-2 min-[390px]:grid-cols-2">
           <AttachmentCaptureButton
             kind="device_photo"
             icon={Smartphone}
@@ -2069,89 +2437,295 @@ function CustomerIntakeStep({
             onChange={updateAttachment}
           />
           <AttachmentCaptureButton
-            kind="signature"
-            icon={FileText}
-            label="客户签名"
-            file={attachments.signature}
-            required
-            onChange={(kind, file) => {
-              updateAttachment(kind, file);
-              updateDraft("customer_signature_status", file ? "signed" : "pending");
-            }}
-          />
-          <AttachmentCaptureButton
             kind="id_front"
             icon={UserRound}
-            label="证件正面"
+            label={draft.customer_document_type === "passport" ? "护照资料页" : "证件正面"}
             file={attachments.id_front}
             required
             onChange={updateAttachment}
           />
-          <AttachmentCaptureButton
-            kind="id_back"
-            icon={UserRound}
-            label="证件反面"
-            file={attachments.id_back}
-            required
-            onChange={updateAttachment}
-          />
-          <AttachmentCaptureButton
-            kind="invoice_photo"
-            icon={ReceiptText}
-            label={draft.purchase_proof ? "发票/凭证" : "无票确认"}
-            file={attachments.invoice_photo}
-            required={!draft.purchase_proof}
-            onChange={updateAttachment}
-          />
-          <AttachmentCaptureButton
-            kind="box_photo"
-            icon={Box}
-            label={draft.box_included ? "原装盒照片" : "无盒确认"}
-            file={attachments.box_photo}
-            required={!draft.box_included}
-            onChange={updateAttachment}
-          />
+          {needsBack ? (
+            <AttachmentCaptureButton
+              kind="id_back"
+              icon={UserRound}
+              label="证件反面"
+              file={attachments.id_back}
+              required
+              onChange={updateAttachment}
+            />
+          ) : null}
+          {draft.purchase_proof ? (
+            <AttachmentCaptureButton
+              kind="invoice_photo"
+              icon={ReceiptText}
+              label="发票/购买凭证"
+              file={attachments.invoice_photo}
+              onChange={updateAttachment}
+            />
+          ) : null}
+          {draft.box_included ? (
+            <AttachmentCaptureButton
+              kind="box_photo"
+              icon={Box}
+              label="原装盒照片"
+              file={attachments.box_photo}
+              onChange={updateAttachment}
+            />
+          ) : null}
         </div>
-        {!validation.canSave ? (
-          <div className="rounded-lg bg-status-warn/15 px-2 py-1.5 text-[10px] leading-4 text-status-warn-foreground">
-            待补齐：{[...validation.missing, ...validation.hardBlockReasons].slice(0, 4).join("、")}
-          </div>
-        ) : (
-          <div className="rounded-lg bg-status-success/15 px-2 py-1.5 text-[10px] leading-4 text-status-success-foreground">
-            资料和凭证已齐全，可以保存成交回收单。
-          </div>
-        )}
       </section>
 
-      <div className="grid gap-2">
-        <Button
-          type="button"
-          className={cn("h-9 gap-1.5 rounded-lg text-xs", controls.brandButton)}
-          style={brandGradientStyle}
-          disabled={result.hardBlock}
-          onClick={onWhatsapp}
+      <section className={quoteCardClass}>
+        <SectionTitle
+          icon={ShieldCheck}
+          title="客户确认"
+          subtitle="先阅读成交摘要，再由客户现场签名。"
+        />
+        <div className="rounded-xl border border-primary/20 bg-primary/8 p-2.5 text-[11px] leading-5">
+          <p className="font-semibold">Riepilogo acquisto</p>
+          <p>{[draft.brand, draft.model, draft.storage_capacity].filter(Boolean).join(" ")}</p>
+          <p>IMEI / SN: {draft.serial_or_imei || "—"}</p>
+          <p className="font-semibold text-primary">Importo: €{result.finalOffer.toFixed(2)}</p>
+          <p>Metodo di pagamento: {buybackPaymentLabel(draft.payment_method)}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
+            <p className="text-xs font-semibold">Informativa e condizioni da firmare</p>
+            <span className="text-[10px] text-muted-foreground">
+              {BUYBACK_PRIVACY_NOTICE_VERSION} · {BUYBACK_AGREEMENT_VERSION}
+            </span>
+          </div>
+          <div className="max-h-52 space-y-3 overflow-y-auto rounded-lg bg-background p-2 text-[10px] leading-4 text-foreground">
+            <LegalDocumentText text={BUYBACK_PRIVACY_NOTICE_TEXT_IT} />
+            <LegalDocumentText text={BUYBACK_TERMS_TEXT_IT} />
+          </div>
+          <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
+            Il testo e la versione visualizzati vengono inclusi nel riepilogo firmato.
+          </p>
+        </div>
+        <ToggleRow
+          label="Il cliente autorizza la cancellazione dei dati dal dispositivo"
+          checked={draft.data_wipe_authorized}
+          onChange={(value) => updateDraft("data_wipe_authorized", value)}
+        />
+        <ToggleRow
+          label="Il cliente ha letto e accetta l'informativa privacy"
+          checked={draft.privacy_notice_accepted}
+          onChange={(value) => updateDraft("privacy_notice_accepted", value)}
+        />
+        <ToggleRow
+          label="Il cliente conferma la vendita alle condizioni sopra indicate"
+          checked={draft.agreement_accepted}
+          onChange={(value) => updateDraft("agreement_accepted", value)}
+        />
+        <Textarea
+          value={draft.customer_signature_note}
+          onChange={(event) => updateDraft("customer_signature_note", event.target.value)}
+          placeholder="门店核验备注（不要填写完整证件号码）"
+          maxLength={160}
+          className="min-h-16 resize-none rounded-lg text-base"
+        />
+        <SignaturePad
+          ariaLabel="客户回收成交签名区域"
+          required
+          resetKey={signatureResetKey}
+          disabled={
+            !draft.data_wipe_authorized ||
+            !draft.privacy_notice_accepted ||
+            !draft.agreement_accepted
+          }
+          onChange={(capture) => void onSignature(capture?.file)}
+        />
+        {getEvidenceGateMessage(draft) ? (
+          <p
+            role="alert"
+            className="rounded-lg bg-status-warn/20 px-2.5 py-2 text-[11px] text-status-warn-foreground"
+          >
+            {getEvidenceGateMessage(draft)}
+          </p>
+        ) : (
+          <p className="rounded-lg bg-status-success/20 px-2.5 py-2 text-[11px] text-status-success-foreground">
+            证件和签名已齐全，可进入最后确认。
+          </p>
+        )}
+        <span className="sr-only">{validation.canSave ? "资料完整" : "资料待补齐"}</span>
+      </section>
+    </div>
+  );
+}
+
+function LegalDocumentText({ text }: { text: string }) {
+  return (
+    <div className="space-y-1.5">
+      {text.split("\n\n").map((paragraph, index) => (
+        <p
+          key={`${index}-${paragraph.slice(0, 24)}`}
+          className={index === 0 ? "font-semibold" : ""}
         >
-          <MessageCircle className="size-3.5" />
-          发送报价到 WhatsApp
-        </Button>
+          {paragraph}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function ConfirmStep({
+  draft,
+  result,
+  validation,
+  saveError,
+  onWhatsapp,
+}: {
+  draft: BuybackQuoteDraft;
+  result: ReturnType<typeof calculateBuybackQuote>;
+  validation: ReturnType<typeof validateBuybackIntake>;
+  saveError: string;
+  onWhatsapp: () => void;
+}) {
+  const missing = [...validation.missing, ...validation.hardBlockReasons];
+  return (
+    <div className="space-y-2">
+      <DeviceSummaryCard draft={draft} result={result} showDeviceMeta />
+      <QuoteSummaryCard
+        title="最终成交金额"
+        result={result}
+        badgeLabel={result.hardBlock ? "风险待处理" : "已核对"}
+      >
+        <div className="grid gap-1.5 text-[11px] sm:grid-cols-2">
+          <InfoLine label="卖家" value={draft.customer_name || "—"} />
+          <InfoLine
+            label="证件"
+            value={`${buybackDocumentLabel(draft.customer_document_type)} · ••••${documentNumberLast4(draft.customer_document_no)}`}
+          />
+          <InfoLine label="付款" value={buybackPaymentLabel(draft.payment_method)} />
+          <InfoLine label="凭证" value={draft.signature_captured ? "证件与签名已绑定" : "待签名"} />
+        </div>
+      </QuoteSummaryCard>
+      <section className={quoteCardClass}>
+        <SectionTitle
+          icon={ShieldCheck}
+          title="最后确认"
+          subtitle="点击底部按钮后，成交、付款与库存会一次完成。"
+        />
+        {missing.length ? (
+          <ul className="space-y-1" aria-label="待补齐资料">
+            {missing.slice(0, 6).map((item) => (
+              <li
+                key={item}
+                className="rounded-lg bg-status-warn/20 px-2.5 py-2 text-[11px] text-status-warn-foreground"
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-lg bg-status-success/20 px-2.5 py-2 text-[11px] leading-4 text-status-success-foreground">
+            所有必要资料已完成。重复点击或网络重试不会生成第二笔回收付款。
+          </p>
+        )}
+        {saveError ? (
+          <p
+            role="alert"
+            className="rounded-lg bg-status-danger/20 px-2.5 py-2 text-[11px] text-status-danger-foreground"
+          >
+            {saveError}
+          </p>
+        ) : null}
         <Button
           type="button"
           variant="outline"
-          className="h-9 gap-1.5 rounded-lg text-xs"
-          onClick={() =>
-            toast.info("报价单导出会在后续接入 PDF 模板；当前成交资料会先保存到库存详情")
-          }
+          className="min-h-11 w-full gap-2"
+          onClick={onWhatsapp}
         >
-          <FileText className="size-3.5" />
-          生成报价单
+          <MessageCircle className="size-4" />
+          先把报价发送到 WhatsApp
         </Button>
-        <p className="flex items-center justify-center gap-1 text-[10px] leading-3 text-muted-foreground">
-          <CalendarClock className="size-3" />
-          报价基于当前检测结果，最终以到店复检为准
-        </p>
+      </section>
+    </div>
+  );
+}
+
+function BuybackSuccess({
+  itemId,
+  amount,
+  reviewOnly,
+  onNew,
+  onInventory,
+  onClose,
+}: {
+  itemId: string;
+  amount: number;
+  reviewOnly?: boolean;
+  onNew: () => void;
+  onInventory: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex min-h-[520px] flex-col bg-[var(--surface-workspace)] p-3 sm:p-5">
+      <SheetHeader className="sr-only">
+        <SheetTitle>回收成交成功</SheetTitle>
+        <SheetDescription>回收付款、协议和库存已完成。</SheetDescription>
+      </SheetHeader>
+      <div className="m-auto w-full max-w-md space-y-4 text-center">
+        <span className="mx-auto grid size-16 place-items-center rounded-full bg-status-success text-status-success-foreground">
+          <CheckCircle2 className="size-9" />
+        </span>
+        <div>
+          <h2 className="text-xl font-semibold">
+            {reviewOnly ? "资料已提交负责人" : "回收成交完成"}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {reviewOnly
+              ? "报价和检测已保存，证件与签名等待店主或店长采集"
+              : "付款、协议与库存记录已一次写入"}
+          </p>
+        </div>
+        <section className={cn(quoteCardClass, "text-left")}>
+          <InfoLine label="回收编号" value={itemId.slice(0, 12)} />
+          <InfoLine label="成交金额" value={`€${amount.toFixed(2)}`} />
+          <InfoLine
+            label="下一步"
+            value={reviewOnly ? "负责人登记证件、签名并确认成交" : "执行数据清除并准备翻新"}
+          />
+        </section>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button type="button" className="min-h-11" onClick={onInventory}>
+            查看库存
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => window.print()}
+          >
+            <ReceiptText className="size-4" />
+            打印回收凭据
+          </Button>
+          <Button type="button" variant="outline" className="min-h-11" onClick={onNew}>
+            新建回收
+          </Button>
+          <Button type="button" variant="ghost" className="min-h-11" onClick={onClose}>
+            完成并关闭
+          </Button>
+        </div>
       </div>
     </div>
   );
+}
+
+function buybackDocumentLabel(value: BuybackQuoteDraft["customer_document_type"]) {
+  if (value === "passport") return "护照";
+  if (value === "residence_permit") return "居留";
+  if (value === "driver_license") return "驾照";
+  if (value === "other") return "其他";
+  return "身份证";
+}
+
+function buybackPaymentLabel(value: BuybackQuoteDraft["payment_method"]) {
+  if (value === "bank_transfer") return "银行转账";
+  if (value === "store_credit") return "店内额度";
+  if (value === "other") return "其他";
+  return "现金";
 }
 
 function SectionTitle({
@@ -2199,7 +2773,7 @@ function AttachmentCaptureButton({
     <div className="min-w-0 space-y-1">
       <RepairOsBusinessCard
         as="label"
-        className={cn(repairOs.businessCardDense, "cursor-pointer rounded-lg px-2 py-1.5")}
+        className={cn(repairOs.businessCardDense, "min-h-11 cursor-pointer rounded-lg px-2 py-1.5")}
         leading={
           <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
             <Icon className="size-3.5" />
@@ -2216,7 +2790,7 @@ function AttachmentCaptureButton({
         <input
           id={inputId}
           type="file"
-          accept="image/*,application/pdf"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
           capture="environment"
           className="sr-only"
           onChange={(event) => onChange(kind, event.currentTarget.files?.[0])}
@@ -2273,7 +2847,7 @@ function TextField({
           placeholder={placeholder}
           inputMode={inputMode}
           className={cn(
-            "h-8 rounded-lg px-2 text-base md:text-sm",
+            "h-11 rounded-lg px-2 text-base md:text-sm",
             prefix && "pl-5",
             suffix && "pr-7",
           )}
@@ -2304,7 +2878,7 @@ function ToggleRow({
       aria-pressed={checked}
       className={cn(
         repairOs.businessCardDense,
-        "min-h-8 rounded-lg px-2 py-1.5 text-left text-[11px] leading-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "min-h-11 rounded-lg px-2 py-1.5 text-left text-[11px] leading-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         checked
           ? "border-primary/30 bg-primary/10 text-primary"
           : "border-[var(--border-panel)] bg-card text-foreground",
@@ -2408,7 +2982,7 @@ function ChoiceGroup<T extends string>({
             aria-pressed={value === option}
             className={cn(
               repairOs.businessCardDense,
-              "h-9 shrink-0 rounded-lg px-2.5 py-0 text-[12px] font-medium text-muted-foreground transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "h-11 shrink-0 rounded-lg px-2.5 py-0 text-[12px] font-medium text-muted-foreground transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               value === option && "border-primary/40 bg-primary/10 text-primary",
             )}
             bodyClassName="flex min-w-0 items-center justify-center gap-1.5"

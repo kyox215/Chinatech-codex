@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   assessBuybackCosmeticGrade,
+  buildBuybackAgreementSnapshot,
   buildBuybackQuoteCreateInput,
   buildBuybackQuoteDraftInput,
+  buildBuybackQuoteDraftUpdateInput,
+  buildBuybackQuoteReviewUpdateInput,
   buildBuybackQuoteDraftFromInventoryItem,
   buildBuybackQuoteUpdateInput,
   buildBuybackQualityCheckInput,
   calculateBuybackQuote,
   defaultBuybackQuoteDraft,
+  buybackQuoteSteps,
   getBuybackBatteryBand,
   getBuybackQuoteOffer,
   validateBuybackIntake,
@@ -33,6 +37,17 @@ describe("buyback quote calculation", () => {
     expect(defaultBuybackQuoteDraft.model).toBe("");
     expect(defaultBuybackQuoteDraft.storage_capacity).toBe("");
     expect(defaultBuybackQuoteDraft.market_price).toBe("");
+  });
+
+  it("exposes the novice workflow as six visible guided steps", () => {
+    expect(buybackQuoteSteps.map((step) => step.key)).toEqual([
+      "device",
+      "quote",
+      "inspection",
+      "seller",
+      "evidence",
+      "confirm",
+    ]);
   });
 
   it("calculates a final offer from market price, profit target and deductions", () => {
@@ -163,6 +178,12 @@ describe("buyback quote calculation", () => {
       invoice_photo_captured: true,
       box_photo_captured: true,
       customer_signature_note: "店内平板签名",
+      ownership_confirmed: true,
+      data_wipe_authorized: true,
+      privacy_notice_accepted: true,
+      agreement_accepted: true,
+      no_invoice_confirmed: true,
+      no_box_confirmed: true,
       serial_or_imei: "356789012345678",
       imei_check_status: "pass",
       screen_display_status: "pass",
@@ -183,7 +204,7 @@ describe("buyback quote calculation", () => {
     const result = calculateBuybackQuote(draft);
     const input = buildBuybackQuoteCreateInput(draft, result);
 
-    expect(input.buyback_price).toBe(result.finalOffer);
+    expect(input.buyback_price).toBe(0);
     expect(input.quoted_offer).toBe(result.finalOffer);
     expect(input.quote_payload?.buyback_quote).toMatchObject({
       final_offer: result.finalOffer,
@@ -194,13 +215,15 @@ describe("buyback quote calculation", () => {
       cosmetic_grade_score: result.cosmeticAssessment.score,
     });
     expect(input.quote_payload?.buyback_customer).toMatchObject({
-      name: "Mario Rossi",
-      phone: "3331234567",
       document_type: "passport",
-      document_no_masked: "YA*****67",
       signature_status: "signed",
     });
-    expect(input.notes).toContain("成交资料");
+    expect(input.quote_payload?.buyback_customer).not.toHaveProperty("name");
+    expect(input.quote_payload?.buyback_customer).not.toHaveProperty("phone");
+    expect(input.quote_payload?.buyback_customer).not.toHaveProperty("document_no_masked");
+    expect(input.notes).toContain("成交凭证");
+    expect(input.notes).not.toContain("Mario Rossi");
+    expect(input.notes).not.toContain("3331234567");
     expect(input.notes).not.toContain("YA1234567");
     expect(validateBuybackIntake(draft, result).canSave).toBe(true);
   });
@@ -208,14 +231,21 @@ describe("buyback quote calculation", () => {
   it("builds an update input with repair plan data for an existing buyback record", () => {
     const draft: BuybackQuoteDraft = {
       ...pricedQuoteDraft,
+      customer_name: "Mario Rossi",
+      customer_phone: "3331234567",
       screen_condition: "cracked",
       estimated_repair_cost: "85",
       serial_or_imei: "356789012345678",
     };
     const result = calculateBuybackQuote(draft);
     const input = buildBuybackQuoteUpdateInput(draft, result);
+    const reviewInput = buildBuybackQuoteReviewUpdateInput(draft, result);
 
     expect(input.buyback_price).toBe(result.finalOffer);
+    expect(reviewInput.buyback_price).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(reviewInput, "buyback_price")).toBe(false);
+    expect(reviewInput.customer_name).toBe(draft.customer_name);
+    expect(reviewInput.customer_phone).toBe(draft.customer_phone);
     expect(input.repair_cost_amount).toBe(85);
     expect(input.quote_payload?.buyback_repair_plan).toMatchObject({
       issue_summary: expect.stringContaining("屏幕破裂"),
@@ -240,9 +270,15 @@ describe("buyback quote calculation", () => {
       intent_outcome: "deferred",
       final_offer: result.finalOffer,
     });
+
+    const updateInput = buildBuybackQuoteDraftUpdateInput(draft, result);
+    expect(updateInput.buyback_price).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(updateInput, "buyback_price")).toBe(false);
+    expect(updateInput.customer_name).toBe(draft.customer_name);
+    expect(updateInput.customer_phone).toBe(draft.customer_phone);
   });
 
-  it("requires signature and ID photos when invoice or box are missing", () => {
+  it("uses declarations instead of fake invoice or box photos", () => {
     const draft: BuybackQuoteDraft = {
       ...pricedQuoteDraft,
       customer_intent_confirmed: true,
@@ -273,8 +309,63 @@ describe("buyback quote calculation", () => {
     expect(validation.canSave).toBe(false);
     expect(validation.missing).toContain("客户签名");
     expect(validation.missing).toContain("证件正面照片");
-    expect(validation.missing).toContain("无发票时的来源确认/证件补充");
-    expect(validation.missing).toContain("无原装盒时的确认记录");
+    expect(validation.missing).toContain("无发票声明");
+    expect(validation.missing).toContain("无原装盒声明");
+    expect(validation.missing).toContain("设备所有权声明");
+  });
+
+  it("requires only the passport data page for passport sellers", () => {
+    const draft: BuybackQuoteDraft = {
+      ...pricedQuoteDraft,
+      customer_intent_confirmed: true,
+      customer_name: "Mario Rossi",
+      customer_phone: "3331234567",
+      customer_document_type: "passport",
+      customer_document_no: "YA1234567",
+      customer_signature_status: "signed",
+      ownership_confirmed: true,
+      data_wipe_authorized: true,
+      privacy_notice_accepted: true,
+      agreement_accepted: true,
+      no_invoice_confirmed: true,
+      no_box_confirmed: true,
+      account_unlocked: true,
+      activation_lock_off: true,
+      device_photo_captured: true,
+      signature_captured: true,
+      id_front_captured: true,
+      id_back_captured: false,
+      serial_or_imei: "356789012345678",
+      imei_check_status: "pass",
+      screen_display_status: "pass",
+      touch_status: "pass",
+      front_camera_status: "pass",
+      back_camera_status: "pass",
+      microphone_status: "pass",
+      receiver_status: "pass",
+      speaker_status: "pass",
+      buttons_status: "pass",
+      charging_status: "pass",
+      wifi_status: "pass",
+      bluetooth_status: "pass",
+      cellular_status: "pass",
+      water_damage_status: "pass",
+      data_wipe_status: "pass",
+    };
+
+    const validation = validateBuybackIntake(draft, calculateBuybackQuote(draft));
+    expect(validation.missing).not.toContain("证件反面照片");
+    expect(validation.canSave).toBe(true);
+    const snapshot = buildBuybackAgreementSnapshot(draft, calculateBuybackQuote(draft));
+    expect(snapshot.seller).toMatchObject({
+      document_type: "passport",
+      document_no_last4: "4567",
+    });
+    expect(snapshot.payment).toEqual({ method: draft.payment_method });
+    expect(snapshot.device).toMatchObject({
+      purchase_proof: draft.purchase_proof,
+      box_included: draft.box_included,
+    });
   });
 
   it("requires an IMEI or serial number before saving a buyback purchase", () => {

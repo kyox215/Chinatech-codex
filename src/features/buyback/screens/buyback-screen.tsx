@@ -308,6 +308,10 @@ export function BuybackScreen() {
           onOpenChange={handleQuoteOpenChange}
           initialDraft={quoteInitialDraft}
           targetItem={quoteTargetRecord}
+          canCaptureEvidence={
+            shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager"
+          }
+          canFinalize={shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager"}
         />
         <BuybackRecordSheet
           item={selectedRecord}

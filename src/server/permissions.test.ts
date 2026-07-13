@@ -99,6 +99,36 @@ describe("server permission matrix", () => {
     expect(can(actor("sales"), "payment:adjust")).toBe(false);
   });
 
+  it("separates buyback evidence capture, restricted read, and finalization", () => {
+    expect(can(actor("owner"), "buyback:evidence_capture")).toBe(true);
+    expect(can(actor("owner"), "buyback:evidence_read")).toBe(true);
+    expect(can(actor("owner"), "buyback:finalize")).toBe(true);
+    expect(can(actor("manager"), "buyback:evidence_capture")).toBe(true);
+    expect(can(actor("manager"), "buyback:evidence_read")).toBe(true);
+    expect(can(actor("manager"), "buyback:finalize")).toBe(true);
+    expect(can(actor("sales"), "buyback:evidence_capture")).toBe(false);
+    expect(can(actor("sales"), "buyback:evidence_read")).toBe(false);
+    expect(can(actor("sales"), "buyback:finalize")).toBe(false);
+    expect(can(actor("technician"), "buyback:evidence_capture")).toBe(false);
+    expect(can(actor("technician"), "buyback:evidence_read")).toBe(false);
+    expect(can(actor("technician"), "buyback:finalize")).toBe(false);
+    expect(getPermissionDecision(actor("manager"), "buyback:finalize")).toMatchObject({
+      auditRequired: true,
+      sensitive: true,
+    });
+  });
+
+  it("keeps legacy inventory and buyback ledger imports owner-only", () => {
+    expect(can(actor("owner"), "inventory:legacy_import")).toBe(true);
+    for (const role of ["manager", "technician", "sales", "viewer"] as const) {
+      expect(can(actor(role), "inventory:legacy_import"), role).toBe(false);
+    }
+    expect(getPermissionDecision(actor("owner"), "inventory:legacy_import")).toMatchObject({
+      auditRequired: true,
+      sensitive: true,
+    });
+  });
+
   it("limits batch order transitions to owner and manager", () => {
     expect(getPermissionDecision(actor("owner"), "order:batch_transition")).toMatchObject({
       allowed: true,

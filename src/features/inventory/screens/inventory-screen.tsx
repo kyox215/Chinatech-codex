@@ -105,6 +105,7 @@ import {
 import { formatEuro, formatItalianDateTime } from "@/features/orders/model/order-italian";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 import {
+  accessInventoryAttachment,
   applyElectronicsCsvImport,
   createInventoryIntake,
   getInventoryItem,
@@ -832,6 +833,14 @@ function InventoryDetailBody({
     ? 0
     : (buybackSummary?.repairCost ?? item.repair_cost_amount);
   const fees = item.finance_redacted ? 0 : (buybackSummary?.fees ?? item.fees_amount);
+  const attachmentAccess = useMutation({
+    mutationFn: (attachmentId: string) => accessInventoryAttachment(item.id, attachmentId),
+    onSuccess: (result) => {
+      window.open(result.signed_url, "_blank", "noopener,noreferrer");
+    },
+    onError: (attachmentError) =>
+      toast.error(getErrorMessage(attachmentError, "当前账号无法查看该附件")),
+  });
 
   return (
     <div className="space-y-2">
@@ -978,12 +987,17 @@ function InventoryDetailBody({
                     {content}
                   </a>
                 ) : (
-                  <div
+                  <button
+                    type="button"
                     key={attachment.id}
-                    className="block min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
+                    className="block min-h-11 w-full min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-left disabled:cursor-wait disabled:opacity-60"
+                    disabled={
+                      attachmentAccess.isPending && attachmentAccess.variables === attachment.id
+                    }
+                    onClick={() => attachmentAccess.mutate(attachment.id)}
                   >
                     {content}
-                  </div>
+                  </button>
                 );
               })}
               {data.attachments.length === 0 ? (
@@ -1737,7 +1751,10 @@ function InventoryActionDialog({
   function handleCheck(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    checkMutation.mutate({ id: currentItem.id, input: checkInput(formData) });
+    checkMutation.mutate({
+      id: currentItem.id,
+      input: checkInput(formData, currentItem.updated_at),
+    });
   }
 
   function handleSell(event: React.FormEvent<HTMLFormElement>) {
@@ -1797,15 +1814,21 @@ function InventoryActionDialog({
             <div className={compactInventoryGrid}>
               {!currentItem.finance_redacted ? (
                 <>
-                  <Field
-                    name="buyback_price"
-                    label="回收实付"
-                    type="number"
-                    step="0.01"
-                    defaultValue={
-                      currentItem.buyback_price ? String(currentItem.buyback_price) : ""
-                    }
-                  />
+                  {currentItem.source_type !== "buyback" ? (
+                    <Field
+                      name="buyback_price"
+                      label="采购成本"
+                      type="number"
+                      step="0.01"
+                      defaultValue={
+                        currentItem.buyback_price ? String(currentItem.buyback_price) : ""
+                      }
+                    />
+                  ) : (
+                    <div className="flex min-h-11 items-center rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs text-muted-foreground">
+                      回收实付已由成交协议锁定；如需撤销，请使用专用冲正流程。
+                    </div>
+                  )}
                   <Field
                     name="repair_cost_amount"
                     label="维修/整备"
@@ -2858,8 +2881,9 @@ function intakeInput(formData: FormData): CreateInventoryIntakeInput {
   };
 }
 
-function checkInput(formData: FormData): InventoryQualityCheckInput {
+function checkInput(formData: FormData, expectedUpdatedAt: string): InventoryQualityCheckInput {
   return {
+    expected_updated_at: expectedUpdatedAt,
     cosmetic_grade: textValue(
       formData,
       "cosmetic_grade",

@@ -57,7 +57,9 @@ import {
 } from "@/features/customers/server/customer.service";
 import {
   applyElectronicsCsvImport,
+  accessInventoryAttachment,
   createInventoryIntake,
+  finalizeBuybackPurchase,
   getInventoryItem,
   getInventoryStats,
   getInventorySummary,
@@ -143,7 +145,9 @@ import {
 } from "@/features/realtime/server/realtime-broadcast";
 import type {
   AuditActor,
+  CreateInventoryIntakeInput,
   CreateOrderInput,
+  InventoryItemStatus,
   InventoryTransactionInput,
   OrderListItem,
   OrderListResult,
@@ -179,6 +183,8 @@ import {
   electronicsCsvImportBodySchema,
   idBodySchema,
   inventoryAttachmentUploadBodySchema,
+  inventoryAttachmentAccessBodySchema,
+  buybackFinalizeBodySchema,
   inventoryIntakeCreateBodySchema,
   inventoryListFiltersSchema,
   inventoryQualityCheckBodySchema,
@@ -234,11 +240,13 @@ const supabaseSource = {
   approveOnboardingRequest,
   approveStoreAccessRequest,
   applyElectronicsCsvImport,
+  accessInventoryAttachment,
   archiveSupplier,
   cancelOnboardingRequest,
   createCustomer,
   createCustomerFollowup,
   createInventoryIntake,
+  finalizeBuybackPurchase,
   createKioskDevicePairing,
   createKioskSession,
   createOrder,
@@ -1343,6 +1351,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/intake/create": {
         const { input } = inventoryIntakeCreateBodySchema.parse(body);
+        assertInventoryIntakeDoesNotBypassBuybackFinalize(input);
         assertInventoryCreatePermission(actor);
         return ok(
           await runWithRealtime(
@@ -1365,7 +1374,10 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/transition": {
         const { id, to, reason } = inventoryTransitionBodySchema.parse(body);
-        assertInventoryUpdatePermission(actor);
+        if (to === "purchased") {
+          throw new Error("回收成交必须使用带签名与幂等保护的确认成交操作");
+        }
+        assertInventoryTransitionPermission(actor, to);
         return ok(
           await runWithRealtime(
             actor,
@@ -1387,12 +1399,33 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/attachment/upload": {
         const { id, input } = inventoryAttachmentUploadBodySchema.parse(body);
-        assertInventoryUpdatePermission(actor);
+        if (
+          ["id_front", "id_back", "signature", "invoice_photo", "box_photo"].includes(input.kind)
+        ) {
+          assertBuybackEvidenceCapturePermission(actor);
+        } else {
+          assertInventoryUpdatePermission(actor);
+        }
         return ok(
           await runWithRealtime(
             actor,
             () => api.uploadInventoryAttachment(id, input, actor),
             realtimeBroadcasts.inventoryUpdated,
+          ),
+        );
+      }
+      case "inventory/attachment/access": {
+        const { id, attachment_id } = inventoryAttachmentAccessBodySchema.parse(body);
+        return ok(await api.accessInventoryAttachment(id, attachment_id, actor));
+      }
+      case "inventory/buyback/finalize": {
+        const { id, input } = buybackFinalizeBodySchema.parse(body);
+        assertBuybackFinalizePermission(actor);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.finalizeBuybackPurchase(id, input, actor),
+            realtimeBroadcasts.inventoryTransitioned,
           ),
         );
       }
@@ -1420,11 +1453,12 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/import/electronics/preview": {
         const { csvContent } = electronicsCsvImportBodySchema.parse(body);
-        return ok(await api.importElectronicsCsvPreview(csvContent));
+        assertLegacyElectronicsImportPermission(actor);
+        return ok(await api.importElectronicsCsvPreview(csvContent, actor));
       }
       case "inventory/import/electronics/apply": {
         const { csvContent } = electronicsCsvImportBodySchema.parse(body);
-        assertInventoryCreatePermission(actor);
+        assertLegacyElectronicsImportPermission(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -1715,23 +1749,46 @@ export function assertInventoryCreatePermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "inventory:create");
 }
 
+export function assertInventoryIntakeDoesNotBypassBuybackFinalize(
+  input: CreateInventoryIntakeInput,
+) {
+  const sourceType = input.source_type?.trim() || "buyback";
+  if (sourceType === "buyback" && Number(input.buyback_price ?? 0) !== 0) {
+    throw new Error("回收成本只能由带证件、签名与幂等保护的确认成交操作写入");
+  }
+}
+
 export function assertInventoryUpdatePermission(
   actor: AuditActor,
   input?: UpdateInventoryItemInput,
 ) {
   assertRepairDeskPermission(actor, "inventory:update");
-  if (
-    input &&
-    ["buyback_price", "repair_cost_amount", "fees_amount"].some((field) =>
-      hasOwnField(input, field),
-    )
-  ) {
+  if (input && hasOwnField(input, "buyback_price")) {
+    assertRepairDeskPermission(actor, "finance:order_read");
+  }
+  if (input && ["repair_cost_amount", "fees_amount"].some((field) => hasOwnField(input, field))) {
     assertRepairDeskPermission(actor, "finance:profit_read");
   }
 }
 
 export function assertInventoryQualityCheckPermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "inventory:quality_check");
+}
+
+export function assertInventoryTransitionPermission(actor: AuditActor, to: InventoryItemStatus) {
+  if (to === "recycled") {
+    assertRepairDeskPermission(actor, "inventory:write_off");
+    return;
+  }
+  assertInventoryUpdatePermission(actor);
+}
+
+export function assertBuybackEvidenceCapturePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "buyback:evidence_capture");
+}
+
+export function assertBuybackFinalizePermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "buyback:finalize");
 }
 
 export function assertInventorySalePermission(actor: AuditActor) {
@@ -1742,6 +1799,9 @@ export function assertInventoryTransactionPermission(
   actor: AuditActor,
   input: InventoryTransactionInput,
 ) {
+  if (input.transaction_type === "buyback_payment") {
+    throw new Error("回收付款只能由带证件、签名与幂等保护的确认成交操作生成");
+  }
   if (input.transaction_type === "sale_payment") {
     assertInventorySalePermission(actor);
     return;
@@ -1749,6 +1809,10 @@ export function assertInventoryTransactionPermission(
 
   assertInventoryUpdatePermission(actor);
   assertRepairDeskPermission(actor, "finance:profit_read");
+}
+
+export function assertLegacyElectronicsImportPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "inventory:legacy_import");
 }
 
 export function assertStoreSettingsUpdatePermission(actor: AuditActor) {

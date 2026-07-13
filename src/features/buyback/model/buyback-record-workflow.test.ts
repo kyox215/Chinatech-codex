@@ -256,6 +256,10 @@ describe("buyback record workflow", () => {
             purchase_proof: false,
             box_included: false,
           },
+          buyback_declarations: {
+            no_invoice_confirmed: false,
+            no_box_confirmed: false,
+          },
           buyback_customer: {
             name: "Mario Rossi",
             phone: "+393331234567",
@@ -295,6 +299,58 @@ describe("buyback record workflow", () => {
       detail: "还缺 无发票确认",
     });
     expect(readiness.missing).toEqual(["无发票确认", "无原装盒确认"]);
+  });
+
+  it("accepts a passport data page and signed no-invoice/no-box declarations", () => {
+    const readiness = getBuybackRecordReadiness(
+      makeItem("purchased", {
+        customer_name: "Mario Rossi",
+        customer_phone: "+393331234567",
+        imei_check_status: "pass",
+        data_wipe_status: "pass",
+        legacy_payload: {
+          buyback_quote: { final_offer: 180, intent_outcome: "accepted" },
+          buyback_device: { purchase_proof: false, box_included: false },
+          buyback_declarations: {
+            no_invoice_confirmed: true,
+            no_box_confirmed: true,
+          },
+          buyback_customer: {
+            name: "Mario Rossi",
+            phone: "+393331234567",
+            document_type: "passport",
+            document_no_masked: "YA*****67",
+            signature_captured: true,
+            id_front_captured: true,
+            id_back_captured: false,
+            device_photo_captured: true,
+            invoice_photo_captured: false,
+            box_photo_captured: false,
+          },
+          buyback_function_checks: {
+            imei_check_status: "pass",
+            screen_display_status: "pass",
+            touch_status: "pass",
+            front_camera_status: "pass",
+            back_camera_status: "pass",
+            microphone_status: "pass",
+            receiver_status: "pass",
+            speaker_status: "pass",
+            buttons_status: "pass",
+            charging_status: "pass",
+            wifi_status: "pass",
+            bluetooth_status: "pass",
+            cellular_status: "pass",
+            water_damage_status: "pass",
+            data_wipe_status: "pass",
+          },
+        },
+      }),
+      "low",
+    );
+
+    expect(readiness.missing).toEqual([]);
+    expect(readiness.state).toBe("ready");
   });
 
   it("builds one primary action for buyback operators", () => {
@@ -351,5 +407,9 @@ describe("buyback record workflow", () => {
       canResumeQuote: false,
       missingCount: 0,
     });
+
+    const purchasedHighRisk = getBuybackRecordPrimaryAction(makeItem("purchased"), "high");
+    expect(purchasedHighRisk.canResumeQuote).toBe(false);
+    expect(purchasedHighRisk.label).not.toBe("先复核风险");
   });
 });

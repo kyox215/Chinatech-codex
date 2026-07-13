@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BUYBACK_AGREEMENT_VERSION,
+  BUYBACK_PRIVACY_NOTICE_SHA256,
+  BUYBACK_PRIVACY_NOTICE_TEXT_IT,
+  BUYBACK_PRIVACY_NOTICE_VERSION,
+  BUYBACK_TERMS_SHA256,
+  BUYBACK_TERMS_TEXT_IT,
+} from "@/features/buyback/model/buyback-agreement";
+
+import {
   approvalStatusSchema,
   batchTransitionBodySchema,
+  buybackFinalizeInputSchema,
   createOrderSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
+  inventoryQualityCheckInputSchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
   orderListFiltersSchema,
@@ -23,6 +34,153 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it("accepts an optional ISO version for inventory quality-check CAS", () => {
+    expect(
+      inventoryQualityCheckInputSchema.parse({
+        expected_updated_at: "2026-07-13T10:00:00.000Z",
+        data_wipe_status: "pass",
+      }),
+    ).toMatchObject({
+      expected_updated_at: "2026-07-13T10:00:00.000Z",
+      data_wipe_status: "pass",
+    });
+    expect(() =>
+      inventoryQualityCheckInputSchema.parse({ expected_updated_at: "stale-version" }),
+    ).toThrow();
+  });
+
+  it("accepts only the allowlisted buyback agreement snapshot without full document data", () => {
+    const input = {
+      expected_updated_at: "2026-07-12T12:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000201",
+      item_patch: {},
+      quality_check: {},
+      agreement_snapshot: {
+        agreement_version: "chinatech-buyback-v1",
+        privacy_notice_version: "chinatech-privacy-v1",
+        language: "it-IT",
+        legal_documents: {
+          privacy_notice: {
+            version: BUYBACK_PRIVACY_NOTICE_VERSION,
+            sha256: BUYBACK_PRIVACY_NOTICE_SHA256,
+            text: BUYBACK_PRIVACY_NOTICE_TEXT_IT,
+          },
+          buyback_terms: {
+            version: BUYBACK_AGREEMENT_VERSION,
+            sha256: BUYBACK_TERMS_SHA256,
+            text: BUYBACK_TERMS_TEXT_IT,
+          },
+        },
+        device: {
+          brand: "Apple",
+          model: "iPhone 17",
+          storage_capacity: "128GB",
+          serial_or_imei: "356789012345678",
+          purchase_proof: false,
+          box_included: false,
+        },
+        payment: { method: "cash" },
+        quote: { amount: 475, currency_code: "EUR" },
+        seller: {
+          name: "Mario Demo",
+          phone: "+39 333 000 1234",
+          document_type: "id_card",
+          document_no_last4: "1234",
+        },
+        declarations: {
+          ownership_confirmed: true,
+          data_wipe_authorized: true,
+          privacy_notice_accepted: true,
+          agreement_accepted: true,
+          no_invoice_confirmed: true,
+          no_box_confirmed: true,
+        },
+      },
+      agreement_hash: "a".repeat(64),
+      agreement_version: "chinatech-buyback-v1",
+      privacy_notice_version: "chinatech-privacy-v1",
+      language: "it-IT",
+      document_type: "id_card",
+      document_no_last4: "1234",
+      signature_attachment_id: "00000000-0000-4000-8000-000000000202",
+      evidence_attachment_ids: [
+        "00000000-0000-4000-8000-000000000203",
+        "00000000-0000-4000-8000-000000000204",
+        "00000000-0000-4000-8000-000000000205",
+      ],
+      payment_method: "cash",
+    };
+
+    expect(() => buybackFinalizeInputSchema.parse(input)).not.toThrow();
+    expect(() =>
+      buybackFinalizeInputSchema.parse({
+        ...input,
+        agreement_snapshot: {
+          ...input.agreement_snapshot,
+          legal_documents: {
+            ...input.agreement_snapshot.legal_documents,
+            buyback_terms: {
+              ...input.agreement_snapshot.legal_documents.buyback_terms,
+              text: `${BUYBACK_TERMS_TEXT_IT}\nModifica non firmata`,
+            },
+          },
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      buybackFinalizeInputSchema.parse({
+        ...input,
+        agreement_snapshot: {
+          ...input.agreement_snapshot,
+          seller: {
+            ...input.agreement_snapshot.seller,
+            document_no: "CA1234567",
+          },
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      buybackFinalizeInputSchema.parse({
+        ...input,
+        agreement_snapshot: {
+          ...input.agreement_snapshot,
+          seller: {
+            ...input.agreement_snapshot.seller,
+            verification_note: "Documento CA1234567",
+          },
+        },
+      }),
+    ).toThrow(/完整证件号/);
+    expect(() =>
+      buybackFinalizeInputSchema.parse({
+        ...input,
+        document_no_last4: "12345678",
+      }),
+    ).toThrow();
+    expect(() =>
+      buybackFinalizeInputSchema.parse({
+        ...input,
+        agreement_snapshot: {
+          ...input.agreement_snapshot,
+          seller: {
+            ...input.agreement_snapshot.seller,
+            verification_note: "Documento A-1-2-3-4-5",
+          },
+        },
+      }),
+    ).toThrow(/完整证件号/);
+    expect(() =>
+      buybackFinalizeInputSchema.parse({
+        ...input,
+        agreement_version: "forged-v2",
+        agreement_snapshot: {
+          ...input.agreement_snapshot,
+          agreement_version: "forged-v2",
+        },
+      }),
+    ).toThrow();
+  });
+
   it("coerces payment amounts", () => {
     expect(
       paymentBodySchema.parse({
