@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const storeId = "5248dda1-2b32-46cd-8ed0-d15386a9e8ed";
 
 const mocks = vi.hoisted(() => ({
+  acceptKioskSession: vi.fn(),
   createOrder: vi.fn(),
   getRequestActor: vi.fn(),
   hasSupabaseConfig: vi.fn(),
   isRepairDeskE2eAuthBypassEnabled: vi.fn(),
   queueRepairDeskRealtimeBroadcast: vi.fn(),
+  returnKioskSession: vi.fn(),
   updateStoreSettings: vi.fn(),
   writeAuditLog: vi.fn(),
 }));
@@ -37,7 +39,9 @@ vi.mock("@/shared/lib/e2e-auth-bypass", () => ({
 
 vi.mock("@/lib/mock/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/mock/api")>()),
+  acceptKioskSession: mocks.acceptKioskSession,
   createOrder: mocks.createOrder,
+  returnKioskSession: mocks.returnKioskSession,
   updateStoreSettings: mocks.updateStoreSettings,
 }));
 
@@ -62,6 +66,8 @@ describe("repairdesk router realtime integration", () => {
       public_no: "RD-1",
       status: "new",
     });
+    mocks.acceptKioskSession.mockResolvedValue({ id: "session_1", status: "accepted" });
+    mocks.returnKioskSession.mockResolvedValue({ id: "session_1", status: "returned" });
     mocks.updateStoreSettings.mockResolvedValue({
       store_name: "Chinatech",
     });
@@ -132,6 +138,30 @@ describe("repairdesk router realtime integration", () => {
       domain: "settings",
       mutation: "settings_updated",
       queryGroups: ["suppliers.all", "orders.options", "orders.all"],
+    });
+  });
+
+  it("enforces the owner-manager kiosk review gate on the real routes", async () => {
+    mocks.getRequestActor.mockResolvedValueOnce({
+      id: "sales_1",
+      role: "sales",
+      storeId,
+      storeName: "Chinatech",
+      storeRole: "sales",
+    });
+    const forbidden = await handleRepairDeskPost("kiosk/sessions/accept", { id: "session_1" });
+    expect(forbidden.status).toBe(403);
+    expect(mocks.acceptKioskSession).not.toHaveBeenCalled();
+
+    const accepted = await handleRepairDeskPost("kiosk/sessions/accept", { id: "session_1" });
+    expect(accepted.status).toBe(200);
+    expect(mocks.acceptKioskSession).toHaveBeenCalledTimes(1);
+
+    expect(mocks.queueRepairDeskRealtimeBroadcast).toHaveBeenLastCalledWith({
+      storeId,
+      domain: "settings",
+      mutation: "updated",
+      queryGroups: ["kiosk.sessions", "orders.all", "customers.all"],
     });
   });
 

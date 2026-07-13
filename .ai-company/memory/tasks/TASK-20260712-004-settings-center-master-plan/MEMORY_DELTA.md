@@ -34,3 +34,10 @@
 - Supplier form limits must match the repository exactly. The shared current contract uses 120-character names, 32-character short names, strict email, HTTP(S)-only URLs, and unknown-key rejection.
 - Supplier archive is one-way in the current API. The UI must not display restore until a separately reviewed restore endpoint exists.
 - WP-04 remains production DB NO-GO until pending member RPC application, actor/CAS review, transaction/audit integrity, and supplier active-name uniqueness receive Owner approval and post-apply evidence.
+- Public Kiosk treats stable unauthorized as an authority-loss boundary that clears token/session/DOM PII. Transient network or internal failures must preserve the current unsent form and show recoverable copy.
+- Kiosk public responses and anonymous errors are allowlists: never expose raw request payloads, internal identifiers, balance, signature data URLs, database errors, or configuration errors.
+- Pair and submit need store/status/expiry/version compare-and-swap. This closes local races but does not replace the required production transaction across customer, order, attachment, session, event, and audit writes.
+- Kiosk review is owner/manager only in the current contract. Production accept/return must remain fail-closed until the Owner explicitly approves and enables the production write gate.
+- Return-reason drafts are store/session/submission-version bound and tab-scoped. They join the global dirty guard and must be consumed after accept/return; their retention still belongs to the production privacy policy.
+- Kiosk Realtime broadcasts only allowlisted invalidation metadata for `kiosk.devices` and `kiosk.sessions`; no token, code, customer, order, or signature data belongs in a broadcast.
+- WP-05 remains production DB NO-GO until transactional RPC/outbox, same-store/state constraints, Storage compensation, distributed limiting/audit, token policy, role semantics, retention/GDPR, linked dry-run, and post-apply evidence receive Owner approval.

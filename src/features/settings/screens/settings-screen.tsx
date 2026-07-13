@@ -72,6 +72,16 @@ import { RulesSettingsSection } from "@/features/settings/sections/rules-setting
 import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
 import { MembersSettingsSection } from "@/features/settings/sections/members-settings-section";
 import { SuppliersSettingsSection } from "@/features/settings/sections/suppliers-settings-section";
+import {
+  KioskSettingsSection,
+  type KioskPairingDisplay,
+} from "@/features/settings/sections/kiosk-settings-section";
+import {
+  areKioskReturnDraftsEqual,
+  kioskReturnDraftKey,
+  readKioskReturnDrafts,
+  writeKioskReturnDrafts,
+} from "@/features/settings/model/kiosk-return-draft";
 import type { MemberEditorDraft } from "@/features/settings/model/member-settings-editor";
 import {
   getOrderWorkflowBucketLabel,
@@ -194,6 +204,13 @@ const initialSaveStatus: Record<StoreSettingsSection, SettingsSaveStatus> = {
   rules: "clean",
 };
 
+interface StoreBoundKioskReturnDrafts {
+  storeId?: string;
+  drafts: Record<string, string>;
+}
+
+const emptyKioskReturnDrafts: StoreBoundKioskReturnDrafts = { drafts: {} };
+
 function canSaveDraftInSection(section: SettingsSectionKey) {
   return section === "store" || section === "notifications" || section === "rules";
 }
@@ -310,9 +327,15 @@ export function SettingsScreen() {
   const [latestInviteCodeState, setLatestInviteCodeState] =
     useState<StoreBoundTransientValue<string> | null>(null);
   const [memberActionId, setMemberActionId] = useState("");
-  const [kioskDeviceLabel, setKioskDeviceLabel] = useState("前台 iPad");
   const [latestKioskPairingCodeState, setLatestKioskPairingCodeState] =
-    useState<StoreBoundTransientValue<string> | null>(null);
+    useState<StoreBoundTransientValue<KioskPairingDisplay> | null>(null);
+  const [kioskReturnDraftState, setKioskReturnDraftState] =
+    useState<StoreBoundKioskReturnDrafts>(emptyKioskReturnDrafts);
+  const kioskReturnDraftStateRef = useRef<StoreBoundKioskReturnDrafts>(emptyKioskReturnDrafts);
+  const [persistedKioskReturnDraftState, setPersistedKioskReturnDraftState] =
+    useState<StoreBoundKioskReturnDrafts>(emptyKioskReturnDrafts);
+  const persistedKioskReturnDraftStateRef =
+    useRef<StoreBoundKioskReturnDrafts>(emptyKioskReturnDrafts);
   const activeStoreScopeRef = useRef({ storeId: activeStoreId, epoch: 0 });
   const inviteCodeRequestEpochRef = useRef(0);
   const kioskPairingRequestEpochRef = useRef(0);
@@ -338,7 +361,19 @@ export function SettingsScreen() {
     setMemberActionId("");
     setMemberSectionDirty(false);
     setSupplierSectionDirty(false);
-    setKioskDeviceLabel("前台 iPad");
+  }, [activeStoreId]);
+
+  useEffect(() => {
+    const next = activeStoreId
+      ? {
+          storeId: activeStoreId,
+          drafts: readKioskReturnDrafts(window.sessionStorage, activeStoreId),
+        }
+      : emptyKioskReturnDrafts;
+    kioskReturnDraftStateRef.current = next;
+    persistedKioskReturnDraftStateRef.current = next;
+    setKioskReturnDraftState(next);
+    setPersistedKioskReturnDraftState(next);
   }, [activeStoreId]);
 
   useEffect(() => {
@@ -407,15 +442,25 @@ export function SettingsScreen() {
   );
   const hasAccountNameChange = Boolean(accountName && accountNameDirty);
   const latestInviteCode = valueForActiveStore(latestInviteCodeState, activeStoreId) ?? "";
-  const latestKioskPairingCode =
-    valueForActiveStore(latestKioskPairingCodeState, activeStoreId) ?? "";
+  const latestKioskPairing =
+    valueForActiveStore(latestKioskPairingCodeState, activeStoreId) ?? undefined;
+  const kioskReturnDrafts =
+    kioskReturnDraftState.storeId === activeStoreId ? kioskReturnDraftState.drafts : {};
+  const persistedKioskReturnDrafts =
+    persistedKioskReturnDraftState.storeId === activeStoreId
+      ? persistedKioskReturnDraftState.drafts
+      : {};
+  const kioskReturnDraftDirty = !areKioskReturnDraftsEqual(
+    kioskReturnDrafts,
+    persistedKioskReturnDrafts,
+  );
   const sectionDirtyState = useMemo<Record<SettingsSectionKey, boolean>>(() => {
     const base = {
       account: accountNameDirty,
       store: false,
       members: memberSectionDirty,
       suppliers: supplierSectionDirty,
-      kiosk: false,
+      kiosk: kioskReturnDraftDirty,
       notifications: false,
       rules: false,
       workflow: false,
@@ -427,7 +472,13 @@ export function SettingsScreen() {
       notifications: isStoreSettingsSectionDirty(activeDrafts, "notifications"),
       rules: isStoreSettingsSectionDirty(activeDrafts, "rules"),
     };
-  }, [accountNameDirty, activeDrafts, memberSectionDirty, supplierSectionDirty]);
+  }, [
+    accountNameDirty,
+    activeDrafts,
+    kioskReturnDraftDirty,
+    memberSectionDirty,
+    supplierSectionDirty,
+  ]);
 
   const updateSettingsField = <S extends StoreSettingsSection>(
     section: S,
@@ -630,6 +681,77 @@ export function SettingsScreen() {
     setAccountNameDraft(baseName);
     return { status: "resolved" };
   };
+  const focusKioskReturnDraft = () =>
+    document.querySelector<HTMLTextAreaElement>('textarea[id^="kiosk-return-"]')?.focus();
+  const isKioskReturnDraftDirty = () => {
+    const storeId = activeStoreScopeRef.current.storeId;
+    const current = kioskReturnDraftStateRef.current;
+    const persisted = persistedKioskReturnDraftStateRef.current;
+    if (!storeId || current.storeId !== storeId || persisted.storeId !== storeId) return false;
+    return !areKioskReturnDraftsEqual(current.drafts, persisted.drafts);
+  };
+  const updateKioskReturnDraft = (session: KioskSession, value: string) => {
+    const storeId = activeStoreScopeRef.current.storeId;
+    const current = kioskReturnDraftStateRef.current;
+    if (!storeId || current.storeId !== storeId || session.store_id !== storeId) return;
+    const key = kioskReturnDraftKey(session);
+    const drafts = { ...current.drafts };
+    if (value.length > 0) drafts[key] = value.slice(0, 240);
+    else delete drafts[key];
+    const next = { storeId, drafts };
+    kioskReturnDraftStateRef.current = next;
+    setKioskReturnDraftState(next);
+  };
+  const consumeKioskReturnDraft = (session: KioskSession) => {
+    const storeId = activeStoreScopeRef.current.storeId;
+    const current = kioskReturnDraftStateRef.current;
+    const persisted = persistedKioskReturnDraftStateRef.current;
+    if (!storeId || current.storeId !== storeId || session.store_id !== storeId) return;
+    const key = kioskReturnDraftKey(session);
+    const currentDrafts = { ...current.drafts };
+    delete currentDrafts[key];
+    const nextCurrent = { storeId, drafts: currentDrafts };
+    kioskReturnDraftStateRef.current = nextCurrent;
+    setKioskReturnDraftState(nextCurrent);
+    if (persisted.storeId !== storeId) return;
+    const persistedDrafts = { ...persisted.drafts };
+    delete persistedDrafts[key];
+    const nextPersisted = { storeId, drafts: persistedDrafts };
+    persistedKioskReturnDraftStateRef.current = nextPersisted;
+    setPersistedKioskReturnDraftState(nextPersisted);
+    try {
+      writeKioskReturnDrafts(window.sessionStorage, storeId, persistedDrafts);
+    } catch {
+      toast.warning("审核已完成，但本机退回原因草稿清理失败");
+    }
+  };
+  const saveKioskReturnDrafts = async (): Promise<NavigationGuardResolution> => {
+    const storeId = activeStoreScopeRef.current.storeId;
+    const current = kioskReturnDraftStateRef.current;
+    if (!storeId || current.storeId !== storeId) {
+      return { status: "blocked", focus: focusKioskReturnDraft };
+    }
+    try {
+      writeKioskReturnDrafts(window.sessionStorage, storeId, current.drafts);
+      const next = { storeId, drafts: { ...current.drafts } };
+      persistedKioskReturnDraftStateRef.current = next;
+      setPersistedKioskReturnDraftState(next);
+      return { status: "resolved" };
+    } catch {
+      return { status: "blocked", focus: focusKioskReturnDraft };
+    }
+  };
+  const discardKioskReturnDrafts = (): NavigationGuardResolution => {
+    const storeId = activeStoreScopeRef.current.storeId;
+    const persisted = persistedKioskReturnDraftStateRef.current;
+    if (!storeId || persisted.storeId !== storeId) {
+      return { status: "blocked", focus: focusKioskReturnDraft };
+    }
+    const next = { storeId, drafts: { ...persisted.drafts } };
+    kioskReturnDraftStateRef.current = next;
+    setKioskReturnDraftState(next);
+    return { status: "resolved" };
+  };
   const currentStoreRequestScope = () => ({
     requestedStoreId: activeStoreScopeRef.current.storeId,
     requestEpoch: activeStoreScopeRef.current.epoch,
@@ -732,6 +854,7 @@ export function SettingsScreen() {
       input: Parameters<typeof createKioskDevicePairing>[0];
       requestedStoreId: string;
       requestEpoch: number;
+      storeName: string;
     }) => createKioskDevicePairing(input),
     onSuccess: async (result, request) => {
       const nextValue = acceptStoreBoundTransientValue({
@@ -740,7 +863,12 @@ export function SettingsScreen() {
         currentStoreId: activeStoreScopeRef.current.storeId,
         requestEpoch: request.requestEpoch,
         currentEpoch: kioskPairingRequestEpochRef.current,
-        value: result.pairing_code,
+        value: {
+          code: result.pairing_code,
+          expiresAt: result.expires_at,
+          deviceLabel: result.device.label,
+          storeName: request.storeName,
+        },
         expiresAt: result.expires_at,
       });
       if (nextValue) {
@@ -753,35 +881,61 @@ export function SettingsScreen() {
         queryKey: kioskKeys.devices(request.requestedStoreId),
       });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "生成配对码失败"),
+    onError: (error, request) => {
+      if (!isCurrentStoreRequest(request)) return;
+      toast.error(error instanceof Error ? error.message : "生成配对码失败");
+    },
   });
   const revokeKioskDeviceMutation = useMutation({
-    mutationFn: revokeKioskDevice,
-    onSuccess: async () => {
+    mutationFn: (request: { id: string; requestedStoreId?: string; requestEpoch: number }) =>
+      revokeKioskDevice(request.id),
+    onSuccess: async (_result, request) => {
+      await queryClient.invalidateQueries({
+        queryKey: kioskKeys.devices(request.requestedStoreId),
+      });
+      if (!isCurrentStoreRequest(request)) return;
       toast.success("客户 iPad 已撤销");
-      await queryClient.invalidateQueries({ queryKey: kioskKeys.devices(activeStoreId) });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "撤销 iPad 失败"),
+    onError: (error, request) => {
+      if (!isCurrentStoreRequest(request)) return;
+      toast.error(error instanceof Error ? error.message : "撤销 iPad 失败");
+    },
   });
   const acceptKioskSessionMutation = useMutation({
-    mutationFn: acceptKioskSession,
-    onSuccess: async () => {
-      toast.success("客户提交已接受");
+    mutationFn: (request: { id: string; requestedStoreId?: string; requestEpoch: number }) =>
+      acceptKioskSession(request.id),
+    onSuccess: async (_result, request) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) }),
+        queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(request.requestedStoreId) }),
         queryClient.invalidateQueries({ queryKey: ordersKeys.all }),
         queryClient.invalidateQueries({ queryKey: customersKeys.all }),
       ]);
+      if (!isCurrentStoreRequest(request)) return;
+      toast.success("客户提交已接受");
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "接受 iPad 提交失败"),
+    onError: (error, request) => {
+      if (!isCurrentStoreRequest(request)) return;
+      toast.error(error instanceof Error ? error.message : "接受 iPad 提交失败");
+    },
   });
   const returnKioskSessionMutation = useMutation({
-    mutationFn: returnKioskSession,
-    onSuccess: async () => {
+    mutationFn: (request: {
+      id: string;
+      reason: string;
+      requestedStoreId?: string;
+      requestEpoch: number;
+    }) => returnKioskSession({ id: request.id, reason: request.reason }),
+    onSuccess: async (_result, request) => {
+      await queryClient.invalidateQueries({
+        queryKey: kioskKeys.sessions(request.requestedStoreId),
+      });
+      if (!isCurrentStoreRequest(request)) return;
       toast.success("已退回给客户重填");
-      await queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "退回 iPad 提交失败"),
+    onError: (error, request) => {
+      if (!isCurrentStoreRequest(request)) return;
+      toast.error(error instanceof Error ? error.message : "退回 iPad 提交失败");
+    },
   });
   const inviteMemberMutation = useMutation({
     mutationFn: (request: {
@@ -1310,6 +1464,16 @@ export function SettingsScreen() {
         onDiscard={discardAccountNameDraft}
         onFocusFallback={() => document.getElementById("account-display-name")?.focus()}
       />
+      <UnsavedSettingsGuard
+        id="settings-kiosk-return-drafts"
+        dirty={kioskReturnDraftDirty}
+        isDirty={isKioskReturnDraftDirty}
+        busy={false}
+        label="客户 iPad 退回原因草稿"
+        onSave={saveKioskReturnDrafts}
+        onDiscard={discardKioskReturnDrafts}
+        onFocusFallback={focusKioskReturnDraft}
+      />
       <SettingsLayout
         activeSection={activeSection}
         rail={
@@ -1605,48 +1769,71 @@ export function SettingsScreen() {
                   />
                 ) : null}
                 {canRenderSelectedSection && selectedSection === "kiosk" ? (
-                  <KioskDevicesSection
+                  <KioskSettingsSection
                     key={activeStoreId}
+                    storeName={storeContextQuery.data?.activeStore?.name ?? "当前店铺"}
                     devices={kioskDevicesQuery.data ?? []}
                     sessions={kioskSessionsQuery.data ?? []}
+                    pairing={latestKioskPairing}
                     canManageDevices={canManageKioskDevices}
                     canReviewSessions={canReviewKioskSessions}
-                    isLoading={kioskDevicesQuery.isLoading || kioskSessionsQuery.isLoading}
-                    deviceLabel={kioskDeviceLabel}
-                    pairingCode={latestKioskPairingCode}
-                    isCreating={createKioskPairingMutation.isPending}
-                    isRevoking={revokeKioskDeviceMutation.isPending}
-                    isReviewing={
-                      acceptKioskSessionMutation.isPending || returnKioskSessionMutation.isPending
-                    }
-                    onDeviceLabelChange={setKioskDeviceLabel}
-                    onCreatePairing={() => {
-                      const label = kioskDeviceLabel.trim() || "客户 iPad";
+                    devicesLoading={kioskDevicesQuery.isLoading}
+                    devicesError={kioskDevicesQuery.isError}
+                    sessionsLoading={kioskSessionsQuery.isLoading}
+                    sessionsError={kioskSessionsQuery.isError}
+                    returnReasons={kioskReturnDrafts}
+                    onRetryDevices={() => void kioskDevicesQuery.refetch()}
+                    onRetrySessions={() => void kioskSessionsQuery.refetch()}
+                    onReturnReasonChange={updateKioskReturnDraft}
+                    onReturnReasonConsumed={consumeKioskReturnDraft}
+                    onCreatePairing={(label) => {
                       const requestedStoreId = activeStoreScopeRef.current.storeId;
-                      if (!requestedStoreId || !canManageKioskDevices) return;
+                      if (!requestedStoreId || !canManageKioskDevices) {
+                        return Promise.reject(new Error("当前账号没有管理客户 iPad 的权限"));
+                      }
                       const requestEpoch = kioskPairingRequestEpochRef.current + 1;
                       kioskPairingRequestEpochRef.current = requestEpoch;
                       setLatestKioskPairingCodeState(null);
-                      createKioskPairingMutation.mutate({
-                        input: { label },
-                        requestedStoreId,
-                        requestEpoch,
-                      });
+                      return createKioskPairingMutation
+                        .mutateAsync({
+                          input: { label },
+                          requestedStoreId,
+                          requestEpoch,
+                          storeName: storeContextQuery.data?.activeStore?.name ?? "当前店铺",
+                        })
+                        .then(() => undefined);
                     }}
-                    onRevoke={(id) => canManageKioskDevices && revokeKioskDeviceMutation.mutate(id)}
-                    onAcceptSession={(id) =>
-                      canReviewKioskSessions && acceptKioskSessionMutation.mutate(id)
-                    }
-                    onReturnSession={(id, reason) =>
-                      canReviewKioskSessions && returnKioskSessionMutation.mutate({ id, reason })
-                    }
+                    onRevoke={(id) => {
+                      if (!canManageKioskDevices) {
+                        return Promise.reject(new Error("当前账号没有管理客户 iPad 的权限"));
+                      }
+                      return revokeKioskDeviceMutation
+                        .mutateAsync({ ...currentStoreRequestScope(), id })
+                        .then(() => undefined);
+                    }}
+                    onAcceptSession={(id) => {
+                      if (!canReviewKioskSessions) {
+                        return Promise.reject(new Error("当前账号没有审核客户提交的权限"));
+                      }
+                      return acceptKioskSessionMutation
+                        .mutateAsync({ ...currentStoreRequestScope(), id })
+                        .then(() => undefined);
+                    }}
+                    onReturnSession={(id, reason) => {
+                      if (!canReviewKioskSessions) {
+                        return Promise.reject(new Error("当前账号没有审核客户提交的权限"));
+                      }
+                      return returnKioskSessionMutation
+                        .mutateAsync({ ...currentStoreRequestScope(), id, reason })
+                        .then(() => undefined);
+                    }}
                     onCopyCode={() => {
-                      const currentCode = valueForActiveStore(
+                      const currentPairing = valueForActiveStore(
                         latestKioskPairingCodeState,
                         activeStoreScopeRef.current.storeId,
                       );
-                      if (!currentCode) return;
-                      void copySensitiveCode(currentCode, "iPad 配对码已复制");
+                      if (!currentPairing) return;
+                      void copySensitiveCode(currentPairing.code, "iPad 配对码已复制");
                     }}
                   />
                 ) : null}
@@ -2316,372 +2503,6 @@ function WorkflowCheck({
   );
 }
 
-function KioskDevicesSection({
-  devices,
-  sessions,
-  canManageDevices,
-  canReviewSessions,
-  isLoading,
-  deviceLabel,
-  pairingCode,
-  isCreating,
-  isRevoking,
-  isReviewing,
-  onDeviceLabelChange,
-  onCreatePairing,
-  onRevoke,
-  onAcceptSession,
-  onReturnSession,
-  onCopyCode,
-}: {
-  devices: KioskDevice[];
-  sessions: KioskSession[];
-  canManageDevices: boolean;
-  canReviewSessions: boolean;
-  isLoading: boolean;
-  deviceLabel: string;
-  pairingCode: string;
-  isCreating: boolean;
-  isRevoking: boolean;
-  isReviewing: boolean;
-  onDeviceLabelChange: (value: string) => void;
-  onCreatePairing: () => void;
-  onRevoke: (id: string) => void;
-  onAcceptSession: (id: string) => void;
-  onReturnSession: (id: string, reason: string) => void;
-  onCopyCode: () => void;
-}) {
-  const activeDevices = devices.filter((device) => device.status === "active");
-  const submittedSessions = sessions.filter((session) => session.status === "submitted");
-  const recentSessions = sessions.slice(0, 5);
-  const [returnReasons, setReturnReasons] = useState<Record<string, string>>({});
-
-  return (
-    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={TabletSmartphone} iconFrame={false} title="客户 iPad" />
-      {isLoading ? (
-        <div className="grid gap-2 md:grid-cols-2">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      ) : (
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="space-y-3">
-            <div className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
-              <Field label="新 iPad 名称" htmlFor="kiosk-device-label" icon={TabletSmartphone}>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    id="kiosk-device-label"
-                    className={compactControlClass}
-                    value={deviceLabel}
-                    placeholder="前台 iPad"
-                    maxLength={80}
-                    disabled={!canManageDevices}
-                    onChange={(event) => onDeviceLabelChange(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        onCreatePairing();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    disabled={!canManageDevices || isCreating}
-                    onClick={onCreatePairing}
-                  >
-                    <Plus className="size-3.5" />
-                    生成配对码
-                  </Button>
-                </div>
-              </Field>
-              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-                在 iPad 打开 /kiosk，输入配对码后会固定为客户填写模式。
-              </p>
-            </div>
-
-            {pairingCode ? (
-              <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
-                <div className="flex min-w-0 items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-medium text-primary">当前配对码</p>
-                    <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.18em]">
-                      {pairingCode}
-                    </p>
-                  </div>
-                  <Button type="button" variant="outline" size="sm" onClick={onCopyCode}>
-                    复制
-                  </Button>
-                </div>
-                <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-                  配对码只显示一次，过期后请重新生成。
-                </p>
-              </div>
-            ) : null}
-
-            <div className="rounded-lg border border-[var(--border-panel)] bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-foreground">当前可用</span>
-                <Badge variant="outline">{activeDevices.length} 台</Badge>
-              </div>
-              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                订单页会优先发送到第一台 active iPad；多台分配规则可在下一阶段细化。
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-1">
-            <div className="space-y-2 lg:col-span-2 xl:col-span-1">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-muted-foreground">待员工审核</p>
-                <Badge variant={submittedSessions.length ? "default" : "outline"}>
-                  {submittedSessions.length}
-                </Badge>
-              </div>
-              {submittedSessions.length ? (
-                <div className="grid gap-2">
-                  {submittedSessions.map((session) => {
-                    const reason = returnReasons[session.id] ?? "";
-                    return (
-                      <KioskReviewCard
-                        key={session.id}
-                        session={session}
-                        reason={reason}
-                        isReviewing={!canReviewSessions || isReviewing}
-                        onReasonChange={(value) =>
-                          setReturnReasons((current) => ({
-                            ...current,
-                            [session.id]: value,
-                          }))
-                        }
-                        onAccept={() => onAcceptSession(session.id)}
-                        onReturn={() => onReturnSession(session.id, reason)}
-                      />
-                    );
-                  })}
-                </div>
-              ) : (
-                <EmptyKioskBlock label="暂无待审核提交" />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-muted-foreground">设备列表</p>
-                <Badge variant="outline">{devices.length}</Badge>
-              </div>
-              {devices.length ? (
-                <div className="grid gap-2">
-                  {devices.map((device) => (
-                    <RepairOsBusinessCard
-                      key={device.id}
-                      as="div"
-                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2"
-                      leading={
-                        <span className="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary">
-                          <TabletSmartphone className="size-4" />
-                        </span>
-                      }
-                      trailing={
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-[11px]"
-                          disabled={!canManageDevices || device.status === "revoked" || isRevoking}
-                          onClick={() => onRevoke(device.id)}
-                        >
-                          撤销
-                        </Button>
-                      }
-                      leadingClassName="self-center"
-                      trailingClassName="justify-self-end"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <p className="truncate text-sm font-semibold">{device.label}</p>
-                          <Badge variant={device.status === "active" ? "default" : "outline"}>
-                            {kioskDeviceStatusLabel(device.status)}
-                          </Badge>
-                        </div>
-                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                          {device.last_seen_at
-                            ? `最后在线 ${formatDateTime(device.last_seen_at)}`
-                            : device.paired_at
-                              ? `已配对 ${formatDateTime(device.paired_at)}`
-                              : "等待配对"}
-                        </p>
-                      </div>
-                    </RepairOsBusinessCard>
-                  ))}
-                </div>
-              ) : (
-                <EmptyKioskBlock label="暂无 iPad 设备" />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-muted-foreground">最近任务</p>
-                <Badge variant="outline">{recentSessions.length}</Badge>
-              </div>
-              {recentSessions.length ? (
-                <div className="grid gap-2">
-                  {recentSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2"
-                    >
-                      <div className="flex min-w-0 items-center justify-between gap-2">
-                        <span className="truncate text-xs font-semibold">
-                          {kioskSessionTypeLabel(session.session_type)}
-                        </span>
-                        <Badge variant="outline">{kioskSessionStatusLabel(session.status)}</Badge>
-                      </div>
-                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                        {session.device?.label ?? "客户 iPad"} · 到期{" "}
-                        {formatDateTime(session.expires_at)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyKioskBlock label="暂无 iPad 任务" />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function KioskReviewCard({
-  session,
-  reason,
-  isReviewing,
-  onReasonChange,
-  onAccept,
-  onReturn,
-}: {
-  session: KioskSession;
-  reason: string;
-  isReviewing: boolean;
-  onReasonChange: (value: string) => void;
-  onAccept: () => void;
-  onReturn: () => void;
-}) {
-  const returnReason = reason.trim();
-  const orderNo = kioskPayloadText(session.request_payload, "order_public_no");
-  const deviceLabel = kioskPayloadText(session.request_payload, "device_label");
-  const customerName = kioskPayloadText(session.submission_payload, "customer_name");
-  const customerPhone = kioskPayloadText(session.submission_payload, "customer_phone");
-  const backupPhone = kioskPayloadText(session.submission_payload, "backup_phone");
-  const note = kioskPayloadText(session.submission_payload, "note");
-  const hasSignature = Boolean(kioskPayloadText(session.submission_payload, "signature_data_url"));
-  const confirmed = session.submission_payload?.confirmation_checked === true;
-
-  return (
-    <div className="rounded-lg border border-primary/20 bg-card px-3 py-3 shadow-[var(--shadow-card)]">
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold">
-              {kioskSessionTypeLabel(session.session_type)}
-            </p>
-            <Badge variant="default">待审核</Badge>
-          </div>
-          <p className="mt-1 truncate text-[11px] text-muted-foreground">
-            {session.device?.label ?? "客户 iPad"}
-            {orderNo ? ` · 工单 ${orderNo}` : ""}
-            {deviceLabel ? ` · ${deviceLabel}` : ""}
-          </p>
-        </div>
-        <p className="shrink-0 text-[11px] text-muted-foreground">
-          {session.submitted_at ? formatDateTime(session.submitted_at) : "刚提交"}
-        </p>
-      </div>
-
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <KioskReviewField label="姓名" value={customerName} />
-        <KioskReviewField label="电话" value={customerPhone} icon={Phone} />
-        <KioskReviewField label="备用电话" value={backupPhone} />
-        <KioskReviewField label="客户确认" value={confirmed ? "已勾选" : "未勾选"} />
-        <KioskReviewField label="签名" value={hasSignature ? "已签名" : "未签名"} />
-        <KioskReviewField label="备注" value={note} icon={MessageSquare} />
-      </div>
-
-      <div className="mt-3 grid gap-2">
-        <Label htmlFor={`kiosk-return-${session.id}`} className="text-[11px] font-medium">
-          退回原因
-        </Label>
-        <Textarea
-          id={`kiosk-return-${session.id}`}
-          className="min-h-16 text-xs"
-          value={reason}
-          maxLength={240}
-          placeholder="例如：电话号码不清楚，请客户重新填写"
-          onChange={(event) => onReasonChange(event.target.value)}
-        />
-      </div>
-
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 gap-1.5"
-          disabled={isReviewing || !returnReason}
-          onClick={onReturn}
-        >
-          <RotateCcw className="size-3.5" />
-          退回重填
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 gap-1.5"
-          disabled={isReviewing}
-          onClick={onAccept}
-        >
-          <Check className="size-3.5" />
-          接受并更新
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function KioskReviewField({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value?: string;
-  icon?: typeof Store;
-}) {
-  return (
-    <div className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
-      <p className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-        {Icon ? <Icon className="size-3" /> : null}
-        {label}
-      </p>
-      <p className="mt-0.5 truncate text-xs font-medium">{value || "未填写"}</p>
-    </div>
-  );
-}
-
-function EmptyKioskBlock({ label }: { label: string }) {
-  return (
-    <div className="grid min-h-20 place-items-center rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-xs text-muted-foreground">
-      {label}
-    </div>
-  );
-}
-
 function SettingsLoading() {
   return (
     <RepairOsListScaffold
@@ -2824,58 +2645,4 @@ function normalizeAccountDisplayName(value: string) {
 
 function isAccountNameDraftDirty(value: string, base: string) {
   return normalizeAccountDisplayName(value) !== normalizeAccountDisplayName(base);
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date);
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function kioskPayloadText(payload: Record<string, unknown> | undefined, key: string) {
-  const value = payload?.[key];
-  return typeof value === "string" && value.trim() ? value.trim() : "";
-}
-
-function kioskDeviceStatusLabel(status: KioskDevice["status"]) {
-  const labels: Record<KioskDevice["status"], string> = {
-    pairing: "配对中",
-    active: "可用",
-    suspended: "暂停",
-    revoked: "已撤销",
-  };
-  return labels[status] ?? status;
-}
-
-function kioskSessionTypeLabel(type: KioskSession["session_type"]) {
-  const labels: Record<KioskSession["session_type"], string> = {
-    intake_contact: "客户资料",
-    order_contact_signature: "工单资料",
-    pickup_signature: "取机确认",
-  };
-  return labels[type] ?? type;
-}
-
-function kioskSessionStatusLabel(status: KioskSession["status"]) {
-  const labels: Record<KioskSession["status"], string> = {
-    queued: "等待",
-    active: "填写中",
-    submitted: "已提交",
-    accepted: "已接受",
-    returned: "已退回",
-    cancelled: "已取消",
-    expired: "已过期",
-  };
-  return labels[status] ?? status;
 }

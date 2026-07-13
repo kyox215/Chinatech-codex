@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
@@ -28,6 +29,8 @@ describe("RepairDesk realtime invalidation map", () => {
       "settings.store",
       "settings.templates",
       "suppliers.all",
+      "kiosk.devices",
+      "kiosk.sessions",
       "orders.workflow",
       "orders.options",
       "stores.context",
@@ -40,6 +43,8 @@ describe("RepairDesk realtime invalidation map", () => {
       { group: "settings.store", queryKey: messageSettingsKeys.storeScoped(storeId) },
       { group: "settings.templates", queryKey: messageSettingsKeys.templatesScoped(storeId) },
       { group: "suppliers.all", queryKey: suppliersKeys.storeScoped(storeId) },
+      { group: "kiosk.devices", queryKey: kioskKeys.devices(storeId) },
+      { group: "kiosk.sessions", queryKey: kioskKeys.sessions(storeId) },
       { group: "orders.workflow", queryKey: ordersKeys.workflow(storeId) },
       { group: "orders.options", queryKey: ordersKeys.options(storeId) },
       { group: "stores.context", queryKey: storesKeys.context },

@@ -344,3 +344,46 @@ Create the scoped local WP03-C commit without pushing. Then rehydrate WP-04 memb
 ### Next executable action
 
 Create the scoped local WP-04 commit without pushing. Then begin WP-05 Kiosk/customer-iPad rehydration and read-only audit. Stop at any database, role-semantics, production, push, or deployment gate.
+
+## 2026-07-13T04:03:08Z — WP-05 Kiosk/customer-iPad locally conditionally closed
+
+### Completed facts
+
+- Staff accept/return now requires the compound owner/manager review contract in both Router and repository. Production review writes are fail-closed unless the explicit enable flag is `1`.
+- Production source selection fails closed instead of loading mock data. Pairing codes are one-time, longer, expiring, store-bound, and claimed by compare-and-swap; public submit also uses status/version/expiry CAS.
+- Public session DTOs no longer expose arbitrary request payload, balance, internal order/session/device identifiers, or raw signatures. Staff lists expose `has_signature` only. Anonymous routes return stable fixed 500 responses rather than database/configuration errors.
+- Public Kiosk clears token, session, form, and page PII only for the stable unauthorized response. Ordinary polling/network/500 failures retain the current unsent form and show an inline recovery message.
+- Return reasons are controlled by `SettingsScreen`, keyed by store/session/submission version, protected by the global dirty-navigation guard, and explicitly saved only to tab-scoped `sessionStorage`. Accept/return consumes the corresponding draft.
+- Settings Kiosk UI has independent device/review loading and error states, permission-specific summaries, 44px actions, pending locks, store/epoch mutation reconciliation, focus/error recovery, and one-column density through 1024px.
+- Kiosk query groups are allowlisted for store-scoped Realtime invalidation. No migration, role matrix, production data, push, or deployment file was changed.
+
+### Review and validation
+
+- Independent security/data final review: PASS, P0=0/P1=0; 16 files / 135 tests plus anonymous-route 6 files / 42 tests.
+- Independent UI/UX final review: PASS, P0=0/P1=0. Final screenshots were regenerated after the 44px public clear-button fix.
+- Independent architecture/QA final review: PASS, P0=0/P1=0; 14 files / 99 tests and final three-fix 4 files / 30 tests.
+- Main-thread targeted regression: 13 files / 87 tests passed.
+- Full regression: 159 files / 1018 tests passed with one worker and verbose reporting.
+- Settings/Kiosk Playwright: six responsive viewport cases and the final review/return/revoke flow pass. The broader Settings run reached 39/40 in one cold-dev-server run; its only timed-out pre-existing member/supplier case passed 1/1 alone, so this is combined evidence rather than a claimed single-command 40/40.
+- `npm run agents:check`, full lint, typecheck, and `git diff --check` pass.
+- Production build is environment-blocked, not code-failed: sandbox Turbopack cannot bind its helper port; outside-sandbox retries were rejected by approval-service capacity. A clean production build must be rerun before release.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png`
+- `screenshots/responsive-density/settings/wp05-kiosk-public-returned-390x844.png`
+- `screenshots/responsive-density/settings/wp05-kiosk-device-revoke-1280x800.png`
+- All use synthetic mock data, hide the Next development indicator, and contain no real customer PII, raw signature, token, or pairing code.
+
+### Conditional-close residual risks and Owner gates
+
+- Accept/return/submit, customer/order/attachment/event/audit writes still need an approved transactional RPC or outbox and Storage orphan compensation.
+- Additive same-store composite foreign keys and session state/version/timestamp constraints require an approved migration and linked dry-run/post-check. Existing migration files must not be rewritten.
+- Five-second polling can amplify `last_seen_at` writes and valid-token DoS cost. Distributed limiting, failure audit, token expiry/rotation, and device reauthentication remain production gates.
+- Signature and customer PII retention, tab-scoped return-draft retention, deletion/export, and GDPR wording need Owner/legal policy before production.
+- Owner must decide whether Sales may create Kiosk sessions; this task did not change role semantics.
+- Remaining local P2 items include pairing-error focus, next-review focus fallback, signature-canvas keyboard alternative, stale draft pruning, and fuller mock/database concurrency parity.
+
+### Next executable action
+
+Create the scoped local WP-05 commit without pushing. Then stop for Owner decisions and database approval; do not enable production review writes or proceed as if WP-05 were production-ready.

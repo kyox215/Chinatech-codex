@@ -2,6 +2,7 @@ import type { QueryKey } from "@tanstack/react-query";
 
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
@@ -48,6 +49,10 @@ export function getRepairDeskRealtimeQueryKeyForGroup(
       return messageSettingsKeys.templatesScoped(storeId);
     case "suppliers.all":
       return suppliersKeys.storeScoped(storeId);
+    case "kiosk.devices":
+      return kioskKeys.devices(storeId);
+    case "kiosk.sessions":
+      return kioskKeys.sessions(storeId);
     case "stores.context":
       return storesKeys.context;
     case "stores.members":
@@ -72,6 +77,8 @@ export function getRepairDeskRealtimeQueryGroupsForDomain(
         "settings.store",
         "settings.templates",
         "suppliers.all",
+        "kiosk.devices",
+        "kiosk.sessions",
         "stores.context",
         "stores.members",
         "stores.access_requests",

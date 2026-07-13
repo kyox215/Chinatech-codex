@@ -46,6 +46,7 @@ export function normalizeKioskSubmission(input: KioskSessionSubmitInput) {
   if (signature && !/^data:image\/(png|jpeg|webp);base64,/i.test(signature)) {
     throw new Error("签名图片格式无效");
   }
+  if (input.confirmation_checked !== true) throw new Error("请先确认客户资料");
 
   return {
     ...(customerName ? { customer_name: customerName } : {}),
@@ -59,6 +60,19 @@ export function normalizeKioskSubmission(input: KioskSessionSubmitInput) {
   };
 }
 
+export function assertKioskSubmissionRequirements(
+  sessionType: KioskSessionType,
+  submission: Pick<
+    KioskSessionSubmitInput,
+    "customer_name" | "customer_phone" | "confirmation_checked"
+  >,
+) {
+  if (submission.confirmation_checked !== true) throw new Error("请先确认客户资料");
+  if (sessionType === "pickup_signature") return;
+  if (!submission.customer_name?.trim()) throw new Error("请输入客户姓名");
+  if (!submission.customer_phone?.trim()) throw new Error("请输入客户电话");
+}
+
 export function normalizeKioskReturnInput(input: KioskSessionReturnInput) {
   const id = input.id?.trim();
   const reason = input.reason?.trim().replace(/\s+/g, " ");
@@ -70,15 +84,48 @@ export function normalizeKioskReturnInput(input: KioskSessionReturnInput) {
 
 export function sanitizeKioskPayload(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).filter(([key, item]) => {
-      if (!/^[a-zA-Z0-9_:-]{1,64}$/.test(key)) return false;
-      return (
-        item === null ||
-        typeof item === "string" ||
-        typeof item === "number" ||
-        typeof item === "boolean"
-      );
-    }),
-  );
+  const source = (value as Record<string, unknown>).source;
+  if (typeof source !== "string") return {};
+  const normalized = source.trim();
+  if (!normalized || normalized.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(normalized)) return {};
+  return { source: normalized };
+}
+
+export function publicKioskSubmissionDraft(
+  payload: Record<string, unknown> | undefined,
+): KioskPublicSessionDraft | undefined {
+  if (!payload) return undefined;
+  const draft: KioskPublicSessionDraft = {};
+  assignShortString(draft, "customer_name", payload.customer_name, 120);
+  assignShortString(draft, "customer_phone", payload.customer_phone, 40);
+  assignShortString(draft, "backup_phone", payload.backup_phone, 40);
+  assignShortString(draft, "note", payload.note, 500);
+  if (payload.preferred_channel === "whatsapp" || payload.preferred_channel === "sms") {
+    draft.preferred_channel = payload.preferred_channel;
+  }
+  if (payload.language === "it" || payload.language === "zh" || payload.language === "en") {
+    draft.language = payload.language;
+  }
+  draft.confirmation_checked = payload.confirmation_checked === true;
+  draft.has_signature =
+    payload.has_signature === true ||
+    (typeof payload.signature_data_url === "string" && payload.signature_data_url.length > 0) ||
+    (typeof payload.signature_attachment_id === "string" &&
+      payload.signature_attachment_id.length > 0);
+  return Object.keys(draft).length ? draft : undefined;
+}
+
+type KioskPublicSessionDraft = Omit<KioskSessionSubmitInput, "signature_data_url"> & {
+  has_signature?: boolean;
+};
+
+function assignShortString(
+  target: KioskPublicSessionDraft,
+  key: "customer_name" | "customer_phone" | "backup_phone" | "note",
+  value: unknown,
+  maxLength: number,
+) {
+  if (typeof value !== "string") return;
+  const normalized = value.trim();
+  if (normalized) target[key] = normalized.slice(0, maxLength);
 }

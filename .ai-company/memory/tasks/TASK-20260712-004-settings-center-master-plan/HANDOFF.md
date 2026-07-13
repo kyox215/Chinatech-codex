@@ -12,7 +12,7 @@ WP03-A is complete and committed locally. It adds semantic recovery metadata wit
 
 WP03-C notifications/print/default-rules is implemented, validated, independently reviewed with P0=0/P1=0, and committed locally. Notification previews use saved state plus only the notifications draft; restore defaults changes only the rules draft and still requires CAS save. Inventory intake snapshots the current tenant default, with omitted/zero/positive semantics preserved through API, repository, mock, UI, and receipt tests.
 
-WP-04 members/access/suppliers is implemented and locally conditionally closed, but not yet committed at this checkpoint. It uses service-projected per-member management capabilities, local role/grant drafts, one endpoint per save, store/epoch-gated member mutation reconciliation, inactive-member server rejection, stateful store-scoped mock access requests, supplier-scoped realtime invalidation, and strict supplier validation shared by UI and API. All dangerous actions use pending-locked `AlertDialog` flows with inline failure and focus restoration.
+WP-04 members/access/suppliers is implemented, locally conditionally closed, and committed as `6ff4c2cb`. It uses service-projected per-member management capabilities, local role/grant drafts, one endpoint per save, store/epoch-gated member mutation reconciliation, inactive-member server rejection, stateful store-scoped mock access requests, supplier-scoped realtime invalidation, and strict supplier validation shared by UI and API. All dangerous actions use pending-locked `AlertDialog` flows with inline failure and focus restoration.
 
 Final WP-04 evidence: three independent reviews P0=0/P1=0; 29 targeted files / 220 tests; full 153 files / 989 tests with one worker; Settings Playwright 33/33 across 390, 430, 768, 1024, 1280, and 1440 widths; agents check, full lint, typecheck, diff check, and production build pass. Build required sandbox escalation only because Turbopack binds an internal local port.
 
@@ -24,6 +24,16 @@ Visual evidence:
 
 Do not describe WP-04 as production-ready. `20260712002317_global_staff_permission_grants.sql` has no approved production apply proof; the candidate RPC still needs actor membership/role and CAS review, member/access/audit side effects are not transactionally atomic, and active supplier-name uniqueness still needs a separately approved database constraint. These are Owner gates, not local UI follow-ups.
 
-After the scoped WP-04 local commit, begin WP-05 by rehydrating the approved Kiosk/customer-iPad slice. Preserve the same no-migration/no-role-semantics boundary and keep the main thread as sole writer.
+WP-05 Kiosk/customer-iPad is locally implemented and independently reviewed at P0=0/P1=0. It now has owner/manager review enforcement, production fail-closed review writes, production source fail-closed behavior, reduced public/staff DTOs, pairing/submit CAS, store-bound mock parity, stable public errors, Kiosk realtime groups, separate settings-domain loading/errors, pending-locked confirmations, transient network form retention, revoked-token PII clearing, and store/session/version-bound return-reason drafts guarded across navigation.
+
+Final WP-05 evidence: 159 files / 1018 Vitest tests; 14-file independent architecture run / 99 tests; security runs 135 and 42 tests; Kiosk six-width responsive coverage plus the final review/return/revoke Playwright flow; agents check, full lint, typecheck, and diff check pass. The three final screenshots are:
+
+- `screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png`
+- `screenshots/responsive-density/settings/wp05-kiosk-public-returned-390x844.png`
+- `screenshots/responsive-density/settings/wp05-kiosk-device-revoke-1280x800.png`
+
+The latest production build is not a code PASS: Turbopack failed inside the sandbox only because it could not bind an internal helper port, and two outside-sandbox retries were rejected by approval-service capacity. WP-04 at current HEAD had already passed build; WP-05 has current typecheck/full-test proof, but a clean build must be rerun when the approval service is available.
+
+Do not describe WP-05 as production-ready. `REPAIRDESK_KIOSK_REVIEW_WRITES_ENABLED` must remain disabled. Production requires Owner-approved additive same-store/state constraints, transactional review RPC/outbox and Storage compensation, distributed rate limiting and pairing-failure audit, token rotation, role semantics for Kiosk session creation, signature/PII retention and GDPR copy, linked dry-run/apply, and post-apply checks for migration history, RLS, grants, constraints, RPCs, and failure recovery.
 
 Do not push, deploy, apply migrations, change role semantics, or correct historical production rows without Owner approval.

@@ -76,6 +76,22 @@
   - `screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png`
 - No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
 
+## WP-05 — Kiosk/customer iPad
+
+- Independent final reviews: security/data, UI/UX, and architecture/QA all PASS with P0=0/P1=0; every reviewer classifies the slice as local CONDITIONAL and production/DB NO-GO.
+- Main-thread targeted regression: 13 files / 87 tests passed. Independent runs add 14 files / 99 tests, 16 files / 135 tests, and anonymous-route 6 files / 42 tests.
+- Full Vitest regression: 159 files / 1018 tests passed with one worker.
+- Settings/Kiosk E2E covers 390x844, 430x932, 768x1024, 1024x768, 1280x800, and 1440x900 plus the final synthetic submit/review/return/revoke/unauthorized flow. Final flow rerun: 1/1 passed.
+- Broader Settings E2E combined evidence is 39/40 in one cold-dev-server run plus 1/1 standalone for the only timed-out pre-existing member/supplier case; it is not represented as one clean 40/40 run.
+- Static gates: agents check, full lint, typecheck, and diff check passed.
+- Production build rerun is environment-blocked: sandbox Turbopack helper-port EPERM, followed by approval-service capacity rejection for outside-sandbox execution. No code-level build diagnostic was emitted, but build must be rerun before release.
+- Final screenshots:
+  - `screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png`
+  - `screenshots/responsive-density/settings/wp05-kiosk-public-returned-390x844.png`
+  - `screenshots/responsive-density/settings/wp05-kiosk-device-revoke-1280x800.png`
+- Screenshot inspection confirms synthetic-only customer/device data, current 44px public clear action, no raw token/pairing code/signature, and no Next development indicator.
+- No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
+
 ## WP-04 — Members, access requests, and suppliers
 
 - Independent final reviews: security/data PASS P0=0/P1=0; UI/UX PASS P0=0/P1=0; architecture/QA strict access-request gap fixed and revalidated.

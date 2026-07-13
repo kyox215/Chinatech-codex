@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { KIOSK_PUBLIC_ERROR_CODES } from "@/features/kiosk/model/kiosk-public-error";
 import type {
   KioskPairResult,
   KioskPublicSession,
@@ -34,6 +35,7 @@ const tokenStorageKey = "repairdesk:kiosk-token";
 
 export function KioskScreen() {
   const [token, setToken] = useState("");
+  const [tokenReady, setTokenReady] = useState(false);
   const [pairingCode, setPairingCode] = useState("");
   const [pairingError, setPairingError] = useState("");
   const [pairingPending, setPairingPending] = useState(false);
@@ -41,15 +43,20 @@ export function KioskScreen() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const pairingPendingRef = useRef(false);
 
   useEffect(() => {
     setToken(window.localStorage.getItem(tokenStorageKey) ?? "");
+    setTokenReady(true);
   }, []);
 
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
+    let timeout: number | undefined;
     const load = async () => {
+      let keepPolling = true;
       setLoading(true);
       try {
         const next = await fetchKioskSession(token);
@@ -59,21 +66,44 @@ export function KioskScreen() {
           setLoadError("");
         }
       } catch (error) {
-        if (!cancelled) setLoadError(error instanceof Error ? error.message : "读取任务失败");
+        if (!cancelled) {
+          if (
+            error instanceof KioskHttpError &&
+            error.code === KIOSK_PUBLIC_ERROR_CODES.deviceUnauthorized
+          ) {
+            keepPolling = false;
+            setSession(null);
+            setSubmitted(false);
+            window.localStorage.removeItem(tokenStorageKey);
+            setToken("");
+            setLoadError("");
+            setPairingError(
+              "Questo iPad non è più autorizzato. Richiedi un nuovo codice allo staff.",
+            );
+          } else {
+            setLoadError(
+              "Connessione temporaneamente non disponibile. I dati inseriti restano su questo iPad; riprova.",
+            );
+          }
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          if (keepPolling) timeout = window.setTimeout(() => void load(), 5_000);
+        }
       }
     };
     void load();
-    const interval = window.setInterval(() => void load(), 5_000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (timeout !== undefined) window.clearTimeout(timeout);
     };
-  }, [token, submitted]);
+  }, [token, submitted, refreshCounter]);
 
   const pair = async (event: FormEvent) => {
     event.preventDefault();
+    if (pairingPendingRef.current) return;
+    pairingPendingRef.current = true;
     setPairingPending(true);
     setPairingError("");
     try {
@@ -86,9 +116,18 @@ export function KioskScreen() {
     } catch (error) {
       setPairingError(error instanceof Error ? error.message : "配对失败");
     } finally {
+      pairingPendingRef.current = false;
       setPairingPending(false);
     }
   };
+
+  if (!tokenReady) {
+    return (
+      <main className="grid min-h-dvh place-items-center bg-background text-foreground">
+        <Loader2 className="size-6 animate-spin text-primary" aria-label="Caricamento kiosk" />
+      </main>
+    );
+  }
 
   if (!token) {
     return (
@@ -115,6 +154,8 @@ export function KioskScreen() {
               autoComplete="one-time-code"
               className="h-12 text-center text-lg font-semibold tracking-[0.2em]"
               value={pairingCode}
+              maxLength={32}
+              disabled={pairingPending}
               onChange={(event) => setPairingCode(event.target.value.toUpperCase())}
             />
           </div>
@@ -126,7 +167,11 @@ export function KioskScreen() {
               {pairingError}
             </p>
           ) : null}
-          <Button type="submit" className="h-11" disabled={pairingPending}>
+          <Button
+            type="submit"
+            className="h-11"
+            disabled={pairingPending || pairingCode.trim().length < 6}
+          >
             {pairingPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Collega iPad
           </Button>
@@ -147,18 +192,11 @@ export function KioskScreen() {
             type="button"
             variant="outline"
             size="icon"
-            className="size-10"
+            className="size-11"
+            disabled={loading}
             onClick={() => {
               setSubmitted(false);
-              void fetchKioskSession(token)
-                .then((next) => {
-                  setSession(next);
-                  if (next?.session.status === "returned") setSubmitted(false);
-                  setLoadError("");
-                })
-                .catch((error) =>
-                  setLoadError(error instanceof Error ? error.message : "读取任务失败"),
-                );
+              setRefreshCounter((current) => current + 1);
             }}
             aria-label="刷新任务"
           >
@@ -166,12 +204,21 @@ export function KioskScreen() {
           </Button>
         </header>
 
-        <section className="grid min-h-0 place-items-center">
+        <section className="grid min-h-0 place-items-center gap-3">
+          {loadError && session ? (
+            <p
+              role="alert"
+              className="w-full rounded-lg bg-status-warn/30 px-3 py-2 text-sm text-status-warn-foreground"
+            >
+              {loadError}
+            </p>
+          ) : null}
           {(submitted && session?.session.status !== "returned") ||
           session?.session.status === "submitted" ? (
             <DoneState />
           ) : session ? (
             <KioskSessionForm
+              key={`${session.session.session_type}:${session.session.expires_at}:${session.session.submission_version}`}
               token={token}
               session={session}
               onSubmitted={() => {
@@ -248,12 +295,16 @@ function KioskSessionForm({
 }) {
   const signatureRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
+  const submitPendingRef = useRef(false);
   const requiresContact = session.session.session_type !== "pickup_signature";
+  const draft = session.session.submission_draft;
   const [form, setForm] = useState<KioskSessionSubmitInput>({
-    customer_name: session.order?.customer_name ?? "",
-    customer_phone: session.order?.customer_phone ?? "",
-    preferred_channel: "whatsapp",
-    language: "it",
+    customer_name: draft?.customer_name ?? session.order?.customer_name ?? "",
+    customer_phone: draft?.customer_phone ?? session.order?.customer_phone ?? "",
+    backup_phone: draft?.backup_phone ?? "",
+    note: draft?.note ?? "",
+    preferred_channel: draft?.preferred_channel ?? "whatsapp",
+    language: draft?.language ?? "it",
     confirmation_checked: false,
   });
   const [hasSignature, setHasSignature] = useState(false);
@@ -262,6 +313,7 @@ function KioskSessionForm({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (submitPendingRef.current) return;
     setError("");
     if (requiresContact && (!form.customer_name?.trim() || !form.customer_phone?.trim())) {
       setError("Inserisci nome e telefono.");
@@ -271,6 +323,7 @@ function KioskSessionForm({
       setError("Conferma prima di inviare.");
       return;
     }
+    submitPendingRef.current = true;
     setPending(true);
     try {
       const signature = hasSignature ? signatureRef.current?.toDataURL("image/png") : undefined;
@@ -286,6 +339,7 @@ function KioskSessionForm({
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Invio non riuscito");
     } finally {
+      submitPendingRef.current = false;
       setPending(false);
     }
   };
@@ -308,10 +362,20 @@ function KioskSessionForm({
       </div>
 
       {session.session.status === "returned" ? (
-        <p className="inline-flex items-start gap-2 rounded-lg bg-status-warn/25 px-3 py-2 text-sm text-status-warn-foreground">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          Lo staff ha richiesto una correzione. Controlla i dati e invia di nuovo.
-        </p>
+        <div className="grid gap-1 rounded-lg bg-status-warn/25 px-3 py-2 text-sm text-status-warn-foreground">
+          <p className="inline-flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            Lo staff ha richiesto una correzione. Controlla i dati e invia di nuovo.
+          </p>
+          {session.session.correction_message ? (
+            <p className="break-words pl-6 font-medium">{session.session.correction_message}</p>
+          ) : null}
+          {draft?.has_signature ? (
+            <p className="break-words pl-6 text-xs">
+              Per sicurezza, traccia di nuovo la firma prima di inviare.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {requiresContact ? (
@@ -320,6 +384,7 @@ function KioskSessionForm({
             <Input
               id="customer-name"
               className="h-11"
+              disabled={pending}
               value={form.customer_name ?? ""}
               onChange={(event) =>
                 setForm((current) => ({ ...current, customer_name: event.target.value }))
@@ -330,6 +395,7 @@ function KioskSessionForm({
             <Input
               id="customer-phone"
               className="h-11"
+              disabled={pending}
               inputMode="tel"
               value={form.customer_phone ?? ""}
               onChange={(event) =>
@@ -341,6 +407,7 @@ function KioskSessionForm({
             <Input
               id="backup-phone"
               className="h-11"
+              disabled={pending}
               inputMode="tel"
               value={form.backup_phone ?? ""}
               onChange={(event) =>
@@ -352,6 +419,7 @@ function KioskSessionForm({
             <Textarea
               id="note"
               className="min-h-11"
+              disabled={pending}
               value={form.note ?? ""}
               onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
             />
@@ -370,6 +438,8 @@ function KioskSessionForm({
             type="button"
             variant="outline"
             size="sm"
+            className="min-h-11"
+            disabled={pending}
             onClick={() => {
               const canvas = signatureRef.current;
               const context = canvas?.getContext("2d");
@@ -384,10 +454,16 @@ function KioskSessionForm({
           ref={signatureRef}
           width={720}
           height={220}
-          className="h-44 w-full touch-none rounded-lg border border-dashed border-border bg-background"
-          onPointerDown={(event) => startDrawing(event, signatureRef.current, drawingRef)}
+          aria-disabled={pending}
+          className={cn(
+            "h-44 w-full touch-none rounded-lg border border-dashed border-border bg-background text-foreground",
+            pending && "pointer-events-none opacity-60",
+          )}
+          onPointerDown={(event) => {
+            if (!pending) startDrawing(event, signatureRef.current, drawingRef);
+          }}
           onPointerMove={(event) => {
-            if (draw(event, signatureRef.current, drawingRef)) setHasSignature(true);
+            if (!pending && draw(event, signatureRef.current, drawingRef)) setHasSignature(true);
           }}
           onPointerUp={() => {
             drawingRef.current = false;
@@ -400,6 +476,7 @@ function KioskSessionForm({
 
       <label className="flex items-start gap-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
         <Checkbox
+          disabled={pending}
           checked={form.confirmation_checked}
           onCheckedChange={(checked) =>
             setForm((current) => ({ ...current, confirmation_checked: checked === true }))
@@ -472,7 +549,7 @@ function draw(
   const point = pointerPoint(event, canvas);
   context.lineWidth = 4;
   context.lineCap = "round";
-  context.strokeStyle = "#111827";
+  context.strokeStyle = window.getComputedStyle(canvas).color;
   context.lineTo(point.x, point.y);
   context.stroke();
   return true;
@@ -494,8 +571,11 @@ async function fetchKioskSession(token: string) {
   const payload = (await response.json().catch(() => ({}))) as {
     data?: KioskPublicSession | null;
     error?: string;
+    code?: string;
   };
-  if (!response.ok) throw new Error(payload.error || "读取任务失败");
+  if (!response.ok) {
+    throw new KioskHttpError(payload.error || "读取任务失败", response.status, payload.code);
+  }
   return payload.data ?? null;
 }
 
@@ -508,7 +588,24 @@ async function postKioskJson<T = unknown>(path: string, body: unknown, token?: s
     },
     body: JSON.stringify(body),
   });
-  const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: string };
-  if (!response.ok) throw new Error(payload.error || "请求失败");
+  const payload = (await response.json().catch(() => ({}))) as {
+    data?: T;
+    error?: string;
+    code?: string;
+  };
+  if (!response.ok) {
+    throw new KioskHttpError(payload.error || "请求失败", response.status, payload.code);
+  }
   return payload.data as T;
+}
+
+class KioskHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = "KioskHttpError";
+  }
 }

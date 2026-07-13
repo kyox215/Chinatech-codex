@@ -519,6 +519,137 @@ test.describe("settings notifications and default rules", () => {
   });
 });
 
+test.describe("settings customer iPad workspace", () => {
+  for (const viewport of viewports) {
+    test(`keeps the Kiosk workspace responsive at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await gotoReady(page, "/settings?section=kiosk");
+
+      const section = page.locator("#settings-kiosk");
+      await expect(section.getByRole("heading", { name: "客户 iPad" })).toBeVisible();
+      await expect(section.getByText("设备配对")).toBeVisible();
+      await expect(section.getByText("设备列表")).toBeVisible();
+      await expect(section.getByText("待员工审核")).toBeVisible();
+      await expectNoPageOverflow(page, `kiosk settings ${viewport.width}px`);
+
+      if (viewport.width <= 430) {
+        for (const control of [
+          section.getByLabel("新 iPad 名称"),
+          section.getByRole("button", { name: /生成配对码/ }),
+        ]) {
+          expect((await control.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+        }
+      }
+    });
+  }
+
+  test("reviews a synthetic submission, preserves the returned draft, and removes revoked token access", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const created = await page.request.post("/api/repairdesk/kiosk/sessions/create", {
+      data: {
+        input: {
+          device_id: "kiosk_device_demo",
+          session_type: "intake_contact",
+          expires_in_minutes: 30,
+        },
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const submitted = await page.request.post("/api/kiosk/session/submit", {
+      headers: { "x-kiosk-token": "demo-kiosk-token" },
+      data: {
+        customer_name: "Cliente Test Kiosk",
+        customer_phone: "+39 333 111 2222",
+        note: "Dati sintetici per verifica UI",
+        confirmation_checked: true,
+      },
+    });
+    expect(submitted.ok()).toBe(true);
+
+    await gotoReady(page, "/settings?section=kiosk");
+    const reviewCard = page.locator('[data-kiosk-review-id]:has-text("Cliente Test Kiosk")');
+    await expect(reviewCard).toBeVisible();
+    await expect(reviewCard.getByText("+39 333 111 2222")).toBeVisible();
+    await reviewCard.getByLabel("给客户的退回原因").fill("请重新确认联系电话");
+    await reviewCard.getByRole("button", { name: "退回重填" }).click();
+    const returnConfirm = page.getByRole("alertdialog", { name: "确认退回给客户重填？" });
+    await expect(returnConfirm).toContainText("请重新确认联系电话");
+    for (const buttonName of ["取消", "确认提交"]) {
+      expect(
+        (await returnConfirm.getByRole("button", { name: buttonName }).boundingBox())?.height ?? 0,
+      ).toBeGreaterThanOrEqual(44);
+    }
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png",
+      fullPage: true,
+    });
+    await returnConfirm.getByRole("button", { name: "确认提交" }).click();
+    await expect(reviewCard).toBeHidden();
+
+    await page.evaluate(() =>
+      window.localStorage.setItem("repairdesk:kiosk-token", "demo-kiosk-token"),
+    );
+    await gotoReady(page, "/kiosk");
+    await expect(page.getByText("请重新确认联系电话")).toBeVisible();
+    await expect(page.getByLabel("Nome")).toHaveValue("Cliente Test Kiosk");
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp05-kiosk-public-returned-390x844.png",
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoReady(page, "/settings?section=kiosk");
+    const deviceLabel = "WP05 Test iPad";
+    await page.getByLabel("新 iPad 名称").fill(deviceLabel);
+    await page.getByRole("button", { name: /生成配对码/ }).click();
+    const code = (await page.locator("[data-kiosk-pairing-code]").textContent())?.trim();
+    expect(code).toBeTruthy();
+    const paired = await page.request.post("/api/kiosk/pair", { data: { code } });
+    expect(paired.ok()).toBe(true);
+    const pairPayload = (await paired.json()) as { data: { token: string } };
+
+    await gotoReady(page, "/settings?section=kiosk");
+    const deviceCard = page.locator(`[data-kiosk-device-id]:has-text("${deviceLabel}")`);
+    await expect(deviceCard).toBeVisible();
+    await deviceCard.getByRole("button", { name: "撤销设备" }).click();
+    const revokeConfirm = page.getByRole("alertdialog", { name: "撤销这台客户 iPad？" });
+    await expect(revokeConfirm).toContainText("设备 token 会立即失效");
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/responsive-density/settings/wp05-kiosk-device-revoke-1280x800.png",
+    });
+    await revokeConfirm.getByRole("button", { name: "确认撤销" }).click();
+    await expect(revokeConfirm).toBeHidden();
+    await expect(deviceCard.getByText("已撤销")).toBeVisible();
+
+    const revoked = await page.request.get("/api/kiosk/session", {
+      headers: { "x-kiosk-token": pairPayload.data.token },
+    });
+    expect(revoked.status()).toBe(401);
+    await expectNoPageOverflow(page, "kiosk revoked device 1280px");
+
+    await page.evaluate((token) => {
+      window.localStorage.setItem("repairdesk:kiosk-token", token);
+    }, pairPayload.data.token);
+    await gotoReady(page, "/kiosk");
+    await expect(
+      page.getByText("Questo iPad non è più autorizzato. Richiedi un nuovo codice allo staff."),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => window.localStorage.getItem("repairdesk:kiosk-token")),
+    ).toBeNull();
+    await expect(page.getByText(deviceLabel)).toHaveCount(0);
+  });
+});
+
 test.describe("settings members and suppliers workspace", () => {
   test("stages a sensitive member grant and submits only the permission endpoint on mobile", async ({
     page,

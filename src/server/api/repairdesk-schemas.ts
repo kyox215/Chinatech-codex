@@ -235,27 +235,37 @@ export const idBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
 });
 
-export const kioskDevicePairingBodySchema = z.object({
-  input: z.object({
-    label: z.string().trim().min(1, "请输入 iPad 名称").max(80, "iPad 名称过长"),
-  }),
-});
+export const kioskDevicePairingBodySchema = z
+  .object({
+    input: z
+      .object({
+        label: z.string().trim().min(1, "请输入 iPad 名称").max(80, "iPad 名称过长"),
+      })
+      .strict(),
+  })
+  .strict();
 
-export const kioskSessionCreateBodySchema = z.object({
-  input: z.object({
-    device_id: z.string().min(1, "请选择客户 iPad"),
-    session_type: z.enum(["intake_contact", "order_contact_signature", "pickup_signature"]),
-    order_id: z.string().min(1).optional(),
-    customer_id: z.string().min(1).optional(),
-    request_payload: z.record(z.string(), z.unknown()).optional(),
-    expires_in_minutes: z.coerce.number().int().min(5).max(240).optional(),
-  }),
-});
+export const kioskSessionCreateBodySchema = z
+  .object({
+    input: z
+      .object({
+        device_id: z.string().min(1, "请选择客户 iPad"),
+        session_type: z.enum(["intake_contact", "order_contact_signature", "pickup_signature"]),
+        order_id: z.string().min(1).optional(),
+        customer_id: z.string().min(1).optional(),
+        request_payload: z.record(z.string(), z.unknown()).optional(),
+        expires_in_minutes: z.coerce.number().int().min(5).max(240).optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
-export const kioskSessionReturnBodySchema = z.object({
-  id: z.string().trim().min(1, "缺少 iPad 任务"),
-  reason: z.string().trim().min(1, "请输入退回原因").max(240, "退回原因过长"),
-});
+export const kioskSessionReturnBodySchema = z
+  .object({
+    id: z.string().trim().min(1, "缺少 iPad 任务"),
+    reason: z.string().trim().min(1, "请输入退回原因").max(240, "退回原因过长"),
+  })
+  .strict();
 
 export const accountProfileUpdateBodySchema = z.object({
   input: z

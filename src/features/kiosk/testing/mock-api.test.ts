@@ -5,8 +5,11 @@ import { getOrder } from "@/features/orders/testing/mock-api";
 
 import {
   acceptKioskSession,
+  createKioskDevicePairing,
   createKioskSession,
   getKioskPublicSession,
+  pairKioskDevice,
+  revokeKioskDevice,
   returnKioskSession,
   submitKioskPublicSession,
 } from "./mock-api";
@@ -70,7 +73,7 @@ describe("kiosk mock API review flow", () => {
     expect(customer.contact_phones).toContain("+39 388 777 6602");
   });
 
-  it("returns a submitted session for correction without exposing the staff reason publicly", async () => {
+  it("returns a submitted session with only the customer-facing correction draft", async () => {
     const order = orders[1]!;
     const session = await createKioskSession(
       {
@@ -92,11 +95,18 @@ describe("kiosk mock API review flow", () => {
       actor,
     );
     expect(returned.status).toBe("returned");
-    expect(returned.submission_payload?.staff_return_reason).toBe("Telefono non leggibile");
+    expect(returned.submission_payload?.customer_return_reason).toBe("Telefono non leggibile");
 
     const publicSession = await getKioskPublicSession("demo-kiosk-token");
     expect(publicSession?.session.status).toBe("returned");
-    expect(publicSession?.session.request_payload).not.toHaveProperty("staff_return_reason");
+    expect(publicSession?.session.correction_message).toBe("Telefono non leggibile");
+    expect(publicSession?.session.submission_draft).toMatchObject({
+      customer_name: "Da Correggere",
+      customer_phone: "+39 388 777 6611",
+    });
+    expect(publicSession?.session).not.toHaveProperty("request_payload");
+    expect(publicSession?.order).not.toHaveProperty("id");
+    expect(publicSession?.order).not.toHaveProperty("balance_amount");
   });
 
   it("stores accepted iPad signatures as order evidence without retaining the raw data URL", async () => {
@@ -132,5 +142,38 @@ describe("kiosk mock API review flow", () => {
       mime_type: "image/png",
       note: "iPad pickup/customer signature",
     });
+  });
+
+  it("rejects invalid and replayed pairing codes and revokes the issued token", async () => {
+    await expect(pairKioskDevice("NOT-A-REAL-CODE")).rejects.toThrow("配对码无效或已过期");
+
+    const pairing = await createKioskDevicePairing({ label: "Test iPad" }, actor);
+    const paired = await pairKioskDevice(pairing.pairing_code);
+    await expect(pairKioskDevice(pairing.pairing_code)).rejects.toThrow("配对码无效或已过期");
+
+    await expect(getKioskPublicSession(paired.token)).resolves.toBeNull();
+    await revokeKioskDevice(pairing.device.id, actor);
+    await expect(getKioskPublicSession(paired.token)).rejects.toThrow("iPad 未绑定或已撤销");
+  });
+
+  it("does not let another store bind or revoke the demo store device", async () => {
+    const otherStoreActor = {
+      ...actor,
+      storeId: "00000000-0000-0000-0000-000000000002",
+      storeName: "Other Store",
+    };
+
+    await expect(
+      createKioskSession(
+        {
+          device_id: "kiosk_device_demo",
+          session_type: "intake_contact",
+        },
+        otherStoreActor,
+      ),
+    ).rejects.toThrow("客户 iPad 未绑定或不可用");
+    await expect(revokeKioskDevice("kiosk_device_demo", otherStoreActor)).rejects.toThrow(
+      "不属于当前店铺",
+    );
   });
 });

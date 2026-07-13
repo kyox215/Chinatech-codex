@@ -112,6 +112,7 @@ import {
   returnKioskSession,
   revokeKioskDevice,
 } from "@/features/kiosk/server/kiosk.service";
+import { assertKioskReviewWriteEnabled } from "@/features/kiosk/server/kiosk-review-gate";
 import {
   acceptStoreInvitation,
   approveStoreAccessRequest,
@@ -363,7 +364,17 @@ const realtimeBroadcasts = {
   kioskSessionReviewed: {
     domain: "settings",
     mutation: "updated",
-    queryGroups: ["orders.all", "customers.all", "settings.store"],
+    queryGroups: ["kiosk.sessions", "orders.all", "customers.all"],
+  },
+  kioskSessionChanged: {
+    domain: "settings",
+    mutation: "updated",
+    queryGroups: ["kiosk.sessions", "orders.all"],
+  },
+  kioskDeviceChanged: {
+    domain: "settings",
+    mutation: "updated",
+    queryGroups: ["kiosk.devices"],
   },
   orderCreated: {
     domain: "orders",
@@ -813,7 +824,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           await runWithRealtime(
             actor,
             () => api.createKioskDevicePairing(input, actor),
-            realtimeBroadcasts.settingsUpdated,
+            realtimeBroadcasts.kioskDeviceChanged,
           ),
         );
       }
@@ -824,7 +835,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           await runWithRealtime(
             actor,
             () => api.revokeKioskDevice(id, actor),
-            realtimeBroadcasts.settingsUpdated,
+            realtimeBroadcasts.kioskDeviceChanged,
           ),
         );
       }
@@ -835,12 +846,13 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           await runWithRealtime(
             actor,
             () => api.createKioskSession(input, actor),
-            realtimeBroadcasts.orderUpdated,
+            realtimeBroadcasts.kioskSessionChanged,
           ),
         );
       }
       case "kiosk/sessions/accept": {
-        assertRepairDeskPermission(actor, "order:update_intake");
+        assertKioskSessionReviewPermission(actor);
+        assertKioskReviewWriteEnabled();
         const { id } = idBodySchema.parse(body);
         return ok(
           await runWithRealtime(
@@ -851,7 +863,8 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         );
       }
       case "kiosk/sessions/return": {
-        assertRepairDeskPermission(actor, "order:update_intake");
+        assertKioskSessionReviewPermission(actor);
+        assertKioskReviewWriteEnabled();
         const input = kioskSessionReturnBodySchema.parse(body);
         return ok(
           await runWithRealtime(
@@ -1930,6 +1943,7 @@ export function assertStoreSettingsUpdatePermission(actor: AuditActor) {
 
 export function assertKioskSessionReviewPermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "settings:update_store");
+  assertRepairDeskPermission(actor, "order:update_intake");
 }
 
 export function assertWorkflowConfigurePermission(actor: AuditActor) {

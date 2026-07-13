@@ -2,10 +2,17 @@ import { Buffer } from "node:buffer";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
+  assertKioskSubmissionRequirements,
   normalizeKioskReturnInput,
   normalizeKioskSessionCreateInput,
   normalizeKioskSubmission,
+  publicKioskSubmissionDraft,
 } from "@/features/kiosk/model/kiosk-session";
+import {
+  kioskDeviceUnauthorizedError,
+  kioskPairingInvalidError,
+  kioskSessionConflictError,
+} from "@/features/kiosk/model/kiosk-public-error";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { isLegacyTenantIdentityContamination } from "@/entities/store/model/store-output-identity";
 import {
@@ -22,12 +29,13 @@ import {
   type DbRecord,
 } from "@/server/repairdesk-shared";
 import { normalizePhoneBook, normalizePhoneRaw } from "@/shared/lib/phone";
+import { assertPermission } from "@/server/permissions";
 import type {
   AuditActor,
   KioskDevice,
   KioskDevicePairingInput,
   KioskDevicePairingResult,
-  KioskPairResult,
+  KioskDevicePairClaimResult,
   KioskPublicSession,
   KioskSession,
   KioskSessionCreateInput,
@@ -111,18 +119,24 @@ export async function revokeKioskDevice(id: string, actor?: AuditActor): Promise
   const operatorName = operatorNameFromActor(actor);
   const now = new Date().toISOString();
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("store_kiosk_devices")
     .update({
       status: "revoked",
       device_token_hash: null,
+      pairing_code_hash: null,
+      pairing_code_expires_at: null,
       revoked_by: operatorName,
       revoked_at: now,
       updated_at: now,
     })
     .eq("store_id", storeId)
-    .eq("id", id);
+    .eq("id", id)
+    .neq("status", "revoked")
+    .select("id")
+    .maybeSingle();
   fail(error, "撤销客户 iPad 失败");
+  if (!data) throw new Error("客户 iPad 不存在、不属于当前店铺或已撤销");
   return { ok: true };
 }
 
@@ -136,7 +150,7 @@ export async function listKioskSessions(actor?: AuditActor): Promise<KioskSessio
     .order("created_at", { ascending: false })
     .limit(30);
   fail(error, "读取客户 iPad 任务失败");
-  return ((data ?? []) as DbRecord[]).map(sessionFromRow);
+  return ((data ?? []) as DbRecord[]).map((row) => sessionFromRow(row));
 }
 
 export async function createKioskSession(
@@ -152,9 +166,10 @@ export async function createKioskSession(
   const supabase = getSupabaseAdmin();
 
   const device = await readActiveDevice(supabase, storeId, normalized.device_id);
-  const order = normalized.order_id
+  let order = normalized.order_id
     ? await readOrderSummary(supabase, storeId, normalized.order_id)
     : undefined;
+  assertKioskSessionCreateScope(actor, order);
   if (order?.record_state === "voided" || order?.deleted_at) {
     throw new Error("该工单记录已作废，只能查看历史证据");
   }
@@ -163,6 +178,16 @@ export async function createKioskSession(
     order?.device_custody_status !== "with_shop"
   ) {
     throw new Error("只有已确认由门店保管的设备可以发起取机确认");
+  }
+  const customer = normalized.customer_id
+    ? await readKioskCustomerTarget(supabase, storeId, normalized.customer_id)
+    : undefined;
+  if (order?.customer_id && customer && order.customer_id !== customer.id) {
+    throw new Error("iPad 任务绑定的客户与工单不一致");
+  }
+  if (normalized.order_id) {
+    order = await readOrderSummary(supabase, storeId, normalized.order_id);
+    assertKioskSessionCreateScope(actor, order);
   }
   const now = new Date();
   const expiresAt = addMinutes(now, normalized.expires_in_minutes).toISOString();
@@ -228,10 +253,27 @@ export async function createKioskSession(
     });
   }
 
-  return sessionFromRow(data as DbRecord);
+  return sessionFromRow(data as DbRecord, { includeRawSignature: true });
+}
+
+async function readKioskCustomerTarget(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  customerId: string,
+) {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("id", customerId)
+    .maybeSingle();
+  fail(error, "读取 iPad 客户失败");
+  if (!data) throw new Error("客户不存在或不属于当前店铺");
+  return { id: requiredString((data as DbRecord).id) };
 }
 
 export async function acceptKioskSession(id: string, actor?: AuditActor): Promise<KioskSession> {
+  assertKioskReviewActor(actor);
   const storeId = requireStoreIdFromActor(actor);
   const operatorName = operatorNameFromActor(actor);
   const sessionId = id.trim();
@@ -240,6 +282,7 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
   const supabase = getSupabaseAdmin();
   const session = await readSubmittedSession(supabase, storeId, sessionId);
   const submission = submissionFromPayload(session.submission_payload);
+  assertKioskSubmissionRequirements(session.session_type, submission);
   const now = new Date().toISOString();
   const order = session.order_id
     ? await readOrderReviewTarget(supabase, storeId, session.order_id)
@@ -331,6 +374,7 @@ export async function returnKioskSession(
   input: KioskSessionReturnInput,
   actor?: AuditActor,
 ): Promise<KioskSession> {
+  assertKioskReviewActor(actor);
   const storeId = requireStoreIdFromActor(actor);
   const operatorName = operatorNameFromActor(actor);
   const normalized = normalizeKioskReturnInput(input);
@@ -340,7 +384,7 @@ export async function returnKioskSession(
   const now = new Date().toISOString();
   const nextSubmissionPayload = {
     ...(session.submission_payload ?? {}),
-    staff_return_reason: normalized.reason,
+    customer_return_reason: normalized.reason,
   };
 
   const { data, error } = await supabase
@@ -375,12 +419,12 @@ export async function returnKioskSession(
   return sessionFromRow(data as DbRecord);
 }
 
-export async function pairKioskDevice(code: string): Promise<KioskPairResult> {
+export async function pairKioskDevice(code: string): Promise<KioskDevicePairClaimResult> {
   const cleanCode = code
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
-  if (cleanCode.length < 6) throw new Error("配对码无效");
+  if (cleanCode.length < 6) throw kioskPairingInvalidError();
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
   const { data, error } = await supabase
@@ -391,9 +435,10 @@ export async function pairKioskDevice(code: string): Promise<KioskPairResult> {
     .gt("pairing_code_expires_at", now)
     .maybeSingle();
   fail(error, "读取 iPad 配对码失败");
-  if (!data) throw new Error("配对码无效或已过期");
+  if (!data) throw kioskPairingInvalidError();
 
   const token = createDeviceToken();
+  const pairingRow = data as DbRecord;
   const { data: updated, error: updateError } = await supabase
     .from("store_kiosk_devices")
     .update({
@@ -405,17 +450,22 @@ export async function pairKioskDevice(code: string): Promise<KioskPairResult> {
       last_seen_at: now,
       updated_at: now,
     })
-    .eq("id", requiredString((data as DbRecord).id))
+    .eq("id", requiredString(pairingRow.id))
+    .eq("store_id", requiredString(pairingRow.store_id))
+    .eq("pairing_code_hash", hashSecret(cleanCode))
+    .in("status", ["pairing", "active"])
+    .gt("pairing_code_expires_at", now)
     .select("*")
-    .single();
+    .maybeSingle();
   fail(updateError, "保存 iPad 配对状态失败");
+  if (!updated) throw kioskPairingInvalidError();
   return { token, device: deviceFromRow(updated as DbRecord) };
 }
 
 export async function getKioskPublicSession(token: string): Promise<KioskPublicSession | null> {
   const supabase = getSupabaseAdmin();
   const device = await readDeviceByToken(supabase, token);
-  await touchDevice(supabase, device.id);
+  await touchDevice(supabase, device.store_id, device.id);
   await expireOldSessions(supabase, device.store_id);
 
   const { data, error } = await supabase
@@ -436,11 +486,16 @@ export async function getKioskPublicSession(token: string): Promise<KioskPublicS
     const { data: activated, error: activateError } = await supabase
       .from("customer_kiosk_sessions")
       .update({ status: "active", updated_at: now })
+      .eq("store_id", device.store_id)
+      .eq("device_id", device.id)
       .eq("id", session.id)
+      .eq("status", "queued")
       .select("*")
-      .single();
+      .maybeSingle();
     fail(activateError, "打开 iPad 任务失败");
-    session = sessionFromRow(activated as DbRecord);
+    if (activated) {
+      session = sessionFromRow(activated as DbRecord, { includeRawSignature: true });
+    }
   }
 
   const order = session.order_id
@@ -450,24 +505,26 @@ export async function getKioskPublicSession(token: string): Promise<KioskPublicS
 
   return {
     session: {
-      id: session.id,
       session_type: session.session_type,
       status: session.status,
-      request_payload: session.request_payload,
+      submission_version: session.submission_version,
       expires_at: session.expires_at,
       submitted_at: session.submitted_at,
+      ...(session.status === "returned"
+        ? {
+            correction_message: publicCorrectionMessage(session.submission_payload),
+            submission_draft: publicKioskSubmissionDraft(session.submission_payload),
+          }
+        : {}),
     },
-    device: { id: device.id, label: device.label, status: device.status },
+    device: { label: device.label, status: device.status },
     store: { name: storeName },
     order: order
       ? {
-          id: order.id,
           public_no: order.public_no,
           customer_name: order.customer_name,
           customer_phone: order.customer_phone,
           device_label: order.device_label,
-          balance_amount: order.balance_amount,
-          status: order.status,
         }
       : undefined,
   };
@@ -476,7 +533,7 @@ export async function getKioskPublicSession(token: string): Promise<KioskPublicS
 export async function submitKioskPublicSession(
   token: string,
   input: KioskSessionSubmitInput,
-): Promise<{ ok: boolean; session_id: string }> {
+): Promise<{ ok: boolean; session_id: string; store_id: string }> {
   const supabase = getSupabaseAdmin();
   const device = await readDeviceByToken(supabase, token);
   const submission = normalizeKioskSubmission(input);
@@ -495,7 +552,8 @@ export async function submitKioskPublicSession(
   if (!data) throw new Error("当前没有可提交的 iPad 任务");
 
   const session = sessionFromRow(data as DbRecord);
-  const { error: updateError } = await supabase
+  assertKioskSubmissionRequirements(session.session_type, submission);
+  const { data: updated, error: updateError } = await supabase
     .from("customer_kiosk_sessions")
     .update({
       status: "submitted",
@@ -505,8 +563,15 @@ export async function submitKioskPublicSession(
       updated_at: now,
     })
     .eq("store_id", device.store_id)
-    .eq("id", session.id);
+    .eq("device_id", device.id)
+    .eq("id", session.id)
+    .in("status", ["queued", "active", "returned"])
+    .eq("submission_version", session.submission_version)
+    .gt("expires_at", now)
+    .select("id")
+    .maybeSingle();
   fail(updateError, "提交 iPad 表单失败");
+  if (!updated) throw kioskSessionConflictError();
 
   if (session.order_id) {
     await writeKioskOrderEvent(supabase, {
@@ -524,7 +589,7 @@ export async function submitKioskPublicSession(
     });
   }
 
-  return { ok: true, session_id: session.id };
+  return { ok: true, session_id: session.id, store_id: device.store_id };
 }
 
 async function readSubmittedSession(
@@ -541,7 +606,7 @@ async function readSubmittedSession(
     .maybeSingle();
   fail(error, "读取 iPad 提交失败");
   if (!data) throw new Error("没有可审核的 iPad 提交");
-  return sessionFromRow(data as DbRecord);
+  return sessionFromRow(data as DbRecord, { includeRawSignature: true });
 }
 
 async function readOrderReviewTarget(supabase: SupabaseAdmin, storeId: string, orderId: string) {
@@ -881,7 +946,7 @@ async function readActiveDevice(supabase: SupabaseAdmin, storeId: string, id: st
 
 async function readDeviceByToken(supabase: SupabaseAdmin, token: string) {
   const cleanToken = token.trim();
-  if (cleanToken.length < 24) throw new Error("iPad token 无效");
+  if (cleanToken.length < 24) throw kioskDeviceUnauthorizedError();
   const { data, error } = await supabase
     .from("store_kiosk_devices")
     .select("*")
@@ -889,15 +954,16 @@ async function readDeviceByToken(supabase: SupabaseAdmin, token: string) {
     .eq("status", "active")
     .maybeSingle();
   fail(error, "读取 iPad 设备失败");
-  if (!data) throw new Error("iPad 未绑定或已撤销");
+  if (!data) throw kioskDeviceUnauthorizedError();
   return deviceFromRow(data as DbRecord);
 }
 
-async function touchDevice(supabase: SupabaseAdmin, deviceId: string) {
+async function touchDevice(supabase: SupabaseAdmin, storeId: string, deviceId: string) {
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("store_kiosk_devices")
     .update({ last_seen_at: now, updated_at: now })
+    .eq("store_id", storeId)
     .eq("id", deviceId);
   fail(error, "更新 iPad 在线状态失败");
 }
@@ -925,6 +991,8 @@ async function readOrderSummary(supabase: SupabaseAdmin, storeId: string, orderI
   const order = decorate(data as DbRecord);
   return {
     id: order.id,
+    assignee_membership_id: maybeString(order.assignee_membership_id),
+    customer_id: requiredString(order.customer_id),
     public_no: order.public_no,
     status: order.status,
     record_state: order.record_state,
@@ -935,6 +1003,22 @@ async function readOrderSummary(supabase: SupabaseAdmin, storeId: string, orderI
     balance_amount: money(order.balance_amount),
     device_custody_status: order.device_custody_status,
   };
+}
+
+function assertKioskSessionCreateScope(
+  actor: AuditActor | undefined,
+  order: { assignee_membership_id?: string } | undefined,
+) {
+  const role = actor?.storeRole ?? actor?.role;
+  const isTechnician = !actor?.isSystem && role === "technician";
+  const scopeSatisfied =
+    !isTechnician ||
+    Boolean(
+      order &&
+        actor?.activeMembershipId &&
+        order.assignee_membership_id === actor.activeMembershipId,
+    );
+  assertPermission(actor, "order:update_intake", { scopeSatisfied });
 }
 
 async function readStoreName(supabase: SupabaseAdmin, storeId: string) {
@@ -1002,8 +1086,16 @@ function deviceFromRow(row: DbRecord): KioskDevice {
   };
 }
 
-function sessionFromRow(row: DbRecord): KioskSession {
+function sessionFromRow(
+  row: DbRecord,
+  options: { includeRawSignature?: boolean } = {},
+): KioskSession {
   const deviceRow = row.device && typeof row.device === "object" ? (row.device as DbRecord) : null;
+  const submissionPayload = recordFromJson(row.submission_payload);
+  if (!options.includeRawSignature && typeof submissionPayload.signature_data_url === "string") {
+    delete submissionPayload.signature_data_url;
+    submissionPayload.has_signature = true;
+  }
   return {
     id: requiredString(row.id),
     store_id: requiredString(row.store_id),
@@ -1024,7 +1116,7 @@ function sessionFromRow(row: DbRecord): KioskSession {
         ? row.status
         : "queued",
     request_payload: recordFromJson(row.request_payload),
-    submission_payload: recordFromJson(row.submission_payload),
+    submission_payload: submissionPayload,
     submission_version: Number(row.submission_version ?? 0),
     expires_at: requiredString(row.expires_at),
     submitted_at: maybeString(row.submitted_at),
@@ -1035,6 +1127,11 @@ function sessionFromRow(row: DbRecord): KioskSession {
     updated_at: requiredString(row.updated_at),
     device: deviceRow ? deviceFromRow(deviceRow) : undefined,
   };
+}
+
+function publicCorrectionMessage(payload: Record<string, unknown> | undefined) {
+  const value = payload?.customer_return_reason;
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, 240) : undefined;
 }
 
 function recordFromJson(value: unknown): Record<string, unknown> {
@@ -1051,7 +1148,7 @@ function normalizeDeviceStatus(value: unknown): KioskDevice["status"] {
 }
 
 function createPairingCode() {
-  return randomBytes(4).toString("hex").toUpperCase();
+  return randomBytes(6).toString("hex").toUpperCase();
 }
 
 function createDeviceToken() {
@@ -1064,4 +1161,9 @@ function hashSecret(value: string) {
 
 function addMinutes(date: Date, minutes: number) {
   return new Date(date.getTime() + minutes * 60_000);
+}
+
+function assertKioskReviewActor(actor: AuditActor | undefined) {
+  assertPermission(actor, "settings:update_store");
+  assertPermission(actor, "order:update_intake");
 }

@@ -1810,24 +1810,31 @@ export interface KioskSessionReturnInput {
 export interface KioskPublicSession {
   session: Pick<
     KioskSession,
-    "id" | "session_type" | "status" | "request_payload" | "expires_at" | "submitted_at"
-  >;
-  device: Pick<KioskDevice, "id" | "label" | "status">;
+    "session_type" | "status" | "submission_version" | "expires_at" | "submitted_at"
+  > & {
+    correction_message?: string;
+    submission_draft?: Omit<KioskSessionSubmitInput, "signature_data_url"> & {
+      has_signature?: boolean;
+    };
+  };
+  device: Pick<KioskDevice, "label" | "status">;
   store: {
     name: string;
   };
   order?: {
-    id: string;
     public_no: string;
     customer_name?: string;
     customer_phone?: string;
     device_label?: string;
-    balance_amount?: number;
-    status?: RepairOrderStatus;
   };
 }
 
 export interface KioskPairResult {
+  token: string;
+  device: Pick<KioskDevice, "label" | "status">;
+}
+
+export interface KioskDevicePairClaimResult {
   token: string;
   device: KioskDevice;
 }

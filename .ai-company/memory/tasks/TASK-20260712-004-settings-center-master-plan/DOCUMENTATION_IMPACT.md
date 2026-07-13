@@ -94,3 +94,20 @@
 - Do not promise atomic member/access/audit writes or supplier-name uniqueness; both remain recorded production-strength follow-ups.
 - The email invitation workflow creates an in-system pending invitation and does not automatically send email.
 - Final end-user Settings operator documentation remains deferred until WP-05 through WP-07 stabilize the remaining child functions.
+
+## WP-05 Kiosk/customer iPad
+
+| Reader             | Impact                                                                                                                | Authoritative update                                                                                          | Verification                                             |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Store users        | Pair devices, review submitted customer forms, return corrections, and revoke access through responsive confirmations | Kiosk Settings section, public Kiosk screen, and three WP-05 screenshots                                      | Six-width Kiosk E2E plus final full flow                  |
+| Developers         | Public/staff DTOs are allowlisted; pair/submit use CAS; return drafts join store-bound dirty navigation               | Kiosk model/repository/router/source, return-draft model, Settings screen, Realtime mapping                   | Targeted tests, typecheck, full regression                |
+| QA                 | Unauthorized clears PII while transient failure retains the form; duplicate actions lock; 44px and no overflow apply  | Kiosk unit tests and `tests/e2e/settings-section-interactions.spec.ts`                                        | 1018 full tests and responsive browser evidence          |
+| Security reviewers | Review is owner/manager only; anonymous errors are fixed; production review writes fail closed                        | Router/repository assertions, public error contract, `kiosk-review-gate.ts`, and checkpoint Owner-gate list | Three independent reviews at P0=0/P1=0                   |
+| Release / SRE      | Local slice is conditionally ready; database transaction, limiting, retention, build rerun, and enable flag are blocked | `CHECKPOINTS.md`, `EVIDENCE.md`, `HANDOFF.md`, and `REPAIRDESK_KIOSK_REVIEW_WRITES_ENABLED` contract          | No migration, production write, push, deploy, or enable |
+
+### WP-05 documentation limits
+
+- Do not document the Kiosk workflow as production-ready while the review-write flag remains disabled and the transaction/constraint/retention/limiting gates are unresolved.
+- Do not promise that customer/order/attachment/session/event/audit changes are atomic; the local CAS protections cover only bounded stale-state races.
+- The three screenshots contain synthetic mock data only and are interaction evidence, not production database proof.
+- Final end-user Settings operator documentation remains deferred until WP-06 and WP-07 stabilize and WP-08 performs release closeout.

@@ -31,4 +31,16 @@ describe("kioskPublicSource", () => {
 
     expect(source.pairKioskDevice).toBe(supabaseSource.pairKioskDevice);
   });
+
+  it("fails closed in production instead of loading mock kiosk data", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    vi.stubEnv("REPAIRDESK_E2E_BUSINESS_DESKTOP", "1");
+
+    await expect(kioskPublicSource()).rejects.toThrow(
+      "RepairDesk production requires Supabase config and forbids E2E auth bypass",
+    );
+  });
 });

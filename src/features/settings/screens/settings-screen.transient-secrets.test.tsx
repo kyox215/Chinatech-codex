@@ -6,13 +6,14 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
-import type { StoreContext, StoreSettings } from "@/lib/repairdesk/types";
+import type { KioskSession, StoreContext, StoreSettings } from "@/lib/repairdesk/types";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { NavigationGuardProvider } from "@/components/navigation-guard-provider";
 
 import { SettingsScreen } from "./settings-screen";
 
 const apiMocks = vi.hoisted(() => ({
+  createKioskDevicePairing: vi.fn(),
   createStore: vi.fn(),
   createStoreInviteLink: vi.fn(),
   getOnboardingStatus: vi.fn(),
@@ -81,6 +82,7 @@ beforeAll(() => {
 describe("SettingsScreen store-bound transient secrets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     navigationMocks.search = "section=members";
     navigationMocks.push.mockReset();
     apiMocks.getStoreContext.mockResolvedValue(storeContext("store-a", "Ripara Subito"));
@@ -97,6 +99,18 @@ describe("SettingsScreen store-bound transient secrets", () => {
     apiMocks.listSuppliers.mockResolvedValue([]);
     apiMocks.switchStore.mockResolvedValue(storeContext("store-b", "Etna Phone Lab"));
     apiMocks.createStore.mockResolvedValue(storeContext("store-b", "Etna Phone Lab"));
+    apiMocks.createKioskDevicePairing.mockResolvedValue({
+      device: {
+        id: "device-a",
+        store_id: "store-a",
+        label: "前台 iPad",
+        status: "pairing",
+        created_at: "2026-07-12T00:00:00.000Z",
+        updated_at: "2026-07-12T00:00:00.000Z",
+      },
+      pairing_code: "STORE-A-CODE",
+      expires_at: "2099-07-13T00:00:00.000Z",
+    });
     apiMocks.updateAccountProfile.mockImplementation(async (input: { display_name: string }) => ({
       userId: "owner-1",
       displayName: input.display_name,
@@ -170,6 +184,89 @@ describe("SettingsScreen store-bound transient secrets", () => {
       expect(screen.queryByText("STORE-A-SECRET")).not.toBeInTheDocument();
     });
     expect(clipboardWrite).not.toHaveBeenCalled();
+  }, 15_000);
+
+  it("drops a delayed kiosk pairing response after the active store changes", async () => {
+    navigationMocks.search = "section=kiosk";
+    const pending = deferred<Awaited<ReturnType<typeof apiMocks.createKioskDevicePairing>>>();
+    apiMocks.createKioskDevicePairing.mockReturnValueOnce(pending.promise);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    expect(await screen.findByRole("heading", { name: "客户 iPad" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /生成配对码/ }));
+    expect(apiMocks.createKioskDevicePairing).toHaveBeenCalledWith({ label: "前台 iPad" });
+
+    await act(async () => {
+      queryClient.setQueryData(storesKeys.context, storeContext("store-b", "Etna Phone Lab"));
+    });
+    await act(async () => {
+      pending.resolve({
+        device: {
+          id: "device-a",
+          store_id: "store-a",
+          label: "前台 iPad",
+          status: "pairing",
+          created_at: "2026-07-12T00:00:00.000Z",
+          updated_at: "2026-07-12T00:00:00.000Z",
+        },
+        pairing_code: "STORE-A-CODE",
+        expires_at: "2099-07-13T00:00:00.000Z",
+      });
+      await pending.promise;
+    });
+
+    await waitFor(() => expect(screen.queryByText("STORE-A-CODE")).not.toBeInTheDocument());
+    expect(screen.getAllByText(/Etna Phone Lab/).length).toBeGreaterThan(0);
+  }, 15_000);
+
+  it("guards and restores a kiosk return-reason draft across settings navigation", async () => {
+    navigationMocks.search = "section=kiosk";
+    apiMocks.listKioskSessions.mockResolvedValue([submittedKioskSession()]);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    const view = render(settingsTree(queryClient));
+
+    const reason = await screen.findByLabelText("给客户的退回原因");
+    await user.type(reason, "请重新确认电话号码");
+    const accountLink = within(screen.getByRole("navigation", { name: "设置导航" })).getByRole(
+      "link",
+      { name: /个人中心|账号/ },
+    );
+    await user.click(accountLink);
+
+    let guard = await screen.findByRole("alertdialog", { name: "当前设置尚未保存" });
+    expect(guard).toHaveTextContent("客户 iPad 退回原因草稿");
+    await user.click(within(guard).getByRole("button", { name: "取消" }));
+    expect(reason).toHaveValue("请重新确认电话号码");
+
+    await user.click(accountLink);
+    guard = await screen.findByRole("alertdialog", { name: "当前设置尚未保存" });
+    await user.click(within(guard).getByRole("button", { name: "保存并继续" }));
+
+    await waitFor(() =>
+      expect(navigationMocks.push).toHaveBeenCalledWith("/settings?section=account", {
+        scroll: false,
+      }),
+    );
+    expect(
+      window.sessionStorage.getItem("repairdesk:settings:kiosk-return-drafts:store-a"),
+    ).toContain("请重新确认电话号码");
+
+    view.unmount();
+    navigationMocks.search = "section=kiosk";
+    const restoredClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(settingsTree(restoredClient));
+    await waitFor(() =>
+      expect(screen.getByLabelText("给客户的退回原因")).toHaveValue("请重新确认电话号码"),
+    );
   }, 15_000);
 
   it("never renders a previous store draft while the new store settings are pending", async () => {
@@ -805,6 +902,38 @@ function storeSettings(storeId: string, storeName: string): StoreSettings {
     message_signature: storeName,
     created_at: "2026-07-12T00:00:00.000Z",
     updated_at: "2026-07-12T00:00:00.000Z",
+  };
+}
+
+function submittedKioskSession(): KioskSession {
+  return {
+    id: "session-a",
+    store_id: "store-a",
+    device_id: "device-a",
+    order_id: "order-a",
+    customer_id: "customer-a",
+    session_type: "order_contact_signature",
+    status: "submitted",
+    request_payload: { order_public_no: "TEST-001", device_label: "Test Phone" },
+    submission_payload: {
+      customer_name: "Cliente Test",
+      customer_phone: "+39 333 000 0000",
+      confirmation_checked: true,
+      has_signature: false,
+    },
+    submission_version: 1,
+    expires_at: "2099-07-13T00:00:00.000Z",
+    submitted_at: "2026-07-13T00:10:00.000Z",
+    created_at: "2026-07-13T00:00:00.000Z",
+    updated_at: "2026-07-13T00:10:00.000Z",
+    device: {
+      id: "device-a",
+      store_id: "store-a",
+      label: "Front iPad",
+      status: "active",
+      created_at: "2026-07-13T00:00:00.000Z",
+      updated_at: "2026-07-13T00:10:00.000Z",
+    },
   };
 }
 
