@@ -13,6 +13,7 @@
 | E-009 | browser runtime | 下单、到货、修好已通知筛选分别返回对应阶段，蓝/黄/绿语义类生效；浏览器无 warn/error | in-app browser scripted checks | passed | 2026-07-13 | INT |
 | E-010 | independent QA | 独立只读审查覆盖验收矩阵、权限、分页、文档和 diff | QA agent `019f5a6e-ce4c-7482-84e1-e8e134df8a2d` | PASS; no P0/P1 | 2026-07-13 | QA |
 | E-011 | review follow-up | QA 指出的加载骨架默认偏移 P2 已设置为 `22rem` 并增加组件断言 | `order-list-skeleton.tsx`; `loading-skeletons.test.tsx` | fixed; focused tests passed | 2026-07-13 | INT |
+| E-012 | release | 已验证实现提交无强推发布到远端 `main`，远端 SHA 回读一致 | commit `2c44ce1160eeabcbb504a850edeb4e9938cf6fee`; `origin/main` | verified | 2026-07-13 | RELEASE |
 
 ## Agent execution
 

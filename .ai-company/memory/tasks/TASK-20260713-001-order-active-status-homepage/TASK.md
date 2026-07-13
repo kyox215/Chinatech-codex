@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260713-001-order-active-status-homepage"
 title: "订单首页进行中状态分层与终态隐藏"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["INT", "FLOW", "UX", "FE", "API", "DATA", "QA", "RELEASE"]
 created_at: "2026-07-13T07:02:52Z"
-updated_at: "2026-07-13T07:42:21Z"
+updated_at: "2026-07-13T07:58:13Z"
 ---
 # Task - 订单首页进行中状态分层与终态隐藏
 
@@ -62,7 +62,7 @@ updated_at: "2026-07-13T07:42:21Z"
 - [x] 320、390、430 像素移动端无横向状态栏、无页面横向溢出；1280 桌面端层级清晰。
 - [x] 员工历史聚合金额和批量导出权限不扩大。
 - [x] `agents:check`、lint、typecheck、测试、build 和浏览器验证通过。
-- [ ] 本任务经过独立 QA 复核后提交并推送 `main`。
+- [x] 本任务经过独立 QA 复核后提交并推送 `main`。
 
 ## Risk and autonomy
 

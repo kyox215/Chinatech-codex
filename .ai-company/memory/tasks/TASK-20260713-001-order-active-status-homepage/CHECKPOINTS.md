@@ -24,3 +24,11 @@
 - **Evidence:** QA agent `019f5a6e-ce4c-7482-84e1-e8e134df8a2d`; focused tests 7 files / 124 tests；`git diff --check` 通过。
 - **Risks/blockers:** 无发布阻断；旧外部客户端若发送废弃队列组将收到 schema 拒绝，当前仓库调用方已同步。
 - **Next:** 最终全量门禁，更新关闭证据，提交并推送 `main`。
+
+## 2026-07-13T07:58:13Z - Released to main
+
+- **Phase:** closed.
+- **Completed:** 最终 agents/lint/typecheck/full test/build 通过；39 个任务文件提交为 `2c44ce1160eeabcbb504a850edeb4e9938cf6fee` 并无强推发布到 `main`。
+- **Evidence:** 本地 HEAD 与 `origin/main` SHA 回读一致；工作树在发布后为 clean。
+- **Risks/blockers:** 无开放阻断；未部署生产环境、未修改生产数据/schema/权限。
+- **Next:** 任务关闭；后续生产部署或旧外部客户端兼容评估必须作为独立任务启动。
