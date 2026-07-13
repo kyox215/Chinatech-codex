@@ -21,3 +21,11 @@
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.
+
+## Consolidation result — 2026-07-13
+
+- Promoted the verified buyback authorization, evidence, atomic-finalize and resale-check contracts to `PROJECT_MEMORY.md` and Backend/Data/Frontend/Security/QA department memory.
+- Added the closed task to `MEMORY_INDEX.md`.
+- Recorded a C2 candidate for read-only cross-layer buyback security review; permission and autonomy remain unchanged.
+- Did not promote temporary test IDs, screenshot transaction numbers, failed stale-server runs or local process details.
+- No new memory conflict was created: production migration drift remains covered by `CONFLICT-20260619-006` and is explicitly referenced as a release blocker.

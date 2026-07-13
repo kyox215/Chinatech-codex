@@ -36,6 +36,7 @@ as owner of this file.
 - `TASK-20260710-009` enforces customer read authorization before repository calls and no longer trusts user-editable metadata or a generic confirmation timestamp as verified-email authority. Technician/viewer customer reads remain fail closed without an approved object-level scope model.
 - `TASK-20260712-002-global-staff-permissions` closes the approved global staff-policy gap: mutable technician names are never authorization keys, kiosk session review is owner/manager-only, and browser 401/403 authority loss clears tenant-sensitive caches before paint. Production assignment/grant migrations remain unapplied until the separate database gate.
 - `TASK-20260713-001-order-active-status-homepage` hides all `completed` and `cancelled` rows from the default homepage without deleting or rewriting them. Cancelled-device return, settlement contradictions and other custody reminders remain on the authorized order detail/history paths. Exact archived-order lookup remains a single-order capability, while archive browsing, aggregate totals and bulk output stay separately gated.
+- `TASK-20260712-005-buyback-guided-evidence` verifies local fail-closed controls for sensitive buyback evidence: Sales cannot capture/read/finalize; Owner/Manager can; full document numbers are never persisted; private evidence is tenant/item scoped with short-lived audited access; signature hashes bind legal/device/seller/amount/payment/declarations; generic write/payment/status bypasses are denied; hosted JSON is capped at 4.4MB after 2.4MB client compression.
 
 ## Interfaces and dependencies
 
@@ -59,6 +60,7 @@ as owner of this file.
 | SEC-20260620-003 | `stores/create` allows any logged-in actor to create a store outside platform approval | Tenant lifecycle/governance risk | Security + Product + Owner | decide self-service vs platform-admin-only | open |
 | SEC-20260710-001 | 17 legacy public tables permit direct browser-role access with RLS disabled | Critical customer/business data exposure | Security + Data + Owner | P0 consumer discovery and staged containment | open |
 | SEC-20260710-002 | One plaintext unlock pattern remains and no approved retention/key-management policy exists | Sensitive device-access secret risk | Security + Data + Owner | policy decision before encryption migration, purge or export | blocked_by_policy |
+| SEC-20260713-003 | Buyback evidence retention, staged-file deletion, real bucket/RLS grants, legal wording and advanced file sanitization are not production-verified | Identity-document/privacy exposure | Security + Data + Operations + Owner | approved production-readiness/legal task before migration or deploy | local_code_pass_production_no_go |
 
 ## Lessons and anti-patterns
 
@@ -83,3 +85,4 @@ as owner of this file.
 | 2026-07-12 | Verified global staff permissions, membership-ID order scope, kiosk PII gate and authority-loss cache purge | TASK-20260712-002-global-staff-permissions | Security reviewer + Integration Lead | active |
 | 2026-07-13 | Added custody-return authorization, import minimization and archive-search boundary | TASK-20260712-005-order-custody-archive | Security reviewer + Integration Lead | active |
 | 2026-07-13 | Preserved history/detail authority while removing terminal orders from the default homepage | TASK-20260713-001-order-active-status-homepage | Integration Lead + QA reviewer | active |
+| 2026-07-13 | Added verified buyback role/PII/evidence/signature/idempotency/upload-envelope controls and production NO-GO | TASK-20260712-005-buyback-guided-evidence | Security reviewer + Integration Lead | verified_local |

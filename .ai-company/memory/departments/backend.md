@@ -33,6 +33,7 @@ as owner of this file.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` establishes the target audit payload contract: deny-by-default sanitizer, event allowlists, safe envelopes instead of raw `metadata.input` or raw `after`, and domain-specific direct-writer sanitization. This is not implemented yet.
 - `TASK-20260712-002-global-staff-permissions` implements the global Owner-approved role contract. Individual-order finance is separate from aggregate/profit/export authority, archived queue access is explicit, and technician object checks use stable same-store membership IDs before every child read or write. Legacy name-based technician authorization is forbidden and fails closed until migration.
 - `TASK-20260713-001-order-active-status-homepage` supersedes the default-home predicate from the custody task: the server filters `completed` and `cancelled` before counts and pagination, independent of payment, delivery or custody evidence. Every nonterminal order remains operationally visible. Completion and cancelled-device actions still preserve finance fields and remain available through authorized history/detail paths.
+- `TASK-20260712-005-buyback-guided-evidence` establishes a dedicated sensitive buyback boundary: Sales handoff is separate from Owner/Manager restricted-evidence capture/finalize; generic inventory updates cannot write signed acquisition fields, direct buyback payment or `purchased`; finalize uses expected version, idempotency and one RPC; quality-check updates use status/version CAS and patch only submitted fields.
 
 ## Interfaces and dependencies
 
@@ -53,6 +54,7 @@ as owner of this file.
 | BE-20260620-001 | Order/customer write paths need an explicit Owner-approved role policy and server-side tests before behavior changes | Staff workflow regression or over-permission | Backend + Security + QA | resolved by TASK-20260712-002 global policy and negative tests | closed |
 | BE-20260620-002 | Audit writer and generic router currently permit raw before/after/input payloads | Sensitive data over-retention | Backend + Security + QA | implement central sanitizer after Owner confirms behavior change | policy_drafted |
 | BE-20260713-001 | General status update and timeline insertion remain separate database writes | A status may commit without its event if event insertion fails | Backend + Data | make both writes atomic in the next workflow RPC migration | open |
+| BE-20260713-002 | Generic inventory sale/payment remains outside the buyback-finalize transaction boundary | A later resale workflow can still partially write outside this acquisition scope | Backend + Data + Product | dedicated atomic sale-command task before expanding resale automation | open |
 
 ## Lessons and anti-patterns
 
@@ -76,3 +78,4 @@ as owner of this file.
 | 2026-07-12 | Recorded global role, archive, finance projection and stable order-assignment contract | TASK-20260712-002-global-staff-permissions | Integration Lead + security reviewer | active |
 | 2026-07-13 | Superseded archive eligibility, separated handover from payment, and added explicit cancelled-device return | TASK-20260712-005-order-custody-archive | Integration Lead + Data/Security reviewers | active |
 | 2026-07-13 | Simplified default-home visibility to terminal status and moved filtering before counts/pagination | TASK-20260713-001-order-active-status-homepage | Integration Lead + QA reviewer | active |
+| 2026-07-13 | Added restricted buyback command boundary, quality CAS and generic-write bypass guards | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | verified_local |

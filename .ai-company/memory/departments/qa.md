@@ -3,7 +3,7 @@ schema_version: 1
 department: qa
 status: active
 owner: QA Department / Integration Lead
-last_verified_at: 2026-07-12
+last_verified_at: 2026-07-13
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -52,6 +52,7 @@ as owner of this file.
 - `TASK-20260619-015` removed 14 confirmed empty duplicate directories, confirmed the empty-dir scan is clean, and recorded 56 generated/ignored duplicate-like output paths without deleting them.
 - `TASK-20260712-002-mobile-interaction-click-reliability` adds `npm run test:e2e:interactions:mock` to the manual GitHub Actions E2E workflow. It verifies touch-center hit-testing, Sidebar/Dropdown navigation, account controls, pointer-lock release, overlay close, a representative modal handoff and primary-route overflow at 390px and 430px; WebKit remains a local Safari-like regression option through `PLAYWRIGHT_BROWSER=webkit`.
 - App-shell interaction tests must wait for the first successful `stores/context` snapshot instead of `networkidle`, then verify controls against live DOM because authority and Realtime bridges may legitimately rerender. Unit coverage separately proves that first permission hydration does not unmount shell controls and later stable authority changes still reset them.
+- Guided-buyback role E2E must start the dev server itself with `REPAIRDESK_E2E_BUSINESS_DESKTOP=1`; setting the flag only on Playwright leaves server actors fail-closed. `TASK-20260712-005-buyback-guided-evidence` final post-rebase gate is 12 files/152 focused tests, 127 files/883 full tests, lint/typecheck/build PASS and 10/10 guided-buyback/dashboard Playwright flows plus four reviewed screenshots.
 - If the full parallel Vitest run fails only through fixed 5s timeouts in Radix/user-event tests on a constrained host, rerun the failed files in isolation and the complete suite with one worker before classifying the result as a product regression. Keep the original failure and both rerun results in evidence.
 
 ## Interfaces and dependencies
@@ -123,3 +124,4 @@ as owner of this file.
 | 2026-07-10 | Recorded full TASK-009 quality gate and remote-state serialization risk | TASK-20260710-009 | Integration Lead | active |
 | 2026-07-12 | Recorded final global staff-permission regression, build, migration dry-run and visual evidence gates | TASK-20260712-002-global-staff-permissions | Integration Lead + QA/security reviewers | active |
 | 2026-07-12 | Added mobile interaction workflow gate, pointer-lock evidence contract, and timeout-classification rule | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |
+| 2026-07-13 | Added guided-buyback security/full/browser gate and server-side E2E actor-environment lesson | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | active |

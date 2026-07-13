@@ -39,6 +39,7 @@ as owner of this file.
 - `TASK-20260712-005-order-custody-archive` validates the production repair SOP: exact store/source scope, minimal before-image, no-later-activity guard, forced patch rollback rehearsal, formal apply, selective restore rollback rehearsal, and independent post-check. Its 51-row batch changed only workflow/status evidence and audit events, with no customer, device, finance, attachment or cross-store mutation.
 - Because server repositories use the service-role/admin path, server-side authorization remains the decisive write-control boundary even when RLS exists as a database guardrail.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` classifies audit-row retention risk and keeps live audit-row sampling, retention changes, purge, historical redaction/backfill, audit-reader grants, and schema/RLS changes approval-gated.
+- `TASK-20260712-005-buyback-guided-evidence` adds a local migration contract for private restricted evidence, agreement/payment/evidence atomic finalize, idempotency and serial locking. It is not production evidence: linked dry-run, dual-schema fixtures, RPC grants/RLS, `storage.objects` policies, concurrent calls and cleanup/retention behavior must pass before apply.
 
 ## Interfaces and dependencies
 
@@ -62,6 +63,7 @@ as owner of this file.
 | DATA-20260620-002 | Existing live audit rows may already contain raw sensitive payloads | Privacy, retention, and cleanup risk | Data + Security + Owner | D4-approved historical exposure assessment before purge/backfill | unknown_live_state |
 | DATA-20260710-001 | 17 linked legacy public tables have RLS disabled and direct anon/authenticated privileges | Critical unauthorized-access surface; blind revoke may break an old consumer | Data + Security + Owner | P0 consumer discovery, then staged revoke/RLS with rollback | open |
 | DATA-20260710-002 | Historical migration chain cannot reset from zero at `20260611102805`; backup/PITR restore proof is absent | Disaster recovery cannot be demonstrated | Data + Operations | P0 trusted baseline reconstruction and isolated restore drill | open |
+| DATA-20260713-003 | Buyback restricted-evidence migration, bucket policies, staged cleanup and retention/legal-hold behavior are unverified in linked/production Supabase | PII exposure, orphan files or noncompliant retention | Data + Security + Operations + Owner | separate approved R3 production-readiness task before migration/deploy | local_only_no_go |
 
 ## Lessons and anti-patterns
 
@@ -90,3 +92,4 @@ as owner of this file.
 | 2026-07-10 | Added scoped linked migration-history and supplier permission-grant table verification | TASK-20260709-220940-task | Integration Lead | scoped_verified |
 | 2026-07-10 | Added payment transaction contract, legacy-table exposure and recovery-chain risks | TASK-20260710-009 | Integration Lead | scoped_verified |
 | 2026-07-13 | Added SeaTable authority rules and verified guarded production status-repair SOP | TASK-20260712-005-order-custody-archive | Integration Lead + data reviewer | scoped_verified |
+| 2026-07-13 | Added local atomic buyback/evidence migration contract and explicit production NO-GO | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | verified_local |

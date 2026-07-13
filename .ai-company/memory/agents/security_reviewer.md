@@ -5,7 +5,7 @@ status: active
 capability_level: C1
 permission: read-only
 autonomy: task-specific
-last_evaluated_at: 2026-06-19
+last_evaluated_at: 2026-07-13
 review_trigger: task-close-failure-or-quarterly
 ---
 
@@ -28,6 +28,7 @@ Review threats, authn/authz, sensitive data, secrets, and supply chain.
 |---|---:|---|---|---|
 | Template role behavior | C1 | static configuration only | system | — |
 | RepairDesk auth, role, tenant, and secret-boundary map | C1 | `TASK-20260619-003/PROJECT_TAKEOVER_REPORT.md` | Integration Lead | 2026-06-19 |
+| Guided-buyback cross-layer security review | C2 candidate | `TASK-20260712-005-buyback-guided-evidence/CEO_REPORT.md` and E-010/E-014 | Integration Lead | 2026-07-13 |
 
 ## Known limitations
 
@@ -44,7 +45,7 @@ Review threats, authn/authz, sensitive data, secrets, and supply chain.
 
 | Date | Observation | Evidence | Proposed adjustment | Approval/status |
 |---|---|---|---|---|
-| — | Not evaluated on a real task | — | Run bounded evaluation | proposed |
+| 2026-07-13 | Found role/runtime, proof-state, return/recheck, quality CAS and hosted-envelope gaps across iterative freezes | TASK-20260712-005-buyback-guided-evidence | Reuse a post-rebase focused security suite and keep production migration/deploy as a separate gate | C2 candidate; permission/autonomy unchanged |
 
 ## Evaluation backlog
 

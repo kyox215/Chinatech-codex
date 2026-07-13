@@ -33,6 +33,7 @@ as owner of this file.
 - Informational progress/count chips must render as static content. Use button semantics only when a real handler exists; shared mobile menu triggers should retain a practical touch target (40px in the current RepairOS list header).
 - Order detail manual status flow uses an inline desktop panel in `src/features/orders/screens/order-detail-screen.tsx`; do not reintroduce the old second desktop `状态流转` Dialog. Mobile may keep the bottom Sheet pattern for the same action list.
 - Active order lists use six operational queue groups: `处理中`, `下单`, `到货`, `到货已通知`, `修好`, and `修好已通知`. Blue identifies ordering, yellow identifies arrival/arrival notification, and green identifies repaired/repaired notification; text and icons remain mandatory. Mobile renders a fixed two-column grid with no horizontal status scrolling, while desktop gives the seven choices including `全部待办` a full-width row.
+- Guided buyback uses six explicit beginner steps with one primary action per stage. Sales stops at manager handoff; Owner/Manager gets identity capture, versioned Italian terms, white-background signature canvas and final confirmation. Oversized evidence is compressed to a 2.4MB raw-file envelope before Base64 upload; mobile and desktop flows require browser screenshots.
 - `TASK-20260620-001` is the current evidence for order detail status-flow UI behavior and target E2E verification.
 - `TASK-20260620-002` classified the remaining legacy `src/routes/*` files as delete-ready after Owner approval. Live page bodies remain feature screens imported by `src/app/*`; do not use `src/routes/*` as a UI source.
 - `TASK-20260620-003` confirms the deletion preflight baseline is green without touching App Router or feature screen files. Future deletion must not modify `src/app/*` or `src/features/*`.
@@ -57,6 +58,7 @@ as owner of this file.
 | FE-20260619-002 | Duplicate `* 2.*` component/screen files exist | Search/import/tooling noise | Frontend + QA | duplicate cleanup task | open |
 | FE-20260619-003 | Stale UI duplicates may be mistaken for alternate approved designs | UI consistency risk | Frontend + Design | before deleting or reusing UI duplicates | open |
 | FE-20260620-001 | Order detail screen remains large and contains both desktop/mobile transition surfaces | Review cost and regression risk | Frontend + QA | future order detail split task | open |
+| FE-20260713-002 | `buyback-quote-workspace.tsx` now owns a large multi-step workflow and client image-compression helper | Review and regression cost | Frontend + Architecture + QA | split by step/upload model in a dedicated refactor after behavior stabilizes | open |
 
 ## Lessons and anti-patterns
 
@@ -83,3 +85,4 @@ as owner of this file.
 | 2026-07-12 | Added initial authority-hydration shell-stability rule while preserving later permission-change reset | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |
 | 2026-07-13 | Added active custody queue groups and responsive list contract | TASK-20260712-005-order-custody-archive | Integration Lead | active |
 | 2026-07-13 | Replaced custody buckets with six explicit active stages and a non-scrolling two-column mobile selector | TASK-20260713-001-order-active-status-homepage | Integration Lead + UX/QA reviewers | active |
+| 2026-07-13 | Added verified six-step buyback, role handoff, legal/signature and bounded evidence-upload UI | TASK-20260712-005-buyback-guided-evidence | Integration Lead + UX/security reviewers | active |

@@ -16,6 +16,8 @@
 | E-012 | post-rebase static/build gates | merged source compiles, lints and builds | `npm run lint`; `npm run typecheck`; `npm run build` | all passed; 22/22 static pages | 2026-07-13T08:40:25Z | RepairDesk Integration Lead |
 | E-013 | post-rebase browser regression | guided buyback and dashboard quick-start/loading/error flows | two Playwright specs, one worker | 10/10 passed | 2026-07-13T08:41:10Z | RepairDesk Integration Lead |
 | E-014 | independent security freeze | no unresolved P0/P1 in push scope | commit `fd30c7e1`; focused tests; `git show --check` | code push PASS; production migration/deploy NO-GO | 2026-07-13T08:41:00Z | SEC reviewer |
+| E-015 | GitHub push | verified feature and release checkpoint reached `origin/main` without force | `git push origin HEAD:main`; `git ls-remote origin refs/heads/main` | remote `main` = `6f475115ac4847b98601fdc788e4111e6c243604` | 2026-07-13T08:43:30Z | RepairDesk Integration Lead |
+| E-016 | governance closeout | closeout memory and agent rules remain valid | `npm run agents:check`; `git diff --check` | passed | 2026-07-13T08:48:00Z | RepairDesk Integration Lead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

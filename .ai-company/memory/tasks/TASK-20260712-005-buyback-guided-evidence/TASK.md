@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260712-005-buyback-guided-evidence"
 title: "回收小白引导、证件签名与安全成交闭环"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "DATA", "FE", "FLOW", "INT", "QA", "REL", "SEC", "UX"]
 created_at: "2026-07-12T13:06:48Z"
-updated_at: "2026-07-13T08:41:36Z"
+updated_at: "2026-07-13T08:46:28Z"
+closed_at: "2026-07-13T08:46:28Z"
 ---
 # Task — 回收小白引导、证件签名与安全成交闭环
 
@@ -51,7 +52,7 @@ updated_at: "2026-07-13T08:41:36Z"
 - [x] 回收成交具备独立权限、服务端门禁、幂等与原子数据库提交
 - [x] 证件与签名使用私有受限存储、短期按需读取、审计和保留字段
 - [x] 相关测试、全量 lint/typecheck/test/build、多视口浏览器流程与截图通过
-- [ ] 范围提交安全推送 origin/main，不执行生产数据库迁移或部署
+- [x] 范围提交安全推送 origin/main，不执行生产数据库迁移或部署
 
 ## Facts, assumptions, and unknowns
 

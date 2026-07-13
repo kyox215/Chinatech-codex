@@ -2,10 +2,10 @@
 
 ## Current handoff
 
-- **Status:** release-ready; post-rebase code, security, full regression, build and browser gates are green; push gate still pending.
-- **Last verified:** 2026-07-13T08:41:36Z
+- **Status:** closed; verified code and checkpoint are on `origin/main`; production migration/deploy remain explicitly blocked.
+- **Last verified:** 2026-07-13T08:46:28Z
 - **Workspace/branch:** `/private/tmp/repairdesk-buyback-guided-20260712` / `codex/buyback-guided-v2-20260712`.
-- **First action:** commit the release checkpoint, confirm `origin/main` has not moved, push `HEAD:main`, verify the remote SHA, then record the exact closeout evidence without applying the migration.
+- **First action for any production follow-up:** create a separate R3 task, obtain Owner approval, run linked dry-run/fixtures/RLS/grant/storage/concurrency checks, and obtain legal retention review before applying any migration or deployment.
 
 ## Verified implementation
 
