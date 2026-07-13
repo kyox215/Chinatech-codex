@@ -97,17 +97,41 @@
 
 ## WP-05 Kiosk/customer iPad
 
-| Reader             | Impact                                                                                                                | Authoritative update                                                                                          | Verification                                             |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Store users        | Pair devices, review submitted customer forms, return corrections, and revoke access through responsive confirmations | Kiosk Settings section, public Kiosk screen, and three WP-05 screenshots                                      | Six-width Kiosk E2E plus final full flow                  |
-| Developers         | Public/staff DTOs are allowlisted; pair/submit use CAS; return drafts join store-bound dirty navigation               | Kiosk model/repository/router/source, return-draft model, Settings screen, Realtime mapping                   | Targeted tests, typecheck, full regression                |
-| QA                 | Unauthorized clears PII while transient failure retains the form; duplicate actions lock; 44px and no overflow apply  | Kiosk unit tests and `tests/e2e/settings-section-interactions.spec.ts`                                        | 1018 full tests and responsive browser evidence          |
-| Security reviewers | Review is owner/manager only; anonymous errors are fixed; production review writes fail closed                        | Router/repository assertions, public error contract, `kiosk-review-gate.ts`, and checkpoint Owner-gate list | Three independent reviews at P0=0/P1=0                   |
-| Release / SRE      | Local slice is conditionally ready; database transaction, limiting, retention, build rerun, and enable flag are blocked | `CHECKPOINTS.md`, `EVIDENCE.md`, `HANDOFF.md`, and `REPAIRDESK_KIOSK_REVIEW_WRITES_ENABLED` contract          | No migration, production write, push, deploy, or enable |
+| Reader             | Impact                                                                                                                     | Authoritative update                                                                                        | Verification                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Store users        | Pair devices, review submitted customer forms, return corrections, and revoke access through responsive confirmations      | Kiosk Settings section, public Kiosk screen, and three WP-05 screenshots                                    | Six-width Kiosk E2E plus final full flow                |
+| Developers         | Public/staff DTOs are allowlisted; pair/submit use CAS; return drafts join store-bound dirty navigation                    | Kiosk model/repository/router/source, return-draft model, Settings screen, Realtime mapping                 | Targeted tests, typecheck, full regression              |
+| QA                 | Unauthorized clears PII while transient failure retains the form; duplicate actions lock; 44px and no overflow apply       | Kiosk unit tests and `tests/e2e/settings-section-interactions.spec.ts`                                      | 1018 full tests and responsive browser evidence         |
+| Security reviewers | Review is owner/manager only; anonymous errors are fixed; Supabase-backed collection/review remains fail closed            | Router/repository assertions, public error contract, `kiosk-review-gate.ts`, and checkpoint Owner-gate list | Three independent reviews at P0=0/P1=0                  |
+| Release / SRE      | Local slice is conditionally ready; database transaction, limiting, retention, migration apply, and both flags are blocked | `CHECKPOINTS.md`, `EVIDENCE.md`, `HANDOFF.md`, and WP05-B ADR                                               | No migration, production write, push, deploy, or enable |
 
 ### WP-05 documentation limits
 
-- Do not document the Kiosk workflow as production-ready while the review-write flag remains disabled and the transaction/constraint/retention/limiting gates are unresolved.
+- Do not document the Kiosk workflow as production-ready while both Kiosk flags and the transaction/constraint/retention/limiting gates remain unresolved.
 - Do not promise that customer/order/attachment/session/event/audit changes are atomic; the local CAS protections cover only bounded stale-state races.
 - The three screenshots contain synthetic mock data only and are interaction evidence, not production database proof.
 - Final end-user Settings operator documentation remains deferred until WP-06 and WP-07 stabilize and WP-08 performs release closeout.
+
+## WP05-B Kiosk database/public-entry hardening
+
+| Reader             | Impact                                                                                                                        | Authoritative update                                                                              | Verification                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Store users        | No linked behavior is enabled; a viewed-version mismatch is rejected before the review path starts                            | `ADR-WP05B-KIOSK-DATABASE-HARDENING.md` and the Kiosk review-version contract                     | Focused model/API/repository/UI tests                      |
+| Developers         | Production and Supabase-backed Kiosk require both flags end to end; review uses the viewed version; raw signatures are pruned | Kiosk gate/public HTTP helper, strict API schemas, repository/mock implementation, and WP05-B ADR | Route, gate, repository, mock, and TypeScript checks       |
+| QA                 | Explicit anonymous handler responses are no-store/same-origin with stable 403/503 errors; blocked modes avoid source calls    | `kiosk-routes.test.ts`, private-router integration tests, and gate tests                          | 160 files / 1034 tests plus final production build         |
+| Security reviewers | Session payloads duplicate less PII; post-review rows retain signature state/reference instead of a Base64 image              | Kiosk repository/model/public DTO contracts and `ADR-WP05B-KIOSK-DATABASE-HARDENING.md`           | Independent security diff review                           |
+| Data / Release     | One additive, unapplied `NOT VALID` migration is staged; both Kiosk switches are documented default-off                       | Migration, `WP05B_DATABASE_APPROVAL_PACKET.md`, and `.env.example`                                | Static contract passes; executable Gate 2A remains blocked |
+
+### WP05-B updated authoritative documentation
+
+- `ADR-WP05B-KIOSK-DATABASE-HARDENING.md`: staged architecture, rejected shortcuts, security/privacy boundaries, and release gates.
+- `WP05B_DATABASE_APPROVAL_PACKET.md`: exact linked read-only preflight, migration-order stop conditions, post-checks, and excluded decisions.
+- `DOCUMENTATION_IMPACT.md`: reader/behavior/configuration/database mapping.
+- `.env.example`: both Kiosk switches are explicit, default to `0`, and cover every Supabase-backed non-E2E runtime.
+
+### WP05-B deferred or intentionally unchanged documentation
+
+- No end-user operator guide update: production Kiosk remains disabled and the visible workflow did not gain a releasable user behavior.
+- No retention schedule or consent copy: legal/purpose decisions are not approved.
+- No role matrix update: reviewer-role semantics are frozen.
+- No production runbook activation step: both environment flags, migration apply, deployment, and push remain Owner gates.

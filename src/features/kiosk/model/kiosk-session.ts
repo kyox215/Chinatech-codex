@@ -1,5 +1,6 @@
 import type {
   KioskSessionReturnInput,
+  KioskSessionReviewInput,
   KioskSessionCreateInput,
   KioskSessionSubmitInput,
   KioskSessionType,
@@ -74,12 +75,23 @@ export function assertKioskSubmissionRequirements(
 }
 
 export function normalizeKioskReturnInput(input: KioskSessionReturnInput) {
-  const id = input.id?.trim();
+  const review = normalizeKioskReviewInput(input);
   const reason = input.reason?.trim().replace(/\s+/g, " ");
-  if (!id) throw new Error("缺少 iPad 任务");
   if (!reason) throw new Error("请输入退回原因");
   if (reason.length > 240) throw new Error("退回原因过长");
-  return { id, reason };
+  return { ...review, reason };
+}
+
+export function normalizeKioskReviewInput(input: KioskSessionReviewInput) {
+  const id = input.id?.trim();
+  if (!id) throw new Error("缺少 iPad 任务");
+  if (
+    !Number.isInteger(input.expected_submission_version) ||
+    input.expected_submission_version < 0
+  ) {
+    throw new Error("iPad 提交版本无效，请刷新后重试");
+  }
+  return { id, expected_submission_version: input.expected_submission_version };
 }
 
 export function sanitizeKioskPayload(value: unknown): Record<string, unknown> {

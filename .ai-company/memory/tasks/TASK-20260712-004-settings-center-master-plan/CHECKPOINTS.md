@@ -387,3 +387,14 @@ Create the scoped local WP-04 commit without pushing. Then begin WP-05 Kiosk/cus
 ### Next executable action
 
 Create the scoped local WP-05 commit without pushing. Then stop for Owner decisions and database approval; do not enable production review writes or proceed as if WP-05 were production-ready.
+
+## 2026-07-13T15:23:52Z — WP05-B Kiosk database/public-entry hardening is locally conditionally closed. End-to-end dual flags cover every production or Supabase-backed non-E2E entry; viewed-version accept/return, no-store/same-origin public handling, PII minimization, raw-signature pruning, and an additive bounded NOT VALID migration are implemented.
+
+- **Phase:** wp05b_local_conditional_closeout
+- **Completed/current state:** WP05-B Kiosk database/public-entry hardening is locally conditionally closed. End-to-end dual flags cover every production or Supabase-backed non-E2E entry; viewed-version accept/return, no-store/same-origin public handling, PII minimization, raw-signature pruning, and an additive bounded NOT VALID migration are implemented.
+- **Next:** Confirm the scoped WP05-B local commit and clean task diff, then rehydrate WP-06 for local reversible implementation; stop at database, role, retention, production, push, or deployment gates.
+- **Decision:** Any production or Supabase-backed non-E2E Kiosk entry requires both default-off flags. The current migration is Stage 1 only; Stage 2 order/customer keys require a separate packet. Production remains NO-GO.
+- **Blocker:** Gate 2A executable full-history PostgreSQL reset/apply/lint is unavailable because the local Docker daemon is not running. Linked apply, Stage 3 atomic finalize/cleanup, distributed limiting/token policy, role semantics, and retention/GDPR remain Owner gates.
+- **Evidence:**
+  - Full Vitest 160 files/1034 tests; focused safety 5 files/32 tests; independent QA 10 files/82 tests; lint, typecheck, agents check, diff check, and outside-sandbox production build pass; DATA/SECURITY/QA terminal reviews P0=0/P1=0.
+- **Recorded by:** RepairDesk-Integration-Lead

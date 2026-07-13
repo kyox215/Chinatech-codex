@@ -6,6 +6,7 @@ import {
   acceptKioskSession,
   listKioskSessions,
   pairKioskDevice,
+  returnKioskSession,
   revokeKioskDevice,
   submitKioskPublicSession,
 } from "./kiosk.repository";
@@ -237,6 +238,158 @@ describe("kiosk repository local safety contracts", () => {
     expect(update.eq).toHaveBeenCalledWith("submission_version", 1);
     expect(update.in).toHaveBeenCalledWith("status", ["queued", "active", "returned"]);
     expect(update.gt).toHaveBeenCalledWith("expires_at", expect.any(String));
+  });
+
+  it("binds both the review read and return CAS to the submission version staff viewed", async () => {
+    const submitted = createQuery({
+      data: {
+        ...sessionRow({
+          confirmation_checked: true,
+          signature_data_url: "data:image/png;base64,SECRET",
+        }),
+        status: "submitted",
+        submission_version: 3,
+      },
+      error: null,
+    });
+    const returned = createQuery({
+      data: {
+        ...sessionRow({
+          confirmation_checked: true,
+          customer_return_reason: "请重新确认",
+        }),
+        status: "returned",
+        submission_version: 3,
+        returned_at: "2026-07-13T01:00:00.000Z",
+      },
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(submitted).mockReturnValueOnce(returned);
+
+    await returnKioskSession(
+      {
+        id: "session-a",
+        expected_submission_version: 3,
+        reason: "请重新确认",
+      },
+      actor,
+    );
+
+    expect(submitted.eq).toHaveBeenCalledWith("submission_version", 3);
+    expect(returned.eq).toHaveBeenCalledWith("submission_version", 3);
+    const updatePayload = returned.update.mock.calls[0]?.[0] as {
+      submission_payload?: Record<string, unknown>;
+    };
+    expect(updatePayload.submission_payload).toMatchObject({
+      has_signature: true,
+      customer_return_reason: "请重新确认",
+    });
+    expect(updatePayload.submission_payload).not.toHaveProperty("signature_data_url");
+  });
+
+  it("binds accept to the viewed version and prunes a raw signature without an attachment", async () => {
+    const submitted = createQuery({
+      data: {
+        ...sessionRow({
+          customer_name: "Cliente",
+          customer_phone: "+39 333 000 0000",
+          confirmation_checked: true,
+          signature_data_url: "data:image/png;base64,SECRET",
+        }),
+        status: "submitted",
+        submission_version: 4,
+        customer_id: "customer-a",
+      },
+      error: null,
+    });
+    const customer = createQuery({
+      data: {
+        id: "customer-a",
+        name: "Old Name",
+        phone_e164: "+393330000000",
+        phone_raw: "393330000000",
+        contact_phones: [],
+      },
+      error: null,
+    });
+    const phoneAvailability = createQuery({ data: [], error: null });
+    const customerUpdate = createQuery({ data: null, error: null });
+    const accepted = createQuery({
+      data: {
+        ...sessionRow({
+          customer_name: "Cliente",
+          customer_phone: "+39 333 000 0000",
+          confirmation_checked: true,
+          has_signature: true,
+        }),
+        status: "accepted",
+        submission_version: 4,
+        customer_id: "customer-a",
+        accepted_by: actor.displayName,
+        accepted_at: "2026-07-13T01:00:00.000Z",
+      },
+      error: null,
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(submitted)
+      .mockReturnValueOnce(customer)
+      .mockReturnValueOnce(phoneAvailability)
+      .mockReturnValueOnce(customerUpdate)
+      .mockReturnValueOnce(accepted);
+
+    await expect(
+      acceptKioskSession({ id: "session-a", expected_submission_version: 4 }, actor),
+    ).resolves.toMatchObject({ status: "accepted", submission_version: 4 });
+
+    expect(submitted.eq).toHaveBeenCalledWith("submission_version", 4);
+    expect(accepted.eq).toHaveBeenCalledWith("submission_version", 4);
+    const updatePayload = accepted.update.mock.calls[0]?.[0] as {
+      submission_payload?: Record<string, unknown>;
+    };
+    expect(updatePayload.submission_payload).toMatchObject({ has_signature: true });
+    expect(updatePayload.submission_payload).not.toHaveProperty("signature_data_url");
+  });
+
+  it("rejects accept when the final viewed-version CAS loses", async () => {
+    const submitted = createQuery({
+      data: {
+        ...sessionRow({
+          customer_name: "Cliente",
+          customer_phone: "+39 333 000 0000",
+          confirmation_checked: true,
+        }),
+        status: "submitted",
+        submission_version: 5,
+        customer_id: "customer-a",
+      },
+      error: null,
+    });
+    const customer = createQuery({
+      data: {
+        id: "customer-a",
+        name: "Old Name",
+        phone_e164: "+393330000000",
+        phone_raw: "393330000000",
+        contact_phones: [],
+      },
+      error: null,
+    });
+    const phoneAvailability = createQuery({ data: [], error: null });
+    const customerUpdate = createQuery({ data: null, error: null });
+    const lostCas = createQuery({ data: null, error: null });
+    mocks.supabase.from
+      .mockReturnValueOnce(submitted)
+      .mockReturnValueOnce(customer)
+      .mockReturnValueOnce(phoneAvailability)
+      .mockReturnValueOnce(customerUpdate)
+      .mockReturnValueOnce(lostCas);
+
+    await expect(
+      acceptKioskSession({ id: "session-a", expected_submission_version: 5 }, actor),
+    ).rejects.toThrow("已被处理");
+
+    expect(submitted.eq).toHaveBeenCalledWith("submission_version", 5);
+    expect(lostCas.eq).toHaveBeenCalledWith("submission_version", 5);
   });
 });
 

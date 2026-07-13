@@ -56,6 +56,13 @@ describe("kiosk mock API review flow", () => {
       },
       actor,
     );
+    expect(session.request_payload).toMatchObject({
+      order_public_no: order.public_no,
+      device_label: expect.any(String),
+    });
+    expect(session.request_payload).not.toHaveProperty("customer_name");
+    expect(session.request_payload).not.toHaveProperty("customer_phone");
+    expect(session.request_payload).not.toHaveProperty("balance_amount");
 
     await submitKioskPublicSession("demo-kiosk-token", {
       customer_name: "Cliente Kiosk",
@@ -64,7 +71,12 @@ describe("kiosk mock API review flow", () => {
       confirmation_checked: true,
     });
 
-    await expect(acceptKioskSession(session.id, actor)).resolves.toMatchObject({
+    await expect(
+      acceptKioskSession(
+        { id: session.id, expected_submission_version: session.submission_version },
+        actor,
+      ),
+    ).resolves.toMatchObject({
       status: "accepted",
       accepted_at: expect.any(String),
     });
@@ -88,14 +100,22 @@ describe("kiosk mock API review flow", () => {
       customer_name: "Da Correggere",
       customer_phone: "+39 388 777 6611",
       confirmation_checked: true,
+      signature_data_url:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
     });
 
     const returned = await returnKioskSession(
-      { id: session.id, reason: "Telefono non leggibile" },
+      {
+        id: session.id,
+        expected_submission_version: session.submission_version,
+        reason: "Telefono non leggibile",
+      },
       actor,
     );
     expect(returned.status).toBe("returned");
     expect(returned.submission_payload?.customer_return_reason).toBe("Telefono non leggibile");
+    expect(returned.submission_payload).toMatchObject({ has_signature: true });
+    expect(returned.submission_payload).not.toHaveProperty("signature_data_url");
 
     const publicSession = await getKioskPublicSession("demo-kiosk-token");
     expect(publicSession?.session.status).toBe("returned");
@@ -103,6 +123,7 @@ describe("kiosk mock API review flow", () => {
     expect(publicSession?.session.submission_draft).toMatchObject({
       customer_name: "Da Correggere",
       customer_phone: "+39 388 777 6611",
+      has_signature: true,
     });
     expect(publicSession?.session).not.toHaveProperty("request_payload");
     expect(publicSession?.order).not.toHaveProperty("id");
@@ -127,7 +148,14 @@ describe("kiosk mock API review flow", () => {
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
     });
 
-    const accepted = await acceptKioskSession(session.id, actor);
+    const pickupPublicSession = await getKioskPublicSession("demo-kiosk-token");
+    expect(pickupPublicSession?.order).not.toHaveProperty("customer_name");
+    expect(pickupPublicSession?.order).not.toHaveProperty("customer_phone");
+
+    const accepted = await acceptKioskSession(
+      { id: session.id, expected_submission_version: session.submission_version },
+      actor,
+    );
     expect(accepted.status).toBe("accepted");
     expect(accepted.submission_payload).toMatchObject({
       has_signature: true,

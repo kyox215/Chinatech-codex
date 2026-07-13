@@ -260,9 +260,15 @@ export const kioskSessionCreateBodySchema = z
   })
   .strict();
 
-export const kioskSessionReturnBodySchema = z
+export const kioskSessionReviewBodySchema = z
   .object({
     id: z.string().trim().min(1, "缺少 iPad 任务"),
+    expected_submission_version: z.number().int().min(0, "iPad 提交版本无效，请刷新后重试"),
+  })
+  .strict();
+
+export const kioskSessionReturnBodySchema = kioskSessionReviewBodySchema
+  .extend({
     reason: z.string().trim().min(1, "请输入退回原因").max(240, "退回原因过长"),
   })
   .strict();

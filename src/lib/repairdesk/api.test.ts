@@ -190,15 +190,19 @@ describe("repairdesk api client", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await acceptKioskSession("session_1");
-    await returnKioskSession({ id: "session_1", reason: "号码不清楚" });
+    await acceptKioskSession({ id: "session_1", expected_submission_version: 2 });
+    await returnKioskSession({
+      id: "session_1",
+      expected_submission_version: 2,
+      reason: "号码不清楚",
+    });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       "/api/repairdesk/kiosk/sessions/accept",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ id: "session_1" }),
+        body: JSON.stringify({ id: "session_1", expected_submission_version: 2 }),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -206,7 +210,11 @@ describe("repairdesk api client", () => {
       "/api/repairdesk/kiosk/sessions/return",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ id: "session_1", reason: "号码不清楚" }),
+        body: JSON.stringify({
+          id: "session_1",
+          expected_submission_version: 2,
+          reason: "号码不清楚",
+        }),
       }),
     );
   });

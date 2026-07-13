@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
   assertKioskSubmissionRequirements,
+  normalizeKioskReviewInput,
   normalizeKioskReturnInput,
   normalizeKioskSessionCreateInput,
   normalizeKioskSubmission,
@@ -39,6 +40,7 @@ import type {
   KioskPublicSession,
   KioskSession,
   KioskSessionCreateInput,
+  KioskSessionReviewInput,
   KioskSessionReturnInput,
   KioskSessionSubmitInput,
 } from "@/lib/repairdesk/types";
@@ -210,9 +212,6 @@ export async function createKioskSession(
       ? {
           order_public_no: order.public_no,
           device_label: order.device_label,
-          customer_name: order.customer_name,
-          customer_phone: order.customer_phone,
-          balance_amount: order.balance_amount,
         }
       : {}),
   };
@@ -272,15 +271,22 @@ async function readKioskCustomerTarget(
   return { id: requiredString((data as DbRecord).id) };
 }
 
-export async function acceptKioskSession(id: string, actor?: AuditActor): Promise<KioskSession> {
+export async function acceptKioskSession(
+  input: KioskSessionReviewInput,
+  actor?: AuditActor,
+): Promise<KioskSession> {
   assertKioskReviewActor(actor);
   const storeId = requireStoreIdFromActor(actor);
   const operatorName = operatorNameFromActor(actor);
-  const sessionId = id.trim();
-  if (!sessionId) throw new Error("缺少 iPad 任务");
+  const normalized = normalizeKioskReviewInput(input);
 
   const supabase = getSupabaseAdmin();
-  const session = await readSubmittedSession(supabase, storeId, sessionId);
+  const session = await readSubmittedSession(
+    supabase,
+    storeId,
+    normalized.id,
+    normalized.expected_submission_version,
+  );
   const submission = submissionFromPayload(session.submission_payload);
   assertKioskSubmissionRequirements(session.session_type, submission);
   const now = new Date().toISOString();
@@ -349,6 +355,7 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
     .eq("store_id", storeId)
     .eq("id", session.id)
     .eq("status", "submitted")
+    .eq("submission_version", normalized.expected_submission_version)
     .select("*, device:store_kiosk_devices(*)")
     .maybeSingle();
   fail(error, "接受 iPad 提交失败");
@@ -379,11 +386,16 @@ export async function returnKioskSession(
   const operatorName = operatorNameFromActor(actor);
   const normalized = normalizeKioskReturnInput(input);
   const supabase = getSupabaseAdmin();
-  const session = await readSubmittedSession(supabase, storeId, normalized.id);
+  const session = await readSubmittedSession(
+    supabase,
+    storeId,
+    normalized.id,
+    normalized.expected_submission_version,
+  );
   const submission = submissionFromPayload(session.submission_payload);
   const now = new Date().toISOString();
   const nextSubmissionPayload = {
-    ...(session.submission_payload ?? {}),
+    ...submissionPayloadWithoutRawSignature(session.submission_payload),
     customer_return_reason: normalized.reason,
   };
 
@@ -398,6 +410,7 @@ export async function returnKioskSession(
     .eq("store_id", storeId)
     .eq("id", session.id)
     .eq("status", "submitted")
+    .eq("submission_version", normalized.expected_submission_version)
     .select("*, device:store_kiosk_devices(*)")
     .maybeSingle();
   fail(error, "退回 iPad 提交失败");
@@ -522,9 +535,13 @@ export async function getKioskPublicSession(token: string): Promise<KioskPublicS
     order: order
       ? {
           public_no: order.public_no,
-          customer_name: order.customer_name,
-          customer_phone: order.customer_phone,
           device_label: order.device_label,
+          ...(session.session_type !== "pickup_signature"
+            ? {
+                customer_name: order.customer_name,
+                customer_phone: order.customer_phone,
+              }
+            : {}),
         }
       : undefined,
   };
@@ -596,6 +613,7 @@ async function readSubmittedSession(
   supabase: SupabaseAdmin,
   storeId: string,
   id: string,
+  expectedSubmissionVersion: number,
 ): Promise<KioskSession> {
   const { data, error } = await supabase
     .from("customer_kiosk_sessions")
@@ -603,6 +621,7 @@ async function readSubmittedSession(
     .eq("store_id", storeId)
     .eq("id", id)
     .eq("status", "submitted")
+    .eq("submission_version", expectedSubmissionVersion)
     .maybeSingle();
   fail(error, "读取 iPad 提交失败");
   if (!data) throw new Error("没有可审核的 iPad 提交");
@@ -811,11 +830,20 @@ function acceptedSubmissionPayload(
   payload: Record<string, unknown> | undefined,
   signatureAttachment?: { id: string },
 ): Record<string, unknown> {
-  const next = { ...(payload ?? {}) };
+  const next = submissionPayloadWithoutRawSignature(payload);
   if (signatureAttachment) {
+    next.signature_attachment_id = signatureAttachment.id;
+  }
+  return next;
+}
+
+function submissionPayloadWithoutRawSignature(
+  payload: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  const next = { ...(payload ?? {}) };
+  if (typeof next.signature_data_url === "string") {
     delete next.signature_data_url;
     next.has_signature = true;
-    next.signature_attachment_id = signatureAttachment.id;
   }
   return next;
 }

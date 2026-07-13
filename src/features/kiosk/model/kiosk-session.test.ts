@@ -104,12 +104,30 @@ describe("kiosk-session model", () => {
   });
 
   it("requires a bounded return reason for staff review", () => {
-    expect(() => normalizeKioskReturnInput({ id: "session_1", reason: "  " })).toThrow(
-      "请输入退回原因",
-    );
-    expect(normalizeKioskReturnInput({ id: " session_1 ", reason: " 号码 不清楚 " })).toEqual({
+    expect(() =>
+      normalizeKioskReturnInput({
+        id: "session_1",
+        expected_submission_version: 1,
+        reason: "  ",
+      }),
+    ).toThrow("请输入退回原因");
+    expect(
+      normalizeKioskReturnInput({
+        id: " session_1 ",
+        expected_submission_version: 2,
+        reason: " 号码 不清楚 ",
+      }),
+    ).toEqual({
       id: "session_1",
+      expected_submission_version: 2,
       reason: "号码 不清楚",
     });
+    expect(() =>
+      normalizeKioskReturnInput({
+        id: "session_1",
+        expected_submission_version: -1,
+        reason: "请重填",
+      }),
+    ).toThrow("提交版本无效");
   });
 });

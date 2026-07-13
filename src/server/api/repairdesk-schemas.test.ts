@@ -23,6 +23,7 @@ import {
   inventoryQualityCheckInputSchema,
   inventorySellInputSchema,
   inventoryUpdateInputSchema,
+  kioskSessionReviewBodySchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
   orderListFiltersSchema,
@@ -384,6 +385,23 @@ describe("repairdesk API schemas", () => {
       storeSettingsUpdateBodySchema.parse({
         ...request,
         input: { ...request.input, default_inventory_warranty_months: "12" },
+      }),
+    ).toThrow();
+  });
+
+  it("uses a strict non-coercing Kiosk review version contract", () => {
+    const request = { id: "session-1", expected_submission_version: 2 };
+    expect(kioskSessionReviewBodySchema.parse(request)).toEqual(request);
+    expect(() =>
+      kioskSessionReviewBodySchema.parse({
+        ...request,
+        expected_submission_version: "2",
+      }),
+    ).toThrow();
+    expect(() =>
+      kioskSessionReviewBodySchema.parse({
+        ...request,
+        unexpected: true,
       }),
     ).toThrow();
   });

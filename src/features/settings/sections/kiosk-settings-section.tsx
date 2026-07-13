@@ -61,8 +61,8 @@ export interface KioskSettingsSectionProps {
   onReturnReasonConsumed: (session: KioskSession) => void;
   onCreatePairing: (label: string) => Promise<void>;
   onRevoke: (id: string) => Promise<void>;
-  onAcceptSession: (id: string) => Promise<void>;
-  onReturnSession: (id: string, reason: string) => Promise<void>;
+  onAcceptSession: (session: KioskSession) => Promise<void>;
+  onReturnSession: (session: KioskSession, reason: string) => Promise<void>;
   onCopyCode: () => void;
 }
 
@@ -159,11 +159,11 @@ export function KioskSettingsSection({
     try {
       if (confirmTarget.kind === "revoke") await onRevoke(confirmTarget.device.id);
       if (confirmTarget.kind === "accept") {
-        await onAcceptSession(confirmTarget.session.id);
+        await onAcceptSession(confirmTarget.session);
         onReturnReasonConsumed(confirmTarget.session);
       }
       if (confirmTarget.kind === "return") {
-        await onReturnSession(confirmTarget.session.id, confirmTarget.reason);
+        await onReturnSession(confirmTarget.session, confirmTarget.reason);
         onReturnReasonConsumed(confirmTarget.session);
       }
       closeConfirm();

@@ -902,8 +902,16 @@ export function SettingsScreen() {
     },
   });
   const acceptKioskSessionMutation = useMutation({
-    mutationFn: (request: { id: string; requestedStoreId?: string; requestEpoch: number }) =>
-      acceptKioskSession(request.id),
+    mutationFn: (request: {
+      id: string;
+      expectedSubmissionVersion: number;
+      requestedStoreId?: string;
+      requestEpoch: number;
+    }) =>
+      acceptKioskSession({
+        id: request.id,
+        expected_submission_version: request.expectedSubmissionVersion,
+      }),
     onSuccess: async (_result, request) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(request.requestedStoreId) }),
@@ -921,10 +929,16 @@ export function SettingsScreen() {
   const returnKioskSessionMutation = useMutation({
     mutationFn: (request: {
       id: string;
+      expectedSubmissionVersion: number;
       reason: string;
       requestedStoreId?: string;
       requestEpoch: number;
-    }) => returnKioskSession({ id: request.id, reason: request.reason }),
+    }) =>
+      returnKioskSession({
+        id: request.id,
+        expected_submission_version: request.expectedSubmissionVersion,
+        reason: request.reason,
+      }),
     onSuccess: async (_result, request) => {
       await queryClient.invalidateQueries({
         queryKey: kioskKeys.sessions(request.requestedStoreId),
@@ -1811,20 +1825,29 @@ export function SettingsScreen() {
                         .mutateAsync({ ...currentStoreRequestScope(), id })
                         .then(() => undefined);
                     }}
-                    onAcceptSession={(id) => {
+                    onAcceptSession={(session) => {
                       if (!canReviewKioskSessions) {
                         return Promise.reject(new Error("当前账号没有审核客户提交的权限"));
                       }
                       return acceptKioskSessionMutation
-                        .mutateAsync({ ...currentStoreRequestScope(), id })
+                        .mutateAsync({
+                          ...currentStoreRequestScope(),
+                          id: session.id,
+                          expectedSubmissionVersion: session.submission_version,
+                        })
                         .then(() => undefined);
                     }}
-                    onReturnSession={(id, reason) => {
+                    onReturnSession={(session, reason) => {
                       if (!canReviewKioskSessions) {
                         return Promise.reject(new Error("当前账号没有审核客户提交的权限"));
                       }
                       return returnKioskSessionMutation
-                        .mutateAsync({ ...currentStoreRequestScope(), id, reason })
+                        .mutateAsync({
+                          ...currentStoreRequestScope(),
+                          id: session.id,
+                          expectedSubmissionVersion: session.submission_version,
+                          reason,
+                        })
                         .then(() => undefined);
                     }}
                     onCopyCode={() => {

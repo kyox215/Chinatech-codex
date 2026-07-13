@@ -1,7 +1,7 @@
 ---
 task_id: "TASK-20260712-004-settings-center-master-plan"
 status: "in_progress"
-phase: "wp05_local_conditional_closeout"
+phase: "wp05b_local_conditional_closeout"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
@@ -9,7 +9,7 @@ integration_lead: "RepairDesk Integration Lead"
 baseline: "a76852f61b09f1b84ccf0def957312026d6eb3b3"
 branch: "codex/settings-center-v2-20260712"
 worktree: "/private/tmp/repairdesk-settings-center-20260712"
-updated_at: "2026-07-13T04:03:08Z"
+updated_at: "2026-07-13T15:23:52Z"
 ---
 
 # Settings Center v2
@@ -35,9 +35,10 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 - Member role and grant changes are staged, explicit, server-capability driven, store/epoch guarded, and never presented as one atomic write. Inactive-member direct role/grant writes now fail before RPC.
 - Supplier editing uses one strict UI/API contract, scoped mock/realtime behavior, mobile/desktop Sheets, quick contact actions, and confirmed archive without a fake restore action.
 - WP-04 is only a local conditional close: production member writes remain DB NO-GO until the pending RPC migration, actor/CAS review, transactional integrity, and post-apply verification receive Owner approval.
-- WP-05 Kiosk/customer-iPad is implemented locally and independently reviewed at P0=0/P1=0. Public DTOs are minimized, pair/submit use compare-and-swap, revoked tokens clear local PII, transient failures retain unsent forms, return-reason drafts are store/session/version bound, and anonymous routes never expose raw internal errors.
-- Production accept/return remains fail-closed unless `REPAIRDESK_KIOSK_REVIEW_WRITES_ENABLED=1`. This flag must stay disabled until the Owner approves the transactional RPC/outbox, same-store constraints, role semantics, distributed rate limiting/token policy, and GDPR/retention plan.
-- Full Vitest is 159 files / 1018 tests. Kiosk E2E evidence covers all six approved widths plus the final review/return/revoke flow; the final flow and three screenshots were regenerated after the last UI fixes. Lint, typecheck, agents check, and diff check pass. Production build is environment-blocked: sandbox Turbopack cannot bind its helper port and the outside-sandbox retry was rejected by the approval service capacity, not by a code diagnostic.
+- WP-05 Kiosk/customer-iPad is implemented, independently reviewed, and committed locally as `f311b06a`. Public DTOs are minimized, pair/submit use compare-and-swap, revoked tokens clear local PII, transient failures retain unsent forms, return-reason drafts are store/session/version bound, and anonymous routes never expose raw internal errors.
+- WP05-B Kiosk database/public-entry hardening is locally conditionally closed at P0=0/P1=0. Every production or Supabase-backed non-E2E Kiosk entry requires both default-off flags end to end, so a master-only state cannot collect customer data. Accept/return bind to the viewed submission version, explicit anonymous responses are no-store/same-origin, duplicated PII is reduced, and raw signature data is removed after accept/return.
+- The additive `20260713144316_kiosk_integrity_expand.sql` migration is staged but unapplied. It adds three indexes, one same-store device foreign key, eleven state/hash checks (twelve `NOT VALID` constraints total), and bounded DDL timeouts. The executable Gate 2A reset/lint remains unsatisfied because the local Docker daemon is unavailable; linked preflight/apply, constraint validation, and production enabling remain Owner gates.
+- Final WP05-B quality evidence is 160 files / 1034 Vitest tests; focused repository/gate/route/migration checks pass; lint, typecheck, agents check, diff check, and the latest production build pass. Turbopack required the approved outside-sandbox build because its sandbox helper cannot bind a port.
 - No production database, push, or deployment action has been performed.
 
 ## Acceptance gates

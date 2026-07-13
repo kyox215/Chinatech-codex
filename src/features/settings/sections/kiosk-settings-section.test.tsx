@@ -83,6 +83,7 @@ describe("KioskSettingsSection", () => {
     fireEvent.click(confirm);
 
     expect(onAcceptSession).toHaveBeenCalledTimes(1);
+    expect(onAcceptSession).toHaveBeenCalledWith(session);
     expect(screen.getByRole("button", { name: "正在处理" })).toBeDisabled();
     await act(async () => resolve());
     await waitFor(() => expect(trigger).toHaveFocus());
@@ -103,7 +104,7 @@ describe("KioskSettingsSection", () => {
     expect(error).toHaveTextContent("任务已被其他员工处理");
     await waitFor(() => expect(error).toHaveFocus());
     expect(screen.getByLabelText("给客户的退回原因")).toHaveValue("请重新确认电话号码");
-    expect(onReturnSession).toHaveBeenCalledWith("session-1", "请重新确认电话号码");
+    expect(onReturnSession).toHaveBeenCalledWith(session, "请重新确认电话号码");
   });
 });
 

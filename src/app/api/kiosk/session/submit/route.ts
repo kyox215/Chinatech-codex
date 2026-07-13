@@ -1,10 +1,14 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import {
   isKioskPublicError,
   KIOSK_INTERNAL_ERROR_RESPONSE,
 } from "@/features/kiosk/model/kiosk-public-error";
+import {
+  assertKioskPublicRequest,
+  kioskPublicJson,
+} from "@/features/kiosk/server/kiosk-public-http";
 import { queueRepairDeskRealtimeBroadcast } from "@/features/realtime/server/realtime-broadcast";
 import { kioskPublicSource } from "@/server/api/kiosk-public-source";
 
@@ -26,6 +30,7 @@ const submitBodySchema = z
 
 export async function POST(request: NextRequest) {
   try {
+    assertKioskPublicRequest(request);
     const token = request.headers.get("x-kiosk-token") ?? "";
     const body = submitBodySchema.parse(await request.json().catch(() => ({})));
     const api = await kioskPublicSource();
@@ -36,26 +41,20 @@ export async function POST(request: NextRequest) {
       mutation: "updated",
       queryGroups: ["kiosk.sessions"],
     });
-    return NextResponse.json({ data: { ok: result.ok } });
+    return kioskPublicJson({ data: { ok: result.ok } });
   } catch (error) {
     if (isKioskPublicError(error)) {
-      return NextResponse.json(
-        { error: error.message, code: error.code },
-        { status: error.status },
-      );
+      return kioskPublicJson({ error: error.message, code: error.code }, error.status);
     }
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues.map((issue) => issue.message).join("，") },
-        { status: 400 },
-      );
+      return kioskPublicJson({ error: error.issues.map((issue) => issue.message).join("，") }, 400);
     }
-    return NextResponse.json(
+    return kioskPublicJson(
       {
         error: KIOSK_INTERNAL_ERROR_RESPONSE.message,
         code: KIOSK_INTERNAL_ERROR_RESPONSE.code,
       },
-      { status: 500 },
+      500,
     );
   }
 }

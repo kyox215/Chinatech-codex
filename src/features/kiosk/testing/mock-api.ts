@@ -1,5 +1,6 @@
 import {
   assertKioskSubmissionRequirements,
+  normalizeKioskReviewInput,
   normalizeKioskReturnInput,
   normalizeKioskSessionCreateInput,
   normalizeKioskSubmission,
@@ -22,6 +23,7 @@ import type {
   KioskPublicSession,
   KioskSession,
   KioskSessionCreateInput,
+  KioskSessionReviewInput,
   KioskSessionReturnInput,
   KioskSessionSubmitInput,
 } from "@/lib/repairdesk/types";
@@ -154,10 +156,7 @@ export async function createKioskSession(
       ...(order
         ? {
             order_public_no: order.public_no,
-            customer_name: order.customer_name,
-            customer_phone: order.customer_phone,
             device_label: order.device_label,
-            balance_amount: order.balance_amount,
           }
         : {}),
     },
@@ -223,9 +222,13 @@ export async function getKioskPublicSession(token: string): Promise<KioskPublicS
     order: order
       ? {
           public_no: order.public_no,
-          customer_name: order.customer_name,
-          customer_phone: order.customer_phone,
           device_label: order.device_label,
+          ...(session.session_type !== "pickup_signature"
+            ? {
+                customer_name: order.customer_name,
+                customer_phone: order.customer_phone,
+              }
+            : {}),
         }
       : undefined,
   };
@@ -261,8 +264,16 @@ export async function submitKioskPublicSession(
   return { ok: true, session_id: session.id, store_id: device.store_id };
 }
 
-export async function acceptKioskSession(id: string, actor?: AuditActor): Promise<KioskSession> {
-  const session = readSubmittedMockSession(id, actor);
+export async function acceptKioskSession(
+  input: KioskSessionReviewInput,
+  actor?: AuditActor,
+): Promise<KioskSession> {
+  const normalized = normalizeKioskReviewInput(input);
+  const session = readSubmittedMockSession(
+    normalized.id,
+    normalized.expected_submission_version,
+    actor,
+  );
   if (session.store_id !== mockStoreId && (session.order_id || session.customer_id)) {
     throw new Error("工单或客户不存在或不属于当前店铺");
   }
@@ -349,6 +360,8 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
     delete session.submission_payload.signature_data_url;
   }
 
+  session.submission_payload = submissionPayloadWithoutRawSignature(session.submission_payload);
+
   const now = new Date().toISOString();
   session.status = "accepted";
   session.accepted_at = now;
@@ -362,13 +375,17 @@ export async function returnKioskSession(
   actor?: AuditActor,
 ): Promise<KioskSession> {
   const normalized = normalizeKioskReturnInput(input);
-  const session = readSubmittedMockSession(normalized.id, actor);
+  const session = readSubmittedMockSession(
+    normalized.id,
+    normalized.expected_submission_version,
+    actor,
+  );
   const now = new Date().toISOString();
   session.status = "returned";
   session.returned_at = now;
   session.updated_at = now;
   session.submission_payload = {
-    ...(session.submission_payload ?? {}),
+    ...submissionPayloadWithoutRawSignature(session.submission_payload),
     customer_return_reason: normalized.reason,
   };
   writeMockKioskEvent(session, actor, "kiosk_session_returned");
@@ -388,11 +405,7 @@ function publicCorrectionMessage(payload: Record<string, unknown> | undefined) {
 }
 
 function safeStaffKioskSession(session: KioskSession): KioskSession {
-  const submission = { ...(session.submission_payload ?? {}) };
-  if (typeof submission.signature_data_url === "string") {
-    delete submission.signature_data_url;
-    submission.has_signature = true;
-  }
+  const submission = submissionPayloadWithoutRawSignature(session.submission_payload);
   return {
     ...session,
     request_payload: { ...session.request_payload },
@@ -401,10 +414,29 @@ function safeStaffKioskSession(session: KioskSession): KioskSession {
   };
 }
 
-function readSubmittedMockSession(id: string, actor?: AuditActor) {
+function submissionPayloadWithoutRawSignature(
+  payload: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  const next = { ...(payload ?? {}) };
+  if (typeof next.signature_data_url === "string") {
+    delete next.signature_data_url;
+    next.has_signature = true;
+  }
+  return next;
+}
+
+function readSubmittedMockSession(
+  id: string,
+  expectedSubmissionVersion: number,
+  actor?: AuditActor,
+) {
   const storeId = actor?.storeId ?? mockStoreId;
   const session = mockSessions.find(
-    (item) => item.id === id.trim() && item.store_id === storeId && item.status === "submitted",
+    (item) =>
+      item.id === id.trim() &&
+      item.store_id === storeId &&
+      item.status === "submitted" &&
+      item.submission_version === expectedSubmissionVersion,
   );
   if (!session) throw new Error("没有可审核的 iPad 提交");
   return session;

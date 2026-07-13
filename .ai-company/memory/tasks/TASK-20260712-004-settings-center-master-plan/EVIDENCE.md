@@ -76,6 +76,57 @@
   - `screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png`
 - No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
 
+## WP05-B — Kiosk database and public-entry hardening
+
+### Quality-gate conclusion
+
+- Result: **CONDITIONAL PASS** for local code; **NO-GO** for linked database or production enablement.
+- Independent terminal reviews: DATA P0=0/P1=0, SECURITY P0=0/P1=0, QA/documentation P0=0/P1=0.
+- The exception owner is the Owner/Release gate. Gate 2A and the Stage 3/security/privacy decisions must close before any production deadline or enablement is proposed.
+
+### Acceptance-to-evidence matrix
+
+| Acceptance item                                                                           | Evidence                                                                                  | Result                              |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------- |
+| Production and Supabase-backed non-E2E entry points fail closed unless both flags are `1` | Gate unit tests, public pair/read/submit tests, private pairing/session integration tests | PASS                                |
+| Master-only configuration cannot collect customer data                                    | Public submit and private pairing/session zero-source tests                               | PASS                                |
+| Accept/return use the viewed submission version                                           | Model, strict schema, API client, UI callback, repository read/final-CAS tests            | PASS                                |
+| Anonymous explicit handler responses are no-store and same-origin guarded                 | Public route/helper tests for 200/401/403/500/503                                         | PASS                                |
+| Session/request DTOs minimize PII and reviewed rows prune raw signatures                  | Real repository and mock flow tests                                                       | PASS                                |
+| Migration is additive, bounded, and each constraint is `NOT VALID`                        | Text migration contract: 5/5                                                              | PASS (static only)                  |
+| Migration executes against PostgreSQL full history                                        | Gate 2A local reset/lint                                                                  | NOT RUN — Docker daemon unavailable |
+| Linked database remains untouched                                                         | Git/task inspection; no linked Supabase command executed                                  | PASS                                |
+
+### Executed verification
+
+- Final focused safety run: 5 files / 32 tests passed.
+- Independent final QA spot-check: 10 files / 82 tests passed.
+- Full regression: 160 files / 1034 tests passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run agents:check`: passed.
+- `git diff --check`: passed.
+- `npm run build`: passed outside the filesystem sandbox; Next.js compiled, typechecked, and generated 22/22 static pages. The sandbox-only run fails because Turbopack cannot bind its internal helper port.
+- Supabase CLI `2.101.0` confirms the documented reset/lint flags. The migration was not applied locally or remotely.
+
+### Residual release risks
+
+- Accept still performs customer/order/Storage/session/event work as a multi-step saga; final session CAS cannot compensate earlier side effects.
+- Real Storage evidence persistence needs durable prepare/finalize idempotency and cleanup/sweeper proof.
+- Distributed rate limiting, request-size enforcement, token lifecycle/monitoring, review audit, reviewer-role semantics, submitted-data cleanup, retention, and GDPR copy remain unapproved.
+- State checks do not yet require `accepted_at/returned_at >= submitted_at`; current code writes ordered timestamps, but historical compatibility must precede any later constraint.
+- Order/customer same-store foreign keys are Stage 2 work and require a separate approved parent-key/orphan packet.
+
+### Visual evidence
+
+WP05-B changes server/API/database safety behavior and does not change the rendered Settings/Kiosk layout. No new screenshot was generated. The latest relevant synthetic UI evidence remains:
+
+- `screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png`
+- `screenshots/responsive-density/settings/wp05-kiosk-public-returned-390x844.png`
+- `screenshots/responsive-density/settings/wp05-kiosk-device-revoke-1280x800.png`
+
+No screenshot or log contains a real token, pairing code, raw signature, secret, or customer PII.
+
 ## WP-05 — Kiosk/customer iPad
 
 - Independent final reviews: security/data, UI/UX, and architecture/QA all PASS with P0=0/P1=0; every reviewer classifies the slice as local CONDITIONAL and production/DB NO-GO.
@@ -124,3 +175,4 @@
   - `screenshots/responsive-density/settings/wp03c-rules-restore-1280x800.png`
   - `screenshots/responsive-density/settings/wp03c-rules-readonly-1440x900.png`
 - No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
+- `2026-07-13T15:23:52Z` `5ff737955a` — Full Vitest 160 files/1034 tests; focused safety 5 files/32 tests; independent QA 10 files/82 tests; lint, typecheck, agents check, diff check, and outside-sandbox production build pass; DATA/SECURITY/QA terminal reviews P0=0/P1=0.

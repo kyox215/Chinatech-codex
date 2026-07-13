@@ -1802,8 +1802,14 @@ export interface KioskSessionSubmitInput {
   note?: string;
 }
 
+export interface KioskSessionReviewInput {
+  id: string;
+  expected_submission_version: number;
+}
+
 export interface KioskSessionReturnInput {
   id: string;
+  expected_submission_version: number;
   reason: string;
 }
 

@@ -112,7 +112,10 @@ import {
   returnKioskSession,
   revokeKioskDevice,
 } from "@/features/kiosk/server/kiosk.service";
-import { assertKioskReviewWriteEnabled } from "@/features/kiosk/server/kiosk-review-gate";
+import {
+  assertKioskEndToEndEnabled,
+  assertKioskReviewWriteEnabled,
+} from "@/features/kiosk/server/kiosk-review-gate";
 import {
   acceptStoreInvitation,
   approveStoreAccessRequest,
@@ -216,6 +219,7 @@ import {
   messageTemplateUpdateBodySchema,
   kioskDevicePairingBodySchema,
   kioskSessionCreateBodySchema,
+  kioskSessionReviewBodySchema,
   kioskSessionReturnBodySchema,
   notificationBodySchema,
   onboardingDecisionBodySchema,
@@ -819,6 +823,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "kiosk/devices/pairing": {
         assertRepairDeskPermission(actor, "settings:update_store");
+        assertKioskEndToEndEnabled();
         const { input } = kioskDevicePairingBodySchema.parse(body);
         return ok(
           await runWithRealtime(
@@ -841,6 +846,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "kiosk/sessions/create": {
         assertRepairDeskPermission(actor, "order:update_intake");
+        assertKioskEndToEndEnabled();
         const { input } = kioskSessionCreateBodySchema.parse(body);
         return ok(
           await runWithRealtime(
@@ -853,11 +859,11 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       case "kiosk/sessions/accept": {
         assertKioskSessionReviewPermission(actor);
         assertKioskReviewWriteEnabled();
-        const { id } = idBodySchema.parse(body);
+        const input = kioskSessionReviewBodySchema.parse(body);
         return ok(
           await runWithRealtime(
             actor,
-            () => api.acceptKioskSession(id, actor),
+            () => api.acceptKioskSession(input, actor),
             realtimeBroadcasts.kioskSessionReviewed,
           ),
         );

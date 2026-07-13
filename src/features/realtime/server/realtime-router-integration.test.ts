@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const storeId = "5248dda1-2b32-46cd-8ed0-d15386a9e8ed";
 
 const mocks = vi.hoisted(() => ({
   acceptKioskSession: vi.fn(),
+  createKioskDevicePairing: vi.fn(),
+  createKioskSession: vi.fn(),
   createOrder: vi.fn(),
   getRequestActor: vi.fn(),
   hasSupabaseConfig: vi.fn(),
@@ -45,6 +47,14 @@ vi.mock("@/lib/mock/api", async (importOriginal) => ({
   updateStoreSettings: mocks.updateStoreSettings,
 }));
 
+vi.mock("@/features/kiosk/server/kiosk.service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/kiosk/server/kiosk.service")>()),
+  acceptKioskSession: mocks.acceptKioskSession,
+  createKioskDevicePairing: mocks.createKioskDevicePairing,
+  createKioskSession: mocks.createKioskSession,
+  returnKioskSession: mocks.returnKioskSession,
+}));
+
 import { handleRepairDeskPost } from "@/server/api/repairdesk-router";
 import { SettingsMutationError } from "@/features/settings/model/store-settings-errors";
 
@@ -71,6 +81,10 @@ describe("repairdesk router realtime integration", () => {
     mocks.updateStoreSettings.mockResolvedValue({
       store_name: "Chinatech",
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("queues realtime metadata only after a successful audited mutation", async () => {
@@ -149,11 +163,17 @@ describe("repairdesk router realtime integration", () => {
       storeName: "Chinatech",
       storeRole: "sales",
     });
-    const forbidden = await handleRepairDeskPost("kiosk/sessions/accept", { id: "session_1" });
+    const forbidden = await handleRepairDeskPost("kiosk/sessions/accept", {
+      id: "session_1",
+      expected_submission_version: 1,
+    });
     expect(forbidden.status).toBe(403);
     expect(mocks.acceptKioskSession).not.toHaveBeenCalled();
 
-    const accepted = await handleRepairDeskPost("kiosk/sessions/accept", { id: "session_1" });
+    const accepted = await handleRepairDeskPost("kiosk/sessions/accept", {
+      id: "session_1",
+      expected_submission_version: 1,
+    });
     expect(accepted.status).toBe(200);
     expect(mocks.acceptKioskSession).toHaveBeenCalledTimes(1);
 
@@ -163,6 +183,58 @@ describe("repairdesk router realtime integration", () => {
       mutation: "updated",
       queryGroups: ["kiosk.sessions", "orders.all", "customers.all"],
     });
+  });
+
+  it("blocks production pairing and session creation before any repository write", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    mocks.hasSupabaseConfig.mockReturnValue(true);
+
+    const pairing = await handleRepairDeskPost("kiosk/devices/pairing", {
+      input: { label: "Front iPad" },
+    });
+    const session = await handleRepairDeskPost("kiosk/sessions/create", {
+      input: {
+        device_id: "device_1",
+        session_type: "intake_contact",
+      },
+    });
+
+    expect(pairing.status).toBe(400);
+    expect(session.status).toBe(400);
+    await expect(pairing.json()).resolves.toMatchObject({
+      error: expect.stringContaining("生产功能暂未启用"),
+    });
+    await expect(session.json()).resolves.toMatchObject({
+      error: expect.stringContaining("生产功能暂未启用"),
+    });
+    expect(mocks.createKioskDevicePairing).not.toHaveBeenCalled();
+    expect(mocks.createKioskSession).not.toHaveBeenCalled();
+  });
+
+  it("blocks Supabase-backed collection when only the master Kiosk flag is enabled", async () => {
+    mocks.hasSupabaseConfig.mockReturnValue(true);
+    vi.stubEnv("REPAIRDESK_KIOSK_PRODUCTION_ENABLED", "1");
+
+    const pairing = await handleRepairDeskPost("kiosk/devices/pairing", {
+      input: { label: "Front iPad" },
+    });
+    const session = await handleRepairDeskPost("kiosk/sessions/create", {
+      input: {
+        device_id: "device_1",
+        session_type: "intake_contact",
+      },
+    });
+
+    expect(pairing.status).toBe(400);
+    expect(session.status).toBe(400);
+    await expect(pairing.json()).resolves.toMatchObject({
+      error: expect.stringContaining("收集与审核链路暂未启用"),
+    });
+    await expect(session.json()).resolves.toMatchObject({
+      error: expect.stringContaining("收集与审核链路暂未启用"),
+    });
+    expect(mocks.createKioskDevicePairing).not.toHaveBeenCalled();
+    expect(mocks.createKioskSession).not.toHaveBeenCalled();
   });
 
   it("returns stable validation details and never mutates or broadcasts malformed settings", async () => {

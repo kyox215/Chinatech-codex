@@ -2,6 +2,8 @@ export const KIOSK_PUBLIC_ERROR_CODES = {
   deviceUnauthorized: "KIOSK_DEVICE_UNAUTHORIZED",
   pairingInvalid: "KIOSK_PAIRING_INVALID",
   sessionConflict: "KIOSK_SESSION_CONFLICT",
+  requestForbidden: "KIOSK_REQUEST_FORBIDDEN",
+  serviceUnavailable: "KIOSK_SERVICE_UNAVAILABLE",
 } as const;
 
 export const KIOSK_INTERNAL_ERROR_RESPONSE = {
@@ -16,7 +18,7 @@ export class KioskPublicError extends Error {
   constructor(
     message: string,
     readonly code: KioskPublicErrorCode,
-    readonly status: 400 | 401 | 409,
+    readonly status: 400 | 401 | 403 | 409 | 503,
   ) {
     super(message);
     this.name = "KioskPublicError";
@@ -29,7 +31,11 @@ export function isKioskPublicError(error: unknown): error is KioskPublicError {
   const candidate = error as { code?: unknown; status?: unknown; message?: unknown };
   return (
     Object.values(KIOSK_PUBLIC_ERROR_CODES).includes(candidate.code as KioskPublicErrorCode) &&
-    (candidate.status === 400 || candidate.status === 401 || candidate.status === 409) &&
+    (candidate.status === 400 ||
+      candidate.status === 401 ||
+      candidate.status === 403 ||
+      candidate.status === 409 ||
+      candidate.status === 503) &&
     typeof candidate.message === "string"
   );
 }
@@ -48,4 +54,20 @@ export function kioskPairingInvalidError() {
 
 export function kioskSessionConflictError(message = "当前任务已变化，请重新读取后再试") {
   return new KioskPublicError(message, KIOSK_PUBLIC_ERROR_CODES.sessionConflict, 409);
+}
+
+export function kioskRequestForbiddenError() {
+  return new KioskPublicError(
+    "Richiesta non consentita.",
+    KIOSK_PUBLIC_ERROR_CODES.requestForbidden,
+    403,
+  );
+}
+
+export function kioskServiceUnavailableError() {
+  return new KioskPublicError(
+    KIOSK_INTERNAL_ERROR_RESPONSE.message,
+    KIOSK_PUBLIC_ERROR_CODES.serviceUnavailable,
+    503,
+  );
 }
