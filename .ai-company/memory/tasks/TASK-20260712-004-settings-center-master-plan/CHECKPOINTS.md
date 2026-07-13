@@ -398,3 +398,13 @@ Create the scoped local WP-05 commit without pushing. Then stop for Owner decisi
 - **Evidence:**
   - Full Vitest 160 files/1034 tests; focused safety 5 files/32 tests; independent QA 10 files/82 tests; lint, typecheck, agents check, diff check, and outside-sandbox production build pass; DATA/SECURITY/QA terminal reviews P0=0/P1=0.
 - **Recorded by:** RepairDesk-Integration-Lead
+## 2026-07-13T21:43:16Z — WP-06 order workflow local safe slice is implemented and validated: store-bound in-memory drafts replace immediate Settings writes; review and dirty navigation are complete; custom targets fail closed; responsive overlay focus and click recovery pass.
+
+- **Phase:** wp06_local_conditional_closeout
+- **Completed/current state:** WP-06 order workflow local safe slice is implemented and validated: store-bound in-memory drafts replace immediate Settings writes; review and dirty navigation are complete; custom targets fail closed; responsive overlay focus and click recovery pass.
+- **Next:** Create one scoped local WP-06 commit without pushing, verify the clean task boundary, then rehydrate WP-07 from the approved Settings plan. Stop at database, production-data, role/retention, workflow Apply, push, or deployment gates.
+- **Decision:** WP-06 local slice passes. Apply stays disabled and must not orchestrate the four legacy sequential workflow mutations. Future Apply requires revision/CAS, one store-scoped transaction RPC, active-order compatibility checks, and atomic audit/outbox.
+- **Blocker:** Complete WP-06 and production release remain closed pending Owner-approved historical custom-status preflight, transaction RPC/schema decision, data-repair/rollback if anomalies exist, and production/push/deploy approval. Mock multi-store writes remain P2 test-fidelity debt.
+- **Evidence:**
+  - Independent architecture, data/security, and UX/QA reviews P0=0/P1=0; focused 7 files/98 tests; full 162 files/1052 tests; WP06 Playwright 6/6; agents check, lint, typecheck, diff check, and final production build pass; four synthetic screenshots inspected.
+- **Recorded by:** RepairDesk-Integration-Lead

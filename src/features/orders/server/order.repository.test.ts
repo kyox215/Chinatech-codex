@@ -579,6 +579,29 @@ describe("order repository database pagination", () => {
     expect(queries[2]?.eq).toHaveBeenCalledWith("assignee_membership_id", "membership_technician");
   });
 
+  it("rejects an unmapped custom transition before updating the order", async () => {
+    mocks.supabase.from
+      .mockReturnValueOnce(
+        createSupabaseQuery({
+          data: orderRow({ id: "order_custom_guard", status: "new", workflow_status: "intake" }),
+          error: null,
+          count: 1,
+        }),
+      )
+      .mockReturnValueOnce(
+        createSupabaseQuery({
+          data: { code: "waiting_vendor", label: "等待供应商", enabled: true },
+          error: null,
+          count: 1,
+        }),
+      );
+
+    await expect(
+      transitionOrder("order_custom_guard", "waiting_vendor", { operator: actor("owner") }),
+    ).rejects.toThrow("尚未绑定主流程阶段");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects a renamed technician opening a legacy order before loading child data", async () => {
     const legacyRow = orderRow({ technician_name: "Technician B" });
     Reflect.deleteProperty(legacyRow, "assignee_membership_id");

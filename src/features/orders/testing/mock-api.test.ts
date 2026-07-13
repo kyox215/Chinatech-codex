@@ -5,9 +5,11 @@ import { orders as mockOrders } from "@/lib/mock/state";
 import { createMockSupplier, resetMockSuppliers } from "@/features/suppliers/testing/mock-api";
 import {
   confirmCancelledOrderReturn,
+  createOrderWorkflowStatus,
   createOrder,
   decideOrderApproval,
   getOrder,
+  listOrderWorkflow,
   listOrders,
   listOrdersPage,
   patchOrder,
@@ -46,6 +48,21 @@ async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator =
 }
 
 describe("mock order WhatsApp notification workflow", () => {
+  it("binds workflow snapshots to the requesting active store", async () => {
+    const workflow = await listOrderWorkflow({
+      id: "staff-store-scope",
+      displayName: "Store owner",
+      role: "owner",
+      storeRole: "owner",
+      storeId: "store-scope-1",
+    });
+
+    expect(workflow.statuses.every((status) => status.store_id === "store-scope-1")).toBe(true);
+    expect(
+      workflow.transitions.every((transition) => transition.store_id === "store-scope-1"),
+    ).toBe(true);
+  });
+
   it("creates a non-empty public order number for new orders", async () => {
     const id = await createMockOrder();
     const detail = await getOrder(id);
@@ -181,6 +198,31 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.order.status).toBe("new");
   });
 
+  it("rejects unmapped custom statuses for both new orders and real transitions", async () => {
+    const code = `waiting_vendor_${seq + 1}`;
+    await createOrderWorkflowStatus({
+      code,
+      label: "等待供应商",
+      short_label: "等供货",
+      tone: "warn",
+      bucket: "custom",
+      enabled: true,
+      show_in_order_filters: true,
+      allowed_for_create: true,
+    });
+    const id = await createMockOrder();
+
+    await expect(transitionOrder(id, code)).rejects.toThrow("尚未绑定主流程阶段");
+    await expect(createMockOrder({ status: code })).rejects.toThrow("尚未绑定主流程阶段");
+    await expect(
+      sendWhatsappNotification(id, "Stato personalizzato", "pickup_ready", code),
+    ).rejects.toThrow("尚未绑定主流程阶段");
+
+    const detail = await getOrder(id);
+    expect(detail.order.status).toBe("new");
+    expect(detail.order.completed_at).toBeUndefined();
+  });
+
   it("records transition reasons and turns unfixed pickup reasons into diagnosis conclusions", async () => {
     const id = await createMockOrder();
     const beforePatch = await getOrder(id);
@@ -220,7 +262,12 @@ describe("mock order WhatsApp notification workflow", () => {
         data_base64: "ZmFrZQ==",
         note: "屏幕破裂照片",
       },
-      { id: "staff-1", displayName: "ALESSIO", storeId: "mock-store", role: "technician" },
+      {
+        id: "staff-1",
+        displayName: "ALESSIO",
+        storeId: "00000000-0000-0000-0000-000000000001",
+        role: "technician",
+      },
     );
 
     const detail = await getOrder(id);

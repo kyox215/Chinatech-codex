@@ -36,4 +36,10 @@ The latest production build passed outside the sandbox. The sandbox-only Turbopa
 
 Do not describe WP-05/WP05-B as production-ready. Both Kiosk flags must remain disabled in every Supabase-backed environment. The staged migration has no executable PostgreSQL reset/apply evidence because local Docker is unavailable. Production still requires Gate 2A, Owner-approved linked preflight/apply/post-check, transactional review RPC/outbox and Storage compensation, distributed rate limiting and pairing-failure audit, token rotation, role semantics, signature/PII retention and GDPR copy, and failure-recovery proof.
 
-The next safe package is WP-06 local rehydration/implementation. Do not push, deploy, apply migrations, enable either Kiosk flag, change role semantics, or correct historical production rows without Owner approval.
+WP-06 order workflow is locally implemented and ready for a scoped local commit. Editing status fields, ordering, defaults, and transitions now changes only a cloned store-bound draft. The UI presents change impact and validation, guards dirty navigation, and keeps Apply locked instead of calling the four non-transactional legacy endpoints. Custom targets fail closed across create, manual/configured, and mock notification paths; unknown codes no longer map to `closed`.
+
+Final WP-06 evidence: independent architecture, data/security, and UX/QA reviews at P0=0/P1=0; 7 focused files / 98 tests; 162 full files / 1052 tests; six responsive Playwright cases; agents check, lint, typecheck, diff check, and final production build pass. Four synthetic screenshots cover mobile, Sheet, review, and desktop states.
+
+Do not describe WP-06 Apply as available or production-ready. The legacy endpoints remain non-transactional and revision-free. Production needs a store-scoped historical custom-status audit, revision/CAS, a single transactional RPC, active-order compatibility checks, atomic audit/outbox, and a separately approved data-repair plan if old rows are already misclassified.
+
+The next safe package is WP-07 rehydration from the approved Settings plan. Do not push, deploy, apply migrations, enable either Kiosk flag, change role/retention semantics, unlock workflow Apply, or inspect/correct historical production rows without Owner approval.

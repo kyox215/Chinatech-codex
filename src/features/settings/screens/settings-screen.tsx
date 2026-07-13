@@ -6,19 +6,13 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
-  AlertTriangle,
   ArrowLeft,
-  ArrowDown,
-  ArrowUp,
   Check,
   ChevronDown,
-  GitBranch,
   FileSpreadsheet,
   MessageSquare,
   PackageSearch,
   Phone,
-  Pencil,
-  Plus,
   RotateCcw,
   Search,
   Settings2,
@@ -31,26 +25,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { OrderDataSection } from "@/features/settings/components/order-data-section";
-import { SettingsField as Field } from "@/features/settings/components/settings-field";
 import { SettingsLayout } from "@/features/settings/components/settings-layout";
 import {
   SettingsNavigation,
@@ -68,6 +50,7 @@ import {
 } from "@/features/settings/model/settings-field-errors";
 import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
 import { NotificationsSettingsSection } from "@/features/settings/sections/notifications-settings-section";
+import { OrderWorkflowSettingsSection } from "@/features/settings/sections/order-workflow-settings-section";
 import { RulesSettingsSection } from "@/features/settings/sections/rules-settings-section";
 import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
 import { MembersSettingsSection } from "@/features/settings/sections/members-settings-section";
@@ -83,10 +66,6 @@ import {
   writeKioskReturnDrafts,
 } from "@/features/settings/model/kiosk-return-draft";
 import type { MemberEditorDraft } from "@/features/settings/model/member-settings-editor";
-import {
-  getOrderWorkflowBucketLabel,
-  getWorkflowStatuses,
-} from "@/features/orders/model/order-workflow";
 import {
   buildStoreMessagePreview,
   buildStorePrintPreview,
@@ -118,7 +97,6 @@ import {
   approveStoreAccessRequest,
   archiveSupplier,
   createSupplier,
-  createOrderWorkflowStatus,
   createStoreInviteLink,
   disableStoreMember,
   getOnboardingStatus,
@@ -137,25 +115,17 @@ import {
   restoreStoreMember,
   revokeStoreInviteLink,
   revokeStoreInvitation,
-  reorderOrderWorkflowStatuses,
   switchStore,
   updateSupplier,
   updateStoreMemberPermissions,
   updateStoreMemberRole,
   updateAccountProfile,
-  updateOrderWorkflowStatus,
-  updateOrderWorkflowTransitions,
   updateStoreSettings,
   createKioskDevicePairing,
   RepairDeskApiError,
   type KioskDevice,
   type KioskSession,
   type OnboardingRequest,
-  type OrderWorkflow,
-  type OrderWorkflowBucket,
-  type OrderWorkflowStatusCreateInput,
-  type OrderWorkflowTone,
-  type OrderWorkflowTransitionsUpdateInput,
   type StoreInviteLinkCreateInput,
   type StoreInviteInput,
   type StoreMember,
@@ -324,6 +294,7 @@ export function SettingsScreen() {
   const [memberSaveError, setMemberSaveError] = useState("");
   const [memberSectionDirty, setMemberSectionDirty] = useState(false);
   const [supplierSectionDirty, setSupplierSectionDirty] = useState(false);
+  const [workflowSectionDirty, setWorkflowSectionDirty] = useState(false);
   const [latestInviteCodeState, setLatestInviteCodeState] =
     useState<StoreBoundTransientValue<string> | null>(null);
   const [memberActionId, setMemberActionId] = useState("");
@@ -361,6 +332,7 @@ export function SettingsScreen() {
     setMemberActionId("");
     setMemberSectionDirty(false);
     setSupplierSectionDirty(false);
+    setWorkflowSectionDirty(false);
   }, [activeStoreId]);
 
   useEffect(() => {
@@ -463,7 +435,7 @@ export function SettingsScreen() {
       kiosk: kioskReturnDraftDirty,
       notifications: false,
       rules: false,
-      workflow: false,
+      workflow: workflowSectionDirty,
       "order-data": false,
     };
     return {
@@ -478,6 +450,7 @@ export function SettingsScreen() {
     kioskReturnDraftDirty,
     memberSectionDirty,
     supplierSectionDirty,
+    workflowSectionDirty,
   ]);
 
   const updateSettingsField = <S extends StoreSettingsSection>(
@@ -1217,47 +1190,6 @@ export function SettingsScreen() {
       toast.error(message);
     },
   });
-  const createWorkflowStatusMutation = useMutation({
-    mutationFn: createOrderWorkflowStatus,
-    onSuccess: async () => {
-      toast.success("状态已新增");
-      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
-      await queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "新增状态失败"),
-  });
-  const updateWorkflowStatusMutation = useMutation({
-    mutationFn: ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: Parameters<typeof updateOrderWorkflowStatus>[1];
-    }) => updateOrderWorkflowStatus(id, input),
-    onSuccess: async () => {
-      toast.success("状态已保存");
-      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
-      await queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "保存状态失败"),
-  });
-  const reorderWorkflowStatusesMutation = useMutation({
-    mutationFn: reorderOrderWorkflowStatuses,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
-      await queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "排序失败"),
-  });
-  const updateWorkflowTransitionsMutation = useMutation({
-    mutationFn: updateOrderWorkflowTransitions,
-    onSuccess: async () => {
-      toast.success("流转关系已保存");
-      await queryClient.invalidateQueries({ queryKey: ordersKeys.workflow() });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "保存流转关系失败"),
-  });
-
   if (
     storeContextQuery.isError ||
     (storeContextQuery.isSuccess && !storeContextQuery.data.activeStore)
@@ -1897,37 +1829,16 @@ export function SettingsScreen() {
               </div>
             </div>
 
-            {canRenderSelectedSection && selectedSection === "workflow" ? (
-              <OrderWorkflowSection
+            {canRenderSelectedSection && selectedSection === "workflow" && activeStoreId ? (
+              <OrderWorkflowSettingsSection
                 key={activeStoreId}
+                storeId={activeStoreId}
                 workflow={workflowQuery.data}
                 isLoading={workflowQuery.isLoading}
                 isError={workflowQuery.isError}
-                errorMessage={
-                  workflowQuery.error instanceof Error
-                    ? workflowQuery.error.message
-                    : "状态流配置暂时不可用"
-                }
                 onRetry={() => void workflowQuery.refetch()}
-                isSaving={
-                  createWorkflowStatusMutation.isPending ||
-                  updateWorkflowStatusMutation.isPending ||
-                  reorderWorkflowStatusesMutation.isPending ||
-                  updateWorkflowTransitionsMutation.isPending
-                }
-                onCreateStatus={(input) =>
-                  canConfigureWorkflow && createWorkflowStatusMutation.mutate(input)
-                }
-                onUpdateStatus={(id, input) =>
-                  canConfigureWorkflow && updateWorkflowStatusMutation.mutate({ id, input })
-                }
-                onReorder={(items) =>
-                  canConfigureWorkflow && reorderWorkflowStatusesMutation.mutate({ items })
-                }
-                onUpdateTransitions={(input) =>
-                  canConfigureWorkflow && updateWorkflowTransitionsMutation.mutate(input)
-                }
                 canEdit={canConfigureWorkflow}
+                onDirtyChange={setWorkflowSectionDirty}
               />
             ) : null}
 
@@ -1953,576 +1864,6 @@ export function SettingsScreen() {
         )}
       </SettingsLayout>
     </RepairOsListScaffold>
-  );
-}
-
-const workflowToneOptions: { value: OrderWorkflowTone; label: string }[] = [
-  { value: "neutral", label: "中性" },
-  { value: "info", label: "信息" },
-  { value: "progress", label: "进行" },
-  { value: "warn", label: "提醒" },
-  { value: "success", label: "完成" },
-  { value: "danger", label: "异常" },
-];
-
-const workflowBucketOptions: { value: OrderWorkflowBucket; label: string }[] = [
-  "intake",
-  "diagnosing",
-  "quote",
-  "parts",
-  "repair",
-  "pickup",
-  "done",
-  "cancelled",
-  "custom",
-].map((value) => {
-  const bucket = value as OrderWorkflowBucket;
-  return { value: bucket, label: getOrderWorkflowBucketLabel(bucket) };
-});
-
-const compactControlClass = "h-8 text-sm sm:h-9";
-
-function defaultNewStatusDraft(): OrderWorkflowStatusCreateInput {
-  return {
-    code: "",
-    label: "",
-    short_label: "",
-    tone: "progress",
-    bucket: "custom",
-    enabled: true,
-    show_in_order_filters: true,
-    allowed_for_create: false,
-    is_default_create_status: false,
-  };
-}
-
-function OrderWorkflowSection({
-  workflow,
-  isLoading,
-  isError,
-  errorMessage,
-  onRetry,
-  isSaving,
-  onCreateStatus,
-  onUpdateStatus,
-  onReorder,
-  onUpdateTransitions,
-  canEdit,
-}: {
-  workflow?: OrderWorkflow;
-  isLoading: boolean;
-  isError: boolean;
-  errorMessage: string;
-  onRetry: () => void;
-  isSaving: boolean;
-  onCreateStatus: (input: OrderWorkflowStatusCreateInput) => void;
-  onUpdateStatus: (id: string, input: Parameters<typeof updateOrderWorkflowStatus>[1]) => void;
-  onReorder: (items: { id: string; sort_order: number }[]) => void;
-  onUpdateTransitions: (input: OrderWorkflowTransitionsUpdateInput) => void;
-  canEdit: boolean;
-}) {
-  const statuses = useMemo(() => getWorkflowStatuses(workflow), [workflow]);
-  const [newStatus, setNewStatus] = useState<OrderWorkflowStatusCreateInput>(defaultNewStatusDraft);
-  const [fromStatusCode, setFromStatusCode] = useState("");
-  const transitions = workflow?.transitions ?? [];
-
-  useEffect(() => {
-    if (fromStatusCode && statuses.some((status) => status.code === fromStatusCode)) return;
-    setFromStatusCode(statuses[0]?.code ?? "");
-  }, [fromStatusCode, statuses]);
-
-  const moveStatus = (index: number, direction: -1 | 1) => {
-    if (!canEdit) return;
-    const next = [...statuses];
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    onReorder(
-      next.map((status, itemIndex) => ({ id: status.id, sort_order: (itemIndex + 1) * 10 })),
-    );
-  };
-
-  const updateTransitionTarget = (
-    toStatusCode: string,
-    patch: { enabled?: boolean; is_primary?: boolean },
-  ) => {
-    if (!canEdit) return;
-    if (!fromStatusCode) return;
-    const nextTransitions = statuses
-      .filter((status) => status.code !== fromStatusCode)
-      .map((status, index) => {
-        const current = transitions.find(
-          (transition) =>
-            transition.from_status_code === fromStatusCode &&
-            transition.to_status_code === status.code,
-        );
-        const isTarget = status.code === toStatusCode;
-        const enabled = isTarget
-          ? (patch.enabled ?? current?.enabled ?? false)
-          : Boolean(current?.enabled);
-        return {
-          to_status_code: status.code,
-          enabled,
-          is_primary: isTarget
-            ? Boolean(enabled && (patch.is_primary ?? current?.is_primary))
-            : Boolean(enabled && current?.is_primary && !patch.is_primary),
-          sort_order: current?.sort_order ?? (index + 1) * 10,
-        };
-      });
-    onUpdateTransitions({ from_status_code: fromStatusCode, transitions: nextTransitions });
-  };
-
-  return (
-    <section className={cn(repairOs.adminSection, "p-2 sm:p-3")}>
-      <RepairOsSectionHeader icon={GitBranch} iconFrame={false} title="工单状态流" />
-      {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-40 w-full" />
-        </div>
-      ) : isError ? (
-        <div className="rounded-md border border-status-danger-foreground/25 bg-status-danger/10 p-3">
-          <div className="flex min-w-0 items-start gap-2">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-danger-foreground" />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold">状态流未加载</div>
-              <p className="mt-1 break-words text-xs text-muted-foreground">
-                当前不能编辑工单状态流。请先确认数据库迁移已应用，或稍后重试。
-                {errorMessage ? ` ${errorMessage}` : ""}
-              </p>
-            </div>
-            <Button type="button" variant="outline" size="sm" className="h-8" onClick={onRetry}>
-              重试
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {canEdit ? (
-            <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border/60 bg-surface-muted/30 p-1.5 sm:grid-cols-[9rem_minmax(0,1fr)_7rem_8rem_6rem_auto] sm:p-2">
-              <Input
-                value={newStatus.code}
-                onChange={(event) =>
-                  setNewStatus((current) => ({
-                    ...current,
-                    code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                  }))
-                }
-                placeholder="status_code"
-                className="h-8 text-xs"
-              />
-              <Input
-                value={newStatus.label}
-                onChange={(event) =>
-                  setNewStatus((current) => ({ ...current, label: event.target.value }))
-                }
-                placeholder="状态名称"
-                className="h-8 text-xs"
-              />
-              <Input
-                value={newStatus.short_label}
-                onChange={(event) =>
-                  setNewStatus((current) => ({ ...current, short_label: event.target.value }))
-                }
-                placeholder="短标签"
-                className="h-8 text-xs"
-              />
-              <Select
-                value={newStatus.bucket}
-                onValueChange={(bucket) =>
-                  setNewStatus((current) => ({
-                    ...current,
-                    bucket: bucket as OrderWorkflowBucket,
-                  }))
-                }
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {workflowBucketOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={newStatus.tone}
-                onValueChange={(tone) =>
-                  setNewStatus((current) => ({ ...current, tone: tone as OrderWorkflowTone }))
-                }
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {workflowToneOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={isSaving || !newStatus.code.trim() || !newStatus.label.trim()}
-                onClick={() => {
-                  onCreateStatus(newStatus);
-                  setNewStatus(defaultNewStatusDraft());
-                }}
-              >
-                <Plus className="mr-1.5 size-3.5" /> 新增状态
-              </Button>
-            </div>
-          ) : null}
-
-          <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] lg:items-start">
-            <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3 lg:block lg:space-y-1.5">
-              {statuses.map((status, index) => (
-                <div key={status.id} className="min-w-0">
-                  <details className="rounded-lg border border-[var(--border-panel)] bg-card p-1.5 lg:hidden">
-                    <summary className="flex min-w-0 cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-                      <span className="min-w-0">
-                        <span className="block truncate text-xs font-semibold">{status.label}</span>
-                        <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                          {status.code}
-                        </span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-1">
-                        <Badge variant="outline" className="text-[10px]">
-                          {getOrderWorkflowBucketLabel(status.bucket)}
-                        </Badge>
-                        {status.is_system ? (
-                          <Badge variant="outline" className="hidden text-[10px] sm:inline-flex">
-                            系统
-                          </Badge>
-                        ) : null}
-                      </span>
-                    </summary>
-                    <div className="mt-2 grid gap-2">
-                      <WorkflowStatusFields
-                        status={status}
-                        index={index}
-                        total={statuses.length}
-                        isSaving={isSaving}
-                        canEdit={canEdit}
-                        onMove={moveStatus}
-                        onUpdateStatus={onUpdateStatus}
-                      />
-                    </div>
-                  </details>
-                  <div className="hidden min-w-0 gap-1.5 rounded-md border border-border/60 bg-surface/60 p-1.5 lg:grid lg:grid-cols-[auto_minmax(5.75rem,1fr)_4.25rem_minmax(5.5rem,0.78fr)_4.75rem] 2xl:grid-cols-[auto_minmax(5.75rem,1fr)_4.25rem_minmax(5.5rem,0.78fr)_4.75rem_repeat(4,auto)_auto]">
-                    <WorkflowStatusFields
-                      status={status}
-                      index={index}
-                      total={statuses.length}
-                      isSaving={isSaving}
-                      canEdit={canEdit}
-                      onMove={moveStatus}
-                      onUpdateStatus={onUpdateStatus}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <WorkflowTransitionsPanel
-              statuses={statuses}
-              transitions={transitions}
-              fromStatusCode={fromStatusCode}
-              isSaving={isSaving}
-              canEdit={canEdit}
-              onFromStatusChange={setFromStatusCode}
-              onUpdateTransition={updateTransitionTarget}
-            />
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-type WorkflowStatusItem = ReturnType<typeof getWorkflowStatuses>[number];
-
-function WorkflowTransitionsPanel({
-  statuses,
-  transitions,
-  fromStatusCode,
-  isSaving,
-  canEdit,
-  onFromStatusChange,
-  onUpdateTransition,
-}: {
-  statuses: WorkflowStatusItem[];
-  transitions: OrderWorkflow["transitions"];
-  fromStatusCode: string;
-  isSaving: boolean;
-  canEdit: boolean;
-  onFromStatusChange: (code: string) => void;
-  onUpdateTransition: (
-    toStatusCode: string,
-    patch: { enabled?: boolean; is_primary?: boolean },
-  ) => void;
-}) {
-  const renderContent = (fieldId: string) => (
-    <>
-      <div className="mb-2 grid gap-1.5 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
-        <Field label="来源状态" htmlFor={fieldId}>
-          <Select value={fromStatusCode} onValueChange={onFromStatusChange}>
-            <SelectTrigger id={fieldId} className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {statuses.map((status) => (
-                <SelectItem key={status.code} value={status.code}>
-                  {status.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <p className="text-[11px] leading-4 text-muted-foreground">
-          勾选允许目标状态；“主”会成为推荐下一步。
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-1 2xl:grid-cols-2">
-        {statuses
-          .filter((status) => status.code !== fromStatusCode)
-          .map((status) => {
-            const transition = transitions.find(
-              (item) =>
-                item.from_status_code === fromStatusCode && item.to_status_code === status.code,
-            );
-            const enabled = Boolean(transition?.enabled);
-            return (
-              <RepairOsBusinessCard
-                as="div"
-                key={status.code}
-                leading={
-                  <Checkbox
-                    checked={enabled}
-                    disabled={!canEdit || isSaving}
-                    aria-label={`允许流转到 ${status.label}`}
-                    onCheckedChange={(checked) =>
-                      onUpdateTransition(status.code, { enabled: Boolean(checked) })
-                    }
-                  />
-                }
-                trailing={
-                  <Button
-                    type="button"
-                    variant={transition?.is_primary ? "default" : "outline"}
-                    size="sm"
-                    className="h-6 px-1.5 text-[10px]"
-                    disabled={!canEdit || isSaving || !enabled}
-                    aria-label={`设为推荐流转到 ${status.label}`}
-                    onClick={() =>
-                      onUpdateTransition(status.code, {
-                        enabled: true,
-                        is_primary: true,
-                      })
-                    }
-                  >
-                    主
-                  </Button>
-                }
-                className="items-center rounded-md border-border/60 bg-surface px-1.5 py-1 shadow-none hover:bg-surface"
-                leadingClassName="self-center"
-                bodyClassName="self-center"
-                trailingClassName="shrink-0 self-center"
-              >
-                <span className="block truncate text-[11px]">{status.label}</span>
-              </RepairOsBusinessCard>
-            );
-          })}
-      </div>
-    </>
-  );
-
-  return (
-    <>
-      <details
-        data-ui="settings-workflow-transitions"
-        className="rounded-md border border-border/60 bg-surface-muted/30 p-2 lg:hidden"
-      >
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
-          <span>流转规则</span>
-          <Badge variant="outline" className="text-[10px]">
-            {Math.max(0, statuses.length - 1)} 项
-          </Badge>
-        </summary>
-        <div className="mt-2">{renderContent("workflow-from-status-mobile")}</div>
-      </details>
-      <div
-        data-ui="settings-workflow-transitions"
-        className="hidden rounded-md border border-border/60 bg-surface-muted/30 p-2 lg:block"
-      >
-        {renderContent("workflow-from-status-desktop")}
-      </div>
-    </>
-  );
-}
-
-function WorkflowStatusFields({
-  status,
-  index,
-  total,
-  isSaving,
-  canEdit,
-  onMove,
-  onUpdateStatus,
-}: {
-  status: WorkflowStatusItem;
-  index: number;
-  total: number;
-  isSaving: boolean;
-  canEdit: boolean;
-  onMove: (index: number, direction: -1 | 1) => void;
-  onUpdateStatus: (id: string, input: Parameters<typeof updateOrderWorkflowStatus>[1]) => void;
-}) {
-  return (
-    <>
-      <div className="flex items-center gap-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          disabled={!canEdit || isSaving || index === 0}
-          onClick={() => onMove(index, -1)}
-          aria-label="上移状态"
-        >
-          <ArrowUp className="size-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          disabled={!canEdit || isSaving || index === total - 1}
-          onClick={() => onMove(index, 1)}
-          aria-label="下移状态"
-        >
-          <ArrowDown className="size-3.5" />
-        </Button>
-      </div>
-      <Input
-        defaultValue={status.label}
-        className="h-8 text-xs"
-        disabled={!canEdit}
-        onBlur={(event) => {
-          const label = event.target.value.trim();
-          if (label && label !== status.label) onUpdateStatus(status.id, { label });
-        }}
-      />
-      <Input
-        defaultValue={status.short_label}
-        className="h-8 text-xs"
-        disabled={!canEdit}
-        onBlur={(event) => {
-          const shortLabel = event.target.value.trim();
-          if (shortLabel !== status.short_label) {
-            onUpdateStatus(status.id, { short_label: shortLabel });
-          }
-        }}
-      />
-      <Select
-        value={status.bucket}
-        disabled={!canEdit}
-        onValueChange={(bucket) =>
-          onUpdateStatus(status.id, { bucket: bucket as OrderWorkflowBucket })
-        }
-      >
-        <SelectTrigger className="h-8 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {workflowBucketOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={status.tone}
-        disabled={!canEdit}
-        onValueChange={(tone) => onUpdateStatus(status.id, { tone: tone as OrderWorkflowTone })}
-      >
-        <SelectTrigger className="h-8 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {workflowToneOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <WorkflowCheck
-        label="启用"
-        checked={status.enabled}
-        disabled={!canEdit || isSaving || status.is_default_create_status}
-        onChange={(checked) => onUpdateStatus(status.id, { enabled: checked })}
-      />
-      <WorkflowCheck
-        label="列表"
-        checked={status.show_in_order_filters}
-        disabled={!canEdit || isSaving}
-        onChange={(checked) => onUpdateStatus(status.id, { show_in_order_filters: checked })}
-      />
-      <WorkflowCheck
-        label="新建"
-        checked={status.allowed_for_create}
-        disabled={!canEdit || isSaving || status.is_default_create_status}
-        onChange={(checked) => onUpdateStatus(status.id, { allowed_for_create: checked })}
-      />
-      <WorkflowCheck
-        label="默认"
-        checked={status.is_default_create_status}
-        disabled={!canEdit || isSaving || status.is_default_create_status || !status.enabled}
-        onChange={(checked) =>
-          checked && onUpdateStatus(status.id, { is_default_create_status: true })
-        }
-      />
-      <div className="flex min-w-0 items-center justify-end gap-2">
-        <code className="truncate rounded bg-surface-muted px-1.5 py-1 text-[10px] text-muted-foreground">
-          {status.code}
-        </code>
-        {status.is_system ? (
-          <Badge variant="outline" className="shrink-0 text-[10px]">
-            系统
-          </Badge>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-function WorkflowCheck({
-  label,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <Checkbox
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={(value) => onChange(Boolean(value))}
-      />
-      {label}
-    </label>
   );
 }
 

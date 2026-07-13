@@ -128,6 +128,29 @@ describe("NavigationGuardProvider", () => {
     expect(navigationMocks.push).not.toHaveBeenCalled();
   });
 
+  it("explains and disables save when a draft has no safe apply contract", async () => {
+    const user = userEvent.setup();
+    render(
+      <NavigationGuardProvider>
+        <UnsavedSettingsGuard
+          dirty
+          busy={false}
+          canSave={false}
+          saveUnavailableReason="状态流需等待事务接口获批后才能应用。"
+          label="工单状态流草稿"
+          onSave={async () => ({ status: "blocked" })}
+          onDiscard={() => ({ status: "resolved" })}
+        />
+        <a href="/orders">离开状态流</a>
+      </NavigationGuardProvider>,
+    );
+
+    await user.click(screen.getByRole("link", { name: "离开状态流" }));
+
+    expect(screen.getByRole("button", { name: "保存并继续" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("状态流需等待事务接口获批后才能应用");
+  });
+
   it("resolves multiple dirty sources before running one transition", async () => {
     const user = userEvent.setup();
     const firstSave = vi.fn();

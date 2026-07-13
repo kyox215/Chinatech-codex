@@ -1072,6 +1072,129 @@ test.describe("settings mobile overlay and guard safety", () => {
   });
 });
 
+test.describe("WP06 settings workflow draft contract", () => {
+  for (const viewport of viewports) {
+    test(`keeps workflow editing local at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      await page.setViewportSize(viewport);
+      const workflowWrites: string[] = [];
+      page.on("request", (request) => {
+        if (/order-workflow\/(status|transitions)\//.test(request.url())) {
+          workflowWrites.push(request.url());
+        }
+      });
+
+      await gotoReady(page, "/settings?section=workflow");
+      const section = page.locator('[data-ui="settings-workflow-section"]');
+      await expect(section.getByRole("heading", { name: "工单状态流" })).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(section.locator('[aria-label="状态列表"]')).toBeVisible();
+      const transitionPanel = section.locator('[data-ui="settings-workflow-transitions"]:visible');
+      await expect(transitionPanel).toBeVisible();
+      await expectNoPageOverflow(page, `workflow settings ${viewport.width}px`);
+
+      const statusBox = await section.locator('[aria-label="状态列表"]').boundingBox();
+      const transitionBox = await transitionPanel.boundingBox();
+      const gateBox = await section.locator('[data-ui="workflow-apply-gate"]').boundingBox();
+      expect(statusBox).not.toBeNull();
+      expect(transitionBox).not.toBeNull();
+      expect(gateBox).not.toBeNull();
+      expect(gateBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(statusBox?.y ?? 0);
+      if (viewport.width >= 1280) {
+        expect(transitionBox?.x ?? 0).toBeGreaterThan(statusBox?.x ?? 0);
+        expect(Math.abs((transitionBox?.y ?? 0) - (statusBox?.y ?? 0))).toBeLessThanOrEqual(2);
+      } else {
+        expect(await transitionPanel.evaluate((element) => element.tagName)).toBe("DETAILS");
+      }
+
+      const editButton = section
+        .locator('[data-workflow-status-code="new"]')
+        .getByRole("button", { name: "编辑状态 新建", exact: true });
+      if (viewport.width <= 430) {
+        expect((await editButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      }
+
+      if (viewport.width === 390) {
+        await editButton.click();
+        let editor = page.getByRole("dialog", { name: /编辑「/ });
+        await expect(editor).toBeVisible();
+        expect(
+          (await editor.getByLabel("状态名称").boundingBox())?.height ?? 0,
+        ).toBeGreaterThanOrEqual(44);
+        await page.keyboard.press("Escape");
+        await expect(editor).toBeHidden();
+        await expect(editButton).toBeFocused();
+        await expectOverlayReleased(page, section, editButton);
+
+        await editButton.click();
+        editor = page.getByRole("dialog", { name: /编辑「/ });
+        await expect(editor).toBeVisible();
+        await editor.getByLabel("状态名称").fill("WP06 本地状态");
+        expect(workflowWrites).toEqual([]);
+        await page.waitForTimeout(250);
+        await hideNextDevIndicators(page);
+        await page.screenshot({
+          path: "screenshots/responsive-density/settings/wp06-workflow-editor-390x844.png",
+        });
+        await editor.getByRole("button", { name: "完成编辑" }).click();
+        await expect(section.getByText("WP06 本地状态").first()).toBeVisible();
+        expect(workflowWrites).toEqual([]);
+
+        const reviewTrigger = section.getByRole("button", { name: /检查变更/ });
+        await reviewTrigger.click();
+        const review = page.getByRole("dialog", { name: "检查状态流变更" });
+        await expect(review).toContainText("修改状态名称");
+        await expect(review.getByRole("heading", { name: "检查状态流变更" })).toBeFocused();
+        await expect(review.getByRole("button", { name: /应用状态流/ })).toBeDisabled();
+        expect(workflowWrites).toEqual([]);
+        await page.waitForTimeout(200);
+        await hideNextDevIndicators(page);
+        await page.screenshot({
+          path: "screenshots/responsive-density/settings/wp06-workflow-review-390x844.png",
+        });
+        await review.getByRole("button", { name: "返回继续编辑" }).click();
+        await expect(review).toBeHidden();
+        await expect(reviewTrigger).toBeFocused();
+        await expectOverlayReleased(page, section, reviewTrigger);
+        await expectNoPageOverflow(page, "dirty workflow settings 390px");
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.screenshot({
+          path: "screenshots/responsive-density/settings/wp06-workflow-390x844.png",
+        });
+
+        await page.getByRole("link", { name: "返回设置总览" }).first().click();
+        const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+        await expect(guard).toContainText("状态流需等待带版本校验的事务接口获批后才能应用");
+        await expect(guard.getByRole("button", { name: "保存并继续" })).toBeDisabled();
+        await guard.getByRole("button", { name: "放弃修改" }).click();
+        await expect(page).toHaveURL(/\/settings$/);
+      }
+
+      if (viewport.width === 1024) {
+        await editButton.click();
+        const editor = page.getByRole("dialog", { name: /编辑「/ });
+        await expect(editor).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(editor).toBeHidden();
+        await expect(editButton).toBeFocused();
+        await expectOverlayReleased(page, section, editButton);
+      }
+
+      if (viewport.width === 1440) {
+        await hideNextDevIndicators(page);
+        await page.screenshot({
+          path: "screenshots/responsive-density/settings/wp06-workflow-1440x900.png",
+        });
+      }
+
+      expect(workflowWrites).toEqual([]);
+    });
+  }
+});
+
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.locator("body").waitFor({ state: "visible" });
@@ -1140,6 +1263,25 @@ async function expectNoPageOverflow(page: Page, route: string) {
     overflow.documentWidth,
     `${route} overflowed: documentWidth=${overflow.documentWidth}, pageWidth=${overflow.pageWidth}`,
   ).toBeLessThanOrEqual(overflow.pageWidth);
+}
+
+async function expectOverlayReleased(page: Page, content: Locator, target: Locator) {
+  await expect.poll(() => page.evaluate(() => document.body.style.pointerEvents)).not.toBe("none");
+  await expect
+    .poll(() => content.evaluate((element) => !element.closest('[aria-hidden="true"], [inert]')))
+    .toBe(true);
+  await expect
+    .poll(() =>
+      target.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        return hit === element || element.contains(hit);
+      }),
+    )
+    .toBe(true);
 }
 
 async function routeCompleteStoreSettings(page: Page, overrides: Record<string, unknown> = {}) {

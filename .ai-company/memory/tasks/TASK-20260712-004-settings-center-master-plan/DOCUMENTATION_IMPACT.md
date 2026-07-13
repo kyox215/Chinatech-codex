@@ -135,3 +135,20 @@
 - No retention schedule or consent copy: legal/purpose decisions are not approved.
 - No role matrix update: reviewer-role semantics are frozen.
 - No production runbook activation step: both environment flags, migration apply, deployment, and push remain Owner gates.
+
+## WP-06 order workflow local draft
+
+| Reader             | Impact                                                                                                                        | Authoritative update                                                                           | Verification                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Store users        | Workflow edits remain local, dirty navigation is guarded, and Apply visibly stays locked                                      | Workflow Settings section, review dialog, and four WP06 screenshots                            | Six-width Playwright plus overlay interaction checks |
+| Developers         | Workflow changes use a cloned store-bound draft; old sequential endpoints are not an Apply mechanism                          | `WP06_CONTEXT_PACKET.md`, draft/review models, extracted section, runtime custom-status guards | Focused and full Vitest, lint, typecheck, build      |
+| QA                 | Loading/error/empty/readonly/conflict, duplicate code, six widths, focus, pointer lock, and no-write behavior are contractual | WP06 E2E block and `EVIDENCE.md` matrix                                                        | 6/6 Playwright and 98 focused tests                  |
+| Security reviewers | Foreign-store snapshots and unmapped custom targets fail closed; client edit permission cannot create a server write          | Draft scope validation, repository/mock guards, locked navigation save                         | Three independent final reviews P0=0/P1=0            |
+| Release / data     | Production needs historical custom-status preflight plus revision/CAS and one transactional RPC                               | WP06 context/checkpoint and residual-risk list                                                 | Apply disabled; no DB/push/deploy performed          |
+
+### WP-06 documentation limits
+
+- Do not document “应用状态流” as available. The visible button is an explicit approval gate, not a disabled feature awaiting a frontend toggle.
+- Do not describe the four legacy mutation routes as atomic, revision-safe, or suitable for client orchestration.
+- No schema, migration, public API, deployment, role matrix, retention, or production runbook was changed in this slice.
+- Final end-user Settings operator documentation remains deferred until WP-07 stabilizes and WP-08 performs release closeout.

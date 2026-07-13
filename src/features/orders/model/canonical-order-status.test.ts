@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   approvalFlowStatusFromLegacyStatus,
+  isDefaultRepairOrderStatus,
   paymentStatusFromMoney,
   workflowStatusFromLegacyStatus,
 } from "./canonical-order-status";
@@ -25,5 +26,12 @@ describe("canonical order status helpers", () => {
     expect(workflowStatusFromLegacyStatus("repairing")).toBe("repair");
     expect(workflowStatusFromLegacyStatus("repaired")).toBe("repair");
     expect(workflowStatusFromLegacyStatus("notified")).toBe("pickup");
+  });
+
+  it("keeps unknown custom status codes non-terminal until lifecycle semantics are mapped", () => {
+    expect(isDefaultRepairOrderStatus("repairing")).toBe(true);
+    expect(isDefaultRepairOrderStatus("waiting_vendor")).toBe(false);
+    expect(workflowStatusFromLegacyStatus("waiting_vendor")).toBe("intake");
+    expect(workflowStatusFromLegacyStatus("waiting_vendor")).not.toBe("closed");
   });
 });

@@ -32,6 +32,8 @@ export interface NavigationGuardSource {
   label: () => string;
   isDirty: () => boolean;
   isBusy: () => boolean;
+  canSave?: () => boolean;
+  saveUnavailableReason?: () => string;
   save: () => Promise<NavigationGuardResolution>;
   discard: () => NavigationGuardResolution | Promise<NavigationGuardResolution>;
   focusFallback?: () => void;
@@ -352,6 +354,11 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
                 ? `${pending.source.label()}有未保存修改。要继续${pending.transition.label ? `前往“${pending.transition.label}”` : "当前操作"}吗？`
                 : "请先处理未保存修改。"}
             </AlertDialogDescription>
+            {pending?.source.canSave?.() === false ? (
+              <p className="text-sm text-status-warn-foreground" role="status">
+                {pending.source.saveUnavailableReason?.() ?? "当前草稿暂不支持直接保存。"}
+              </p>
+            ) : null}
           </AlertDialogHeader>
           <p className="sr-only" aria-live="polite">
             {isResolving ? "正在处理未保存设置" : ""}
@@ -372,7 +379,9 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
             <Button
               type="button"
               className="min-h-11"
-              disabled={isResolving || pending?.source.isBusy()}
+              disabled={
+                isResolving || pending?.source.isBusy() || pending?.source.canSave?.() === false
+              }
               onClick={() => void resolveWithSave()}
             >
               {isResolving ? "正在处理…" : "保存并继续"}

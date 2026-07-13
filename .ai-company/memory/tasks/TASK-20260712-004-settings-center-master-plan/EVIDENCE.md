@@ -176,3 +176,61 @@ No screenshot or log contains a real token, pairing code, raw signature, secret,
   - `screenshots/responsive-density/settings/wp03c-rules-readonly-1440x900.png`
 - No migration, production write, role/retention change, external message, `main` push, or deployment occurred.
 - `2026-07-13T15:23:52Z` `5ff737955a` — Full Vitest 160 files/1034 tests; focused safety 5 files/32 tests; independent QA 10 files/82 tests; lint, typecheck, agents check, diff check, and outside-sandbox production build pass; DATA/SECURITY/QA terminal reviews P0=0/P1=0.
+
+## WP-06 — Order workflow local draft and safety gate
+
+### Quality decision
+
+- Local WP-06 acceptance: **PASS**. Independent architecture, security/data, and UX/QA final reviews report P0=0/P1=0.
+- Complete Apply and production release: **CLOSED**. The approved local slice deliberately has no transaction RPC, revision/CAS, linked-data preflight, or enabled Apply action.
+
+### Acceptance-to-evidence matrix
+
+| Acceptance                                           | Evidence                                                                            | Result |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ |
+| No legacy workflow writes while editing              | Component fetch spy, Playwright request listener, removed Settings mutation imports | PASS   |
+| Query snapshot remains immutable                     | Draft clone/signature unit tests and copied workflow sorting                        | PASS   |
+| Review covers status/default/order/transition impact | Draft summary tests and review-dialog browser flow                                  | PASS   |
+| Invalid/custom/foreign-store drafts fail closed      | Duplicate-code, custom-status, store-scope, transition, repository, and mock tests  | PASS   |
+| Loading/error/empty/readonly/conflict states         | Section component suite                                                             | PASS   |
+| Dirty navigation cannot fake a safe save             | Navigation-guard unit test and 390px leave flow                                     | PASS   |
+| Unknown custom status cannot close a real order      | Canonical, repository, mock create/manual/WhatsApp negative tests                   | PASS   |
+| Six responsive widths have no page overflow          | WP06 Playwright at 390/430/768/1024/1280/1440                                       | PASS   |
+| Overlay cleanup restores interaction                 | 390 and 1024 Escape/focus/pointer/inert/hit-target checks                           | PASS   |
+
+### Executed verification
+
+- Focused Vitest: 7 files / 98 tests passed.
+- Full Vitest: 162 files / 1052 tests passed.
+- WP06 responsive Playwright: 6/6 passed with one worker.
+- `npm run agents:check`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `git diff --check`: passed on the final code snapshot.
+- `npm run build`: compiled, typechecked, and generated 22/22 static pages outside the filesystem sandbox. The first sandboxed attempt failed only because Turbopack could not bind its internal helper port.
+
+### Independent review corrections
+
+- Duplicate custom codes are now blocked by both the Sheet and the pure draft model; draft identity and transition keys cannot become ambiguous through the UI.
+- State edit buttons have unique accessible names, and the review actions now appear before the long status list.
+- Controlled Sheet/Dialog close paths explicitly restore focus. Browser evidence verifies pointer events, `aria-hidden`/`inert`, and hit testing after close.
+- Mock WhatsApp status changes now reuse the custom-status fail-closed rule used by production.
+- Draft reconciliation rejects a foreign-store workflow snapshot, and transition store IDs participate in validation.
+
+### Visual evidence
+
+- `screenshots/responsive-density/settings/wp06-workflow-390x844.png`
+- `screenshots/responsive-density/settings/wp06-workflow-editor-390x844.png`
+- `screenshots/responsive-density/settings/wp06-workflow-review-390x844.png`
+- `screenshots/responsive-density/settings/wp06-workflow-1440x900.png`
+
+All screenshots use synthetic workflow/store labels and contain no customer PII, credentials, secrets, pairing codes, or production data.
+
+### Residual risks and release gates
+
+- The four legacy workflow mutation APIs remain non-transactional and have no revision/CAS. Future Apply must never orchestrate them sequentially.
+- Existing production rows may already contain custom-default/custom-active states or historical `workflow_status='closed'` plus completion/delivery timestamps. Production needs a store-scoped read-only preflight and separately approved repair/rollback plan before release.
+- Mock workflow CRUD still uses one module-global state projected to an actor store. It is single-session UI evidence, not proof of multi-store write isolation.
+- Change review currently aggregates some availability/transition differences; concrete edge-level audit detail is required before Apply can be unlocked.
+- No database, migration, role/retention change, external message, push, deployment, or production action occurred.
+- `2026-07-13T21:43:16Z` `1165633fee` — Independent architecture, data/security, and UX/QA reviews P0=0/P1=0; focused 7 files/98 tests; full 162 files/1052 tests; WP06 Playwright 6/6; agents check, lint, typecheck, diff check, and final production build pass; four synthetic screenshots inspected.

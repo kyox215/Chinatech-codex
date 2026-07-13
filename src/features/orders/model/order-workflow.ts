@@ -112,7 +112,7 @@ export const fallbackOrderWorkflow: OrderWorkflow = {
 };
 
 export function getWorkflowStatuses(workflow?: OrderWorkflow) {
-  return (workflow?.statuses?.length ? workflow.statuses : fallbackOrderWorkflowStatuses).sort(
+  return [...(workflow?.statuses?.length ? workflow.statuses : fallbackOrderWorkflowStatuses)].sort(
     (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label),
   );
 }

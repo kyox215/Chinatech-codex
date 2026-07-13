@@ -150,7 +150,7 @@ export function OrderDataSection({
             onClick={() => downloadMutation.mutate("customers")}
           />
         </div>
-        <div className="mt-3 flex items-start gap-2 rounded-md border border-status-warning-border bg-status-warning-surface px-3 py-2 text-xs text-status-warning-foreground">
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-xs text-status-warn-foreground">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
           <span>导出文件包含客户资料，只保存在受控设备中。</span>
         </div>
@@ -227,7 +227,7 @@ export function OrderDataSection({
           </div>
 
           {applyResult?.batchId === preview.batchId ? (
-            <div className="mt-3 rounded-md border border-status-warning-border bg-status-warning-surface px-3 py-2 text-xs leading-5 text-status-warning-foreground">
+            <div className="mt-3 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-xs leading-5 text-status-warn-foreground">
               应用结果：成功 {applyResult.applied} 行，冲突 {applyResult.conflicts} 行，失败{" "}
               {applyResult.failed} 行，跳过 {applyResult.skipped} 行。
             </div>

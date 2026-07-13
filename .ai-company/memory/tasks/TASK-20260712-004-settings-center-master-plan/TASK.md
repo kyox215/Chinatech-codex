@@ -1,7 +1,7 @@
 ---
 task_id: "TASK-20260712-004-settings-center-master-plan"
 status: "in_progress"
-phase: "wp05b_local_conditional_closeout"
+phase: "wp06_local_conditional_closeout"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
@@ -9,9 +9,8 @@ integration_lead: "RepairDesk Integration Lead"
 baseline: "a76852f61b09f1b84ccf0def957312026d6eb3b3"
 branch: "codex/settings-center-v2-20260712"
 worktree: "/private/tmp/repairdesk-settings-center-20260712"
-updated_at: "2026-07-13T15:23:52Z"
+updated_at: "2026-07-13T21:43:16Z"
 ---
-
 # Settings Center v2
 
 ## Objective
@@ -39,6 +38,10 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 - WP05-B Kiosk database/public-entry hardening is locally conditionally closed at P0=0/P1=0. Every production or Supabase-backed non-E2E Kiosk entry requires both default-off flags end to end, so a master-only state cannot collect customer data. Accept/return bind to the viewed submission version, explicit anonymous responses are no-store/same-origin, duplicated PII is reduced, and raw signature data is removed after accept/return.
 - The additive `20260713144316_kiosk_integrity_expand.sql` migration is staged but unapplied. It adds three indexes, one same-store device foreign key, eleven state/hash checks (twelve `NOT VALID` constraints total), and bounded DDL timeouts. The executable Gate 2A reset/lint remains unsatisfied because the local Docker daemon is unavailable; linked preflight/apply, constraint validation, and production enabling remain Owner gates.
 - Final WP05-B quality evidence is 160 files / 1034 Vitest tests; focused repository/gate/route/migration checks pass; lint, typecheck, agents check, diff check, and the latest production build pass. Turbopack required the approved outside-sandbox build because its sandbox helper cannot bind a port.
+- WP-06 order workflow is locally implemented and independently reviewed at P0=0/P1=0. Settings now edits one store-bound in-memory draft, shows a complete review summary, guards dirty navigation, and never calls the four legacy workflow mutation routes while editing.
+- Custom/unmapped statuses can no longer fall through to canonical `closed`, cannot be used as real create/transition/notification targets, and foreign-store workflow snapshots are rejected by the local draft boundary.
+- Final WP-06 evidence is 162 files / 1052 Vitest tests, 7 focused files / 98 tests, six responsive Playwright cases, full lint/typecheck/agents/diff checks, and a production build. Four final synthetic screenshots cover mobile, Sheet, review, and desktop states.
+- WP-06 is only a local conditional close. Apply remains disabled until a store-scoped revision/CAS contract, one transactional RPC, active-order compatibility validation, atomic audit/outbox, and a production historical-data preflight receive separate Owner approval.
 - No production database, push, or deployment action has been performed.
 
 ## Acceptance gates

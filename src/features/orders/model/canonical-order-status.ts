@@ -1,4 +1,4 @@
-import type { RepairOrderStatus, StatusTone } from "@/lib/mock/enums";
+import { repairOrderStatus, type RepairOrderStatus, type StatusTone } from "@/lib/mock/enums";
 import type {
   OrderApprovalFlowStatus,
   OrderExceptionStatus,
@@ -89,6 +89,12 @@ export const orderWorkflowTransitions: Partial<
   pickup: "closed",
 };
 
+const defaultRepairOrderStatuses = new Set<string>(repairOrderStatus);
+
+export function isDefaultRepairOrderStatus(status: RepairOrderStatus) {
+  return defaultRepairOrderStatuses.has(status);
+}
+
 export function workflowStatusFromLegacyStatus(status: RepairOrderStatus): OrderWorkflowStatusCode {
   if (["new", "rework"].includes(status)) return "intake";
   if (status === "diagnosing") return "diagnosis";
@@ -98,7 +104,11 @@ export function workflowStatusFromLegacyStatus(status: RepairOrderStatus): Order
   if (["notified", "unfixed_pickup", "waiting_pickup"].includes(status)) {
     return "pickup";
   }
-  return "closed";
+  if (["completed", "cancelled"].includes(status)) return "closed";
+
+  // Custom status codes do not yet carry canonical lifecycle semantics. Keep an
+  // unknown code non-terminal so it cannot stamp completion/delivery metadata.
+  return "intake";
 }
 
 export function legacyStatusFromWorkflowStatus(

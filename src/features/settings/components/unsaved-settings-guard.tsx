@@ -12,6 +12,8 @@ export interface UnsavedSettingsGuardProps {
   dirty: boolean;
   isDirty?: () => boolean;
   busy: boolean;
+  canSave?: boolean | (() => boolean);
+  saveUnavailableReason?: string | (() => string);
   label: string;
   onSave: () => Promise<NavigationGuardResolution>;
   onDiscard: () => NavigationGuardResolution | Promise<NavigationGuardResolution>;
@@ -31,6 +33,14 @@ export function UnsavedSettingsGuard(props: UnsavedSettingsGuardProps) {
         label: () => latestRef.current.label,
         isDirty: () => latestRef.current.isDirty?.() ?? latestRef.current.dirty,
         isBusy: () => latestRef.current.busy,
+        canSave: () =>
+          typeof latestRef.current.canSave === "function"
+            ? latestRef.current.canSave()
+            : (latestRef.current.canSave ?? true),
+        saveUnavailableReason: () =>
+          typeof latestRef.current.saveUnavailableReason === "function"
+            ? latestRef.current.saveUnavailableReason()
+            : (latestRef.current.saveUnavailableReason ?? ""),
         save: () => latestRef.current.onSave(),
         discard: () => latestRef.current.onDiscard(),
         focusFallback: () => latestRef.current.onFocusFallback?.(),

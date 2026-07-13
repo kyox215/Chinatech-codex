@@ -4,6 +4,7 @@ import {
   fallbackOrderWorkflowStatuses,
   getOrderListStatusGroups,
   getOrderListSubStatusTabs,
+  getWorkflowStatuses,
   getWorkflowTransitionActions,
 } from "./order-workflow";
 
@@ -60,5 +61,18 @@ describe("order workflow list status groups", () => {
         .map((status) => status.code),
     );
     expect(actions.find((action) => action.to === "diagnosing")?.isPrimary).toBe(false);
+  });
+
+  it("sorts a copied status list without mutating the query snapshot", () => {
+    const statuses = [
+      { ...fallbackOrderWorkflowStatuses[1], sort_order: 20 },
+      { ...fallbackOrderWorkflowStatuses[0], sort_order: 10 },
+    ];
+    const originalOrder = statuses.map((status) => status.id);
+
+    expect(
+      getWorkflowStatuses({ statuses, transitions: [] }).map((status) => status.sort_order),
+    ).toEqual([10, 20]);
+    expect(statuses.map((status) => status.id)).toEqual(originalOrder);
   });
 });

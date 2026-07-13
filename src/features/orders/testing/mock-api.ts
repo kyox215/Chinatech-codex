@@ -84,6 +84,7 @@ import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
   approvalFlowStatusFromLegacyStatus,
+  isDefaultRepairOrderStatus,
   notifyStatusFromLegacyStatus,
   orderWorkflowStatuses,
   partsStatusFromLegacyStatus,
@@ -124,7 +125,9 @@ function assertMockRoutineMutationAllowed(order: RepairOrder) {
   }
 }
 
-const mockStoreId = "mock-store";
+// Keep the default order fixtures in the same tenant as the default store
+// context used by local E2E auth bypass.
+const mockStoreId = "00000000-0000-0000-0000-000000000001";
 let extraAttachments: OrderAttachment[] = [];
 const paymentOperations = new Map<string, { fingerprint: string; result: PaymentResult }>();
 const terminalOperations = new Map<
@@ -180,10 +183,10 @@ let workflowTransitions: OrderWorkflowTransition[] = Object.entries(
   })),
 );
 
-function cloneWorkflow(): OrderWorkflow {
+function cloneWorkflow(storeId = mockStoreId): OrderWorkflow {
   return {
-    statuses: workflowStatuses.map((status) => ({ ...status })),
-    transitions: workflowTransitions.map((transition) => ({ ...transition })),
+    statuses: workflowStatuses.map((status) => ({ ...status, store_id: storeId })),
+    transitions: workflowTransitions.map((transition) => ({ ...transition, store_id: storeId })),
   };
 }
 
@@ -193,6 +196,12 @@ function validateMockManualTransitionTarget(from: RepairOrderStatus, to: RepairO
   if (!targetStatus) return { ok: false, reason: "目标状态不存在" };
   if (!targetStatus.enabled) {
     return { ok: false, reason: `「${targetStatus.label}」已停用，不能流转到该状态` };
+  }
+  if (!isDefaultRepairOrderStatus(to)) {
+    return {
+      ok: false,
+      reason: "自定义状态尚未绑定主流程阶段，当前不能用于工单流转",
+    };
   }
   return { ok: true, label: targetStatus.label };
 }
@@ -408,8 +417,8 @@ export async function getOrderStats(_actor?: AuditActor) {
   };
 }
 
-export async function listOrderWorkflow(_actor?: AuditActor): Promise<OrderWorkflow> {
-  return cloneWorkflow();
+export async function listOrderWorkflow(actor?: AuditActor): Promise<OrderWorkflow> {
+  return cloneWorkflow(actor?.storeId);
 }
 
 export async function createOrderWorkflowStatus(
@@ -2076,6 +2085,9 @@ export async function createOrder(
     requestedStatus?.code ??
     workflowStatuses.find((item) => item.enabled && item.is_default_create_status)?.code;
   if (!status) throw new Error("店铺没有可用于新建工单的状态");
+  if (!isDefaultRepairOrderStatus(status)) {
+    throw new Error("自定义状态尚未绑定主流程阶段，当前不能用于新建工单");
+  }
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
