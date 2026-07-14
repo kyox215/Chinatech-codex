@@ -2,6 +2,31 @@
 
 Read `TASK.md`, `CHECKPOINTS.md`, and the approved Settings Center plan before continuing.
 
+## WP09 current handoff — 2026-07-14 CEST
+
+- Owner authorized clean latest-main integration/local PR preparation with "开始下一步".
+- Current worktree: `/private/tmp/repairdesk-settings-center-integration-20260714`.
+- Current branch: `codex/settings-center-v2-integrated-20260714` from
+  `origin/main@d5384e88ca1e974d0aa58156728eb29092a7d7ff`.
+- All twelve Settings commits are rebased in order; refreshed pre-evidence HEAD is `4584ca79`.
+- Exact overlap is 32 paths (23 product/code and nine memory), not 24. Sixteen paths required manual
+  resolution; see `WP09_CONFLICT_RESOLUTION_MATRIX.md`.
+- Full pre-evidence local quality passes: agents, lint, typecheck, controlled full Vitest 179 files / 1179
+  tests, focused 11 files / 142 tests, 22/22 build pages, interactions 64 + one existing conditional skip,
+  Settings/order-data 67/67, guided buyback/dashboard 13/13, and the final desktop matrix 44/44 in one run.
+  Six integrated screenshots are inspected. The scoped evidence commit and containing-SHA audit remain.
+- The desktop order row now uses a native direct-detail link, preventing the intermittent no-navigation
+  behavior reproduced under a loaded test server. New-order and inventory first render are hydration-stable.
+- New main contains the approved fail-closed response to the architecture P1: sensitive buyback is hard-coded
+  off, the UI is quote/evaluation/save only, and Router/repository restricted upload, finalize and legacy
+  import reject. Preserve this containment; legal-document tenantization/re-enablement remains a separate R4
+  task and mutable display settings remain invalid legal text.
+- Resume by creating the scoped evidence commit, verifying its containing SHA and recording the final local
+  checkpoint. Then stop for separate push/PR direction.
+- Resume only in this clean worktree. Keep the source Settings worktree and original dirty checkout untouched.
+- Do not push, open a PR, merge main, run a DB command, alter a real flag, deploy, access production data,
+  or communicate externally without a new explicit Owner instruction.
+
 Current work has resumed on `codex/settings-center-v2-20260712`. Preserve the original dirty checkout. WP-00, WP-01, WP-02, WP03-A, WP03-B, and WP03-C are committed locally as `6851117c`, `c62223b0`, `19895c2d`, `9e9916ba`, `e2ef6ce6`, and `2049f2b2`; do not push them.
 
 WP-02 now uses strict section requests, actor-bound store context, `updated_at` CAS, section-only writes, three-way conflict rebase, multiple-section resolution, and a shared global navigation guard. Browser hard reload supports only native `beforeunload`; do not promise a custom three-choice dialog there. Do not restore the old permissive full-row `{ input }` request.
@@ -57,8 +82,8 @@ Vitest tests, exact interaction E2E 54 passed / 1 existing conditional skip, age
 22-page build. Four clean WP08 screenshots cover mobile/desktop overview, desktop member Drawer, and
 mobile store recovery.
 
-Do not mark the master task closed. After its WP08 package the branch is 12 ahead / 8 behind
-`origin/main` and has 24 overlapping paths. The next recommended action is an Owner-authorized clean
-latest-main integration and PR-preparation scope with split release units. Linked preflight/dry-run/apply,
-real flags, production data, push, deployment, retention/role decisions, and customer communication each
-remain separate approval gates.
+Do not mark the master task closed. WP09 supersedes the pre-integration branch-divergence handoff: local
+integration now includes main's fail-closed buyback containment and its refreshed local gates pass, while the
+evidence commit, push/PR and production Settings gates remain open. Linked
+preflight/dry-run/apply, real flags, production data, push/PR, deployment, retention/role decisions, and
+customer communication each remain separate approval gates.

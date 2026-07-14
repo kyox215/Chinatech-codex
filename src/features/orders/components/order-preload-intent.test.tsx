@@ -1,10 +1,26 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { OrderListItem } from "@/lib/repairdesk/api";
 
 import { DesktopOrderQueueRow } from "./order-list-desktop-row";
 import { OrderMobileCard } from "./order-list-items";
+
+beforeAll(() => {
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false;
+  }
+  if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = () => undefined;
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = () => undefined;
+  }
+  if (!HTMLElement.prototype.scrollIntoView) {
+    HTMLElement.prototype.scrollIntoView = () => undefined;
+  }
+});
 
 afterEach(() => {
   cleanup();
@@ -65,6 +81,28 @@ describe("order detail preload intent", () => {
 
     expect(onPrefetch).toHaveBeenCalledTimes(2);
     expect(onCancelPrefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes a native detail link from the desktop row action menu", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(
+      <DesktopOrderQueueRow
+        order={makeOrder()}
+        checked={false}
+        onOpen={onOpen}
+        onCheckedChange={vi.fn()}
+        onPrint={vi.fn()}
+        onStopInteraction={(event) => event.stopPropagation()}
+        suppliers={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "更多工单操作" }));
+    const directLink = await screen.findByRole("menuitem", { name: "在新页打开" });
+
+    expect(directLink).toHaveAttribute("href", "/orders/order-1");
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });
 

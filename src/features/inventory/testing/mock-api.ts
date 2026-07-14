@@ -277,10 +277,7 @@ export async function getInventoryItem(id: string, actor?: AuditActor): Promise<
   };
 }
 
-export async function createInventoryIntake(
-  input: CreateInventoryIntakeInput,
-  actor?: AuditActor,
-) {
+export async function createInventoryIntake(input: CreateInventoryIntakeInput, actor?: AuditActor) {
   const sourceType = optional(input.source_type) || "buyback";
   if (sourceType === "buyback" && Number(input.buyback_price ?? 0) !== 0) {
     throw new Error("回收成本只能由带证件、签名与幂等保护的确认成交操作写入");

@@ -7,6 +7,11 @@ Scope commit before WP08 package: `04273546`
 This matrix distinguishes local mock evidence from latest-main, linked database, and production proof.
 `PASS` never implies approval to push, migrate, deploy, enable a flag, or process real data.
 
+> WP09 correction, 2026-07-14: the exact overlap was 32 paths (23 product/code plus nine memory), not 24.
+> The twelve commits are now locally rebased on `origin/main@d5384e88`; main's fail-closed buyback patch
+> contains the earlier tenant/legal P1. The refreshed local gate passes and the evidence commit is tracked in
+> `WP09_LATEST_MAIN_INTEGRATION_REPORT.md`.
+
 ## 1. Static, test, and build evidence
 
 | Acceptance item | Result | Evidence / remaining gate |
@@ -14,8 +19,8 @@ This matrix distinguishes local mock evidence from latest-main, linked database,
 | `agents:check`, lint, typecheck, full Vitest, build | PASS at WP08 snapshot | 167 files / 1073 tests; production build generated 22/22 pages |
 | Exact `npm run test:e2e:interactions:mock` | PASS locally | Final rerun passed 54 and skipped 1 existing conditional order-dialog case. A discovered route-cleanup race was fixed and focused-rechecked first |
 | Dedicated order-data E2E | PASS at WP07 HEAD | 10/10 at six target widths and high-risk states |
-| `git diff --check` | pending final | Run again after task memory/checkpoint is stable |
-| Latest `origin/main` integration gates | NOT PROVEN | Branch is 12 ahead / 8 behind after WP08, with 24 overlapping paths |
+| `git diff --check` | PASS before final checkpoint | Repeat after checkpoint/staging before commit |
+| Latest `origin/main` integration gates | CONDITIONAL LOCAL PASS | Rebased to `d5384e88`; static, 179/1179 Vitest, 22-page build, 44-case desktop, 13-case feature-off/dashboard and six-image visual gates pass; evidence commit remains |
 
 ## 2. Unit and integration acceptance
 
@@ -63,12 +68,14 @@ P0 found in WP08 review: **0**.
 
 Open P1/release blockers:
 
-1. Latest-main integration and post-integration full gates are not authorized or proven.
-2. Five-role, offline/409, cross-store late-response, complete overlay, and 50+ member E2E are incomplete.
-3. Member, Kiosk, workflow, and order-data production transaction/data gates remain open.
-4. Linked migration history, exact reviewed migration set, current flags, target environment, monitoring
+1. Main's hard-coded feature-off contains guided-buyback evidence/signature/finalize; re-enablement remains
+   an R4 legal/data/schema/storage/retention gate and must not be inferred from Settings readiness.
+2. The refreshed local evidence commit and separate push/PR approval are pending; no external candidate exists.
+3. Five-role, offline/409, cross-store late-response, complete overlay, and 50+ member E2E are incomplete.
+4. Member, Kiosk, workflow, and order-data production transaction/data gates remain open.
+5. Linked migration history, exact reviewed migration set, current flags, target environment, monitoring
    baseline, release owner, rollback owner, and maintenance window are unknown.
-5. No Owner exception acceptance with owner and expiry exists.
+6. No Owner exception acceptance with owner and expiry exists.
 
 Decision: WP00–WP07 local slices remain **CONDITIONAL PASS**. WP08 may package documentation and
 evidence, but the master task remains `in_progress`; push, migration, deployment, flag enablement, and

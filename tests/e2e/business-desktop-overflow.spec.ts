@@ -49,13 +49,12 @@ test.describe("business desktop overflow guard", () => {
   });
 
   for (const viewport of desktopViewports) {
-    test(`business routes render without page overflow at ${viewport.width}px`, async ({
-      page,
-    }) => {
-      test.setTimeout(60_000);
-      await page.setViewportSize(viewport);
-
-      for (const route of businessRoutes) {
+    for (const route of businessRoutes) {
+      test(`${route.path} renders without page overflow at ${viewport.width}px`, async ({
+        page,
+      }) => {
+        test.setTimeout(60_000);
+        await page.setViewportSize(viewport);
         await gotoReady(page, route.path);
 
         await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
@@ -66,17 +65,10 @@ test.describe("business desktop overflow guard", () => {
           `${route.path} page marker`,
         );
         if (route.path === "/orders") {
-          if (viewport.width >= 1024) {
-            await expectFirstVisible(
-              page.locator("main").last().getByText("工单工作队列"),
-              "/orders desktop work queue",
-            );
-          } else {
-            await expectFirstVisible(
-              page.locator('[data-order-mobile-list="true"]'),
-              "/orders compact desktop card list",
-            );
-          }
+          await expectFirstVisible(
+            page.locator("main").last().getByText("工单工作队列"),
+            "/orders desktop work queue",
+          );
         }
         if (route.path === "/buyback") {
           await expectFirstVisible(
@@ -97,271 +89,281 @@ test.describe("business desktop overflow guard", () => {
           );
         }
         await expectNoPageOverflow(page, route.path, viewport.width);
-      }
-    });
+      });
+    }
   }
 });
 
 test.describe("business desktop dialog overflow guard", () => {
   for (const viewport of desktopViewports) {
-    test(`business dialogs stay inside viewport at ${viewport.width}px`, async ({ page }) => {
-      test.setTimeout(120_000);
-      await page.setViewportSize(viewport);
+    test(`order dialogs stay inside viewport at ${viewport.width}px`, async ({ page }) => {
+      await auditOrderDialogs(page, viewport);
+    });
 
-      await gotoReady(page, "/orders");
-      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-      await expectFirstVisible(page.locator('[data-order-desktop-list="true"]'), "/orders queue");
-      await expectFirstVisible(page.locator('[data-order-row="true"]'), "/orders first row");
+    test(`buyback dialogs stay inside viewport at ${viewport.width}px`, async ({ page }) => {
+      await auditBuybackDialogs(page, viewport);
+    });
 
-      await clickFirstVisible(page.locator('[data-order-list-new-button="true"]'), "新建工单");
-      await expect(page.getByRole("dialog", { name: "新建维修订单" })).toBeVisible();
-      await expectOpenDialogsFit(page, "/orders new order", viewport.width);
-      await expectNoPageOverflow(page, "/orders new order", viewport.width);
-      await closeDialogs(page);
+    test(`customer dialogs stay inside viewport at ${viewport.width}px`, async ({ page }) => {
+      await auditCustomerDialogs(page, viewport);
+    });
 
-      if (viewport.width >= 1280) {
-        await clickFirstVisible(
-          page.getByRole("button", { name: /查看工单详情 R\d+/ }),
-          "工单详情",
-        );
-        const orderDetail = page.getByRole("dialog", { name: "工单详情" });
-        await expect(orderDetail).toBeVisible();
-        await orderDetail.locator('[data-order-hero="true"]').waitFor({
-          state: "visible",
-          timeout: 5000,
-        });
-        await expectFirstVisible(
-          orderDetail.locator('[data-order-hero="true"]'),
-          "/orders detail hero",
-        );
-        if ((await orderDetail.locator('[data-order-readiness="true"]').count()) > 0) {
-          await expectFirstVisible(
-            orderDetail.locator('[data-order-readiness="true"]'),
-            "/orders detail readiness",
-          );
-        }
-        await expectFirstVisible(
-          orderDetail.locator('[data-order-detail-main-grid="true"]'),
-          "/orders detail desktop grid",
-        );
-        const orderDetailBox = await expectOpenDialogsFit(page, "/orders detail", viewport.width);
-        const openedOrderNotify = await clickFirstVisible(
-          orderDetail.getByRole("button", { name: "WhatsApp" }),
-          "WhatsApp",
-          { optional: true },
-        );
-        if (openedOrderNotify) {
-          await expect(page.getByRole("dialog", { name: "预览 WhatsApp 通知" })).toBeVisible();
-          await expectOpenDialogsFit(page, "/orders notify dialog", viewport.width);
-          await expectNoPageOverflow(page, "/orders notify dialog", viewport.width);
-          await page.keyboard.press("Escape");
-          await expect(page.getByRole("dialog", { name: "预览 WhatsApp 通知" })).toHaveCount(0);
-        }
-        await clickFirstVisible(page.getByRole("button", { name: /记录/ }), "工单记录标签");
-        const orderRecordsBox = await expectOpenDialogsFit(
-          page,
-          "/orders detail records tab",
-          viewport.width,
-        );
-        expect(Math.abs(orderRecordsBox.width - orderDetailBox.width)).toBeLessThanOrEqual(1);
-        expect(Math.abs(orderRecordsBox.height - orderDetailBox.height)).toBeLessThanOrEqual(1);
-        await expectNoPageOverflow(page, "/orders detail", viewport.width);
-        await closeDialogs(page);
-      }
+    test(`inventory dialogs stay inside viewport at ${viewport.width}px`, async ({ page }) => {
+      await auditInventoryDialogs(page, viewport);
+    });
 
-      await gotoReady(page, "/buyback");
-      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-
-      await clickFirstVisible(page.getByRole("button", { name: /回收报价/ }), "回收报价");
-      await expect(page.getByRole("dialog", { name: "回收报价" })).toBeVisible();
-      await expectFirstVisible(page.getByText("选择 iPhone"), "/buyback quote first step");
-      await expectOpenDialogsFit(page, "/buyback quote workspace", viewport.width);
-      await expectNoPageOverflow(page, "/buyback quote workspace", viewport.width);
-      await closeDialogs(page);
-
-      await clickFirstVisible(page.getByRole("button", { name: /查看回收记录 I\d+/ }), "回收记录");
-      await expect(page.getByRole("dialog", { name: "回收记录" })).toBeVisible();
-      await expectFirstVisible(
-        page.getByRole("dialog", { name: "回收记录" }).getByText("处理进度"),
-        "/buyback record progress section",
-      );
-      await expectFirstVisible(
-        page.getByRole("dialog", { name: "回收记录" }).getByRole("button", {
-          name: /复估|打开库存详情/,
-        }),
-        "/buyback record primary action",
-      );
-      await expectOpenDialogsFit(page, "/buyback record", viewport.width);
-      await expectNoPageOverflow(page, "/buyback record", viewport.width);
-      await closeDialogs(page);
-
-      await gotoReady(page, "/customers");
-      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-
-      await clickFirstVisible(page.getByRole("button", { name: /新建客户/ }), "新建客户");
-      await expect(page.getByRole("dialog", { name: "新建客户" })).toBeVisible();
-      await expectOpenDialogsFit(page, "/customers new customer", viewport.width);
-      await expect(page.getByRole("button", { name: "保存" })).toBeVisible();
-      await expectNoPageOverflow(page, "/customers new customer", viewport.width);
-      await closeDialogs(page);
-
-      const openedPreview = await clickFirstVisible(
-        page.getByRole("button", { name: /详情/ }),
-        "客户详情",
-        { optional: true },
-      );
-      if (openedPreview) {
-        const previewDialog = page.getByRole("dialog", { name: "客户详情预览" });
-        await expect(previewDialog).toBeVisible();
-        const firstBox = await expectOpenDialogsFit(
-          page,
-          "/customers detail preview",
-          viewport.width,
-        );
-        await clickFirstVisible(previewDialog.getByRole("tab", { name: /工单/ }), "客户工单标签");
-        const nextBox = await expectOpenDialogsFit(
-          page,
-          "/customers detail preview orders tab",
-          viewport.width,
-        );
-        expect(Math.abs(nextBox.width - firstBox.width)).toBeLessThanOrEqual(1);
-        expect(Math.abs(nextBox.height - firstBox.height)).toBeLessThanOrEqual(1);
-        await expectNoPageOverflow(page, "/customers detail preview", viewport.width);
-
-        await expect(previewDialog.getByRole("button", { name: /编辑客户/ }).first()).toBeVisible();
-        await clickFirstVisible(
-          previewDialog.getByRole("button", { name: /编辑客户/ }),
-          "编辑客户",
-        );
-        await expect(page.getByRole("dialog", { name: "编辑客户" })).toBeVisible();
-        await expectOpenDialogsFit(page, "/customers nested edit dialog", viewport.width);
-        await expectNoPageOverflow(page, "/customers nested edit dialog", viewport.width);
-        await page.keyboard.press("Escape");
-        await expect(page.getByRole("dialog", { name: "编辑客户" })).toHaveCount(0);
-
-        await clickFirstVisible(previewDialog.getByRole("tab", { name: /设备/ }), "客户设备标签");
-        await clickFirstVisible(
-          previewDialog.getByRole("button", { name: /添加设备/ }),
-          "添加设备",
-        );
-        await expect(page.getByRole("dialog", { name: "添加设备" })).toBeVisible();
-        await expectOpenDialogsFit(page, "/customers nested device dialog", viewport.width);
-        await expectNoPageOverflow(page, "/customers nested device dialog", viewport.width);
-        await page.keyboard.press("Escape");
-        await expect(page.getByRole("dialog", { name: "添加设备" })).toHaveCount(0);
-        await closeDialogs(page);
-      }
-
-      await gotoReady(page, "/inventory");
-      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-
-      await clickFirstVisible(page.getByRole("button", { name: /新增商品/ }), "新增商品");
-      await expect(page.getByRole("dialog", { name: "新增库存商品" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "保存商品" })).toBeVisible();
-      await expectOpenDialogsFit(page, "/inventory intake", viewport.width);
-      await expectNoPageOverflow(page, "/inventory intake", viewport.width);
-      await closeDialogs(page);
-
-      await clickFirstVisible(
-        page.getByRole("button", { name: /导入电子产品|导入库存/ }),
-        "导入库存",
-      );
-      await expect(page.getByRole("dialog", { name: "导入 SeaTable 电子产品" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "应用导入" })).toBeVisible();
-      await expectOpenDialogsFit(page, "/inventory import", viewport.width);
-      await expectNoPageOverflow(page, "/inventory import", viewport.width);
-      await closeDialogs(page);
-
-      const firstInventoryRow = page
-        .locator("main")
-        .last()
-        .locator("tbody tr[role='button']")
-        .filter({ hasText: /I\d+/ })
-        .first();
-      await expectFirstVisible(firstInventoryRow, "/inventory first desktop row");
-      await clickFirstVisible(firstInventoryRow, "库存详情");
-      const inventoryDetailDialog = page
-        .getByRole("dialog")
-        .filter({ has: page.getByRole("button", { name: "更多库存操作" }) })
-        .first();
-      await expect(inventoryDetailDialog).toBeVisible();
-      await expectOpenDialogsFit(page, "/inventory detail", viewport.width);
-      await expectNoPageOverflow(page, "/inventory detail", viewport.width);
-
-      await openInventoryDetailAction(page, inventoryDetailDialog, "推进状态");
-      await expect(page.getByRole("dialog", { name: "推进状态" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "确认推进" })).toBeVisible();
-      await expectOpenDialogsFit(page, "/inventory transition", viewport.width);
-      await expectNoPageOverflow(page, "/inventory transition", viewport.width);
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog", { name: "推进状态" })).toHaveCount(0);
-
-      await openInventoryDetailAction(page, inventoryDetailDialog, "登记检测");
-      await expect(page.getByRole("dialog", { name: "登记检测" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "保存检测" })).toBeVisible();
-      await expectOpenDialogsFit(page, "/inventory check", viewport.width);
-      await expectNoPageOverflow(page, "/inventory check", viewport.width);
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog", { name: "登记检测" })).toHaveCount(0);
-
-      await openInventoryDetailAction(page, inventoryDetailDialog, "售出");
-      await expect(page.getByRole("dialog", { name: "登记售出" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "确认售出" })).toBeVisible();
-      await expectOpenDialogsFit(page, "/inventory sell", viewport.width);
-      await expectNoPageOverflow(page, "/inventory sell", viewport.width);
-      await closeDialogs(page);
-
-      await gotoReady(page, "/settings");
-      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-      const settingsNavigation = page.getByRole("navigation", { name: "设置导航" });
-      if (viewport.width === 1024) {
-        await settingsNavigation.getByRole("link", { name: /员工/ }).click();
-        await expect(page.getByRole("heading", { name: "员工管理" })).toBeVisible();
-        await clickFirstVisible(
-          page.getByRole("button", { name: /邀请员工/ }),
-          "/settings invite panel",
-        );
-        await expect(page.locator("#invite-email")).toBeVisible();
-        await expectElementMinWidth(page.locator("#invite-email"), "/settings invite email", 64);
-      }
-      await settingsNavigation.getByRole("link", { name: /默认规则/ }).click();
-      await expect(page.getByRole("heading", { name: "默认规则" })).toBeVisible();
-      await expect(page.locator("#order-warranty")).toBeVisible();
-      await page.locator("#order-warranty").click();
-      await expectFirstVisible(page.getByRole("listbox"), "/settings warranty select");
-      await expectVisibleOverlaysFit(page, "/settings warranty select", viewport.width);
-      await expectNoPageOverflow(page, "/settings warranty select", viewport.width);
-      await page.keyboard.press("Escape");
-
-      await gotoReady(page, "/messages");
-      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-      await page
-        .getByLabel("模板正文")
-        .fill("{{customer_name}}{{order_no}}{{store_email}}".repeat(40));
-      await expectFirstVisible(page.getByText("实时预览"), "/messages live preview");
-      await expectElementMinWidth(
-        page.locator("#template-body"),
-        "/messages template body",
-        viewport.width >= 1280 ? 420 : 320,
-      );
-      await expectNoPageOverflow(page, "/messages edited template", viewport.width);
-
-      await gotoReady(page, "/platform");
-      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-      const openedPlatformDecision = await clickFirstVisible(
-        page.getByRole("button", { name: /处理|查看并处理/ }),
-        "处理平台申请",
-        { optional: true },
-      );
-      if (openedPlatformDecision) {
-        await expect(page.getByRole("dialog", { name: "处理平台申请" })).toBeVisible();
-        await expectOpenDialogsFit(page, "/platform decision dialog", viewport.width);
-        await expectNoPageOverflow(page, "/platform decision dialog", viewport.width);
-        await closeDialogs(page);
-      }
+    test(`settings and output workspaces fit at ${viewport.width}px`, async ({ page }) => {
+      await auditSettingsAndOutputWorkspaces(page, viewport);
     });
   }
 });
+
+type DesktopViewport = (typeof desktopViewports)[number];
+
+async function auditOrderDialogs(page: Page, viewport: DesktopViewport) {
+  await page.setViewportSize(viewport);
+  await gotoReady(page, "/orders");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await expectFirstVisible(page.locator('[data-order-desktop-list="true"]'), "/orders queue");
+  await expectFirstVisible(page.locator('[data-order-row="true"]'), "/orders first row");
+
+  await clickFirstVisible(page.locator('[data-order-list-new-button="true"]'), "新建工单");
+  await expect(page.getByRole("dialog", { name: "新建维修订单" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/orders new order", viewport.width);
+  await expectNoPageOverflow(page, "/orders new order", viewport.width);
+  await closeDialogs(page);
+
+  if (viewport.width < 1280) return;
+  await clickFirstVisible(page.getByRole("button", { name: /查看工单详情 R\d+/ }), "工单详情");
+  const orderDetail = page.getByRole("dialog", { name: "工单详情" });
+  await expect(orderDetail).toBeVisible();
+  await orderDetail.locator('[data-order-hero="true"]').waitFor({
+    state: "visible",
+    timeout: 5000,
+  });
+  await expectFirstVisible(orderDetail.locator('[data-order-hero="true"]'), "/orders detail hero");
+  if ((await orderDetail.locator('[data-order-readiness="true"]').count()) > 0) {
+    await expectFirstVisible(
+      orderDetail.locator('[data-order-readiness="true"]'),
+      "/orders detail readiness",
+    );
+  }
+  await expectFirstVisible(
+    orderDetail.locator('[data-order-detail-main-grid="true"]'),
+    "/orders detail desktop grid",
+  );
+  const orderDetailBox = await expectOpenDialogsFit(page, "/orders detail", viewport.width);
+  const openedOrderNotify = await clickFirstVisible(
+    orderDetail.getByRole("button", { name: "WhatsApp" }),
+    "WhatsApp",
+    { optional: true },
+  );
+  if (openedOrderNotify) {
+    await expect(page.getByRole("dialog", { name: "预览 WhatsApp 通知" })).toBeVisible();
+    await expectOpenDialogsFit(page, "/orders notify dialog", viewport.width);
+    await expectNoPageOverflow(page, "/orders notify dialog", viewport.width);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "预览 WhatsApp 通知" })).toHaveCount(0);
+  }
+  await clickFirstVisible(page.getByRole("button", { name: /记录/ }), "工单记录标签");
+  const orderRecordsBox = await expectOpenDialogsFit(
+    page,
+    "/orders detail records tab",
+    viewport.width,
+  );
+  expect(Math.abs(orderRecordsBox.width - orderDetailBox.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(orderRecordsBox.height - orderDetailBox.height)).toBeLessThanOrEqual(1);
+  await expectNoPageOverflow(page, "/orders detail", viewport.width);
+  await closeDialogs(page);
+}
+
+async function auditBuybackDialogs(page: Page, viewport: DesktopViewport) {
+  await page.setViewportSize(viewport);
+  await gotoReady(page, "/buyback");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await clickFirstVisible(page.getByRole("button", { name: /回收报价/ }), "回收报价");
+  const quoteDialog = page.getByRole("dialog", { name: "回收报价" });
+  await expect(quoteDialog).toBeVisible();
+  await expect(quoteDialog.getByText("资料关闭", { exact: true })).toBeVisible();
+  await expectFirstVisible(quoteDialog.getByText("选择 iPhone"), "/buyback quote first step");
+  await expectOpenDialogsFit(page, "/buyback quote workspace", viewport.width);
+  await expectNoPageOverflow(page, "/buyback quote workspace", viewport.width);
+  await closeDialogs(page);
+
+  await clickFirstVisible(page.getByRole("button", { name: /查看回收记录 I\d+/ }), "回收记录");
+  const recordDialog = page.getByRole("dialog", { name: "回收记录" });
+  await expect(recordDialog).toBeVisible();
+  await expectFirstVisible(recordDialog.getByText("处理进度"), "/buyback record progress section");
+  await expectFirstVisible(
+    recordDialog.getByText("资料登记和回收成交暂时关闭", { exact: false }),
+    "/buyback record closed-state notice",
+  );
+  await expectFirstVisible(
+    recordDialog.getByRole("button", { name: /继续报价 \/ 检测|打开库存详情/ }),
+    "/buyback record primary action",
+  );
+  await expectOpenDialogsFit(page, "/buyback record", viewport.width);
+  await expectNoPageOverflow(page, "/buyback record", viewport.width);
+  await closeDialogs(page);
+}
+
+async function auditCustomerDialogs(page: Page, viewport: DesktopViewport) {
+  await page.setViewportSize(viewport);
+  await gotoReady(page, "/customers");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await clickFirstVisible(page.getByRole("button", { name: /新建客户/ }), "新建客户");
+  await expect(page.getByRole("dialog", { name: "新建客户" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/customers new customer", viewport.width);
+  await expect(page.getByRole("button", { name: "保存" })).toBeVisible();
+  await expectNoPageOverflow(page, "/customers new customer", viewport.width);
+  await closeDialogs(page);
+
+  const openedPreview = await clickFirstVisible(
+    page.getByRole("button", { name: /详情/ }),
+    "客户详情",
+    { optional: true },
+  );
+  if (!openedPreview) return;
+  const previewDialog = page.getByRole("dialog", { name: "客户详情预览" });
+  await expect(previewDialog).toBeVisible();
+  const firstBox = await expectOpenDialogsFit(page, "/customers detail preview", viewport.width);
+  await clickFirstVisible(previewDialog.getByRole("tab", { name: /工单/ }), "客户工单标签");
+  const nextBox = await expectOpenDialogsFit(
+    page,
+    "/customers detail preview orders tab",
+    viewport.width,
+  );
+  expect(Math.abs(nextBox.width - firstBox.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(nextBox.height - firstBox.height)).toBeLessThanOrEqual(1);
+  await expectNoPageOverflow(page, "/customers detail preview", viewport.width);
+  await expect(previewDialog.getByRole("button", { name: /编辑客户/ }).first()).toBeVisible();
+  await clickFirstVisible(previewDialog.getByRole("button", { name: /编辑客户/ }), "编辑客户");
+  await expect(page.getByRole("dialog", { name: "编辑客户" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/customers nested edit dialog", viewport.width);
+  await expectNoPageOverflow(page, "/customers nested edit dialog", viewport.width);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "编辑客户" })).toHaveCount(0);
+  await clickFirstVisible(previewDialog.getByRole("tab", { name: /设备/ }), "客户设备标签");
+  await clickFirstVisible(previewDialog.getByRole("button", { name: /添加设备/ }), "添加设备");
+  await expect(page.getByRole("dialog", { name: "添加设备" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/customers nested device dialog", viewport.width);
+  await expectNoPageOverflow(page, "/customers nested device dialog", viewport.width);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "添加设备" })).toHaveCount(0);
+  await closeDialogs(page);
+}
+
+async function auditInventoryDialogs(page: Page, viewport: DesktopViewport) {
+  await page.setViewportSize(viewport);
+  await gotoReady(page, "/inventory");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await clickFirstVisible(page.getByRole("button", { name: /新增商品/ }), "新增商品");
+  await expect(page.getByRole("dialog", { name: "新增库存商品" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存商品" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/inventory intake", viewport.width);
+  await expectNoPageOverflow(page, "/inventory intake", viewport.width);
+  await closeDialogs(page);
+
+  await clickFirstVisible(page.getByRole("button", { name: /导入电子产品|导入库存/ }), "导入库存");
+  await expect(page.getByRole("dialog", { name: "导入 SeaTable 电子产品" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "应用导入" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/inventory import", viewport.width);
+  await expectNoPageOverflow(page, "/inventory import", viewport.width);
+  await closeDialogs(page);
+
+  const firstInventoryRow = page
+    .locator("main")
+    .last()
+    .locator("tbody tr[role='button']")
+    .filter({ hasText: /I\d+/ })
+    .first();
+  await expectFirstVisible(firstInventoryRow, "/inventory first desktop row");
+  await clickFirstVisible(firstInventoryRow, "库存详情");
+  const inventoryDetailDialog = page
+    .getByRole("dialog")
+    .filter({ has: page.getByRole("button", { name: "更多库存操作" }) })
+    .first();
+  await expect(inventoryDetailDialog).toBeVisible();
+  await expectOpenDialogsFit(page, "/inventory detail", viewport.width);
+  await expectNoPageOverflow(page, "/inventory detail", viewport.width);
+  await openInventoryDetailAction(page, inventoryDetailDialog, "推进状态");
+  await expect(page.getByRole("dialog", { name: "推进状态" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "确认推进" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/inventory transition", viewport.width);
+  await expectNoPageOverflow(page, "/inventory transition", viewport.width);
+  await page
+    .getByRole("dialog", { name: "推进状态" })
+    .getByRole("button", { name: "关闭" })
+    .click();
+  await expect(page.getByRole("dialog", { name: "推进状态" })).toHaveCount(0);
+  await expect(inventoryDetailDialog).toBeVisible();
+  await openInventoryDetailAction(page, inventoryDetailDialog, "登记检测");
+  await expect(page.getByRole("dialog", { name: "登记检测" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存检测" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/inventory check", viewport.width);
+  await expectNoPageOverflow(page, "/inventory check", viewport.width);
+  await page
+    .getByRole("dialog", { name: "登记检测" })
+    .getByRole("button", { name: "关闭" })
+    .click();
+  await expect(page.getByRole("dialog", { name: "登记检测" })).toHaveCount(0);
+  await expect(inventoryDetailDialog).toBeVisible();
+  await openInventoryDetailAction(page, inventoryDetailDialog, "售出");
+  await expect(page.getByRole("dialog", { name: "登记售出" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "确认售出" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/inventory sell", viewport.width);
+  await expectNoPageOverflow(page, "/inventory sell", viewport.width);
+  await closeDialogs(page);
+}
+
+async function auditSettingsAndOutputWorkspaces(page: Page, viewport: DesktopViewport) {
+  await page.setViewportSize(viewport);
+  await gotoReady(page, "/settings");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  const settingsNavigation = page.getByRole("navigation", { name: "设置导航" });
+  if (viewport.width === 1024) {
+    await settingsNavigation.getByRole("link", { name: /员工/ }).click();
+    await expect(page.getByRole("heading", { name: "员工与权限" })).toBeVisible();
+    await clickFirstVisible(
+      page.getByRole("button", { name: /邀请员工/ }),
+      "/settings invite panel",
+    );
+    await expect(page.locator("#invite-email")).toBeVisible();
+    await expectElementMinWidth(page.locator("#invite-email"), "/settings invite email", 64);
+  }
+  await settingsNavigation.getByRole("link", { name: /默认规则/ }).click();
+  await expect(page.getByRole("heading", { name: "默认规则" })).toBeVisible();
+  await expect(page.locator("#order-warranty")).toBeVisible();
+  await page.locator("#order-warranty").click();
+  await expectFirstVisible(page.getByRole("listbox"), "/settings warranty select");
+  await expectVisibleOverlaysFit(page, "/settings warranty select", viewport.width);
+  await expectNoPageOverflow(page, "/settings warranty select", viewport.width);
+  await page.keyboard.press("Escape");
+
+  await gotoReady(page, "/messages");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await page.getByLabel("模板正文").fill("{{customer_name}}{{order_no}}{{store_email}}".repeat(40));
+  await expectFirstVisible(page.getByText("实时预览"), "/messages live preview");
+  await expectElementMinWidth(
+    page.locator("#template-body"),
+    "/messages template body",
+    viewport.width >= 1280 ? 420 : 320,
+  );
+  await expectNoPageOverflow(page, "/messages edited template", viewport.width);
+
+  await gotoReady(page, "/platform");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  const openedPlatformDecision = await clickFirstVisible(
+    page.getByRole("button", { name: /处理|查看并处理/ }),
+    "处理平台申请",
+    { optional: true },
+  );
+  if (!openedPlatformDecision) return;
+  await expect(page.getByRole("dialog", { name: "处理平台申请" })).toBeVisible();
+  await expectOpenDialogsFit(page, "/platform decision dialog", viewport.width);
+  await expectNoPageOverflow(page, "/platform decision dialog", viewport.width);
+  await closeDialogs(page);
+}
 
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
@@ -480,17 +482,31 @@ async function firstVisibleEnabledIndex(locator: Locator) {
 }
 
 async function openInventoryDetailAction(page: Page, dialog: Locator, label: string) {
-  const openedDirectly = await clickFirstVisible(
-    dialog.getByRole("button", { name: label }),
-    label,
-    {
-      optional: true,
-    },
-  );
+  const directAction = dialog.getByRole("button", { name: label });
+  const openedDirectly = await clickFirstVisible(directAction, label, { optional: true });
   if (openedDirectly) return;
 
   await clickFirstVisible(dialog.getByRole("button", { name: "更多库存操作" }), "更多库存操作");
-  await clickFirstVisible(page.getByRole("menuitem", { name: label }), label);
+  const menuAction = page.getByRole("menuitem", { name: label });
+  const target = await expect
+    .poll(
+      async () => {
+        if ((await firstVisibleEnabledIndex(menuAction)) >= 0) return "menu";
+        if ((await firstVisibleEnabledIndex(directAction)) >= 0) return "direct";
+        return "pending";
+      },
+      { message: `Inventory detail action for ${label}`, timeout: 10_000 },
+    )
+    .not.toBe("pending")
+    .then(() => firstVisibleEnabledIndex(menuAction));
+
+  if (target >= 0) {
+    await clickFirstVisible(menuAction, label);
+    return;
+  }
+
+  await page.keyboard.press("Escape");
+  await clickFirstVisible(directAction, label);
 }
 
 async function closeDialogs(page: Page) {
@@ -537,7 +553,48 @@ async function expectElementMinWidth(locator: Locator, label: string, minWidth: 
 }
 
 async function expectOpenDialogsFit(page: Page, route: string, width: number) {
-  await page.waitForTimeout(250);
+  await expect
+    .poll(
+      async () => {
+        const result = await readVisibleDialogs(page);
+        return (
+          result.dialogs.length > 0 &&
+          result.dialogs.every((dialog) => dialogFitsViewport(dialog, result.viewport))
+        );
+      },
+      {
+        message: `${route} at ${width}px should settle inside the viewport`,
+        timeout: 5_000,
+      },
+    )
+    .toBe(true);
+  const result = await readVisibleDialogs(page);
+
+  expect(result.dialogs, `${route} at ${width}px has no visible dialog`).not.toHaveLength(0);
+  for (const dialog of result.dialogs) {
+    expect(
+      dialog.left,
+      `${route} dialog left overflow: ${JSON.stringify(dialog)}`,
+    ).toBeGreaterThanOrEqual(-1);
+    expect(
+      dialog.top,
+      `${route} dialog top overflow: ${JSON.stringify(dialog)}`,
+    ).toBeGreaterThanOrEqual(-1);
+    expect(
+      dialog.right,
+      `${route} dialog right overflow: ${JSON.stringify(dialog)}`,
+    ).toBeLessThanOrEqual(result.viewport.width + 1);
+    expect(
+      dialog.bottom,
+      `${route} dialog bottom overflow: ${JSON.stringify(dialog)}`,
+    ).toBeLessThanOrEqual(result.viewport.height + 1);
+  }
+
+  await expectVisibleOverlaysFit(page, route, width);
+  return result.dialogs[result.dialogs.length - 1];
+}
+
+async function readVisibleDialogs(page: Page) {
   const result = await page.evaluate(() => {
     const viewport = {
       width: window.innerWidth,
@@ -569,34 +626,50 @@ async function expectOpenDialogsFit(page: Page, route: string, width: number) {
       });
     return { viewport, dialogs };
   });
-
-  expect(result.dialogs, `${route} at ${width}px has no visible dialog`).not.toHaveLength(0);
-  for (const dialog of result.dialogs) {
-    expect(
-      dialog.left,
-      `${route} dialog left overflow: ${JSON.stringify(dialog)}`,
-    ).toBeGreaterThanOrEqual(-1);
-    expect(
-      dialog.top,
-      `${route} dialog top overflow: ${JSON.stringify(dialog)}`,
-    ).toBeGreaterThanOrEqual(-1);
-    expect(
-      dialog.right,
-      `${route} dialog right overflow: ${JSON.stringify(dialog)}`,
-    ).toBeLessThanOrEqual(result.viewport.width + 1);
-    expect(
-      dialog.bottom,
-      `${route} dialog bottom overflow: ${JSON.stringify(dialog)}`,
-    ).toBeLessThanOrEqual(result.viewport.height + 1);
-  }
-
-  await expectVisibleOverlaysFit(page, route, width);
-  return result.dialogs[result.dialogs.length - 1];
+  return result;
 }
 
 async function expectVisibleOverlaysFit(page: Page, route: string, width: number) {
-  await page.waitForTimeout(250);
-  const result = await page.evaluate(() => {
+  await expect
+    .poll(
+      async () => {
+        const result = await readVisibleOverlays(page);
+        return (
+          result.overlays.length > 0 &&
+          result.overlays.every((overlay) => overlayFitsViewport(overlay, result.viewport))
+        );
+      },
+      {
+        message: `${route} overlays at ${width}px should settle inside the viewport`,
+        timeout: 5_000,
+      },
+    )
+    .toBe(true);
+  const result = await readVisibleOverlays(page);
+
+  expect(result.overlays, `${route} at ${width}px has no visible overlay`).not.toHaveLength(0);
+  for (const overlay of result.overlays) {
+    expect(
+      overlay.left,
+      `${route} overlay left overflow: ${JSON.stringify(overlay)}`,
+    ).toBeGreaterThanOrEqual(-1);
+    expect(
+      overlay.top,
+      `${route} overlay top overflow: ${JSON.stringify(overlay)}`,
+    ).toBeGreaterThanOrEqual(-1);
+    expect(
+      overlay.right,
+      `${route} overlay right overflow: ${JSON.stringify(overlay)}`,
+    ).toBeLessThanOrEqual(result.viewport.width + 1);
+    expect(
+      overlay.bottom,
+      `${route} overlay bottom overflow: ${JSON.stringify(overlay)}`,
+    ).toBeLessThanOrEqual(result.viewport.height + 1);
+  }
+}
+
+async function readVisibleOverlays(page: Page) {
+  return page.evaluate(() => {
     const viewport = {
       width: window.innerWidth,
       height: window.innerHeight,
@@ -639,24 +712,23 @@ async function expectVisibleOverlaysFit(page: Page, route: string, width: number
       });
     return { viewport, overlays };
   });
+}
 
-  expect(result.overlays, `${route} at ${width}px has no visible overlay`).not.toHaveLength(0);
-  for (const overlay of result.overlays) {
-    expect(
-      overlay.left,
-      `${route} overlay left overflow: ${JSON.stringify(overlay)}`,
-    ).toBeGreaterThanOrEqual(-1);
-    expect(
-      overlay.top,
-      `${route} overlay top overflow: ${JSON.stringify(overlay)}`,
-    ).toBeGreaterThanOrEqual(-1);
-    expect(
-      overlay.right,
-      `${route} overlay right overflow: ${JSON.stringify(overlay)}`,
-    ).toBeLessThanOrEqual(result.viewport.width + 1);
-    expect(
-      overlay.bottom,
-      `${route} overlay bottom overflow: ${JSON.stringify(overlay)}`,
-    ).toBeLessThanOrEqual(result.viewport.height + 1);
-  }
+function dialogFitsViewport(
+  dialog: { left: number; top: number; right: number; bottom: number },
+  viewport: { width: number; height: number },
+) {
+  return overlayFitsViewport(dialog, viewport);
+}
+
+function overlayFitsViewport(
+  overlay: { left: number; top: number; right: number; bottom: number },
+  viewport: { width: number; height: number },
+) {
+  return (
+    overlay.left >= -1 &&
+    overlay.top >= -1 &&
+    overlay.right <= viewport.width + 1 &&
+    overlay.bottom <= viewport.height + 1
+  );
 }

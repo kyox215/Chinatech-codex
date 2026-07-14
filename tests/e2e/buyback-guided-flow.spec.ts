@@ -78,7 +78,10 @@ for (const role of ["owner", "manager", "sales"] as const) {
             ? process.env.REPAIRDESK_E2E_BUYBACK_MOBILE_SCREENSHOT
             : process.env.REPAIRDESK_E2E_BUYBACK_DESKTOP_SCREENSHOT
           : undefined;
-      if (screenshotPath) await page.screenshot({ path: screenshotPath, fullPage: false });
+      if (screenshotPath) {
+        await prepareVisualEvidence(page);
+        await page.screenshot({ path: screenshotPath, fullPage: false });
+      }
 
       const save = dialog.getByRole("button", { name: "保存报价与检测记录" });
       await expect(save).toBeEnabled();
@@ -116,6 +119,15 @@ async function expectSensitiveControlsAbsent(dialog: ReturnType<Page["getByRole"
 
 async function expectStep(dialog: ReturnType<Page["getByRole"]>, step: number) {
   await expect(dialog.locator(`[aria-label="步骤 ${step} / 4"]`)).toBeVisible();
+}
+
+async function prepareVisualEvidence(page: Page) {
+  await page.waitForTimeout(250);
+  await page.locator("nextjs-portal").evaluateAll((portals) => {
+    for (const portal of portals) {
+      (portal as HTMLElement).style.display = "none";
+    }
+  });
 }
 
 async function expectNoPageOverflow(page: Page) {

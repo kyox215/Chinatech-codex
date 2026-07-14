@@ -435,3 +435,17 @@ Create the scoped local WP-05 commit without pushing. Then stop for Owner decisi
 - **Blocker:** latest-main integration (12 ahead / 8 behind, 24 overlaps), incomplete browser acceptance matrix, transaction/data gates, and unassigned production target/owners remain open.
 - **Evidence:** `EVIDENCE.md` records agents/lint/typecheck, 167 files / 1073 tests, 22-page build, exact interaction E2E 54 passed / 1 conditional skip, three read-only reviews, and four inspected synthetic screenshots.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-14T13:20:05Z — WP09 latest-main integration is locally complete on codex/settings-center-v2-integrated-20260714: 12 commits replayed, 32 overlaps audited, 16 conflicts resolved, pre-evidence agents/lint/typecheck/Vitest/build/browser/visual matrix passes, and menu/hydration/E2E timing regressions are fixed. A verified P1 guided-buyback tenant/legal identity bypass blocks PR, merge, and release. No push, PR, DB, flags, deploy, production access, or external communication occurred.
+
+- **Phase:** implementation
+- **Completed/current state:** WP09 latest-main integration is locally complete on codex/settings-center-v2-integrated-20260714: 12 commits replayed, 32 overlaps audited, 16 conflicts resolved, pre-evidence agents/lint/typecheck/Vitest/build/browser/visual matrix passes, and menu/hydration/E2E timing regressions are fixed. A verified P1 guided-buyback tenant/legal identity bypass blocks PR, merge, and release. No push, PR, DB, flags, deploy, production access, or external communication occurred.
+- **Next:** Create the scoped WP09 local evidence commit, repeat exact containing-commit gates, then stop for Owner choice: A stable approved-store plus default-off UI/server/RPC containment, or B full per-tenant approved/versioned legal-document architecture. No push/PR/DB/deploy without separate approval.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-14T14:40:33Z — WP09 latest-main local candidate is conditionally green on origin/main@d5384e88: twelve Settings commits rebased, buyback feature-off preserved, menu/hydration/E2E reliability fixes integrated, agents/lint/typecheck pass, controlled Vitest 179 files/1179 tests, focused 11/142, build 22/22, desktop 44/44, buyback/dashboard 13/13, interactions 64 plus one conditional skip, settings 67/67, and six synthetic screenshots inspected. No push, PR, DB, flags, deploy, production access, or external communication occurred.
+
+- **Phase:** implementation
+- **Completed/current state:** WP09 latest-main local candidate is conditionally green on origin/main@d5384e88: twelve Settings commits rebased, buyback feature-off preserved, menu/hydration/E2E reliability fixes integrated, agents/lint/typecheck pass, controlled Vitest 179 files/1179 tests, focused 11/142, build 22/22, desktop 44/44, buyback/dashboard 13/13, interactions 64 plus one conditional skip, settings 67/67, and six synthetic screenshots inspected. No push, PR, DB, flags, deploy, production access, or external communication occurred.
+- **Next:** Create the scoped local WP09 evidence commit, verify the containing SHA and clean diff, then stop for separate Owner push/PR direction; keep DB, flags, deployment, production and buyback re-enablement gated.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

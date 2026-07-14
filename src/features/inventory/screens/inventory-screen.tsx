@@ -206,6 +206,11 @@ export function InventoryScreen() {
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [action, setAction] = useState<InventoryActionMode | null>(null);
   const itemFocusFallbackRef = useRef<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const filters = useMemo(
     () => ({
@@ -228,9 +233,13 @@ export function InventoryScreen() {
     refetchOnWindowFocus: false,
   });
 
-  const items = inventorySummary?.list.items ?? EMPTY_INVENTORY_ITEMS;
-  const stats = inventorySummary?.stats;
-  const statsLoading = isLoading && !inventorySummary;
+  const displayInventorySummary = hydrated ? inventorySummary : undefined;
+  const items = displayInventorySummary?.list.items ?? EMPTY_INVENTORY_ITEMS;
+  const stats = displayInventorySummary?.stats;
+  const statsLoading = !hydrated || (isLoading && !inventorySummary);
+  const displayItemsError = hydrated && isItemsError;
+  const displayItemsLoading = hydrated && isLoading;
+  const displayItemsFetching = hydrated && isItemsFetching;
   const visibleItems = useMemo(() => filterInventoryItemsByView(items, view), [items, view]);
   const listViews = useMemo(() => buildInventoryListViews(items), [items]);
   const selectedItem = items.find((item) => item.id === selectedId);
@@ -416,21 +425,21 @@ export function InventoryScreen() {
         />
       </section>
 
-      {isItemsError && items.length > 0 ? (
+      {displayItemsError && items.length > 0 ? (
         <InventoryInlineError
           message={`库存列表刷新失败：${itemsErrorMessage}`}
-          isRetrying={isItemsFetching}
+          isRetrying={displayItemsFetching}
           onRetry={refreshInventoryData}
         />
       ) : null}
 
-      {isItemsError && items.length === 0 ? (
+      {displayItemsError && items.length === 0 ? (
         <InventoryLoadError
           message={itemsErrorMessage}
-          isRetrying={isItemsFetching}
+          isRetrying={displayItemsFetching}
           onRetry={refreshInventoryData}
         />
-      ) : isLoading ? (
+      ) : displayItemsLoading ? (
         <div className={dataDisplay.mobileCardList}>
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-20 w-full" />

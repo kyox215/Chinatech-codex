@@ -10,14 +10,22 @@ Current local Settings HEAD: `04273546`
 This packet is a release plan, not release authorization. No migration, environment change, production
 read, push, deployment, external communication, or real feature enablement is approved by this file.
 
+> WP09 correction, 2026-07-14: this packet is the historical pre-integration snapshot. A direct final
+> source-vs-main intersection found 32 common paths (23 product/code plus nine memory), not 24. Owner
+> authorized local integration only; all twelve commits are now rebased on `origin/main@d5384e88` in
+> `codex/settings-center-v2-integrated-20260714`. See `WP09_LATEST_MAIN_INTEGRATION_REPORT.md` for current
+> gates; the refreshed local code/browser/build/visual matrix passes. Main's fail-closed buyback patch
+> contains the earlier tenant/legal P1. Push/PR, database, flags,
+> deployment and production remain unapproved.
+
 ## 1. Verified release-unit facts
 
 - Settings implementation is 11 local commits from `6851117c` through `04273546`, followed by this
   WP08 verification/documentation package.
 - After the WP08 package, the branch is **12 ahead / 8 behind** `origin/main`.
 - Merge base: `a76852f61b09f1b84ccf0def957312026d6eb3b3`.
-- Current `origin/main`: `54c29e29`.
-- The two sides changed 24 common paths, including order/buyback/inventory screens and repositories,
+- `origin/main` at the WP08 review: `54c29e29`; WP09 refreshed through `70d211b2` to final target `d5384e88`.
+- The two sides changed 32 common paths: 23 product/code paths and nine project-memory paths, including order/buyback/inventory screens and repositories,
   `src/lib/repairdesk/{api,types}.ts`, Router/schemas, mocks, and `ACTIVE_CONTEXT.md`.
 - Therefore the current branch is not one deployable release unit, and its local build is not proof for
   a releasable latest-main integration. A clean, serialized integration worktree, split release units,
@@ -42,9 +50,9 @@ Local Settings commit order:
 
 | Scope | Current decision | Blocking owner/evidence |
 | ---- | ---- | ---- |
-| Local code, tests, docs, synthetic screenshots | CONDITIONAL PASS | Latest-main integration still pending |
-| Push or PR from current branch | NO-GO | Owner authorization and clean integration review |
-| Deploy complete Settings branch | NO-GO | 8 remote commits and 24 overlapping paths not integrated |
+| Local code, tests, docs, synthetic screenshots | CONDITIONAL LOCAL PASS | WP09 is rebased to `d5384e88`; static, 179/1179 Vitest, 22-page build, 44-case desktop, 13-case feature-off/dashboard and six-image visual gates pass; local evidence commit remains |
+| Push or PR from current branch | NO-GO | Not authorized by the local integration scope |
+| Deploy complete Settings branch | NO-GO | Release-unit split and production gates remain open |
 | Member role/grant production writes | NO-GO | DATA/SEC/QA approval, migration/RPC/CAS/transaction proof |
 | Kiosk production or review writes | NO-GO | dual flags, migration Gate 2A, atomic finalize, limiting/token/retention policy |
 | Workflow Apply | NO-GO | revision/CAS, one transaction RPC, historical preflight, atomic audit/outbox |
@@ -59,7 +67,7 @@ closed or claim production readiness.
 1. Obtain an explicit serialized release owner and a specific target environment.
 2. Create a new clean worktree from the freshly fetched `origin/main`; do not merge/rebase in the
    original dirty checkout.
-3. Integrate the 12 Settings commits in order. Resolve the 24 shared paths by preserving both the
+3. Integrate the 12 Settings commits in order. Resolve the 32 shared paths by preserving both the
    newer order/buyback changes and the Settings tenant/draft contracts; never choose one side wholesale.
 4. Run source and migration-order review before editing any database object.
 5. Keep all Kiosk and order-data flags at `0`. Keep workflow Apply locked.
@@ -279,7 +287,7 @@ These are proposals. Without recorded production baselines and alert ownership, 
 
 | Approval | Required owner | Status | Evidence/decision |
 | ---- | ---- | ---- | ---- |
-| Latest-main integration scope | Owner + Integration Lead | pending | Branch is 12 ahead / 8 behind with 24 overlaps after WP08 |
+| Latest-main integration scope | Owner + Integration Lead | completed locally | Owner said "开始下一步"; WP09 integrated 32 exact overlaps without push/PR |
 | Production target and release window | Owner + Operations | pending | No target selected |
 | Member migration/write enablement | Owner + DATA + SEC + QA | pending | WP04 gate open |
 | Kiosk migration/role/retention/enablement | Owner + DATA + SEC + Operations + QA | pending | WP05-B gates open |

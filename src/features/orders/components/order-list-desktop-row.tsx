@@ -7,7 +7,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type SyntheticEvent,
 } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock, MoreHorizontal, PackageSearch, Printer } from "lucide-react";
 
@@ -386,7 +385,7 @@ export function DesktopOrderQueueRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem asChild>
-              <Link href={`/orders/${order.id}`}>在新页打开</Link>
+              <a href={`/orders/${order.id}`}>在新页打开</a>
             </DropdownMenuItem>
             {canPrint ? (
               <>

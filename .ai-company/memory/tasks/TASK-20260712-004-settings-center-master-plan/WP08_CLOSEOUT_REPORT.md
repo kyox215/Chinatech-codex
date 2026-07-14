@@ -5,6 +5,12 @@ Date: 2026-07-13 CEST
 Implementation base before WP08: `04273546`
 Branch: `codex/settings-center-v2-20260712`
 
+> WP09 correction, 2026-07-14: this remains a historical WP08 closeout snapshot. Exact overlap was 32
+> paths (23 product/code plus nine memory), not 24. Local latest-main integration is now complete and its
+> post-integration evidence lives in `WP09_LATEST_MAIN_INTEGRATION_REPORT.md`. The final local target is
+> `origin/main@d5384e88`; refreshed code/browser/build/visual gates pass, while push/PR and production remain
+> separately unapproved.
+
 ## Outcome
 
 - Completed the nine-section Chinese operator guide, acceptance matrix, split-release plan,
@@ -56,7 +62,7 @@ See `WP08_VISUAL_EVIDENCE.md` for viewport, actual image size, capability/state,
 
 ## Why the master task cannot close
 
-1. The branch is 12 commits ahead / 8 behind `origin/main` after this WP08 package, with 24 overlapping paths; no latest-main
+1. The branch was 12 commits ahead / 8 behind `origin/main` after this WP08 package, with 32 exact overlapping paths; at WP08 time no latest-main
    integrated snapshot or post-integration gate exists.
 2. Full five-role × nine-section, offline/409, browser-level late-store response, all-overlay cleanup,
    and 50+ member E2E acceptance remains incomplete.
@@ -66,7 +72,7 @@ See `WP08_VISUAL_EVIDENCE.md` for viewport, actual image size, capability/state,
 
 ## Required Owner decisions before any next release action
 
-- Authorize a clean latest-main integration/PR preparation scope and exact release units.
+- Local latest-main integration was authorized and executed in WP09. Push/PR and exact release units remain separate gates.
 - Separately approve any linked read-only preflight, dry-run, apply, post-check, real flag enablement,
   push, deployment, production data action, or customer communication.
 - Decide member/workflow kill-switch design, Kiosk role/PII/signature/token policy, workflow edge/repair

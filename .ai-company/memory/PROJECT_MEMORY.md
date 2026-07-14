@@ -58,6 +58,20 @@ Client components must not import `src/server/*`. Server-side validation is requ
 
 `TASK-20260716-003-customer-finance-order-correction-plan` projects finance and lifecycle authority explicitly: individual customer finance is omitted rather than fabricated for restricted readers; Manager/Owner can correct/reopen terminal orders, Owner alone can void, and browser roles cannot execute terminal RPCs. The RLS-enabled/no-policy terminal-operation table is an intentional deny-by-default evidence boundary behind service-role-only commands.
 
+WP09 initially found a P1 tenant/legal exception because the signed versions, hashes, privacy notice and terms
+hard-code Chinatech while capture/finalize was role-only. `origin/main@70d211b2` now contains the approved
+feature-off containment: `BUYBACK_SENSITIVE_WORKFLOW_ENABLED` is hard-coded `false`, the UI exposes only the
+four-step quote/evaluation/save flow, and Router/repository boundaries reject restricted upload, finalize and
+legacy import. Preserve that fail-closed state. Re-enablement still requires a separately reviewed R4 release,
+approved tenant/legal document identity, migration/storage/retention proof and explicit Owner authorization;
+mutable display settings remain an invalid legal-document source.
+
+The WP09 Settings candidate is rebased onto `origin/main@d5384e88` in the isolated integration worktree.
+Its local gate passes with 179 files / 1179 Vitest tests, 11 focused files / 142 tests, 22/22 build pages,
+desktop browser 44/44, guided-buyback/dashboard 13/13, and six inspected synthetic screenshots. The native
+order detail link fixes the reproduced loaded-server menu no-navigation path. This is local conditional
+evidence only: push/PR, database work, real flags, deployment and production release remain separately gated.
+
 ## Environments, build, deploy and operations
 
 - Package scripts include `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and `npm run agents:check`.
@@ -123,12 +137,20 @@ Client components must not import `src/server/*`. Server-side validation is requ
 ## Current roadmap and work in progress
 
 - Active `TASK-20260712-004-settings-center-master-plan` has locally implemented nine capability-driven
-  Settings sections through WP07 and a WP08 operator/release package. It is not closed or production
-  ready: after the WP08 package the branch is 12 commits ahead / 8 behind current `origin/main`, shares 24 changed paths, and
-  must be split into code-only, member, Kiosk, workflow, order-data export/preview, and order-data Apply
+  Settings sections through WP07 and a WP08 operator/release package. WP09 has replayed all twelve source
+  commits onto `origin/main@d5384e88` in a clean local worktree. The exact overlap remains 32 paths (23
+  product/code and nine memory). The initial replay resolved 16 paths; the latest-main refresh additionally
+  reconciled the feature-off buyback, inventory and task-memory boundaries. The refreshed local gate passes;
+  the evidence commit and push/PR authorization remain. The earlier guided-buyback tenant/legal P1 is
+  contained by main's hard-coded
+  feature-off, but re-enablement and all production Settings gates remain closed. The task is not closed or
+  production ready and must
+  still be split into code-only, member, Kiosk, workflow, order-data export/preview, and order-data Apply
   release units before any production decision.
-- Settings database order is `20260710150000_order_data_roundtrip.sql` →
+- The integrated chronological migration order is `20260710150000_order_data_roundtrip.sql` →
   `20260712002317_global_staff_permission_grants.sql` →
+  `20260712003452_global_order_assignment_scope.sql` →
+  `20260712150000_buyback_guided_evidence_finalize.sql` →
   `20260713144316_kiosk_integrity_expand.sql`. Linked history and exact dry-run output must be verified;
   stop if a database command would include any unreviewed migration. Kiosk/order-data flags stay exactly
   off, and member/workflow writes remain excluded until independent kill switches and atomic contracts exist.

@@ -1,15 +1,15 @@
 ---
 task_id: "TASK-20260712-004-settings-center-master-plan"
 status: "in_progress"
-phase: "wp08_local_package_complete_owner_gate_no_go"
+phase: "wp09_local_candidate_commit_pending"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 integration_lead: "RepairDesk Integration Lead"
-baseline: "a76852f61b09f1b84ccf0def957312026d6eb3b3"
-branch: "codex/settings-center-v2-20260712"
-worktree: "/private/tmp/repairdesk-settings-center-20260712"
-updated_at: "2026-07-13T23:16:19Z"
+baseline: "d5384e88ca1e974d0aa58156728eb29092a7d7ff"
+branch: "codex/settings-center-v2-integrated-20260714"
+worktree: "/private/tmp/repairdesk-settings-center-integration-20260714"
+updated_at: "2026-07-14T14:40:33Z"
 ---
 # Settings Center v2
 
@@ -49,7 +49,29 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 - WP-08 local packaging is complete: operator guide, acceptance matrix, split-release/observability/rollback packet, visual manifest, department memory sync, and C2-candidate capability review are present. Three real read-only reviewers found P0=0 and their documentation/release/coverage findings were integrated by the main thread.
 - WP-08 fixed both mobile recovery actions to at least 44px, added recovery/browser evidence plus clean 390/1440 overview and 1280 employee Drawer captures, and fixed an E2E route callback teardown race.
 - Final WP-08 local gates pass: agents, lint, typecheck, full Vitest 167 files / 1073 tests, production build 22/22 pages, and exact interaction Playwright 54 passed / 1 existing conditional skip.
-- The master task remains `in_progress` and production NO-GO. After the WP08 package the branch is 12 ahead / 8 behind `origin/main` with 24 overlapping paths; latest-main integration, the full acceptance matrix, transaction/data gates, and Owner risk/target/release decisions are not complete.
+- WP-09 latest-main integration is authorized and locally executed. After `origin/main` advanced twice
+  during evidence preparation, the twelve source commits were rebased onto `origin/main@d5384e88` in
+  `codex/settings-center-v2-integrated-20260714`; the refreshed pre-evidence HEAD is `4584ca79`.
+- Exact overlap is 32 paths, not the earlier WP08 estimate of 24: 23 product/code paths plus nine project
+  memory paths. Sixteen paths required manual conflict resolution; current-main order/buyback/inventory
+  behavior and Settings tenant/draft/output contracts were combined rather than choosing either side wholesale.
+- WP09 local static and browser matrix passes before the evidence commit: agents, lint, typecheck,
+  controlled full Vitest 179 files / 1179 tests, focused feature-off/overlap 11 files / 142 tests, and
+  production build 22/22 pages. Interactions passed 64 with one existing conditional skip and
+  Settings/order-data passed 67/67 on the code-identical pre-documentation-sync tree. The final target
+  worktree passed guided-buyback/dashboard 13/13 and the desktop matrix 44/44 in one run. Six clean
+  integrated screenshots were inspected; the two buyback images were regenerated on the final target.
+- The verification pass also fixed an intermittent desktop order menu failure by using a native detail link,
+  removed new-order/inventory hydration replacement warnings, split the long desktop route audit, and made
+  animated overlay and inventory-action checks wait for stable UI states without weakening assertions.
+- The initial architecture review found a P1 cross-tenant legal-identity bypass in the guided-buyback flow.
+  New main resolves the immediate release blocker by hard-coding the sensitive workflow off, removing seller,
+  evidence, payment, signature and finalize controls, and rejecting restricted uploads/finalize/legacy import
+  at Router and repository boundaries. Settings output identity remains active for quote/WhatsApp output.
+- Preserve feature-off. Re-enablement still requires approved per-tenant legal documents, schema/migration,
+  private storage, retention/cleanup, server authorization and a separately authorized R4 release.
+- The master task remains `in_progress` and production NO-GO. The full acceptance matrix, transaction/data
+  gates, and Owner risk/target/release decisions are not complete.
 - No production database, push, or deployment action has been performed.
 
 ## Acceptance gates
@@ -62,9 +84,9 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 
 ## Next owner gate
 
-- Recommended next step: authorize a clean latest-main integration and PR-preparation scope only, with
-  the release split defined in `WP08_RELEASE_READINESS_PACKET.md`.
-- Any linked database preflight/dry-run/apply/post-check, real flag change, push, deployment, production
-  data action, retention decision, or customer communication remains a separate explicit approval.
-- Without that authorization, keep this task in progress and preserve the local branch/commit as the
-  verified handoff; do not represent it as released.
+- Create the scoped WP09 local evidence commit and verify its containing SHA. This establishes only a
+  conditional local candidate.
+- Pushing the branch or opening a PR requires a separate explicit Owner
+  instruction. Pushing or merging `main` is not authorized by the WP09 integration scope.
+- Any linked database preflight/dry-run/apply/post-check, real flag change, deployment, production data
+  action, retention decision, or customer communication remains a separate explicit approval.

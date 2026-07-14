@@ -89,13 +89,13 @@ export function NewOrderScreen({
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
-  const [clientHydrated, setClientHydrated] = useState(false);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
     "calc(env(safe-area-inset-top) + 5.5rem)",
   );
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setClientHydrated(true);
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -112,13 +112,14 @@ export function NewOrderScreen({
     retry: false,
     staleTime: CACHE_TIMES.shell,
   });
-  const activeStoreId = clientHydrated ? onboardingStatus?.activeStore?.id : undefined;
+  const hydratedOnboardingStatus = hydrated ? onboardingStatus : undefined;
+  const activeStoreId = hydratedOnboardingStatus?.activeStore?.id;
   const offlineScope = useMemo(
     () =>
-      activeStoreId && onboardingStatus?.userId
-        ? { storeId: activeStoreId, userId: onboardingStatus.userId }
+      activeStoreId && hydratedOnboardingStatus?.userId
+        ? { storeId: activeStoreId, userId: hydratedOnboardingStatus.userId }
         : null,
-    [activeStoreId, onboardingStatus?.userId],
+    [activeStoreId, hydratedOnboardingStatus?.userId],
   );
   const offlineDraft = useNewOrderOfflineAutosave({
     form,
@@ -132,9 +133,8 @@ export function NewOrderScreen({
     ...orderWorkflowQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
   });
-  const operatorName =
-    clientHydrated && onboardingStatus?.displayName ? onboardingStatus.displayName : "当前登录账号";
-  const operatorRole = clientHydrated ? onboardingStatus?.activeStore?.role : undefined;
+  const operatorName = hydratedOnboardingStatus?.displayName ?? "当前登录账号";
+  const operatorRole = hydratedOnboardingStatus?.activeStore?.role;
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
   const createStatuses = useMemo(
     () =>

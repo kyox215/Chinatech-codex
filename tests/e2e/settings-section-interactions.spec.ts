@@ -92,12 +92,13 @@ test.describe("settings overview responsive shell", () => {
 test.describe("settings navigation and deep links", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("keeps nine deep links, unknown fallback, and browser history", async ({ page }) => {
-    test.setTimeout(90_000);
+  test("falls back to the overview for an unknown section", async ({ page }) => {
     await gotoReady(page, "/settings?section=unknown");
     await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible();
+  });
 
-    for (const section of sections) {
+  for (const section of sections) {
+    test(`keeps the ${section.key} deep link reachable`, async ({ page }) => {
       await gotoReady(page, `/settings?section=${section.key}`);
       await expect(page).toHaveURL(new RegExp(`[?&]section=${section.key}(?:&|$)`));
       await expect(
@@ -111,8 +112,10 @@ test.describe("settings navigation and deep links", () => {
           .first(),
       ).toHaveAttribute("aria-current", "page");
       await expectNoPageOverflow(page, `/settings?section=${section.key}`);
-    }
+    });
+  }
 
+  test("preserves overview, rail, back, and forward history", async ({ page }) => {
     await gotoReady(page, "/settings");
     await clickOverviewEntry(page, /账号/);
     await expect(page).toHaveURL(/section=account/);

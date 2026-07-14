@@ -29,6 +29,8 @@ test.describe("order desktop UI audit", () => {
 
       await page.setViewportSize(viewport);
       await gotoReady(page, "/orders");
+      await ensureOutputIdentityReady(page);
+      await gotoReady(page, "/orders");
 
       await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
       await expectFirstVisible(page.getByText("工单工作队列"), "/orders work queue heading");
@@ -270,6 +272,61 @@ async function gotoReady(page: Page, path: string) {
 
 async function printCount(page: Page) {
   return page.evaluate(() => Number(window.localStorage.getItem("repairdesk-print-count") ?? "0"));
+}
+
+async function ensureOutputIdentityReady(page: Page) {
+  await page.evaluate(async () => {
+    const readData = async (response: Response) => {
+      const payload = (await response.json()) as { data?: Record<string, unknown>; error?: string };
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error || `Mock settings request failed (${response.status})`);
+      }
+      return payload.data;
+    };
+
+    let settings = await readData(await fetch("/api/repairdesk/settings/store"));
+    const alreadyReady =
+      settings.store_name === "RepairDesk E2E" &&
+      settings.store_address === "Via Test 1, Floridia" &&
+      settings.store_phone === "+39000000000" &&
+      settings.message_signature === "RepairDesk E2E · Assistenza" &&
+      settings.print_footer === "Grazie per aver scelto RepairDesk E2E.";
+    if (alreadyReady) return;
+
+    settings = await readData(
+      await fetch("/api/repairdesk/settings/store/update", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          section: "store",
+          expectedStoreId: settings.store_id,
+          expectedUpdatedAt: settings.updated_at,
+          input: {
+            store_name: "RepairDesk E2E",
+            store_address: "Via Test 1, Floridia",
+            store_phone: "+39000000000",
+            store_whatsapp: "+39000000000",
+            store_email: "e2e@repairdesk.local",
+          },
+        }),
+      }),
+    );
+    await readData(
+      await fetch("/api/repairdesk/settings/store/update", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          section: "notifications",
+          expectedStoreId: settings.store_id,
+          expectedUpdatedAt: settings.updated_at,
+          input: {
+            message_signature: "RepairDesk E2E · Assistenza",
+            print_footer: "Grazie per aver scelto RepairDesk E2E.",
+          },
+        }),
+      }),
+    );
+  });
 }
 
 async function clickFirstVisible(
