@@ -1,5 +1,7 @@
 import type { InventoryItemStatus, InventoryListItem } from "@/lib/repairdesk/types";
 
+import { BUYBACK_SENSITIVE_WORKFLOW_ENABLED } from "./buyback-evidence-policy";
+
 import {
   buybackFunctionTestItems,
   getBuybackQuoteOffer,
@@ -12,7 +14,7 @@ export const buybackRecordSteps = [
   { key: "estimate", label: "估价" },
   { key: "intent", label: "确认" },
   { key: "inspection", label: "检测" },
-  { key: "intake", label: "成交" },
+  { key: "intake", label: BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? "成交" : "保存" },
 ] as const;
 
 export interface BuybackRecordProgressStep {
@@ -169,11 +171,17 @@ export function getBuybackNextActionLabel(
   risk: BuybackQuoteRiskLevel,
 ) {
   if (risk === "high" && isBuybackQuoteResumableStatus(status)) {
-    return "下一步：负责人复核风险后再成交";
+    return BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+      ? "下一步：负责人复核风险后再成交"
+      : "下一步：负责人复核风险后保存记录";
   }
   if (status === "intake") return "下一步：补充估价或客户确认";
   if (status === "evaluating") return "下一步：完成功能检测";
-  if (status === "offer_made") return "下一步：等待客户确认报价";
+  if (status === "offer_made") {
+    return BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+      ? "下一步：等待客户确认报价"
+      : "报价与检测已保存，可按需复估";
+  }
   if (status === "purchased") return "下一步：数据抹除并整备";
   if (status === "data_wipe") return "下一步：进入整备/翻新";
   if (status === "refurbishing") return "下一步：准备上架";
@@ -212,6 +220,15 @@ export function getBuybackInventoryHandoff(
   }
 
   if (status === "intake" || status === "offer_made") {
+    if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED && status === "offer_made") {
+      return {
+        target: "quote",
+        label: "报价已保存",
+        detail: "资料和成交功能关闭，可继续复估或补检测",
+        actionLabel: "复估记录",
+        tone: "info",
+      };
+    }
     return {
       target: "quote",
       label: status === "intake" ? "补全估价" : "客户确认",
@@ -225,13 +242,24 @@ export function getBuybackInventoryHandoff(
     return {
       target: "inspection",
       label: "功能检测",
-      detail: "按检测清单补齐功能、成色和凭证",
+      detail: BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+        ? "按检测清单补齐功能、成色和凭证"
+        : "按检测清单补齐功能、成色和异常说明",
       actionLabel: "继续检测",
       tone: "info",
     };
   }
 
   if (["purchased", "data_wipe", "refurbishing", "returned"].includes(status)) {
+    if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) {
+      return {
+        target: "inventory",
+        label: status === "returned" ? "退回复检" : "库存整备",
+        detail: "历史凭证仅供查看；当前不要补采证件或签名，继续完成数据清除和库存整备。",
+        actionLabel: status === "returned" ? "复检设备" : "打开库存",
+        tone: status === "returned" ? "warning" : "success",
+      };
+    }
     return {
       target: "inventory",
       label: status === "returned" ? "退回复检" : "库存整备",
@@ -265,16 +293,18 @@ export function getBuybackRecordTaskGuidance(
   status: InventoryItemStatus,
   risk: BuybackQuoteRiskLevel,
 ): BuybackRecordTaskGuidance {
-  if (risk === "high") {
+  if (risk === "high" && isBuybackQuoteResumableStatus(status)) {
     return {
       title: "先做负责人复核",
-      detail: "这台设备存在高风险，先确认账号锁、IMEI、数据抹除或维修成本，再决定是否成交。",
+      detail: BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+        ? "这台设备存在高风险，先确认账号锁、IMEI、数据抹除或维修成本，再决定是否成交。"
+        : "这台设备存在高风险，先确认账号锁、IMEI、数据抹除或维修成本，再决定是否保存报价。",
       primaryAction: "复核风险",
       checklist: [
         "核对账号锁 / Find My",
         "复查 IMEI 与来源风险",
         "确认数据可清除",
-        "店长确认最终收购价",
+        BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? "店长确认最终收购价" : "店长确认最终报价",
       ],
       tone: "warning",
     };
@@ -291,6 +321,15 @@ export function getBuybackRecordTaskGuidance(
   }
 
   if (status === "offer_made") {
+    if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) {
+      return {
+        title: "报价与检测已保存",
+        detail: "资料登记和回收成交暂时关闭；需要时可继续复估或补充检测。",
+        primaryAction: "复估或补检测",
+        checklist: ["复核报价金额", "补充未完成检测", "记录异常说明", "等待资料功能恢复"],
+        tone: "info",
+      };
+    }
     return {
       title: "等待客户确认",
       detail: "客户接受后再进入完整检测和实名资料采集；客户拒绝则保留报价记录。",
@@ -309,13 +348,22 @@ export function getBuybackRecordTaskGuidance(
         "检查账号锁 / Find My",
         "核对 IMEI / 序列号",
         "测试屏幕触控与 Face ID",
-        "补齐设备照片和异常说明",
+        BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? "补齐设备照片和异常说明" : "记录异常说明",
       ],
       tone: "info",
     };
   }
 
   if (["purchased", "data_wipe", "refurbishing", "returned"].includes(status)) {
+    if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) {
+      return {
+        title: status === "returned" ? "退回复检" : "进入库存整备",
+        detail: "历史凭证仅供查看；当前不要补采证件或签名，继续完成数据清除和库存整备。",
+        primaryAction: status === "returned" ? "复检设备" : "库存整备",
+        checklist: ["历史凭证保持只读", "不要补采证件或签名", "执行数据抹除", "记录整备成本"],
+        tone: status === "returned" ? "warning" : "success",
+      };
+    }
     return {
       title: status === "returned" ? "退回复检" : "进入库存整备",
       detail:
@@ -406,7 +454,9 @@ export function getBuybackRecordReadiness(
       label: "先复核风险",
       detail: riskNotes[0] ?? "存在账号锁、IMEI、抹除或高成本风险",
       progress: Math.max(progress, estimateReady ? 35 : 15),
-      missing: riskNotes.length ? riskNotes.slice(0, 3) : ["负责人确认最终收购价"],
+      missing: riskNotes.length
+        ? riskNotes.slice(0, 3)
+        : [BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? "负责人确认最终收购价" : "负责人确认最终报价"],
     };
   }
 
@@ -426,6 +476,15 @@ export function getBuybackRecordReadiness(
   }
 
   if (item.status === "offer_made") {
+    if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) {
+      return {
+        state: "ready",
+        label: "报价已保存",
+        detail: "资料和成交功能关闭，可按需复估或补检测",
+        progress: Math.max(progress, 75),
+        missing: [],
+      };
+    }
     return {
       state: customerAccepted ? "ready" : "todo",
       label: customerAccepted ? "可进入检测" : "客户确认报价",
@@ -443,7 +502,9 @@ export function getBuybackRecordReadiness(
       label: requiredCheckMissing.length ? "补齐功能检测" : "检测完成",
       detail: requiredCheckMissing.length
         ? `还缺 ${requiredCheckMissing[0]}`
-        : "关键检测已处理，可登记成交资料",
+        : BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+          ? "关键检测已处理，可登记成交资料"
+          : "关键检测已处理，可保存报价与检测记录",
       progress: Math.max(progress, requiredCheckMissing.length ? 60 : 75),
       missing: requiredCheckMissing.slice(0, 4),
     };
@@ -451,13 +512,24 @@ export function getBuybackRecordReadiness(
 
   if (["purchased", "data_wipe", "refurbishing", "returned"].includes(item.status)) {
     const missing = [
-      ...proofMissing,
+      ...(BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? proofMissing : []),
       item.data_wipe_status !== "pass" ? "数据抹除记录" : "",
     ].filter(Boolean);
     return {
       state: missing.length ? "todo" : "ready",
-      label: item.status === "returned" ? "退回复检" : missing.length ? "补齐成交凭证" : "库存整备",
-      detail: missing.length ? `还缺 ${missing[0]}` : "资料齐全，继续清除、整备或上架",
+      label:
+        item.status === "returned"
+          ? "退回复检"
+          : missing.length
+            ? BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+              ? "补齐成交凭证"
+              : "补齐库存整备"
+            : "库存整备",
+      detail: missing.length
+        ? `还缺 ${missing[0]}`
+        : BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+          ? "资料齐全，继续清除、整备或上架"
+          : "历史凭证保持只读，继续清除、整备或上架",
       progress: Math.max(progress, missing.length ? 80 : 90),
       missing: missing.slice(0, 4),
     };

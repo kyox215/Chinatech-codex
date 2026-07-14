@@ -18,7 +18,8 @@ import {
   documentNumberLast4,
   hashBuybackAgreementSnapshot,
 } from "@/features/buyback/model/buyback-agreement";
-import type { BuybackFinalizeInput } from "@/lib/repairdesk/types";
+import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
+import type { AuditActor, BuybackFinalizeInput } from "@/lib/repairdesk/types";
 
 import {
   accessInventoryAttachment,
@@ -35,6 +36,32 @@ import {
 const mockImageBase64 = "iVBORw0KGgo=";
 
 describe("inventory mock buyback workflow", () => {
+  it("blocks actor-bound buyback uploads in mock-backed server requests", async () => {
+    const draft = completedBuybackDraft("3339001000");
+    const result = calculateBuybackQuote(draft);
+    const { id } = await createInventoryIntake(buildBuybackQuoteCreateInput(draft, result));
+    const owner: AuditActor = {
+      id: "owner_mock",
+      displayName: "Owner",
+      storeId: "mock-store",
+      storeRole: "owner",
+    };
+
+    await expect(
+      uploadInventoryAttachment(
+        id,
+        {
+          kind: "device_photo",
+          file_name: "device.png",
+          mime_type: "image/png",
+          file_size: 8,
+          data_base64: mockImageBase64,
+        },
+        owner,
+      ),
+    ).rejects.toThrow(BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE);
+  });
+
   it("blocks the legacy direct purchased transition", async () => {
     const draft = completedBuybackDraft("3339001001");
     const result = calculateBuybackQuote(draft);

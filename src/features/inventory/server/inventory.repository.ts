@@ -50,7 +50,11 @@ import {
   hasCurrentBuybackLegalDocuments,
   hashBuybackAgreementSnapshot,
 } from "@/features/buyback/model/buyback-agreement";
-import { BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
+import {
+  BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES,
+  BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+  BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
+} from "@/features/buyback/model/buyback-evidence-policy";
 import { buildInventorySaleReceiptSnapshot } from "@/features/inventory/model/inventory-sale-receipt";
 import {
   getInventoryProfit,
@@ -58,6 +62,7 @@ import {
   validateInventoryTransition,
 } from "@/features/inventory/model/inventory-workflow";
 import { normalizePhoneBook } from "@/shared/lib/phone";
+import { ForbiddenError } from "@/server/auth-context";
 
 const INVENTORY_DIRECT_CREATE_STATUSES = new Set<InventoryItemStatus>([
   "intake",
@@ -713,6 +718,7 @@ export async function uploadInventoryAttachment(
   const item = await fetchInventoryRow(id, storeId);
   const isBuybackEvidence = maybeString(item.source_type) === "buyback";
   const isRestricted = isBuybackEvidence || isRestrictedBuybackEvidenceKind(kind);
+  assertBuybackSensitiveAttachmentWriteEnabled(kind, maybeString(item.source_type));
   assertBuybackEvidenceCaptureActor(actor, kind, maybeString(item.source_type));
 
   const bytes = attachmentPayloadFromInput(input);
@@ -757,13 +763,17 @@ export async function uploadInventoryAttachment(
     storage_path: storagePath,
     note: isRestricted ? null : input.note?.trim() || null,
     uploaded_by: operatorName,
-    sensitivity: isRestricted ? "restricted" : "internal",
-    evidence_status: isBuybackEvidence ? "staged" : "bound",
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    agreement_hash: input.agreement_hash ?? null,
-    staging_expires_at: isBuybackEvidence
-      ? new Date(Date.now() + BUYBACK_EVIDENCE_STAGING_TTL_MS).toISOString()
-      : null,
+    ...(BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+      ? {
+          sensitivity: isRestricted ? "restricted" : "internal",
+          evidence_status: isBuybackEvidence ? "staged" : "bound",
+          sha256: createHash("sha256").update(bytes).digest("hex"),
+          agreement_hash: input.agreement_hash ?? null,
+          staging_expires_at: isBuybackEvidence
+            ? new Date(Date.now() + BUYBACK_EVIDENCE_STAGING_TTL_MS).toISOString()
+            : null,
+        }
+      : {}),
     created_at: now,
     updated_at: now,
   };
@@ -821,6 +831,18 @@ export function assertBuybackEvidenceCaptureActor(
 ) {
   if (sourceType === "buyback" || isRestrictedBuybackEvidenceKind(kind)) {
     assertPermission(actor, "buyback:evidence_capture");
+  }
+}
+
+export function assertBuybackSensitiveAttachmentWriteEnabled(
+  kind: InventoryAttachment["kind"],
+  sourceType?: string,
+) {
+  if (
+    !BUYBACK_SENSITIVE_WORKFLOW_ENABLED &&
+    (sourceType === "buyback" || isRestrictedBuybackEvidenceKind(kind))
+  ) {
+    throw new ForbiddenError(BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE);
   }
 }
 
@@ -905,6 +927,7 @@ export async function finalizeBuybackPurchase(
   input: BuybackFinalizeInput,
   actor: AuditActor = systemActor,
 ): Promise<BuybackFinalizeResult> {
+  assertBuybackSensitiveWorkflowWriteEnabled();
   const storeId = requireStoreIdFromActor(actor);
   if (!actor.id) throw new Error("确认回收成交需要已登录员工身份");
 
@@ -1202,6 +1225,7 @@ export async function applyElectronicsCsvImport(
   csvContent: string,
   actor: AuditActor,
 ): Promise<ElectronicsImportPreview["report"]> {
+  assertBuybackSensitiveWorkflowWriteEnabled();
   assertLegacyElectronicsImportActor(actor);
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
@@ -1282,6 +1306,12 @@ export async function applyElectronicsCsvImport(
 
 export function assertLegacyElectronicsImportActor(actor: AuditActor) {
   assertPermission(actor, "inventory:legacy_import");
+}
+
+export function assertBuybackSensitiveWorkflowWriteEnabled() {
+  if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) {
+    throw new ForbiddenError(BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE);
+  }
 }
 
 function inventoryFromRow(row: DbRecord): InventoryItem {
@@ -1709,9 +1739,9 @@ function sanitizeItemPatch(
     if (field in input) patch[field] = money(input[field]);
   }
   if (input.quote_payload !== undefined) {
-    patch.legacy_payload = mergeLegacyPayload(
+    patch.legacy_payload = mergeBuybackLegacyPayloadForUpdate(
       before.legacy_payload,
-      sanitizeBuybackLegacyPayload(input.quote_payload),
+      input.quote_payload,
     );
   }
   if (input.warranty_months !== undefined) patch.warranty_months = input.warranty_months;
@@ -1761,6 +1791,17 @@ const BUYBACK_FUNCTION_CHECK_KEYS = [
  * arbitrary nested data (including seller PII) to reach legacy_payload.
  */
 export function sanitizeBuybackLegacyPayload(value: unknown): Record<string, unknown> {
+  return sanitizeBuybackLegacyPayloadInternal(value, false);
+}
+
+function sanitizeStoredBuybackLegacyPayload(value: unknown): Record<string, unknown> {
+  return sanitizeBuybackLegacyPayloadInternal(value, true);
+}
+
+function sanitizeBuybackLegacyPayloadInternal(
+  value: unknown,
+  preserveStoredCustomerMetadata: boolean,
+): Record<string, unknown> {
   const source = recordOrEmpty(value);
   const sanitized: Record<string, unknown> = {};
 
@@ -1784,7 +1825,10 @@ export function sanitizeBuybackLegacyPayload(value: unknown): Record<string, unk
   }
   if (Object.keys(safeChecks).length) sanitized.buyback_function_checks = safeChecks;
 
-  const customer = sanitizeBuybackCustomerPayload(source.buyback_customer);
+  const customer = sanitizeBuybackCustomerPayload(
+    source.buyback_customer,
+    preserveStoredCustomerMetadata,
+  );
   if (Object.keys(customer).length) sanitized.buyback_customer = customer;
 
   const declarations = recordOrEmpty(source.buyback_declarations);
@@ -1856,7 +1900,8 @@ function sanitizeBuybackDevicePayload(value: unknown) {
   return sanitized;
 }
 
-function sanitizeBuybackCustomerPayload(value: unknown) {
+function sanitizeBuybackCustomerPayload(value: unknown, preserveStoredMetadata = false) {
+  if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED && !preserveStoredMetadata) return {};
   const source = recordOrEmpty(value);
   const sanitized: Record<string, unknown> = {};
   const documentType = safeLegacyEnum(source.document_type, BUYBACK_DOCUMENT_TYPES);
@@ -1911,12 +1956,13 @@ function safeLegacyIsoTimestamp(value: unknown) {
   return Number.isNaN(Date.parse(value)) ? undefined : value;
 }
 
-function mergeLegacyPayload(
+export function mergeBuybackLegacyPayloadForUpdate(
   currentValue: unknown,
-  nextValue: Record<string, unknown>,
+  incomingValue: Record<string, unknown>,
 ): Record<string, unknown> {
   const current = recordOrEmpty(currentValue);
-  const currentBuyback = sanitizeBuybackLegacyPayload(current);
+  const currentBuyback = sanitizeStoredBuybackLegacyPayload(current);
+  const nextValue = sanitizeBuybackLegacyPayload(incomingValue);
   const nonBuyback = Object.fromEntries(
     Object.entries(current).filter(([key]) => !key.startsWith("buyback_")),
   );

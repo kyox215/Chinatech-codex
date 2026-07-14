@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { BuybackQuoteWorkspace } from "@/features/buyback/components/buyback-quote-workspace";
+import { BUYBACK_SENSITIVE_WORKFLOW_ENABLED } from "@/features/buyback/model/buyback-evidence-policy";
 import { ScanSearchButton } from "@/features/capture";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -308,10 +309,6 @@ export function BuybackScreen() {
           onOpenChange={handleQuoteOpenChange}
           initialDraft={quoteInitialDraft}
           targetItem={quoteTargetRecord}
-          canCaptureEvidence={
-            shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager"
-          }
-          canFinalize={shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager"}
         />
         <BuybackRecordSheet
           item={selectedRecord}
@@ -339,7 +336,7 @@ function BuybackEmptyState({ onCreate }: { onCreate: () => void }) {
       >
         <h2 className="text-[12px] font-semibold leading-4">还没有回收报价</h2>
         <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
-          先做简易估价，客户同意后再检测功能并登记资料。
+          先做简易估价，客户同意后再检测功能并保存报价记录。
         </p>
         <Button
           className={cn("mt-2 h-9 w-full gap-1.5 rounded-lg text-xs", controls.brandButton)}
@@ -715,7 +712,9 @@ function BuybackRecordSheet({
   const primaryAction = getBuybackRecordPrimaryAction(item, risk);
   const canOpenQuoteWorkspace = primaryAction.canResumeQuote;
   const primaryButtonLabel = canOpenQuoteWorkspace
-    ? `${primaryAction.actionLabel} / 复估`
+    ? BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+      ? `${primaryAction.actionLabel} / 复估`
+      : "继续报价 / 检测"
     : "打开库存详情";
 
   return (
@@ -997,35 +996,57 @@ function BuybackRecordSheet({
               </div>
             </section>
 
-            <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
-              <RecordSectionTitle icon={Camera} title="检测与凭证" />
-              <div className="mt-2 grid grid-cols-2 gap-1.5">
-                <RecordMetric label="检测正常" value={`${checkStats.pass} 项`} />
-                <RecordMetric label="异常/风险" value={`${checkStats.fail} 项`} />
-                <RecordMetric label="仍未检测" value={`${checkStats.unchecked} 项`} />
-                <RecordMetric label="凭证采集" value={`${proofStats.done}/${proofStats.total}`} />
-              </div>
-              <div className="mt-2 grid gap-1">
-                {proofStats.rows.map((row) => (
-                  <div
-                    key={row.label}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1"
-                  >
-                    <span className="truncate text-[10px] leading-4 text-muted-foreground">
-                      {row.label}
-                    </span>
-                    <span
-                      className={cn(
-                        "shrink-0 text-[10px] font-medium leading-4",
-                        row.done ? "text-status-success-foreground" : "text-muted-foreground",
-                      )}
+            {BUYBACK_SENSITIVE_WORKFLOW_ENABLED || !canOpenQuoteWorkspace ? (
+              <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
+                <RecordSectionTitle
+                  icon={Camera}
+                  title={BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? "检测与凭证" : "检测与历史凭证"}
+                />
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  <RecordMetric label="检测正常" value={`${checkStats.pass} 项`} />
+                  <RecordMetric label="异常/风险" value={`${checkStats.fail} 项`} />
+                  <RecordMetric label="仍未检测" value={`${checkStats.unchecked} 项`} />
+                  <RecordMetric label="历史凭证" value={`${proofStats.done}/${proofStats.total}`} />
+                </div>
+                <div className="mt-2 grid gap-1">
+                  {proofStats.rows.map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-center justify-between gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1"
                     >
-                      {row.done ? "已采集" : "未采集"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
+                      <span className="truncate text-[10px] leading-4 text-muted-foreground">
+                        {row.label}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 text-[10px] font-medium leading-4",
+                          row.done ? "text-status-success-foreground" : "text-muted-foreground",
+                        )}
+                      >
+                        {row.done ? "已采集" : "未采集"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {!BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? (
+                  <p className="mt-2 rounded-lg bg-status-info/15 px-2 py-1.5 text-[10px] leading-4 text-status-info-foreground">
+                    以下仅展示历史状态；功能关闭期间不要补采证件或签名。
+                  </p>
+                ) : null}
+              </section>
+            ) : (
+              <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
+                <RecordSectionTitle icon={ClipboardCheck} title="检测记录" />
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                  <RecordMetric label="检测正常" value={`${checkStats.pass} 项`} />
+                  <RecordMetric label="异常/风险" value={`${checkStats.fail} 项`} />
+                  <RecordMetric label="仍未检测" value={`${checkStats.unchecked} 项`} />
+                </div>
+                <p className="mt-2 rounded-lg bg-status-info/15 px-2 py-1.5 text-[10px] leading-4 text-status-info-foreground">
+                  资料登记和回收成交暂时关闭；当前记录只支持复估、检测和保存。
+                </p>
+              </section>
+            )}
           </div>
         </div>
         <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-1.5 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-2">
@@ -1043,7 +1064,11 @@ function BuybackRecordSheet({
             style={brandGradientStyle}
             onClick={() => {
               if (canOpenQuoteWorkspace) {
-                toast.info("已带入当前记录，保存后会更新原回收单；确认成交后转入库存商品。");
+                toast.info(
+                  BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+                    ? "已带入当前记录，保存后会更新原回收单；确认成交后转入库存商品。"
+                    : "已带入当前记录；本次只更新报价与检测，不登记资料或确认成交。",
+                );
                 onStartFollowUp(item);
                 return;
               }

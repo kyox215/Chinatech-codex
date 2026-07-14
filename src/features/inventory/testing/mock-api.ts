@@ -31,6 +31,7 @@ import {
   hasCurrentBuybackLegalDocuments,
   hashBuybackAgreementSnapshot,
 } from "@/features/buyback/model/buyback-agreement";
+import { assertBuybackSensitiveWorkflowEnabled } from "@/features/buyback/model/buyback-evidence-policy";
 import { buildInventorySaleReceiptSnapshot } from "@/features/inventory/model/inventory-sale-receipt";
 import {
   getInventoryProfit,
@@ -472,6 +473,7 @@ export async function uploadInventoryAttachment(
   const restricted =
     item.source_type === "buyback" ||
     ["id_front", "id_back", "signature", "invoice_photo", "box_photo"].includes(input.kind);
+  if (restricted && actor) assertBuybackSensitiveWorkflowEnabled();
   if (
     restricted &&
     actor &&

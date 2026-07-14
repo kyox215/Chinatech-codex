@@ -6,6 +6,7 @@ import type {
   PatchOrderFinanceInput,
   UpdateOrderInput,
 } from "@/lib/repairdesk/types";
+import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
 import { ForbiddenError } from "@/server/auth-context";
 
 import { allowsPendingStore } from "./repairdesk-router";
@@ -20,6 +21,7 @@ import {
   assertCustomerUpdatePermission,
   assertInventoryCreatePermission,
   assertInventoryIntakeDoesNotBypassBuybackFinalize,
+  assertBuybackSensitiveWorkflowAvailable,
   assertInventoryQualityCheckPermission,
   assertInventorySalePermission,
   assertInventoryTransactionPermission,
@@ -427,6 +429,16 @@ describe("repairdesk router non-order write permissions", () => {
     expect(() => assertLegacyElectronicsImportPermission(actor("owner"))).not.toThrow();
     for (const role of ["manager", "technician", "sales", "viewer"] as const) {
       expect(() => assertLegacyElectronicsImportPermission(actor(role))).toThrow(ForbiddenError);
+    }
+  });
+
+  it("returns the same forbidden feature-off boundary for every store role", () => {
+    for (const role of ["owner", "manager", "technician", "sales", "viewer"] as const) {
+      expect(() => assertBuybackSensitiveWorkflowAvailable()).toThrow(ForbiddenError);
+      expect(() => assertBuybackSensitiveWorkflowAvailable()).toThrow(
+        BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+      );
+      expect(actor(role).storeRole).toBe(role);
     }
   });
 });

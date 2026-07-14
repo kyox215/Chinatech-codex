@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  applyElectronicsCsvImport,
   assertBuybackSaleReadiness,
   assertDirectInventoryTransactionAllowed,
   assertBuybackEvidenceCaptureActor,
+  assertBuybackSensitiveAttachmentWriteEnabled,
+  assertBuybackSensitiveWorkflowWriteEnabled,
   assertInventoryAttachmentAccessState,
   assertInventoryIntakeDoesNotBypassBuybackFinalize,
   assertInventoryTransitionActor,
@@ -13,21 +16,29 @@ import {
   buildInventoryCheckItemPatch,
   fetchInventoryRows,
   fetchInventoryTransactionSummaries,
+  finalizeBuybackPurchase,
   inventoryMutationCas,
   isInventoryAttachmentStorageScoped,
+  mergeBuybackLegacyPayloadForUpdate,
   returnedBuybackInspectionReset,
   sanitizeBuybackLegacyPayload,
+  uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.repository";
-import type { AuditActor } from "@/lib/repairdesk/types";
+import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
+import type { AuditActor, BuybackFinalizeInput } from "@/lib/repairdesk/types";
 
 const mocks = vi.hoisted(() => ({
   supabase: {
     from: vi.fn(),
+    storage: {
+      from: vi.fn(),
+    },
   },
 }));
 
 vi.mock("@/server/supabase", () => ({
   getSupabaseAdmin: () => mocks.supabase,
+  hasSupabaseConfig: () => false,
 }));
 
 const scopedInventoryAttachment = {
@@ -132,7 +143,12 @@ describe("inventory repository tenant storage boundaries", () => {
 });
 
 describe("inventory repository protected buyback writes", () => {
-  it("allowlists compatibility fields and drops arbitrary seller PII", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.storage.from.mockReset();
+  });
+
+  it("keeps safe quote fields while stripping sensitive legacy evidence markers", () => {
     expect(
       sanitizeBuybackLegacyPayload({
         unexpected: { raw: "keep-me-out" },
@@ -167,13 +183,176 @@ describe("inventory repository protected buyback writes", () => {
         purchase_region: "Italia",
         warranty_status: "Scaduta",
       },
+    });
+  });
+
+  it("preserves allowlisted stored evidence metadata while stripping inbound replacements", () => {
+    const merged = mergeBuybackLegacyPayloadForUpdate(
+      {
+        integration_marker: "keep-existing",
+        buyback_quote: { final_offer: 250 },
+        buyback_customer: {
+          name: "Stored seller must not be copied",
+          phone: "+39 333 0000000",
+          document_type: "id_card",
+          document_no_masked: "••••A123",
+          signature_status: "signed",
+          signature_captured: true,
+          id_front_captured: true,
+        },
+      },
+      {
+        buyback_quote: { final_offer: 275 },
+        buyback_customer: {
+          name: "Inbound seller must be stripped",
+          phone: "+39 333 1111111",
+          document_type: "passport",
+          document_no_masked: "••••Z999",
+          signature_status: "pending",
+          signature_captured: false,
+          id_front_captured: false,
+        },
+      },
+    );
+
+    expect(merged).toMatchObject({
+      integration_marker: "keep-existing",
+      buyback_quote: { final_offer: 275 },
       buyback_customer: {
         document_type: "id_card",
         document_no_masked: "••••A123",
         signature_status: "signed",
         signature_captured: true,
+        id_front_captured: true,
       },
     });
+    expect(merged.buyback_customer).not.toHaveProperty("name");
+    expect(merged.buyback_customer).not.toHaveProperty("phone");
+  });
+
+  it("fails closed for every buyback or restricted attachment without blocking normal stock files", () => {
+    for (const kind of [
+      "id_front",
+      "id_back",
+      "signature",
+      "invoice_photo",
+      "box_photo",
+    ] as const) {
+      expect(() => assertBuybackSensitiveAttachmentWriteEnabled(kind, "manual_stock")).toThrow(
+        BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+      );
+    }
+    for (const kind of ["device_photo", "other"] as const) {
+      expect(() => assertBuybackSensitiveAttachmentWriteEnabled(kind, "buyback")).toThrow(
+        BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+      );
+      expect(() =>
+        assertBuybackSensitiveAttachmentWriteEnabled(kind, "manual_stock"),
+      ).not.toThrow();
+    }
+  });
+
+  it("uploads a normal stock attachment with the production legacy row shape", async () => {
+    const owner: AuditActor = {
+      id: "staff_owner",
+      displayName: "Owner",
+      storeId: "store_1",
+      storeRole: "owner",
+    };
+    const itemQuery = createSupabaseSingleQuery({ source_type: "manual_stock" });
+    let insertedAttachmentRow: Record<string, unknown> = {};
+    const attachmentSingle = vi.fn(async () => ({ data: insertedAttachmentRow, error: null }));
+    const attachmentSelect = vi.fn(() => ({ single: attachmentSingle }));
+    const attachmentInsert = vi.fn((row: Record<string, unknown>) => {
+      insertedAttachmentRow = row;
+      return { select: attachmentSelect };
+    });
+    const eventInsert = vi.fn(async () => ({ error: null }));
+    mocks.supabase.from.mockImplementation((table: string) => {
+      if (table === "inventory_items") return itemQuery;
+      if (table === "inventory_attachments") return { insert: attachmentInsert };
+      if (table === "inventory_events") return { insert: eventInsert };
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const storageUpload = vi.fn(async () => ({ error: null }));
+    const storageRemove = vi.fn(async () => ({ error: null }));
+    mocks.supabase.storage.from.mockReturnValue({
+      upload: storageUpload,
+      remove: storageRemove,
+    });
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+    const result = await uploadInventoryAttachment(
+      "item-normal-1234",
+      {
+        kind: "device_photo",
+        file_name: "device.png",
+        mime_type: "image/png",
+        file_size: pngBytes.byteLength,
+        data_base64: pngBytes.toString("base64"),
+        note: "Normal inventory photo",
+      },
+      owner,
+    );
+
+    expect(result.attachment.kind).toBe("device_photo");
+    expect(storageUpload).toHaveBeenCalledTimes(1);
+    expect(attachmentInsert).toHaveBeenCalledTimes(1);
+    for (const migratedColumn of [
+      "sensitivity",
+      "evidence_status",
+      "sha256",
+      "agreement_hash",
+      "staging_expires_at",
+    ]) {
+      expect(insertedAttachmentRow).not.toHaveProperty(migratedColumn);
+    }
+    expect(insertedAttachmentRow).toMatchObject({
+      store_id: "store_1",
+      item_id: "item-normal-1234",
+      kind: "device_photo",
+      storage_bucket: "repairdesk-inventory-attachments",
+      file_name: "device.png",
+      note: "Normal inventory photo",
+    });
+  });
+
+  it("rejects direct upload, finalize and legacy apply before their downstream writes", async () => {
+    const owner: AuditActor = {
+      id: "staff_owner",
+      displayName: "Owner",
+      storeId: "store_1",
+      storeRole: "owner",
+    };
+    const itemQuery = createSupabaseSingleQuery({ source_type: "buyback" });
+    mocks.supabase.from.mockReturnValue(itemQuery);
+
+    await expect(
+      uploadInventoryAttachment(
+        "item-private-1234",
+        {
+          kind: "device_photo",
+          file_name: "identity-private-1234.png",
+          mime_type: "image/png",
+          file_size: 1,
+          data_base64: "not-valid-base64",
+        },
+        owner,
+      ),
+    ).rejects.toThrow(BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE);
+    expect(itemQuery.single).toHaveBeenCalledTimes(1);
+
+    mocks.supabase.from.mockReset();
+    await expect(
+      finalizeBuybackPurchase("item-private-5678", {} as BuybackFinalizeInput, owner),
+    ).rejects.toThrow(BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE);
+    await expect(applyElectronicsCsvImport("private-csv-value", owner)).rejects.toThrow(
+      BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+    );
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    expect(() => assertBuybackSensitiveWorkflowWriteEnabled()).toThrow(
+      BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+    );
   });
 
   it("rejects legacy intake shapes that used to create a payment implicitly", () => {
@@ -440,6 +619,15 @@ function createSupabaseQuery(result: { data: unknown; error: unknown }) {
     in: vi.fn(() => query),
     order: vi.fn(() => query),
     range: vi.fn(() => result),
+  };
+  return query;
+}
+
+function createSupabaseSingleQuery(data: Record<string, unknown>) {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    single: vi.fn(async () => ({ data, error: null })),
   };
   return query;
 }

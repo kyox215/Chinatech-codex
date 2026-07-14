@@ -1,5 +1,20 @@
 # RepairDesk 手机回收与售卖闭环执行计划
 
+## 当前生产状态（2026-07-14）
+
+本文件描述目标闭环；当前生产版本为安全关闭态：
+
+- `/buyback` 只提供四步 `设备 -> 报价 -> 检测 -> 保存`，保存结果是报价与检测记录，不代表付款、成交或入库。
+- 所有角色均不显示证件号码、证件图片、签名、付款和确认成交控件。
+- 服务端默认拒绝回收受限附件上传、回收 finalize、SeaTable 历史电子产品 apply，以及通过 `quote_payload` 伪造证件/签名已采集状态。
+- 普通库存附件继续使用当前生产数据库支持的旧字段结构，不依赖尚未应用的回收证据迁移。
+- 更新旧回收报价时保留数据库中已有的 allowlisted 证件掩码/采集状态，但剥离客户端新传入的证件或签名 marker，不删除既有历史状态。
+- 保存中断后会继续同一条报价记录并刷新当前报价/检测草稿，不重复建单或重复推进状态。
+- SeaTable 历史电子产品 preview 可继续使用；apply 暂停。
+- 当前关闭不包含 Supabase migration、数据回填、历史证据删除或权限扩张。
+
+重新开放必须作为独立发布：先验证生产数据库迁移、私有 Storage/RLS、原子 finalize RPC、保留/删除策略和角色授权，再恢复 UI 与 apply；不能只修改客户端开关。
+
 ## Summary
 
 第一版做内部闭环：客户交机回收、检测估价、付款回收、资料清除、整备维修、上架售卖、成交、售后回溯。登录使用 Supabase 邮箱密码，由管理员先邀请员工并维护 `staff_profiles`；业务写操作通过后端 API 记录员工、时间、实体、变更前后。
@@ -52,7 +67,7 @@ intake -> evaluating -> offer_made -> purchased -> data_wipe -> refurbishing -> 
 - 登录员工可创建回收记录、登记检测、推进状态、上架、售出。
 - 商品详情能看到概览、检测、财务和时间线。
 - 所有库存写操作写入 `audit_logs` 和 `inventory_events`。
-- SeaTable `电子产品` CSV 可预览并应用导入，原始行保存到 payload。
+- SeaTable `电子产品` CSV 目标能力为可预览并应用导入；当前生产安全关闭态仅允许预览。
 - 验证命令：`npm run lint`、`npm run typecheck`、`npm run test`、`npm run build`。
 
 ## Assumptions

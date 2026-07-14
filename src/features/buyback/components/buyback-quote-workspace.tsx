@@ -73,7 +73,11 @@ import {
   isSafeBuybackVerificationNote,
   requiredBuybackDocumentSides,
 } from "@/features/buyback/model/buyback-agreement";
-import { BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
+import {
+  BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES,
+  BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
+} from "@/features/buyback/model/buyback-evidence-policy";
+import { persistRecordOnlyBuybackQuote } from "@/features/buyback/model/buyback-record-save";
 import {
   createInventoryIntake,
   finalizeBuybackPurchase,
@@ -112,7 +116,14 @@ interface BuybackQuoteWorkspaceProps {
 }
 
 type DraftKey = keyof BuybackQuoteDraft;
-type StepKey = (typeof buybackQuoteSteps)[number]["key"];
+const buybackQuoteRecordSteps = [
+  { key: "device", label: "设备" },
+  { key: "quote", label: "报价" },
+  { key: "inspection", label: "检测" },
+  { key: "save", label: "保存" },
+] as const;
+
+type StepKey = (typeof buybackQuoteSteps)[number]["key"] | "save";
 type AttachmentDraft = Partial<Record<BuybackAttachmentKind, File>>;
 type UploadedEvidence = Partial<Record<BuybackAttachmentKind, string>>;
 
@@ -123,10 +134,11 @@ export function BuybackQuoteWorkspace({
   onOpenChange,
   initialDraft,
   targetItem,
-  canCaptureEvidence = false,
-  canFinalize = false,
+  canCaptureEvidence: canCaptureEvidencePermission = false,
+  canFinalize: canFinalizePermission = false,
 }: BuybackQuoteWorkspaceProps) {
   const queryClient = useQueryClient();
+  const stepContentRef = useRef<HTMLDivElement>(null);
   const workingItemIdRef = useRef<string | null>(null);
   const expectedUpdatedAtRef = useRef<string | null>(null);
   const uploadedEvidenceRef = useRef<UploadedEvidence>({});
@@ -137,11 +149,17 @@ export function BuybackQuoteWorkspace({
   const [signatureHash, setSignatureHash] = useState("");
   const [signatureBindingCanonical, setSignatureBindingCanonical] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [isOnline, setIsOnline] = useState(true);
   const [completion, setCompletion] = useState<{
     id: string;
     agreementId?: string;
     reviewOnly?: boolean;
   } | null>(null);
+  const canCaptureEvidence = BUYBACK_SENSITIVE_WORKFLOW_ENABLED && canCaptureEvidencePermission;
+  const canFinalize = BUYBACK_SENSITIVE_WORKFLOW_ENABLED && canFinalizePermission;
+  const activeSteps = BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+    ? buybackQuoteSteps
+    : buybackQuoteRecordSteps;
   const result = useMemo(() => calculateBuybackQuote(draft), [draft]);
   const agreementSnapshot = useMemo(
     () => buildBuybackAgreementSnapshot(draft, result),
@@ -152,9 +170,12 @@ export function BuybackQuoteWorkspace({
     [agreementSnapshot],
   );
   const intakeValidation = useMemo(() => validateBuybackIntake(draft, result), [draft, result]);
-  const currentStep = buybackQuoteSteps[stepIndex];
+  const currentStep = activeSteps[stepIndex];
   const estimateGateMessage = getEstimateGateMessage(draft);
-  const functionGateMessage = useMemo(() => getFunctionGateMessage(draft, result), [draft, result]);
+  const functionGateMessage = useMemo(
+    () => getFunctionGateMessage(draft, result, BUYBACK_SENSITIVE_WORKFLOW_ENABLED),
+    [draft, result],
+  );
   const sellerGateMessage = canCaptureEvidence
     ? getSellerGateMessage(draft)
     : getSellerReviewGateMessage(draft);
@@ -196,6 +217,23 @@ export function BuybackQuoteWorkspace({
     uploadedEvidenceRef.current = {};
     idempotencyKeyRef.current = crypto.randomUUID();
   }, [initialDraft, open, targetItem?.id, targetItem?.updated_at]);
+
+  useEffect(() => {
+    const syncOnlineState = () => setIsOnline(window.navigator.onLine);
+    syncOnlineState();
+    window.addEventListener("online", syncOnlineState);
+    window.addEventListener("offline", syncOnlineState);
+    return () => {
+      window.removeEventListener("online", syncOnlineState);
+      window.removeEventListener("offline", syncOnlineState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = window.requestAnimationFrame(() => stepContentRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, stepIndex]);
 
   useEffect(() => {
     if (!signatureBindingCanonical || signatureBindingCanonical === agreementCanonical) return;
@@ -310,12 +348,14 @@ export function BuybackQuoteWorkspace({
     mutationFn: async () => {
       if (targetItem) {
         const input = buildBuybackQuoteDraftUpdateInput(draft, result, "deferred");
+        if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) delete input.payment_method;
         await updateInventoryItem(targetItem.id, input);
         await advanceDeferredBuybackQuote(targetItem.id, targetItem.status, result);
         return { id: targetItem.id, mode: "updated" as const };
       }
 
       const input = buildBuybackQuoteDraftInput(draft, result, "deferred");
+      if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) delete input.payment_method;
       const { id } = await createInventoryIntake(input);
       await transitionInventoryItem(id, "offer_made", {
         reason: `客户考虑中，初步报价 €${result.finalOffer.toFixed(2)}`,
@@ -336,36 +376,45 @@ export function BuybackQuoteWorkspace({
   const reviewMutation = useMutation({
     mutationFn: async () => {
       if (canCaptureEvidence) throw new Error("当前员工可以继续采集证件，无需提交交接");
-      const gate = getSellerReviewGateMessage(draft);
-      if (gate) throw new Error(gate);
 
-      if (targetItem) {
-        const patch = buildBuybackQuoteReviewUpdateInput(draft, result);
-        delete patch.repair_cost_amount;
-        await updateInventoryItem(targetItem.id, patch);
-        if (targetItem.status === "intake" || targetItem.status === "evaluating") {
-          await transitionInventoryItem(targetItem.id, "offer_made", {
-            reason: "报价与检测已完成，等待负责人采集证件和签名",
-          });
-        }
-        return { id: targetItem.id };
-      }
-
-      const input = buildBuybackQuoteCreateInput(draft, result);
-      delete input.repair_cost_amount;
-      const { id } = await createInventoryIntake(input);
-      await transitionInventoryItem(id, "offer_made", {
-        reason: "报价与检测已完成，等待负责人采集证件和签名",
+      return persistRecordOnlyBuybackQuote({
+        existingItemId: workingItemIdRef.current,
+        create: async () => {
+          const input = buildBuybackQuoteCreateInput(draft, result);
+          delete input.repair_cost_amount;
+          delete input.payment_method;
+          return createInventoryIntake(input);
+        },
+        rememberItemId: (id) => {
+          workingItemIdRef.current = id;
+        },
+        loadStatus: async (id) => (await getInventoryItem(id)).item.status,
+        updateExisting: async (id) => {
+          const patch = buildBuybackQuoteReviewUpdateInput(draft, result);
+          delete patch.repair_cost_amount;
+          delete patch.payment_method;
+          await updateInventoryItem(id, patch);
+        },
+        transitionToOfferMade: (id) =>
+          transitionInventoryItem(id, "offer_made", {
+            reason: "报价与检测已保存，成交资料功能暂时关闭",
+          }),
       });
-      return { id };
     },
     onSuccess: async ({ id }) => {
-      toast.success("报价与检测已提交负责人");
+      toast.success("报价与检测记录已保存");
       await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
       setCompletion({ id, reviewOnly: true });
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "提交负责人失败，请稍后重试"),
+    onError: (error) => {
+      const detail = error instanceof Error ? error.message : "保存失败";
+      const retryHint = workingItemIdRef.current
+        ? "已创建的记录会继续保留；请保持本页打开并重试。"
+        : "报价和检测结果仍保留在本页；请检查网络后重试。";
+      const message = `${detail}。${retryHint}`;
+      setSaveError(message);
+      toast.error(message);
+    },
   });
 
   function updateDraft<K extends DraftKey>(key: K, value: BuybackQuoteDraft[K]) {
@@ -448,7 +497,9 @@ export function BuybackQuoteWorkspace({
             amount={result.finalOffer}
             reviewOnly={completion.reviewOnly}
             onNew={() => resetWorkspace()}
-            onInventory={() => window.location.assign("/inventory")}
+            onInventory={() =>
+              window.location.assign(completion.reviewOnly ? "/buyback" : "/inventory")
+            }
             onClose={() => onOpenChange(false)}
           />
         </SheetContent>
@@ -485,13 +536,17 @@ export function BuybackQuoteWorkspace({
                 </Button>
                 <div className="min-w-0 text-center">
                   <SheetTitle className="truncate text-xs font-semibold leading-4">
-                    引导式回收
+                    {BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? "引导式回收" : "回收报价"}
                   </SheetTitle>
                   <p className="truncate text-[9px] leading-3 text-muted-foreground">
-                    {currentStep.label} · {stepSubtitle(currentStep.key, result, draft)}
+                    {BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+                      ? `${currentStep.label} · ${stepSubtitle(currentStep.key, result, draft)}`
+                      : `仅估价、确认与检测 · ${currentStep.label}`}
                   </p>
                   <SheetDescription className="sr-only">
-                    按设备信息、检测结果和风险规则生成回收报价。
+                    {BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+                      ? "按设备信息、检测结果和风险规则生成回收报价。"
+                      : "当前只能保存报价与检测。资料登记和回收成交暂时关闭，本流程不会要求证件号码、证件图片或客户签名。"}
                   </SheetDescription>
                 </div>
                 <Button
@@ -499,7 +554,13 @@ export function BuybackQuoteWorkspace({
                   variant="ghost"
                   size="sm"
                   className="h-11 shrink-0 gap-1 rounded-lg px-2 text-[11px]"
-                  onClick={() => toast.info("保存成交后，可在库存详情里查看历史记录和附件凭证")}
+                  onClick={() =>
+                    toast.info(
+                      BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+                        ? "保存成交后，可在库存详情里查看历史记录和附件凭证"
+                        : "保存后，可在回收列表查看报价与检测记录",
+                    )
+                  }
                 >
                   <History className="size-3.5" />
                   历史
@@ -515,21 +576,51 @@ export function BuybackQuoteWorkspace({
                       {stepHelper(currentStep.key, result, draft)}
                     </p>
                   </div>
-                  <Badge
-                    variant={result.hardBlock ? "destructive" : "outline"}
-                    className="scale-90 text-[10px]"
-                  >
-                    {stepBadgeLabel(currentStep.key, result)}
-                  </Badge>
+                  {BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? (
+                    <Badge
+                      variant={result.hardBlock ? "destructive" : "outline"}
+                      className="scale-90 text-[10px]"
+                    >
+                      {stepBadgeLabel(currentStep.key, result)}
+                    </Badge>
+                  ) : (
+                    <Badge className="border-0 bg-status-warn text-[10px] text-status-warn-foreground">
+                      资料关闭
+                    </Badge>
+                  )}
                 </div>
-                <QuoteStepper activeIndex={stepIndex} />
+                <QuoteStepper activeIndex={stepIndex} steps={activeSteps} />
               </div>
             </section>
           </SheetHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5 md:px-3">
+            {!BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? (
+              <section
+                className={cn(
+                  repairOs.mobileInfoCard,
+                  "mx-auto mb-2 flex w-full max-w-[430px] items-start gap-2 border-status-warn-foreground/20 bg-status-warn md:max-w-[1080px]",
+                )}
+                aria-label="当前流程范围"
+              >
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-status-warn-foreground" />
+                <div className="min-w-0">
+                  <h2 className="text-xs font-semibold text-status-warn-foreground">
+                    当前只能保存报价与检测
+                  </h2>
+                  <p className="mt-0.5 text-[11px] leading-4 text-status-warn-foreground/90">
+                    资料登记和回收成交暂时关闭。本流程不会要求证件号码、证件图片或客户签名。
+                  </p>
+                </div>
+              </section>
+            ) : null}
             <div className="mx-auto grid w-full max-w-[430px] gap-2 md:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="min-w-0">
+              <div
+                ref={stepContentRef}
+                className="min-w-0 focus:outline-none"
+                tabIndex={-1}
+                aria-label={`当前步骤：${currentStep.label}`}
+              >
                 {currentStep.key === "device" ? (
                   <QuickEstimateStep draft={draft} result={result} updateDraft={updateDraft} />
                 ) : null}
@@ -550,6 +641,9 @@ export function BuybackQuoteWorkspace({
                     updateDraft={updateDraft}
                     collectEvidenceDetails={canCaptureEvidence}
                   />
+                ) : null}
+                {currentStep.key === "save" ? (
+                  <QuoteRecordOnlyStep result={result} saveError={saveError} isOnline={isOnline} />
                 ) : null}
                 {currentStep.key === "evidence" ? (
                   <EvidenceStep
@@ -578,6 +672,7 @@ export function BuybackQuoteWorkspace({
                 result={result}
                 validation={intakeValidation}
                 currentStepLabel={currentStep.label}
+                recordOnly={!BUYBACK_SENSITIVE_WORKFLOW_ENABLED}
               />
             </div>
           </div>
@@ -589,7 +684,7 @@ export function BuybackQuoteWorkspace({
                 variant="outline"
                 size="sm"
                 className="h-11 shrink-0 rounded-lg px-2 text-xs"
-                disabled={stepIndex === 0}
+                disabled={stepIndex === 0 || reviewMutation.isPending || saveMutation.isPending}
                 onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
               >
                 <ChevronLeft className="size-3.5" />
@@ -598,7 +693,27 @@ export function BuybackQuoteWorkspace({
               <div className="hidden line-clamp-2 min-w-0 text-center text-[10px] leading-3 text-muted-foreground sm:block">
                 {footerHint}
               </div>
-              {stepIndex < buybackQuoteSteps.length - 1 ? (
+              {currentStep.key === "save" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className={cn("h-11 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
+                  style={brandGradientStyle}
+                  disabled={reviewMutation.isPending || !isOnline}
+                  aria-busy={reviewMutation.isPending}
+                  onClick={() => {
+                    setSaveError("");
+                    reviewMutation.mutate();
+                  }}
+                >
+                  <FileText className="size-3.5" />
+                  {reviewMutation.isPending
+                    ? "正在保存记录…"
+                    : result.hardBlock
+                      ? "保存风险检测记录"
+                      : "保存报价与检测记录"}
+                </Button>
+              ) : stepIndex < activeSteps.length - 1 ? (
                 <Button
                   type="button"
                   size="sm"
@@ -620,12 +735,17 @@ export function BuybackQuoteWorkspace({
                       reviewMutation.mutate();
                       return;
                     }
-                    setStepIndex((current) => Math.min(buybackQuoteSteps.length - 1, current + 1));
+                    setStepIndex((current) => Math.min(activeSteps.length - 1, current + 1));
                   }}
                 >
                   {reviewMutation.isPending && currentStep.key === "seller"
                     ? "正在提交…"
-                    : nextButtonLabel(currentStep.key, draft, canCaptureEvidence)}
+                    : nextButtonLabel(
+                        currentStep.key,
+                        draft,
+                        canCaptureEvidence,
+                        BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
+                      )}
                   <ChevronRight className="size-3.5" />
                 </Button>
               ) : (
@@ -653,15 +773,28 @@ export function BuybackQuoteWorkspace({
   );
 }
 
-function QuoteStepper({ activeIndex }: { activeIndex: number }) {
+function QuoteStepper({
+  activeIndex,
+  steps,
+}: {
+  activeIndex: number;
+  steps: readonly { key: StepKey; label: string }[];
+}) {
   return (
     <div className="mt-1.5">
-      <div className="grid grid-cols-6 gap-1" aria-label={`步骤 ${activeIndex + 1} / 6`}>
-        {buybackQuoteSteps.map((step, index) => {
+      <ol
+        className={cn("grid gap-1", steps.length === 4 ? "grid-cols-4" : "grid-cols-6")}
+        aria-label={`步骤 ${activeIndex + 1} / ${steps.length}`}
+      >
+        {steps.map((step, index) => {
           const active = index === activeIndex;
           const complete = index < activeIndex;
           return (
-            <div key={step.key} className="relative min-w-0 text-center">
+            <li
+              key={step.key}
+              className="relative min-w-0 text-center"
+              aria-current={active ? "step" : undefined}
+            >
               {index > 0 ? (
                 <div className="absolute right-1/2 top-2.5 h-px w-full bg-primary/25" />
               ) : null}
@@ -679,16 +812,16 @@ function QuoteStepper({ activeIndex }: { activeIndex: number }) {
               </span>
               <p
                 className={cn(
-                  "mt-0.5 hidden truncate text-[9px] leading-3 sm:block",
+                  "mt-0.5 truncate text-[9px] leading-3",
                   active ? "font-medium text-primary" : "text-muted-foreground",
                 )}
               >
                 {step.label}
               </p>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }
@@ -704,6 +837,7 @@ function stepSubtitle(
   }
   if (step === "quote") return "向客户说明价格";
   if (step === "inspection") return "检测账号锁与功能";
+  if (step === "save") return "保存报价与检测记录";
   if (step === "seller") return "只登记成交所需资料";
   if (step === "evidence") return "拍证件并现场签名";
   return "最后核对并安全成交";
@@ -717,6 +851,7 @@ function stepHelper(
   if (step === "device") return getEstimateGateMessage(draft) || "先选设备，系统自动计算";
   if (step === "quote") return `当前报价 €${result.finalOffer.toFixed(0)} · 等客户确认`;
   if (step === "inspection") return "客户已同意 · 按清单逐项检查";
+  if (step === "save") return "只保存报价与检测 · 不完成成交";
   if (step === "seller") return "姓名、电话、证件类型和声明";
   if (step === "evidence") return "证件进入私有受限存储";
   return "成交后自动生成付款并转入库存";
@@ -727,6 +862,7 @@ function stepBadgeLabel(step: StepKey, result: ReturnType<typeof calculateBuybac
   if (step === "device") return "第 1 / 6 步";
   if (step === "quote") return "待确认";
   if (step === "inspection") return "检测中";
+  if (step === "save") return "待保存";
   if (step === "seller") return "登记中";
   if (step === "evidence") return "受限资料";
   return "待成交";
@@ -737,6 +873,7 @@ function stepFooterHint(step: StepKey, result: ReturnType<typeof calculateBuybac
   if (step === "device") return `建议 €${result.suggestedLow}-${result.suggestedHigh}`;
   if (step === "quote") return "客户同意后继续";
   if (step === "inspection") return `检测后 €${result.finalOffer.toFixed(0)}`;
+  if (step === "save") return "不会登记证件、签名或付款";
   if (step === "seller") return "仅收集必要资料";
   if (step === "evidence") return "签名需绑定当前摘要";
   return "所有写入一次完成";
@@ -756,6 +893,9 @@ function getCurrentFooterHint(
   }
   if (step === "device" && estimateGateMessage) return estimateGateMessage;
   if (step === "inspection" && functionGateMessage) return functionGateMessage;
+  if (step === "save") {
+    return result.hardBlock ? "仅保存风险记录，不会完成成交" : "保存后返回回收列表";
+  }
   if (step === "seller") {
     const sellerGate = canCaptureEvidence
       ? getSellerGateMessage(draft)
@@ -778,8 +918,9 @@ function getEstimateGateMessage(draft: BuybackQuoteDraft) {
 function getFunctionGateMessage(
   draft: BuybackQuoteDraft,
   result: ReturnType<typeof calculateBuybackQuote>,
+  blockHardRisk = true,
 ) {
-  if (result.hardBlock) {
+  if (blockHardRisk && result.hardBlock) {
     return (
       result.riskNotes.find((note) => /锁|IMEI|抹除|解锁/.test(note)) ?? "存在硬阻断，不能继续成交"
     );
@@ -790,13 +931,15 @@ function getFunctionGateMessage(
     return status === "unchecked" || status === "not_applicable";
   });
   if (!missingRequiredItem) return "";
-  if (draft[missingRequiredItem.key] === "not_applicable") {
-    return `${missingRequiredItem.label}不能跳过`;
-  }
-  return `${missingRequiredItem.label}还未检测`;
+  return `请先完成「${missingRequiredItem.label}」检测`;
 }
 
-function nextButtonLabel(step: StepKey, draft: BuybackQuoteDraft, canCaptureEvidence: boolean) {
+function nextButtonLabel(
+  step: StepKey,
+  draft: BuybackQuoteDraft,
+  canCaptureEvidence: boolean,
+  sensitiveWorkflowEnabled: boolean,
+) {
   if (step === "device") {
     if (!draft.model.trim()) return "先选型号";
     if (!draft.storage_capacity.trim()) return "先选容量";
@@ -804,7 +947,9 @@ function nextButtonLabel(step: StepKey, draft: BuybackQuoteDraft, canCaptureEvid
     return "下一步：查看回收价格";
   }
   if (step === "quote") return "客户接受，开始检查手机";
-  if (step === "inspection") return "检测完成，登记卖家";
+  if (step === "inspection") {
+    return sensitiveWorkflowEnabled ? "检测完成，登记卖家" : "检测完成，进入保存";
+  }
   if (step === "seller") {
     return canCaptureEvidence ? "下一步：拍摄证件" : "提交负责人继续回收";
   }
@@ -1727,7 +1872,9 @@ function IntentStep({
         badgeLabel={result.hardBlock ? "风险待处理" : "可继续"}
       >
         <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-          这是给客户看的初步口头估价。客户同意后，再进入账号锁、功能检测、实名资料和签名登记。
+          {BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+            ? "这是给客户看的初步口头估价。客户同意后，再进入账号锁、功能检测、实名资料和签名登记。"
+            : "这是给客户看的初步口头估价。客户同意后，可继续做功能检测并保存记录。"}
         </p>
       </QuoteSummaryCard>
 
@@ -1738,7 +1885,15 @@ function IntentStep({
           subtitle="避免一开始就收集敏感资料，先确认客户意向。"
         />
         <div className="grid gap-1.5">
-          <ProcessRow index="1" title="客户接受简易报价" detail="确认愿意继续检测和登记资料。" />
+          <ProcessRow
+            index="1"
+            title="客户接受简易报价"
+            detail={
+              BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+                ? "确认愿意继续检测和登记资料。"
+                : "确认愿意继续检测并保存报价记录。"
+            }
+          />
           <ProcessRow
             index="2"
             title="检测手机功能"
@@ -1746,8 +1901,12 @@ function IntentStep({
           />
           <ProcessRow
             index="3"
-            title="登记成交资料"
-            detail="姓名、电话、证件、签名，保存为回收单。"
+            title={BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? "登记成交资料" : "保存报价与检测"}
+            detail={
+              BUYBACK_SENSITIVE_WORKFLOW_ENABLED
+                ? "姓名、电话、证件、签名，保存为回收单。"
+                : "不会登记证件、签名、付款或完成回收成交。"
+            }
           />
         </div>
         <div className="grid grid-cols-2 gap-1.5 border-t border-[var(--border-panel)] pt-2">
@@ -2110,13 +2269,17 @@ function QuoteWorkspaceSidebar({
   result,
   validation,
   currentStepLabel,
+  recordOnly = false,
 }: {
   draft: BuybackQuoteDraft;
   result: ReturnType<typeof calculateBuybackQuote>;
   validation: ReturnType<typeof validateBuybackIntake>;
   currentStepLabel: string;
+  recordOnly?: boolean;
 }) {
-  const pendingItems = [...validation.missing, ...validation.hardBlockReasons];
+  const pendingItems = recordOnly
+    ? result.riskNotes
+    : [...validation.missing, ...validation.hardBlockReasons];
 
   return (
     <aside className="hidden min-w-0 space-y-2 lg:block">
@@ -2129,14 +2292,20 @@ function QuoteWorkspaceSidebar({
         >
           <div className="grid grid-cols-2 gap-1.5 text-[10px] leading-4">
             <InfoLine label="当前步骤" value={currentStepLabel} />
-            <InfoLine label="资料状态" value={validation.canSave ? "可入库" : "待补齐"} />
+            <InfoLine
+              label={recordOnly ? "当前范围" : "资料状态"}
+              value={recordOnly ? "报价与检测" : validation.canSave ? "可入库" : "待补齐"}
+            />
+            {recordOnly ? <InfoLine label="成交状态" value="未完成" /> : null}
             <InfoLine label="市场低位" value={`€ ${result.marketMin}`} />
             <InfoLine label="市场高位" value={`€ ${result.marketMax}`} />
           </div>
         </QuoteSummaryCard>
         <section className={quoteCardClass}>
           <div className="flex min-w-0 items-center justify-between gap-2">
-            <h3 className="truncate text-[11px] font-semibold leading-4">风险与缺口</h3>
+            <h3 className="truncate text-[11px] font-semibold leading-4">
+              {recordOnly ? "检测风险" : "风险与缺口"}
+            </h3>
             <Badge
               variant={pendingItems.length ? "secondary" : "outline"}
               className="shrink-0 text-[10px]"
@@ -2157,10 +2326,10 @@ function QuoteWorkspaceSidebar({
             </ul>
           ) : (
             <p className="rounded-lg border border-status-success-foreground/20 bg-status-success px-2 py-1.5 text-[10px] leading-4 text-status-success-foreground">
-              资料和硬性风险已满足当前保存要求。
+              {recordOnly ? "未发现需要特别记录的检测风险。" : "资料和硬性风险已满足当前保存要求。"}
             </p>
           )}
-          {result.riskNotes.length ? (
+          {!recordOnly && result.riskNotes.length ? (
             <p className="line-clamp-3 text-[10px] leading-4 text-muted-foreground">
               {result.riskNotes.join("；")}
             </p>
@@ -2292,6 +2461,65 @@ function FunctionStep({
             </div>
           </div>
         </div>
+      </section>
+    </div>
+  );
+}
+
+function QuoteRecordOnlyStep({
+  result,
+  saveError,
+  isOnline,
+}: {
+  result: ReturnType<typeof calculateBuybackQuote>;
+  saveError: string;
+  isOnline: boolean;
+}) {
+  return (
+    <div className="space-y-2" aria-busy="false">
+      <section className={quoteCardClass}>
+        <SectionTitle
+          icon={FileText}
+          title="资料登记暂时关闭"
+          subtitle="本次只能保存报价与检测记录，不能完成回收成交。"
+        />
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="rounded-lg bg-status-success px-2.5 py-2 text-status-success-foreground">
+            <p className="text-[11px] font-semibold">本次会保存</p>
+            <p className="mt-0.5 text-[10px] leading-4">设备信息、客户意向、报价和功能检测</p>
+          </div>
+          <div className="rounded-lg bg-status-warn px-2.5 py-2 text-status-warn-foreground">
+            <p className="text-[11px] font-semibold">本次不会保存</p>
+            <p className="mt-0.5 text-[10px] leading-4">证件号码、证件图片、客户签名或付款记录</p>
+          </div>
+          <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2">
+            <p className="text-[11px] font-semibold">保存后</p>
+            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+              返回回收列表查看记录；资料登记恢复后再按门店流程继续。
+            </p>
+          </div>
+        </div>
+        {result.hardBlock ? (
+          <p className="rounded-lg bg-status-warn px-2.5 py-2 text-[11px] leading-4 text-status-warn-foreground">
+            检测到风险。本次仅保存为风险记录，不会完成成交。
+          </p>
+        ) : null}
+        {!isOnline ? (
+          <p
+            role="alert"
+            className="rounded-lg bg-status-danger px-2.5 py-2 text-[11px] leading-4 text-status-danger-foreground"
+          >
+            当前离线，记录尚未保存。联网后再试。
+          </p>
+        ) : null}
+        {saveError ? (
+          <p
+            role="alert"
+            className="rounded-lg bg-status-danger px-2.5 py-2 text-[11px] leading-4 text-status-danger-foreground"
+          >
+            {saveError}
+          </p>
+        ) : null}
       </section>
     </div>
   );
@@ -2663,46 +2891,52 @@ function BuybackSuccess({
   return (
     <div className="flex min-h-[520px] flex-col bg-[var(--surface-workspace)] p-3 sm:p-5">
       <SheetHeader className="sr-only">
-        <SheetTitle>回收成交成功</SheetTitle>
-        <SheetDescription>回收付款、协议和库存已完成。</SheetDescription>
+        <SheetTitle>回收报价结果</SheetTitle>
+        <SheetDescription>
+          {reviewOnly
+            ? "本次记录尚未完成回收成交，本次保存未新增证件、签名或付款资料。"
+            : "回收付款、协议和库存已完成。"}
+        </SheetDescription>
       </SheetHeader>
-      <div className="m-auto w-full max-w-md space-y-4 text-center">
+      <div className="m-auto w-full max-w-md space-y-4 text-center" aria-live="polite">
         <span className="mx-auto grid size-16 place-items-center rounded-full bg-status-success text-status-success-foreground">
           <CheckCircle2 className="size-9" />
         </span>
         <div>
           <h2 className="text-xl font-semibold">
-            {reviewOnly ? "资料已提交负责人" : "回收成交完成"}
+            {reviewOnly ? "报价与检测记录已保存" : "回收成交完成"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {reviewOnly
-              ? "报价和检测已保存，证件与签名等待店主或店长采集"
+              ? "本次记录尚未完成回收成交；本次保存未新增证件、签名或付款资料。"
               : "付款、协议与库存记录已一次写入"}
           </p>
         </div>
         <section className={cn(quoteCardClass, "text-left")}>
           <InfoLine label="回收编号" value={itemId.slice(0, 12)} />
-          <InfoLine label="成交金额" value={`€${amount.toFixed(2)}`} />
+          <InfoLine label={reviewOnly ? "报价金额" : "成交金额"} value={`€${amount.toFixed(2)}`} />
           <InfoLine
             label="下一步"
-            value={reviewOnly ? "负责人登记证件、签名并确认成交" : "执行数据清除并准备翻新"}
+            value={reviewOnly ? "资料登记恢复后，再按门店流程继续" : "执行数据清除并准备翻新"}
           />
         </section>
         <div className="grid gap-2 sm:grid-cols-2">
           <Button type="button" className="min-h-11" onClick={onInventory}>
-            查看库存
+            {reviewOnly ? "返回回收列表" : "查看库存"}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            onClick={() => window.print()}
-          >
-            <ReceiptText className="size-4" />
-            打印回收凭据
-          </Button>
+          {!reviewOnly ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => window.print()}
+            >
+              <ReceiptText className="size-4" />
+              打印回收凭据
+            </Button>
+          ) : null}
           <Button type="button" variant="outline" className="min-h-11" onClick={onNew}>
-            新建回收
+            {reviewOnly ? "开始新的报价" : "新建回收"}
           </Button>
           <Button type="button" variant="ghost" className="min-h-11" onClick={onClose}>
             完成并关闭

@@ -70,13 +70,15 @@ describe("buyback record workflow", () => {
       ["估价", true, false],
       ["确认", true, false],
       ["检测", false, true],
-      ["成交", false, false],
+      ["保存", false, false],
     ]);
     expect(progress.nextAction).toBe("下一步：完成功能检测");
   });
 
   it("uses risk review as the first next action for high risk records", () => {
-    expect(getBuybackNextActionLabel("offer_made", "high")).toBe("下一步：负责人复核风险后再成交");
+    expect(getBuybackNextActionLabel("offer_made", "high")).toBe(
+      "下一步：负责人复核风险后保存记录",
+    );
   });
 
   it("summarizes buyback list counts by work state", () => {
@@ -149,7 +151,7 @@ describe("buyback record workflow", () => {
     expect(getBuybackInventoryHandoff("purchased", "low")).toMatchObject({
       target: "inventory",
       label: "库存整备",
-      actionLabel: "复估 / 整备",
+      actionLabel: "打开库存",
     });
     expect(getBuybackInventoryHandoff("listed", "low")).toMatchObject({
       target: "sales",
@@ -170,9 +172,9 @@ describe("buyback record workflow", () => {
       tone: "info",
     });
     expect(getBuybackRecordTaskGuidance("offer_made", "low")).toMatchObject({
-      title: "等待客户确认",
-      primaryAction: "客户确认",
-      tone: "warning",
+      title: "报价与检测已保存",
+      primaryAction: "复估或补检测",
+      tone: "info",
     });
     expect(getBuybackRecordTaskGuidance("evaluating", "low").checklist).toContain(
       "核对 IMEI / 序列号",
@@ -182,14 +184,37 @@ describe("buyback record workflow", () => {
       primaryAction: "库存整备",
       tone: "success",
     });
+    expect(getBuybackRecordTaskGuidance("purchased", "low").checklist).toContain(
+      "不要补采证件或签名",
+    );
   });
 
-  it("prioritizes risk guidance before normal handoff work", () => {
-    const guidance = getBuybackRecordTaskGuidance("ready_for_sale", "high");
+  it("prioritizes risk guidance while a quote can still be resumed", () => {
+    const guidance = getBuybackRecordTaskGuidance("offer_made", "high");
 
     expect(guidance.title).toBe("先做负责人复核");
     expect(guidance.primaryAction).toBe("复核风险");
-    expect(guidance.checklist).toContain("店长确认最终收购价");
+    expect(guidance.checklist).toContain("店长确认最终报价");
+  });
+
+  it("keeps purchased high-risk records in read-only inventory guidance", () => {
+    const guidance = getBuybackRecordTaskGuidance("purchased", "high");
+
+    expect(guidance).toMatchObject({
+      title: "进入库存整备",
+      primaryAction: "库存整备",
+      tone: "success",
+    });
+    expect(guidance.checklist).toContain("历史凭证保持只读");
+    expect(guidance.checklist).toContain("不要补采证件或签名");
+  });
+
+  it("keeps ready-for-sale high-risk records in sales guidance", () => {
+    expect(getBuybackRecordTaskGuidance("ready_for_sale", "high")).toMatchObject({
+      title: "售卖跟进",
+      primaryAction: "查看销售",
+      tone: "success",
+    });
   });
 
   it("summarizes the next missing buyback action for list cards", () => {
@@ -240,13 +265,13 @@ describe("buyback record workflow", () => {
     expect(readiness.missing).toEqual(["账号锁 / Find My 未关闭"]);
   });
 
-  it("asks for proof before treating a purchased buyback as ready for inventory", () => {
+  it("does not ask staff to collect sensitive proof while the workflow is off", () => {
     const readiness = getBuybackRecordReadiness(
       makeItem("purchased", {
         customer_name: "Mario Rossi",
         customer_phone: "+393331234567",
         imei_check_status: "pass",
-        data_wipe_status: "pass",
+        data_wipe_status: "unchecked",
         legacy_payload: {
           buyback_quote: {
             final_offer: 180,
@@ -295,10 +320,10 @@ describe("buyback record workflow", () => {
 
     expect(readiness).toMatchObject({
       state: "todo",
-      label: "补齐成交凭证",
-      detail: "还缺 无发票确认",
+      label: "补齐库存整备",
+      detail: "还缺 数据抹除记录",
     });
-    expect(readiness.missing).toEqual(["无发票确认", "无原装盒确认"]);
+    expect(readiness.missing).toEqual(["数据抹除记录"]);
   });
 
   it("accepts a passport data page and signed no-invoice/no-box declarations", () => {

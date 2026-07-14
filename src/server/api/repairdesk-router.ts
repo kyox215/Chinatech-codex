@@ -74,6 +74,10 @@ import {
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
 import {
+  BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+  BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
+} from "@/features/buyback/model/buyback-evidence-policy";
+import {
   getStoreSettings,
   listMessageTemplates,
   renderMessageTemplatePreview,
@@ -1412,6 +1416,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         if (
           ["id_front", "id_back", "signature", "invoice_photo", "box_photo"].includes(input.kind)
         ) {
+          assertBuybackSensitiveWorkflowAvailable();
           assertBuybackEvidenceCapturePermission(actor);
         } else {
           assertInventoryUpdatePermission(actor);
@@ -1430,6 +1435,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/buyback/finalize": {
         const { id, input } = buybackFinalizeBodySchema.parse(body);
+        assertBuybackSensitiveWorkflowAvailable();
         assertBuybackFinalizePermission(actor);
         return ok(
           await runWithRealtime(
@@ -1468,6 +1474,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "inventory/import/electronics/apply": {
         const { csvContent } = electronicsCsvImportBodySchema.parse(body);
+        assertBuybackSensitiveWorkflowAvailable();
         assertLegacyElectronicsImportPermission(actor);
         return ok(
           await runWithRealtime(
@@ -1799,6 +1806,12 @@ export function assertBuybackEvidenceCapturePermission(actor: AuditActor) {
 
 export function assertBuybackFinalizePermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "buyback:finalize");
+}
+
+export function assertBuybackSensitiveWorkflowAvailable() {
+  if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED) {
+    throw new ForbiddenError(BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE);
+  }
 }
 
 export function assertInventorySalePermission(actor: AuditActor) {
