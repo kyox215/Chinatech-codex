@@ -3,7 +3,7 @@ schema_version: 1
 department: backend
 status: active
 owner: Backend Department / Integration Lead
-last_verified_at: 2026-07-13
+last_verified_at: 2026-07-14
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -35,6 +35,7 @@ as owner of this file.
 - `TASK-20260713-001-order-active-status-homepage` supersedes the default-home predicate from the custody task: the server filters `completed` and `cancelled` before counts and pagination, independent of payment, delivery or custody evidence. Every nonterminal order remains operationally visible. Completion and cancelled-device actions still preserve finance fields and remain available through authorized history/detail paths.
 - `TASK-20260713-002-order-search-grouped-results` defines the shared repository/mock list contract: sort by the six active queue groups, then `completed`, then `cancelled`; within each group use `created_at ASC`, followed by `public_no` and `id`. `OrderListResult.resultGroupCounts` reports the exact filtered result set without weakening archive, assignment or finance projection permissions.
 - `TASK-20260712-005-buyback-guided-evidence` establishes a dedicated sensitive buyback boundary: Sales handoff is separate from Owner/Manager restricted-evidence capture/finalize; generic inventory updates cannot write signed acquisition fields, direct buyback payment or `purchased`; finalize uses expected version, idempotency and one RPC; quality-check updates use status/version CAS and patch only submitted fields.
+- While `BUYBACK_SENSITIVE_WORKFLOW_ENABLED` is false, `TASK-20260714-001-buyback-sensitive-evidence-feature-off` makes the router and repository reject every buyback attachment, restricted kind, finalize and legacy evidence apply regardless of client or role. Ordinary inventory attachments use the legacy production row shape. Quote updates merge stored allowlisted markers with sanitized inbound metadata, and partial-save retries load and refresh the remembered record before any transition.
 
 ## Interfaces and dependencies
 
@@ -81,3 +82,4 @@ as owner of this file.
 | 2026-07-13 | Simplified default-home visibility to terminal status and moved filtering before counts/pagination | TASK-20260713-001-order-active-status-homepage | Integration Lead + QA reviewer | active |
 | 2026-07-13 | Added result-group counts and stable status-first, oldest-intake-first order sorting | TASK-20260713-002-order-search-grouped-results | Integration Lead | active |
 | 2026-07-13 | Added restricted buyback command boundary, quality CAS and generic-write bypass guards | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | verified_local |
+| 2026-07-14 | Added production feature-off deny coverage, legacy attachment-schema compatibility and same-record retry refresh | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + security reviewer | active |

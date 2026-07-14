@@ -3,7 +3,7 @@ schema_version: 1
 department: security
 status: active
 owner: Security Department / Integration Lead
-last_verified_at: 2026-07-13
+last_verified_at: 2026-07-14
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -37,6 +37,7 @@ as owner of this file.
 - `TASK-20260712-002-global-staff-permissions` closes the approved global staff-policy gap: mutable technician names are never authorization keys, kiosk session review is owner/manager-only, and browser 401/403 authority loss clears tenant-sensitive caches before paint. Production assignment/grant migrations remain unapplied until the separate database gate.
 - `TASK-20260713-001-order-active-status-homepage` hides all `completed` and `cancelled` rows from the default homepage without deleting or rewriting them. Cancelled-device return, settlement contradictions and other custody reminders remain on the authorized order detail/history paths. Exact archived-order lookup remains a single-order capability, while archive browsing, aggregate totals and bulk output stay separately gated.
 - `TASK-20260712-005-buyback-guided-evidence` verifies local fail-closed controls for sensitive buyback evidence: Sales cannot capture/read/finalize; Owner/Manager can; full document numbers are never persisted; private evidence is tenant/item scoped with short-lived audited access; signature hashes bind legal/device/seller/amount/payment/declarations; generic write/payment/status bypasses are denied; hosted JSON is capped at 4.4MB after 2.4MB client compression.
+- `TASK-20260714-001-buyback-sensitive-evidence-feature-off` supersedes the active production boundary while migration/privacy gates are open: all roles are denied buyback attachments, restricted kinds, finalize and legacy evidence apply at router and repository layers. Existing allowlisted historical markers are retained read-only, while new client-supplied evidence markers are stripped. UI removal is only a projection of the authoritative server deny.
 
 ## Interfaces and dependencies
 
@@ -60,7 +61,7 @@ as owner of this file.
 | SEC-20260620-003 | `stores/create` allows any logged-in actor to create a store outside platform approval | Tenant lifecycle/governance risk | Security + Product + Owner | decide self-service vs platform-admin-only | open |
 | SEC-20260710-001 | 17 legacy public tables permit direct browser-role access with RLS disabled | Critical customer/business data exposure | Security + Data + Owner | P0 consumer discovery and staged containment | open |
 | SEC-20260710-002 | One plaintext unlock pattern remains and no approved retention/key-management policy exists | Sensitive device-access secret risk | Security + Data + Owner | policy decision before encryption migration, purge or export | blocked_by_policy |
-| SEC-20260713-003 | Buyback evidence retention, staged-file deletion, real bucket/RLS grants, legal wording and advanced file sanitization are not production-verified | Identity-document/privacy exposure | Security + Data + Operations + Owner | approved production-readiness/legal task before migration or deploy | local_code_pass_production_no_go |
+| SEC-20260713-003 | Buyback evidence retention, staged-file deletion, real bucket/RLS grants, legal wording and advanced file sanitization are not production-verified | Identity-document/privacy exposure | Security + Data + Operations + Owner | approved production-readiness/legal task before migration or evidence activation | contained_by_production_feature_off |
 
 ## Lessons and anti-patterns
 
@@ -86,3 +87,4 @@ as owner of this file.
 | 2026-07-13 | Added custody-return authorization, import minimization and archive-search boundary | TASK-20260712-005-order-custody-archive | Security reviewer + Integration Lead | active |
 | 2026-07-13 | Preserved history/detail authority while removing terminal orders from the default homepage | TASK-20260713-001-order-active-status-homepage | Integration Lead + QA reviewer | active |
 | 2026-07-13 | Added verified buyback role/PII/evidence/signature/idempotency/upload-envelope controls and production NO-GO | TASK-20260712-005-buyback-guided-evidence | Security reviewer + Integration Lead | verified_local |
+| 2026-07-14 | Activated production default-deny containment for all sensitive buyback paths and preserved the separate migration/legal approval gate | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Security reviewer + Integration Lead | active |

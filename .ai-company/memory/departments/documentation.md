@@ -3,7 +3,7 @@ schema_version: 1
 department: documentation
 status: active
 owner: Documentation Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-14
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -53,6 +53,7 @@ as owner of this file.
 - `TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for` fixes the department-label drift: when the Owner asks for departments, AI employees, sub-agents, multi-agent execution, review, or simulation, the Integration Lead must use real Codex sub-agent spawning when tooling is available. Department labels alone are routing metadata unless a no-spawn reason is recorded.
 - `TASK-20260701-004-one-command-mode-v32-integration` integrates Codex One Command Mode v3.2 at `.ai-company/ONE_COMMAND_MODE.md`. Treat root `AGENTS.md` as the executable Owner Simple Mode entry and this adapter as the long-form natural-language task intake reference.
 - `TASK-20260707-005-remove-module-title-blocks` updates active UI generation guidance: list/management page bodies must not repeat AppBar module titles, breadcrumbs, or total subtitles such as `工作台 / 客户`, `客户管理`, or `全部 · 共 ...`; future examples/templates should start from toolbar, KPI, chips, or business content.
+- `TASK-20260714-001-buyback-sensitive-evidence-feature-off` is the current production-behavior authority for buyback evidence: use the four-step quote-only UI and server default-deny contract until a separately approved activation task supersedes it. `TASK-20260712-005-buyback-guided-evidence` remains the local future design/history and must not be read as evidence that production Supabase or sensitive capture is active.
 
 ## Interfaces and dependencies
 
@@ -122,3 +123,4 @@ as owner of this file.
 | 2026-06-20 | Recorded real sub-agent spawning rule and task-package fields after DOC/QA sub-agent review | TASK-20260619-232915-l2-029-enforce-real-sub-agent-spawning-for | Integration Lead | active_rule |
 | 2026-07-01 | Integrated Codex One Command Mode v3.2 as RepairDesk long-form natural-language Owner task intake rules | TASK-20260701-004-one-command-mode-v32-integration | Integration Lead | active_rule |
 | 2026-07-07 | Recorded no-duplicate-module-title guidance for future UI page generation templates | TASK-20260707-005 | Integration Lead | active_rule |
+| 2026-07-14 | Marked the feature-off task as current production buyback authority and the earlier six-step flow as inactive design history | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | active |

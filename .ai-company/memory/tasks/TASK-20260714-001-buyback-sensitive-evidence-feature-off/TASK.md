@@ -2,7 +2,7 @@
 schema_version: 1
 task_id: "TASK-20260714-001-buyback-sensitive-evidence-feature-off"
 title: "回收身份证与签名采集生产关闭补丁"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2_execution_with_D4_owner_approval"
@@ -10,7 +10,8 @@ owner: "鹤祥"
 decision_owner: "RepairDesk Integration Lead"
 departments: ["INT", "FLOW", "UX", "FE", "API", "SEC", "QA", "DOC"]
 created_at: "2026-07-14T07:29:38Z"
-updated_at: "2026-07-14T13:18:54Z"
+updated_at: "2026-07-14T13:40:23Z"
+closed_at: "2026-07-14T13:40:23Z"
 ---
 # Task — 回收身份证与签名采集生产关闭补丁
 
@@ -59,8 +60,8 @@ Restore a safe default-deny production boundary while the guided-buyback databas
 - [x] Partial save retries reuse and refresh the same quote record instead of creating a duplicate.
 - [x] `npm run agents:check`, `npm run lint`, `npm run typecheck`, the full 909-test suite, and `npm run build` pass. The full suite used `--maxWorkers=2` because the host's default concurrency repeatedly pushed unrelated legacy UI tests past their fixed 5-second timeout; the timed-out files also passed in isolated reruns.
 - [x] Sanitized mobile and desktop screenshots captured.
-- [ ] Scoped commit pushed to `main`; Vercel production is READY at the exact pushed SHA; HTTP smoke and short error/5xx observation pass.
-- [ ] Supabase migration history/data remain unchanged.
+- [x] Scoped commit `70d211b2` pushed to `main`; Vercel production deployment `dpl_G9bU7J4c9baihhhRxMWAYUGsntuz` is READY at the exact code SHA; HTTP smoke and short error/5xx observation pass.
+- [x] Supabase migration history/data remain unchanged; the guided-evidence migration is still local-only and the production agreement table/RPC/evidence columns/bucket remain absent.
 
 ## Execution plan
 
@@ -105,4 +106,4 @@ Restore a safe default-deny production boundary while the guided-buyback databas
 
 ## Visual evidence
 
-UI is affected. Capture sanitized `/buyback?new=1` closed-state screenshots at 390x844 and 1440x900, with no real customer PII or evidence content.
+UI is affected. Sanitized `/buyback?new=1` closed-state screenshots were captured at 390x844 and 1440x900 under ignored `test-results/`, with no real customer PII or evidence content. Production authenticated-page capture was not possible because the ChatGPT Chrome Extension session was unavailable; HTTP, exact-deployment, log and local browser evidence are recorded instead, and no production form was submitted.

@@ -2,7 +2,7 @@
 
 - Memory system status: `ACTIVE_CODEX_NATIVE_MINIMAL`
 - Owner: Integration Lead / CKMO duties
-- Last audit: 2026-06-19 CEST
+- Last audit: 2026-07-14 CEST
 - Current active context: [ACTIVE_CONTEXT.md](ACTIVE_CONTEXT.md)
 
 ## Active company/project memory
@@ -62,3 +62,4 @@
 - [TASK-20260710-009](tasks/TASK-20260710-009-security-reliability-hardening-release/TASK.md): Conditional closeout of the security/reliability/payment release; scoped main and production are live, with legacy-table and recovery P0 follow-ups.
 - [TASK-20260712-002](tasks/TASK-20260712-002-global-staff-permissions/TASK.md): Global staff permissions, individual-vs-aggregate finance policy, archived order queue and stable technician assignment scope.
 - [TASK-20260712-005-buyback-guided-evidence](tasks/TASK-20260712-005-buyback-guided-evidence/TASK.md): Closed guided buyback, restricted identity/signature evidence, role handoff, atomic finalize and resale-safety scope; production migration/deploy remain NO-GO.
+- [TASK-20260714-001-buyback-sensitive-evidence-feature-off](tasks/TASK-20260714-001-buyback-sensitive-evidence-feature-off/TASK.md): Closed production containment release; sensitive buyback evidence/finalize is server-default-deny, all roles use four quote-only steps, and Supabase remains intentionally unchanged.

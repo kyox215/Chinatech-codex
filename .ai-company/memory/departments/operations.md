@@ -3,7 +3,7 @@ schema_version: 1
 department: operations
 status: active
 owner: Operations Department / Integration Lead
-last_verified_at: 2026-06-19
+last_verified_at: 2026-07-14
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -38,6 +38,7 @@ as owner of this file.
 - `TASK-20260619-014` deleted those three reviewed duplicate files; final Git-visible untracked ` 2` duplicate scan with canonical counterparts reports `same=0 diff=0 missing=0 nonfiles=0`.
 - `TASK-20260619-015` removed the 14 confirmed empty duplicate directories. Remaining duplicate-like paths are generated/ignored outputs only and should not be treated as source-tree conflicts.
 - Production data, deploy, destructive commands, and external communication require explicit owner approval.
+- `TASK-20260714-001-buyback-sensitive-evidence-feature-off` used a clean isolated worktree and one writer, pushed code commit `70d211b2` to `main`, and exact-SHA verified Vercel production, aliases, HTTP and empty error/5xx observation. Linked Supabase postchecks were read-only. Older deployments are not safe rollback targets because they reopen sensitive evidence capture; stop `/buyback` and forward-fix unless the Owner explicitly accepts that risk for a severe whole-system outage.
 
 ## Interfaces and dependencies
 
@@ -86,3 +87,4 @@ as owner of this file.
 | 2026-06-19 | Deleted the three reviewed remaining duplicate files and cleared Git-visible duplicate-file scan | TASK-20260619-014 | Integration Lead | active |
 | 2026-06-19 | Removed 14 confirmed empty duplicate directories and classified remaining duplicate-like paths as generated output | TASK-20260619-015 | Integration Lead | active |
 | 2026-07-10 | Protected dirty original checkout with branch/stash and synced local `main` to latest `origin/main` | TASK-20260709-220940-task | Integration Lead | active |
+| 2026-07-14 | Recorded exact-SHA production feature-off release, no-write Supabase postcheck and unsafe-rollback boundary | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | active |

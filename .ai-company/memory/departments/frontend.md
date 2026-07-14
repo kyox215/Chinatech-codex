@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-07-13
+last_verified_at: 2026-07-14
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -35,6 +35,7 @@ as owner of this file.
 - Active order lists use six operational queue groups: `处理中`, `下单`, `到货`, `到货已通知`, `修好`, and `修好已通知`. Blue identifies ordering, yellow identifies arrival/arrival notification, and green identifies repaired/repaired notification; text and icons remain mandatory. Mobile renders a fixed two-column grid with no horizontal status scrolling, while desktop gives the seven choices including `全部待办` a full-width row.
 - Order search uses a draft/committed split with a 300ms debounce; Enter and scan submit immediately. Debounce, fetching with retained results, success totals, empty and retryable error states remain visible and are announced with `aria-live`. Result pages render non-empty status sections in queue order and show Europe/Rome intake dates plus relative age on mobile and desktop. Detail status time accepts only a real transition into the current status and otherwise labels the intake time fallback consistently.
 - Guided buyback uses six explicit beginner steps with one primary action per stage. Sales stops at manager handoff; Owner/Manager gets identity capture, versioned Italian terms, white-background signature canvas and final confirmation. Oversized evidence is compressed to a 2.4MB raw-file envelope before Base64 upload; mobile and desktop flows require browser screenshots.
+- Production feature-off currently supersedes that six-step projection: every role sees four beginner steps `设备 -> 报价 -> 检测 -> 保存`; seller, identity, signature, evidence, payment, receipt and finalize controls are absent from the DOM. Success copy says the record was saved, not that a transaction completed. Purchased or later records only expose historical evidence as read-only and never guide recollection.
 - `TASK-20260620-001` is the current evidence for order detail status-flow UI behavior and target E2E verification.
 - `TASK-20260620-002` classified the remaining legacy `src/routes/*` files as delete-ready after Owner approval. Live page bodies remain feature screens imported by `src/app/*`; do not use `src/routes/*` as a UI source.
 - `TASK-20260620-003` confirms the deletion preflight baseline is green without touching App Router or feature screen files. Future deletion must not modify `src/app/*` or `src/features/*`.
@@ -88,3 +89,4 @@ as owner of this file.
 | 2026-07-13 | Replaced custody buckets with six explicit active stages and a non-scrolling two-column mobile selector | TASK-20260713-001-order-active-status-homepage | Integration Lead + UX/QA reviewers | active |
 | 2026-07-13 | Added debounced order-search feedback, grouped result sections and consistent intake/status date presentation | TASK-20260713-002-order-search-grouped-results | Integration Lead | active |
 | 2026-07-13 | Added verified six-step buyback, role handoff, legal/signature and bounded evidence-upload UI | TASK-20260712-005-buyback-guided-evidence | Integration Lead + UX/security reviewers | active |
+| 2026-07-14 | Projected the production feature-off as a four-step all-role quote-only UI with historical evidence read-only | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + UX/QA reviewers | active |

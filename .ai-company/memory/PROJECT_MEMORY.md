@@ -4,7 +4,7 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-13 CEST
+- Last verified: 2026-07-14 CEST
 
 ## Product and business overview
 
@@ -50,6 +50,8 @@ Client components must not import `src/server/*`. Server-side validation is requ
 `TASK-20260712-002-global-staff-permissions` implements the Owner-approved global store role policy: technicians and front desk can see amounts only on authorized individual orders; aggregate finance, profit and bulk output remain separately gated. Technician object authorization uses same-store `assignee_membership_id` and fails closed before the pending assignment migration. `TASK-20260713-001-order-active-status-homepage` supersedes the default-home visibility predicate: every `completed` or `cancelled` order belongs to history regardless of payment, delivery or custody evidence, while every nonterminal order remains in the operational queue. Custody-return and settlement contradictions remain available through authorized history, exact search and order detail; they no longer pull terminal rows back into the default homepage. Production migration apply remains a separate approval gate.
 
 `TASK-20260712-005-buyback-guided-evidence` verifies the local guided-buyback contract: Sales may prepare seller/declaration data and hand off, while only Owner/Manager may capture or read restricted identity/signature evidence and finalize. Full document numbers are not persisted; signed snapshots bind legal text, device, seller, amount, payment and declarations. Finalize is versioned/idempotent/atomic, resale requires wipe/IMEI/activation-lock checks, returned buybacks reset those checks, and quality-check writes use CAS. The migration and dedicated storage policy are local code evidence only; production Supabase apply/deploy, retention/legal review and staged-file cleanup remain separate approval gates.
+
+`TASK-20260714-001-buyback-sensitive-evidence-feature-off` is the production containment authority while those gates remain open. Runtime code from `main@70d211b2` makes all buyback attachment, identity/signature, payment/finalize and legacy-evidence paths server-default-deny; every role sees the same four-step quote/evaluation/save workflow. Vercel production was exact-SHA verified, while linked Supabase still has no guided-evidence table/RPC/columns/bucket and received no task write. Re-enablement requires a separate Owner-approved legal/data/security/release task; the older six-step implementation is design history, not currently active production behavior.
 
 ## Environments, build, deploy and operations
 
