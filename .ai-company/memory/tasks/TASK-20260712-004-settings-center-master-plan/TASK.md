@@ -1,7 +1,7 @@
 ---
 task_id: "TASK-20260712-004-settings-center-master-plan"
 status: "in_progress"
-phase: "wp09_local_candidate_commit_pending"
+phase: "wp09_local_candidate_push_pr_owner_gate"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
@@ -9,7 +9,7 @@ integration_lead: "RepairDesk Integration Lead"
 baseline: "d5384e88ca1e974d0aa58156728eb29092a7d7ff"
 branch: "codex/settings-center-v2-integrated-20260714"
 worktree: "/private/tmp/repairdesk-settings-center-integration-20260714"
-updated_at: "2026-07-14T14:40:33Z"
+updated_at: "2026-07-14T14:47:58Z"
 ---
 # Settings Center v2
 
@@ -55,7 +55,7 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 - Exact overlap is 32 paths, not the earlier WP08 estimate of 24: 23 product/code paths plus nine project
   memory paths. Sixteen paths required manual conflict resolution; current-main order/buyback/inventory
   behavior and Settings tenant/draft/output contracts were combined rather than choosing either side wholesale.
-- WP09 local static and browser matrix passes before the evidence commit: agents, lint, typecheck,
+- WP09 local static and browser matrix passes and is recorded in evidence commit `e7102868`: agents, lint, typecheck,
   controlled full Vitest 179 files / 1179 tests, focused feature-off/overlap 11 files / 142 tests, and
   production build 22/22 pages. Interactions passed 64 with one existing conditional skip and
   Settings/order-data passed 67/67 on the code-identical pre-documentation-sync tree. The final target
@@ -84,8 +84,7 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 
 ## Next owner gate
 
-- Create the scoped WP09 local evidence commit and verify its containing SHA. This establishes only a
-  conditional local candidate.
+- Local evidence commit `e7102868` is verified. It establishes only a conditional local candidate.
 - Pushing the branch or opening a PR requires a separate explicit Owner
   instruction. Pushing or merging `main` is not authorized by the WP09 integration scope.
 - Any linked database preflight/dry-run/apply/post-check, real flag change, deployment, production data

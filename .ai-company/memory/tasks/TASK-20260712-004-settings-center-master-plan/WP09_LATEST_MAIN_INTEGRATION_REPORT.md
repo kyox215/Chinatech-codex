@@ -1,12 +1,13 @@
 # WP-09 Latest-Main Integration Report
 
-Status: **CONDITIONAL LOCAL PASS — latest-main code, browser, build and visual gates pass; evidence commit pending; production NO-GO**
+Status: **CONDITIONAL LOCAL PASS — evidence commit `e7102868`; push/PR and production remain NO-GO**
 Prepared: 2026-07-14 CEST
 Decision owner / sole writer: RepairDesk Integration Lead
 Target: `origin/main@d5384e88ca1e974d0aa58156728eb29092a7d7ff`
 Source: `codex/settings-center-v2-20260712@d1b4dcaf0af34a881bf877efa3e45934a1bb7b73`
 Integrated branch: `codex/settings-center-v2-integrated-20260714`
 Refreshed pre-evidence HEAD: `4584ca793fc27551e8d0eaad159b8e2a87c589da`
+Local evidence commit: `e7102868a310c92a31fda2901e8d65ea1ff929d1`
 
 ## Outcome so far
 
@@ -145,5 +146,5 @@ and Owner gates remain open.
 
 ## Next action
 
-Run the final checkpoint/diff audit, create the scoped local evidence commit, verify its containing SHA, then
-stop. No push, PR, merge, database command, flag change, deploy, or other external state change is authorized.
+Stop at the Owner gate. Push or PR creation requires a new explicit instruction. No merge, database command,
+flag change, deploy, production access or other external state change is authorized.

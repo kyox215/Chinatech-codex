@@ -69,8 +69,9 @@ mutable display settings remain an invalid legal-document source.
 The WP09 Settings candidate is rebased onto `origin/main@d5384e88` in the isolated integration worktree.
 Its local gate passes with 179 files / 1179 Vitest tests, 11 focused files / 142 tests, 22/22 build pages,
 desktop browser 44/44, guided-buyback/dashboard 13/13, and six inspected synthetic screenshots. The native
-order detail link fixes the reproduced loaded-server menu no-navigation path. This is local conditional
-evidence only: push/PR, database work, real flags, deployment and production release remain separately gated.
+order detail link fixes the reproduced loaded-server menu no-navigation path. Local evidence commit
+`e7102868` contains the verified product/test/report diff. This is local conditional evidence only: push/PR,
+database work, real flags, deployment and production release remain separately gated.
 
 ## Environments, build, deploy and operations
 
@@ -141,7 +142,7 @@ evidence only: push/PR, database work, real flags, deployment and production rel
   commits onto `origin/main@d5384e88` in a clean local worktree. The exact overlap remains 32 paths (23
   product/code and nine memory). The initial replay resolved 16 paths; the latest-main refresh additionally
   reconciled the feature-off buyback, inventory and task-memory boundaries. The refreshed local gate passes;
-  the evidence commit and push/PR authorization remain. The earlier guided-buyback tenant/legal P1 is
+  evidence commit `e7102868` exists and push/PR authorization remains. The earlier guided-buyback tenant/legal P1 is
   contained by main's hard-coded
   feature-off, but re-enablement and all production Settings gates remain closed. The task is not closed or
   production ready and must

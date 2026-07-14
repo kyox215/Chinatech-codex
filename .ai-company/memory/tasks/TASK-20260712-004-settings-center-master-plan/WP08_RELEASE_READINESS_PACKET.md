@@ -50,7 +50,7 @@ Local Settings commit order:
 
 | Scope | Current decision | Blocking owner/evidence |
 | ---- | ---- | ---- |
-| Local code, tests, docs, synthetic screenshots | CONDITIONAL LOCAL PASS | WP09 is rebased to `d5384e88`; static, 179/1179 Vitest, 22-page build, 44-case desktop, 13-case feature-off/dashboard and six-image visual gates pass; local evidence commit remains |
+| Local code, tests, docs, synthetic screenshots | CONDITIONAL LOCAL PASS | WP09 is rebased to `d5384e88`; evidence commit `e7102868` passes static, 179/1179 Vitest and 22-page build, with content-identical 44-case desktop, 13-case feature-off/dashboard and six-image visual evidence |
 | Push or PR from current branch | NO-GO | Not authorized by the local integration scope |
 | Deploy complete Settings branch | NO-GO | Release-unit split and production gates remain open |
 | Member role/grant production writes | NO-GO | DATA/SEC/QA approval, migration/RPC/CAS/transaction proof |

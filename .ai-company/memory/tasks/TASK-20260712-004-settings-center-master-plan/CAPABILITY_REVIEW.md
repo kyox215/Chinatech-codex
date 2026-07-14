@@ -18,7 +18,8 @@ Decision: **C2 candidate evidence only; no autonomy or permission upgrade**
 ## Limits
 
 - Main's fail-closed buyback containment removes the immediate tenant/legal P1 from the integrated candidate,
-  but the local evidence commit and separate push/PR approval are still required before external review.
+  but separate push/PR approval is still required before external review; local evidence commit `e7102868`
+  does not grant release authority.
 - Linked database state, production configuration, retention, capacity, recovery, and runtime outcomes
   are not proven.
 - Member, Kiosk, workflow, and order-data high-risk writes remain Owner-gated.

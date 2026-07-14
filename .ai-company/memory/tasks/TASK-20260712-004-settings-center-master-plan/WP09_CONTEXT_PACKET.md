@@ -1,6 +1,6 @@
 # WP-09 Latest-Main Integration Context Packet
 
-Status: `local_conditional_pass_evidence_commit_pending`
+Status: `local_evidence_committed_push_pr_owner_gate`
 Prepared: 2026-07-14 CEST
 Decision owner: RepairDesk Integration Lead / CEO Agent
 Owner authorization: "开始下一步" after WP08 recommended a clean latest-main integration and local PR-preparation scope

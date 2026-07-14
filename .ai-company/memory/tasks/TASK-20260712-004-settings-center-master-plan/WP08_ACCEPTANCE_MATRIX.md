@@ -9,7 +9,7 @@ This matrix distinguishes local mock evidence from latest-main, linked database,
 
 > WP09 correction, 2026-07-14: the exact overlap was 32 paths (23 product/code plus nine memory), not 24.
 > The twelve commits are now locally rebased on `origin/main@d5384e88`; main's fail-closed buyback patch
-> contains the earlier tenant/legal P1. The refreshed local gate passes and the evidence commit is tracked in
+> contains the earlier tenant/legal P1. The refreshed local gate and evidence commit `e7102868` are tracked in
 > `WP09_LATEST_MAIN_INTEGRATION_REPORT.md`.
 
 ## 1. Static, test, and build evidence
@@ -20,7 +20,7 @@ This matrix distinguishes local mock evidence from latest-main, linked database,
 | Exact `npm run test:e2e:interactions:mock` | PASS locally | Final rerun passed 54 and skipped 1 existing conditional order-dialog case. A discovered route-cleanup race was fixed and focused-rechecked first |
 | Dedicated order-data E2E | PASS at WP07 HEAD | 10/10 at six target widths and high-risk states |
 | `git diff --check` | PASS before final checkpoint | Repeat after checkpoint/staging before commit |
-| Latest `origin/main` integration gates | CONDITIONAL LOCAL PASS | Rebased to `d5384e88`; static, 179/1179 Vitest, 22-page build, 44-case desktop, 13-case feature-off/dashboard and six-image visual gates pass; evidence commit remains |
+| Latest `origin/main` integration gates | CONDITIONAL LOCAL PASS | Rebased to `d5384e88`; evidence commit `e7102868` passes static, 179/1179 Vitest and 22-page build, with content-identical 44-case desktop, 13-case feature-off/dashboard and six-image visual evidence |
 
 ## 2. Unit and integration acceptance
 
@@ -70,7 +70,7 @@ Open P1/release blockers:
 
 1. Main's hard-coded feature-off contains guided-buyback evidence/signature/finalize; re-enablement remains
    an R4 legal/data/schema/storage/retention gate and must not be inferred from Settings readiness.
-2. The refreshed local evidence commit and separate push/PR approval are pending; no external candidate exists.
+2. Separate push/PR approval is pending; local evidence commit `e7102868` has not been published.
 3. Five-role, offline/409, cross-store late-response, complete overlay, and 50+ member E2E are incomplete.
 4. Member, Kiosk, workflow, and order-data production transaction/data gates remain open.
 5. Linked migration history, exact reviewed migration set, current flags, target environment, monitoring

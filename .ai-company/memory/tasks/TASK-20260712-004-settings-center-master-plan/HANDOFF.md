@@ -14,15 +14,15 @@ Read `TASK.md`, `CHECKPOINTS.md`, and the approved Settings Center plan before c
 - Full pre-evidence local quality passes: agents, lint, typecheck, controlled full Vitest 179 files / 1179
   tests, focused 11 files / 142 tests, 22/22 build pages, interactions 64 + one existing conditional skip,
   Settings/order-data 67/67, guided buyback/dashboard 13/13, and the final desktop matrix 44/44 in one run.
-  Six integrated screenshots are inspected. The scoped evidence commit and containing-SHA audit remain.
+  Six integrated screenshots are inspected. Evidence commit `e7102868` contains the verified diff and passed
+  the post-commit static, full Vitest and production-build gate.
 - The desktop order row now uses a native direct-detail link, preventing the intermittent no-navigation
   behavior reproduced under a loaded test server. New-order and inventory first render are hydration-stable.
 - New main contains the approved fail-closed response to the architecture P1: sensitive buyback is hard-coded
   off, the UI is quote/evaluation/save only, and Router/repository restricted upload, finalize and legacy
   import reject. Preserve this containment; legal-document tenantization/re-enablement remains a separate R4
   task and mutable display settings remain invalid legal text.
-- Resume by creating the scoped evidence commit, verifying its containing SHA and recording the final local
-  checkpoint. Then stop for separate push/PR direction.
+- Stop at the Owner gate. Push or PR creation requires a new explicit instruction.
 - Resume only in this clean worktree. Keep the source Settings worktree and original dirty checkout untouched.
 - Do not push, open a PR, merge main, run a DB command, alter a real flag, deploy, access production data,
   or communicate externally without a new explicit Owner instruction.
@@ -84,6 +84,6 @@ mobile store recovery.
 
 Do not mark the master task closed. WP09 supersedes the pre-integration branch-divergence handoff: local
 integration now includes main's fail-closed buyback containment and its refreshed local gates pass, while the
-evidence commit, push/PR and production Settings gates remain open. Linked
+push/PR and production Settings gates remain open. Linked
 preflight/dry-run/apply, real flags, production data, push/PR, deployment, retention/role decisions, and
 customer communication each remain separate approval gates.
