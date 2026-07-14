@@ -10,7 +10,7 @@ function readMigration() {
 }
 
 describe("atomic buyback finalize migration", () => {
-  it("keeps identity evidence private and service-role only", () => {
+  it("keeps identity evidence private and the agreement schema dormant", () => {
     const sql = readMigration();
 
     expect(sql).toContain("'repairdesk-buyback-evidence'");
@@ -18,7 +18,20 @@ describe("atomic buyback finalize migration", () => {
     expect(sql).toMatch(
       /revoke all on table public\.buyback_agreements from public, anon, authenticated, service_role/i,
     );
-    expect(sql).not.toMatch(/grant .*buyback_agreements.* authenticated/i);
+    expect(sql).not.toMatch(/grant .*buyback_agreements.* (?:authenticated|service_role)/i);
+  });
+
+  it("runs payment preflight before writes and bounds production locks", () => {
+    const sql = readMigration();
+
+    expect(sql).toContain("set lock_timeout = '5s'");
+    expect(sql).toContain("set statement_timeout = '5min'");
+    expect(sql.indexOf("duplicate buyback_payment rows")).toBeLessThan(
+      sql.indexOf("insert into storage.buckets"),
+    );
+    expect(sql.indexOf("pre-finalization items with legacy buyback payments")).toBeLessThan(
+      sql.indexOf("insert into storage.buckets"),
+    );
   });
 
   it("serializes idempotency, locks the item, and enforces optimistic versioning", () => {
@@ -91,7 +104,7 @@ describe("atomic buyback finalize migration", () => {
     expect(sql).toContain("'legal_documents' -> 'buyback_terms'");
   });
 
-  it("requires fresh restricted staged evidence and exposes the RPC only to service role", () => {
+  it("requires fresh restricted staged evidence while keeping the RPC dormant", () => {
     const sql = readMigration();
 
     expect(sql).toContain("attachment.storage_bucket = 'repairdesk-buyback-evidence'");
@@ -101,10 +114,8 @@ describe("atomic buyback finalize migration", () => {
     expect(sql).toContain("staging_expires_at = null");
     expect(sql).toContain("security invoker");
     expect(sql).toMatch(
-      /revoke all on function public\.repairdesk_finalize_buyback[\s\S]*from public, anon, authenticated/i,
+      /revoke all on function public\.repairdesk_finalize_buyback[\s\S]*from public, anon, authenticated, service_role/i,
     );
-    expect(sql).toMatch(
-      /grant execute on function public\.repairdesk_finalize_buyback[\s\S]*to service_role/i,
-    );
+    expect(sql).not.toMatch(/grant execute on function public\.repairdesk_finalize_buyback/i);
   });
 });

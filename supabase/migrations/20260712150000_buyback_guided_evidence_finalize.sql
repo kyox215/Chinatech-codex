@@ -1,6 +1,40 @@
 -- Guided buyback evidence and atomic finalize contract.
--- Expand-only application code migration. Production apply requires a separate dry-run,
--- duplicate-payment preflight and owner-approved release window.
+-- Dormant schema staging only. The application feature stays off and this migration
+-- intentionally grants neither agreement-table access nor finalize RPC execution.
+-- A separate, owner-approved enable migration must close retention, cleanup,
+-- immutable-agreement and concurrency gates before granting any runtime access.
+
+set lock_timeout = '5s';
+set statement_timeout = '5min';
+
+-- Fail before the first DDL/DML write when legacy payment state is unsafe.
+do $$
+begin
+  if exists (
+    select 1
+      from public.inventory_transactions
+     where transaction_type = 'buyback_payment'
+     group by store_id, item_id
+    having count(*) > 1
+  ) then
+    raise exception using
+      message = 'buyback finalize migration blocked: duplicate buyback_payment rows require owner-reviewed reconciliation';
+  end if;
+
+  if exists (
+    select 1
+      from public.inventory_transactions as payment
+      join public.inventory_items as item
+        on item.store_id = payment.store_id
+       and item.id = payment.item_id
+     where payment.transaction_type = 'buyback_payment'
+       and item.status::text in ('intake', 'evaluating', 'offer_made')
+  ) then
+    raise exception using
+      message = 'buyback finalize migration blocked: pre-finalization items with legacy buyback payments require owner-reviewed reconciliation';
+  end if;
+end;
+$$;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -54,34 +88,6 @@ update public.inventory_attachments as attachment
 create index if not exists inventory_attachments_staged_expiry_idx
   on public.inventory_attachments (staging_expires_at)
   where evidence_status = 'staged';
-
-do $$
-begin
-  if exists (
-    select 1
-      from public.inventory_transactions
-     where transaction_type = 'buyback_payment'
-     group by store_id, item_id
-    having count(*) > 1
-  ) then
-    raise exception using
-      message = 'buyback finalize migration blocked: duplicate buyback_payment rows require owner-reviewed reconciliation';
-  end if;
-
-  if exists (
-    select 1
-      from public.inventory_transactions as payment
-      join public.inventory_items as item
-        on item.store_id = payment.store_id
-       and item.id = payment.item_id
-     where payment.transaction_type = 'buyback_payment'
-       and item.status::text in ('intake', 'evaluating', 'offer_made')
-  ) then
-    raise exception using
-      message = 'buyback finalize migration blocked: pre-finalization items with legacy buyback payments require owner-reviewed reconciliation';
-  end if;
-end;
-$$;
 
 create unique index if not exists inventory_transactions_one_buyback_payment_idx
   on public.inventory_transactions (store_id, item_id)
@@ -274,7 +280,6 @@ create index if not exists buyback_agreements_store_signed_idx
 
 alter table public.buyback_agreements enable row level security;
 revoke all on table public.buyback_agreements from public, anon, authenticated, service_role;
-grant select, insert, update on table public.buyback_agreements to service_role;
 
 alter table public.inventory_attachments
   add column if not exists agreement_id uuid;
@@ -871,18 +876,18 @@ $$;
 revoke all on function public.repairdesk_finalize_buyback(
   uuid, text, uuid, timestamptz, uuid, jsonb, jsonb, jsonb, text,
   text, text, text, text, text, text, text[], text
-) from public, anon, authenticated;
-
-grant execute on function public.repairdesk_finalize_buyback(
-  uuid, text, uuid, timestamptz, uuid, jsonb, jsonb, jsonb, text,
-  text, text, text, text, text, text, text[], text
-) to service_role;
+) from public, anon, authenticated, service_role;
 
 comment on table public.buyback_agreements is
-  'Restricted immutable buyback agreement snapshot and atomic finalize idempotency ledger. Full document numbers are intentionally not stored.';
+  'Dormant restricted buyback agreement schema. Runtime access remains revoked until a separate approved enable migration closes retention and immutable-record gates.';
 
 comment on function public.repairdesk_finalize_buyback(
   uuid, text, uuid, timestamptz, uuid, jsonb, jsonb, jsonb, text,
   text, text, text, text, text, text, text[], text
 ) is
-  'Server-only atomic buyback finalize command. Locks the item and idempotency key, binds staged evidence, records quality, payment, event and audit in one transaction.';
+  'Dormant atomic buyback finalize command. EXECUTE remains revoked from every runtime role until a separate approved enable migration.';
+
+notify pgrst, 'reload schema';
+
+reset statement_timeout;
+reset lock_timeout;
