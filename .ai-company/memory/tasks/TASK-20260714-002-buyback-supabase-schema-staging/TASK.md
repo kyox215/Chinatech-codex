@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260714-002-buyback-supabase-schema-staging"
 title: "回收敏感资料 Supabase 空 Schema 分阶段上线"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["DATA", "INT", "QA", "REL", "SEC"]
 created_at: "2026-07-14T17:08:02Z"
-updated_at: "2026-07-14T17:10:06Z"
+updated_at: "2026-07-14T17:39:39Z"
+closed_at: "2026-07-14T17:39:39Z"
 ---
 # Task — 回收敏感资料 Supabase 空 Schema 分阶段上线
 
@@ -45,11 +46,11 @@ Schema staging 应用到已链接生产 Supabase。不得启用证件/签名采�
 - [x] 官方 CLI runner 故意失败时 table/history 均回滚。
 - [x] 生产物理备份列表存在 completed restore point；PITR=false 已明确记录。
 - [x] linked dry-run 精确只列 `20260712150000`。
-- [ ] 精确 SQL、测试与远端历史源文件提交并推送 `main`。
-- [ ] 从冻结 commit 重跑即时 preflight 和 dry-run，仍只列目标迁移。
-- [ ] 正式 apply 成功且 migration history 仅新增 `20260712150000`。
-- [ ] 表/RPC/bucket/字段/索引/约束/ACL 后检全绿且行数/对象数为 0。
-- [ ] feature-off 与生产错误/锁观察通过；任务正式关闭。
+- [x] 精确 SQL、测试与远端历史源文件提交并推送 `main`。
+- [x] 从冻结 commit 重跑即时 preflight 和 dry-run，仍只列目标迁移。
+- [x] 正式 apply 成功且 migration history 仅新增 `20260712150000`。
+- [x] 表/RPC/bucket/字段/索引/约束/ACL 后检全绿且行数/对象数为 0。
+- [x] feature-off 与生产错误/锁观察通过；任务正式关闭。
 
 ## Release boundary
 
@@ -62,3 +63,10 @@ Schema staging 应用到已链接生产 Supabase。不得启用证件/签名采�
 - 最新可见物理备份：2026-07-14T06:44:53.792Z，状态 `COMPLETED`；PITR 未启用。
 - 应用错误时保持 feature-off，禁止盲目重跑或 repair history；先查 catalog/history。
 - 成功后优先撤权/前向修复。因迁移含附件字段和回标语义，不承诺简单 down migration。
+
+## Closeout boundary
+
+- Scoped result: PASS，生产空 Schema staging 已完成。
+- Runtime result: feature-off；协议表及 finalize RPC 对 runtime roles 仍不可访问。
+- Not certified: 完整迁移历史从零重建、PITR/恢复演练、敏感功能法律/保留/清理门禁。
+- Visual evidence: 本任务仅修改数据库结构且敏感 UI 保持关闭，没有相关任务页面可截图；以 migration history、catalog、ACL、bucket、日志和 final dry-run 作为替代证据。

@@ -41,6 +41,7 @@ as owner of this file.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` classifies audit-row retention risk and keeps live audit-row sampling, retention changes, purge, historical redaction/backfill, audit-reader grants, and schema/RLS changes approval-gated.
 - `TASK-20260712-005-buyback-guided-evidence` adds a local migration contract for private restricted evidence, agreement/payment/evidence atomic finalize, idempotency and serial locking. It is not production evidence: linked dry-run, dual-schema fixtures, RPC grants/RLS, `storage.objects` policies, concurrent calls and cleanup/retention behavior must pass before apply.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` read-only verified after release that migration `20260712150000` remains local-only, remote-only `20260714004500` is unrelated, and production has no `buyback_agreements`, finalize RPC, eight guided-evidence columns or dedicated evidence bucket. No migration, DDL, DML, Storage or customer-data write was executed; application containment is compatible with the old schema.
+- `TASK-20260714-002-buyback-supabase-schema-staging` supersedes that schema-absence snapshot: production migration `20260712150000` is now applied as dormant staging after exact CLI dry-run, UUID/Text PG17 fixtures, fail-before-write and runner-atomicity proof. Agreement rows, evidence objects, payment anomalies and attachment relabels are zero; all runtime table DML/RPC EXECUTE remain false. This is a target-slice PASS, not full-history or restore certification.
 
 ## Interfaces and dependencies
 
@@ -64,7 +65,7 @@ as owner of this file.
 | DATA-20260620-002 | Existing live audit rows may already contain raw sensitive payloads | Privacy, retention, and cleanup risk | Data + Security + Owner | D4-approved historical exposure assessment before purge/backfill | unknown_live_state |
 | DATA-20260710-001 | 17 linked legacy public tables have RLS disabled and direct anon/authenticated privileges | Critical unauthorized-access surface; blind revoke may break an old consumer | Data + Security + Owner | P0 consumer discovery, then staged revoke/RLS with rollback | open |
 | DATA-20260710-002 | Historical migration chain cannot reset from zero at `20260611102805`; backup/PITR restore proof is absent | Disaster recovery cannot be demonstrated | Data + Operations | P0 trusted baseline reconstruction and isolated restore drill | open |
-| DATA-20260713-003 | Buyback restricted-evidence migration, bucket policies, staged cleanup and retention/legal-hold behavior are unverified in linked/production Supabase | PII exposure, orphan files or noncompliant retention | Data + Security + Operations + Owner | separate approved production-readiness task before migration/evidence activation | contained_by_feature_off_migration_no_go |
+| DATA-20260713-003 | Buyback restricted-evidence runtime grants, staged cleanup and retention/legal-hold behavior remain unverified for activation; dormant schema is present but empty and revoked | PII exposure, orphan files or noncompliant retention | Data + Security + Operations + Owner | separate approved production-readiness task before evidence activation | contained_by_feature_off_and_revoked_runtime_acl |
 
 ## Lessons and anti-patterns
 
@@ -95,3 +96,4 @@ as owner of this file.
 | 2026-07-13 | Added SeaTable authority rules and verified guarded production status-repair SOP | TASK-20260712-005-order-custody-archive | Integration Lead + data reviewer | scoped_verified |
 | 2026-07-13 | Added local atomic buyback/evidence migration contract and explicit production NO-GO | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | verified_local |
 | 2026-07-14 | Verified linked migration/catalog remained unchanged after the production feature-off release | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | scoped_verified_no_write |
+| 2026-07-14 | Applied and catalog/ACL/empty-state verified dormant buyback schema staging without runtime enable | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + DATA/SEC/REL reviewers | scoped_verified |

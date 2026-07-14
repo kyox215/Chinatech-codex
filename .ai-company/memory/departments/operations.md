@@ -39,6 +39,7 @@ as owner of this file.
 - `TASK-20260619-015` removed the 14 confirmed empty duplicate directories. Remaining duplicate-like paths are generated/ignored outputs only and should not be treated as source-tree conflicts.
 - Production data, deploy, destructive commands, and external communication require explicit owner approval.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` used a clean isolated worktree and one writer, pushed code commit `70d211b2` to `main`, and exact-SHA verified Vercel production, aliases, HTTP and empty error/5xx observation. Linked Supabase postchecks were read-only. Older deployments are not safe rollback targets because they reopen sensitive evidence capture; stop `/buyback` and forward-fix unless the Owner explicitly accepts that risk for a severe whole-system outage.
+- `TASK-20260714-002-buyback-supabase-schema-staging` serialized the production database release from frozen `main@66aa468e`: exact dry-run selected one migration, official CLI apply succeeded, post-apply dry-run is up to date and delayed observation stayed empty/revoked. Eight completed physical backups were visible, but PITR is off and no restore drill was performed; recovery remains feature-off plus revoke/forward-fix.
 
 ## Interfaces and dependencies
 
@@ -55,7 +56,7 @@ as owner of this file.
 
 | ID | Risk/debt/question | Impact | Owner | Target/review | Status |
 |---|---|---|---|---|---|
-| OPS-20260619-001 | No verified backup/restore or release rollback procedure in this takeover | Operational risk | Operations + Platform | 30/60-day roadmap | open |
+| OPS-20260619-001 | Physical backup visibility is verified, but PITR is off and no isolated restore drill or complete recovery procedure is verified | Operational risk | Operations + Platform | recovery-baseline and restore-drill task | open |
 | OPS-20260619-002 | Dirty worktree plus generated/ignored duplicate-like output can still create noise | Review/release risk | Operations + QA | generated-output cleanup if disk/workspace noise matters | monitoring |
 | OPS-20260619-003 | Duplicate cleanup without fresh scan and explicit path list could remove semantic evidence | Governance/review risk | Operations + QA | before deleting newly discovered or now-different duplicate-like files | open |
 | OPS-20260619-004 | Batch C cleanup could lose the attachment-inventory E2E idea | QA backlog loss | Operations + QA | backlog note created and Batch C duplicates deleted by TASK-20260619-011 | closed |
@@ -88,3 +89,4 @@ as owner of this file.
 | 2026-06-19 | Removed 14 confirmed empty duplicate directories and classified remaining duplicate-like paths as generated output | TASK-20260619-015 | Integration Lead | active |
 | 2026-07-10 | Protected dirty original checkout with branch/stash and synced local `main` to latest `origin/main` | TASK-20260709-220940-task | Integration Lead | active |
 | 2026-07-14 | Recorded exact-SHA production feature-off release, no-write Supabase postcheck and unsafe-rollback boundary | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | active |
+| 2026-07-14 | Recorded serialized dormant-schema apply, exact migration parity, backup/PITR evidence and forward-fix recovery boundary | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + release reviewer | scoped_verified |

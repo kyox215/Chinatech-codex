@@ -54,6 +54,7 @@ as owner of this file.
 - `TASK-20260701-004-one-command-mode-v32-integration` integrates Codex One Command Mode v3.2 at `.ai-company/ONE_COMMAND_MODE.md`. Treat root `AGENTS.md` as the executable Owner Simple Mode entry and this adapter as the long-form natural-language task intake reference.
 - `TASK-20260707-005-remove-module-title-blocks` updates active UI generation guidance: list/management page bodies must not repeat AppBar module titles, breadcrumbs, or total subtitles such as `工作台 / 客户`, `客户管理`, or `全部 · 共 ...`; future examples/templates should start from toolbar, KPI, chips, or business content.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` is the current production-behavior authority for buyback evidence: use the four-step quote-only UI and server default-deny contract until a separately approved activation task supersedes it. `TASK-20260712-005-buyback-guided-evidence` remains the local future design/history and must not be read as evidence that production Supabase or sensitive capture is active.
+- `TASK-20260714-002-buyback-supabase-schema-staging` supersedes only the prior “production Supabase objects absent” documentation: the dormant objects now exist, but are empty, private and revoked. It does not supersede the four-step quote-only/server-default-deny runtime authority and must never be described as sensitive-feature activation.
 
 ## Interfaces and dependencies
 
@@ -124,3 +125,4 @@ as owner of this file.
 | 2026-07-01 | Integrated Codex One Command Mode v3.2 as RepairDesk long-form natural-language Owner task intake rules | TASK-20260701-004-one-command-mode-v32-integration | Integration Lead | active_rule |
 | 2026-07-07 | Recorded no-duplicate-module-title guidance for future UI page generation templates | TASK-20260707-005 | Integration Lead | active_rule |
 | 2026-07-14 | Marked the feature-off task as current production buyback authority and the earlier six-step flow as inactive design history | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | active |
+| 2026-07-14 | Recorded dormant production schema presence without changing feature-off runtime or UI documentation authority | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead | active |

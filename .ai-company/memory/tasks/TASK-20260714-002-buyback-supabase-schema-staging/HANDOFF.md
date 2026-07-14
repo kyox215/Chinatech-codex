@@ -2,23 +2,21 @@
 
 ## Current state
 
-- Status: in progress; pre-release CONDITIONAL GO.
+- Status: closed; scoped production schema-staging PASS.
 - Workspace: `/private/tmp/repairdesk-buyback-feature-off-20260714`.
 - Production target: Supabase `xluzcoduqsdvjoouqhkc`.
-- Exact allowed write: dormant schema migration `20260712150000` only.
+- Applied write: dormant schema migration `20260712150000` only.
 - Runtime enable, grants, Storage uploads and real finalize remain prohibited.
 
 ## Immediate next action
 
-Commit and push only the hardened migration, its test, the recovered `20260714004500` source and this
-task evidence. From the frozen commit, repeat preflight and exact dry-run. Apply only if both are still
-green, then run the complete postcheck and observation packet.
+No action is required for this closed staging task. A future enable task must separately approve and
+implement retention/cleanup, legal text, immutable agreement access, tenant-safe foreign keys, real
+Storage authorization and concurrent finalize tests before granting any runtime access.
 
 ## Stop conditions
 
-- dry-run lists anything except `20260712150000`;
-- payment preflight or attachment reclassification count becomes non-zero;
-- partial target object appears;
-- long transaction/waiting lock appears;
-- source SHA or target project changes;
-- apply attempts to grant runtime access or enable the sensitive workflow.
+- any role receives agreement-table DML or finalize RPC EXECUTE before an approved enable migration;
+- agreement rows or evidence-bucket objects appear while feature-off remains active;
+- a future dry-run tries to reapply or repair `20260712150000`;
+- retention/legal/cleanup gates are bypassed or the six-step sensitive UI is restored without Owner approval.
