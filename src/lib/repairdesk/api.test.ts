@@ -53,24 +53,13 @@ describe("repairdesk api client", () => {
         new Response(
           JSON.stringify({
             data: {
-              recentOrders: {
-                items: [],
-                total: 0,
-                page: 1,
-                pageSize: 6,
-                pageCount: 1,
-                workflowCounts: { all: 0 },
-                queueCounts: { all: 0 },
-                resultGroupCounts: {},
-              },
-              stats: {
-                total: 0,
-                today: 0,
-                inProgress: 0,
-                unpaid: 0,
-                approvalOverdue: 0,
-                pickupOverdue: 0,
-              },
+              coverage: "store",
+              policyVersion: "dashboard-priority-v1",
+              generatedAt: "2026-07-16T12:00:00.000Z",
+              totalCandidates: 0,
+              hasMore: false,
+              counts: { overdue: 0, ready: 0, active: 0, waiting: 0 },
+              items: [],
             },
           }),
           { status: 200 },
@@ -78,15 +67,16 @@ describe("repairdesk api client", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(getDashboardSummary({ pageSize: 6 })).resolves.toMatchObject({
-      recentOrders: { items: [], pageSize: 6 },
-      stats: { total: 0 },
+    await expect(getDashboardSummary({ limit: 8 })).resolves.toMatchObject({
+      coverage: "store",
+      totalCandidates: 0,
+      items: [],
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/repairdesk/dashboard/summary",
+      "/api/repairdesk/dashboard/priority-summary",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ pageSize: 6 }),
+        body: JSON.stringify({ limit: 8 }),
       }),
     );
   });

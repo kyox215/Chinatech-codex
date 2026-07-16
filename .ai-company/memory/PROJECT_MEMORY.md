@@ -4,7 +4,7 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-14 CEST
+- Last verified: 2026-07-16 CEST
 
 ## Product and business overview
 
@@ -34,6 +34,7 @@ Chinatech RepairDesk is a Next.js internal management system for a phone repair 
 - Customer search and order workflows have explicit RepairDesk rules in `AI智能部门管理/部门化管理设计.md`.
 - Supabase/database work is high-risk and requires DATA/API/SEC/QA review plus explicit approval for production-impacting actions.
 - Verified current data domains include repair orders/events/workflows, customers/devices/CRM, buyback/resale inventory, store tenancy, staff profiles, store memberships, store invitations, message templates, store settings, audit logs, platform onboarding, and private attachment storage.
+- `TASK-20260716-001-dashboard-handoff-priority` defines the current Dashboard contract: `dashboard/priority-summary` ranks the complete actor-visible active order set before applying its display limit, preserves technician membership assignment scope, and returns an allowlisted non-financial handoff DTO. Dashboard actions only navigate to permission-checked task/detail pages. The old `dashboard/summary` endpoint is retained temporarily for rolling-client compatibility.
 
 ## Authentication, authorization and sensitive data
 

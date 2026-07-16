@@ -67,19 +67,6 @@ export function patchOrderReadCaches(
     },
   );
 
-  queryClient.setQueriesData<DashboardSummary>(
-    { queryKey: ordersDashboardSummaryCachePrefix },
-    (summary) => {
-      if (!summary) return summary;
-      const recentOrders = patchOrderListItems(summary.recentOrders.items, orderId, patch);
-      if (recentOrders === summary.recentOrders.items) return summary;
-      return {
-        ...summary,
-        recentOrders: { ...summary.recentOrders, items: recentOrders },
-      };
-    },
-  );
-
   queryClient.setQueriesData<OrderDetail>(
     { queryKey: orderDetailCachePrefix(orderId) },
     (detail) => {

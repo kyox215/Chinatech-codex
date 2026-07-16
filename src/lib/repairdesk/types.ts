@@ -515,16 +515,66 @@ export interface OrderDataImportApplyResult {
 }
 
 export interface DashboardSummaryInput {
-  pageSize?: number;
+  limit?: number;
+}
+
+export type DashboardPriorityCoverage = "store" | "assigned";
+export type DashboardPriorityTier = "overdue" | "ready" | "active" | "waiting";
+export type DashboardPriorityReasonCode =
+  | "approval_overdue"
+  | "pickup_overdue"
+  | "rework"
+  | "repaired_ready"
+  | "parts_arrived"
+  | "workflow_action_ready"
+  | "waiting_customer"
+  | "waiting_parts"
+  | "external_repair"
+  | "waiting_pickup"
+  | "paused"
+  | "unrepairable"
+  | "other_active";
+export type DashboardPriorityAssigneeState = "assigned" | "unassigned" | "unavailable";
+
+export interface DashboardPriorityItem {
+  rank: number;
+  orderId: string;
+  publicNo: string;
+  customerName: string;
+  deviceLabel: string;
+  tier: DashboardPriorityTier;
+  reasonCode: DashboardPriorityReasonCode;
+  reasonLabel: string;
+  reasonDescription: string;
+  currentStep: string;
+  nextStep: string;
+  assigneeLabel: string;
+  assigneeState: DashboardPriorityAssigneeState;
+  isMine: boolean;
+  isOverdue: boolean;
+  isActionable: boolean;
+  updatedAt: string;
+  action: {
+    kind: "open_task";
+    label: string;
+    href: string;
+  };
+  detailHref: string;
 }
 
 export interface DashboardSummary {
-  recentOrders: OrderListResult;
-  stats: OrderStats;
-  partialErrors?: {
-    recentOrders?: string;
-    stats?: string;
+  coverage: DashboardPriorityCoverage;
+  policyVersion: "dashboard-priority-v1";
+  generatedAt: string;
+  totalCandidates: number;
+  hasMore: boolean;
+  counts: {
+    overdue: number;
+    ready: number;
+    active: number;
+    waiting: number;
   };
+  items: DashboardPriorityItem[];
 }
 
 export interface OrderDetail {

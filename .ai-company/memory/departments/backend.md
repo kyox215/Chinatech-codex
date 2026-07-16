@@ -3,7 +3,7 @@ schema_version: 1
 department: backend
 status: active
 owner: Backend Department / Integration Lead
-last_verified_at: 2026-07-14
+last_verified_at: 2026-07-16
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -36,6 +36,7 @@ as owner of this file.
 - `TASK-20260713-002-order-search-grouped-results` defines the shared repository/mock list contract: sort by the six active queue groups, then `completed`, then `cancelled`; within each group use `created_at ASC`, followed by `public_no` and `id`. `OrderListResult.resultGroupCounts` reports the exact filtered result set without weakening archive, assignment or finance projection permissions.
 - `TASK-20260712-005-buyback-guided-evidence` establishes a dedicated sensitive buyback boundary: Sales handoff is separate from Owner/Manager restricted-evidence capture/finalize; generic inventory updates cannot write signed acquisition fields, direct buyback payment or `purchased`; finalize uses expected version, idempotency and one RPC; quality-check updates use status/version CAS and patch only submitted fields.
 - While `BUYBACK_SENSITIVE_WORKFLOW_ENABLED` is false, `TASK-20260714-001-buyback-sensitive-evidence-feature-off` makes the router and repository reject every buyback attachment, restricted kind, finalize and legacy evidence apply regardless of client or role. Ordinary inventory attachments use the legacy production row shape. Quote updates merge stored allowlisted markers with sanitized inbound metadata, and partial-save retries load and refresh the remembered record before any transition.
+- Dashboard priority uses `dashboard/priority-summary`: apply the existing actor-aware active-order repository scope first, rank the complete visible set, then slice and return the compact allowlist. Keep the previous `dashboard/summary` response during the rolling-client compatibility window. Dashboard mutations remain out of scope; order task/detail routes own all permission-checked writes.
 
 ## Interfaces and dependencies
 
@@ -57,6 +58,8 @@ as owner of this file.
 | BE-20260620-002 | Audit writer and generic router currently permit raw before/after/input payloads | Sensitive data over-retention | Backend + Security + QA | implement central sanitizer after Owner confirms behavior change | policy_drafted |
 | BE-20260713-001 | General status update and timeline insertion remain separate database writes | A status may commit without its event if event insertion fails | Backend + Data | make both writes atomic in the next workflow RPC migration | open |
 | BE-20260713-002 | Generic inventory sale/payment remains outside the buyback-finalize transaction boundary | A later resale workflow can still partially write outside this acquisition scope | Backend + Data + Product | dedicated atomic sale-command task before expanding resale automation | open |
+| BE-20260716-001 | Dashboard priority currently reads and ranks the complete visible active set in memory | Correct but may become expensive at materially larger store volume | Backend + Data | measure volume/latency before moving ranking into a database read model | monitoring |
+| BE-20260716-002 | Legacy `dashboard/summary` remains for rolling-client compatibility and generic priority read failures map to HTTP 400 | Contract debt and weaker unavailable-service observability | Backend + QA | deprecate old endpoint and introduce a 503-class error in a separate compatibility task | monitoring |
 
 ## Lessons and anti-patterns
 
@@ -83,3 +86,4 @@ as owner of this file.
 | 2026-07-13 | Added result-group counts and stable status-first, oldest-intake-first order sorting | TASK-20260713-002-order-search-grouped-results | Integration Lead | active |
 | 2026-07-13 | Added restricted buyback command boundary, quality CAS and generic-write bypass guards | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | verified_local |
 | 2026-07-14 | Added production feature-off deny coverage, legacy attachment-schema compatibility and same-record retry refresh | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + security reviewer | active |
+| 2026-07-16 | Added complete actor-scoped Dashboard priority endpoint, allowlisted DTO and legacy rolling compatibility boundary | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + ARCH/SEC reviewers | active |

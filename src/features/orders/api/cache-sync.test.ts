@@ -16,7 +16,7 @@ import {
 } from "./cache-sync";
 
 describe("order cache sync", () => {
-  it("patches queue summary, dashboard summary, and detail caches for an order", () => {
+  it("patches order rows without optimistically reordering the derived dashboard priority", () => {
     const queryClient = new QueryClient();
     const order = makeOrder({ id: "order-1", updated_at: "old" });
 
@@ -38,8 +38,8 @@ describe("order cache sync", () => {
     ).toMatchObject({ parts_supplier_id: "supplier-1", updated_at: "new" });
     expect(
       queryClient.getQueryData<DashboardSummary>(ordersKeys.dashboardSummary({}, storeId))
-        ?.recentOrders.items[0],
-    ).toMatchObject({ parts_supplier_id: "supplier-1", updated_at: "new" });
+        ?.items[0],
+    ).toMatchObject({ orderId: "order-1", updatedAt: "old" });
     expect(
       queryClient.getQueryData<OrderDetail>(ordersKeys.detail(order.id, storeId))?.order,
     ).toMatchObject({
@@ -147,15 +147,35 @@ function makeQueueSummary(order: OrderListItem): OrderQueueSummary {
 
 function makeDashboardSummary(order: OrderListItem): DashboardSummary {
   return {
-    recentOrders: makeQueueSummary(order).list,
-    stats: {
-      total: 1,
-      today: 1,
-      inProgress: 0,
-      unpaid: 1,
-      approvalOverdue: 0,
-      pickupOverdue: 0,
-    },
+    coverage: "store",
+    policyVersion: "dashboard-priority-v1",
+    generatedAt: "2026-07-16T12:00:00.000Z",
+    totalCandidates: 1,
+    hasMore: false,
+    counts: { overdue: 0, ready: 0, active: 1, waiting: 0 },
+    items: [
+      {
+        rank: 1,
+        orderId: order.id,
+        publicNo: order.public_no,
+        customerName: order.customer_name,
+        deviceLabel: order.device_label,
+        tier: "active",
+        reasonCode: "workflow_action_ready",
+        reasonLabel: "新单待处理",
+        reasonDescription: "Synthetic priority reason",
+        currentStep: "接单",
+        nextStep: "开始检测",
+        assigneeLabel: order.technician_name,
+        assigneeState: "assigned",
+        isMine: false,
+        isOverdue: false,
+        isActionable: true,
+        updatedAt: order.updated_at,
+        action: { kind: "open_task", label: "开始检测", href: `/orders/${order.id}/task` },
+        detailHref: `/orders/${order.id}`,
+      },
+    ],
   };
 }
 

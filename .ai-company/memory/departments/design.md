@@ -3,7 +3,7 @@ schema_version: 1
 department: design
 status: active
 owner: Design Department / Integration Lead
-last_verified_at: 2026-06-19
+last_verified_at: 2026-07-16
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -28,6 +28,7 @@ as owner of this file.
 - Mobile detail/task/workflow pages must follow RepairOS Floating Card language from the project docs and current mobile order detail source of truth.
 - RepairOS list/management pages should open directly into KPI, filters, chips, toolbars, or business content; do not add duplicate page-body module title blocks when AppBar already provides module context.
 - Visual claims require screenshot/browser evidence when UI changes are made.
+- Dashboard mobile opens with two equal quick-start entries and one complete first-priority card; the Dashboard-only status rail and duplicate floating quick Dock stay absent. Desktop uses a primary queue plus compact handoff/business sidebar. Priority meaning is never color-only and every card spells out reason, current step, next step, assignee and time.
 
 ## Interfaces and dependencies
 
@@ -63,3 +64,4 @@ as owner of this file.
 |---|---|---|---|---|
 | 2026-06-19 | Initial RepairDesk design baseline synchronized | TASK-20260619-003 | Integration Lead | active |
 | 2026-07-07 | Added no-duplicate-module-title rule for RepairOS list/management pages | TASK-20260707-005 | Integration Lead | active |
+| 2026-07-16 | Recorded responsive Dashboard handoff hierarchy and current visual-evidence contract | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + UX/FLOW reviewer | active |

@@ -16,6 +16,8 @@ import {
   createOrderSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
+  dashboardPrioritySummaryInputSchema,
+  dashboardSummaryInputSchema,
   inventoryQualityCheckInputSchema,
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
@@ -34,6 +36,18 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it("accepts only a bounded Dashboard limit and rejects caller-controlled scope", () => {
+    expect(dashboardPrioritySummaryInputSchema.parse({ limit: 8 })).toEqual({ limit: 8 });
+    expect(() => dashboardPrioritySummaryInputSchema.parse({ limit: 21 })).toThrow();
+    expect(() =>
+      dashboardPrioritySummaryInputSchema.parse({ limit: 8, storeId: "other-store" }),
+    ).toThrow();
+  });
+
+  it("keeps the legacy Dashboard page-size contract available during rolling releases", () => {
+    expect(dashboardSummaryInputSchema.parse({ pageSize: 6 })).toEqual({ pageSize: 6 });
+  });
+
   it("accepts an optional ISO version for inventory quality-check CAS", () => {
     expect(
       inventoryQualityCheckInputSchema.parse({

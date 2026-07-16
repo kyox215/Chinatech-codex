@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-07-14
+last_verified_at: 2026-07-16
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -40,6 +40,7 @@ as owner of this file.
 - `TASK-20260620-002` classified the remaining legacy `src/routes/*` files as delete-ready after Owner approval. Live page bodies remain feature screens imported by `src/app/*`; do not use `src/routes/*` as a UI source.
 - `TASK-20260620-003` confirms the deletion preflight baseline is green without touching App Router or feature screen files. Future deletion must not modify `src/app/*` or `src/features/*`.
 - UI duplicate ` 2` files reviewed in `TASK-20260619-005` are stale snapshots and should not be merged into canonical screens/components. If the Owner wants visual assurance before cleanup, verify current canonical order card, customer intake lookup, order task screen, and RepairOS mobile shared UI before deletion.
+- Dashboard does not pass status chips to `RepairOsListScaffold`. Mobile shows the two business quick starts before the priority queue; desktop uses the same two actions in the page header. Priority cards show reason/current/next/assignee/time and only navigate to task/detail. A limited sample must use full counts to distinguish true filtered empty from “present beyond this sample”. Any 401/403 hides cached priority data instead of presenting it as stale.
 
 ## Interfaces and dependencies
 
@@ -90,3 +91,4 @@ as owner of this file.
 | 2026-07-13 | Added debounced order-search feedback, grouped result sections and consistent intake/status date presentation | TASK-20260713-002-order-search-grouped-results | Integration Lead | active |
 | 2026-07-13 | Added verified six-step buyback, role handoff, legal/signature and bounded evidence-upload UI | TASK-20260712-005-buyback-guided-evidence | Integration Lead + UX/security reviewers | active |
 | 2026-07-14 | Projected the production feature-off as a four-step all-role quote-only UI with historical evidence read-only | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + UX/QA reviewers | active |
+| 2026-07-16 | Added Dashboard quick-start, handoff card, truthful filtered-sample and permission-revocation UI rules | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + UX/QA reviewers | active |

@@ -52,7 +52,7 @@ export function MobileWorkspaceDock({ onOpenCommand }: MobileWorkspaceDockProps)
     };
   }, []);
 
-  if (isMobileWorkspaceRoute) {
+  if (pathname === "/" || isMobileWorkspaceRoute) {
     return null;
   }
 

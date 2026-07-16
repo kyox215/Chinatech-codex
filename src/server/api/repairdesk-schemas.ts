@@ -321,7 +321,13 @@ export const dashboardSummaryInputSchema = z
   .object({
     pageSize: z.coerce.number().int().positive().max(20).optional(),
   })
-  .passthrough() satisfies z.ZodType<DashboardSummaryInput>;
+  .passthrough();
+
+export const dashboardPrioritySummaryInputSchema = z
+  .object({
+    limit: z.coerce.number().int().positive().max(20).optional(),
+  })
+  .strict() satisfies z.ZodType<DashboardSummaryInput>;
 
 export const orderWorkflowStatusCreateBodySchema = z.object({
   input: z

@@ -773,7 +773,7 @@ export async function getDashboardSummary(
   input: DashboardSummaryInput = {},
   options?: RepairDeskRequestOptions,
 ): Promise<DashboardSummary> {
-  return postJson<DashboardSummary>("dashboard/summary", input, options);
+  return postJson<DashboardSummary>("dashboard/priority-summary", input, options);
 }
 
 export async function listOrderWorkflow(

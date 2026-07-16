@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 
+import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
 import { statusGroups } from "@/lib/mock/enums";
 import {
   batchTransition,
@@ -184,6 +185,7 @@ import {
   customerTagsUpdateBodySchema,
   customerUpdateBodySchema,
   dashboardSummaryInputSchema,
+  dashboardPrioritySummaryInputSchema,
   electronicsCsvImportBodySchema,
   idBodySchema,
   inventoryAttachmentUploadBodySchema,
@@ -937,6 +939,17 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
             : undefined;
 
         return ok({ recentOrders, stats, partialErrors });
+      }
+      case "dashboard/priority-summary": {
+        assertOrderListPermission(actor);
+        const { limit } = dashboardPrioritySummaryInputSchema.parse(body);
+        return ok(
+          await getDashboardPrioritySummary({
+            actor,
+            limit,
+            listOrders: api.listOrders,
+          }),
+        );
       }
       case "customers/list":
         assertCustomerListPermission(actor);

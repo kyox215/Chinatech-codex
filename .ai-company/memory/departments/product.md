@@ -3,7 +3,7 @@ schema_version: 1
 department: product
 status: active
 owner: Product Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-16
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -31,6 +31,7 @@ as owner of this file.
 - `TASK-20260619-009` deleted the Batch B stale duplicate files that encoded old intake/pickup assumptions; canonical product semantics were not changed.
 - `TASK-20260620-001` established manual order-detail status transition as a correction/override path: users may choose any enabled concrete order status except the current status, while approval decision, required reason, disabled/current target, canonical-group target, and unpaid-completion protections remain enforced.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package/ROLE_POLICY_DECISION_PACKAGE.md` is the current Owner-approval package for role policy. It recommends Option A, a conservative shop-operations policy, but it is not approved or implemented yet.
+- `TASK-20260716-001-dashboard-handoff-priority` makes Dashboard an operational handoff workbench: keep quick repair intake and buyback quote, then show the actor-authorized order to handle first with an explainable reason, current step, next step, assignee and update time. Finance does not influence V1 priority and Dashboard performs no direct workflow mutation.
 
 ## Interfaces and dependencies
 
@@ -72,3 +73,4 @@ as owner of this file.
 | 2026-06-19 | Removed stale Batch B duplicate workflow files after semantic confirmation | TASK-20260619-009 | Integration Lead | active |
 | 2026-06-20 | Recorded manual order-detail status transition correction path and preserved safeguards | TASK-20260620-001 | Integration Lead | active |
 | 2026-06-20 | Added Owner-ready role-policy decision package as proposed product policy | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead | proposed |
+| 2026-07-16 | Recorded beginner-friendly Dashboard priority and store-handoff product contract | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |

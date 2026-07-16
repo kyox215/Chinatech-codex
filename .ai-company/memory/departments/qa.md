@@ -3,7 +3,7 @@ schema_version: 1
 department: qa
 status: active
 owner: QA Department / Integration Lead
-last_verified_at: 2026-07-14
+last_verified_at: 2026-07-16
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -33,6 +33,7 @@ as owner of this file.
 - `TASK-20260620-003` is preflight-only evidence: current baseline passed route scan, `agents:check`, lint, typecheck, and `knip.json` parse. The actual deletion task still needs full tests and build after files are removed.
 - `TASK-20260620-004` is permission-matrix documentation evidence only. It does not prove runtime authorization behavior until role-specific server/API denial tests are added after Owner policy decisions.
 - `TASK-20260712-002-global-staff-permissions` supplies runtime role/object denial evidence and final gates: agents/lint/typecheck pass, 119 Vitest files / 800 tests pass, 22-route production build passes outside the known sandbox port restriction, linked migration dry-run lists two pending files, and desktop/mobile screenshots plus zero browser console errors are recorded.
+- Dashboard priority verification must cover: ranking more than the first list page, canonical approval/exception/parts side states, actor forwarding and denial-before-read, compact DTO forbidden fields, cached-data permission revocation, true versus sampled filtered empty, navigation-only actions, long Italian text, five widths without horizontal overflow, and current 390x844/1440x900 screenshots. `TASK-20260716-001` closed these gates with 135 files / 935 full tests, 12 Dashboard E2E flows and a 22-route build.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package` is a decision package only. Treat Option A test cases as proposed test requirements, not executed coverage.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio` is policy evidence only. It does not prove audit redaction behavior until sanitizer implementation and forbidden-field serialization tests pass.
 - `TASK-20260619-232315-l2-028-require-closeout-screenshots-for-re` makes closeout visual evidence mandatory: if a task has a relevant UI, preview, browser-visible result, or task/result page, final QA evidence and Owner report must include screenshot path(s). Non-UI tasks must record a no-screenshot reason and alternate evidence.
@@ -129,3 +130,4 @@ as owner of this file.
 | 2026-07-13 | Added guided-buyback security/full/browser gate and server-side E2E actor-environment lesson | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | active |
 | 2026-07-14 | Verified feature-off server/UI containment, bounded full-suite classification and exact production/no-write release evidence | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + SEC/UX/QA reviewers | active |
 | 2026-07-14 | Verified dormant migration fixtures, atomicity, full code gates and production post-apply empty/revoked state | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + DATA/SEC/REL reviewers | scoped_verified |
+| 2026-07-16 | Recorded Dashboard priority authorization, truth-state, responsive, privacy, full-suite and visual evidence matrix | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + QA/SEC/UX reviewers | active |

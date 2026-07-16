@@ -3,7 +3,7 @@ schema_version: 1
 department: security
 status: active
 owner: Security Department / Integration Lead
-last_verified_at: 2026-07-14
+last_verified_at: 2026-07-16
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -33,6 +33,7 @@ as owner of this file.
 - Live Supabase permission audits, role changes, RLS/grant changes, platform-admin changes, and service-role scripts require explicit Owner approval.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package` recommends Option A: `viewer` read-only, platform/store authority separation, tighter staff roster/store creation policy, and staged server-side gates. This is a proposal pending Owner approval, not active behavior.
 - `TASK-20260619-231154-l2-027-audit-log-redaction-and-minimizatio/AUDIT_LOG_REDACTION_POLICY.md` is the current audit-log minimization policy draft. It requires audit payload allowlists and forbids raw request/result rows, secrets, base64/data URLs, signed URLs, raw message bodies, raw contact identifiers, and raw IMEI/serials in audit logs. This is policy only; no sanitizer code is implemented yet.
+- Dashboard priority authorization is inherited from the actor-aware order-list boundary before ranking. Technicians remain scoped by stable membership assignment; caller-controlled store/role fields are rejected. The response excludes phone, IMEI, unlock, supplier, signature, finance amount, unpaid aggregate and membership UUID. Any 401/403 must hide previously cached priority rows immediately, not downgrade them to a stale-data warning.
 - `TASK-20260710-009` enforces customer read authorization before repository calls and no longer trusts user-editable metadata or a generic confirmation timestamp as verified-email authority. Technician/viewer customer reads remain fail closed without an approved object-level scope model.
 - `TASK-20260712-002-global-staff-permissions` closes the approved global staff-policy gap: mutable technician names are never authorization keys, kiosk session review is owner/manager-only, and browser 401/403 authority loss clears tenant-sensitive caches before paint. Production assignment/grant migrations remain unapplied until the separate database gate.
 - `TASK-20260713-001-order-active-status-homepage` hides all `completed` and `cancelled` rows from the default homepage without deleting or rewriting them. Cancelled-device return, settlement contradictions and other custody reminders remain on the authorized order detail/history paths. Exact archived-order lookup remains a single-order capability, while archive browsing, aggregate totals and bulk output stay separately gated.
@@ -90,3 +91,4 @@ as owner of this file.
 | 2026-07-13 | Added verified buyback role/PII/evidence/signature/idempotency/upload-envelope controls and production NO-GO | TASK-20260712-005-buyback-guided-evidence | Security reviewer + Integration Lead | verified_local |
 | 2026-07-14 | Activated production default-deny containment for all sensitive buyback paths and preserved the separate migration/legal approval gate | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Security reviewer + Integration Lead | active |
 | 2026-07-14 | Verified dormant production schema remains empty and inaccessible to every runtime role after migration apply | TASK-20260714-002-buyback-supabase-schema-staging | Security reviewer + Integration Lead | scoped_verified |
+| 2026-07-16 | Verified actor-scoped Dashboard priority, compact DTO denylist and cached-data permission-revocation hiding | TASK-20260716-001-dashboard-handoff-priority | Security reviewer + Integration Lead | active |
