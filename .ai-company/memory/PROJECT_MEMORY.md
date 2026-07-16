@@ -35,6 +35,7 @@ Chinatech RepairDesk is a Next.js internal management system for a phone repair 
 - Supabase/database work is high-risk and requires DATA/API/SEC/QA review plus explicit approval for production-impacting actions.
 - Verified current data domains include repair orders/events/workflows, customers/devices/CRM, buyback/resale inventory, store tenancy, staff profiles, store memberships, store invitations, message templates, store settings, audit logs, platform onboarding, and private attachment storage.
 - Closed `TASK-20260716-001-dashboard-handoff-priority` defines the current Dashboard contract: `dashboard/priority-summary` ranks the complete actor-visible active order set before applying its display limit, preserves technician membership assignment scope, and returns an allowlisted non-financial handoff DTO. Dashboard actions only navigate to permission-checked task/detail pages. The old `dashboard/summary` endpoint is retained temporarily for rolling-client compatibility.
+- Closed `TASK-20260716-002-orders-mobile-filter-loading-plan` defines the current Orders list performance contract: first fetch store/view/assignment-scoped narrow index rows, then one store-scoped detail query capped at 50 IDs. Mobile queue controls use two columns below 360px and three columns from 360px, expose pending/error/offline/latest-intent states, and omit the mobile funnel plus redundant selected-queue summary. Production evidence did not justify a database migration.
 
 ## Authentication, authorization and sensitive data
 
@@ -121,7 +122,7 @@ Client components must not import `src/server/*`. Server-side validation is requ
 - TASK-009 established a durable payment command boundary: BFF authorization and validation, service-role-only invoker RPC, immutable ledger/idempotency key, advisory lock and order row lock in one transaction. A migration-slice PASS must never be summarized as an environment-wide Database Gate PASS.
 - TASK-009 linked audit found 17 legacy public tables with RLS disabled and direct browser-role access, a from-zero migration reset failure at `20260611102805`, missing backup/PITR restore proof and one plaintext unlock pattern pending policy. These are independent P0/policy follow-ups.
 - TASK-009 also exposed a shared-workspace release-coordination failure: separate executors can race on DB/Git/deploy state. Future production releases require a serialized release lock plus remote state assertions immediately before and after writes.
-- Latest closed task: `TASK-20260716-001-dashboard-handoff-priority`, the beginner-friendly Dashboard handoff and deterministic priority workbench, validated and integrated into `main` without database or production deployment changes.
+- Latest closed task: `TASK-20260716-002-orders-mobile-filter-loading-plan`, the production Orders mobile density, loading-state and bounded list-query optimization, validated, pushed to `main`, deployed and post-release verified without database mutation.
 - Active handoff candidate: Phase 2 tenant isolation audit, using `.ai-company/memory/ACTIVE_CONTEXT.md` and `TASK-20260704-009-independent-partner-store-platform` as Phase 1 baseline evidence.
 - 30-day focus: contain the 17 legacy-table browser grants after consumer discovery; repair/reconstruct the migration recovery baseline; record backup/PITR and run an isolated restore drill; add a serialized release lock and payment observability; continue Phase 2 tenant isolation, role-policy and audit-minimization work.
 - 60-day focus: staged route migration, large-module splits, stable mock-auth E2E, data-quality checks, and PII/storage operations policy.
@@ -146,6 +147,7 @@ Client components must not import `src/server/*`. Server-side validation is requ
 - `.ai-company/memory/tasks/TASK-20260619-017/TASK_STATUS_REGISTRY_AUDIT.md`
 - `.ai-company/memory/tasks/TASK-20260619-018/STALE_DOCUMENTATION_DRIFT_INVENTORY.md`
 - `.ai-company/memory/tasks/TASK-20260619-019/TASK.md`
+- `.ai-company/memory/tasks/TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260619-020/ARCHIVE_SNAPSHOT_BANNER_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260619-021/ACTIVE_DOC_METADATA_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260619-022/LEGACY_ROUTE_MIGRATION_PLAN_REFRESH.md`

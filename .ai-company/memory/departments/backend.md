@@ -37,6 +37,7 @@ as owner of this file.
 - `TASK-20260712-005-buyback-guided-evidence` establishes a dedicated sensitive buyback boundary: Sales handoff is separate from Owner/Manager restricted-evidence capture/finalize; generic inventory updates cannot write signed acquisition fields, direct buyback payment or `purchased`; finalize uses expected version, idempotency and one RPC; quality-check updates use status/version CAS and patch only submitted fields.
 - While `BUYBACK_SENSITIVE_WORKFLOW_ENABLED` is false, `TASK-20260714-001-buyback-sensitive-evidence-feature-off` makes the router and repository reject every buyback attachment, restricted kind, finalize and legacy evidence apply regardless of client or role. Ordinary inventory attachments use the legacy production row shape. Quote updates merge stored allowlisted markers with sanitized inbound metadata, and partial-save retries load and refresh the remembered record before any transition.
 - Dashboard priority uses `dashboard/priority-summary`: apply the existing actor-aware active-order repository scope first, rank the complete visible set, then slice and return the compact allowlist. Keep the previous `dashboard/summary` response during the rolling-client compatibility window. Dashboard mutations remain out of scope; order task/detail routes own all permission-checked writes.
+- Orders list reads must first select store/view/technician-scoped narrow index rows, then issue one store-scoped detail query for at most 50 IDs. Keep legacy `pageSize <= 100` input compatibility but clamp the effective detail page size to 50, preserve actor response projections, and fail closed when technician assignment schema is unavailable.
 
 ## Interfaces and dependencies
 
@@ -60,6 +61,7 @@ as owner of this file.
 | BE-20260713-002 | Generic inventory sale/payment remains outside the buyback-finalize transaction boundary | A later resale workflow can still partially write outside this acquisition scope | Backend + Data + Product | dedicated atomic sale-command task before expanding resale automation | open |
 | BE-20260716-001 | Dashboard priority currently reads and ranks the complete visible active set in memory | Correct but may become expensive at materially larger store volume | Backend + Data | measure volume/latency before moving ranking into a database read model | monitoring |
 | BE-20260716-002 | Legacy `dashboard/summary` remains for rolling-client compatibility and generic priority read failures map to HTTP 400 | Contract debt and weaker unavailable-service observability | Backend + QA | deprecate old endpoint and introduce a 503-class error in a separate compatibility task | monitoring |
+| BE-20260716-003 | Orders archive/all still scans narrow index batches up to 1,000 and the two-phase read is not a transactional snapshot | Higher-volume latency or a transient missed row during concurrent change | Backend + Data | observe production p95/volume; introduce a database read model only with measured evidence | monitoring |
 
 ## Lessons and anti-patterns
 
@@ -87,3 +89,4 @@ as owner of this file.
 | 2026-07-13 | Added restricted buyback command boundary, quality CAS and generic-write bypass guards | TASK-20260712-005-buyback-guided-evidence | Integration Lead + security reviewer | verified_local |
 | 2026-07-14 | Added production feature-off deny coverage, legacy attachment-schema compatibility and same-record retry refresh | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + security reviewer | active |
 | 2026-07-16 | Added complete actor-scoped Dashboard priority endpoint, allowlisted DTO and legacy rolling compatibility boundary | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + ARCH/SEC reviewers | active |
+| 2026-07-16 | Added bounded two-phase Orders list repository contract with tenant/assignment and projection preservation | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + DATA/SEC/performance reviewers | active |

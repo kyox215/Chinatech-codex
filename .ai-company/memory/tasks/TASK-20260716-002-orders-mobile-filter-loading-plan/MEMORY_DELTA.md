@@ -21,3 +21,10 @@
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.
+
+## Consolidation result
+
+- Promoted the verified Orders mobile queue, bounded list-query, no-migration decision and regression-gate contracts to project plus FE/API/DATA/QA/DOC department memory.
+- No conflict or superseded long-term fact remains; the former fixed two-column mobile selector rule is superseded by two columns below 360px and three columns at 360px or wider.
+- Capability review result: the three read-only reviewers and Integration Lead produced useful single-task evidence, but one release is not enough for a capability-level, permission or autonomy change. `CAPABILITY_REGISTRY.md` remains unchanged.
+- Temporary details not promoted: one-off timings, deployment IDs and screenshot paths remain in task evidence because they are release-instance facts rather than standing rules.

@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260716-002-orders-mobile-filter-loading-plan"
 title: "订单移动端筛选与队列加载性能优化实施发布"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "DATA", "FE", "FLOW", "INT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-16T07:45:13Z"
-updated_at: "2026-07-16T09:15:57Z"
+updated_at: "2026-07-16T09:31:08Z"
+closed_at: "2026-07-16T09:31:08Z"
 ---
 # Task — 订单移动端筛选与队列加载性能优化实施发布
 
@@ -51,7 +52,7 @@ updated_at: "2026-07-16T09:15:57Z"
 - [x] 队列切换在100ms内有反馈且错误、离线、竞态语义正确
 - [x] 列表查询不再全量读取宽订单历史，结构性减负与租户隔离证据通过
 - [x] lint、typecheck、test、build、移动E2E和截图证据通过
-- [ ] 必要数据库改动安全应用并验证，代码推送main，生产部署与上线核验完成
+- [x] 数据库经生产证据判定无需新增 DDL/RPC/迁移；代码已推送 main，生产部署与上线核验完成
 
 ## Facts, assumptions, and unknowns
 

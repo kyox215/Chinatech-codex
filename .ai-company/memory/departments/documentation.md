@@ -56,6 +56,7 @@ as owner of this file.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` is the current production-behavior authority for buyback evidence: use the four-step quote-only UI and server default-deny contract until a separately approved activation task supersedes it. `TASK-20260712-005-buyback-guided-evidence` remains the local future design/history and must not be read as evidence that production Supabase or sensitive capture is active.
 - `TASK-20260714-002-buyback-supabase-schema-staging` supersedes only the prior “production Supabase objects absent” documentation: the dormant objects now exist, but are empty, private and revoked. It does not supersede the four-step quote-only/server-default-deny runtime authority and must never be described as sensitive-feature activation.
 - `TASK-20260716-001-dashboard-handoff-priority` and `docs/UI_PAGE_GENERATION_DECLARATION.md` are the current Dashboard generation authority: no Dashboard status chips, two quick starts, complete actor-scoped ranking before slice, allowlisted non-financial projection, navigation-only actions and distinct loading/empty/filtered/error/permission states.
+- `TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md` is the current Orders mobile queue/loading performance release authority: compact responsive queues, explicit transition/offline states, bounded two-phase list reads, exact production proof and the evidence-based no-migration decision.
 
 ## Interfaces and dependencies
 
@@ -128,3 +129,4 @@ as owner of this file.
 | 2026-07-14 | Marked the feature-off task as current production buyback authority and the earlier six-step flow as inactive design history | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | active |
 | 2026-07-14 | Recorded dormant production schema presence without changing feature-off runtime or UI documentation authority | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead | active |
 | 2026-07-16 | Synchronized active Dashboard UI/API/security/visual rules with the handoff implementation | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
+| 2026-07-16 | Synchronized Orders mobile UI/query/release authority and closeout evidence | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + department reviewers | active |

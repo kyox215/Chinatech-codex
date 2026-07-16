@@ -2,9 +2,10 @@
 
 ## Current handoff
 
-- **Status:** pre-release gates passed; release not yet executed.
-- **Last verified:** 2026-07-16T09:15:57Z
+- **Status:** closed; production release and post-release verification completed.
+- **Last verified:** 2026-07-16T09:26:17Z
 - **Workspace/branch:** `/private/tmp/repairdesk-orders-mobile-queue-20260716`; `codex/orders-mobile-queue-performance-20260716`.
-- **Baseline:** `origin/main@119e4402b1674656d3bc75f73feacc33a375311a` before final release fetch.
-- **First action:** fetch `origin/main`, integrate drift if any, then commit the exact task manifest and push `HEAD:main`.
-- **Stop condition:** do not push if final diff, tests or independent reviews are no longer green.
+- **Release:** feature commit `4b954b9701cac607c5822e9e1bd39a74ccbc6c38` is on `main` and Vercel production deployment `dpl_5TVsEC9VibkwkiBWpyDDApPs7Kun` is READY.
+- **Database:** no task-specific migration, DDL, RPC or data mutation was needed after production index/scale/EXPLAIN and post-release checks.
+- **Resume action:** none. Open a separate performance-observation task only if production p95 or order volume materially rises.
+- **Rollback:** revert feature commit `4b954b97` and redeploy; no database rollback is required.
