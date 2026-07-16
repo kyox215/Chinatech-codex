@@ -3,7 +3,7 @@ schema_version: 1
 department: architecture
 status: active
 owner: Architecture Department / Integration Lead
-last_verified_at: 2026-06-20
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -33,12 +33,14 @@ as owner of this file.
 - `TASK-20260619-025` implemented the feature-owned order-list migration and removed the active `@/routes/orders.index` dependency. Remaining `src/routes/*` files are cleanup debt and must not be deleted outside a separate scoped cleanup task.
 - `TASK-20260620-002` classified all six remaining `src/routes/*` files as delete-ready after Owner approval and post-deletion validation. No deletion was performed in that classification task.
 - `TASK-20260620-003` produced the approval-gated deletion preflight contract and green non-destructive baseline. Future deletion should follow that contract exactly.
+- Cross-feature order lifecycle changes use an additive database contract plus thin API/router adapters: ordinary active-order patches remain field-scoped, while terminal correction/reopen/void are dedicated atomic commands. Customer history/finance reads use explicit v3 facts with a compatibility delegator rather than overloading ambiguous v2 names.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Lifecycle command/read-model boundary | Backend + Data + Frontend | Additive v3 facts and dedicated terminal commands; old read overloads delegate during compatibility | Fail closed on invalid contract; forward-fix additive schema and keep immutable evidence | TASK-20260716-003-customer-finance-order-correction-plan | verified |
 
 ## SOPs and checklists
 
@@ -74,3 +76,4 @@ as owner of this file.
 | 2026-06-19 | Recorded active order-list migration out of legacy route and deferred remaining `src/routes/*` cleanup | TASK-20260619-025 | Integration Lead | active |
 | 2026-06-20 | Classified remaining `src/routes/*` files as delete-ready after Owner approval | TASK-20260620-002 | Integration Lead | active |
 | 2026-06-20 | Added approval-gated deletion preflight contract and baseline for legacy route cleanup | TASK-20260620-003 | Integration Lead | active |
+| 2026-07-16 | Recorded additive customer read model and dedicated atomic terminal-command architecture | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + architecture/data reviewers | active |

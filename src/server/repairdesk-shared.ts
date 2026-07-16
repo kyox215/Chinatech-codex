@@ -127,6 +127,25 @@ const ORDER_LIST_CANONICAL_COLUMNS = `
   payment_status,
   approval_flow_status,
   parts_status,
+  notify_status,
+  record_state,
+  voided_at,
+  voided_by,
+  void_reason,
+  deleted_at
+`;
+
+// Columns already present before the lifecycle rollout. The compatibility
+// select intentionally omits only the lifecycle fields introduced by
+// 20260716221119 so assignment scoping and canonical status semantics remain
+// available while the application and database are rolling forward.
+const ORDER_LIST_PRE_LIFECYCLE_COLUMNS = `
+  assignee_membership_id,
+  workflow_status,
+  exception_status,
+  payment_status,
+  approval_flow_status,
+  parts_status,
   notify_status
 `;
 
@@ -154,6 +173,9 @@ export const ORDER_LIST_SELECT = `
 
 export const ORDER_LIST_LEGACY_SELECT = `
   ${ORDER_LIST_BASE_COLUMNS},
+  ${ORDER_LIST_PRE_LIFECYCLE_COLUMNS},
+  ${ORDER_LIST_UNLOCK_COLUMNS},
+  ${ORDER_LIST_PARTS_SUPPLIER_COLUMNS},
   ${REPAIR_ORDER_CUSTOMER_EMBED}(*),
   ${REPAIR_ORDER_DEVICE_EMBED}(*),
   ${REPAIR_ORDER_SUPPLIER_EMBED}(*)
@@ -195,6 +217,7 @@ export const ORDER_LIST_INDEX_SELECT = `
 
 export const ORDER_LIST_INDEX_LEGACY_SELECT = `
   ${ORDER_LIST_INDEX_BASE_COLUMNS},
+  ${ORDER_LIST_PRE_LIFECYCLE_COLUMNS},
   ${REPAIR_ORDER_CUSTOMER_EMBED}(${ORDER_LIST_SEARCH_CUSTOMER_COLUMNS}),
   ${REPAIR_ORDER_DEVICE_EMBED}(${ORDER_LIST_SEARCH_DEVICE_COLUMNS})
 `;
@@ -208,6 +231,9 @@ export const ORDER_LIST_CARD_SELECT = `
 
 export const ORDER_LIST_CARD_LEGACY_SELECT = `
   ${ORDER_LIST_BASE_COLUMNS},
+  ${ORDER_LIST_PRE_LIFECYCLE_COLUMNS},
+  ${ORDER_LIST_UNLOCK_COLUMNS},
+  ${ORDER_LIST_PARTS_SUPPLIER_COLUMNS},
   ${REPAIR_ORDER_CUSTOMER_EMBED}(${ORDER_LIST_SEARCH_CUSTOMER_COLUMNS}),
   ${REPAIR_ORDER_DEVICE_EMBED}(${ORDER_LIST_SEARCH_DEVICE_COLUMNS}),
   ${REPAIR_ORDER_SUPPLIER_EMBED}(${ORDER_LIST_CARD_SUPPLIER_COLUMNS})
@@ -464,6 +490,7 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     notify_status:
       (maybeString(row.notify_status) as RepairOrder["notify_status"]) ??
       notifyStatusFromLegacyStatus(status),
+    workflow_bucket: maybeString(row.workflow_bucket) as RepairOrder["workflow_bucket"],
     customer_id: requiredString(row.customer_id),
     device_id: requiredString(row.device_id),
     issue_description: requiredString(row.issue_description),
@@ -509,6 +536,11 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     device_unlock_value: maybeString(row.device_unlock_value),
     device_unlock_pattern: deviceUnlockPatternFromRow(row.device_unlock_pattern),
     customer_signature: maybeString(row.customer_signature),
+    record_state: maybeString(row.record_state) === "voided" ? "voided" : "active",
+    voided_at: maybeString(row.voided_at),
+    voided_by: maybeString(row.voided_by),
+    void_reason: maybeString(row.void_reason),
+    deleted_at: maybeString(row.deleted_at),
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };
@@ -614,7 +646,7 @@ export async function fetchOrderRows(storeId: string): Promise<DbRecord[]> {
     from += ORDER_LIST_PAGE_SIZE;
   }
 
-  return rows;
+  return attachOrderWorkflowBuckets(storeId, rows);
 }
 
 export type OrderListDatabaseView = "active" | "archive" | "all";
@@ -634,22 +666,25 @@ export function orderListDatabaseOrFilter(view: OrderListDatabaseView) {
   return undefined;
 }
 
-function applyOrderListDatabaseScope<
+function applyOrderListDatabaseScopeWithCompatibility<
   T extends {
     eq: (column: string, value: string) => T;
     in: (column: string, values: string[]) => T;
     neq: (column: string, value: string) => T;
+    is: (column: string, value: null) => T;
+    not: (column: string, operator: string, value: string) => T;
     or: (filters: string) => T;
   },
->(query: T, scope: OrderListDatabaseScope) {
+>(query: T, scope: OrderListDatabaseScope, lifecycleSupported: boolean) {
   let scoped = query;
-  if (scope.view === "active") {
+  if (!lifecycleSupported && scope.view === "active") {
+    scoped = scoped.neq("status", "completed").neq("status", "cancelled");
+  } else if (scope.view === "active") {
     scoped = scoped
-      .neq("status", "completed")
-      .neq("status", "cancelled")
-      .or(orderListDatabaseOrFilter("active")!);
-  } else if (scope.view === "archive") {
-    scoped = scoped.or(orderListDatabaseOrFilter("archive")!);
+      .eq("record_state", "active")
+      .is("deleted_at", null)
+      .not("status", "in", "(completed,cancelled)")
+      .or("exception_status.neq.cancelled,exception_status.is.null");
   }
   if (scope.assigneeMembershipId) {
     scoped = scoped.eq("assignee_membership_id", scope.assigneeMembershipId);
@@ -669,14 +704,13 @@ export async function fetchOrderListIndexRows(
 
   while (true) {
     let query = supabase.from("repair_orders").select(select).eq("store_id", storeId);
-    query = applyOrderListDatabaseScope(query, scope);
+    query = applyOrderListDatabaseScopeWithCompatibility(query, scope, !retriedLegacySelect);
     const { data, error } = await query
       .order("updated_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, from + ORDER_LIST_PAGE_SIZE - 1);
 
     if (error && !retriedLegacySelect && isMissingRepairOrderColumnError(error)) {
-      if (scope.assigneeMembershipId) return [];
       rows.length = 0;
       from = 0;
       select = ORDER_LIST_INDEX_LEGACY_SELECT;
@@ -685,17 +719,16 @@ export async function fetchOrderListIndexRows(
     }
     fail(error, "读取工单索引失败");
 
-    const assignmentSupported = !retriedLegacySelect;
     const batch = ((data ?? []) as unknown as DbRecord[]).map((row) => ({
       ...row,
-      __assignment_supported: assignmentSupported,
+      __assignment_supported: true,
     }));
     rows.push(...batch);
     if (batch.length < ORDER_LIST_PAGE_SIZE) break;
     from += ORDER_LIST_PAGE_SIZE;
   }
 
-  return rows;
+  return attachOrderWorkflowBuckets(storeId, rows);
 }
 
 export async function fetchOrderRowsByIds(
@@ -719,15 +752,34 @@ export async function fetchOrderRowsByIds(
       .order("id", { ascending: true });
 
     if (error && !retriedLegacySelect && isMissingRepairOrderColumnError(error)) {
-      if (assigneeMembershipId) return [];
       select = ORDER_LIST_CARD_LEGACY_SELECT;
       retriedLegacySelect = true;
       continue;
     }
     fail(error, "读取当前页工单失败");
-    return ((data ?? []) as unknown as DbRecord[]).map((row) => ({
+    const rows = ((data ?? []) as unknown as DbRecord[]).map((row) => ({
       ...row,
-      __assignment_supported: !retriedLegacySelect,
+      __assignment_supported: true,
     }));
+    return attachOrderWorkflowBuckets(storeId, rows);
   }
+}
+
+async function attachOrderWorkflowBuckets(storeId: string, rows: DbRecord[]) {
+  if (!rows.length) return rows;
+  const { data, error } = await getSupabaseAdmin()
+    .from("order_workflow_statuses")
+    .select("code,bucket")
+    .eq("store_id", storeId);
+  fail(error, "读取工单状态口径失败");
+  const bucketByCode = new Map(
+    ((data ?? []) as unknown as DbRecord[]).map((row) => [
+      requiredString(row.code),
+      requiredString(row.bucket),
+    ]),
+  );
+  return rows.map((row) => ({
+    ...row,
+    workflow_bucket: bucketByCode.get(requiredString(row.status)),
+  }));
 }

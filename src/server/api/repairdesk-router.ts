@@ -9,6 +9,7 @@ import { statusGroups } from "@/lib/mock/enums";
 import {
   batchTransition,
   confirmCancelledOrderReturn,
+  correctTerminalOrder,
   createOrderWorkflowStatus,
   createOrder,
   decideOrderApproval,
@@ -21,6 +22,7 @@ import {
   patchOrder,
   patchOrderFinance,
   recordPayment,
+  reopenOrder,
   reorderOrderWorkflowStatuses,
   sendApprovalRequest,
   sendNotification,
@@ -30,6 +32,7 @@ import {
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateOrder,
+  voidOrder,
   uploadOrderAttachment,
 } from "@/features/orders/server/order.service";
 import {
@@ -170,6 +173,7 @@ import {
   approvalRequestBodySchema,
   batchTransitionBodySchema,
   confirmCancelledOrderReturnBodySchema,
+  correctTerminalOrderBodySchema,
   createOrderSchema,
   customerCreateBodySchema,
   customerDeviceDeleteBodySchema,
@@ -218,6 +222,7 @@ import {
   patchOrderBodySchema,
   patchOrderFinanceBodySchema,
   paymentBodySchema,
+  reopenOrderBodySchema,
   storeCreateBodySchema,
   storeInviteBodySchema,
   storeInviteLinkCreateBodySchema,
@@ -234,6 +239,7 @@ import {
   storeSwitchBodySchema,
   transitionOrderBodySchema,
   updateOrderBodySchema,
+  voidOrderBodySchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
 
@@ -241,6 +247,7 @@ const supabaseSource = {
   acceptKioskSession,
   batchTransition,
   confirmCancelledOrderReturn,
+  correctTerminalOrder,
   completeCustomerFollowup,
   acceptStoreInvitation,
   approveOnboardingRequest,
@@ -295,6 +302,7 @@ const supabaseSource = {
   recordInventoryCheck,
   recordInventoryTransaction,
   recordPayment,
+  reopenOrder,
   reorderOrderWorkflowStatuses,
   renderMessageTemplatePreview,
   resetMessageTemplate,
@@ -324,6 +332,7 @@ const supabaseSource = {
   updateInventoryItem,
   updateMessageTemplate,
   updateOrder,
+  voidOrder,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateSupplier,
@@ -668,6 +677,30 @@ function fail(error: unknown) {
   }
   if (error instanceof ForbiddenError) {
     return privateJson({ error: error.message }, 403);
+  }
+
+  if (
+    error instanceof Error &&
+    "status" in error &&
+    typeof error.status === "number" &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    const domainError = error as Error & {
+      status: number;
+      code: string;
+      details?: Record<string, unknown>;
+    };
+    return privateJson(
+      {
+        error: domainError.message,
+        code: domainError.code,
+        ...(domainError.details && typeof domainError.details === "object"
+          ? { details: domainError.details }
+          : {}),
+      },
+      domainError.status,
+    );
   }
 
   const message =
@@ -1137,6 +1170,39 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           ),
         );
       }
+      case "order/correct-terminal": {
+        const { id, input } = correctTerminalOrderBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "order:correct");
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.correctTerminalOrder(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
+      case "order/reopen": {
+        const { id, input } = reopenOrderBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "order:reopen");
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.reopenOrder(id, input, actor),
+            realtimeBroadcasts.orderTransitioned,
+          ),
+        );
+      }
+      case "order/void": {
+        const { id, input } = voidOrderBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "order:void");
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.voidOrder(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
       case "order/attachment/upload": {
         const { id, input } = orderAttachmentUploadBodySchema.parse(body);
         assertOrderAttachmentUploadPermission(actor);
@@ -1172,12 +1238,8 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           confirmCancelledOrderReturnBodySchema.parse(body);
         assertOrderTransitionPermission(actor);
         return ok(
-          await auditGeneric(
+          await runWithRealtime(
             actor,
-            "transition",
-            "repair_order",
-            id,
-            { action: "custody_return_confirmed" },
             () =>
               api.confirmCancelledOrderReturn(id, {
                 expectedUpdatedAt: expected_updated_at,
@@ -1904,7 +1966,10 @@ export function resolveOrderPatchPermissionActions(input: PatchOrderInput): Perm
     "diagnosis_result",
     "device_notes",
     "device_unlock",
+    "internal_tag",
     "warranty_text",
+    "warranty_months",
+    "warranty_change_reason",
   ]);
 
   for (const key of Object.keys(input.changes)) {
@@ -1925,6 +1990,7 @@ function hasFullOrderRepairFields(input: UpdateOrderInput) {
     "device_notes",
     "diagnosis_result",
     "device_unlock",
+    "internal_tag",
     "warranty_text",
     "warranty_months",
     "warranty_change_reason",

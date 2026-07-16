@@ -108,6 +108,11 @@ export interface RepairOrder {
   device_unlock_value?: string;
   device_unlock_pattern?: number[];
   customer_signature?: string;
+  record_state?: "active" | "voided";
+  voided_at?: string;
+  voided_by?: string;
+  void_reason?: string;
+  deleted_at?: string;
   created_at: string;
   updated_at: string;
 }

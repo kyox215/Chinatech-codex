@@ -32,6 +32,7 @@ import {
 } from "@/features/customers/components/customer-detail-panels";
 import { CustomerDetailTabs } from "@/features/customers/components/customer-detail-tabs";
 import { CustomerHero } from "@/features/customers/components/customer-hero";
+import { CustomerStatusBadges } from "@/features/customers/components/customer-status-badges";
 import { CustomerTimelineList } from "@/features/customers/components/customer-profile-blocks";
 import { CustomerDeviceDialog } from "@/features/customers/forms/customer-device-dialog";
 import { CustomerEditDialog } from "@/features/customers/forms/customer-edit-dialog";
@@ -455,7 +456,7 @@ function CustomerMobileFloatingHeader({
   onEdit: () => void;
   headerRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { customer } = data;
+  const { customer, stats } = data;
   const summary = getCustomerDetailWorkSummary(data);
   const openFollowups = data.followups.filter((followup) => followup.status === "open").length;
 
@@ -502,14 +503,16 @@ function CustomerMobileFloatingHeader({
                 className="mt-0.5 block truncate text-[11px]"
               />
             </div>
-            <span
-              className={cn(
-                "self-start rounded-full px-2 py-1 text-[10px] font-semibold leading-none",
-                customerSummaryToneClass(summary.tone),
-              )}
-            >
-              {summary.actionLabel}
-            </span>
+            <CustomerStatusBadges
+              compact
+              customer={{
+                active_order_count: stats.active_order_count ?? 0,
+                outstanding_amount: stats.outstanding_amount ?? stats.unpaid_amount,
+                unpaid_amount: stats.unpaid_amount,
+                finance_redacted: stats.finance_redacted,
+              }}
+              className="max-w-[9rem] justify-end"
+            />
           </div>
 
           <div className="mt-1.5 grid grid-cols-3 gap-1 text-center">
@@ -597,15 +600,16 @@ function CustomerDesktopSummaryRail({
                 className="mt-0.5 block truncate text-[11px]"
               />
             </div>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold",
-                customerSummaryToneClass(summary.tone),
-              )}
-              title={summary.detail}
-            >
-              {summary.label}
-            </span>
+            <CustomerStatusBadges
+              compact
+              customer={{
+                active_order_count: stats.active_order_count ?? 0,
+                outstanding_amount: stats.outstanding_amount ?? stats.unpaid_amount,
+                unpaid_amount: stats.unpaid_amount,
+                finance_redacted: stats.finance_redacted,
+              }}
+              className="max-w-[10rem] justify-end"
+            />
           </div>
         </div>
 
@@ -689,13 +693,6 @@ function CustomerRailMetric({ label, value }: { label: string; value: ReactNode 
       valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
     />
   );
-}
-
-function customerSummaryToneClass(tone: ReturnType<typeof getCustomerDetailWorkSummary>["tone"]) {
-  if (tone === "info") return "bg-status-info text-status-info-foreground";
-  if (tone === "warning") return "bg-status-warn text-status-warn-foreground";
-  if (tone === "success") return "bg-status-success text-status-success-foreground";
-  return "bg-status-neutral text-status-neutral-foreground";
 }
 
 function CustomerDetailLoadError({

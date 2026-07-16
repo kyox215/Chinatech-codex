@@ -1,6 +1,7 @@
 export {
   batchTransition,
   createOrder,
+  correctTerminalOrder,
   decideOrderApproval,
   getOrder,
   getOrderStats,
@@ -9,16 +10,19 @@ export {
   patchOrder,
   patchOrderFinance,
   recordPayment,
+  reopenOrder,
   sendApprovalRequest,
   sendNotification,
   sendWhatsappNotification,
   transitionOrder,
   updateOrder,
+  voidOrder,
 } from "@/lib/repairdesk/api";
 
 export type {
   BatchTransitionResult,
   CreateOrderInput,
+  CorrectTerminalOrderInput,
   FaultPriceItem,
   MessageLog,
   OrderApprovalDecisionInput,
@@ -28,6 +32,7 @@ export type {
   OrderListFilters,
   OrderListItem,
   OrderStats,
+  OrderTerminalOperationResult,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
@@ -35,7 +40,9 @@ export type {
   PaymentResult,
   RepairOrder,
   RepairDeskOptions,
+  ReopenOrderInput,
   UpdateOrderInput,
+  VoidOrderInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/api";
 

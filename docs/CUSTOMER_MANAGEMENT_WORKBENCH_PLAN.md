@@ -1,9 +1,9 @@
 # Customer Management Workbench Plan
 
-Status: phase_3_planned
+Status: phase_4_implemented
 Owner: Hexiang Huang / 鹤祥
 Scope: `/customers` list and `/customers/[id]` customer detail workbench
-Last updated: 2026-07-05 CEST
+Last updated: 2026-07-16 CEST
 
 ## 0. Owner Decisions
 
@@ -27,6 +27,22 @@ Implemented on 2026-07-05:
 - `跟进` tab 合并显示客户待办、联系记录和完整操作记录。
 - 订单状态判断改用工作流结案状态，取消工单不计入总消费统计。
 - 设备 tab 增加空态，详情 tab 增加 `tablist/tab` 可访问性语义。
+
+## 0.2 Phase 4 Finance And Lifecycle Contract
+
+Implemented on 2026-07-16. This section supersedes older wording that treated
+`total_spent` as actual collected revenue.
+
+- `order_count` and `last_order_at` preserve all historical orders, including cancelled and voided records.
+- `valid_order_count` is the repair-count/returning-customer metric. Cancelled, custom-cancelled, voided and soft-deleted orders contribute zero.
+- `lifetime_quoted_amount` is labelled `累计订单额`; it is the sum of non-negative quotations for valid orders, not an inferred collected amount.
+- `outstanding_amount` is labelled `待收`; it sums positive live balances for valid orders.
+- Repair state and payment state are separate badges. A completed order may still be `待收`; a cancelled balance is historical and explicitly marked as not receivable.
+- Finance-restricted roles receive no aggregate amounts, unpaid filter result or derived payment KPI. Hidden money is never rendered as `€0.00`.
+- The server uses the v3 aggregate contract. It falls back to v2 only when v3 is demonstrably absent; runtime or invalid-contract failures fail closed.
+- Customer interactions and follow-ups that reference an order are constrained to the same store. Deleting an order reference clears only `order_id`, preserving the CRM row and `store_id`.
+
+Actual collected/refunded/reversed revenue remains ledger-derived and is not inferred from order flags.
 
 ## 1. Goal
 

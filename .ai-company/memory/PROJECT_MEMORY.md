@@ -4,7 +4,7 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-16 CEST
+- Last verified: 2026-07-17 CEST
 
 ## Product and business overview
 
@@ -36,6 +36,7 @@ Chinatech RepairDesk is a Next.js internal management system for a phone repair 
 - Verified current data domains include repair orders/events/workflows, customers/devices/CRM, buyback/resale inventory, store tenancy, staff profiles, store memberships, store invitations, message templates, store settings, audit logs, platform onboarding, and private attachment storage.
 - Closed `TASK-20260716-001-dashboard-handoff-priority` defines the current Dashboard contract: `dashboard/priority-summary` ranks the complete actor-visible active order set before applying its display limit, preserves technician membership assignment scope, and returns an allowlisted non-financial handoff DTO. Dashboard actions only navigate to permission-checked task/detail pages. The old `dashboard/summary` endpoint is retained temporarily for rolling-client compatibility.
 - Closed `TASK-20260716-002-orders-mobile-filter-loading-plan` defines the current Orders list performance contract: first fetch store/view/assignment-scoped narrow index rows, then one store-scoped detail query capped at 50 IDs. Mobile queue controls use two columns below 360px and three columns from 360px, expose pending/error/offline/latest-intent states, and omit the mobile funnel plus redundant selected-queue summary. Production evidence did not justify a database migration.
+- `TASK-20260716-003-customer-finance-order-correction-plan` and `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md` define the current customer/order lifecycle contract: retained history is separate from valid repair/finance facts; cancelled/custom-cancelled/voided/deleted rows contribute zero to valid counts, active work, quoted total and receivables; routine edits are changed-fields-only; terminal correction/reopen/Owner safe void use dedicated audited atomic commands. Production migrations `20260716221119`, `20260716221139`, `20260716221159` and `20260716221448` are applied and postchecked.
 
 ## Authentication, authorization and sensitive data
 
@@ -54,6 +55,8 @@ Client components must not import `src/server/*`. Server-side validation is requ
 `TASK-20260712-005-buyback-guided-evidence` verifies the local guided-buyback contract: Sales may prepare seller/declaration data and hand off, while only Owner/Manager may capture or read restricted identity/signature evidence and finalize. Full document numbers are not persisted; signed snapshots bind legal text, device, seller, amount, payment and declarations. Finalize is versioned/idempotent/atomic, resale requires wipe/IMEI/activation-lock checks, returned buybacks reset those checks, and quality-check writes use CAS. The migration and dedicated storage policy are local code evidence only; production Supabase apply/deploy, retention/legal review and staged-file cleanup remain separate approval gates.
 
 `TASK-20260714-001-buyback-sensitive-evidence-feature-off` remains the production runtime containment authority: code from `main@70d211b2` keeps all buyback attachment, identity/signature, payment/finalize and legacy-evidence paths server-default-deny, and every role sees the same four-step quote/evaluation/save workflow. `TASK-20260714-002-buyback-supabase-schema-staging` supersedes only the database-absence statement: production now contains dormant migration `20260712150000`, including an empty RLS agreement table, invoker finalize RPC, nine evidence fields and a private empty bucket, but all runtime table DML/RPC EXECUTE remain revoked and the application feature stays off. Re-enablement still requires a separate Owner-approved legal/data/security/release task; the older six-step implementation is design history, not active production behavior.
+
+`TASK-20260716-003-customer-finance-order-correction-plan` projects finance and lifecycle authority explicitly: individual customer finance is omitted rather than fabricated for restricted readers; Manager/Owner can correct/reopen terminal orders, Owner alone can void, and browser roles cannot execute terminal RPCs. The RLS-enabled/no-policy terminal-operation table is an intentional deny-by-default evidence boundary behind service-role-only commands.
 
 ## Environments, build, deploy and operations
 
@@ -74,6 +77,7 @@ Client components must not import `src/server/*`. Server-side validation is requ
 - RepairDesk Integration Lead remains the only user-facing decision owner.
 - Generic AI Company OS roles map into existing RepairDesk departments rather than replacing them.
 - Project charter lives at `docs/project-charter.md`.
+- Active order lifecycle and customer finance behavior lives at `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`; historical `docs/ORDERS_SPEC.md` cannot override it.
 
 ## Risks, technical debt and exceptions
 
@@ -148,6 +152,8 @@ Client components must not import `src/server/*`. Server-side validation is requ
 - `.ai-company/memory/tasks/TASK-20260619-018/STALE_DOCUMENTATION_DRIFT_INVENTORY.md`
 - `.ai-company/memory/tasks/TASK-20260619-019/TASK.md`
 - `.ai-company/memory/tasks/TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md`
+- `.ai-company/memory/tasks/TASK-20260716-003-customer-finance-order-correction-plan/EVIDENCE.md`
+- `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`
 - `.ai-company/memory/tasks/TASK-20260619-020/ARCHIVE_SNAPSHOT_BANNER_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260619-021/ACTIVE_DOC_METADATA_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260619-022/LEGACY_ROUTE_MIGRATION_PLAN_REFRESH.md`

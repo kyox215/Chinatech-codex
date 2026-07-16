@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Mail, Phone, Smartphone, Wrench } from "lucide-react";
+import { ArrowUpRight, Mail, Phone, Smartphone } from "lucide-react";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { RepairOsBusinessCard, RepairOsBadge, RepairOsInfoTile } from "@/shared/ui";
 import {
   getCustomerDetailHref,
-  getCustomerWorkSummary,
-  type CustomerWorkSummaryTone,
+  getCustomerLifetimeQuotedAmount,
+  getCustomerOutstandingAmount,
 } from "@/features/customers/model/customer-list";
+import { CustomerStatusBadges } from "@/features/customers/components/customer-status-badges";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import type { CustomerListItem, CustomerTag } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
@@ -129,7 +130,7 @@ export function CustomerKpiCard({
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  value: number;
+  value: React.ReactNode;
 }) {
   return (
     <RepairOsInfoTile
@@ -162,7 +163,6 @@ export function CustomerRow({
 }) {
   const router = useRouter();
   const href = getCustomerDetailHref(customer.id);
-  const summary = getCustomerWorkSummary(customer);
 
   function openDetail() {
     if (onOpenDetail) {
@@ -237,18 +237,18 @@ export function CustomerRow({
         {customer.finance_redacted ? (
           <span className="text-muted-foreground">{customer.order_count} 单</span>
         ) : (
-          <MoneyText amount={customer.total_spent ?? 0} />
+          <MoneyText amount={getCustomerLifetimeQuotedAmount(customer)} />
         )}
       </td>
       <td className="whitespace-nowrap px-2 py-2 text-right text-xs">
         {customer.finance_redacted ? (
           <span className="text-muted-foreground">受限</span>
         ) : (
-          <MoneyText amount={customer.unpaid_amount ?? 0} />
+          <MoneyText amount={getCustomerOutstandingAmount(customer)} />
         )}
       </td>
       <td className="whitespace-nowrap px-2 py-2 text-[11px]">
-        <CustomerWorkState summary={summary} />
+        <CustomerStatusBadges customer={customer} />
       </td>
       <td className="px-2 py-2 text-right">
         <Button
@@ -282,7 +282,6 @@ export function CustomerMobileCard({
   onPrefetch?: () => void;
 }) {
   const href = getCustomerDetailHref(customer.id);
-  const summary = getCustomerWorkSummary(customer);
 
   return (
     <Link
@@ -306,20 +305,23 @@ export function CustomerMobileCard({
             {customer.finance_redacted ? (
               <span className={repairOs.cardAmount}>{customer.order_count} 单</span>
             ) : (
-              <MoneyText amount={customer.total_spent ?? 0} className={repairOs.cardAmount} />
+              <MoneyText
+                amount={getCustomerLifetimeQuotedAmount(customer)}
+                className={repairOs.cardAmount}
+              />
             )}
             <span
               className={cn(
                 "mt-0.5 max-w-24 truncate text-[11px] leading-4",
-                (customer.unpaid_amount ?? 0) > 0
+                getCustomerOutstandingAmount(customer) > 0
                   ? "text-status-warn-foreground"
                   : "text-muted-foreground",
               )}
             >
               {customer.finance_redacted
                 ? `${customer.order_count} 个工单`
-                : (customer.unpaid_amount ?? 0) > 0
-                  ? "有待收"
+                : getCustomerOutstandingAmount(customer) > 0
+                  ? `待收 €${getCustomerOutstandingAmount(customer).toFixed(2)}`
                   : `${customer.order_count} 个工单`}
             </span>
             <span className="mt-0.5 grid size-7 place-items-center rounded-lg text-muted-foreground">
@@ -354,48 +356,8 @@ export function CustomerMobileCard({
             {customer.device_count} / {customer.order_count}
           </RepairOsBadge>
         </div>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
-          <RepairOsBadge
-            className={cn("gap-1 text-[9px] font-semibold", customerWorkToneClass(summary.tone))}
-          >
-            <Wrench className="size-2.5" />
-            {summary.label}
-          </RepairOsBadge>
-          <RepairOsBadge
-            className={cn(
-              "gap-1 text-[9px] font-semibold",
-              !customer.finance_redacted && (customer.unpaid_amount ?? 0) > 0
-                ? "bg-status-warn text-status-warn-foreground"
-                : "bg-status-success text-status-success-foreground",
-            )}
-          >
-            {customer.finance_redacted
-              ? "金额受限"
-              : (customer.unpaid_amount ?? 0) > 0
-                ? "有待收"
-                : "已结清"}
-          </RepairOsBadge>
-        </div>
+        <CustomerStatusBadges customer={customer} compact className="mt-1" />
       </RepairOsBusinessCard>
     </Link>
   );
-}
-
-function CustomerWorkState({ summary }: { summary: ReturnType<typeof getCustomerWorkSummary> }) {
-  return (
-    <RepairOsBadge
-      className={cn("gap-1 text-[11px] font-semibold", customerWorkToneClass(summary.tone))}
-      title={`${summary.detail} · ${summary.actionLabel}`}
-    >
-      <Wrench className="size-3" />
-      {summary.label}
-    </RepairOsBadge>
-  );
-}
-
-function customerWorkToneClass(tone: CustomerWorkSummaryTone) {
-  if (tone === "info") return "bg-status-info text-status-info-foreground";
-  if (tone === "warning") return "bg-status-warn text-status-warn-foreground";
-  if (tone === "success") return "bg-status-success text-status-success-foreground";
-  return "bg-status-neutral text-status-neutral-foreground";
 }

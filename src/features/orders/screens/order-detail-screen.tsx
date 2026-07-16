@@ -96,7 +96,6 @@ import {
   sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
-  updateOrder,
   uploadOrderAttachment,
   type UpdateOrderInput,
 } from "@/lib/repairdesk/api";
@@ -122,7 +121,9 @@ import {
   DeviceUnlockViewer,
 } from "@/features/orders/components/device-unlock-fields";
 import { OrderHero } from "@/features/orders/components/order-hero";
+import { buildOrderPatchChanges } from "@/features/orders/model/order-edit-diff";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
+import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
   useEditOrderOfflineAutosave,
@@ -347,7 +348,40 @@ export function OrderDetailScreen({
   });
 
   const orderUpdate = useMutation({
-    mutationFn: (input: UpdateOrderInput) => updateOrder(id, input),
+    mutationFn: async (input: UpdateOrderInput) => {
+      if (!data) throw new Error("工单未加载");
+      const capabilities = data.capabilities;
+      if (!capabilities) throw new Error("未取得工单编辑权限，请刷新后重试");
+      const baseline = buildEditForm(data, defaultWarrantyMonths);
+      const changes = buildOrderPatchChanges(baseline, input, capabilities);
+      const financeChanged =
+        JSON.stringify(
+          normalizeFinanceDraft(
+            createFinanceDraftState(baseline.fault_prices, baseline.deposit_amount ?? 0),
+            inferOrderPaidAmount(data.order),
+          ).faultPrices,
+        ) !==
+          JSON.stringify(
+            normalizeFinanceDraft(
+              createFinanceDraftState(input.fault_prices, input.deposit_amount ?? 0),
+              inferOrderPaidAmount(data.order),
+            ).faultPrices,
+          ) || Number(baseline.deposit_amount ?? 0) !== Number(input.deposit_amount ?? 0);
+      const hasRoutineChanges = Object.keys(changes).length > 0;
+      if (hasRoutineChanges && financeChanged) {
+        throw new Error("普通资料与报价需要分别保存，请先保存其中一类修改");
+      }
+      if (financeChanged) {
+        if (!capabilities.canAdjustFinance) throw new Error("当前账号没有调整报价的权限");
+        return patchOrderFinance(id, {
+          expected_updated_at: data.order.updated_at,
+          fault_prices: input.fault_prices,
+          deposit_amount: input.deposit_amount,
+        });
+      }
+      if (!hasRoutineChanges) throw new Error("没有可保存的修改");
+      return patchOrder(id, { expected_updated_at: data.order.updated_at, changes });
+    },
     onSuccess: () => {
       toast.success("工单信息已保存");
       void discardCurrentEditOfflineDraft();
@@ -557,10 +591,19 @@ export function OrderDetailScreen({
   }, [data, financeDraft]);
 
   const editValidationError = useMemo(
-    () => getEditValidationError(editDraft, editFinance?.error, defaultWarrantyMonths),
-    [defaultWarrantyMonths, editDraft, editFinance?.error],
+    () =>
+      getEditValidationError(editDraft, editFinance?.error, defaultWarrantyMonths, {
+        canEditIntake: Boolean(data?.capabilities?.canEditIntake),
+        canEditRepair: Boolean(data?.capabilities?.canEditRepair),
+        canAdjustFinance: Boolean(data?.capabilities?.canAdjustFinance),
+      }),
+    [data?.capabilities, defaultWarrantyMonths, editDraft, editFinance?.error],
   );
-  const editCanSave = Boolean(editDraft && editFinance?.canSave && !editValidationError);
+  const editCanSave = Boolean(
+    editDraft &&
+    (!data?.capabilities?.canAdjustFinance || editFinance?.canSave) &&
+    !editValidationError,
+  );
 
   useEffect(() => {
     if (!data || isEditing || mobileFinanceEditing) return;
@@ -569,6 +612,14 @@ export function OrderDetailScreen({
 
   const startEditing = useCallback(() => {
     if (!data) return;
+    if (
+      !data.capabilities?.canEditIntake &&
+      !data.capabilities?.canEditRepair &&
+      !data.capabilities?.canAdjustFinance
+    ) {
+      toast.error("当前工单状态或账号权限不允许编辑");
+      return;
+    }
     const draft = buildEditForm(data, defaultWarrantyMonths);
     setEditDraft(draft);
     setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
@@ -595,8 +646,13 @@ export function OrderDetailScreen({
       editDraft,
       editFinance.error,
       defaultWarrantyMonths,
+      {
+        canEditIntake: Boolean(data?.capabilities?.canEditIntake),
+        canEditRepair: Boolean(data?.capabilities?.canEditRepair),
+        canAdjustFinance: Boolean(data?.capabilities?.canAdjustFinance),
+      },
     );
-    if (validationError || !editFinance.canSave) {
+    if (validationError || (data?.capabilities?.canAdjustFinance && !editFinance.canSave)) {
       toast.error(validationError ?? editFinance.error ?? "请检查工单信息。");
       return;
     }
@@ -605,7 +661,7 @@ export function OrderDetailScreen({
       fault_prices: editFinance.faultPrices,
       deposit_amount: editFinance.deposit,
     });
-  }, [defaultWarrantyMonths, editDraft, editFinance, orderUpdate]);
+  }, [data?.capabilities, defaultWarrantyMonths, editDraft, editFinance, orderUpdate]);
   const restoreEditOfflineDraft = useCallback(async () => {
     const result = await restoreEditOfflinePromptDraft();
     if (!result) return;
@@ -691,6 +747,8 @@ export function OrderDetailScreen({
     );
   }
   const { order, customer, device, supplier, events, messages } = data;
+  const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
+  const canNotify = !isVoided && !order.customer_contact_redacted;
   const supplierPermissions = repairDeskOptions?.permissions ?? {
     canReadSuppliers: false,
     canAssignSuppliers: false,
@@ -714,12 +772,18 @@ export function OrderDetailScreen({
     ? getOrderTaskGuidance(order).stage
     : (orderTaskStages[Math.min(desktopStageIndex, orderTaskStages.length - 1)] ??
       orderTaskStages[0]);
-  const desktopStatusActions = cancelled
-    ? []
-    : getWorkflowTransitionActions(workflow, order.status);
+  const desktopStatusActions =
+    data.capabilities?.canTransition && !cancelled && !isVoided
+      ? getWorkflowTransitionActions(workflow, order.status)
+      : [];
   const canCancelOrder = desktopStatusActions.some((action) => action.to === "cancelled");
-  const canCollectPayment = isOrderPaymentCollectible(order);
-  const canDecideApproval = !cancelled && isApprovalDecisionAvailable(order);
+  const canCollectPayment =
+    data.capabilities?.canCollectPayment === true && isOrderPaymentCollectible(order);
+  const canDecideApproval =
+    data.capabilities?.canTransition === true &&
+    !cancelled &&
+    !isVoided &&
+    isApprovalDecisionAvailable(order);
   const deviceBrand = order.device_snapshot?.brand || device?.brand || "";
   const deviceModel = order.device_snapshot?.model || device?.model || "";
   const deviceLabel = `${deviceBrand} ${deviceModel}`.trim() || order.device_label;
@@ -757,7 +821,10 @@ export function OrderDetailScreen({
           <X className="size-4" />
         </Button>
       ) : null}
-      {order.status === "cancelled" && !order.delivered_at ? (
+      {surface === "dialog" &&
+      order.status === "cancelled" &&
+      order.record_state !== "voided" &&
+      !order.delivered_at ? (
         <section
           className={cn(
             "mb-2 flex min-w-0 items-center gap-2 border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground md:rounded-lg",
@@ -769,16 +836,26 @@ export function OrderDetailScreen({
             <p className="text-xs font-semibold">设备退还尚未确认</p>
             <p className="truncate text-[11px] opacity-80">该工单已移入历史，退还提醒仍保留。</p>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 shrink-0 bg-background/80 text-xs"
-            onClick={() => setCancelledReturnOpen(true)}
-          >
-            确认已退还
-          </Button>
+          {data.capabilities?.canConfirmCancelledReturn ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 shrink-0 bg-background/80 text-xs"
+              onClick={() => setCancelledReturnOpen(true)}
+            >
+              确认已退还
+            </Button>
+          ) : null}
         </section>
+      ) : null}
+      {surface === "dialog" ? (
+        <OrderTerminalActions
+          detail={data}
+          workflow={workflow}
+          onCompleted={invalidate}
+          className="mb-2"
+        />
       ) : null}
       {surface === "page" ? (
         <MobileOrderDetailView
@@ -788,6 +865,40 @@ export function OrderDetailScreen({
           accessoryNotes={accessoryNotes}
           storeSettings={storeSettings}
           workflow={workflow}
+          topNotice={
+            <>
+              {order.status === "cancelled" &&
+              order.record_state !== "voided" &&
+              !order.delivered_at ? (
+                <section className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground">
+                  <PackageCheck className="size-4 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold">设备退还尚未确认</p>
+                    <p className="truncate text-[11px] opacity-80">
+                      该工单已移入历史，退还提醒仍保留。
+                    </p>
+                  </div>
+                  {data.capabilities?.canConfirmCancelledReturn ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 bg-background/80 text-xs"
+                      onClick={() => setCancelledReturnOpen(true)}
+                    >
+                      确认已退还
+                    </Button>
+                  ) : null}
+                </section>
+              ) : null}
+              <OrderTerminalActions
+                detail={data}
+                workflow={workflow}
+                onCompleted={invalidate}
+                className="mb-2"
+              />
+            </>
+          }
           transitionPending={transition.isPending}
           onTransition={(to, reason) => transition.mutate({ to, reason })}
           onImeiSave={async (imei) => {
@@ -833,30 +944,33 @@ export function OrderDetailScreen({
             return true;
           }}
           financePending={financeUpdate.isPending}
+          canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
           onNotify={() => setNotifyOpen(true)}
           onApprovalDecision={() => setApprovalDecisionOpen(true)}
           approvalDecisionAvailable={canDecideApproval}
-          whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending}
+          whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
           onPay={() => setPayOpen(true)}
           paymentDisabled={!canCollectPayment}
           onPrint={() => window.print()}
           onCancel={() => setCancelOpen(true)}
           canCancel={canCancelOrder}
-          onRequestKioskSignature={() => kioskSignatureRequest.mutate()}
+          onRequestKioskSignature={isVoided ? undefined : () => kioskSignatureRequest.mutate()}
           kioskSignaturePending={kioskSignatureRequest.isPending}
           kioskSignatureAvailable={Boolean(activeKioskDevice)}
           partsSupplier={partsSupplier}
           supplierOptions={supplierOptions}
           partsSupplierPending={partsSupplierUpdate.isPending}
           onPartsSupplierChange={
-            supplierPermissions.canAssignSuppliers
+            supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
               ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
               : undefined
           }
           assigneeOptions={assigneeOptions}
           assigneePending={assigneeUpdate.isPending}
           onAssigneeChange={
-            canAssignOrders ? (membershipId) => assigneeUpdate.mutate(membershipId) : undefined
+            canAssignOrders && data.capabilities?.canEditIntake
+              ? (membershipId) => assigneeUpdate.mutate(membershipId)
+              : undefined
           }
           className="md:hidden"
         />
@@ -874,7 +988,13 @@ export function OrderDetailScreen({
             onPrint={() => window.print()}
             onCancel={() => setCancelOpen(true)}
             canCancel={canCancelOrder}
-            onEdit={startEditing}
+            onEdit={
+              data.capabilities?.canEditIntake ||
+              data.capabilities?.canEditRepair ||
+              data.capabilities?.canAdjustFinance
+                ? startEditing
+                : undefined
+            }
             onSaveEdit={() => void saveEditing()}
             onCancelEdit={cancelEditing}
             storeName={storeSettings?.store_name || "ChinaTech"}
@@ -930,10 +1050,17 @@ export function OrderDetailScreen({
               financeDraft={financeDraft}
               financeError={editFinance?.error}
               onFinanceDraftChange={setFinanceDraft}
+              canEditIntake={Boolean(data.capabilities?.canEditIntake)}
+              canEditRepair={Boolean(data.capabilities?.canEditRepair)}
+              canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
               defaultWarrantyMonths={defaultWarrantyMonths}
-              onQuickImeiSave={async (imei) => {
-                await quickImeiUpdate.mutateAsync(imei);
-              }}
+              onQuickImeiSave={
+                data.capabilities?.canEditIntake
+                  ? async (imei) => {
+                      await quickImeiUpdate.mutateAsync(imei);
+                    }
+                  : undefined
+              }
               quickImeiPending={quickImeiUpdate.isPending}
               surface={surface}
               storeSettings={storeSettings}
@@ -945,8 +1072,8 @@ export function OrderDetailScreen({
               photoAttachments={photoAttachments}
               signatureAttachments={signatureAttachments}
               photoUploadPending={attachmentUpload.isPending}
-              onPhotoCapture={() => setDesktopPhotoCaptureOpen(true)}
-              onRequestKioskSignature={() => kioskSignatureRequest.mutate()}
+              onPhotoCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
+              onRequestKioskSignature={isVoided ? undefined : () => kioskSignatureRequest.mutate()}
               kioskSignaturePending={kioskSignatureRequest.isPending}
               kioskSignatureAvailable={Boolean(activeKioskDevice)}
             />
@@ -958,14 +1085,14 @@ export function OrderDetailScreen({
                 supplierOptions={supplierOptions}
                 partsSupplierPending={partsSupplierUpdate.isPending}
                 onPartsSupplierChange={
-                  supplierPermissions.canAssignSuppliers
+                  supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
                     ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
                     : undefined
                 }
                 assigneeOptions={assigneeOptions}
                 assigneePending={assigneeUpdate.isPending}
                 onAssigneeChange={
-                  canAssignOrders
+                  canAssignOrders && data.capabilities?.canEditIntake
                     ? (membershipId) => assigneeUpdate.mutate(membershipId)
                     : undefined
                 }
@@ -1002,42 +1129,47 @@ export function OrderDetailScreen({
           ) : null}
         </AnimatePresence>
 
-        <OrderDetailActionDock
-          order={order}
-          isEditing={isEditing}
-          financeDraft={financeDraft}
-          onApprovalDecision={() => setApprovalDecisionOpen(true)}
-          approvalDecisionAvailable={canDecideApproval}
-          onFlow={() => setDesktopTransitionOpen((open) => !open)}
-          flowDisabled={transition.isPending || desktopStatusActions.length === 0}
-          onPay={() => setPayOpen(true)}
-          paymentDisabled={!canCollectPayment}
-          onNotify={() => setNotifyOpen(true)}
-          surface={surface}
-        />
+        {!isVoided ? (
+          <OrderDetailActionDock
+            order={order}
+            isEditing={isEditing}
+            financeDraft={financeDraft}
+            onApprovalDecision={() => setApprovalDecisionOpen(true)}
+            approvalDecisionAvailable={canDecideApproval}
+            onFlow={() => setDesktopTransitionOpen((open) => !open)}
+            flowDisabled={transition.isPending || desktopStatusActions.length === 0}
+            onPay={() => setPayOpen(true)}
+            paymentDisabled={!canCollectPayment}
+            onNotify={() => setNotifyOpen(true)}
+            notifyDisabled={!canNotify}
+            surface={surface}
+          />
+        ) : null}
       </div>
 
-      <NotifyDialog
-        open={notifyOpen}
-        onOpenChange={setNotifyOpen}
-        data={data}
-        workflow={workflow}
-        orderUrl={orderUrl}
-        busy={whatsappNotification.isPending || approval.isPending}
-        onConfirm={async (input) => {
-          if (
-            input.templateKind === "approval_request" &&
-            (order.status === "quoted" || order.status === "waiting_approval")
-          ) {
-            await approval.mutateAsync({
-              body: input.body,
-              recipientPhone: input.recipientPhone,
-            });
-            return;
-          }
-          await whatsappNotification.mutateAsync(input);
-        }}
-      />
+      {canNotify ? (
+        <NotifyDialog
+          open={notifyOpen}
+          onOpenChange={setNotifyOpen}
+          data={data}
+          workflow={workflow}
+          orderUrl={orderUrl}
+          busy={whatsappNotification.isPending || approval.isPending}
+          onConfirm={async (input) => {
+            if (
+              input.templateKind === "approval_request" &&
+              (order.status === "quoted" || order.status === "waiting_approval")
+            ) {
+              await approval.mutateAsync({
+                body: input.body,
+                recipientPhone: input.recipientPhone,
+              });
+              return;
+            }
+            await whatsappNotification.mutateAsync(input);
+          }}
+        />
+      ) : null}
       <ApprovalDecisionSheet
         open={approvalDecisionOpen}
         onOpenChange={setApprovalDecisionOpen}
@@ -1045,7 +1177,7 @@ export function OrderDetailScreen({
         pending={approvalDecision.isPending}
         onConfirm={(input) => approvalDecision.mutateAsync(input)}
       />
-      {canCollectPayment ? (
+      {canCollectPayment && !order.finance_redacted ? (
         <PaymentDialog
           open={payOpen}
           onOpenChange={setPayOpen}
@@ -1092,18 +1224,20 @@ export function OrderDetailScreen({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <CameraCaptureSheet
-        open={desktopPhotoCaptureOpen}
-        onOpenChange={setDesktopPhotoCaptureOpen}
-        title="拍摄设备照片"
-        description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
-        attachmentKind="fault_photo"
-        onCapture={(draft) => {
-          void uploadAttachmentDraft(draft, async (input) => {
-            await attachmentUpload.mutateAsync(input);
-          });
-        }}
-      />
+      {!isVoided ? (
+        <CameraCaptureSheet
+          open={desktopPhotoCaptureOpen}
+          onOpenChange={setDesktopPhotoCaptureOpen}
+          title="拍摄设备照片"
+          description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
+          attachmentKind="fault_photo"
+          onCapture={(draft) => {
+            void uploadAttachmentDraft(draft, async (input) => {
+              await attachmentUpload.mutateAsync(input);
+            });
+          }}
+        />
+      ) : null}
       <RepairOrderPrintSheet data={data} orderUrl={orderUrl} storeSettings={storeSettings} />
     </div>
   );
@@ -1717,6 +1851,7 @@ function MobileOrderDetailView({
   accessoryNotes,
   storeSettings,
   workflow,
+  topNotice,
   transitionPending,
   onTransition,
   onImeiSave,
@@ -1734,6 +1869,7 @@ function MobileOrderDetailView({
   onFinanceDraftChange,
   onFinanceSave,
   financePending,
+  canAdjustFinance,
   onNotify,
   onApprovalDecision,
   approvalDecisionAvailable,
@@ -1761,6 +1897,7 @@ function MobileOrderDetailView({
   accessoryNotes?: string;
   storeSettings?: StoreSettings;
   workflow?: OrderWorkflow;
+  topNotice?: ReactNode;
   transitionPending: boolean;
   onTransition: (to: RepairOrderStatus, reason?: string) => void;
   onImeiSave: (imei: string) => Promise<void>;
@@ -1780,6 +1917,7 @@ function MobileOrderDetailView({
   onFinanceDraftChange: (draft: FinanceDraftState) => void;
   onFinanceSave: () => Promise<boolean>;
   financePending: boolean;
+  canAdjustFinance: boolean;
   onNotify: () => void;
   onApprovalDecision: () => void;
   approvalDecisionAvailable: boolean;
@@ -1789,7 +1927,7 @@ function MobileOrderDetailView({
   onPrint: () => void;
   onCancel: () => void;
   canCancel: boolean;
-  onRequestKioskSignature: () => void;
+  onRequestKioskSignature?: () => void;
   kioskSignaturePending: boolean;
   kioskSignatureAvailable: boolean;
   partsSupplier?: Supplier;
@@ -1803,6 +1941,7 @@ function MobileOrderDetailView({
 }) {
   const { order, customer } = data;
   const cancelled = isOrderCancelledForPayment(order);
+  const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
   const events = data.events ?? [];
   const workflowStatus = cancelled ? "closed" : getOrderWorkflowStatus(order);
   const currentStageIndex = getWorkflowProgressValue(workflowStatus);
@@ -1850,7 +1989,10 @@ function MobileOrderDetailView({
     () => normalizeFinanceDraft(financeDraft, paidAmount),
     [financeDraft, paidAmount],
   );
-  const statusActions = cancelled ? [] : getWorkflowTransitionActions(workflow, order.status);
+  const statusActions =
+    data.capabilities?.canTransition && !cancelled && !isVoided
+      ? getWorkflowTransitionActions(workflow, order.status)
+      : [];
 
   useEffect(() => {
     if (!photoPreviewId) return;
@@ -1888,6 +2030,8 @@ function MobileOrderDetailView({
         onCancel={onCancel}
         canCancel={canCancel}
       />
+
+      {topNotice}
 
       {approvalDecisionAvailable ? (
         <section className={cn(mobileDetailCardClass, "border-primary/25 bg-primary/5")}>
@@ -2049,23 +2193,25 @@ function MobileOrderDetailView({
                 <span className="min-w-0 truncate">WhatsApp</span>
               </a>
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
-              disabled={!kioskSignatureAvailable || kioskSignaturePending}
-              onClick={onRequestKioskSignature}
-            >
-              <TabletSmartphone className="shrink-0" />
-              <span className="min-w-0 truncate">
-                {kioskSignaturePending
-                  ? "发送中"
-                  : kioskSignatureAvailable
-                    ? "发送到 iPad"
-                    : "无可用 iPad"}
-              </span>
-            </Button>
+            {onRequestKioskSignature ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+                disabled={!kioskSignatureAvailable || kioskSignaturePending}
+                onClick={onRequestKioskSignature}
+              >
+                <TabletSmartphone className="shrink-0" />
+                <span className="min-w-0 truncate">
+                  {kioskSignaturePending
+                    ? "发送中"
+                    : kioskSignatureAvailable
+                      ? "发送到 iPad"
+                      : "无可用 iPad"}
+                </span>
+              </Button>
+            ) : null}
           </div>
         </section>
 
@@ -2074,30 +2220,36 @@ function MobileOrderDetailView({
             icon={Smartphone}
             title="设备信息"
             action={
-              <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg px-2 text-[11px]"
-                  onClick={() => setDeviceUnlockEditing(true)}
-                >
-                  密码
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg px-2 text-[11px]"
-                  onClick={() => {
-                    setImeiDraft(deviceImei);
-                    setImeiEditing(true);
-                  }}
-                >
-                  <ScanLine className="mr-1 size-4" />
-                  扫码
-                </Button>
-              </div>
+              data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
+                <div className="flex shrink-0 items-center gap-1">
+                  {data.capabilities?.canEditRepair ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg px-2 text-[11px]"
+                      onClick={() => setDeviceUnlockEditing(true)}
+                    >
+                      密码
+                    </Button>
+                  ) : null}
+                  {data.capabilities?.canEditIntake ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg px-2 text-[11px]"
+                      onClick={() => {
+                        setImeiDraft(deviceImei);
+                        setImeiEditing(true);
+                      }}
+                    >
+                      <ScanLine className="mr-1 size-4" />
+                      扫码
+                    </Button>
+                  ) : null}
+                </div>
+              ) : undefined
             }
           />
           <div className="mt-1.5 min-w-0">
@@ -2135,15 +2287,17 @@ function MobileOrderDetailView({
           icon={FileText}
           title="故障描述"
           action={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-6 rounded-md px-1.5 text-[10px]"
-              onClick={() => setFaultEditing(true)}
-            >
-              编辑
-            </Button>
+            data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-6 rounded-md px-1.5 text-[10px]"
+                onClick={() => setFaultEditing(true)}
+              >
+                编辑
+              </Button>
+            ) : undefined
           }
         />
         <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
@@ -2169,6 +2323,8 @@ function MobileOrderDetailView({
       <FaultDescriptionEditSheet
         open={faultEditing}
         order={order}
+        canEditIntake={Boolean(data.capabilities?.canEditIntake)}
+        canEditRepair={Boolean(data.capabilities?.canEditRepair)}
         pending={faultPending}
         onOpenChange={setFaultEditing}
         onSave={onFaultSave}
@@ -2182,93 +2338,92 @@ function MobileOrderDetailView({
         onSave={onDeviceUnlockSave}
       />
 
-      <div className="grid min-w-0 grid-cols-2 gap-1.5">
-        <section className={cn(mobileDetailCardClass, financeEditing && "col-span-2")}>
-          <MobileSectionTitle
-            icon={ReceiptText}
-            title="维修项目与报价"
-            action={
-              !order.finance_redacted ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-6 rounded-md px-1.5 text-[10px]"
-                  onClick={() => onFinanceEditingChange(!financeEditing)}
-                >
-                  {financeEditing ? "收起" : "编辑"}
-                </Button>
-              ) : null
-            }
-          />
-          {financeEditing && !order.finance_redacted ? (
-            <MobileFinanceEditor
-              draft={financeDraft}
-              normalized={normalizedFinance}
-              saveError={financeSaveError}
-              pending={financePending}
-              onChange={onFinanceDraftChange}
-              onCancel={() => {
-                onFinanceDraftChange(
-                  createFinanceDraftState(order.fault_prices, order.deposit_amount),
-                );
-                onFinanceEditingChange(false);
-              }}
-              onSave={async () => {
-                try {
-                  const saved = await onFinanceSave();
-                  if (saved) onFinanceEditingChange(false);
-                  return saved;
-                } catch {
-                  // Mutation error toast is handled by the parent mutation.
-                  return false;
-                }
-              }}
-            />
-          ) : (
-            <div className="mt-1.5 space-y-1">
-              {order.finance_redacted ? (
-                <div className="rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-2 text-center text-[10px] text-muted-foreground">
-                  报价金额受限
-                </div>
-              ) : order.fault_prices.length ? (
-                order.fault_prices.map((item, index) => (
-                  <div
-                    key={`${item.name}-${index}`}
-                    className="flex min-w-0 items-center gap-1 text-[11px] leading-4"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                      {item.name || "未命名项目"}
-                    </span>
-                    <MoneyText amount={item.price} className="shrink-0 font-semibold" />
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground">
-                  暂无报价项目
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
+      {order.finance_redacted ? (
         <section className={mobileDetailCardClass}>
-          <MobileSectionTitle icon={WalletCards} title="支付信息" />
-          {order.finance_redacted ? (
-            <div className="mt-1.5 grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">
-              金额受限
-            </div>
-          ) : (
+          <MobileSectionTitle icon={WalletCards} title="报价与支付" />
+          <div className="mt-1.5 rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-[10px] font-medium text-muted-foreground">
+            金额与结算状态受限
+          </div>
+        </section>
+      ) : (
+        <div className="grid min-w-0 grid-cols-2 gap-1.5">
+          <section className={cn(mobileDetailCardClass, financeEditing && "col-span-2")}>
+            <MobileSectionTitle
+              icon={ReceiptText}
+              title="维修项目与报价"
+              action={
+                canAdjustFinance ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 rounded-md px-1.5 text-[10px]"
+                    onClick={() => onFinanceEditingChange(!financeEditing)}
+                  >
+                    {financeEditing ? "收起" : "编辑"}
+                  </Button>
+                ) : undefined
+              }
+            />
+            {financeEditing ? (
+              <MobileFinanceEditor
+                draft={financeDraft}
+                normalized={normalizedFinance}
+                saveError={financeSaveError}
+                pending={financePending}
+                onChange={onFinanceDraftChange}
+                onCancel={() => {
+                  onFinanceDraftChange(
+                    createFinanceDraftState(order.fault_prices, order.deposit_amount),
+                  );
+                  onFinanceEditingChange(false);
+                }}
+                onSave={async () => {
+                  try {
+                    const saved = await onFinanceSave();
+                    if (saved) onFinanceEditingChange(false);
+                    return saved;
+                  } catch {
+                    // Mutation error toast is handled by the parent mutation.
+                    return false;
+                  }
+                }}
+              />
+            ) : (
+              <div className="mt-1.5 space-y-1">
+                {order.fault_prices.length ? (
+                  order.fault_prices.map((item, index) => (
+                    <div
+                      key={`${item.name}-${index}`}
+                      className="flex min-w-0 items-center gap-1 text-[11px] leading-4"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                        {item.name || "未命名项目"}
+                      </span>
+                      <MoneyText amount={item.price} className="shrink-0 font-semibold" />
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground">
+                    暂无报价项目
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className={mobileDetailCardClass}>
+            <MobileSectionTitle icon={WalletCards} title="支付信息" />
             <MobilePaymentSummary
               total={order.quotation_amount}
               deposit={order.deposit_amount}
               balance={order.balance_amount}
-              cancelled={isOrderCancelledForPayment(order)}
+              cancelled={cancelled}
               className="mt-1.5"
             />
-          )}
-        </section>
-      </div>
+          </section>
+        </div>
+      )}
 
       <section className={mobileDetailCardClass}>
         <MobileSectionTitle icon={ImageIcon} title="设备照片" />
@@ -2288,17 +2443,19 @@ function MobileOrderDetailView({
           ) : photoAttachments.length === 1 ? (
             <PhotoPlaceholder label="补充" />
           ) : null}
-          <button
-            type="button"
-            className="grid h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60"
-            disabled={attachmentUploadPending}
-            onClick={() => setPhotoCaptureOpen(true)}
-          >
-            <span className="grid place-items-center gap-1">
-              <Camera className="size-4" />
-              {attachmentUploadPending ? "上传中" : "拍照"}
-            </span>
-          </button>
+          {!isVoided ? (
+            <button
+              type="button"
+              className="grid h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60"
+              disabled={attachmentUploadPending}
+              onClick={() => setPhotoCaptureOpen(true)}
+            >
+              <span className="grid place-items-center gap-1">
+                <Camera className="size-4" />
+                {attachmentUploadPending ? "上传中" : "拍照"}
+              </span>
+            </button>
+          ) : null}
         </div>
         {photoAttachments.length ? (
           <p className="mt-1 text-[9px] leading-3 text-muted-foreground">
@@ -2307,16 +2464,18 @@ function MobileOrderDetailView({
         ) : null}
       </section>
 
-      <CameraCaptureSheet
-        open={photoCaptureOpen}
-        onOpenChange={setPhotoCaptureOpen}
-        title="拍摄设备照片"
-        description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
-        attachmentKind="fault_photo"
-        onCapture={(draft) => {
-          void uploadAttachmentDraft(draft, onAttachmentUpload);
-        }}
-      />
+      {!isVoided ? (
+        <CameraCaptureSheet
+          open={photoCaptureOpen}
+          onOpenChange={setPhotoCaptureOpen}
+          title="拍摄设备照片"
+          description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
+          attachmentKind="fault_photo"
+          onCapture={(draft) => {
+            void uploadAttachmentDraft(draft, onAttachmentUpload);
+          }}
+        />
+      ) : null}
 
       <OrderPhotoPreviewDialog
         attachments={photoAttachments}
@@ -2331,34 +2490,43 @@ function MobileOrderDetailView({
         onOpenChange={setTimelineOpen}
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl md:hidden">
-        <div className="mx-auto grid max-w-[430px] grid-cols-[1.25fr_1fr_1fr] gap-1.5">
-          <Button
-            className="h-9 rounded-xl border-0 text-xs text-primary-foreground"
-            style={{ background: "var(--gradient-brand)" }}
-            disabled={whatsappDisabled}
-            onClick={onNotify}
-          >
-            <Send className="mr-1 size-3.5" /> WhatsApp
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 rounded-xl text-xs"
-            disabled={financeEditing || statusActions.length === 0 || transitionPending}
-            onClick={() => setStatusSheetOpen(true)}
-          >
-            <Clock3 className="mr-1 size-3.5" /> 流转
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 rounded-xl text-xs"
-            disabled={financeEditing || paymentDisabled}
-            onClick={onPay}
-          >
-            <CreditCard className="mr-1 size-3.5" /> {cancelled ? "不可收款" : "收款"}
-          </Button>
+      {!isVoided ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl md:hidden">
+          <div className="mx-auto grid max-w-[430px] grid-cols-[1.25fr_1fr_1fr] gap-1.5">
+            <Button
+              className="h-9 rounded-xl border-0 text-xs text-primary-foreground"
+              style={{ background: "var(--gradient-brand)" }}
+              disabled={whatsappDisabled}
+              onClick={onNotify}
+            >
+              <Send className="mr-1 size-3.5" /> WhatsApp
+            </Button>
+            <Button
+              variant="outline"
+              className="h-9 rounded-xl text-xs"
+              disabled={financeEditing || statusActions.length === 0 || transitionPending}
+              onClick={() => setStatusSheetOpen(true)}
+            >
+              <Clock3 className="mr-1 size-3.5" /> 流转
+            </Button>
+            <Button
+              variant="outline"
+              className="h-9 rounded-xl text-xs"
+              disabled={
+                financeEditing ||
+                paymentDisabled ||
+                cancelled ||
+                order.finance_redacted ||
+                order.is_paid ||
+                order.balance_amount <= 0
+              }
+              onClick={onPay}
+            >
+              <CreditCard className="mr-1 size-3.5" /> {cancelled ? "不可收款" : "收款"}
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <MobileStatusTransitionSheet
         open={statusSheetOpen}
@@ -2880,12 +3048,16 @@ function DeviceUnlockEditSheet({
 function FaultDescriptionEditSheet({
   open,
   order,
+  canEditIntake,
+  canEditRepair,
   pending,
   onOpenChange,
   onSave,
 }: {
   open: boolean;
   order: OrderDetail["order"];
+  canEditIntake: boolean;
+  canEditRepair: boolean;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (
@@ -2916,16 +3088,24 @@ function FaultDescriptionEditSheet({
   const save = async () => {
     const normalizedIssue = issue.trim();
     const normalizedDiagnosis = diagnosis.trim();
-    if (!normalizedIssue) {
+    if (canEditIntake && !normalizedIssue) {
       setError("故障描述不能为空。");
       return;
     }
 
     try {
-      await onSave({
-        issue_description: normalizedIssue,
-        diagnosis_result: normalizedDiagnosis || undefined,
-      });
+      const changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result"> = {};
+      if (canEditIntake && normalizedIssue !== (order.issue_description || "").trim()) {
+        changes.issue_description = normalizedIssue;
+      }
+      if (canEditRepair && normalizedDiagnosis !== (order.diagnosis_result || "").trim()) {
+        changes.diagnosis_result = normalizedDiagnosis || undefined;
+      }
+      if (!Object.keys(changes).length) {
+        setError("没有可保存的修改。");
+        return;
+      }
+      await onSave(changes);
       onOpenChange(false);
     } catch (error) {
       const message = getOrderPatchSaveErrorMessage(error);
@@ -2987,7 +3167,7 @@ function FaultDescriptionEditSheet({
                       variant="outline"
                       size="sm"
                       className="h-6 px-1.5 text-[10px]"
-                      disabled={pending || missingIssueCount === 0}
+                      disabled={pending || !canEditIntake || missingIssueCount === 0}
                       onClick={() => appendItems("issue", quoteItems)}
                     >
                       全入故障
@@ -2997,7 +3177,7 @@ function FaultDescriptionEditSheet({
                       variant="outline"
                       size="sm"
                       className="h-6 px-1.5 text-[10px]"
-                      disabled={pending || missingDiagnosisCount === 0}
+                      disabled={pending || !canEditRepair || missingDiagnosisCount === 0}
                       onClick={() => appendItems("diagnosis", quoteItems)}
                     >
                       全入诊断
@@ -3028,7 +3208,7 @@ function FaultDescriptionEditSheet({
                           variant="outline"
                           size="sm"
                           className="h-6 px-1.5 text-[10px]"
-                          disabled={pending || inIssue}
+                          disabled={pending || !canEditIntake || inIssue}
                           aria-label={`将 ${item.name} 加入故障描述`}
                           onClick={() => appendItems("issue", [item])}
                         >
@@ -3039,7 +3219,7 @@ function FaultDescriptionEditSheet({
                           variant="outline"
                           size="sm"
                           className="h-6 px-1.5 text-[10px]"
-                          disabled={pending || inDiagnosis}
+                          disabled={pending || !canEditRepair || inDiagnosis}
                           aria-label={`将 ${item.name} 加入诊断结果`}
                           onClick={() => appendItems("diagnosis", [item])}
                         >
@@ -3061,7 +3241,7 @@ function FaultDescriptionEditSheet({
             <section className={cn(componentOverlay.flatSection, "space-y-2 p-2")}>
               <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
                 <span className="flex items-center justify-between gap-2">
-                  <span>故障描述</span>
+                  <span>故障描述{canEditIntake ? "" : "（只读）"}</span>
                   <span className="font-mono text-[9px] font-normal text-muted-foreground">
                     {issue.trim().length}
                   </span>
@@ -3069,14 +3249,14 @@ function FaultDescriptionEditSheet({
                 <Textarea
                   value={issue}
                   onChange={(event) => setIssue(event.target.value)}
-                  disabled={pending}
+                  disabled={pending || !canEditIntake}
                   className="min-h-24 resize-none rounded-lg text-xs md:min-h-[230px]"
                   placeholder="描述客户反馈、故障表现、可复现条件等"
                 />
               </label>
               <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
                 <span className="flex items-center justify-between gap-2">
-                  <span>诊断结果</span>
+                  <span>诊断结果{canEditRepair ? "" : "（只读）"}</span>
                   <span className="font-mono text-[9px] font-normal text-muted-foreground">
                     {diagnosis.trim().length}
                   </span>
@@ -3084,7 +3264,7 @@ function FaultDescriptionEditSheet({
                 <Textarea
                   value={diagnosis}
                   onChange={(event) => setDiagnosis(event.target.value)}
-                  disabled={pending}
+                  disabled={pending || !canEditRepair}
                   className="min-h-20 resize-none rounded-lg text-xs md:min-h-[180px]"
                   placeholder="填写检测结果、风险、建议处理方式"
                 />
@@ -4305,18 +4485,24 @@ function getEditValidationError(
   draft: UpdateOrderInput | null,
   financeError?: string,
   defaultWarrantyMonths = 6,
+  capabilities: {
+    canEditIntake: boolean;
+    canEditRepair: boolean;
+    canAdjustFinance: boolean;
+  } = { canEditIntake: true, canEditRepair: true, canAdjustFinance: true },
 ): string | undefined {
   if (!draft) return "缺少工单草稿。";
-  if (!draft.customer_name.trim()) return "客户姓名不能为空。";
-  if (!draft.customer_phone.trim()) return "手机号不能为空。";
-  if (!draft.device_brand.trim()) return "设备品牌不能为空。";
-  if (!draft.device_model.trim()) return "设备型号不能为空。";
-  if (!draft.issue_description.trim()) return "故障描述不能为空。";
+  if (capabilities.canEditIntake && !draft.customer_name.trim()) return "客户姓名不能为空。";
+  if (capabilities.canEditIntake && !draft.customer_phone.trim()) return "手机号不能为空。";
+  if (capabilities.canEditIntake && !draft.device_brand.trim()) return "设备品牌不能为空。";
+  if (capabilities.canEditIntake && !draft.device_model.trim()) return "设备型号不能为空。";
+  if (capabilities.canEditIntake && !draft.issue_description.trim()) return "故障描述不能为空。";
   if (
+    capabilities.canEditRepair &&
     warrantyReasonRequired(draft.warranty_months ?? defaultWarrantyMonths, defaultWarrantyMonths) &&
     !draft.warranty_change_reason?.trim()
   ) {
     return "非默认质保需要填写原因。";
   }
-  return financeError;
+  return capabilities.canAdjustFinance ? financeError : undefined;
 }

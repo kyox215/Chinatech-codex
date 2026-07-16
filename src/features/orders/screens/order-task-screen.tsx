@@ -100,15 +100,17 @@ export function OrderTaskScreen({ id }: { id: string }) {
 
   const order = data?.order;
   const cancelled = order ? isOrderCancelledForPayment(order) : false;
+  const canTransition = data?.capabilities?.canTransition === true;
+  const voided = order?.record_state === "voided" || Boolean(order?.deleted_at);
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const workflowStatus = order ? getOrderWorkflowStatus(order) : "intake";
   const guidance = order ? getOrderTaskGuidance(order) : null;
   const next = useMemo(
     () =>
-      order && !cancelled
+      order && !cancelled && !voided
         ? getWorkflowNextActions(workflow, order.status)
         : { primary: undefined, secondary: [] },
-    [cancelled, order, workflow],
+    [cancelled, order, voided, workflow],
   );
   const exceptionStatus = order?.exception_status;
   const progressTone = exceptionStatus
@@ -192,14 +194,22 @@ export function OrderTaskScreen({ id }: { id: string }) {
     );
   }
 
-  const primaryAction = next.primary;
-  const taskActions = [next.primary, ...next.secondary].filter(
-    (action): action is WorkflowNextAction => Boolean(action),
+  const primaryAction = canTransition && !cancelled && !voided ? next.primary : undefined;
+  const taskActions =
+    canTransition && !cancelled && !voided
+      ? [next.primary, ...next.secondary].filter((action): action is WorkflowNextAction =>
+          Boolean(action),
+        )
+      : [];
+  const currentStatusLabel = getWorkflowStatusLabel(
+    workflow,
+    cancelled ? "cancelled" : order.status,
   );
-  const currentStatusLabel = getWorkflowStatusLabel(workflow, order.status);
-  const approvalDecisionRequired = !cancelled && isTaskApprovalDecisionRequired(order);
+  const approvalDecisionRequired =
+    canTransition && !cancelled && !voided && isTaskApprovalDecisionRequired(order);
 
   const openTransitionAction = (action: WorkflowNextAction) => {
+    if (!canTransition || cancelled || voided) return;
     setTransitionAction(action);
     setTransitionReason(getDefaultOrderTransitionReason(action.to));
   };
@@ -326,8 +336,8 @@ export function OrderTaskScreen({ id }: { id: string }) {
             className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-2.5 md:shadow-none"
           >
             {order.finance_redacted ? (
-              <p className="col-span-3 py-3 text-center text-xs font-medium text-muted-foreground">
-                金额受限
+              <p className="col-span-3 rounded-xl bg-muted px-3 py-4 text-center text-sm font-medium text-muted-foreground">
+                金额与结算状态受限
               </p>
             ) : (
               <>
@@ -394,26 +404,28 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 </Link>
               </Button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
-              disabled={!activeKioskDevice || kioskPickupRequest.isPending}
-              onClick={() => kioskPickupRequest.mutate()}
-            >
-              <TabletSmartphone className="size-4" />
-              {kioskPickupRequest.isPending
-                ? "发送中"
-                : activeKioskDevice
-                  ? "发送取机确认到 iPad"
-                  : "无可用 iPad"}
-            </Button>
+            {canTransition && !cancelled && !voided ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
+                disabled={!activeKioskDevice || kioskPickupRequest.isPending}
+                onClick={() => kioskPickupRequest.mutate()}
+              >
+                <TabletSmartphone className="size-4" />
+                {kioskPickupRequest.isPending
+                  ? "发送中"
+                  : activeKioskDevice
+                    ? "发送取机确认到 iPad"
+                    : "无可用 iPad"}
+              </Button>
+            ) : null}
           </section>
         </div>
       </div>
 
       <TaskTransitionDialog
-        open={Boolean(transitionAction)}
+        open={canTransition && !cancelled && !voided && Boolean(transitionAction)}
         order={order}
         statusLabel={currentStatusLabel}
         action={transitionAction}

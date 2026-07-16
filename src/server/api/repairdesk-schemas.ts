@@ -58,8 +58,10 @@ import type {
   OrderApprovalDecisionInput,
   OrderAttachmentUploadInput,
   OrderWhatsappTemplateKind,
+  CorrectTerminalOrderInput,
   PatchOrderFinanceInput,
   PatchOrderInput,
+  ReopenOrderInput,
   StoreCreateInput,
   StoreInvitationDecisionInput,
   StoreInviteLinkCreateInput,
@@ -73,6 +75,7 @@ import type {
   SupplierInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
+  VoidOrderInput,
 } from "@/lib/repairdesk/api";
 
 const optionalText = z.string().optional();
@@ -531,9 +534,16 @@ export const patchOrderChangesSchema = z
     device_notes: optionalText,
     issue_description: optionalText,
     diagnosis_result: optionalText,
+    internal_tag: optionalText,
     accessory_notes: optionalText,
     device_unlock: deviceUnlockInputSchema.optional(),
     warranty_text: optionalText,
+    warranty_months: z.coerce
+      .number()
+      .int()
+      .refine((value) => [0, 3, 6, 12, 24].includes(value), "质保月数仅支持 0、3、6、12 或 24")
+      .optional(),
+    warranty_change_reason: optionalText,
     parts_supplier_id: z.string().nullable().optional(),
     assignee_membership_id: z.string().uuid().nullable().optional(),
   })
@@ -565,6 +575,71 @@ export const patchOrderFinanceBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: patchOrderFinanceInputSchema,
 });
+
+const terminalReasonSchema = z
+  .string()
+  .trim()
+  .min(5, "原因至少需要 5 个字符")
+  .max(1000, "原因不能超过 1000 个字符");
+
+const correctTerminalChangesSchema = z
+  .object({
+    issue_description: z.string().trim().min(1).max(4000).optional(),
+    diagnosis_result: z.string().trim().max(8000).optional(),
+    internal_tag: z.string().trim().max(120).optional(),
+    accessory_notes: z.string().trim().max(1000).optional(),
+    warranty_text: z.string().trim().max(120).optional(),
+    warranty_months: z.coerce
+      .number()
+      .int()
+      .refine((value) => [0, 3, 6, 12, 24].includes(value), "质保月数仅支持 0、3、6、12 或 24")
+      .optional(),
+    warranty_change_reason: z.string().trim().max(1000).optional(),
+  })
+  .strict()
+  .refine((changes) => Object.keys(changes).length > 0, { message: "没有可纠正的字段" });
+
+export const correctTerminalOrderInputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("纠正操作标识无效"),
+    reason: terminalReasonSchema,
+    changes: correctTerminalChangesSchema,
+  })
+  .strict() satisfies z.ZodType<CorrectTerminalOrderInput>;
+
+export const correctTerminalOrderBodySchema = z
+  .object({
+    id: z.string().min(1, "缺少 id"),
+    input: correctTerminalOrderInputSchema,
+  })
+  .strict();
+
+export const reopenOrderInputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("重新打开操作标识无效"),
+    reason: terminalReasonSchema,
+    to_status: repairOrderStatusSchema,
+  })
+  .strict() satisfies z.ZodType<ReopenOrderInput>;
+
+export const reopenOrderBodySchema = z
+  .object({ id: z.string().min(1, "缺少 id"), input: reopenOrderInputSchema })
+  .strict();
+
+export const voidOrderInputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("作废操作标识无效"),
+    reason: terminalReasonSchema,
+    confirm_public_no: z.string().trim().min(1, "请输入工单号确认"),
+  })
+  .strict() satisfies z.ZodType<VoidOrderInput>;
+
+export const voidOrderBodySchema = z
+  .object({ id: z.string().min(1, "缺少 id"), input: voidOrderInputSchema })
+  .strict();
 
 export const transitionOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),

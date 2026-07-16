@@ -1,6 +1,7 @@
 export {
   batchTransition,
   confirmCancelledOrderReturn,
+  correctTerminalOrder,
   createOrder,
   decideOrderApproval,
   getOrder,
@@ -12,6 +13,7 @@ export {
   patchOrder,
   patchOrderFinance,
   recordPayment,
+  reopenOrder,
   uploadOrderAttachment,
   createOrderWorkflowStatus,
   reorderOrderWorkflowStatuses,
@@ -23,4 +25,5 @@ export {
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateOrder,
+  voidOrder,
 } from "./order.repository";

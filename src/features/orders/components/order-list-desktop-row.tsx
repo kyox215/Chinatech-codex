@@ -53,6 +53,7 @@ export function DesktopOrderQueueRow({
   onCancelPrefetch,
   onCheckedChange,
   onPrint,
+  canPrint = true,
   onStopInteraction,
   suppliers,
   onPartsSupplierChange,
@@ -67,6 +68,7 @@ export function DesktopOrderQueueRow({
   onCancelPrefetch?: () => void;
   onCheckedChange: (checked: boolean) => void;
   onPrint: () => void;
+  canPrint?: boolean;
   onStopInteraction: (event: SyntheticEvent) => void;
   suppliers: Supplier[];
   onPartsSupplierChange?: (supplierId: string | null) => void;
@@ -373,10 +375,14 @@ export function DesktopOrderQueueRow({
             <DropdownMenuItem asChild>
               <Link href={`/orders/${order.id}`}>在新页打开</Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onPrint}>
-              <Printer className="mr-2 size-3.5" /> 打印
-            </DropdownMenuItem>
+            {canPrint ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onPrint}>
+                  <Printer className="mr-2 size-3.5" /> 打印
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

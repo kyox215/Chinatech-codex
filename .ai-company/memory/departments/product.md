@@ -3,7 +3,7 @@ schema_version: 1
 department: product
 status: active
 owner: Product Department / Integration Lead
-last_verified_at: 2026-07-16
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -32,12 +32,14 @@ as owner of this file.
 - `TASK-20260620-001` established manual order-detail status transition as a correction/override path: users may choose any enabled concrete order status except the current status, while approval decision, required reason, disabled/current target, canonical-group target, and unpaid-completion protections remain enforced.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package/ROLE_POLICY_DECISION_PACKAGE.md` is the current Owner-approval package for role policy. It recommends Option A, a conservative shop-operations policy, but it is not approved or implemented yet.
 - `TASK-20260716-001-dashboard-handoff-priority` makes Dashboard an operational handoff workbench: keep quick repair intake and buyback quote, then show the actor-authorized order to handle first with an explainable reason, current step, next step, assignee and update time. Finance does not influence V1 priority and Dashboard performs no direct workflow mutation.
+- `TASK-20260716-003-customer-finance-order-correction-plan` separates customer history from valid repair/finance facts: cancelled/custom-cancelled/voided/deleted orders remain discoverable history but contribute zero to valid count, active work, lifetime quote and receivables. Customer UI shows repair and payment states independently. Terminal corrections/reopen require Manager or Owner; safe void is Owner-only, preserves evidence and is never a normal hard delete.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Product customer/order lifecycle | Frontend + Backend + Data | History is retained; only valid lifecycle rows contribute operational/finance facts; terminal changes use named audited actions | Fail closed and preserve evidence when role, version, reason or accounting preconditions fail | TASK-20260716-003-customer-finance-order-correction-plan E-013..E-025 | verified |
 
 ## SOPs and checklists
 
@@ -74,3 +76,4 @@ as owner of this file.
 | 2026-06-20 | Recorded manual order-detail status transition correction path and preserved safeguards | TASK-20260620-001 | Integration Lead | active |
 | 2026-06-20 | Added Owner-ready role-policy decision package as proposed product policy | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead | proposed |
 | 2026-07-16 | Recorded beginner-friendly Dashboard priority and store-handoff product contract | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
+| 2026-07-16 | Recorded customer finance/history split and audited terminal correction/reopen/void product contract | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/UX/QA reviewers | active |

@@ -63,7 +63,7 @@ export function OrderHero({
   onPrint: () => void;
   onCancel: () => void;
   canCancel?: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   storeName?: string;
@@ -164,11 +164,11 @@ export function OrderHero({
             <X className="size-3.5" /> 取消
           </Button>
         </>
-      ) : (
+      ) : onEdit ? (
         <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px]" onClick={onEdit}>
           <Pencil className="size-3.5" /> 编辑
         </Button>
-      )}
+      ) : null}
     </div>
   );
 

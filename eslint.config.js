@@ -13,6 +13,8 @@ export default tseslint.config(
       ".vercel",
       "storybook-static",
       "coverage",
+      "playwright-report",
+      "test-results",
       "tools/figma/use-figma-create-repairdesk-ui-system.mjs",
       "tools/figma/generated/use-figma-payloads/*.js",
     ],

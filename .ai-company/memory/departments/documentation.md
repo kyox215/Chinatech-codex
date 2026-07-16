@@ -3,7 +3,7 @@ schema_version: 1
 department: documentation
 status: active
 owner: Documentation Department / Integration Lead
-last_verified_at: 2026-07-16
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -57,12 +57,14 @@ as owner of this file.
 - `TASK-20260714-002-buyback-supabase-schema-staging` supersedes only the prior “production Supabase objects absent” documentation: the dormant objects now exist, but are empty, private and revoked. It does not supersede the four-step quote-only/server-default-deny runtime authority and must never be described as sensitive-feature activation.
 - `TASK-20260716-001-dashboard-handoff-priority` and `docs/UI_PAGE_GENERATION_DECLARATION.md` are the current Dashboard generation authority: no Dashboard status chips, two quick starts, complete actor-scoped ranking before slice, allowlisted non-financial projection, navigation-only actions and distinct loading/empty/filtered/error/permission states.
 - `TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md` is the current Orders mobile queue/loading performance release authority: compact responsive queues, explicit transition/offline states, bounded two-phase list reads, exact production proof and the evidence-based no-migration decision.
+- For customer finance and terminal-order behavior, use `TASK-20260716-003-customer-finance-order-correction-plan`, `docs/CUSTOMER_MANAGEMENT_WORKBENCH_PLAN.md` and active `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`: `累计订单额/待收`, orthogonal repair/payment states, finance omission on restricted reads, changed-fields-only routine edits and audited correction/reopen/Owner void are the current contract. `docs/ORDERS_SPEC.md` remains a historical snapshot and only points to the active standard.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Customer/order behavior authority | Product + Frontend + Backend + Data + QA | Keep active user labels, lifecycle rules, RPC/permission boundary and validation evidence aligned | If docs conflict with migration/tests, stop and refresh the active docs/task evidence before release | TASK-20260716-003-customer-finance-order-correction-plan documentation impact matrix | verified |
 
 ## SOPs and checklists
 
@@ -130,3 +132,4 @@ as owner of this file.
 | 2026-07-14 | Recorded dormant production schema presence without changing feature-off runtime or UI documentation authority | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead | active |
 | 2026-07-16 | Synchronized active Dashboard UI/API/security/visual rules with the handoff implementation | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
 | 2026-07-16 | Synchronized Orders mobile UI/query/release authority and closeout evidence | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + department reviewers | active |
+| 2026-07-16 | Synchronized customer finance, dual-state and terminal-action docs with code, migration and release evidence | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + department reviewers | active |

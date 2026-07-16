@@ -9,15 +9,18 @@ import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
+  CorrectTerminalOrderInput,
   CreateOrderInput,
   DeviceSnapshot,
   OrderDetail,
+  OrderCapabilities,
   OrderListFilters,
   OrderListItem,
   OrderAssigneeOption,
   OrderListPageInput,
   OrderListResult,
   OrderStats,
+  OrderTerminalOperationResult,
   OrderApprovalDecisionInput,
   OrderApprovalDecisionResult,
   OrderAttachment,
@@ -38,14 +41,19 @@ import type {
   PatchOrderInput,
   PatchOrderResult,
   RepairDeskOptions,
+  ReopenOrderInput,
   Supplier,
   UpdateOrderInput,
+  VoidOrderInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
-import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  isOrderCancelledForPayment,
+  isOrderPaymentCollectible,
+} from "@/features/orders/model/order-payment-state";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
   approvalFlowStatusFromLegacyStatus,
@@ -395,11 +403,15 @@ export function projectOrderListItemForActor<T extends OrderListItem>(
       quotation_amount: _quotationAmount,
       deposit_amount: _depositAmount,
       balance_amount: _balanceAmount,
+      payment_status: _paymentStatus,
+      is_paid: _isPaid,
       ...visible
     } = projected;
     projected = {
       ...visible,
       fault_prices: [],
+      is_paid: false,
+      payment_status: undefined,
       finance_redacted: true,
     } as unknown as T;
   }
@@ -460,7 +472,16 @@ function projectEventsForActor(events: OrderDetail["events"], actor?: AuditActor
   return events.map((event) => ({ ...event, payload: {} }));
 }
 
-export function projectOrderDetailForActor(detail: OrderDetail, actor?: AuditActor): OrderDetail {
+interface OrderCapabilityProjectionOptions {
+  hasPaymentLedgerEvidence?: boolean;
+  paymentLedgerCheckFailed?: boolean;
+}
+
+export function projectOrderDetailForActor(
+  detail: OrderDetail,
+  actor?: AuditActor,
+  capabilityOptions: OrderCapabilityProjectionOptions = {},
+): OrderDetail {
   const canReadAttachments = canReadOrderAttachments(actor);
   return {
     ...detail,
@@ -481,6 +502,86 @@ export function projectOrderDetailForActor(detail: OrderDetail, actor?: AuditAct
           signed_url: undefined,
           storage_path: "",
         })),
+    capabilities: projectOrderCapabilities(detail.order, actor, capabilityOptions),
+  };
+}
+
+export function projectOrderCapabilities(
+  order: OrderListItem,
+  actor?: AuditActor,
+  options: OrderCapabilityProjectionOptions = {},
+): OrderCapabilities {
+  const role = actor?.storeRole ?? actor?.role;
+  const scopeSatisfied = role === "technician" ? isOrderInActorScope(order, actor) : false;
+  const permitted = (action: Parameters<typeof can>[1]) => can(actor, action, { scopeSatisfied });
+  const voided = order.record_state === "voided" || Boolean(order.deleted_at);
+  const terminal =
+    order.status === "completed" ||
+    order.status === "cancelled" ||
+    order.exception_status === "cancelled" ||
+    (order.workflow_bucket !== undefined
+      ? order.workflow_bucket === "done" || order.workflow_bucket === "cancelled"
+      : order.workflow_status === "closed");
+  const routine = !voided && !terminal;
+  const quotationAmount = Number(order.quotation_amount ?? 0);
+  const depositAmount = Number(order.deposit_amount ?? 0);
+  const balanceAmount = Number(order.balance_amount ?? 0);
+  const hasPristineFinance =
+    !order.is_paid &&
+    depositAmount === 0 &&
+    quotationAmount >= 0 &&
+    balanceAmount >= 0 &&
+    quotationAmount === balanceAmount &&
+    (order.payment_status ?? "unpaid") === "unpaid";
+  const hasVisibleFinancialEvidence = !hasPristineFinance;
+  const hasFinancialEvidence =
+    hasVisibleFinancialEvidence ||
+    Boolean(options.hasPaymentLedgerEvidence) ||
+    Boolean(options.paymentLedgerCheckFailed);
+  const blockedReasons: OrderCapabilities["blockedReasons"] = {};
+
+  if (voided) {
+    for (const key of [
+      "editIntake",
+      "editRepair",
+      "adjustFinance",
+      "collectPayment",
+      "transition",
+      "confirmCancelledReturn",
+      "correct",
+      "reopen",
+      "void",
+    ] as const) {
+      blockedReasons[key] = "该记录已作废，历史证据仅供查看";
+    }
+  } else if (terminal) {
+    blockedReasons.editIntake = "已结束工单请使用“纠正记录”";
+    blockedReasons.editRepair = "已结束工单请使用“纠正记录”";
+    blockedReasons.adjustFinance = "终态财务只能通过后续冲销/退款流程处理";
+    blockedReasons.transition = "已结束工单请使用“重新打开”";
+  }
+  if (isOrderCancelledForPayment(order) && !voided) {
+    blockedReasons.collectPayment = "已取消工单的余额仅保留为历史，不能登记收款";
+  }
+  if (permitted("order:void") && hasFinancialEvidence) {
+    blockedReasons.void = "存在财务记录或金额异常，必须先完成核对与冲销/退款";
+  }
+
+  return {
+    canEditIntake: routine && permitted("order:update_intake"),
+    canEditRepair: routine && permitted("order:update_repair"),
+    canAdjustFinance: routine && permitted("payment:adjust"),
+    canCollectPayment: isOrderPaymentCollectible(order) && permitted("payment:collect"),
+    canTransition: routine && permitted("order:transition"),
+    canConfirmCancelledReturn:
+      !voided &&
+      order.status === "cancelled" &&
+      !order.delivered_at &&
+      permitted("order:transition"),
+    canCorrect: terminal && !voided && permitted("order:correct"),
+    canReopen: terminal && !voided && permitted("order:reopen"),
+    canVoid: terminal && !voided && !hasFinancialEvidence && permitted("order:void"),
+    blockedReasons,
   };
 }
 
@@ -657,29 +758,65 @@ function buildQuoteApprovalResetUpdate({
   return resetUpdate;
 }
 
-function deriveCanonicalUpdateFromLegacyStatus(status: RepairOrderStatus, now: string) {
-  const workflowStatus = workflowStatusFromLegacyStatus(status);
+function canonicalWorkflowStatusFromBucket(
+  bucket: OrderWorkflowStatus["bucket"],
+  status: RepairOrderStatus,
+): OrderWorkflowStatusCode {
+  switch (bucket) {
+    case "intake":
+      return "intake";
+    case "diagnosing":
+      return "diagnosis";
+    case "quote":
+      return "quote";
+    case "parts":
+      return "parts";
+    case "repair":
+      return "repair";
+    case "pickup":
+      return "pickup";
+    case "done":
+    case "cancelled":
+      return "closed";
+    case "custom":
+      return "intake";
+    default:
+      return workflowStatusFromLegacyStatus(status);
+  }
+}
+
+function deriveCanonicalUpdateFromLegacyStatus(
+  status: RepairOrderStatus,
+  now: string,
+  bucket?: OrderWorkflowStatus["bucket"],
+) {
+  const workflowStatus = bucket
+    ? canonicalWorkflowStatusFromBucket(bucket, status)
+    : workflowStatusFromLegacyStatus(status);
+  const cancelled = status === "cancelled" || bucket === "cancelled";
+  const completed = status === "completed" || bucket === "done";
   return {
     workflow_status: workflowStatus,
-    exception_status:
-      status === "cancelled"
-        ? "cancelled"
-        : status === "rework"
-          ? "rework"
-          : status === "unfixed_pickup"
-            ? "returned_unfixed"
-            : null,
+    exception_status: cancelled
+      ? "cancelled"
+      : status === "rework"
+        ? "rework"
+        : status === "unfixed_pickup"
+          ? "returned_unfixed"
+          : null,
     approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
     parts_status: partsStatusFromLegacyStatus(status),
-    notify_status: status === "completed" ? "sent" : notifyStatusFromLegacyStatus(status),
-    ...(status === "completed"
+    notify_status: completed ? "sent" : notifyStatusFromLegacyStatus(status),
+    ...(completed
       ? { completed_at: now, delivered_at: now }
       : { completed_at: null, delivered_at: null }),
     ...(status === "waiting_approval" ? { approval_sent_at: now } : {}),
   };
 }
 
-type OrderTransitionValidationResult = { ok: true; label?: string } | { ok: false; reason: string };
+type OrderTransitionValidationResult =
+  | { ok: true; label?: string; bucket: OrderWorkflowStatus["bucket"] }
+  | { ok: false; reason: string };
 
 async function validateManualOrderTransitionTarget(
   supabase: ReturnType<typeof getSupabaseAdmin>,
@@ -691,7 +828,7 @@ async function validateManualOrderTransitionTarget(
 
   const { data: target, error: targetError } = await supabase
     .from("order_workflow_statuses")
-    .select("code,label,enabled")
+    .select("code,label,bucket,enabled")
     .eq("store_id", storeId)
     .eq("code", to)
     .maybeSingle();
@@ -701,7 +838,11 @@ async function validateManualOrderTransitionTarget(
     const toLabel = maybeString((target as DbRecord).label) || to;
     return { ok: false, reason: `「${toLabel}」已停用，不能流转到该状态` };
   }
-  return { ok: true, label: maybeString((target as DbRecord).label) || to };
+  return {
+    ok: true,
+    label: maybeString((target as DbRecord).label) || to,
+    bucket: (maybeString((target as DbRecord).bucket) || "custom") as OrderWorkflowStatus["bucket"],
+  };
 }
 
 async function validateConfiguredOrderTransition(
@@ -726,7 +867,7 @@ async function validateConfiguredOrderTransition(
     const toLabel = target.label;
     return { ok: false, reason: `「${fromLabel}」不能直接流转到「${toLabel}」` };
   }
-  return { ok: true };
+  return target;
 }
 
 async function assertWorkflowTargetEnabled(
@@ -736,7 +877,7 @@ async function assertWorkflowTargetEnabled(
 ) {
   const { data, error } = await supabase
     .from("order_workflow_statuses")
-    .select("label,enabled")
+    .select("label,bucket,enabled")
     .eq("store_id", storeId)
     .eq("code", code)
     .maybeSingle();
@@ -747,6 +888,9 @@ async function assertWorkflowTargetEnabled(
     const label = maybeString(row.label) || code;
     throw new Error(`「${label}」已停用，不能流转到该状态`);
   }
+  return {
+    bucket: (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"],
+  };
 }
 
 async function resolveInitialOrderStatus(
@@ -756,7 +900,7 @@ async function resolveInitialOrderStatus(
 ) {
   const { data: requestedStatus, error } = await supabase
     .from("order_workflow_statuses")
-    .select("code,allowed_for_create,enabled")
+    .select("code,bucket,allowed_for_create,enabled")
     .eq("store_id", storeId)
     .eq("code", requested)
     .maybeSingle();
@@ -764,13 +908,18 @@ async function resolveInitialOrderStatus(
 
   if (requestedStatus) {
     const row = requestedStatus as DbRecord;
-    if (Boolean(row.enabled) && Boolean(row.allowed_for_create)) return requiredString(row.code);
+    if (Boolean(row.enabled) && Boolean(row.allowed_for_create)) {
+      return {
+        code: requiredString(row.code) as RepairOrderStatus,
+        bucket: (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"],
+      };
+    }
     throw new Error("初始状态不允许用于新建工单");
   }
 
   const { data: defaultStatus, error: defaultError } = await supabase
     .from("order_workflow_statuses")
-    .select("code")
+    .select("code,bucket")
     .eq("store_id", storeId)
     .eq("enabled", true)
     .eq("allowed_for_create", true)
@@ -780,8 +929,19 @@ async function resolveInitialOrderStatus(
     .maybeSingle();
   fail(defaultError, "读取默认初始状态失败");
 
-  if (defaultStatus) return requiredString((defaultStatus as DbRecord).code);
-  if (ORDER_STATUS_ALLOWED_FOR_CREATE.includes(requested)) return requested;
+  if (defaultStatus) {
+    const row = defaultStatus as DbRecord;
+    return {
+      code: requiredString(row.code) as RepairOrderStatus,
+      bucket: (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"],
+    };
+  }
+  if (ORDER_STATUS_ALLOWED_FOR_CREATE.includes(requested)) {
+    return {
+      code: requested,
+      bucket: "intake" as const,
+    };
+  }
   throw new Error("店铺没有可用于新建工单的状态");
 }
 
@@ -1179,6 +1339,8 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
     { data: eventRows, error: eventError },
     { data: messageRows, error: messageError },
     { data: attachmentRows, error: attachmentError },
+    { count: paymentLedgerCount, error: paymentLedgerError },
+    { data: workflowStatusRow, error: workflowStatusError },
   ] = await Promise.all([
     supabase
       .from("order_events")
@@ -1198,6 +1360,17 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
       .eq("store_id", storeId)
       .eq("order_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("order_payment_ledger")
+      .select("id", { count: "exact", head: true })
+      .eq("store_id", storeId)
+      .eq("order_id", id),
+    supabase
+      .from("order_workflow_statuses")
+      .select("bucket")
+      .eq("store_id", storeId)
+      .eq("code", requiredString((orderRow as DbRecord).status))
+      .maybeSingle(),
   ]);
 
   fail(eventError, "读取时间线失败");
@@ -1205,11 +1378,19 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
   if (attachmentError && !isMissingOrderAttachmentsTableError(attachmentError)) {
     fail(attachmentError, "读取工单附件失败");
   }
+  fail(workflowStatusError, "读取工单状态口径失败");
 
   const row = orderRow as DbRecord;
+  const decoratedOrder = {
+    ...decorate(row),
+    workflow_bucket:
+      (requiredString(
+        (workflowStatusRow as DbRecord | null)?.bucket,
+      ) as OrderListItem["workflow_bucket"]) || undefined,
+  };
   return projectOrderDetailForActor(
     {
-      order: applySupplierVisibility(decorate(row), canReadSuppliers),
+      order: applySupplierVisibility(decoratedOrder, canReadSuppliers),
       customer: customerFromRow(row.customer),
       device: deviceFromRow(row.device),
       supplier: canReadSuppliers ? supplierFromRow(row.supplier) : undefined,
@@ -1221,6 +1402,10 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
         : await attachSignedUrls(supabase, (attachmentRows ?? []) as DbRecord[], storeId, id),
     },
     actor,
+    {
+      hasPaymentLedgerEvidence: Number(paymentLedgerCount ?? 0) > 0,
+      paymentLedgerCheckFailed: Boolean(paymentLedgerError),
+    },
   );
 }
 
@@ -1232,7 +1417,8 @@ export async function uploadOrderAttachment(
   const storeId = requireStoreIdFromActor(actor);
   const operatorName = operatorNameFromActor(actor);
   const supabase = getSupabaseAdmin();
-  await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
+  const accessRow = await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
+  assertOrderRecordNotVoided(accessRow);
 
   const bytes = attachmentPayloadFromInput(input);
   const attachmentId = crypto.randomUUID();
@@ -1307,6 +1493,7 @@ export async function transitionOrder(
   const supabase = getSupabaseAdmin();
   const actor = typeof opts.operator === "string" ? undefined : opts.operator;
   const currentRow = await readOrderStatusRow(supabase, storeId, id, actor);
+  await assertRoutineOrderMutationAllowed(supabase, storeId, currentRow);
   const from = currentRow.status as RepairOrderStatus;
   const workflowFrom =
     (maybeString(currentRow.workflow_status) as OrderWorkflowStatusCode | undefined) ??
@@ -1315,12 +1502,12 @@ export async function transitionOrder(
   if (canonicalRequest) {
     throw new Error("状态流转必须使用具体工单状态，不能使用主流程分组");
   }
-  const workflowTo = workflowStatusFromLegacyStatus(to);
   const legacyTo = to;
   const cleanReason = opts.reason?.trim();
 
   const validation = await validateManualOrderTransitionTarget(supabase, storeId, from, to);
   if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
+  const workflowTo = canonicalWorkflowStatusFromBucket(validation.bucket, to);
   if (
     isApprovalDecisionBypass(
       from,
@@ -1331,19 +1518,22 @@ export async function transitionOrder(
   ) {
     throw new Error("客户审批阶段必须通过审批处理记录同意或拒绝");
   }
-  if (orderTransitionRequiresReason(legacyTo) && !cleanReason) {
-    throw new Error(
-      `流转到「${await readWorkflowStatusLabel(supabase, storeId, legacyTo)}」需要填写原因`,
-    );
+  if (
+    (orderTransitionRequiresReason(legacyTo) || validation.bucket === "cancelled") &&
+    !cleanReason
+  ) {
+    throw new Error(`流转到「${validation.label ?? legacyTo}」需要填写原因`);
   }
   const now = new Date().toISOString();
   const update: DbRecord = {
     status: legacyTo,
     updated_at: now,
-    ...deriveCanonicalUpdateFromLegacyStatus(legacyTo, now),
+    ...deriveCanonicalUpdateFromLegacyStatus(legacyTo, now, validation.bucket),
     workflow_status: workflowTo,
   };
-  if (legacyTo === "cancelled") update.cancel_reason = cleanReason || "未填写";
+  if (legacyTo === "cancelled" || validation.bucket === "cancelled") {
+    update.cancel_reason = cleanReason || "未填写";
+  }
   if (legacyTo === "unfixed_pickup" && cleanReason) {
     update.diagnosis_result = buildTransitionDiagnosisResult(
       maybeString(currentRow.diagnosis_result),
@@ -1394,80 +1584,39 @@ export async function confirmCancelledOrderReturn(
     operator?: string | AuditActor;
   },
 ) {
-  const storeId = requireStoreIdFromActor(
-    typeof opts.operator === "string" ? undefined : opts.operator,
-  );
-  const operatorName = operatorNameFromActor(opts.operator, "系统");
   const actor = typeof opts.operator === "string" ? undefined : opts.operator;
-  const supabase = getSupabaseAdmin();
-  const current = await readOrderStatusRow(supabase, storeId, id, actor);
-
-  if (current.status !== "cancelled") throw new Error("只有已取消工单可以确认设备退还");
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor?.id) throw new Error("确认设备退还需要已登录员工身份");
   if (!opts.expectedUpdatedAt) throw new Error("缺少工单版本，请刷新后重试");
   if (!opts.idempotencyKey) throw new Error("缺少退还操作标识");
-  if (maybeString(current.delivered_at)) {
-    return {
-      ok: true,
-      alreadyConfirmed: true,
-      delivered_at: maybeString(current.delivered_at),
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("repairdesk_confirm_cancelled_order_return", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: actor.id,
+    p_expected_updated_at: opts.expectedUpdatedAt,
+    p_idempotency_key: opts.idempotencyKey,
+  });
+  fail(error, "确认设备退还失败");
+  if (!data || typeof data !== "object") throw new Error("确认设备退还失败：数据库返回无效");
+  const result = data as Record<string, unknown>;
+  if (result.ok !== true) {
+    const code = requiredString(result.code);
+    const messages: Record<string, string> = {
+      actor_forbidden: "当前账号没有确认设备退还的权限",
+      order_not_found: "工单不存在或不属于当前店铺",
+      invalid_state: "只有未作废的已取消工单可以确认设备退还",
+      stale_version: "工单已被其他操作更新，请刷新后重试",
+      missing_expected_version: "缺少工单版本，请刷新后重试",
+      invalid_idempotency_key: "退还操作标识无效，请重试",
     };
+    throw new Error(messages[code] ?? "确认设备退还失败");
   }
-
-  const now = new Date().toISOString();
-  const completedBefore = maybeString(current.completed_at) || null;
-  const updatedAtAfter = await updateVersionedOrderRow({
-    supabase,
-    id,
-    storeId,
-    expectedUpdatedAt: opts.expectedUpdatedAt,
-    update: {
-      completed_at: completedBefore ?? now,
-      delivered_at: now,
-      updated_at: now,
-    },
-    context: "确认设备退还失败",
-  });
-
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "status_changed",
-    payload: {
-      from: "cancelled",
-      to: "cancelled",
-      action: "custody_return_confirmed",
-      handover_confirmed: true,
-      custody_outcome: "returned",
-      idempotency_key: opts.idempotencyKey,
-    },
-    operator_name: operatorName,
-    created_at: now,
-  });
-
-  if (eventError) {
-    try {
-      await updateVersionedOrderRow({
-        supabase,
-        id,
-        storeId,
-        expectedUpdatedAt: updatedAtAfter,
-        update: {
-          completed_at: completedBefore,
-          delivered_at: null,
-          updated_at: opts.expectedUpdatedAt,
-        },
-        context: "退还时间线失败后的恢复失败",
-      });
-    } catch (restoreError) {
-      throw new Error(
-        `退还记录写入失败且自动恢复失败：${eventError.message}; ${(restoreError as Error).message}`,
-      );
-    }
-    fail(eventError, "写入设备退还时间线失败");
-  }
-
-  return { ok: true, alreadyConfirmed: false, delivered_at: now };
+  return {
+    ok: true,
+    alreadyConfirmed: Boolean(result.already_confirmed),
+    delivered_at: requiredString(result.delivered_at),
+  };
 }
 
 function buildTransitionDiagnosisResult(current: string | undefined, reason: string) {
@@ -1536,18 +1685,20 @@ export async function decideOrderApproval(
     throw new Error("客户拒绝报价需要填写原因");
   }
 
+  let targetBucket: OrderWorkflowStatus["bucket"];
   if (input.decision === "approved") {
     const validation = await validateConfiguredOrderTransition(supabase, storeId, from, target);
     if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
+    targetBucket = validation.bucket;
   } else {
-    await assertWorkflowTargetEnabled(supabase, storeId, target);
+    targetBucket = (await assertWorkflowTargetEnabled(supabase, storeId, target)).bucket;
   }
 
   const now = new Date().toISOString();
   const update: DbRecord = {
     status: target,
     updated_at: now,
-    ...deriveCanonicalUpdateFromLegacyStatus(target, now),
+    ...deriveCanonicalUpdateFromLegacyStatus(target, now, targetBucket),
     approval_status: input.decision,
     approval_flow_status: input.decision,
     approval_confirmed_at: now,
@@ -1651,11 +1802,146 @@ function paymentFailureMessage(code: string) {
     idempotency_conflict: "该收款操作标识已用于不同请求，请刷新后重试",
     order_not_found: "工单不存在",
     order_cancelled: "已取消工单不能登记收款",
+    order_voided: "已作废或删除的工单不能登记收款",
     stale_version: "工单已被更新，请刷新后再试",
     already_settled: "该工单已结清",
     overpayment: "收款金额不能超过未结清尾款",
   };
   return messages[code] ?? "登记收款失败";
+}
+
+export class OrderTerminalOperationError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status: number,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "OrderTerminalOperationError";
+  }
+}
+
+function terminalOperationFailure(code: string, details?: Record<string, unknown>) {
+  const messages: Record<string, string> = {
+    actor_forbidden: "当前员工没有执行该操作的权限",
+    invalid_target: "工单目标无效",
+    invalid_idempotency_key: "操作标识无效",
+    missing_expected_version: "缺少工单版本时间",
+    invalid_reason: "请填写 5 到 1000 个字符的操作原因",
+    invalid_changes: "纠正字段无效或没有实际变化",
+    invalid_reopen_target: "重新打开的目标状态无效或已停用",
+    invalid_confirmation: "输入的工单号与当前工单不一致",
+    idempotency_conflict: "该操作标识已用于不同请求，请刷新后重试",
+    order_not_found: "工单不存在",
+    stale_version: "工单已被更新，请刷新后再试",
+    invalid_state: "当前工单状态不允许执行该操作",
+    financial_history_requires_resolution: "存在收款或定金证据，必须先完成财务冲销/退款",
+  };
+  const status =
+    code === "actor_forbidden"
+      ? 403
+      : code === "order_not_found"
+        ? 404
+        : code === "financial_history_requires_resolution"
+          ? 422
+          : ["stale_version", "invalid_state", "idempotency_conflict"].includes(code)
+            ? 409
+            : 422;
+  throw new OrderTerminalOperationError(
+    messages[code] ?? "工单终态操作失败",
+    code.toUpperCase(),
+    status,
+    details,
+  );
+}
+
+function terminalOperationResult(data: unknown): OrderTerminalOperationResult {
+  if (!data || typeof data !== "object") {
+    throw new OrderTerminalOperationError("数据库返回无效", "INVALID_RESPONSE", 500);
+  }
+  const row = data as Record<string, unknown>;
+  if (row.ok !== true) {
+    terminalOperationFailure(
+      requiredString(row.code),
+      row.details && typeof row.details === "object"
+        ? (row.details as Record<string, unknown>)
+        : undefined,
+    );
+  }
+  const code = row.code === "idempotent_replay" ? "idempotent_replay" : "recorded";
+  return {
+    ok: true,
+    code,
+    operation_id: requiredString(row.operation_id),
+    order_id: requiredString(row.order_id),
+    status: requiredString(row.status) as RepairOrderStatus,
+    record_state: row.record_state === "voided" ? "voided" : "active",
+    updated_at: requiredString(row.updated_at),
+    replayed: code === "idempotent_replay",
+  };
+}
+
+function terminalActorId(actor: AuditActor) {
+  if (!actor.id) terminalOperationFailure("actor_forbidden");
+  return actor.id!;
+}
+
+export async function correctTerminalOrder(
+  id: string,
+  input: CorrectTerminalOrderInput,
+  actor: AuditActor,
+): Promise<OrderTerminalOperationResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_correct_terminal_order", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: terminalActorId(actor),
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_changes: input.changes,
+    p_reason: input.reason.trim(),
+  });
+  fail(error, "纠正已结束工单失败");
+  return terminalOperationResult(data);
+}
+
+export async function reopenOrder(
+  id: string,
+  input: ReopenOrderInput,
+  actor: AuditActor,
+): Promise<OrderTerminalOperationResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_reopen_terminal_order", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: terminalActorId(actor),
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_to_status: input.to_status,
+    p_reason: input.reason.trim(),
+  });
+  fail(error, "重新打开工单失败");
+  return terminalOperationResult(data);
+}
+
+export async function voidOrder(
+  id: string,
+  input: VoidOrderInput,
+  actor: AuditActor,
+): Promise<OrderTerminalOperationResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_void_order", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: terminalActorId(actor),
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_reason: input.reason.trim(),
+    p_confirm_public_no: input.confirm_public_no.trim(),
+  });
+  fail(error, "作废工单失败");
+  return terminalOperationResult(data);
 }
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
@@ -1832,6 +2118,11 @@ const OPTIONAL_ORDER_WRITE_FIELDS = [
   "device_unlock_method",
   "device_unlock_value",
   "device_unlock_pattern",
+  "record_state",
+  "voided_at",
+  "voided_by",
+  "void_reason",
+  "deleted_at",
 ] as const;
 
 function stripOptionalOrderWriteFields(row: DbRecord) {
@@ -1857,7 +2148,7 @@ async function readOrderStatusRow(
   const canonical = await supabase
     .from("repair_orders")
     .select(
-      "id,status,assignee_membership_id,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,payment_status,approval_status,approval_flow_status,notify_status,completed_at,delivered_at,updated_at",
+      "id,status,assignee_membership_id,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,payment_status,approval_status,approval_flow_status,notify_status,completed_at,delivered_at,record_state,deleted_at,updated_at",
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -1865,6 +2156,21 @@ async function readOrderStatusRow(
   if (!canonical.error || !isMissingRepairOrderColumnError(canonical.error)) {
     fail(canonical.error, context);
     const row: DbRecord = { ...(canonical.data as DbRecord), __assignment_supported: true };
+    assertOrderInActorScope(row, actor);
+    return row;
+  }
+
+  const preLifecycle = await supabase
+    .from("repair_orders")
+    .select(
+      "id,status,assignee_membership_id,workflow_status,parts_status,exception_status,diagnosis_result,balance_amount,is_paid,payment_status,approval_status,approval_flow_status,notify_status,completed_at,delivered_at,updated_at",
+    )
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .single();
+  if (!preLifecycle.error || !isMissingRepairOrderColumnError(preLifecycle.error)) {
+    fail(preLifecycle.error, context);
+    const row: DbRecord = { ...(preLifecycle.data as DbRecord), __assignment_supported: true };
     assertOrderInActorScope(row, actor);
     return row;
   }
@@ -1980,6 +2286,37 @@ function currentWarrantyMonths(row: DbRecord, defaultMonths: number) {
   return parseWarrantyMonths(maybeString(row.warranty_text), defaultMonths);
 }
 
+async function assertRoutineOrderMutationAllowed(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  row: DbRecord,
+) {
+  assertOrderRecordNotVoided(row);
+  const { data: workflowStatus, error } = await supabase
+    .from("order_workflow_statuses")
+    .select("bucket")
+    .eq("store_id", storeId)
+    .eq("code", requiredString(row.status))
+    .maybeSingle();
+  fail(error, "读取工单状态口径失败");
+  const workflowBucket = maybeString((workflowStatus as DbRecord | null)?.bucket);
+  if (
+    ["completed", "cancelled"].includes(requiredString(row.status)) ||
+    requiredString(row.exception_status) === "cancelled" ||
+    (workflowBucket
+      ? ["done", "cancelled"].includes(workflowBucket)
+      : requiredString(row.workflow_status) === "closed")
+  ) {
+    throw new ForbiddenError("已结束工单必须使用审计化纠正或重新打开操作");
+  }
+}
+
+function assertOrderRecordNotVoided(row: DbRecord) {
+  if (requiredString(row.record_state) === "voided" || Boolean(row.deleted_at)) {
+    throw new ForbiddenError("该工单记录已作废，只能查看历史证据");
+  }
+}
+
 const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   customer_name: "客户姓名",
   customer_phone: "手机号",
@@ -1989,9 +2326,12 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_notes: "设备备注",
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
+  internal_tag: "内部标签",
   accessory_notes: "留存备注",
   device_unlock: "手机密码",
   warranty_text: "质保",
+  warranty_months: "质保期限",
+  warranty_change_reason: "质保变更原因",
   parts_supplier_id: "配件供应商",
   assignee_membership_id: "负责人",
 };
@@ -2171,7 +2511,8 @@ export async function updateOrder(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
-  await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
+  const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
+  await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
@@ -2364,6 +2705,7 @@ export async function patchOrder(
 
   const supabase = getSupabaseAdmin();
   const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
+  await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
   if (
     Object.prototype.hasOwnProperty.call(input.changes, "assignee_membership_id") &&
     accessRow.__assignment_supported !== true
@@ -2373,7 +2715,7 @@ export async function patchOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      `id,technician_name,customer_id,device_id,updated_at,device_snapshot,${REPAIR_ORDER_DEVICE_EMBED}(*),${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
+      `id,technician_name,customer_id,device_id,updated_at,device_snapshot,warranty_text,warranty_months,warranty_change_reason,${REPAIR_ORDER_DEVICE_EMBED}(*),${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -2444,6 +2786,15 @@ export async function patchOrder(
       continue;
     }
 
+    if (field === "warranty_months") {
+      const months = Number(rawValue);
+      if (!Number.isInteger(months) || months < 0 || months > 36) {
+        throw new Error("质保期限必须是 0 到 36 个月的整数");
+      }
+      orderUpdate.warranty_months = months;
+      continue;
+    }
+
     if (typeof rawValue !== "string") {
       throw new Error(`${PATCH_FIELD_LABELS[field]}格式不正确`);
     }
@@ -2499,6 +2850,11 @@ export async function patchOrder(
       case "diagnosis_result":
         orderUpdate.diagnosis_result = value || null;
         break;
+      case "internal_tag": {
+        const tagInput = normalizeOrderTagInput({ internalTag: value });
+        orderUpdate.internal_tag = tagInput.internalTag || null;
+        break;
+      }
       case "accessory_notes": {
         const tagInput = normalizeOrderTagInput({ accessoryNotes: value });
         orderUpdate.accessory_notes = tagInput.accessoryNotes || null;
@@ -2506,6 +2862,9 @@ export async function patchOrder(
       }
       case "warranty_text":
         orderUpdate.warranty_text = value || null;
+        break;
+      case "warranty_change_reason":
+        orderUpdate.warranty_change_reason = value || null;
         break;
     }
   }
@@ -2520,6 +2879,14 @@ export async function patchOrder(
   }
 
   const now = new Date().toISOString();
+  if (
+    editableEntries.some(([field]) =>
+      ["warranty_text", "warranty_months", "warranty_change_reason"].includes(field),
+    )
+  ) {
+    orderUpdate.warranty_changed_by = requestActor?.id ?? null;
+    orderUpdate.warranty_changed_at = now;
+  }
   orderUpdate.updated_at = now;
   const updatedAt = await updateVersionedOrderRow({
     supabase,
@@ -2562,7 +2929,8 @@ export async function patchOrderFinance(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
-  await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
+  const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
+  await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
@@ -2670,9 +3038,11 @@ async function writeWhatsappMessage({
   const messageId = crypto.randomUUID();
 
   const current = await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
+  assertOrderRecordNotVoided(current);
   const from = current.status as RepairOrderStatus;
   let statusChanged = false;
   let to: RepairOrderStatus | undefined;
+  let transitionBucket: OrderWorkflowStatus["bucket"] | undefined;
 
   if (markApprovalPending && from !== "quoted" && from !== "waiting_approval") {
     throw new Error("只有报价或待审批阶段可以发送客户审批");
@@ -2690,6 +3060,7 @@ async function writeWhatsappMessage({
     } else {
       statusChanged = true;
       to = transitionTo;
+      transitionBucket = transition.bucket;
     }
   }
 
@@ -2701,7 +3072,7 @@ async function writeWhatsappMessage({
   }
   if (statusChanged && to) {
     update.status = to;
-    Object.assign(update, deriveCanonicalUpdateFromLegacyStatus(to, now));
+    Object.assign(update, deriveCanonicalUpdateFromLegacyStatus(to, now, transitionBucket));
     if (to === "waiting_approval") update.approval_sent_at = now;
   }
 
@@ -2776,13 +3147,14 @@ export async function sendNotification(
   const now = new Date().toISOString();
   const messageId = crypto.randomUUID();
 
-  await readOrderStatusRow(
+  const accessRow = await readOrderStatusRow(
     supabase,
     storeId,
     id,
     typeof operator === "string" ? undefined : operator,
     "读取工单失败",
   );
+  assertOrderRecordNotVoided(accessRow);
 
   const { error: messageError } = await supabase.from("message_logs").insert({
     id: messageId,
@@ -2904,7 +3276,8 @@ export async function createOrder(
       ? { id: requestActor.activeMembershipId, displayName: operatorName }
       : undefined;
   const technicianName = assignee?.displayName.trim() || operatorName.trim() || "前台";
-  const status = await resolveInitialOrderStatus(supabase, storeId, input.status);
+  const initialStatus = await resolveInitialOrderStatus(supabase, storeId, input.status);
+  const status = initialStatus.code;
   const now = new Date().toISOString();
   const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
   const warranty = normalizeWarrantyPayload({
@@ -3037,8 +3410,12 @@ export async function createOrder(
 
   const id = crypto.randomUUID();
   const balance = Math.max(0, quotation - deposit);
-  const workflowStatus = workflowStatusFromLegacyStatus(status);
-  const canonicalDefaults = deriveCanonicalUpdateFromLegacyStatus(status, now);
+  const workflowStatus = canonicalWorkflowStatusFromBucket(initialStatus.bucket, status);
+  const canonicalDefaults = deriveCanonicalUpdateFromLegacyStatus(
+    status,
+    now,
+    initialStatus.bucket,
+  );
   const tagInput = normalizeOrderTagInput({
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,

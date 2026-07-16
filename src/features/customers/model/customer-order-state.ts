@@ -2,7 +2,12 @@ import { workflowStatusFromLegacyStatus } from "@/features/orders/model/canonica
 import type { OrderListItem, OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 
 type CustomerOrderStateInput = Pick<OrderListItem, "status"> &
-  Partial<Pick<OrderListItem, "workflow_status" | "exception_status">>;
+  Partial<
+    Pick<
+      OrderListItem,
+      "workflow_status" | "workflow_bucket" | "exception_status" | "record_state" | "deleted_at"
+    >
+  >;
 
 type CustomerOrderFinanceInput = CustomerOrderStateInput &
   Pick<OrderListItem, "quotation_amount" | "balance_amount" | "created_at">;
@@ -23,11 +28,19 @@ export function getCustomerOrderWorkflowStatus(
 }
 
 export function isCustomerOrderCancelled(order: CustomerOrderStateInput) {
-  return order.status === "cancelled" || order.exception_status === "cancelled";
+  return (
+    order.status === "cancelled" ||
+    order.workflow_bucket === "cancelled" ||
+    order.exception_status === "cancelled" ||
+    order.record_state === "voided" ||
+    Boolean(order.deleted_at)
+  );
 }
 
 export function isCustomerOrderClosed(order: CustomerOrderStateInput) {
   if (isCustomerOrderCancelled(order)) return true;
+  if (order.status === "completed") return true;
+  if (order.workflow_bucket !== undefined) return order.workflow_bucket === "done";
   return getCustomerOrderWorkflowStatus(order) === "closed";
 }
 

@@ -1393,6 +1393,7 @@ export function OrderListScreen() {
                                   )
                                 }
                                 onPrint={() => printRows([order])}
+                                canPrint={canExportOrders}
                                 onStopInteraction={stopRowClick}
                                 suppliers={visibleSuppliers}
                                 onPartsSupplierChange={

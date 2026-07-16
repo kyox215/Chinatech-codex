@@ -11,11 +11,13 @@ import { cn } from "@/lib/utils";
 export function CustomerFilters({
   filters,
   tags,
+  financeRedacted = false,
   onChange,
   onClose,
 }: {
   filters: CustomerListFilters;
   tags: CustomerTag[];
+  financeRedacted?: boolean;
   onChange: (filters: CustomerListFilters) => void;
   onClose: () => void;
 }) {
@@ -41,7 +43,9 @@ export function CustomerFilters({
           <div className="mb-2 text-xs font-semibold text-muted-foreground">处理状态</div>
           <CustomerSegmented
             value={filters.work ?? "all"}
-            options={customerWorkFilterOptions.map((option) => [option.value, option.label])}
+            options={customerWorkFilterOptions
+              .filter((option) => option.value !== "unpaid" || !financeRedacted)
+              .map((option) => [option.value, option.label])}
             onChange={(work) => onChange({ ...filters, work: work as CustomerListFilters["work"] })}
           />
         </section>

@@ -3,7 +3,7 @@ schema_version: 1
 department: operations
 status: active
 owner: Operations Department / Integration Lead
-last_verified_at: 2026-07-14
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -40,12 +40,14 @@ as owner of this file.
 - Production data, deploy, destructive commands, and external communication require explicit owner approval.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` used a clean isolated worktree and one writer, pushed code commit `70d211b2` to `main`, and exact-SHA verified Vercel production, aliases, HTTP and empty error/5xx observation. Linked Supabase postchecks were read-only. Older deployments are not safe rollback targets because they reopen sensitive evidence capture; stop `/buyback` and forward-fix unless the Owner explicitly accepts that risk for a severe whole-system outage.
 - `TASK-20260714-002-buyback-supabase-schema-staging` serialized the production database release from frozen `main@66aa468e`: exact dry-run selected one migration, official CLI apply succeeded, post-apply dry-run is up to date and delayed observation stayed empty/revoked. Eight completed physical backups were visible, but PITR is off and no restore drill was performed; recovery remains feature-off plus revoke/forward-fix.
+- `TASK-20260716-003-customer-finance-order-correction-plan` observed one successful exception path using an isolated worktree and serialized DB executor when CLI authentication was unavailable: exact pending migration parity, current-schema PG17 restore/replay, pgTAP, immediate migration-list re-read and metadata/ACL/data/advisor postchecks before application push. Treat this as a proposed bounded exception requiring Owner/release approval, not an approved general fallback and not proof that CLI dry-run, historical migration reset or PITR restore is healthy.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Serialized DB-first release | Data + Security + QA + Integration Lead | Freeze exact migrations, replay target schema, apply one sequence, postcheck before app push | Stop on remote interleave/anomaly; preserve additive schema and forward-fix, never destructive rollback | TASK-20260716-003-customer-finance-order-correction-plan E-014, E-022..E-025 | scoped_verified |
 
 ## SOPs and checklists
 
@@ -90,3 +92,4 @@ as owner of this file.
 | 2026-07-10 | Protected dirty original checkout with branch/stash and synced local `main` to latest `origin/main` | TASK-20260709-220940-task | Integration Lead | active |
 | 2026-07-14 | Recorded exact-SHA production feature-off release, no-write Supabase postcheck and unsafe-rollback boundary | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | active |
 | 2026-07-14 | Recorded serialized dormant-schema apply, exact migration parity, backup/PITR evidence and forward-fix recovery boundary | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + release reviewer | scoped_verified |
+| 2026-07-16 | Recorded serialized four-migration DB-first apply with clone replay and exact postchecks | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/QA reviewers | scoped_verified |

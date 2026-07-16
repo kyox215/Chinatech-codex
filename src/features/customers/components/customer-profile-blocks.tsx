@@ -267,13 +267,20 @@ export function CustomerOrderRow({
   order: OrderListItem;
   onFollowup: () => void;
 }) {
+  const cancelled = isCustomerOrderCancelled(order);
+  const financeRedacted = Boolean(order.finance_redacted);
+
   return (
     <RepairOsBusinessCard
       className="grid-cols-1 gap-1.5 rounded-xl px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:justify-between sm:px-3 sm:py-2"
       trailing={
         <>
-          <MoneyText amount={order.quotation_amount} />
-          {order.status === "completed" && (
+          {financeRedacted ? (
+            <span className="text-[10px] text-muted-foreground">金额受限</span>
+          ) : (
+            <MoneyText amount={order.quotation_amount} />
+          )}
+          {order.status === "completed" && !cancelled && (
             <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onFollowup}>
               <Bell className="size-3.5" /> 待办
             </Button>
@@ -293,7 +300,7 @@ export function CustomerOrderRow({
           {order.device_label}
         </div>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
-          <StatusBadge status={order.status} />
+          <StatusBadge status={cancelled ? "cancelled" : order.status} />
           <span className="min-w-0 max-w-full truncate" title={order.issue_description}>
             {order.issue_description}
           </span>
@@ -313,7 +320,7 @@ export function CustomerWorkbenchOrderRow({
   const { order } = item;
   const unpaid = Math.max(0, order.balance_amount);
   const cancelled = isCustomerOrderCancelled(order);
-  const financeRedacted = Boolean(order.finance_redacted);
+  const financeRedacted = item.financeRedacted || Boolean(order.finance_redacted);
 
   return (
     <RepairOsBusinessCard

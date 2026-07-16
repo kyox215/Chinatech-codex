@@ -63,9 +63,11 @@ export function CustomerDeviceSheet({
   );
   const unpaidOrder = useMemo(
     () =>
-      item?.orderItems.find(
-        (orderItem) => orderItem.state !== "closed" && orderItem.order.balance_amount > 0,
-      ),
+      item?.financeRedacted
+        ? undefined
+        : item?.orderItems.find(
+            (orderItem) => orderItem.state !== "closed" && orderItem.order.balance_amount > 0,
+          ),
     [item],
   );
   const primaryOrder = activeOrder ?? unpaidOrder;
@@ -114,7 +116,11 @@ export function CustomerDeviceSheet({
                 在修 {item.activeOrderCount}
               </RepairOsBadge>
             ) : null}
-            {!item.financeRedacted && item.unpaidAmount > 0 ? (
+            {item.financeRedacted ? (
+              <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground">
+                金额受限
+              </RepairOsBadge>
+            ) : item.unpaidAmount > 0 ? (
               <RepairOsBadge className="bg-status-danger/10 text-[10px] text-status-danger-foreground">
                 待收 <MoneyText amount={item.unpaidAmount} />
               </RepairOsBadge>
@@ -284,7 +290,7 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
     ? Math.max(0, item.order.balance_amount)
     : 0;
   const cancelled = isCustomerOrderCancelled(item.order);
-  const financeRedacted = Boolean(item.order.finance_redacted);
+  const financeRedacted = item.financeRedacted || Boolean(item.order.finance_redacted);
 
   return (
     <Link
@@ -321,7 +327,9 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
           {financeRedacted ? "金额受限" : <MoneyText amount={item.order.quotation_amount} />}
         </span>
       </div>
-      {!financeRedacted ? (
+      {financeRedacted ? (
+        <div className="text-[9px] leading-3 text-muted-foreground">结算状态受限</div>
+      ) : (
         <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] leading-3 text-muted-foreground tabular-nums">
           <span>
             定金 <MoneyText amount={item.order.deposit_amount} />
@@ -336,7 +344,7 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
             </span>
           )}
         </div>
-      ) : null}
+      )}
     </Link>
   );
 }

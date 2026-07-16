@@ -154,6 +154,9 @@ export async function createKioskSession(
   const order = normalized.order_id
     ? await readOrderSummary(supabase, storeId, normalized.order_id)
     : undefined;
+  if (order?.record_state === "voided" || order?.deleted_at) {
+    throw new Error("该工单记录已作废，只能查看历史证据");
+  }
   const now = new Date();
   const expiresAt = addMinutes(now, normalized.expires_in_minutes).toISOString();
 
@@ -880,6 +883,8 @@ async function readOrderSummary(supabase: SupabaseAdmin, storeId: string, orderI
     id: order.id,
     public_no: order.public_no,
     status: order.status,
+    record_state: order.record_state,
+    deleted_at: order.deleted_at,
     customer_name: order.customer_name,
     customer_phone: order.customer_phone,
     device_label: order.device_label,

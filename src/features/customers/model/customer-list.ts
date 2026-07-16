@@ -27,6 +27,15 @@ export interface CustomerPageRange {
 
 export type CustomerWorkSummaryTone = "info" | "warning" | "success" | "neutral";
 
+export type CustomerRepairState =
+  | { kind: "active"; count: number; label: string }
+  | { kind: "closed"; label: string };
+
+export type CustomerPaymentState =
+  | { kind: "outstanding"; amount: number; label: string }
+  | { kind: "settled"; label: string }
+  | { kind: "redacted"; label: string };
+
 export interface CustomerWorkSummary {
   label: string;
   detail: string;
@@ -93,12 +102,14 @@ export function getCustomerWorkFilterLabel(work: CustomerListFilters["work"]) {
 export function buildCustomerWorkFilterChips(
   stats: CustomerStats | undefined,
 ): CustomerWorkFilterChip[] {
-  return customerWorkFilterOptions.map((option) => ({
-    value: option.value,
-    label: option.label,
-    shortLabel: option.shortLabel,
-    count: Number(stats?.[option.statKey] ?? 0),
-  }));
+  return customerWorkFilterOptions
+    .filter((option) => option.value !== "unpaid" || !stats?.financeRedacted)
+    .map((option) => ({
+      value: option.value,
+      label: option.label,
+      shortLabel: option.shortLabel,
+      count: Number(stats?.[option.statKey] ?? 0),
+    }));
 }
 
 export function getCustomerActiveFilterCount(filters: CustomerListFilters) {
@@ -164,6 +175,40 @@ export function getCustomerWorkSummary(
     actionLabel: "完善客户资料",
     tone: "neutral",
   };
+}
+
+export function getCustomerRepairState(
+  customer: Pick<CustomerListItem, "active_order_count">,
+): CustomerRepairState {
+  return customer.active_order_count > 0
+    ? {
+        kind: "active",
+        count: customer.active_order_count,
+        label: `在修 ${customer.active_order_count}`,
+      }
+    : { kind: "closed", label: "已结案" };
+}
+
+export function getCustomerPaymentState(
+  customer: Pick<CustomerListItem, "outstanding_amount" | "unpaid_amount" | "finance_redacted">,
+): CustomerPaymentState {
+  if (customer.finance_redacted) return { kind: "redacted", label: "金额受限" };
+  const amount = Math.max(0, customer.outstanding_amount ?? customer.unpaid_amount ?? 0);
+  return amount > 0
+    ? { kind: "outstanding", amount, label: "待收" }
+    : { kind: "settled", label: "已结清" };
+}
+
+export function getCustomerLifetimeQuotedAmount(
+  customer: Pick<CustomerListItem, "lifetime_quoted_amount" | "total_spent">,
+) {
+  return Math.max(0, customer.lifetime_quoted_amount ?? customer.total_spent ?? 0);
+}
+
+export function getCustomerOutstandingAmount(
+  customer: Pick<CustomerListItem, "outstanding_amount" | "unpaid_amount">,
+) {
+  return Math.max(0, customer.outstanding_amount ?? customer.unpaid_amount ?? 0);
 }
 
 export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWorkSummary {

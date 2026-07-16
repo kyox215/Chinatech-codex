@@ -92,4 +92,27 @@ describe("order list visibility", () => {
       ).toBe(true);
     },
   );
+
+  it.each(["done", "cancelled"] as const)(
+    "archives a custom workflow bucket %s even when legacy fields remain active",
+    (workflowBucket) => {
+      expect(
+        isOrderArchivedForQueue({
+          status: "repairing",
+          workflow_status: "repair",
+          workflow_bucket: workflowBucket,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it("archives voided and soft-deleted lifecycle rows", () => {
+    expect(isOrderArchivedForQueue({ status: "repairing", record_state: "voided" })).toBe(true);
+    expect(
+      isOrderArchivedForQueue({
+        status: "repairing",
+        deleted_at: "2026-07-16T20:00:00.000Z",
+      }),
+    ).toBe(true);
+  });
 });

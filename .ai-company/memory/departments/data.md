@@ -3,7 +3,7 @@ schema_version: 1
 department: data
 status: active
 owner: Data Department / Integration Lead
-last_verified_at: 2026-07-14
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -43,12 +43,14 @@ as owner of this file.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` read-only verified after release that migration `20260712150000` remains local-only, remote-only `20260714004500` is unrelated, and production has no `buyback_agreements`, finalize RPC, eight guided-evidence columns or dedicated evidence bucket. No migration, DDL, DML, Storage or customer-data write was executed; application containment is compatible with the old schema.
 - `TASK-20260714-002-buyback-supabase-schema-staging` supersedes that schema-absence snapshot: production migration `20260712150000` is now applied as dormant staging after exact CLI dry-run, UUID/Text PG17 fixtures, fail-before-write and runner-atomicity proof. Agreement rows, evidence objects, payment anomalies and attachment relabels are zero; all runtime table DML/RPC EXECUTE remain false. This is a target-slice PASS, not full-history or restore certification.
 - `TASK-20260716-002-orders-mobile-filter-loading-plan` verified a no-migration Orders performance release: production had 6,286 orders / 175 active / 2 stores, existing store/status and store/assignee indexes, and an acceptable scoped EXPLAIN. The application now uses a narrow index pass plus at most 50 detail rows; add a read model or index only after production p95/volume evidence.
+- `TASK-20260716-003-customer-finance-order-correction-plan` applied production migrations `20260716221119`, `20260716221139`, `20260716221159` and `20260716221448`: additive customer v3 finance/history facts, lifecycle/terminal-operation audit state, service-role-only atomic terminal RPCs, validated same-store CRM references and covering indexes. Fresh current-schema PG17 replay and pgTAP 102/102 passed; final production anomalies were zero. This bounded slice does not close the older full-history reset/PITR risk.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Customer/order lifecycle schema | Backend + Security + Operations | History retained; invalid lifecycle rows excluded from valid aggregates; terminal commands serialize and audit; CRM order links are same-store | Refuse invalid/stale/cross-store writes; forward-fix additive migrations and retain v2 compatibility | TASK-20260716-003-customer-finance-order-correction-plan E-014..E-025 | scoped_verified |
 
 ## SOPs and checklists
 
@@ -99,3 +101,4 @@ as owner of this file.
 | 2026-07-14 | Verified linked migration/catalog remained unchanged after the production feature-off release | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead | scoped_verified_no_write |
 | 2026-07-14 | Applied and catalog/ACL/empty-state verified dormant buyback schema staging without runtime enable | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + DATA/SEC/REL reviewers | scoped_verified |
 | 2026-07-16 | Verified and postchecked a production Orders query optimization that required no migration, DDL, RPC or data write | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + DATA/SEC reviewer | scoped_verified_no_write |
+| 2026-07-16 | Applied and postchecked four customer finance/order lifecycle migrations after exact PG17 replay | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/release reviewers | scoped_verified |

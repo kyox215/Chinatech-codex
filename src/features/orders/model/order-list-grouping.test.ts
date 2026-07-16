@@ -84,6 +84,27 @@ describe("order list grouping", () => {
     expect(countOrderResultGroups([legacy])).toMatchObject({ completed: 0, cancelled: 1 });
   });
 
+  it("groups custom done separately from custom cancelled and voided rows", () => {
+    const rows = [
+      order("custom-done", "repairing", "2026-05-01T10:00:00Z", {
+        workflow_bucket: "done",
+      }),
+      order("custom-cancelled", "repairing", "2026-05-02T10:00:00Z", {
+        workflow_bucket: "cancelled",
+      }),
+      order("voided", "repairing", "2026-05-03T10:00:00Z", {
+        record_state: "voided",
+      }),
+    ];
+
+    expect(rows.map((row) => getOrderResultGroup(row))).toEqual([
+      "completed",
+      "cancelled",
+      "cancelled",
+    ]);
+    expect(countOrderResultGroups(rows)).toMatchObject({ completed: 1, cancelled: 2 });
+  });
+
   it("keeps all eight result groups in their fixed business order", () => {
     const rows = [
       order("cancelled", "cancelled", "2026-05-01T10:00:00Z"),

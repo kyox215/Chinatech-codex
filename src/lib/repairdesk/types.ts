@@ -237,6 +237,7 @@ export interface RepairOrder {
   approval_flow_status?: OrderApprovalFlowStatus;
   parts_status?: OrderPartsStatus;
   notify_status?: OrderNotifyStatus;
+  workflow_bucket?: OrderWorkflowBucket;
   customer_id: string;
   device_id: string;
   issue_description: string;
@@ -275,6 +276,11 @@ export interface RepairOrder {
   finance_redacted?: boolean;
   customer_contact_redacted?: boolean;
   sensitive_redacted?: boolean;
+  record_state?: "active" | "voided";
+  voided_at?: string;
+  voided_by?: string;
+  void_reason?: string;
+  deleted_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -586,6 +592,32 @@ export interface OrderDetail {
   events: OrderEvent[];
   messages: MessageLog[];
   attachments: OrderAttachment[];
+  capabilities?: OrderCapabilities;
+}
+
+export type OrderCapabilityKey =
+  | "editIntake"
+  | "editRepair"
+  | "adjustFinance"
+  | "collectPayment"
+  | "transition"
+  | "confirmCancelledReturn"
+  | "correct"
+  | "reopen"
+  | "void";
+
+export interface OrderCapabilities {
+  canEditIntake: boolean;
+  canEditRepair: boolean;
+  canAdjustFinance: boolean;
+  canCollectPayment: boolean;
+  canTransition: boolean;
+  canConfirmCancelledReturn: boolean;
+  canCorrect: boolean;
+  canReopen: boolean;
+  canVoid: boolean;
+  blockedReasons?: Partial<Record<OrderCapabilityKey, string>>;
+  reopenTargets?: Array<{ code: RepairOrderStatus; label: string }>;
 }
 
 export interface CustomerTag {
@@ -644,9 +676,9 @@ export interface CustomerListItem extends Customer {
   active_order_count: number;
   lifetime_quoted_amount?: number;
   outstanding_amount?: number;
-  /** Compatibility alias for lifetime_quoted_amount. */
+  /** @deprecated Compatibility alias for lifetime_quoted_amount. */
   total_spent?: number;
-  /** Compatibility alias for outstanding_amount. */
+  /** @deprecated Compatibility alias for outstanding_amount. */
   unpaid_amount?: number;
   finance_redacted?: boolean;
   last_order_at?: string;
@@ -660,6 +692,7 @@ export interface CustomerStats {
   repeat: number;
   activeRepairs: number;
   unpaid: number;
+  financeRedacted?: boolean;
   withDevices: number;
   dueFollowups: number;
   marketable: number;
@@ -695,7 +728,9 @@ export interface CustomerDetail {
     active_order_count?: number;
     lifetime_quoted_amount?: number;
     outstanding_amount?: number;
+    /** @deprecated Compatibility alias for lifetime_quoted_amount. */
     total_spent?: number;
+    /** @deprecated Compatibility alias for outstanding_amount. */
     unpaid_amount?: number;
     finance_redacted?: boolean;
     device_count: number;
@@ -756,9 +791,12 @@ export interface PatchOrderChanges {
   device_notes?: string;
   issue_description?: string;
   diagnosis_result?: string;
+  internal_tag?: string;
   accessory_notes?: string;
   device_unlock?: DeviceUnlockInput;
   warranty_text?: string;
+  warranty_months?: number;
+  warranty_change_reason?: string;
   parts_supplier_id?: string | null;
   assignee_membership_id?: string | null;
 }
@@ -777,6 +815,47 @@ export interface PatchOrderFinanceInput {
 export interface PatchOrderResult {
   ok: boolean;
   updated_at: string;
+}
+
+export interface CorrectTerminalOrderInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  reason: string;
+  changes: Pick<
+    PatchOrderChanges,
+    | "issue_description"
+    | "diagnosis_result"
+    | "internal_tag"
+    | "accessory_notes"
+    | "warranty_text"
+    | "warranty_months"
+    | "warranty_change_reason"
+  >;
+}
+
+export interface ReopenOrderInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  reason: string;
+  to_status: RepairOrderStatus;
+}
+
+export interface VoidOrderInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  reason: string;
+  confirm_public_no: string;
+}
+
+export interface OrderTerminalOperationResult {
+  ok: boolean;
+  code: "recorded" | "idempotent_replay";
+  operation_id: string;
+  order_id: string;
+  status: RepairOrderStatus;
+  record_state: "active" | "voided";
+  updated_at: string;
+  replayed: boolean;
 }
 
 export interface CustomerUpdateInput {

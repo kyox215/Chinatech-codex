@@ -14,6 +14,7 @@ export interface CustomerPaymentSummary {
   unpaidAmount: number;
   settledOrderCount: number;
   unpaidOrderCount: number;
+  financeRedacted?: boolean;
 }
 
 export interface CustomerOrderWorkbenchItem {
@@ -22,6 +23,7 @@ export interface CustomerOrderWorkbenchItem {
   deviceLabel: string;
   deviceImei: string;
   state: CustomerOrderWorkbenchState;
+  financeRedacted: boolean;
 }
 
 export interface CustomerDeviceWorkbenchItem {
@@ -59,12 +61,13 @@ export function buildCustomerDeviceWorkbenchItems(
   data: CustomerDetail,
 ): CustomerDeviceWorkbenchItem[] {
   const orderItems = buildCustomerOrderWorkbenchItems(data);
+  const financeRedacted = Boolean(data.stats.finance_redacted);
 
   return data.devices.map((device) => {
     const linkedOrders = orderItems.filter((item) => item.order.device_id === device.id);
     const billableOrders = linkedOrders.filter((item) => isCustomerOrderBillable(item.order));
     const latestClosedOrder = linkedOrders.find(
-      (item) => isCustomerOrderClosed(item.order) && item.state !== "closed",
+      (item) => isCustomerOrderClosed(item.order) && isCustomerOrderBillable(item.order),
     );
 
     return {
@@ -82,7 +85,7 @@ export function buildCustomerDeviceWorkbenchItems(
         (sum, item) => sum + safeAmount(item.order.balance_amount),
         0,
       ),
-      financeRedacted: linkedOrders.some((item) => item.order.finance_redacted),
+      financeRedacted: financeRedacted || linkedOrders.some((item) => item.order.finance_redacted),
       warrantyLabel: warrantyLabelFromOrder(latestClosedOrder?.order),
       canDelete: linkedOrders.length === 0,
       deleteBlockedReason: linkedOrders.length
@@ -94,14 +97,17 @@ export function buildCustomerDeviceWorkbenchItems(
 
 export function buildCustomerWorkbenchSummary(data: CustomerDetail): CustomerWorkbenchSummary {
   const orderItems = buildCustomerOrderWorkbenchItems(data);
-  const payment = buildCustomerPaymentSummary(data.orders);
+  const payment = buildCustomerPaymentSummary(data.orders, data.stats.finance_redacted);
   return {
     orderItems,
     payment,
     activeOrders: orderItems.filter((item) => item.state === "active"),
-    unpaidOrders: orderItems.filter(
-      (item) => isCustomerOrderBillable(item.order) && safeAmount(item.order.balance_amount) > 0,
-    ),
+    unpaidOrders: payment.financeRedacted
+      ? []
+      : orderItems.filter(
+          (item) =>
+            isCustomerOrderBillable(item.order) && safeAmount(item.order.balance_amount) > 0,
+        ),
     latestOrder: orderItems[0],
     openFollowupCount: data.followups.filter((followup) => followup.status === "open").length,
     contactSummary: {
@@ -123,6 +129,7 @@ export function buildCustomerOrderWorkbenchItems(
   data: CustomerDetail,
 ): CustomerOrderWorkbenchItem[] {
   const deviceById = new Map(data.devices.map((device) => [device.id, device]));
+  const financeRedacted = Boolean(data.stats.finance_redacted);
   return [...data.orders]
     .sort((a, b) => orderTime(b) - orderTime(a))
     .map((order) => {
@@ -132,12 +139,26 @@ export function buildCustomerOrderWorkbenchItems(
         device,
         deviceLabel: device ? `${device.brand} ${device.model}` : order.device_label,
         deviceImei: device?.serial_or_imei || order.device_imei || "",
-        state: getCustomerOrderWorkbenchState(order),
+        state: getCustomerOrderWorkbenchState(order, financeRedacted),
+        financeRedacted,
       };
     });
 }
 
-export function buildCustomerPaymentSummary(orders: OrderListItem[]): CustomerPaymentSummary {
+export function buildCustomerPaymentSummary(
+  orders: OrderListItem[],
+  financeRedacted = false,
+): CustomerPaymentSummary {
+  if (financeRedacted) {
+    return {
+      totalQuoted: 0,
+      depositTotal: 0,
+      unpaidAmount: 0,
+      settledOrderCount: 0,
+      unpaidOrderCount: 0,
+      financeRedacted: true,
+    };
+  }
   return orders.reduce<CustomerPaymentSummary>(
     (summary, order) => {
       if (!isCustomerOrderBillable(order)) return summary;
@@ -163,10 +184,21 @@ export function buildCustomerPaymentSummary(orders: OrderListItem[]): CustomerPa
 }
 
 export function getCustomerOrderWorkbenchState(
-  order: Pick<OrderListItem, "status" | "balance_amount" | "workflow_status" | "exception_status">,
+  order: Pick<
+    OrderListItem,
+    | "status"
+    | "balance_amount"
+    | "workflow_status"
+    | "workflow_bucket"
+    | "exception_status"
+    | "record_state"
+    | "deleted_at"
+  >,
+  financeRedacted = false,
 ): CustomerOrderWorkbenchState {
   if (isCustomerOrderCancelled(order)) return "closed";
   if (!isCustomerOrderClosed(order)) return "active";
+  if (financeRedacted) return "closed";
   if (safeAmount(order.balance_amount) > 0) return "unpaid";
   return "settled";
 }

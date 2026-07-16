@@ -29,7 +29,10 @@ function order(input: Partial<OrderListItem> & Pick<OrderListItem, "id" | "devic
     order_type: input.order_type ?? "quick_repair",
     status: input.status ?? "completed",
     workflow_status: input.workflow_status,
+    workflow_bucket: input.workflow_bucket,
     exception_status: input.exception_status,
+    record_state: input.record_state,
+    deleted_at: input.deleted_at,
     customer_id: "cust_1",
     device_id: input.device_id,
     issue_description: input.issue_description ?? "屏幕碎裂",
@@ -299,6 +302,54 @@ describe("customer workbench model", () => {
         }),
       ),
     ).toBe("settled");
+    expect(
+      getCustomerOrderWorkbenchState(
+        order({
+          id: "o6",
+          device_id: "dev_1",
+          status: "repairing",
+          workflow_status: "repair",
+          workflow_bucket: "done",
+          balance_amount: 20,
+        }),
+      ),
+    ).toBe("unpaid");
+    expect(
+      getCustomerOrderWorkbenchState(
+        order({
+          id: "o7",
+          device_id: "dev_1",
+          status: "repairing",
+          workflow_bucket: "cancelled",
+          balance_amount: 20,
+        }),
+      ),
+    ).toBe("closed");
+  });
+
+  it("does not infer hidden finance as zero or settled", () => {
+    const summary = buildCustomerWorkbenchSummary(
+      detail({
+        orders: [order({ id: "o1", device_id: "dev_1", status: "completed", balance_amount: 90 })],
+        stats: {
+          order_count: 1,
+          total_spent: 0,
+          unpaid_amount: 0,
+          device_count: 1,
+          finance_redacted: true,
+        },
+      }),
+    );
+
+    expect(summary.payment).toMatchObject({
+      totalQuoted: 0,
+      unpaidAmount: 0,
+      settledOrderCount: 0,
+      unpaidOrderCount: 0,
+      financeRedacted: true,
+    });
+    expect(summary.unpaidOrders).toEqual([]);
+    expect(summary.orderItems[0]).toMatchObject({ state: "closed", financeRedacted: true });
   });
 
   it("builds the chosen profile-first workbench summary", () => {

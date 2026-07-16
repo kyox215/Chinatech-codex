@@ -14,6 +14,7 @@ import {
   batchTransitionBodySchema,
   buybackFinalizeInputSchema,
   createOrderSchema,
+  correctTerminalOrderInputSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
   dashboardPrioritySummaryInputSchema,
@@ -37,6 +38,48 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it.each([0, 3, 6, 12, 24])("accepts terminal warranty month %s", (warrantyMonths) => {
+    expect(
+      correctTerminalOrderInputSchema.parse({
+        expected_updated_at: "2026-07-16T20:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000701",
+        reason: "纠正质保记录",
+        changes: { warranty_months: warrantyMonths },
+      }).changes.warranty_months,
+    ).toBe(warrantyMonths);
+  });
+
+  it.each([1, 36])("rejects unsupported terminal warranty month %s", (warrantyMonths) => {
+    expect(() =>
+      correctTerminalOrderInputSchema.parse({
+        expected_updated_at: "2026-07-16T20:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000702",
+        reason: "纠正质保记录",
+        changes: { warranty_months: warrantyMonths },
+      }),
+    ).toThrow("质保月数仅支持");
+  });
+
+  it("rejects unknown and over-limit terminal correction fields", () => {
+    const base = {
+      expected_updated_at: "2026-07-16T20:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000703",
+      reason: "纠正终态记录",
+    };
+    expect(() =>
+      correctTerminalOrderInputSchema.parse({
+        ...base,
+        changes: { quotation_amount: 0 },
+      }),
+    ).toThrow();
+    expect(() =>
+      correctTerminalOrderInputSchema.parse({
+        ...base,
+        changes: { diagnosis_result: "x".repeat(8001) },
+      }),
+    ).toThrow();
+  });
+
   it("accepts only a bounded Dashboard limit and rejects caller-controlled scope", () => {
     expect(dashboardPrioritySummaryInputSchema.parse({ limit: 8 })).toEqual({ limit: 8 });
     expect(() => dashboardPrioritySummaryInputSchema.parse({ limit: 21 })).toThrow();

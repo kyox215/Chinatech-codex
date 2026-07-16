@@ -3,7 +3,7 @@ schema_version: 1
 department: backend
 status: active
 owner: Backend Department / Integration Lead
-last_verified_at: 2026-07-16
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -38,12 +38,14 @@ as owner of this file.
 - While `BUYBACK_SENSITIVE_WORKFLOW_ENABLED` is false, `TASK-20260714-001-buyback-sensitive-evidence-feature-off` makes the router and repository reject every buyback attachment, restricted kind, finalize and legacy evidence apply regardless of client or role. Ordinary inventory attachments use the legacy production row shape. Quote updates merge stored allowlisted markers with sanitized inbound metadata, and partial-save retries load and refresh the remembered record before any transition.
 - Dashboard priority uses `dashboard/priority-summary`: apply the existing actor-aware active-order repository scope first, rank the complete visible set, then slice and return the compact allowlist. Keep the previous `dashboard/summary` response during the rolling-client compatibility window. Dashboard mutations remain out of scope; order task/detail routes own all permission-checked writes.
 - Orders list reads must first select store/view/technician-scoped narrow index rows, then issue one store-scoped detail query for at most 50 IDs. Keep legacy `pageSize <= 100` input compatibility but clamp the effective detail page size to 50, preserve actor response projections, and fail closed when technician assignment schema is unavailable.
+- Order update authority is field/capability scoped and clients send changed fields only. Terminal correction/reopen/void and cancelled-custody confirmation are dedicated atomic repository/RPC commands with store/member role validation, row/version locks, idempotency, reason and immutable before/after evidence; generic update and batch paths must not bypass them.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Terminal order command API | Frontend + Data + Security | Project capabilities server-side; Manager/Owner correct/reopen, Owner void; service role calls named RPCs | Reject forged fields, cross-store IDs, stale versions, duplicates and unsupported finance changes before partial writes | TASK-20260716-003-customer-finance-order-correction-plan E-015..E-025 | verified |
 
 ## SOPs and checklists
 
@@ -90,3 +92,4 @@ as owner of this file.
 | 2026-07-14 | Added production feature-off deny coverage, legacy attachment-schema compatibility and same-record retry refresh | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + security reviewer | active |
 | 2026-07-16 | Added complete actor-scoped Dashboard priority endpoint, allowlisted DTO and legacy rolling compatibility boundary | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + ARCH/SEC reviewers | active |
 | 2026-07-16 | Added bounded two-phase Orders list repository contract with tenant/assignment and projection preservation | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + DATA/SEC/performance reviewers | active |
+| 2026-07-16 | Added changed-fields-only order updates and audited atomic terminal command boundary | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/QA reviewers | active |

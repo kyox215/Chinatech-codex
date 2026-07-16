@@ -1,6 +1,7 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type {
   AccountProfileUpdateInput,
+  CorrectTerminalOrderInput,
   CreateOrderInput,
   Customer,
   Device,
@@ -33,12 +34,15 @@ import type {
   OrderAttachmentUploadInput,
   OrderAttachmentUploadResult,
   OrderNotifyStatus,
+  OrderCapabilities,
   OrderPartsStatus,
   OrderPaymentStatus,
+  OrderTerminalOperationResult,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  ReopenOrderInput,
   BatchTransitionResult,
   CustomerCreateInput,
   CustomerDetail,
@@ -106,6 +110,7 @@ import type {
   Supplier,
   SupplierInput,
   UpdateOrderInput,
+  VoidOrderInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
@@ -114,6 +119,8 @@ export class RepairDeskApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "RepairDeskApiError";
@@ -133,6 +140,7 @@ const DEFAULT_REPAIRDESK_REQUEST_TIMEOUT_MS = 30_000;
 
 export type {
   ApprovedStoreRole,
+  CorrectTerminalOrderInput,
   CreateOrderInput,
   Customer,
   CustomerHistoryDeviceCandidate,
@@ -145,6 +153,7 @@ export type {
   FaultPriceItem,
   MessageLog,
   OrderDetail,
+  OrderCapabilities,
   OrderEvent,
   OrderApprovalFlowStatus,
   OrderExceptionStatus,
@@ -178,10 +187,12 @@ export type {
   OrderNotifyStatus,
   OrderPartsStatus,
   OrderPaymentStatus,
+  OrderTerminalOperationResult,
   OrderWhatsappTemplateKind,
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  ReopenOrderInput,
   BatchTransitionResult,
   CustomerCreateInput,
   AccountProfileUpdateInput,
@@ -277,6 +288,7 @@ export type {
   Supplier,
   SupplierInput,
   UpdateOrderInput,
+  VoidOrderInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
@@ -707,9 +719,19 @@ async function requestRaw(
 }
 
 async function readJsonResponse<T>(response: Response) {
-  const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: string };
+  const payload = (await response.json().catch(() => ({}))) as {
+    data?: T;
+    error?: string;
+    code?: string;
+    details?: Record<string, unknown>;
+  };
   if (!response.ok) {
-    throw new RepairDeskApiError(payload.error || `请求失败：${response.status}`, response.status);
+    throw new RepairDeskApiError(
+      payload.error || `请求失败：${response.status}`,
+      response.status,
+      payload.code,
+      payload.details,
+    );
   }
   return payload.data as T;
 }
@@ -1015,6 +1037,27 @@ export async function patchOrderFinance(
   input: PatchOrderFinanceInput,
 ): Promise<PatchOrderResult> {
   return postJson<PatchOrderResult>("order/finance", { id, input });
+}
+
+export async function correctTerminalOrder(
+  id: string,
+  input: CorrectTerminalOrderInput,
+): Promise<OrderTerminalOperationResult> {
+  return postJson<OrderTerminalOperationResult>("order/correct-terminal", { id, input });
+}
+
+export async function reopenOrder(
+  id: string,
+  input: ReopenOrderInput,
+): Promise<OrderTerminalOperationResult> {
+  return postJson<OrderTerminalOperationResult>("order/reopen", { id, input });
+}
+
+export async function voidOrder(
+  id: string,
+  input: VoidOrderInput,
+): Promise<OrderTerminalOperationResult> {
+  return postJson<OrderTerminalOperationResult>("order/void", { id, input });
 }
 
 export async function getRepairDeskOptions(

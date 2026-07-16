@@ -113,6 +113,9 @@ export function OrderOverviewTab({
   financeDraft,
   onFinanceDraftChange,
   financeError,
+  canEditIntake = false,
+  canEditRepair = false,
+  canAdjustFinance = false,
   defaultWarrantyMonths = 6,
   onQuickImeiSave,
   quickImeiPending = false,
@@ -144,6 +147,9 @@ export function OrderOverviewTab({
   financeDraft?: FinanceDraftState;
   onFinanceDraftChange?: (draft: FinanceDraftState) => void;
   financeError?: string;
+  canEditIntake?: boolean;
+  canEditRepair?: boolean;
+  canAdjustFinance?: boolean;
   defaultWarrantyMonths?: number;
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending?: boolean;
@@ -169,6 +175,8 @@ export function OrderOverviewTab({
           onDraftChange: onEditDraftChange,
         }
       : null;
+  const intakeEdit = canEditIntake ? edit : null;
+  const repairEdit = canEditRepair ? edit : null;
 
   return (
     <motion.div variants={fadeUp} className="min-w-0">
@@ -184,7 +192,8 @@ export function OrderOverviewTab({
           defaultWarrantyMonths={defaultWarrantyMonths}
           onQuickImeiSave={onQuickImeiSave}
           quickImeiPending={quickImeiPending}
-          edit={edit}
+          intakeEdit={intakeEdit}
+          repairEdit={repairEdit}
           surface={surface}
           onRequestKioskSignature={onRequestKioskSignature}
           kioskSignaturePending={kioskSignaturePending}
@@ -215,7 +224,7 @@ export function OrderOverviewTab({
           <CustomerPanel
             order={order}
             customer={customer}
-            edit={edit}
+            edit={intakeEdit}
             surface={surface}
             onRequestKioskSignature={onRequestKioskSignature}
             kioskSignaturePending={kioskSignaturePending}
@@ -232,7 +241,8 @@ export function OrderOverviewTab({
             defaultWarrantyMonths={defaultWarrantyMonths}
             onQuickImeiSave={onQuickImeiSave}
             quickImeiPending={quickImeiPending}
-            edit={edit}
+            intakeEdit={intakeEdit}
+            repairEdit={repairEdit}
             surface={surface}
           />
           <OrderOverviewFinancePanel
@@ -241,6 +251,7 @@ export function OrderOverviewTab({
             financeDraft={financeDraft}
             financeError={financeError}
             onFinanceDraftChange={onFinanceDraftChange}
+            canAdjustFinance={canAdjustFinance}
             surface={surface}
           />
         </div>
@@ -369,6 +380,7 @@ export function OrderDetailActionDock({
   onPay,
   paymentDisabled = false,
   onNotify,
+  notifyDisabled = false,
   surface = "page",
 }: {
   order: OrderDetail["order"];
@@ -381,6 +393,7 @@ export function OrderDetailActionDock({
   onPay: () => void;
   paymentDisabled?: boolean;
   onNotify: () => void;
+  notifyDisabled?: boolean;
   surface?: DetailSurface;
 }) {
   const { isMobile, state: sidebarState } = useSidebar();
@@ -438,45 +451,45 @@ export function OrderDetailActionDock({
             className="grid min-w-0 gap-1.5 overflow-hidden rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1 sm:grid-cols-[minmax(0,1fr)_minmax(140px,auto)]"
           >
             {financeRedacted ? (
-              <div className="grid min-h-12 place-items-center rounded-md border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-muted-foreground">
-                金额受限
+              <div className="flex min-h-10 items-center rounded-md bg-card px-3 text-xs font-medium text-muted-foreground sm:col-span-2">
+                金额与结算状态受限
               </div>
             ) : (
-              <OrderWorkspaceMoneyStrip
-                total={display.quotation}
-                deposit={display.deposit}
-                balance={display.balance}
-                compact
-                cancelled={cancelled}
-              />
+              <>
+                <OrderWorkspaceMoneyStrip
+                  total={display.quotation}
+                  deposit={display.deposit}
+                  balance={display.balance}
+                  compact
+                  cancelled={cancelled}
+                />
+                <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-card px-2 py-1 text-[11px] text-muted-foreground">
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    {cancelled ? (
+                      "已取消 · 余额不计入待收"
+                    ) : display.isPaid ? (
+                      <>
+                        <CheckCircle2 className="size-3 text-status-success-foreground" />
+                        已结清
+                      </>
+                    ) : (
+                      "未结清"
+                    )}
+                  </span>
+                  <span className="truncate">
+                    {isEditing
+                      ? "报价草稿待保存"
+                      : `项目 ${order.fault_prices.length} · ${
+                          order.approval_status === "approved"
+                            ? "审批通过"
+                            : order.approval_status === "rejected"
+                              ? "审批拒绝"
+                              : "审批待确认"
+                        }`}
+                  </span>
+                </div>
+              </>
             )}
-            <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-card px-2 py-1 text-[11px] text-muted-foreground">
-              <span className="inline-flex min-w-0 items-center gap-1">
-                {financeRedacted ? (
-                  "财务信息受限"
-                ) : cancelled ? (
-                  "已取消 · 余额不计入待收"
-                ) : display.isPaid ? (
-                  <>
-                    <CheckCircle2 className="size-3 text-status-success-foreground" />
-                    已结清
-                  </>
-                ) : (
-                  "未结清"
-                )}
-              </span>
-              <span className="truncate">
-                {isEditing
-                  ? "报价草稿待保存"
-                  : `项目 ${order.fault_prices.length} · ${
-                      order.approval_status === "approved"
-                        ? "审批通过"
-                        : order.approval_status === "rejected"
-                          ? "审批拒绝"
-                          : "审批待确认"
-                    }`}
-              </span>
-            </div>
           </div>
           <div className="grid min-w-0 grid-cols-3 gap-1.5">
             <Button
@@ -484,7 +497,7 @@ export function OrderDetailActionDock({
               size="sm"
               className="h-9 gap-1.5 border-0 px-2 text-xs text-primary-foreground"
               style={{ background: "var(--gradient-brand)" }}
-              disabled={isEditing}
+              disabled={isEditing || notifyDisabled}
               onClick={onNotify}
             >
               <Send className="size-3.5" />
@@ -507,7 +520,12 @@ export function OrderDetailActionDock({
               variant="outline"
               className="h-9 gap-1.5 px-2 text-xs"
               disabled={
-                isEditing || paymentDisabled || cancelled || display.isPaid || display.balance <= 0
+                financeRedacted ||
+                isEditing ||
+                paymentDisabled ||
+                cancelled ||
+                display.isPaid ||
+                display.balance <= 0
               }
               onClick={onPay}
             >
@@ -673,6 +691,7 @@ function OrderOverviewFinancePanel({
   financeDraft,
   financeError,
   onFinanceDraftChange,
+  canAdjustFinance,
   surface,
 }: {
   order: OrderDetail["order"];
@@ -680,6 +699,7 @@ function OrderOverviewFinancePanel({
   financeDraft?: FinanceDraftState;
   financeError?: string;
   onFinanceDraftChange?: (draft: FinanceDraftState) => void;
+  canAdjustFinance: boolean;
   surface: DetailSurface;
 }) {
   const dense = surface === "dialog";
@@ -691,7 +711,7 @@ function OrderOverviewFinancePanel({
     [financeDraft, paidAmount],
   );
   const canEditFinance = Boolean(
-    !financeRedacted && isEditing && financeDraft && onFinanceDraftChange,
+    !financeRedacted && isEditing && canAdjustFinance && financeDraft && onFinanceDraftChange,
   );
   const approvalTouched = isQuoteApprovalTouched(order);
   const display =
@@ -706,6 +726,17 @@ function OrderOverviewFinancePanel({
           deposit: order.deposit_amount,
           balance: order.balance_amount,
         };
+
+  if (order.finance_redacted) {
+    return (
+      <DetailPanel surface={surface} dataPanel="finance">
+        <PanelHeader title="报价处理" />
+        <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-5 text-center text-xs font-medium text-muted-foreground">
+          金额与结算状态受限
+        </div>
+      </DetailPanel>
+    );
+  }
 
   return (
     <DetailPanel surface={surface} dataPanel="finance">
@@ -801,17 +832,19 @@ function DesktopOrderPhotosPanel({
       <PanelHeader
         title="设备照片"
         action={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-[11px]"
-            disabled={uploadPending || !onCapture}
-            onClick={onCapture}
-          >
-            <Camera className="size-3.5" />
-            {uploadPending ? "上传中" : "拍照"}
-          </Button>
+          onCapture ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+              disabled={uploadPending || !onCapture}
+              onClick={onCapture}
+            >
+              <Camera className="size-3.5" />
+              {uploadPending ? "上传中" : "拍照"}
+            </Button>
+          ) : null
         }
       />
       <div
@@ -835,20 +868,22 @@ function DesktopOrderPhotosPanel({
         ) : attachments.length === 1 ? (
           <DesktopPhotoPlaceholder label="补充" />
         ) : null}
-        <button
-          type="button"
-          className={cn(
-            "grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60",
-            attachments.length >= 2 && (surface === "dialog" ? "" : "col-span-2 lg:col-span-1"),
-          )}
-          disabled={uploadPending || !onCapture}
-          onClick={onCapture}
-        >
-          <span className="grid place-items-center gap-1">
-            <Camera className="size-4" />
-            {uploadPending ? "上传中" : "补拍"}
-          </span>
-        </button>
+        {onCapture ? (
+          <button
+            type="button"
+            className={cn(
+              "grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60",
+              attachments.length >= 2 && (surface === "dialog" ? "" : "col-span-2 lg:col-span-1"),
+            )}
+            disabled={uploadPending}
+            onClick={onCapture}
+          >
+            <span className="grid place-items-center gap-1">
+              <Camera className="size-4" />
+              {uploadPending ? "上传中" : "补拍"}
+            </span>
+          </button>
+        ) : null}
       </div>
       <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] leading-4">
         <span className="truncate text-muted-foreground">已保存照片</span>
@@ -966,7 +1001,8 @@ function MobileCoreInfoPanel({
   defaultWarrantyMonths,
   onQuickImeiSave,
   quickImeiPending,
-  edit,
+  intakeEdit,
+  repairEdit,
   surface,
   onRequestKioskSignature,
   kioskSignaturePending,
@@ -983,7 +1019,8 @@ function MobileCoreInfoPanel({
   defaultWarrantyMonths: number;
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending: boolean;
-  edit: OrderEditContext | null;
+  intakeEdit: OrderEditContext | null;
+  repairEdit: OrderEditContext | null;
   surface: DetailSurface;
   onRequestKioskSignature?: () => void;
   kioskSignaturePending: boolean;
@@ -992,42 +1029,42 @@ function MobileCoreInfoPanel({
 }) {
   return (
     <DetailPanel surface={surface}>
-      <PanelHeader title="核心信息" editing={Boolean(edit)} />
+      <PanelHeader title="核心信息" editing={Boolean(intakeEdit || repairEdit)} />
       <div className="min-w-0 space-y-2 sm:space-y-3">
         <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
-          <CustomerNameField order={order} customer={customer} edit={edit} />
+          <CustomerNameField order={order} customer={customer} edit={intakeEdit} />
           <InfoField label="技师" tone="soft">
             <ReadonlyValue value={order.technician_name} />
           </InfoField>
         </section>
 
-        <CustomerPhoneField order={order} customer={customer} edit={edit} />
-        <BackupPhones order={order} edit={edit} />
+        <CustomerPhoneField order={order} customer={customer} edit={intakeEdit} />
+        <BackupPhones order={order} edit={intakeEdit} />
 
         <Separator className="my-2 sm:my-3" />
 
         <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
           <DraftTextField
             label="品牌"
-            value={edit?.draft.device_brand ?? deviceBrand}
+            value={intakeEdit?.draft.device_brand ?? deviceBrand}
             required
             tone="hero"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { device_brand: value })}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { device_brand: value })}
           />
           <DraftTextField
             label="型号"
-            value={edit?.draft.device_model ?? deviceModel}
+            value={intakeEdit?.draft.device_model ?? deviceModel}
             required
             tone="hero"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { device_model: value })}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { device_model: value })}
           />
         </section>
 
         <ImeiField
-          value={edit?.draft.device_imei ?? deviceImei}
-          edit={edit}
+          value={intakeEdit?.draft.device_imei ?? deviceImei}
+          edit={intakeEdit}
           onQuickSave={onQuickImeiSave}
           quickPending={quickImeiPending}
         />
@@ -1035,42 +1072,46 @@ function MobileCoreInfoPanel({
         <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
           <DraftTextField
             label="设备备注"
-            value={edit?.draft.device_notes ?? deviceNotes ?? ""}
+            value={repairEdit?.draft.device_notes ?? deviceNotes ?? ""}
             tone="note"
             emptyText="—"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { device_notes: value })}
+            edit={repairEdit}
+            onChange={(value) => patchDraft(repairEdit, { device_notes: value })}
           />
           <AccessoryNotesField
-            value={edit?.draft.accessory_notes ?? accessoryNotes ?? ""}
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { accessory_notes: value })}
+            value={intakeEdit?.draft.accessory_notes ?? accessoryNotes ?? ""}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { accessory_notes: value })}
           />
         </section>
-        <DeviceUnlockDetailField order={order} edit={edit} dense={false} />
+        <DeviceUnlockDetailField order={order} edit={repairEdit} dense={false} />
 
         <Separator className="my-2 sm:my-3" />
 
         <section className="min-w-0 space-y-2 sm:space-y-3">
           <DraftTextField
             label="故障描述"
-            value={edit?.draft.issue_description ?? order.issue_description}
+            value={intakeEdit?.draft.issue_description ?? order.issue_description}
             required
             multiline
             tone="note"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { issue_description: value })}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { issue_description: value })}
           />
           <DraftTextField
             label="诊断结果"
-            value={edit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
+            value={repairEdit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
             multiline
             tone="soft"
             emptyText="—"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { diagnosis_result: value })}
+            edit={repairEdit}
+            onChange={(value) => patchDraft(repairEdit, { diagnosis_result: value })}
           />
-          <WarrantyField order={order} edit={edit} defaultWarrantyMonths={defaultWarrantyMonths} />
+          <WarrantyField
+            order={order}
+            edit={repairEdit}
+            defaultWarrantyMonths={defaultWarrantyMonths}
+          />
         </section>
 
         <Separator className="my-2 sm:my-3" />
@@ -1334,20 +1375,22 @@ function CustomerSignatureSection({
         >
           客户签名
         </h4>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={hasKioskAction && (!kioskSignatureAvailable || kioskSignaturePending)}
-          onClick={hasKioskAction ? onRequestKioskSignature : undefined}
-          className={cn(
-            "gap-1 px-1.5 text-[11px]",
-            dense ? "h-6" : "h-6 sm:h-7 sm:px-2 sm:text-xs",
-          )}
-        >
-          <ActionIcon className="size-3" />
-          {actionLabel}
-        </Button>
+        {hasKioskAction ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!kioskSignatureAvailable || kioskSignaturePending}
+            onClick={onRequestKioskSignature}
+            className={cn(
+              "gap-1 px-1.5 text-[11px]",
+              dense ? "h-6" : "h-6 sm:h-7 sm:px-2 sm:text-xs",
+            )}
+          >
+            <ActionIcon className="size-3" />
+            {actionLabel}
+          </Button>
+        ) : null}
       </div>
       <div
         className={cn(
@@ -1385,7 +1428,8 @@ function DeviceIssuePanel({
   defaultWarrantyMonths,
   onQuickImeiSave,
   quickImeiPending,
-  edit,
+  intakeEdit,
+  repairEdit,
   surface,
 }: {
   order: OrderDetail["order"];
@@ -1397,13 +1441,14 @@ function DeviceIssuePanel({
   defaultWarrantyMonths: number;
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending: boolean;
-  edit: OrderEditContext | null;
+  intakeEdit: OrderEditContext | null;
+  repairEdit: OrderEditContext | null;
   surface: DetailSurface;
 }) {
   const dense = surface === "dialog";
   return (
     <DetailPanel surface={surface} dataPanel="device">
-      <PanelHeader title="设备与故障" editing={Boolean(edit)} />
+      <PanelHeader title="设备与故障" editing={Boolean(intakeEdit || repairEdit)} />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
         <section
           className={cn(
@@ -1413,25 +1458,25 @@ function DeviceIssuePanel({
         >
           <DraftTextField
             label="品牌"
-            value={edit?.draft.device_brand ?? deviceBrand}
+            value={intakeEdit?.draft.device_brand ?? deviceBrand}
             required
             tone="hero"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { device_brand: value })}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { device_brand: value })}
           />
           <DraftTextField
             label="型号"
-            value={edit?.draft.device_model ?? deviceModel}
+            value={intakeEdit?.draft.device_model ?? deviceModel}
             required
             tone="hero"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { device_model: value })}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { device_model: value })}
           />
         </section>
 
         <ImeiField
-          value={edit?.draft.device_imei ?? deviceImei}
-          edit={edit}
+          value={intakeEdit?.draft.device_imei ?? deviceImei}
+          edit={intakeEdit}
           onQuickSave={onQuickImeiSave}
           quickPending={quickImeiPending}
         />
@@ -1444,20 +1489,20 @@ function DeviceIssuePanel({
         >
           <DraftTextField
             label="设备备注"
-            value={edit?.draft.device_notes ?? deviceNotes ?? ""}
+            value={repairEdit?.draft.device_notes ?? deviceNotes ?? ""}
             tone="note"
             className={dense ? "line-clamp-2" : undefined}
             emptyText="—"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { device_notes: value })}
+            edit={repairEdit}
+            onChange={(value) => patchDraft(repairEdit, { device_notes: value })}
           />
           <AccessoryNotesField
-            value={edit?.draft.accessory_notes ?? accessoryNotes ?? ""}
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { accessory_notes: value })}
+            value={intakeEdit?.draft.accessory_notes ?? accessoryNotes ?? ""}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { accessory_notes: value })}
           />
         </section>
-        <DeviceUnlockDetailField order={order} edit={edit} dense={dense} />
+        <DeviceUnlockDetailField order={order} edit={repairEdit} dense={dense} />
 
         <Separator className={dense ? "my-1" : "my-2 sm:my-3"} />
 
@@ -1469,28 +1514,28 @@ function DeviceIssuePanel({
         >
           <DraftTextField
             label="故障描述"
-            value={edit?.draft.issue_description ?? order.issue_description}
+            value={intakeEdit?.draft.issue_description ?? order.issue_description}
             required
             multiline
             tone="note"
             className={dense ? "line-clamp-2" : undefined}
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { issue_description: value })}
+            edit={intakeEdit}
+            onChange={(value) => patchDraft(intakeEdit, { issue_description: value })}
           />
           <DraftTextField
             label="诊断结果"
-            value={edit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
+            value={repairEdit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
             multiline
             tone="soft"
             className={dense ? "line-clamp-2" : undefined}
             emptyText="—"
-            edit={edit}
-            onChange={(value) => patchDraft(edit, { diagnosis_result: value })}
+            edit={repairEdit}
+            onChange={(value) => patchDraft(repairEdit, { diagnosis_result: value })}
           />
           <div className={cn(dense ? "lg:col-span-2" : "xl:col-span-2")}>
             <WarrantyField
               order={order}
-              edit={edit}
+              edit={repairEdit}
               defaultWarrantyMonths={defaultWarrantyMonths}
             />
           </div>

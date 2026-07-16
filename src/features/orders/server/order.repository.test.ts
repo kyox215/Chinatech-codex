@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   confirmCancelledOrderReturn,
+  correctTerminalOrder,
   isOrderAttachmentStorageScoped,
   isOrderInActorScope,
   getOrder,
@@ -9,13 +10,17 @@ import {
   listOrdersPage,
   patchOrder,
   projectOrderDetailForActor,
+  projectOrderCapabilities,
   projectOrderListItemForActor,
   recordPayment,
+  reopenOrder,
   sendNotification,
   transitionOrder,
   uploadOrderAttachment,
+  voidOrder,
 } from "@/features/orders/server/order.repository";
 import type { AuditActor, OrderDetail, OrderListItem } from "@/lib/repairdesk/types";
+import type { RepairOrderStatus } from "@/lib/mock/enums";
 
 const mocks = vi.hoisted(() => ({
   supabase: {
@@ -148,6 +153,48 @@ describe("order repository role projection", () => {
     expect(isOrderInActorScope({ assignee_membership_id: undefined }, actor("manager"))).toBe(true);
   });
 
+  it("uses a configured custom bucket ahead of a stale canonical closed value", () => {
+    const customActive = projectOrderCapabilities(
+      order({ status: "repairing", workflow_status: "closed", workflow_bucket: "custom" }),
+      actor("owner"),
+    );
+    const customDone = projectOrderCapabilities(
+      order({ status: "repairing", workflow_status: "repair", workflow_bucket: "done" }),
+      actor("owner"),
+    );
+
+    expect(customActive).toMatchObject({ canEditIntake: true, canTransition: true });
+    expect(customActive.canCorrect).toBe(false);
+    expect(customDone).toMatchObject({
+      canEditIntake: false,
+      canTransition: false,
+      canCorrect: true,
+      canCollectPayment: true,
+    });
+  });
+
+  it.each([
+    { label: "legacy cancelled", changes: { status: "cancelled" as const } },
+    {
+      label: "exception cancelled",
+      changes: { status: "repairing" as const, exception_status: "cancelled" as const },
+    },
+    {
+      label: "custom cancelled",
+      changes: { status: "repairing" as const, workflow_bucket: "cancelled" as const },
+    },
+    {
+      label: "voided",
+      changes: { status: "completed" as const, record_state: "voided" as const },
+    },
+    {
+      label: "soft deleted",
+      changes: { status: "completed" as const, deleted_at: "2026-07-16T20:00:00.000Z" },
+    },
+  ])("closes payment capability for $label orders", ({ changes }) => {
+    expect(projectOrderCapabilities(order(changes), actor("owner")).canCollectPayment).toBe(false);
+  });
+
   it("redacts detail customer contact, messages, event payloads, and attachment links", () => {
     const projected = projectOrderDetailForActor(detail(), actor("viewer"));
 
@@ -201,14 +248,15 @@ describe("order repository database pagination", () => {
     expect(queries[0]?.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
     expect(queries[0]?.range).toHaveBeenCalledWith(0, 999);
     expect(queries[0]?.eq).toHaveBeenCalledWith("store_id", "store_1");
-    expect(queries[0]?.neq).toHaveBeenNthCalledWith(1, "status", "completed");
-    expect(queries[0]?.neq).toHaveBeenNthCalledWith(2, "status", "cancelled");
+    expect(queries[0]?.eq).toHaveBeenCalledWith("record_state", "active");
+    expect(queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
+    expect(queries[0]?.not).toHaveBeenCalledWith("status", "in", "(completed,cancelled)");
     expect(queries[0]?.or).toHaveBeenCalledWith(
-      "exception_status.is.null,exception_status.neq.cancelled",
+      "exception_status.neq.cancelled,exception_status.is.null",
     );
     const indexSelect = (queries[0]?.select.mock.calls as unknown[][])[0]?.[0];
     expect(String(indexSelect)).not.toContain("customer:customers(*)");
-    expect(queries[1]?.in).toHaveBeenCalledWith(
+    expect(queries[2]?.in).toHaveBeenCalledWith(
       "id",
       Array.from({ length: 50 }, (_, index) => `order_${index + 50}`),
     );
@@ -233,7 +281,7 @@ describe("order repository database pagination", () => {
     });
 
     const result = await listOrdersPage({ page: 1, pageSize: 100 }, actor("owner"));
-    const detailInCalls = queries[1]?.in.mock.calls as unknown[][];
+    const detailInCalls = queries[2]?.in.mock.calls as unknown[][];
 
     expect(result.pageSize).toBe(50);
     expect(result.items).toHaveLength(50);
@@ -431,14 +479,18 @@ describe("order repository database pagination", () => {
     expect(result.items.map((item) => item.id)).toEqual(["paid_closed"]);
   });
 
-  it("fails closed for technician lists before the assignment migration", async () => {
+  it("keeps technician assignment scope when only lifecycle columns are not deployed", async () => {
     const legacyRow = orderRow({ technician_name: "Technician" });
-    Reflect.deleteProperty(legacyRow, "assignee_membership_id");
+    const statuses = createSupabaseQuery({
+      data: [{ code: "new", bucket: "active" }],
+      error: null,
+      count: 1,
+    });
     mocks.supabase.from
       .mockReturnValueOnce(
         createSupabaseQuery({
           data: null,
-          error: { message: "column repair_orders.assignee_membership_id does not exist" },
+          error: { message: "column repair_orders.record_state does not exist" },
           count: 0,
         }),
       )
@@ -448,12 +500,30 @@ describe("order repository database pagination", () => {
           error: null,
           count: 1,
         }),
-      );
+      )
+      .mockReturnValueOnce(statuses)
+      .mockReturnValueOnce(
+        createSupabaseQuery({
+          data: [legacyRow],
+          error: null,
+          count: 1,
+        }),
+      )
+      .mockReturnValueOnce(statuses);
 
     const result = await listOrdersPage({}, actor("technician"));
 
-    expect(result.items).toEqual([]);
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(result.items).toHaveLength(1);
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(5);
+    const retrySelect = (
+      (mocks.supabase.from.mock.results[1]?.value.select.mock.calls as unknown[][])[0]?.[0] ?? ""
+    ).toString();
+    expect(retrySelect).toContain("assignee_membership_id");
+    expect(retrySelect).not.toContain("record_state");
+    expect(mocks.supabase.from.mock.results[1]?.value.eq).toHaveBeenCalledWith(
+      "assignee_membership_id",
+      "membership_technician",
+    );
   });
 
   it("pushes the technician membership boundary into both list queries", async () => {
@@ -467,9 +537,9 @@ describe("order repository database pagination", () => {
     const result = await listOrdersPage({}, actor("technician"));
 
     expect(result.items).toHaveLength(1);
-    expect(queries).toHaveLength(2);
+    expect(queries).toHaveLength(4);
     expect(queries[0]?.eq).toHaveBeenCalledWith("assignee_membership_id", "membership_technician");
-    expect(queries[1]?.eq).toHaveBeenCalledWith("assignee_membership_id", "membership_technician");
+    expect(queries[2]?.eq).toHaveBeenCalledWith("assignee_membership_id", "membership_technician");
   });
 
   it("rejects a renamed technician opening a legacy order before loading child data", async () => {
@@ -628,6 +698,25 @@ describe("order repository atomic payment adapter", () => {
     expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
+  it("maps the voided-order payment guard without any fallback write", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: false, code: "order_voided" },
+      error: null,
+    });
+
+    await expect(
+      recordPayment(
+        "order_1",
+        25,
+        "现金",
+        actor("owner"),
+        "2026-07-10T14:00:00.000Z",
+        "00000000-0000-4000-8000-000000000508",
+      ),
+    ).rejects.toThrow("已作废或删除的工单不能登记收款");
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
   it.each([0.29, 0.57])("accepts a valid cent amount of %s", async (amount) => {
     mocks.supabase.rpc.mockResolvedValue({
       data: {
@@ -684,7 +773,12 @@ describe("order repository custody writes", () => {
       count: 1,
     });
     const targetQuery = createSupabaseQuery({
-      data: { code: "repairing", label: "维修中", enabled: true },
+      data: { code: "repairing", label: "维修中", bucket: "repair", enabled: true },
+      error: null,
+      count: 1,
+    });
+    const currentBucketQuery = createSupabaseQuery({
+      data: { bucket: "intake" },
       error: null,
       count: 1,
     });
@@ -696,6 +790,7 @@ describe("order repository custody writes", () => {
     const eventQuery = createSupabaseQuery({ data: null, error: null, count: 1 });
     mocks.supabase.from
       .mockReturnValueOnce(readQuery)
+      .mockReturnValueOnce(currentBucketQuery)
       .mockReturnValueOnce(targetQuery)
       .mockReturnValueOnce(updateQuery)
       .mockReturnValueOnce(eventQuery);
@@ -715,27 +810,44 @@ describe("order repository custody writes", () => {
     );
   });
 
-  it("confirms a cancelled return without mutating finance fields", async () => {
+  it("requires a reason for a configured custom cancelled target", async () => {
     const readQuery = createSupabaseQuery({
-      data: orderRow({
-        status: "cancelled",
-        workflow_status: "closed",
-        completed_at: null,
-        delivered_at: null,
-      }),
+      data: orderRow({ status: "repairing", workflow_status: "repair" }),
       error: null,
       count: 1,
     });
-    const updateQuery = createSupabaseQuery({
-      data: { updated_at: "2026-07-09T10:01:00.000Z" },
+    const currentBucketQuery = createSupabaseQuery({
+      data: { bucket: "repair" },
       error: null,
       count: 1,
     });
-    const eventQuery = createSupabaseQuery({ data: null, error: null, count: 1 });
+    const targetQuery = createSupabaseQuery({
+      data: { code: "customer_cancelled", label: "客户取消", bucket: "cancelled", enabled: true },
+      error: null,
+      count: 1,
+    });
     mocks.supabase.from
       .mockReturnValueOnce(readQuery)
-      .mockReturnValueOnce(updateQuery)
-      .mockReturnValueOnce(eventQuery);
+      .mockReturnValueOnce(currentBucketQuery)
+      .mockReturnValueOnce(targetQuery);
+
+    await expect(
+      transitionOrder("order_1", "customer_cancelled" as RepairOrderStatus, {
+        operator: actor("owner"),
+      }),
+    ).rejects.toThrow("需要填写原因");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(3);
+  });
+
+  it("confirms a cancelled return without mutating finance fields", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        ok: true,
+        already_confirmed: false,
+        delivered_at: "2026-07-09T10:01:00.000Z",
+      },
+      error: null,
+    });
 
     const result = await confirmCancelledOrderReturn("order_1", {
       expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
@@ -743,25 +855,170 @@ describe("order repository custody writes", () => {
       operator: actor("owner"),
     });
 
-    const update = updateQuery.update.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(update).toMatchObject({
-      completed_at: expect.any(String),
-      delivered_at: expect.any(String),
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("repairdesk_confirm_cancelled_order_return", {
+      p_store_id: "store_1",
+      p_order_id: "order_1",
+      p_actor_id: "staff_owner",
+      p_expected_updated_at: "2026-07-09T10:00:00.000Z",
+      p_idempotency_key: "00000000-0000-4000-8000-000000000601",
     });
-    expect(update).not.toHaveProperty("quotation_amount");
-    expect(update).not.toHaveProperty("deposit_amount");
-    expect(update).not.toHaveProperty("balance_amount");
-    expect(update).not.toHaveProperty("is_paid");
-    expect(eventQuery.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: expect.objectContaining({
-          action: "custody_return_confirmed",
-          handover_confirmed: true,
-          custody_outcome: "returned",
-        }),
-      }),
-    );
+    const rpcPayload = mocks.supabase.rpc.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(rpcPayload).not.toHaveProperty("quotation_amount");
+    expect(rpcPayload).not.toHaveProperty("deposit_amount");
+    expect(rpcPayload).not.toHaveProperty("balance_amount");
+    expect(rpcPayload).not.toHaveProperty("is_paid");
     expect(result).toMatchObject({ ok: true, alreadyConfirmed: false });
+  });
+
+  it("returns an idempotent cancelled-return replay", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        ok: true,
+        already_confirmed: true,
+        delivered_at: "2026-07-09T10:01:00.000Z",
+      },
+      error: null,
+    });
+
+    await expect(
+      confirmCancelledOrderReturn("order_1", {
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000602",
+        operator: actor("owner"),
+      }),
+    ).resolves.toMatchObject({ ok: true, alreadyConfirmed: true });
+  });
+
+  it.each([
+    ["actor_forbidden", "没有确认设备退还的权限"],
+    ["invalid_state", "只有未作废的已取消工单"],
+    ["stale_version", "已被其他操作更新"],
+  ])("maps cancelled-return RPC code %s", async (code, message) => {
+    mocks.supabase.rpc.mockResolvedValue({ data: { ok: false, code }, error: null });
+
+    await expect(
+      confirmCancelledOrderReturn("order_1", {
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000603",
+        operator: actor("owner"),
+      }),
+    ).rejects.toThrow(message);
+  });
+
+  it("fails closed on a malformed cancelled-return RPC response", async () => {
+    mocks.supabase.rpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(
+      confirmCancelledOrderReturn("order_1", {
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000604",
+        operator: actor("owner"),
+      }),
+    ).rejects.toThrow("数据库返回无效");
+  });
+});
+
+describe("order repository terminal operation RPCs", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  const recorded = {
+    ok: true,
+    code: "recorded",
+    operation_id: "00000000-0000-4000-8000-000000000801",
+    order_id: "order_1",
+    status: "completed",
+    record_state: "active",
+    updated_at: "2026-07-16T20:01:00.000Z",
+  };
+
+  it("sends a manager correction through the atomic RPC", async () => {
+    mocks.supabase.rpc.mockResolvedValue({ data: recorded, error: null });
+
+    await expect(
+      correctTerminalOrder(
+        "order_1",
+        {
+          expected_updated_at: "2026-07-16T20:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000802",
+          reason: " 修正诊断记录 ",
+          changes: { diagnosis_result: "已更换屏幕" },
+        },
+        actor("manager"),
+      ),
+    ).resolves.toMatchObject({ ok: true, code: "recorded", replayed: false });
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("repairdesk_correct_terminal_order", {
+      p_store_id: "store_1",
+      p_order_id: "order_1",
+      p_actor_id: "staff_manager",
+      p_expected_updated_at: "2026-07-16T20:00:00.000Z",
+      p_idempotency_key: "00000000-0000-4000-8000-000000000802",
+      p_changes: { diagnosis_result: "已更换屏幕" },
+      p_reason: "修正诊断记录",
+    });
+  });
+
+  it("maps stale reopen responses to a conflict error", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: false, code: "stale_version" },
+      error: null,
+    });
+
+    await expect(
+      reopenOrder(
+        "order_1",
+        {
+          expected_updated_at: "2026-07-16T20:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          reason: "重新进入检测流程",
+          to_status: "diagnosing",
+        },
+        actor("manager"),
+      ),
+    ).rejects.toMatchObject({ code: "STALE_VERSION", status: 409 });
+  });
+
+  it("returns an idempotent Owner void replay and preserves confirmation", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ...recorded, code: "idempotent_replay", record_state: "voided" },
+      error: null,
+    });
+
+    await expect(
+      voidOrder(
+        "order_1",
+        {
+          expected_updated_at: "2026-07-16T20:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000804",
+          reason: "重复录入需安全作废",
+          confirm_public_no: " R2026001 ",
+        },
+        actor("owner"),
+      ),
+    ).resolves.toMatchObject({ code: "idempotent_replay", replayed: true, record_state: "voided" });
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_void_order",
+      expect.objectContaining({ p_confirm_public_no: "R2026001", p_actor_id: "staff_owner" }),
+    );
+  });
+
+  it("fails closed on an invalid terminal RPC response", async () => {
+    mocks.supabase.rpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(
+      correctTerminalOrder(
+        "order_1",
+        {
+          expected_updated_at: "2026-07-16T20:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000805",
+          reason: "修正诊断记录",
+          changes: { diagnosis_result: "已更换屏幕" },
+        },
+        actor("manager"),
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE", status: 500 });
   });
 });
 
@@ -937,6 +1194,8 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count: num
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     neq: vi.fn(() => query),
+    is: vi.fn(() => query),
+    not: vi.fn(() => query),
     or: vi.fn(() => query),
     order: vi.fn(() => query),
     range: vi.fn(() => query),

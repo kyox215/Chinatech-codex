@@ -3,7 +3,7 @@ schema_version: 1
 department: qa
 status: active
 owner: QA Department / Integration Lead
-last_verified_at: 2026-07-16
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -58,12 +58,14 @@ as owner of this file.
 - If the full parallel Vitest run fails only through fixed 5s timeouts in Radix/user-event tests on a constrained host, rerun the failed files in isolation and the complete suite with one worker before classifying the result as a product regression. Keep the original failure and both rerun results in evidence.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` closes on 87 focused tests, 132 files / 909 tests with two bounded workers, agents/lint/typecheck/build, and 6/6 Owner/Manager/Sales x 390/1440 browser flows. Default-concurrency fixed-timeout failures were preserved, passed isolated, and passed inside the bounded full suite. Production proof includes exact Git/Vercel SHA, HTTP/login redirect, empty error/5xx observation and a linked Supabase no-write postcheck.
 - `TASK-20260714-002-buyback-supabase-schema-staging` closes the target migration slice on 7 contract tests, PG17 UUID/Text fixtures, zero-residue anomaly failure, official CLI runner rollback proof, agents/lint/typecheck, 132 files / 910 tests, 22/22 build, exact pre/post dry-runs and delayed production ACL/empty-state observation. Full history reset remains failed at earlier migration `20260611102805`, so QA must not generalize this slice PASS to the full recovery chain.
+- Customer finance/order lifecycle releases require cancellation/void aggregate parity, permission forgery, stale/idempotent/atomic terminal actions, CRM same-store/delete/null behavior, full app gates, pgTAP and desktop/mobile visual evidence. `TASK-20260716-003-customer-finance-order-correction-plan` passed 144 files / 1021 tests, pgTAP 102/102, full agents/lint/typecheck/build and 7/7 responsive Playwright checks with four redacted screenshots.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Finance/lifecycle release gate | Product + Frontend + Backend + Data + Security | Verify semantic parity, denial/atomicity, migration replay/postchecks and responsive states together | Treat any cross-store, partial-write, stale overwrite, finance leak or missing audit as NO-GO | TASK-20260716-003-customer-finance-order-correction-plan E-013..E-025 | verified |
 
 ## SOPs and checklists
 
@@ -133,3 +135,4 @@ as owner of this file.
 | 2026-07-14 | Verified dormant migration fixtures, atomicity, full code gates and production post-apply empty/revoked state | TASK-20260714-002-buyback-supabase-schema-staging | Integration Lead + DATA/SEC/REL reviewers | scoped_verified |
 | 2026-07-16 | Recorded Dashboard priority authorization, truth-state, responsive, privacy, full-suite and visual evidence matrix | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + QA/SEC/UX reviewers | active |
 | 2026-07-16 | Recorded Orders queue loading/race/offline, bounded-query, realtime/preload, full-suite and responsive visual gates | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + QA/SEC/UX reviewers | active |
+| 2026-07-16 | Recorded customer finance/lifecycle SQL, permission, atomicity, full-suite, responsive and production postcheck matrix | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + QA/DATA/SEC/UX reviewers | active |

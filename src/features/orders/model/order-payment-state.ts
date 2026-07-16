@@ -1,10 +1,18 @@
 import type { OrderListItem } from "@/lib/repairdesk/types";
 
 type OrderPaymentStateInput = Pick<OrderListItem, "status" | "balance_amount" | "is_paid"> &
-  Partial<Pick<OrderListItem, "exception_status">>;
+  Partial<
+    Pick<OrderListItem, "workflow_bucket" | "exception_status" | "record_state" | "deleted_at">
+  >;
 
 export function isOrderCancelledForPayment(order: OrderPaymentStateInput) {
-  return order.status === "cancelled" || order.exception_status === "cancelled";
+  return (
+    order.status === "cancelled" ||
+    order.workflow_bucket === "cancelled" ||
+    order.exception_status === "cancelled" ||
+    order.record_state === "voided" ||
+    Boolean(order.deleted_at)
+  );
 }
 
 export function isOrderPaymentCollectible(order: OrderPaymentStateInput) {

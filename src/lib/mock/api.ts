@@ -3,6 +3,7 @@
 export {
   batchTransition,
   confirmCancelledOrderReturn,
+  correctTerminalOrder,
   createOrder,
   createOrderWorkflowStatus,
   decideOrderApproval,
@@ -14,6 +15,7 @@ export {
   patchOrder,
   patchOrderFinance,
   recordPayment,
+  reopenOrder,
   reorderOrderWorkflowStatuses,
   sendApprovalRequest,
   sendNotification,
@@ -21,6 +23,7 @@ export {
   setOrderWorkflowStatusEnabled,
   transitionOrder,
   updateOrder,
+  voidOrder,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   uploadOrderAttachment,

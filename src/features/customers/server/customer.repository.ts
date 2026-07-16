@@ -34,6 +34,8 @@ import {
   fetchOrderRows,
   followupFromRow,
   interactionFromRow,
+  isMissingRepairOrderColumnError,
+  ORDER_LIST_LEGACY_SELECT,
   ORDER_LIST_SELECT,
   operatorNameFromActor,
   phoneRaw,
@@ -158,13 +160,12 @@ export async function searchCustomerIntakeCandidates(
         .eq("store_id", storeId)
         .in("customer_id", customerIds)
         .order("updated_at", { ascending: false }),
-      supabase
-        .from("repair_orders")
-        .select(ORDER_LIST_SELECT)
-        .eq("store_id", storeId)
-        .in("customer_id", customerIds)
-        .order("created_at", { ascending: false })
-        .limit(customerIds.length * resultDeviceLimit * 8),
+      fetchCustomerIntakeOrderRows(
+        supabase,
+        storeId,
+        customerIds,
+        customerIds.length * resultDeviceLimit * 8,
+      ),
     ]);
   fail(deviceError, "读取客户历史设备失败");
   fail(orderError, "读取客户历史工单设备失败");
@@ -435,6 +436,78 @@ function buildCustomerListItem(
   };
 }
 
+async function fetchCustomerOrderWorkflowBuckets(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+) {
+  const { data, error } = await supabase
+    .from("order_workflow_statuses")
+    .select("code,bucket")
+    .eq("store_id", storeId);
+  fail(error, "读取工单状态口径失败");
+  return new Map(
+    ((data ?? []) as DbRecord[]).map((row) => [
+      requiredString(row.code),
+      requiredString(row.bucket) as OrderListItem["workflow_bucket"],
+    ]),
+  );
+}
+
+async function fetchCustomerIntakeOrderRows(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  customerIds: string[],
+  limit: number,
+) {
+  const result = await supabase
+    .from("repair_orders")
+    .select(ORDER_LIST_SELECT)
+    .eq("store_id", storeId)
+    .in("customer_id", customerIds)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (result.error && isMissingRepairOrderColumnError(result.error)) {
+    return supabase
+      .from("repair_orders")
+      .select(ORDER_LIST_LEGACY_SELECT)
+      .eq("store_id", storeId)
+      .in("customer_id", customerIds)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+  }
+  return result;
+}
+
+async function fetchCustomerDetailOrderRows(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  customerId: string,
+) {
+  const result = await supabase
+    .from("repair_orders")
+    .select(ORDER_LIST_SELECT)
+    .eq("store_id", storeId)
+    .eq("customer_id", customerId)
+    .order("updated_at", { ascending: false });
+  if (result.error && isMissingRepairOrderColumnError(result.error)) {
+    return supabase
+      .from("repair_orders")
+      .select(ORDER_LIST_LEGACY_SELECT)
+      .eq("store_id", storeId)
+      .eq("customer_id", customerId)
+      .order("updated_at", { ascending: false });
+  }
+  return result;
+}
+
+function decorateCustomerOrder(
+  row: DbRecord,
+  workflowBuckets: Map<string, OrderListItem["workflow_bucket"]>,
+) {
+  const order = decorate(row);
+  return { ...order, workflow_bucket: workflowBuckets.get(order.status) };
+}
+
 export function projectCustomerAggregateFinance(
   customer: CustomerListItem,
   actor?: AuditActor,
@@ -474,7 +547,9 @@ function filterCustomers(customers: CustomerListItem[], filters: CustomerListFil
   if (filters.work && filters.work !== "all") {
     result = result.filter((customer) => {
       if (filters.work === "active") return customer.active_order_count > 0;
-      if (filters.work === "unpaid") return (customer.unpaid_amount ?? 0) > 0;
+      if (filters.work === "unpaid") {
+        return (customer.outstanding_amount ?? customer.unpaid_amount ?? 0) > 0;
+      }
       if (filters.work === "with_devices") return customer.device_count > 0;
       if (filters.work === "repeat") return (customer.valid_order_count ?? 0) > 1;
       return true;
@@ -564,6 +639,12 @@ export async function listCustomers(
   actor?: AuditActor,
 ): Promise<CustomerListResult> {
   const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const canReadAggregateFinance = can(actor, "finance:aggregate_read");
+  const visibleFilters =
+    !canReadAggregateFinance && filters.work === "unpaid"
+      ? { ...filters, work: "all" as const }
+      : filters;
   const customerRows = await fetchCustomerRows(storeId);
 
   const customers = ((customerRows ?? []) as DbRecord[])
@@ -581,7 +662,10 @@ export async function listCustomers(
     .map(deviceFromRow)
     .filter((device): device is Device => Boolean(device));
   const followups = ((followupRows ?? []) as DbRecord[]).map(followupFromRow);
-  const orders = (await fetchOrderRows(storeId)).map(decorate);
+  const workflowBuckets = await fetchCustomerOrderWorkflowBuckets(supabase, storeId);
+  const orders = (await fetchOrderRows(storeId)).map((row) =>
+    decorateCustomerOrder(row, workflowBuckets),
+  );
   const tags = await fetchCustomerTags(storeId);
   const assignments = await fetchCustomerTagAssignments(storeId);
 
@@ -606,7 +690,11 @@ export async function listCustomers(
     total: items.length,
     repeat: items.filter((customer) => (customer.valid_order_count ?? 0) > 1).length,
     activeRepairs: items.filter((customer) => customer.active_order_count > 0).length,
-    unpaid: items.filter((customer) => (customer.unpaid_amount ?? 0) > 0).length,
+    unpaid: canReadAggregateFinance
+      ? items.filter((customer) => (customer.outstanding_amount ?? customer.unpaid_amount ?? 0) > 0)
+          .length
+      : 0,
+    financeRedacted: !canReadAggregateFinance,
     withDevices: items.filter((customer) => customer.device_count > 0).length,
     dueFollowups: items.filter((customer) => {
       if (!customer.next_followup_at) return false;
@@ -617,7 +705,7 @@ export async function listCustomers(
   };
 
   return {
-    customers: filterCustomers(items, filters).map((customer) =>
+    customers: filterCustomers(items, visibleFilters).map((customer) =>
       projectCustomerAggregateFinance(customer, actor),
     ),
     tags,
@@ -630,44 +718,92 @@ export async function listCustomersPage(
   actor?: AuditActor,
 ): Promise<CustomerListPageResult> {
   const storeId = requireStoreIdFromActor(actor);
+  const canReadAggregateFinance = can(actor, "finance:aggregate_read");
+  const visibleInput =
+    !canReadAggregateFinance && input.work === "unpaid"
+      ? { ...input, work: "all" as const }
+      : input;
   const { page, pageSize } = normalizeCustomerPageInput(input);
   const supabase = getSupabaseAdmin();
   const rpcInput = {
     p_store_id: storeId,
-    p_search: input.search?.trim() || null,
-    p_tag_ids: input.tagIds?.length ? input.tagIds : null,
-    p_work_filter: input.work ?? "all",
-    p_marketing: input.marketing ?? "all",
-    p_followup: input.followup ?? "all",
+    p_search: visibleInput.search?.trim() || null,
+    p_tag_ids: visibleInput.tagIds?.length ? visibleInput.tagIds : null,
+    p_work_filter: visibleInput.work ?? "all",
+    p_marketing: visibleInput.marketing ?? "all",
+    p_followup: visibleInput.followup ?? "all",
     p_page: page,
     p_page_size: pageSize,
   };
   const v3Result = await supabase.rpc("repairdesk_customer_list_page_v3", rpcInput);
-  if (!v3Result.error && isCustomerListPageResult(v3Result.data)) {
+  if (!v3Result.error) {
+    if (!isCustomerListPageResult(v3Result.data)) {
+      throw new Error("读取客户分页失败：v3 数据契约无效");
+    }
     return normalizeCustomerPageResult(v3Result.data, page, pageSize, actor);
   }
+  if (!isMissingCustomerListRpc(v3Result.error, "repairdesk_customer_list_page_v3")) {
+    throw new Error(`读取客户分页失败：${v3Result.error.message}`);
+  }
 
-  if (!isMissingCustomerListV3(v3Result.error)) {
-    const reason = v3Result.error?.message || "数据库返回无效";
-    throw new Error(`读取客户分页失败：${reason}`);
+  const v2Result = await supabase.rpc("repairdesk_customer_list_page_v2", rpcInput);
+  if (!v2Result.error) {
+    if (!isCustomerListPageResult(v2Result.data)) {
+      throw new Error("读取客户分页失败：v2 数据契约无效");
+    }
+    return normalizeCustomerPageResult(v2Result.data, page, pageSize, actor);
+  }
+  if (!isMissingCustomerListRpc(v2Result.error, "repairdesk_customer_list_page_v2")) {
+    throw new Error(`读取客户分页失败：${v2Result.error.message}`);
+  }
+
+  if (!input.work || input.work === "all") {
+    const { p_work_filter: _workFilter, ...legacyRpcInput } = rpcInput;
+    const legacyRpcResult = await supabase.rpc("repairdesk_customer_list_page", legacyRpcInput);
+    if (!legacyRpcResult.error && isCustomerListPageResult(legacyRpcResult.data)) {
+      return normalizeCustomerPageResult(legacyRpcResult.data, page, pageSize, actor);
+    }
+
+    try {
+      const legacy = await listCustomers(visibleInput, actor);
+      return paginateCustomerListResult(legacy, page, pageSize);
+    } catch (fallbackError) {
+      const reasons = [
+        v3Result.error?.message,
+        v2Result.error?.message,
+        legacyRpcResult.error?.message,
+        errorMessage(fallbackError),
+      ]
+        .filter(Boolean)
+        .join(" / ");
+      throw new Error(reasons ? `读取客户分页失败：${reasons}` : "读取客户分页失败");
+    }
   }
 
   try {
-    const legacy = await listCustomers(input, actor);
+    const legacy = await listCustomers(visibleInput, actor);
     return paginateCustomerListResult(legacy, page, pageSize);
   } catch (fallbackError) {
-    const reasons = [v3Result.error?.message, errorMessage(fallbackError)]
+    const reasons = [v3Result.error?.message, v2Result.error?.message, errorMessage(fallbackError)]
       .filter(Boolean)
       .join(" / ");
     throw new Error(reasons ? `读取客户分页失败：${reasons}` : "读取客户分页失败");
   }
 }
 
-function isMissingCustomerListV3(error: { code?: string; message?: string } | null) {
+function isMissingCustomerListRpc(
+  error: { code?: string; message?: string } | null | undefined,
+  functionName: string,
+) {
   if (!error) return false;
-  if (error.code === "42883" || error.code === "PGRST202") return true;
-  return /repairdesk_customer_list_page_v3.*(does not exist|not found|schema cache)/i.test(
-    error.message ?? "",
+  const message = error.message ?? "";
+  const namesFunction = message.includes(functionName);
+  return (
+    namesFunction &&
+    (error.code === "PGRST202" ||
+      error.code === "42883" ||
+      /could not find the function/i.test(message) ||
+      /function .* does not exist/i.test(message))
   );
 }
 
@@ -691,6 +827,7 @@ function normalizeCustomerPageResult(
   fallbackPageSize: number,
   actor?: AuditActor,
 ): CustomerListPageResult {
+  const canReadAggregateFinance = can(actor, "finance:aggregate_read");
   const total = Number(result.total ?? 0);
   const pageSize = Math.min(100, Math.max(10, Number(result.pageSize ?? fallbackPageSize)));
   const page = Math.max(1, Number(result.page ?? fallbackPage));
@@ -707,7 +844,8 @@ function normalizeCustomerPageResult(
       total: Number(result.stats?.total ?? 0),
       repeat: Number(result.stats?.repeat ?? 0),
       activeRepairs: Number(result.stats?.activeRepairs ?? 0),
-      unpaid: Number(result.stats?.unpaid ?? 0),
+      unpaid: canReadAggregateFinance ? Number(result.stats?.unpaid ?? 0) : 0,
+      financeRedacted: !canReadAggregateFinance,
       withDevices: Number(result.stats?.withDevices ?? 0),
       dueFollowups: Number(result.stats?.dueFollowups ?? 0),
       marketable: Number(result.stats?.marketable ?? 0),
@@ -716,18 +854,28 @@ function normalizeCustomerPageResult(
 }
 
 function normalizeCustomerAggregateFacts(item: CustomerListItem): CustomerListItem {
-  const lifetimeQuotedAmount = Number(item.lifetime_quoted_amount ?? item.total_spent ?? 0);
-  const outstandingAmount = Number(item.outstanding_amount ?? item.unpaid_amount ?? 0);
+  const historicalOrderCount = safeNonNegativeNumber(item.order_count);
+  const validOrderCount = safeNonNegativeNumber(item.valid_order_count ?? item.order_count);
+  const activeOrderCount = safeNonNegativeNumber(item.active_order_count);
+  const lifetimeQuotedAmount = safeNonNegativeNumber(
+    item.lifetime_quoted_amount ?? item.total_spent,
+  );
+  const outstandingAmount = safeNonNegativeNumber(item.outstanding_amount ?? item.unpaid_amount);
   return {
     ...item,
-    order_count: Number(item.order_count ?? 0),
-    valid_order_count: Number(item.valid_order_count ?? 0),
-    active_order_count: Number(item.active_order_count ?? 0),
+    order_count: historicalOrderCount,
+    valid_order_count: validOrderCount,
+    active_order_count: activeOrderCount,
     lifetime_quoted_amount: lifetimeQuotedAmount,
     outstanding_amount: outstandingAmount,
     total_spent: lifetimeQuotedAmount,
     unpaid_amount: outstandingAmount,
   };
+}
+
+function safeNonNegativeNumber(value: unknown) {
+  const normalized = Number(value ?? 0);
+  return Number.isFinite(normalized) ? Math.max(0, normalized) : 0;
 }
 
 function paginateCustomerListResult(
@@ -825,12 +973,7 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
       .eq("store_id", storeId)
       .eq("customer_id", id)
       .order("created_at", { ascending: false }),
-    supabase
-      .from("repair_orders")
-      .select(ORDER_LIST_SELECT)
-      .eq("store_id", storeId)
-      .eq("customer_id", id)
-      .order("updated_at", { ascending: false }),
+    fetchCustomerDetailOrderRows(supabase, storeId, id),
     fetchCustomerInteractionsForCustomer(supabase, storeId, id),
     fetchFollowupsForCustomer(supabase, storeId, id),
   ]);
@@ -847,7 +990,10 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
     .filter((device): device is Device => Boolean(device));
   const interactions = ((interactionRows ?? []) as DbRecord[]).map(interactionFromRow);
   const followups = ((followupRows ?? []) as DbRecord[]).map(followupFromRow);
-  const orders = ((orderRows ?? []) as DbRecord[]).map(decorate);
+  const workflowBuckets = await fetchCustomerOrderWorkflowBuckets(supabase, storeId);
+  const orders = ((orderRows ?? []) as DbRecord[]).map((row) =>
+    decorateCustomerOrder(row, workflowBuckets),
+  );
   const allTags = await fetchCustomerTags(storeId);
   const assignments = (await fetchCustomerTagAssignments(storeId)).filter(
     (assignment) => assignment.customer_id === id,

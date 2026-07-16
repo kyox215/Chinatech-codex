@@ -1,11 +1,13 @@
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
+  CorrectTerminalOrderInput,
   CreateOrderInput,
   OrderListFilters,
   OrderListItem,
   OrderListPageInput,
   OrderListResult,
+  OrderTerminalOperationResult,
   OrderApprovalDecisionInput,
   OrderApprovalDecisionResult,
   OrderAttachment,
@@ -26,14 +28,19 @@ import type {
   PatchOrderResult,
   PaymentResult,
   RepairOrder,
+  ReopenOrderInput,
   UpdateOrderInput,
+  VoidOrderInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
-import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  isOrderCancelledForPayment,
+  isOrderPaymentCollectible,
+} from "@/features/orders/model/order-payment-state";
 import {
   countOrderQueueGroups,
   getOrderQueueGroup,
@@ -85,9 +92,27 @@ function operatorName(operator: MockOperator = "前台") {
   return typeof operator === "string" ? operator : operator.displayName;
 }
 
+function assertMockRoutineMutationAllowed(order: RepairOrder) {
+  if (order.record_state === "voided" || order.deleted_at) {
+    throw new Error("该工单记录已作废，只能查看历史证据");
+  }
+  if (
+    order.status === "completed" ||
+    order.status === "cancelled" ||
+    order.workflow_status === "closed" ||
+    order.exception_status === "cancelled"
+  ) {
+    throw new Error("已结束工单必须使用审计化纠正或重新打开操作");
+  }
+}
+
 const mockStoreId = "mock-store";
 let extraAttachments: OrderAttachment[] = [];
 const paymentOperations = new Map<string, { fingerprint: string; result: PaymentResult }>();
+const terminalOperations = new Map<
+  string,
+  { fingerprint: string; result: OrderTerminalOperationResult }
+>();
 let workflowStatuses: OrderWorkflowStatus[] = repairOrderStatus.map((code, index) => ({
   id: `mock-status-${code}`,
   store_id: mockStoreId,
@@ -511,8 +536,19 @@ export async function updateOrderWorkflowTransitions(
 export async function getOrder(id: string, _actor?: AuditActor) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  const orderView = decorate(o);
+  const terminal =
+    o.status === "completed" ||
+    o.status === "cancelled" ||
+    o.exception_status === "cancelled" ||
+    orderView.workflow_bucket === "done" ||
+    orderView.workflow_bucket === "cancelled" ||
+    (orderView.workflow_bucket === undefined && o.workflow_status === "closed");
+  const voided = o.record_state === "voided" || Boolean(o.deleted_at);
+  const hasFinancialEvidence =
+    o.is_paid || o.deposit_amount > 0 || o.quotation_amount > o.balance_amount;
   return {
-    order: decorate(o),
+    order: orderView,
     customer: getCustomer(o.customer_id),
     device: getDevice(o.device_id),
     supplier: getSupplier(o.supplier_id),
@@ -527,6 +563,20 @@ export async function getOrder(id: string, _actor?: AuditActor) {
     attachments: extraAttachments
       .filter((attachment) => attachment.order_id === o.id)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    capabilities: {
+      canEditIntake: !terminal && !voided,
+      canEditRepair: !terminal && !voided,
+      canAdjustFinance: !terminal && !voided,
+      canCollectPayment: isOrderPaymentCollectible(orderView),
+      canTransition: !terminal && !voided,
+      canConfirmCancelledReturn: !voided && o.status === "cancelled" && !o.delivered_at,
+      canCorrect: terminal && !voided,
+      canReopen: terminal && !voided,
+      canVoid: terminal && !voided && !hasFinancialEvidence,
+      blockedReasons: hasFinancialEvidence
+        ? { void: "存在收款或定金证据，必须先完成财务冲销/退款" }
+        : {},
+    },
   };
 }
 
@@ -657,6 +707,7 @@ export async function transitionOrder(
 ) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockRoutineMutationAllowed(o);
   const canonicalRequest = orderWorkflowStatuses.includes(to as never);
   if (canonicalRequest) {
     throw new Error("状态流转必须使用具体工单状态，不能使用主流程分组");
@@ -961,9 +1012,12 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_notes: "设备备注",
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
+  internal_tag: "内部标签",
   accessory_notes: "留存备注",
   device_unlock: "手机密码",
   warranty_text: "质保",
+  warranty_months: "质保期限",
+  warranty_change_reason: "质保变更原因",
   parts_supplier_id: "配件供应商",
   assignee_membership_id: "负责人",
 };
@@ -1043,6 +1097,7 @@ export async function updateOrder(
 ): Promise<{ ok: boolean }> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockRoutineMutationAllowed(o);
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
 
@@ -1201,6 +1256,7 @@ export async function patchOrder(
 ): Promise<PatchOrderResult> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockRoutineMutationAllowed(o);
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
 
@@ -1243,6 +1299,14 @@ export async function patchOrder(
         throw new Error("配件供应商不存在或不属于当前店铺");
       }
       o.parts_supplier_id = supplierId || undefined;
+      continue;
+    }
+    if (field === "warranty_months") {
+      const months = Number(rawValue);
+      if (!Number.isInteger(months) || months < 0 || months > 36) {
+        throw new Error("质保期限必须是 0 到 36 个月的整数");
+      }
+      o.warranty_months = months;
       continue;
     }
     if (typeof rawValue !== "string") throw new Error(`${PATCH_FIELD_LABELS[field]}格式不正确`);
@@ -1291,6 +1355,11 @@ export async function patchOrder(
       case "diagnosis_result":
         o.diagnosis_result = value || undefined;
         break;
+      case "internal_tag": {
+        const tagInput = normalizeOrderTagInput({ internalTag: value });
+        o.internal_tag = tagInput.internalTag;
+        break;
+      }
       case "accessory_notes": {
         const tagInput = normalizeOrderTagInput({ accessoryNotes: value });
         o.accessory_notes = tagInput.accessoryNotes;
@@ -1298,6 +1367,9 @@ export async function patchOrder(
       }
       case "warranty_text":
         o.warranty_text = value || undefined;
+        break;
+      case "warranty_change_reason":
+        o.warranty_change_reason = value || undefined;
         break;
     }
   }
@@ -1324,6 +1396,7 @@ export async function patchOrderFinance(
 ): Promise<PatchOrderResult> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockRoutineMutationAllowed(o);
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
 
@@ -1375,6 +1448,173 @@ export async function patchOrderFinance(
   });
 
   return { ok: true, updated_at: now };
+}
+
+function readMockTerminalRequest(
+  id: string,
+  input: { expected_updated_at: string; idempotency_key: string; reason: string },
+  operation: "correction" | "reopen" | "void",
+  fingerprintInput: unknown,
+  operator: MockOperator,
+) {
+  const fingerprint = JSON.stringify({
+    id,
+    operation,
+    fingerprintInput,
+    actor: operatorName(operator),
+  });
+  const existing = terminalOperations.get(input.idempotency_key);
+  if (existing) {
+    if (existing.fingerprint !== fingerprint) {
+      throw new Error("该操作标识已用于不同请求，请刷新后重试");
+    }
+    return { replay: { ...existing.result, code: "idempotent_replay" as const, replayed: true } };
+  }
+  const order = orders.find((item) => item.id === id);
+  if (!order) throw new Error("工单不存在");
+  if (order.updated_at !== input.expected_updated_at) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
+  if ((input.reason.trim().length ?? 0) < 5) throw new Error("原因至少需要 5 个字符");
+  if (order.record_state === "voided" || order.deleted_at)
+    throw new Error("当前工单状态不允许执行该操作");
+  if (order.status !== "completed" && order.status !== "cancelled") {
+    throw new Error("当前工单状态不允许执行该操作");
+  }
+  return { order, fingerprint };
+}
+
+function saveMockTerminalResult(
+  idempotencyKey: string,
+  fingerprint: string,
+  order: RepairOrder,
+): OrderTerminalOperationResult {
+  const result: OrderTerminalOperationResult = {
+    ok: true,
+    code: "recorded",
+    operation_id: idempotencyKey,
+    order_id: order.id,
+    status: order.status,
+    record_state: order.record_state === "voided" ? "voided" : "active",
+    updated_at: order.updated_at,
+    replayed: false,
+  };
+  terminalOperations.set(idempotencyKey, { fingerprint, result });
+  return result;
+}
+
+export async function correctTerminalOrder(
+  id: string,
+  input: CorrectTerminalOrderInput,
+  operator: MockOperator = "前台",
+): Promise<OrderTerminalOperationResult> {
+  const request = readMockTerminalRequest(id, input, "correction", input, operator);
+  if (request.replay) return request.replay;
+  const order = request.order!;
+  const before = JSON.stringify(
+    Object.fromEntries(
+      Object.keys(input.changes).map((field) => [
+        field,
+        (order as unknown as Record<string, unknown>)[field],
+      ]),
+    ),
+  );
+  for (const [field, rawValue] of Object.entries(input.changes)) {
+    if (field === "warranty_months") {
+      const months = Number(rawValue);
+      if (!Number.isInteger(months) || months < 0 || months > 36) throw new Error("质保期限无效");
+      order.warranty_months = months;
+      continue;
+    }
+    const value = typeof rawValue === "string" ? rawValue.trim() : "";
+    if (field === "issue_description" && !value) throw new Error("故障描述不能为空");
+    if (field === "issue_description") order.issue_description = value;
+    if (field === "diagnosis_result") order.diagnosis_result = value || undefined;
+    if (field === "internal_tag") order.internal_tag = value || undefined;
+    if (field === "accessory_notes") order.accessory_notes = value || undefined;
+    if (field === "warranty_text") order.warranty_text = value || undefined;
+    if (field === "warranty_change_reason") order.warranty_change_reason = value || undefined;
+  }
+  const after = JSON.stringify(
+    Object.fromEntries(
+      Object.keys(input.changes).map((field) => [
+        field,
+        (order as unknown as Record<string, unknown>)[field],
+      ]),
+    ),
+  );
+  if (before === after) throw new Error("没有实际变化");
+  const now = new Date().toISOString();
+  order.updated_at = now;
+  extraEvents.unshift({
+    id: `evt_terminal_${input.idempotency_key}`,
+    order_id: id,
+    event_type: "note",
+    payload: { action: "terminal_correction", reason: input.reason },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  return saveMockTerminalResult(input.idempotency_key, request.fingerprint!, order);
+}
+
+export async function reopenOrder(
+  id: string,
+  input: ReopenOrderInput,
+  operator: MockOperator = "前台",
+): Promise<OrderTerminalOperationResult> {
+  const request = readMockTerminalRequest(id, input, "reopen", input, operator);
+  if (request.replay) return request.replay;
+  const order = request.order!;
+  const target = workflowStatuses.find((item) => item.code === input.to_status && item.enabled);
+  if (!target || ["done", "cancelled", "custom"].includes(target.bucket)) {
+    throw new Error("重新打开的目标状态无效或已停用");
+  }
+  const from = order.status;
+  const now = new Date().toISOString();
+  order.status = input.to_status;
+  order.workflow_status = workflowStatusFromLegacyStatus(input.to_status);
+  order.exception_status = undefined;
+  order.completed_at = undefined;
+  order.delivered_at = undefined;
+  order.updated_at = now;
+  extraEvents.unshift({
+    id: `evt_terminal_${input.idempotency_key}`,
+    order_id: id,
+    event_type: "status_changed",
+    payload: { action: "terminal_reopen", from, to: input.to_status, reason: input.reason },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  return saveMockTerminalResult(input.idempotency_key, request.fingerprint!, order);
+}
+
+export async function voidOrder(
+  id: string,
+  input: VoidOrderInput,
+  operator: MockOperator = "前台",
+): Promise<OrderTerminalOperationResult> {
+  const request = readMockTerminalRequest(id, input, "void", input, operator);
+  if (request.replay) return request.replay;
+  const order = request.order!;
+  if (input.confirm_public_no.trim() !== order.public_no) throw new Error("输入的工单号不一致");
+  if (order.is_paid || order.deposit_amount > 0 || order.quotation_amount > order.balance_amount) {
+    throw new Error("存在收款或定金证据，必须先完成财务冲销/退款");
+  }
+  const now = new Date().toISOString();
+  order.record_state = "voided";
+  order.voided_at = now;
+  order.void_reason = input.reason.trim();
+  order.deleted_at = now;
+  order.updated_at = now;
+  extraEvents.unshift({
+    id: `evt_terminal_${input.idempotency_key}`,
+    order_id: id,
+    event_type: "note",
+    payload: { action: "terminal_void", reason: input.reason },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  return saveMockTerminalResult(input.idempotency_key, request.fingerprint!, order);
 }
 
 // POST /api/orders/[id]/notify

@@ -38,15 +38,22 @@ type GroupableOrder = Pick<
   | "public_no"
   | "status"
   | "workflow_status"
+  | "workflow_bucket"
   | "parts_status"
   | "notify_status"
   | "exception_status"
+  | "record_state"
+  | "deleted_at"
   | "created_at"
 >;
 
 export function getOrderResultGroup(order: GroupableOrder): OrderResultGroup {
   if (isOrderArchivedForQueue(order)) {
-    return order.status === "cancelled" || order.exception_status === "cancelled"
+    return order.status === "cancelled" ||
+      order.workflow_bucket === "cancelled" ||
+      order.exception_status === "cancelled" ||
+      order.record_state === "voided" ||
+      Boolean(order.deleted_at)
       ? "cancelled"
       : "completed";
   }

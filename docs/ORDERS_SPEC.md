@@ -605,3 +605,9 @@ import { fadeUp, stagger } from "@/lib/motion";
 ---
 
 > **复制后第一件事**：运行 `pnpm dev` → 打开 `/orders` → 切换 6 个 Tab → 任意工单点进详情 → 切换 5 个 Tab → 触发流转/通知 toast → 移动端 viewport 验证抽屉筛选与批量操作条。全部通过即视为对齐成功。
+
+---
+
+## 13. Current lifecycle contract pointer (2026-07-16)
+
+This historical snapshot is not the current authority for terminal-order or customer-finance behavior. Use active `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`, backed by `TASK-20260716-003-customer-finance-order-correction-plan`, for capabilities, changed-fields-only updates, correction/reopen/Owner void, payment eligibility, audit, tenant boundaries and rollback.

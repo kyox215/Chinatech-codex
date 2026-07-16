@@ -217,6 +217,118 @@ describe("customer repository tenant write boundaries", () => {
   });
 });
 
+describe("customer v3 pagination compatibility", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("falls back to v2 only when the v3 function is absent", async () => {
+    mocks.supabase.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: "PGRST202",
+          message:
+            "Could not find the function public.repairdesk_customer_list_page_v3 in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({ data: customerPageResult(), error: null });
+
+    await expect(listCustomersPage({}, ownerActor())).resolves.toMatchObject({ total: 1 });
+    expect(mocks.supabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      "repairdesk_customer_list_page_v2",
+      expect.objectContaining({ p_store_id: "store_1" }),
+    );
+  });
+
+  it("fails closed when the v3 function reports a runtime error", async () => {
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: "P0001", message: "v3 aggregate invariant failed" },
+    });
+
+    await expect(listCustomersPage({}, ownerActor())).rejects.toThrow(
+      "v3 aggregate invariant failed",
+    );
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed when the v3 response violates its contract", async () => {
+    mocks.supabase.rpc.mockResolvedValueOnce({ data: { items: [] }, error: null });
+
+    await expect(listCustomersPage({}, ownerActor())).rejects.toThrow("v3 数据契约无效");
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a forged unpaid aggregate filter and redacts finance for technicians", async () => {
+    mocks.supabase.rpc.mockResolvedValueOnce({ data: customerPageResult(), error: null });
+
+    const result = await listCustomersPage({ work: "unpaid" }, storeActor);
+
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_customer_list_page_v3",
+      expect.objectContaining({ p_work_filter: "all" }),
+    );
+    expect(result.stats.unpaid).toBe(0);
+    expect(result.stats.financeRedacted).toBe(true);
+    expect(result.items[0]).toMatchObject({ finance_redacted: true });
+    expect(result.items[0]).not.toHaveProperty("lifetime_quoted_amount");
+    expect(result.items[0]).not.toHaveProperty("outstanding_amount");
+  });
+});
+
+function ownerActor(): AuditActor {
+  return {
+    ...storeActor,
+    id: "staff_owner",
+    storeRole: "owner",
+    role: "owner",
+  };
+}
+
+function customerPageResult() {
+  return {
+    items: [
+      {
+        id: "customer_1",
+        name: "Cliente",
+        phone_e164: "+39000000000",
+        phone_raw: "39000000000",
+        contact_phones: [],
+        order_count: 1,
+        valid_order_count: 1,
+        active_order_count: 1,
+        lifetime_quoted_amount: 90,
+        outstanding_amount: 90,
+        total_spent: 90,
+        unpaid_amount: 90,
+        devices: [],
+        tags: [],
+        next_followup_at: null,
+        consent_marketing: false,
+        created_at: "2026-07-01T00:00:00.000Z",
+        updated_at: "2026-07-01T00:00:00.000Z",
+      },
+    ],
+    total: 1,
+    page: 1,
+    pageSize: 50,
+    pageCount: 1,
+    tags: [],
+    stats: {
+      total: 1,
+      repeat: 0,
+      activeRepairs: 1,
+      unpaid: 1,
+      withDevices: 0,
+      dueFollowups: 0,
+      marketable: 0,
+    },
+  };
+}
+
 function createSupabaseQuery(result: { data: unknown; error: unknown }) {
   const query = {
     ...result,

@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { OrderListItem } from "@/lib/repairdesk/types";
 
-import { buildCustomerOrderFinanceSummary } from "./customer-order-state";
+import {
+  buildCustomerOrderFinanceSummary,
+  isCustomerOrderBillable,
+  isCustomerOrderCancelled,
+  isCustomerOrderClosed,
+} from "./customer-order-state";
 
 function order(overrides: Partial<OrderListItem> = {}) {
   return {
@@ -43,5 +48,43 @@ describe("customer order finance contract", () => {
     expect(summary.validOrderCount).toBe(0);
     expect(summary.lifetimeQuotedAmount).toBe(0);
     expect(summary.outstandingAmount).toBe(0);
+  });
+});
+
+describe("customer order state parity", () => {
+  it("keeps legacy completed terminal even when canonical workflow is stale", () => {
+    const order = { status: "completed" as const, workflow_status: "repair" as const };
+
+    expect(isCustomerOrderClosed(order)).toBe(true);
+    expect(isCustomerOrderBillable(order)).toBe(true);
+  });
+
+  it("recognizes custom done and cancelled workflow buckets", () => {
+    const done = {
+      status: "repairing" as const,
+      workflow_status: "repair" as const,
+      workflow_bucket: "done",
+    } as const;
+    const cancelled = {
+      status: "repairing" as const,
+      workflow_status: "repair" as const,
+      workflow_bucket: "cancelled",
+    } as const;
+
+    expect(isCustomerOrderClosed(done)).toBe(true);
+    expect(isCustomerOrderBillable(done)).toBe(true);
+    expect(isCustomerOrderCancelled(cancelled)).toBe(true);
+    expect(isCustomerOrderClosed(cancelled)).toBe(true);
+    expect(isCustomerOrderBillable(cancelled)).toBe(false);
+  });
+
+  it("treats voided and soft-deleted rows as cancelled and non-billable", () => {
+    expect(isCustomerOrderBillable({ status: "repairing", record_state: "voided" })).toBe(false);
+    expect(
+      isCustomerOrderBillable({
+        status: "repairing",
+        deleted_at: "2026-07-16T20:00:00.000Z",
+      }),
+    ).toBe(false);
   });
 });

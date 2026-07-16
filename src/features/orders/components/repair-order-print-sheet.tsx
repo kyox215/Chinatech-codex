@@ -29,6 +29,7 @@ export function RepairOrderPrintSheet({
 }) {
   const { order, customer, device } = data;
   const cancelled = isOrderCancelledForPayment(order);
+  const financeRedacted = Boolean(order.finance_redacted);
   const storeProfile = buildStorePrintProfile(storeSettings);
   const snapshot = order.device_snapshot;
   const deviceBrand = snapshot?.brand || device?.brand || order.device_label.split(" ")[0] || "-";
@@ -83,7 +84,7 @@ export function RepairOrderPrintSheet({
                 <thead>
                   <tr>
                     <th>Descrizione</th>
-                    <th>Importo</th>
+                    {!financeRedacted ? <th>Importo</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -95,7 +96,9 @@ export function RepairOrderPrintSheet({
                           <span>{translatePrintableText(item.note)}</span>
                         ) : null}
                       </td>
-                      <td>{item.price > 0 ? formatEuro(item.price) : "-"}</td>
+                      {!financeRedacted ? (
+                        <td>{item.price > 0 ? formatEuro(item.price) : "-"}</td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -110,20 +113,20 @@ export function RepairOrderPrintSheet({
               />
             </PrintSection>
 
-            {order.finance_redacted ? (
-              <PrintSection title="Importi">
-                <PrintLine label="Importi" value="Riservati" />
-              </PrintSection>
-            ) : (
-              <PrintSection title="Importi (EUR)">
-                <PrintLine label="Totale ordine" value={formatEuro(order.quotation_amount)} />
-                <PrintLine label="Acconto" value={formatEuro(order.deposit_amount)} />
-                <PrintLine
-                  label={cancelled ? "Saldo alla cancellazione (non dovuto)" : "Saldo dovuto"}
-                  value={formatEuro(order.balance_amount)}
-                />
-              </PrintSection>
-            )}
+            <PrintSection title="Importi (EUR)">
+              {financeRedacted ? (
+                <PrintLine label="Accesso" value="Importi riservati" />
+              ) : (
+                <>
+                  <PrintLine label="Totale ordine" value={formatEuro(order.quotation_amount)} />
+                  <PrintLine label="Acconto" value={formatEuro(order.deposit_amount)} />
+                  <PrintLine
+                    label={cancelled ? "Saldo alla cancellazione (non dovuto)" : "Saldo dovuto"}
+                    value={formatEuro(order.balance_amount)}
+                  />
+                </>
+              )}
+            </PrintSection>
 
             <PrintSection title="Servizio">
               <PrintLine label="Tecnico" value={order.technician_name} />

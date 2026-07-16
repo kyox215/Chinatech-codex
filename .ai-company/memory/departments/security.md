@@ -3,7 +3,7 @@ schema_version: 1
 department: security
 status: active
 owner: Security Department / Integration Lead
-last_verified_at: 2026-07-16
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -40,12 +40,14 @@ as owner of this file.
 - `TASK-20260712-005-buyback-guided-evidence` verifies local fail-closed controls for sensitive buyback evidence: Sales cannot capture/read/finalize; Owner/Manager can; full document numbers are never persisted; private evidence is tenant/item scoped with short-lived audited access; signature hashes bind legal/device/seller/amount/payment/declarations; generic write/payment/status bypasses are denied; hosted JSON is capped at 4.4MB after 2.4MB client compression.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` supersedes the active production boundary while migration/privacy gates are open: all roles are denied buyback attachments, restricted kinds, finalize and legacy evidence apply at router and repository layers. Existing allowlisted historical markers are retained read-only, while new client-supplied evidence markers are stripped. UI removal is only a projection of the authoritative server deny.
 - `TASK-20260714-002-buyback-supabase-schema-staging` adds only dormant production objects: agreement RLS is enabled with no access policy, the private bucket has no upload/read policy, and `public`/`anon`/`authenticated`/`service_role` retain no agreement-table or finalize-RPC runtime access. This fail-closed schema state does not authorize identity/signature collection.
+- `TASK-20260716-003-customer-finance-order-correction-plan` enforces terminal-order authority in router/repository/database layers: Manager/Owner may correct or reopen, Owner alone may void, and browser roles cannot execute terminal RPCs. `order_terminal_operations` intentionally uses RLS with no policy while only `service_role` has RPC EXECUTE; the UI is only a projection. Finance-restricted customer reads omit amounts rather than returning misleading zeros.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Terminal mutation authorization | Backend + Data + Frontend | Store membership/role, allowed fields, expected version, reason and idempotency are server/DB enforced; immutable evidence is retained | Deny browser RPC execution and generic-update/batch bypasses; zero write on failure | TASK-20260716-003-customer-finance-order-correction-plan E-015, E-024, E-025 | verified |
 
 ## SOPs and checklists
 
@@ -92,3 +94,4 @@ as owner of this file.
 | 2026-07-14 | Activated production default-deny containment for all sensitive buyback paths and preserved the separate migration/legal approval gate | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Security reviewer + Integration Lead | active |
 | 2026-07-14 | Verified dormant production schema remains empty and inaccessible to every runtime role after migration apply | TASK-20260714-002-buyback-supabase-schema-staging | Security reviewer + Integration Lead | scoped_verified |
 | 2026-07-16 | Verified actor-scoped Dashboard priority, compact DTO denylist and cached-data permission-revocation hiding | TASK-20260716-001-dashboard-handoff-priority | Security reviewer + Integration Lead | active |
+| 2026-07-16 | Verified service-role-only terminal RPCs, layered bypass denial and finance-redacted customer projection | TASK-20260716-003-customer-finance-order-correction-plan | Security reviewer + Integration Lead | scoped_verified |

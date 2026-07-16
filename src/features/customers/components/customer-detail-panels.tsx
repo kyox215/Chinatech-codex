@@ -253,7 +253,7 @@ export function CustomerOrdersPanel({
                     />
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right font-mono tabular-nums">
-                    {item.order.finance_redacted ? (
+                    {item.financeRedacted || item.order.finance_redacted ? (
                       <div className="text-[10px] text-muted-foreground">金额受限</div>
                     ) : (
                       <>
