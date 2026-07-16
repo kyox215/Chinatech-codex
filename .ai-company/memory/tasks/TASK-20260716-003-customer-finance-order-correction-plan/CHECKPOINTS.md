@@ -72,3 +72,17 @@
 - **Next:** Commit this checkpoint with the authenticated Owner-linked Vercel email, push non-force, verify exact-SHA READY plus protected smoke/runtime errors, then create final closeout.
 - **Evidence:** `EVIDENCE.md` E-026/E-027; Vercel deployment API `readyStateReason`; no build-log events; production deployment list still identifies `184672fe` as `READY`.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-16T23:01:41Z — Vercel production deployment dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq is READY for exact SHA e83527379ddc048940ac628fb72821d60b2c8c91; production aliases are promoted; anonymous login/protected-route/API smoke passed; scoped runtime errors and error/fatal logs are empty; CEO report and release memory are drafted; diff-check and agents:check pass.
+
+- **Phase:** implementation
+- **Completed/current state:** Vercel production deployment dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq is READY for exact SHA e83527379ddc048940ac628fb72821d60b2c8c91; production aliases are promoted; anonymous login/protected-route/API smoke passed; scoped runtime errors and error/fatal logs are empty; CEO report and release memory are drafted; diff-check and agents:check pass.
+- **Next:** Run governance close-task, inspect the closed task and idle active context, revalidate the final closeout diff, commit with the Owner-linked identity, push non-force to main, and verify origin/main.
+- **Evidence:** `EVIDENCE.md` E-028..E-032; Vercel exact deployment metadata/build logs; anonymous HTTP auth-boundary checks; grouped runtime-error and exact-deployment error/fatal-log observation; `CEO_REPORT.md`; `git diff --check`; `npm run agents:check`.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-16T23:02:54Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 客户历史/有效财务口径、双维修/付款状态、字段级订单权限、原子终态纠错/重开/Owner 安全作废及 CRM 同店完整性已实施；四份生产迁移已应用后检，应用已推送 main，exact SHA e8352737 由 Vercel dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq 生产 READY，匿名授权边界和运行时观察通过。
+- **Residual risks:** 完整历史 migration reset 与 PITR/恢复演练仍是独立既有债务；无 Supabase access token 时使用的 clone/replay 是一次 bounded exception 而非通用 SOP；/orders/new 既有 mock hydration/ECONNRESET 日志噪音仍为 P2。
+- **Follow-up:** Operations/Platform 另建恢复基线任务认证全历史 reset/PITR；角色或迁移流程变化时重新执行真实角色/官方 CLI 门禁；Frontend/QA 可独立清理既有 mock 日志噪音。
+- **Closed by:** CEO Agent / RepairDesk Integration Lead

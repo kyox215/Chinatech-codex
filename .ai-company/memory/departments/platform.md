@@ -3,7 +3,7 @@ schema_version: 1
 department: platform
 status: active
 owner: Platform Department / Integration Lead
-last_verified_at: 2026-07-13
+last_verified_at: 2026-07-17
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -29,12 +29,13 @@ as owner of this file.
 - GitHub CI runs lint, typecheck, test, and build; E2E is manual.
 - Local sandbox can block Turbopack build port binding; unsandboxed rerun passed on 2026-06-19.
 - TASK-009 production state was scoped-verified on 2026-07-10: `origin/main=cee5a1b4`, Vercel deployment `dpl_CehRUKZ7WhybvvJhbaFFQZjwnwKA` is Ready on production aliases, and the first 20-minute error scan returned no entries.
+- `TASK-20260716-003-customer-finance-order-correction-plan` scoped-verified Vercel production deployment `dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq`: exact application SHA `e83527379ddc048940ac628fb72821d60b2c8c91`, `READY`, both production domains promoted, anonymous auth-boundary smoke passed, and no runtime error cluster or error/fatal log appeared in the observed 30-minute window. The earlier identity-blocked attempt made no runtime change.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
-| TBD | TBD | TBD | TBD | — | unknown |
+| Exact-SHA application release | Operations + QA + Integration Lead | Verify commit metadata, `READY`, production aliases, protected-route/API behavior and scoped runtime errors | Keep prior aliases when blocked/failed; forward-fix or deliberately roll back only after compatibility review | TASK-20260716-003-customer-finance-order-correction-plan E-027..E-031 | scoped_verified |
 
 ## SOPs and checklists
 
@@ -68,3 +69,4 @@ as owner of this file.
 | 2026-06-19 | Initial RepairDesk platform baseline synchronized | TASK-20260619-003 | Integration Lead | active |
 | 2026-07-10 | Added scoped production deployment evidence and serialized-release requirement | TASK-20260710-009 | Integration Lead | active |
 | 2026-07-13 | Recorded owner-approved direct-main code release after agents/lint/typecheck, 898 tests, Webpack build, responsive browser matrix and independent QA/UX PASS; no DB or manual deployment action included | TASK-20260713-002-order-search-grouped-results | Integration Lead | release_approved |
+| 2026-07-17 | Recorded Owner-linked exact-SHA Vercel production release, contained identity failure, auth-boundary smoke and clean runtime observation | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + release reviewers | scoped_verified |

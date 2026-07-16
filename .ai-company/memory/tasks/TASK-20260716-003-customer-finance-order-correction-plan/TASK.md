@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260716-003-customer-finance-order-correction-plan"
 title: "客户金额口径、完成单纠错与订单安全作废实施"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["product", "ux", "frontend", "api", "data", "security", "qa", "documentation", "release"]
 created_at: "2026-07-16T12:20:23Z"
-updated_at: "2026-07-16T22:51:19Z"
+updated_at: "2026-07-16T23:02:54Z"
+closed_at: "2026-07-16T23:02:54Z"
 ---
 # Task — 客户金额口径、完成单纠错与订单安全作废实施
 
@@ -62,7 +63,7 @@ updated_at: "2026-07-16T22:51:19Z"
 - [x] 已作废记录保留 ledger/events/attachments/messages/audit，并从有效客户汇总排除。
 - [x] CRM interaction/followup 的订单引用完整性已用同店、跨店、删除和空店铺断言验证。
 - [x] lint、typecheck、unit/integration、102 条 pgTAP、build、7 条浏览器响应式回归和安全复核通过。
-- [ ] migration parity/替代 dry-run、生产应用后 metadata/data sanity、scoped commit 和 main push 有证据。
+- [x] migration parity/替代 dry-run、生产应用后 metadata/data sanity、scoped commit、main push 和 exact-SHA 生产部署有证据。
 
 ## Risk and authority
 

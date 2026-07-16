@@ -7,11 +7,12 @@ Deliver one compatible release that fixes the customer finance presentation cont
 ## Baseline
 
 - Original code baseline: `origin/main@6717932e316cbe5054709646ca7ea1087f517a49`.
-- Rebased release baseline: `origin/main@184672fef090a6fa5d467b5389daec736662af63`; candidate commit `d6f67569d39ed579c5794939b3534682462ba230` plus final evidence/doc amendment.
+- Rebased release baseline: `origin/main@184672fef090a6fa5d467b5389daec736662af63`; application commit `66a258591cea3da743829ee6d0873ba54966e56d`; Owner-linked release checkpoint `e83527379ddc048940ac628fb72821d60b2c8c91`.
 - Worktree: `/private/tmp/repairdesk-customer-finance-correction-20260716`.
 - Branch: `codex/customer-finance-correction-20260716`.
 - Shared checkout is intentionally not used for business writes.
 - Production validation uses a current-schema PG17 clone because unrelated historical migrations are not globally replayable. The exact release chain `20260716175044 → 20260716175056 → 20260716221119 → 20260716221139 → 20260716221159 → 20260716221448` was replayed successfully; the final four task versions were then serialized, applied and postchecked in production.
+- Vercel production deployment `dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq` built exact SHA `e83527379ddc048940ac628fb72821d60b2c8c91`, reached `READY`, promoted `chinatech.in`/`www.chinatech.in`, passed anonymous auth-boundary smoke and had no new runtime error cluster or error/fatal log in the observed window.
 
 ## Product contract
 

@@ -15,7 +15,7 @@
 - Dedicated audited terminal correction/reopen and Owner-only soft void.
 - No normal hard purge.
 
-Implementation, independent review, fresh PG17 migration replay, 102 pgTAP assertions, 1021 unit/integration tests, build and responsive browser evidence support these facts. Production versions `20260716221119`, `20260716221139`, `20260716221159` and `20260716221448` are applied and postchecked on `ChinaTech_date`; application push/deployment proof remains pending.
+Implementation, independent review, fresh PG17 migration replay, 102 pgTAP assertions, 1021 unit/integration tests, build and responsive browser evidence support these facts. Production versions `20260716221119`, `20260716221139`, `20260716221159` and `20260716221448` are applied and postchecked on `ChinaTech_date`; application SHA `e83527379ddc048940ac628fb72821d60b2c8c91` is live through Vercel deployment `dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq` and passed anonymous auth-boundary/runtime observation.
 
 ## Long-term promotion
 
