@@ -169,6 +169,7 @@ import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-sta
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyAllowsChange,
   deviceCustodyAllowsStatus,
   deviceCustodyBlocksStatus,
   deviceCustodyLabel,
@@ -859,43 +860,16 @@ export function OrderDetailScreen({
   const canUpdateCustody = Boolean(shell.activeStore?.role && shell.activeStore.role !== "viewer");
   const canCorrectTerminalCustody =
     shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager";
-  const custodyReasonRequired =
-    custodyStatus === null || order.status === "completed" || order.status === "cancelled";
+  const custodyReasonRequired = custodyStatus === null || order.status === "completed" || cancelled;
   const signatureAttachments = (data.attachments ?? []).filter(
     (attachment) => attachment.kind === "signature",
   );
   const photoAttachments = (data.attachments ?? []).filter(
     (attachment) => attachment.mime_type.startsWith("image/") && attachment.kind !== "signature",
   );
-
-  return (
-    <div
-      data-order-detail-root="true"
-      data-order-detail-surface={surface}
-      className={cn(
-        "relative min-w-0 max-w-full overflow-x-clip",
-        surface === "page"
-          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1200px] md:px-6"
-          : cn(detailWorkspace.root, "flex h-full flex-col"),
-      )}
-    >
-      {surface === "dialog" && onClose ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="absolute right-2 top-2 z-40 size-8 rounded-full bg-card/95 shadow-[var(--shadow-card)]"
-          onClick={onClose}
-          aria-label="关闭工单详情"
-        >
-          <X className="size-4" />
-        </Button>
-      ) : null}
-      {surface === "dialog" &&
-      order.status === "cancelled" &&
-      order.record_state !== "voided" &&
-      custodyStatus === DEVICE_CUSTODY_WITH_SHOP &&
-      !order.delivered_at ? (
+  const renderCustodyPanel = () => (
+    <>
+      {cancelled && custodyStatus === DEVICE_CUSTODY_WITH_SHOP && !order.delivered_at ? (
         <section
           className={cn(
             "mb-2 flex min-w-0 items-center gap-2 border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground md:rounded-lg",
@@ -935,6 +909,7 @@ export function OrderDetailScreen({
       <OrderDeviceCustodyCard
         order={order}
         events={events}
+        workflowBucket={getWorkflowStatus(workflow, order.status)?.bucket}
         role={shell.activeStore?.role}
         pending={custodyUpdate.isPending || cancelledReturn.isPending}
         onRequestChange={(target) => {
@@ -950,6 +925,37 @@ export function OrderDetailScreen({
         }}
         className="mb-2"
       />
+    </>
+  );
+
+  return (
+    <div
+      data-order-detail-root="true"
+      data-order-detail-surface={surface}
+      className={cn(
+        "relative min-w-0 max-w-full overflow-x-clip",
+        surface === "page"
+          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1200px] md:px-6"
+          : cn(detailWorkspace.root, "flex h-full flex-col"),
+      )}
+    >
+      {surface === "dialog" && onClose ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="absolute right-2 top-2 z-40 size-8 rounded-full bg-card/95 shadow-[var(--shadow-card)]"
+          onClick={onClose}
+          aria-label="关闭工单详情"
+        >
+          <X className="size-4" />
+        </Button>
+      ) : null}
+      {surface === "page" ? (
+        <div className="hidden md:block">{renderCustodyPanel()}</div>
+      ) : (
+        renderCustodyPanel()
+      )}
       {surface === "page" ? (
         <MobileOrderDetailView
           data={data}
@@ -959,39 +965,12 @@ export function OrderDetailScreen({
           storeSettings={storeSettings}
           workflow={workflow}
           topNotice={
-            <>
-              {order.status === "cancelled" &&
-              order.record_state !== "voided" &&
-              custodyStatus === DEVICE_CUSTODY_WITH_SHOP &&
-              !order.delivered_at ? (
-                <section className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground">
-                  <PackageCheck className="size-4 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold">设备退还尚未确认</p>
-                    <p className="truncate text-[11px] opacity-80">
-                      该工单已移入历史，退还提醒仍保留。
-                    </p>
-                  </div>
-                  {data.capabilities?.canConfirmCancelledReturn ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 shrink-0 bg-background/80 text-xs"
-                      onClick={() => setCancelledReturnOpen(true)}
-                    >
-                      确认已退还
-                    </Button>
-                  ) : null}
-                </section>
-              ) : null}
-              <OrderTerminalActions
-                detail={data}
-                workflow={workflow}
-                onCompleted={invalidate}
-                className="mb-2"
-              />
-            </>
+            <OrderTerminalActions
+              detail={data}
+              workflow={workflow}
+              onCompleted={invalidate}
+              className="mb-2"
+            />
           }
           transitionPending={transition.isPending}
           onTransition={(to, reason) => transition.mutate({ to, reason })}
@@ -1068,6 +1047,7 @@ export function OrderDetailScreen({
               ? (membershipId) => assigneeUpdate.mutate(membershipId)
               : undefined
           }
+          custodyPanel={renderCustodyPanel()}
           className="md:hidden"
         />
       ) : null}
@@ -1296,16 +1276,14 @@ export function OrderDetailScreen({
       />
       <OrderCustodyChangeOverlay
         open={custodyDialogTarget !== null}
+        current={custodyStatus}
         target={custodyDialogTarget}
         reason={custodyReason}
         reasonRequired={custodyReasonRequired}
         pending={custodyUpdate.isPending}
         canSubmit={
           canUpdateCustody &&
-          !(
-            (order.status === "completed" || order.status === "cancelled") &&
-            !canCorrectTerminalCustody
-          )
+          !((order.status === "completed" || cancelled) && !canCorrectTerminalCustody)
         }
         onReasonChange={setCustodyReason}
         onOpenChange={(open) => {
@@ -1409,6 +1387,7 @@ function CancelledReturnOverlay({
 
 function OrderCustodyChangeOverlay({
   open,
+  current,
   target,
   reason,
   reasonRequired,
@@ -1419,6 +1398,7 @@ function OrderCustodyChangeOverlay({
   onConfirm,
 }: {
   open: boolean;
+  current: DeviceCustodyStatus | null;
   target: DeviceCustodyStatus | null;
   reason: string;
   reasonRequired: boolean;
@@ -1433,7 +1413,9 @@ function OrderCustodyChangeOverlay({
   const description =
     target === DEVICE_CUSTODY_WITH_SHOP
       ? "确认后设备可进入检测、维修或取机流程。"
-      : "确认后会记录交付时间，并清除工单中的手机密码、PIN 和解锁图案。";
+      : current === DEVICE_CUSTODY_WITH_SHOP
+        ? "确认后会记录交付时间，并清除工单中的手机密码、PIN 和解锁图案。"
+        : "补录为客户持有，不会生成历史交付时间；工单中的解锁信息会保持清空。";
   const body = (
     <div className="grid min-w-0 gap-3 p-4">
       <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
@@ -1514,6 +1496,7 @@ function OrderCustodyChangeOverlay({
 function OrderDeviceCustodyCard({
   order,
   events,
+  workflowBucket,
   role,
   pending,
   onRequestChange,
@@ -1522,6 +1505,7 @@ function OrderDeviceCustodyCard({
 }: {
   order: OrderDetail["order"];
   events: OrderEvent[];
+  workflowBucket?: string;
   role?: StoreRole;
   pending: boolean;
   onRequestChange: (target: DeviceCustodyStatus) => void;
@@ -1529,13 +1513,14 @@ function OrderDeviceCustodyCard({
   className?: string;
 }) {
   const status = deviceCustodyStatusFromOrder(order);
-  const isTerminal = order.status === "completed" || order.status === "cancelled";
+  const cancelled = isOrderCancelledForPayment(order);
+  const isTerminal = order.status === "completed" || cancelled;
   const canUpdate = Boolean(role && role !== "viewer");
   const canCorrectTerminal = role === "owner" || role === "manager";
   const latestHandoff = getLatestCustodyHandoff(events);
   const description =
     status === DEVICE_CUSTODY_WITH_SHOP
-      ? order.status === "cancelled"
+      ? cancelled
         ? "工单已取消，但设备仍在店内；退还后必须确认交接。"
         : "设备当前由门店保管，可登记解锁信息并进入检测或维修流程。"
       : status === DEVICE_CUSTODY_WITH_CUSTOMER
@@ -1545,37 +1530,33 @@ function OrderDeviceCustodyCard({
         : "这是一张旧工单，尚未记录设备是否留在门店；继续关键流程前必须补录。";
 
   const actions: ReactNode[] = [];
+  const allowsTarget = (target: DeviceCustodyStatus) =>
+    deviceCustodyAllowsChange({
+      current: status,
+      target,
+      status: order.status,
+      exceptionStatus: order.exception_status,
+      workflowBucket,
+    });
   if (status === null && canUpdate && (!isTerminal || canCorrectTerminal)) {
     actions.push(
-      <Button
-        key="backfill-shop"
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-8 text-xs"
-        disabled={pending}
-        onClick={() => onRequestChange(DEVICE_CUSTODY_WITH_SHOP)}
-      >
-        补录为留店
-      </Button>,
-      <Button
-        key="backfill-customer"
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-8 text-xs"
-        disabled={pending}
-        onClick={() => onRequestChange(DEVICE_CUSTODY_WITH_CUSTOMER)}
-      >
-        补录为未留店
-      </Button>,
+      ...([DEVICE_CUSTODY_WITH_SHOP, DEVICE_CUSTODY_WITH_CUSTOMER] as const)
+        .filter(allowsTarget)
+        .map((target) => (
+          <Button
+            key={`backfill-${target}`}
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={pending}
+            onClick={() => onRequestChange(target)}
+          >
+            {target === DEVICE_CUSTODY_WITH_SHOP ? "补录为留店" : "补录为未留店"}
+          </Button>
+        )),
     );
-  } else if (
-    order.status === "cancelled" &&
-    status === DEVICE_CUSTODY_WITH_SHOP &&
-    !order.delivered_at &&
-    canUpdate
-  ) {
+  } else if (cancelled && status === DEVICE_CUSTODY_WITH_SHOP && !order.delivered_at && canUpdate) {
     actions.push(
       <Button
         key="cancelled-return"
@@ -1592,23 +1573,24 @@ function OrderDeviceCustodyCard({
   } else if (!isTerminal && canUpdate && status) {
     const target =
       status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
-    actions.push(
-      <Button
-        key="custody-toggle"
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-8 text-xs"
-        disabled={pending}
-        onClick={() => onRequestChange(target)}
-      >
-        {target === DEVICE_CUSTODY_WITH_SHOP ? "确认收机" : "确认交还客人"}
-      </Button>,
-    );
+    if (allowsTarget(target))
+      actions.push(
+        <Button
+          key="custody-toggle"
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          disabled={pending}
+          onClick={() => onRequestChange(target)}
+        >
+          {target === DEVICE_CUSTODY_WITH_SHOP ? "确认收机" : "确认交还客人"}
+        </Button>,
+      );
   } else if (isTerminal && canCorrectTerminal && status) {
     const target =
       status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
-    if (!(order.status === "completed" && target === DEVICE_CUSTODY_WITH_SHOP)) {
+    if (allowsTarget(target)) {
       actions.push(
         <Button
           key="terminal-correction"
@@ -1665,9 +1647,16 @@ function OrderDeviceCustodyCard({
               已结束工单需由店主或经理填写说明后补录。
             </p>
           ) : null}
-          {status !== DEVICE_CUSTODY_WITH_SHOP && deviceCustodyBlocksStatus(order.status) ? (
+          {status !== DEVICE_CUSTODY_WITH_SHOP &&
+          deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
             <p className="mt-1 text-[10px] font-semibold text-status-danger-foreground">
               当前维修流程与设备保管状态冲突，请先核对并确认收机。
+            </p>
+          ) : null}
+          {status === DEVICE_CUSTODY_WITH_SHOP &&
+          deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
+            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+              当前流程需要设备留在门店；请先完成、取消或流转到允许交还的阶段。
             </p>
           ) : null}
         </div>
@@ -2364,6 +2353,7 @@ function MobileOrderDetailView({
   assigneeOptions,
   assigneePending,
   onAssigneeChange,
+  custodyPanel,
   className,
 }: {
   data: OrderDetail;
@@ -2412,6 +2402,7 @@ function MobileOrderDetailView({
   assigneeOptions: OrderAssigneeOption[];
   assigneePending: boolean;
   onAssigneeChange?: (membershipId: string | null) => void;
+  custodyPanel: ReactNode;
   className?: string;
 }) {
   const { order, customer } = data;
@@ -2514,6 +2505,7 @@ function MobileOrderDetailView({
       />
 
       {topNotice}
+      {custodyPanel}
 
       {approvalDecisionAvailable ? (
         <section className={cn(mobileDetailCardClass, "border-primary/25 bg-primary/5")}>

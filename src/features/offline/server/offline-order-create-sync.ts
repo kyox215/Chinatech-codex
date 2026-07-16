@@ -19,6 +19,7 @@ import type {
   RepairDeskOfflineOrderCreateSyncInput,
   RepairDeskOfflineServerResultCode,
 } from "./offline-sync-contract";
+import { isRepairDeskOfflineSyncEnabled } from "../model/offline-sync-feature";
 
 const rpcResultSchema = z
   .object({
@@ -45,8 +46,12 @@ export async function syncRepairDeskOfflineOrderCreate(
   options: {
     getSecret?: () => string;
     rpc?: OfflineCreateRpc;
+    isEnabled?: () => boolean;
   } = {},
 ): Promise<RepairDeskOfflineOrderCreateSyncResult> {
+  if (!(options.isEnabled ?? isRepairDeskOfflineSyncEnabled)()) {
+    throw new ForbiddenError("离线工单同步尚未启用");
+  }
   const parsed = repairDeskOfflineOrderCreateSyncSchema.parse(input);
   assertRepairDeskOfflineOrderCreatePermission(actor);
   if (!actor.id || !actor.storeId || actor.isSystem) {

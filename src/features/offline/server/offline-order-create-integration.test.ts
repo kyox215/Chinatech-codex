@@ -59,7 +59,11 @@ describe("queued offline order create integration", () => {
         },
       };
     });
-    const syncOptions = { getSecret: () => "integration-offline-secret-001", rpc };
+    const syncOptions = {
+      isEnabled: () => true,
+      getSecret: () => "integration-offline-secret-001",
+      rpc,
+    };
     const actor: AuditActor = {
       id: scope.userId,
       displayName: "Staff",

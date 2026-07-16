@@ -111,6 +111,28 @@ export function deviceCustodyAllowsStatus(
   return true;
 }
 
+export function deviceCustodyAllowsChange(input: {
+  current: DeviceCustodyStatus | null | undefined;
+  target: DeviceCustodyStatus;
+  status: string;
+  exceptionStatus?: string | null;
+  workflowBucket?: string | null;
+}) {
+  if (input.current === input.target) return false;
+  if (input.status === "completed" && input.target === DEVICE_CUSTODY_WITH_SHOP) return false;
+
+  const cancelled = input.status === "cancelled" || input.exceptionStatus === "cancelled";
+  if (
+    input.current === DEVICE_CUSTODY_WITH_SHOP &&
+    input.target === DEVICE_CUSTODY_WITH_CUSTOMER &&
+    (cancelled || deviceCustodyBlocksStatus(input.status, input.workflowBucket))
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export function normalizeUnlockForCustody(
   custodyStatus: DeviceCustodyStatus,
   unlock: DeviceUnlockInput | undefined,

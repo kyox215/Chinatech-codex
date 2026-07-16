@@ -51,7 +51,7 @@
 - 新建草稿、fingerprint、IndexedDB outbox、严格同步 schema 和幂等 HMAC 都包含显式保管状态。
 - outbox 保存 `expectedStoreId`；服务端在调用 RPC 前必须与 actor 的当前店铺一致，防止多标签切店串租户。
 - 普通离线草稿永不保存原始解锁值；含解锁秘密的表单不能进入同步队列。
-- 实际离线 replay 默认关闭。只有在两个发布门禁同时满足后才可设置：
+- 实际离线 replay 默认关闭；当前 migration 只安装返回 `blocked_operation` 的 fail-closed 占位 RPC，不激活离线建单。只有在独立离线 migration 重建并验证完整事务 RPC 后，才可同时设置：
   - `NEXT_PUBLIC_REPAIRDESK_OFFLINE_SYNC_ENABLED=1`；
   - 服务端 `REPAIRDESK_OFFLINE_SYNC_HMAC_SECRET` 为至少 16 字符的专用密钥，且离线操作表/RPC 迁移已先应用并验证。
 - 工单 XLSX v2 导出/导入支持保管状态；v1 保持向后兼容。数据导入只修正状态，不得伪造实物归还时间。
@@ -59,10 +59,11 @@
 ### 发布顺序
 
 1. 在 linked Supabase 确认当前 migration history 与 `repair_orders.id` / `order_events.order_id` 实际类型。
-2. 经 Owner 单独批准后执行 dry-run，再先应用 nullable 列、原子交接 RPC 和离线 replay 依赖。
-3. 验证旧行仍为 `NULL`、constraint/default/grants/RLS，并配置服务端 HMAC 密钥。
-4. 再发布应用；验证两种新建、收机/归还、取消/完成、离线 replay 和多店切换。
-5. 回滚应用时保留 expand 列和已写数据；数据库问题用 forward-fix，不自动删列或回填历史。
+2. 经 Owner 单独批准后执行 dry-run，再先应用 nullable 列、原子交接 RPC、导入兼容包装和 fail-closed 离线占位 RPC。
+3. 验证旧行仍为 `NULL`、constraint/default/grants/RLS；保持离线 flag 为 `0` 且不配置生产 HMAC。
+4. 再发布应用；验证两种新建、收机/归还、取消/完成与多店切换。离线 replay 不属于本次首发验证。
+5. 离线 replay 需另开生产任务：重建完整事务 RPC、linked dry-run、幂等/租户测试、配置 HMAC 后才能启用。
+6. 回滚应用时保留 expand 列和已写数据；数据库问题用 forward-fix，不自动删列或回填历史。
 
 > 这是一份「单文件、可复用、可交付给 Cursor 复制改整」的工单模块说明书。
 > 涵盖：业务定义、数据模型、状态机、API 契约、路由结构、UI 组件、页面布局、交互逻辑、文案、Token、动效与可访问性。

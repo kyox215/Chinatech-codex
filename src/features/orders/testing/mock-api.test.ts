@@ -702,6 +702,60 @@ describe("mock order inline editing workflow", () => {
     });
   });
 
+  it("does not hand a shop-held device back while a physical repair stage is active", async () => {
+    const id = await createMockOrder({ device_custody_status: "with_shop" });
+    const row = mockOrders.find((item) => item.id === id);
+    if (!row) throw new Error("fixture order missing");
+    row.status = "repairing";
+    row.workflow_status = "repair";
+    const current = await getOrder(id);
+
+    await expect(
+      updateOrderCustody(id, {
+        expected_updated_at: current.order.updated_at,
+        device_custody_status: "with_customer",
+        idempotency_key: "00000000-0000-4000-8000-000000000710",
+      }),
+    ).rejects.toThrow("当前流程需要设备留在门店");
+  });
+
+  it("uses the dedicated return flow for exception-only cancellation", async () => {
+    const id = await createMockOrder({ device_custody_status: "with_shop" });
+    const row = mockOrders.find((item) => item.id === id);
+    if (!row) throw new Error("fixture order missing");
+    row.status = "new";
+    row.exception_status = "cancelled";
+    row.workflow_status = "closed";
+    const current = await getOrder(id);
+    const owner = {
+      displayName: "Owner",
+      role: "owner" as const,
+      storeRole: "owner" as const,
+      storeId: "store_1",
+    };
+
+    await expect(
+      updateOrderCustody(
+        id,
+        {
+          expected_updated_at: current.order.updated_at,
+          device_custody_status: "with_customer",
+          idempotency_key: "00000000-0000-4000-8000-000000000711",
+          reason: "取消后退还",
+        },
+        owner,
+      ),
+    ).rejects.toThrow("请使用“确认设备已退还”");
+
+    await expect(
+      confirmCancelledOrderReturn(id, {
+        expectedUpdatedAt: current.order.updated_at,
+        idempotencyKey: "00000000-0000-4000-8000-000000000712",
+        operator: owner,
+      }),
+    ).resolves.toMatchObject({ ok: true, alreadyConfirmed: false });
+  });
+
   it("distinguishes delivered completion from never-received administrative closure", async () => {
     const shopId = await createMockOrder({ device_custody_status: "with_shop" });
     await transitionOrder(shopId, "completed", {

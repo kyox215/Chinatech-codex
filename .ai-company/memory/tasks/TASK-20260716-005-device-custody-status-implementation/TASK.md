@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "ARCH", "DATA", "DOC", "FLOW", "INT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-16T18:23:37Z"
-updated_at: "2026-07-16T21:18:03Z"
+updated_at: "2026-07-16T21:59:51Z"
 ---
 # Task — 设备留机与保管状态端到端实施
 
@@ -41,7 +41,7 @@ updated_at: "2026-07-16T21:18:03Z"
 ## Hard constraints
 
 - 主线程是唯一代码写入者；子 Agent 只读，不得 Git/DB/发布写入。
-- 当前 `main == origin/main@6717932e`；未提交内容均为同一留机规划任务，最终只暂存明确任务文件。
+- 实施分支已安全 rebase 到 `origin/main@184672fe`；最终只暂存明确任务文件，并在发布前再次 fetch。
 - 新列必须先 nullable add、再设置未来默认 `with_shop`；旧行保持 `NULL`，不设置 `NOT NULL` 或索引。
 - 不得把新列加入缺列静默剥离清单；数据库缺失时必须显式失败。
 - 服务端权限、租户隔离、状态门禁和解锁凭据清除是权威边界；UI 隐藏不算授权。
@@ -50,11 +50,11 @@ updated_at: "2026-07-16T21:18:03Z"
 
 ## Acceptance criteria
 
-- [ ] 新建工单可显式选择已留店或未留店，默认已留店且状态完整持久化
-- [ ] 工单详情可审计地确认收机、确认归还或补录，版本冲突和权限正确
-- [ ] 未留机订单不会产生虚假退还、交付、取机逾期、催取机或解锁凭据
-- [ ] 旧订单保持未知，不批量伪造历史；迁移可兼容并可回滚
-- [ ] 定向测试、lint、typecheck、全量 test、build、E2E 与截图证据通过
+- [x] 新建工单可显式选择已留店或未留店，默认已留店且状态完整持久化
+- [x] 工单详情可审计地确认收机、确认归还或补录，版本冲突和权限正确
+- [x] 未留机订单不会产生虚假退还、交付、取机逾期、催取机或解锁凭据
+- [x] 旧订单保持未知，不批量伪造历史；迁移兼容旧行并采用保留 nullable 列的应用回滚策略
+- [x] 定向测试、lint、typecheck、全量 test、build、E2E 与截图证据通过
 - [ ] 范围内变更安全集成并推送 main；生产迁移和部署按明确批准门禁执行
 
 ## Facts, assumptions, and unknowns
@@ -62,11 +62,12 @@ updated_at: "2026-07-16T21:18:03Z"
 | Item | Type | Evidence | Status / next action |
 |---|---|---|---|
 | 当前没有独立保管字段；现有“留存”是随附物品 | verified | 规划 `EVIDENCE.md` 与当前代码 | implement independent contract |
-| `main` 与 `origin/main` 一致 | verified | 2026-07-16 `git fetch --prune`, `rev-parse` | re-fetch before push |
+| 实施分支已 rebase 到当时最新 `origin/main@184672fe` | verified | rebase、人工解四处订单模块冲突、重新验证 | re-fetch before release |
 | 当前未提交文件全部属于留机规划/任务记忆 | verified | `git status`, `git diff --name-only` | preserve and stage exactly |
 | 生产 Supabase 广泛 parity/recovery 仍有开放冲突 | verified | `OPEN_CONFLICTS.md` CONFLICT-20260619-006 | no production apply without new gate/approval |
-| 推送 main 是否自动触发生产部署 | unknown/live | deployment configuration/live platform required | treat deployment as separate gate |
-| 现有 repository 补偿能否满足交接事件原子性 | to verify | repository implementation/tests | DATA/API review before final design |
+| 推送 main 会自动触发 Vercel 生产部署 | verified/live | Vercel 项目只读配置与最近 main 发布记录 | main push 必须和 DB migration 串行发布 |
+| 行更新、清密、交接事件需原子一致 | verified | `repairdesk_apply_order_atomic_mutation` migration、repository 与回归测试 | production apply pending D3 approval |
+| 生产库尚无 `device_custody_status`，且离线创建 RPC 不存在 | verified/live | Supabase 只读 schema/RPC 复核 | migration 前禁止 push main；离线创建保持 flag off/fail closed |
 
 ## Decision and approval points
 

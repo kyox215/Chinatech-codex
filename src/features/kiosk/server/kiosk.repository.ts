@@ -256,8 +256,9 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
     await assertPickupCustodyUnchanged(supabase, storeId, order.id, order.updated_at);
   }
 
+  let orderUpdatedByCustomerSubmission = false;
   if (customerId) {
-    await applyKioskCustomerSubmission(supabase, {
+    orderUpdatedByCustomerSubmission = await applyKioskCustomerSubmission(supabase, {
       storeId,
       customerId,
       orderId: order?.id,
@@ -281,7 +282,12 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
       : undefined;
 
   if (session.session_type === "pickup_signature" && order) {
-    await assertPickupCustodyUnchanged(supabase, storeId, order.id, order.updated_at);
+    await assertPickupCustodyUnchanged(
+      supabase,
+      storeId,
+      order.id,
+      orderUpdatedByCustomerSubmission || signatureAttachment ? now : order.updated_at,
+    );
   }
 
   const { data, error } = await supabase
@@ -644,7 +650,10 @@ async function applyKioskCustomerSubmission(
       .eq("id", input.orderId)
       .eq("customer_id", input.customerId);
     fail(orderError, "更新 iPad 审核工单失败");
+    return true;
   }
+
+  return false;
 }
 
 async function assertKioskCustomerPhonesAvailable(

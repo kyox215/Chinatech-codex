@@ -23,7 +23,7 @@ Owner 已授权发布。生产迁移 20260716221119/221139/221159/221448 已与 
 
 ## Blocking decisions
 
-- None recorded. Check the task file and `OPEN_CONFLICTS.md` before assuming this remains true.
+- 生产 Supabase 尚无 `device_custody_status`，而 Vercel 的 main push 会自动部署生产。需 Owner 明确批准 linked dry-run、migration apply、post-check 与随后 main push。
 
 ## Next action
 

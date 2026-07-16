@@ -26,6 +26,7 @@ describe("offline order create RPC boundary", () => {
     }));
 
     const result = await syncRepairDeskOfflineOrderCreate(validInput(), actor, {
+      isEnabled: () => true,
       getSecret: () => "test-offline-sync-secret-001",
       rpc,
     });
@@ -53,6 +54,7 @@ describe("offline order create RPC boundary", () => {
   it("fails closed for short secrets and actors without write authority", async () => {
     await expect(
       syncRepairDeskOfflineOrderCreate(validInput(), actor, {
+        isEnabled: () => true,
         getSecret: () => "short",
         rpc: vi.fn(),
       }),
@@ -62,7 +64,11 @@ describe("offline order create RPC boundary", () => {
       syncRepairDeskOfflineOrderCreate(
         validInput(),
         { ...actor, role: "viewer", storeRole: "viewer" },
-        { getSecret: () => "test-offline-sync-secret-001", rpc: vi.fn() },
+        {
+          isEnabled: () => true,
+          getSecret: () => "test-offline-sync-secret-001",
+          rpc: vi.fn(),
+        },
       ),
     ).rejects.toThrow(ForbiddenError);
   });
@@ -73,9 +79,22 @@ describe("offline order create RPC boundary", () => {
       syncRepairDeskOfflineOrderCreate(
         { ...validInput(), expectedStoreId: "00000000-0000-4000-8000-000000000999" },
         actor,
-        { getSecret: () => "test-offline-sync-secret-001", rpc },
+        { isEnabled: () => true, getSecret: () => "test-offline-sync-secret-001", rpc },
       ),
     ).rejects.toThrow("切回原店铺");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before parsing or RPC work when offline replay is disabled", async () => {
+    const rpc = vi.fn();
+
+    await expect(
+      syncRepairDeskOfflineOrderCreate(validInput(), actor, {
+        isEnabled: () => false,
+        getSecret: () => "test-offline-sync-secret-001",
+        rpc,
+      }),
+    ).rejects.toThrow("尚未启用");
     expect(rpc).not.toHaveBeenCalled();
   });
 });

@@ -40,12 +40,14 @@ import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unloc
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyAllowsChange,
   deviceCustodyBlocksStatus,
   hasUnlockValue,
   normalizeUnlockForCustody,
 } from "@/features/orders/model/device-custody";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
+  isOrderCancelled,
   isOrderCancelledForPayment,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
@@ -845,7 +847,7 @@ export async function confirmCancelledOrderReturn(
 ) {
   const order = orders.find((item) => item.id === id);
   if (!order) throw new Error("工单不存在");
-  if (order.status !== "cancelled") throw new Error("只有已取消工单可以确认设备退还");
+  if (!isOrderCancelled(order)) throw new Error("只有已取消工单可以确认设备退还");
   if (!opts.idempotencyKey) throw new Error("缺少退还操作标识");
   const existingEvent = extraEvents.find(
     (event) => event.payload.idempotency_key === opts.idempotencyKey,
@@ -914,7 +916,8 @@ export async function updateOrderCustody(
   }
   if (!from && !reason) throw new Error("补录历史设备保管状态时必须填写说明");
   const role = typeof operator === "string" ? undefined : (operator.storeRole ?? operator.role);
-  const isTerminal = order.status === "completed" || order.status === "cancelled";
+  const cancelled = isOrderCancelled(order);
+  const isTerminal = order.status === "completed" || cancelled;
   if (isTerminal && role !== "owner" && role !== "manager") {
     throw new Error("已结束工单只能由店主或经理填写说明后修正设备保管状态");
   }
@@ -924,12 +927,22 @@ export async function updateOrderCustody(
   if (order.status === "completed" && to === DEVICE_CUSTODY_WITH_SHOP) {
     throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
   }
-  if (
-    order.status === "cancelled" &&
-    from === DEVICE_CUSTODY_WITH_SHOP &&
-    to === DEVICE_CUSTODY_WITH_CUSTOMER
-  ) {
+  if (cancelled && from === DEVICE_CUSTODY_WITH_SHOP && to === DEVICE_CUSTODY_WITH_CUSTOMER) {
     throw new Error("已取消工单请使用“确认设备已退还”操作");
+  }
+  if (
+    from !== to &&
+    !deviceCustodyAllowsChange({
+      current: from,
+      target: to,
+      status: order.status,
+      exceptionStatus: order.exception_status,
+      workflowBucket:
+        workflowStatuses.find((status) => status.code === order.status)?.bucket ??
+        order.workflow_status,
+    })
+  ) {
+    throw new Error("当前流程需要设备留在门店，请先完成、取消或流转到允许交还的阶段");
   }
 
   const now = new Date().toISOString();

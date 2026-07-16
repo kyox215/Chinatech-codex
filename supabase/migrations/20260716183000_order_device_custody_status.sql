@@ -30,7 +30,7 @@ comment on column public.repair_orders.device_custody_status is
 
 create or replace function public.repairdesk_apply_order_atomic_mutation(
   p_store_id uuid,
-  p_order_id text,
+  p_order_id uuid,
   p_actor_id uuid,
   p_expected_updated_at timestamptz,
   p_update jsonb,
@@ -73,7 +73,7 @@ declare
     'device_unlock_pattern'
   ];
 begin
-  if p_store_id is null or p_order_id is null or btrim(p_order_id) = '' then
+  if p_store_id is null or p_order_id is null then
     return jsonb_build_object('ok', false, 'code', 'invalid_target');
   end if;
   if p_actor_id is null then
@@ -141,7 +141,7 @@ begin
   );
 
   v_fingerprint := md5(
-    p_order_id
+    p_order_id::text
     || ':' || (
       p_update
       - 'completed_at'
@@ -164,7 +164,7 @@ begin
   if found then
     if v_existing_event.order_id <> p_order_id
        or v_existing_event.event_type::text <> p_event_type
-       or v_existing_event.payload ->> 'mutation_fingerprint' <> v_fingerprint then
+       or v_existing_event.payload ->> 'mutation_fingerprint' is distinct from v_fingerprint then
       return jsonb_build_object('ok', false, 'code', 'idempotency_conflict');
     end if;
     return jsonb_build_object(
@@ -192,22 +192,39 @@ begin
     return jsonb_build_object('ok', false, 'code', 'stale_version');
   end if;
 
+  if p_update ? 'status' and not exists (
+    select 1
+      from public.order_workflow_statuses as target_status
+     where target_status.store_id = p_store_id
+       and target_status.code = p_update ->> 'status'
+       and target_status.enabled
+  ) then
+    return jsonb_build_object('ok', false, 'code', 'invalid_status');
+  end if;
+  if p_update ? 'device_custody_status'
+     and coalesce(p_update ->> 'device_custody_status', '') not in (
+       'with_shop',
+       'with_customer'
+     ) then
+    return jsonb_build_object('ok', false, 'code', 'invalid_custody_status');
+  end if;
+
   if v_event_payload ->> 'action' = 'device_custody_changed' then
-    if p_update ->> 'device_custody_status' not in ('with_shop', 'with_customer') then
-      return jsonb_build_object('ok', false, 'code', 'invalid_custody_status');
-    end if;
     if v_order.device_custody_status is null
        and nullif(btrim(v_event_payload ->> 'reason'), '') is null then
       return jsonb_build_object('ok', false, 'code', 'reason_required');
     end if;
-    if v_order.status in ('completed', 'cancelled')
+    if (
+         v_order.status in ('completed', 'cancelled')
+         or v_order.exception_status = 'cancelled'
+       )
        and (
          v_actor_role not in ('owner', 'manager')
          or nullif(btrim(v_event_payload ->> 'reason'), '') is null
        ) then
       return jsonb_build_object('ok', false, 'code', 'terminal_correction_forbidden');
     end if;
-    if v_order.status = 'cancelled'
+    if (v_order.status = 'cancelled' or v_order.exception_status = 'cancelled')
        and v_order.device_custody_status = 'with_shop'
        and p_update ->> 'device_custody_status' = 'with_customer' then
       return jsonb_build_object('ok', false, 'code', 'use_cancelled_return');
@@ -218,6 +235,28 @@ begin
     end if;
     if v_order.device_custody_status = p_update ->> 'device_custody_status' then
       return jsonb_build_object('ok', true, 'code', 'no_change', 'updated_at', v_order.updated_at);
+    end if;
+    if v_order.device_custody_status = 'with_shop'
+       and p_update ->> 'device_custody_status' = 'with_customer'
+       and (
+         v_order.status in (
+           'diagnosing',
+           'mail_in_progress',
+           'repairing',
+           'repaired',
+           'notified',
+           'waiting_pickup',
+           'unfixed_pickup'
+         )
+         or exists (
+           select 1
+             from public.order_workflow_statuses as current_status
+            where current_status.store_id = p_store_id
+              and current_status.code = v_order.status
+              and current_status.bucket in ('diagnosing', 'repair', 'pickup')
+         )
+       ) then
+      return jsonb_build_object('ok', false, 'code', 'custody_handover_requires_flow_change');
     end if;
     if p_update ->> 'device_custody_status' = 'with_customer' then
       if not (
@@ -245,7 +284,8 @@ begin
   end if;
 
   if v_event_payload ->> 'action' = 'custody_return_confirmed' then
-    if v_order.status <> 'cancelled' then
+    if v_order.status <> 'cancelled'
+       and v_order.exception_status is distinct from 'cancelled' then
       return jsonb_build_object('ok', false, 'code', 'invalid_return_state');
     end if;
     if v_order.device_custody_status is null then
@@ -336,9 +376,7 @@ begin
   end if;
 
   update public.repair_orders
-     set status = (
-           case when p_update ? 'status' then p_update ->> 'status' else v_order.status::text end
-         )::public.repair_order_status,
+     set status = case when p_update ? 'status' then p_update ->> 'status' else v_order.status end,
          workflow_status = case when p_update ? 'workflow_status' then p_update ->> 'workflow_status' else v_order.workflow_status end,
          exception_status = case when p_update ? 'exception_status' then p_update ->> 'exception_status' else v_order.exception_status end,
          approval_status = case when p_update ? 'approval_status' then p_update ->> 'approval_status' else v_order.approval_status::text end::public.approval_status,
@@ -368,10 +406,10 @@ begin
     operator_name,
     created_at
   ) values (
-    gen_random_uuid()::text,
+    gen_random_uuid(),
     p_store_id,
     p_order_id,
-    p_event_type::public.order_event_type,
+    p_event_type,
     v_event_payload || jsonb_build_object(
       'idempotency_key', p_idempotency_key,
       'mutation_fingerprint', v_fingerprint
@@ -386,7 +424,7 @@ $$;
 
 revoke all on function public.repairdesk_apply_order_atomic_mutation(
   uuid,
-  text,
+  uuid,
   uuid,
   timestamptz,
   jsonb,
@@ -397,7 +435,7 @@ revoke all on function public.repairdesk_apply_order_atomic_mutation(
 
 grant execute on function public.repairdesk_apply_order_atomic_mutation(
   uuid,
-  text,
+  uuid,
   uuid,
   timestamptz,
   jsonb,
@@ -408,7 +446,7 @@ grant execute on function public.repairdesk_apply_order_atomic_mutation(
 
 comment on function public.repairdesk_apply_order_atomic_mutation(
   uuid,
-  text,
+  uuid,
   uuid,
   timestamptz,
   jsonb,
@@ -417,20 +455,11 @@ comment on function public.repairdesk_apply_order_atomic_mutation(
   uuid
 ) is 'Atomically version-locks a store-scoped order mutation and its custody-safe timeline event. Service role only.';
 
--- Keep the offline-create contract explicit. The legacy implementation is retained behind a
--- service-role-inaccessible name so the wrapper can reuse its existing idempotency transaction.
-alter function public.repairdesk_offline_sync_order_create_rpc(uuid, uuid, text, text, jsonb)
-  rename to repairdesk_offline_sync_order_create_rpc_v1;
-
-revoke all on function public.repairdesk_offline_sync_order_create_rpc_v1(
-  uuid,
-  uuid,
-  text,
-  text,
-  jsonb
-) from public, anon, authenticated, service_role;
-
-create function public.repairdesk_offline_sync_order_create_rpc(
+-- Production migration history currently records an offline-sync draft without the
+-- corresponding RPC. Keep the server contract fail-closed here instead of depending on a
+-- missing legacy function. A separately reviewed migration must replace this stub before the
+-- public offline-sync feature flag and server HMAC are enabled.
+create or replace function public.repairdesk_offline_sync_order_create_rpc(
   p_store_id uuid,
   p_actor_id uuid,
   p_operation_id text,
@@ -438,116 +467,11 @@ create function public.repairdesk_offline_sync_order_create_rpc(
   p_payload jsonb
 )
 returns jsonb
-language plpgsql
+language sql
 security definer
 set search_path = ''
 as $$
-declare
-  v_custody text := p_payload #>> '{payload,order,device_custody_status}';
-  v_deposit numeric(12, 2) := coalesce(
-    nullif(p_payload #>> '{payload,order,deposit_amount}', '')::numeric,
-    0
-  );
-  v_quotation numeric(12, 2) := 0;
-  v_result jsonb;
-  v_response jsonb;
-  v_order_id text;
-  v_now timestamptz;
-begin
-  if v_custody not in ('with_shop', 'with_customer') then
-    return jsonb_build_object('resultCode', 'blocked_operation');
-  end if;
-
-  select coalesce(sum((item ->> 'price')::numeric), 0)
-    into v_quotation
-    from jsonb_array_elements(
-      coalesce(p_payload #> '{payload,order,fault_prices}', '[]'::jsonb)
-    ) as item;
-
-  if v_deposit < 0 or v_deposit > v_quotation then
-    return jsonb_build_object('resultCode', 'blocked_operation');
-  end if;
-
-  v_result := public.repairdesk_offline_sync_order_create_rpc_v1(
-    p_store_id,
-    p_actor_id,
-    p_operation_id,
-    p_request_hash,
-    p_payload
-  );
-
-  if v_result ->> 'resultCode' <> 'synced' then
-    return v_result;
-  end if;
-
-  -- The legacy core returns the stored response on an idempotent replay. The wrapper adds this
-  -- marker after its first successful custody write so replay cannot advance updated_at again.
-  if v_result #>> '{responseSummary,deviceCustodyStatus}' = v_custody then
-    return v_result;
-  end if;
-
-  v_order_id := v_result #>> '{responseSummary,serverOrderId}';
-  if v_order_id is null then
-    raise exception 'offline_sync_missing_order_id' using errcode = 'P0001';
-  end if;
-
-  v_now := clock_timestamp();
-  update public.repair_orders as order_row
-     set device_custody_status = v_custody,
-         deposit_amount = v_deposit,
-         balance_amount = greatest(0, order_row.quotation_amount - v_deposit),
-         is_paid = greatest(0, order_row.quotation_amount - v_deposit) = 0,
-         payment_status = case
-           when greatest(0, order_row.quotation_amount - v_deposit) = 0 then 'paid'
-           when v_deposit > 0 then 'partial'
-           else 'unpaid'
-         end,
-         device_unlock_method = case
-           when v_custody = 'with_customer' then null
-           else order_row.device_unlock_method
-         end,
-         device_unlock_value = case
-           when v_custody = 'with_customer' then null
-           else order_row.device_unlock_value
-         end,
-         device_unlock_pattern = case
-           when v_custody = 'with_customer' then null
-           else order_row.device_unlock_pattern
-         end,
-         updated_at = v_now
-   where order_row.store_id = p_store_id
-     and order_row.id::text = v_order_id;
-
-  if not found then
-    raise exception 'offline_sync_order_not_found' using errcode = 'P0002';
-  end if;
-
-  update public.order_events as event_row
-     set payload = event_row.payload || jsonb_build_object(
-       'device_custody_status', v_custody
-     )
-   where event_row.store_id = p_store_id
-     and event_row.order_id::text = v_order_id
-     and event_row.event_type::text = 'created'
-     and event_row.payload ->> 'source' = 'offline_sync';
-
-  v_response := coalesce(v_result -> 'responseSummary', '{}'::jsonb)
-    || jsonb_build_object(
-      'updatedAt', v_now,
-      'deviceCustodyStatus', v_custody
-    );
-
-  update public.repairdesk_offline_operations
-     set response_summary = v_response,
-         updated_at = v_now
-   where store_id = p_store_id
-     and actor_id = p_actor_id
-     and operation_type = 'order_create'
-     and operation_id = p_operation_id
-     and request_hash = p_request_hash;
-
-  return jsonb_build_object('resultCode', 'synced', 'responseSummary', v_response);
-end;
+  select jsonb_build_object('resultCode', 'blocked_operation');
 $$;
 
 revoke all on function public.repairdesk_offline_sync_order_create_rpc(
@@ -572,7 +496,7 @@ comment on function public.repairdesk_offline_sync_order_create_rpc(
   text,
   text,
   jsonb
-) is 'Atomically extends offline order creation with an explicit device custody fact. Service role only.';
+) is 'Fail-closed placeholder. Replace only after the offline order replay migration and release gate pass.';
 
 -- Order-data imports remain backward-compatible with v1 workbooks. Creates without the new
 -- column are explicitly written as NULL (historical unknown); blank updates remain unchanged.

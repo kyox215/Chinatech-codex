@@ -54,6 +54,7 @@ import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unloc
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyAllowsChange,
   deviceCustodyBlocksStatus,
   hasUnlockValue,
   isDeviceCustodyStatus,
@@ -61,6 +62,7 @@ import {
 } from "@/features/orders/model/device-custody";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import {
+  isOrderCancelled,
   isOrderCancelledForPayment,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
@@ -670,6 +672,21 @@ async function readWorkflowStatusLabel(
     .maybeSingle();
   fail(error, "读取状态名称失败");
   return maybeString((data as DbRecord | null)?.label) || code;
+}
+
+async function readWorkflowStatusBucket(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storeId: string,
+  code: string,
+) {
+  const { data, error } = await supabase
+    .from("order_workflow_statuses")
+    .select("bucket")
+    .eq("store_id", storeId)
+    .eq("code", code)
+    .maybeSingle();
+  fail(error, "读取当前状态分类失败");
+  return maybeString((data as DbRecord | null)?.bucket);
 }
 
 function isCanonicalWorkflowStatus(status: string): status is OrderWorkflowStatusCode {
@@ -1633,9 +1650,31 @@ export async function confirmCancelledOrderReturn(
   const actor = typeof opts.operator === "string" ? undefined : opts.operator;
   const storeId = requireStoreIdFromActor(actor);
   if (!actor?.id) throw new Error("确认设备退还需要已登录员工身份");
+  const supabase = getSupabaseAdmin();
+  const current = await readOrderCustodyRow(supabase, storeId, id, actor);
+  const currentCustodyStatus = custodyStatusFromRow(current);
+  const cancelled = isOrderCancelled({
+    status: requiredString(current.status),
+    exception_status: maybeString(current.exception_status),
+  });
+
+  if (!cancelled) throw new Error("只有已取消工单可以确认设备退还");
   if (!opts.expectedUpdatedAt) throw new Error("缺少工单版本，请刷新后重试");
   if (!opts.idempotencyKey) throw new Error("缺少退还操作标识");
-  const supabase = getSupabaseAdmin();
+  if (!currentCustodyStatus) throw new Error("请先确认设备保管状态，再登记退还");
+  if (currentCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER) {
+    if (maybeString(current.delivered_at)) {
+      return {
+        ok: true,
+        alreadyConfirmed: true,
+        delivered_at: maybeString(current.delivered_at),
+      };
+    }
+    throw new Error("设备未由门店保管，无需确认退还");
+  }
+  if (maybeString(current.delivered_at)) {
+    throw new Error("设备保管状态与交付时间冲突，请先修正保管记录");
+  }
   const { data, error } = await supabase.rpc("repairdesk_confirm_cancelled_order_return", {
     p_store_id: storeId,
     p_order_id: id,
@@ -1680,18 +1719,36 @@ export async function updateOrderCustody(
   const from = custodyStatusFromRow(current);
   const to = input.device_custody_status;
   const reason = input.reason?.trim();
-  const isTerminal = current.status === "completed" || current.status === "cancelled";
+  const status = requiredString(current.status);
+  const exceptionStatus = maybeString(current.exception_status);
+  const cancelled = isOrderCancelled({ status, exception_status: exceptionStatus });
+  const isTerminal = status === "completed" || cancelled;
 
   if (!from && !reason) throw new Error("补录历史设备保管状态时必须填写说明");
   if (isTerminal && (!canCorrectTerminalCustody(actor) || !reason)) {
     throw new ForbiddenError("已结束工单只能由店主或经理填写说明后修正设备保管状态");
   }
-  if (
-    current.status === "cancelled" &&
-    from === DEVICE_CUSTODY_WITH_SHOP &&
-    to === DEVICE_CUSTODY_WITH_CUSTOMER
-  ) {
+  if (cancelled && from === DEVICE_CUSTODY_WITH_SHOP && to === DEVICE_CUSTODY_WITH_CUSTOMER) {
     throw new Error("已取消工单请使用“确认设备已退还”操作");
+  }
+  if (status === "completed" && to === DEVICE_CUSTODY_WITH_SHOP) {
+    throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
+  }
+  const workflowBucket =
+    from === DEVICE_CUSTODY_WITH_SHOP && to === DEVICE_CUSTODY_WITH_CUSTOMER
+      ? await readWorkflowStatusBucket(supabase, storeId, status)
+      : undefined;
+  if (
+    from !== to &&
+    !deviceCustodyAllowsChange({
+      current: from,
+      target: to,
+      status,
+      exceptionStatus,
+      workflowBucket,
+    })
+  ) {
+    throw new Error("当前流程需要设备留在门店，请先完成、取消或流转到允许交还的阶段");
   }
 
   const now = new Date().toISOString();
@@ -2426,8 +2483,12 @@ async function applyAtomicOrderMutation({
       throw new Error("该操作标识已用于不同请求，请刷新后重试");
     }
     if (code === "missing_expected_version") throw new Error("缺少工单版本，请刷新后再试");
+    if (code === "invalid_status") throw new Error("目标工单状态不存在或已停用");
     if (code === "completed_reopen_required") {
       throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
+    }
+    if (code === "custody_handover_requires_flow_change") {
+      throw new Error("当前流程需要设备留在门店，请先完成、取消或流转到允许交还的阶段");
     }
     throw new Error(`${context}：请求无效（${code || "unknown"}）`);
   }
@@ -2467,6 +2528,37 @@ async function updateOrderRow({
     }
   }
   fail(error, context);
+}
+
+async function updateOrderRowWhileShopHoldsDevice({
+  supabase,
+  id,
+  storeId,
+  expectedUpdatedAt,
+  update,
+  context,
+}: {
+  supabase: SupabaseAdmin;
+  id: string;
+  storeId: string;
+  expectedUpdatedAt: string;
+  update: DbRecord;
+  context: string;
+}) {
+  const { data, error } = await supabase
+    .from("repair_orders")
+    .update(update)
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .eq("updated_at", expectedUpdatedAt)
+    .eq("device_custody_status", DEVICE_CUSTODY_WITH_SHOP)
+    .select("id")
+    .maybeSingle();
+  if (error && isMissingRepairOrderColumnError(error)) {
+    throw new Error("设备保管功能尚未完成数据库迁移，请联系店主");
+  }
+  fail(error, context);
+  if (!data) throw new Error("工单已被更新或设备已不在门店，请刷新后重试");
 }
 
 async function insertOrderRow({
@@ -3311,6 +3403,7 @@ async function writeWhatsappMessage({
   let statusChanged = false;
   let to: RepairOrderStatus | undefined;
   let transitionBucket: OrderWorkflowStatus["bucket"] | undefined;
+  let requiresShopCustody = templateKind === "pickup_ready" || templateKind === "unfixed_pickup";
 
   if (markApprovalPending && from !== "quoted" && from !== "waiting_approval") {
     throw new Error("只有报价或待审批阶段可以发送客户审批");
@@ -3338,6 +3431,8 @@ async function writeWhatsappMessage({
       if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
     } else {
       assertCustodyAllowsTransition(current, transitionTo, transition.bucket);
+      requiresShopCustody =
+        requiresShopCustody || deviceCustodyBlocksStatus(transitionTo, transition.bucket);
       statusChanged = true;
       to = transitionTo;
       transitionBucket = transition.bucket;
@@ -3380,13 +3475,24 @@ async function writeWhatsappMessage({
   });
   fail(messageError, "写入 WhatsApp 通知失败");
 
-  await updateOrderRow({
-    supabase,
-    id,
-    storeId,
-    update,
-    context: "更新工单通知状态失败",
-  });
+  if (requiresShopCustody) {
+    await updateOrderRowWhileShopHoldsDevice({
+      supabase,
+      id,
+      storeId,
+      expectedUpdatedAt: requiredString(current.updated_at),
+      update,
+      context: "更新工单通知状态失败",
+    });
+  } else {
+    await updateOrderRow({
+      supabase,
+      id,
+      storeId,
+      update,
+      context: "更新工单通知状态失败",
+    });
+  }
 
   const { error: eventError } = await supabase.from("order_events").insert({
     id: crypto.randomUUID(),

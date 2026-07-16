@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  deviceCustodyAllowsChange,
   deviceCustodyAllowsStatus,
   deviceCustodyDisplayLabel,
   formatDeviceCustodyEvent,
@@ -24,6 +25,45 @@ describe("device custody domain rules", () => {
     expect(deviceCustodyAllowsStatus(null, "completed")).toBe(false);
     expect(deviceCustodyAllowsStatus("with_customer", "completed")).toBe(true);
     expect(deviceCustodyAllowsStatus("with_customer", "parts_ordered")).toBe(true);
+  });
+
+  it("does not offer handovers that create an impossible active or terminal state", () => {
+    expect(
+      deviceCustodyAllowsChange({
+        current: "with_shop",
+        target: "with_customer",
+        status: "repairing",
+      }),
+    ).toBe(false);
+    expect(
+      deviceCustodyAllowsChange({
+        current: "with_shop",
+        target: "with_customer",
+        status: "new",
+        exceptionStatus: "cancelled",
+      }),
+    ).toBe(false);
+    expect(
+      deviceCustodyAllowsChange({
+        current: null,
+        target: "with_shop",
+        status: "completed",
+      }),
+    ).toBe(false);
+    expect(
+      deviceCustodyAllowsChange({
+        current: null,
+        target: "with_customer",
+        status: "completed",
+      }),
+    ).toBe(true);
+    expect(
+      deviceCustodyAllowsChange({
+        current: null,
+        target: "with_customer",
+        status: "repairing",
+      }),
+    ).toBe(true);
   });
 
   it("clears unlock input whenever the customer keeps the device", () => {
