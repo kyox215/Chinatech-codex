@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assertSupabaseAdminReadTarget,
   assertSupabaseAdminMutationTarget,
   mutationConfirmation,
   parseCliArgs,
@@ -78,5 +79,23 @@ describe("Supabase admin script safety", () => {
         localOnly: true,
       }),
     ).toThrow("restricted to local");
+  });
+
+  it("accepts read-only remote targets only when project and store match explicitly", () => {
+    const projectRef = "abcdefghijklmnopqrst";
+    expect(
+      assertSupabaseAdminReadTarget({
+        supabaseUrl: `https://${projectRef}.supabase.co`,
+        projectRef,
+        storeId,
+      }),
+    ).toEqual({ projectRef, storeId });
+    expect(() =>
+      assertSupabaseAdminReadTarget({
+        supabaseUrl: `https://${projectRef}.supabase.co`,
+        projectRef: "wrongprojectref12345",
+        storeId,
+      }),
+    ).toThrow("--project-ref must exactly match");
   });
 });

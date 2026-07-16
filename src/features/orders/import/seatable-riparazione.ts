@@ -10,13 +10,29 @@ import {
   paymentStatusFromMoney,
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
+import {
+  deterministicSeaTableImportId,
+  normalizeSeaTableImportProvenance,
+  SEATABLE_IMPORT_MAPPER_VERSION,
+  SEATABLE_IMPORT_PROVENANCE_VERSION,
+  seaTableImportInternalTag,
+  seaTableImportPublicNo,
+  type SeaTableImportProvenance,
+} from "@/features/orders/import/seatable-import-provenance";
 
 export interface SeaTableImportOptions {
   now?: Date;
   delimiter?: string;
   idFactory?: (prefix: string, rowNumber: number) => string;
   limit?: number;
+  provenance?: SeaTableImportProvenance;
+  moneyOveragePolicy?: SeaTableMoneyOveragePolicy;
 }
+
+export type SeaTableMoneyOveragePolicy =
+  | "preserve_source"
+  | "raise_quotation_to_deposit"
+  | "cap_deposit_to_quotation";
 
 export interface SeaTableImportRowSet {
   customers: Record<string, unknown>[];
@@ -48,7 +64,6 @@ export interface SeaTableImportWarning {
 
 interface NormalizedRow {
   rowNumber: number;
-  raw: Record<string, string>;
   stato: string;
   nome: string;
   oggetto: string;
@@ -84,7 +99,7 @@ const FIELD_ALIASES = {
   tecnico: ["tecnico", "technician"],
   imei: ["snoimei", "snimei", "imei", "seriale", "serial"],
   supplier: ["fornitore", "supplier", "supplysource", "货源"],
-} satisfies Record<keyof Omit<NormalizedRow, "rowNumber" | "raw">, string[]>;
+} satisfies Record<keyof Omit<NormalizedRow, "rowNumber">, string[]>;
 
 const ACCESSORY_PATTERNS = [
   "sim",
@@ -118,11 +133,19 @@ export function buildSeaTableRiparazioneImport(
   csvContent: string,
   options: SeaTableImportOptions = {},
 ): SeaTableImportRowSet {
-  const now = options.now ?? new Date();
+  const provenance = options.provenance
+    ? normalizeSeaTableImportProvenance(options.provenance)
+    : undefined;
+  const now = options.now ?? (provenance ? new Date(provenance.fallbackTimestamp) : new Date());
   const parsed = parseSeaTableCsv(csvContent, options.delimiter);
   const records = rowsToObjects(parsed).slice(0, options.limit);
   const warnings: SeaTableImportWarning[] = [];
-  const idFactory = options.idFactory ?? (() => crypto.randomUUID());
+  const idFactory =
+    options.idFactory ??
+    (provenance
+      ? (prefix: string, rowNumber: number) =>
+          deterministicSeaTableImportId(prefix, rowNumber, provenance)
+      : () => crypto.randomUUID());
   const customersByRaw = new Map<
     string,
     { id: string; name: string; phone: string; contactPhones: string[]; createdAt: string }
@@ -157,8 +180,25 @@ export function buildSeaTableRiparazioneImport(
       row.dataRitiro && shouldUsePickupTimestamp(row.stato)
         ? parseSeaTableDate(row.dataRitiro, now, row.rowNumber, "DATA RITIRO", warnings)
         : undefined;
-    const quotation = parseMoney(row.prezzoTotale, row.rowNumber, "PREZZO TOTALE", warnings);
-    const deposit = parseMoney(row.acconto, row.rowNumber, "ACCONTO", warnings);
+    const sourceQuotation = parseMoney(row.prezzoTotale, row.rowNumber, "PREZZO TOTALE", warnings);
+    const sourceDeposit = parseMoney(row.acconto, row.rowNumber, "ACCONTO", warnings);
+    const moneyAdjustment = reconcileMoneyOverage(
+      sourceQuotation,
+      sourceDeposit,
+      options.moneyOveragePolicy ?? "preserve_source",
+    );
+    const quotation = moneyAdjustment.quotation;
+    const deposit = moneyAdjustment.deposit;
+    if (moneyAdjustment.applied) {
+      warnings.push({
+        row: row.rowNumber,
+        field: "PREZZO TOTALE/ACCONTO",
+        message:
+          moneyAdjustment.policy === "raise_quotation_to_deposit"
+            ? "定金高于报价，已按店主批准将报价提高到定金"
+            : "定金高于报价，已按店主批准将定金压低到报价",
+      });
+    }
     const balance = Math.max(0, quotation - deposit);
     const customerName =
       cleanText(row.nome) || primaryPhone || `Cliente senza nome ${row.rowNumber}`;
@@ -207,8 +247,9 @@ export function buildSeaTableRiparazioneImport(
         phone_e164: customer.phone,
         phone_raw: phoneRaw,
         contact_phones: customer.contactPhones,
+        consent_required_notify: false,
         consent_marketing: false,
-        consent_sms: true,
+        consent_sms: false,
         preferred_channel: "whatsapp",
         language: "it",
         created_at: createdAt,
@@ -239,7 +280,13 @@ export function buildSeaTableRiparazioneImport(
 
     repairOrders.push({
       id: orderId,
-      public_no: `SEA-${String(row.rowNumber - 1).padStart(6, "0")}`,
+      public_no: provenance
+        ? seaTableImportPublicNo(
+            provenance.importBatchId,
+            row.rowNumber,
+            provenance.sourceFileSha256,
+          )
+        : `SEA-${String(row.rowNumber - 1).padStart(6, "0")}`,
       order_type: orderType,
       status,
       workflow_status: workflowStatusFromLegacyStatus(status),
@@ -266,7 +313,7 @@ export function buildSeaTableRiparazioneImport(
       approval_sent_at: null,
       approval_confirmed_at: null,
       technician_name: technicianName,
-      internal_tag: null,
+      internal_tag: provenance ? seaTableImportInternalTag(provenance.importBatchId) : null,
       accessory_notes: accessoryNotes || null,
       warranty_text: warrantyText,
       completed_at: status === "completed" ? (deliveredAt ?? updatedAt) : null,
@@ -297,7 +344,26 @@ export function buildSeaTableRiparazioneImport(
         source_row: row.rowNumber,
         source_status: row.stato || null,
         source_supplier: supplier?.name ?? null,
+        ...(provenance
+          ? {
+              import_batch_id: provenance.importBatchId,
+              provenance_version: SEATABLE_IMPORT_PROVENANCE_VERSION,
+              mapper_version: SEATABLE_IMPORT_MAPPER_VERSION,
+              source_file: provenance.sourceFileName,
+              source_file_sha256: provenance.sourceFileSha256,
+              fallback_timestamp: provenance.fallbackTimestamp,
+            }
+          : {}),
         currency_code: CURRENCY_CODE,
+        ...(moneyAdjustment.applied
+          ? {
+              money_adjustment: {
+                policy: moneyAdjustment.policy,
+                source_quotation_amount: sourceQuotation,
+                source_deposit_amount: sourceDeposit,
+              },
+            }
+          : {}),
       },
       operator_name: "SeaTable 导入",
       created_at: createdAt,
@@ -326,6 +392,20 @@ export function buildSeaTableRiparazioneImport(
       warnings,
     },
   };
+}
+
+function reconcileMoneyOverage(
+  quotation: number,
+  deposit: number,
+  policy: SeaTableMoneyOveragePolicy,
+) {
+  if (deposit <= quotation || policy === "preserve_source") {
+    return { quotation, deposit, policy, applied: false };
+  }
+  if (policy === "raise_quotation_to_deposit") {
+    return { quotation: deposit, deposit, policy, applied: true };
+  }
+  return { quotation, deposit: quotation, policy, applied: true };
 }
 
 export function parseSeaTableCsv(content: string, delimiter?: string): string[][] {
@@ -386,12 +466,18 @@ export function mapSeaTableStatus(
   if (authoritativeStatus) return authoritativeStatus;
   if (/(annull|cancel|作废|取消)/i.test(status)) return "cancelled";
   if (/(non\s*riparat|未修|不修|unfixed)/i.test(status)) return "unfixed_pickup";
+  if (hasRepairedMarker(statusOnly) && hasNotifyMarker(statusOnly)) return "notified";
+  if (hasPartsArrivedMarker(statusOnly)) return "parts_arrived";
+  if (hasRepairedMarker(statusOnly)) return "repaired";
+  if (/(pezzi|ricambi|ordinat|配件|订|下单)/i.test(statusOnly)) return "parts_ordered";
+  if (/(sped|mail|laboratorio|寄修|外修)/i.test(statusOnly)) return "mail_in_progress";
+  if (/(avvis|notificat|已通知|通知)/i.test(statusOnly)) return "notified";
   if (/(consegn|ritirat|completed|fatto|完成|取走|拿走)/i.test(status)) return "completed";
   if (hasPartsArrivedMarker(status)) return "parts_arrived";
-  if (hasRepairedMarker(status)) return "repaired";
   if (/(pezzi|ricambi|ordinat|配件|订|下单)/i.test(status)) return "parts_ordered";
+  if (/(pronto|riparat|修好|可取)/i.test(status)) return "repaired";
+  if (/(repairing|维修中|riparazione\s+in\s+corso)/i.test(status)) return "repairing";
   if (/(sped|mail|laboratorio|寄修|外修)/i.test(status)) return "mail_in_progress";
-  if (hasNotifyMarker(status)) return "notified";
   if (/(approv|preventiv|报价|确认)/i.test(status)) return "waiting_approval";
   if (/(incorso|in corso|诊断|检查|controll|检测|处理中|正在处理|进行中)/i.test(status)) {
     return "diagnosing";
@@ -414,7 +500,8 @@ function mapAuthoritativeSeaTableStatus(statusOnly: string): RepairOrderStatus |
   }
   if (/^(incorso|in\s+corso)$/.test(statusOnly)) return "diagnosing";
   if (/^(到货|到货已通知|到货一通知)$/.test(statusOnly)) return "parts_arrived";
-  if (/^(修好|修好已通知|修好一通知)$/.test(statusOnly)) return "repaired";
+  if (/^(修好已通知|修好一通知)$/.test(statusOnly)) return "notified";
+  if (statusOnly === "修好") return "repaired";
   if (/^(寄修|外修)$/.test(statusOnly)) return "mail_in_progress";
   if (/^(下单|已经下单了|pezzi\s+ordinati)$/.test(statusOnly)) return "parts_ordered";
   return undefined;
@@ -434,7 +521,7 @@ function notifyStatusFromSourceStatus(status: RepairOrderStatus, statusValue: st
 }
 
 function hasNotifyMarker(value: string) {
-  return /(avvis|notificat|已通知|一通知|通知|contatt)/i.test(value);
+  return /(avvis|notificat|已通知|通知|contatt)/i.test(value);
 }
 
 function hasPartsArrivedMarker(value: string) {
@@ -498,7 +585,6 @@ function normalizeRecord(record: Record<string, string>): NormalizedRow {
   };
   return {
     rowNumber: Number(record.__rowNumber ?? 0),
-    raw: Object.fromEntries(Object.entries(record).filter(([key]) => key !== "__rowNumber")),
     stato: pick("stato"),
     nome: pick("nome"),
     oggetto: pick("oggetto"),

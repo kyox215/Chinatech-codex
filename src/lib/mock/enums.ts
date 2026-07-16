@@ -79,6 +79,8 @@ export const statusGroups = {
     "parts_ordered",
     "parts_arrived",
     "repairing",
+    "repaired",
+    "notified",
   ] as RepairOrderStatus[],
   awaiting_approval: ["waiting_approval"] as RepairOrderStatus[],
   awaiting_pickup: [

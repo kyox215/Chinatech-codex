@@ -107,6 +107,18 @@ SeaTable 中类似 `久等 未答复` 不建议直接作为主状态使用，建
 
 不会让工单流转逻辑变乱。
 
+### 4.3 SeaTable 强状态导入规则
+
+导入时 `STATO` 的明确值优先于 `PROBLEMA` 中的历史备注，避免“未修”“下单”等旧文本覆盖当前阶段：
+
+- `FATTO` -> `completed`，归入“已完成”。
+- `IN CORSO` / `INCORSO` -> `diagnosing`，归入“正在处理”。
+- `到货` / `到货已通知` -> `parts_arrived`，保留通知状态并归入“正在处理”。
+- `修好` -> `repaired`，`修好已通知` -> `notified`，两者均归入“正在处理”。
+- `作废` / `作废已通知` -> `cancelled`，归入“已取消”。
+
+“正在处理”是业务汇总分类；`parts_arrived`、`repaired`、`notified` 等详细状态仍保留，供店内继续按阶段筛选。
+
 ## 5. 客户与电话规则
 
 ### 5.1 手机号唯一
@@ -446,7 +458,7 @@ RepairDesk 建议：
    - 已取走 -> `completed`
    - 未修好取走 -> `unfixed_pickup`
    - 久等未答复 -> 主状态保持原阶段，沟通标记为 `no_reply`
-7. 保留原始行号和原始 JSON，方便回查。
+7. 保留原始行号、源文件 SHA-256 和导入批次号；生产工单事件不得复制整行原始 JSON，完整源文件只保存在受控本地位置。
 
 ## 17. 第一阶段落地优先级
 
@@ -498,3 +510,55 @@ RepairDesk 建议：
 - seed/reset 只允许 local Supabase；当前 SeaTable apply 同样限制为 local，生产导入需要独立的 staging/import/swap 方案。
 - 备份与删除必须按 store 过滤；备份目录权限为 0700、JSON 文件为 0600。没有显式备份目录时不得进入破坏性路径。
 - 生产全局清表、默认店铺回退和仅布尔 `--confirm` 均不再属于允许路径。
+
+## 20. 2026-07-11 安全导入包
+
+当前生产能力仅开放只读 preflight，不开放生产 apply：
+
+先在私有进程环境中设置 `SEATABLE_OWNER_EMAIL`；不要通过命令行参数传递 owner 邮箱，以免进入 shell history 或进程列表。
+
+```bash
+npm run db:import:seatable -- \
+  --file /tmp/repairdesk-seatable-import/riparazione-default.csv \
+  --import-batch-id <batch-id> \
+  --fallback-date <ISO-timestamp> \
+  --project-ref <project-ref> \
+  --store-id <store-uuid> \
+  --preflight-prod \
+  --manifest-out /tmp/repairdesk-seatable-import/import-manifest.json \
+  --preflight-out /tmp/repairdesk-seatable-import/production-preflight.json \
+  --cleanup-preview-out /tmp/repairdesk-seatable-import/cleanup-preview.json
+```
+
+安全属性：
+
+- 批次实体使用确定性 UUID；工单号使用源文件与批次的 16 位摘要命名空间，并做全局碰撞检查。
+- `repair_orders.internal_tag` 与 created event payload 保存批次、源文件摘要、源行和固定 fallback 时间。
+- created event 默认不保存 `raw` 原始行；历史导入不推定 SMS 或 WhatsApp 同意。
+- preflight 核验 project、store、active owner membership、目标店与其他店基线计数、ID/工单号碰撞和金额不变量。
+- cleanup preview 只接受 `TEST-####`、`AI_TEST_BATCH_*` internal tag 和匹配 event batch 三重证据；存在额外事件、附件或付款账本时自动排除。
+- 所有输出必须位于仓库外、权限为 `0700` 的真实目录；工具拒绝符号链接，写入后强制 JSON 为 `0600`。
+- 默认逐行 preview 属于受限假名化数据，不是匿名数据；含 PII 的 preview 或 warning value 还必须显式提供 `--confirm-private-output`。
+- 报告中的 `production_mutation_authorized` 始终为 `false`。
+- 现有 `--apply` 继续保持 local-only 整店重置语义，不得用于生产。
+
+## 21. 2026-07-11 ChinaTech 生产导入完成
+
+- Owner 批准导入全部 6284 条记录（含 623 条作废）并接受默认补位。
+- 4 条定金高于报价记录采用 `raise_quotation_to_deposit`：保留实际定金，把报价提高到定金；报价合计增加 EUR 119。
+- 批次 `chinatech-riparazione-20260711-v2` 使用未暴露给 Data API 的 `repairdesk_import_private` schema 暂存；`anon`、`authenticated` 和 `service_role` 均无权限。
+- 最终事务在固定 store advisory lock 下精确删除 20 个测试客户、20 台测试设备和 20 条测试标签关联，再按 customers、devices、repair_orders、order_events 顺序写入。
+- 正式提交前，同一事务正文完成强制回滚演练；提交后，选择性恢复脚本也完成强制回滚演练。
+- 最终导入：3664 customers、6284 devices、6284 repair_orders、6284 order_events。
+- 最终金额：报价 EUR 335021.50，定金 EUR 39192.51，金额不变量违规 0。
+- 其他店铺 customers/devices/orders/events 均保持 1/1/1/1；消息、附件、付款账本副作用为 0。
+- 三类历史同意 `consent_required_notify`、`consent_marketing`、`consent_sms` 均显式为 false。
+- 私有暂存与恢复 before-image 保留至 2026-07-18；之后应在确认无需回滚后清理。
+
+## 22. 2026-07-12 状态重分类完成
+
+- 仅对批次中 24 张已证明不匹配的工单执行了受保护重分类；没有重跑 6284 行导入，也没有修改金额。
+- `修好已通知` / `修好一通知` 映射为 `notified`；`到货已通知` 保持 `parts_arrived`，两者的通知副状态为 `sent`。
+- 通知证据只读取强来源 `STATO`；自由文本中的“已通知”不能伪造通知状态。
+- `delivered_at` 只接受明确交付状态；到货、修好或作废通知均不等于客户已取走。
+- 重分类验收汇总中的 EUR 335046.50 / 39212.51 包含一张导入前已存在的真实工单；与导入批次的 EUR 335021.50 / 39192.51 相差 EUR 25 / 20，不代表重分类改动了金额。

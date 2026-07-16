@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-20260712-001-seatable-status-reclassification",
+  "source_import_batch": "chinatech-riparazione-20260711-v2",
+  "reclassification_batch": "seatable-status-reclassify-20260712-v1",
+  "result": "PASS",
+  "orders_updated": 24,
+  "events_added": 24,
+  "source_status_results": {
+    "FATTO": { "rows": 5484, "status": "completed" },
+    "IN CORSO": { "rows": 25, "status": "diagnosing" },
+    "到货": { "rows": 27, "status": "parts_arrived" },
+    "到货已通知": { "rows": 32, "status": "parts_arrived", "notify_status": "sent" },
+    "修好": { "rows": 4, "status": "repaired" },
+    "修好已通知": { "rows": 42, "status": "notified", "notify_status": "sent" },
+    "作废及作废已通知": { "rows": 623, "status": "cancelled" }
+  },
+  "business_categories": {
+    "in_progress": 174,
+    "completed": 5487,
+    "cancelled": 623
+  },
+  "canonical_mismatches": 0,
+  "quotation_total_eur": 335046.5,
+  "deposit_total_eur": 39212.51,
+  "target_store_counts": { "orders": 6285, "events": 6313 },
+  "other_store_counts": { "orders": 1, "events": 1 },
+  "related_activity_added": {
+    "messages": 0,
+    "attachments": 0,
+    "payments": 0,
+    "interactions": 0,
+    "followups": 0,
+    "external_refs": 0,
+    "batch_rows": 0
+  },
+  "rollback_rehearsals": {
+    "pre_commit_forced_rollback": "PASS",
+    "post_commit_selective_recovery_forced_rollback": "PASS"
+  },
+  "sha256": {
+    "before_image": "94bac2d7d28d64f57ab26d38704821997fe4e4fcef0e82fe3328380c34a1c855",
+    "rehearsal_sql": "d432d3ed1234aa7aa6d7257e188132105aca864e86e354ffaaa8ae4904f4b47a",
+    "commit_sql": "e029b29768265482f4134cc0ddfa41f9273a39a15b2ef0711d9c59d039706c2c",
+    "transaction_manifest": "085b2989d33eaa01e680447c15e36b803d924654cd26dca4df6359d984d51574",
+    "selective_rollback_rehearsal_sql": "ff8f83e6ed225f4f9bb82797ba1bced8277f3ed2662082c64d6e6ad198b12357",
+    "selective_rollback_commit_sql": "da4d2d84ad5d957e74405a782724384e393b64257a1e70f91908362ef0ea579b",
+    "selective_rollback_manifest": "fb9d147badb51504bd59369a2ad1d4787a325f435ae17a6df4c23af9db4b36e2"
+  },
+  "quality_gate": {
+    "agents_check": "PASS",
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "test_files": 107,
+    "tests": 718,
+    "build": "PASS"
+  },
+  "contains_customer_pii": false,
+  "verified_at": "2026-07-11T23:32:23Z"
+}

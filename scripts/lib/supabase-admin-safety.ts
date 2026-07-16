@@ -53,6 +53,21 @@ export function mutationConfirmation(projectRef: string, storeId: string) {
   return `MUTATE_REPAIRDESK:${projectRef}:${storeId}`;
 }
 
+export function assertSupabaseAdminReadTarget(input: {
+  supabaseUrl: string;
+  projectRef?: string;
+  storeId?: string;
+}) {
+  const actualProjectRef = projectRefFromSupabaseUrl(input.supabaseUrl);
+  if (!input.projectRef || input.projectRef !== actualProjectRef) {
+    throw new Error("--project-ref must exactly match the Supabase URL target.");
+  }
+  if (!input.storeId || !isUuid(input.storeId)) {
+    throw new Error("--store-id must be an explicit UUID.");
+  }
+  return { projectRef: actualProjectRef, storeId: input.storeId };
+}
+
 export function assertSupabaseAdminMutationTarget(input: {
   apply: boolean;
   supabaseUrl: string;
