@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-16T22:34:29Z"
+last_checkpoint_at: "2026-07-16T22:51:19Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Production migrations 20260716221119/221139/221159/221448 applied serially; exact metadata, ACL, anomaly and advisor postchecks passed; active docs and department/project memory synchronized; application commit, main push and Vercel exact-SHA verification remain.
+DB migrations are applied and application 66a25859 is on main. Vercel deployment dpl_45vaVcqmz6csADchBMWtz7wMHRqt was BLOCKED before build because the GitHub noreply author identity lacks team access; production aliases/runtime stayed on 184672fe and no rollback was needed.
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Production migrations 20260716221119/221139/221159/221448 applied serially; exac
 
 ## Next action
 
-Fetch origin/main, obtain final read-only release audit, amend the scoped candidate, rerun final gates, push exact SHA to main, verify Vercel READY/protected smoke/error observation, then close task.
+Commit this checkpoint with the authenticated Owner-linked Vercel email, push non-force, verify exact-SHA READY plus protected smoke/runtime errors, then create final closeout.
 
 ## Resume protocol
 
