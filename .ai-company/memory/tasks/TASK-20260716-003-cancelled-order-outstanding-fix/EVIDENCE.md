@@ -19,5 +19,7 @@
 | E-015 | both compatibility wrappers match v3                                                                | seven- and eight-argument v2 calls on a 30-row page                        | both JSON-equal to v3 |
 | E-016 | production performance observation                                                                  | `EXPLAIN (ANALYZE, BUFFERS)` busiest-store 30-row page                     | 1,926 ms; 0 disk reads; monitor, no SLA regression gate |
 | E-017 | local full Supabase replay limitation                                                               | pre-existing `20260611102805` expects missing historical column locally    | unrelated baseline blocker; production compile/apply passed |
+| E-018 | final remote main identity                                                                           | `git ls-remote origin refs/heads/main`                                     | `e5302f6fdc343a2b4e6416f4c16851cdf083b647` |
+| E-019 | production deployment and smoke                                                                      | Vercel `dpl_6ki2Xnggs3V3ZS4jhsWxq4q57muG`; production HTTP and runtime logs | READY; login redirect 200; error/fatal logs 0 |
 
 No production customer PII or secrets may be stored in this task record.

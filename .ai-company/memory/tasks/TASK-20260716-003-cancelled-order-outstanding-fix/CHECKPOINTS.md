@@ -28,3 +28,10 @@
 - **Next:** 冻结 diff，提交，fetch/rebase 当前 origin/main，推送 HEAD:main 并核验远端 SHA 后关闭目标。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-16T19:30:32Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 取消工单不再计入有效工单额或待收；精确 €70+€70 场景、本地全量门禁、生产聚合 parity、支付零写入门禁、main 推送及 Vercel 生产部署均通过。
+- **Residual risks:** 仅 exception_status=cancelled 的设备退还确认仍属于独立终态保管流程；v3 最忙门店 30 行页面实测 1.926 秒，建议后续监控。
+- **Follow-up:** 如观察到客户列表性能超出业务 SLA，再单独立项优化聚合查询；不要回退取消金额排除或支付门禁。
+- **Closed by:** CEO Agent / RepairDesk Integration Lead

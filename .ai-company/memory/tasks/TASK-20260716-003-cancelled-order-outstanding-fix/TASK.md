@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260716-003-cancelled-order-outstanding-fix"
 title: "取消工单仍计入客户待收的全链路修复"
-status: "completed"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["flow", "ux", "frontend", "data", "api", "security", "qa", "release"]
 created_at: "2026-07-16T17:42:34Z"
-updated_at: "2026-07-16T19:23:54Z"
+updated_at: "2026-07-16T19:30:32Z"
+closed_at: "2026-07-16T19:30:32Z"
 ---
 # Task — 取消工单仍计入客户待收的全链路修复
 
