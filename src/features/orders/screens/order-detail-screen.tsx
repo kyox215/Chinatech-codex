@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 
 import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
-import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
+import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   FaultDiagnosisPicker,
@@ -96,6 +96,7 @@ import {
   sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
+  updateOrderCustody,
   uploadOrderAttachment,
   type UpdateOrderInput,
 } from "@/lib/repairdesk/api";
@@ -165,6 +166,16 @@ import {
   type FaultDescriptionSourceItem,
 } from "@/features/orders/model/order-fault-description";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
+import {
+  DEVICE_CUSTODY_WITH_CUSTOMER,
+  DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyAllowsStatus,
+  deviceCustodyBlocksStatus,
+  deviceCustodyLabel,
+  deviceCustodyStatusFromOrder,
+  formatDeviceCustodyEvent,
+  isDeviceCustodyStatus,
+} from "@/features/orders/model/device-custody";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import {
   findCurrentOrderStatusChangedAt,
@@ -181,6 +192,7 @@ import { useStoreShellContext } from "@/features/stores/api/use-store-shell-cont
 import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   getWorkflowNextActions,
+  getWorkflowStatus,
   getWorkflowTransitionActions,
   getWorkflowStatusLabel,
 } from "@/features/orders/model/order-workflow";
@@ -199,10 +211,13 @@ import type {
   OrderAttachment,
   OrderAttachmentUploadInput,
   OrderDetail,
+  OrderEvent,
   OrderAssigneeOption,
   OrderWorkflow,
   PatchOrderChanges,
   DeviceUnlockInput,
+  DeviceCustodyStatus,
+  StoreRole,
   StoreSettings,
   Supplier,
 } from "@/lib/repairdesk/types";
@@ -241,6 +256,10 @@ export function OrderDetailScreen({
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelledReturnOpen, setCancelledReturnOpen] = useState(false);
+  const [custodyDialogTarget, setCustodyDialogTarget] = useState<DeviceCustodyStatus | null>(null);
+  const [custodyReason, setCustodyReason] = useState("");
+  const custodyTriggerRef = useRef<HTMLElement | null>(null);
+  const cancelledReturnTriggerRef = useRef<HTMLElement | null>(null);
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
@@ -253,6 +272,16 @@ export function OrderDetailScreen({
     createFinanceDraftState([], 0),
   );
   const desktopRecordsRef = useRef<HTMLDivElement | null>(null);
+
+  const closeCustodyOverlay = useCallback(() => {
+    setCustodyDialogTarget(null);
+    setCustodyReason("");
+    window.requestAnimationFrame(() => custodyTriggerRef.current?.focus());
+  }, []);
+  const closeCancelledReturnOverlay = useCallback(() => {
+    setCancelledReturnOpen(false);
+    window.requestAnimationFrame(() => cancelledReturnTriggerRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     document.body.dataset.orderDetailActive = "true";
@@ -325,8 +354,14 @@ export function OrderDetailScreen({
   }, [id]);
 
   const transition = useMutation({
-    mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) =>
-      transitionOrder(id, vars.to, { reason: vars.reason }),
+    mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) => {
+      if (!data) throw new Error("工单未加载");
+      return transitionOrder(id, vars.to, {
+        reason: vars.reason,
+        expectedUpdatedAt: data.order.updated_at,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    },
     onSuccess: (_r, vars) => {
       toast.success(`已流转为「${getWorkflowStatusLabel(workflow, vars.to)}」`);
       invalidate();
@@ -341,10 +376,30 @@ export function OrderDetailScreen({
     },
     onSuccess: () => {
       toast.success("设备退还已确认");
-      setCancelledReturnOpen(false);
+      closeCancelledReturnOverlay();
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const custodyUpdate = useMutation({
+    mutationFn: (input: { target: DeviceCustodyStatus; reason?: string }) => {
+      if (!data) throw new Error("工单未加载");
+      return updateOrderCustody(id, {
+        expected_updated_at: data.order.updated_at,
+        device_custody_status: input.target,
+        idempotency_key: crypto.randomUUID(),
+        reason: input.reason,
+      });
+    },
+    onSuccess: (_result, input) => {
+      toast.success(
+        input.target === DEVICE_CUSTODY_WITH_SHOP ? "已确认门店收到设备" : "已确认设备由客人保管",
+      );
+      closeCustodyOverlay();
+      invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const orderUpdate = useMutation({
@@ -426,6 +481,9 @@ export function OrderDetailScreen({
   const deviceUnlockUpdate = useMutation({
     mutationFn: (device_unlock: DeviceUnlockInput) => {
       if (!data) throw new Error("工单未加载");
+      if (deviceCustodyStatusFromOrder(data.order) !== DEVICE_CUSTODY_WITH_SHOP) {
+        throw new Error("设备未留店，不能登记手机密码");
+      }
       return patchOrder(id, {
         expected_updated_at: data.order.updated_at,
         changes: { device_unlock },
@@ -763,6 +821,7 @@ export function OrderDetailScreen({
     ? (data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id))
     : undefined;
   const cancelled = isOrderCancelledForPayment(order);
+  const custodyStatus = deviceCustodyStatusFromOrder(order);
   const next = cancelled
     ? { primary: undefined, secondary: [] }
     : getWorkflowNextActions(workflow, order.status);
@@ -774,7 +833,13 @@ export function OrderDetailScreen({
       orderTaskStages[0]);
   const desktopStatusActions =
     data.capabilities?.canTransition && !cancelled && !isVoided
-      ? getWorkflowTransitionActions(workflow, order.status)
+      ? getWorkflowTransitionActions(workflow, order.status).filter((action) =>
+          deviceCustodyAllowsStatus(
+            custodyStatus,
+            action.to,
+            getWorkflowStatus(workflow, action.to)?.bucket,
+          ),
+        )
       : [];
   const canCancelOrder = desktopStatusActions.some((action) => action.to === "cancelled");
   const canCollectPayment =
@@ -791,6 +856,11 @@ export function OrderDetailScreen({
     order.device_snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei || "";
   const deviceNotes = order.device_snapshot?.device_notes || device?.device_notes;
   const accessoryNotes = order.accessory_notes;
+  const canUpdateCustody = Boolean(shell.activeStore?.role && shell.activeStore.role !== "viewer");
+  const canCorrectTerminalCustody =
+    shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager";
+  const custodyReasonRequired =
+    custodyStatus === null || order.status === "completed" || order.status === "cancelled";
   const signatureAttachments = (data.attachments ?? []).filter(
     (attachment) => attachment.kind === "signature",
   );
@@ -824,6 +894,7 @@ export function OrderDetailScreen({
       {surface === "dialog" &&
       order.status === "cancelled" &&
       order.record_state !== "voided" &&
+      custodyStatus === DEVICE_CUSTODY_WITH_SHOP &&
       !order.delivered_at ? (
         <section
           className={cn(
@@ -842,7 +913,11 @@ export function OrderDetailScreen({
               size="sm"
               variant="outline"
               className="h-8 shrink-0 bg-background/80 text-xs"
-              onClick={() => setCancelledReturnOpen(true)}
+              onClick={() => {
+                cancelledReturnTriggerRef.current =
+                  document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                setCancelledReturnOpen(true);
+              }}
             >
               确认已退还
             </Button>
@@ -857,6 +932,24 @@ export function OrderDetailScreen({
           className="mb-2"
         />
       ) : null}
+      <OrderDeviceCustodyCard
+        order={order}
+        events={events}
+        role={shell.activeStore?.role}
+        pending={custodyUpdate.isPending || cancelledReturn.isPending}
+        onRequestChange={(target) => {
+          custodyTriggerRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          setCustodyReason("");
+          setCustodyDialogTarget(target);
+        }}
+        onConfirmCancelledReturn={() => {
+          cancelledReturnTriggerRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          setCancelledReturnOpen(true);
+        }}
+        className="mb-2"
+      />
       {surface === "page" ? (
         <MobileOrderDetailView
           data={data}
@@ -869,6 +962,7 @@ export function OrderDetailScreen({
             <>
               {order.status === "cancelled" &&
               order.record_state !== "voided" &&
+              custodyStatus === DEVICE_CUSTODY_WITH_SHOP &&
               !order.delivered_at ? (
                 <section className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground">
                   <PackageCheck className="size-4 shrink-0" />
@@ -956,7 +1050,9 @@ export function OrderDetailScreen({
           canCancel={canCancelOrder}
           onRequestKioskSignature={isVoided ? undefined : () => kioskSignatureRequest.mutate()}
           kioskSignaturePending={kioskSignatureRequest.isPending}
-          kioskSignatureAvailable={Boolean(activeKioskDevice)}
+          kioskSignatureAvailable={
+            Boolean(activeKioskDevice) && custodyStatus === DEVICE_CUSTODY_WITH_SHOP
+          }
           partsSupplier={partsSupplier}
           supplierOptions={supplierOptions}
           partsSupplierPending={partsSupplierUpdate.isPending}
@@ -1010,7 +1106,7 @@ export function OrderDetailScreen({
               canDecideApproval
                 ? "客户已在等待报价结果，先记录同意或拒绝，再进入维修、订件、寄修或未修取机。"
                 : next.primary
-                  ? getStatusActionHint(next.primary.to)
+                  ? getStatusActionHint(next.primary.to, order)
                   : undefined
             }
             approvalDecisionAvailable={canDecideApproval}
@@ -1075,7 +1171,9 @@ export function OrderDetailScreen({
               onPhotoCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
               onRequestKioskSignature={isVoided ? undefined : () => kioskSignatureRequest.mutate()}
               kioskSignaturePending={kioskSignatureRequest.isPending}
-              kioskSignatureAvailable={Boolean(activeKioskDevice)}
+              kioskSignatureAvailable={
+                Boolean(activeKioskDevice) && custodyStatus === DEVICE_CUSTODY_WITH_SHOP
+              }
             />
             <div ref={desktopRecordsRef} className="scroll-mt-24">
               <OrderRecordsWorkspace
@@ -1196,34 +1294,39 @@ export function OrderDetailScreen({
           await transition.mutateAsync({ to: "cancelled", reason });
         }}
       />
-      <Dialog open={cancelledReturnOpen} onOpenChange={setCancelledReturnOpen}>
-        <DialogContent className={componentOverlay.modalSm}>
-          <DialogHeader>
-            <DialogTitle>确认设备已退还</DialogTitle>
-            <DialogDescription>
-              此操作只记录设备已交还客户，不会自动收款、退款或更改订单金额。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={cancelledReturn.isPending}
-              onClick={() => setCancelledReturnOpen(false)}
-            >
-              返回
-            </Button>
-            <Button
-              type="button"
-              disabled={cancelledReturn.isPending}
-              onClick={() => cancelledReturn.mutate()}
-            >
-              <PackageCheck className="size-4" />
-              确认退还
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <OrderCustodyChangeOverlay
+        open={custodyDialogTarget !== null}
+        target={custodyDialogTarget}
+        reason={custodyReason}
+        reasonRequired={custodyReasonRequired}
+        pending={custodyUpdate.isPending}
+        canSubmit={
+          canUpdateCustody &&
+          !(
+            (order.status === "completed" || order.status === "cancelled") &&
+            !canCorrectTerminalCustody
+          )
+        }
+        onReasonChange={setCustodyReason}
+        onOpenChange={(open) => {
+          if (!open) closeCustodyOverlay();
+        }}
+        onConfirm={() => {
+          if (!custodyDialogTarget) return;
+          custodyUpdate.mutate({
+            target: custodyDialogTarget,
+            reason: custodyReason.trim() || undefined,
+          });
+        }}
+      />
+      <CancelledReturnOverlay
+        open={cancelledReturnOpen}
+        pending={cancelledReturn.isPending}
+        onOpenChange={(open) => {
+          if (!open) closeCancelledReturnOverlay();
+        }}
+        onConfirm={() => cancelledReturn.mutate()}
+      />
       {!isVoided ? (
         <CameraCaptureSheet
           open={desktopPhotoCaptureOpen}
@@ -1241,6 +1344,363 @@ export function OrderDetailScreen({
       <RepairOrderPrintSheet data={data} orderUrl={orderUrl} storeSettings={storeSettings} />
     </div>
   );
+}
+
+function CancelledReturnOverlay({
+  open,
+  pending,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const isDesktop = useDesktopActionSurface();
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
+        返回
+      </Button>
+      <Button type="button" disabled={pending} onClick={onConfirm}>
+        <PackageCheck className="size-4" />
+        {pending ? "确认中..." : "确认退还"}
+      </Button>
+    </>
+  );
+  const description = "此操作只记录设备已交还客户，不会自动收款、退款或更改订单金额。";
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent aria-busy={pending} className={componentOverlay.modalSm}>
+          <DialogHeader>
+            <DialogTitle>确认设备已退还</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>{footer}</DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        aria-busy={pending}
+        className="rounded-t-2xl p-0 sm:mx-auto sm:max-w-xl"
+      >
+        <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
+          <SheetTitle>确认设备已退还</SheetTitle>
+          <SheetDescription>{description}</SheetDescription>
+        </SheetHeader>
+        <p className="sr-only" role="status" aria-live="polite">
+          {pending ? "正在确认设备退还" : ""}
+        </p>
+        <SheetFooter className="!grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          {footer}
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function OrderCustodyChangeOverlay({
+  open,
+  target,
+  reason,
+  reasonRequired,
+  pending,
+  canSubmit,
+  onReasonChange,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  target: DeviceCustodyStatus | null;
+  reason: string;
+  reasonRequired: boolean;
+  pending: boolean;
+  canSubmit: boolean;
+  onReasonChange: (value: string) => void;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const isDesktop = useDesktopActionSurface();
+  const title = target === DEVICE_CUSTODY_WITH_SHOP ? "确认门店已收到设备" : "确认设备已交给客人";
+  const description =
+    target === DEVICE_CUSTODY_WITH_SHOP
+      ? "确认后设备可进入检测、维修或取机流程。"
+      : "确认后会记录交付时间，并清除工单中的手机密码、PIN 和解锁图案。";
+  const body = (
+    <div className="grid min-w-0 gap-3 p-4">
+      <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+        <span>操作说明{reasonRequired ? "（必填）" : "（可选）"}</span>
+        <Textarea
+          value={reason}
+          onChange={(event) => onReasonChange(event.target.value)}
+          maxLength={240}
+          disabled={pending}
+          className="min-h-24 resize-none text-sm"
+          placeholder={
+            reasonRequired ? "请说明历史补录或结束后修正的原因" : "例如：客人临时带走设备"
+          }
+        />
+      </label>
+      <p className="sr-only" role="status" aria-live="polite">
+        {pending ? "正在保存设备交接记录" : ""}
+      </p>
+    </div>
+  );
+  const footer = (
+    <>
+      <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
+        取消
+      </Button>
+      <Button
+        type="button"
+        disabled={pending || !target || (reasonRequired && !reason.trim()) || !canSubmit}
+        onClick={onConfirm}
+      >
+        {pending ? "保存中..." : "确认保存"}
+      </Button>
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          data-order-custody-dialog="true"
+          aria-busy={pending}
+          className={componentOverlay.modalSm}
+        >
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          {body}
+          <DialogFooter>{footer}</DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        data-order-custody-sheet="true"
+        side="bottom"
+        aria-busy={pending}
+        className="max-h-[calc(100svh-16px)] rounded-t-2xl p-0 sm:mx-auto sm:max-w-xl"
+      >
+        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
+            <SheetTitle>{title}</SheetTitle>
+            <SheetDescription>{description}</SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 overflow-y-auto">{body}</div>
+          <SheetFooter className="!grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            {footer}
+          </SheetFooter>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function OrderDeviceCustodyCard({
+  order,
+  events,
+  role,
+  pending,
+  onRequestChange,
+  onConfirmCancelledReturn,
+  className,
+}: {
+  order: OrderDetail["order"];
+  events: OrderEvent[];
+  role?: StoreRole;
+  pending: boolean;
+  onRequestChange: (target: DeviceCustodyStatus) => void;
+  onConfirmCancelledReturn: () => void;
+  className?: string;
+}) {
+  const status = deviceCustodyStatusFromOrder(order);
+  const isTerminal = order.status === "completed" || order.status === "cancelled";
+  const canUpdate = Boolean(role && role !== "viewer");
+  const canCorrectTerminal = role === "owner" || role === "manager";
+  const latestHandoff = getLatestCustodyHandoff(events);
+  const description =
+    status === DEVICE_CUSTODY_WITH_SHOP
+      ? order.status === "cancelled"
+        ? "工单已取消，但设备仍在店内；退还后必须确认交接。"
+        : "设备当前由门店保管，可登记解锁信息并进入检测或维修流程。"
+      : status === DEVICE_CUSTODY_WITH_CUSTOMER
+        ? order.delivered_at
+          ? `设备已交给客人 · ${formatOrderDateTime(order.delivered_at)}`
+          : "设备由客人自行保管，系统不会保存或展示解锁信息。"
+        : "这是一张旧工单，尚未记录设备是否留在门店；继续关键流程前必须补录。";
+
+  const actions: ReactNode[] = [];
+  if (status === null && canUpdate && (!isTerminal || canCorrectTerminal)) {
+    actions.push(
+      <Button
+        key="backfill-shop"
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-8 text-xs"
+        disabled={pending}
+        onClick={() => onRequestChange(DEVICE_CUSTODY_WITH_SHOP)}
+      >
+        补录为留店
+      </Button>,
+      <Button
+        key="backfill-customer"
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-8 text-xs"
+        disabled={pending}
+        onClick={() => onRequestChange(DEVICE_CUSTODY_WITH_CUSTOMER)}
+      >
+        补录为未留店
+      </Button>,
+    );
+  } else if (
+    order.status === "cancelled" &&
+    status === DEVICE_CUSTODY_WITH_SHOP &&
+    !order.delivered_at &&
+    canUpdate
+  ) {
+    actions.push(
+      <Button
+        key="cancelled-return"
+        type="button"
+        size="sm"
+        className="h-8 text-xs"
+        disabled={pending}
+        onClick={onConfirmCancelledReturn}
+      >
+        <PackageCheck className="size-3.5" />
+        确认已退还
+      </Button>,
+    );
+  } else if (!isTerminal && canUpdate && status) {
+    const target =
+      status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
+    actions.push(
+      <Button
+        key="custody-toggle"
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-8 text-xs"
+        disabled={pending}
+        onClick={() => onRequestChange(target)}
+      >
+        {target === DEVICE_CUSTODY_WITH_SHOP ? "确认收机" : "确认交还客人"}
+      </Button>,
+    );
+  } else if (isTerminal && canCorrectTerminal && status) {
+    const target =
+      status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
+    if (!(order.status === "completed" && target === DEVICE_CUSTODY_WITH_SHOP)) {
+      actions.push(
+        <Button
+          key="terminal-correction"
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          disabled={pending}
+          onClick={() => onRequestChange(target)}
+        >
+          历史修正
+        </Button>,
+      );
+    }
+  }
+
+  return (
+    <section
+      data-order-device-custody="true"
+      className={cn(
+        "grid min-w-0 gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2.5 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3",
+        status === null && "border-status-warn-foreground/30 bg-status-warn/35",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary">
+          {status === DEVICE_CUSTODY_WITH_CUSTOMER ? (
+            <UserRound className="size-4" />
+          ) : (
+            <PackageSearch className="size-4" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <h2 className="text-xs font-semibold">设备保管</h2>
+            <DeviceCustodyBadge
+              status={status}
+              deliveredAt={order.delivered_at}
+              className="text-[10px]"
+            />
+          </div>
+          <p className="mt-1 break-words text-[10px] leading-4 text-muted-foreground">
+            {description}
+          </p>
+          {latestHandoff ? (
+            <p className="mt-1 break-words text-[10px] leading-4 text-muted-foreground">
+              最近交接：{latestHandoff.summary} · {formatOrderDateTime(latestHandoff.createdAt)} ·
+              {latestHandoff.operator}
+            </p>
+          ) : null}
+          {isTerminal && !canCorrectTerminal && status === null ? (
+            <p className="mt-1 text-[10px] font-medium text-status-warn-foreground">
+              已结束工单需由店主或经理填写说明后补录。
+            </p>
+          ) : null}
+          {status !== DEVICE_CUSTODY_WITH_SHOP && deviceCustodyBlocksStatus(order.status) ? (
+            <p className="mt-1 text-[10px] font-semibold text-status-danger-foreground">
+              当前维修流程与设备保管状态冲突，请先核对并确认收机。
+            </p>
+          ) : null}
+        </div>
+      </div>
+      {actions.length ? (
+        <div className="flex min-w-0 flex-wrap gap-1.5 md:justify-end">{actions}</div>
+      ) : null}
+    </section>
+  );
+}
+
+function getLatestCustodyHandoff(events: OrderEvent[]) {
+  for (const event of [...events].sort(
+    (left, right) => Date.parse(right.created_at) - Date.parse(left.created_at),
+  )) {
+    const formatted = formatDeviceCustodyEvent(event.payload);
+    if (formatted) {
+      return {
+        summary: formatted,
+        createdAt: event.created_at,
+        operator: event.operator_name || "系统",
+      };
+    }
+    const initialStatus = event.payload.device_custody_status;
+    if (event.event_type === "created" && isDeviceCustodyStatus(initialStatus)) {
+      return {
+        summary: `创建时登记为${deviceCustodyLabel(initialStatus)}`,
+        createdAt: event.created_at,
+        operator: event.operator_name || "系统",
+      };
+    }
+  }
+  return null;
 }
 
 function OrderRecordsWorkspace({
@@ -1541,23 +2001,31 @@ function ApprovalDecisionSheet({
   onOpenChange: (open: boolean) => void;
   onConfirm: (input: OrderApprovalDecisionInput) => Promise<unknown>;
 }) {
+  const custodyStatus = deviceCustodyStatusFromOrder(order);
+  const custodyReady = custodyStatus === DEVICE_CUSTODY_WITH_SHOP;
   const [decision, setDecision] = useState<OrderApprovalDecisionInput["decision"]>("approved");
   const [approvedNext, setApprovedNext] = useState<RepairOrderStatus>(
-    getDefaultApprovedNextStatus(order),
+    custodyReady ? getDefaultApprovedNextStatus(order) : "parts_ordered",
   );
-  const [rejectedNext, setRejectedNext] = useState<RepairOrderStatus>("unfixed_pickup");
+  const [rejectedNext, setRejectedNext] = useState<RepairOrderStatus>(
+    custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER ? "cancelled" : "unfixed_pickup",
+  );
   const [reason, setReason] = useState("");
   const nextStatus = decision === "approved" ? approvedNext : rejectedNext;
-  const canSubmit = decision === "approved" || Boolean(reason.trim());
+  const canSubmit =
+    deviceCustodyAllowsStatus(custodyStatus, nextStatus) &&
+    (decision === "approved" || Boolean(reason.trim()));
   const isDesktop = useDesktopActionSurface();
 
   useEffect(() => {
     if (!open) return;
     setDecision("approved");
-    setApprovedNext(getDefaultApprovedNextStatus(order));
-    setRejectedNext("unfixed_pickup");
+    setApprovedNext(custodyReady ? getDefaultApprovedNextStatus(order) : "parts_ordered");
+    setRejectedNext(
+      custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER ? "cancelled" : "unfixed_pickup",
+    );
     setReason("");
-  }, [open, order]);
+  }, [custodyReady, custodyStatus, open, order]);
 
   const body = (
     <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
@@ -1593,7 +2061,7 @@ function ApprovalDecisionSheet({
                   ? "border-status-danger-foreground/30 bg-status-danger/65 text-status-danger-foreground"
                   : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
               )}
-              disabled={pending}
+              disabled={pending || custodyStatus === null}
               onClick={() => setDecision("rejected")}
             >
               <span className="block text-xs font-semibold">客户拒绝</span>
@@ -1613,9 +2081,9 @@ function ApprovalDecisionSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="repairing">开始维修</SelectItem>
+                  {custodyReady ? <SelectItem value="repairing">开始维修</SelectItem> : null}
                   <SelectItem value="parts_ordered">需要订件</SelectItem>
-                  <SelectItem value="mail_in_progress">转入寄修</SelectItem>
+                  {custodyReady ? <SelectItem value="mail_in_progress">转入寄修</SelectItem> : null}
                 </SelectContent>
               </Select>
             ) : (
@@ -1628,12 +2096,19 @@ function ApprovalDecisionSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unfixed_pickup">未修取机</SelectItem>
+                  {custodyReady ? <SelectItem value="unfixed_pickup">未修取机</SelectItem> : null}
                   <SelectItem value="cancelled">取消工单</SelectItem>
                 </SelectContent>
               </Select>
             )}
           </label>
+          {!custodyReady ? (
+            <p className="rounded-lg border border-status-warn-foreground/25 bg-status-warn/45 px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground">
+              {custodyStatus === null
+                ? "请先补录设备保管状态；当前只能在客户同意后继续订件。"
+                : "设备仍由客户持有；可继续订件，开始维修、寄修或未修取机前需先确认收机。"}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -1942,6 +2417,7 @@ function MobileOrderDetailView({
   const { order, customer } = data;
   const cancelled = isOrderCancelledForPayment(order);
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
+  const custodyStatus = deviceCustodyStatusFromOrder(order);
   const events = data.events ?? [];
   const workflowStatus = cancelled ? "closed" : getOrderWorkflowStatus(order);
   const currentStageIndex = getWorkflowProgressValue(workflowStatus);
@@ -1991,7 +2467,13 @@ function MobileOrderDetailView({
   );
   const statusActions =
     data.capabilities?.canTransition && !cancelled && !isVoided
-      ? getWorkflowTransitionActions(workflow, order.status)
+      ? getWorkflowTransitionActions(workflow, order.status).filter((action) =>
+          deviceCustodyAllowsStatus(
+            custodyStatus,
+            action.to,
+            getWorkflowStatus(workflow, action.to)?.bucket,
+          ),
+        )
       : [];
 
   useEffect(() => {
@@ -2222,7 +2704,8 @@ function MobileOrderDetailView({
             action={
               data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
                 <div className="flex shrink-0 items-center gap-1">
-                  {data.capabilities?.canEditRepair ? (
+                  {data.capabilities?.canEditRepair &&
+                  custodyStatus === DEVICE_CUSTODY_WITH_SHOP ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -2258,10 +2741,19 @@ function MobileOrderDetailView({
               rows={[
                 ["IMEI", deviceImei || "-"],
                 ["质保", order.warranty_text || "-"],
-                ["留存", accessoryNotes || "-"],
+                ["设备保管", deviceCustodyLabel(custodyStatus)],
+                ["随附物品", accessoryNotes || "-"],
               ]}
             />
-            <DeviceUnlockViewer order={order} compact className="mt-1.5" />
+            {custodyStatus === DEVICE_CUSTODY_WITH_SHOP ? (
+              <DeviceUnlockViewer order={order} compact className="mt-1.5" />
+            ) : (
+              <p className="mt-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+                {custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
+                  ? "设备未留店，不登记手机密码。"
+                  : "保管状态待确认，暂不展示手机密码。"}
+              </p>
+            )}
           </div>
         </section>
       </div>
@@ -3434,7 +3926,7 @@ function StatusTransitionPanelBody({
 
   const chooseAction = (action: WorkflowTransitionAction) => {
     const config = getOrderTransitionReasonConfig(action.to);
-    if (config) {
+    if (config || action.to === "completed") {
       setReasonAction(action);
       setReasonDraft(getDefaultOrderTransitionReason(action.to));
       return;
@@ -3469,7 +3961,12 @@ function StatusTransitionPanelBody({
           </div>
           <p className="text-[10px] leading-4 text-muted-foreground">
             {reasonAction
-              ? `准备流转为「${reasonAction.label}」，确认后会写入状态时间线。`
+              ? reasonAction.to === "completed" &&
+                deviceCustodyStatusFromOrder(order) === DEVICE_CUSTODY_WITH_CUSTOMER
+                ? order.delivered_at
+                  ? "设备此前已交还客户；确认后只会行政结案，不会新增设备交付时间。"
+                  : "设备从未由门店保管；确认后只会行政结案，不会记录设备交付时间。"
+                : `准备流转为「${reasonAction.label}」，确认后会写入状态时间线。`
               : "可手动切换到任一启用工单状态；客户消息会保留为独立沟通记录。"}
           </p>
         </section>
@@ -3517,7 +4014,7 @@ function StatusTransitionPanelBody({
           <div className="space-y-1.5 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0 xl:grid-cols-3">
             {actions.length ? (
               actions.map((action, index) => {
-                const hint = getStatusActionHint(action.to);
+                const hint = getStatusActionHint(action.to, order);
                 const destructive = action.to === "cancelled";
                 const needsReason = Boolean(getOrderTransitionReasonConfig(action.to));
                 return (
@@ -4201,7 +4698,7 @@ function getDefaultApprovedNextStatus(order: OrderDetail["order"]): RepairOrderS
   return "repairing";
 }
 
-function getStatusActionHint(status: RepairOrderStatus) {
+function getStatusActionHint(status: RepairOrderStatus, order?: OrderDetail["order"]) {
   if (status === "waiting_approval") return "进入客户审批阶段；不会自动发送报价消息。";
   if (status === "notified") return "标记客户已通知；不会自动发送取机消息。";
   if (status === "mail_in_progress")
@@ -4211,7 +4708,13 @@ function getStatusActionHint(status: RepairOrderStatus) {
   if (status === "unfixed_pickup") return "用于无法维修但客户取回设备的情况。";
   if (status === "rework") return "从结案或未修取机回到返修流程。";
   if (status === "cancelled") return "需要填写取消原因后才能完成取消。";
-  if (status === "completed") return "完成交付并归档当前工单。";
+  if (status === "completed") {
+    return order && deviceCustodyStatusFromOrder(order) === DEVICE_CUSTODY_WITH_CUSTOMER
+      ? order.delivered_at
+        ? "设备此前已交还客户；仅行政结案，不新增设备交付时间。"
+        : "设备未留店；仅行政结案，不记录设备交付时间。"
+      : "完成交付并归档当前工单。";
+  }
   return "仅更新工单状态并写入时间线。";
 }
 
@@ -4429,6 +4932,8 @@ function renderEvent(
     case "created":
       return "工单创建";
     case "status_changed": {
+      const custodyEvent = formatDeviceCustodyEvent(payload);
+      if (custodyEvent) return custodyEvent;
       const reason =
         typeof payload.reason === "string" && payload.reason.trim()
           ? `，原因：${payload.reason.trim()}`
@@ -4457,7 +4962,9 @@ function renderEvent(
       return payload.status_changed
         ? `已发送 WhatsApp 通知并流转：${label(payload.from)} → ${label(payload.to)}`
         : "已发送 WhatsApp 通知";
-    case "note":
+    case "note": {
+      const custodyEvent = formatDeviceCustodyEvent(payload);
+      if (custodyEvent) return custodyEvent;
       if (payload.action === "order_updated") return "工单信息已更新";
       if (payload.action === "warranty_changed") {
         const reason =
@@ -4476,6 +4983,7 @@ function renderEvent(
         return `已上传设备照片：${fileName}`;
       }
       return "备注";
+    }
     default:
       return type;
   }

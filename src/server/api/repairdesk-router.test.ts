@@ -37,6 +37,7 @@ import {
   assertOrderBatchTransitionPermission,
   assertMessageTemplatePermission,
   assertOrderCreatePermission,
+  assertOrderCustodyPermission,
   assertOrderCustomerMessagePermission,
   assertOrderFinancePermission,
   assertOrderPaymentPermission,
@@ -179,6 +180,20 @@ describe("repairdesk router order write permissions", () => {
         changes: { device_imei: "490154203237518" },
       }),
     ).toThrow(ForbiddenError);
+  });
+
+  it("keeps custody mutations store-scoped and unavailable to viewers", () => {
+    const input = {
+      expected_updated_at: "2026-07-16T20:00:00.000Z",
+      device_custody_status: "with_customer" as const,
+      idempotency_key: "00000000-0000-4000-8000-000000000401",
+    };
+    expect(() => assertOrderCustodyPermission(actor("owner"), input)).not.toThrow();
+    expect(() => assertOrderCustodyPermission(actor("technician"), input)).not.toThrow();
+    expect(() =>
+      assertOrderCustodyPermission(actor("technician", { activeMembershipId: undefined }), input),
+    ).toThrow(ForbiddenError);
+    expect(() => assertOrderCustodyPermission(actor("viewer"), input)).toThrow(ForbiddenError);
   });
 
   it("requires repair and payment permissions for full order updates", () => {

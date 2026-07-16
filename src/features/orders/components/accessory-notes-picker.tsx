@@ -73,13 +73,13 @@ export function AccessoryNotesPicker({
         options={ACCESSORY_NOTE_OPTIONS.map((option) => ({ value: option, label: option }))}
         value={parsed.selected}
         onChange={updateSelection}
-        placeholder="选择留存物品"
+        placeholder="选择随附物品"
         compact={compact}
         className={triggerClassName}
         contentClassName={contentClassName}
         exclusiveValues={["无"]}
         renderSummary={(selectedOptions) => {
-          if (!selectedOptions.length) return "选择留存物品";
+          if (!selectedOptions.length) return "选择随附物品";
           if (selectedOptions.length === 1) return selectedOptions[0]?.label;
           return `${selectedOptions[0]?.label}等${selectedOptions.length}项`;
         }}
@@ -95,7 +95,7 @@ export function AccessoryNotesPicker({
               }),
             )
           }
-          placeholder="补充其他留存物品"
+          placeholder="补充其他随附物品"
           className={cn("h-8 text-xs", compact && "h-7")}
         />
       )}

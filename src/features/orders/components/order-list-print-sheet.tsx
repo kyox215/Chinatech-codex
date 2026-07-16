@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   formatEuro,
   formatItalianDateTime,
+  deviceCustodyItalian,
   orderTypeItalian,
   statusItalian,
   toItalianWarranty,
@@ -141,6 +142,10 @@ export function OrderListPrintSheet({
                   value={
                     statusItalian[isOrderCancelledForPayment(order) ? "cancelled" : order.status]
                   }
+                />
+                <PrintLine
+                  label="Custodia del dispositivo"
+                  value={deviceCustodyItalian(order.device_custody_status)}
                 />
                 <PrintLine label="Garanzia" value={toItalianWarranty(order.warranty_text)} />
                 <PrintLine

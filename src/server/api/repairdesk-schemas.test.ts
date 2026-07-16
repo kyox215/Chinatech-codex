@@ -33,6 +33,7 @@ import {
   storeMemberRoleUpdateBodySchema,
   supplierCreateBodySchema,
   transitionOrderBodySchema,
+  updateOrderCustodyBodySchema,
   updateOrderInputSchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
@@ -485,6 +486,43 @@ describe("repairdesk API schemas", () => {
         device_unlock: { method: "pattern", pattern: [1, 2, 1, 5] },
       }),
     ).toThrow("不能重复");
+  });
+
+  it("strictly validates audited device-custody mutations", () => {
+    const valid = {
+      id: "order_1",
+      input: {
+        expected_updated_at: "2026-07-16T20:00:00.000Z",
+        device_custody_status: "with_customer",
+        idempotency_key: "00000000-0000-4000-8000-000000000401",
+        reason: "客人带回设备",
+      },
+    };
+    expect(updateOrderCustodyBodySchema.parse(valid)).toEqual(valid);
+    expect(() =>
+      updateOrderCustodyBodySchema.parse({
+        ...valid,
+        input: { ...valid.input, device_custody_status: "unknown" },
+      }),
+    ).toThrow();
+    expect(() =>
+      updateOrderCustodyBodySchema.parse({
+        ...valid,
+        input: { ...valid.input, idempotency_key: "not-a-uuid" },
+      }),
+    ).toThrow();
+    expect(() =>
+      updateOrderCustodyBodySchema.parse({
+        ...valid,
+        input: { ...valid.input, reason: "x".repeat(241) },
+      }),
+    ).toThrow();
+    expect(() =>
+      updateOrderCustodyBodySchema.parse({
+        ...valid,
+        input: { ...valid.input, device_unlock_value: "1234" },
+      }),
+    ).toThrow();
   });
 
   it("rejects technician changes in inline order patches", () => {

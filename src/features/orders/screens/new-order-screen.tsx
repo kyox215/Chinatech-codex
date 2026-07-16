@@ -56,7 +56,13 @@ import {
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
 import { formatWarrantyText, warrantyReasonRequired } from "@/features/orders/model/order-warranty";
+import {
+  DEVICE_CUSTODY_WITH_CUSTOMER,
+  deviceCustodyBlocksStatus,
+  normalizeUnlockForCustody,
+} from "@/features/orders/model/device-custody";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { isRepairDeskOfflineSyncEnabled } from "@/features/offline/model/offline-sync-feature";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
 import { ordersKeys } from "@/features/orders/api/query-keys";
@@ -157,6 +163,20 @@ export function NewOrderScreen({
         : { ...current, status: defaultCreateStatus.code },
     );
   }, [createStatuses, defaultCreateStatus]);
+
+  useEffect(() => {
+    if (form.deviceCustodyStatus !== DEVICE_CUSTODY_WITH_CUSTOMER) return;
+    setForm((current) => {
+      const selected = createStatuses.find((status) => status.code === current.status);
+      if (!selected || !deviceCustodyBlocksStatus(selected.code, selected.bucket)) {
+        return current;
+      }
+      const fallback = createStatuses.find(
+        (status) => !deviceCustodyBlocksStatus(status.code, status.bucket),
+      );
+      return fallback ? { ...current, status: fallback.code } : current;
+    });
+  }, [createStatuses, form.deviceCustodyStatus]);
 
   const validFaultDrafts = useMemo(
     () => form.faults.filter((item) => item.name.trim()),
@@ -299,8 +319,21 @@ export function NewOrderScreen({
   }, [queryPrefilled]);
 
   const create = useMutation({
-    mutationFn: () =>
-      createOrder({
+    mutationFn: async (): Promise<
+      { kind: "online"; id: string } | { kind: "offline_queued"; operationId: string }
+    > => {
+      const custodyStatus = form.deviceCustodyStatus;
+      if (!custodyStatus) throw new Error("请确认设备是否留店");
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (!isRepairDeskOfflineSyncEnabled()) {
+          throw new Error("离线创建尚未启用，请恢复网络后创建工单");
+        }
+        return {
+          kind: "offline_queued",
+          operationId: await offlineDraft.queueCurrentDraftForSync(),
+        };
+      }
+      const result = await createOrder({
         order_type: form.type,
         status: form.status,
         customer_id: form.customerId,
@@ -310,16 +343,29 @@ export function NewOrderScreen({
         device_brand: form.brand,
         device_model: form.model,
         device_imei: form.imei,
+        device_custody_status: custodyStatus,
         issue_description: issueDescription,
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,
         warranty_change_reason: form.warrantyChangeReason || undefined,
-        device_unlock: form.deviceUnlock,
+        device_unlock: normalizeUnlockForCustody(custodyStatus, form.deviceUnlock),
         fault_prices: toFaultPriceItems(validFaultDrafts),
         deposit_amount: form.deposit,
-      }),
-    onSuccess: ({ id }) => {
+      });
+      return { kind: "online", id: result.id };
+    },
+    onSuccess: (result) => {
+      if (result.kind === "offline_queued") {
+        toast.success("工单已保存在本机，联网后会自动同步");
+        if (onCancel) {
+          onCancel();
+        } else {
+          router.push("/orders");
+        }
+        return;
+      }
+      const { id } = result;
       void offlineDraft.discardCurrentDraft();
       invalidateOrderReadCaches(queryClient, id);
       queryClient.invalidateQueries({ queryKey: ordersKeys.options() });
@@ -335,11 +381,17 @@ export function NewOrderScreen({
   });
 
   const valid =
+    form.deviceCustodyStatus !== null &&
     form.customerPhone.trim() &&
     form.brand.trim() &&
     form.model.trim() &&
     (validFaultDrafts.length > 0 || form.issue.trim()) &&
     form.deposit <= total &&
+    !(
+      form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
+      selectedCreateStatus &&
+      deviceCustodyBlocksStatus(selectedCreateStatus.code, selectedCreateStatus.bucket)
+    ) &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
 
@@ -433,12 +485,21 @@ export function NewOrderScreen({
           event.preventDefault();
           if (!valid) {
             toast.error(
-              form.deposit > total
-                ? "定金不能超过订单总金额"
-                : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
-                    !form.warrantyChangeReason.trim()
-                  ? "非默认质保需要填写原因"
-                  : "请补全必填字段",
+              form.deviceCustodyStatus === null
+                ? "请确认设备是否留店"
+                : form.deposit > total
+                  ? "定金不能超过订单总金额"
+                  : form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
+                      selectedCreateStatus &&
+                      deviceCustodyBlocksStatus(
+                        selectedCreateStatus.code,
+                        selectedCreateStatus.bucket,
+                      )
+                    ? "设备未留店，不能直接进入检测、维修或取机状态"
+                    : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
+                        !form.warrantyChangeReason.trim()
+                      ? "非默认质保需要填写原因"
+                      : "请补全必填字段",
             );
             return;
           }
@@ -557,6 +618,7 @@ export function NewOrderScreen({
           deposit={form.deposit}
           valid={Boolean(valid)}
           pending={create.isPending}
+          custodyStatus={form.deviceCustodyStatus}
           onCancel={onCancel}
           surface={surface}
         />
@@ -1130,6 +1192,8 @@ function getNewOrderOfflineStatusCopy(status: NewOrderOfflineStatusSummary) {
       return status.lastSavedAt
         ? `本机草稿已保存 ${formatOfflineDraftTime(status.lastSavedAt)}，仅此设备可见。`
         : "本机草稿已保存，仅此设备可见。";
+    case "queued":
+      return "工单已进入本机同步队列，联网后会自动创建。";
     case "error":
     case "unavailable":
       return status.errorMessage ?? "本机草稿暂不可用，请不要刷新页面。";

@@ -5,6 +5,7 @@ import { Buffer } from "node:buffer";
 import { z } from "zod";
 
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
+import { syncRepairDeskOfflineOrderCreate } from "@/features/offline/server/offline-order-create-sync";
 import { statusGroups } from "@/lib/mock/enums";
 import {
   batchTransition,
@@ -33,6 +34,7 @@ import {
   updateOrderWorkflowTransitions,
   updateOrder,
   voidOrder,
+  updateOrderCustody,
   uploadOrderAttachment,
 } from "@/features/orders/server/order.service";
 import {
@@ -166,6 +168,7 @@ import type {
   SupplierInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
+  UpdateOrderCustodyInput,
 } from "@/lib/repairdesk/types";
 import {
   accountProfileUpdateBodySchema,
@@ -240,6 +243,7 @@ import {
   transitionOrderBodySchema,
   updateOrderBodySchema,
   voidOrderBodySchema,
+  updateOrderCustodyBodySchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
 
@@ -333,6 +337,7 @@ const supabaseSource = {
   updateMessageTemplate,
   updateOrder,
   voidOrder,
+  updateOrderCustody,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateSupplier,
@@ -1014,6 +1019,20 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           ),
         );
       }
+      case "offline/orders/create": {
+        const result = await syncRepairDeskOfflineOrderCreate(body, actor);
+        await writeAuditLog({
+          actor,
+          action: "offline_sync",
+          entityType: "repair_order",
+          entityId: result.responseSummary?.serverOrderId ?? "pending",
+          metadata: result.auditMetadata,
+        });
+        if (result.handlerResult.status === "synced") {
+          queueRealtimeBroadcast(actor, realtimeBroadcasts.orderCreated);
+        }
+        return ok(result.handlerResult);
+      }
       case "order/get": {
         const { id } = idBodySchema.parse(body);
         assertOrderDetailReadPermission(actor);
@@ -1155,6 +1174,24 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           ),
         );
       }
+      case "order/custody": {
+        const { id, input } = updateOrderCustodyBodySchema.parse(body);
+        assertOrderCustodyPermission(actor, input);
+        return ok(
+          await auditGeneric(
+            actor,
+            "update",
+            "repair_order",
+            id,
+            {
+              device_custody_status: input.device_custody_status,
+              reason: input.reason,
+            },
+            () => api.updateOrderCustody(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
       case "order/finance": {
         const { id, input } = patchOrderFinanceBodySchema.parse(body);
         assertOrderFinancePermission(actor, input);
@@ -1219,7 +1256,8 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         );
       }
       case "order/transition": {
-        const { id, to, reason } = transitionOrderBodySchema.parse(body);
+        const { id, to, reason, expected_updated_at, idempotency_key } =
+          transitionOrderBodySchema.parse(body);
         assertOrderTransitionPermission(actor);
         return ok(
           await auditGeneric(
@@ -1228,7 +1266,13 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
             "repair_order",
             id,
             { to, reason },
-            () => api.transitionOrder(id, to, { reason, operator: actor }),
+            () =>
+              api.transitionOrder(id, to, {
+                reason,
+                expectedUpdatedAt: expected_updated_at,
+                idempotencyKey: idempotency_key,
+                operator: actor,
+              }),
             realtimeBroadcasts.orderTransitioned,
           ),
         );
@@ -1783,6 +1827,10 @@ export function assertOrderPatchPermission(actor: AuditActor, input: PatchOrderI
   for (const action of resolveOrderPatchPermissionActions(input)) {
     assertOrderScopedPermission(actor, action);
   }
+}
+
+export function assertOrderCustodyPermission(actor: AuditActor, _input: UpdateOrderCustodyInput) {
+  assertOrderScopedPermission(actor, "order:update_intake");
 }
 
 export function assertOrderFinancePermission(actor: AuditActor, _input: PatchOrderFinanceInput) {

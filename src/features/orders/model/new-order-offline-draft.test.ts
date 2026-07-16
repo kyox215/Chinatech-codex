@@ -53,7 +53,7 @@ describe("new order offline draft mapping", () => {
     });
   });
 
-  it("marks unlinked customer snapshots for review instead of pretending they are linked", () => {
+  it("creates stable local relationship ids for a new offline customer and device", () => {
     const form = makeForm({
       customerName: "Cliente banco",
       customerPhone: "3331112222",
@@ -62,16 +62,18 @@ describe("new order offline draft mapping", () => {
       imei: "SN123",
     });
 
-    expect(buildNewOrderOfflineRelationshipPlan(form)).toEqual({
-      customerLinkMode: "unknown_needs_review",
+    expect(buildNewOrderOfflineRelationshipPlan(form)).toMatchObject({
+      customerLinkMode: "new_customer_local",
       customerLinkDraft: {
+        localCustomerId: expect.stringMatching(/^local_customer_[a-f0-9]{8}$/),
         snapshot: {
           name: "Cliente banco",
           phone: "3331112222",
         },
       },
-      deviceLinkMode: "order_snapshot_only",
+      deviceLinkMode: "new_customer_device_local",
       deviceLinkDraft: {
+        localDeviceId: expect.stringMatching(/^local_device_[a-f0-9]{8}$/),
         snapshot: {
           brand: "Samsung",
           model: "A52",
@@ -201,6 +203,7 @@ describe("new order offline draft mapping", () => {
     expect(payload).toMatchObject({
       orderType: "quick_repair",
       orderStatus: "new",
+      deviceCustody: "with_shop",
       customerName: "Mario Rossi",
       customerPhone: "+393331112222",
       deviceBrand: "Apple",
@@ -214,6 +217,44 @@ describe("new order offline draft mapping", () => {
       },
       depositAmountCents: 1050,
     });
+  });
+
+  it("round trips customer-held custody and never retains a sensitive unlock draft", () => {
+    const form = makeForm({
+      customerPhone: "+393331112222",
+      deviceCustodyStatus: "with_customer",
+      deviceUnlock: { method: "pin", value: "001258" },
+    });
+    const payload = buildNewOrderOfflineDraftPayload(form);
+
+    expect(payload.deviceCustody).toBe("with_customer");
+    expect(hasNewOrderSensitiveUnlockDraft(form)).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain("001258");
+    expect(isNewOrderFormWorthOfflineAutosave(form)).toBe(true);
+  });
+
+  it("requires confirmation when restoring a legacy draft without custody", async () => {
+    const service = createRepairDeskOfflineOrderService({
+      store: createRepairDeskOfflineMemoryStore(),
+      scope: { storeId: "store_1", userId: "user_1" },
+      now: () => "2026-07-06T20:00:00.000Z",
+      idFactory: () => "id_legacy",
+    });
+    const saved = await service.saveDraft(
+      buildNewOrderOfflineDraftInput({ form: makeForm({ customerPhone: "+393331112222" }) }),
+    );
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+    const legacyPayload = { ...saved.value.draftPayload };
+    delete legacyPayload.deviceCustody;
+
+    const restored = restoreNewOrderFormFromOfflineDraft({
+      ...saved.value,
+      draftPayload: legacyPayload,
+    });
+
+    expect(restored.form.deviceCustodyStatus).toBeNull();
+    expect(restored.custodyNeedsConfirmation).toBe(true);
   });
 });
 

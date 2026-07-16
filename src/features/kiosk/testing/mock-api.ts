@@ -96,6 +96,12 @@ export async function createKioskSession(
     }
   }
   const order = readMockOrderSummary(normalized.order_id);
+  if (
+    normalized.session_type === "pickup_signature" &&
+    order?.device_custody_status !== "with_shop"
+  ) {
+    throw new Error("只有已确认由门店保管的设备可以发起取机确认");
+  }
   const now = new Date().toISOString();
   const session: KioskSession = {
     id: `kiosk_session_${mockSessions.length + 1}`,
@@ -197,6 +203,9 @@ export async function submitKioskPublicSession(
 export async function acceptKioskSession(id: string, actor?: AuditActor): Promise<KioskSession> {
   const session = readSubmittedMockSession(id, actor);
   const order = session.order_id ? orders.find((item) => item.id === session.order_id) : undefined;
+  if (session.session_type === "pickup_signature" && order?.device_custody_status !== "with_shop") {
+    throw new Error("只有已确认由门店保管的设备可以确认取机交接");
+  }
   const customerId = session.customer_id ?? order?.customer_id;
   if (session.customer_id && order?.customer_id && session.customer_id !== order.customer_id) {
     throw new Error("iPad 任务绑定的客户与工单不一致");

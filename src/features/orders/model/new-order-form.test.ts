@@ -11,6 +11,10 @@ import {
 } from "./new-order-form";
 
 describe("new order customer name helpers", () => {
+  it("starts with an explicit and visible shop-custody default", () => {
+    expect(initialNewOrderForm.deviceCustodyStatus).toBe("with_shop");
+  });
+
   it("treats generated phone-only customer names as blank", () => {
     const customer = {
       name: "客户 3335719865",

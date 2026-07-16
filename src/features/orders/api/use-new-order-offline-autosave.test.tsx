@@ -130,6 +130,74 @@ describe("useNewOrderOfflineAutosave", () => {
     const activeDrafts = await harness.store.listOrderDrafts({ ...scope, status: "draft_local" });
     expect(activeDrafts.ok && activeDrafts.value).toEqual([]);
   });
+
+  it("promotes an offline create with custody into the idempotent outbox", async () => {
+    const harness = createServiceHarness();
+    let latest: HookValue | undefined;
+    render(
+      <AutosaveHarness
+        form={makeForm({
+          customerName: "Mario Rossi",
+          customerPhone: "+393331112222",
+          brand: "Apple",
+          model: "iPhone 13",
+          issue: "Schermo rotto",
+          deviceCustodyStatus: "with_customer",
+        })}
+        onValue={(value) => {
+          latest = value;
+        }}
+        serviceFactory={() => harness.service}
+      />,
+    );
+
+    await waitFor(() => expect(latest?.state).toBe("saved"));
+    await act(async () => {
+      await requireHook(latest).queueCurrentDraftForSync();
+    });
+
+    await waitFor(() => expect(latest?.state).toBe("queued"));
+    const queued = await harness.store.listOutboxEntries({ ...scope, status: "pending_sync" });
+    expect(queued.ok && queued.value).toHaveLength(1);
+    expect(queued.ok && queued.value[0]?.payload).toMatchObject({
+      deviceCustody: "with_customer",
+      orderStatus: "new",
+    });
+  });
+
+  it("refuses to queue raw unlock secrets", async () => {
+    const harness = createServiceHarness();
+    let latest: HookValue | undefined;
+    render(
+      <AutosaveHarness
+        form={makeForm({
+          customerPhone: "+393331112222",
+          brand: "Apple",
+          model: "iPhone 13",
+          issue: "Schermo rotto",
+          deviceUnlock: { method: "pin", value: "001258" },
+        })}
+        onValue={(value) => {
+          latest = value;
+        }}
+        serviceFactory={() => harness.service}
+      />,
+    );
+
+    await waitFor(() => expect(latest?.state).toBe("saved"));
+    let error: unknown;
+    await act(async () => {
+      try {
+        await requireHook(latest).queueCurrentDraftForSync();
+      } catch (caught) {
+        error = caught;
+      }
+    });
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain("不会保存手机密码");
+    const queued = await harness.store.listOutboxEntries({ ...scope, status: "pending_sync" });
+    expect(queued.ok && queued.value).toEqual([]);
+  });
 });
 
 function AutosaveHarness({

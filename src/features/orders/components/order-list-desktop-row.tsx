@@ -20,7 +20,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
+import {
+  DeviceCustodyBadge,
+  MoneyText,
+  OrderTypeBadge,
+  PhoneText,
+  StatusBadge,
+} from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
@@ -248,11 +254,13 @@ export function DesktopOrderQueueRow({
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span
             className="min-w-0 truncate text-[10px] leading-4 text-muted-foreground"
-            title={order.accessory_notes || "无留存备注"}
+            title={order.accessory_notes || "无随附物品"}
           >
-            {order.accessory_notes ? `留存：${order.accessory_notes}` : "无留存"}
+            {order.accessory_notes ? `随附：${order.accessory_notes}` : "无随附物品"}
           </span>
-          <DeviceUnlockListBadge method={order.device_unlock_method} className="shrink-0" />
+          {order.device_custody_status === "with_shop" ? (
+            <DeviceUnlockListBadge method={order.device_unlock_method} className="shrink-0" />
+          ) : null}
         </div>
       </div>
 
@@ -260,6 +268,11 @@ export function DesktopOrderQueueRow({
         <div className="truncate font-medium leading-4" title={order.device_label}>
           {order.device_label || "-"}
         </div>
+        <DeviceCustodyBadge
+          status={order.device_custody_status}
+          deliveredAt={order.delivered_at}
+          className="mt-0.5 max-w-full text-[9px]"
+        />
         <div
           className="truncate text-[11px] leading-4 text-muted-foreground"
           title={order.issue_description}

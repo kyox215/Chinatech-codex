@@ -509,6 +509,7 @@ function existingOrder() {
     updated_at: "2026-07-10T12:00:00.000Z",
     order_type: "dropoff_repair",
     status: "new",
+    device_custody_status: "with_shop",
     customer_id: "customer-1",
     device_id: "device-1",
     customer: {

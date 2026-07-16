@@ -234,6 +234,7 @@ function makeOrderDetail(overrides: { updatedAt?: string } = {}): OrderDetail {
       device_unlock_method: "pin",
       device_unlock_value: "001258",
       accessory_notes: "Cover",
+      device_custody_status: "with_shop",
       warranty_text: "6个月",
       warranty_months: 6,
       warranty_change_reason: "",

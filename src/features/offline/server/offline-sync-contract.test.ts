@@ -42,6 +42,7 @@ function actor(role: StoreRole, overrides: Partial<AuditActor> = {}): AuditActor
 function validCreatePayload() {
   return {
     operationId: "op:create:001",
+    expectedStoreId: baseActor.storeId,
     baseClientCreatedAt: "2026-07-07T08:00:00.000Z",
     payload: {
       relationshipPlan: {
@@ -66,6 +67,7 @@ function validCreatePayload() {
       },
       order: {
         order_type: "quick_repair",
+        device_custody_status: "with_shop",
         issue_description: "Schermo rotto",
         accessory_notes: "Custodia presente",
         fault_prices: [{ name: "Display", price: 89, currency_code: "EUR" }],
@@ -95,6 +97,52 @@ describe("offline sync contract schemas", () => {
     expect(parsed.payload.relationshipPlan.customer.mode).toBe("new_customer_local");
     expect(parsed.payload.relationshipPlan.device.mode).toBe("new_customer_device_local");
     expect(parsed.payload.order.order_type).toBe("quick_repair");
+    expect(parsed.payload.order.device_custody_status).toBe("with_shop");
+  });
+
+  it("requires a valid explicit custody choice for every offline create", () => {
+    const { device_custody_status: _custody, ...orderWithoutCustody } =
+      validCreatePayload().payload.order;
+
+    expect(() =>
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: { ...validCreatePayload().payload, order: orderWithoutCustody },
+      }),
+    ).toThrow();
+    expect(() =>
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: { ...validCreatePayload().payload.order, device_custody_status: "unknown" },
+        },
+      }),
+    ).toThrow();
+    expect(
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: {
+            ...validCreatePayload().payload.order,
+            device_custody_status: "with_customer",
+          },
+        },
+      }).payload.order.device_custody_status,
+    ).toBe("with_customer");
+  });
+
+  it("accepts a bounded deposit as order finance data without accepting payment actions", () => {
+    expect(
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: { ...validCreatePayload().payload.order, deposit_amount: 20 },
+        },
+      }).payload.order.deposit_amount,
+    ).toBe(20);
   });
 
   it("keeps offline warranty months aligned to database presets", () => {
@@ -133,7 +181,6 @@ describe("offline sync contract schemas", () => {
     const dangerous = [
       { status: "completed" },
       { device_unlock: { method: "pin", value: "1234" } },
-      { deposit_amount: 20 },
       { payment_status: "paid" },
       { whatsapp_body: "ready" },
       { attachment_storage_path: "private/order/file.jpg" },
@@ -247,6 +294,7 @@ describe("offline sync canonical hash and idempotency decisions", () => {
         payload: validCreatePayload().payload,
         baseClientCreatedAt: "2026-07-07T08:00:00.000Z",
         operationId: "op:create:001",
+        expectedStoreId: baseActor.storeId,
       },
       secret,
     );
@@ -260,10 +308,24 @@ describe("offline sync canonical hash and idempotency decisions", () => {
       },
       secret,
     );
+    const custodyChanged = createRepairDeskOfflineRequestHash(
+      {
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: {
+            ...validCreatePayload().payload.order,
+            device_custody_status: "with_customer",
+          },
+        },
+      },
+      secret,
+    );
 
     expect(first).toMatch(/^[a-f0-9]{64}$/);
     expect(second).toBe(first);
     expect(changed).not.toBe(first);
+    expect(custodyChanged).not.toBe(first);
     expect(() => createRepairDeskOfflineRequestHash(validCreatePayload(), "too-short")).toThrow();
   });
 

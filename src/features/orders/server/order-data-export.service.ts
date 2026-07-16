@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
 
 import { listCustomersPage } from "@/features/customers/server/customer.service";
+import { deviceCustodyLabel, isDeviceCustodyStatus } from "@/features/orders/model/device-custody";
 import {
   ORDER_DATA_PARSER_VERSION,
   ORDER_DATA_TEMPLATE_VERSION,
@@ -150,6 +151,12 @@ function exportOrderRow(
     external_record_id: externalRef?.externalRecordId,
     expected_updated_at: String(row.updated_at),
     order_type: stringValue(row.order_type),
+    device_custody_status: isDeviceCustodyStatus(row.device_custody_status)
+      ? row.device_custody_status
+      : "",
+    device_custody_label: deviceCustodyLabel(
+      isDeviceCustodyStatus(row.device_custody_status) ? row.device_custody_status : null,
+    ),
     status: stringValue(row.status),
     workflow_status: stringValue(row.workflow_status),
     exception_status: stringValue(row.exception_status),

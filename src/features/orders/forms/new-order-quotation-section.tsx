@@ -23,6 +23,10 @@ import {
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
+import {
+  DEVICE_CUSTODY_WITH_CUSTOMER,
+  deviceCustodyBlocksStatus,
+} from "@/features/orders/model/device-custody";
 import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
@@ -69,6 +73,10 @@ export function NewOrderQuotationSection({
   const serviceDropdownContentClass = "z-[90] rounded-xl shadow-[var(--shadow-overlay)]";
   const balance = Math.max(0, total - form.deposit);
   const roleLabel = getOperatorRoleLabel(operatorRole);
+  const availableCreateStatuses =
+    form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
+      ? createStatuses.filter((status) => !deviceCustodyBlocksStatus(status.code, status.bucket))
+      : createStatuses;
 
   return (
     <Shell data-new-order-section="quotation" className={cn(shellClass, "space-y-2")}>
@@ -238,7 +246,7 @@ export function NewOrderQuotationSection({
           </div>
           <div className="grid min-w-0 gap-0.5">
             <div className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground">
-              留存
+              随附物品
             </div>
             <AccessoryNotesPicker
               value={form.accessoryNotes}
@@ -277,7 +285,7 @@ export function NewOrderQuotationSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className={serviceDropdownContentClass}>
-                {createStatuses.map((status) => (
+                {availableCreateStatuses.map((status) => (
                   <SelectItem key={status.code} value={status.code}>
                     {status.label}
                   </SelectItem>

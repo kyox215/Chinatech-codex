@@ -24,6 +24,7 @@ export {
   transitionOrder,
   updateOrder,
   voidOrder,
+  updateOrderCustody,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   uploadOrderAttachment,

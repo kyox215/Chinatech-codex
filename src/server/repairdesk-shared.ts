@@ -122,6 +122,7 @@ const ORDER_LIST_BASE_COLUMNS = `
 
 const ORDER_LIST_CANONICAL_COLUMNS = `
   assignee_membership_id,
+  device_custody_status,
   workflow_status,
   exception_status,
   payment_status,
@@ -507,6 +508,10 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     assignee_membership_id: maybeString(row.assignee_membership_id),
     internal_tag: maybeString(row.internal_tag),
     accessory_notes: maybeString(row.accessory_notes),
+    device_custody_status:
+      row.device_custody_status === "with_shop" || row.device_custody_status === "with_customer"
+        ? row.device_custody_status
+        : null,
     warranty_text: maybeString(row.warranty_text),
     warranty_months:
       typeof row.warranty_months === "number"

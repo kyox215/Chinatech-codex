@@ -101,6 +101,7 @@ export function isApprovalOverdue(o: RepairOrder, now = Date.now()): boolean {
 }
 
 export function isPickupOverdue(o: RepairOrder, now = Date.now()): boolean {
+  if (o.device_custody_status === "with_customer") return false;
   if (!["repaired", "notified", "unfixed_pickup", "waiting_pickup"].includes(o.status))
     return false;
   const ref = o.completed_at ?? o.updated_at;

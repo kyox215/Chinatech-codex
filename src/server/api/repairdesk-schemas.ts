@@ -76,6 +76,7 @@ import type {
   UpdateInventoryItemInput,
   UpdateOrderInput,
   VoidOrderInput,
+  UpdateOrderCustodyInput,
 } from "@/lib/repairdesk/api";
 
 const optionalText = z.string().optional();
@@ -99,6 +100,7 @@ const patchDeviceImeiText = z
   .optional();
 const repairOrderTypeSchema = z.enum(repairOrderType) satisfies z.ZodType<RepairOrderType>;
 const approvalStatusSchema = z.enum(approvalStatus) satisfies z.ZodType<ApprovalStatus>;
+const deviceCustodyStatusSchema = z.enum(["with_shop", "with_customer"]);
 const canonicalWorkflowStatusSchema = z.enum([
   "intake",
   "diagnosis",
@@ -487,6 +489,7 @@ export const createOrderSchema = z
     issue_description: z.string(),
     internal_tag: optionalText,
     accessory_notes: optionalText,
+    device_custody_status: deviceCustodyStatusSchema.optional(),
     device_unlock: deviceUnlockInputSchema.optional(),
     warranty_text: optionalText,
     warranty_months: z.coerce.number().optional(),
@@ -645,6 +648,8 @@ export const transitionOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   to: repairOrderStatusSchema,
   reason: optionalText,
+  expected_updated_at: z.string().min(1, "缺少版本时间").optional(),
+  idempotency_key: z.string().uuid("状态操作标识无效").optional(),
 });
 
 export const confirmCancelledOrderReturnBodySchema = z.object({
@@ -652,6 +657,20 @@ export const confirmCancelledOrderReturnBodySchema = z.object({
   expected_updated_at: z.string().min(1, "缺少版本时间"),
   idempotency_key: z.string().uuid("退还操作标识无效"),
 });
+
+export const updateOrderCustodyBodySchema = z
+  .object({
+    id: z.string().min(1, "缺少 id"),
+    input: z
+      .object({
+        expected_updated_at: z.string().min(1, "缺少版本时间"),
+        device_custody_status: deviceCustodyStatusSchema,
+        idempotency_key: z.string().uuid("设备保管操作标识无效"),
+        reason: z.string().trim().max(240, "说明不能超过 240 个字符").optional(),
+      })
+      .strict() satisfies z.ZodType<UpdateOrderCustodyInput>,
+  })
+  .strict();
 
 export const batchTransitionBodySchema = z.object({
   ids: z.array(z.string().min(1)),

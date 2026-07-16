@@ -14,6 +14,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ScanSearchSheet } from "@/features/capture";
 import { AppPreloadBridge } from "@/features/preload";
 import { RealtimeAppBridge } from "@/features/realtime";
+import { OfflineOutboxSyncBridge } from "@/features/offline/components/offline-outbox-sync-bridge";
 import { repairDeskQueryDefaultOptions } from "@/lib/query-performance";
 import { appShell } from "@/lib/ui-patterns";
 
@@ -50,6 +51,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <RealtimeAppBridge>
         <AppPreloadBridge>
+          <OfflineOutboxSyncBridge />
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">

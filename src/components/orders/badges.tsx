@@ -9,6 +9,8 @@ import {
   type StatusTone,
 } from "@/lib/mock/enums";
 import { formatMoney } from "@/lib/money";
+import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
+import { deviceCustodyDisplayLabel } from "@/features/orders/model/device-custody";
 
 type Tone = "neutral" | "info" | "progress" | "warn" | "success" | "danger";
 
@@ -101,6 +103,24 @@ export function OrderTypeBadge({ type, className }: { type: RepairOrderType; cla
 export function ApprovalBadge({ status }: { status: ApprovalStatus }) {
   const m = approvalMeta[status];
   return <Pill tone={m.tone}>{m.label}</Pill>;
+}
+
+export function DeviceCustodyBadge({
+  status,
+  deliveredAt,
+  className,
+}: {
+  status: DeviceCustodyStatus | null | undefined;
+  deliveredAt?: string | null;
+  className?: string;
+}) {
+  const tone: Tone =
+    status === "with_shop" ? "progress" : status === "with_customer" ? "neutral" : "warn";
+  return (
+    <Pill tone={tone} className={className}>
+      {deviceCustodyDisplayLabel(status, deliveredAt)}
+    </Pill>
+  );
 }
 
 export function MoneyText({ amount, className }: { amount: number; className?: string }) {

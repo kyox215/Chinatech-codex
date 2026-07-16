@@ -22,6 +22,7 @@ export {
   sendWhatsappNotification,
   setOrderWorkflowStatusEnabled,
   transitionOrder,
+  updateOrderCustody,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
   updateOrder,

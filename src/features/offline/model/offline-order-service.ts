@@ -75,6 +75,7 @@ const allowedOrderDraftPayloadKeys = new Set([
   "deviceBrand",
   "deviceCapacity",
   "deviceColor",
+  "deviceCustody",
   "deviceModel",
   "deviceNotes",
   "deviceStorage",

@@ -39,6 +39,7 @@ function actor(role: StoreRole, overrides: Partial<AuditActor> = {}): AuditActor
 function validCreatePayload(overrides: Record<string, unknown> = {}) {
   return {
     operationId: "op:create:9f001",
+    expectedStoreId: baseActor.storeId,
     baseClientCreatedAt: "2026-07-07T10:00:00.000Z",
     payload: {
       relationshipPlan: {
@@ -55,6 +56,7 @@ function validCreatePayload(overrides: Record<string, unknown> = {}) {
       },
       order: {
         order_type: "quick_repair",
+        device_custody_status: "with_shop",
         issue_description: "Display rotto",
         fault_prices: [{ name: "Display", price: 89, currency_code: "EUR" }],
       },

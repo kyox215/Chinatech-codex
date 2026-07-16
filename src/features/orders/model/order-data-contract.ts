@@ -1,4 +1,5 @@
-export const ORDER_DATA_TEMPLATE_VERSION = "repairdesk-order-data-v1";
+export const LEGACY_ORDER_DATA_TEMPLATE_VERSION = "repairdesk-order-data-v1";
+export const ORDER_DATA_TEMPLATE_VERSION = "repairdesk-order-data-v2";
 export const ORDER_DATA_PARSER_VERSION = "1.0.0";
 export const ORDER_DATA_CLEAR_VALUE = "__CLEAR__";
 export const ORDER_DATA_MAX_FILE_BYTES = 4 * 1024 * 1024;
@@ -54,6 +55,18 @@ export const orderDataColumns = [
     header: "订单类型",
     mode: "create",
     description: "quick_repair 或 dropoff_repair",
+  },
+  {
+    key: "device_custody_status",
+    header: "设备保管枚举",
+    mode: "editable",
+    description: "with_shop 或 with_customer；新建留空表示历史未知，更新留空表示不修改",
+  },
+  {
+    key: "device_custody_label",
+    header: "设备保管状态",
+    mode: "readonly",
+    description: "人类可读状态；以设备保管枚举为准",
   },
   { key: "status", header: "状态", mode: "readonly", description: "只读；状态请在工单流程中修改" },
   { key: "workflow_status", header: "流程阶段", mode: "readonly", description: "只读" },
@@ -140,6 +153,9 @@ export const orderDataColumns = [
 export type OrderDataColumnKey = (typeof orderDataColumns)[number]["key"];
 
 export const orderDataHeaders = orderDataColumns.map((column) => column.header);
+export const legacyOrderDataHeaders = orderDataHeaders.filter(
+  (header) => header !== "设备保管枚举" && header !== "设备保管状态",
+);
 
 export const repairItemColumns = [
   { key: "order_id", header: "工单ID" },
@@ -165,6 +181,7 @@ export const allowedOrderDataSheetNames = new Set([
 
 export const editableOrderDataKeys = new Set<OrderDataColumnKey>([
   "order_type",
+  "device_custody_status",
   "customer_name",
   "customer_phone",
   "device_brand",

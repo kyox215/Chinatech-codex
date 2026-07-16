@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Check, ChevronDown, ScanLine, Search, Smartphone, UserRound } from "lucide-react";
+import { Check, ChevronDown, ScanLine, Search, Smartphone, Store, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import {
@@ -21,6 +21,12 @@ import {
   isAppleDeviceModelSuggestion,
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
+import {
+  DEVICE_CUSTODY_WITH_CUSTOMER,
+  DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyLabels,
+} from "@/features/orders/model/device-custody";
+import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
 import type { CustomerHistoryDeviceCandidate, CustomerIntakeCandidate } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -195,9 +201,10 @@ export function NewOrderDeviceInfoSection({
       <OrderWorkspaceSectionHeader
         icon={Smartphone}
         title="设备信息"
-        description="品牌、型号、IMEI 与留存"
+        description="先确认设备是否留店，再录入识别信息"
         className="mb-1.5"
       />
+      <NewOrderDeviceCustodySelector form={form} setForm={setForm} />
       {form.customerId && !hasDeviceDraft && historyDevices.length > 0 && (
         <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5 shadow-[var(--shadow-card)]">
           <div className="mb-1 flex items-center justify-between gap-2 px-1">
@@ -320,28 +327,124 @@ export function NewOrderDeviceUnlockSection({
       <OrderWorkspaceSectionHeader
         icon={Smartphone}
         title="手机密码"
-        description="默认隐藏，在线创建时保存"
+        description={
+          form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
+            ? "设备未留店，不收集解锁信息"
+            : "设备留店时可登记，默认隐藏"
+        }
         className="mb-1.5"
       />
       <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
-        <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-          <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
-            手机密码
-          </Label>
-          <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
-            默认隐藏
-          </span>
-        </div>
-        <DeviceUnlockEditor
-          value={form.deviceUnlock}
-          onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
-          compact
-        />
-        <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
-          本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
-        </p>
+        {form.deviceCustodyStatus === null ? (
+          <p className="rounded-lg bg-status-warn/45 px-2 py-2 text-[10px] font-medium leading-4 text-status-warn-foreground">
+            请先确认设备是留在店内，还是由客人自行保管。
+          </p>
+        ) : form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER ? (
+          <p className="rounded-lg bg-primary/5 px-2 py-2 text-[10px] font-medium leading-4 text-primary">
+            设备由客人保管。系统不会保存手机密码、PIN 或解锁图案。
+          </p>
+        ) : (
+          <>
+            <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+              <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
+                手机密码
+              </Label>
+              <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
+                默认隐藏
+              </span>
+            </div>
+            <DeviceUnlockEditor
+              value={form.deviceUnlock}
+              onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
+              compact
+            />
+            <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
+              本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
+            </p>
+          </>
+        )}
       </div>
     </section>
+  );
+}
+
+function NewOrderDeviceCustodySelector({
+  form,
+  setForm,
+}: Pick<NewOrderCustomerDeviceBaseProps, "form" | "setForm">) {
+  const options: Array<{
+    value: DeviceCustodyStatus;
+    description: string;
+    icon: typeof Store;
+  }> = [
+    {
+      value: DEVICE_CUSTODY_WITH_SHOP,
+      description: "设备交给门店，可登记解锁信息",
+      icon: Store,
+    },
+    {
+      value: DEVICE_CUSTODY_WITH_CUSTOMER,
+      description: "客人带走设备，不登记解锁信息",
+      icon: UserRound,
+    },
+  ];
+
+  return (
+    <fieldset className="grid min-w-0 gap-1.5" aria-required="true">
+      <legend className="text-[10.5px] font-semibold leading-4 text-muted-foreground">
+        设备保管 <span className="text-destructive">*</span>
+      </legend>
+      <div className="grid min-w-0 grid-cols-2 gap-1.5">
+        {options.map((option) => {
+          const selected = form.deviceCustodyStatus === option.value;
+          const Icon = option.icon;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              className={cn(
+                "min-w-0 rounded-xl border px-2 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                selected
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-[var(--border-panel)] bg-card text-foreground hover:bg-accent/40",
+              )}
+              onClick={() =>
+                setForm((current) => ({
+                  ...current,
+                  deviceCustodyStatus: option.value,
+                  deviceUnlock:
+                    option.value === DEVICE_CUSTODY_WITH_CUSTOMER
+                      ? { method: "none" }
+                      : current.deviceUnlock,
+                }))
+              }
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Icon className="size-3.5 shrink-0" />
+                <span className="truncate text-[11px] font-semibold leading-4">
+                  {deviceCustodyLabels[option.value]}
+                </span>
+                {selected ? <Check className="ml-auto size-3.5 shrink-0" /> : null}
+              </span>
+              <span className="mt-1 block text-[9px] leading-3 text-muted-foreground">
+                {option.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {form.deviceCustodyStatus === null ? (
+        <p className="rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
+          这是旧版草稿，请重新确认设备是否留店后再创建。
+        </p>
+      ) : null}
+      {form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && form.accessoryNotes.trim() ? (
+        <p className="rounded-lg bg-primary/5 px-2 py-1 text-[9px] leading-3 text-primary">
+          已填写随附物品。请确认只有这些物品留在门店，设备仍由客人保管。
+        </p>
+      ) : null}
+    </fieldset>
   );
 }
 

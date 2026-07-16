@@ -219,6 +219,8 @@ export interface DeviceSnapshot {
 
 export type DeviceUnlockMethod = "text" | "pin" | "pattern";
 
+export type DeviceCustodyStatus = "with_shop" | "with_customer";
+
 export type DeviceUnlockInput =
   | { method: "none" }
   | { method: "text"; value: string }
@@ -254,6 +256,7 @@ export interface RepairOrder {
   assignee_membership_id?: string;
   internal_tag?: string;
   accessory_notes?: string;
+  device_custody_status: DeviceCustodyStatus | null;
   warranty_text?: string;
   warranty_months?: number;
   warranty_change_reason?: string;
@@ -753,6 +756,7 @@ export interface CreateOrderInput {
   issue_description: string;
   internal_tag?: string;
   accessory_notes?: string;
+  device_custody_status?: DeviceCustodyStatus;
   device_unlock?: DeviceUnlockInput;
   warranty_text?: string;
   warranty_months?: number;
@@ -856,6 +860,13 @@ export interface OrderTerminalOperationResult {
   record_state: "active" | "voided";
   updated_at: string;
   replayed: boolean;
+}
+
+export interface UpdateOrderCustodyInput {
+  expected_updated_at: string;
+  device_custody_status: DeviceCustodyStatus;
+  idempotency_key: string;
+  reason?: string;
 }
 
 export interface CustomerUpdateInput {

@@ -230,6 +230,61 @@ describe("dashboard priority", () => {
       "开始返修检测",
     );
   });
+
+  it("routes customer-held devices to receipt instead of physical repair or pickup work", () => {
+    const summary = buildDashboardPrioritySummary(
+      [
+        order({ id: "customer-new", device_custody_status: "with_customer", status: "new" }),
+        order({
+          id: "customer-parts",
+          device_custody_status: "with_customer",
+          status: "parts_arrived",
+          parts_status: "arrived",
+        }),
+        order({
+          id: "customer-stale-pickup",
+          device_custody_status: "with_customer",
+          status: "waiting_pickup",
+          pickup_overdue: true,
+        }),
+      ],
+      { coverage: "store", limit: 20, now },
+    );
+
+    for (const id of ["customer-new", "customer-parts", "customer-stale-pickup"]) {
+      expect(summary.items.find((item) => item.orderId === id)).toMatchObject({
+        tier: "active",
+        reasonLabel: "设备待收机",
+        action: { label: "确认收机" },
+      });
+    }
+    expect(summary.items.find((item) => item.orderId === "customer-parts")?.currentStep).toBe(
+      "配件已到，设备未收",
+    );
+    expect(
+      summary.items.find((item) => item.orderId === "customer-stale-pickup")?.reasonCode,
+    ).not.toBe("pickup_overdue");
+  });
+
+  it("keeps unknown legacy custody conservative in existing pickup queues", () => {
+    const summary = buildDashboardPrioritySummary(
+      [
+        order({
+          id: "legacy-pickup",
+          device_custody_status: null,
+          status: "waiting_pickup",
+          pickup_overdue: true,
+        }),
+      ],
+      { coverage: "store", limit: 20, now },
+    );
+
+    expect(summary.items[0]).toMatchObject({
+      orderId: "legacy-pickup",
+      reasonCode: "pickup_overdue",
+      reasonLabel: "取件超期",
+    });
+  });
 });
 
 function order(overrides: Partial<OrderListItem> = {}): OrderListItem {
@@ -262,5 +317,6 @@ function order(overrides: Partial<OrderListItem> = {}): OrderListItem {
     created_at: "2026-07-10T09:00:00.000Z",
     updated_at: "2026-07-10T09:00:00.000Z",
     ...overrides,
+    device_custody_status: overrides.device_custody_status ?? "with_shop",
   };
 }

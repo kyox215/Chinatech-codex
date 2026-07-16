@@ -18,6 +18,7 @@ import {
   sendWhatsappNotification,
   transitionOrder,
   updateOrder,
+  updateOrderCustody,
   uploadOrderAttachment,
 } from "./mock-api";
 
@@ -293,7 +294,7 @@ describe("mock order WhatsApp notification workflow", () => {
 
     await expect(
       sendWhatsappNotification(id, "Messaggio non valido", "pickup_ready", "completed"),
-    ).rejects.toThrow("不能直接流转");
+    ).rejects.toThrow("必须使用专用状态操作");
 
     const detail = await getOrder(id);
     expect(detail.order.status).toBe("new");
@@ -633,6 +634,147 @@ describe("mock order WhatsApp notification workflow", () => {
 });
 
 describe("mock order inline editing workflow", () => {
+  it("creates both custody states explicitly and rejects secrets for customer-held devices", async () => {
+    await expect(
+      createMockOrder({
+        device_custody_status: "with_customer",
+        device_unlock: { method: "pin", value: "001258" },
+      }),
+    ).rejects.toThrow("设备未留店时不能保存手机密码");
+
+    const id = await createMockOrder({ device_custody_status: "with_customer" });
+    const detail = await getOrder(id);
+
+    expect(detail.order.device_custody_status).toBe("with_customer");
+    expect(detail.order.delivered_at).toBeUndefined();
+    expect(detail.events.find((event) => event.event_type === "created")?.payload).toMatchObject({
+      device_custody_status: "with_customer",
+    });
+    await expect(transitionOrder(id, "diagnosing")).rejects.toThrow("设备当前未留店");
+  });
+
+  it("records return and receive as versioned custody events while clearing current-cycle delivery", async () => {
+    const id = await createMockOrder({
+      device_custody_status: "with_shop",
+      device_unlock: { method: "pin", value: "001258" },
+    });
+    const created = await getOrder(id);
+    const createdUpdatedAt = created.order.updated_at;
+
+    const returned = await updateOrderCustody(id, {
+      expected_updated_at: createdUpdatedAt,
+      device_custody_status: "with_customer",
+      idempotency_key: "00000000-0000-4000-8000-000000000701",
+    });
+    const afterReturn = await getOrder(id);
+    expect(afterReturn.order.delivered_at).toBeDefined();
+    expect(afterReturn.order.device_unlock_value).toBeUndefined();
+
+    const replay = await updateOrderCustody(id, {
+      expected_updated_at: createdUpdatedAt,
+      device_custody_status: "with_customer",
+      idempotency_key: "00000000-0000-4000-8000-000000000701",
+    });
+    expect(replay.updated_at).toBe(returned.updated_at);
+
+    await expect(
+      updateOrderCustody(id, {
+        expected_updated_at: new Date(Date.parse(createdUpdatedAt) - 1_000).toISOString(),
+        device_custody_status: "with_shop",
+        idempotency_key: "00000000-0000-4000-8000-000000000702",
+      }),
+    ).rejects.toThrow("工单已被更新");
+
+    await updateOrderCustody(id, {
+      expected_updated_at: afterReturn.order.updated_at,
+      device_custody_status: "with_shop",
+      idempotency_key: "00000000-0000-4000-8000-000000000703",
+    });
+    const received = await getOrder(id);
+    expect(received.order.device_custody_status).toBe("with_shop");
+    expect(received.order.delivered_at).toBeUndefined();
+    expect(
+      received.events.find((event) => event.payload.action === "device_custody_changed")?.payload,
+    ).toMatchObject({
+      from: "with_customer",
+      to: "with_shop",
+      prior_delivery_recorded: true,
+    });
+  });
+
+  it("distinguishes delivered completion from never-received administrative closure", async () => {
+    const shopId = await createMockOrder({ device_custody_status: "with_shop" });
+    await transitionOrder(shopId, "completed", {
+      idempotencyKey: "00000000-0000-4000-8000-000000000704",
+    });
+    const delivered = await getOrder(shopId);
+    expect(delivered.order.completed_at).toBeDefined();
+    expect(delivered.order.delivered_at).toBeDefined();
+    expect(delivered.order.device_custody_status).toBe("with_customer");
+    expect(
+      delivered.events.find((event) => event.payload.custody_outcome === "delivered")?.payload,
+    ).toMatchObject({ custody_outcome: "delivered" });
+
+    const customerId = await createMockOrder({ device_custody_status: "with_customer" });
+    await transitionOrder(customerId, "completed", {
+      idempotencyKey: "00000000-0000-4000-8000-000000000705",
+    });
+    const neverReceived = await getOrder(customerId);
+    expect(neverReceived.order.completed_at).toBeDefined();
+    expect(neverReceived.order.delivered_at).toBeUndefined();
+    expect(
+      neverReceived.events.find((event) => event.payload.custody_outcome === "never_received")
+        ?.payload,
+    ).toMatchObject({ custody_outcome: "never_received" });
+    await expect(
+      updateOrderCustody(
+        customerId,
+        {
+          expected_updated_at: neverReceived.order.updated_at,
+          device_custody_status: "with_shop",
+          idempotency_key: "00000000-0000-4000-8000-000000000709",
+          reason: "历史修正",
+        },
+        { displayName: "Owner", role: "owner", storeRole: "owner", storeId: "store_1" },
+      ),
+    ).rejects.toThrow("请先按返修流程重开");
+  });
+
+  it("cancels never-received devices without inventing a return", async () => {
+    const id = await createMockOrder({ device_custody_status: "with_customer" });
+    await transitionOrder(id, "cancelled", {
+      reason: "客户不再继续维修",
+      idempotencyKey: "00000000-0000-4000-8000-000000000706",
+    });
+    const cancelled = await getOrder(id);
+
+    expect(cancelled.order.delivered_at).toBeUndefined();
+    expect(
+      cancelled.events.find((event) => event.payload.custody_outcome === "never_received")?.payload,
+    ).toMatchObject({ custody_outcome: "never_received" });
+    await expect(
+      confirmCancelledOrderReturn(id, {
+        expectedUpdatedAt: cancelled.order.updated_at,
+        idempotencyKey: "00000000-0000-4000-8000-000000000707",
+      }),
+    ).rejects.toThrow("无需确认退还");
+  });
+
+  it("blocks unlock writes until legacy custody is confirmed", async () => {
+    const id = await createMockOrder({ device_custody_status: "with_shop" });
+    const row = mockOrders.find((item) => item.id === id);
+    if (!row) throw new Error("fixture order missing");
+    row.device_custody_status = null;
+    const before = await getOrder(id);
+
+    await expect(
+      patchOrder(id, {
+        expected_updated_at: before.order.updated_at,
+        changes: { device_unlock: { method: "pin", value: "001258" } },
+      }),
+    ).rejects.toThrow("设备未留店时不能保存手机密码");
+  });
+
   it("assigns technician from the creator account and ignores client spoofing", async () => {
     const id = await createMockOrder(
       { technician_name: "Spoofed Tech" } as Partial<CreateOrderInput> & {

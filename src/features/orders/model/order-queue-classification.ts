@@ -63,7 +63,8 @@ export const orderQueueGroupMeta: Record<
 type QueueOrder = Pick<
   OrderListItem,
   "status" | "workflow_status" | "parts_status" | "notify_status" | "exception_status"
->;
+> &
+  Partial<Pick<OrderListItem, "device_custody_status">>;
 
 const repairedStatuses = new Set(["repaired", "notified", "waiting_pickup"]);
 const notifiedStatuses = new Set(["notified", "waiting_pickup"]);
@@ -91,6 +92,7 @@ function isNotified(order: QueueOrder) {
 }
 
 function isRepairedWork(order: QueueOrder, workflowStatus: string) {
+  if (order.device_custody_status === "with_customer") return false;
   if (order.exception_status === "returned_unfixed" || order.exception_status === "unrepairable") {
     return false;
   }

@@ -27,6 +27,7 @@ export type NewOrderOfflineAutosaveState =
   | "ready"
   | "saving"
   | "saved"
+  | "queued"
   | "error"
   | "unavailable";
 
@@ -62,6 +63,7 @@ export function useNewOrderOfflineAutosave({
   const currentDraftIdRef = useRef<string | undefined>(undefined);
   const lastSavedFingerprintRef = useRef<string | undefined>(undefined);
   const storageAvailableRef = useRef(false);
+  const queuedRef = useRef(false);
   const scopeStoreId = scope?.storeId;
   const scopeUserId = scope?.userId;
 
@@ -77,6 +79,7 @@ export function useNewOrderOfflineAutosave({
   useEffect(() => {
     let active = true;
     storageAvailableRef.current = false;
+    queuedRef.current = false;
     currentDraftIdRef.current = undefined;
     lastSavedFingerprintRef.current = undefined;
     setLastSavedAt(null);
@@ -122,7 +125,7 @@ export function useNewOrderOfflineAutosave({
   }, [service]);
 
   const saveNow = useCallback(async () => {
-    if (!service || !storageAvailableRef.current || draftPrompt) return;
+    if (!service || !storageAvailableRef.current || draftPrompt || queuedRef.current) return;
     const currentForm = latestFormRef.current;
     if (!isNewOrderFormWorthOfflineAutosave(currentForm)) return;
 
@@ -156,6 +159,7 @@ export function useNewOrderOfflineAutosave({
       state === "checking" ||
       state === "disabled" ||
       state === "saving" ||
+      state === "queued" ||
       state === "unavailable"
     )
       return;
@@ -188,14 +192,21 @@ export function useNewOrderOfflineAutosave({
 
       const restoreResult = restoreNewOrderFormFromOfflineDraft(restored.value);
       currentDraftIdRef.current = restored.value.localDraftId;
+      queuedRef.current = false;
       lastSavedFingerprintRef.current = getNewOrderOfflineDraftFingerprint(restoreResult.form);
       setLastSavedAt(restored.value.updatedAt);
       setDraftPrompt(null);
-      setPendingRestoreNotice(
-        restoreResult.relationshipNeedsReview
-          ? "本机草稿已恢复；客户或设备关联需要在线保存前再次确认。"
-          : "本机草稿已恢复；手机密码、PIN 或图案需要重新输入。",
-      );
+      const restoreNotices = ["本机草稿已恢复"];
+      if (restoreResult.custodyNeedsConfirmation) {
+        restoreNotices.push("旧草稿未记录设备是否留店，请重新选择");
+      }
+      if (restoreResult.relationshipNeedsReview) {
+        restoreNotices.push("客户或设备关联需要在线保存前再次确认");
+      }
+      if (restoreResult.sensitiveUnlockNeedsReentry) {
+        restoreNotices.push("手机密码、PIN 或图案需要重新输入");
+      }
+      setPendingRestoreNotice(`${restoreNotices.join("；")}。`);
       setState("saved");
       return restoreResult;
     }, [draftPrompt, service]);
@@ -210,6 +221,7 @@ export function useNewOrderOfflineAutosave({
     }
     if (currentDraftIdRef.current === draftPrompt.localDraftId) {
       currentDraftIdRef.current = undefined;
+      queuedRef.current = false;
       lastSavedFingerprintRef.current = undefined;
       setLastSavedAt(null);
     }
@@ -224,6 +236,7 @@ export function useNewOrderOfflineAutosave({
     const discarded = await service.discardDraft(currentDraftIdRef.current);
     if (!discarded.ok) return false;
     currentDraftIdRef.current = undefined;
+    queuedRef.current = false;
     lastSavedFingerprintRef.current = undefined;
     setLastSavedAt(null);
     setDraftPrompt(null);
@@ -231,6 +244,53 @@ export function useNewOrderOfflineAutosave({
     setState("ready");
     return true;
   }, [service]);
+
+  const queueCurrentDraftForSync = useCallback(async () => {
+    if (!service || !storageAvailableRef.current) {
+      throw new Error("本机离线存储尚未就绪，请稍后重试");
+    }
+    if (draftPrompt) {
+      throw new Error("请先恢复或丢弃已有的本机草稿");
+    }
+    const currentForm = latestFormRef.current;
+    if (hasNewOrderSensitiveUnlockDraft(currentForm)) {
+      throw new Error("离线创建不会保存手机密码、PIN 或图案，请清除后再保存");
+    }
+    if (!currentForm.deviceCustodyStatus) {
+      throw new Error("请先确认设备是否留店");
+    }
+    if (currentForm.status !== "new") {
+      throw new Error("离线新建只能从“新工单”状态开始");
+    }
+
+    setState("saving");
+    setErrorMessage(null);
+    const saved = await service.saveDraft(
+      buildNewOrderOfflineDraftInput({
+        form: currentForm,
+        localDraftId: currentDraftIdRef.current,
+      }),
+    );
+    if (!saved.ok) {
+      setState("error");
+      setErrorMessage(formatOfflineStorageError(saved.error));
+      throw new Error(formatOfflineStorageError(saved.error));
+    }
+
+    currentDraftIdRef.current = saved.value.localDraftId;
+    lastSavedFingerprintRef.current = getNewOrderOfflineDraftFingerprint(currentForm);
+    setLastSavedAt(saved.value.updatedAt);
+    const queued = await service.queueDraftForSync({ localDraftId: saved.value.localDraftId });
+    if (!queued.ok) {
+      setState("error");
+      setErrorMessage(formatOfflineStorageError(queued.error));
+      throw new Error(formatOfflineStorageError(queued.error));
+    }
+
+    queuedRef.current = true;
+    setState("queued");
+    return queued.value.outboxEntry.operationId;
+  }, [draftPrompt, service]);
 
   return {
     state,
@@ -243,6 +303,7 @@ export function useNewOrderOfflineAutosave({
     restorePromptDraft,
     discardPromptDraft,
     discardCurrentDraft,
+    queueCurrentDraftForSync,
   };
 }
 

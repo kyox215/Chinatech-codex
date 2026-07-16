@@ -41,6 +41,7 @@ as owner of this file.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` supersedes the active production boundary while migration/privacy gates are open: all roles are denied buyback attachments, restricted kinds, finalize and legacy evidence apply at router and repository layers. Existing allowlisted historical markers are retained read-only, while new client-supplied evidence markers are stripped. UI removal is only a projection of the authoritative server deny.
 - `TASK-20260714-002-buyback-supabase-schema-staging` adds only dormant production objects: agreement RLS is enabled with no access policy, the private bucket has no upload/read policy, and `public`/`anon`/`authenticated`/`service_role` retain no agreement-table or finalize-RPC runtime access. This fail-closed schema state does not authorize identity/signature collection.
 - `TASK-20260716-003-customer-finance-order-correction-plan` enforces terminal-order authority in router/repository/database layers: Manager/Owner may correct or reopen, Owner alone may void, and browser roles cannot execute terminal RPCs. `order_terminal_operations` intentionally uses RLS with no policy while only `service_role` has RPC EXECUTE; the UI is only a projection. Finance-restricted customer reads omit amounts rather than returning misleading zeros.
+- `TASK-20260716-004-device-left-status-plan` proposes that customer-held devices cannot retain unlock credentials and that custody changes reuse server-side `order:update_intake`, tenant scope, version locking and redacted audit events. This remains proposed until implementation/security tests close.
 
 ## Interfaces and dependencies
 
@@ -66,6 +67,7 @@ as owner of this file.
 | SEC-20260710-001 | 17 legacy public tables permit direct browser-role access with RLS disabled | Critical customer/business data exposure | Security + Data + Owner | P0 consumer discovery and staged containment | open |
 | SEC-20260710-002 | One plaintext unlock pattern remains and no approved retention/key-management policy exists | Sensitive device-access secret risk | Security + Data + Owner | policy decision before encryption migration, purge or export | blocked_by_policy |
 | SEC-20260713-003 | Buyback evidence retention, staged-file deletion, runtime bucket/RLS grants, legal wording and advanced file sanitization are not production-verified | Identity-document/privacy exposure | Security + Data + Operations + Owner | approved production-readiness/legal task before evidence activation | contained_by_feature_off_and_revoked_runtime_acl |
+| SEC-20260716-004 | Device-custody and unlock-clear behavior is planned but not implemented | False custody evidence or retained device-access secrets | Security + Backend + Product + Owner | implementation WP-01 through WP-05 | proposed |
 
 ## Lessons and anti-patterns
 
@@ -95,3 +97,4 @@ as owner of this file.
 | 2026-07-14 | Verified dormant production schema remains empty and inaccessible to every runtime role after migration apply | TASK-20260714-002-buyback-supabase-schema-staging | Security reviewer + Integration Lead | scoped_verified |
 | 2026-07-16 | Verified actor-scoped Dashboard priority, compact DTO denylist and cached-data permission-revocation hiding | TASK-20260716-001-dashboard-handoff-priority | Security reviewer + Integration Lead | active |
 | 2026-07-16 | Verified service-role-only terminal RPCs, layered bypass denial and finance-redacted customer projection | TASK-20260716-003-customer-finance-order-correction-plan | Security reviewer + Integration Lead | scoped_verified |
+| 2026-07-16 | Recorded proposed custody permission, tenant and unlock-secret controls with explicit non-implementation boundary | TASK-20260716-004-device-left-status-plan | Security reviewer + Integration Lead | proposed |

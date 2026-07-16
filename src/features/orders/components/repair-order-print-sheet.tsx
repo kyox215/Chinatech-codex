@@ -6,6 +6,7 @@ import type { StoreSettings } from "@/lib/repairdesk/types";
 import {
   formatEuro,
   formatItalianDateTime,
+  deviceCustodyItalian,
   orderTypeItalian,
   statusItalian,
   toItalianWarranty,
@@ -134,6 +135,10 @@ export function RepairOrderPrintSheet({
               <PrintLine
                 label="Stato"
                 value={statusItalian[cancelled ? "cancelled" : order.status]}
+              />
+              <PrintLine
+                label="Custodia del dispositivo"
+                value={deviceCustodyItalian(order.device_custody_status)}
               />
               <PrintLine label="Durata garanzia" value={toItalianWarranty(order.warranty_text)} />
               <PrintLine

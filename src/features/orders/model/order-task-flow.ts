@@ -33,7 +33,8 @@ export function getOrderTaskGuidance(
   input: Pick<
     OrderListItem,
     "status" | "workflow_status" | "exception_status" | "approval_overdue" | "pickup_overdue"
-  >,
+  > &
+    Partial<Pick<OrderListItem, "device_custody_status">>,
 ) {
   const cancelled = input.status === "cancelled" || input.exception_status === "cancelled";
   const workflowStatus = cancelled ? "closed" : getOrderWorkflowStatus(input);
@@ -69,12 +70,23 @@ export function getOrderTaskGuidance(
     };
   }
 
+  if (input.device_custody_status === "with_customer") {
+    return {
+      stage,
+      workflowStatus,
+      label: "客户持有设备",
+      task: "设备尚未交给门店；需要实机检测或维修前，请先在工单详情确认收机。",
+      nextAction: "确认收机",
+      tone: "info" as const,
+    };
+  }
+
   if (input.pickup_overdue) {
     return {
       stage,
       workflowStatus,
       label: "取件超期",
-      task: "优先通知客户取机，核对尾款和留存物品。",
+      task: "优先通知客户取机，核对尾款和随附物品。",
       nextAction: "催取机",
       tone: "danger" as const,
     };

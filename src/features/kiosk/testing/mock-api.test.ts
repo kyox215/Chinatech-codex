@@ -17,6 +17,30 @@ const actor = {
 };
 
 describe("kiosk mock API review flow", () => {
+  it.each([null, "with_customer"] as const)(
+    "blocks pickup evidence when custody is %s",
+    async (custody) => {
+      const order = orders[0]!;
+      const original = order.device_custody_status;
+      order.device_custody_status = custody;
+      try {
+        await expect(
+          createKioskSession(
+            {
+              device_id: "kiosk_device_demo",
+              session_type: "pickup_signature",
+              order_id: order.id,
+              customer_id: order.customer_id,
+            },
+            actor,
+          ),
+        ).rejects.toThrow("只有已确认由门店保管的设备可以发起取机确认");
+      } finally {
+        order.device_custody_status = original;
+      }
+    },
+  );
+
   it("accepts submitted customer data after staff review", async () => {
     const order = orders[0]!;
     const customer = customers.find((item) => item.id === order.customer_id)!;

@@ -31,6 +31,8 @@ const headerToKey: Record<string, OrderDataColumnKey> = {
   外部记录ID: "external_record_id",
   版本时间: "expected_updated_at",
   订单类型: "order_type",
+  设备保管枚举: "device_custody_status",
+  设备保管状态: "device_custody_label",
   状态: "status",
   流程阶段: "workflow_status",
   异常状态: "exception_status",
@@ -65,6 +67,7 @@ const headerToKey: Record<string, OrderDataColumnKey> = {
 
 const editableFieldLabels: Partial<Record<OrderDataColumnKey, string>> = {
   order_type: "订单类型",
+  device_custody_status: "设备保管枚举",
   customer_name: "客户姓名",
   customer_phone: "客户电话",
   device_brand: "设备品牌",
@@ -167,7 +170,11 @@ export function normalizeOrderDataRows(input: {
     }
     if (
       matched &&
-      changedFields.some((field) => field.startsWith("customer_") || field.startsWith("device_"))
+      changedFields.some(
+        (field) =>
+          field.startsWith("customer_") ||
+          ["device_brand", "device_model", "device_imei", "device_notes"].includes(field),
+      )
     ) {
       addIssue(
         issues.warnings,
@@ -309,7 +316,21 @@ function normalizeEditableData(
       } else result.order_type = value;
       continue;
     }
+    if (key === "device_custody_status") {
+      if (value !== "with_shop" && value !== "with_customer") {
+        addIssue(
+          errors,
+          "invalid_device_custody",
+          "设备保管枚举必须是 with_shop 或 with_customer",
+          "设备保管枚举",
+        );
+      } else result.device_custody_status = value;
+      continue;
+    }
     result[key] = value;
+  }
+  if (action === "create" && !("device_custody_status" in result)) {
+    result.device_custody_status = null;
   }
   return result;
 }
@@ -431,6 +452,7 @@ function removeUnchangedFields(data: Record<string, unknown>, current: OrderData
     device_model: device?.model,
     device_imei: device?.serial_or_imei,
     device_notes: device?.device_notes ?? null,
+    device_custody_status: current.device_custody_status ?? null,
     issue_description: current.issue_description,
     diagnosis_result: current.diagnosis_result ?? null,
     internal_tag: current.internal_tag ?? null,
@@ -579,7 +601,9 @@ function markDuplicateAndSharedConflicts(
       },
       {
         key: row.device_id && `device:${row.device_id}`,
-        changed: Object.keys(row.normalized_data).some((field) => field.startsWith("device_")),
+        changed: Object.keys(row.normalized_data).some((field) =>
+          ["device_brand", "device_model", "device_imei", "device_notes"].includes(field),
+        ),
       },
     ];
     for (const entity of sharedEntities) {

@@ -128,7 +128,7 @@ describe("order option pickers", () => {
     const user = userEvent.setup();
     render(<AccessoryHarness />);
 
-    await user.click(screen.getByRole("button", { name: /选择留存物品/ }));
+    await user.click(screen.getByRole("button", { name: /选择随附物品/ }));
     await user.click(screen.getByRole("menuitemcheckbox", { name: "SIM卡" }));
     await user.click(screen.getByRole("menuitemcheckbox", { name: "手机壳" }));
 

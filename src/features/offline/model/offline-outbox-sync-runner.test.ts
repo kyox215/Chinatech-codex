@@ -181,6 +181,30 @@ describe("RepairDesk offline outbox sync runner", () => {
     });
   });
 
+  it("retries bounded sync failures and allows the safe new-order status marker", async () => {
+    const store = createRepairDeskOfflineMemoryStore();
+    await store.putOutboxEntry(
+      outboxEntry({
+        status: "sync_failed",
+        retryCount: 1,
+        payload: safePayload({ orderStatus: "new" }),
+      }),
+    );
+    const syncOrder = vi.fn(async () => ({
+      status: "synced" as const,
+      serverOrderId: "order_retry",
+    }));
+
+    const result = await createRunner(store, { syncOrder }).runOnce();
+
+    expect(result.ok && result.value.syncedCount).toBe(1);
+    expect(syncOrder).toHaveBeenCalledTimes(1);
+    await expect(store.getOutboxEntry("op_1", scope)).resolves.toMatchObject({
+      ok: true,
+      value: { status: "synced", retryCount: 2, serverOrderId: "order_retry" },
+    });
+  });
+
   it("turns handler exceptions into retryable local failures without storing thrown text", async () => {
     const store = createRepairDeskOfflineMemoryStore();
     await store.putOutboxEntry(outboxEntry());

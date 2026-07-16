@@ -5,13 +5,16 @@ import type {
   RepairDeskOfflineSafeRecord,
 } from "@/features/offline/model/offline-types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
 
+import { isDeviceCustodyStatus } from "./device-custody";
 import { initialNewOrderForm, type NewOrderFormState } from "./new-order-form";
 
 export type NewOrderOfflineDraftRestoreResult = {
   form: NewOrderFormState;
   sensitiveUnlockNeedsReentry: boolean;
   relationshipNeedsReview: boolean;
+  custodyNeedsConfirmation: boolean;
 };
 
 export function buildNewOrderOfflineDraftInput({
@@ -52,6 +55,8 @@ export function buildNewOrderOfflineDraftPayload(
     customerPhone: form.customerPhone.trim(),
     deviceBrand: form.brand.trim(),
     deviceModel: form.model.trim(),
+    deviceNotes: form.deviceNotes.trim(),
+    deviceCustody: form.deviceCustodyStatus,
     imei: form.imei.trim(),
     issueDescription: form.issue.trim(),
     accessoryNotes: form.accessoryNotes.trim(),
@@ -85,10 +90,14 @@ export function buildNewOrderOfflineRelationshipPlan(
   const customerLinkMode = form.customerId
     ? "existing_customer"
     : hasCustomerSnapshot
-      ? "unknown_needs_review"
+      ? "new_customer_local"
       : "walk_in_snapshot_only";
   const deviceLinkMode =
-    form.deviceId && form.customerId ? "existing_customer_device" : "order_snapshot_only";
+    form.deviceId && form.customerId
+      ? "existing_customer_device"
+      : form.brand.trim() && form.model.trim()
+        ? "new_customer_device_local"
+        : "order_snapshot_only";
 
   return {
     customerLinkMode,
@@ -98,6 +107,9 @@ export function buildNewOrderOfflineRelationshipPlan(
           snapshot: customerSnapshot,
         }
       : {
+          ...(customerLinkMode === "new_customer_local"
+            ? { localCustomerId: stableOfflineLocalId("customer", customerSnapshot) }
+            : {}),
           snapshot: customerSnapshot,
         },
     deviceLinkMode,
@@ -108,6 +120,9 @@ export function buildNewOrderOfflineRelationshipPlan(
             snapshot: deviceSnapshot,
           }
         : {
+            ...(deviceLinkMode === "new_customer_device_local"
+              ? { localDeviceId: stableOfflineLocalId("device", deviceSnapshot) }
+              : {}),
             snapshot: deviceSnapshot,
           },
   };
@@ -119,6 +134,7 @@ export function restoreNewOrderFormFromOfflineDraft(
   const payload = draft.draftPayload;
   const warrantyDraft = readRecord(payload.warrantyDraft);
   const restoredFaults = readRepairItems(payload.repairItems);
+  const restoredCustody = readDeviceCustodyStatus(payload.deviceCustody);
 
   return {
     form: {
@@ -141,6 +157,7 @@ export function restoreNewOrderFormFromOfflineDraft(
       brand: readString(payload.deviceBrand) ?? "",
       model: readString(payload.deviceModel) ?? "",
       imei: readString(payload.imei) ?? "",
+      deviceCustodyStatus: restoredCustody,
       issue: readString(payload.issueDescription) ?? "",
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
       warrantyText: readString(warrantyDraft.text) ?? initialNewOrderForm.warrantyText,
@@ -151,6 +168,7 @@ export function restoreNewOrderFormFromOfflineDraft(
       deviceUnlock: { method: "none" },
     },
     sensitiveUnlockNeedsReentry: draft.hasSensitiveVaultEntry,
+    custodyNeedsConfirmation: restoredCustody === null,
     relationshipNeedsReview:
       draft.customerLinkMode === "unknown_needs_review" ||
       draft.deviceLinkMode === "unknown_device_needs_review",
@@ -159,6 +177,7 @@ export function restoreNewOrderFormFromOfflineDraft(
 
 export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boolean {
   return Boolean(
+    form.deviceCustodyStatus !== initialNewOrderForm.deviceCustodyStatus ||
     form.customerName.trim() ||
     form.customerPhone.trim() ||
     form.brand.trim() ||
@@ -183,6 +202,7 @@ export function getNewOrderOfflineDraftFingerprint(form: NewOrderFormState): str
 }
 
 export function hasNewOrderSensitiveUnlockDraft(form: NewOrderFormState): boolean {
+  if (form.deviceCustodyStatus === "with_customer") return false;
   const unlock = form.deviceUnlock;
   if (unlock.method === "text" || unlock.method === "pin") return Boolean(unlock.value.trim());
   if (unlock.method === "pattern") return unlock.pattern.length > 0;
@@ -231,6 +251,10 @@ function readRepairOrderStatus(value: unknown): RepairOrderStatus | undefined {
   return typeof value === "string" && value.trim() ? (value as RepairOrderStatus) : undefined;
 }
 
+function readDeviceCustodyStatus(value: unknown): DeviceCustodyStatus | null {
+  return isDeviceCustodyStatus(value) ? value : null;
+}
+
 function normalizeMoneyNumber(value: number) {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
@@ -245,4 +269,14 @@ function moneyToCents(value: number) {
 
 function centsToMoney(value: number | undefined) {
   return typeof value === "number" ? value / 100 : 0;
+}
+
+function stableOfflineLocalId(prefix: "customer" | "device", value: unknown) {
+  const input = JSON.stringify(value);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `local_${prefix}_${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }

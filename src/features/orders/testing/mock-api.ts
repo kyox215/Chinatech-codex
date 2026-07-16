@@ -29,6 +29,7 @@ import type {
   PaymentResult,
   RepairOrder,
   ReopenOrderInput,
+  UpdateOrderCustodyInput,
   UpdateOrderInput,
   VoidOrderInput,
   WhatsappNotificationResult,
@@ -36,6 +37,13 @@ import type {
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
+import {
+  DEVICE_CUSTODY_WITH_CUSTOMER,
+  DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyBlocksStatus,
+  hasUnlockValue,
+  normalizeUnlockForCustody,
+} from "@/features/orders/model/device-custody";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
   isOrderCancelledForPayment,
@@ -703,11 +711,26 @@ function resetMockQuoteApproval(order: RepairOrder) {
 export async function transitionOrder(
   id: string,
   to: RepairOrderStatus,
-  opts: { reason?: string; operator?: MockOperator; storeId?: string } = {},
+  opts: {
+    reason?: string;
+    expectedUpdatedAt?: string;
+    idempotencyKey?: string;
+    operator?: MockOperator;
+    storeId?: string;
+  } = {},
 ) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   assertMockRoutineMutationAllowed(o);
+  if (
+    opts.idempotencyKey &&
+    extraEvents.some((event) => event.payload.idempotency_key === opts.idempotencyKey)
+  ) {
+    return { ok: true, from: o.status, to: o.status };
+  }
+  if (opts.expectedUpdatedAt && o.updated_at !== opts.expectedUpdatedAt) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
   const canonicalRequest = orderWorkflowStatuses.includes(to as never);
   if (canonicalRequest) {
     throw new Error("状态流转必须使用具体工单状态，不能使用主流程分组");
@@ -716,6 +739,21 @@ export async function transitionOrder(
   const workflowTo = workflowStatusFromLegacyStatus(to);
   const legacyTo = to;
   const cleanReason = opts.reason?.trim();
+  const targetDefinition = workflowStatuses.find((status) => status.code === legacyTo);
+  const requiresPhysicalCustody =
+    deviceCustodyBlocksStatus(legacyTo) ||
+    targetDefinition?.bucket === "diagnosing" ||
+    targetDefinition?.bucket === "repair" ||
+    targetDefinition?.bucket === "pickup";
+  if (
+    !o.device_custody_status &&
+    (requiresPhysicalCustody || legacyTo === "completed" || legacyTo === "cancelled")
+  ) {
+    throw new Error("请先确认设备是留在门店还是由客户带走，再进行此状态流转");
+  }
+  if (o.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP && requiresPhysicalCustody) {
+    throw new Error("设备当前未留店，不能进入诊断、维修或待取机状态");
+  }
   const target = validateMockManualTransitionTarget(o.status, legacyTo);
   if (!target.ok) throw new Error(target.reason ?? "状态流转不合法");
   if (isApprovalDecisionBypass(o.status, legacyTo, o.approval_status, o.approval_flow_status)) {
@@ -727,6 +765,8 @@ export async function transitionOrder(
   }
   const from = o.status;
   const now = new Date().toISOString();
+  const custodyBefore = o.device_custody_status;
+  const deliveredBefore = o.delivered_at;
   o.status = legacyTo;
   o.workflow_status = workflowTo;
   o.exception_status =
@@ -741,7 +781,7 @@ export async function transitionOrder(
   o.parts_status = partsStatusFromLegacyStatus(legacyTo);
   o.notify_status = notifyStatusFromLegacyStatus(legacyTo);
   o.updated_at = now;
-  if (legacyTo !== "completed") {
+  if (legacyTo !== "completed" && legacyTo !== "cancelled") {
     o.completed_at = undefined;
     o.delivered_at = undefined;
   }
@@ -751,7 +791,16 @@ export async function transitionOrder(
   }
   if (legacyTo === "completed") {
     o.completed_at = o.updated_at;
-    o.delivered_at = o.updated_at;
+    o.delivered_at = custodyBefore === DEVICE_CUSTODY_WITH_SHOP ? o.updated_at : deliveredBefore;
+    o.device_custody_status = DEVICE_CUSTODY_WITH_CUSTOMER;
+    o.device_unlock_method = undefined;
+    o.device_unlock_value = undefined;
+    o.device_unlock_pattern = undefined;
+  }
+  if (legacyTo === "cancelled" && o.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER) {
+    o.device_unlock_method = undefined;
+    o.device_unlock_value = undefined;
+    o.device_unlock_pattern = undefined;
   }
   if (legacyTo === "waiting_approval") o.approval_sent_at = o.updated_at;
   extraEvents.unshift({
@@ -765,8 +814,24 @@ export async function transitionOrder(
       workflow_to: workflowTo,
       reason: cleanReason,
       ...(legacyTo === "completed"
-        ? { handover_confirmed: true, custody_outcome: "delivered" }
-        : {}),
+        ? {
+            handover_confirmed: Boolean(o.delivered_at),
+            custody_from: custodyBefore,
+            custody_to: DEVICE_CUSTODY_WITH_CUSTOMER,
+            custody_outcome: o.delivered_at ? "delivered" : "never_received",
+          }
+        : legacyTo === "cancelled"
+          ? {
+              custody_to: o.device_custody_status,
+              custody_outcome:
+                o.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
+                  ? o.delivered_at
+                    ? "returned"
+                    : "never_received"
+                  : "awaiting_return",
+            }
+          : {}),
+      idempotency_key: opts.idempotencyKey,
     },
     operator_name: operatorName(opts.operator),
     created_at: now,
@@ -781,15 +846,29 @@ export async function confirmCancelledOrderReturn(
   const order = orders.find((item) => item.id === id);
   if (!order) throw new Error("工单不存在");
   if (order.status !== "cancelled") throw new Error("只有已取消工单可以确认设备退还");
-  if (order.updated_at !== opts.expectedUpdatedAt) throw new Error("工单已被更新，请刷新后再试");
   if (!opts.idempotencyKey) throw new Error("缺少退还操作标识");
+  const existingEvent = extraEvents.find(
+    (event) => event.payload.idempotency_key === opts.idempotencyKey,
+  );
+  if (existingEvent && order.delivered_at) {
+    return { ok: true, alreadyConfirmed: true, delivered_at: order.delivered_at };
+  }
+  if (!order.device_custody_status) throw new Error("请先确认设备保管状态，再登记退还");
   if (order.delivered_at) {
     return { ok: true, alreadyConfirmed: true, delivered_at: order.delivered_at };
   }
+  if (order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER) {
+    throw new Error("设备未由门店保管，无需确认退还");
+  }
+  if (order.updated_at !== opts.expectedUpdatedAt) throw new Error("工单已被更新，请刷新后再试");
 
   const now = new Date().toISOString();
   order.completed_at = order.completed_at ?? now;
   order.delivered_at = now;
+  order.device_custody_status = DEVICE_CUSTODY_WITH_CUSTOMER;
+  order.device_unlock_method = undefined;
+  order.device_unlock_value = undefined;
+  order.device_unlock_pattern = undefined;
   order.updated_at = now;
   extraEvents.unshift({
     id: `evt_return_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -807,6 +886,81 @@ export async function confirmCancelledOrderReturn(
     created_at: now,
   });
   return { ok: true, alreadyConfirmed: false, delivered_at: now };
+}
+
+export async function updateOrderCustody(
+  id: string,
+  input: UpdateOrderCustodyInput,
+  operator: MockOperator = "前台",
+): Promise<PatchOrderResult> {
+  const order = orders.find((item) => item.id === id);
+  if (!order) throw new Error("工单不存在");
+  const existingEvent = extraEvents.find(
+    (event) => event.payload.idempotency_key === input.idempotency_key,
+  );
+  if (existingEvent) {
+    if (existingEvent.order_id !== id || existingEvent.payload.to !== input.device_custody_status) {
+      throw new Error("该操作标识已用于不同请求，请刷新后重试");
+    }
+    return { ok: true, updated_at: existingEvent.created_at };
+  }
+
+  const from = order.device_custody_status;
+  const to = input.device_custody_status;
+  const reason = input.reason?.trim();
+  if (from === to) return { ok: true, updated_at: order.updated_at };
+  if (order.updated_at !== input.expected_updated_at) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
+  if (!from && !reason) throw new Error("补录历史设备保管状态时必须填写说明");
+  const role = typeof operator === "string" ? undefined : (operator.storeRole ?? operator.role);
+  const isTerminal = order.status === "completed" || order.status === "cancelled";
+  if (isTerminal && role !== "owner" && role !== "manager") {
+    throw new Error("已结束工单只能由店主或经理填写说明后修正设备保管状态");
+  }
+  if (isTerminal && !reason) {
+    throw new Error("已结束工单只能由店主或经理填写说明后修正设备保管状态");
+  }
+  if (order.status === "completed" && to === DEVICE_CUSTODY_WITH_SHOP) {
+    throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
+  }
+  if (
+    order.status === "cancelled" &&
+    from === DEVICE_CUSTODY_WITH_SHOP &&
+    to === DEVICE_CUSTODY_WITH_CUSTOMER
+  ) {
+    throw new Error("已取消工单请使用“确认设备已退还”操作");
+  }
+
+  const now = new Date().toISOString();
+  const priorDeliveryRecorded = Boolean(order.delivered_at);
+  order.device_custody_status = to;
+  if (to === DEVICE_CUSTODY_WITH_CUSTOMER) {
+    if (from === DEVICE_CUSTODY_WITH_SHOP) order.delivered_at = now;
+    order.device_unlock_method = undefined;
+    order.device_unlock_value = undefined;
+    order.device_unlock_pattern = undefined;
+  } else if (from === DEVICE_CUSTODY_WITH_CUSTOMER || !from) {
+    order.delivered_at = undefined;
+  }
+  order.updated_at = now;
+  extraEvents.unshift({
+    id: `evt_custody_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "device_custody_changed",
+      from,
+      to,
+      reason: reason || null,
+      credentials_cleared: to === DEVICE_CUSTODY_WITH_CUSTOMER,
+      prior_delivery_recorded: priorDeliveryRecorded,
+      idempotency_key: input.idempotency_key,
+    },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  return { ok: true, updated_at: now };
 }
 
 function buildMockTransitionDiagnosisResult(current: string | undefined, reason: string) {
@@ -855,6 +1009,17 @@ export async function decideOrderApproval(
   if (!targetStatus.enabled) {
     throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
   }
+  const requiresPhysicalCustody =
+    deviceCustodyBlocksStatus(target) ||
+    targetStatus.bucket === "diagnosing" ||
+    targetStatus.bucket === "repair" ||
+    targetStatus.bucket === "pickup";
+  if (!o.device_custody_status && (requiresPhysicalCustody || target === "cancelled")) {
+    throw new Error("请先确认设备是留在门店还是由客户带走，再进行此状态流转");
+  }
+  if (o.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER && requiresPhysicalCustody) {
+    throw new Error("设备当前未留店，不能进入诊断、维修或待取机状态");
+  }
 
   if (input.decision === "approved") {
     const allowed = workflowTransitions.some(
@@ -885,7 +1050,14 @@ export async function decideOrderApproval(
   o.parts_status = partsStatusFromLegacyStatus(target);
   o.notify_status = notifyStatusFromLegacyStatus(target);
   o.updated_at = now;
-  if (target === "cancelled") o.cancel_reason = cleanReason || "客户拒绝报价";
+  if (target === "cancelled") {
+    o.cancel_reason = cleanReason || "客户拒绝报价";
+    if (o.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER) {
+      o.device_unlock_method = undefined;
+      o.device_unlock_value = undefined;
+      o.device_unlock_pattern = undefined;
+    }
+  }
   if (target === "unfixed_pickup") {
     o.diagnosis_result = buildMockTransitionDiagnosisResult(
       o.diagnosis_result,
@@ -902,6 +1074,16 @@ export async function decideOrderApproval(
       to: target,
       reason: cleanReason,
       approval_flow_status: input.decision,
+      ...(target === "cancelled"
+        ? {
+            custody_outcome:
+              o.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
+                ? o.delivered_at
+                  ? "returned"
+                  : "never_received"
+                : "awaiting_return",
+          }
+        : {}),
     },
     operator_name: operatorName(operator),
     created_at: now,
@@ -1013,7 +1195,7 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
   internal_tag: "内部标签",
-  accessory_notes: "留存备注",
+  accessory_notes: "随附物品",
   device_unlock: "手机密码",
   warranty_text: "质保",
   warranty_months: "质保期限",
@@ -1100,6 +1282,9 @@ export async function updateOrder(
   assertMockRoutineMutationAllowed(o);
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
+  if (o.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP && hasUnlockValue(input.device_unlock)) {
+    throw new Error("设备未留店时不能保存手机密码");
+  }
 
   const customer = getCustomer(o.customer_id);
   const device = getDevice(o.device_id);
@@ -1290,6 +1475,12 @@ export async function patchOrder(
       continue;
     }
     if (field === "device_unlock") {
+      if (
+        o.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP &&
+        hasUnlockValue(rawValue as PatchOrderInput["changes"]["device_unlock"])
+      ) {
+        throw new Error("设备未留店时不能保存手机密码");
+      }
       applyDeviceUnlock(o, rawValue as PatchOrderInput["changes"]["device_unlock"]);
       continue;
     }
@@ -1687,7 +1878,18 @@ function writeMockWhatsappMessage({
     throw new Error("只有报价或待审批阶段可以发送客户审批");
   }
 
+  if (
+    !transitionTo &&
+    o.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP &&
+    (templateKind === "pickup_ready" || templateKind === "unfixed_pickup")
+  ) {
+    throw new Error("设备未留店，不能发送取机通知");
+  }
+
   if (transitionTo) {
+    if (transitionTo === "completed" || transitionTo === "cancelled") {
+      throw new Error("完成或取消工单必须使用专用状态操作，不能随通知一起流转");
+    }
     const targetStatus = workflowStatuses.find((status) => status.code === transitionTo);
     if (targetStatus && !targetStatus.enabled) {
       throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
@@ -1706,6 +1908,15 @@ function writeMockWhatsappMessage({
         throw new Error(`「${fromLabel}」不能直接流转到「${toLabel}」`);
       }
     } else {
+      if (
+        o.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP &&
+        (deviceCustodyBlocksStatus(transitionTo) ||
+          targetStatus?.bucket === "diagnosing" ||
+          targetStatus?.bucket === "repair" ||
+          targetStatus?.bucket === "pickup")
+      ) {
+        throw new Error("设备当前未留店，不能进入诊断、维修或待取机状态");
+      }
       statusChanged = true;
       to = transitionTo;
       o.status = to;
@@ -1721,13 +1932,6 @@ function writeMockWhatsappMessage({
       o.approval_flow_status = approvalFlowStatusFromLegacyStatus(to, o.approval_status);
       o.parts_status = partsStatusFromLegacyStatus(to);
       o.notify_status = notifyStatusFromLegacyStatus(to);
-      if (to === "completed") {
-        o.completed_at = now;
-        o.delivered_at = now;
-      } else {
-        o.completed_at = undefined;
-        o.delivered_at = undefined;
-      }
       if (to === "waiting_approval") o.approval_sent_at = now;
     }
   }
@@ -1830,6 +2034,20 @@ export async function createOrder(
   if (!status) throw new Error("店铺没有可用于新建工单的状态");
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
+  const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
+  if (deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && hasUnlockValue(input.device_unlock)) {
+    throw new Error("设备未留店时不能保存手机密码");
+  }
+  const initialStatus = workflowStatuses.find((item) => item.code === status);
+  if (
+    deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
+    (deviceCustodyBlocksStatus(status) ||
+      initialStatus?.bucket === "diagnosing" ||
+      initialStatus?.bucket === "repair" ||
+      initialStatus?.bucket === "pickup")
+  ) {
+    throw new Error("设备未留店时不能以诊断、维修或待取机状态创建工单");
+  }
 
   let customer = input.customer_id ? getCustomer(input.customer_id) : undefined;
   if (input.customer_id && !customer) throw new Error("读取客户失败");
@@ -1908,7 +2126,9 @@ export async function createOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
-  const deviceUnlock = normalizeDeviceUnlockInput(input.device_unlock);
+  const deviceUnlock = normalizeDeviceUnlockInput(
+    normalizeUnlockForCustody(deviceCustodyStatus, input.device_unlock),
+  );
   const warranty = normalizeWarrantyPayload({
     warranty_months: input.warranty_months,
     warranty_text: input.warranty_text,
@@ -1944,6 +2164,7 @@ export async function createOrder(
     technician_name: operatorName(operator),
     internal_tag: tagInput.internalTag,
     accessory_notes: tagInput.accessoryNotes,
+    device_custody_status: deviceCustodyStatus,
     device_unlock_method: deviceUnlock.method ?? undefined,
     device_unlock_value: deviceUnlock.value ?? undefined,
     device_unlock_pattern: deviceUnlock.pattern ?? undefined,
@@ -1971,6 +2192,7 @@ export async function createOrder(
     event_type: "created",
     payload: {
       type: input.order_type,
+      device_custody_status: deviceCustodyStatus,
       device_unlock_method: deviceUnlock.method,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,

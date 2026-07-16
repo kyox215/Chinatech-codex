@@ -82,6 +82,7 @@ export type RepairDeskOfflineOperationResponseSummary = {
   publicNo?: string;
   updatedAt?: string;
   resultCode?: RepairDeskOfflineServerResultCode;
+  deviceCustodyStatus?: "with_shop" | "with_customer";
 };
 
 const operationResponseSummarySchema = z
@@ -90,6 +91,7 @@ const operationResponseSummarySchema = z
     publicNo: z.string().trim().min(1).max(80).optional(),
     updatedAt: z.string().trim().min(1).max(80).optional(),
     resultCode: z.enum(repairDeskOfflineServerResultCodes).optional(),
+    deviceCustodyStatus: z.enum(["with_shop", "with_customer"]).optional(),
   })
   .strict();
 
@@ -186,6 +188,7 @@ const faultPriceSchema = z
 const offlineOrderCreateDraftSchema = z
   .object({
     order_type: z.enum(["quick_repair", "dropoff_repair"]),
+    device_custody_status: z.enum(["with_shop", "with_customer"]),
     issue_description: text.max(2_000),
     internal_tag: optionalText,
     accessory_notes: optionalText,
@@ -193,12 +196,14 @@ const offlineOrderCreateDraftSchema = z
     warranty_months: warrantyMonths.optional(),
     warranty_change_reason: optionalText,
     fault_prices: z.array(faultPriceSchema).max(30).default([]),
+    deposit_amount: moneyAmount.optional(),
   })
   .strict();
 
 export const repairDeskOfflineOrderCreateSyncSchema = z
   .object({
     operationId: repairDeskOfflineOperationIdSchema,
+    expectedStoreId: idText,
     baseClientCreatedAt: isoText,
     payload: z
       .object({
@@ -464,6 +469,9 @@ function findUnsafeMetadataPath(value: unknown, path = "$"): string | null {
   }
 
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (key === "deviceCustodyStatus") {
+      continue;
+    }
     const normalizedKey = key.toLowerCase().replace(/[^a-z0-9_]/g, "");
     if (unsafeMetadataKeyFragments.some((fragment) => normalizedKey.includes(fragment))) {
       return `${path}.${key}`;

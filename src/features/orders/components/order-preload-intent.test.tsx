@@ -96,5 +96,6 @@ function makeOrder(overrides: Partial<OrderListItem> = {}): OrderListItem {
     created_at: "2026-07-07T00:00:00.000Z",
     updated_at: "2026-07-07T00:00:00.000Z",
     ...overrides,
+    device_custody_status: overrides.device_custody_status ?? "with_shop",
   };
 }

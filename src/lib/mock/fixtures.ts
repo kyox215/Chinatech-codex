@@ -12,6 +12,7 @@ import type {
   OrderPartsStatus,
   OrderPaymentStatus,
   OrderWorkflowStatusCode,
+  DeviceCustodyStatus,
 } from "@/lib/repairdesk/types";
 
 export interface Customer {
@@ -89,6 +90,7 @@ export interface RepairOrder {
   assignee_membership_id?: string;
   internal_tag?: string;
   accessory_notes?: string;
+  device_custody_status: DeviceCustodyStatus | null;
   warranty_text?: string;
   warranty_months?: number;
   warranty_change_reason?: string;
@@ -315,6 +317,16 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
   const customer = customers[i % customers.length];
   const device = devices[i % devices.length];
   const status: RepairOrderStatus = repairOrderStatus[i % repairOrderStatus.length];
+  const deviceCustodyStatus =
+    status === "completed"
+      ? "with_customer"
+      : status === "cancelled"
+        ? i % 2 === 0
+          ? "with_customer"
+          : "with_shop"
+        : ["new", "quoted", "waiting_approval", "parts_ordered"].includes(status) && i % 7 === 0
+          ? "with_customer"
+          : "with_shop";
   const type: RepairOrderType = i % 4 === 0 ? "dropoff_repair" : "quick_repair";
   const quotation = 80 + (i % 12) * 95;
   const deposit = i % 3 === 0 ? Math.round(quotation * 0.3) : 0;
@@ -368,12 +380,22 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     assignee_membership_id: "11111111-1111-4111-8111-111111111111",
     internal_tag: i % 5 === 0 ? "VIP" : i % 7 === 0 ? "加急" : undefined,
     accessory_notes: i % 9 === 0 ? "SIM卡托、手机壳" : undefined,
-    device_unlock_method: i % 10 === 0 ? "pattern" : i % 6 === 0 ? "pin" : undefined,
-    device_unlock_value: i % 6 === 0 && i % 10 !== 0 ? "001258" : undefined,
-    device_unlock_pattern: i % 10 === 0 ? [1, 2, 5, 8] : undefined,
+    device_custody_status: deviceCustodyStatus,
+    device_unlock_method:
+      deviceCustodyStatus === "with_shop"
+        ? i % 10 === 0
+          ? "pattern"
+          : i % 6 === 0
+            ? "pin"
+            : undefined
+        : undefined,
+    device_unlock_value:
+      deviceCustodyStatus === "with_shop" && i % 6 === 0 && i % 10 !== 0 ? "001258" : undefined,
+    device_unlock_pattern:
+      deviceCustodyStatus === "with_shop" && i % 10 === 0 ? [1, 2, 5, 8] : undefined,
     warranty_text: "90天质保",
     completed_at: status === "completed" ? created : undefined,
-    delivered_at: status === "completed" && i % 2 === 0 ? created : undefined,
+    delivered_at: status === "completed" ? created : undefined,
     cancel_reason: status === "cancelled" ? "客户主动取消" : undefined,
     supplier_id: undefined,
     parts_supplier_id: undefined,

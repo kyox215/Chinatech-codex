@@ -4,14 +4,17 @@ import Link from "next/link";
 import { ArrowLeft, Banknote } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DeviceCustodyBadge } from "@/components/orders/badges";
 import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import { cn } from "@/lib/utils";
+import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
 
 export function NewOrderSubmitBar({
   total,
   deposit,
   valid,
   pending,
+  custodyStatus,
   onCancel,
   surface = "page",
 }: {
@@ -19,6 +22,7 @@ export function NewOrderSubmitBar({
   deposit: number;
   valid: boolean;
   pending: boolean;
+  custodyStatus: DeviceCustodyStatus | null;
   onCancel?: () => void;
   surface?: "page" | "dialog";
 }) {
@@ -63,6 +67,10 @@ export function NewOrderSubmitBar({
             </Link>
           </Button>
         )}
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 md:ml-auto md:justify-start">
+          <span className="text-[10px] font-medium text-muted-foreground">设备保管</span>
+          <DeviceCustodyBadge status={custodyStatus} className="text-[10px]" />
+        </div>
         <div className="contents md:flex md:min-w-0 md:items-center md:gap-2">
           <div
             data-new-order-money-strip="true"

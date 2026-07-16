@@ -157,6 +157,12 @@ export async function createKioskSession(
   if (order?.record_state === "voided" || order?.deleted_at) {
     throw new Error("该工单记录已作废，只能查看历史证据");
   }
+  if (
+    normalized.session_type === "pickup_signature" &&
+    order?.device_custody_status !== "with_shop"
+  ) {
+    throw new Error("只有已确认由门店保管的设备可以发起取机确认");
+  }
   const now = new Date();
   const expiresAt = addMinutes(now, normalized.expires_in_minutes).toISOString();
 
@@ -237,10 +243,17 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
   const order = session.order_id
     ? await readOrderReviewTarget(supabase, storeId, session.order_id)
     : undefined;
+  if (session.session_type === "pickup_signature" && order?.device_custody_status !== "with_shop") {
+    throw new Error("只有已确认由门店保管的设备可以确认取机交接");
+  }
   const customerId = session.customer_id ?? order?.customer_id;
 
   if (session.customer_id && order?.customer_id && session.customer_id !== order.customer_id) {
     throw new Error("iPad 任务绑定的客户与工单不一致");
+  }
+
+  if (session.session_type === "pickup_signature" && order) {
+    await assertPickupCustodyUnchanged(supabase, storeId, order.id, order.updated_at);
   }
 
   if (customerId) {
@@ -266,6 +279,10 @@ export async function acceptKioskSession(id: string, actor?: AuditActor): Promis
           now,
         })
       : undefined;
+
+  if (session.session_type === "pickup_signature" && order) {
+    await assertPickupCustodyUnchanged(supabase, storeId, order.id, order.updated_at);
+  }
 
   const { data, error } = await supabase
     .from("customer_kiosk_sessions")
@@ -523,7 +540,7 @@ async function readSubmittedSession(
 async function readOrderReviewTarget(supabase: SupabaseAdmin, storeId: string, orderId: string) {
   const { data, error } = await supabase
     .from("repair_orders")
-    .select("id,customer_id,contact_phones")
+    .select("id,customer_id,contact_phones,device_custody_status,updated_at")
     .eq("store_id", storeId)
     .eq("id", orderId)
     .maybeSingle();
@@ -534,7 +551,24 @@ async function readOrderReviewTarget(supabase: SupabaseAdmin, storeId: string, o
     id: requiredString(row.id),
     customer_id: requiredString(row.customer_id),
     contact_phones: stringArray(row.contact_phones),
+    updated_at: requiredString(row.updated_at),
+    device_custody_status:
+      row.device_custody_status === "with_shop" || row.device_custody_status === "with_customer"
+        ? row.device_custody_status
+        : null,
   };
+}
+
+async function assertPickupCustodyUnchanged(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  orderId: string,
+  expectedUpdatedAt: string,
+) {
+  const latest = await readOrderReviewTarget(supabase, storeId, orderId);
+  if (latest.device_custody_status !== "with_shop" || latest.updated_at !== expectedUpdatedAt) {
+    throw new Error("工单或设备保管状态已更新，请刷新后重新确认取机交接");
+  }
 }
 
 async function applyKioskCustomerSubmission(
@@ -889,6 +923,7 @@ async function readOrderSummary(supabase: SupabaseAdmin, storeId: string, orderI
     customer_phone: order.customer_phone,
     device_label: order.device_label,
     balance_amount: money(order.balance_amount),
+    device_custody_status: order.device_custody_status,
   };
 }
 

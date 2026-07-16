@@ -193,7 +193,7 @@ export function EditOrderDialog({
                     <span className="truncate">{data.order.technician_name || "—"}</span>
                   </div>
                 </EditField>
-                <EditField label="客户留存备注">
+                <EditField label="随附物品">
                   <AccessoryNotesPicker
                     value={form.accessory_notes ?? ""}
                     onChange={(accessory_notes) => setForm({ ...form, accessory_notes })}

@@ -11,7 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
+import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
@@ -222,6 +222,11 @@ export function OrderMobileCard({
               <p className="truncate text-[12px] font-semibold leading-4 text-foreground">
                 {deviceLabel}
               </p>
+              <DeviceCustodyBadge
+                status={order.device_custody_status}
+                deliveredAt={order.delivered_at}
+                className="max-w-[98px] px-1 py-0.5 text-[9px]"
+              />
               {extraFaultCount > 0 ? (
                 <span className="shrink-0 rounded bg-primary/10 px-1 text-[9px] leading-3 text-primary">
                   +{extraFaultCount}
@@ -239,13 +244,15 @@ export function OrderMobileCard({
                 <ReceiptText className="size-2.5 shrink-0 text-primary" />
                 <span className="truncate">{primaryRepairLabel}</span>
               </span>
-              <DeviceUnlockListBadge
-                method={order.device_unlock_method}
-                className="max-w-[82px] shrink-0 px-1 py-0.5 text-[9px] leading-3"
-              />
+              {order.device_custody_status === "with_shop" ? (
+                <DeviceUnlockListBadge
+                  method={order.device_unlock_method}
+                  className="max-w-[82px] shrink-0 px-1 py-0.5 text-[9px] leading-3"
+                />
+              ) : null}
               {order.accessory_notes ? (
                 <span className="min-w-0 truncate text-muted-foreground">
-                  留存：{order.accessory_notes}
+                  随附：{order.accessory_notes}
                 </span>
               ) : null}
             </div>

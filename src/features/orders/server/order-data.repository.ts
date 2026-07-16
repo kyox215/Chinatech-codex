@@ -7,6 +7,7 @@ const ORDER_DATA_SELECT = `
   store_id,
   public_no,
   order_type,
+  device_custody_status,
   status,
   workflow_status,
   exception_status,

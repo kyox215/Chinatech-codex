@@ -27,6 +27,12 @@ export function getStatusItalian(status: string) {
   return statusItalian[status] ?? status;
 }
 
+export function deviceCustodyItalian(status: "with_shop" | "with_customer" | null | undefined) {
+  if (status === "with_shop") return "Negozio";
+  if (status === "with_customer") return "Cliente";
+  return "Non verificata";
+}
+
 const faultItalianTerms: Record<string, string> = {
   屏幕: "Display",
   外屏碎裂: "Vetro esterno rotto",

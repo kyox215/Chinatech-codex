@@ -26,11 +26,43 @@ export function getOrderSideStatusBadges(
     | "approval_flow_status"
     | "parts_status"
     | "notify_status"
+    | "device_custody_status"
+    | "delivered_at"
   >,
   supplier?: Pick<Supplier, "name">,
 ): OrderSideStatusBadge[] {
   const badges: OrderSideStatusBadge[] = [];
   const supplierName = supplier?.name ?? order.supplier_name;
+
+  badges.push(
+    order.device_custody_status === "with_shop"
+      ? {
+          key: "custody-with-shop",
+          label: "门店保管",
+          tone: "progress",
+          description: "设备当前由门店保管。",
+        }
+      : order.device_custody_status === "with_customer" && order.delivered_at
+        ? {
+            key: "custody-returned",
+            label: "已归还客户",
+            tone: "success",
+            description: "设备已经正式交还客户，当前由客户保管。",
+          }
+        : order.device_custody_status === "with_customer"
+          ? {
+              key: "custody-with-customer",
+              label: "客户持有",
+              tone: "neutral",
+              description: "设备当前由客户保管，门店尚未收机。",
+            }
+          : {
+              key: "custody-unknown",
+              label: "保管未确认",
+              tone: "warn",
+              description: "历史工单尚未确认设备由谁保管。",
+            },
+  );
 
   if (order.status === "mail_in_progress") {
     badges.push({

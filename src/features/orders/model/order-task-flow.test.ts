@@ -12,6 +12,21 @@ import {
 } from "@/features/orders/model/order-simple-flow";
 
 describe("order task flow", () => {
+  it("keeps customer-held devices out of stale pickup-overdue guidance", () => {
+    expect(
+      getOrderTaskGuidance({
+        status: "waiting_pickup",
+        workflow_status: "pickup",
+        approval_overdue: false,
+        pickup_overdue: true,
+        device_custody_status: "with_customer",
+      }),
+    ).toMatchObject({
+      label: "客户持有设备",
+      nextAction: "确认收机",
+    });
+  });
+
   it("defines the five simplified repair workflow stages", () => {
     expect(orderTaskStages.map((stage) => stage.label)).toEqual([
       "接单",

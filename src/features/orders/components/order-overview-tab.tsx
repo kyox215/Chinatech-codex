@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
-import { ApprovalBadge, MoneyText } from "@/components/orders/badges";
+import { ApprovalBadge, DeviceCustodyBadge, MoneyText } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   AccessoryNotesPicker,
@@ -44,6 +44,11 @@ import { PhoneContactMenu } from "@/features/orders/components/order-contact-men
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import { getWorkflowStatusLabel } from "@/features/orders/model/order-workflow";
+import {
+  DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyStatusFromOrder,
+  formatDeviceCustodyEvent,
+} from "@/features/orders/model/device-custody";
 import {
   findCurrentOrderStatusChangedAt,
   formatOrderDateTime,
@@ -562,6 +567,16 @@ export function OrderKeyInfoCard({
         <Row
           label="交付时间"
           value={order.delivered_at ? new Date(order.delivered_at).toLocaleString("zh-CN") : "—"}
+        />
+        <Row
+          label="设备保管"
+          value={
+            <DeviceCustodyBadge
+              status={order.device_custody_status}
+              deliveredAt={order.delivered_at}
+              className="text-[10px]"
+            />
+          }
         />
         {supplier && (
           <Row
@@ -1555,7 +1570,7 @@ function AccessoryNotesField({
   onChange: (value: string) => void;
 }) {
   return (
-    <InfoField label="留存备注" tone="note">
+    <InfoField label="随附物品" tone="note">
       {edit ? (
         <AccessoryNotesPicker value={value} onChange={onChange} compact />
       ) : (
@@ -1574,9 +1589,21 @@ function DeviceUnlockDetailField({
   edit: OrderEditContext | null;
   dense: boolean;
 }) {
+  const custodyStatus = deviceCustodyStatusFromOrder(order);
   return (
     <InfoField label="手机密码" tone="note">
-      {edit ? (
+      {custodyStatus !== DEVICE_CUSTODY_WITH_SHOP ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <DeviceCustodyBadge
+            status={custodyStatus}
+            deliveredAt={order.delivered_at}
+            className="text-[10px]"
+          />
+          <span className="text-[10px] leading-4 text-muted-foreground">
+            {custodyStatus ? "不登记解锁信息" : "确认保管状态后才可登记"}
+          </span>
+        </div>
+      ) : edit ? (
         <div className="min-w-0 space-y-1">
           <DeviceUnlockEditor
             value={edit.draft.device_unlock}
@@ -2036,7 +2063,7 @@ function getLatestEventSummary(event: OrderDetail["events"][number], workflow?: 
     case "created":
       return "工单已创建";
     case "status_changed":
-      return "状态已流转";
+      return formatDeviceCustodyEvent(event.payload) ?? "状态已流转";
     case "quoted":
       return "报价已更新";
     case "approval_sent":
@@ -2050,7 +2077,7 @@ function getLatestEventSummary(event: OrderDetail["events"][number], workflow?: 
     case "delivered":
       return "设备已交付";
     case "note":
-      return "新增备注";
+      return formatDeviceCustodyEvent(event.payload) ?? "新增备注";
     default:
       return "工单记录已更新";
   }

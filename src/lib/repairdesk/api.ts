@@ -1,10 +1,15 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type {
+  RepairDeskOfflineHandlerResult,
+  RepairDeskOfflineOrderCreateSyncInput,
+} from "@/features/offline/server/offline-sync-contract";
+import type {
   AccountProfileUpdateInput,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   Customer,
   Device,
+  DeviceCustodyStatus,
   CustomerIntakeCandidate,
   DashboardSummary,
   DashboardSummaryInput,
@@ -111,6 +116,7 @@ import type {
   SupplierInput,
   UpdateOrderInput,
   VoidOrderInput,
+  UpdateOrderCustodyInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
@@ -150,6 +156,7 @@ export type {
   Device,
   DeviceUnlockInput,
   DeviceUnlockMethod,
+  DeviceCustodyStatus,
   FaultPriceItem,
   MessageLog,
   OrderDetail,
@@ -289,6 +296,7 @@ export type {
   SupplierInput,
   UpdateOrderInput,
   VoidOrderInput,
+  UpdateOrderCustodyInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
@@ -845,9 +853,15 @@ export async function getOrder(
 export async function transitionOrder(
   id: string,
   to: RepairOrderStatus,
-  opts: { reason?: string } = {},
+  opts: { reason?: string; expectedUpdatedAt?: string; idempotencyKey?: string } = {},
 ) {
-  return postJson("order/transition", { id, to, reason: opts.reason });
+  return postJson("order/transition", {
+    id,
+    to,
+    reason: opts.reason,
+    expected_updated_at: opts.expectedUpdatedAt,
+    idempotency_key: opts.idempotencyKey,
+  });
 }
 
 export async function confirmCancelledOrderReturn(
@@ -863,6 +877,13 @@ export async function confirmCancelledOrderReturn(
       idempotency_key: idempotencyKey,
     },
   );
+}
+
+export async function updateOrderCustody(
+  id: string,
+  input: UpdateOrderCustodyInput,
+): Promise<PatchOrderResult> {
+  return postJson<PatchOrderResult>("order/custody", { id, input });
 }
 
 export async function batchTransition(
@@ -1022,6 +1043,12 @@ export async function sendCustomerMessage(
 
 export async function createOrder(input: CreateOrderInput): Promise<{ id: string }> {
   return postJson<{ id: string }>("orders/create", input);
+}
+
+export async function syncOfflineOrderCreate(
+  input: RepairDeskOfflineOrderCreateSyncInput,
+): Promise<RepairDeskOfflineHandlerResult> {
+  return postJson<RepairDeskOfflineHandlerResult>("offline/orders/create", input);
 }
 
 export async function updateOrder(id: string, input: UpdateOrderInput): Promise<{ ok: boolean }> {

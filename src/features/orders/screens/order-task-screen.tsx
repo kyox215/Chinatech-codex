@@ -20,7 +20,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
+import {
+  DeviceCustodyBadge,
+  MoneyText,
+  OrderTypeBadge,
+  PhoneText,
+  StatusBadge,
+} from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +43,7 @@ import { useStoreShellContext } from "@/features/stores/api/use-store-shell-cont
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
   getWorkflowNextActions,
+  getWorkflowStatus,
   getWorkflowStatusLabel,
 } from "@/features/orders/model/order-workflow";
 import {
@@ -44,6 +51,11 @@ import {
   getOrderWorkflowStatus,
 } from "@/features/orders/model/order-task-flow";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  DEVICE_CUSTODY_WITH_CUSTOMER,
+  DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyAllowsStatus,
+} from "@/features/orders/model/device-custody";
 import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
@@ -122,8 +134,14 @@ export function OrderTaskScreen({ id }: { id: string }) {
   };
 
   const transition = useMutation({
-    mutationFn: (input: { to: RepairOrderStatus; reason?: string }) =>
-      transitionOrder(id, input.to, { reason: input.reason }),
+    mutationFn: (input: { to: RepairOrderStatus; reason?: string }) => {
+      if (!order) throw new Error("工单未加载");
+      return transitionOrder(id, input.to, {
+        reason: input.reason,
+        expectedUpdatedAt: order.updated_at,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    },
     onSuccess: () => {
       toast.success("任务阶段已更新");
       setTransitionAction(null);
@@ -194,13 +212,19 @@ export function OrderTaskScreen({ id }: { id: string }) {
     );
   }
 
-  const primaryAction = canTransition && !cancelled && !voided ? next.primary : undefined;
   const taskActions =
     canTransition && !cancelled && !voided
-      ? [next.primary, ...next.secondary].filter((action): action is WorkflowNextAction =>
-          Boolean(action),
-        )
+      ? [next.primary, ...next.secondary]
+          .filter((action): action is WorkflowNextAction => Boolean(action))
+          .filter((action) =>
+            deviceCustodyAllowsStatus(
+              order.device_custody_status,
+              action.to,
+              getWorkflowStatus(workflow, action.to)?.bucket,
+            ),
+          )
       : [];
+  const primaryAction = taskActions.find((action) => action.isPrimary) ?? taskActions[0];
   const currentStatusLabel = getWorkflowStatusLabel(
     workflow,
     cancelled ? "cancelled" : order.status,
@@ -324,9 +348,18 @@ export function OrderTaskScreen({ id }: { id: string }) {
               value={<PhoneText value={order.customer_phone} className="text-sm" />}
             />
             <TaskLine label="设备" value={order.device_label || "-"} />
+            <TaskLine
+              label="设备保管"
+              value={
+                <DeviceCustodyBadge
+                  status={order.device_custody_status}
+                  deliveredAt={order.delivered_at}
+                />
+              }
+            />
             <TaskLine label="IMEI" value={order.device_imei || "-"} mono />
             <TaskLine label="故障" value={order.issue_description || "-"} wide />
-            <TaskLine label="留存" value={order.accessory_notes || "-"} wide />
+            <TaskLine label="随附物品" value={order.accessory_notes || "-"} wide />
           </div>
         </section>
 
@@ -409,11 +442,19 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 type="button"
                 variant="outline"
                 className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
-                disabled={!activeKioskDevice || kioskPickupRequest.isPending}
+                disabled={
+                  !activeKioskDevice ||
+                  kioskPickupRequest.isPending ||
+                  order.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP
+                }
                 onClick={() => kioskPickupRequest.mutate()}
               >
                 <TabletSmartphone className="size-4" />
-                {kioskPickupRequest.isPending
+                {order.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP
+                ? order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
+                  ? "设备未留店，无需取机确认"
+                  : "请先确认设备保管状态"
+                : kioskPickupRequest.isPending
                   ? "发送中"
                   : activeKioskDevice
                     ? "发送取机确认到 iPad"
@@ -591,6 +632,8 @@ function TaskTransitionDialog({
     status: RepairOrderStatus;
     device_label?: string;
     customer_name?: string;
+    device_custody_status?: "with_shop" | "with_customer" | null;
+    delivered_at?: string;
   };
   statusLabel: string;
   action: WorkflowNextAction | null;
@@ -629,7 +672,12 @@ function TaskTransitionDialog({
               {action?.label ?? "未选择"}
             </p>
             <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-              确认后会写入工单时间线；客户通知、收款和附件仍通过各自入口记录。
+              {action?.to === "completed" &&
+              order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
+                ? order.delivered_at
+                  ? "设备此前已交还客户；确认后只会行政结案，不会新增设备交付时间。"
+                  : "设备从未由门店保管；确认后只会行政结案，不会记录设备交付时间。"
+                : "确认后会写入工单时间线；客户通知、收款和附件仍通过各自入口记录。"}
             </p>
           </section>
 

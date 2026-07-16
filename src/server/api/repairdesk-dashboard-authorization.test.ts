@@ -140,6 +140,7 @@ function sensitiveOrder(): OrderListItem {
     public_no: "R-SYNTH-SEC",
     order_type: "quick_repair",
     status: "new",
+    device_custody_status: "with_shop",
     workflow_status: "intake",
     payment_status: "unpaid",
     approval_status: "pending",

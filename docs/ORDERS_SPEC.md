@@ -3,7 +3,66 @@
 > [历史导出 / Snapshot]
 > 本文档保留为早期 TanStack Start 工单模块复刻材料，不是当前 RepairDesk 实施权威。
 > 当前项目规则以 `AGENTS.md`、`docs/project-charter.md`、`docs/UI_PAGE_GENERATION_DECLARATION.md`、`docs/REPAIROS_MOBILE_DETAIL_STANDARD.md` 和 `.ai-company/memory/PROJECT_MEMORY.md` 为准：路由使用 Next.js App Router `src/app/`，任务记忆使用 `.ai-company/memory/tasks/`，RepairOS 当前规则优先于本文档。
-> Last reviewed: 2026-06-19 by `TASK-20260619-020`.
+> Last reviewed: 2026-07-16 by `TASK-20260716-005-device-custody-status-implementation`.
+
+## Current addendum: 设备保管与交接（2026-07-16）
+
+本节是当前 Next.js RepairDesk 的实施合同，在“手机是否留店”范围内优先于本文后续的历史 Snapshot。
+
+### 存储与显示
+
+`repair_orders.device_custody_status` 是独立的 nullable 字段：
+
+| 存储值                           | 当前含义             | 显示       |
+| -------------------------------- | -------------------- | ---------- |
+| `with_shop`                      | 门店承担设备保管责任 | 门店保管   |
+| `with_customer`                  | 设备当前由客户保管   | 客户持有   |
+| `with_customer` + `delivered_at` | 设备已正式归还       | 已归还客户 |
+| `NULL`                           | 旧工单没有可靠记录   | 保管未确认 |
+
+- 不得从 `order_type`、随附物品或工单状态推导保管状态。
+- 旧行保持 `NULL`；数据库默认 `with_shop` 只用于迁移后省略字段的兼容客户端。
+- 新建 UI 必须显式传送 `with_shop` 或 `with_customer`。
+
+### 新建和解锁隐私
+
+- 新建页在设备信息区显示“已留店 / 未留店（客户带回）”双选项，默认已留店但不隐藏默认。
+- 选择未留店会立即清除当前未保存的密码、PIN 或图案，并禁用解锁输入。
+- 客户持有时，服务端也不得保存或返回解锁秘密。交还时解锁字段在同一原子操作中清除；时间线只记录 `credentials_cleared: true`。
+- “随附物品”与设备保管状态完全独立。
+
+### 详情交接与并发控制
+
+- 详情 Hero、设备信息卡、列表、任务页和打印都显示文字 Badge。
+- 交接必须走专用 `order/custody` 动作：移动端使用底部 Sheet，桌面端使用 Dialog。
+- 请求包含 `expected_updated_at`、UUID `idempotency_key`、目标状态和最长 240 字的原因。旧数据补录与终态修正必须填原因。
+- 行更新、解锁信息清除和 `order_events` 写入由 store-scoped 原子 RPC 完成。
+- 已完成工单不能直接改为“门店保管”；必须先走返修/重开流程，避免设备在店却被终态队列隐藏。
+
+### 取机、取消与完成
+
+- `with_customer` 不进入待取机、取机逾期、催取机、修好待通知或 kiosk 取机签字流程。
+- `with_customer` 且从未收机的工单可行政结案：写 `completed_at`，不伪造 `delivered_at`。
+- `with_shop` 取消后保留“确认已退还”动作；确认后转 `with_customer` 并写 `delivered_at`。
+- `NULL` 工单在物理流转、取消或完成前必须补录，不得猜测。
+
+### 离线和数据往返
+
+- 新建草稿、fingerprint、IndexedDB outbox、严格同步 schema 和幂等 HMAC 都包含显式保管状态。
+- outbox 保存 `expectedStoreId`；服务端在调用 RPC 前必须与 actor 的当前店铺一致，防止多标签切店串租户。
+- 普通离线草稿永不保存原始解锁值；含解锁秘密的表单不能进入同步队列。
+- 实际离线 replay 默认关闭。只有在两个发布门禁同时满足后才可设置：
+  - `NEXT_PUBLIC_REPAIRDESK_OFFLINE_SYNC_ENABLED=1`；
+  - 服务端 `REPAIRDESK_OFFLINE_SYNC_HMAC_SECRET` 为至少 16 字符的专用密钥，且离线操作表/RPC 迁移已先应用并验证。
+- 工单 XLSX v2 导出/导入支持保管状态；v1 保持向后兼容。数据导入只修正状态，不得伪造实物归还时间。
+
+### 发布顺序
+
+1. 在 linked Supabase 确认当前 migration history 与 `repair_orders.id` / `order_events.order_id` 实际类型。
+2. 经 Owner 单独批准后执行 dry-run，再先应用 nullable 列、原子交接 RPC 和离线 replay 依赖。
+3. 验证旧行仍为 `NULL`、constraint/default/grants/RLS，并配置服务端 HMAC 密钥。
+4. 再发布应用；验证两种新建、收机/归还、取消/完成、离线 replay 和多店切换。
+5. 回滚应用时保留 expand 列和已写数据；数据库问题用 forward-fix，不自动删列或回填历史。
 
 > 这是一份「单文件、可复用、可交付给 Cursor 复制改整」的工单模块说明书。
 > 涵盖：业务定义、数据模型、状态机、API 契约、路由结构、UI 组件、页面布局、交互逻辑、文案、Token、动效与可访问性。
@@ -50,7 +109,7 @@
 export interface Customer {
   id: string;
   name: string;
-  phone_e164: string;       // +86 138 0000 0000
+  phone_e164: string; // +86 138 0000 0000
   phone_raw: string;
   contact_phones: string[]; // 备用联系电话
   consent_marketing: boolean;
@@ -61,22 +120,22 @@ export interface Customer {
 export interface Device {
   id: string;
   customer_id: string;
-  brand: string;            // Apple / Samsung / Huawei …
-  model: string;            // iPhone 15 Pro …
+  brand: string; // Apple / Samsung / Huawei …
+  model: string; // iPhone 15 Pro …
   serial_or_imei: string;
-  device_notes?: string;    // 外观、配件等
+  device_notes?: string; // 外观、配件等
 }
 
 export interface Supplier {
   id: string;
   name: string;
   short_name: string;
-  color: string;            // oklch(...) 用于点状标识
+  color: string; // oklch(...) 用于点状标识
 }
 
 export interface FaultPriceItem {
-  name: string;             // 例：屏幕总成
-  price: number;            // 人民币元
+  name: string; // 例：屏幕总成
+  price: number; // 人民币元
   note?: string;
 }
 
@@ -97,17 +156,17 @@ export interface RepairOrder {
   approval_sent_at?: string;
   approval_confirmed_at?: string;
   technician_name: string;
-  internal_tag?: string;        // VIP / 加急 等
+  internal_tag?: string; // VIP / 加急 等
   warranty_text?: string;
   completed_at?: string;
   delivered_at?: string;
   pause_reason?: string;
   cancel_reason?: string;
-  supplier_id?: string;         // 外修供应商
-  original_order_id?: string;   // 返修来源工单
+  supplier_id?: string; // 外修供应商
+  original_order_id?: string; // 返修来源工单
   contact_phones: string[];
   fault_prices: FaultPriceItem[];
-  customer_signature?: string;  // base64 / URL
+  customer_signature?: string; // base64 / URL
   created_at: string;
   updated_at: string;
 }
@@ -116,9 +175,15 @@ export interface OrderEvent {
   id: string;
   order_id: string;
   event_type:
-    | "created" | "status_changed" | "quoted"
-    | "approval_sent" | "approval_result"
-    | "payment" | "note" | "message_sent" | "delivered";
+    | "created"
+    | "status_changed"
+    | "quoted"
+    | "approval_sent"
+    | "approval_result"
+    | "payment"
+    | "note"
+    | "message_sent"
+    | "delivered";
   payload: Record<string, unknown>;
   operator_name: string;
   created_at: string;
@@ -145,37 +210,46 @@ export interface MessageLog {
 
 ```ts
 export const repairOrderStatus = [
-  "new", "rework", "mail_in_progress",
-  "diagnosing", "quoted", "waiting_approval",
-  "parts_ordered", "parts_arrived",
-  "repairing", "repaired",
-  "notified", "unfixed_pickup", "waiting_pickup",
-  "completed", "cancelled",
+  "new",
+  "rework",
+  "mail_in_progress",
+  "diagnosing",
+  "quoted",
+  "waiting_approval",
+  "parts_ordered",
+  "parts_arrived",
+  "repairing",
+  "repaired",
+  "notified",
+  "unfixed_pickup",
+  "waiting_pickup",
+  "completed",
+  "cancelled",
 ] as const;
 
 export const repairOrderType = ["quick_repair", "dropoff_repair"] as const;
-export const approvalStatus  = ["pending", "approved", "rejected"] as const;
+export const approvalStatus = ["pending", "approved", "rejected"] as const;
 ```
 
 ### 3.1 中文文案 + tone 映射（必须严格使用）
 
-| status | label | tone |
-|---|---|---|
-| new | 新建 | info |
-| rework | 返修 | warn |
-| mail_in_progress | 邮寄中 | info |
-| diagnosing | 检测中 | progress |
-| quoted | 已报价 | progress |
-| waiting_approval | 待审批 | warn |
-| parts_ordered | 配件已订 | progress |
-| parts_arrived | 配件已到 | progress |
-| repairing | 维修中 | progress |
-| repaired | 已修复 | success |
-| notified | 已通知 | success |
-| unfixed_pickup | 未修取机 | danger |
-| waiting_pickup | 待取机 | warn |
-| completed | 已完成 | success |
-| cancelled | 已取消 | neutral |
+| status           | label    | tone     |
+| ---------------- | -------- | -------- |
+| new              | 新建     | info     |
+| rework           | 返修     | warn     |
+| mail_in_progress | 邮寄中   | info     |
+| diagnosing       | 检测中   | progress |
+| quoted           | 已报价   | progress |
+| waiting_approval | 待审批   | warn     |
+| parts_ordered    | 配件已订 | progress |
+| parts_arrived    | 配件已到 | progress |
+| repairing        | 维修中   | progress |
+| repaired         | 已修复   | success  |
+| notified         | 已通知   | success  |
+| unfixed_pickup   | 未修取机 | danger   |
+| waiting_pickup   | 待取机   | warn     |
+| completed        | 已完成   | success  |
+| cancelled        | 已取消   | neutral  |
 
 `order_type`：`quick_repair → 快修`、`dropoff_repair → 送修`
 `approval_status`：`pending → 待审批 (warn)`、`approved → 已批准 (success)`、`rejected → 已拒绝 (danger)`
@@ -184,12 +258,20 @@ export const approvalStatus  = ["pending", "approved", "rejected"] as const;
 
 ```ts
 export const statusGroups = {
-  in_progress: ["new","rework","mail_in_progress","diagnosing","quoted",
-                "parts_ordered","parts_arrived","repairing"],
+  in_progress: [
+    "new",
+    "rework",
+    "mail_in_progress",
+    "diagnosing",
+    "quoted",
+    "parts_ordered",
+    "parts_arrived",
+    "repairing",
+  ],
   awaiting_approval: ["waiting_approval"],
-  awaiting_pickup:   ["repaired","notified","waiting_pickup","unfixed_pickup"],
-  completed:         ["completed"],
-  cancelled:         ["cancelled"],
+  awaiting_pickup: ["repaired", "notified", "waiting_pickup", "unfixed_pickup"],
+  completed: ["completed"],
+  cancelled: ["cancelled"],
 };
 ```
 
@@ -244,6 +326,7 @@ createOrder(input: Partial<RepairOrder>): Promise<{ id, ...input }>
 **搜索反馈**：输入停顿 300ms 后提交，Enter/扫码立即提交；请求期间保留上次结果并显示加载状态，完成后显示总数、待办数与按权限可见的历史数。
 **详情日期**：统一使用 `Europe/Rome`；当前状态时间只采用 `from != to` 且进入当前状态的 `status_changed` 事件，无匹配历史时回退到送修时间。
 **React Query Key 约定**：
+
 - 列表：`["orders", effectiveFilters]`
 - 详情：`["order", id]`
 
@@ -343,6 +426,7 @@ export const Route = createFileRoute("/orders")({
 ### 7.4 高级筛选（FiltersPanel，移动端 Sheet 右抽屉）
 
 分组：**工单状态 / 工单类型 / 付款状态 / 技师 / 外修供应商**。
+
 - 状态/类型/付款用 chip 切换（`border-primary bg-primary/10 text-primary` 表示激活）。
 - 技师 / 供应商用 `<Checkbox>` 列表；供应商前置 `size-2.5` 圆点（用 supplier.color）。
 - 顶部"重置"清空除 search 外所有；底部移动端"应用筛选"按钮。
@@ -461,15 +545,15 @@ const subtitleOpacity = useTransform(scrollY, [0, 80], [1, 0]);
 
 ### 8.6 事件文案表（`renderEvent`）
 
-| event_type | 渲染 |
-|---|---|
-| `created` | `"工单创建"` |
-| `status_changed` | `"状态变更：{from.label} → {to.label}"` |
-| `quoted` | `"提交报价 ¥{amount}"` |
-| `approval_result` | `"客户审批{approved?通过:拒绝}"` |
-| `payment` | `"收款 ¥{amount}（{method}）"` |
-| `message_sent` | `"已发送通知"` |
-| 其它 | 原 type |
+| event_type        | 渲染                                    |
+| ----------------- | --------------------------------------- |
+| `created`         | `"工单创建"`                            |
+| `status_changed`  | `"状态变更：{from.label} → {to.label}"` |
+| `quoted`          | `"提交报价 ¥{amount}"`                  |
+| `approval_result` | `"客户审批{approved?通过:拒绝}"`        |
+| `payment`         | `"收款 ¥{amount}（{method}）"`          |
+| `message_sent`    | `"已发送通知"`                          |
+| 其它              | 原 type                                 |
 
 ### 8.7 附件 / 库存关联 Tab
 
@@ -528,28 +612,28 @@ router.navigate({ to: "/orders" });
 
 ### 10.1 必用 Token（`src/styles.css`）
 
-| Token | 用途 |
-|---|---|
-| `--background / --foreground` | 页面底色 |
-| `--surface / --surface-muted` | 卡内层级、表头底色 |
-| `--card / --card-foreground` | Card |
-| `--border` | 1px 边线（常带 `/60` `/40` 透明） |
-| `--primary` | 工单号、链接、激活 chip 描边 |
-| `--muted-foreground` | 次要文本 |
-| `--destructive` | 删除、必填星号 |
-| `--status-{neutral,info,progress,warn,success,danger}` + `-foreground` | 6 种状态色 |
-| `--gradient-brand` | H1 文本渐变、KpiPill 空态图标、Hero 流转按钮、行 hover 左侧条、移动卡片左条、首条时间线节点、批量操作"发送通知" |
-| `shadow-elevated` | 浮起卡片（批量操作条） |
+| Token                                                                  | 用途                                                                                                            |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `--background / --foreground`                                          | 页面底色                                                                                                        |
+| `--surface / --surface-muted`                                          | 卡内层级、表头底色                                                                                              |
+| `--card / --card-foreground`                                           | Card                                                                                                            |
+| `--border`                                                             | 1px 边线（常带 `/60` `/40` 透明）                                                                               |
+| `--primary`                                                            | 工单号、链接、激活 chip 描边                                                                                    |
+| `--muted-foreground`                                                   | 次要文本                                                                                                        |
+| `--destructive`                                                        | 删除、必填星号                                                                                                  |
+| `--status-{neutral,info,progress,warn,success,danger}` + `-foreground` | 6 种状态色                                                                                                      |
+| `--gradient-brand`                                                     | H1 文本渐变、KpiPill 空态图标、Hero 流转按钮、行 hover 左侧条、移动卡片左条、首条时间线节点、批量操作"发送通知" |
+| `shadow-elevated`                                                      | 浮起卡片（批量操作条）                                                                                          |
 
 ### 10.2 样式工具类
 
-| 类 | 何处用 |
-|---|---|
-| `glass-card` | Hero、Toolbar、KpiPill、Desktop 表格容器、Mobile 卡片 |
-| `glass-strong` | 批量操作条 |
-| `gradient-text` | H1、详情页工单号、批量数量 |
-| `font-display` | H1、KPI 数字、Hero 工单号、总报价 |
-| `font-mono tabular-nums` | 金额、电话、IMEI |
+| 类                       | 何处用                                                |
+| ------------------------ | ----------------------------------------------------- |
+| `glass-card`             | Hero、Toolbar、KpiPill、Desktop 表格容器、Mobile 卡片 |
+| `glass-strong`           | 批量操作条                                            |
+| `gradient-text`          | H1、详情页工单号、批量数量                            |
+| `font-display`           | H1、KPI 数字、Hero 工单号、总报价                     |
+| `font-mono tabular-nums` | 金额、电话、IMEI                                      |
 
 ### 10.3 字号/间距
 

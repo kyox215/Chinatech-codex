@@ -3,7 +3,10 @@ import { Buffer } from "node:buffer";
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 
-import { ORDER_DATA_TEMPLATE_VERSION } from "@/features/orders/model/order-data-contract";
+import {
+  LEGACY_ORDER_DATA_TEMPLATE_VERSION,
+  ORDER_DATA_TEMPLATE_VERSION,
+} from "@/features/orders/model/order-data-contract";
 
 import { buildOrderDataWorkbook, parseOrderDataWorkbook } from "./order-data-workbook";
 
@@ -34,6 +37,8 @@ describe("order data workbook", () => {
           order_id: "order-1",
           public_no: "R0000001",
           expected_updated_at: "2026-07-10T12:00:00.000Z",
+          device_custody_status: "with_customer",
+          device_custody_label: "客户持有",
           customer_name: '=HYPERLINK("https://example.com")',
           issue_description: "屏幕损坏",
         },
@@ -51,8 +56,37 @@ describe("order data workbook", () => {
     const parsed = await parseOrderDataWorkbook({ bytes, fileName: "orders.xlsx", mimeType });
 
     expect(parsed.exportBatchId).toBe("f6f5fa5c-3d43-4799-9d36-f8115e1e70de");
+    expect(parsed.orderRows[0]).toMatchObject({
+      设备保管枚举: "with_customer",
+      设备保管状态: "客户持有",
+    });
     expect(parsed.orderRows[0]["客户姓名"]).toBe('=HYPERLINK("https://example.com")');
     expect(parsed.repairItemRows[0]).toMatchObject({ 项目名称: "屏幕更换", 金额: "99" });
+  });
+
+  it("continues to parse legacy v1 workbooks without custody columns", async () => {
+    const bytes = await buildOrderDataWorkbook({ kind: "template" });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Uint8Array.from(bytes).buffer);
+    const orderSheet = workbook.getWorksheet("工单");
+    const metadataSheet = workbook.getWorksheet("_元数据");
+    if (!orderSheet || !metadataSheet) throw new Error("missing workbook sheets");
+
+    orderSheet.spliceColumns(9, 2);
+    orderSheet.getCell("A2").value = LEGACY_ORDER_DATA_TEMPLATE_VERSION;
+    orderSheet.getCell("B2").value = "create";
+    metadataSheet.getCell("B1").value = LEGACY_ORDER_DATA_TEMPLATE_VERSION;
+    const legacyBytes = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const parsed = await parseOrderDataWorkbook({
+      bytes: legacyBytes,
+      fileName: "legacy-orders.xlsx",
+      mimeType,
+    });
+
+    expect(parsed.templateVersion).toBe(LEGACY_ORDER_DATA_TEMPLATE_VERSION);
+    expect(parsed.orderRows[0]).not.toHaveProperty("设备保管枚举");
+    expect(parsed.orderRows[0]).not.toHaveProperty("设备保管状态");
   });
 
   it("rejects formula cells from uploaded workbooks", async () => {

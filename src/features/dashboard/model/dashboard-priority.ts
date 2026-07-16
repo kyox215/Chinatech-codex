@@ -63,6 +63,7 @@ export function buildDashboardPrioritySummary(
 }
 
 function classifyOrder(order: OrderListItem): ClassifiedOrder {
+  const queueGroup = getOrderQueueGroup(order);
   if (order.approval_overdue) {
     return classified(order, {
       tier: "overdue",
@@ -75,6 +76,50 @@ function classifyOrder(order: OrderListItem): ClassifiedOrder {
       nextStep: "联系客户确认报价，必要时重新发送消息。",
       actionLabel: "联系客户",
       referenceAt: order.approval_sent_at,
+      isActionable: true,
+    });
+  }
+  if (order.device_custody_status === "with_customer") {
+    const waitingForApproval =
+      order.status === "waiting_approval" ||
+      order.approval_flow_status === "waiting_customer" ||
+      order.exception_status === "waiting_customer";
+    if (waitingForApproval) {
+      return classified(order, {
+        tier: "waiting",
+        tierOrder: 3,
+        reasonOrder: 0,
+        reasonCode: "waiting_customer",
+        reasonLabel: "等待客户",
+        reasonDescription: "报价已发送，等待客户确认处理方案。",
+        currentStep: "等待客户确认报价",
+        nextStep: "查看客户回复；同意维修后再确认收机。",
+        actionLabel: "查看跟进",
+        referenceAt: order.approval_sent_at ?? order.updated_at,
+        isActionable: false,
+      });
+    }
+
+    const partsContext =
+      queueGroup === "arrived" || queueGroup === "arrived_notified"
+        ? "配件已到货，但设备仍未由门店接收。"
+        : queueGroup === "ordered" || order.parts_status === "out_of_stock"
+          ? "配件流程可继续跟进，开始维修前仍需确认收机。"
+          : "设备仍由客户保管，门店尚未接收设备。";
+    return classified(order, {
+      tier: "active",
+      tierOrder: 2,
+      reasonOrder: 0,
+      reasonCode: "workflow_action_ready",
+      reasonLabel: "设备待收机",
+      reasonDescription: partsContext,
+      currentStep:
+        queueGroup === "arrived" || queueGroup === "arrived_notified"
+          ? "配件已到，设备未收"
+          : "设备由客户持有",
+      nextStep: "客户送来设备后执行“确认收机”，再进入检测或维修。",
+      actionLabel: "确认收机",
+      referenceAt: order.updated_at,
       isActionable: true,
     });
   }
@@ -109,7 +154,6 @@ function classifyOrder(order: OrderListItem): ClassifiedOrder {
     });
   }
 
-  const queueGroup = getOrderQueueGroup(order);
   if (queueGroup === "repaired") {
     return classified(order, {
       tier: "ready",

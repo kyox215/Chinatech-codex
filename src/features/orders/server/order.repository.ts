@@ -12,6 +12,7 @@ import type {
   CorrectTerminalOrderInput,
   CreateOrderInput,
   DeviceSnapshot,
+  DeviceCustodyStatus,
   OrderDetail,
   OrderCapabilities,
   OrderListFilters,
@@ -45,10 +46,19 @@ import type {
   Supplier,
   UpdateOrderInput,
   VoidOrderInput,
+  UpdateOrderCustodyInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
+import {
+  DEVICE_CUSTODY_WITH_CUSTOMER,
+  DEVICE_CUSTODY_WITH_SHOP,
+  deviceCustodyBlocksStatus,
+  hasUnlockValue,
+  isDeviceCustodyStatus,
+  normalizeUnlockForCustody,
+} from "@/features/orders/model/device-custody";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import {
   isOrderCancelledForPayment,
@@ -416,7 +426,7 @@ export function projectOrderListItemForActor<T extends OrderListItem>(
     } as unknown as T;
   }
 
-  if (!canReadOrderUnlock(actor)) {
+  if (projected.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP || !canReadOrderUnlock(actor)) {
     projected = {
       ...projected,
       device_unlock_method: undefined,
@@ -807,9 +817,9 @@ function deriveCanonicalUpdateFromLegacyStatus(
     approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
     parts_status: partsStatusFromLegacyStatus(status),
     notify_status: completed ? "sent" : notifyStatusFromLegacyStatus(status),
-    ...(completed
-      ? { completed_at: now, delivered_at: now }
-      : { completed_at: null, delivered_at: null }),
+    ...(!completed && !cancelled
+      ? { completed_at: null, delivered_at: null }
+      : {}),
     ...(status === "waiting_approval" ? { approval_sent_at: now } : {}),
   };
 }
@@ -890,6 +900,7 @@ async function assertWorkflowTargetEnabled(
   }
   return {
     bucket: (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"],
+    label: maybeString(row.label) || code,
   };
 }
 
@@ -1484,16 +1495,21 @@ export async function uploadOrderAttachment(
 export async function transitionOrder(
   id: string,
   to: RepairOrderStatus,
-  opts: { reason?: string; operator?: string | AuditActor } = {},
+  opts: {
+    reason?: string;
+    expectedUpdatedAt?: string;
+    idempotencyKey?: string;
+    operator?: string | AuditActor;
+  } = {},
 ) {
   const storeId = requireStoreIdFromActor(
     typeof opts.operator === "string" ? undefined : opts.operator,
   );
-  const operatorName = operatorNameFromActor(opts.operator, "系统");
   const supabase = getSupabaseAdmin();
   const actor = typeof opts.operator === "string" ? undefined : opts.operator;
-  const currentRow = await readOrderStatusRow(supabase, storeId, id, actor);
+  const currentRow = await readOrderCustodyRow(supabase, storeId, id, actor);
   await assertRoutineOrderMutationAllowed(supabase, storeId, currentRow);
+  const currentCustodyStatus = custodyStatusFromRow(currentRow);
   const from = currentRow.status as RepairOrderStatus;
   const workflowFrom =
     (maybeString(currentRow.workflow_status) as OrderWorkflowStatusCode | undefined) ??
@@ -1508,6 +1524,7 @@ export async function transitionOrder(
   const validation = await validateManualOrderTransitionTarget(supabase, storeId, from, to);
   if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
   const workflowTo = canonicalWorkflowStatusFromBucket(validation.bucket, to);
+  assertCustodyAllowsTransition(currentRow, legacyTo, validation.bucket);
   if (
     isApprovalDecisionBypass(
       from,
@@ -1531,6 +1548,22 @@ export async function transitionOrder(
     ...deriveCanonicalUpdateFromLegacyStatus(legacyTo, now, validation.bucket),
     workflow_status: workflowTo,
   };
+  if (legacyTo === "completed" || validation.bucket === "done") {
+    update.completed_at = now;
+    if (currentCustodyStatus === DEVICE_CUSTODY_WITH_SHOP) update.delivered_at = now;
+    update.device_custody_status = DEVICE_CUSTODY_WITH_CUSTOMER;
+    update.device_unlock_method = null;
+    update.device_unlock_value = null;
+    update.device_unlock_pattern = null;
+  }
+  if (
+    (legacyTo === "cancelled" || validation.bucket === "cancelled") &&
+    currentCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
+  ) {
+    update.device_unlock_method = null;
+    update.device_unlock_value = null;
+    update.device_unlock_pattern = null;
+  }
   if (legacyTo === "cancelled" || validation.bucket === "cancelled") {
     update.cancel_reason = cleanReason || "未填写";
   }
@@ -1541,37 +1574,50 @@ export async function transitionOrder(
     );
   }
 
-  const expectedUpdatedAt = maybeString(currentRow.updated_at);
+  const expectedUpdatedAt = opts.expectedUpdatedAt ?? maybeString(currentRow.updated_at);
   if (!expectedUpdatedAt) throw new Error("缺少工单版本，请刷新后重试");
 
-  await updateVersionedOrderRow({
+  await applyAtomicOrderMutation({
     supabase,
     id,
     storeId,
+    actor,
     expectedUpdatedAt,
     update,
-    context: "更新工单状态失败",
-  });
-
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "status_changed",
-    payload: {
+    eventType: "status_changed",
+    eventPayload: {
       from,
       to: legacyTo,
       workflow_from: workflowFrom,
       workflow_to: workflowTo,
       reason: cleanReason,
       ...(legacyTo === "completed"
-        ? { handover_confirmed: true, custody_outcome: "delivered" }
-        : {}),
+        ? {
+            handover_confirmed: currentCustodyStatus === DEVICE_CUSTODY_WITH_SHOP,
+            custody_from: currentCustodyStatus,
+            custody_to: DEVICE_CUSTODY_WITH_CUSTOMER,
+            custody_outcome:
+              currentCustodyStatus === DEVICE_CUSTODY_WITH_SHOP ||
+              Boolean(maybeString(currentRow.delivered_at))
+                ? "delivered"
+                : "never_received",
+          }
+        : legacyTo === "cancelled"
+          ? {
+              custody_from: currentCustodyStatus,
+              custody_to: currentCustodyStatus,
+              custody_outcome:
+                currentCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
+                  ? maybeString(currentRow.delivered_at)
+                    ? "returned"
+                    : "never_received"
+                  : "awaiting_return",
+            }
+          : {}),
     },
-    operator_name: operatorName,
-    created_at: now,
+    idempotencyKey: opts.idempotencyKey ?? crypto.randomUUID(),
+    context: "更新工单状态失败",
   });
-  fail(eventError, "写入状态时间线失败");
 
   return { ok: true, from, to: legacyTo };
 }
@@ -1609,6 +1655,9 @@ export async function confirmCancelledOrderReturn(
       stale_version: "工单已被其他操作更新，请刷新后重试",
       missing_expected_version: "缺少工单版本，请刷新后重试",
       invalid_idempotency_key: "退还操作标识无效，请重试",
+      custody_unknown: "请先确认设备保管状态，再登记退还",
+      return_not_required: "设备未由门店保管，无需确认退还",
+      custody_conflict: "设备保管状态与交付时间冲突，请先修正保管记录",
     };
     throw new Error(messages[code] ?? "确认设备退还失败");
   }
@@ -1617,6 +1666,68 @@ export async function confirmCancelledOrderReturn(
     alreadyConfirmed: Boolean(result.already_confirmed),
     delivered_at: requiredString(result.delivered_at),
   };
+}
+
+export async function updateOrderCustody(
+  id: string,
+  input: UpdateOrderCustodyInput,
+  operator: string | AuditActor = "前台",
+): Promise<PatchOrderResult> {
+  const actor = typeof operator === "string" ? undefined : operator;
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const current = await readOrderCustodyRow(supabase, storeId, id, actor);
+  const from = custodyStatusFromRow(current);
+  const to = input.device_custody_status;
+  const reason = input.reason?.trim();
+  const isTerminal = current.status === "completed" || current.status === "cancelled";
+
+  if (!from && !reason) throw new Error("补录历史设备保管状态时必须填写说明");
+  if (isTerminal && (!canCorrectTerminalCustody(actor) || !reason)) {
+    throw new ForbiddenError("已结束工单只能由店主或经理填写说明后修正设备保管状态");
+  }
+  if (
+    current.status === "cancelled" &&
+    from === DEVICE_CUSTODY_WITH_SHOP &&
+    to === DEVICE_CUSTODY_WITH_CUSTOMER
+  ) {
+    throw new Error("已取消工单请使用“确认设备已退还”操作");
+  }
+
+  const now = new Date().toISOString();
+  const update: DbRecord = {
+    device_custody_status: to,
+    updated_at: now,
+  };
+  if (to === DEVICE_CUSTODY_WITH_CUSTOMER) {
+    update.device_unlock_method = null;
+    update.device_unlock_value = null;
+    update.device_unlock_pattern = null;
+    if (from === DEVICE_CUSTODY_WITH_SHOP) update.delivered_at = now;
+  } else {
+    update.delivered_at = null;
+  }
+
+  const updatedAtAfter = await applyAtomicOrderMutation({
+    supabase,
+    id,
+    storeId,
+    actor,
+    expectedUpdatedAt: input.expected_updated_at,
+    update,
+    eventType: "note",
+    eventPayload: {
+      action: "device_custody_changed",
+      to,
+      reason: reason || null,
+      credentials_cleared: to === DEVICE_CUSTODY_WITH_CUSTOMER,
+      prior_delivery_recorded: Boolean(maybeString(current.delivered_at)),
+    },
+    idempotencyKey: input.idempotency_key,
+    context: "更新设备保管状态失败",
+  });
+
+  return { ok: true, updated_at: updatedAtAfter };
 }
 
 function buildTransitionDiagnosisResult(current: string | undefined, reason: string) {
@@ -1653,10 +1764,15 @@ export async function decideOrderApproval(
   operator: string | AuditActor = "前台",
 ): Promise<OrderApprovalDecisionResult> {
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
-  const operatorName = operatorNameFromActor(operator);
   const supabase = getSupabaseAdmin();
   const actor = typeof operator === "string" ? undefined : operator;
-  const currentRow = await readOrderStatusRow(supabase, storeId, id, actor, "读取审批状态失败");
+  const currentRow = await readOrderCustodyRow(
+    supabase,
+    storeId,
+    id,
+    actor,
+    "读取审批与设备保管状态失败",
+  );
   const from = currentRow.status as RepairOrderStatus;
   const currentApprovalFlow =
     maybeString(currentRow.approval_flow_status) ??
@@ -1690,8 +1806,10 @@ export async function decideOrderApproval(
     const validation = await validateConfiguredOrderTransition(supabase, storeId, from, target);
     if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
     targetBucket = validation.bucket;
+    assertCustodyAllowsTransition(currentRow, target, targetBucket);
   } else {
     targetBucket = (await assertWorkflowTargetEnabled(supabase, storeId, target)).bucket;
+    assertCustodyAllowsTransition(currentRow, target, targetBucket);
   }
 
   const now = new Date().toISOString();
@@ -1705,6 +1823,11 @@ export async function decideOrderApproval(
   };
   if (input.decision === "rejected" && target === "cancelled") {
     update.cancel_reason = cleanReason || "客户拒绝报价";
+    if (custodyStatusFromRow(currentRow) === DEVICE_CUSTODY_WITH_CUSTOMER) {
+      update.device_unlock_method = null;
+      update.device_unlock_value = null;
+      update.device_unlock_pattern = null;
+    }
   }
   if (input.decision === "rejected" && target === "unfixed_pickup") {
     update.diagnosis_result = buildTransitionDiagnosisResult(
@@ -1713,30 +1836,34 @@ export async function decideOrderApproval(
     );
   }
 
-  await updateOrderRow({
+  await applyAtomicOrderMutation({
     supabase,
     id,
     storeId,
+    actor,
+    expectedUpdatedAt: requiredString(currentRow.updated_at),
     update,
-    context: "更新客户审批结果失败",
-  });
-
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "approval_result",
-    payload: {
+    eventType: "approval_result",
+    eventPayload: {
       result: input.decision,
       from,
       to: target,
       reason: cleanReason,
       approval_flow_status: input.decision,
+      ...(target === "cancelled"
+        ? {
+            custody_outcome:
+              custodyStatusFromRow(currentRow) === DEVICE_CUSTODY_WITH_CUSTOMER
+                ? maybeString(currentRow.delivered_at)
+                  ? "returned"
+                  : "never_received"
+                : "awaiting_return",
+          }
+        : {}),
     },
-    operator_name: operatorName,
-    created_at: now,
+    idempotencyKey: crypto.randomUUID(),
+    context: "更新客户审批结果失败",
   });
-  fail(eventError, "写入审批结果时间线失败");
 
   return {
     ok: true,
@@ -2189,6 +2316,126 @@ async function readOrderStatusRow(
   return row;
 }
 
+async function readOrderCustodyRow(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  id: string,
+  actor?: AuditActor,
+  context = "读取设备保管状态失败",
+): Promise<DbRecord> {
+  const result = await supabase
+    .from("repair_orders")
+    .select(
+      "id,status,assignee_membership_id,workflow_status,exception_status,approval_status,approval_flow_status,parts_status,notify_status,approval_sent_at,diagnosis_result,cancel_reason,device_custody_status,device_unlock_method,device_unlock_value,device_unlock_pattern,completed_at,delivered_at,updated_at",
+    )
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .single();
+  if (result.error && isMissingRepairOrderColumnError(result.error)) {
+    throw new Error("设备保管功能尚未完成数据库迁移，请联系店主");
+  }
+  fail(result.error, context);
+  const row: DbRecord = { ...(result.data as DbRecord), __assignment_supported: true };
+  assertOrderInActorScope(row, actor);
+  return row;
+}
+
+function custodyStatusFromRow(row: DbRecord): DeviceCustodyStatus | null {
+  return isDeviceCustodyStatus(row.device_custody_status) ? row.device_custody_status : null;
+}
+
+function assertCustodyAllowsTransition(row: DbRecord, to: RepairOrderStatus, bucket?: string) {
+  const custodyStatus = custodyStatusFromRow(row);
+  const requiresPhysicalCustody =
+    deviceCustodyBlocksStatus(to) ||
+    bucket === "diagnosing" ||
+    bucket === "repair" ||
+    bucket === "pickup";
+  if (!custodyStatus && (requiresPhysicalCustody || to === "completed" || to === "cancelled")) {
+    throw new Error("请先确认设备是留在门店还是由客户带走，再进行此状态流转");
+  }
+  if (custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && requiresPhysicalCustody) {
+    throw new Error("设备当前未留店，不能进入诊断、维修或待取机状态");
+  }
+}
+
+function canCorrectTerminalCustody(actor?: AuditActor) {
+  if (actor?.isSystem) return true;
+  const role = actor?.storeRole ?? actor?.role;
+  return role === "owner" || role === "manager";
+}
+
+async function applyAtomicOrderMutation({
+  supabase,
+  storeId,
+  id,
+  actor,
+  expectedUpdatedAt,
+  update,
+  eventType,
+  eventPayload,
+  idempotencyKey,
+  context,
+}: {
+  supabase: SupabaseAdmin;
+  storeId: string;
+  id: string;
+  actor?: AuditActor;
+  expectedUpdatedAt: string;
+  update: DbRecord;
+  eventType: "status_changed" | "approval_result" | "note";
+  eventPayload: Record<string, unknown>;
+  idempotencyKey: string;
+  context: string;
+}) {
+  if (!actor?.id) throw new Error(`${context}：缺少已登录员工身份`);
+  const safeUpdate = Object.fromEntries(
+    Object.entries(update).filter(([key, value]) => key !== "updated_at" && value !== undefined),
+  );
+  const { data, error } = await supabase.rpc("repairdesk_apply_order_atomic_mutation", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: actor.id,
+    p_expected_updated_at: expectedUpdatedAt,
+    p_update: safeUpdate,
+    p_event_type: eventType,
+    p_event_payload: eventPayload,
+    p_idempotency_key: idempotencyKey,
+  });
+  const atomicMutationUnavailable = Boolean(
+    error &&
+    (("code" in error && (error.code === "PGRST202" || error.code === "42883")) ||
+      error.message.includes("repairdesk_apply_order_atomic_mutation") ||
+      error.message.toLowerCase().includes("schema cache")),
+  );
+  if (atomicMutationUnavailable) {
+    throw new Error("设备保管数据库迁移尚未应用，请联系店主");
+  }
+  if (error && isMissingRepairOrderColumnError(error)) {
+    throw new Error("设备保管功能尚未完成数据库迁移，请联系店主");
+  }
+  fail(error, context);
+  if (!data || typeof data !== "object") throw new Error(`${context}：数据库返回无效`);
+  const result = data as Record<string, unknown>;
+  if (result.ok !== true) {
+    const code = requiredString(result.code);
+    if (code === "actor_forbidden") throw new ForbiddenError("当前员工无权更新此工单");
+    if (code === "order_not_found") throw new Error("工单不存在");
+    if (code === "stale_version") throw new Error("工单已被更新，请刷新后再试");
+    if (code === "idempotency_conflict") {
+      throw new Error("该操作标识已用于不同请求，请刷新后重试");
+    }
+    if (code === "missing_expected_version") throw new Error("缺少工单版本，请刷新后再试");
+    if (code === "completed_reopen_required") {
+      throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
+    }
+    throw new Error(`${context}：请求无效（${code || "unknown"}）`);
+  }
+  const updatedAt = requiredString(result.updated_at);
+  if (!updatedAt) throw new Error(`${context}：缺少更新时间`);
+  return updatedAt;
+}
+
 async function updateOrderRow({
   supabase,
   id,
@@ -2327,7 +2574,7 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
   internal_tag: "内部标签",
-  accessory_notes: "留存备注",
+  accessory_notes: "随附物品",
   device_unlock: "手机密码",
   warranty_text: "质保",
   warranty_months: "质保期限",
@@ -2511,8 +2758,22 @@ export async function updateOrder(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
-  const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
+  const accessRow = await readOrderCustodyRow(
+    supabase,
+    storeId,
+    id,
+    requestActor,
+    "读取工单失败",
+  );
   await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
+  if (input.device_unlock) {
+    if (
+      custodyStatusFromRow(accessRow) !== DEVICE_CUSTODY_WITH_SHOP &&
+      hasUnlockValue(input.device_unlock)
+    ) {
+      throw new Error("设备未留店时不能保存手机密码");
+    }
+  }
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
@@ -2763,6 +3024,13 @@ export async function patchOrder(
     }
 
     if (field === "device_unlock") {
+      const custody = await readOrderCustodyRow(supabase, storeId, id, requestActor);
+      if (
+        custodyStatusFromRow(custody) !== DEVICE_CUSTODY_WITH_SHOP &&
+        hasUnlockValue(rawValue as PatchOrderInput["changes"]["device_unlock"])
+      ) {
+        throw new Error("设备未留店时不能保存手机密码");
+      }
       Object.assign(
         orderUpdate,
         deviceUnlockUpdateFromInput(rawValue as PatchOrderInput["changes"]["device_unlock"]),
@@ -3037,7 +3305,7 @@ async function writeWhatsappMessage({
   const now = new Date().toISOString();
   const messageId = crypto.randomUUID();
 
-  const current = await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
+  const current = await readOrderCustodyRow(supabase, storeId, id, actor, "读取工单失败");
   assertOrderRecordNotVoided(current);
   const from = current.status as RepairOrderStatus;
   let statusChanged = false;
@@ -3048,7 +3316,18 @@ async function writeWhatsappMessage({
     throw new Error("只有报价或待审批阶段可以发送客户审批");
   }
 
+  if (
+    !transitionTo &&
+    current.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP &&
+    (templateKind === "pickup_ready" || templateKind === "unfixed_pickup")
+  ) {
+    throw new Error("设备未留店，不能发送取机通知");
+  }
+
   if (transitionTo) {
+    if (transitionTo === "completed" || transitionTo === "cancelled") {
+      throw new Error("完成或取消工单必须使用专用状态操作，不能随通知一起流转");
+    }
     const transition = await validateConfiguredOrderTransition(
       supabase,
       storeId,
@@ -3058,6 +3337,7 @@ async function writeWhatsappMessage({
     if (!transition.ok) {
       if (!allowInvalidTransition) throw new Error(transition.reason ?? "状态流转不合法");
     } else {
+      assertCustodyAllowsTransition(current, transitionTo, transition.bucket);
       statusChanged = true;
       to = transitionTo;
       transitionBucket = transition.bucket;
@@ -3250,6 +3530,10 @@ export async function createOrder(
     throw new ForbiddenError("当前角色无权分配工单负责人");
   }
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
+  const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
+  if (deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && hasUnlockValue(input.device_unlock)) {
+    throw new Error("设备未留店时不能保存手机密码");
+  }
 
   const validFaults = input.fault_prices
     .filter((item) => item.name.trim() && Number(item.price) >= 0)
@@ -3278,6 +3562,15 @@ export async function createOrder(
   const technicianName = assignee?.displayName.trim() || operatorName.trim() || "前台";
   const initialStatus = await resolveInitialOrderStatus(supabase, storeId, input.status);
   const status = initialStatus.code;
+  if (
+    deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
+    (deviceCustodyBlocksStatus(status) ||
+      initialStatus.bucket === "diagnosing" ||
+      initialStatus.bucket === "repair" ||
+      initialStatus.bucket === "pickup")
+  ) {
+    throw new Error("设备未留店时不能以诊断、维修或待取机状态创建工单");
+  }
   const now = new Date().toISOString();
   const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
   const warranty = normalizeWarrantyPayload({
@@ -3420,7 +3713,9 @@ export async function createOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
-  const deviceUnlock = normalizeDeviceUnlockInput(input.device_unlock);
+  const deviceUnlock = normalizeDeviceUnlockInput(
+    normalizeUnlockForCustody(deviceCustodyStatus, input.device_unlock),
+  );
   const orderRowBase: DbRecord = {
     id,
     store_id: storeId,
@@ -3449,6 +3744,7 @@ export async function createOrder(
     assignee_membership_id: assignee?.id ?? null,
     internal_tag: tagInput.internalTag || null,
     accessory_notes: tagInput.accessoryNotes || null,
+    device_custody_status: deviceCustodyStatus,
     device_unlock_method: deviceUnlock.method,
     device_unlock_value: deviceUnlock.value,
     device_unlock_pattern: deviceUnlock.pattern,
@@ -3498,6 +3794,7 @@ export async function createOrder(
     event_type: "created",
     payload: {
       type: input.order_type,
+      device_custody_status: deviceCustodyStatus,
       device_unlock_method: deviceUnlock.method,
       warranty_months: warranty.warranty_months,
       warranty_text: warranty.warranty_text,
@@ -3506,7 +3803,17 @@ export async function createOrder(
     operator_name: operatorName,
     created_at: now,
   });
-  fail(eventError, "写入创建时间线失败");
+  if (eventError) {
+    const { error: rollbackError } = await supabase
+      .from("repair_orders")
+      .delete()
+      .eq("store_id", storeId)
+      .eq("id", orderId);
+    if (rollbackError) {
+      throw new Error("写入创建时间线失败，且工单回滚失败，请立即联系管理员");
+    }
+    fail(eventError, "写入创建时间线失败");
+  }
 
   return { id: orderId };
 }

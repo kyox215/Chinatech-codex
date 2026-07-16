@@ -102,6 +102,22 @@ describe("order repository role projection", () => {
     expect(projected.order.device_unlock_value).toBe("1234");
   });
 
+  it.each(["with_customer", null] as const)(
+    "never sends unlock secrets when device custody is %s",
+    (device_custody_status) => {
+      const source = detail();
+      const projected = projectOrderDetailForActor(
+        { ...source, order: { ...source.order, device_custody_status } },
+        actor("owner"),
+      );
+
+      expect(projected.order.device_unlock_method).toBeUndefined();
+      expect(projected.order.device_unlock_value).toBeUndefined();
+      expect(projected.order.device_unlock_pattern).toBeUndefined();
+      expect(projected.order.sensitive_redacted).toBe(true);
+    },
+  );
+
   it("redacts finance and other sensitive fields from technician list rows", () => {
     const projected = projectOrderListItemForActor(order(), actor("technician"));
 
@@ -569,13 +585,6 @@ describe("order repository database pagination", () => {
         ),
     ],
     [
-      "transition",
-      () =>
-        transitionOrder("order_1", "repairing", {
-          operator: { ...actor("technician"), displayName: "Technician B" },
-        }),
-    ],
-    [
       "attachment",
       () =>
         uploadOrderAttachment(
@@ -603,6 +612,21 @@ describe("order repository database pagination", () => {
 
     await expect(run()).rejects.toThrow("当前工单未分配给你");
     expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed for status transitions when the custody migration is unavailable", async () => {
+    mocks.supabase.from.mockReturnValueOnce(
+      createSupabaseQuery({
+        data: null,
+        error: { message: "column repair_orders.device_custody_status does not exist" },
+        count: 0,
+      }),
+    );
+
+    await expect(
+      transitionOrder("order_1", "repairing", { operator: actor("technician") }),
+    ).rejects.toThrow("设备保管功能尚未完成数据库迁移");
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 
   it("rejects a technician opening another member's order before loading child data", async () => {
@@ -782,30 +806,31 @@ describe("order repository custody writes", () => {
       error: null,
       count: 1,
     });
-    const updateQuery = createSupabaseQuery({
-      data: { updated_at: "2026-07-09T10:01:00.000Z" },
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: { ok: true, code: "updated", updated_at: "2026-07-09T10:01:00.000Z" },
       error: null,
-      count: 1,
     });
-    const eventQuery = createSupabaseQuery({ data: null, error: null, count: 1 });
     mocks.supabase.from
       .mockReturnValueOnce(readQuery)
       .mockReturnValueOnce(currentBucketQuery)
-      .mockReturnValueOnce(targetQuery)
-      .mockReturnValueOnce(updateQuery)
-      .mockReturnValueOnce(eventQuery);
+      .mockReturnValueOnce(targetQuery);
 
-    await transitionOrder("order_1", "repairing", { operator: actor("owner") });
+    await transitionOrder("order_1", "repairing", {
+      operator: actor("owner"),
+      expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+      idempotencyKey: "00000000-0000-4000-8000-000000000600",
+    });
 
-    expect(updateQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "repairing", workflow_status: "repair" }),
-    );
-    expect(updateQuery.eq).toHaveBeenCalledWith("updated_at", "2026-07-09T10:00:00.000Z");
-    expect(eventQuery.insert).toHaveBeenCalledWith(
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_apply_order_atomic_mutation",
       expect.objectContaining({
-        store_id: "store_1",
-        order_id: "order_1",
-        event_type: "status_changed",
+        p_store_id: "store_1",
+        p_order_id: "order_1",
+        p_expected_updated_at: "2026-07-09T10:00:00.000Z",
+        p_idempotency_key: "00000000-0000-4000-8000-000000000600",
+        p_update: expect.objectContaining({ status: "repairing", workflow_status: "repair" }),
+        p_event_type: "status_changed",
+        p_event_payload: expect.objectContaining({ from: "new", to: "repairing" }),
       }),
     );
   });
@@ -824,7 +849,6 @@ describe("order repository custody writes", () => {
     const targetQuery = createSupabaseQuery({
       data: { code: "customer_cancelled", label: "客户取消", bucket: "cancelled", enabled: true },
       error: null,
-      count: 1,
     });
     mocks.supabase.from
       .mockReturnValueOnce(readQuery)
@@ -1069,6 +1093,7 @@ function order(overrides: Partial<OrderListItem> = {}): OrderListItem {
     approval_overdue: false,
     pickup_overdue: false,
     ...overrides,
+    device_custody_status: overrides.device_custody_status ?? "with_shop",
   };
 }
 
@@ -1167,6 +1192,7 @@ function orderRow(overrides: Record<string, unknown> = {}) {
     fault_prices: [],
     created_at: "2026-07-09T10:00:00.000Z",
     updated_at: "2026-07-09T10:00:00.000Z",
+    device_custody_status: "with_shop",
     customer: {
       id: "customer_1",
       name: "Cliente",

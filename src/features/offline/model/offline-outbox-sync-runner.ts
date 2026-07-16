@@ -174,9 +174,16 @@ export function createRepairDeskOfflineOutboxSyncRunner({
       return success(result);
     }
 
-    const pending = await store.listOutboxEntries({ ...scope, status: "pending_sync" });
+    const [pending, failed] = await Promise.all([
+      store.listOutboxEntries({ ...scope, status: "pending_sync" }),
+      store.listOutboxEntries({ ...scope, status: "sync_failed" }),
+    ]);
     if (!pending.ok) return pending;
-    const entries = [...pending.value].sort(compareOutboxEntries).slice(0, Math.max(0, maxEntries));
+    if (!failed.ok) return failed;
+    const entries = [...pending.value, ...failed.value]
+      .filter((entry) => entry.retryCount < 5)
+      .sort(compareOutboxEntries)
+      .slice(0, Math.max(0, maxEntries));
     if (entries.length === 0) {
       const meta = await updateSyncMeta(store, {
         metaId,
@@ -445,6 +452,8 @@ async function updateSyncMeta(
 ): Promise<RepairDeskOfflineResult<RepairDeskOfflineSyncMeta>> {
   const pending = await store.listOutboxEntries({ ...scope, status: "pending_sync" });
   if (!pending.ok) return pending;
+  const failed = await store.listOutboxEntries({ ...scope, status: "sync_failed" });
+  if (!failed.ok) return failed;
   const conflicts = await store.listOutboxEntries({ ...scope, status: "conflict" });
   if (!conflicts.ok) return conflicts;
 
@@ -455,7 +464,8 @@ async function updateSyncMeta(
     onlineState: online ? (authenticated ? "online" : "degraded") : "offline",
     lastApiHealthOkAt: online && authenticated ? nowIso : undefined,
     lastOutboxRunAt: nowIso,
-    pendingCount: pending.value.length,
+    pendingCount:
+      pending.value.length + failed.value.filter((entry) => entry.retryCount < 5).length,
     conflictCount: conflicts.value.length,
     updatedAt: nowIso,
   });
@@ -530,6 +540,7 @@ function containsUnsafeSyncPayloadKey(input: unknown): boolean {
 
   return Object.entries(input).some(([key, value]) => {
     const normalized = normalizePayloadKey(key);
+    if (normalized === "orderstatus" && value === "new") return false;
     return (
       unsafeSyncPayloadKeyFragments.some((fragment) => normalized.includes(fragment)) ||
       containsUnsafeSyncPayloadKey(value)
