@@ -16,18 +16,23 @@ export function OrderListViewMode({
   value,
   canBrowseArchive,
   compact = false,
+  disabled = false,
   onChange,
 }: {
   value: OrderListView;
   canBrowseArchive: boolean;
   compact?: boolean;
+  disabled?: boolean;
   onChange: (value: OrderListView) => void;
 }) {
   if (!canBrowseArchive) return null;
 
   return (
     <div
-      className="grid shrink-0 grid-cols-3 gap-1 rounded-md border border-border/60 bg-surface/55 p-1"
+      className={cn(
+        "grid shrink-0 grid-cols-3 rounded-md border border-border/60 bg-surface/55",
+        compact ? "gap-0.5 p-0.5" : "gap-1 p-1",
+      )}
       role="group"
       aria-label="订单显示范围"
     >
@@ -38,9 +43,10 @@ export function OrderListViewMode({
           <Button
             key={option.value}
             type="button"
+            disabled={disabled}
             size="sm"
             variant={active ? "default" : "ghost"}
-            className={cn("h-7 gap-1 px-2 text-xs", compact && "min-w-0 px-1.5 text-[11px]")}
+            className={cn("h-7 gap-1 px-2 text-xs", compact && "h-6 min-w-0 px-1.5 text-[10px]")}
             aria-pressed={active}
             title={option.label}
             onClick={() => onChange(option.value)}

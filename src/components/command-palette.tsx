@@ -11,7 +11,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useQuery } from "@tanstack/react-query";
-import { orderQueueSummaryQueryOptions } from "@/features/orders/api/query-options";
+import { orderListPageQueryOptions } from "@/features/orders/api/query-options";
 import { toggleThemePreference } from "@/lib/theme";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { getShellCommandActions, getWorkspaceNavItems } from "@/shared/config/navigation";
@@ -28,11 +28,11 @@ export function CommandPalette({
   const router = useRouter();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
-  const { data: queueSummary } = useQuery({
-    ...orderQueueSummaryQueryOptions(undefined, activeStoreId),
+  const { data: orderPage } = useQuery({
+    ...orderListPageQueryOptions(undefined, activeStoreId),
     enabled: open && Boolean(activeStoreId),
   });
-  const data = queueSummary?.list.items ?? [];
+  const data = orderPage?.items ?? [];
 
   const go = (to: string) => {
     onOpenChange(false);

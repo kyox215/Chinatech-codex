@@ -159,6 +159,60 @@ export const ORDER_LIST_LEGACY_SELECT = `
   ${REPAIR_ORDER_SUPPLIER_EMBED}(*)
 `;
 
+const ORDER_LIST_SEARCH_CUSTOMER_COLUMNS = "id,name,phone_e164,phone_raw,contact_phones";
+const ORDER_LIST_SEARCH_DEVICE_COLUMNS = "id,customer_id,brand,model,serial_or_imei,device_notes";
+const ORDER_LIST_CARD_SUPPLIER_COLUMNS = "id,name,short_name,color,archived_at";
+
+const ORDER_LIST_INDEX_BASE_COLUMNS = `
+  id,
+  store_id,
+  public_no,
+  order_type,
+  status,
+  customer_id,
+  device_id,
+  deposit_amount,
+  balance_amount,
+  is_paid,
+  approval_status,
+  approval_sent_at,
+  technician_name,
+  pause_reason,
+  supplier_id,
+  contact_phones,
+  device_snapshot,
+  completed_at,
+  created_at,
+  updated_at
+`;
+
+export const ORDER_LIST_INDEX_SELECT = `
+  ${ORDER_LIST_INDEX_BASE_COLUMNS},
+  ${ORDER_LIST_CANONICAL_COLUMNS},
+  ${REPAIR_ORDER_CUSTOMER_EMBED}(${ORDER_LIST_SEARCH_CUSTOMER_COLUMNS}),
+  ${REPAIR_ORDER_DEVICE_EMBED}(${ORDER_LIST_SEARCH_DEVICE_COLUMNS})
+`;
+
+export const ORDER_LIST_INDEX_LEGACY_SELECT = `
+  ${ORDER_LIST_INDEX_BASE_COLUMNS},
+  ${REPAIR_ORDER_CUSTOMER_EMBED}(${ORDER_LIST_SEARCH_CUSTOMER_COLUMNS}),
+  ${REPAIR_ORDER_DEVICE_EMBED}(${ORDER_LIST_SEARCH_DEVICE_COLUMNS})
+`;
+
+export const ORDER_LIST_CARD_SELECT = `
+  ${ORDER_LIST_COLUMNS},
+  ${REPAIR_ORDER_CUSTOMER_EMBED}(${ORDER_LIST_SEARCH_CUSTOMER_COLUMNS}),
+  ${REPAIR_ORDER_DEVICE_EMBED}(${ORDER_LIST_SEARCH_DEVICE_COLUMNS}),
+  ${REPAIR_ORDER_SUPPLIER_EMBED}(${ORDER_LIST_CARD_SUPPLIER_COLUMNS})
+`;
+
+export const ORDER_LIST_CARD_LEGACY_SELECT = `
+  ${ORDER_LIST_BASE_COLUMNS},
+  ${REPAIR_ORDER_CUSTOMER_EMBED}(${ORDER_LIST_SEARCH_CUSTOMER_COLUMNS}),
+  ${REPAIR_ORDER_DEVICE_EMBED}(${ORDER_LIST_SEARCH_DEVICE_COLUMNS}),
+  ${REPAIR_ORDER_SUPPLIER_EMBED}(${ORDER_LIST_CARD_SUPPLIER_COLUMNS})
+`;
+
 export function fail(error: { message: string } | null | undefined, context: string) {
   if (error) throw new Error(`${context}: ${error.message}`);
 }
@@ -561,4 +615,105 @@ export async function fetchOrderRows(storeId: string): Promise<DbRecord[]> {
   }
 
   return rows;
+}
+
+export type OrderListDatabaseView = "active" | "archive" | "all";
+
+type OrderListDatabaseScope = {
+  view: OrderListDatabaseView;
+  assigneeMembershipId?: string;
+};
+
+function applyOrderListDatabaseScope<
+  T extends {
+    eq: (column: string, value: string) => T;
+    in: (column: string, values: string[]) => T;
+    neq: (column: string, value: string) => T;
+  },
+>(query: T, scope: OrderListDatabaseScope) {
+  let scoped = query;
+  if (scope.view === "active") {
+    scoped = scoped.neq("status", "completed").neq("status", "cancelled");
+  } else if (scope.view === "archive") {
+    scoped = scoped.in("status", ["completed", "cancelled"]);
+  }
+  if (scope.assigneeMembershipId) {
+    scoped = scoped.eq("assignee_membership_id", scope.assigneeMembershipId);
+  }
+  return scoped;
+}
+
+export async function fetchOrderListIndexRows(
+  storeId: string,
+  scope: OrderListDatabaseScope,
+): Promise<DbRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const rows: DbRecord[] = [];
+  let from = 0;
+  let select = ORDER_LIST_INDEX_SELECT;
+  let retriedLegacySelect = false;
+
+  while (true) {
+    let query = supabase.from("repair_orders").select(select).eq("store_id", storeId);
+    query = applyOrderListDatabaseScope(query, scope);
+    const { data, error } = await query
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + ORDER_LIST_PAGE_SIZE - 1);
+
+    if (error && !retriedLegacySelect && isMissingRepairOrderColumnError(error)) {
+      if (scope.assigneeMembershipId) return [];
+      rows.length = 0;
+      from = 0;
+      select = ORDER_LIST_INDEX_LEGACY_SELECT;
+      retriedLegacySelect = true;
+      continue;
+    }
+    fail(error, "读取工单索引失败");
+
+    const assignmentSupported = !retriedLegacySelect;
+    const batch = ((data ?? []) as unknown as DbRecord[]).map((row) => ({
+      ...row,
+      __assignment_supported: assignmentSupported,
+    }));
+    rows.push(...batch);
+    if (batch.length < ORDER_LIST_PAGE_SIZE) break;
+    from += ORDER_LIST_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+export async function fetchOrderRowsByIds(
+  storeId: string,
+  ids: string[],
+  assigneeMembershipId?: string,
+): Promise<DbRecord[]> {
+  if (!ids.length) return [];
+
+  const supabase = getSupabaseAdmin();
+  let select = ORDER_LIST_CARD_SELECT;
+  let retriedLegacySelect = false;
+
+  while (true) {
+    let query = supabase.from("repair_orders").select(select).eq("store_id", storeId).in("id", ids);
+    if (assigneeMembershipId) {
+      query = query.eq("assignee_membership_id", assigneeMembershipId);
+    }
+    const { data, error } = await query
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true });
+
+    if (error && !retriedLegacySelect && isMissingRepairOrderColumnError(error)) {
+      if (assigneeMembershipId) return [];
+      select = ORDER_LIST_CARD_LEGACY_SELECT;
+      retriedLegacySelect = true;
+      continue;
+    }
+    fail(error, "读取当前页工单失败");
+    return ((data ?? []) as unknown as DbRecord[]).map((row) => ({
+      ...row,
+      __assignment_supported: !retriedLegacySelect,
+    }));
+  }
 }

@@ -22,6 +22,7 @@ import {
   onboardingDecisionBodySchema,
   onboardingRequestBodySchema,
   orderListFiltersSchema,
+  orderListPageInputSchema,
   patchOrderInputSchema,
   paymentBodySchema,
   storeInviteLinkCreateBodySchema,
@@ -46,6 +47,15 @@ describe("repairdesk API schemas", () => {
 
   it("keeps the legacy Dashboard page-size contract available during rolling releases", () => {
     expect(dashboardSummaryInputSchema.parse({ pageSize: 6 })).toEqual({ pageSize: 6 });
+  });
+
+  it("keeps legacy order page sizes accepted while clamping the detail budget to 50", () => {
+    expect(orderListPageInputSchema.parse({ page: "2", pageSize: "50" })).toEqual({
+      page: 2,
+      pageSize: 50,
+    });
+    expect(orderListPageInputSchema.parse({ pageSize: 100 })).toEqual({ pageSize: 50 });
+    expect(() => orderListPageInputSchema.parse({ pageSize: 101 })).toThrow();
   });
 
   it("accepts an optional ISO version for inventory quality-check CAS", () => {

@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  ORDER_LIST_CARD_SELECT,
+  ORDER_LIST_INDEX_SELECT,
   ORDER_LIST_LEGACY_SELECT,
   ORDER_LIST_SELECT,
   ORDER_SELECT,
@@ -24,6 +26,17 @@ describe("repairdesk shared Supabase selects", () => {
       expect(select).not.toContain("customer:customers(*)");
       expect(select).not.toContain("customer:customers(");
     }
+  });
+
+  it("keeps queue index and card embeds narrow", () => {
+    for (const select of [ORDER_LIST_INDEX_SELECT, ORDER_LIST_CARD_SELECT]) {
+      expect(select).toContain(`${REPAIR_ORDER_CUSTOMER_EMBED}(id,name,phone_e164`);
+      expect(select).toContain(`${REPAIR_ORDER_DEVICE_EMBED}(id,customer_id,brand,model`);
+      expect(select).not.toContain(`${REPAIR_ORDER_CUSTOMER_EMBED}(*)`);
+      expect(select).not.toContain(`${REPAIR_ORDER_DEVICE_EMBED}(*)`);
+    }
+    expect(ORDER_LIST_INDEX_SELECT).not.toContain(REPAIR_ORDER_SUPPLIER_EMBED);
+    expect(ORDER_LIST_CARD_SELECT).toContain(`${REPAIR_ORDER_SUPPLIER_EMBED}(id,name`);
   });
 
   it("uses an explicit supplier relationship for repair order embeds", () => {

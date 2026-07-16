@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getRepairDeskPreloadTargets,
   isRepairDeskPreloadEnabled,
+  isRepairDeskPreloadTargetOwnedByWorkspaceHome,
   runRepairDeskPreloadQueue,
 } from "./preload-plan";
 
@@ -17,6 +18,14 @@ describe("preload plan", () => {
     expect(getRepairDeskPreloadTargets("/orders").slice(0, 2)).toEqual(["orders", "customers"]);
     expect(getRepairDeskPreloadTargets("/customers").slice(0, 2)).toEqual(["customers", "orders"]);
     expect(getRepairDeskPreloadTargets("/inventory", true)).toEqual(["orders", "customers"]);
+  });
+
+  it("does not preload data already owned by the active workspace home", () => {
+    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "orders")).toBe(true);
+    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders/", "workflow")).toBe(true);
+    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "settings")).toBe(true);
+    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "customers")).toBe(false);
+    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders/order-1", "orders")).toBe(false);
   });
 
   it("never exceeds the configured concurrency", async () => {

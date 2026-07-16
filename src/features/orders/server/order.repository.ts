@@ -79,7 +79,9 @@ import {
   eventFromRow,
   fail,
   failStorageOperation,
+  fetchOrderListIndexRows,
   fetchOrderRows,
+  fetchOrderRowsByIds,
   isMissingRepairOrderColumnError,
   maybeString,
   messageFromRow,
@@ -824,7 +826,7 @@ async function assertCustomerPhoneAvailable(
 
 function normalizePageInput(input: OrderListPageInput = {}) {
   const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
-  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
+  const pageSize = Math.min(50, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
   return { page, pageSize };
 }
 
@@ -880,11 +882,17 @@ export async function listOrdersPage(
     overdue: input.overdue,
   };
   const safeFilters = filtersForActor(filters, actor);
-
-  const rows = scopeOrderRowsForActor(await fetchOrderRows(storeId), actor).map(decorate);
+  const technicianMembershipId = isTechnicianActor(actor) ? actor?.activeMembershipId : undefined;
+  const indexRows =
+    isTechnicianActor(actor) && !technicianMembershipId
+      ? []
+      : await fetchOrderListIndexRows(storeId, {
+          view: safeFilters.view ?? "active",
+          assigneeMembershipId: technicianMembershipId,
+        });
+  const rows = scopeOrderRowsForActor(indexRows, actor).map(decorate);
   const filtered = filterOrders(rows, safeFilters);
   const bounded = safeFilters.archiveSearchExact ? filtered.slice(0, 20) : filtered;
-  const all = bounded.map((order) => projectOrderListItemForActor(order, actor));
   const workflowCounts = countWorkflowRows(
     filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
   );
@@ -893,14 +901,26 @@ export async function listOrdersPage(
   const effectivePage = safeFilters.archiveSearchExact ? 1 : page;
   const effectivePageSize = safeFilters.archiveSearchExact ? 20 : pageSize;
   const start = (effectivePage - 1) * effectivePageSize;
+  const pageIndexRows = bounded.slice(start, start + effectivePageSize);
+  const pageIds = pageIndexRows.map((order) => order.id);
+  const pageRows = scopeOrderRowsForActor(
+    await fetchOrderRowsByIds(storeId, pageIds, technicianMembershipId),
+    actor,
+  ).map(decorate);
+  const pageRowsById = new Map(pageRows.map((order) => [order.id, order]));
+  const items = pageIds
+    .map((id) => pageRowsById.get(id))
+    .filter((order): order is OrderListItem => Boolean(order))
+    .map((order) => projectOrderListItemForActor(order, actor));
+
   return {
-    items: all.slice(start, start + effectivePageSize),
-    total: all.length,
+    items,
+    total: bounded.length,
     page: effectivePage,
     pageSize: effectivePageSize,
     pageCount: safeFilters.archiveSearchExact
       ? 1
-      : Math.max(1, Math.ceil(all.length / effectivePageSize)),
+      : Math.max(1, Math.ceil(bounded.length / effectivePageSize)),
     workflowCounts,
     queueCounts,
     resultGroupCounts,

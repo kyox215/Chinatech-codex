@@ -4,12 +4,14 @@ import type {
   DashboardSummary,
   OrderDetail,
   OrderListItem,
+  OrderListResult,
   OrderQueueSummary,
 } from "@/lib/repairdesk/types";
 
 import { ordersKeys } from "./query-keys";
 
 export const ordersQueueSummaryCachePrefix = [...ordersKeys.all, "queue-summary"] as const;
+export const ordersListPageCachePrefix = [...ordersKeys.lists(), "page"] as const;
 export const ordersDashboardSummaryCachePrefix = [...ordersKeys.all, "dashboard-summary"] as const;
 
 export type OrderListItemCachePatch = {
@@ -18,6 +20,7 @@ export type OrderListItemCachePatch = {
 };
 
 export type OrderReadCacheSnapshot = {
+  listPages: Array<[QueryKey, OrderListResult | undefined]>;
   queueSummaries: Array<[QueryKey, OrderQueueSummary | undefined]>;
   dashboardSummaries: Array<[QueryKey, DashboardSummary | undefined]>;
   details: Array<[QueryKey, OrderDetail | undefined]>;
@@ -28,6 +31,9 @@ export function snapshotOrderReadCaches(
   orderId: string,
 ): OrderReadCacheSnapshot {
   return {
+    listPages: queryClient.getQueriesData<OrderListResult>({
+      queryKey: ordersListPageCachePrefix,
+    }),
     queueSummaries: queryClient.getQueriesData<OrderQueueSummary>({
       queryKey: ordersQueueSummaryCachePrefix,
     }),
@@ -45,6 +51,7 @@ export function restoreOrderReadCaches(
   snapshot?: OrderReadCacheSnapshot,
 ) {
   if (!snapshot) return;
+  snapshot.listPages.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data));
   snapshot.queueSummaries.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data));
   snapshot.dashboardSummaries.forEach(([queryKey, data]) =>
     queryClient.setQueryData(queryKey, data),
@@ -57,6 +64,12 @@ export function patchOrderReadCaches(
   orderId: string,
   patch: OrderListItemCachePatch,
 ) {
+  queryClient.setQueriesData<OrderListResult>({ queryKey: ordersListPageCachePrefix }, (page) => {
+    if (!page) return page;
+    const items = patchOrderListItems(page.items, orderId, patch);
+    return items === page.items ? page : { ...page, items };
+  });
+
   queryClient.setQueriesData<OrderQueueSummary>(
     { queryKey: ordersQueueSummaryCachePrefix },
     (summary) => {

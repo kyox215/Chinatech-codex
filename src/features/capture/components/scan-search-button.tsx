@@ -32,6 +32,7 @@ interface ScanSearchButtonProps {
   label?: string;
   size?: "sm" | "icon";
   variant?: "outline" | "ghost";
+  disabled?: boolean;
 }
 
 export function ScanSearchButton({
@@ -43,6 +44,7 @@ export function ScanSearchButton({
   label,
   size = "icon",
   variant = "outline",
+  disabled = false,
 }: ScanSearchButtonProps) {
   const [open, setOpen] = useState(false);
   const resolvedLabel = label ?? "扫码";
@@ -53,6 +55,7 @@ export function ScanSearchButton({
         type="button"
         variant={variant}
         size={size}
+        disabled={disabled}
         className={className}
         aria-label={`${getScanSearchScopeLabel(scope)}扫码查询`}
         onClick={() => setOpen(true)}

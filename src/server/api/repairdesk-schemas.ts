@@ -314,7 +314,13 @@ export const orderListFiltersSchema = z
 
 export const orderListPageInputSchema = orderListFiltersSchema.extend({
   page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce.number().int().positive().max(100).optional(),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .transform((pageSize) => Math.min(50, pageSize))
+    .optional(),
 });
 
 export const dashboardSummaryInputSchema = z

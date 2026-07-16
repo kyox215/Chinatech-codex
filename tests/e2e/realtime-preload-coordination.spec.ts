@@ -17,7 +17,7 @@ async function expectNoPageOverflow(page: Page) {
 
 test("uses full RepairOS skeletons instead of route loading text", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route("**/api/repairdesk/orders/queue-summary", async (route) => {
+  await page.route("**/api/repairdesk/orders/list-page", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 700));
     await route.continue();
   });
@@ -31,7 +31,7 @@ test("uses full RepairOS skeletons instead of route loading text", async ({ page
   });
   await expect(page.locator('[data-order-mobile-list="true"]')).toBeVisible();
 
-  await page.unroute("**/api/repairdesk/orders/queue-summary");
+  await page.unroute("**/api/repairdesk/orders/list-page");
   await page.route("**/api/repairdesk/customers/list-page", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 700));
     await route.continue();
@@ -136,10 +136,7 @@ test("preloads the customer workspace once and reuses it during SPA navigation",
     ) {
       customerRequests.push(request.url());
     }
-    if (
-      request.method() === "POST" &&
-      request.url().includes("/api/repairdesk/orders/queue-summary")
-    ) {
+    if (request.method() === "POST" && request.url().includes("/api/repairdesk/orders/list-page")) {
       orderRequests.push(request.url());
     }
   });

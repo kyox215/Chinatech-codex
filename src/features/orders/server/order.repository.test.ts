@@ -196,6 +196,41 @@ describe("order repository database pagination", () => {
     expect(queries[0]?.order).toHaveBeenNthCalledWith(1, "updated_at", { ascending: false });
     expect(queries[0]?.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
     expect(queries[0]?.range).toHaveBeenCalledWith(0, 999);
+    expect(queries[0]?.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(queries[0]?.neq).toHaveBeenNthCalledWith(1, "status", "completed");
+    expect(queries[0]?.neq).toHaveBeenNthCalledWith(2, "status", "cancelled");
+    const indexSelect = (queries[0]?.select.mock.calls as unknown[][])[0]?.[0];
+    expect(String(indexSelect)).not.toContain("customer:customers(*)");
+    expect(queries[1]?.in).toHaveBeenCalledWith(
+      "id",
+      Array.from({ length: 50 }, (_, index) => `order_${index + 50}`),
+    );
+  });
+
+  it("clamps direct repository callers to at most 50 detail rows", async () => {
+    const queries: ReturnType<typeof createSupabaseQuery>[] = [];
+    mocks.supabase.from.mockImplementation(() => {
+      const query = createSupabaseQuery({
+        data: Array.from({ length: 80 }, (_, index) =>
+          orderRow({
+            id: `order_${index}`,
+            created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+            updated_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+          }),
+        ),
+        error: null,
+        count: 80,
+      });
+      queries.push(query);
+      return query;
+    });
+
+    const result = await listOrdersPage({ page: 1, pageSize: 100 }, actor("owner"));
+    const detailInCalls = queries[1]?.in.mock.calls as unknown[][];
+
+    expect(result.pageSize).toBe(50);
+    expect(result.items).toHaveLength(50);
+    expect(detailInCalls[0]?.[1]).toHaveLength(50);
   });
 
   it("filters terminal rows before pending totals, group counts, and pagination", async () => {
@@ -411,7 +446,23 @@ describe("order repository database pagination", () => {
     const result = await listOrdersPage({}, actor("technician"));
 
     expect(result.items).toEqual([]);
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("pushes the technician membership boundary into both list queries", async () => {
+    const queries: ReturnType<typeof createSupabaseQuery>[] = [];
+    mocks.supabase.from.mockImplementation(() => {
+      const query = createSupabaseQuery({ data: [orderRow()], error: null, count: 1 });
+      queries.push(query);
+      return query;
+    });
+
+    const result = await listOrdersPage({}, actor("technician"));
+
+    expect(result.items).toHaveLength(1);
+    expect(queries).toHaveLength(2);
+    expect(queries[0]?.eq).toHaveBeenCalledWith("assignee_membership_id", "membership_technician");
+    expect(queries[1]?.eq).toHaveBeenCalledWith("assignee_membership_id", "membership_technician");
   });
 
   it("rejects a renamed technician opening a legacy order before loading child data", async () => {
@@ -859,6 +910,7 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count: num
     insert: vi.fn((_value: unknown) => query),
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
+    neq: vi.fn(() => query),
     order: vi.fn(() => query),
     range: vi.fn(() => query),
     single: vi.fn(() => query),

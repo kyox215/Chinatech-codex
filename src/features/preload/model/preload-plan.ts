@@ -8,6 +8,13 @@ export const repairDeskPreloadTargets = [
 
 export type RepairDeskPreloadTarget = (typeof repairDeskPreloadTargets)[number];
 
+const ownedTargetsByWorkspaceHome: Record<string, readonly RepairDeskPreloadTarget[]> = {
+  "/orders": ["orders", "workflow", "settings"],
+  "/customers": ["customers"],
+  "/inventory": ["inventory"],
+  "/settings": ["settings"],
+};
+
 const targetPriorityByWorkspace: Record<string, readonly RepairDeskPreloadTarget[]> = {
   orders: ["orders", "customers", "workflow", "settings", "inventory"],
   customers: ["customers", "orders", "workflow", "settings", "inventory"],
@@ -25,6 +32,14 @@ export function getRepairDeskPreloadTargets(pathname: string, constrainedNetwork
   const workspace = pathname.split("/").filter(Boolean)[0] ?? "orders";
   const targets = targetPriorityByWorkspace[workspace] ?? targetPriorityByWorkspace.orders;
   return constrainedNetwork ? targets.slice(0, 2) : [...targets];
+}
+
+export function isRepairDeskPreloadTargetOwnedByWorkspaceHome(
+  pathname: string,
+  target: RepairDeskPreloadTarget,
+) {
+  const normalizedPathname = pathname === "/" ? pathname : pathname.replace(/\/$/, "");
+  return ownedTargetsByWorkspaceHome[normalizedPathname]?.includes(target) ?? false;
 }
 
 export async function runRepairDeskPreloadQueue(

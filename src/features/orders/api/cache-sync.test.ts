@@ -5,6 +5,7 @@ import type {
   DashboardSummary,
   OrderDetail,
   OrderListItem,
+  OrderListResult,
   OrderQueueSummary,
 } from "@/lib/repairdesk/types";
 
@@ -24,6 +25,7 @@ describe("order cache sync", () => {
       ordersKeys.queueSummary({ page: 1 }, storeId),
       makeQueueSummary(order),
     );
+    queryClient.setQueryData(ordersKeys.page({}, 1, 50, storeId), makeQueueSummary(order).list);
     queryClient.setQueryData(ordersKeys.dashboardSummary({}, storeId), makeDashboardSummary(order));
     queryClient.setQueryData(ordersKeys.detail(order.id, storeId), makeDetail(order));
 
@@ -35,6 +37,9 @@ describe("order cache sync", () => {
     expect(
       queryClient.getQueryData<OrderQueueSummary>(ordersKeys.queueSummary({ page: 1 }, storeId))
         ?.list.items[0],
+    ).toMatchObject({ parts_supplier_id: "supplier-1", updated_at: "new" });
+    expect(
+      queryClient.getQueryData<OrderListResult>(ordersKeys.page({}, 1, 50, storeId))?.items[0],
     ).toMatchObject({ parts_supplier_id: "supplier-1", updated_at: "new" });
     expect(
       queryClient.getQueryData<DashboardSummary>(ordersKeys.dashboardSummary({}, storeId))
@@ -56,6 +61,7 @@ describe("order cache sync", () => {
       ordersKeys.queueSummary({ page: 1 }, storeId),
       makeQueueSummary(order),
     );
+    queryClient.setQueryData(ordersKeys.page({}, 1, 50, storeId), makeQueueSummary(order).list);
     const snapshot = snapshotOrderReadCaches(queryClient, order.id);
 
     patchOrderReadCaches(queryClient, order.id, { parts_supplier_id: "supplier-new" });
@@ -64,6 +70,10 @@ describe("order cache sync", () => {
     expect(
       queryClient.getQueryData<OrderQueueSummary>(ordersKeys.queueSummary({ page: 1 }, storeId))
         ?.list.items[0]?.parts_supplier_id,
+    ).toBe("supplier-old");
+    expect(
+      queryClient.getQueryData<OrderListResult>(ordersKeys.page({}, 1, 50, storeId))?.items[0]
+        ?.parts_supplier_id,
     ).toBe("supplier-old");
   });
 

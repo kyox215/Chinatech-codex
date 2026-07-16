@@ -1,10 +1,13 @@
-import type { CSSProperties } from "react";
-
 import { Skeleton } from "@/components/ui/skeleton";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
-import { orderQueueDesktopGrid } from "./order-list-layout";
+import {
+  orderMobileQueueAllSpan,
+  orderMobileQueueGrid,
+  orderMobileSkeletonHeaderOffsetClass,
+  orderQueueDesktopGrid,
+} from "./order-list-layout";
 
 function OrderMobileCardSkeleton() {
   return (
@@ -76,8 +79,11 @@ export function OrderListSkeleton() {
   return (
     <div
       data-ui="order-list-skeleton"
-      className={cn(repairOs.mobileListFloatingPage, "md:pb-8")}
-      style={{ "--orders-mobile-header-offset": "22rem" } as CSSProperties}
+      className={cn(
+        repairOs.mobileListFloatingPage,
+        orderMobileSkeletonHeaderOffsetClass,
+        "md:pb-8",
+      )}
       aria-busy="true"
     >
       <span className="sr-only" role="status" aria-live="polite">
@@ -96,17 +102,16 @@ export function OrderListSkeleton() {
               <Skeleton className="size-10 rounded-xl" />
             </header>
             <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
-              <div className="grid grid-cols-[minmax(0,1fr)_40px_40px] gap-1.5">
+              <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-1.5">
                 <Skeleton className="h-10 rounded-xl" />
                 <Skeleton className="size-10 rounded-xl" />
-                <Skeleton className="size-10 rounded-xl" />
               </div>
-              <Skeleton className="h-9 rounded-md" />
-              <div className="grid grid-cols-2 gap-1">
+              <Skeleton className="h-7 rounded-md" />
+              <div className={cn("grid", orderMobileQueueGrid)}>
                 {Array.from({ length: 7 }).map((_, index) => (
                   <Skeleton
                     key={index}
-                    className={cn("h-10 rounded-lg", index === 0 && "col-span-2")}
+                    className={cn("h-10 rounded-lg", index === 0 && orderMobileQueueAllSpan)}
                   />
                 ))}
               </div>

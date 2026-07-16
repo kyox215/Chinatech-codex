@@ -44,6 +44,8 @@ export {
   ORDER_QUEUE_PAGE_SIZE,
   defaultOrderQueueSummaryInput,
   orderDetailQueryOptions,
+  orderListPageQueryOptions,
+  orderOptionsQueryOptions,
   orderQueueSummaryQueryOptions,
   orderWorkflowQueryOptions,
 } from "./query-options";

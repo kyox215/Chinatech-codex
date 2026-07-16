@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { customerListPageQueryOptions } from "@/features/customers/api";
 import { inventorySummaryQueryOptions } from "@/features/inventory";
 import { storeSettingsQueryOptions } from "@/features/messages";
-import { orderQueueSummaryQueryOptions, orderWorkflowQueryOptions } from "@/features/orders/api";
+import { orderListPageQueryOptions, orderWorkflowQueryOptions } from "@/features/orders/api";
 import { useRealtimeSync } from "@/features/realtime";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -14,6 +14,7 @@ import { useStoreShellContext } from "@/features/stores/api/use-store-shell-cont
 import {
   getRepairDeskPreloadTargets,
   isRepairDeskPreloadEnabled,
+  isRepairDeskPreloadTargetOwnedByWorkspaceHome,
   runRepairDeskPreloadQueue,
   type RepairDeskPreloadTarget,
 } from "../model/preload-plan";
@@ -39,21 +40,32 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
   const canReadInventory = Boolean(shell.permissions?.canReadInventory);
 
   useEffect(() => {
-    if (!isRepairDeskPreloadEnabled() || !coordinator || !storeId || !navigator.onLine) return;
+    if (
+      !isRepairDeskPreloadEnabled() ||
+      !coordinator ||
+      !storeId ||
+      shell.isRefreshing ||
+      !navigator.onLine
+    ) {
+      return;
+    }
 
     const connection = (navigator as NavigatorWithConnection).connection;
     const constrainedNetwork =
       Boolean(connection?.saveData) ||
       connection?.effectiveType === "slow-2g" ||
       connection?.effectiveType === "2g";
+    const currentPathname = window.location.pathname || pathname;
     const targets = getRepairDeskPreloadTargets(pathname, constrainedNetwork).filter(
-      (target) => target !== "inventory" || canReadInventory,
+      (target) =>
+        !isRepairDeskPreloadTargetOwnedByWorkspaceHome(currentPathname, target) &&
+        (target !== "inventory" || canReadInventory),
     );
     let cancelled = false;
 
     const runTarget = (target: RepairDeskPreloadTarget) => {
       if (target === "orders") {
-        const options = orderQueueSummaryQueryOptions(undefined, storeId);
+        const options = orderListPageQueryOptions(undefined, storeId);
         return coordinator.prefetch({
           group: "orders.all",
           queryKey: options.queryKey,
@@ -98,7 +110,12 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
     };
 
     const tasks = targets.map((target: RepairDeskPreloadTarget) => async () => {
-      if (cancelled) return;
+      if (
+        cancelled ||
+        isRepairDeskPreloadTargetOwnedByWorkspaceHome(window.location.pathname, target)
+      ) {
+        return;
+      }
       await runTarget(target);
     });
 
@@ -127,7 +144,7 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
       if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
       if (secondaryTimeoutHandle !== undefined) window.clearTimeout(secondaryTimeoutHandle);
     };
-  }, [canReadInventory, coordinator, pathname, storeId]);
+  }, [canReadInventory, coordinator, pathname, shell.isRefreshing, storeId]);
 
   return children;
 }
