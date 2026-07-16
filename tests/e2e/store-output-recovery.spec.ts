@@ -18,6 +18,14 @@ test.describe("customer-output identity recovery", () => {
       await page.setViewportSize(viewport);
       let identityIsIncomplete = true;
 
+      await page.addInitScript(() => {
+        const testWindow = window as Window & { __repairDeskPrintCalls?: number };
+        testWindow.__repairDeskPrintCalls = 0;
+        window.print = () => {
+          testWindow.__repairDeskPrintCalls = (testWindow.__repairDeskPrintCalls ?? 0) + 1;
+        };
+      });
+
       await page.route("**/api/repairdesk/settings/store", async (route) => {
         const response = await route.fetch();
         const payload = (await response.json()) as {
@@ -50,6 +58,18 @@ test.describe("customer-output identity recovery", () => {
         await firstOrder.click();
         await expect(page).toHaveURL(/\/orders\/[^/?]+/, { timeout: 20_000 });
       } else {
+        await clickFirstVisible(page.getByRole("button", { name: "更多工单操作" }), "工单操作菜单");
+        const printAction = page.getByRole("menuitem", { name: "打印", exact: true });
+        await expect(printAction).toBeVisible();
+        await printAction.click();
+        await expect(page.getByText(/请先补齐当前店铺资料/)).toBeVisible();
+        expect(
+          await page.evaluate(
+            () =>
+              (window as Window & { __repairDeskPrintCalls?: number }).__repairDeskPrintCalls ?? 0,
+          ),
+        ).toBe(0);
+
         await clickFirstVisible(
           page.getByRole("button", { name: /查看工单详情 R\d+/ }),
           "工单详情",

@@ -3,11 +3,11 @@
 - Scope: Kiosk integrity expansion only
 - Current state: local migration created; linked database untouched
 - Owner approval required for: every linked preflight/apply/post-check command and every production flag/deploy action
-- Last verified locally: 2026-07-13
+- Last verified locally: 2026-07-16
 
 ## Intended migration
 
-`supabase/migrations/20260713144316_kiosk_integrity_expand.sql` adds only:
+`supabase/migrations/20260714180000_kiosk_integrity_expand.sql` adds only:
 
 - a unique device `(id, store_id)` index;
 - a full session `(device_id, store_id)` reference-side index;

@@ -331,3 +331,50 @@ All screenshots use synthetic data, hide the Next development indicator, and con
   remain open. No Owner exception is recorded.
 - No database command, production read/write, real flag change, push, PR, deployment, or external
   communication occurred.
+
+## 2026-07-16 latest-main local closeout evidence
+
+### Integration and migration boundary
+
+- Clean base: `origin/main@6717932e316cbe5054709646ca7ea1087f517a49`.
+- Fourteen Settings commits replayed in order; range-diff accounts for every source commit.
+- Applied Buyback and assignment-hardening migrations remain byte-preserved. The old never-applied Kiosk
+  filename is removed and only `20260714180000_kiosk_integrity_expand.sql` remains as the unapplied Settings
+  candidate.
+- No linked/local Supabase command, migration apply, production read/write, push, PR, deployment or real flag
+  change occurred.
+
+### Final local verification
+
+- Migration contract tests: 3 files / 16 tests passed.
+- Focused Settings/Kiosk/store/message/order-data regression: 37 files / 238 tests passed; dock/preload 2 files /
+  14 tests passed; Kiosk mock/public route 2 files / 12 tests passed.
+- `npm run agents:check`: passed.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed after narrowing the paired Kiosk token/device test contract.
+- Controlled full `npm run test -- --maxWorkers=1`: 185 files / 1218 tests passed.
+- `npx next build --webpack`: compiled, typechecked and generated 22/22 pages.
+- Kiosk synthetic flow with one reused server: 2/2 passed. It creates its own device/token, submits, returns,
+  restores the draft, revokes the device and verifies 401/token clearing.
+- Settings/order-data/output/Dashboard/Buyback broad run: clean-cache containing snapshot passed 86/87. The
+  only miss was the asynchronous Dashboard priority card appearing immediately after the default five-second
+  assertion; after changing that wait to 15 seconds, the complete Dashboard suite passed 12/12.
+- Mobile shell/navigation/order queue/overflow: 10 passed / one documented conditional skip.
+- Fast navigation emitted expected development-server `ECONNRESET` abort noise. A separate temporary dev
+  server also rewrote generated Next config and caused manifest/chunk failures; it was stopped, generated
+  files were restored, the corrupted cache was isolated, and affected cases passed from a clean cache.
+
+### Visual evidence
+
+- Current tracked Settings screenshots were regenerated with synthetic mock data.
+- Main-thread inspection covered:
+  - `screenshots/responsive-density/settings/wp08-overview-390x844.png`
+  - `screenshots/responsive-density/settings/output-recovery-390x844.png`
+  - `screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png`
+- No inspected image exposes production PII, credentials, secrets, raw tokens, pairing codes or signatures.
+
+### Release decision
+
+- Local candidate: **CONDITIONAL PASS**.
+- Production, database, flags, deploy, push and PR: **NO-GO pending explicit Owner approval and the open R4
+  gates recorded in `SETTINGS_CENTER_MASTER_PLAN.md`**.

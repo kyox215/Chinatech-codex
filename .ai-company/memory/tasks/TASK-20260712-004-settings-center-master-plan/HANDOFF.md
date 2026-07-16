@@ -2,7 +2,37 @@
 
 Read `TASK.md`, `CHECKPOINTS.md`, and the approved Settings Center plan before continuing.
 
-## WP09 current handoff — 2026-07-14 CEST
+## Current handoff — 2026-07-16 CEST
+
+- Current worktree: `/private/tmp/repairdesk-settings-center-closeout-20260716`.
+- Current branch: `codex/settings-center-closeout-20260716`, based on
+  `origin/main@6717932e316cbe5054709646ca7ea1087f517a49`.
+- Fourteen Settings commits have been replayed in order and all conflicts are resolved. The latest-main
+  Orders/Dashboard changes and Buyback containment remain intact.
+- The old Settings HEAD and dirty overlay are preserved through
+  `preserve/settings-center-v2-head-20260716`, `preserve/settings-center-v2-dirty-20260716` and the retained
+  named stash; recovery hashes were verified in a detached worktree.
+- The official applied Buyback migration and assignment-hardening migration are preserved. The only
+  Settings database candidate is the unapplied `20260714180000_kiosk_integrity_expand.sql`.
+- Current local gates pass: agents, lint, typecheck, `git diff --check`, controlled full Vitest 185 files /
+  1218 tests, Webpack build 22/22 pages, Kiosk mock/route unit 12/12, repeat Kiosk E2E 2/2, final Dashboard
+  12/12, and mobile navigation/queue/overflow 10 passed with one documented conditional skip.
+- The broad Settings/output/Dashboard/Buyback run covered 87 cases. Its clean-cache run passed 86/87; the
+  sole Dashboard loading-threshold failure rendered just after five seconds, was hardened to 15 seconds,
+  and the complete Dashboard suite passed 12/12. Earlier manifest/chunk failures were caused by a second
+  local dev server rewriting generated Next files and are not product evidence.
+- Current synthetic screenshots were regenerated. The 390px Settings overview, output-recovery dialog and
+  Kiosk return-review flow were visually inspected and contain no production PII, secret, token, pairing
+  code or raw signature.
+- The next local action is one scoped Settings closeout commit. After that, stop at the Owner gate; do not
+  push, open a PR, deploy or run linked database commands without separate approval.
+- Read `SETTINGS_CENTER_MASTER_PLAN.md` for the current release matrix. Earlier WP09 paths, SHAs and test
+  counts below are historical and superseded.
+- Do not add the full containment runbook. Only the sanitized incident summary belongs to the branch.
+- Stop before push/PR, deploy, linked database commands, production access or feature flags unless the Owner
+  gives a separate explicit approval.
+
+## Historical WP09 handoff — 2026-07-14 CEST (superseded)
 
 - Owner authorized clean latest-main integration/local PR preparation with "开始下一步".
 - Current worktree: `/private/tmp/repairdesk-settings-center-integration-20260714`.

@@ -67,7 +67,7 @@ as owner of this file.
 | OPS-20260619-002 | Dirty worktree plus generated/ignored duplicate-like output can still create noise | Review/release risk | Operations + QA | generated-output cleanup if disk/workspace noise matters | monitoring |
 | OPS-20260619-003 | Duplicate cleanup without fresh scan and explicit path list could remove semantic evidence | Governance/review risk | Operations + QA | before deleting newly discovered or now-different duplicate-like files | open |
 | OPS-20260619-004 | Batch C cleanup could lose the attachment-inventory E2E idea | QA backlog loss | Operations + QA | backlog note created and Batch C duplicates deleted by TASK-20260619-011 | closed |
-| OPS-20260713-001 | Settings branch is 12 ahead / 8 behind with 24 overlaps after its WP08 package and has no target, baseline, on-call, window or recovery owner | Wrong artifact or uncontained release | Operations + Integration Lead + Owner | before push/PR/deploy | open |
+| OPS-20260713-001 | A Settings candidate can become stale or lose release ownership as main advances | Wrong artifact or uncontained release | Operations + Integration Lead + Owner | require fresh origin, exact target/baseline, on-call, window and recovery owner before push/PR/deploy | open |
 
 ## Lessons and anti-patterns
 

@@ -3,7 +3,7 @@
 - Status: accepted for local implementation only
 - Decision owner: RepairDesk Integration Lead under Owner L2 boundaries
 - Risk: R3
-- Last verified: 2026-07-13
+- Last verified: 2026-07-16
 
 ## Context
 
@@ -28,7 +28,7 @@ Adopt a staged expand/verify/finalize strategy.
 - Apply private/no-store and same-origin request policy to every explicit response from the three anonymous Kiosk handlers. Anonymous errors remain stable and omit internal details.
 - Stop copying customer name, phone, and balance into session request payloads. Pickup public DTOs omit unused customer identity fields.
 - Remove raw signature data URLs from a session after accept or return. Keep only `has_signature` and, after evidence persistence, `signature_attachment_id`.
-- Add the local additive migration `20260713144316_kiosk_integrity_expand.sql`. It contains a same-store device foreign key, full reference-side and open-expiry indexes, state/hash checks, and bounded DDL timeouts. Constraints are `NOT VALID`: they protect later writes without claiming historical rows are clean.
+- Add the local additive migration `20260714180000_kiosk_integrity_expand.sql`. It is byte-identical to the earlier never-applied local draft but uses the only safe timestamp after the recorded assignment-hardening history. It contains a same-store device foreign key, full reference-side and open-expiry indexes, state/hash checks, and bounded DDL timeouts. Constraints are `NOT VALID`: they protect later writes without claiming historical rows are clean.
 
 Stage 1 does not enable Kiosk in production and does not apply a linked migration.
 

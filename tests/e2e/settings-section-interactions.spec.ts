@@ -604,20 +604,46 @@ test.describe("settings customer iPad workspace", () => {
     page,
   }) => {
     test.setTimeout(90_000);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoReady(page, "/settings?section=kiosk");
+    const deviceLabel = "WP05 Test iPad";
+    await page.getByLabel("新 iPad 名称").fill(deviceLabel);
+    await page.getByRole("button", { name: /生成配对码/ }).click();
+    const code = (await page.locator("[data-kiosk-pairing-code]").textContent())?.trim();
+    expect(code).toBeTruthy();
+    const deviceCard = page.locator(`[data-kiosk-device-id]:has-text("${deviceLabel}")`).first();
+    await expect(deviceCard).toBeVisible();
+    const deviceId = await deviceCard.getAttribute("data-kiosk-device-id");
+    expect(deviceId).toBeTruthy();
+    if (!deviceId) throw new Error("paired kiosk card is missing its device id");
+    const paired = await page.request.post("/api/kiosk/pair", { data: { code } });
+    const pairPayload = (await paired.json()) as { data?: { token?: string }; error?: string };
+    expect(
+      paired.ok(),
+      `pair kiosk device failed (${paired.status()}): ${JSON.stringify(pairPayload)}`,
+    ).toBe(true);
+    const kioskToken = pairPayload.data?.token;
+    expect(kioskToken).toBeTruthy();
+    if (!kioskToken) throw new Error("paired kiosk response is missing its token");
+
     await page.setViewportSize({ width: 390, height: 844 });
 
     const created = await page.request.post("/api/repairdesk/kiosk/sessions/create", {
       data: {
         input: {
-          device_id: "kiosk_device_demo",
+          device_id: deviceId,
           session_type: "intake_contact",
           expires_in_minutes: 30,
         },
       },
     });
-    expect(created.ok()).toBe(true);
+    expect(
+      created.ok(),
+      `create kiosk session failed (${created.status()}): ${await created.text()}`,
+    ).toBe(true);
     const submitted = await page.request.post("/api/kiosk/session/submit", {
-      headers: { "x-kiosk-token": "demo-kiosk-token" },
+      headers: { "x-kiosk-token": kioskToken },
       data: {
         customer_name: "Cliente Test Kiosk",
         customer_phone: "+39 333 111 2222",
@@ -625,7 +651,10 @@ test.describe("settings customer iPad workspace", () => {
         confirmation_checked: true,
       },
     });
-    expect(submitted.ok()).toBe(true);
+    expect(
+      submitted.ok(),
+      `submit kiosk session failed (${submitted.status()}): ${await submitted.text()}`,
+    ).toBe(true);
 
     await gotoReady(page, "/settings?section=kiosk");
     const reviewCard = page.locator('[data-kiosk-review-id]:has-text("Cliente Test Kiosk")');
@@ -648,8 +677,9 @@ test.describe("settings customer iPad workspace", () => {
     await returnConfirm.getByRole("button", { name: "确认提交" }).click();
     await expect(reviewCard).toBeHidden();
 
-    await page.evaluate(() =>
-      window.localStorage.setItem("repairdesk:kiosk-token", "demo-kiosk-token"),
+    await page.evaluate(
+      (token) => window.localStorage.setItem("repairdesk:kiosk-token", token),
+      kioskToken,
     );
     await gotoReady(page, "/kiosk");
     await expect(page.getByText("请重新确认联系电话")).toBeVisible();
@@ -662,17 +692,6 @@ test.describe("settings customer iPad workspace", () => {
 
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoReady(page, "/settings?section=kiosk");
-    const deviceLabel = "WP05 Test iPad";
-    await page.getByLabel("新 iPad 名称").fill(deviceLabel);
-    await page.getByRole("button", { name: /生成配对码/ }).click();
-    const code = (await page.locator("[data-kiosk-pairing-code]").textContent())?.trim();
-    expect(code).toBeTruthy();
-    const paired = await page.request.post("/api/kiosk/pair", { data: { code } });
-    expect(paired.ok()).toBe(true);
-    const pairPayload = (await paired.json()) as { data: { token: string } };
-
-    await gotoReady(page, "/settings?section=kiosk");
-    const deviceCard = page.locator(`[data-kiosk-device-id]:has-text("${deviceLabel}")`);
     await expect(deviceCard).toBeVisible();
     await deviceCard.getByRole("button", { name: "撤销设备" }).click();
     const revokeConfirm = page.getByRole("alertdialog", { name: "撤销这台客户 iPad？" });
@@ -686,14 +705,14 @@ test.describe("settings customer iPad workspace", () => {
     await expect(deviceCard.getByText("已撤销")).toBeVisible();
 
     const revoked = await page.request.get("/api/kiosk/session", {
-      headers: { "x-kiosk-token": pairPayload.data.token },
+      headers: { "x-kiosk-token": kioskToken },
     });
     expect(revoked.status()).toBe(401);
     await expectNoPageOverflow(page, "kiosk revoked device 1280px");
 
     await page.evaluate((token) => {
       window.localStorage.setItem("repairdesk:kiosk-token", token);
-    }, pairPayload.data.token);
+    }, kioskToken);
     await gotoReady(page, "/kiosk");
     await expect(
       page.getByText("Questo iPad non è più autorizzato. Richiedi un nuovo codice allo staff."),

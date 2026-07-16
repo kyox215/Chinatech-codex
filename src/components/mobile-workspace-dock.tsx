@@ -59,10 +59,6 @@ function MobileWorkspaceDockContent({
     };
   }, []);
 
-  if (pathname === "/" || isMobileWorkspaceRoute) {
-    return null;
-  }
-
   const primaryAction = getShellPrimaryAction(pathname, shell.isPlatformAdmin);
   const actions = [
     primaryAction,
@@ -165,5 +161,5 @@ export function shouldHideMobileWorkspaceDock(pathname: string) {
   const isOrdersList = pathname === "/orders";
   const isMobileWorkspaceRoute =
     isOrdersList || pathname === "/orders/new" || /^\/orders\/[^/]+(?:\/task)?$/.test(pathname);
-  return isSettingsRoute || isMobileWorkspaceRoute;
+  return pathname === "/" || isSettingsRoute || isMobileWorkspaceRoute;
 }

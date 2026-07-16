@@ -29,24 +29,50 @@ import type {
 } from "@/lib/repairdesk/types";
 
 const mockStoreId = "00000000-0000-0000-0000-000000000001";
-const mockTokens = new Map<string, string>();
-const mockPairingCodes = new Map<string, { deviceId: string; expiresAt: string }>();
-const mockStoreNames = new Map([[mockStoreId, "ChinaTech"]]);
-const mockDevices: KioskDevice[] = [
-  {
-    id: "kiosk_device_demo",
-    store_id: mockStoreId,
-    label: "前台 iPad",
-    status: "active",
-    paired_at: new Date().toISOString(),
-    last_seen_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-const mockSessions: KioskSession[] = [];
 
-mockTokens.set("demo-kiosk-token", "kiosk_device_demo");
+interface KioskMockState {
+  tokens: Map<string, string>;
+  pairingCodes: Map<string, { deviceId: string; expiresAt: string }>;
+  storeNames: Map<string, string>;
+  devices: KioskDevice[];
+  sessions: KioskSession[];
+}
+
+const mockStateKey = Symbol.for("repairdesk.kiosk.mock-state");
+const mockGlobal = globalThis as Record<PropertyKey, unknown>;
+const mockState =
+  (mockGlobal[mockStateKey] as KioskMockState | undefined) ?? createInitialKioskMockState();
+mockGlobal[mockStateKey] = mockState;
+
+const {
+  tokens: mockTokens,
+  pairingCodes: mockPairingCodes,
+  storeNames: mockStoreNames,
+  devices: mockDevices,
+  sessions: mockSessions,
+} = mockState;
+
+function createInitialKioskMockState(): KioskMockState {
+  const now = new Date().toISOString();
+  return {
+    tokens: new Map([["demo-kiosk-token", "kiosk_device_demo"]]),
+    pairingCodes: new Map(),
+    storeNames: new Map([[mockStoreId, "ChinaTech"]]),
+    devices: [
+      {
+        id: "kiosk_device_demo",
+        store_id: mockStoreId,
+        label: "前台 iPad",
+        status: "active",
+        paired_at: now,
+        last_seen_at: now,
+        created_at: now,
+        updated_at: now,
+      },
+    ],
+    sessions: [],
+  };
+}
 
 export async function listKioskDevices(actor?: AuditActor): Promise<KioskDevice[]> {
   const storeId = actor?.storeId ?? mockStoreId;

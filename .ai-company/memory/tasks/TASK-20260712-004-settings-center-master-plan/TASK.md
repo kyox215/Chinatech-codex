@@ -1,15 +1,15 @@
 ---
 task_id: "TASK-20260712-004-settings-center-master-plan"
 status: "in_progress"
-phase: "wp09_local_candidate_push_pr_owner_gate"
-risk_level: "R3"
+phase: "latest_main_local_closeout_complete_release_freeze"
+risk_level: "R4"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 integration_lead: "RepairDesk Integration Lead"
-baseline: "d5384e88ca1e974d0aa58156728eb29092a7d7ff"
-branch: "codex/settings-center-v2-integrated-20260714"
-worktree: "/private/tmp/repairdesk-settings-center-integration-20260714"
-updated_at: "2026-07-14T14:47:58Z"
+baseline: "6717932e316cbe5054709646ca7ea1087f517a49"
+branch: "codex/settings-center-closeout-20260716"
+worktree: "/private/tmp/repairdesk-settings-center-closeout-20260716"
+updated_at: "2026-07-16T19:21:01Z"
 ---
 # Settings Center v2
 
@@ -36,7 +36,7 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 - WP-04 is only a local conditional close: production member writes remain DB NO-GO until the pending RPC migration, actor/CAS review, transactional integrity, and post-apply verification receive Owner approval.
 - WP-05 Kiosk/customer-iPad is implemented, independently reviewed, and committed locally as `f311b06a`. Public DTOs are minimized, pair/submit use compare-and-swap, revoked tokens clear local PII, transient failures retain unsent forms, return-reason drafts are store/session/version bound, and anonymous routes never expose raw internal errors.
 - WP05-B Kiosk database/public-entry hardening is locally conditionally closed at P0=0/P1=0. Every production or Supabase-backed non-E2E Kiosk entry requires both default-off flags end to end, so a master-only state cannot collect customer data. Accept/return bind to the viewed submission version, explicit anonymous responses are no-store/same-origin, duplicated PII is reduced, and raw signature data is removed after accept/return.
-- The additive `20260713144316_kiosk_integrity_expand.sql` migration is staged but unapplied. It adds three indexes, one same-store device foreign key, eleven state/hash checks (twelve `NOT VALID` constraints total), and bounded DDL timeouts. The executable Gate 2A reset/lint remains unsatisfied because the local Docker daemon is unavailable; linked preflight/apply, constraint validation, and production enabling remain Owner gates.
+- The additive `20260714180000_kiosk_integrity_expand.sql` migration is the sole Settings database candidate and remains unapplied. It adds three indexes, one same-store device foreign key, eleven state/hash checks (twelve `NOT VALID` constraints total), and bounded DDL timeouts. Executable Gate 2A, linked preflight/apply, constraint validation and production enabling remain Owner gates.
 - Final WP05-B quality evidence is 160 files / 1034 Vitest tests; focused repository/gate/route/migration checks pass; lint, typecheck, agents check, diff check, and the latest production build pass. Turbopack required the approved outside-sandbox build because its sandbox helper cannot bind a port.
 - WP-06 order workflow is locally implemented and independently reviewed at P0=0/P1=0. Settings now edits one store-bound in-memory draft, shows a complete review summary, guards dirty navigation, and never calls the four legacy workflow mutation routes while editing.
 - Custom/unmapped statuses can no longer fall through to canonical `closed`, cannot be used as real create/transition/notification targets, and foreign-store workflow snapshots are rejected by the local draft boundary.
@@ -49,30 +49,39 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 - WP-08 local packaging is complete: operator guide, acceptance matrix, split-release/observability/rollback packet, visual manifest, department memory sync, and C2-candidate capability review are present. Three real read-only reviewers found P0=0 and their documentation/release/coverage findings were integrated by the main thread.
 - WP-08 fixed both mobile recovery actions to at least 44px, added recovery/browser evidence plus clean 390/1440 overview and 1280 employee Drawer captures, and fixed an E2E route callback teardown race.
 - Final WP-08 local gates pass: agents, lint, typecheck, full Vitest 167 files / 1073 tests, production build 22/22 pages, and exact interaction Playwright 54 passed / 1 existing conditional skip.
-- WP-09 latest-main integration is authorized and locally executed. After `origin/main` advanced twice
-  during evidence preparation, the twelve source commits were rebased onto `origin/main@d5384e88` in
-  `codex/settings-center-v2-integrated-20260714`; the refreshed pre-evidence HEAD is `4584ca79`.
-- Exact overlap is 32 paths, not the earlier WP08 estimate of 24: 23 product/code paths plus nine project
-  memory paths. Sixteen paths required manual conflict resolution; current-main order/buyback/inventory
-  behavior and Settings tenant/draft/output contracts were combined rather than choosing either side wholesale.
-- WP09 local static and browser matrix passes and is recorded in evidence commit `e7102868`: agents, lint, typecheck,
-  controlled full Vitest 179 files / 1179 tests, focused feature-off/overlap 11 files / 142 tests, and
-  production build 22/22 pages. Interactions passed 64 with one existing conditional skip and
-  Settings/order-data passed 67/67 on the code-identical pre-documentation-sync tree. The final target
-  worktree passed guided-buyback/dashboard 13/13 and the desktop matrix 44/44 in one run. Six clean
-  integrated screenshots were inspected; the two buyback images were regenerated on the final target.
-- The verification pass also fixed an intermittent desktop order menu failure by using a native detail link,
-  removed new-order/inventory hydration replacement warnings, split the long desktop route audit, and made
-  animated overlay and inventory-action checks wait for stable UI states without weakening assertions.
+- The current latest-main integration replays all fourteen Settings commits onto
+  `origin/main@6717932e` in `codex/settings-center-closeout-20260716`. Conflicts preserve current
+  Dashboard/Orders mobile behavior, Buyback feature-off and Settings tenant/draft/output contracts rather
+  than choosing either side wholesale.
+- The prior WP09 baseline, test counts, screenshots and commit IDs remain historical evidence only. The
+  2026-07-16 integration now passes fresh migration/focused tests, agents, lint, typecheck, controlled full
+  Vitest (185 files / 1218 tests), Webpack production build (22/22 pages), Kiosk repeat evidence (2/2),
+  Settings/output/Dashboard/Buyback browser coverage and the mobile navigation/overflow matrix (10 passed /
+  one documented conditional skip).
+- The Kiosk E2E mock now keeps one process-wide state across separately compiled API route bundles. The
+  synthetic review flow creates and owns its paired device/token instead of relying on the seeded demo token,
+  and the same server passed the complete flow twice in succession.
+- The only browser failure retained during the clean-cache full matrix was a Dashboard priority response that
+  rendered immediately after the default five-second assertion expired. The wait was hardened to 15 seconds;
+  the complete Dashboard spec then passed 12/12. Every Settings-related case is covered by passing final or
+  containing-snapshot evidence; no product assertion remains failed.
+- The old Settings HEAD and 21-item dirty overlay are retained in named preservation refs and a verified
+  stash. The restoration rehearsal reproduced all three status/diff/untracked hashes exactly.
+- The applied Buyback and assignment-hardening migrations remain immutable. The old never-applied Kiosk
+  filename and obsolete pending Buyback package are excluded; only the reviewed `20260714180000` Kiosk
+  candidate remains.
 - The initial architecture review found a P1 cross-tenant legal-identity bypass in the guided-buyback flow.
   New main resolves the immediate release blocker by hard-coding the sensitive workflow off, removing seller,
   evidence, payment, signature and finalize controls, and rejecting restricted uploads/finalize/legacy import
   at Router and repository boundaries. Settings output identity remains active for quote/WhatsApp output.
 - Preserve feature-off. Re-enablement still requires approved per-tenant legal documents, schema/migration,
   private storage, retention/cleanup, server authorization and a separately authorized R4 release.
-- The master task remains `in_progress` and production NO-GO. The full acceptance matrix, transaction/data
-  gates, and Owner risk/target/release decisions are not complete.
-- No production database, push, or deployment action has been performed.
+- The local integration slice is conditionally complete, but the master task remains `in_progress` and
+  production NO-GO. Transaction/data gates, the missing historical incident observation windows, and Owner
+  risk/target/release decisions are not complete.
+- This 2026-07-16 integration performed no production read/write, database command, push, PR, deployment or
+  feature-flag change. The earlier Owner-authorized incident containment is recorded only in the sanitized
+  incident summary and does not lift the Settings/Kiosk release freeze.
 
 ## Acceptance gates
 
@@ -84,8 +93,9 @@ Complete the approved WP-00 through WP-08 Settings Center plan using local, reve
 
 ## Next owner gate
 
-- Local evidence commit `e7102868` is verified. It establishes only a conditional local candidate.
-- Pushing the branch or opening a PR requires a separate explicit Owner
-  instruction. Pushing or merging `main` is not authorized by the WP09 integration scope.
+- The current latest-main branch is a local candidate only; final current gates and a local closeout commit
+  do not authorize publication.
+- Pushing the branch, opening a PR, merging `main`, deploying or changing production state requires a
+  separate explicit Owner instruction.
 - Any linked database preflight/dry-run/apply/post-check, real flag change, deployment, production data
   action, retention decision, or customer communication remains a separate explicit approval.

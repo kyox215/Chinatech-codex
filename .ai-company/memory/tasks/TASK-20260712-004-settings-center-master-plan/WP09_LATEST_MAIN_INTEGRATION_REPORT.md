@@ -1,5 +1,8 @@
 # WP-09 Latest-Main Integration Report
 
+> Historical snapshot: this report describes the 2026-07-14 baseline. The 2026-07-16 latest-main replay,
+> current migration authority and release blockers are recorded in `SETTINGS_CENTER_MASTER_PLAN.md`.
+
 Status: **CONDITIONAL LOCAL PASS — evidence commit `e7102868`; push/PR and production remain NO-GO**
 Prepared: 2026-07-14 CEST
 Decision owner / sole writer: RepairDesk Integration Lead
@@ -131,13 +134,14 @@ four-step closed-state worktree. All are synthetic and free of the Next developm
 
 ## Production boundary
 
-The integrated chronological migration order is:
+The current recorded applied history and sole Settings candidate is:
 
 1. `20260710150000_order_data_roundtrip.sql`
 2. `20260712002317_global_staff_permission_grants.sql`
 3. `20260712003452_global_order_assignment_scope.sql`
 4. `20260712150000_buyback_guided_evidence_finalize.sql`
-5. `20260713144316_kiosk_integrity_expand.sql`
+5. `20260714004500_harden_legacy_order_assignment_backfill.sql`
+6. `20260714180000_kiosk_integrity_expand.sql` — sole unapplied Settings candidate
 
 Do not use generic or `--include-all` database push. No database action is authorized. Kiosk production
 and review flags plus order-data export/Apply flags remain `0`; workflow Apply and member production units

@@ -70,7 +70,7 @@ Proposed cross-department contract from `TASK-20260716-004-device-left-status-pl
 | FE-20260619-003 | Stale UI duplicates may be mistaken for alternate approved designs | UI consistency risk | Frontend + Design | before deleting or reusing UI duplicates | open |
 | FE-20260620-001 | Order detail screen remains large and contains both desktop/mobile transition surfaces | Review cost and regression risk | Frontend + QA | future order detail split task | open |
 | FE-20260713-002 | `buyback-quote-workspace.tsx` now owns a large multi-step workflow and client image-compression helper | Review and regression cost | Frontend + Architecture + QA | split by step/upload model in a dedicated refactor after behavior stabilizes | open |
-| FE-20260713-001 | Settings five-role/error/50+ member browser matrix is incomplete | UI behavior may drift outside representative scenarios | Frontend + QA | latest-main integration gate | open |
+| FE-20260713-001 | Settings five-role/error/50+ member browser matrix is incomplete | UI behavior may drift outside representative scenarios | Frontend + QA | after every latest-main integration and before production | open |
 
 ## Lessons and anti-patterns
 

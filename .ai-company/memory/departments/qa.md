@@ -96,7 +96,7 @@ Proposed verification contract from `TASK-20260716-004-device-left-status-plan`:
 | QA-20260620-006 | Final reports could claim departments were used without real spawned agents | Owner may not get the AI employee operating model requested | QA + Documentation + Integration Lead | require real agent ids/results or no-spawn reason for department-requested work | active_rule |
 | QA-20260710-001 | Release validation can become stale when another executor changes remote DB/Git/deploy state | A green gate may describe the wrong target state | QA + Platform + Integration Lead | require remote pre/post assertions and serialized release ownership | open |
 | QA-20260712-001 | Default parallel Vitest can exceed fixed 5s test timeouts in existing Radix/user-event suites under local resource contention | False regression classification | QA | review test concurrency/timeout policy in a dedicated test-infrastructure task | observed; serial full suite green |
-| QA-20260713-001 | Settings five-role, offline/409, full overlay and 50+ member E2E matrix remains incomplete | Local representative green can overstate release coverage | QA + Frontend + Security | latest-main integrated WP08 gate | open |
+| QA-20260713-001 | Settings five-role, offline/409, full overlay and 50+ member E2E matrix remains incomplete | Local representative green can overstate release coverage | QA + Frontend + Security | fresh post-integration gate and again before production | open |
 
 ## Lessons and anti-patterns
 

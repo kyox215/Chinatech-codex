@@ -9,6 +9,10 @@ const assignmentMigration = readFileSync(
   "supabase/migrations/20260712003452_global_order_assignment_scope.sql",
   "utf8",
 ).toLowerCase();
+const assignmentHardeningMigration = readFileSync(
+  "supabase/migrations/20260714004500_harden_legacy_order_assignment_backfill.sql",
+  "utf8",
+).toLowerCase();
 
 describe("global staff permissions migration contract", () => {
   it("persists only the approved additive store grants", () => {
@@ -53,5 +57,16 @@ describe("global staff permissions migration contract", () => {
       "on public.repair_orders (store_id, assignee_membership_id, updated_at desc)",
     );
     expect(assignmentMigration).not.toMatch(/delete\s+from|truncate\s+/);
+  });
+
+  it("removes only untouched legacy backfill rows and fails closed after real assignment", () => {
+    expect(assignmentHardeningMigration).toContain(
+      "where migration_row.version = '20260712003452'",
+    );
+    expect(assignmentHardeningMigration).toContain("repair_order.xmin = v_backfill_xmin");
+    expect(assignmentHardeningMigration).toContain("repair_order.xmin <> v_backfill_xmin");
+    expect(assignmentHardeningMigration).toContain("v_later_assignment_count > 0");
+    expect(assignmentHardeningMigration).toContain("set assignee_membership_id = null");
+    expect(assignmentHardeningMigration).not.toMatch(/delete\s+from|truncate\s+|drop\s+column/);
   });
 });

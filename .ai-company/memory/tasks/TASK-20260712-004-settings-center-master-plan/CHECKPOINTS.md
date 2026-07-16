@@ -426,6 +426,7 @@ Create the scoped local WP-05 commit without pushing. Then stop for Owner decisi
 - **Next:** Create one scoped local WP-07 commit without push, verify a clean boundary, then begin WP-08 whole-plan quality, operator/release documentation, evidence reconciliation, and rollback packaging. Keep database, production data, retention, real flags, push, and deployment closed.
 - **Evidence:** none added by this command; use the immediately preceding WP-07 evidence checkpoint and `EVIDENCE.md` rather than inferring validation from this command.
 - **Recorded by:** CEO-Orchestrator
+
 ## 2026-07-13T23:16:19Z — WP08 local package complete: operator/release/acceptance/rollback/memory/capability artifacts and four clean screenshots are ready; final local gates pass, but master task remains in progress and production NO-GO.
 
 - **Phase:** wp08_local_package_complete_owner_gate_no_go
@@ -456,3 +457,19 @@ Create the scoped local WP-05 commit without pushing. Then stop for Owner decisi
 - **Next:** Stop at the Owner gate. Push or PR creation requires a new explicit Owner instruction; all database, flag, deployment, production, retention/role and buyback re-enablement actions remain separately gated.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-16T19:21:01Z — latest-main Settings integration locally conditionally complete
+
+- **Phase:** latest_main_local_closeout_complete_release_freeze
+- **Completed/current state:** Fourteen Settings commits are replayed on `origin/main@6717932e`; conflicts,
+  applied migration history and the sole unapplied Kiosk candidate are reconciled. Cross-route Kiosk mock
+  state and owned-token E2E stability are fixed. Current local static, unit, build, browser and visual gates
+  pass.
+- **Next:** Create one scoped local Settings closeout commit, verify its boundary, then stop for explicit Owner
+  push/PR direction. Keep every linked database, deployment, production data and feature-flag action closed.
+- **Decision:** Local integration is conditional PASS. Production remains NO-GO because incident observation,
+  Kiosk/member/workflow/order-data transaction, retention, limiting and release-owner gates remain open.
+- **Evidence:** agents/lint/typecheck/diff pass; full Vitest 185 files / 1218 tests; Webpack build 22/22 pages;
+  Kiosk reused-server E2E 2/2; Dashboard 12/12 after async wait hardening; mobile shell/navigation/queue/overflow
+  10 passed with one conditional skip; representative synthetic Settings screenshots inspected.
+- **Recorded by:** RepairDesk-Integration-Lead

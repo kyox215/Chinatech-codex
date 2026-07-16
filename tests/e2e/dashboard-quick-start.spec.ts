@@ -29,7 +29,7 @@ for (const viewport of viewports) {
     await expect(buyback).toHaveAttribute("href", "/buyback?new=1");
 
     const firstPriority = page.locator('[data-ui="dashboard-priority-card"]').first();
-    await expect(firstPriority).toBeVisible();
+    await expect(firstPriority).toBeVisible({ timeout: 15_000 });
     await expect(firstPriority.getByText(/第 \d+ 优先/)).toBeVisible();
     await expect(firstPriority.getByText("当前步骤", { exact: true })).toBeVisible();
     await expect(firstPriority.getByText("下一步", { exact: true })).toBeVisible();

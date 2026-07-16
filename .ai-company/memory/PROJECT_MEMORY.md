@@ -66,12 +66,11 @@ legacy import. Preserve that fail-closed state. Re-enablement still requires a s
 approved tenant/legal document identity, migration/storage/retention proof and explicit Owner authorization;
 mutable display settings remain an invalid legal-document source.
 
-The WP09 Settings candidate is rebased onto `origin/main@d5384e88` in the isolated integration worktree.
-Its local gate passes with 179 files / 1179 Vitest tests, 11 focused files / 142 tests, 22/22 build pages,
-desktop browser 44/44, guided-buyback/dashboard 13/13, and six inspected synthetic screenshots. The native
-order detail link fixes the reproduced loaded-server menu no-navigation path. Local evidence commit
-`e7102868` contains the verified product/test/report diff. This is local conditional evidence only: push/PR,
-database work, real flags, deployment and production release remain separately gated.
+The current Settings candidate replays fourteen Settings commits onto `origin/main@6717932e` in the clean
+`codex/settings-center-closeout-20260716` worktree. The old HEAD and its dirty overlay are recoverable through
+verified preservation refs/stash. Only the current branch's fresh gate may establish local evidence; older
+WP09 counts and SHAs are historical. Push/PR, database work, real flags, deployment and production release
+remain separately gated.
 
 ## Environments, build, deploy and operations
 
@@ -138,30 +137,30 @@ database work, real flags, deployment and production release remain separately g
 ## Current roadmap and work in progress
 
 - Active `TASK-20260712-004-settings-center-master-plan` has locally implemented nine capability-driven
-  Settings sections through WP07 and a WP08 operator/release package. WP09 has replayed all twelve source
-  commits onto `origin/main@d5384e88` in a clean local worktree. The exact overlap remains 32 paths (23
-  product/code and nine memory). The initial replay resolved 16 paths; the latest-main refresh additionally
-  reconciled the feature-off buyback, inventory and task-memory boundaries. The refreshed local gate passes;
-  evidence commit `e7102868` exists and push/PR authorization remains. The earlier guided-buyback tenant/legal P1 is
-  contained by main's hard-coded
-  feature-off, but re-enablement and all production Settings gates remain closed. The task is not closed or
-  production ready and must
-  still be split into code-only, member, Kiosk, workflow, order-data export/preview, and order-data Apply
-  release units before any production decision.
-- The integrated chronological migration order is `20260710150000_order_data_roundtrip.sql` →
-  `20260712002317_global_staff_permission_grants.sql` →
-  `20260712003452_global_order_assignment_scope.sql` →
-  `20260712150000_buyback_guided_evidence_finalize.sql` →
-  `20260713144316_kiosk_integrity_expand.sql`. Linked history and exact dry-run output must be verified;
-  stop if a database command would include any unreviewed migration. Kiosk/order-data flags stay exactly
-  off, and member/workflow writes remain excluded until independent kill switches and atomic contracts exist.
+  Settings sections through WP07 plus WP08/WP09 historical evidence. The current clean integration replays
+  all fourteen commits onto `origin/main@6717932e`; fresh current gates are required. Buyback feature-off,
+  migration history and current Dashboard/Orders behavior are preserved. The task is not production-ready
+  and remains split into code-only, member, Kiosk, workflow, order-data export/preview and order-data Apply
+  release units.
+- Recorded applied migration history through this scope is order-data `20260710150000`, member grants
+  `20260712002317`, assignment scope `20260712003452`, Buyback `20260712150000` and assignment hardening
+  `20260714004500`. The sole unapplied Settings candidate is Kiosk `20260714180000`. Verify linked history
+  and an exact reviewed dry-run before any separately approved database action; never use `--include-all`.
+  Kiosk/order-data flags stay exactly off, and member/workflow writes remain excluded until independent
+  kill switches and atomic contracts exist.
 - Latest conditionally closed task: `TASK-20260710-009-security-reliability-hardening-release`. Customer read/auth/schema/pagination/script/E2E hardening and atomic/idempotent payment recording are live at `cee5a1b4`; existing page layout/UI was preserved.
 - TASK-009 established a durable payment command boundary: BFF authorization and validation, service-role-only invoker RPC, immutable ledger/idempotency key, advisory lock and order row lock in one transaction. A migration-slice PASS must never be summarized as an environment-wide Database Gate PASS.
-- TASK-009 linked audit found 17 legacy public tables with RLS disabled and direct browser-role access, a from-zero migration reset failure at `20260611102805`, missing backup/PITR restore proof and one plaintext unlock pattern pending policy. These are independent P0/policy follow-ups.
+- The legacy browser-role exposure found during linked audit received an exact Owner-authorized reversible
+  privilege containment; immediate and minimum-observation checks passed. RLS/default-ACL/permissive-policy
+  hardening, recovery-baseline failure, backup/PITR restore proof, the missing historical one-hour/24-hour
+  observations and one plaintext unlock pattern remain independent R4/policy follow-ups.
 - TASK-009 also exposed a shared-workspace release-coordination failure: separate executors can race on DB/Git/deploy state. Future production releases require a serialized release lock plus remote state assertions immediately before and after writes.
 - Latest closed task: `TASK-20260716-002-orders-mobile-filter-loading-plan`, the production Orders mobile density, loading-state and bounded list-query optimization, validated, pushed to `main`, deployed and post-release verified without database mutation.
 - Active handoff candidate: Phase 2 tenant isolation audit, using `.ai-company/memory/ACTIVE_CONTEXT.md` and `TASK-20260704-009-independent-partner-store-platform` as Phase 1 baseline evidence.
-- 30-day focus: contain the 17 legacy-table browser grants after consumer discovery; repair/reconstruct the migration recovery baseline; record backup/PITR and run an isolated restore drill; add a serialized release lock and payment observability; continue Phase 2 tenant isolation, role-policy and audit-minimization work.
+- 30-day focus: close residual default-ACL/RLS/policy/function hardening after the browser-grant containment;
+  repair/reconstruct the migration recovery baseline; record backup/PITR and run an isolated restore drill;
+  add a serialized release lock and payment observability; continue Phase 2 tenant isolation, role-policy
+  and audit-minimization work.
 - 60-day focus: staged route migration, large-module splits, stable mock-auth E2E, data-quality checks, and PII/storage operations policy.
 - 90-day focus: production release governance, role/access review, operational observability, module simplification, and shop-user SOPs.
 

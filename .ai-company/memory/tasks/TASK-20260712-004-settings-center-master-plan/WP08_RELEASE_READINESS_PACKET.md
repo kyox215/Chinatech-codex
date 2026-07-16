@@ -10,6 +10,10 @@ Current local Settings HEAD: `04273546`
 This packet is a release plan, not release authorization. No migration, environment change, production
 read, push, deployment, external communication, or real feature enablement is approved by this file.
 
+> Current authority, 2026-07-16: this is a historical WP08 packet. Use
+> `SETTINGS_CENTER_MASTER_PLAN.md` for the current branch, migration history and release blockers. The
+> prior base SHAs, divergence counts and test totals below remain historical evidence only.
+
 > WP09 correction, 2026-07-14: this packet is the historical pre-integration snapshot. A direct final
 > source-vs-main intersection found 32 common paths (23 product/code plus nine memory), not 24. Owner
 > authorized local integration only; all twelve commits are now rebased on `origin/main@d5384e88` in
@@ -109,11 +113,14 @@ The integration reviewer must explicitly inspect:
 
 ## 4. Database and configuration dependency order
 
-The repository timestamp order of the three Settings-related migrations is:
+The recorded applied history plus sole Settings candidate is:
 
 1. `20260710150000_order_data_roundtrip.sql`
 2. `20260712002317_global_staff_permission_grants.sql`
-3. `20260713144316_kiosk_integrity_expand.sql`
+3. `20260712003452_global_order_assignment_scope.sql`
+4. `20260712150000_buyback_guided_evidence_finalize.sql`
+5. `20260714004500_harden_legacy_order_assignment_backfill.sql`
+6. `20260714180000_kiosk_integrity_expand.sql` — sole unapplied Settings candidate
 
 Before any database command, record linked migration history and the exact dry-run output. If the linked
 environment lacks earlier files, a generic Kiosk apply can sweep order-data and member migrations into
@@ -132,7 +139,8 @@ the same operation. Any dry-run containing an unreviewed migration is an immedia
 
 ### Stage B — member/access database gate
 
-Candidate migration: `20260712002317_global_staff_permission_grants.sql`.
+Recorded applied migration: `20260712002317_global_staff_permission_grants.sql`. Do not reapply or repair
+its history; the remaining member-write gates are application/authorization/atomicity gates.
 
 Before any member role/grant production write:
 
@@ -144,7 +152,7 @@ Before any member role/grant production write:
 
 ### Stage C — Kiosk database gate
 
-Candidate migration: `20260713144316_kiosk_integrity_expand.sql`.
+Candidate migration: `20260714180000_kiosk_integrity_expand.sql`.
 
 - complete isolated PostgreSQL full-history reset/apply/lint Gate 2A;
 - inspect historical constraint anomalies before validation;
