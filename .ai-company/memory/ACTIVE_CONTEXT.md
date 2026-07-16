@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260716-005-device-custody-status-implementation"
 status: "active"
-phase: "forward_reconciliation"
+phase: "implementation"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-16T22:53:13Z"
+last_checkpoint_at: "2026-07-16T23:25:22Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,15 +19,15 @@ last_rehydrated_at: null
 
 ## Current state
 
-Owner 已授权发布。生产迁移 20260716221119/221139/221159/221448 已与 origin/main@66a25859 对齐且只读聚合审计未见异常；设备留机功能正在最新 main 的隔离工作树中整合终态作废、重开、取消退还与 custody 状态机，尚未应用本次迁移、推送或部署。
+最终复核前重新验证 diff：SQL 仍为 SHA 2a28ef6f338e，migration static test 文件为 SHA e6bdd981df3a；定向测试 10/10 通过。自上一检查点后无 SQL 或该测试快照漂移。静态审查无未解决 stop-ship，但未取得 PG17 current-schema replay/catalog 状态机证据，因此仍为有条件通过、禁止生产 apply/push。
 
 ## Blocking decisions
 
-- 生产 Supabase 尚无 `device_custody_status`，而 Vercel 的 main push 会自动部署生产。需 Owner 明确批准 linked dry-run、migration apply、post-check 与随后 main push。
+- None recorded. Check the task file and `OPEN_CONFLICTS.md` before assuming this remains true.
 
 ## Next action
 
-完成前向迁移与应用层冲突整合，跑定向/全量/数据库状态机门禁；只有单一新迁移 dry-run、独立复核和生产前检查均通过后，才应用迁移、推送 main、验证 Vercel READY 与生产冒烟。
+由主线程执行隔离 PG17 ON_ERROR_STOP replay、pg_catalog 函数/ACL/trigger/constraint 检查及 void-reopen-custom-cancel-return 状态机测试；并确认旧 20260716183000 未在目标环境应用。
 
 ## Resume protocol
 

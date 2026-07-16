@@ -89,9 +89,14 @@ export function NewOrderScreen({
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
+  const [clientHydrated, setClientHydrated] = useState(false);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
     "calc(env(safe-area-inset-top) + 5.5rem)",
   );
+
+  useEffect(() => {
+    setClientHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (surface !== "page") return;
@@ -107,7 +112,7 @@ export function NewOrderScreen({
     retry: false,
     staleTime: CACHE_TIMES.shell,
   });
-  const activeStoreId = onboardingStatus?.activeStore?.id;
+  const activeStoreId = clientHydrated ? onboardingStatus?.activeStore?.id : undefined;
   const offlineScope = useMemo(
     () =>
       activeStoreId && onboardingStatus?.userId
@@ -127,8 +132,9 @@ export function NewOrderScreen({
     ...orderWorkflowQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
   });
-  const operatorName = onboardingStatus?.displayName ?? "当前登录账号";
-  const operatorRole = onboardingStatus?.activeStore?.role;
+  const operatorName =
+    clientHydrated && onboardingStatus?.displayName ? onboardingStatus.displayName : "当前登录账号";
+  const operatorRole = clientHydrated ? onboardingStatus?.activeStore?.role : undefined;
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
   const createStatuses = useMemo(
     () =>

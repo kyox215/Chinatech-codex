@@ -22,11 +22,44 @@ $$;
 alter table public.repair_orders
   validate constraint repair_orders_device_custody_status_check;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'repair_orders_customer_custody_unlock_clear_check'
+      and conrelid = 'public.repair_orders'::regclass
+  ) then
+    alter table public.repair_orders
+      add constraint repair_orders_customer_custody_unlock_clear_check
+      check (
+        device_custody_status is distinct from 'with_customer'
+        or (
+          device_unlock_method is null
+          and device_unlock_value is null
+          and device_unlock_pattern is null
+        )
+      ) not valid;
+  end if;
+end
+$$;
+
+alter table public.repair_orders
+  validate constraint repair_orders_customer_custody_unlock_clear_check;
+
 alter table public.repair_orders
   alter column device_custody_status set default 'with_shop';
 
 comment on column public.repair_orders.device_custody_status is
   'Physical device custody: with_shop, with_customer, or null for legacy rows awaiting confirmation.';
+
+alter table public.order_terminal_operations
+  drop constraint if exists order_terminal_operations_type_check;
+alter table public.order_terminal_operations
+  add constraint order_terminal_operations_type_check
+  check (
+    operation_type in ('correction', 'reopen', 'void', 'custody_return', 'custody_correction')
+  );
 
 create or replace function public.repairdesk_apply_order_atomic_mutation(
   p_store_id uuid,
@@ -53,6 +86,8 @@ declare
   v_fingerprint text;
   v_event_payload jsonb := coalesce(p_event_payload, '{}'::jsonb);
   v_unlock_pattern integer[];
+  v_current_bucket text;
+  v_target_bucket text;
   v_allowed_keys constant text[] := array[
     'status',
     'workflow_status',
@@ -184,12 +219,29 @@ begin
   if not found then
     return jsonb_build_object('ok', false, 'code', 'order_not_found');
   end if;
+  if v_order.record_state <> 'active' or v_order.deleted_at is not null then
+    return jsonb_build_object('ok', false, 'code', 'order_voided');
+  end if;
   if v_actor_role = 'technician'
      and v_order.assignee_membership_id is distinct from v_membership_id then
     return jsonb_build_object('ok', false, 'code', 'actor_forbidden');
   end if;
   if v_order.updated_at <> p_expected_updated_at then
     return jsonb_build_object('ok', false, 'code', 'stale_version');
+  end if;
+
+  select status_row.bucket::text
+    into v_current_bucket
+    from public.order_workflow_statuses as status_row
+   where status_row.store_id = p_store_id
+     and status_row.code::text = v_order.status::text
+   limit 1;
+
+  if v_order.status::text in ('completed', 'cancelled')
+     or coalesce(v_order.exception_status::text, '') = 'cancelled'
+     or coalesce(v_current_bucket, '') in ('done', 'cancelled')
+     or (v_current_bucket is null and coalesce(v_order.workflow_status::text, '') = 'closed') then
+    return jsonb_build_object('ok', false, 'code', 'terminal_operation_required');
   end if;
 
   if p_update ? 'status' and not exists (
@@ -201,6 +253,15 @@ begin
   ) then
     return jsonb_build_object('ok', false, 'code', 'invalid_status');
   end if;
+  if p_update ? 'status' then
+    select target_status.bucket::text
+      into v_target_bucket
+      from public.order_workflow_statuses as target_status
+     where target_status.store_id = p_store_id
+       and target_status.code::text = p_update ->> 'status'
+       and target_status.enabled
+     limit 1;
+  end if;
   if p_update ? 'device_custody_status'
      and coalesce(p_update ->> 'device_custody_status', '') not in (
        'with_shop',
@@ -208,30 +269,21 @@ begin
      ) then
     return jsonb_build_object('ok', false, 'code', 'invalid_custody_status');
   end if;
+  if (
+    p_update ->> 'status' = 'cancelled'
+    or coalesce(v_target_bucket, '') = 'cancelled'
+    or (
+      p_update ? 'exception_status'
+      and p_update ->> 'exception_status' = 'cancelled'
+    )
+  ) and v_order.device_custody_status is null then
+    return jsonb_build_object('ok', false, 'code', 'custody_unknown');
+  end if;
 
   if v_event_payload ->> 'action' = 'device_custody_changed' then
     if v_order.device_custody_status is null
        and nullif(btrim(v_event_payload ->> 'reason'), '') is null then
       return jsonb_build_object('ok', false, 'code', 'reason_required');
-    end if;
-    if (
-         v_order.status in ('completed', 'cancelled')
-         or v_order.exception_status = 'cancelled'
-       )
-       and (
-         v_actor_role not in ('owner', 'manager')
-         or nullif(btrim(v_event_payload ->> 'reason'), '') is null
-       ) then
-      return jsonb_build_object('ok', false, 'code', 'terminal_correction_forbidden');
-    end if;
-    if (v_order.status = 'cancelled' or v_order.exception_status = 'cancelled')
-       and v_order.device_custody_status = 'with_shop'
-       and p_update ->> 'device_custody_status' = 'with_customer' then
-      return jsonb_build_object('ok', false, 'code', 'use_cancelled_return');
-    end if;
-    if v_order.status = 'completed'
-       and p_update ->> 'device_custody_status' = 'with_shop' then
-      return jsonb_build_object('ok', false, 'code', 'completed_reopen_required');
     end if;
     if v_order.device_custody_status = p_update ->> 'device_custody_status' then
       return jsonb_build_object('ok', true, 'code', 'no_change', 'updated_at', v_order.updated_at);
@@ -248,13 +300,7 @@ begin
            'waiting_pickup',
            'unfixed_pickup'
          )
-         or exists (
-           select 1
-             from public.order_workflow_statuses as current_status
-            where current_status.store_id = p_store_id
-              and current_status.code = v_order.status
-              and current_status.bucket in ('diagnosing', 'repair', 'pickup')
-         )
+         or coalesce(v_current_bucket, '') in ('diagnosing', 'repair', 'pickup')
        ) then
       return jsonb_build_object('ok', false, 'code', 'custody_handover_requires_flow_change');
     end if;
@@ -283,58 +329,32 @@ begin
     );
   end if;
 
-  if v_event_payload ->> 'action' = 'custody_return_confirmed' then
-    if v_order.status <> 'cancelled'
-       and v_order.exception_status is distinct from 'cancelled' then
-      return jsonb_build_object('ok', false, 'code', 'invalid_return_state');
-    end if;
-    if v_order.device_custody_status is null then
-      return jsonb_build_object('ok', false, 'code', 'custody_unknown');
-    end if;
-    if v_order.device_custody_status = 'with_customer' then
-      return jsonb_build_object('ok', false, 'code', 'return_not_required');
-    end if;
-    if p_update ->> 'device_custody_status' <> 'with_customer'
-       or not (p_update ? 'delivered_at')
-       or p_update ->> 'delivered_at' is null
-       or not (
-         p_update ? 'device_unlock_method'
-         and p_update -> 'device_unlock_method' = 'null'::jsonb
-         and p_update ? 'device_unlock_value'
-         and p_update -> 'device_unlock_value' = 'null'::jsonb
-         and p_update ? 'device_unlock_pattern'
-         and p_update -> 'device_unlock_pattern' = 'null'::jsonb
-       ) then
-      return jsonb_build_object('ok', false, 'code', 'invalid_return_update');
-    end if;
-  end if;
-
   if p_update ? 'device_custody_status'
-     and coalesce(v_event_payload ->> 'action', '') not in (
-       'device_custody_changed',
-       'custody_return_confirmed'
-     )
+     and coalesce(v_event_payload ->> 'action', '') <> 'device_custody_changed'
      and not (
        p_event_type = 'status_changed'
-       and p_update ->> 'status' = 'completed'
+       and coalesce(v_target_bucket, '') = 'done'
        and p_update ->> 'device_custody_status' = 'with_customer'
      ) then
     return jsonb_build_object('ok', false, 'code', 'invalid_custody_action');
   end if;
 
-  if p_update ->> 'status' in (
-    'diagnosing',
-    'mail_in_progress',
-    'repairing',
-    'repaired',
-    'notified',
-    'waiting_pickup',
-    'unfixed_pickup'
+  if (
+    p_update ->> 'status' in (
+      'diagnosing',
+      'mail_in_progress',
+      'repairing',
+      'repaired',
+      'notified',
+      'waiting_pickup',
+      'unfixed_pickup'
+    )
+    or coalesce(v_target_bucket, '') in ('diagnosing', 'repair', 'pickup')
   ) and v_order.device_custody_status is distinct from 'with_shop' then
     return jsonb_build_object('ok', false, 'code', 'custody_required');
   end if;
 
-  if p_update ->> 'status' = 'completed' then
+  if p_update ->> 'status' = 'completed' or coalesce(v_target_bucket, '') = 'done' then
     if v_order.device_custody_status is null then
       return jsonb_build_object('ok', false, 'code', 'custody_unknown');
     end if;
@@ -455,6 +475,636 @@ comment on function public.repairdesk_apply_order_atomic_mutation(
   uuid
 ) is 'Atomically version-locks a store-scoped order mutation and its custody-safe timeline event. Service role only.';
 
+create or replace function public.repairdesk_correct_terminal_order_custody(
+  p_store_id uuid,
+  p_order_id uuid,
+  p_actor_id uuid,
+  p_expected_updated_at timestamptz,
+  p_idempotency_key uuid,
+  p_device_custody_status text,
+  p_reason text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_actor_email text;
+  v_actor_name text;
+  v_actor_role text;
+  v_existing public.order_terminal_operations%rowtype;
+  v_order public.repair_orders%rowtype;
+  v_current_bucket text;
+  v_operation_id uuid := gen_random_uuid();
+  v_reason text := btrim(coalesce(p_reason, ''));
+  v_request_hash text;
+  v_before jsonb;
+  v_after jsonb;
+  v_now timestamptz := clock_timestamp();
+  v_delivered_at timestamptz;
+begin
+  if p_store_id is null or p_order_id is null then
+    return jsonb_build_object('ok', false, 'code', 'invalid_target');
+  end if;
+  if p_actor_id is null then
+    return jsonb_build_object('ok', false, 'code', 'actor_forbidden');
+  end if;
+  if p_expected_updated_at is null then
+    return jsonb_build_object('ok', false, 'code', 'missing_expected_version');
+  end if;
+  if p_idempotency_key is null then
+    return jsonb_build_object('ok', false, 'code', 'invalid_idempotency_key');
+  end if;
+  if p_device_custody_status is null
+     or p_device_custody_status not in ('with_shop', 'with_customer') then
+    return jsonb_build_object('ok', false, 'code', 'invalid_custody_status');
+  end if;
+  if char_length(v_reason) < 5 or char_length(v_reason) > 1000 then
+    return jsonb_build_object('ok', false, 'code', 'invalid_reason');
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_store_id::text || ':' || p_idempotency_key::text, 0)
+  );
+
+  select profile.email,
+         coalesce(membership.display_name, profile.display_name, profile.email),
+         membership.role::text
+    into v_actor_email, v_actor_name, v_actor_role
+    from public.staff_profiles as profile
+    join public.store_memberships as membership
+      on membership.user_id = profile.id
+     and membership.store_id = p_store_id
+     and membership.status::text = 'active'
+    join public.stores as store_row
+      on store_row.id = membership.store_id
+     and store_row.status::text = 'active'
+   where profile.id = p_actor_id
+     and profile.status::text = 'active'
+   limit 1;
+
+  if v_actor_role is null or v_actor_role not in ('owner', 'manager') then
+    return jsonb_build_object('ok', false, 'code', 'actor_forbidden');
+  end if;
+
+  v_request_hash := encode(
+    extensions.digest(
+      pg_catalog.convert_to(
+        jsonb_build_object(
+          'store_id', p_store_id,
+          'order_id', p_order_id,
+          'actor_id', p_actor_id,
+          'expected_updated_at', p_expected_updated_at,
+          'operation', 'custody_correction',
+          'device_custody_status', p_device_custody_status,
+          'reason', v_reason
+        )::text,
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  );
+
+  select operation.*
+    into v_existing
+    from public.order_terminal_operations as operation
+   where operation.store_id = p_store_id
+     and operation.idempotency_key = p_idempotency_key;
+
+  if found then
+    if v_existing.request_hash <> v_request_hash then
+      return jsonb_build_object('ok', false, 'code', 'idempotency_conflict');
+    end if;
+    return jsonb_build_object(
+      'ok', true,
+      'code', 'idempotent_replay',
+      'operation_id', v_existing.id,
+      'updated_at', v_existing.order_updated_at_after
+    );
+  end if;
+
+  select order_row.*
+    into v_order
+    from public.repair_orders as order_row
+   where order_row.store_id = p_store_id
+     and order_row.id = p_order_id
+   for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'order_not_found');
+  end if;
+  if v_order.updated_at <> p_expected_updated_at then
+    return jsonb_build_object('ok', false, 'code', 'stale_version');
+  end if;
+  if v_order.record_state <> 'active' or v_order.deleted_at is not null then
+    return jsonb_build_object('ok', false, 'code', 'order_voided');
+  end if;
+
+  select status_row.bucket::text
+    into v_current_bucket
+    from public.order_workflow_statuses as status_row
+   where status_row.store_id = p_store_id
+     and status_row.code::text = v_order.status::text
+   limit 1;
+
+  if v_order.status::text not in ('completed', 'cancelled')
+     and coalesce(v_order.exception_status::text, '') <> 'cancelled'
+     and coalesce(v_current_bucket, '') not in ('done', 'cancelled')
+     and not (v_current_bucket is null and coalesce(v_order.workflow_status::text, '') = 'closed') then
+    return jsonb_build_object('ok', false, 'code', 'invalid_state');
+  end if;
+  if v_order.device_custody_status = p_device_custody_status then
+    return jsonb_build_object(
+      'ok', true,
+      'code', 'no_change',
+      'updated_at', v_order.updated_at
+    );
+  end if;
+  if p_device_custody_status = 'with_shop'
+     and (
+       v_order.device_custody_status is not null
+       or v_order.status::text = 'completed'
+       or coalesce(v_current_bucket, '') = 'done'
+     ) then
+    return jsonb_build_object('ok', false, 'code', 'terminal_reopen_required');
+  end if;
+  if p_device_custody_status = 'with_shop' and v_order.delivered_at is not null then
+    return jsonb_build_object('ok', false, 'code', 'custody_conflict');
+  end if;
+  if p_device_custody_status = 'with_customer'
+     and v_order.device_custody_status = 'with_shop'
+     and (
+       v_order.status::text = 'cancelled'
+       or coalesce(v_order.exception_status::text, '') = 'cancelled'
+       or coalesce(v_current_bucket, '') = 'cancelled'
+     ) then
+    return jsonb_build_object('ok', false, 'code', 'use_cancelled_return');
+  end if;
+
+  v_delivered_at := case
+    when p_device_custody_status = 'with_shop' then null
+    when v_order.device_custody_status = 'with_shop' then coalesce(v_order.delivered_at, v_now)
+    else v_order.delivered_at
+  end;
+
+  v_before := jsonb_build_object(
+    'status', v_order.status,
+    'record_state', v_order.record_state,
+    'device_custody_status', v_order.device_custody_status,
+    'delivered_at', v_order.delivered_at,
+    'credentials_present', (
+      v_order.device_unlock_method is not null
+      or v_order.device_unlock_value is not null
+      or v_order.device_unlock_pattern is not null
+    )
+  );
+  v_after := jsonb_build_object(
+    'status', v_order.status,
+    'record_state', v_order.record_state,
+    'device_custody_status', p_device_custody_status,
+    'delivered_at', v_delivered_at,
+    'credentials_present', case
+      when p_device_custody_status = 'with_customer' then false
+      else (
+        v_order.device_unlock_method is not null
+        or v_order.device_unlock_value is not null
+        or v_order.device_unlock_pattern is not null
+      )
+    end
+  );
+
+  perform pg_catalog.set_config('repairdesk.terminal_operation', 'custody_correction', true);
+
+  update public.repair_orders
+     set device_custody_status = p_device_custody_status,
+         delivered_at = v_delivered_at,
+         device_unlock_method = case
+           when p_device_custody_status = 'with_customer' then null
+           else device_unlock_method
+         end,
+         device_unlock_value = case
+           when p_device_custody_status = 'with_customer' then null
+           else device_unlock_value
+         end,
+         device_unlock_pattern = case
+           when p_device_custody_status = 'with_customer' then null
+           else device_unlock_pattern
+         end,
+         updated_at = v_now
+   where store_id = p_store_id
+     and id = p_order_id;
+
+  perform pg_catalog.set_config('repairdesk.terminal_operation', '', true);
+
+  insert into public.order_events (
+    id, store_id, order_id, event_type, payload, operator_name, created_at
+  ) values (
+    gen_random_uuid(),
+    p_store_id,
+    p_order_id,
+    'note',
+    jsonb_build_object(
+      'action', 'terminal_custody_correction',
+      'operation_id', v_operation_id,
+      'from', v_order.device_custody_status,
+      'to', p_device_custody_status,
+      'reason', v_reason,
+      'credentials_cleared', p_device_custody_status = 'with_customer'
+    ),
+    v_actor_name,
+    v_now
+  );
+
+  insert into public.order_terminal_operations (
+    id, store_id, order_id, idempotency_key, operation_type, request_hash,
+    actor_id, actor_name_snapshot, actor_role_snapshot, reason,
+    before_data, after_data, order_updated_at_before, order_updated_at_after, created_at
+  ) values (
+    v_operation_id, p_store_id, p_order_id, p_idempotency_key, 'custody_correction',
+    v_request_hash, p_actor_id, v_actor_name, v_actor_role, v_reason,
+    v_before, v_after, v_order.updated_at, v_now, v_now
+  );
+
+  insert into public.audit_logs (
+    id, actor_id, actor_email, actor_name, store_id, action,
+    entity_type, entity_id, before_data, after_data, metadata, created_at
+  ) values (
+    gen_random_uuid()::text, p_actor_id, v_actor_email, v_actor_name, p_store_id,
+    'order_terminal_custody_correction', 'repair_order', p_order_id::text,
+    v_before, v_after,
+    jsonb_build_object('operation_id', v_operation_id, 'reason', v_reason),
+    v_now
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'code', 'recorded',
+    'operation_id', v_operation_id,
+    'updated_at', v_now
+  );
+end;
+$$;
+
+revoke all on function public.repairdesk_correct_terminal_order_custody(
+  uuid, uuid, uuid, timestamptz, uuid, text, text
+) from public, anon, authenticated;
+grant execute on function public.repairdesk_correct_terminal_order_custody(
+  uuid, uuid, uuid, timestamptz, uuid, text, text
+) to service_role;
+
+create or replace function public.repairdesk_confirm_cancelled_order_return(
+  p_store_id uuid,
+  p_order_id uuid,
+  p_actor_id uuid,
+  p_expected_updated_at timestamptz,
+  p_idempotency_key uuid
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_operation_id uuid := gen_random_uuid();
+  v_existing public.order_terminal_operations%rowtype;
+  v_membership_id uuid;
+  v_actor_role text;
+  v_actor_name text;
+  v_actor_email text;
+  v_order public.repair_orders%rowtype;
+  v_current_bucket text;
+  v_request_hash text;
+  v_before jsonb;
+  v_after jsonb;
+  v_now timestamptz := clock_timestamp();
+begin
+  if p_store_id is null or p_order_id is null or p_actor_id is null then
+    return jsonb_build_object('ok', false, 'code', 'invalid_target');
+  end if;
+  if p_expected_updated_at is null then
+    return jsonb_build_object('ok', false, 'code', 'missing_expected_version');
+  end if;
+  if p_idempotency_key is null then
+    return jsonb_build_object('ok', false, 'code', 'invalid_idempotency_key');
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_store_id::text || ':' || p_idempotency_key::text, 0)
+  );
+
+  v_request_hash := encode(
+    extensions.digest(
+      pg_catalog.convert_to(
+        jsonb_build_object(
+          'store_id', p_store_id,
+          'order_id', p_order_id,
+          'actor_id', p_actor_id,
+          'expected_updated_at', p_expected_updated_at,
+          'operation', 'custody_return'
+        )::text,
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  );
+
+  select operation.*
+    into v_existing
+    from public.order_terminal_operations as operation
+   where operation.store_id = p_store_id
+     and operation.idempotency_key = p_idempotency_key;
+
+  if found then
+    if v_existing.request_hash <> v_request_hash then
+      return jsonb_build_object('ok', false, 'code', 'idempotency_conflict');
+    end if;
+    return jsonb_build_object(
+      'ok', true,
+      'code', 'idempotent_replay',
+      'already_confirmed', true,
+      'delivered_at', v_existing.after_data ->> 'delivered_at',
+      'updated_at', v_existing.order_updated_at_after
+    );
+  end if;
+
+  select membership.id,
+         membership.role::text,
+         coalesce(membership.display_name, profile.display_name, profile.email),
+         profile.email
+    into v_membership_id, v_actor_role, v_actor_name, v_actor_email
+    from public.staff_profiles as profile
+    join public.store_memberships as membership
+      on membership.user_id = profile.id
+     and membership.store_id = p_store_id
+     and membership.status::text = 'active'
+    join public.stores as store_row
+      on store_row.id = membership.store_id
+     and store_row.status::text = 'active'
+   where profile.id = p_actor_id
+     and profile.status::text = 'active'
+   limit 1;
+
+  select order_row.*
+    into v_order
+    from public.repair_orders as order_row
+   where order_row.store_id = p_store_id
+     and order_row.id = p_order_id
+   for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'order_not_found');
+  end if;
+  if v_actor_role is null
+     or (
+       v_actor_role not in ('owner', 'manager', 'sales')
+       and not (
+         v_actor_role = 'technician'
+         and v_order.assignee_membership_id = v_membership_id
+       )
+     ) then
+    return jsonb_build_object('ok', false, 'code', 'actor_forbidden');
+  end if;
+  if v_order.record_state <> 'active' or v_order.deleted_at is not null then
+    return jsonb_build_object('ok', false, 'code', 'invalid_state');
+  end if;
+
+  select status_row.bucket::text
+    into v_current_bucket
+    from public.order_workflow_statuses as status_row
+   where status_row.store_id = p_store_id
+     and status_row.code::text = v_order.status::text
+   limit 1;
+
+  if v_order.status::text <> 'cancelled'
+     and coalesce(v_order.exception_status::text, '') <> 'cancelled'
+     and coalesce(v_current_bucket, '') <> 'cancelled' then
+    return jsonb_build_object('ok', false, 'code', 'invalid_state');
+  end if;
+  if v_order.device_custody_status is null then
+    return jsonb_build_object('ok', false, 'code', 'custody_unknown');
+  end if;
+  if v_order.device_custody_status = 'with_customer' then
+    if v_order.delivered_at is not null then
+      return jsonb_build_object(
+        'ok', true,
+        'code', 'idempotent_replay',
+        'already_confirmed', true,
+        'delivered_at', v_order.delivered_at,
+        'updated_at', v_order.updated_at
+      );
+    end if;
+    return jsonb_build_object('ok', false, 'code', 'return_not_required');
+  end if;
+  if v_order.delivered_at is not null then
+    return jsonb_build_object('ok', false, 'code', 'custody_conflict');
+  end if;
+  if v_order.updated_at <> p_expected_updated_at then
+    return jsonb_build_object('ok', false, 'code', 'stale_version');
+  end if;
+
+  v_before := jsonb_build_object(
+    'status', v_order.status,
+    'record_state', v_order.record_state,
+    'completed_at', v_order.completed_at,
+    'delivered_at', v_order.delivered_at,
+    'device_custody_status', v_order.device_custody_status,
+    'credentials_present', (
+      v_order.device_unlock_method is not null
+      or v_order.device_unlock_value is not null
+      or v_order.device_unlock_pattern is not null
+    )
+  );
+  v_after := v_before || jsonb_build_object(
+    'completed_at', coalesce(v_order.completed_at, v_now),
+    'delivered_at', v_now,
+    'device_custody_status', 'with_customer',
+    'credentials_present', false
+  );
+
+  perform pg_catalog.set_config('repairdesk.terminal_operation', 'custody_return', true);
+
+  update public.repair_orders
+     set completed_at = coalesce(completed_at, v_now),
+         delivered_at = v_now,
+         device_custody_status = 'with_customer',
+         device_unlock_method = null,
+         device_unlock_value = null,
+         device_unlock_pattern = null,
+         updated_at = v_now
+   where store_id = p_store_id
+     and id = p_order_id;
+
+  perform pg_catalog.set_config('repairdesk.terminal_operation', '', true);
+
+  insert into public.order_events (
+    id, store_id, order_id, event_type, payload, operator_name, created_at
+  ) values (
+    gen_random_uuid(), p_store_id, p_order_id, 'status_changed',
+    jsonb_build_object(
+      'from', v_order.status,
+      'to', v_order.status,
+      'action', 'custody_return_confirmed',
+      'handover_confirmed', true,
+      'custody_from', 'with_shop',
+      'custody_to', 'with_customer',
+      'custody_outcome', 'returned',
+      'credentials_cleared', true,
+      'idempotency_key', p_idempotency_key
+    ),
+    v_actor_name, v_now
+  );
+
+  insert into public.order_terminal_operations (
+    id, store_id, order_id, idempotency_key, operation_type, request_hash,
+    actor_id, actor_name_snapshot, actor_role_snapshot, reason,
+    before_data, after_data, order_updated_at_before, order_updated_at_after, created_at
+  ) values (
+    v_operation_id, p_store_id, p_order_id, p_idempotency_key, 'custody_return',
+    v_request_hash, p_actor_id, v_actor_name, v_actor_role,
+    '确认取消工单设备已退还', v_before, v_after, v_order.updated_at, v_now, v_now
+  );
+
+  insert into public.audit_logs (
+    id, actor_id, actor_email, actor_name, store_id, action,
+    entity_type, entity_id, before_data, after_data, metadata, created_at
+  ) values (
+    gen_random_uuid()::text, p_actor_id, v_actor_email, v_actor_name, p_store_id,
+    'order_custody_return_confirmed', 'repair_order', p_order_id::text,
+    v_before, v_after,
+    jsonb_build_object('operation_id', v_operation_id, 'idempotency_key', p_idempotency_key),
+    v_now
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'code', 'recorded',
+    'already_confirmed', false,
+    'delivered_at', v_now,
+    'updated_at', v_now
+  );
+end;
+$$;
+
+revoke all on function public.repairdesk_confirm_cancelled_order_return(
+  uuid, uuid, uuid, timestamptz, uuid
+) from public, anon, authenticated;
+grant execute on function public.repairdesk_confirm_cancelled_order_return(
+  uuid, uuid, uuid, timestamptz, uuid
+) to service_role;
+
+create or replace function public.repairdesk_protect_voided_order()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_operation text := coalesce(
+    pg_catalog.current_setting('repairdesk.terminal_operation', true),
+    ''
+  );
+  v_target_bucket text;
+begin
+  if current_user = 'service_role' and v_operation = 'reopen' then
+    select status_row.bucket::text
+      into v_target_bucket
+      from public.order_workflow_statuses as status_row
+     where status_row.store_id = new.store_id
+       and status_row.code::text = new.status::text
+     limit 1;
+    if coalesce(v_target_bucket, '') in ('diagnosing', 'repair', 'pickup')
+       and old.device_custody_status is distinct from 'with_shop' then
+      raise exception using
+        message = 'physical-work reopen requires shop custody',
+        errcode = 'P0001';
+    end if;
+  end if;
+
+  if old.record_state = 'active'
+     and new.record_state = 'voided'
+     and current_user = 'service_role'
+     and v_operation = 'void' then
+    if old.device_custody_status is null then
+      raise exception using message = 'custody status must be confirmed before void', errcode = 'P0001';
+    end if;
+    if old.device_custody_status = 'with_shop' then
+      raise exception using message = 'shop-held device must be returned before void', errcode = 'P0001';
+    end if;
+  end if;
+
+  if (
+    old.record_state = 'active'
+    and old.deleted_at is null
+    and (
+      old.status::text in ('completed', 'cancelled')
+      or coalesce(old.exception_status::text, '') = 'cancelled'
+      or exists (
+        select 1
+        from public.order_workflow_statuses as status_row
+        where status_row.store_id = old.store_id
+          and status_row.code::text = old.status::text
+          and status_row.bucket::text in ('done', 'cancelled')
+      )
+      or (
+        coalesce(old.workflow_status::text, '') = 'closed'
+        and not exists (
+          select 1
+          from public.order_workflow_statuses as status_row
+          where status_row.store_id = old.store_id
+            and status_row.code::text = old.status::text
+        )
+      )
+    )
+    and not (
+      current_user = 'service_role'
+      and v_operation in ('correction', 'reopen', 'void', 'custody_return', 'custody_correction')
+    )
+    and (
+      new.issue_description is distinct from old.issue_description
+      or new.diagnosis_result is distinct from old.diagnosis_result
+      or new.internal_tag is distinct from old.internal_tag
+      or new.accessory_notes is distinct from old.accessory_notes
+      or new.warranty_text is distinct from old.warranty_text
+      or new.warranty_months is distinct from old.warranty_months
+      or new.warranty_change_reason is distinct from old.warranty_change_reason
+      or new.status is distinct from old.status
+      or new.workflow_status is distinct from old.workflow_status
+      or new.exception_status is distinct from old.exception_status
+      or new.completed_at is distinct from old.completed_at
+      or new.delivered_at is distinct from old.delivered_at
+      or new.device_custody_status is distinct from old.device_custody_status
+      or new.device_unlock_method is distinct from old.device_unlock_method
+      or new.device_unlock_value is distinct from old.device_unlock_value
+      or new.device_unlock_pattern is distinct from old.device_unlock_pattern
+    )
+  ) then
+    raise exception using
+      message = 'terminal orders require audited correction or reopen operations',
+      errcode = 'P0001';
+  end if;
+  if old.record_state = 'active'
+     and new.record_state = 'voided'
+     and not (current_user = 'service_role' and v_operation = 'void') then
+    raise exception using
+      message = 'voiding an order requires the audited terminal operation',
+      errcode = 'P0001';
+  end if;
+  if old.record_state = 'voided'
+     and to_jsonb(new) is distinct from to_jsonb(old) then
+    raise exception using
+      message = 'voided order records are immutable',
+      errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.repairdesk_protect_voided_order()
+  from public, anon, authenticated;
+
 -- Production migration history currently records an offline-sync draft without the
 -- corresponding RPC. Keep the server contract fail-closed here instead of depending on a
 -- missing legacy function. A separately reviewed migration must replace this stub before the
@@ -561,7 +1211,8 @@ begin
     for update
   loop
     v_target := v_row.normalized_data ->> 'device_custody_status';
-    if v_row.action = 'update' and v_target not in ('with_shop', 'with_customer') then
+    if v_row.action = 'update'
+       and (v_target is null or v_target not in ('with_shop', 'with_customer')) then
       raise exception 'invalid_device_custody_import' using errcode = '22023';
     end if;
     if v_row.action = 'create'

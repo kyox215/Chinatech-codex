@@ -48,6 +48,7 @@ import {
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
   isOrderCancelled,
+  isOrderCancelledState,
   isOrderCancelledForPayment,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
@@ -102,15 +103,22 @@ function operatorName(operator: MockOperator = "前台") {
   return typeof operator === "string" ? operator : operator.displayName;
 }
 
+function mockOrderWorkflowBucket(order: Pick<RepairOrder, "status">) {
+  return workflowStatuses.find((status) => status.code === order.status)?.bucket;
+}
+
 function assertMockRoutineMutationAllowed(order: RepairOrder) {
+  const workflowBucket = mockOrderWorkflowBucket(order);
   if (order.record_state === "voided" || order.deleted_at) {
     throw new Error("该工单记录已作废，只能查看历史证据");
   }
   if (
     order.status === "completed" ||
     order.status === "cancelled" ||
-    order.workflow_status === "closed" ||
-    order.exception_status === "cancelled"
+    order.exception_status === "cancelled" ||
+    workflowBucket === "done" ||
+    workflowBucket === "cancelled" ||
+    (workflowBucket === undefined && order.workflow_status === "closed")
   ) {
     throw new Error("已结束工单必须使用审计化纠正或重新打开操作");
   }
@@ -546,14 +554,15 @@ export async function updateOrderWorkflowTransitions(
 export async function getOrder(id: string, _actor?: AuditActor) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
-  const orderView = decorate(o);
+  const workflowBucket = mockOrderWorkflowBucket(o);
+  const orderView = { ...decorate(o), workflow_bucket: workflowBucket };
   const terminal =
     o.status === "completed" ||
     o.status === "cancelled" ||
     o.exception_status === "cancelled" ||
-    orderView.workflow_bucket === "done" ||
-    orderView.workflow_bucket === "cancelled" ||
-    (orderView.workflow_bucket === undefined && o.workflow_status === "closed");
+    workflowBucket === "done" ||
+    workflowBucket === "cancelled" ||
+    (workflowBucket === undefined && o.workflow_status === "closed");
   const voided = o.record_state === "voided" || Boolean(o.deleted_at);
   const hasFinancialEvidence =
     o.is_paid || o.deposit_amount > 0 || o.quotation_amount > o.balance_amount;
@@ -579,7 +588,11 @@ export async function getOrder(id: string, _actor?: AuditActor) {
       canAdjustFinance: !terminal && !voided,
       canCollectPayment: isOrderPaymentCollectible(orderView),
       canTransition: !terminal && !voided,
-      canConfirmCancelledReturn: !voided && o.status === "cancelled" && !o.delivered_at,
+      canConfirmCancelledReturn:
+        !voided &&
+        isOrderCancelledState(orderView) &&
+        o.device_custody_status === DEVICE_CUSTODY_WITH_SHOP &&
+        !o.delivered_at,
       canCorrect: terminal && !voided,
       canReopen: terminal && !voided,
       canVoid: terminal && !voided && !hasFinancialEvidence,
@@ -847,7 +860,13 @@ export async function confirmCancelledOrderReturn(
 ) {
   const order = orders.find((item) => item.id === id);
   if (!order) throw new Error("工单不存在");
-  if (!isOrderCancelled(order)) throw new Error("只有已取消工单可以确认设备退还");
+  const workflowBucket = mockOrderWorkflowBucket(order);
+  if (!isOrderCancelled(order) && workflowBucket !== "cancelled") {
+    throw new Error("只有已取消工单可以确认设备退还");
+  }
+  if (order.record_state === "voided" || order.deleted_at) {
+    throw new Error("该工单记录已作废，只能查看历史证据");
+  }
   if (!opts.idempotencyKey) throw new Error("缺少退还操作标识");
   const existingEvent = extraEvents.find(
     (event) => event.payload.idempotency_key === opts.idempotencyKey,
@@ -916,19 +935,33 @@ export async function updateOrderCustody(
   }
   if (!from && !reason) throw new Error("补录历史设备保管状态时必须填写说明");
   const role = typeof operator === "string" ? undefined : (operator.storeRole ?? operator.role);
-  const cancelled = isOrderCancelled(order);
-  const isTerminal = order.status === "completed" || cancelled;
+  const workflowBucket = mockOrderWorkflowBucket(order);
+  const cancelled = isOrderCancelled(order) || workflowBucket === "cancelled";
+  const isTerminal =
+    order.status === "completed" ||
+    cancelled ||
+    workflowBucket === "done" ||
+    (workflowBucket === undefined && order.workflow_status === "closed");
+  if (order.record_state === "voided" || order.deleted_at) {
+    throw new Error("该工单记录已作废，只能查看历史证据");
+  }
   if (isTerminal && role !== "owner" && role !== "manager") {
     throw new Error("已结束工单只能由店主或经理填写说明后修正设备保管状态");
   }
   if (isTerminal && !reason) {
     throw new Error("已结束工单只能由店主或经理填写说明后修正设备保管状态");
   }
-  if (order.status === "completed" && to === DEVICE_CUSTODY_WITH_SHOP) {
-    throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
-  }
   if (cancelled && from === DEVICE_CUSTODY_WITH_SHOP && to === DEVICE_CUSTODY_WITH_CUSTOMER) {
     throw new Error("已取消工单请使用“确认设备已退还”操作");
+  }
+  if (
+    (order.status === "completed" || workflowBucket === "done") &&
+    to === DEVICE_CUSTODY_WITH_SHOP
+  ) {
+    throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
+  }
+  if (isTerminal && reason && reason.length < 5) {
+    throw new Error("已结束工单修正设备保管状态时，说明至少需要 5 个字符");
   }
   if (
     from !== to &&
@@ -937,9 +970,7 @@ export async function updateOrderCustody(
       target: to,
       status: order.status,
       exceptionStatus: order.exception_status,
-      workflowBucket:
-        workflowStatuses.find((status) => status.code === order.status)?.bucket ??
-        order.workflow_status,
+      workflowBucket,
     })
   ) {
     throw new Error("当前流程需要设备留在门店，请先完成、取消或流转到允许交还的阶段");

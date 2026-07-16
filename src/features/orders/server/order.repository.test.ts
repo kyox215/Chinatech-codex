@@ -191,6 +191,25 @@ describe("order repository role projection", () => {
     });
   });
 
+  it("offers cancelled return only when the store still holds the device", () => {
+    expect(
+      projectOrderCapabilities(
+        order({ status: "repairing", workflow_bucket: "cancelled" }),
+        actor("owner"),
+      ).canConfirmCancelledReturn,
+    ).toBe(true);
+    expect(
+      projectOrderCapabilities(
+        order({
+          status: "repairing",
+          workflow_bucket: "cancelled",
+          device_custody_status: "with_customer",
+        }),
+        actor("owner"),
+      ).canConfirmCancelledReturn,
+    ).toBe(false);
+  });
+
   it.each([
     { label: "legacy cancelled", changes: { status: "cancelled" as const } },
     {
@@ -792,6 +811,39 @@ describe("order repository custody writes", () => {
     mocks.supabase.rpc.mockReset();
   });
 
+  function mockCancelledReturnRead(overrides: Record<string, unknown> = {}) {
+    mocks.supabase.from
+      .mockReturnValueOnce(
+        createSupabaseQuery({
+          data: orderRow({
+            status: "cancelled",
+            workflow_status: "closed",
+            record_state: "active",
+            ...overrides,
+          }),
+          error: null,
+          count: 1,
+        }),
+      )
+      .mockReturnValueOnce(
+        createSupabaseQuery({ data: { bucket: "cancelled" }, error: null, count: 1 }),
+      );
+  }
+
+  function mockCustodyRead(overrides: Record<string, unknown>, bucket: string | null) {
+    mocks.supabase.from
+      .mockReturnValueOnce(
+        createSupabaseQuery({
+          data: orderRow({ record_state: "active", ...overrides }),
+          error: null,
+          count: 1,
+        }),
+      )
+      .mockReturnValueOnce(
+        createSupabaseQuery({ data: bucket ? { bucket } : null, error: null, count: 1 }),
+      );
+  }
+
   it("version-locks normal status transitions before writing the event", async () => {
     const readQuery = createSupabaseQuery({
       data: orderRow({ status: "new", workflow_status: "intake" }),
@@ -851,6 +903,7 @@ describe("order repository custody writes", () => {
     const targetQuery = createSupabaseQuery({
       data: { code: "customer_cancelled", label: "客户取消", bucket: "cancelled", enabled: true },
       error: null,
+      count: 1,
     });
     mocks.supabase.from
       .mockReturnValueOnce(readQuery)
@@ -866,6 +919,7 @@ describe("order repository custody writes", () => {
   });
 
   it("confirms a cancelled return without mutating finance fields", async () => {
+    mockCancelledReturnRead();
     mocks.supabase.rpc.mockResolvedValue({
       data: {
         ok: true,
@@ -897,6 +951,7 @@ describe("order repository custody writes", () => {
   });
 
   it("returns an idempotent cancelled-return replay", async () => {
+    mockCancelledReturnRead();
     mocks.supabase.rpc.mockResolvedValue({
       data: {
         ok: true,
@@ -915,11 +970,36 @@ describe("order repository custody writes", () => {
     ).resolves.toMatchObject({ ok: true, alreadyConfirmed: true });
   });
 
+  it("accepts a configured custom cancelled bucket through the dedicated return RPC", async () => {
+    mockCancelledReturnRead({
+      status: "customer_cancelled",
+      workflow_status: "repair",
+      exception_status: null,
+    });
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        ok: true,
+        already_confirmed: false,
+        delivered_at: "2026-07-09T10:01:00.000Z",
+      },
+      error: null,
+    });
+
+    await expect(
+      confirmCancelledOrderReturn("order_1", {
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000608",
+        operator: actor("owner"),
+      }),
+    ).resolves.toMatchObject({ ok: true, alreadyConfirmed: false });
+  });
+
   it.each([
     ["actor_forbidden", "没有确认设备退还的权限"],
     ["invalid_state", "只有未作废的已取消工单"],
     ["stale_version", "已被其他操作更新"],
   ])("maps cancelled-return RPC code %s", async (code, message) => {
+    mockCancelledReturnRead();
     mocks.supabase.rpc.mockResolvedValue({ data: { ok: false, code }, error: null });
 
     await expect(
@@ -932,6 +1012,7 @@ describe("order repository custody writes", () => {
   });
 
   it("fails closed on a malformed cancelled-return RPC response", async () => {
+    mockCancelledReturnRead();
     mocks.supabase.rpc.mockResolvedValue({ data: null, error: null });
 
     await expect(
@@ -940,6 +1021,85 @@ describe("order repository custody writes", () => {
         idempotencyKey: "00000000-0000-4000-8000-000000000604",
         operator: actor("owner"),
       }),
+    ).rejects.toThrow("数据库返回无效");
+  });
+
+  it("fails closed when cancelled-return success omits its delivery timestamp", async () => {
+    mockCancelledReturnRead();
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: true, already_confirmed: false, delivered_at: null },
+      error: null,
+    });
+
+    await expect(
+      confirmCancelledOrderReturn("order_1", {
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000605",
+        operator: actor("owner"),
+      }),
+    ).rejects.toThrow("数据库返回无效");
+  });
+
+  it("uses the dedicated audited RPC for a custom done custody correction", async () => {
+    mockCustodyRead(
+      {
+        status: "custom_done",
+        workflow_status: "repair",
+        device_custody_status: null,
+      },
+      "done",
+    );
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: true, code: "recorded", updated_at: "2026-07-09T10:01:00.000Z" },
+      error: null,
+    });
+
+    await expect(
+      updateOrderCustody(
+        "order_1",
+        {
+          expected_updated_at: "2026-07-09T10:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000606",
+          device_custody_status: "with_customer",
+          reason: "历史保管状态确认",
+        },
+        actor("manager"),
+      ),
+    ).resolves.toMatchObject({ ok: true, updated_at: "2026-07-09T10:01:00.000Z" });
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_correct_terminal_order_custody",
+      expect.objectContaining({
+        p_store_id: "store_1",
+        p_order_id: "order_1",
+        p_actor_id: "staff_manager",
+        p_device_custody_status: "with_customer",
+        p_reason: "历史保管状态确认",
+      }),
+    );
+    expect(mocks.supabase.rpc).not.toHaveBeenCalledWith(
+      "repairdesk_apply_order_atomic_mutation",
+      expect.anything(),
+    );
+  });
+
+  it("fails closed when terminal custody success omits its updated timestamp", async () => {
+    mockCustodyRead(
+      { status: "completed", workflow_status: "closed", device_custody_status: "with_shop" },
+      "done",
+    );
+    mocks.supabase.rpc.mockResolvedValue({ data: { ok: true, code: "recorded" }, error: null });
+
+    await expect(
+      updateOrderCustody(
+        "order_1",
+        {
+          expected_updated_at: "2026-07-09T10:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000607",
+          device_custody_status: "with_customer",
+          reason: "完成后确认已交还",
+        },
+        actor("owner"),
+      ),
     ).rejects.toThrow("数据库返回无效");
   });
 });

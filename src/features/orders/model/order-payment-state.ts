@@ -1,6 +1,10 @@
 import type { OrderListItem } from "@/lib/repairdesk/types";
 
-type OrderCancellationInput = { status: string; exception_status?: string | null };
+type OrderCancellationInput = {
+  status: string;
+  exception_status?: string | null;
+  workflow_bucket?: OrderListItem["workflow_bucket"];
+};
 
 type OrderPaymentStateInput = Pick<OrderListItem, "status" | "balance_amount" | "is_paid"> &
   Partial<
@@ -11,13 +15,13 @@ export function isOrderCancelled(order: OrderCancellationInput) {
   return order.status === "cancelled" || order.exception_status === "cancelled";
 }
 
+export function isOrderCancelledState(order: OrderCancellationInput) {
+  return isOrderCancelled(order) || order.workflow_bucket === "cancelled";
+}
+
 export function isOrderCancelledForPayment(order: OrderPaymentStateInput) {
   return (
-    isOrderCancelled(order) ||
-    order.workflow_bucket === "cancelled" ||
-    order.exception_status === "cancelled" ||
-    order.record_state === "voided" ||
-    Boolean(order.deleted_at)
+    isOrderCancelledState(order) || order.record_state === "voided" || Boolean(order.deleted_at)
   );
 }
 

@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "ARCH", "DATA", "DOC", "FLOW", "INT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-16T18:23:37Z"
-updated_at: "2026-07-16T21:59:51Z"
+updated_at: "2026-07-16T23:25:22Z"
 ---
 # Task — 设备留机与保管状态端到端实施
 

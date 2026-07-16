@@ -63,6 +63,7 @@ import {
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import {
   isOrderCancelled,
+  isOrderCancelledState,
   isOrderCancelledForPayment,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
@@ -587,7 +588,8 @@ export function projectOrderCapabilities(
     canTransition: routine && permitted("order:transition"),
     canConfirmCancelledReturn:
       !voided &&
-      order.status === "cancelled" &&
+      isOrderCancelledState(order) &&
+      order.device_custody_status === DEVICE_CUSTODY_WITH_SHOP &&
       !order.delivered_at &&
       permitted("order:transition"),
     canCorrect: terminal && !voided && permitted("order:correct"),
@@ -834,9 +836,7 @@ function deriveCanonicalUpdateFromLegacyStatus(
     approval_flow_status: approvalFlowStatusFromLegacyStatus(status),
     parts_status: partsStatusFromLegacyStatus(status),
     notify_status: completed ? "sent" : notifyStatusFromLegacyStatus(status),
-    ...(!completed && !cancelled
-      ? { completed_at: null, delivered_at: null }
-      : {}),
+    ...(!completed && !cancelled ? { completed_at: null, delivered_at: null } : {}),
     ...(status === "waiting_approval" ? { approval_sent_at: now } : {}),
   };
 }
@@ -1608,7 +1608,7 @@ export async function transitionOrder(
       workflow_from: workflowFrom,
       workflow_to: workflowTo,
       reason: cleanReason,
-      ...(legacyTo === "completed"
+      ...(legacyTo === "completed" || validation.bucket === "done"
         ? {
             handover_confirmed: currentCustodyStatus === DEVICE_CUSTODY_WITH_SHOP,
             custody_from: currentCustodyStatus,
@@ -1619,7 +1619,7 @@ export async function transitionOrder(
                 ? "delivered"
                 : "never_received",
           }
-        : legacyTo === "cancelled"
+        : legacyTo === "cancelled" || validation.bucket === "cancelled"
           ? {
               custody_from: currentCustodyStatus,
               custody_to: currentCustodyStatus,
@@ -1653,10 +1653,15 @@ export async function confirmCancelledOrderReturn(
   const supabase = getSupabaseAdmin();
   const current = await readOrderCustodyRow(supabase, storeId, id, actor);
   const currentCustodyStatus = custodyStatusFromRow(current);
-  const cancelled = isOrderCancelled({
-    status: requiredString(current.status),
-    exception_status: maybeString(current.exception_status),
-  });
+  const status = requiredString(current.status);
+  const workflowBucket = await readWorkflowStatusBucket(supabase, storeId, status);
+  const cancelled =
+    isOrderCancelled({
+      status,
+      exception_status: maybeString(current.exception_status),
+    }) || workflowBucket === "cancelled";
+
+  assertOrderRecordNotVoided(current);
 
   if (!cancelled) throw new Error("只有已取消工单可以确认设备退还");
   if (!opts.expectedUpdatedAt) throw new Error("缺少工单版本，请刷新后重试");
@@ -1700,10 +1705,12 @@ export async function confirmCancelledOrderReturn(
     };
     throw new Error(messages[code] ?? "确认设备退还失败");
   }
+  const deliveredAt = maybeString(result.delivered_at);
+  if (!deliveredAt) throw new Error("确认设备退还失败：数据库返回无效");
   return {
     ok: true,
     alreadyConfirmed: Boolean(result.already_confirmed),
-    delivered_at: requiredString(result.delivered_at),
+    delivered_at: deliveredAt,
   };
 }
 
@@ -1721,8 +1728,17 @@ export async function updateOrderCustody(
   const reason = input.reason?.trim();
   const status = requiredString(current.status);
   const exceptionStatus = maybeString(current.exception_status);
-  const cancelled = isOrderCancelled({ status, exception_status: exceptionStatus });
-  const isTerminal = status === "completed" || cancelled;
+  const currentWorkflowBucket = await readWorkflowStatusBucket(supabase, storeId, status);
+  const cancelled =
+    isOrderCancelled({ status, exception_status: exceptionStatus }) ||
+    currentWorkflowBucket === "cancelled";
+  const isTerminal =
+    status === "completed" ||
+    cancelled ||
+    currentWorkflowBucket === "done" ||
+    (currentWorkflowBucket === undefined && maybeString(current.workflow_status) === "closed");
+
+  assertOrderRecordNotVoided(current);
 
   if (!from && !reason) throw new Error("补录历史设备保管状态时必须填写说明");
   if (isTerminal && (!canCorrectTerminalCustody(actor) || !reason)) {
@@ -1731,12 +1747,58 @@ export async function updateOrderCustody(
   if (cancelled && from === DEVICE_CUSTODY_WITH_SHOP && to === DEVICE_CUSTODY_WITH_CUSTOMER) {
     throw new Error("已取消工单请使用“确认设备已退还”操作");
   }
-  if (status === "completed" && to === DEVICE_CUSTODY_WITH_SHOP) {
+  if (
+    (status === "completed" || currentWorkflowBucket === "done") &&
+    to === DEVICE_CUSTODY_WITH_SHOP
+  ) {
     throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
   }
+
+  if (isTerminal) {
+    if (!actor?.id) throw new Error("修正已结束工单的设备保管状态需要已登录员工身份");
+    if (!reason || reason.length < 5) {
+      throw new Error("已结束工单修正设备保管状态时，说明至少需要 5 个字符");
+    }
+    const { data, error } = await supabase.rpc("repairdesk_correct_terminal_order_custody", {
+      p_store_id: storeId,
+      p_order_id: id,
+      p_actor_id: actor.id,
+      p_expected_updated_at: input.expected_updated_at,
+      p_idempotency_key: input.idempotency_key,
+      p_device_custody_status: to,
+      p_reason: reason,
+    });
+    fail(error, "修正已结束工单的设备保管状态失败");
+    if (!data || typeof data !== "object") {
+      throw new Error("修正已结束工单的设备保管状态失败：数据库返回无效");
+    }
+    const result = data as Record<string, unknown>;
+    if (result.ok !== true) {
+      const code = requiredString(result.code);
+      const messages: Record<string, string> = {
+        actor_forbidden: "只有店主或经理可以修正已结束工单的设备保管状态",
+        order_not_found: "工单不存在或不属于当前店铺",
+        stale_version: "工单已被其他操作更新，请刷新后重试",
+        order_voided: "该工单记录已作废，只能查看历史证据",
+        invalid_state: "当前工单不是可审计修正的已结束工单",
+        invalid_reason: "修正说明至少需要 5 个字符",
+        idempotency_conflict: "该操作标识已用于不同请求，请刷新后重试",
+        terminal_reopen_required: "设备重新回店前，请先按返修流程重新打开工单",
+        use_cancelled_return: "已取消工单请使用“确认设备已退还”操作",
+        custody_conflict: "设备保管状态与交付时间冲突，请先修正保管记录",
+      };
+      throw new Error(messages[code] ?? "修正已结束工单的设备保管状态失败");
+    }
+    const updatedAt = maybeString(result.updated_at);
+    if (!updatedAt) {
+      throw new Error("修正已结束工单的设备保管状态失败：数据库返回无效");
+    }
+    return { ok: true, updated_at: updatedAt };
+  }
+
   const workflowBucket =
     from === DEVICE_CUSTODY_WITH_SHOP && to === DEVICE_CUSTODY_WITH_CUSTOMER
-      ? await readWorkflowStatusBucket(supabase, storeId, status)
+      ? currentWorkflowBucket
       : undefined;
   if (
     from !== to &&
@@ -2105,6 +2167,9 @@ export async function reopenOrder(
     p_to_status: input.to_status,
     p_reason: input.reason.trim(),
   });
+  if (error?.message.includes("physical-work reopen requires shop custody")) {
+    throw new Error("设备当前未留店；请先重开到接待或报价阶段，再确认收机后进入维修流程");
+  }
   fail(error, "重新打开工单失败");
   return terminalOperationResult(data);
 }
@@ -2124,6 +2189,12 @@ export async function voidOrder(
     p_reason: input.reason.trim(),
     p_confirm_public_no: input.confirm_public_no.trim(),
   });
+  if (error?.message.includes("custody status must be confirmed before void")) {
+    throw new Error("作废前必须先确认设备由门店还是客人保管");
+  }
+  if (error?.message.includes("shop-held device must be returned before void")) {
+    throw new Error("设备仍由门店保管，必须先完成退还才能作废工单");
+  }
   fail(error, "作废工单失败");
   return terminalOperationResult(data);
 }
@@ -2383,7 +2454,7 @@ async function readOrderCustodyRow(
   const result = await supabase
     .from("repair_orders")
     .select(
-      "id,status,assignee_membership_id,workflow_status,exception_status,approval_status,approval_flow_status,parts_status,notify_status,approval_sent_at,diagnosis_result,cancel_reason,device_custody_status,device_unlock_method,device_unlock_value,device_unlock_pattern,completed_at,delivered_at,updated_at",
+      "id,status,assignee_membership_id,workflow_status,exception_status,approval_status,approval_flow_status,parts_status,notify_status,approval_sent_at,diagnosis_result,cancel_reason,device_custody_status,device_unlock_method,device_unlock_value,device_unlock_pattern,completed_at,delivered_at,record_state,deleted_at,updated_at",
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -2408,7 +2479,14 @@ function assertCustodyAllowsTransition(row: DbRecord, to: RepairOrderStatus, buc
     bucket === "diagnosing" ||
     bucket === "repair" ||
     bucket === "pickup";
-  if (!custodyStatus && (requiresPhysicalCustody || to === "completed" || to === "cancelled")) {
+  if (
+    !custodyStatus &&
+    (requiresPhysicalCustody ||
+      to === "completed" ||
+      to === "cancelled" ||
+      bucket === "done" ||
+      bucket === "cancelled")
+  ) {
     throw new Error("请先确认设备是留在门店还是由客户带走，再进行此状态流转");
   }
   if (custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && requiresPhysicalCustody) {
@@ -2483,6 +2561,10 @@ async function applyAtomicOrderMutation({
       throw new Error("该操作标识已用于不同请求，请刷新后重试");
     }
     if (code === "missing_expected_version") throw new Error("缺少工单版本，请刷新后再试");
+    if (code === "order_voided") throw new Error("该工单记录已作废，只能查看历史证据");
+    if (code === "terminal_operation_required") {
+      throw new Error("已结束工单必须使用审计化设备保管修正操作");
+    }
     if (code === "invalid_status") throw new Error("目标工单状态不存在或已停用");
     if (code === "completed_reopen_required") {
       throw new Error("已完成工单不能直接改为门店保管，请先按返修流程重开");
@@ -2850,13 +2932,7 @@ export async function updateOrder(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
-  const accessRow = await readOrderCustodyRow(
-    supabase,
-    storeId,
-    id,
-    requestActor,
-    "读取工单失败",
-  );
+  const accessRow = await readOrderCustodyRow(supabase, storeId, id, requestActor, "读取工单失败");
   await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
   if (input.device_unlock) {
     if (

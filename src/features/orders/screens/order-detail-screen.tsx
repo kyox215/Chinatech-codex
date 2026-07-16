@@ -151,7 +151,7 @@ import {
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
 import {
-  isOrderCancelledForPayment,
+  isOrderCancelledState,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
 import {
@@ -174,6 +174,7 @@ import {
   deviceCustodyBlocksStatus,
   deviceCustodyLabel,
   deviceCustodyStatusFromOrder,
+  isDeviceCustodyReasonValid,
   formatDeviceCustodyEvent,
   isDeviceCustodyStatus,
 } from "@/features/orders/model/device-custody";
@@ -821,7 +822,7 @@ export function OrderDetailScreen({
   const partsSupplier = supplierPermissions.canReadSuppliers
     ? (data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id))
     : undefined;
-  const cancelled = isOrderCancelledForPayment(order);
+  const cancelled = isOrderCancelledState(order);
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   const next = cancelled
     ? { primary: undefined, secondary: [] }
@@ -860,7 +861,13 @@ export function OrderDetailScreen({
   const canUpdateCustody = Boolean(shell.activeStore?.role && shell.activeStore.role !== "viewer");
   const canCorrectTerminalCustody =
     shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager";
-  const custodyReasonRequired = custodyStatus === null || order.status === "completed" || cancelled;
+  const custodyTerminal =
+    order.status === "completed" ||
+    cancelled ||
+    (order.workflow_bucket !== undefined
+      ? order.workflow_bucket === "done"
+      : order.workflow_status === "closed");
+  const custodyReasonRequired = custodyStatus === null || custodyTerminal;
   const signatureAttachments = (data.attachments ?? []).filter(
     (attachment) => attachment.kind === "signature",
   );
@@ -1280,11 +1287,9 @@ export function OrderDetailScreen({
         target={custodyDialogTarget}
         reason={custodyReason}
         reasonRequired={custodyReasonRequired}
+        minimumReasonLength={custodyTerminal ? 5 : custodyReasonRequired ? 1 : 0}
         pending={custodyUpdate.isPending}
-        canSubmit={
-          canUpdateCustody &&
-          !((order.status === "completed" || cancelled) && !canCorrectTerminalCustody)
-        }
+        canSubmit={canUpdateCustody && !(custodyTerminal && !canCorrectTerminalCustody)}
         onReasonChange={setCustodyReason}
         onOpenChange={(open) => {
           if (!open) closeCustodyOverlay();
@@ -1391,6 +1396,7 @@ function OrderCustodyChangeOverlay({
   target,
   reason,
   reasonRequired,
+  minimumReasonLength,
   pending,
   canSubmit,
   onReasonChange,
@@ -1402,6 +1408,7 @@ function OrderCustodyChangeOverlay({
   target: DeviceCustodyStatus | null;
   reason: string;
   reasonRequired: boolean;
+  minimumReasonLength: number;
   pending: boolean;
   canSubmit: boolean;
   onReasonChange: (value: string) => void;
@@ -1419,7 +1426,12 @@ function OrderCustodyChangeOverlay({
   const body = (
     <div className="grid min-w-0 gap-3 p-4">
       <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
-        <span>操作说明{reasonRequired ? "（必填）" : "（可选）"}</span>
+        <span>
+          操作说明
+          {reasonRequired
+            ? `（必填${minimumReasonLength > 1 ? `，至少 ${minimumReasonLength} 个字符` : ""}）`
+            : "（可选）"}
+        </span>
         <Textarea
           value={reason}
           onChange={(event) => onReasonChange(event.target.value)}
@@ -1443,7 +1455,12 @@ function OrderCustodyChangeOverlay({
       </Button>
       <Button
         type="button"
-        disabled={pending || !target || (reasonRequired && !reason.trim()) || !canSubmit}
+        disabled={
+          pending ||
+          !target ||
+          !isDeviceCustodyReasonValid(reason, minimumReasonLength) ||
+          !canSubmit
+        }
         onClick={onConfirm}
       >
         {pending ? "保存中..." : "确认保存"}
@@ -1513,9 +1530,14 @@ function OrderDeviceCustodyCard({
   className?: string;
 }) {
   const status = deviceCustodyStatusFromOrder(order);
-  const cancelled = isOrderCancelledForPayment(order);
-  const isTerminal = order.status === "completed" || cancelled;
-  const canUpdate = Boolean(role && role !== "viewer");
+  const cancelled = isOrderCancelledState(order);
+  const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
+  const isTerminal =
+    order.status === "completed" ||
+    cancelled ||
+    workflowBucket === "done" ||
+    (workflowBucket === undefined && order.workflow_status === "closed");
+  const canUpdate = Boolean(role && role !== "viewer" && !isVoided);
   const canCorrectTerminal = role === "owner" || role === "manager";
   const latestHandoff = getLatestCustodyHandoff(events);
   const description =
@@ -1587,7 +1609,7 @@ function OrderDeviceCustodyCard({
           {target === DEVICE_CUSTODY_WITH_SHOP ? "确认收机" : "确认交还客人"}
         </Button>,
       );
-  } else if (isTerminal && canCorrectTerminal && status) {
+  } else if (isTerminal && canCorrectTerminal && canUpdate && status) {
     const target =
       status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
     if (allowsTarget(target)) {
@@ -2406,7 +2428,7 @@ function MobileOrderDetailView({
   className?: string;
 }) {
   const { order, customer } = data;
-  const cancelled = isOrderCancelledForPayment(order);
+  const cancelled = isOrderCancelledState(order);
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   const events = data.events ?? [];
@@ -4156,7 +4178,7 @@ function MobileStickyWorkflowHeader({
   canCancel: boolean;
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const cancelled = isOrderCancelledForPayment(order);
+  const cancelled = isOrderCancelledState(order);
   const statusLabel = cancelled ? "已取消" : getWorkflowStatusLabel(workflow, order.status);
   const nextText = nextLabel ? `下一步：${nextLabel}` : currentStage.nextAction;
   const sideBadges = getOrderSideStatusBadges(order).slice(0, 3);

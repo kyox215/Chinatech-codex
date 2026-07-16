@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { OrderListItem } from "@/lib/repairdesk/types";
 
-import { getOrderLiveOutstandingAmount, isOrderPaymentCollectible } from "./order-payment-state";
+import {
+  getOrderLiveOutstandingAmount,
+  isOrderCancelledState,
+  isOrderPaymentCollectible,
+} from "./order-payment-state";
 
 function order(overrides: Partial<OrderListItem> = {}) {
   return {
@@ -34,5 +38,10 @@ describe("order payment state", () => {
     expect(isOrderPaymentCollectible(order({ status: "repairing", workflow_bucket: "done" }))).toBe(
       true,
     );
+  });
+
+  it("does not present voided history as a cancelled workflow state", () => {
+    expect(isOrderCancelledState(order({ record_state: "voided" }))).toBe(false);
+    expect(isOrderCancelledState(order({ workflow_bucket: "cancelled" }))).toBe(true);
   });
 });

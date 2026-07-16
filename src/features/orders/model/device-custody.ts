@@ -55,6 +55,7 @@ export function formatDeviceCustodyEvent(payload: Record<string, unknown>) {
     "device_custody_received",
     "device_custody_returned",
     "device_custody_corrected",
+    "terminal_custody_correction",
     "device_custody_import_rolled_back",
     "custody_return_confirmed",
   ]);
@@ -107,7 +108,14 @@ export function deviceCustodyAllowsStatus(
   if (deviceCustodyBlocksStatus(status, workflowBucket)) {
     return custodyStatus === DEVICE_CUSTODY_WITH_SHOP;
   }
-  if (status === "completed" || status === "cancelled") return Boolean(custodyStatus);
+  if (
+    status === "completed" ||
+    status === "cancelled" ||
+    workflowBucket === "done" ||
+    workflowBucket === "cancelled"
+  ) {
+    return Boolean(custodyStatus);
+  }
   return true;
 }
 
@@ -119,9 +127,17 @@ export function deviceCustodyAllowsChange(input: {
   workflowBucket?: string | null;
 }) {
   if (input.current === input.target) return false;
-  if (input.status === "completed" && input.target === DEVICE_CUSTODY_WITH_SHOP) return false;
+  if (
+    (input.status === "completed" || input.workflowBucket === "done") &&
+    input.target === DEVICE_CUSTODY_WITH_SHOP
+  ) {
+    return false;
+  }
 
-  const cancelled = input.status === "cancelled" || input.exceptionStatus === "cancelled";
+  const cancelled =
+    input.status === "cancelled" ||
+    input.exceptionStatus === "cancelled" ||
+    input.workflowBucket === "cancelled";
   if (
     input.current === DEVICE_CUSTODY_WITH_SHOP &&
     input.target === DEVICE_CUSTODY_WITH_CUSTOMER &&
@@ -146,4 +162,8 @@ export function hasUnlockValue(input: DeviceUnlockInput | undefined) {
   if (!input || input.method === "none") return false;
   if (input.method === "pattern") return input.pattern.length > 0;
   return input.value.trim().length > 0;
+}
+
+export function isDeviceCustodyReasonValid(reason: string, minimumLength: number) {
+  return reason.trim().length >= minimumLength;
 }

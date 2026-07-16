@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260716183000_order_device_custody_status.sql",
+  "supabase/migrations/20260717001000_order_device_custody_finance_reconcile.sql",
 );
 const sql = readFileSync(migrationPath, "utf8");
 
@@ -50,13 +50,22 @@ describe("device custody migration", () => {
   });
 
   it("matches the production uuid order and event identifier contract", () => {
-    expect(sql).toContain("p_order_id uuid");
-    expect(sql).not.toContain("p_order_id text");
-    expect(sql).toContain("p_order_id::text");
-    expect(sql).toContain("gen_random_uuid(),");
-    expect(sql).not.toContain("gen_random_uuid()::text");
-    expect(sql).toContain("p_event_type,\n    v_event_payload");
-    expect(sql).not.toContain("p_event_type::public.order_event_type");
+    const atomicStart = sql.indexOf(
+      "create or replace function public.repairdesk_apply_order_atomic_mutation",
+    );
+    const terminalCustodyStart = sql.indexOf(
+      "create or replace function public.repairdesk_correct_terminal_order_custody",
+    );
+    const atomicSql = sql.slice(atomicStart, terminalCustodyStart);
+
+    expect(atomicSql).toContain("p_order_id uuid");
+    expect(atomicSql).not.toContain("p_order_id text");
+    expect(atomicSql).toContain("p_order_id::text");
+    expect(atomicSql).toContain("gen_random_uuid(),");
+    expect(atomicSql).not.toContain("gen_random_uuid()::text");
+    expect(atomicSql).toContain("p_event_type,\n    v_event_payload");
+    expect(atomicSql).not.toContain("p_event_type::public.order_event_type");
+    expect(sql).toContain("gen_random_uuid()::text, p_actor_id, v_actor_email");
   });
 
   it("limits mutation RPCs to service role and leaves legacy implementations inaccessible", () => {
@@ -87,36 +96,63 @@ describe("device custody migration", () => {
     expect(sql).toContain("Fail-closed placeholder");
   });
 
-  it("requires completed orders to reopen before a device can return to the shop", () => {
-    expect(sql).toContain("v_order.status = 'completed'");
-    expect(sql).toContain("'code', 'completed_reopen_required'");
+  it("routes terminal custody corrections through an audited owner-manager RPC", () => {
+    expect(sql).toContain(
+      "create or replace function public.repairdesk_correct_terminal_order_custody",
+    );
+    expect(sql).toContain(
+      "if v_actor_role is null or v_actor_role not in ('owner', 'manager') then",
+    );
+    expect(sql).toContain(
+      "p_device_custody_status is null\n     or p_device_custody_status not in",
+    );
+    expect(sql).toContain("'code', 'terminal_reopen_required'");
+    expect(sql).toContain("'code', 'use_cancelled_return'");
+    expect(sql).toContain("'custody_correction'");
+    expect(sql).toContain("'action', 'terminal_custody_correction'");
+    expect(sql).toContain(
+      "grant execute on function public.repairdesk_correct_terminal_order_custody(",
+    );
   });
 
-  it("treats exception cancellation as terminal and blocks handover during physical work", () => {
-    expect(sql).toContain("or v_order.exception_status = 'cancelled'");
-    expect(sql).toContain("v_order.exception_status is distinct from 'cancelled'");
+  it("treats legacy and custom cancellation as terminal and blocks physical handover", () => {
+    expect(sql).toContain("coalesce(v_order.exception_status::text, '') = 'cancelled'");
+    expect(sql).toContain("coalesce(v_current_bucket, '') in ('done', 'cancelled')");
+    expect(sql).toContain("coalesce(v_target_bucket, '') = 'cancelled'");
+    expect(sql).toContain("p_update ->> 'exception_status' = 'cancelled'");
     expect(sql).toContain("'code', 'custody_handover_requires_flow_change'");
-    expect(sql).toContain("from public.order_workflow_statuses as current_status");
-    expect(sql).toContain("current_status.code = v_order.status");
-    expect(sql).toContain("current_status.bucket in ('diagnosing', 'repair', 'pickup')");
+    expect(sql).toContain("from public.order_workflow_statuses as status_row");
+    expect(sql).toContain("status_row.code::text = v_order.status::text");
+    expect(sql).toContain("coalesce(v_current_bucket, '') in ('diagnosing', 'repair', 'pickup')");
   });
 
-  it("rejects explicit-null custody before change, return, or completion handling", () => {
+  it("rejects explicit-null custody in both generic and cancelled-return paths", () => {
     const nullGuard = sql.indexOf("coalesce(p_update ->> 'device_custody_status', '') not in");
     const custodyChange = sql.indexOf("v_event_payload ->> 'action' = 'device_custody_changed'");
-    const cancelledReturn = sql.indexOf(
-      "v_event_payload ->> 'action' = 'custody_return_confirmed'",
-    );
     const completion = sql.indexOf("p_update ->> 'status' = 'completed'");
+    const returnStart = sql.indexOf(
+      "create or replace function public.repairdesk_confirm_cancelled_order_return",
+    );
+    const returnSql = sql.slice(returnStart);
+    const returnNullGuard = returnSql.indexOf("v_order.device_custody_status is null");
+    const alreadyWithCustomer = returnSql.indexOf(
+      "v_order.device_custody_status = 'with_customer'",
+    );
 
     expect(nullGuard).toBeGreaterThan(0);
     expect(nullGuard).toBeLessThan(custodyChange);
-    expect(nullGuard).toBeLessThan(cancelledReturn);
     expect(nullGuard).toBeLessThan(completion);
+    expect(returnStart).toBeGreaterThan(0);
+    expect(returnNullGuard).toBeGreaterThan(0);
+    expect(returnNullGuard).toBeLessThan(alreadyWithCustomer);
     expect(sql).toContain("'code', 'invalid_custody_status'");
+    expect(returnSql).toContain("'code', 'custody_unknown'");
   });
 
   it("keeps imports from fabricating delivery time and never restores cleared credentials", () => {
+    expect(sql).toContain(
+      "and (v_target is null or v_target not in ('with_shop', 'with_customer'))",
+    );
     expect(sql).not.toContain(
       "when v_from = 'with_shop' and v_target = 'with_customer' then v_now",
     );
@@ -125,5 +161,20 @@ describe("device custody migration", () => {
     expect(sql).toContain("delivered_at = v_target_delivery");
     expect(sql).toContain("'credentials_restored', false");
     expect(sql).toContain("'device_custody_credentials_restored', false");
+  });
+
+  it("extends cancelled return and terminal protection as one atomic custody boundary", () => {
+    expect(sql).toContain(
+      "create or replace function public.repairdesk_confirm_cancelled_order_return",
+    );
+    expect(sql).toContain("set completed_at = coalesce(completed_at, v_now)");
+    expect(sql).toContain("device_custody_status = 'with_customer'");
+    expect(sql).toContain("device_unlock_method = null");
+    expect(sql).toContain("'action', 'custody_return_confirmed'");
+    expect(sql).toContain("'custody_return',\n    v_request_hash");
+    expect(sql).toContain("new.device_custody_status is distinct from old.device_custody_status");
+    expect(sql).toContain("new.device_unlock_value is distinct from old.device_unlock_value");
+    expect(sql).toContain("physical-work reopen requires shop custody");
+    expect(sql).toContain("shop-held device must be returned before void");
   });
 });

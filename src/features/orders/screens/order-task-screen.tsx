@@ -451,14 +451,14 @@ export function OrderTaskScreen({ id }: { id: string }) {
               >
                 <TabletSmartphone className="size-4" />
                 {order.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP
-                ? order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
-                  ? "设备未留店，无需取机确认"
-                  : "请先确认设备保管状态"
-                : kioskPickupRequest.isPending
-                  ? "发送中"
-                  : activeKioskDevice
-                    ? "发送取机确认到 iPad"
-                    : "无可用 iPad"}
+                  ? order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
+                    ? "设备未留店，无需取机确认"
+                    : "请先确认设备保管状态"
+                  : kioskPickupRequest.isPending
+                    ? "发送中"
+                    : activeKioskDevice
+                      ? "发送取机确认到 iPad"
+                      : "无可用 iPad"}
               </Button>
             ) : null}
           </section>

@@ -5,6 +5,7 @@ import {
   deviceCustodyAllowsStatus,
   deviceCustodyDisplayLabel,
   formatDeviceCustodyEvent,
+  isDeviceCustodyReasonValid,
   normalizeUnlockForCustody,
 } from "./device-custody";
 
@@ -74,6 +75,11 @@ describe("device custody domain rules", () => {
       method: "pin",
       value: "1234",
     });
+  });
+
+  it("requires a five-character explanation for terminal custody corrections", () => {
+    expect(isDeviceCustodyReasonValid(" 修正 ", 5)).toBe(false);
+    expect(isDeviceCustodyReasonValid("历史修正说明", 5)).toBe(true);
   });
 
   it("renders generic custody audit events as human-readable handovers", () => {
