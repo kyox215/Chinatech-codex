@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260716-001-dashboard-handoff-priority"
 title: "概览页优先工单与门店交接工作台"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "DATA", "DOC", "FE", "FLOW", "INT", "QA", "SEC", "UX"]
 created_at: "2026-07-15T22:43:38Z"
-updated_at: "2026-07-16T00:20:53Z"
+updated_at: "2026-07-16T00:30:25Z"
+closed_at: "2026-07-16T00:30:25Z"
 ---
 # Task — 概览页优先工单与门店交接工作台
 
@@ -58,7 +59,7 @@ updated_at: "2026-07-16T00:20:53Z"
 - [x] 优先队列由服务端在授权店铺范围内对全部活跃工单确定性排序，不受列表前50条分页影响。
 - [x] 每个优先工单展示优先原因、当前步骤、下一步、负责人和最后更新时间，点击只进入正式任务流程，不在概览直接变更状态。
 - [x] 移动与桌面覆盖加载、空、错误、部分数据、长文本与权限脱敏状态，关键视口无页面横向溢出。
-- [ ] lint、typecheck、test、build、目标Playwright与结果截图通过，完成后只提交本任务文件并推送main。
+- [x] lint、typecheck、test、build、目标Playwright与结果截图通过，完成后只提交本任务文件并推送main。
 
 ## Facts, assumptions, and unknowns
 

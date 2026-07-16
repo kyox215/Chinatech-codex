@@ -12,6 +12,9 @@
 | E-008 | desktop visual | final desktop first screen shows main priority queue, handoff counts and business entries | `screenshots/TASK-20260716-001-dashboard-handoff-priority/dashboard-desktop-1440.jpg` | 1440x900; privacy/layout audit pass | 2026-07-16 | Integration Lead + UX/FLOW reviewer |
 | E-009 | independent review | architecture/data, UX/flow and QA/security contracts have no blocking findings | read-only department reviews | ARCH/DATA PASS; UX/FLOW PASS; QA/SEC PASS | 2026-07-16 | department sub-agents |
 | E-010 | scope | no Supabase migration, production deployment, direct Dashboard mutation, dependency or secret change is present | scoped Git diff and route/browser review | pass | 2026-07-16 | Integration Lead |
+| E-011 | Git integration | the verified implementation was committed and published without changing the dirty root checkout | implementation commit `59f639c0ab18f1a07bf90cf21badb1c559305292`; `git push origin HEAD:main`; `git ls-remote origin refs/heads/main` | remote `main` matched implementation commit before the closeout-only archive commit | 2026-07-16 | Integration Lead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
+- `2026-07-16T00:30:08Z` `8e972c3e35` — E-004/E-005/E-006/E-009: full gates, build, browser flow and independent reviews passed.
+- `2026-07-16T00:30:08Z` `5ea53aa394` — E-011: implementation commit 59f639c0ab18f1a07bf90cf21badb1c559305292 was pushed to and verified on origin/main.

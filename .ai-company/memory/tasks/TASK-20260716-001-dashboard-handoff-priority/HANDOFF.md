@@ -2,12 +2,13 @@
 
 ## Current handoff
 
-- **Status:** implementation and pre-push quality gates complete; awaiting scoped Git integration and remote verification.
-- **Last verified:** 2026-07-16T00:10:15Z
-- **Workspace/branch:** `/private/tmp/repairdesk-dashboard-handoff-20260716` / `codex/dashboard-handoff-20260716`; base `origin/main@4a8458a0c5a01e0f50dc4179ee7dd4c6cde73c2e`.
-- **Completed:** actor-scoped priority endpoint/model, responsive handoff UI, old endpoint rolling compatibility, focused/full/browser gates, two current screenshots, ARCH/DATA and UX/FLOW PASS reviews.
-- **Remaining:** receive final QA/SEC verdict, checkpoint, fetch/reconcile current `origin/main`, scoped commit, push `HEAD:main`, verify remote SHA, then close task memory.
-- **First action if resumed:** inspect `git status`, latest checkpoint and remote `origin/main`; do not repeat production/database work because none is in scope.
+- **Status:** closed; implementation, independent review, validation, visual evidence and Git integration are complete.
+- **Last verified:** 2026-07-16T00:28:07Z
+- **Workspace/branch:** `/private/tmp/repairdesk-dashboard-handoff-20260716` / `codex/dashboard-handoff-20260716`; original base `origin/main@4a8458a0c5a01e0f50dc4179ee7dd4c6cde73c2e`.
+- **Implementation commit:** `59f639c0ab18f1a07bf90cf21badb1c559305292`, pushed to and verified on `origin/main` before archiving this closeout record.
+- **Completed:** actor-scoped priority endpoint/model, responsive handoff UI, rolling compatibility, focused/full/browser gates, two current screenshots, and ARCH/DATA, UX/FLOW, QA/SEC PASS reviews.
+- **Remaining:** none in this task. Open a separately scoped task for any residual P2 follow-up.
+- **First action if revisited:** treat this archive as closed; inspect current source and remote state before proposing a new change. No production/database work was part of this task.
 
 ## Residual P2s
 
