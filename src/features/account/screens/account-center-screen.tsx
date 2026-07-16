@@ -32,6 +32,7 @@ import {
   authErrorMessage,
   emailChangeRequestedMessage,
   normalizeAuthEmail,
+  passwordResetSentMessage,
   validateEmailChange,
   validateNewPassword,
   verificationEmailSentMessage,
@@ -119,6 +120,20 @@ export function AccountCenterScreen() {
       toast.success("密码已更新");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "修改密码失败"),
+  });
+
+  const passwordResetMutation = useMutation({
+    mutationFn: async () => {
+      const email = normalizeAuthEmail(currentEmail);
+      if (!email) throw new Error("未读取当前登录邮箱");
+      const { error } = await createClient().auth.resetPasswordForEmail(email, {
+        redirectTo: buildAuthCallbackUrl("/reset-password"),
+      });
+      if (error) throw new Error(authErrorMessage(error));
+      return email;
+    },
+    onSuccess: () => toast.success(passwordResetSentMessage()),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "发送重置邮件失败"),
   });
 
   const resendVerificationMutation = useMutation({
@@ -257,7 +272,7 @@ export function AccountCenterScreen() {
                 </p>
                 <Button
                   type="button"
-                  className={cn("gap-2", controls.brandButton)}
+                  className={cn("w-full gap-2 sm:w-auto", controls.brandButton)}
                   style={brandGradientStyle}
                   disabled={!hasProfileChange || profileMutation.isPending}
                   onClick={() => profileMutation.mutate()}
@@ -319,6 +334,11 @@ export function AccountCenterScreen() {
             )}
             更新密码
           </Button>
+          <PasswordResetEmailPanel
+            email={currentEmail}
+            isSending={passwordResetMutation.isPending}
+            onSend={() => passwordResetMutation.mutate()}
+          />
         </section>
       </div>
     </div>
@@ -386,7 +406,7 @@ function AccountEmailSecurityPanel({
             type="button"
             variant="outline"
             size="sm"
-            className="shrink-0 gap-1.5"
+            className="w-full shrink-0 gap-1.5 sm:w-auto"
             disabled={isResending || !email}
             onClick={onResendVerification}
           >
@@ -436,12 +456,46 @@ function AccountEmailSecurityPanel({
         <Button
           type="button"
           variant="outline"
-          className="gap-2"
+          className="w-full gap-2 sm:w-auto"
           disabled={isChanging}
           onClick={onChangeEmail}
         >
           {isChanging ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
           发送换绑邮件
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PasswordResetEmailPanel({
+  email,
+  isSending,
+  onSend,
+}: {
+  email: string;
+  isSending: boolean;
+  onSend: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-semibold">忘记当前密码？</p>
+          <p className="break-words text-xs leading-5 text-muted-foreground">
+            发送重置链接到当前登录邮箱，打开邮件后重新设置密码。
+          </p>
+          <p className="break-all text-xs text-muted-foreground">{email || "未读取当前登录邮箱"}</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full shrink-0 gap-2 sm:w-auto"
+          disabled={isSending || !email}
+          onClick={onSend}
+        >
+          {isSending ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
+          发送重置邮件
         </Button>
       </div>
     </div>
