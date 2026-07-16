@@ -46,7 +46,9 @@ type GroupableOrder = Pick<
 
 export function getOrderResultGroup(order: GroupableOrder): OrderResultGroup {
   if (isOrderArchivedForQueue(order)) {
-    return order.status === "cancelled" ? "cancelled" : "completed";
+    return order.status === "cancelled" || order.exception_status === "cancelled"
+      ? "cancelled"
+      : "completed";
   }
   return getOrderQueueGroup(order);
 }

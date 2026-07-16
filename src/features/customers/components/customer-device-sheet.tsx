@@ -25,6 +25,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { CustomerDeviceWorkbenchItem } from "@/features/customers/model/customer-workbench";
+import { isCustomerOrderCancelled } from "@/features/customers/model/customer-order-state";
 import { formatCustomerDateTime } from "@/features/customers/components/customer-profile-blocks";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { Device } from "@/lib/repairdesk/api";
@@ -113,7 +114,7 @@ export function CustomerDeviceSheet({
                 在修 {item.activeOrderCount}
               </RepairOsBadge>
             ) : null}
-            {item.unpaidAmount > 0 ? (
+            {!item.financeRedacted && item.unpaidAmount > 0 ? (
               <RepairOsBadge className="bg-status-danger/10 text-[10px] text-status-danger-foreground">
                 待收 <MoneyText amount={item.unpaidAmount} />
               </RepairOsBadge>
@@ -132,8 +133,14 @@ export function CustomerDeviceSheet({
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           <div className="grid min-w-0 grid-cols-2 gap-1.5">
             <DeviceMetric label="维修次数" value={`${item.repairCount} 次`} />
-            <DeviceMetric label="总金额" value={<MoneyText amount={item.totalQuoted} />} />
-            <DeviceMetric label="待收尾款" value={<MoneyText amount={item.unpaidAmount} />} />
+            <DeviceMetric
+              label="有效工单额"
+              value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.totalQuoted} />}
+            />
+            <DeviceMetric
+              label="待收尾款"
+              value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.unpaidAmount} />}
+            />
             <DeviceMetric label="售后" value={item.warrantyLabel} />
           </div>
 
@@ -273,7 +280,11 @@ function DeviceMetric({ label, value }: { label: string; value: ReactNode }) {
 
 function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderItems"][number] }) {
   const isClosed = item.state === "closed";
-  const balance = Math.max(0, item.order.balance_amount);
+  const balance = Number.isFinite(item.order.balance_amount)
+    ? Math.max(0, item.order.balance_amount)
+    : 0;
+  const cancelled = isCustomerOrderCancelled(item.order);
+  const financeRedacted = Boolean(item.order.finance_redacted);
 
   return (
     <Link
@@ -289,7 +300,10 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
           <span className="truncate font-mono text-[10px] font-semibold text-primary">
             {item.order.public_no}
           </span>
-          <StatusBadge status={item.order.status} className="max-w-[5.5rem] text-[10px]" />
+          <StatusBadge
+            status={cancelled ? "cancelled" : item.order.status}
+            className="max-w-[5.5rem] text-[10px]"
+          />
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 text-[9px] leading-3 text-muted-foreground">
           <CalendarClock className="size-3" />
@@ -304,17 +318,25 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
           {item.order.issue_description}
         </span>
         <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums">
-          <MoneyText amount={item.order.quotation_amount} />
+          {financeRedacted ? "金额受限" : <MoneyText amount={item.order.quotation_amount} />}
         </span>
       </div>
-      <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] leading-3 text-muted-foreground tabular-nums">
-        <span>
-          定金 <MoneyText amount={item.order.deposit_amount} />
-        </span>
-        <span className={balance > 0 ? "text-status-danger-foreground" : ""}>
-          待收 <MoneyText amount={balance} />
-        </span>
-      </div>
+      {!financeRedacted ? (
+        <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] leading-3 text-muted-foreground tabular-nums">
+          <span>
+            定金 <MoneyText amount={item.order.deposit_amount} />
+          </span>
+          {cancelled ? (
+            <span className="text-muted-foreground">
+              取消时余额 <MoneyText amount={balance} /> · 不计入待收
+            </span>
+          ) : (
+            <span className={balance > 0 ? "text-status-danger-foreground" : ""}>
+              待收 <MoneyText amount={balance} />
+            </span>
+          )}
+        </div>
+      ) : null}
     </Link>
   );
 }

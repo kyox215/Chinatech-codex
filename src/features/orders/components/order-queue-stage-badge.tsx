@@ -50,14 +50,15 @@ export function OrderQueueStageBadge({
   className?: string;
 }) {
   const archived = isOrderArchivedForQueue(order);
+  const cancelled = order.status === "cancelled" || order.exception_status === "cancelled";
   const group = archived ? null : getOrderQueueGroup(order);
   const meta = group
     ? orderQueueGroupMeta[group]
-    : order.status === "cancelled"
+    : cancelled
       ? { label: "作废", hint: "作废订单，仅在历史中显示", tone: "danger" as const }
       : { label: "完成", hint: "完成订单，仅在历史中显示", tone: "neutral" as const };
-  const Icon = group ? groupIcons[group] : order.status === "cancelled" ? Ban : CheckCircle2;
-  const stageKey = group ?? order.status;
+  const Icon = group ? groupIcons[group] : cancelled ? Ban : CheckCircle2;
+  const stageKey = group ?? (cancelled ? "cancelled" : order.status);
 
   return (
     <span

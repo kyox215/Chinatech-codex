@@ -49,4 +49,15 @@ describe("OrderQueueStageBadge", () => {
 
     expect(screen.getByText(label)).toBeInTheDocument();
   });
+
+  it("marks exception-only cancellation as cancelled history", () => {
+    const { container } = render(
+      <OrderQueueStageBadge
+        order={{ status: "repairing", workflow_status: "repair", exception_status: "cancelled" }}
+      />,
+    );
+
+    expect(screen.getByText("作废")).toBeInTheDocument();
+    expect(container.querySelector('[data-order-queue-stage="cancelled"]')).toBeInTheDocument();
+  });
 });

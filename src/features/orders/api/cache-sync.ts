@@ -7,6 +7,7 @@ import type {
   OrderListResult,
   OrderQueueSummary,
 } from "@/lib/repairdesk/types";
+import { customersKeys } from "@/features/customers/api/query-keys";
 
 import { ordersKeys } from "./query-keys";
 
@@ -94,6 +95,7 @@ export function invalidateOrderReadCaches(queryClient: QueryClient, orderId?: st
   void queryClient.invalidateQueries({ queryKey: ordersDashboardSummaryCachePrefix });
   void queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
   void queryClient.invalidateQueries({ queryKey: ordersKeys.stats() });
+  void queryClient.invalidateQueries({ queryKey: customersKeys.all });
   if (orderId) {
     void queryClient.invalidateQueries({ queryKey: orderDetailCachePrefix(orderId) });
   }

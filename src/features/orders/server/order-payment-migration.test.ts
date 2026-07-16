@@ -5,6 +5,10 @@ const migration = readFileSync(
   "supabase/migrations/20260710145642_order_payment_ledger_atomic_rpc.sql",
   "utf8",
 ).toLowerCase();
+const cancellationGuardMigration = readFileSync(
+  "supabase/migrations/20260716175056_block_cancelled_order_payments.sql",
+  "utf8",
+).toLowerCase();
 
 describe("atomic order payment migration contract", () => {
   it("creates an append-only same-store ledger with an idempotency key", () => {
@@ -42,5 +46,29 @@ describe("atomic order payment migration contract", () => {
     expect(migration).not.toMatch(/\bdelete\s+from\b/);
     expect(migration).not.toMatch(/\btruncate\b/);
     expect(migration).not.toContain("pg_notify");
+  });
+});
+
+describe("cancelled order payment guard migration", () => {
+  it("keeps the atomic RPC and rejects status or exception cancellation signals", () => {
+    expect(cancellationGuardMigration).toContain(
+      "create or replace function public.repairdesk_record_order_payment",
+    );
+    expect(cancellationGuardMigration).toContain("v_order.status::text");
+    expect(cancellationGuardMigration).toContain("v_order.exception_status::text");
+    expect(cancellationGuardMigration).not.toContain("order_workflow_statuses");
+    expect(cancellationGuardMigration).toContain("'code', 'order_cancelled'");
+    expect(cancellationGuardMigration).toContain("for update");
+    expect(cancellationGuardMigration).toContain("insert into public.order_payment_ledger");
+  });
+
+  it("preserves service-role-only execution and performs no destructive data operation", () => {
+    expect(cancellationGuardMigration).toContain("security invoker");
+    expect(cancellationGuardMigration).toContain("set search_path = ''");
+    expect(cancellationGuardMigration).toContain("from public, anon, authenticated");
+    expect(cancellationGuardMigration).toContain("to service_role");
+    expect(cancellationGuardMigration).not.toMatch(/\bdrop\s+(table|column|function|type)\b/);
+    expect(cancellationGuardMigration).not.toMatch(/\bdelete\s+from\b/);
+    expect(cancellationGuardMigration).not.toContain("truncate");
   });
 });

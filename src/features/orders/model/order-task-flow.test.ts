@@ -29,6 +29,18 @@ describe("order task flow", () => {
     expect(getWorkflowProgressValue("closed")).toBe(4);
   });
 
+  it("maps exception-only cancellations to the closed workflow stage", () => {
+    expect(
+      getOrderTaskGuidance({
+        status: "repairing",
+        workflow_status: "repair",
+        exception_status: "cancelled",
+        approval_overdue: false,
+        pickup_overdue: false,
+      }).workflowStatus,
+    ).toBe("closed");
+  });
+
   it("aggregates detailed workflow counts for the simplified queue tabs", () => {
     expect(
       getSimpleOrderFlowCounts({
@@ -64,6 +76,7 @@ describe("order task flow", () => {
       getOrderTaskGuidance({
         status: "waiting_approval",
         workflow_status: "quote",
+        exception_status: undefined,
         approval_overdue: true,
         pickup_overdue: false,
       }),
@@ -79,6 +92,7 @@ describe("order task flow", () => {
       getOrderTaskGuidance({
         status: "repaired",
         workflow_status: undefined,
+        exception_status: undefined,
         approval_overdue: false,
         pickup_overdue: false,
       }),
@@ -88,6 +102,25 @@ describe("order task flow", () => {
       label: "已修复",
       nextAction: "通知取机",
       tone: "success",
+    });
+  });
+
+  it("describes exception-only cancellations as non-collectible history", () => {
+    expect(
+      getOrderTaskGuidance({
+        status: "repairing",
+        workflow_status: "repair",
+        exception_status: "cancelled",
+        approval_overdue: true,
+        pickup_overdue: true,
+      }),
+    ).toMatchObject({
+      workflowStatus: "closed",
+      stage: expect.objectContaining({ label: "取消归档", tone: "neutral" }),
+      label: "已取消",
+      task: expect.stringContaining("不计入待收"),
+      nextAction: "查看取消原因",
+      tone: "neutral",
     });
   });
 });

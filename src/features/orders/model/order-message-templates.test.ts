@@ -56,6 +56,29 @@ describe("order WhatsApp message templates", () => {
     expect(getOrderWhatsappTransition("new", "approval_request")).toBeUndefined();
   });
 
+  it("never describes a cancelled historical balance as payable", async () => {
+    const [order] = await listOrders();
+    const detail = await getOrder(order.id);
+    detail.order = {
+      ...detail.order,
+      status: "repairing",
+      exception_status: "cancelled",
+      balance_amount: 70,
+      is_paid: false,
+    };
+
+    for (const option of orderWhatsappTemplateOptions) {
+      const message = buildOrderWhatsappMessage(detail, option.kind, "https://example.com/order");
+
+      expect(message).not.toContain("Saldo da pagare");
+      expect(message).not.toContain("Totale preventivo");
+    }
+
+    expect(
+      buildOrderWhatsappMessage(detail, "repair_status", "https://example.com/order"),
+    ).toContain("Stato attuale: Annullato");
+  });
+
   it("translates expanded fault services without splitting slash or hyphen labels", () => {
     expect(translateFaultName("系统 - PIN/图案解锁")).toBe("Sistema - Sblocco PIN o sequenza");
     expect(translateFaultName("主板 - Wi-Fi/蓝牙异常")).toBe(

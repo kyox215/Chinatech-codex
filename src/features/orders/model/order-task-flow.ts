@@ -23,15 +23,40 @@ export function getOrderTaskStage(status: OrderWorkflowStatusCode) {
 export function getOrderWorkflowStatus(input: {
   status: RepairOrderStatus;
   workflow_status?: OrderWorkflowStatusCode;
+  exception_status?: OrderListItem["exception_status"];
 }) {
+  if (input.status === "cancelled" || input.exception_status === "cancelled") return "closed";
   return input.workflow_status ?? workflowStatusFromLegacyStatus(input.status);
 }
 
 export function getOrderTaskGuidance(
-  input: Pick<OrderListItem, "status" | "workflow_status" | "approval_overdue" | "pickup_overdue">,
+  input: Pick<
+    OrderListItem,
+    "status" | "workflow_status" | "exception_status" | "approval_overdue" | "pickup_overdue"
+  >,
 ) {
-  const workflowStatus = getOrderWorkflowStatus(input);
+  const cancelled = input.status === "cancelled" || input.exception_status === "cancelled";
+  const workflowStatus = cancelled ? "closed" : getOrderWorkflowStatus(input);
   const stage = getOrderTaskStage(workflowStatus);
+
+  if (cancelled) {
+    const cancelledStage: OrderTaskStage = {
+      ...stage,
+      label: "取消归档",
+      shortLabel: "消",
+      task: "工单已取消；历史余额仅供记录，不计入待收。",
+      nextAction: "查看取消原因",
+      tone: "neutral",
+    };
+    return {
+      stage: cancelledStage,
+      workflowStatus,
+      label: "已取消",
+      task: cancelledStage.task,
+      nextAction: cancelledStage.nextAction,
+      tone: "neutral" as const,
+    };
+  }
 
   if (input.approval_overdue) {
     return {

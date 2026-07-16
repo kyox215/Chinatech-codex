@@ -27,6 +27,17 @@ describe("order list visibility", () => {
       },
     },
     {
+      name: "legacy exception-only cancellation",
+      order: {
+        status: "repairing",
+        workflow_status: "repair" as const,
+        exception_status: "cancelled" as const,
+        is_paid: false,
+        payment_status: "unpaid" as const,
+        balance_amount: 70,
+      },
+    },
+    {
       name: "completed with an outstanding balance",
       order: {
         status: "completed",

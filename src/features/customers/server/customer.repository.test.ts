@@ -6,6 +6,7 @@ import {
   createCustomerFollowup,
   fetchCustomerRows,
   listCustomers,
+  listCustomersPage,
   sendCustomerMessage,
   upsertCustomerDevice,
 } from "./customer.repository";
@@ -13,6 +14,7 @@ import {
 const mocks = vi.hoisted(() => ({
   supabase: {
     from: vi.fn(),
+    rpc: vi.fn(),
   },
 }));
 
@@ -32,6 +34,76 @@ const storeActor: AuditActor = {
 describe("customer repository tenant write boundaries", () => {
   beforeEach(() => {
     mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("uses the v3 historical/valid contract without re-summing cancelled balances", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "customer_1",
+            name: "Mario",
+            phone_e164: "+39333",
+            phone_raw: "39333",
+            contact_phones: [],
+            consent_marketing: true,
+            tags: [],
+            device_count: 1,
+            order_count: 2,
+            valid_order_count: 1,
+            active_order_count: 1,
+            lifetime_quoted_amount: 70,
+            outstanding_amount: 70,
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 10,
+        pageCount: 1,
+        tags: [],
+        stats: {
+          total: 1,
+          repeat: 0,
+          activeRepairs: 1,
+          unpaid: 1,
+          withDevices: 1,
+          dueFollowups: 0,
+          marketable: 1,
+        },
+      },
+      error: null,
+    });
+
+    const result = await listCustomersPage(
+      { page: 1, pageSize: 10 },
+      { ...storeActor, storeRole: "owner" },
+    );
+
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_customer_list_page_v3",
+      expect.any(Object),
+    );
+    expect(result.items[0]).toMatchObject({
+      order_count: 2,
+      valid_order_count: 1,
+      total_spent: 70,
+      unpaid_amount: 70,
+    });
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on a real v3 error instead of reviving the known-wrong v2 path", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "aggregate query failed" },
+    });
+
+    await expect(listCustomersPage({ pageSize: 10 }, storeActor)).rejects.toThrow(
+      "aggregate query failed",
+    );
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
   it("blocks device upsert when the customer is outside the active store", async () => {

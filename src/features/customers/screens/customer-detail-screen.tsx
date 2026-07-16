@@ -611,10 +611,13 @@ function CustomerDesktopSummaryRail({
 
         <div className="grid grid-cols-2 gap-2">
           <CustomerRailMetric label="设备" value={stats.device_count} />
-          <CustomerRailMetric label="工单" value={stats.order_count} />
+          <CustomerRailMetric
+            label="历史 / 有效"
+            value={`${stats.order_count} / ${stats.valid_order_count ?? 0}`}
+          />
           <CustomerRailMetric label="待办" value={openFollowups} />
           <CustomerRailMetric
-            label={stats.finance_redacted ? "金额" : "未结清"}
+            label={stats.finance_redacted ? "金额" : "待收"}
             value={
               stats.finance_redacted ? "受限" : <MoneyText amount={stats.unpaid_amount ?? 0} />
             }

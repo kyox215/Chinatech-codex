@@ -2,7 +2,11 @@
 
 import { motion } from "framer-motion";
 
-import { getWorkflowProgressValue, orderTaskStages } from "@/features/orders/model/order-task-flow";
+import {
+  getWorkflowProgressValue,
+  orderTaskStages,
+  type OrderTaskStage,
+} from "@/features/orders/model/order-task-flow";
 import type { StatusTone } from "@/lib/mock/enums";
 import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
@@ -43,17 +47,20 @@ const nodeToneClass: Record<StatusTone, { current: string; done: string; track: 
 export function OrderWorkflowProgress({
   workflowStatus,
   tone,
+  currentStage,
   compact = false,
   showLabels = false,
   className,
 }: {
   workflowStatus: OrderWorkflowStatusCode;
   tone: StatusTone;
+  currentStage?: OrderTaskStage;
   compact?: boolean;
   showLabels?: boolean;
   className?: string;
 }) {
   const currentIndex = getWorkflowProgressValue(workflowStatus);
+  const activeStage = currentStage ?? orderTaskStages[currentIndex];
   const toneClass = nodeToneClass[tone];
   const stageCount = orderTaskStages.length;
   const railOffset = `${100 / Math.max(1, stageCount * 2)}%`;
@@ -64,7 +71,7 @@ export function OrderWorkflowProgress({
     <div
       className={cn("min-w-0", className)}
       data-order-workflow-progress="true"
-      aria-label={`当前流程：${orderTaskStages[currentIndex]?.label ?? workflowStatus}`}
+      aria-label={`当前流程：${activeStage?.label ?? workflowStatus}`}
     >
       <div
         className={cn("relative grid min-w-0 items-center", compact ? "h-4" : "h-8")}
@@ -87,11 +94,12 @@ export function OrderWorkflowProgress({
           const done = index < currentIndex;
           const current = index === currentIndex;
           const next = index === currentIndex + 1;
+          const displayStage = current ? (activeStage ?? stage) : stage;
 
           return (
             <span key={stage.key} className="relative z-10 grid place-items-center">
               <span
-                title={stage.label}
+                title={displayStage.label}
                 className={cn(
                   "grid place-items-center rounded-full border transition-all duration-200",
                   current && "relative",
@@ -117,7 +125,7 @@ export function OrderWorkflowProgress({
                     transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
                   />
                 )}
-                <span className="relative">{compact ? "" : stage.shortLabel}</span>
+                <span className="relative">{compact ? "" : displayStage.shortLabel}</span>
               </span>
             </span>
           );
@@ -128,18 +136,21 @@ export function OrderWorkflowProgress({
           className="mt-1 grid min-w-0 text-center text-[10px] leading-4 text-muted-foreground"
           style={stageGridStyle}
         >
-          {orderTaskStages.map((stage, index) => (
-            <span
-              key={stage.key}
-              className={cn(
-                "truncate",
-                index === currentIndex && "font-semibold text-foreground",
-                index < currentIndex && "text-primary",
-              )}
-            >
-              {stage.label}
-            </span>
-          ))}
+          {orderTaskStages.map((stage, index) => {
+            const displayStage = index === currentIndex ? (activeStage ?? stage) : stage;
+            return (
+              <span
+                key={stage.key}
+                className={cn(
+                  "truncate",
+                  index === currentIndex && "font-semibold text-foreground",
+                  index < currentIndex && "text-primary",
+                )}
+              >
+                {displayStage.label}
+              </span>
+            );
+          })}
         </div>
       )}
     </div>

@@ -647,7 +647,7 @@ export function OrderListScreen() {
 
   const refreshOrderData = (orderId?: string) => {
     if (coordinator) {
-      void coordinator.refreshGroups(["orders.all"]);
+      void coordinator.refreshGroups(["orders.all", "customers.all"]);
       return;
     }
     invalidate(orderId);

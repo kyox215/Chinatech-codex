@@ -301,7 +301,7 @@ export function CustomerMobileCard({
         trailing={
           <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">
             <span className="text-[9px] leading-3 text-muted-foreground">
-              {customer.finance_redacted ? "工单" : "总消费"}
+              {customer.finance_redacted ? "工单" : "有效工单额"}
             </span>
             {customer.finance_redacted ? (
               <span className={repairOs.cardAmount}>{customer.order_count} 单</span>
@@ -319,7 +319,7 @@ export function CustomerMobileCard({
               {customer.finance_redacted
                 ? `${customer.order_count} 个工单`
                 : (customer.unpaid_amount ?? 0) > 0
-                  ? "有未结清"
+                  ? "有待收"
                   : `${customer.order_count} 个工单`}
             </span>
             <span className="mt-0.5 grid size-7 place-items-center rounded-lg text-muted-foreground">
@@ -372,7 +372,7 @@ export function CustomerMobileCard({
             {customer.finance_redacted
               ? "金额受限"
               : (customer.unpaid_amount ?? 0) > 0
-                ? "未结清"
+                ? "有待收"
                 : "已结清"}
           </RepairOsBadge>
         </div>

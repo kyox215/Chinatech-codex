@@ -6,6 +6,7 @@ import {
   translateFaultName,
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 
 export const orderWhatsappTemplateOptions: {
   kind: OrderWhatsappTemplateKind;
@@ -70,9 +71,7 @@ export function buildOrderWhatsappMessage(
           "Interventi previsti:",
           ctx.faultLines,
           "",
-          `Totale preventivo: ${formatEuro(ctx.quotation)}`,
-          `Acconto: ${formatEuro(ctx.deposit)}`,
-          `Saldo da pagare: ${formatEuro(ctx.balance)}`,
+          ...ctx.financeLines,
           ctx.orderUrl ? `Link ordine: ${ctx.orderUrl}` : null,
           "",
           "La preghiamo di confermare se desidera procedere con la riparazione.",
@@ -211,7 +210,7 @@ function getTemplateContext(
         .join("\n")
     : `- ${translatePrintableText(order.issue_description) || "Intervento da confermare"}`;
   const financeLines =
-    order.quotation_amount > 0
+    !isOrderCancelledForPayment(order) && order.quotation_amount > 0
       ? [
           `Totale preventivo: ${formatEuro(order.quotation_amount)}`,
           order.deposit_amount > 0 ? `Acconto: ${formatEuro(order.deposit_amount)}` : null,
@@ -223,7 +222,7 @@ function getTemplateContext(
 
   return {
     publicNo: order.public_no,
-    status: order.status,
+    status: isOrderCancelledForPayment(order) ? "cancelled" : order.status,
     customerName: customer?.name || order.customer_name || "Cliente",
     deviceLabel,
     faultLines,

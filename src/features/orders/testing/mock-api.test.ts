@@ -102,6 +102,12 @@ describe("mock order WhatsApp notification workflow", () => {
       technicians: [technician],
       pageSize: 10,
     });
+    const unpaidHistory = await listOrdersPage({
+      view: "archive",
+      technicians: [technician],
+      paid: "unpaid",
+      pageSize: 10,
+    });
 
     expect(active.items.map((order) => order.id)).toEqual([activeId]);
     expect(active.total).toBe(1);
@@ -111,6 +117,7 @@ describe("mock order WhatsApp notification workflow", () => {
       [completedId, cancelledId].sort(),
     );
     expect(history.resultGroupCounts).toMatchObject({ completed: 1, cancelled: 1 });
+    expect(unpaidHistory.items.some((order) => order.id === cancelledId)).toBe(false);
 
     const completedNo = (await getOrder(completedId)).order.public_no;
     const groupedHistorySearch = await listOrdersPage({
@@ -1008,6 +1015,27 @@ describe("mock order inline editing workflow", () => {
     );
     expect(replay.code).toBe("idempotent_replay");
     expect((await getOrder(id)).order.balance_amount).toBe(after.order.balance_amount);
+  });
+
+  it("keeps a cancelled order balance as history and rejects a forged payment", async () => {
+    const id = await createMockOrder({ deposit_amount: 50 });
+    await transitionOrder(id, "cancelled", { reason: "客户取消维修" });
+    const cancelled = await getOrder(id);
+
+    await expect(
+      recordPayment(
+        id,
+        10,
+        "现金",
+        "Cashier",
+        cancelled.order.updated_at,
+        "00000000-0000-4000-8000-000000000204",
+      ),
+    ).rejects.toThrow("已取消工单不能登记收款");
+
+    const after = await getOrder(id);
+    expect(after.order.balance_amount).toBe(cancelled.order.balance_amount);
+    expect(after.events.filter((event) => event.event_type === "payment")).toHaveLength(0);
   });
 
   it("updates finance only through the finance patch flow", async () => {

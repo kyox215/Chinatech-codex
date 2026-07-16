@@ -35,6 +35,7 @@ import {
 } from "@/features/orders/model/order-task-flow";
 import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -93,14 +94,19 @@ export function OrderHero({
   const stageGridStyle = {
     gridTemplateColumns: `repeat(${orderTaskStages.length}, minmax(0, 1fr))`,
   };
+  const showFinanceReadiness = !order.finance_redacted && !isOrderCancelledForPayment(order);
   const readiness = [
     { label: "客户电话", done: Boolean(order.customer_phone?.trim()) },
     { label: "设备型号", done: Boolean(order.device_label?.trim()) },
-    { label: "维修报价", done: order.fault_prices.length > 0 || order.quotation_amount > 0 },
-    {
-      label: "尾款",
-      done: order.is_paid || order.balance_amount <= 0 || activeStage.key !== "pickup",
-    },
+    ...(showFinanceReadiness
+      ? [
+          { label: "维修报价", done: order.fault_prices.length > 0 || order.quotation_amount > 0 },
+          {
+            label: "尾款",
+            done: order.is_paid || order.balance_amount <= 0 || activeStage.key !== "pickup",
+          },
+        ]
+      : []),
   ];
   const missingCount = readiness.filter((item) => !item.done).length;
   const missingItems = readiness.filter((item) => !item.done);
@@ -283,6 +289,7 @@ export function OrderHero({
               {orderTaskStages.map((stage, index) => {
                 const completed = index < safeCurrentStageIndex;
                 const active = index === safeCurrentStageIndex;
+                const displayStage = active ? activeStage : stage;
                 return (
                   <div key={stage.key} className="min-w-0 text-center">
                     <span
@@ -305,7 +312,7 @@ export function OrderHero({
                         active && "font-semibold text-primary",
                       )}
                     >
-                      {stage.label}
+                      {displayStage.label}
                     </p>
                   </div>
                 );

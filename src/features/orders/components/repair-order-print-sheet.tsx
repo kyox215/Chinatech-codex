@@ -14,6 +14,7 @@ import {
 } from "@/features/orders/model/order-italian";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import { getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 import { buildStorePrintProfile } from "@/features/print/model/store-print-profile";
 
@@ -27,6 +28,7 @@ export function RepairOrderPrintSheet({
   storeSettings?: Partial<StoreSettings> | null;
 }) {
   const { order, customer, device } = data;
+  const cancelled = isOrderCancelledForPayment(order);
   const storeProfile = buildStorePrintProfile(storeSettings);
   const snapshot = order.device_snapshot;
   const deviceBrand = snapshot?.brand || device?.brand || order.device_label.split(" ")[0] || "-";
@@ -108,16 +110,28 @@ export function RepairOrderPrintSheet({
               />
             </PrintSection>
 
-            <PrintSection title="Importi (EUR)">
-              <PrintLine label="Totale ordine" value={formatEuro(order.quotation_amount)} />
-              <PrintLine label="Acconto" value={formatEuro(order.deposit_amount)} />
-              <PrintLine label="Saldo dovuto" value={formatEuro(order.balance_amount)} />
-            </PrintSection>
+            {order.finance_redacted ? (
+              <PrintSection title="Importi">
+                <PrintLine label="Importi" value="Riservati" />
+              </PrintSection>
+            ) : (
+              <PrintSection title="Importi (EUR)">
+                <PrintLine label="Totale ordine" value={formatEuro(order.quotation_amount)} />
+                <PrintLine label="Acconto" value={formatEuro(order.deposit_amount)} />
+                <PrintLine
+                  label={cancelled ? "Saldo alla cancellazione (non dovuto)" : "Saldo dovuto"}
+                  value={formatEuro(order.balance_amount)}
+                />
+              </PrintSection>
+            )}
 
             <PrintSection title="Servizio">
               <PrintLine label="Tecnico" value={order.technician_name} />
               <PrintLine label="Tipo ordine" value={orderTypeItalian[order.order_type]} />
-              <PrintLine label="Stato" value={statusItalian[order.status]} />
+              <PrintLine
+                label="Stato"
+                value={statusItalian[cancelled ? "cancelled" : order.status]}
+              />
               <PrintLine label="Durata garanzia" value={toItalianWarranty(order.warranty_text)} />
               <PrintLine
                 label="Accessori consegnati"

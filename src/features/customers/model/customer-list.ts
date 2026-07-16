@@ -53,7 +53,7 @@ export const customerWorkFilterOptions: Array<{
 }> = [
   { value: "all", label: "全部", shortLabel: "全", statKey: "total" },
   { value: "active", label: "在修", shortLabel: "修", statKey: "activeRepairs" },
-  { value: "unpaid", label: "未结清", shortLabel: "款", statKey: "unpaid" },
+  { value: "unpaid", label: "有待收", shortLabel: "款", statKey: "unpaid" },
   { value: "with_devices", label: "有设备", shortLabel: "设", statKey: "withDevices" },
   { value: "repeat", label: "老客户", shortLabel: "老", statKey: "repeat" },
 ];
@@ -118,7 +118,12 @@ export function getCustomerDetailHref(customerId: string) {
 export function getCustomerWorkSummary(
   customer: Pick<
     CustomerListItem,
-    "active_order_count" | "unpaid_amount" | "order_count" | "device_count" | "finance_redacted"
+    | "active_order_count"
+    | "unpaid_amount"
+    | "order_count"
+    | "valid_order_count"
+    | "device_count"
+    | "finance_redacted"
   >,
 ): CustomerWorkSummary {
   if (customer.active_order_count > 0) {
@@ -131,16 +136,16 @@ export function getCustomerWorkSummary(
   }
   if (!customer.finance_redacted && (customer.unpaid_amount ?? 0) > 0) {
     return {
-      label: "未结清",
+      label: "有待收",
       detail: "客户还有待确认尾款",
       actionLabel: "确认尾款",
       tone: "warning",
     };
   }
-  if (customer.order_count > 1) {
+  if ((customer.valid_order_count ?? 0) > 1) {
     return {
       label: "老客户",
-      detail: `${customer.order_count} 个历史工单`,
+      detail: `${customer.valid_order_count} 个有效工单`,
       actionLabel: "复用历史设备",
       tone: "success",
     };
@@ -169,6 +174,7 @@ export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWork
     unpaid_amount: data.stats.unpaid_amount,
     finance_redacted: data.stats.finance_redacted,
     order_count: data.stats.order_count,
+    valid_order_count: data.stats.valid_order_count,
     device_count: data.stats.device_count,
   });
 }

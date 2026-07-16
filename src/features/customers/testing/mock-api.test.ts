@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getCustomerDetail,
   listCustomers,
   listCustomersPage,
   searchCustomerIntakeCandidates,
   searchCustomers,
 } from "./mock-api";
+import { createOrder, transitionOrder } from "@/features/orders/testing/mock-api";
 
 describe("customer mock api pagination", () => {
   it("returns a bounded customer page with paging metadata", async () => {
@@ -48,7 +50,7 @@ describe("customer mock api pagination", () => {
 
     const repeat = await listCustomersPage({ work: "repeat", pageSize: 20 });
     expect(repeat.total).toBeGreaterThan(0);
-    expect(repeat.items.every((customer) => customer.order_count > 1)).toBe(true);
+    expect(repeat.items.every((customer) => (customer.valid_order_count ?? 0) > 1)).toBe(true);
   });
 
   it("searches customer pages by device model snapshots", async () => {
@@ -60,6 +62,38 @@ describe("customer mock api pagination", () => {
     const search = await listCustomersPage({ search: modelToken, pageSize: 20 });
     expect(search.total).toBeGreaterThan(0);
     expect(search.items.some((customer) => customer.id === customerWithDevice!.id)).toBe(true);
+  });
+
+  it("keeps cancelled orders in customer history while excluding them from €70 totals", async () => {
+    const phone = "+393339997070";
+    const create = (suffix: string) =>
+      createOrder({
+        customer_name: "取消金额回归",
+        customer_phone: phone,
+        device_brand: "Samsung",
+        device_model: `A31 ${suffix}`,
+        device_imei: `CANCEL-70-${suffix}`,
+        order_type: "quick_repair",
+        status: "new",
+        issue_description: `取消金额回归 ${suffix}`,
+        fault_prices: [{ name: "测试服务", price: 70 }],
+        deposit_amount: 0,
+      });
+    const first = await create("A");
+    const second = await create("B");
+    await transitionOrder(second.id, "cancelled", { reason: "取消第二张测试单" });
+
+    const [customer] = await searchCustomers(phone, 1);
+    const detail = await getCustomerDetail(customer!.id);
+
+    expect(detail.orders.map((order) => order.id).sort()).toEqual([first.id, second.id].sort());
+    expect(detail.stats).toMatchObject({
+      order_count: 2,
+      valid_order_count: 1,
+      lifetime_quoted_amount: 70,
+      outstanding_amount: 70,
+      unpaid_amount: 70,
+    });
   });
 });
 

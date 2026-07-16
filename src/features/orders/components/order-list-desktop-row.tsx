@@ -23,6 +23,7 @@ import {
 import { MoneyText, OrderTypeBadge, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
@@ -73,25 +74,32 @@ export function DesktopOrderQueueRow({
 }) {
   const hoverTimerRef = useRef<number | null>(null);
   const exceptionStatus = order.exception_status;
+  const cancelled = isOrderCancelledForPayment(order);
   const guidance = getOrderTaskGuidance(order);
-  const next = getWorkflowNextActions(workflow, order.status);
-  const hasOverdueException = Boolean(order.approval_overdue || order.pickup_overdue);
+  const next = cancelled
+    ? { primary: undefined, secondary: [] }
+    : getWorkflowNextActions(workflow, order.status);
+  const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
   const createdDate = formatOrderListDate(order.created_at);
   const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
   const paymentLabel = order.finance_redacted
-    ? "详情可见"
-    : order.is_paid
-      ? "已结清"
-      : order.deposit_amount > 0
-        ? "已付押金"
-        : "未收款";
+    ? "金额受限"
+    : cancelled
+      ? "已取消"
+      : order.is_paid
+        ? "已结清"
+        : order.deposit_amount > 0
+          ? "已付押金"
+          : "未收款";
   const paymentClass = order.finance_redacted
     ? "text-muted-foreground"
-    : order.is_paid
-      ? "text-status-success-foreground"
-      : order.deposit_amount > 0
-        ? "text-status-warn-foreground"
-        : "text-status-danger-foreground";
+    : cancelled
+      ? "text-muted-foreground"
+      : order.is_paid
+        ? "text-status-success-foreground"
+        : order.deposit_amount > 0
+          ? "text-status-warn-foreground"
+          : "text-status-danger-foreground";
   const primaryRepair = order.fault_prices[0];
   const extraRepairCount = Math.max(0, order.fault_prices.length - 1);
   const allNextActions = [next.primary, ...next.secondary].filter(
@@ -258,10 +266,10 @@ export function DesktopOrderQueueRow({
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 truncate text-[10px] leading-3 text-muted-foreground">
-            {primaryRepair?.name || "待报价"}
+            {order.finance_redacted ? "报价信息受限" : primaryRepair?.name || "待报价"}
             {extraRepairCount ? ` +${extraRepairCount}` : ""}
           </span>
-          {primaryRepair ? (
+          {primaryRepair && !order.finance_redacted ? (
             <MoneyText
               amount={primaryRepair.price}
               className="shrink-0 text-[10px] font-semibold leading-3 text-foreground"
@@ -306,14 +314,25 @@ export function DesktopOrderQueueRow({
         <div className={cn("whitespace-nowrap text-[10px] leading-4", paymentClass)}>
           {paymentLabel}
         </div>
+        {cancelled && !order.finance_redacted ? (
+          <div className="whitespace-nowrap text-[9px] leading-3 text-muted-foreground">
+            不计入待收
+          </div>
+        ) : null}
         {!order.finance_redacted ? (
           <div
             className={cn(
               "whitespace-nowrap text-[10px] leading-3",
-              order.balance_amount > 0 ? "text-status-danger-foreground" : "text-muted-foreground",
+              !cancelled && order.balance_amount > 0
+                ? "text-status-danger-foreground"
+                : "text-muted-foreground",
             )}
           >
-            {order.balance_amount > 0 ? (
+            {cancelled ? (
+              <>
+                取消时 <MoneyText amount={order.balance_amount} />
+              </>
+            ) : order.balance_amount > 0 ? (
               <>
                 尾款 <MoneyText amount={order.balance_amount} />
               </>

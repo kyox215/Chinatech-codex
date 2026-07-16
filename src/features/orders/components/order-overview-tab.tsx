@@ -61,6 +61,7 @@ import {
   normalizeFinanceDraft,
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import { fadeUp } from "@/lib/motion";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import type {
@@ -366,6 +367,7 @@ export function OrderDetailActionDock({
   onFlow,
   flowDisabled = false,
   onPay,
+  paymentDisabled = false,
   onNotify,
   surface = "page",
 }: {
@@ -377,10 +379,13 @@ export function OrderDetailActionDock({
   onFlow: () => void;
   flowDisabled?: boolean;
   onPay: () => void;
+  paymentDisabled?: boolean;
   onNotify: () => void;
   surface?: DetailSurface;
 }) {
   const { isMobile, state: sidebarState } = useSidebar();
+  const cancelled = isOrderCancelledForPayment(order);
+  const financeRedacted = Boolean(order.finance_redacted);
   const paidAmount = inferOrderPaidAmount(order);
   const normalizedDraft = useMemo(
     () => normalizeFinanceDraft(financeDraft, paidAmount),
@@ -432,15 +437,26 @@ export function OrderDetailActionDock({
             data-order-action-money-strip="true"
             className="grid min-w-0 gap-1.5 overflow-hidden rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1 sm:grid-cols-[minmax(0,1fr)_minmax(140px,auto)]"
           >
-            <OrderWorkspaceMoneyStrip
-              total={display.quotation}
-              deposit={display.deposit}
-              balance={display.balance}
-              compact
-            />
+            {financeRedacted ? (
+              <div className="grid min-h-12 place-items-center rounded-md border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-muted-foreground">
+                金额受限
+              </div>
+            ) : (
+              <OrderWorkspaceMoneyStrip
+                total={display.quotation}
+                deposit={display.deposit}
+                balance={display.balance}
+                compact
+                cancelled={cancelled}
+              />
+            )}
             <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-card px-2 py-1 text-[11px] text-muted-foreground">
               <span className="inline-flex min-w-0 items-center gap-1">
-                {display.isPaid ? (
+                {financeRedacted ? (
+                  "财务信息受限"
+                ) : cancelled ? (
+                  "已取消 · 余额不计入待收"
+                ) : display.isPaid ? (
                   <>
                     <CheckCircle2 className="size-3 text-status-success-foreground" />
                     已结清
@@ -490,11 +506,13 @@ export function OrderDetailActionDock({
               size="sm"
               variant="outline"
               className="h-9 gap-1.5 px-2 text-xs"
-              disabled={isEditing || display.isPaid || display.balance <= 0}
+              disabled={
+                isEditing || paymentDisabled || cancelled || display.isPaid || display.balance <= 0
+              }
               onClick={onPay}
             >
               <CreditCard className="size-3.5" />
-              收款
+              {cancelled ? "不可收款" : "收款"}
             </Button>
           </div>
         </div>
@@ -665,12 +683,16 @@ function OrderOverviewFinancePanel({
   surface: DetailSurface;
 }) {
   const dense = surface === "dialog";
+  const cancelled = isOrderCancelledForPayment(order);
+  const financeRedacted = Boolean(order.finance_redacted);
   const paidAmount = inferOrderPaidAmount(order);
   const normalizedDraft = useMemo(
     () => (financeDraft ? normalizeFinanceDraft(financeDraft, paidAmount) : null),
     [financeDraft, paidAmount],
   );
-  const canEditFinance = Boolean(isEditing && financeDraft && onFinanceDraftChange);
+  const canEditFinance = Boolean(
+    !financeRedacted && isEditing && financeDraft && onFinanceDraftChange,
+  );
   const approvalTouched = isQuoteApprovalTouched(order);
   const display =
     canEditFinance && normalizedDraft
@@ -689,27 +711,45 @@ function OrderOverviewFinancePanel({
     <DetailPanel surface={surface} dataPanel="finance">
       <PanelHeader title="报价处理" editing={canEditFinance} />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
-        <OrderWorkspaceMoneyStrip
-          total={display.quotation}
-          deposit={display.deposit}
-          balance={display.balance}
-        />
+        {financeRedacted ? (
+          <div className="grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">
+            金额受限
+          </div>
+        ) : (
+          <OrderWorkspaceMoneyStrip
+            total={display.quotation}
+            deposit={display.deposit}
+            balance={display.balance}
+            cancelled={cancelled}
+          />
+        )}
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <ApprovalBadge status={order.approval_status} />
           <span
             className={cn(
               "rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
-              order.is_paid
-                ? "border-status-success-foreground/25 bg-status-success text-status-success-foreground"
-                : "border-status-warn-foreground/25 bg-status-warn text-status-warn-foreground",
+              cancelled
+                ? "border-[var(--border-panel)] bg-muted text-muted-foreground"
+                : order.is_paid
+                  ? "border-status-success-foreground/25 bg-status-success text-status-success-foreground"
+                  : "border-status-warn-foreground/25 bg-status-warn text-status-warn-foreground",
             )}
           >
-            {order.is_paid ? "已结清" : "待收款"}
+            {financeRedacted
+              ? "财务信息受限"
+              : cancelled
+                ? "已取消 · 取消时余额不计入待收"
+                : order.is_paid
+                  ? "已结清"
+                  : "待收款"}
           </span>
         </div>
 
-        {canEditFinance && financeDraft && onFinanceDraftChange && normalizedDraft ? (
+        {financeRedacted ? null : canEditFinance &&
+          financeDraft &&
+          onFinanceDraftChange &&
+          normalizedDraft ? (
           <>
             <FinanceInlineEditor
               draft={financeDraft}

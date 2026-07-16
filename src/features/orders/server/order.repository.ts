@@ -45,6 +45,7 @@ import type {
 import { getSupabaseAdmin } from "@/server/supabase";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
   approvalFlowStatusFromLegacyStatus,
@@ -252,7 +253,10 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
   }
   if (filters.paymentStatuses?.length) {
     result = result.filter(
-      (o) => o.payment_status && filters.paymentStatuses!.includes(o.payment_status),
+      (o) =>
+        !isOrderCancelledForPayment(o) &&
+        o.payment_status &&
+        filters.paymentStatuses!.includes(o.payment_status),
     );
   }
   if (filters.partsStatuses?.length) {
@@ -276,15 +280,19 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
     result = result.filter((o) => o.supplier_id && filters.supplierIds!.includes(o.supplier_id));
   }
   if (filters.paid && filters.paid !== "all") {
-    result = result.filter((o) => (filters.paid === "paid" ? o.is_paid : !o.is_paid));
+    result = result.filter(
+      (o) => !isOrderCancelledForPayment(o) && (filters.paid === "paid" ? o.is_paid : !o.is_paid),
+    );
   }
   if (filters.overdue) {
-    result = result.filter((o) =>
-      filters.overdue === "approval"
-        ? o.approval_overdue
-        : filters.overdue === "pickup"
-          ? o.pickup_overdue
-          : o.approval_overdue || o.pickup_overdue,
+    result = result.filter(
+      (o) =>
+        !isOrderCancelledForPayment(o) &&
+        (filters.overdue === "approval"
+          ? o.approval_overdue
+          : filters.overdue === "pickup"
+            ? o.pickup_overdue
+            : o.approval_overdue || o.pickup_overdue),
     );
   }
 
@@ -1642,6 +1650,7 @@ function paymentFailureMessage(code: string) {
     invalid_method: "支付方式无效",
     idempotency_conflict: "该收款操作标识已用于不同请求，请刷新后重试",
     order_not_found: "工单不存在",
+    order_cancelled: "已取消工单不能登记收款",
     stale_version: "工单已被更新，请刷新后再试",
     already_settled: "该工单已结清",
     overpayment: "收款金额不能超过未结清尾款",

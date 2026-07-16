@@ -8,15 +8,30 @@ import type {
   OrderListResult,
   OrderQueueSummary,
 } from "@/lib/repairdesk/types";
+import { customersKeys } from "@/features/customers/api/query-keys";
 
 import { ordersKeys } from "./query-keys";
 import {
+  invalidateOrderReadCaches,
   patchOrderReadCaches,
   restoreOrderReadCaches,
   snapshotOrderReadCaches,
 } from "./cache-sync";
 
 describe("order cache sync", () => {
+  it("invalidates customer lists and details when an order-derived aggregate changes", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(customersKeys.list({}, storeId), { items: [] });
+    queryClient.setQueryData(customersKeys.detail("customer-1", storeId), { customer: {} });
+
+    invalidateOrderReadCaches(queryClient, "order-1");
+
+    expect(queryClient.getQueryState(customersKeys.list({}, storeId))?.isInvalidated).toBe(true);
+    expect(
+      queryClient.getQueryState(customersKeys.detail("customer-1", storeId))?.isInvalidated,
+    ).toBe(true);
+  });
+
   it("patches order rows without optimistically reordering the derived dashboard priority", () => {
     const queryClient = new QueryClient();
     const order = makeOrder({ id: "order-1", updated_at: "old" });

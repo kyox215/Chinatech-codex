@@ -149,6 +149,10 @@ import {
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
 import {
+  isOrderCancelledForPayment,
+  isOrderPaymentCollectible,
+} from "@/features/orders/model/order-payment-state";
+import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
 } from "@/features/orders/model/order-transition-reasons";
@@ -165,7 +169,6 @@ import {
   findCurrentOrderStatusChangedAt,
   formatOrderDateTime,
 } from "@/features/orders/model/order-date";
-import { customersKeys } from "@/features/customers/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { componentOverlay } from "@/lib/component-patterns";
@@ -185,6 +188,7 @@ import {
   getOrderWorkflowStatus,
   getWorkflowProgressValue,
   orderTaskStages,
+  type OrderTaskStage,
 } from "@/features/orders/model/order-task-flow";
 import { fadeUp, stagger } from "@/lib/motion";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
@@ -313,7 +317,6 @@ export function OrderDetailScreen({
 
   const invalidate = useCallback(() => {
     invalidateOrderReadCaches(queryClient, id);
-    queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
   }, [id, queryClient]);
 
   useEffect(() => {
@@ -701,14 +704,22 @@ export function OrderDetailScreen({
   const partsSupplier = supplierPermissions.canReadSuppliers
     ? (data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id))
     : undefined;
-  const next = getWorkflowNextActions(workflow, order.status);
+  const cancelled = isOrderCancelledForPayment(order);
+  const next = cancelled
+    ? { primary: undefined, secondary: [] }
+    : getWorkflowNextActions(workflow, order.status);
   const desktopWorkflowStatus = getOrderWorkflowStatus(order);
   const desktopStageIndex = getWorkflowProgressValue(desktopWorkflowStatus);
-  const desktopCurrentStage =
-    orderTaskStages[Math.min(desktopStageIndex, orderTaskStages.length - 1)] ?? orderTaskStages[0];
-  const desktopStatusActions = getWorkflowTransitionActions(workflow, order.status);
+  const desktopCurrentStage = cancelled
+    ? getOrderTaskGuidance(order).stage
+    : (orderTaskStages[Math.min(desktopStageIndex, orderTaskStages.length - 1)] ??
+      orderTaskStages[0]);
+  const desktopStatusActions = cancelled
+    ? []
+    : getWorkflowTransitionActions(workflow, order.status);
   const canCancelOrder = desktopStatusActions.some((action) => action.to === "cancelled");
-  const canDecideApproval = isApprovalDecisionAvailable(order);
+  const canCollectPayment = isOrderPaymentCollectible(order);
+  const canDecideApproval = !cancelled && isApprovalDecisionAvailable(order);
   const deviceBrand = order.device_snapshot?.brand || device?.brand || "";
   const deviceModel = order.device_snapshot?.model || device?.model || "";
   const deviceLabel = `${deviceBrand} ${deviceModel}`.trim() || order.device_label;
@@ -827,6 +838,7 @@ export function OrderDetailScreen({
           approvalDecisionAvailable={canDecideApproval}
           whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending}
           onPay={() => setPayOpen(true)}
+          paymentDisabled={!canCollectPayment}
           onPrint={() => window.print()}
           onCancel={() => setCancelOpen(true)}
           canCancel={canCancelOrder}
@@ -999,6 +1011,7 @@ export function OrderDetailScreen({
           onFlow={() => setDesktopTransitionOpen((open) => !open)}
           flowDisabled={transition.isPending || desktopStatusActions.length === 0}
           onPay={() => setPayOpen(true)}
+          paymentDisabled={!canCollectPayment}
           onNotify={() => setNotifyOpen(true)}
           surface={surface}
         />
@@ -1032,16 +1045,18 @@ export function OrderDetailScreen({
         pending={approvalDecision.isPending}
         onConfirm={(input) => approvalDecision.mutateAsync(input)}
       />
-      <PaymentDialog
-        open={payOpen}
-        onOpenChange={setPayOpen}
-        balance={order.balance_amount}
-        onPay={async (amount, method, idempotencyKey) => {
-          await recordPayment(id, amount, method, order.updated_at, idempotencyKey);
-          toast.success(`已收款 ${formatMoney(amount)}`);
-          invalidate();
-        }}
-      />
+      {canCollectPayment ? (
+        <PaymentDialog
+          open={payOpen}
+          onOpenChange={setPayOpen}
+          balance={order.balance_amount}
+          onPay={async (amount, method, idempotencyKey) => {
+            await recordPayment(id, amount, method, order.updated_at, idempotencyKey);
+            toast.success(`已收款 ${formatMoney(amount)}`);
+            invalidate();
+          }}
+        />
+      ) : null}
       <CancelDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
@@ -1724,6 +1739,7 @@ function MobileOrderDetailView({
   approvalDecisionAvailable,
   whatsappDisabled,
   onPay,
+  paymentDisabled,
   onPrint,
   onCancel,
   canCancel,
@@ -1769,6 +1785,7 @@ function MobileOrderDetailView({
   approvalDecisionAvailable: boolean;
   whatsappDisabled: boolean;
   onPay: () => void;
+  paymentDisabled: boolean;
   onPrint: () => void;
   onCancel: () => void;
   canCancel: boolean;
@@ -1785,10 +1802,13 @@ function MobileOrderDetailView({
   className?: string;
 }) {
   const { order, customer } = data;
+  const cancelled = isOrderCancelledForPayment(order);
   const events = data.events ?? [];
-  const workflowStatus = getOrderWorkflowStatus(order);
+  const workflowStatus = cancelled ? "closed" : getOrderWorkflowStatus(order);
   const currentStageIndex = getWorkflowProgressValue(workflowStatus);
-  const next = getWorkflowNextActions(workflow, order.status);
+  const next = cancelled
+    ? { primary: undefined, secondary: [] }
+    : getWorkflowNextActions(workflow, order.status);
   const phone = customer?.phone_e164 || order.customer_phone;
   const rawCustomerName = (customer?.name || order.customer_name || "").trim();
   const customerDisplayName =
@@ -1797,8 +1817,10 @@ function MobileOrderDetailView({
       : "未命名客户";
   const whatsappHref = getWhatsappHref(phone);
   const paidAmount = inferOrderPaidAmount(order);
-  const currentStage =
-    orderTaskStages[Math.min(currentStageIndex, orderTaskStages.length - 1)] ?? orderTaskStages[0];
+  const currentStage = cancelled
+    ? getOrderTaskGuidance(order).stage
+    : (orderTaskStages[Math.min(currentStageIndex, orderTaskStages.length - 1)] ??
+      orderTaskStages[0]);
   const [imeiEditing, setImeiEditing] = useState(false);
   const [imeiDraft, setImeiDraft] = useState(deviceImei);
   const [faultEditing, setFaultEditing] = useState(false);
@@ -1828,7 +1850,7 @@ function MobileOrderDetailView({
     () => normalizeFinanceDraft(financeDraft, paidAmount),
     [financeDraft, paidAmount],
   );
-  const statusActions = getWorkflowTransitionActions(workflow, order.status);
+  const statusActions = cancelled ? [] : getWorkflowTransitionActions(workflow, order.status);
 
   useEffect(() => {
     if (!photoPreviewId) return;
@@ -2166,18 +2188,20 @@ function MobileOrderDetailView({
             icon={ReceiptText}
             title="维修项目与报价"
             action={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-6 rounded-md px-1.5 text-[10px]"
-                onClick={() => onFinanceEditingChange(!financeEditing)}
-              >
-                {financeEditing ? "收起" : "编辑"}
-              </Button>
+              !order.finance_redacted ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 rounded-md px-1.5 text-[10px]"
+                  onClick={() => onFinanceEditingChange(!financeEditing)}
+                >
+                  {financeEditing ? "收起" : "编辑"}
+                </Button>
+              ) : null
             }
           />
-          {financeEditing ? (
+          {financeEditing && !order.finance_redacted ? (
             <MobileFinanceEditor
               draft={financeDraft}
               normalized={normalizedFinance}
@@ -2203,7 +2227,11 @@ function MobileOrderDetailView({
             />
           ) : (
             <div className="mt-1.5 space-y-1">
-              {order.fault_prices.length ? (
+              {order.finance_redacted ? (
+                <div className="rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-2 text-center text-[10px] text-muted-foreground">
+                  报价金额受限
+                </div>
+              ) : order.fault_prices.length ? (
                 order.fault_prices.map((item, index) => (
                   <div
                     key={`${item.name}-${index}`}
@@ -2226,12 +2254,19 @@ function MobileOrderDetailView({
 
         <section className={mobileDetailCardClass}>
           <MobileSectionTitle icon={WalletCards} title="支付信息" />
-          <MobilePaymentSummary
-            total={order.quotation_amount}
-            deposit={order.deposit_amount}
-            balance={order.balance_amount}
-            className="mt-1.5"
-          />
+          {order.finance_redacted ? (
+            <div className="mt-1.5 grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">
+              金额受限
+            </div>
+          ) : (
+            <MobilePaymentSummary
+              total={order.quotation_amount}
+              deposit={order.deposit_amount}
+              balance={order.balance_amount}
+              cancelled={isOrderCancelledForPayment(order)}
+              className="mt-1.5"
+            />
+          )}
         </section>
       </div>
 
@@ -2317,10 +2352,10 @@ function MobileOrderDetailView({
           <Button
             variant="outline"
             className="h-9 rounded-xl text-xs"
-            disabled={financeEditing || order.is_paid || order.balance_amount <= 0}
+            disabled={financeEditing || paymentDisabled}
             onClick={onPay}
           >
-            <CreditCard className="mr-1 size-3.5" /> 收款
+            <CreditCard className="mr-1 size-3.5" /> {cancelled ? "不可收款" : "收款"}
           </Button>
         </div>
       </div>
@@ -3141,7 +3176,7 @@ function DesktopStatusTransitionPanel({
 }: {
   order: OrderDetail["order"];
   statusLabel: string;
-  currentStage: (typeof orderTaskStages)[number];
+  currentStage: OrderTaskStage;
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
@@ -3198,7 +3233,7 @@ function StatusTransitionPanelBody({
   open: boolean;
   order: OrderDetail["order"];
   statusLabel: string;
-  currentStage: (typeof orderTaskStages)[number];
+  currentStage: OrderTaskStage;
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
@@ -3391,7 +3426,7 @@ function MobileStatusTransitionSheet({
   open: boolean;
   order: OrderDetail["order"];
   statusLabel: string;
-  currentStage: (typeof orderTaskStages)[number];
+  currentStage: OrderTaskStage;
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
@@ -3444,7 +3479,7 @@ function MobileStickyWorkflowHeader({
   order: OrderDetail["order"];
   workflow?: OrderWorkflow;
   currentStageIndex: number;
-  currentStage: (typeof orderTaskStages)[number];
+  currentStage: OrderTaskStage;
   nextLabel?: string;
   onHeightChange?: (height: number) => void;
   onPrint: () => void;
@@ -3452,7 +3487,8 @@ function MobileStickyWorkflowHeader({
   canCancel: boolean;
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const statusLabel = getWorkflowStatusLabel(workflow, order.status);
+  const cancelled = isOrderCancelledForPayment(order);
+  const statusLabel = cancelled ? "已取消" : getWorkflowStatusLabel(workflow, order.status);
   const nextText = nextLabel ? `下一步：${nextLabel}` : currentStage.nextAction;
   const sideBadges = getOrderSideStatusBadges(order).slice(0, 3);
 
@@ -3539,7 +3575,11 @@ function MobileStickyWorkflowHeader({
                 {currentStage.label} · {nextText}
               </p>
             </div>
-            <StatusBadge status={order.status} label={statusLabel} className="mt-0.5 scale-90" />
+            <StatusBadge
+              status={cancelled ? "cancelled" : order.status}
+              label={statusLabel}
+              className="mt-0.5 scale-90"
+            />
           </div>
           {sideBadges.length ? (
             <div className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -3558,6 +3598,7 @@ function MobileStickyWorkflowHeader({
             <MobileWorkflowTimeline
               compact
               currentIndex={currentStageIndex}
+              currentStage={currentStage}
               createdAt={order.created_at}
             />
           </div>
@@ -4018,11 +4059,13 @@ function MobilePaymentSummary({
   total,
   deposit,
   balance,
+  cancelled = false,
   className,
 }: {
   total: number;
   deposit: number;
   balance: number;
+  cancelled?: boolean;
   className?: string;
 }) {
   const hasBalance = balance > 0;
@@ -4046,13 +4089,20 @@ function MobilePaymentSummary({
           valueClassName={deposit > 0 ? "text-status-success-foreground" : undefined}
         />
         <MobilePaymentTile
-          label="待付尾款"
+          label={cancelled ? "取消时余额" : "待付尾款"}
           amount={balance}
           valueClassName={
-            hasBalance ? "text-status-danger-foreground" : "text-status-success-foreground"
+            cancelled
+              ? "text-muted-foreground"
+              : hasBalance
+                ? "text-status-danger-foreground"
+                : "text-status-success-foreground"
           }
         />
       </div>
+      {cancelled ? (
+        <p className="text-[10px] leading-4 text-muted-foreground">已取消 · 此余额不计入待收</p>
+      ) : null}
     </div>
   );
 }
@@ -4081,10 +4131,12 @@ function MobilePaymentTile({
 
 function MobileWorkflowTimeline({
   currentIndex,
+  currentStage,
   createdAt,
   compact = false,
 }: {
   currentIndex: number;
+  currentStage?: OrderTaskStage;
   createdAt: string;
   compact?: boolean;
 }) {
@@ -4097,6 +4149,7 @@ function MobileWorkflowTimeline({
       {orderTaskStages.map((stage, index) => {
         const done = index < currentIndex;
         const current = index === currentIndex;
+        const displayStage = current ? (currentStage ?? stage) : stage;
         return (
           <div key={stage.key} className="relative min-w-0 text-center">
             {index > 0 ? (
@@ -4120,7 +4173,11 @@ function MobileWorkflowTimeline({
                 !done && !current && "border-border bg-surface-muted text-muted-foreground",
               )}
             >
-              {done ? <Check className={compact ? "size-2.5" : "size-3.5"} /> : stage.shortLabel}
+              {done ? (
+                <Check className={compact ? "size-2.5" : "size-3.5"} />
+              ) : (
+                displayStage.shortLabel
+              )}
             </span>
             <p
               className={cn(
@@ -4129,7 +4186,7 @@ function MobileWorkflowTimeline({
                 current ? "font-semibold text-primary" : "text-muted-foreground",
               )}
             >
-              {stage.label}
+              {displayStage.label}
             </p>
             {!compact ? (
               <p className="truncate text-[9px] text-muted-foreground/70">

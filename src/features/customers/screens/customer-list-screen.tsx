@@ -291,7 +291,7 @@ export function CustomerListScreen() {
         >
           <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
           <CustomerKpiCard icon={Wrench} label="在修客户" value={stats?.activeRepairs ?? 0} />
-          <CustomerKpiCard icon={CircleDollarSign} label="未结清" value={stats?.unpaid ?? 0} />
+          <CustomerKpiCard icon={CircleDollarSign} label="有待收客户" value={stats?.unpaid ?? 0} />
           <CustomerKpiCard icon={Smartphone} label="有设备" value={stats?.withDevices ?? 0} />
         </motion.div>
       }
@@ -416,8 +416,8 @@ export function CustomerListScreen() {
                   <tr className="border-b border-border/40">
                     <th className="w-[280px] px-3 py-2 text-left font-medium">客户</th>
                     <th className="w-[220px] px-2 py-2 text-left font-medium">设备/工单</th>
-                    <th className="w-[104px] px-2 py-2 text-right font-medium">消费额</th>
-                    <th className="w-[104px] px-2 py-2 text-right font-medium">尾款</th>
+                    <th className="w-[104px] px-2 py-2 text-right font-medium">有效工单额</th>
+                    <th className="w-[104px] px-2 py-2 text-right font-medium">待收</th>
                     <th className="w-[112px] px-2 py-2 text-left font-medium">状态</th>
                     <th className="w-[72px] px-2 py-2"></th>
                   </tr>

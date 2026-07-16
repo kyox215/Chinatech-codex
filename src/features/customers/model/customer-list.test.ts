@@ -30,7 +30,7 @@ describe("customer list helpers", () => {
     expect(buildCustomerWorkFilterChips(stats)).toEqual([
       { value: "all", label: "全部", shortLabel: "全", count: 20 },
       { value: "active", label: "在修", shortLabel: "修", count: 4 },
-      { value: "unpaid", label: "未结清", shortLabel: "款", count: 3 },
+      { value: "unpaid", label: "有待收", shortLabel: "款", count: 3 },
       { value: "with_devices", label: "有设备", shortLabel: "设", count: 12 },
       { value: "repeat", label: "老客户", shortLabel: "老", count: 6 },
     ]);
@@ -51,7 +51,7 @@ describe("customer list helpers", () => {
       work: "unpaid",
     });
     expect(getCustomerActiveFilterCount(filters)).toBe(3);
-    expect(getCustomerListSubtitle(filters, 7)).toBe("未结清 · 共 7 位");
+    expect(getCustomerListSubtitle(filters, 7)).toBe("有待收 · 共 7 位");
   });
 
   it("falls back to all customers when the work filter is absent or invalid", () => {
@@ -91,6 +91,7 @@ describe("customer list helpers", () => {
         active_order_count: 2,
         unpaid_amount: 50,
         order_count: 4,
+        valid_order_count: 4,
         device_count: 3,
       }),
     ).toMatchObject({ label: "在修 2", actionLabel: "跟进维修进度", tone: "info" });
@@ -99,14 +100,16 @@ describe("customer list helpers", () => {
         active_order_count: 0,
         unpaid_amount: 20,
         order_count: 4,
+        valid_order_count: 4,
         device_count: 3,
       }),
-    ).toMatchObject({ label: "未结清", actionLabel: "确认尾款", tone: "warning" });
+    ).toMatchObject({ label: "有待收", actionLabel: "确认尾款", tone: "warning" });
     expect(
       getCustomerWorkSummary({
         active_order_count: 0,
         unpaid_amount: 0,
         order_count: 3,
+        valid_order_count: 3,
         device_count: 2,
       }),
     ).toMatchObject({ label: "老客户", actionLabel: "复用历史设备", tone: "success" });
@@ -115,6 +118,7 @@ describe("customer list helpers", () => {
         active_order_count: 0,
         unpaid_amount: 0,
         order_count: 0,
+        valid_order_count: 0,
         device_count: 1,
       }),
     ).toMatchObject({ label: "有设备", actionLabel: "新工单可复用", tone: "neutral" });

@@ -33,6 +33,7 @@ import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/moc
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import {
   countOrderQueueGroups,
   getOrderQueueGroup,
@@ -268,7 +269,10 @@ export async function listOrders(
   }
   if (filters.paymentStatuses?.length) {
     result = result.filter(
-      (o) => o.payment_status && filters.paymentStatuses!.includes(o.payment_status),
+      (o) =>
+        !isOrderCancelledForPayment(o) &&
+        o.payment_status &&
+        filters.paymentStatuses!.includes(o.payment_status),
     );
   }
   if (filters.partsStatuses?.length) {
@@ -292,15 +296,19 @@ export async function listOrders(
     result = result.filter((o) => o.supplier_id && filters.supplierIds!.includes(o.supplier_id));
   }
   if (filters.paid && filters.paid !== "all") {
-    result = result.filter((o) => (filters.paid === "paid" ? o.is_paid : !o.is_paid));
+    result = result.filter(
+      (o) => !isOrderCancelledForPayment(o) && (filters.paid === "paid" ? o.is_paid : !o.is_paid),
+    );
   }
   if (filters.overdue) {
-    result = result.filter((o) =>
-      filters.overdue === "approval"
-        ? o.approval_overdue
-        : filters.overdue === "pickup"
-          ? o.pickup_overdue
-          : o.approval_overdue || o.pickup_overdue,
+    result = result.filter(
+      (o) =>
+        !isOrderCancelledForPayment(o) &&
+        (filters.overdue === "approval"
+          ? o.approval_overdue
+          : filters.overdue === "pickup"
+            ? o.pickup_overdue
+            : o.approval_overdue || o.pickup_overdue),
     );
   }
   return result.sort(compareOrdersForQueue).map(redactOrderListSecrets);
@@ -906,6 +914,7 @@ export async function recordPayment(
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
   if (!expectedUpdatedAt) throw new Error("缺少工单版本时间");
+  if (isOrderCancelledForPayment(o)) throw new Error("已取消工单不能登记收款");
   if (o.updated_at !== expectedUpdatedAt) throw new Error("工单已被更新，请刷新后再试");
   if (o.balance_amount <= 0 || o.is_paid) throw new Error("该工单已结清");
   if (normalizedAmount > o.balance_amount) throw new Error("收款金额不能超过未结清尾款");

@@ -20,10 +20,7 @@ import type {
   OrderListItem,
 } from "@/lib/repairdesk/types";
 import { listOrders } from "@/features/orders/testing/mock-api";
-import {
-  isCustomerOrderBillable,
-  isCustomerOrderClosed,
-} from "@/features/customers/model/customer-order-state";
+import { buildCustomerOrderFinanceSummary } from "@/features/customers/model/customer-order-state";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   customerFollowups,
@@ -255,16 +252,16 @@ function tagsFor(customerId: string): CustomerTag[] {
 }
 
 function customerStatsFromOrders(customerOrders: OrderListItem[]) {
+  const finance = buildCustomerOrderFinanceSummary(customerOrders);
   return {
-    order_count: customerOrders.length,
-    active_order_count: customerOrders.filter((order) => !isCustomerOrderClosed(order)).length,
-    total_spent: customerOrders
-      .filter(isCustomerOrderBillable)
-      .reduce((sum, order) => sum + order.quotation_amount, 0),
-    unpaid_amount: customerOrders.reduce((sum, order) => sum + order.balance_amount, 0),
-    last_order_at: customerOrders
-      .map((order) => order.created_at)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0],
+    order_count: finance.historicalOrderCount,
+    valid_order_count: finance.validOrderCount,
+    active_order_count: finance.activeOrderCount,
+    lifetime_quoted_amount: finance.lifetimeQuotedAmount,
+    outstanding_amount: finance.outstandingAmount,
+    total_spent: finance.lifetimeQuotedAmount,
+    unpaid_amount: finance.outstandingAmount,
+    last_order_at: finance.lastOrderAt,
   };
 }
 
@@ -275,7 +272,9 @@ function nextFollowup(customerId: string) {
 }
 
 async function buildCustomerItem(customer: Customer): Promise<CustomerListItem> {
-  const customerOrders = (await listOrders()).filter((order) => order.customer_id === customer.id);
+  const customerOrders = (await listOrders({ view: "all" })).filter(
+    (order) => order.customer_id === customer.id,
+  );
   const customerDevices = devices.filter((device) => device.customer_id === customer.id);
   const stats = customerStatsFromOrders(customerOrders);
   const latestDevice = customerDevices[0];
@@ -284,7 +283,10 @@ async function buildCustomerItem(customer: Customer): Promise<CustomerListItem> 
     tags: tagsFor(customer.id),
     device_count: customerDevices.length,
     order_count: stats.order_count,
+    valid_order_count: stats.valid_order_count,
     active_order_count: stats.active_order_count,
+    lifetime_quoted_amount: stats.lifetime_quoted_amount,
+    outstanding_amount: stats.outstanding_amount,
     total_spent: stats.total_spent,
     unpaid_amount: stats.unpaid_amount,
     last_order_at: stats.last_order_at,
@@ -327,7 +329,7 @@ function filterCustomerItems(items: CustomerListItem[], filters: CustomerListFil
       if (filters.work === "active") return customer.active_order_count > 0;
       if (filters.work === "unpaid") return (customer.unpaid_amount ?? 0) > 0;
       if (filters.work === "with_devices") return customer.device_count > 0;
-      if (filters.work === "repeat") return customer.order_count > 1;
+      if (filters.work === "repeat") return (customer.valid_order_count ?? 0) > 1;
       return true;
     });
   }
@@ -361,7 +363,7 @@ export async function listCustomers(
   const items = await Promise.all(customers.map(buildCustomerItem));
   const stats: CustomerStats = {
     total: items.length,
-    repeat: items.filter((customer) => customer.order_count > 1).length,
+    repeat: items.filter((customer) => (customer.valid_order_count ?? 0) > 1).length,
     activeRepairs: items.filter((customer) => customer.active_order_count > 0).length,
     unpaid: items.filter((customer) => (customer.unpaid_amount ?? 0) > 0).length,
     withDevices: items.filter((customer) => customer.device_count > 0).length,
@@ -402,7 +404,9 @@ export async function listCustomersPage(
 export async function getCustomerDetail(id: string, _actor?: AuditActor): Promise<CustomerDetail> {
   const customer = getCustomer(id);
   if (!customer) throw new Error("客户不存在");
-  const customerOrders = (await listOrders()).filter((order) => order.customer_id === id);
+  const customerOrders = (await listOrders({ view: "all" })).filter(
+    (order) => order.customer_id === id,
+  );
   const orderStats = customerStatsFromOrders(customerOrders);
   return {
     customer,

@@ -11,6 +11,7 @@ import type {
   CustomerDeviceWorkbenchItem,
   CustomerOrderWorkbenchItem,
 } from "@/features/customers/model/customer-workbench";
+import { isCustomerOrderCancelled } from "@/features/customers/model/customer-order-state";
 import { RepairOsBadge, RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
 
 const customerTagPriority = new Map([
@@ -141,8 +142,8 @@ export function CustomerDeviceCard({
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
-          label="总金额"
-          value={<MoneyText amount={item.totalQuoted} />}
+          label="有效工单额"
+          value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.totalQuoted} />}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
           labelClassName="text-[9px]"
@@ -150,7 +151,7 @@ export function CustomerDeviceCard({
         />
         <RepairOsInfoTile
           label="待收"
-          value={<MoneyText amount={item.unpaidAmount} />}
+          value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.unpaidAmount} />}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
           labelClassName="text-[9px]"
@@ -175,7 +176,12 @@ export function CustomerDeviceCard({
             >
               {latestOrder.order.public_no}
             </Link>
-            <StatusBadge status={latestOrder.order.status} className="max-w-[5.5rem] text-[10px]" />
+            <StatusBadge
+              status={
+                isCustomerOrderCancelled(latestOrder.order) ? "cancelled" : latestOrder.order.status
+              }
+              className="max-w-[5.5rem] text-[10px]"
+            />
           </div>
           <p
             className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-muted-foreground"
@@ -306,21 +312,35 @@ export function CustomerWorkbenchOrderRow({
 }) {
   const { order } = item;
   const unpaid = Math.max(0, order.balance_amount);
+  const cancelled = isCustomerOrderCancelled(order);
+  const financeRedacted = Boolean(order.finance_redacted);
 
   return (
     <RepairOsBusinessCard
       className="grid-cols-1 gap-1.5 rounded-xl px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:justify-between sm:px-3 sm:py-2"
       trailing={
         <div className="grid min-w-0 justify-items-end gap-1">
-          <MoneyText amount={order.quotation_amount} />
-          <div className="grid justify-items-end gap-0.5 font-mono text-[10px] leading-3 text-muted-foreground tabular-nums">
-            <span>
-              定金 <MoneyText amount={order.deposit_amount} />
-            </span>
-            <span className={unpaid > 0 ? "text-status-danger-foreground" : ""}>
-              待收 <MoneyText amount={unpaid} />
-            </span>
-          </div>
+          {financeRedacted ? (
+            <span className="text-[10px] text-muted-foreground">金额受限</span>
+          ) : (
+            <>
+              <MoneyText amount={order.quotation_amount} />
+              <div className="grid justify-items-end gap-0.5 font-mono text-[10px] leading-3 text-muted-foreground tabular-nums">
+                <span>
+                  定金 <MoneyText amount={order.deposit_amount} />
+                </span>
+                {cancelled ? (
+                  <span className="text-muted-foreground">
+                    取消时余额 <MoneyText amount={unpaid} /> · 不计入待收
+                  </span>
+                ) : (
+                  <span className={unpaid > 0 ? "text-status-danger-foreground" : ""}>
+                    待收 <MoneyText amount={unpaid} />
+                  </span>
+                )}
+              </div>
+            </>
+          )}
           {order.status === "completed" && onFollowup ? (
             <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onFollowup}>
               <Bell className="size-3.5" /> 待办
@@ -338,7 +358,7 @@ export function CustomerWorkbenchOrderRow({
           >
             {order.public_no}
           </Link>
-          <StatusBadge status={order.status} />
+          <StatusBadge status={cancelled ? "cancelled" : order.status} />
         </div>
         <div className="mt-0.5 truncate text-xs font-medium sm:text-sm" title={item.deviceLabel}>
           {item.deviceLabel}

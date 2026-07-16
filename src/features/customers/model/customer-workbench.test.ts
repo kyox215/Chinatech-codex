@@ -248,6 +248,27 @@ describe("customer workbench model", () => {
     });
   });
 
+  it("does not turn redacted finance fields into NaN or fake payable amounts", () => {
+    const redacted = order({ id: "redacted", device_id: "dev_1" });
+    Reflect.deleteProperty(redacted, "quotation_amount");
+    Reflect.deleteProperty(redacted, "deposit_amount");
+    Reflect.deleteProperty(redacted, "balance_amount");
+    redacted.finance_redacted = true;
+
+    expect(buildCustomerPaymentSummary([redacted])).toEqual({
+      totalQuoted: 0,
+      depositTotal: 0,
+      unpaidAmount: 0,
+      settledOrderCount: 0,
+      unpaidOrderCount: 0,
+    });
+    expect(buildCustomerDeviceWorkbenchItems(detail({ orders: [redacted] }))[0]).toMatchObject({
+      totalQuoted: 0,
+      unpaidAmount: 0,
+      financeRedacted: true,
+    });
+  });
+
   it("classifies active, unpaid, settled, and cancelled orders", () => {
     expect(
       getCustomerOrderWorkbenchState(order({ id: "o1", device_id: "dev_1", status: "repairing" })),

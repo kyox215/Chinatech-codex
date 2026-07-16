@@ -6,6 +6,7 @@ import {
   DEFAULT_STORE_ID,
   failStorageOperation,
   isMissingRepairOrderColumnError,
+  orderListDatabaseOrFilter,
   requireStoreIdFromActor,
   storeIdFromActor,
 } from "@/server/repairdesk-shared";
@@ -74,6 +75,16 @@ describe("tenant guardrails", () => {
         message: "column repair_orders.approval_flow_status does not exist",
       }),
     ).toBe(true);
+  });
+
+  it("keeps status and exception cancellations aligned in active and archive database scopes", () => {
+    expect(orderListDatabaseOrFilter("active")).toBe(
+      "exception_status.is.null,exception_status.neq.cancelled",
+    );
+    expect(orderListDatabaseOrFilter("archive")).toBe(
+      "status.in.(completed,cancelled),exception_status.eq.cancelled",
+    );
+    expect(orderListDatabaseOrFilter("all")).toBeUndefined();
   });
 
   it("turns Supabase Storage setup failures into actionable attachment errors", () => {

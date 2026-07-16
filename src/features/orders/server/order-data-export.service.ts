@@ -104,6 +104,7 @@ export async function exportCustomerStats(input: { expectedStoreId: string; acto
         name: customer.name,
         phone: customer.phone_e164,
         order_count: customer.order_count,
+        valid_order_count: customer.valid_order_count,
         active_order_count: customer.active_order_count,
         device_count: customer.device_count,
         total_spent: customer.total_spent,

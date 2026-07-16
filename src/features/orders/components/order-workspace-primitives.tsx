@@ -54,6 +54,7 @@ export function OrderWorkspaceMoneyStrip({
   itemClassName,
   compact = false,
   variant = "status",
+  cancelled = false,
 }: {
   total: number;
   deposit: number;
@@ -62,6 +63,7 @@ export function OrderWorkspaceMoneyStrip({
   itemClassName?: string;
   compact?: boolean;
   variant?: OrderWorkspaceMoneyStripVariant;
+  cancelled?: boolean;
 }) {
   const financeVariant = variant === "finance";
   const totalTone: OrderWorkspaceMoneyTone = financeVariant
@@ -71,8 +73,9 @@ export function OrderWorkspaceMoneyStrip({
       : "neutral";
   const depositTone: OrderWorkspaceMoneyTone =
     deposit > total ? "danger" : financeVariant ? "success" : deposit > 0 ? "warning" : "neutral";
-  const balanceTone: OrderWorkspaceMoneyTone =
-    balance <= 0 && total > 0
+  const balanceTone: OrderWorkspaceMoneyTone = cancelled
+    ? "neutral"
+    : balance <= 0 && total > 0
       ? "success"
       : financeVariant
         ? "warning"
@@ -103,10 +106,10 @@ export function OrderWorkspaceMoneyStrip({
         className={itemClassName}
       />
       <OrderWorkspaceMoneyTile
-        label="尾款"
+        label={cancelled ? "取消时余额" : "尾款"}
         amount={balance}
         tone={balanceTone}
-        strong={balance > 0}
+        strong={!cancelled && balance > 0}
         compact={compact}
         emphasizeTone={financeVariant}
         className={itemClassName}

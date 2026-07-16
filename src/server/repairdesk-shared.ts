@@ -624,18 +624,32 @@ type OrderListDatabaseScope = {
   assigneeMembershipId?: string;
 };
 
+export function orderListDatabaseOrFilter(view: OrderListDatabaseView) {
+  if (view === "active") {
+    return "exception_status.is.null,exception_status.neq.cancelled";
+  }
+  if (view === "archive") {
+    return "status.in.(completed,cancelled),exception_status.eq.cancelled";
+  }
+  return undefined;
+}
+
 function applyOrderListDatabaseScope<
   T extends {
     eq: (column: string, value: string) => T;
     in: (column: string, values: string[]) => T;
     neq: (column: string, value: string) => T;
+    or: (filters: string) => T;
   },
 >(query: T, scope: OrderListDatabaseScope) {
   let scoped = query;
   if (scope.view === "active") {
-    scoped = scoped.neq("status", "completed").neq("status", "cancelled");
+    scoped = scoped
+      .neq("status", "completed")
+      .neq("status", "cancelled")
+      .or(orderListDatabaseOrFilter("active")!);
   } else if (scope.view === "archive") {
-    scoped = scoped.in("status", ["completed", "cancelled"]);
+    scoped = scoped.or(orderListDatabaseOrFilter("archive")!);
   }
   if (scope.assigneeMembershipId) {
     scoped = scoped.eq("assignee_membership_id", scope.assigneeMembershipId);

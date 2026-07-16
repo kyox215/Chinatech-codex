@@ -151,6 +151,10 @@ describe("order repository role projection", () => {
   it("redacts detail customer contact, messages, event payloads, and attachment links", () => {
     const projected = projectOrderDetailForActor(detail(), actor("viewer"));
 
+    expect(Object.hasOwn(projected.order, "quotation_amount")).toBe(false);
+    expect(Object.hasOwn(projected.order, "deposit_amount")).toBe(false);
+    expect(Object.hasOwn(projected.order, "balance_amount")).toBe(false);
+    expect(projected.order.finance_redacted).toBe(true);
     expect(projected.customer?.phone_e164).toBe("***0000");
     expect(projected.customer?.email).toBeUndefined();
     expect(projected.customer?.notes).toBeUndefined();
@@ -199,6 +203,9 @@ describe("order repository database pagination", () => {
     expect(queries[0]?.eq).toHaveBeenCalledWith("store_id", "store_1");
     expect(queries[0]?.neq).toHaveBeenNthCalledWith(1, "status", "completed");
     expect(queries[0]?.neq).toHaveBeenNthCalledWith(2, "status", "cancelled");
+    expect(queries[0]?.or).toHaveBeenCalledWith(
+      "exception_status.is.null,exception_status.neq.cancelled",
+    );
     const indexSelect = (queries[0]?.select.mock.calls as unknown[][])[0]?.[0];
     expect(String(indexSelect)).not.toContain("customer:customers(*)");
     expect(queries[1]?.in).toHaveBeenCalledWith(
@@ -602,6 +609,25 @@ describe("order repository atomic payment adapter", () => {
     expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
+  it("maps the cancelled-order payment guard without any fallback write", async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: false, code: "order_cancelled" },
+      error: null,
+    });
+
+    await expect(
+      recordPayment(
+        "order_1",
+        25,
+        "现金",
+        actor("owner"),
+        "2026-07-10T14:00:00.000Z",
+        "00000000-0000-4000-8000-000000000507",
+      ),
+    ).rejects.toThrow("已取消工单不能登记收款");
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
   it.each([0.29, 0.57])("accepts a valid cent amount of %s", async (amount) => {
     mocks.supabase.rpc.mockResolvedValue({
       data: {
@@ -911,6 +937,7 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count: num
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     neq: vi.fn(() => query),
+    or: vi.fn(() => query),
     order: vi.fn(() => query),
     range: vi.fn(() => query),
     single: vi.fn(() => query),

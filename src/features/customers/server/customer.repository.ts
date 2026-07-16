@@ -20,10 +20,7 @@ import type {
   Device,
   OrderListItem,
 } from "@/lib/repairdesk/types";
-import {
-  isCustomerOrderBillable,
-  isCustomerOrderClosed,
-} from "@/features/customers/model/customer-order-state";
+import { buildCustomerOrderFinanceSummary } from "@/features/customers/model/customer-order-state";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { can } from "@/server/permissions";
 import { projectOrderListItemForActor } from "@/features/orders/server/order.repository";
@@ -384,16 +381,16 @@ async function fetchCustomerTagAssignments(
 }
 
 function customerStatsFromOrders(orders: OrderListItem[]) {
+  const finance = buildCustomerOrderFinanceSummary(orders);
   return {
-    order_count: orders.length,
-    active_order_count: orders.filter((order) => !isCustomerOrderClosed(order)).length,
-    total_spent: orders
-      .filter(isCustomerOrderBillable)
-      .reduce((sum, order) => sum + order.quotation_amount, 0),
-    unpaid_amount: orders.reduce((sum, order) => sum + order.balance_amount, 0),
-    last_order_at: orders
-      .map((order) => order.created_at)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0],
+    order_count: finance.historicalOrderCount,
+    valid_order_count: finance.validOrderCount,
+    active_order_count: finance.activeOrderCount,
+    lifetime_quoted_amount: finance.lifetimeQuotedAmount,
+    outstanding_amount: finance.outstandingAmount,
+    total_spent: finance.lifetimeQuotedAmount,
+    unpaid_amount: finance.outstandingAmount,
+    last_order_at: finance.lastOrderAt,
   };
 }
 
@@ -418,7 +415,10 @@ function buildCustomerListItem(
     tags,
     device_count: devices.length,
     order_count: stats.order_count,
+    valid_order_count: stats.valid_order_count,
     active_order_count: stats.active_order_count,
+    lifetime_quoted_amount: stats.lifetime_quoted_amount,
+    outstanding_amount: stats.outstanding_amount,
     total_spent: stats.total_spent,
     unpaid_amount: stats.unpaid_amount,
     last_order_at: stats.last_order_at,
@@ -440,7 +440,13 @@ export function projectCustomerAggregateFinance(
   actor?: AuditActor,
 ): CustomerListItem {
   if (can(actor, "finance:aggregate_read")) return customer;
-  const { total_spent: _totalSpent, unpaid_amount: _unpaidAmount, ...visible } = customer;
+  const {
+    lifetime_quoted_amount: _lifetimeQuotedAmount,
+    outstanding_amount: _outstandingAmount,
+    total_spent: _totalSpent,
+    unpaid_amount: _unpaidAmount,
+    ...visible
+  } = customer;
   return { ...visible, finance_redacted: true };
 }
 
@@ -470,7 +476,7 @@ function filterCustomers(customers: CustomerListItem[], filters: CustomerListFil
       if (filters.work === "active") return customer.active_order_count > 0;
       if (filters.work === "unpaid") return (customer.unpaid_amount ?? 0) > 0;
       if (filters.work === "with_devices") return customer.device_count > 0;
-      if (filters.work === "repeat") return customer.order_count > 1;
+      if (filters.work === "repeat") return (customer.valid_order_count ?? 0) > 1;
       return true;
     });
   }
@@ -598,7 +604,7 @@ export async function listCustomers(
 
   const stats: CustomerStats = {
     total: items.length,
-    repeat: items.filter((customer) => customer.order_count > 1).length,
+    repeat: items.filter((customer) => (customer.valid_order_count ?? 0) > 1).length,
     activeRepairs: items.filter((customer) => customer.active_order_count > 0).length,
     unpaid: items.filter((customer) => (customer.unpaid_amount ?? 0) > 0).length,
     withDevices: items.filter((customer) => customer.device_count > 0).length,
@@ -636,42 +642,33 @@ export async function listCustomersPage(
     p_page: page,
     p_page_size: pageSize,
   };
-  const v2Result = await supabase.rpc("repairdesk_customer_list_page_v2", rpcInput);
-  if (!v2Result.error && isCustomerListPageResult(v2Result.data)) {
-    return normalizeCustomerPageResult(v2Result.data, page, pageSize, actor);
+  const v3Result = await supabase.rpc("repairdesk_customer_list_page_v3", rpcInput);
+  if (!v3Result.error && isCustomerListPageResult(v3Result.data)) {
+    return normalizeCustomerPageResult(v3Result.data, page, pageSize, actor);
   }
 
-  if (!input.work || input.work === "all") {
-    const { p_work_filter: _workFilter, ...legacyRpcInput } = rpcInput;
-    const legacyRpcResult = await supabase.rpc("repairdesk_customer_list_page", legacyRpcInput);
-    if (!legacyRpcResult.error && isCustomerListPageResult(legacyRpcResult.data)) {
-      return normalizeCustomerPageResult(legacyRpcResult.data, page, pageSize, actor);
-    }
-
-    try {
-      const legacy = await listCustomers(input, actor);
-      return paginateCustomerListResult(legacy, page, pageSize);
-    } catch (fallbackError) {
-      const reasons = [
-        v2Result.error?.message,
-        legacyRpcResult.error?.message,
-        errorMessage(fallbackError),
-      ]
-        .filter(Boolean)
-        .join(" / ");
-      throw new Error(reasons ? `读取客户分页失败：${reasons}` : "读取客户分页失败");
-    }
+  if (!isMissingCustomerListV3(v3Result.error)) {
+    const reason = v3Result.error?.message || "数据库返回无效";
+    throw new Error(`读取客户分页失败：${reason}`);
   }
 
   try {
     const legacy = await listCustomers(input, actor);
     return paginateCustomerListResult(legacy, page, pageSize);
   } catch (fallbackError) {
-    const reasons = [v2Result.error?.message, errorMessage(fallbackError)]
+    const reasons = [v3Result.error?.message, errorMessage(fallbackError)]
       .filter(Boolean)
       .join(" / ");
     throw new Error(reasons ? `读取客户分页失败：${reasons}` : "读取客户分页失败");
   }
+}
+
+function isMissingCustomerListV3(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  if (error.code === "42883" || error.code === "PGRST202") return true;
+  return /repairdesk_customer_list_page_v3.*(does not exist|not found|schema cache)/i.test(
+    error.message ?? "",
+  );
 }
 
 function isCustomerListPageResult(value: unknown): value is CustomerListPageResult {
@@ -698,7 +695,9 @@ function normalizeCustomerPageResult(
   const pageSize = Math.min(100, Math.max(10, Number(result.pageSize ?? fallbackPageSize)));
   const page = Math.max(1, Number(result.page ?? fallbackPage));
   return {
-    items: result.items.map((item) => projectCustomerAggregateFinance(item, actor)),
+    items: result.items.map((item) =>
+      projectCustomerAggregateFinance(normalizeCustomerAggregateFacts(item), actor),
+    ),
     total,
     page,
     pageSize,
@@ -713,6 +712,21 @@ function normalizeCustomerPageResult(
       dueFollowups: Number(result.stats?.dueFollowups ?? 0),
       marketable: Number(result.stats?.marketable ?? 0),
     },
+  };
+}
+
+function normalizeCustomerAggregateFacts(item: CustomerListItem): CustomerListItem {
+  const lifetimeQuotedAmount = Number(item.lifetime_quoted_amount ?? item.total_spent ?? 0);
+  const outstandingAmount = Number(item.outstanding_amount ?? item.unpaid_amount ?? 0);
+  return {
+    ...item,
+    order_count: Number(item.order_count ?? 0),
+    valid_order_count: Number(item.valid_order_count ?? 0),
+    active_order_count: Number(item.active_order_count ?? 0),
+    lifetime_quoted_amount: lifetimeQuotedAmount,
+    outstanding_amount: outstandingAmount,
+    total_spent: lifetimeQuotedAmount,
+    unpaid_amount: outstandingAmount,
   };
 }
 
@@ -853,6 +867,10 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
     followups,
     stats: {
       ...orderStats,
+      lifetime_quoted_amount: canReadAggregateFinance
+        ? orderStats.lifetime_quoted_amount
+        : undefined,
+      outstanding_amount: canReadAggregateFinance ? orderStats.outstanding_amount : undefined,
       total_spent: canReadAggregateFinance ? orderStats.total_spent : undefined,
       unpaid_amount: canReadAggregateFinance ? orderStats.unpaid_amount : undefined,
       finance_redacted: canReadAggregateFinance ? undefined : true,

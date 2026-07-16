@@ -34,6 +34,7 @@ import {
   replaceOrderWhatsappRecipientPhone,
 } from "@/features/orders/model/order-message-templates";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 
 export function NotifyDialog({
   open,
@@ -57,7 +58,12 @@ export function NotifyDialog({
     transitionTo?: OrderDetail["order"]["status"];
   }) => Promise<unknown>;
 }) {
-  const defaultKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
+  const cancelled = isOrderCancelledForPayment(data.order);
+  const effectiveStatus = cancelled ? "cancelled" : data.order.status;
+  const defaultKind = getDefaultOrderWhatsappTemplateKind(effectiveStatus);
+  const templateOptions = cancelled
+    ? orderWhatsappTemplateOptions.filter((option) => option.kind === "cancelled")
+    : orderWhatsappTemplateOptions;
   const phoneOptions = getOrderContactPhoneOptions(data);
   const defaultPhone = phoneOptions[0] ?? "";
   const [templateKind, setTemplateKind] = useState<OrderWhatsappTemplateKind>(defaultKind);
@@ -66,16 +72,16 @@ export function NotifyDialog({
   );
   const [phone, setPhone] = useState(defaultPhone);
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
-  const transitionTo = getOrderWhatsappTransition(data.order.status, templateKind);
+  const transitionTo = getOrderWhatsappTransition(effectiveStatus, templateKind);
 
   useEffect(() => {
     if (!open) return;
-    const nextKind = getDefaultOrderWhatsappTemplateKind(data.order.status);
+    const nextKind = getDefaultOrderWhatsappTemplateKind(effectiveStatus);
     const nextPhone = getOrderContactPhoneOptions(data)[0] ?? "";
     setTemplateKind(nextKind);
     setBody(buildOrderWhatsappMessage(data, nextKind, orderUrl, { recipientPhone: nextPhone }));
     setPhone(nextPhone);
-  }, [data, open, orderUrl]);
+  }, [data, effectiveStatus, open, orderUrl]);
 
   const updateTemplate = (kind: OrderWhatsappTemplateKind) => {
     setTemplateKind(kind);
@@ -110,7 +116,7 @@ export function NotifyDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {orderWhatsappTemplateOptions.map((option) => (
+                  {templateOptions.map((option) => (
                     <SelectItem key={option.kind} value={option.kind}>
                       {option.label}
                     </SelectItem>

@@ -20,6 +20,7 @@ import {
   buildCustomerDeviceWorkbenchItems,
   buildCustomerWorkbenchSummary,
 } from "@/features/customers/model/customer-workbench";
+import { isCustomerOrderCancelled } from "@/features/customers/model/customer-order-state";
 import type { CustomerDetail, Device } from "@/lib/repairdesk/api";
 import { RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
@@ -32,6 +33,7 @@ export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
   const { customer } = data;
   const workbench = buildCustomerWorkbenchSummary(data);
   const { contactSummary, latestOrder, payment } = workbench;
+  const financeRedacted = Boolean(data.stats.finance_redacted);
   const noteRows = [
     { label: "客户备注", value: customer.notes?.trim() },
     { label: "联系备注", value: customer.marketing_notes?.trim() },
@@ -53,10 +55,22 @@ export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
           <CustomerInfoBlock label="备用号码" value={`${contactSummary.backupPhoneCount} 个`} />
           <CustomerInfoBlock label="首选联系" value={contactSummary.channel} />
           <CustomerInfoBlock label="语言" value={contactSummary.language} />
-          <CustomerMetric label="总消费" value={<MoneyText amount={payment.totalQuoted} />} />
-          <CustomerMetric label="待收尾款" value={<MoneyText amount={payment.unpaidAmount} />} />
-          <CustomerMetric label="已收定金" value={<MoneyText amount={payment.depositTotal} />} />
-          <CustomerMetric label="历史工单" value={data.orders.length} />
+          <CustomerMetric
+            label="有效工单额"
+            value={financeRedacted ? "金额受限" : <MoneyText amount={payment.totalQuoted} />}
+          />
+          <CustomerMetric
+            label="待收尾款"
+            value={financeRedacted ? "金额受限" : <MoneyText amount={payment.unpaidAmount} />}
+          />
+          <CustomerMetric
+            label="已收定金"
+            value={financeRedacted ? "金额受限" : <MoneyText amount={payment.depositTotal} />}
+          />
+          <CustomerMetric
+            label="历史 / 有效工单"
+            value={`${data.orders.length} / ${data.stats.valid_order_count ?? 0}`}
+          />
         </div>
         {noteRows.length ? (
           <>
@@ -207,7 +221,12 @@ export function CustomerOrdersPanel({
                       {item.order.public_no}
                     </Link>
                     <div className="mt-1 xl:hidden">
-                      <StatusBadge status={item.order.status} className="max-w-full text-[10px]" />
+                      <StatusBadge
+                        status={
+                          isCustomerOrderCancelled(item.order) ? "cancelled" : item.order.status
+                        }
+                        className="max-w-full text-[10px]"
+                      />
                     </div>
                   </td>
                   <td className="min-w-0 px-2 py-2">
@@ -227,25 +246,42 @@ export function CustomerOrdersPanel({
                     </div>
                   </td>
                   <td className="hidden px-2 py-2 xl:table-cell">
-                    <StatusBadge status={item.order.status} />
+                    <StatusBadge
+                      status={
+                        isCustomerOrderCancelled(item.order) ? "cancelled" : item.order.status
+                      }
+                    />
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right font-mono tabular-nums">
-                    <div className="font-semibold">
-                      <MoneyText amount={item.order.quotation_amount} />
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-muted-foreground">
-                      定金 <MoneyText amount={item.order.deposit_amount} />
-                    </div>
-                    <div
-                      className={cn(
-                        "text-[10px]",
-                        item.order.balance_amount > 0
-                          ? "text-status-danger-foreground"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      待收 <MoneyText amount={Math.max(0, item.order.balance_amount)} />
-                    </div>
+                    {item.order.finance_redacted ? (
+                      <div className="text-[10px] text-muted-foreground">金额受限</div>
+                    ) : (
+                      <>
+                        <div className="font-semibold">
+                          <MoneyText amount={item.order.quotation_amount} />
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-muted-foreground">
+                          定金 <MoneyText amount={item.order.deposit_amount} />
+                        </div>
+                        {isCustomerOrderCancelled(item.order) ? (
+                          <div className="text-[10px] leading-4 text-muted-foreground">
+                            取消时余额 <MoneyText amount={Math.max(0, item.order.balance_amount)} />
+                            <span className="block">不计入待收</span>
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              "text-[10px]",
+                              item.order.balance_amount > 0
+                                ? "text-status-danger-foreground"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            待收 <MoneyText amount={Math.max(0, item.order.balance_amount)} />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </td>
                   <td className="px-2 py-2 text-right">
                     {item.order.status === "completed" ? (

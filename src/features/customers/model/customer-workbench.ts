@@ -33,6 +33,7 @@ export interface CustomerDeviceWorkbenchItem {
   activeOrderCount: number;
   totalQuoted: number;
   unpaidAmount: number;
+  financeRedacted: boolean;
   warrantyLabel: string;
   canDelete: boolean;
   deleteBlockedReason?: string;
@@ -74,13 +75,14 @@ export function buildCustomerDeviceWorkbenchItems(
       repairCount: billableOrders.length,
       activeOrderCount: linkedOrders.filter((item) => item.state === "active").length,
       totalQuoted: billableOrders.reduce(
-        (sum, item) => sum + Math.max(0, item.order.quotation_amount),
+        (sum, item) => sum + safeAmount(item.order.quotation_amount),
         0,
       ),
       unpaidAmount: billableOrders.reduce(
-        (sum, item) => sum + Math.max(0, item.order.balance_amount),
+        (sum, item) => sum + safeAmount(item.order.balance_amount),
         0,
       ),
+      financeRedacted: linkedOrders.some((item) => item.order.finance_redacted),
       warrantyLabel: warrantyLabelFromOrder(latestClosedOrder?.order),
       canDelete: linkedOrders.length === 0,
       deleteBlockedReason: linkedOrders.length
@@ -97,7 +99,9 @@ export function buildCustomerWorkbenchSummary(data: CustomerDetail): CustomerWor
     orderItems,
     payment,
     activeOrders: orderItems.filter((item) => item.state === "active"),
-    unpaidOrders: orderItems.filter((item) => item.order.balance_amount > 0),
+    unpaidOrders: orderItems.filter(
+      (item) => isCustomerOrderBillable(item.order) && safeAmount(item.order.balance_amount) > 0,
+    ),
     latestOrder: orderItems[0],
     openFollowupCount: data.followups.filter((followup) => followup.status === "open").length,
     contactSummary: {
@@ -137,11 +141,12 @@ export function buildCustomerPaymentSummary(orders: OrderListItem[]): CustomerPa
   return orders.reduce<CustomerPaymentSummary>(
     (summary, order) => {
       if (!isCustomerOrderBillable(order)) return summary;
+      if (order.finance_redacted) return summary;
 
-      const unpaid = Math.max(0, order.balance_amount);
+      const unpaid = safeAmount(order.balance_amount);
       return {
-        totalQuoted: summary.totalQuoted + Math.max(0, order.quotation_amount),
-        depositTotal: summary.depositTotal + Math.max(0, order.deposit_amount),
+        totalQuoted: summary.totalQuoted + safeAmount(order.quotation_amount),
+        depositTotal: summary.depositTotal + safeAmount(order.deposit_amount),
         unpaidAmount: summary.unpaidAmount + unpaid,
         settledOrderCount: summary.settledOrderCount + (unpaid <= 0 ? 1 : 0),
         unpaidOrderCount: summary.unpaidOrderCount + (unpaid > 0 ? 1 : 0),
@@ -162,12 +167,17 @@ export function getCustomerOrderWorkbenchState(
 ): CustomerOrderWorkbenchState {
   if (isCustomerOrderCancelled(order)) return "closed";
   if (!isCustomerOrderClosed(order)) return "active";
-  if (order.balance_amount > 0) return "unpaid";
+  if (safeAmount(order.balance_amount) > 0) return "unpaid";
   return "settled";
 }
 
 function orderTime(order: Pick<OrderListItem, "updated_at" | "created_at">) {
   return new Date(order.updated_at || order.created_at || 0).getTime();
+}
+
+function safeAmount(value: unknown) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
 }
 
 function warrantyLabelFromOrder(order?: OrderListItem) {

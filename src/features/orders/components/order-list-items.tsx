@@ -14,12 +14,11 @@ import {
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
-import {
-  orderExceptionMeta,
-  workflowStatusFromLegacyStatus,
-} from "@/features/orders/model/canonical-order-status";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
   getOrderTaskGuidance,
+  getOrderWorkflowStatus,
   getWorkflowProgressValue,
   orderTaskStages,
 } from "@/features/orders/model/order-task-flow";
@@ -50,9 +49,10 @@ export function OrderMobileCard({
 }: OrderMobileCardProps) {
   const hoverTimerRef = useRef<number | null>(null);
   const detailHref = `/orders/${order.id}`;
-  const workflowStatus = order.workflow_status ?? workflowStatusFromLegacyStatus(order.status);
+  const cancelled = isOrderCancelledForPayment(order);
+  const workflowStatus = getOrderWorkflowStatus(order);
   const exceptionStatus = order.exception_status;
-  const hasOverdueException = Boolean(order.approval_overdue || order.pickup_overdue);
+  const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
   const guidance = getOrderTaskGuidance(order);
   const currentStageLabel = guidance.label || guidance.stage.label;
   const normalizedCustomerName = normalizeComparable(order.customer_name);
@@ -63,29 +63,37 @@ export function OrderMobileCard({
   const showPhoneLine = Boolean(order.customer_phone && !customerNameIsPhone);
   const firstFaultPrice = order.fault_prices[0];
   const extraFaultCount = Math.max(0, order.fault_prices.length - 1);
-  const primaryRepairLabel = firstFaultPrice?.name || "待确认维修项目";
+  const primaryRepairLabel = order.finance_redacted
+    ? "报价信息受限"
+    : firstFaultPrice?.name || "待确认维修项目";
   const deviceLabel = order.device_label || order.device_imei || "未知设备";
   const issueLabel = order.issue_description || "待补充故障描述";
   const createdDate = formatOrderListDate(order.created_at);
   const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
   const paymentLabel = order.finance_redacted
-    ? "详情可见"
-    : order.is_paid
-      ? "已结清"
-      : order.deposit_amount > 0
-        ? "已付押金"
-        : "未收款";
+    ? "金额受限"
+    : cancelled
+      ? "已取消"
+      : order.is_paid
+        ? "已结清"
+        : order.deposit_amount > 0
+          ? "已付押金"
+          : "未收款";
   const paymentStatusClass = order.finance_redacted
     ? "bg-muted text-muted-foreground"
-    : order.is_paid
-      ? "bg-status-success text-status-success-foreground"
-      : order.deposit_amount > 0
-        ? "bg-status-warn text-status-warn-foreground"
-        : "bg-status-danger text-status-danger-foreground";
+    : cancelled
+      ? "bg-muted text-muted-foreground"
+      : order.is_paid
+        ? "bg-status-success text-status-success-foreground"
+        : order.deposit_amount > 0
+          ? "bg-status-warn text-status-warn-foreground"
+          : "bg-status-danger text-status-danger-foreground";
   const paymentTotalClass =
-    order.balance_amount > 0 ? "text-status-danger-foreground" : "text-foreground";
+    !cancelled && order.balance_amount > 0 ? "text-status-danger-foreground" : "text-foreground";
   const paymentBalanceClass =
-    order.balance_amount > 0 ? "text-status-danger-foreground" : "text-muted-foreground";
+    !cancelled && order.balance_amount > 0
+      ? "text-status-danger-foreground"
+      : "text-muted-foreground";
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
   const supplierControl = onPartsSupplierChange ? (
     <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
@@ -283,9 +291,12 @@ export function OrderMobileCard({
                       <MoneyText amount={order.deposit_amount} className="min-w-0 truncate" />
                     </div>
                     <div className={cn("flex min-w-0 justify-end gap-1", paymentBalanceClass)}>
-                      <span className="shrink-0 text-muted-foreground">尾款</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {cancelled ? "取消时余额" : "尾款"}
+                      </span>
                       <MoneyText amount={order.balance_amount} className="min-w-0 truncate" />
                     </div>
+                    {cancelled ? <span className="text-right">不计入待收</span> : null}
                   </div>
                 </>
               )}

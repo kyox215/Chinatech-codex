@@ -34,15 +34,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OrderWorkflowProgress } from "@/features/orders/components/order-workflow-progress";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import {
-  orderExceptionMeta,
-  workflowStatusFromLegacyStatus,
-} from "@/features/orders/model/canonical-order-status";
+import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
   getWorkflowNextActions,
   getWorkflowStatusLabel,
 } from "@/features/orders/model/order-workflow";
-import { getOrderTaskGuidance } from "@/features/orders/model/order-task-flow";
+import {
+  getOrderTaskGuidance,
+  getOrderWorkflowStatus,
+} from "@/features/orders/model/order-task-flow";
+import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
@@ -98,17 +99,16 @@ export function OrderTaskScreen({ id }: { id: string }) {
   });
 
   const order = data?.order;
+  const cancelled = order ? isOrderCancelledForPayment(order) : false;
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
-  const workflowStatus = order
-    ? (order.workflow_status ?? workflowStatusFromLegacyStatus(order.status))
-    : "intake";
+  const workflowStatus = order ? getOrderWorkflowStatus(order) : "intake";
   const guidance = order ? getOrderTaskGuidance(order) : null;
   const next = useMemo(
     () =>
-      order
+      order && !cancelled
         ? getWorkflowNextActions(workflow, order.status)
         : { primary: undefined, secondary: [] },
-    [order, workflow],
+    [cancelled, order, workflow],
   );
   const exceptionStatus = order?.exception_status;
   const progressTone = exceptionStatus
@@ -197,7 +197,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     (action): action is WorkflowNextAction => Boolean(action),
   );
   const currentStatusLabel = getWorkflowStatusLabel(workflow, order.status);
-  const approvalDecisionRequired = isTaskApprovalDecisionRequired(order);
+  const approvalDecisionRequired = !cancelled && isTaskApprovalDecisionRequired(order);
 
   const openTransitionAction = (action: WorkflowNextAction) => {
     setTransitionAction(action);
@@ -256,7 +256,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               <StatusBadge
-                status={order.status}
+                status={cancelled ? "cancelled" : order.status}
                 label={guidance.label}
                 tone={progressTone}
                 className="text-[10px]"
@@ -267,6 +267,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           <OrderWorkflowProgress
             workflowStatus={workflowStatus}
             tone={progressTone}
+            currentStage={guidance.stage}
             showLabels
             className="mt-3 md:mt-2"
           />
@@ -275,7 +276,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           data-order-task-guidance="true"
           className={cn(
             "rounded-xl border p-3 md:p-2.5",
-            order.approval_overdue || order.pickup_overdue
+            !cancelled && (order.approval_overdue || order.pickup_overdue)
               ? "border-status-danger-foreground/25 bg-status-danger/10"
               : "border-primary/20 bg-primary/5",
           )}
@@ -324,9 +325,25 @@ export function OrderTaskScreen({ id }: { id: string }) {
             data-order-task-finance="true"
             className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-2.5 md:shadow-none"
           >
-            <Metric label="总价" value={<MoneyText amount={order.quotation_amount} />} />
-            <Metric label="定金" value={<MoneyText amount={order.deposit_amount} />} />
-            <Metric label="待付" value={<MoneyText amount={order.balance_amount} />} />
+            {order.finance_redacted ? (
+              <p className="col-span-3 py-3 text-center text-xs font-medium text-muted-foreground">
+                金额受限
+              </p>
+            ) : (
+              <>
+                <Metric label="总价" value={<MoneyText amount={order.quotation_amount} />} />
+                <Metric label="定金" value={<MoneyText amount={order.deposit_amount} />} />
+                <Metric
+                  label={cancelled ? "取消时余额" : "待付"}
+                  value={<MoneyText amount={order.balance_amount} />}
+                />
+              </>
+            )}
+            {cancelled && !order.finance_redacted ? (
+              <p className="col-span-3 text-right text-[10px] text-muted-foreground">
+                已取消 · 不计入客户待收
+              </p>
+            ) : null}
           </section>
 
           <section

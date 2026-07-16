@@ -74,6 +74,16 @@ describe("order list grouping", () => {
     });
   });
 
+  it("groups exception-only cancellation history as cancelled", () => {
+    const legacy = order("legacy-cancel", "repairing", "2026-05-03T10:00:00Z", {
+      workflow_status: "repair",
+      exception_status: "cancelled",
+    });
+
+    expect(getOrderResultGroup(legacy)).toBe("cancelled");
+    expect(countOrderResultGroups([legacy])).toMatchObject({ completed: 0, cancelled: 1 });
+  });
+
   it("keeps all eight result groups in their fixed business order", () => {
     const rows = [
       order("cancelled", "cancelled", "2026-05-01T10:00:00Z"),

@@ -637,9 +637,16 @@ export interface CustomerListPageInput extends CustomerListFilters {
 export interface CustomerListItem extends Customer {
   tags: CustomerTag[];
   device_count: number;
+  /** All historical orders, including cancelled orders. */
   order_count: number;
+  /** Orders that remain valid for operational and financial aggregation. */
+  valid_order_count?: number;
   active_order_count: number;
+  lifetime_quoted_amount?: number;
+  outstanding_amount?: number;
+  /** Compatibility alias for lifetime_quoted_amount. */
   total_spent?: number;
+  /** Compatibility alias for outstanding_amount. */
   unpaid_amount?: number;
   finance_redacted?: boolean;
   last_order_at?: string;
@@ -682,7 +689,12 @@ export interface CustomerDetail {
   interactions: CustomerInteraction[];
   followups: CustomerFollowup[];
   stats: {
+    /** All historical orders, including cancelled orders. */
     order_count: number;
+    valid_order_count?: number;
+    active_order_count?: number;
+    lifetime_quoted_amount?: number;
+    outstanding_amount?: number;
     total_spent?: number;
     unpaid_amount?: number;
     finance_redacted?: boolean;
