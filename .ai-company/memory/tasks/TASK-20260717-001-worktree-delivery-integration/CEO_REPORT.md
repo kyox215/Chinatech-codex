@@ -6,7 +6,7 @@
 
 ## 交付摘要
 
-- 原始工作区：28 tracked + 100 untracked；stash、保全 ref、恢复目录三重可恢复，原 checkout 未清理。
+- 原始快照：28 tracked + 100 untracked；stash、保全 ref、恢复目录三重可恢复，没有内容被丢弃。当前主 checkout 另有 4 个已跟踪任务记录和 14 个 ` 2` 重复文件残留，尚未做破坏性清理。
 - 应用：Kiosk 工单范围/竞态复检、available-device 缓存/功能开关、作废打印与通知、custom 状态一致性、客户嵌套弹窗溢出均已修正。
 - 数据：Settings migration 在 PG17 建立 12 个约束和 3 个索引；custody hardening 在权威迁移之后安装，pgTAP 55/55。
 - 质量：Agent 规则、lint、typecheck、203 文件/1398 测试、标准构建、Settings 67/67 E2E、桌面 44/44 E2E 全部通过。
@@ -15,6 +15,8 @@
 ## 发布决定
 
 当前不应直接推送 `main`。推荐顺序：重新 fetch/prune 和迁移历史预检 → 应用 `20260714180000_kiosk_integrity_expand.sql` → 应用 `20260717030000_order_device_custody_security_hardening.sql` → metadata/ACL/约束/pgTAP 后检 → 非强制推送应用 → Vercel exact-SHA 与运行冒烟。上述生产动作尚未执行。
+
+主 checkout 的 18 项残留也不应自动删除；Owner 可单独批准删除 14 个 ` 2` 重复文件，并决定 4 个 custody task-memory 修改是恢复、归档还是保留。
 
 ## 残余风险
 

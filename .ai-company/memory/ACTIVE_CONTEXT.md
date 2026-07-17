@@ -7,10 +7,11 @@ task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-17T01:35:12Z"
+last_checkpoint_at: "2026-07-17T01:39:19Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
+
 # Active Context
 
 ## Current objective
@@ -19,15 +20,16 @@ last_rehydrated_at: null
 
 ## Current state
 
-最终本地候选已形成三个 scoped commits：31abfa04（业务/安全 hardening）、d7899aed（客户嵌套 Dialog）、27dd3a24（lint hygiene）；原始脏 checkout 仍由 stash/ref/恢复目录保全且未动。完整门禁、PG17 与 E2E 证据保持通过，生成漂移已排除。fresh fetch 确认 origin/main@7a1d2330，候选 behind 0；未 push、未 deploy、未写生产 DB。
+最终候选与门禁证据保持通过；原始 28 tracked + 100 untracked 快照由 stash 60dc732c、preserve ref 与 recovery worktree 完整保全。主 checkout 当前另有 4 个 modified custody task-memory 文件与 14 个 untracked ' 2' 重复文件，未删除或恢复。候选仍未 push/deploy/写生产 DB。
 
 ## Blocking decisions
 
-- Owner D3 approval is required before applying `20260714180000` and `20260717030000`, pushing `main`, or triggering Vercel production deployment.
+- Owner D3 approval is required for the two production migrations, `main` push and automatic deployment.
+- Owner approval is required before deleting/restoring the 18 residual files in the main checkout.
 
 ## Next action
 
-等待 Owner D3 批准；获批后先应用并后检 20260714180000，再应用并后检 20260717030000，最后非强制推送应用并验证 Vercel/runtime。未批准前保留本地候选。
+等待 Owner 分别批准：(1) DB-first 应用 20260714180000、20260717030000 后推送部署；(2) 删除 14 个重复文件并决定 4 个 task-memory 修改的保留/恢复。
 
 ## Resume protocol
 

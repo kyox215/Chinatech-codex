@@ -9,8 +9,9 @@ autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["DATA", "DOC", "INT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-17T01:27:26Z"
-updated_at: "2026-07-17T01:35:12Z"
+updated_at: "2026-07-17T01:39:19Z"
 ---
+
 # Task — 工作区未提交改动保全、整合与发布准备
 
 ## Owner request
@@ -39,7 +40,7 @@ updated_at: "2026-07-17T01:35:12Z"
 ## Hard constraints
 
 - 主线程是唯一写入者；审查 Agent 只读，不得 stage/commit/push/DB apply。
-- 原始 checkout 保持原状；所有整合在隔离 worktree 和专用分支完成。
+- 原始快照不得丢失；所有整合在隔离 worktree 和专用分支完成，主 checkout 的残留清理需另行批准。
 - 生产 DB、部署与 `main` 推送均为 D3 Owner 明确批准门禁，且必须 DB-first。
 - 不记录 secrets、完整客户 PII、生产凭据或未验证的通过结论。
 - 迁移只允许 forward-fix；不得改写已应用设备保管迁移或伪造历史数据。
@@ -53,13 +54,14 @@ updated_at: "2026-07-17T01:35:12Z"
 
 ## Facts, assumptions, and unknowns
 
-| Item                                                    | Type     | Evidence                                          | Status / next action              |
-| ------------------------------------------------------- | -------- | ------------------------------------------------- | --------------------------------- |
-| 原始 checkout 有 28 个 tracked 与 100 个 untracked 改动 | verified | 状态/差异/未跟踪清单指纹及保全 ref                | 原始 checkout 保持不动            |
-| 最新 `main` 已包含设备保管生产发布关闭记录              | verified | `origin/main@7a1d2330` 与 custody release commits | 作为整合基线保留                  |
-| Settings/Kiosk migration 尚未由本任务应用生产           | verified | `20260714180000` 本地 PG17 replay                 | 生产发布需 Owner D3 批准          |
-| 设备保管安全 hardening migration 尚未应用生产           | verified | `20260717030000` PG17 55/55                       | 必须先于应用代码发布              |
-| Kiosk 创建/审核仍有 guarded 非单事务窗口                | verified | repository 与独立审查                             | Backend + Data；独立 RPC 任务根治 |
+| Item                                                    | Type     | Evidence                                            | Status / next action              |
+| ------------------------------------------------------- | -------- | --------------------------------------------------- | --------------------------------- |
+| 原始 checkout 有 28 个 tracked 与 100 个 untracked 改动 | verified | 状态/差异/未跟踪清单指纹及保全 ref                  | 完整原始快照已保全                |
+| 当前主 checkout 另有 4 tracked + 14 untracked 残留      | verified | 最终只读 status；14 个 untracked 均为 ` 2` 重复文件 | 删除/恢复需 Owner 明确批准        |
+| 最新 `main` 已包含设备保管生产发布关闭记录              | verified | `origin/main@7a1d2330` 与 custody release commits   | 作为整合基线保留                  |
+| Settings/Kiosk migration 尚未由本任务应用生产           | verified | `20260714180000` 本地 PG17 replay                   | 生产发布需 Owner D3 批准          |
+| 设备保管安全 hardening migration 尚未应用生产           | verified | `20260717030000` PG17 55/55                         | 必须先于应用代码发布              |
+| Kiosk 创建/审核仍有 guarded 非单事务窗口                | verified | repository 与独立审查                               | Backend + Data；独立 RPC 任务根治 |
 
 ## Decision and approval points
 
