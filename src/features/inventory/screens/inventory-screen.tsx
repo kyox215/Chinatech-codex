@@ -74,7 +74,11 @@ import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { inventorySummaryQueryOptions } from "@/features/inventory/api/query-options";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { useRealtimeSync } from "@/features/realtime";
-import { ScanSearchButton } from "@/features/capture";
+import {
+  ScanSearchButton,
+  consumeScanSearchIntent,
+  subscribeScanSearchIntent,
+} from "@/features/capture";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   resolveStoreOutputIdentity,
@@ -262,6 +266,15 @@ export function InventoryScreen() {
     const query = searchParams.get("q");
     if (query) setSearch(query);
   }, [searchParams]);
+
+  useEffect(() => {
+    const applyIntent = (value: string) => {
+      if (value) setSearch((current) => (current === value ? current : value));
+    };
+
+    applyIntent(consumeScanSearchIntent("inventory"));
+    return subscribeScanSearchIntent("inventory", applyIntent);
+  }, []);
 
   useEffect(() => {
     const focusedItemId = searchParams.get("item");

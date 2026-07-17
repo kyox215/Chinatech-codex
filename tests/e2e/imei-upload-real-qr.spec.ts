@@ -35,6 +35,9 @@ test("new order IMEI image upload decodes a real QR label without OCR mocks", as
   ).toBeVisible();
 
   await captureDialog.locator('input[type="file"]').setInputFiles(await makeImeiQrImageFile());
+  await expect(captureDialog.getByText(uploadQrImeiValue)).toBeVisible({ timeout: 20_000 });
+  await expect(captureDialog.getByRole("button", { name: "使用选择的编号" })).toBeVisible();
+  await captureDialog.getByRole("button", { name: "使用选择的编号" }).click();
 
   await expect(deviceSection.getByPlaceholder("请输入 IMEI / 序列号")).toHaveValue(
     uploadQrImeiValue,

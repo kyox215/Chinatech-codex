@@ -54,7 +54,11 @@ import { CustomerListSkeleton } from "@/features/customers/components/customer-l
 import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
 import { CustomerFilters } from "@/features/customers/forms/customer-filters";
 import { CustomerFormDialog } from "@/features/customers/forms/customer-form-dialog";
-import { ScanSearchButton } from "@/features/capture";
+import {
+  ScanSearchButton,
+  consumeScanSearchIntent,
+  subscribeScanSearchIntent,
+} from "@/features/capture";
 import {
   buildCustomerWorkFilterChips,
   defaultCustomerForm,
@@ -118,6 +122,15 @@ export function CustomerListScreen() {
     const query = searchParams.get("q");
     if (query) setSearchDraft((current) => (current === query ? current : query));
   }, [searchParams]);
+
+  useEffect(() => {
+    const applyIntent = (value: string) => {
+      if (value) setSearchDraft((current) => (current === value ? current : value));
+    };
+
+    applyIntent(consumeScanSearchIntent("customers"));
+    return subscribeScanSearchIntent("customers", applyIntent);
+  }, []);
 
   const filters = useMemo<CustomerListFilters>(() => {
     const search = debouncedSearch.trim();

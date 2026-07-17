@@ -13,6 +13,7 @@ export type ScanSearchAction =
   | {
       id: string;
       kind: "search";
+      scope: Exclude<ScanSearchScope, "global">;
       label: string;
       searchValue: string;
       href: string;
@@ -33,11 +34,11 @@ const scopeLabels: Record<ScanSearchScope, string> = {
   inventory: "库存",
 };
 
-const searchHrefByScope: Record<Exclude<ScanSearchScope, "global">, (value: string) => string> = {
-  orders: (value) => `/orders?q=${encodeURIComponent(value)}`,
-  customers: (value) => `/customers?q=${encodeURIComponent(value)}`,
-  buyback: (value) => `/buyback?q=${encodeURIComponent(value)}`,
-  inventory: (value) => `/inventory?q=${encodeURIComponent(value)}`,
+const searchHrefByScope: Record<Exclude<ScanSearchScope, "global">, () => string> = {
+  orders: () => "/orders",
+  customers: () => "/customers",
+  buyback: () => "/buyback",
+  inventory: () => "/inventory",
 };
 
 export function getScanSearchScopeLabel(scope: ScanSearchScope) {
@@ -75,9 +76,10 @@ export function resolveScanSearchActions(
     actions.push({
       id: `search:${scope}`,
       kind: "search",
+      scope,
       label: `在${scopeLabels[scope]}搜索`,
       searchValue,
-      href: searchHrefByScope[scope](searchValue),
+      href: searchHrefByScope[scope](),
       primary: actions.length === 0,
     });
   }
@@ -96,9 +98,10 @@ function buildRouteSearchAction(
   return {
     id: `search:${scope}`,
     kind: "search",
+    scope,
     label: `搜${scopeLabels[scope]}`,
     searchValue,
-    href: searchHrefByScope[scope](searchValue),
+    href: searchHrefByScope[scope](),
   };
 }
 

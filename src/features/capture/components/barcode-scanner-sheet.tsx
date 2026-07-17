@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { IScannerControls } from "@zxing/browser";
+import { usePathname } from "next/navigation";
 import { ClipboardPaste, Copy, Loader2, RotateCcw, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,20 +41,30 @@ export function BarcodeScannerSheet({
   onDetected,
   renderActions,
 }: BarcodeScannerSheetProps) {
+  const pathname = usePathname();
   const [isStarting, setIsStarting] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [manualValue, setManualValue] = useState("");
   const [lastPayload, setLastPayload] = useState<CapturePayload | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const runIdRef = useRef(0);
+  const resultAcceptedRef = useRef(false);
+  const pathnameRef = useRef(pathname);
 
-  const stopScanner = useCallback(() => {
+  const stopScanner = useCallback((options: { pause?: boolean } = {}) => {
+    runIdRef.current += 1;
     controlsRef.current?.stop();
     controlsRef.current = null;
+    clearVideoElement(videoRef.current);
     setIsStarting(false);
+    if (options.pause) setIsPaused(true);
   }, []);
 
   const commitRawValue = useCallback(
     (rawValue: string) => {
+      if (resultAcceptedRef.current) return;
+      resultAcceptedRef.current = true;
       const payload = parseBarcodePayload(rawValue, window.location.origin);
       setLastPayload(payload);
       onDetected?.(payload);
@@ -66,13 +77,17 @@ export function BarcodeScannerSheet({
   );
 
   const rescan = useCallback(() => {
+    resultAcceptedRef.current = false;
     setLastPayload(null);
     setManualValue("");
+    setIsPaused(false);
   }, []);
 
   useEffect(() => {
     if (!open) {
       stopScanner();
+      resultAcceptedRef.current = false;
+      setIsPaused(false);
       setLastPayload(null);
       setManualValue("");
       return;
@@ -83,7 +98,17 @@ export function BarcodeScannerSheet({
       return;
     }
 
+    if (isPaused) {
+      stopScanner();
+      return;
+    }
+
     let cancelled = false;
+    const runId = runIdRef.current + 1;
+    runIdRef.current = runId;
+    resultAcceptedRef.current = false;
+
+    const isCurrentRun = () => !cancelled && runIdRef.current === runId;
 
     async function startScanner() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -94,21 +119,27 @@ export function BarcodeScannerSheet({
       setIsStarting(true);
       try {
         const { BrowserMultiFormatReader } = await import("@zxing/browser");
-        if (cancelled || !videoRef.current) return;
+        if (!isCurrentRun() || !videoRef.current) return;
 
         const reader = new BrowserMultiFormatReader();
-        controlsRef.current = await reader.decodeFromVideoDevice(
+        const controls = await reader.decodeFromVideoDevice(
           undefined,
           videoRef.current,
           (result) => {
-            if (!result) return;
+            if (!result || !isCurrentRun() || resultAcceptedRef.current) return;
             commitRawValue(result.getText());
           },
         );
+        if (!isCurrentRun()) {
+          controls.stop();
+          clearVideoElement(videoRef.current);
+          return;
+        }
+        controlsRef.current = controls;
       } catch (error) {
-        toast.error(getBarcodeScannerCameraErrorMessage(error));
+        if (isCurrentRun()) toast.error(getBarcodeScannerCameraErrorMessage(error));
       } finally {
-        if (!cancelled) setIsStarting(false);
+        if (isCurrentRun()) setIsStarting(false);
       }
     }
 
@@ -118,7 +149,31 @@ export function BarcodeScannerSheet({
       cancelled = true;
       stopScanner();
     };
-  }, [commitRawValue, lastPayload, open, stopScanner]);
+  }, [commitRawValue, isPaused, lastPayload, open, stopScanner]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const pauseForLifecycle = () => stopScanner({ pause: true });
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") pauseForLifecycle();
+    };
+
+    window.addEventListener("pagehide", pauseForLifecycle);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", pauseForLifecycle);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [open, stopScanner]);
+
+  useEffect(() => {
+    if (pathnameRef.current === pathname) return;
+    pathnameRef.current = pathname;
+    if (!open) return;
+    stopScanner({ pause: true });
+    onOpenChange(false);
+  }, [onOpenChange, open, pathname, stopScanner]);
 
   const copyValue = async () => {
     if (!lastPayload?.value) return;
@@ -175,10 +230,27 @@ export function BarcodeScannerSheet({
                   />
                 </div>
                 <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                  <span>{isStarting ? "正在启动摄像头…" : "需要 HTTPS 或 localhost 环境。"}</span>
-                  <Button type="button" variant="outline" size="sm" onClick={stopScanner}>
+                  <span>
+                    {isPaused
+                      ? "摄像头已暂停，可重新启动或手动输入。"
+                      : isStarting
+                        ? "正在启动摄像头…"
+                        : "需要 HTTPS 或 localhost 环境。"}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (isPaused) {
+                        setIsPaused(false);
+                        return;
+                      }
+                      stopScanner({ pause: true });
+                    }}
+                  >
                     {isStarting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-                    停止
+                    {isPaused ? "重新启动" : "停止"}
                   </Button>
                 </div>
                 <div className="grid gap-2 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2">
@@ -257,4 +329,17 @@ export function BarcodeScannerSheet({
       </SheetContent>
     </Sheet>
   );
+}
+
+function clearVideoElement(video: HTMLVideoElement | null) {
+  if (!video) return;
+
+  const source = video.srcObject;
+  if (source && typeof (source as MediaStream).getTracks === "function") {
+    for (const track of (source as MediaStream).getTracks()) {
+      track.stop();
+    }
+  }
+  video.pause();
+  video.srcObject = null;
 }

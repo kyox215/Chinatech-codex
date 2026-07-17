@@ -28,3 +28,11 @@ export {
   type ScanSearchAction,
   type ScanSearchScope,
 } from "@/features/capture/model/scan-search-resolver";
+export {
+  clearScanSearchIntents,
+  consumeScanSearchIntent,
+  createScanSearchIntent,
+  subscribeScanSearchIntent,
+  type ScanIntentScope,
+  type ScanSearchIntent,
+} from "@/features/capture/model/scan-intent";

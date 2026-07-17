@@ -44,7 +44,11 @@ import {
 } from "@/components/ui/table";
 import { BuybackQuoteWorkspace } from "@/features/buyback/components/buyback-quote-workspace";
 import { BUYBACK_SENSITIVE_WORKFLOW_ENABLED } from "@/features/buyback/model/buyback-evidence-policy";
-import { ScanSearchButton } from "@/features/capture";
+import {
+  ScanSearchButton,
+  consumeScanSearchIntent,
+  subscribeScanSearchIntent,
+} from "@/features/capture";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -140,6 +144,15 @@ export function BuybackScreen() {
     const query = searchParams.get("q");
     if (query) setSearch((current) => (current === query ? current : query));
   }, [searchParams]);
+
+  useEffect(() => {
+    const applyIntent = (value: string) => {
+      if (value) setSearch((current) => (current === value ? current : value));
+    };
+
+    applyIntent(consumeScanSearchIntent("buyback"));
+    return subscribeScanSearchIntent("buyback", applyIntent);
+  }, []);
 
   const filters = useMemo(
     () => ({

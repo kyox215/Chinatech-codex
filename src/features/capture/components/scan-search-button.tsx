@@ -14,6 +14,7 @@ import {
   type ScanSearchAction,
   type ScanSearchScope,
 } from "@/features/capture/model/scan-search-resolver";
+import { createScanSearchIntent } from "@/features/capture/model/scan-intent";
 import { cn } from "@/lib/utils";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
 
@@ -82,6 +83,9 @@ export function ScanSearchSheet({ open, onOpenChange, scope, onSearch }: ScanSea
       onSearch(action.searchValue);
       toast.success(`已填入${getScanSearchScopeLabel(scope)}搜索`);
       return;
+    }
+    if (action.kind === "search") {
+      createScanSearchIntent(action.scope, action.searchValue);
     }
     runGuardedTransition({
       kind: "route",

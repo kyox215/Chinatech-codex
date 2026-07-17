@@ -125,12 +125,12 @@ export function useNewOrderOfflineAutosave({
   }, [service]);
 
   const saveNow = useCallback(async () => {
-    if (!service || !storageAvailableRef.current || draftPrompt || queuedRef.current) return;
     const currentForm = latestFormRef.current;
-    if (!isNewOrderFormWorthOfflineAutosave(currentForm)) return;
+    if (!isNewOrderFormWorthOfflineAutosave(currentForm)) return true;
+    if (!service || !storageAvailableRef.current || draftPrompt || queuedRef.current) return false;
 
     const fingerprint = getNewOrderOfflineDraftFingerprint(currentForm);
-    if (fingerprint === lastSavedFingerprintRef.current && currentDraftIdRef.current) return;
+    if (fingerprint === lastSavedFingerprintRef.current && currentDraftIdRef.current) return true;
 
     setState("saving");
     setErrorMessage(null);
@@ -144,14 +144,25 @@ export function useNewOrderOfflineAutosave({
     if (!saved.ok) {
       setState("error");
       setErrorMessage(formatOfflineStorageError(saved.error));
-      return;
+      return false;
     }
 
     currentDraftIdRef.current = saved.value.localDraftId;
     lastSavedFingerprintRef.current = fingerprint;
     setLastSavedAt(saved.value.updatedAt);
     setState("saved");
+    return true;
   }, [draftPrompt, service]);
+
+  const isCurrentDraftDirty = useCallback(() => {
+    const currentForm = latestFormRef.current;
+    return (
+      isNewOrderFormWorthOfflineAutosave(currentForm) &&
+      getNewOrderOfflineDraftFingerprint(currentForm) !== lastSavedFingerprintRef.current
+    );
+  }, []);
+
+  const isDraftDirty = isCurrentDraftDirty();
 
   useEffect(() => {
     if (!service || !storageAvailableRef.current || draftPrompt) return;
@@ -299,6 +310,8 @@ export function useNewOrderOfflineAutosave({
     draftPrompt,
     pendingRestoreNotice,
     hasSensitiveUnlockDraft: hasNewOrderSensitiveUnlockDraft(form),
+    isDraftDirty,
+    isCurrentDraftDirty,
     saveNow,
     restorePromptDraft,
     discardPromptDraft,

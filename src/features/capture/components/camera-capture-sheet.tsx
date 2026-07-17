@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Loader2, RotateCcw } from "lucide-react";
+import { Camera, ImagePlus, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import {
   createAttachmentDraft,
+  validateAttachmentFile,
   type AttachmentDraft,
   type AttachmentDraftKind,
 } from "@/features/capture/model/attachment-rules";
@@ -37,6 +38,7 @@ export function CameraCaptureSheet({
   attachmentKind = "fault_photo",
   onCapture,
 }: CameraCaptureSheetProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -46,6 +48,10 @@ export function CameraCaptureSheet({
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+    }
     setIsStarting(false);
   }, []);
 
@@ -146,6 +152,19 @@ export function CameraCaptureSheet({
     onOpenChange(false);
   };
 
+  const handleSelectedImage = (file: File | undefined) => {
+    if (!file) return;
+    const error = validateAttachmentFile(file);
+    if (error) {
+      toast.error(`${file.name}: ${error}`);
+      return;
+    }
+    onCapture(createAttachmentDraft(file, attachmentKind));
+    clearPhoto();
+    stopCamera();
+    onOpenChange(false);
+  };
+
   const retake = () => {
     clearPhoto();
   };
@@ -166,6 +185,16 @@ export function CameraCaptureSheet({
           </SheetHeader>
 
           <div className={cn(componentOverlay.body, "space-y-3 pt-3")}>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                handleSelectedImage(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
             <div className="overflow-hidden rounded-lg border border-[var(--border-panel)] bg-foreground">
               {photoUrl ? (
                 <img src={photoUrl} alt="照片预览" className="aspect-[4/3] w-full object-cover" />
@@ -201,10 +230,21 @@ export function CameraCaptureSheet({
                   </Button>
                 </>
               ) : (
-                <Button type="button" size="sm" onClick={captureFrame} disabled={isStarting}>
-                  <Camera className="mr-1.5 size-3.5" />
-                  拍照
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => inputRef.current?.click()}
+                  >
+                    <ImagePlus className="mr-1.5 size-3.5" />
+                    相册
+                  </Button>
+                  <Button type="button" size="sm" onClick={captureFrame} disabled={isStarting}>
+                    <Camera className="mr-1.5 size-3.5" />
+                    拍照
+                  </Button>
+                </>
               )}
             </div>
           </div>

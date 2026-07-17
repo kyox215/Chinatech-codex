@@ -233,7 +233,12 @@ export function parseBarcodePayload(rawValue: string, origin = "http://localhost
 function parseInternalLink(raw: string, origin: string): CapturePayload | null {
   let url: URL;
   try {
-    url = new URL(raw, origin);
+    const base = new URL(origin);
+    const isAbsoluteUrl = /^[a-z][a-z\d+.-]*:/i.test(raw);
+    if (raw.startsWith("//")) return null;
+
+    url = new URL(raw, base);
+    if (isAbsoluteUrl && url.origin !== base.origin) return null;
   } catch {
     return null;
   }

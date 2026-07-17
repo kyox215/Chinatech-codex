@@ -43,6 +43,9 @@ test("order detail IMEI upload decodes a real QR label and persists across refre
   ).toBeVisible();
 
   await scannerDialog.locator('input[type="file"]').setInputFiles(await makeImeiQrImageFile());
+  await expect(scannerDialog.getByText(uploadQrImeiValue)).toBeVisible({ timeout: 20_000 });
+  await expect(scannerDialog.getByRole("button", { name: "使用选择的编号" })).toBeVisible();
+  await scannerDialog.getByRole("button", { name: "使用选择的编号" }).click();
   await expect(scannerDialog).toHaveCount(0);
 
   const patchResponse = page.waitForResponse(

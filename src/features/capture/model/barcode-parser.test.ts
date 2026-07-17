@@ -9,17 +9,26 @@ import {
 
 describe("parseBarcodePayload", () => {
   it("recognizes internal order links", () => {
-    expect(parseBarcodePayload("https://example.com/orders/order_123").targetHref).toBe(
-      "/orders/order_123",
-    );
+    expect(
+      parseBarcodePayload("https://example.com/orders/order_123", "https://example.com").targetHref,
+    ).toBe("/orders/order_123");
   });
 
   it("recognizes internal order task links", () => {
-    expect(parseBarcodePayload("https://example.com/orders/order_123/task")).toMatchObject({
+    expect(
+      parseBarcodePayload("https://example.com/orders/order_123/task", "https://example.com"),
+    ).toMatchObject({
       kind: "order_link",
       label: "工单任务",
       targetHref: "/orders/order_123/task",
       value: "order_123",
+    });
+  });
+
+  it("does not treat external URLs with internal-looking paths as internal links", () => {
+    expect(parseBarcodePayload("https://evil.example/orders/order_123")).toMatchObject({
+      kind: "url",
+      targetHref: "https://evil.example/orders/order_123",
     });
   });
 
@@ -31,7 +40,9 @@ describe("parseBarcodePayload", () => {
   });
 
   it("recognizes buyback links and prefixed buyback records", () => {
-    expect(parseBarcodePayload("https://example.com/buyback?id=I001001")).toMatchObject({
+    expect(
+      parseBarcodePayload("https://example.com/buyback?id=I001001", "https://example.com"),
+    ).toMatchObject({
       kind: "buyback_link",
       value: "I001001",
       targetHref: "/buyback?id=I001001",

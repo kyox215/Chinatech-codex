@@ -4,15 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ClipboardList,
-  CircleAlert,
-  RotateCcw,
-  Trash2,
-  X,
-} from "lucide-react";
+import { CheckCircle2, ClipboardList, CircleAlert, RotateCcw, Trash2, X } from "lucide-react";
 
 import { toFaultPriceItems } from "@/components/orders/fault-diagnosis-picker";
 import {
@@ -25,7 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  useNavigationGuard,
+  type NavigationGuardResolution,
+} from "@/components/navigation-guard-provider";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { toast } from "sonner";
 
 import {
@@ -91,6 +88,7 @@ export function NewOrderScreen({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { registerGuard } = useNavigationGuard();
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
@@ -514,6 +512,98 @@ export function NewOrderScreen({
         : create.isPending
           ? "正在提交工单，请保持页面打开。"
           : undefined;
+  const guardSnapshotRef = useRef({
+    surface,
+    offlineDraft,
+    createPending: create.isPending,
+    createRecoveryState: createRecovery.state,
+  });
+  guardSnapshotRef.current = {
+    surface,
+    offlineDraft,
+    createPending: create.isPending,
+    createRecoveryState: createRecovery.state,
+  };
+
+  useEffect(
+    () =>
+      registerGuard({
+        id: "orders-new-draft",
+        label: () => "新建工单草稿",
+        isDirty: () => {
+          const snapshot = guardSnapshotRef.current;
+          if (snapshot.surface !== "page") return false;
+          return (
+            Boolean(snapshot.offlineDraft.draftPrompt) ||
+            snapshot.offlineDraft.isCurrentDraftDirty() ||
+            snapshot.createPending ||
+            snapshot.createRecoveryState !== "idle"
+          );
+        },
+        isBusy: () => {
+          const snapshot = guardSnapshotRef.current;
+          return (
+            snapshot.createPending ||
+            snapshot.createRecoveryState === "confirming" ||
+            snapshot.createRecoveryState === "uncertain" ||
+            snapshot.offlineDraft.state === "saving"
+          );
+        },
+        canSave: () => {
+          const snapshot = guardSnapshotRef.current;
+          return (
+            !snapshot.offlineDraft.draftPrompt &&
+            !snapshot.offlineDraft.hasSensitiveUnlockDraft &&
+            !snapshot.createPending &&
+            snapshot.createRecoveryState === "idle" &&
+            snapshot.offlineDraft.state !== "unavailable"
+          );
+        },
+        saveUnavailableReason: () => {
+          const snapshot = guardSnapshotRef.current;
+          if (snapshot.createPending || snapshot.createRecoveryState !== "idle") {
+            return "工单正在创建或确认结果，请先留在当前页面。";
+          }
+          if (snapshot.offlineDraft.draftPrompt) {
+            return "请先恢复或丢弃已有本机草稿，再离开页面。";
+          }
+          if (snapshot.offlineDraft.hasSensitiveUnlockDraft) {
+            return "手机密码、PIN 或图案不会进入本机草稿；请先清除或选择放弃修改。";
+          }
+          if (snapshot.offlineDraft.state === "unavailable") {
+            return "本机草稿不可用，无法确认保存后离开。";
+          }
+          return "当前草稿暂时无法保存。";
+        },
+        save: async (): Promise<NavigationGuardResolution> => {
+          const snapshot = guardSnapshotRef.current;
+          if (
+            snapshot.createPending ||
+            snapshot.createRecoveryState !== "idle" ||
+            snapshot.offlineDraft.draftPrompt ||
+            snapshot.offlineDraft.hasSensitiveUnlockDraft
+          ) {
+            return { status: "blocked" };
+          }
+          const saved = await snapshot.offlineDraft.saveNow();
+          return saved ? { status: "resolved" } : { status: "blocked" };
+        },
+        discard: async (): Promise<NavigationGuardResolution> => {
+          const snapshot = guardSnapshotRef.current;
+          if (snapshot.createPending || snapshot.createRecoveryState !== "idle") {
+            return { status: "blocked" };
+          }
+          await snapshot.offlineDraft.discardCurrentDraft();
+          setForm(initialNewOrderForm);
+          setHistoryDevices([]);
+          return { status: "resolved" };
+        },
+        focusFallback: () => {
+          document.querySelector<HTMLElement>("[data-new-order-form='true'] input")?.focus();
+        },
+      }),
+    [registerGuard],
+  );
 
   return (
     <div
@@ -1181,15 +1271,19 @@ function NewOrderMobileHeader({
     <div ref={shellRef} className={repairOs.mobileFloatingHeaderShell}>
       <section className={cn(repairOs.mobileFloatingHeaderCard, "px-2.5 pb-2")}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <Button asChild variant="ghost" size="icon" className="size-7 rounded-lg">
-            <Link href="/orders" aria-label="返回工单列表">
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
+          <SidebarTrigger className="size-7 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
             <p className="truncate text-xs font-semibold leading-4">新建工单</p>
             <p className="truncate text-[9px] leading-3 text-muted-foreground">{operatorName}</p>
           </div>
+          <Button asChild variant="ghost" size="icon" className="size-7 rounded-lg">
+            <Link href="/orders" aria-label="返回工单列表">
+              <X className="size-4" />
+            </Link>
+          </Button>
+        </header>
+
+        <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
           <span
             className={cn(
               "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
@@ -1201,7 +1295,7 @@ function NewOrderMobileHeader({
             {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
             {valid ? "可创建" : "待补全"}
           </span>
-        </header>
+        </div>
 
         <div className={cn(repairOs.mobileFloatingHeaderBody, "mt-1.5 pt-1.5")}>
           <div

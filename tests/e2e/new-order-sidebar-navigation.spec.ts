@@ -5,6 +5,7 @@ const enabled =
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for new order navigation checks.");
+test.setTimeout(90_000);
 
 test("desktop sidebar can leave the new-order page from clean and dirty states", async ({
   page,
@@ -14,15 +15,16 @@ test("desktop sidebar can leave the new-order page from clean and dirty states",
   await gotoReady(page, "/orders/new");
   await expect(page.locator('[data-new-order-root="true"]')).toBeVisible();
   await clickSidebarLink(page, "/customers");
-  await expect(page).toHaveURL(/\/customers$/);
+  await expectRoute(page, /\/customers$/);
   await expect(page.locator('[data-new-order-root="true"]')).toHaveCount(0);
   await expect(documentPointerLock(page)).resolves.not.toBe("none");
 
   await gotoReady(page, "/orders/new");
-  await page.getByPlaceholder("搜索客户姓名（可选）").fill("Marco navigation draft");
-  await expect(page.getByPlaceholder("搜索客户姓名（可选）")).toHaveValue("Marco navigation draft");
+  await page.getByPlaceholder("例如 iPhone 13").fill("iPhone 13");
+  await expect(page.getByPlaceholder("例如 iPhone 13")).toHaveValue("iPhone 13");
   await clickSidebarLink(page, "/settings");
-  await expect(page).toHaveURL(/\/settings$/);
+  await confirmDiscardNavigation(page);
+  await expectRoute(page, /\/settings$/);
   await expect(page.locator('[data-new-order-root="true"]')).toHaveCount(0);
   await expect(documentPointerLock(page)).resolves.not.toBe("none");
 });
@@ -64,7 +66,8 @@ test("desktop sidebar can leave the new-order page while customer lookup results
   await expect(page.getByText("Marco Navigation")).toBeVisible();
 
   await clickSidebarLink(page, "/orders");
-  await expect(page).toHaveURL(/\/orders$/);
+  await confirmDiscardNavigation(page);
+  await expectRoute(page, /\/orders$/);
   await expect(page.locator('[data-new-order-root="true"]')).toHaveCount(0);
   await expect(documentPointerLock(page)).resolves.not.toBe("none");
 });
@@ -72,6 +75,12 @@ test("desktop sidebar can leave the new-order page while customer lookup results
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
+  await page
+    .waitForFunction(() => !document.body.innerText.includes("Compiling"), null, {
+      timeout: 30_000,
+    })
+    .catch(() => undefined);
 }
 
 async function clickSidebarLink(page: Page, href: string) {
@@ -90,6 +99,16 @@ async function clickSidebarLink(page: Page, href: string) {
     expect(result).toBe(true);
   }).toPass({ timeout: 5_000 });
   await link.click();
+}
+
+async function expectRoute(page: Page, pattern: RegExp) {
+  await expect(page).toHaveURL(pattern, { timeout: 30_000 });
+}
+
+async function confirmDiscardNavigation(page: Page) {
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await expect(page.getByText(/新建工单草稿有未保存修改/)).toBeVisible();
+  await page.getByRole("button", { name: "放弃修改" }).click();
 }
 
 async function documentPointerLock(page: Page) {

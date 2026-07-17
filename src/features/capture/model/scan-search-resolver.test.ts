@@ -5,7 +5,10 @@ import { resolveScanSearchActions } from "@/features/capture/model/scan-search-r
 
 describe("resolveScanSearchActions", () => {
   it("opens existing order task QR links and still offers scoped order search", () => {
-    const payload = parseBarcodePayload("https://chinatech.in/orders/order_123/task");
+    const payload = parseBarcodePayload(
+      "https://chinatech.in/orders/order_123/task",
+      "https://chinatech.in",
+    );
 
     expect(resolveScanSearchActions(payload, "orders").actions).toEqual([
       expect.objectContaining({
@@ -18,7 +21,7 @@ describe("resolveScanSearchActions", () => {
         kind: "search",
         label: "在订单搜索",
         searchValue: "order_123",
-        href: "/orders?q=order_123",
+        href: "/orders",
       }),
     ]);
   });
@@ -31,7 +34,7 @@ describe("resolveScanSearchActions", () => {
         kind: "search",
         label: "在库存搜索",
         searchValue: "490154203237518",
-        href: "/inventory?q=490154203237518",
+        href: "/inventory",
         primary: true,
       }),
     ]);
@@ -41,10 +44,10 @@ describe("resolveScanSearchActions", () => {
     const payload = parseBarcodePayload("serial:C39ZQ123N70M");
 
     expect(resolveScanSearchActions(payload, "global").actions).toEqual([
-      expect.objectContaining({ label: "搜订单", href: "/orders?q=C39ZQ123N70M" }),
-      expect.objectContaining({ label: "搜客户", href: "/customers?q=C39ZQ123N70M" }),
-      expect.objectContaining({ label: "搜回收", href: "/buyback?q=C39ZQ123N70M" }),
-      expect.objectContaining({ label: "搜库存", href: "/inventory?q=C39ZQ123N70M" }),
+      expect.objectContaining({ label: "搜订单", href: "/orders", searchValue: "C39ZQ123N70M" }),
+      expect.objectContaining({ label: "搜客户", href: "/customers", searchValue: "C39ZQ123N70M" }),
+      expect.objectContaining({ label: "搜回收", href: "/buyback", searchValue: "C39ZQ123N70M" }),
+      expect.objectContaining({ label: "搜库存", href: "/inventory", searchValue: "C39ZQ123N70M" }),
     ]);
   });
 
@@ -61,7 +64,7 @@ describe("resolveScanSearchActions", () => {
 
     expect(
       resolveScanSearchActions(
-        parseBarcodePayload("https://chinatech.in/inventory?id=sku-43"),
+        parseBarcodePayload("https://chinatech.in/inventory?id=sku-43", "https://chinatech.in"),
         "inventory",
       ).actions[0],
     ).toEqual(

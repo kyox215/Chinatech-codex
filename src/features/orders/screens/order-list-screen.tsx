@@ -55,7 +55,11 @@ import {
   OrderStatusFilterControls,
 } from "@/features/orders/components/order-list-filters";
 import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
-import { ScanSearchButton } from "@/features/capture";
+import {
+  ScanSearchButton,
+  consumeScanSearchIntent,
+  subscribeScanSearchIntent,
+} from "@/features/capture";
 import { useRealtimeSync } from "@/features/realtime";
 import {
   EmptyOrdersState,
@@ -282,6 +286,17 @@ export function OrderListScreen() {
     setFilters((current) => (current.search === query ? current : { ...current, search: query }));
     setPage(1);
   }, [isOnline, searchParams]);
+
+  useEffect(() => {
+    const applyIntent = (value: string) => {
+      if (!value) return;
+      setFilters((current) => (current.search === value ? current : { ...current, search: value }));
+      setPage(1);
+    };
+
+    applyIntent(consumeScanSearchIntent("orders"));
+    return subscribeScanSearchIntent("orders", applyIntent);
+  }, []);
 
   const effectiveFilters = useMemo<OrderListFilters>(() => {
     return {
