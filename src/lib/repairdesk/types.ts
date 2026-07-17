@@ -1060,6 +1060,7 @@ export type StoreRole = StaffRole;
 export type StoreStatus = "active" | "suspended" | "deleted";
 export type StorePlan = "starter" | "pro" | "enterprise";
 export type StoreMembershipStatus = "active" | "invited" | "inactive";
+export type StoreInvitationEmailDeliveryStatus = "not_requested" | "pending" | "sent" | "failed";
 export type PlatformAdminStatus = "active" | "inactive";
 export type OnboardingRequestType = "create_store" | "join_store";
 export type OnboardingRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
@@ -1121,6 +1122,9 @@ export interface StoreInvitation {
   status: StoreMembershipStatus;
   invited_by?: string;
   accepted_at?: string;
+  email_delivery_status?: StoreInvitationEmailDeliveryStatus;
+  last_email_delivery_attempt_at?: string;
+  last_email_delivered_at?: string;
   expires_at: string;
   created_at: string;
   updated_at: string;

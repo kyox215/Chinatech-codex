@@ -46,7 +46,9 @@ export async function getOnboardingStatus(actor: AuditActor): Promise<Onboarding
     actor.email && actor.emailVerified
       ? await supabase
           .from("store_invitations")
-          .select("id, email, role, status, expires_at, created_at, updated_at, store:stores(name)")
+          .select(
+            "id, email, role, status, email_delivery_status, last_email_delivery_attempt_at, last_email_delivered_at, expires_at, created_at, updated_at, store:stores(name)",
+          )
           .eq("email", sanitizeEmail(actor.email))
           .eq("status", "invited")
           .gt("expires_at", new Date().toISOString())
@@ -589,10 +591,18 @@ function storeInvitationFromRow(row: DbRecord): StoreInvitation {
     email: requiredString(row.email),
     role: toStoreRole(row.role),
     status: toMembershipStatus(row.status),
+    email_delivery_status: toInvitationEmailDeliveryStatus(row.email_delivery_status),
+    last_email_delivery_attempt_at: requiredString(row.last_email_delivery_attempt_at) || undefined,
+    last_email_delivered_at: requiredString(row.last_email_delivered_at) || undefined,
     expires_at: requiredString(row.expires_at),
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };
+}
+
+function toInvitationEmailDeliveryStatus(value: unknown) {
+  if (value === "pending" || value === "sent" || value === "failed") return value;
+  return "not_requested" as const;
 }
 
 function assertLoggedIn(actor: AuditActor) {

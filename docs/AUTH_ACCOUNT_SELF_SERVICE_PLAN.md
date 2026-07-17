@@ -1,6 +1,6 @@
 # Auth And Account Self-Service Plan
 
-Last updated: 2026-07-10
+Last updated: 2026-07-17
 Owner: Hexiang Huang / 鹤祥
 Status: P1-P3 implemented on 2026-07-10; email-link registration completion added on 2026-07-10; P4-P5 remain recommendations
 Scope: Registration, password recovery, password change, email binding/change, account settings, and auth hardening for RepairDesk
@@ -48,6 +48,21 @@ Production configuration requirement:
 
 - Supabase Auth must have email confirmation enabled and must allow the deployed app callback URL.
 - Dashboard Auth settings, SMTP, email templates, and redirect allowlists are configuration work, not database migrations.
+
+## Employee Invite Registration Update — 2026-07-17
+
+Completed in `TASK-20260717-employee-invite-registration`:
+
+- Settings sends a Supabase Auth Invite for a new email and falls back to a non-signup Magic Link only when Auth explicitly reports an existing account.
+- Invite and Magic Link templates first open `/auth/confirm`; the GET does not consume the token, and a same-origin POST verifies `token_hash` before entering `/invite/complete`.
+- New employees set their name and password before accepting. Existing verified users explicitly accept without creating a duplicate Auth account.
+- Store access is granted only by a service-role-only atomic RPC that rechecks the current Auth email, invitation status/expiry/role, store state and lifecycle lock, then writes membership, invitation status and audit together.
+- Settings records `pending`, `sent` or `failed` email delivery state and exposes resend/revoke without storing Auth OTPs or confirmation links.
+- Production Supabase Site URL, redirect allow-list and hosted Invite/Magic Link templates were applied. The database migration chain and remote schema lint passed.
+
+Remaining operational validation:
+
+- Configure a dedicated custom SMTP provider before higher-volume use. The current Supabase Pro built-in sender has not been validated against a real employee inbox in this task.
 
 ## Verified Current Facts
 

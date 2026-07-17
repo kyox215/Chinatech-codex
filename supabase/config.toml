@@ -18,13 +18,32 @@ port = 54323
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["https://chinatech-codex.vercel.app"]
+additional_redirect_urls = [
+  "https://v0.app/chat/api/supabase/redirect/OtqWtsok2ce",
+  "https://v0.app/chat/api/supabase/redirect/ElXSaMNgoXx",
+  "https://chinatech-codex.vercel.app/**",
+  "http://127.0.0.1:3000/**",
+]
 jwt_expiry = 3600
 enable_signup = true
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 
 [auth.email]
 enable_signup = true
 enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.email.template.invite]
+subject = "Chinatech 邀请你加入 RepairDesk"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "打开 Chinatech RepairDesk 员工邀请"
+content_path = "./supabase/templates/magic_link.html"
 
 [storage]
 enabled = true

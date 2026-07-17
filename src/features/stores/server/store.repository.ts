@@ -48,6 +48,8 @@ import {
   isStorePermissionAction,
   normalizeStorePermissionGrants,
 } from "@/entities/staff/model/store-permission-policy";
+import { deliverStoreInvitationEmail } from "@/features/stores/server/store-invitation-email";
+import { isVerifiedEmailAuthUser } from "@/server/auth-context";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -58,6 +60,7 @@ const CREATE_STORE_LIMIT = 3;
 const STORE_PROVISIONING_ERROR = "创建店铺初始化失败，请稍后重试";
 const STORE_MEMBERSHIP_ERROR = "创建店铺成员关系失败，请稍后重试";
 const STORE_ACTIVATION_ERROR = "创建店铺激活失败，请稍后重试";
+const EMAIL_INVITE_COOLDOWN_MS = 60 * 1000;
 
 export async function getStoreContext(actor: AuditActor): Promise<StoreContext> {
   return {
@@ -210,7 +213,7 @@ export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersR
     supabase
       .from("store_invitations")
       .select(
-        "id, email, role, status, invited_by, accepted_at, expires_at, created_at, updated_at",
+        "id, email, role, status, invited_by, accepted_at, email_delivery_status, last_email_delivery_attempt_at, last_email_delivered_at, expires_at, created_at, updated_at",
       )
       .eq("store_id", storeId)
       .eq("status", "invited")
@@ -250,7 +253,7 @@ export async function inviteStoreMember(
   input: StoreInviteInput,
   actor: AuditActor,
 ): Promise<StoreMembersResult> {
-  assertCanManageStoreMembers(actor);
+  assertPermission(actor, "member:invite");
   const storeId = requireActiveStoreId(actor);
   const email = sanitizeEmail(input.email);
   const role = sanitizeInviteRole(input.role);
@@ -259,33 +262,66 @@ export async function inviteStoreMember(
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: existingMembership, error: membershipReadError } = await supabase
-    .from("store_memberships")
-    .select("id")
-    .eq("store_id", storeId)
-    .ilike("email", email)
+  const { data: storeRow, error: storeReadError } = await supabase
+    .from("stores")
+    .select("id, status")
+    .eq("id", storeId)
     .eq("status", "active")
     .maybeSingle();
+  fail(storeReadError, "检查店铺状态失败");
+  if (!storeRow) throw new ForbiddenError("当前店铺不可发送邀请");
+
+  const { data: existingMembership, error: membershipReadError } = await supabase
+    .from("store_memberships")
+    .select("id, status")
+    .eq("store_id", storeId)
+    .ilike("email", email)
+    .maybeSingle();
   fail(membershipReadError, "检查店铺成员失败");
-  if (existingMembership) throw new Error("该邮箱已经是当前店铺成员");
+  if (existingMembership) {
+    const status = requiredString((existingMembership as DbRecord).status);
+    throw new Error(
+      status === "inactive"
+        ? "该邮箱属于已停用成员，请使用恢复员工功能"
+        : "该邮箱已经是当前店铺成员",
+    );
+  }
 
   const { data: existingInvite, error: inviteReadError } = await supabase
     .from("store_invitations")
-    .select("id")
+    .select(
+      "id, email_delivery_status, email_delivery_generation, email_delivery_attempt_count, last_email_delivery_attempt_at",
+    )
     .eq("store_id", storeId)
     .ilike("email", email)
     .eq("status", "invited")
     .maybeSingle();
   fail(inviteReadError, "检查店铺邀请失败");
 
+  if (existingInvite && wasEmailInviteJustSent(existingInvite as DbRecord)) {
+    return listStoreMembers(actor);
+  }
+
+  const existing = (existingInvite as DbRecord | null) ?? undefined;
+  const deliveryGeneration = Number(existing?.email_delivery_generation ?? 0) + 1;
+  const deliveryAttemptCount = Number(existing?.email_delivery_attempt_count ?? 0) + 1;
+
   const invitePayload = {
     store_id: storeId,
     email,
     role,
-    token_hash: crypto.randomUUID(),
+    token_hash: createHash("sha256").update(randomBytes(32)).digest("hex"),
     status: "invited",
     invited_by: actor.id ?? null,
     accepted_at: null,
+    email_delivery_status: "pending",
+    email_delivery_method: null,
+    email_delivery_generation: deliveryGeneration,
+    email_delivery_attempt_count: deliveryAttemptCount,
+    last_email_delivery_attempt_at: now,
+    last_email_delivery_error_code: null,
+    revoked_at: null,
+    revoked_by: null,
     expires_at: expiresAt,
     updated_at: now,
   };
@@ -304,13 +340,51 @@ export async function inviteStoreMember(
         .single();
   fail(inviteError, "保存店铺邀请失败");
 
+  const invitationId = requiredString((invitation as DbRecord).id);
+  const delivery = await deliverStoreInvitationEmail({
+    admin: supabase,
+    email,
+    invitationId,
+  });
+  const deliveredAt = new Date().toISOString();
+  const { data: deliveryRow, error: deliveryUpdateError } = await supabase
+    .from("store_invitations")
+    .update(
+      delivery.ok
+        ? {
+            email_delivery_status: "sent",
+            email_delivery_method: delivery.method,
+            last_email_delivered_at: deliveredAt,
+            last_email_delivery_error_code: null,
+            updated_at: deliveredAt,
+          }
+        : {
+            email_delivery_status: "failed",
+            email_delivery_method: null,
+            last_email_delivery_error_code: delivery.errorCode,
+            updated_at: deliveredAt,
+          },
+    )
+    .eq("id", invitationId)
+    .eq("status", "invited")
+    .eq("email_delivery_generation", deliveryGeneration)
+    .select("*")
+    .maybeSingle();
+  fail(deliveryUpdateError, "更新邀请邮件状态失败");
+  if (!deliveryRow) throw new Error("邀请状态已变化，请刷新后确认");
+
   await writeAuditLog({
     actor,
-    action: "invite",
+    action: existingInvite ? "resend_invitation" : "invite",
     entityType: "store_invitation",
-    entityId: requiredString((invitation as DbRecord).id),
-    after: createInvitationAuditSnapshot(invitation as DbRecord),
-    metadata: { role, invitation_status: "invited" },
+    entityId: invitationId,
+    after: createInvitationAuditSnapshot(deliveryRow as DbRecord),
+    metadata: {
+      role,
+      invitation_status: "invited",
+      email_delivery_status: delivery.ok ? "sent" : "failed",
+      delivery_generation: deliveryGeneration,
+    },
   });
 
   return listStoreMembers(actor);
@@ -491,78 +565,37 @@ export async function acceptStoreInvitation(
   if (!actor.id || actor.isSystem) {
     throw new ForbiddenError("需要登录员工账号后才能接受邀请");
   }
-  assertVerifiedEmail(actor);
-  const email = sanitizeEmail(actor.email || "");
   const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
-
-  const { data: invitationRow, error: invitationReadError } = await supabase
-    .from("store_invitations")
-    .select("*")
-    .eq("id", input.id)
-    .eq("email", email)
-    .eq("status", "invited")
-    .maybeSingle();
-  fail(invitationReadError, "读取店铺邀请失败");
-  if (!invitationRow) throw new Error("邀请不存在或已失效");
-
-  const invitation = invitationRow as DbRecord;
-  const role = sanitizeAccessRole(toStoreRole(invitation.role));
-  if (new Date(requiredString(invitation.expires_at)).getTime() <= Date.now()) {
-    throw new Error("邀请已过期");
-  }
-
-  const { data: acceptedInvitation, error: acceptError } = await supabase
-    .from("store_invitations")
-    .update({
-      status: "active",
-      accepted_at: now,
-      updated_at: now,
-    })
-    .eq("id", input.id)
-    .eq("email", email)
-    .eq("status", "invited")
-    .gt("expires_at", now)
-    .select("*")
-    .maybeSingle();
-  fail(acceptError, "接受店铺邀请失败");
-  if (!acceptedInvitation) throw new Error("邀请不存在或已失效");
-
-  const accepted = acceptedInvitation as DbRecord;
-  const storeId = requiredString(accepted.store_id);
-  const { error: membershipError } = await supabase.from("store_memberships").upsert(
-    {
-      store_id: storeId,
-      user_id: actor.id,
-      email,
-      display_name: actor.displayName || displayNameFromEmail(email),
-      role,
-      status: "active",
-      updated_at: now,
-    },
-    { onConflict: "store_id,user_id" },
+  const { data: authUserResult, error: authUserError } = await supabase.auth.admin.getUserById(
+    actor.id,
   );
-  if (membershipError) {
-    await markInvitationAcceptFailed(supabase, input.id);
+  if (authUserError || !authUserResult.user || !isVerifiedEmailAuthUser(authUserResult.user)) {
+    throw new ForbiddenError("请先验证当前登录邮箱后再继续");
   }
-  fail(membershipError, "开通店铺成员关系失败");
-
-  const { data: storeRow, error: storeError } = await supabase
-    .from("stores")
-    .select("id, name, slug, status")
-    .eq("id", storeId)
-    .single();
-  fail(storeError, "读取邀请店铺失败");
-  const activeStore = storeFromRow(storeRow as DbRecord, role);
+  const email = sanitizeEmail(authUserResult.user.email || "");
+  const { data, error } = await supabase.rpc("repairdesk_accept_store_invitation_rpc", {
+    p_invitation_id: input.id,
+    p_user_id: actor.id,
+    p_verified_email: email,
+    p_display_name: actor.displayName || displayNameFromEmail(email),
+  });
+  if (error) throw mapStoreInvitationAcceptError(error);
+  const accepted = (Array.isArray(data) ? data[0] : data) as DbRecord | undefined;
+  if (!accepted) throw new Error("邀请不存在或已失效");
+  const role = sanitizeAccessRole(toStoreRole(accepted.role));
+  const activeStore: ActorStoreMembership = {
+    id: requiredString(accepted.store_id),
+    name: requiredString(accepted.store_name),
+    slug: requiredString(accepted.store_slug),
+    role,
+    status: "active",
+  };
   await setActiveStoreCookie(activeStore.id);
 
-  await writeAuditLog({
-    actor: { ...actor, storeId: activeStore.id, storeName: activeStore.name, storeRole: role },
-    action: "accept_invitation",
-    entityType: "store_invitation",
-    entityId: input.id,
-    after: createInvitationAuditSnapshot(accepted),
-  });
+  await supabase
+    .from("staff_profiles")
+    .update({ email, updated_at: new Date().toISOString() })
+    .eq("id", actor.id);
 
   return nextContext(actor, activeStore);
 }
@@ -571,13 +604,15 @@ export async function revokeStoreInvitation(
   input: StoreInvitationDecisionInput,
   actor: AuditActor,
 ): Promise<StoreMembersResult> {
-  assertCanManageStoreMembers(actor);
+  assertPermission(actor, "member:revoke");
   const storeId = requireActiveStoreId(actor);
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("store_invitations")
     .update({
       status: "inactive",
+      revoked_at: new Date().toISOString(),
+      revoked_by: actor.id ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.id)
@@ -994,21 +1029,6 @@ async function markStoreAccessApprovalFailed(
     })
     .eq("id", requestId)
     .eq("status", "approved");
-}
-
-async function markInvitationAcceptFailed(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  invitationId: string,
-) {
-  await supabase
-    .from("store_invitations")
-    .update({
-      status: "invited",
-      accepted_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", invitationId)
-    .eq("status", "active");
 }
 
 async function readPendingInvitationForEmail(
@@ -1532,10 +1552,44 @@ function invitationFromRow(row: DbRecord): StoreInvitation {
     status: toMembershipStatus(row.status),
     invited_by: requiredString(row.invited_by) || undefined,
     accepted_at: requiredString(row.accepted_at) || undefined,
+    email_delivery_status: toInvitationEmailDeliveryStatus(row.email_delivery_status),
+    last_email_delivery_attempt_at: requiredString(row.last_email_delivery_attempt_at) || undefined,
+    last_email_delivered_at: requiredString(row.last_email_delivered_at) || undefined,
     expires_at: requiredString(row.expires_at),
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };
+}
+
+function toInvitationEmailDeliveryStatus(value: unknown) {
+  if (value === "pending" || value === "sent" || value === "failed") return value;
+  return "not_requested" as const;
+}
+
+function wasEmailInviteJustSent(row: DbRecord) {
+  if (row.email_delivery_status !== "sent") return false;
+  const attemptedAt = new Date(requiredString(row.last_email_delivery_attempt_at)).getTime();
+  return Number.isFinite(attemptedAt) && Date.now() - attemptedAt < EMAIL_INVITE_COOLDOWN_MS;
+}
+
+function mapStoreInvitationAcceptError(error: { message?: string }) {
+  const message = error.message ?? "";
+  if (message.includes("STORE_INVITATION_IDENTITY_MISMATCH")) {
+    return new ForbiddenError("当前登录邮箱与邀请邮箱不一致，请切换账号后重试");
+  }
+  if (message.includes("STORE_INVITATION_STORE_INACTIVE")) {
+    return new ForbiddenError("当前店铺暂时不能接受新成员");
+  }
+  if (message.includes("STORE_INVITATION_ALREADY_MEMBER")) {
+    return new Error("该账号已经加入当前店铺");
+  }
+  if (message.includes("STORE_INVITATION_ROLE_FORBIDDEN")) {
+    return new ForbiddenError("邀请角色无效");
+  }
+  if (message.includes("STORE_INVITATION_INVALID")) {
+    return new Error("邀请不存在、已过期或已失效");
+  }
+  return new Error("接受邀请失败，请稍后重试");
 }
 
 function publicInvitationFromRow(row: DbRecord): StoreInvitation {

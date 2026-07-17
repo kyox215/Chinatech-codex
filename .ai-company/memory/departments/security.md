@@ -80,6 +80,8 @@ as owner of this file.
 
 - Do not infer project facts from the generic AI Company OS template.
 - Promote repeated evidence, not stylistic preference, into durable standards.
+- Auth email links are bearer credentials and prove only control of the current Auth email. Never persist them in business invitations, consume them on GET, or grant store access outside the atomic matching-invitation RPC.
+- Hosted Auth template updates must preserve live MFA, OTP frequency/length and existing redirect callbacks; review the remote/local diff before confirmation instead of pushing local defaults wholesale.
 
 ## Capability and tool notes
 
@@ -109,3 +111,4 @@ as owner of this file.
 | 2026-07-17 | Verified custody permission, tenant, NULL-input and unlock-secret controls in app, pgTAP and production ACL/constraint postchecks | TASK-20260716-005-device-custody-status-implementation | Security reviewers + Integration Lead | scoped_verified |
 | 2026-07-17 | Verified quote role/tenant/CAS/idempotency controls and service-role-only production RPC ACLs | TASK-20260717-004-order-diagnosis-quote-implementation | Security/Data reviewers + Integration Lead | scoped_verified |
 | 2026-07-17 | Superseded automatic custody secret clearing while preserving permission, offline and audit minimization boundaries | TASK-20260717-008-desktop-novice-ui-implementation | Security/QA reviewers + Integration Lead | scoped_verified |
+| 2026-07-17 | Verified current-Auth-email binding, prefetch-safe token POST, service-role-only atomic acceptance and redacted delivery failures | TASK-20260717-employee-invite-registration | Security/QA reviewers + Integration Lead | scoped_verified |

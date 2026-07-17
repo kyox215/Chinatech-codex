@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <body style="margin:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#171717">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td align="center" style="padding:32px 16px">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#ffffff;border:1px solid #e5e5e5;border-radius:12px">
+            <tr>
+              <td style="padding:28px">
+                <p style="margin:0 0 8px;color:#16a34a;font-size:14px;font-weight:700">Chinatech RepairDesk</p>
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3">确认已有账号并查看员工邀请</h1>
+                <p style="margin:0 0 20px;color:#525252;font-size:15px;line-height:1.7">
+                  这个安全链接只会登录你的 RepairDesk 账号。你仍需在页面中明确接受邀请，系统才会开通店铺权限。
+                </p>
+                <p style="margin:0 0 20px">
+                  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash | urlquery }}&amp;type=magiclink&amp;next={{ .RedirectTo | urlquery }}" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700">
+                    登录并查看邀请
+                  </a>
+                </p>
+                <p style="margin:0;color:#737373;font-size:12px;line-height:1.6">
+                  如果你没有申请加入任何店铺，请忽略这封邮件。请勿转发此一次性链接。
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -24,8 +24,14 @@ const mocks = vi.hoisted(() => ({
   supabase: {
     from: vi.fn(),
     rpc: vi.fn(),
+    auth: {
+      admin: {
+        getUserById: vi.fn(),
+      },
+    },
   },
   writeAuditLog: vi.fn(),
+  deliverStoreInvitationEmail: vi.fn(),
   setCookie: vi.fn(),
   isPrimaryStoreOwner: vi.fn(),
 }));
@@ -36,6 +42,10 @@ vi.mock("@/server/supabase", () => ({
 
 vi.mock("@/server/audit", () => ({
   writeAuditLog: mocks.writeAuditLog,
+}));
+
+vi.mock("@/features/stores/server/store-invitation-email", () => ({
+  deliverStoreInvitationEmail: mocks.deliverStoreInvitationEmail,
 }));
 
 vi.mock("@/features/stores/server/primary-store-owner", () => ({
@@ -105,10 +115,23 @@ describe("store repository access request boundaries", () => {
   beforeEach(() => {
     mocks.supabase.from.mockReset();
     mocks.supabase.rpc.mockReset();
+    mocks.supabase.auth.admin.getUserById.mockReset();
     mocks.writeAuditLog.mockReset();
+    mocks.deliverStoreInvitationEmail.mockReset();
     mocks.setCookie.mockReset();
     mocks.isPrimaryStoreOwner.mockReset();
     mocks.isPrimaryStoreOwner.mockResolvedValue(false);
+    mocks.deliverStoreInvitationEmail.mockResolvedValue({ ok: true, method: "invite" });
+    mocks.supabase.auth.admin.getUserById.mockResolvedValue({
+      data: {
+        user: {
+          id: "staff_1",
+          email: "staff@example.com",
+          email_confirmed_at: "2026-07-17T09:00:00.000Z",
+        },
+      },
+      error: null,
+    });
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -688,6 +711,10 @@ describe("store repository access request boundaries", () => {
   });
 
   it("keeps owner invitations pending even when the email already has an account", async () => {
+    const storeQuery = createSupabaseQuery({
+      data: { id: "store_1", status: "active" },
+      error: null,
+    });
     const memberReadQuery = createSupabaseQuery({ data: null, error: null });
     const inviteReadQuery = createSupabaseQuery({ data: null, error: null });
     const inviteInsertQuery = createSupabaseQuery({
@@ -699,19 +726,38 @@ describe("store repository access request boundaries", () => {
       }),
       error: null,
     });
+    const deliveryUpdateQuery = createSupabaseQuery({
+      data: invitationRow({
+        email: "staff@example.com",
+        role: "technician",
+        status: "invited",
+        email_delivery_status: "sent",
+        email_delivery_method: "invite",
+      }),
+      error: null,
+    });
     const membersQuery = createSupabaseQuery({ data: [], error: null });
     membersQuery.order
       .mockReturnValueOnce(membersQuery as unknown as { data: unknown; error: unknown })
       .mockReturnValueOnce({ data: [], error: null });
     const invitationsQuery = createSupabaseQuery({
-      data: [invitationRow({ email: "staff@example.com", role: "technician" })],
+      data: [
+        invitationRow({
+          email: "staff@example.com",
+          role: "technician",
+          email_delivery_status: "sent",
+          email_delivery_method: "invite",
+        }),
+      ],
       error: null,
     });
     const inviteLinksQuery = createSupabaseQuery({ data: [], error: null });
     mocks.supabase.from
+      .mockReturnValueOnce(storeQuery)
       .mockReturnValueOnce(memberReadQuery)
       .mockReturnValueOnce(inviteReadQuery)
       .mockReturnValueOnce(inviteInsertQuery)
+      .mockReturnValueOnce(deliveryUpdateQuery)
       .mockReturnValueOnce(membersQuery)
       .mockReturnValueOnce(invitationsQuery)
       .mockReturnValueOnce(inviteLinksQuery);
@@ -735,31 +781,42 @@ describe("store repository access request boundaries", () => {
       email: "staff@example.com",
       role: "technician",
       status: "invited",
+      email_delivery_status: "sent",
     });
+    expect(mocks.deliverStoreInvitationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "staff@example.com" }),
+    );
     expect(mocks.writeAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "invite",
         after: expect.not.objectContaining({ token_hash: expect.anything() }),
-        metadata: { role: "technician", invitation_status: "invited" },
+        metadata: expect.objectContaining({
+          role: "technician",
+          invitation_status: "invited",
+          email_delivery_status: "sent",
+        }),
       }),
     );
   });
 
   it("does not create an invitation when the email is already an active member", async () => {
-    const memberReadQuery = createSupabaseQuery({
-      data: { id: "membership_active" },
+    const storeQuery = createSupabaseQuery({
+      data: { id: "store_1", status: "active" },
       error: null,
     });
-    mocks.supabase.from.mockReturnValueOnce(memberReadQuery);
+    const memberReadQuery = createSupabaseQuery({
+      data: { id: "membership_active", status: "active" },
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(storeQuery).mockReturnValueOnce(memberReadQuery);
 
     await expect(
       inviteStoreMember({ email: " Staff@Example.com ", role: "viewer" }, storeOwner),
     ).rejects.toThrow("该邮箱已经是当前店铺成员");
 
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
     expect(memberReadQuery.eq).toHaveBeenCalledWith("store_id", "store_1");
     expect(memberReadQuery.ilike).toHaveBeenCalledWith("email", "staff@example.com");
-    expect(memberReadQuery.eq).toHaveBeenCalledWith("status", "active");
     expect(memberReadQuery.insert).not.toHaveBeenCalled();
   });
 
@@ -1195,52 +1252,31 @@ describe("store repository access request boundaries", () => {
   });
 
   it("accepts a pending invitation and creates the active store membership", async () => {
-    const invitationReadQuery = createSupabaseQuery({
-      data: invitationRow({ email: "staff@example.com", role: "viewer" }),
-      error: null,
-    });
-    const invitationAcceptQuery = createSupabaseQuery({
-      data: invitationRow({
-        email: "staff@example.com",
-        role: "viewer",
-        status: "active",
-        accepted_at: "2026-06-18T09:00:00.000Z",
-      }),
-      error: null,
-    });
-    const membershipQuery = createSupabaseQuery({ data: null, error: null });
-    const storeQuery = createSupabaseQuery({
+    const profileUpdateQuery = createSupabaseQuery({ data: null, error: null });
+    mocks.supabase.rpc.mockResolvedValueOnce({
       data: {
-        id: "store_1",
-        name: "ChinaTech",
-        slug: "chinatech",
-        status: "active",
+        store_id: "store_1",
+        store_name: "ChinaTech",
+        store_slug: "chinatech",
+        role: "viewer",
       },
       error: null,
     });
-    mocks.supabase.from
-      .mockReturnValueOnce(invitationReadQuery)
-      .mockReturnValueOnce(invitationAcceptQuery)
-      .mockReturnValueOnce(membershipQuery)
-      .mockReturnValueOnce(storeQuery);
+    mocks.supabase.from.mockReturnValueOnce(profileUpdateQuery);
 
     const context = await acceptStoreInvitation(
       { id: "00000000-0000-4000-8000-000000000101" },
-      invitedActor,
+      { ...invitedActor, email: "stale-profile@example.com" },
     );
 
-    expect(invitationAcceptQuery.eq).toHaveBeenCalledWith("email", "staff@example.com");
-    expect(invitationAcceptQuery.eq).toHaveBeenCalledWith("status", "invited");
-    expect(invitationAcceptQuery.gt).toHaveBeenCalledWith("expires_at", expect.any(String));
-    expect(membershipQuery.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        store_id: "store_1",
-        user_id: "staff_1",
-        email: "staff@example.com",
-        role: "viewer",
-        status: "active",
-      }),
-      { onConflict: "store_id,user_id" },
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("repairdesk_accept_store_invitation_rpc", {
+      p_invitation_id: "00000000-0000-4000-8000-000000000101",
+      p_user_id: "staff_1",
+      p_verified_email: "staff@example.com",
+      p_display_name: "Invited Staff",
+    });
+    expect(profileUpdateQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "staff@example.com" }),
     );
     expect(mocks.setCookie).toHaveBeenCalledWith(
       "repairdesk-store-id",
@@ -1251,103 +1287,97 @@ describe("store repository access request boundaries", () => {
   });
 
   it("does not accept invitations for a different account email", async () => {
-    const invitationReadQuery = createSupabaseQuery({ data: null, error: null });
-    mocks.supabase.from.mockReturnValueOnce(invitationReadQuery);
+    mocks.supabase.auth.admin.getUserById.mockResolvedValueOnce({
+      data: {
+        user: {
+          id: "staff_1",
+          email: "other@example.com",
+          email_confirmed_at: "2026-07-17T09:00:00.000Z",
+        },
+      },
+      error: null,
+    });
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "STORE_INVITATION_IDENTITY_MISMATCH" },
+    });
 
     await expect(
-      acceptStoreInvitation(
-        { id: "00000000-0000-4000-8000-000000000101" },
-        { ...invitedActor, email: "other@example.com" },
-      ),
-    ).rejects.toThrow("邀请不存在或已失效");
+      acceptStoreInvitation({ id: "00000000-0000-4000-8000-000000000101" }, invitedActor),
+    ).rejects.toThrow("当前登录邮箱与邀请邮箱不一致，请切换账号后重试");
 
-    expect(invitationReadQuery.eq).toHaveBeenCalledWith(
-      "id",
-      "00000000-0000-4000-8000-000000000101",
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_accept_store_invitation_rpc",
+      expect.objectContaining({ p_verified_email: "other@example.com" }),
     );
-    expect(invitationReadQuery.eq).toHaveBeenCalledWith("email", "other@example.com");
-    expect(invitationReadQuery.eq).toHaveBeenCalledWith("status", "invited");
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.setCookie).not.toHaveBeenCalled();
   });
 
   it("does not accept invitations for unverified accounts", async () => {
-    await expect(
-      acceptStoreInvitation(
-        { id: "00000000-0000-4000-8000-000000000101" },
-        { ...invitedActor, emailVerified: false },
-      ),
-    ).rejects.toThrow("请先验证账号邮箱");
+    mocks.supabase.auth.admin.getUserById.mockResolvedValueOnce({
+      data: { user: { id: "staff_1", email: "staff@example.com", email_confirmed_at: null } },
+      error: null,
+    });
 
-    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    await expect(
+      acceptStoreInvitation({ id: "00000000-0000-4000-8000-000000000101" }, invitedActor),
+    ).rejects.toThrow("请先验证当前登录邮箱后再继续");
+
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
     expect(mocks.setCookie).not.toHaveBeenCalled();
   });
 
   it("does not accept revoked invitations", async () => {
-    const invitationReadQuery = createSupabaseQuery({ data: null, error: null });
-    mocks.supabase.from.mockReturnValueOnce(invitationReadQuery);
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "STORE_INVITATION_INVALID" },
+    });
 
     await expect(
       acceptStoreInvitation({ id: "00000000-0000-4000-8000-000000000101" }, invitedActor),
-    ).rejects.toThrow("邀请不存在或已失效");
+    ).rejects.toThrow("邀请不存在、已过期或已失效");
 
-    expect(invitationReadQuery.eq).toHaveBeenCalledWith("status", "invited");
-    expect(invitationReadQuery.update).not.toHaveBeenCalled();
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.setCookie).not.toHaveBeenCalled();
   });
 
   it("does not create membership when invitation acceptance loses the stale-state race", async () => {
-    const invitationReadQuery = createSupabaseQuery({
-      data: invitationRow({ email: "staff@example.com", role: "viewer" }),
-      error: null,
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "STORE_INVITATION_INVALID" },
     });
-    const invitationAcceptQuery = createSupabaseQuery({ data: null, error: null });
-    mocks.supabase.from
-      .mockReturnValueOnce(invitationReadQuery)
-      .mockReturnValueOnce(invitationAcceptQuery);
 
     await expect(
       acceptStoreInvitation({ id: "00000000-0000-4000-8000-000000000101" }, invitedActor),
-    ).rejects.toThrow("邀请不存在或已失效");
+    ).rejects.toThrow("邀请不存在、已过期或已失效");
 
-    expect(invitationAcceptQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "active" }),
-    );
-    expect(invitationAcceptQuery.eq).toHaveBeenCalledWith("status", "invited");
-    expect(invitationAcceptQuery.gt).toHaveBeenCalledWith("expires_at", expect.any(String));
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
   it("does not mark malformed owner invitations as accepted", async () => {
-    const invitationReadQuery = createSupabaseQuery({
-      data: invitationRow({ email: "staff@example.com", role: "owner" }),
-      error: null,
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "STORE_INVITATION_ROLE_FORBIDDEN" },
     });
-    mocks.supabase.from.mockReturnValueOnce(invitationReadQuery);
 
     await expect(
       acceptStoreInvitation({ id: "00000000-0000-4000-8000-000000000101" }, invitedActor),
-    ).rejects.toThrow("不能批准 owner 角色");
+    ).rejects.toThrow("邀请角色无效");
 
-    expect(invitationReadQuery.update).not.toHaveBeenCalled();
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.setCookie).not.toHaveBeenCalled();
   });
 
   it("does not accept expired invitations", async () => {
-    const invitationReadQuery = createSupabaseQuery({
-      data: invitationRow({
-        email: "staff@example.com",
-        expires_at: "2020-01-01T00:00:00.000Z",
-      }),
-      error: null,
+    mocks.supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "STORE_INVITATION_INVALID" },
     });
-    mocks.supabase.from.mockReturnValueOnce(invitationReadQuery);
 
     await expect(
       acceptStoreInvitation({ id: "00000000-0000-4000-8000-000000000101" }, invitedActor),
-    ).rejects.toThrow("邀请已过期");
+    ).rejects.toThrow("邀请不存在、已过期或已失效");
 
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
-    expect(invitationReadQuery.update).not.toHaveBeenCalled();
+    expect(mocks.setCookie).not.toHaveBeenCalled();
   });
 
   it("lets store owners revoke a pending invitation", async () => {
@@ -1956,6 +1986,15 @@ function invitationRow(overrides: Record<string, unknown> = {}) {
     status: overrides.status ?? "invited",
     invited_by: overrides.invited_by ?? "owner_1",
     accepted_at: overrides.accepted_at ?? null,
+    email_delivery_status: overrides.email_delivery_status ?? "not_requested",
+    email_delivery_method: overrides.email_delivery_method ?? null,
+    email_delivery_generation: overrides.email_delivery_generation ?? 0,
+    email_delivery_attempt_count: overrides.email_delivery_attempt_count ?? 0,
+    last_email_delivery_attempt_at: overrides.last_email_delivery_attempt_at ?? null,
+    last_email_delivered_at: overrides.last_email_delivered_at ?? null,
+    last_email_delivery_error_code: overrides.last_email_delivery_error_code ?? null,
+    revoked_at: overrides.revoked_at ?? null,
+    revoked_by: overrides.revoked_by ?? null,
     expires_at: overrides.expires_at ?? "2026-07-18T09:00:00.000Z",
     created_at: overrides.created_at ?? "2026-07-04T09:00:00.000Z",
     updated_at: overrides.updated_at ?? "2026-07-04T09:00:00.000Z",

@@ -60,6 +60,9 @@ export function LoginScreen() {
     if (searchParams.get("auth_error") === "callback") {
       toast.error("登录链接已失效，请重新发送邮件后再试。");
     }
+    if (searchParams.get("auth_error") === "invite") {
+      toast.error("员工邀请链接无效或已过期，请让店铺管理员重新发送。");
+    }
     if (searchParams.get("password_updated") === "1") {
       toast.success("密码已更新，请使用新密码登录。");
     }

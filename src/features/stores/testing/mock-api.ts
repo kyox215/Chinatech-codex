@@ -279,6 +279,10 @@ export async function inviteStoreMember(
     }),
     role,
     status: "invited" as const,
+    email_delivery_status: "sent" as const,
+    email_delivery_method: "supabase_invite" as const,
+    last_email_delivery_attempt_at: now,
+    last_email_delivered_at: now,
     expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: now,
   };

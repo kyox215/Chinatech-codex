@@ -78,7 +78,7 @@ export function MemberInviteTools({
         <InvitePanel
           open={inviteOpen}
           onOpenChange={setInviteOpen}
-          title="邀请员工"
+          title="邮件邀请员工"
           summary={`${invitations.length} 个待接受`}
           icon={<MailPlus className="size-4" />}
         >
@@ -95,7 +95,7 @@ export function MemberInviteTools({
                 }
               />
               <p className="text-xs leading-5 text-muted-foreground">
-                这里只创建系统内待接受邀请，不会自动发送邮件；请另行通知员工登录接受。
+                系统会向该邮箱发送一次性加入链接；员工完成登录或注册后才能访问店铺。
               </p>
             </div>
             <div className="space-y-1.5">
@@ -132,7 +132,7 @@ export function MemberInviteTools({
                   .catch(() => undefined)
               }
             >
-              {isInviting ? "创建中…" : "创建邮箱邀请"}
+              {isInviting ? "正在发送…" : "发送邀请邮件"}
             </Button>
           </div>
         </InvitePanel>
@@ -271,9 +271,30 @@ export function MemberInviteTools({
               trailing={
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{MEMBER_ROLE_LABELS[item.role]}</Badge>
+                  <Badge
+                    variant={item.email_delivery_status === "failed" ? "destructive" : "secondary"}
+                  >
+                    {emailDeliveryLabel(item.email_delivery_status)}
+                  </Badge>
                   <span className="text-xs text-muted-foreground">
                     {formatMemberDate(item.expires_at)}
                   </span>
+                  {canInvite && item.role !== "owner" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      disabled={isInviting}
+                      onClick={() =>
+                        void onInvite({
+                          email: item.email,
+                          role: item.role as ApprovedStoreRole,
+                        }).catch(() => undefined)
+                      }
+                    >
+                      <RotateCcw className="size-4" /> 重新发送
+                    </Button>
+                  ) : null}
                   {canRevoke ? (
                     <Button
                       type="button"
@@ -397,4 +418,11 @@ export function formatMemberDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date);
+}
+
+export function emailDeliveryLabel(status: StoreInvitation["email_delivery_status"]) {
+  if (status === "sent") return "邮件已发送";
+  if (status === "pending") return "正在发送";
+  if (status === "failed") return "发送失败";
+  return "尚未发送";
 }

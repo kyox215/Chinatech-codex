@@ -533,6 +533,25 @@ async function source() {
         stores: activeStore ? context.stores : (actor.stores ?? []),
         requests: [],
         availableStores: [],
+        invitations:
+          process.env.REPAIRDESK_E2E_EMPLOYEE_INVITE === "1"
+            ? [
+                {
+                  id: "10000000-0000-4000-8000-000000000001",
+                  store_id: activeStore?.id,
+                  store_name: activeStore?.name ?? "Demo Repair Store",
+                  email: actor.email ?? "invited.staff@repairdesk.local",
+                  role: "technician" as const,
+                  status: "invited" as const,
+                  email_delivery_status: "sent" as const,
+                  last_email_delivery_attempt_at: new Date().toISOString(),
+                  last_email_delivered_at: new Date().toISOString(),
+                  expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                },
+              ]
+            : [],
       };
     },
     submitOnboardingRequest: async () => {

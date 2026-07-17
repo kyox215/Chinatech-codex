@@ -281,6 +281,10 @@ describe("store mock api invitation parity", () => {
     expect(context.activeStore?.membershipId).toMatch(uuid);
     expect(invited.members.every((member) => uuid.test(member.id))).toBe(true);
     expect(invited.invitations.every((invitation) => uuid.test(invitation.id))).toBe(true);
+    expect(invited.invitations[0]).toMatchObject({
+      email_delivery_status: "sent",
+      email_delivery_method: "supabase_invite",
+    });
     expect(link.link.id).toMatch(uuid);
   });
 

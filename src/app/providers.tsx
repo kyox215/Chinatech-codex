@@ -37,6 +37,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
     pathname === "/onboarding" ||
+    pathname === "/register/complete" ||
+    pathname === "/invite/complete" ||
+    pathname.startsWith("/auth/confirm") ||
     pathname === "/kiosk"
   ) {
     return (

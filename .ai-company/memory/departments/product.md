@@ -36,6 +36,7 @@ as owner of this file.
 - Device custody is an independent live order dimension. Repair type and accessory notes are not reused; legacy unknown remains visible; completed-to-shop requires reopen; cancelled shop-held devices require audited return. Customer-held rows skip false pickup work but may retain previously recorded unlock credentials until an authorized explicit clear.
 - Desktop beginner workflows present one recommended action, keep correction/advanced actions secondary, require exact missing-field guidance during intake, and never replace server workflow/permission authority with UI inference.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` makes unknown intake a real “待检测” condition rather than a zero-price quote. Preserve the customer report, technical diagnosis and charge lines as separate facts; technicians diagnose and hand off, while Owner/Manager/Sales publish and confirm formal quote notification. Opening WhatsApp is never evidence that a quote was sent.
+- Employee email verification and store authorization are separate product gates. A Supabase Invite/Magic Link may verify and sign in the employee, but store data remains unavailable until the employee explicitly accepts a matching, active, unexpired non-owner business invitation.
 
 ## Interfaces and dependencies
 
@@ -83,3 +84,4 @@ as owner of this file.
 | 2026-07-17 | Promoted the order device-custody product contract to production-verified behavior | TASK-20260716-005-device-custody-status-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
 | 2026-07-17 | Promoted unknown intake, diagnosis handoff, formal quote and confirmed-send semantics to production-verified behavior | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | active |
 | 2026-07-17 | Superseded custody credential clearing and recorded one-recommended-action desktop beginner rules | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + FLOW/UX/QA reviewers | verified |
+| 2026-07-17 | Recorded the new/existing employee email invitation, explicit acceptance and delivery-state product contract | TASK-20260717-employee-invite-registration | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified |

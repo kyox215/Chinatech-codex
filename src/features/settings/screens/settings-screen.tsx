@@ -936,7 +936,17 @@ export function SettingsScreen() {
     onMutate: () => setMemberActionError(""),
     onSuccess: async (result, request) => {
       if (!reconcileMemberMutationResult(request, result)) return;
-      toast.success("邀请已保存");
+      const normalizedEmail = request.input.email.trim().toLowerCase();
+      const invitation = result.invitations.find(
+        (item) => item.email.trim().toLowerCase() === normalizedEmail,
+      );
+      if (invitation?.email_delivery_status === "sent") {
+        toast.success("邀请邮件已发送");
+      } else if (invitation?.email_delivery_status === "failed") {
+        toast.warning("邀请已创建，但邮件未成功发送。请检查配置后重新发送。");
+      } else {
+        toast.info("邀请已保存，邮件状态待确认");
+      }
       await queryClient.invalidateQueries({
         queryKey: storesKeys.membersScoped(request.requestedStoreId),
       });

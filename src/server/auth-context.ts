@@ -102,10 +102,10 @@ export async function getRequestActor(
 
   return {
     id: staff.id,
-    email: staff.email || email,
+    email,
     emailVerified,
     displayName: resolveStaffDisplayName({
-      email: staff.email || email,
+      email,
       displayName: staff.display_name,
       role: activeStore?.role || staff.role,
       fallback: "员工",
@@ -154,7 +154,21 @@ async function ensureStaffProfile({
     .maybeSingle();
 
   if (profileError) throw new Error(`读取员工档案失败：${profileError.message}`);
-  if (profile) return profile as StaffProfile;
+  if (profile) {
+    const current = profile as StaffProfile;
+    const normalizedAuthEmail = email?.trim().toLowerCase();
+    if (!normalizedAuthEmail || current.email.trim().toLowerCase() === normalizedAuthEmail) {
+      return current;
+    }
+    const { data: synced, error: syncError } = await admin
+      .from("staff_profiles")
+      .update({ email: normalizedAuthEmail, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select("*")
+      .single();
+    if (syncError) throw new Error(`同步员工登录邮箱失败：${syncError.message}`);
+    return synced as StaffProfile;
+  }
 
   const fallbackName = resolveStaffDisplayName({ email, fallback: "Staff" });
   const { data: inserted, error: insertError } = await admin

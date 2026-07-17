@@ -141,3 +141,4 @@ as owner of this file.
 | 2026-07-13 | Recorded Settings operator/release package authority boundary and historical Kiosk snapshot label | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 documentation reviewer | local_contract |
 | 2026-07-17 | Synchronized the device-custody addendum, migration, permissions, visual evidence, release and rollback authority | TASK-20260716-005-device-custody-status-implementation | Integration Lead + department reviewers | active |
 | 2026-07-17 | Corrected custody credential-retention memory and recorded desktop evidence/document impact matrix | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + department reviewers | active |
+| 2026-07-17 | Added employee invite registration runbook and synchronized the account self-service plan, hosted Auth preservation warning and production evidence | TASK-20260717-employee-invite-registration | Integration Lead + department reviewers | active |

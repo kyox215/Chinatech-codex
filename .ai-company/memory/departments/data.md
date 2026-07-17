@@ -53,6 +53,7 @@ as owner of this file.
 - `TASK-20260716-005-device-custody-status-implementation` applied additive migration `20260716235650`: the nullable custody column was added before setting the future `with_shop` default, all 6298 historical rows remained NULL, two constraints validated, six service-role-only RPC contracts were postchecked and anomaly counts remained zero. This scoped slice does not close full-history reset/PITR risk.
 - Migration `20260717182220` is present in linked history and supersedes the customer-custody credential-clear constraint. `TASK-20260717-008-desktop-novice-ui-implementation` changes no migration; fresh linked list parity and `db push --dry-run` both prove an up-to-date no-op.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` applied additive migration `20260717213518`: production UUID row IDs and the missing `message_logs.channel` compatibility column were reconciled; two invoker/empty-search-path RPCs, a partial unique idempotency index and zero duplicate groups were postchecked. The slice is aligned and up to date but does not close historical reset failure `DATA-20260710-002`.
+- `TASK-20260717-employee-invite-registration` applied migration chain `20260717220219`..`20260717223354`: delivery state/checks/index plus a service-role-only atomic invitation-accept RPC. Two post-apply lint findings were corrected only by immutable forward migrations; final history aligns, final remote lint is clean, and schema dump confirms PUBLIC revoke/service-role grant.
 
 ## Interfaces and dependencies
 
@@ -123,3 +124,4 @@ as owner of this file.
 | 2026-07-17 | Recorded first-phase no-DDL operation-id recovery via order event payload; full atomic RPC still pending approval | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |
 | 2026-07-17 | Applied and postchecked atomic quote publish/confirm-send migration with UUID compatibility and zero idempotency duplicates | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + DATA/API/SEC reviewers | scoped_verified |
 | 2026-07-17 | Recorded linked custody-retention migration parity and a zero-pending desktop release dry-run | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + DATA/QA reviewers | scoped_verified_no_write |
+| 2026-07-17 | Applied and forward-hardened employee invitation delivery/atomic acceptance through clean remote lint and ACL/schema postcheck | TASK-20260717-employee-invite-registration | Integration Lead + DATA/SEC reviewers | scoped_verified |

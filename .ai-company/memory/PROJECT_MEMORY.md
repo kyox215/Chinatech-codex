@@ -225,6 +225,10 @@ Device custody and unlock credentials are independent facts. Browser roles still
 - `docs/project-charter.md`
 - `package.json`
 
+## Employee invite registration authority
+
+`TASK-20260717-employee-invite-registration` is the current authority for employee email invitations. Supabase Invite/Magic Link establishes a verified session only; the current Auth email must match an active, unexpired, non-owner business invitation and the service-role-only RPC must accept it atomically before any store access exists. Email GET pages never consume one-time tokens. Hosted Auth changes must preserve live MFA/OTP/redirect configuration. See `docs/EMPLOYEE_INVITE_REGISTRATION_RUNBOOK.md`.
+
 ## Review triggers
 
 - New architecture, UI standard, Supabase schema, security, payment, messaging, or customer data rule.
