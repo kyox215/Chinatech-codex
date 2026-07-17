@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L1_for_production_customer_output"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-17T19:12:03Z"
+last_checkpoint_at: "2026-07-17T19:29:40Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Implemented store-aware public customer output identity: public_base_url settings field, fail-closed customer/order links, neutral auth/onboarding/sidebar copy, internal print QR path fallback, Chinatech legal buyback profile restriction, and Supabase migration 20260717185048. Validation evidence: lint pass, typecheck pass, full vitest rerun 207 files/1422 tests pass, Next build pass, Supabase migration list aligned, dry-run up to date, db lint no schema errors. Resolved duplicate local migration file after first Supabase push applied the full SQL under a duplicate filename; kept one standard local migration file.
+Post-review fix: removed unrelated rollback function from 20260717185048 migration, added 20260717212000 hardening migration, applied linked Supabase migration, verified remote migration history and strict public_base_url constraint. Validation: targeted tests 7 files/88 tests pass, full vitest 204 files/1417 tests pass, typecheck pass, build pass after sandbox-external rerun, targeted eslint pass; full lint blocked only by unrelated untracked order-edit-save files. Screenshots captured for login/register debranding.
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Implemented store-aware public customer output identity: public_base_url setting
 
 ## Next action
 
-Before closing, validate scoped diff, stage only task-owned files, commit and push main. Do not stage unrelated scan/capture/order-screen dirty worktree files. If post-push deployment is checked, verify production customer message/settings flow and avoid production DML unless Owner approves exact preview rows.
+Stage only store-identity migration fix and checkpoint files, commit, push main, then report Supabase and validation evidence plus unrelated local dirty-worktree limitations.
 
 ## Resume protocol
 

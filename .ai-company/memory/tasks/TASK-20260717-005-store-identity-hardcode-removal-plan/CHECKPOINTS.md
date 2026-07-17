@@ -34,3 +34,10 @@
 - **Next:** Before closing, validate scoped diff, stage only task-owned files, commit and push main. Do not stage unrelated scan/capture/order-screen dirty worktree files. If post-push deployment is checked, verify production customer message/settings flow and avoid production DML unless Owner approves exact preview rows.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-17T19:29:40Z — Post-review fix: removed unrelated rollback function from 20260717185048 migration, added 20260717212000 hardening migration, applied linked Supabase migration, verified remote migration history and strict public_base_url constraint. Validation: targeted tests 7 files/88 tests pass, full vitest 204 files/1417 tests pass, typecheck pass, build pass after sandbox-external rerun, targeted eslint pass; full lint blocked only by unrelated untracked order-edit-save files. Screenshots captured for login/register debranding.
+
+- **Phase:** implementation
+- **Completed/current state:** Post-review fix: removed unrelated rollback function from 20260717185048 migration, added 20260717212000 hardening migration, applied linked Supabase migration, verified remote migration history and strict public_base_url constraint. Validation: targeted tests 7 files/88 tests pass, full vitest 204 files/1417 tests pass, typecheck pass, build pass after sandbox-external rerun, targeted eslint pass; full lint blocked only by unrelated untracked order-edit-save files. Screenshots captured for login/register debranding.
+- **Next:** Stage only store-identity migration fix and checkpoint files, commit, push main, then report Supabase and validation evidence plus unrelated local dirty-worktree limitations.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

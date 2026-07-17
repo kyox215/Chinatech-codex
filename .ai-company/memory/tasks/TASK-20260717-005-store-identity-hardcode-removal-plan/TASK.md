@@ -9,7 +9,7 @@ autonomy_level: "L1_for_production_customer_output"
 owner: "IntegrationLead"
 departments: ["Product", "Architecture", "Frontend", "API", "Data", "Security", "QA", "Documentation"]
 created_at: "2026-07-17T18:45:36Z"
-updated_at: "2026-07-17T19:12:03Z"
+updated_at: "2026-07-17T19:29:40Z"
 ---
 # Task - 移除客户可见 Chinatech 硬编码并建立多店铺输出身份
 
