@@ -257,7 +257,7 @@ export function DesktopOrderQueueRow({
           >
             {order.accessory_notes ? `随附：${order.accessory_notes}` : "无随附物品"}
           </span>
-          {order.device_custody_status === "with_shop" ? (
+          {order.device_unlock_method ? (
             <DeviceUnlockListBadge method={order.device_unlock_method} className="shrink-0" />
           ) : null}
         </div>

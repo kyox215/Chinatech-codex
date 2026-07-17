@@ -56,7 +56,6 @@ import {
   DEVICE_CUSTODY_WITH_SHOP,
   deviceCustodyAllowsChange,
   deviceCustodyBlocksStatus,
-  hasUnlockValue,
   isDeviceCustodyStatus,
   normalizeUnlockForCustody,
 } from "@/features/orders/model/device-custody";
@@ -429,7 +428,7 @@ export function projectOrderListItemForActor<T extends OrderListItem>(
     } as unknown as T;
   }
 
-  if (projected.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP || !canReadOrderUnlock(actor)) {
+  if (!canReadOrderUnlock(actor)) {
     projected = {
       ...projected,
       device_unlock_method: undefined,
@@ -1586,17 +1585,6 @@ export async function transitionOrder(
     update.completed_at = now;
     if (currentCustodyStatus === DEVICE_CUSTODY_WITH_SHOP) update.delivered_at = now;
     update.device_custody_status = DEVICE_CUSTODY_WITH_CUSTOMER;
-    update.device_unlock_method = null;
-    update.device_unlock_value = null;
-    update.device_unlock_pattern = null;
-  }
-  if (
-    (legacyTo === "cancelled" || validation.bucket === "cancelled") &&
-    currentCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
-  ) {
-    update.device_unlock_method = null;
-    update.device_unlock_value = null;
-    update.device_unlock_pattern = null;
   }
   if (legacyTo === "cancelled" || validation.bucket === "cancelled") {
     update.cancel_reason = cleanReason || "未填写";
@@ -1836,9 +1824,6 @@ export async function updateOrderCustody(
     updated_at: now,
   };
   if (to === DEVICE_CUSTODY_WITH_CUSTOMER) {
-    update.device_unlock_method = null;
-    update.device_unlock_value = null;
-    update.device_unlock_pattern = null;
     if (from === DEVICE_CUSTODY_WITH_SHOP) update.delivered_at = now;
   } else {
     update.delivered_at = null;
@@ -1856,7 +1841,7 @@ export async function updateOrderCustody(
       action: "device_custody_changed",
       to,
       reason: reason || null,
-      credentials_cleared: to === DEVICE_CUSTODY_WITH_CUSTOMER,
+      credentials_cleared: false,
       prior_delivery_recorded: Boolean(maybeString(current.delivered_at)),
     },
     idempotencyKey: input.idempotency_key,
@@ -1959,11 +1944,6 @@ export async function decideOrderApproval(
   };
   if (input.decision === "rejected" && target === "cancelled") {
     update.cancel_reason = cleanReason || "客户拒绝报价";
-    if (custodyStatusFromRow(currentRow) === DEVICE_CUSTODY_WITH_CUSTOMER) {
-      update.device_unlock_method = null;
-      update.device_unlock_value = null;
-      update.device_unlock_pattern = null;
-    }
   }
   if (input.decision === "rejected" && target === "unfixed_pickup") {
     update.diagnosis_result = buildTransitionDiagnosisResult(
@@ -2951,14 +2931,6 @@ export async function updateOrder(
   const supabase = getSupabaseAdmin();
   const accessRow = await readOrderCustodyRow(supabase, storeId, id, requestActor, "读取工单失败");
   await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
-  if (input.device_unlock) {
-    if (
-      custodyStatusFromRow(accessRow) !== DEVICE_CUSTODY_WITH_SHOP &&
-      hasUnlockValue(input.device_unlock)
-    ) {
-      throw new Error("设备未留店时不能保存手机密码");
-    }
-  }
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
@@ -3209,13 +3181,6 @@ export async function patchOrder(
     }
 
     if (field === "device_unlock") {
-      const custody = await readOrderCustodyRow(supabase, storeId, id, requestActor);
-      if (
-        custodyStatusFromRow(custody) !== DEVICE_CUSTODY_WITH_SHOP &&
-        hasUnlockValue(rawValue as PatchOrderInput["changes"]["device_unlock"])
-      ) {
-        throw new Error("设备未留店时不能保存手机密码");
-      }
       Object.assign(
         orderUpdate,
         deviceUnlockUpdateFromInput(rawValue as PatchOrderInput["changes"]["device_unlock"]),
@@ -3731,9 +3696,6 @@ export async function createOrder(
   }
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
-  if (deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && hasUnlockValue(input.device_unlock)) {
-    throw new Error("设备未留店时不能保存手机密码");
-  }
 
   const validFaults = input.fault_prices
     .filter((item) => item.name.trim() && Number(item.price) >= 0)

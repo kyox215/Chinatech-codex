@@ -1592,18 +1592,7 @@ function DeviceUnlockDetailField({
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   return (
     <InfoField label="手机密码" tone="note">
-      {custodyStatus !== DEVICE_CUSTODY_WITH_SHOP ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <DeviceCustodyBadge
-            status={custodyStatus}
-            deliveredAt={order.delivered_at}
-            className="text-[10px]"
-          />
-          <span className="text-[10px] leading-4 text-muted-foreground">
-            {custodyStatus ? "不登记解锁信息" : "确认保管状态后才可登记"}
-          </span>
-        </div>
-      ) : edit ? (
+      {edit ? (
         <div className="min-w-0 space-y-1">
           <DeviceUnlockEditor
             value={edit.draft.device_unlock}
@@ -1615,7 +1604,16 @@ function DeviceUnlockDetailField({
           </p>
         </div>
       ) : (
-        <DeviceUnlockViewer order={order} compact={dense} />
+        <div className="min-w-0 space-y-1">
+          {custodyStatus !== DEVICE_CUSTODY_WITH_SHOP ? (
+            <DeviceCustodyBadge
+              status={custodyStatus}
+              deliveredAt={order.delivered_at}
+              className="text-[10px]"
+            />
+          ) : null}
+          <DeviceUnlockViewer order={order} compact={dense} />
+        </div>
       )}
     </InfoField>
   );

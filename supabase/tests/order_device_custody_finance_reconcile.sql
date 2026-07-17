@@ -18,10 +18,13 @@ select ok(
   'custody enum constraint is validated'
 );
 select ok(
-  (select convalidated from pg_constraint
-   where conrelid = 'public.repair_orders'::regclass
-     and conname = 'repair_orders_customer_custody_unlock_clear_check'),
-  'customer custody credential constraint is validated'
+  not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.repair_orders'::regclass
+      and conname = 'repair_orders_customer_custody_unlock_clear_check'
+  ),
+  'customer custody credential clearing constraint is removed'
 );
 select ok(
   exists (
@@ -214,8 +217,16 @@ begin
 end;
 $$;
 select ok(
-  (select failed from custody_results where label = 'customer_secret_constraint'),
-  'customer custody cannot retain unlock credentials'
+  (select failed is false from custody_results where label = 'customer_secret_constraint')
+  and exists (
+    select 1
+    from public.repair_orders
+    where public_no = 'CUST-10'
+      and device_custody_status = 'with_customer'
+      and device_unlock_method = 'pin'
+      and device_unlock_value = '9999'
+  ),
+  'customer custody can retain unlock credentials'
 );
 
 set local role service_role;
@@ -340,10 +351,7 @@ select 'active_handover', public.repairdesk_apply_order_atomic_mutation(
   '2026-07-17T10:01:00Z',
   jsonb_build_object(
     'device_custody_status', 'with_customer',
-    'delivered_at', '2026-07-17T10:01:30Z',
-    'device_unlock_method', null,
-    'device_unlock_value', null,
-    'device_unlock_pattern', null
+    'delivered_at', '2026-07-17T10:01:30Z'
   ),
   'note',
   jsonb_build_object('action', 'device_custody_changed', 'reason', 'customer pickup'),
@@ -443,7 +451,7 @@ reset role;
 
 select is((select payload->>'code' from custody_results where label = 'active_handover'), 'updated', 'active handover uses generic atomic mutation');
 select is((select device_custody_status from public.repair_orders where public_no = 'CUST-01'), 'with_customer', 'active handover updates custody');
-select ok((select device_unlock_method is null and device_unlock_value is null from public.repair_orders where public_no = 'CUST-01'), 'active handover clears credentials');
+select ok((select device_unlock_method = 'pin' and device_unlock_value = '1234' from public.repair_orders where public_no = 'CUST-01'), 'active handover retains credentials');
 select is((select payload->>'code' from custody_results where label = 'unknown_cancel'), 'custody_unknown', 'custom cancellation rejects unknown custody');
 select is((select payload->>'code' from custody_results where label = 'terminal_generic'), 'terminal_operation_required', 'generic mutation rejects terminal orders');
 select is((select payload->>'code' from custody_results where label = 'cross_store_actor'), 'actor_forbidden', 'cross-store actor cannot correct terminal custody');
@@ -451,12 +459,12 @@ select is((select payload->>'code' from custody_results where label = 'null_term
 select is((select payload->>'code' from custody_results where label = 'terminal_correction'), 'recorded', 'manager records terminal custody correction');
 select is((select device_custody_status from public.repair_orders where public_no = 'CUST-03'), 'with_customer', 'terminal correction updates custody');
 select is((select delivered_at from public.repair_orders where public_no = 'CUST-03'), null, 'legacy correction does not invent delivery time');
-select ok((select device_unlock_method is null and device_unlock_value is null from public.repair_orders where public_no = 'CUST-03'), 'terminal correction clears credentials');
+select ok((select device_unlock_method = 'pin' and device_unlock_value = '2468' from public.repair_orders where public_no = 'CUST-03'), 'terminal correction retains credentials');
 select is((select count(*) from public.order_terminal_operations where idempotency_key = '00000000-0000-4000-8000-000000003206'), 1::bigint, 'terminal correction writes one ledger row');
 select is((select payload->>'code' from custody_results where label = 'terminal_back_to_shop'), 'terminal_reopen_required', 'completed device cannot return to shop without reopen');
 select is((select payload->>'code' from custody_results where label = 'cancelled_return'), 'recorded', 'cancelled return records atomically');
 select ok((select device_custody_status = 'with_customer' and delivered_at is not null and completed_at is not null from public.repair_orders where public_no = 'CUST-04'), 'cancelled return updates custody timestamps');
-select ok((select device_unlock_method is null and device_unlock_value is null from public.repair_orders where public_no = 'CUST-04'), 'cancelled return clears credentials');
+select ok((select device_unlock_method = 'pin' and device_unlock_value = '1357' from public.repair_orders where public_no = 'CUST-04'), 'cancelled return retains credentials');
 select is((select count(*) from public.order_terminal_operations where idempotency_key = '00000000-0000-4000-8000-000000003208'), 1::bigint, 'cancelled return writes one ledger row');
 select is((select payload->>'code' from custody_results where label = 'cancelled_return_replay'), 'idempotent_replay', 'cancelled return replay is idempotent');
 select is((select payload->>'code' from custody_results where label = 'cancelled_return_replay_inactive_actor'), 'actor_forbidden', 'inactive actor cannot replay a cancelled return');

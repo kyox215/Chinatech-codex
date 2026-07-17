@@ -67,9 +67,10 @@ describe("device custody domain rules", () => {
     ).toBe(true);
   });
 
-  it("clears unlock input whenever the customer keeps the device", () => {
+  it("retains unlock input regardless of device custody", () => {
     expect(normalizeUnlockForCustody("with_customer", { method: "pin", value: "1234" })).toEqual({
-      method: "none",
+      method: "pin",
+      value: "1234",
     });
     expect(normalizeUnlockForCustody("with_shop", { method: "pin", value: "1234" })).toEqual({
       method: "pin",

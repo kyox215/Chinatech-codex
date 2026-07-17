@@ -42,7 +42,6 @@ import {
   DEVICE_CUSTODY_WITH_SHOP,
   deviceCustodyAllowsChange,
   deviceCustodyBlocksStatus,
-  hasUnlockValue,
   normalizeUnlockForCustody,
 } from "@/features/orders/model/device-custody";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
@@ -848,14 +847,6 @@ export async function transitionOrder(
     o.completed_at = o.updated_at;
     o.delivered_at = custodyBefore === DEVICE_CUSTODY_WITH_SHOP ? o.updated_at : deliveredBefore;
     o.device_custody_status = DEVICE_CUSTODY_WITH_CUSTOMER;
-    o.device_unlock_method = undefined;
-    o.device_unlock_value = undefined;
-    o.device_unlock_pattern = undefined;
-  }
-  if (legacyTo === "cancelled" && o.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER) {
-    o.device_unlock_method = undefined;
-    o.device_unlock_value = undefined;
-    o.device_unlock_pattern = undefined;
   }
   if (legacyTo === "waiting_approval") o.approval_sent_at = o.updated_at;
   extraEvents.unshift({
@@ -927,9 +918,6 @@ export async function confirmCancelledOrderReturn(
   order.completed_at = order.completed_at ?? now;
   order.delivered_at = now;
   order.device_custody_status = DEVICE_CUSTODY_WITH_CUSTOMER;
-  order.device_unlock_method = undefined;
-  order.device_unlock_value = undefined;
-  order.device_unlock_pattern = undefined;
   order.updated_at = now;
   extraEvents.unshift({
     id: `evt_return_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -1021,9 +1009,6 @@ export async function updateOrderCustody(
   order.device_custody_status = to;
   if (to === DEVICE_CUSTODY_WITH_CUSTOMER) {
     if (from === DEVICE_CUSTODY_WITH_SHOP) order.delivered_at = now;
-    order.device_unlock_method = undefined;
-    order.device_unlock_value = undefined;
-    order.device_unlock_pattern = undefined;
   } else if (from === DEVICE_CUSTODY_WITH_CUSTOMER || !from) {
     order.delivered_at = undefined;
   }
@@ -1037,7 +1022,7 @@ export async function updateOrderCustody(
       from,
       to,
       reason: reason || null,
-      credentials_cleared: to === DEVICE_CUSTODY_WITH_CUSTOMER,
+      credentials_cleared: false,
       prior_delivery_recorded: priorDeliveryRecorded,
       idempotency_key: input.idempotency_key,
     },
@@ -1136,11 +1121,6 @@ export async function decideOrderApproval(
   o.updated_at = now;
   if (target === "cancelled") {
     o.cancel_reason = cleanReason || "客户拒绝报价";
-    if (o.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER) {
-      o.device_unlock_method = undefined;
-      o.device_unlock_value = undefined;
-      o.device_unlock_pattern = undefined;
-    }
   }
   if (target === "unfixed_pickup") {
     o.diagnosis_result = buildMockTransitionDiagnosisResult(
@@ -1366,10 +1346,6 @@ export async function updateOrder(
   assertMockRoutineMutationAllowed(o);
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
-  if (o.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP && hasUnlockValue(input.device_unlock)) {
-    throw new Error("设备未留店时不能保存手机密码");
-  }
-
   const customer = getCustomer(o.customer_id);
   const device = getDevice(o.device_id);
   if (!customer || !device) throw new Error("工单缺少客户或设备关联");
@@ -1559,12 +1535,6 @@ export async function patchOrder(
       continue;
     }
     if (field === "device_unlock") {
-      if (
-        o.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP &&
-        hasUnlockValue(rawValue as PatchOrderInput["changes"]["device_unlock"])
-      ) {
-        throw new Error("设备未留店时不能保存手机密码");
-      }
       applyDeviceUnlock(o, rawValue as PatchOrderInput["changes"]["device_unlock"]);
       continue;
     }
@@ -2132,9 +2102,6 @@ export async function createOrder(
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
-  if (deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && hasUnlockValue(input.device_unlock)) {
-    throw new Error("设备未留店时不能保存手机密码");
-  }
   const initialStatus = workflowStatuses.find((item) => item.code === status);
   if (
     deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&

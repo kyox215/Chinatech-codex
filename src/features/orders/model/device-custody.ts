@@ -150,12 +150,10 @@ export function deviceCustodyAllowsChange(input: {
 }
 
 export function normalizeUnlockForCustody(
-  custodyStatus: DeviceCustodyStatus,
+  _custodyStatus: DeviceCustodyStatus,
   unlock: DeviceUnlockInput | undefined,
 ): DeviceUnlockInput {
-  return custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
-    ? { method: "none" }
-    : (unlock ?? { method: "none" });
+  return unlock ?? { method: "none" };
 }
 
 export function hasUnlockValue(input: DeviceUnlockInput | undefined) {

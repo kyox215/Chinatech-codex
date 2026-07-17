@@ -10,7 +10,7 @@ test.use({
   hasTouch: true,
 });
 
-test("new order requires an explicit custody choice and customer-held devices clear unlock UI", async ({
+test("new order requires an explicit custody choice and customer-held devices keep unlock UI", async ({
   page,
 }) => {
   await page.goto("/orders/new");
@@ -26,9 +26,7 @@ test("new order requires an explicit custody choice and customer-held devices cl
   await withCustomer.click();
   await expect(withCustomer).toHaveAttribute("aria-pressed", "true");
   await expect(withShop).toHaveAttribute("aria-pressed", "false");
-  await expect(
-    page.getByText("设备由客人保管。系统不会保存手机密码、PIN 或解锁图案。"),
-  ).toBeVisible();
+  await expect(page.getByText("设备未留店也可登记，后续交还不会自动清除")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 

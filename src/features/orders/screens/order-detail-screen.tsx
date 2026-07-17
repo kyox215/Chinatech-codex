@@ -438,7 +438,6 @@ export function OrderDetailScreen({
       patchOrderReadCaches(queryClient, id, {
         updated_at: result.updated_at,
         device_custody_status: input.target,
-        clear_device_unlock: input.target === DEVICE_CUSTODY_WITH_CUSTOMER,
         ...(input.target === DEVICE_CUSTODY_WITH_SHOP
           ? { delivered_at: null }
           : previousCustodyStatus === DEVICE_CUSTODY_WITH_SHOP && !previousTerminal
@@ -533,9 +532,6 @@ export function OrderDetailScreen({
   const deviceUnlockUpdate = useMutation({
     mutationFn: (device_unlock: DeviceUnlockInput) => {
       if (!data) throw new Error("工单未加载");
-      if (deviceCustodyStatusFromOrder(data.order) !== DEVICE_CUSTODY_WITH_SHOP) {
-        throw new Error("设备未留店，不能登记手机密码");
-      }
       return patchOrder(id, {
         expected_updated_at: data.order.updated_at,
         changes: { device_unlock },
@@ -1485,8 +1481,8 @@ function OrderCustodyChangeOverlay({
     target === DEVICE_CUSTODY_WITH_SHOP
       ? "确认后设备可进入检测、维修或取机流程。"
       : current === DEVICE_CUSTODY_WITH_SHOP
-        ? "确认后会记录交付时间，并清除工单中的手机密码、PIN 和解锁图案。"
-        : "补录为客户持有，不会生成历史交付时间；工单中的解锁信息会保持清空。";
+        ? "确认后会记录交付时间；已登记的手机密码、PIN 或解锁图案会继续保留。"
+        : "补录为客户持有，不会生成历史交付时间；已登记的解锁信息会继续保留。";
   const body = (
     <div className="grid min-w-0 gap-3 p-4">
       <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
@@ -1612,7 +1608,7 @@ function OrderDeviceCustodyCard({
       : status === DEVICE_CUSTODY_WITH_CUSTOMER
         ? order.delivered_at
           ? `设备已交给客人 · ${formatOrderDateTime(order.delivered_at)}`
-          : "设备由客人自行保管，系统不会保存或展示解锁信息。"
+          : "设备由客人自行保管；已登记的解锁信息会继续保留。"
         : "这是一张旧工单，尚未记录设备是否留在门店；继续关键流程前必须补录。";
 
   const actions: ReactNode[] = [];
@@ -1697,17 +1693,17 @@ function OrderDeviceCustodyCard({
     <section
       data-order-device-custody="true"
       className={cn(
-        "grid min-w-0 gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2.5 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3",
+        "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3",
         status === null && "border-status-warn-foreground/30 bg-status-warn/35",
         className,
       )}
     >
-      <div className="flex min-w-0 items-start gap-2">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary">
+      <div className="flex min-w-0 items-start gap-1.5">
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary">
           {status === DEVICE_CUSTODY_WITH_CUSTOMER ? (
-            <UserRound className="size-4" />
+            <UserRound className="size-3.5" />
           ) : (
-            <PackageSearch className="size-4" />
+            <PackageSearch className="size-3.5" />
           )}
         </span>
         <div className="min-w-0 flex-1">
@@ -1719,11 +1715,11 @@ function OrderDeviceCustodyCard({
               className="text-[10px]"
             />
           </div>
-          <p className="mt-1 break-words text-[10px] leading-4 text-muted-foreground">
+          <p className="mt-0.5 break-words text-[10px] leading-3.5 text-muted-foreground">
             {description}
           </p>
           {latestHandoff ? (
-            <p className="mt-1 break-words text-[10px] leading-4 text-muted-foreground">
+            <p className="mt-0.5 truncate text-[9px] leading-3 text-muted-foreground md:break-words md:text-[10px] md:leading-4">
               最近交接：{latestHandoff.summary} · {formatOrderDateTime(latestHandoff.createdAt)} ·
               {latestHandoff.operator}
             </p>
@@ -1748,7 +1744,7 @@ function OrderDeviceCustodyCard({
         </div>
       </div>
       {actions.length ? (
-        <div className="flex min-w-0 flex-wrap gap-1.5 md:justify-end">{actions}</div>
+        <div className="flex min-w-0 flex-wrap gap-1 md:justify-end">{actions}</div>
       ) : null}
     </section>
   );
@@ -2554,6 +2550,9 @@ function MobileOrderDetailView({
           ),
         )
       : [];
+  const hasMobileSupplierManagement = Boolean(
+    partsSupplier || supplierOptions.length || onPartsSupplierChange,
+  );
 
   useEffect(() => {
     if (!photoPreviewId) return;
@@ -2631,54 +2630,73 @@ function MobileOrderDetailView({
         </div>
       </section>
 
-      {onAssigneeChange ? (
+      {onAssigneeChange || hasMobileSupplierManagement ? (
         <section className={mobileDetailCardClass}>
-          <MobileSectionTitle icon={UserRound} title="负责人" />
-          <div className="mt-1.5">
-            <Select
-              value={order.assignee_membership_id ?? "unassigned"}
-              onValueChange={(value) => onAssigneeChange(value === "unassigned" ? null : value)}
-              disabled={assigneePending}
-            >
-              <SelectTrigger className="h-9 rounded-md text-xs">
-                <SelectValue placeholder={order.technician_name || "未分配"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">未分配</SelectItem>
-                {assigneeOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.display_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </section>
-      ) : null}
+          <div
+            className={cn(
+              "grid min-w-0 gap-1.5",
+              onAssigneeChange && hasMobileSupplierManagement
+                ? "grid-cols-1 min-[380px]:grid-cols-2"
+                : "grid-cols-1",
+            )}
+          >
+            {onAssigneeChange ? (
+              <div className="min-w-0">
+                <MobileSectionTitle icon={UserRound} title="负责人" />
+                <div className="mt-1">
+                  <Select
+                    value={order.assignee_membership_id ?? "unassigned"}
+                    onValueChange={(value) =>
+                      onAssigneeChange(value === "unassigned" ? null : value)
+                    }
+                    disabled={assigneePending}
+                  >
+                    <SelectTrigger className="h-8 min-w-0 rounded-md px-2 text-[11px]">
+                      <SelectValue placeholder={order.technician_name || "未分配"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">未分配</SelectItem>
+                      {assigneeOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : null}
 
-      {partsSupplier || supplierOptions.length || onPartsSupplierChange ? (
-        <section className={mobileDetailCardClass}>
-          <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
-          <div className="mt-1.5">
-            {onPartsSupplierChange ? (
-              <OrderSupplierPicker
-                supplier={partsSupplier}
-                suppliers={supplierOptions}
-                isUpdating={partsSupplierPending}
-                onChange={onPartsSupplierChange}
-                mode="sheet"
-                size="comfortable"
-              />
-            ) : partsSupplier ? (
-              <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
-                <PackageSearch className="size-3 shrink-0" />
-                <span className="truncate">{partsSupplier.short_name || partsSupplier.name}</span>
+            {hasMobileSupplierManagement ? (
+              <div className="min-w-0">
+                <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
+                <div className="mt-1 min-w-0">
+                  {onPartsSupplierChange ? (
+                    <OrderSupplierPicker
+                      supplier={partsSupplier}
+                      suppliers={supplierOptions}
+                      isUpdating={partsSupplierPending}
+                      onChange={onPartsSupplierChange}
+                      mode="sheet"
+                      size="compact"
+                    />
+                  ) : partsSupplier ? (
+                    <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                      <PackageSearch className="size-3 shrink-0" />
+                      <span className="truncate">
+                        {partsSupplier.short_name || partsSupplier.name}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
-          <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground">
-            只读取当前店铺设置中的供应商。
-          </p>
+          {hasMobileSupplierManagement ? (
+            <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground">
+              供应商只读取当前店铺设置。
+            </p>
+          ) : null}
         </section>
       ) : null}
 
@@ -2826,15 +2844,7 @@ function MobileOrderDetailView({
                 ["随附物品", accessoryNotes || "-"],
               ]}
             />
-            {custodyStatus === DEVICE_CUSTODY_WITH_SHOP ? (
-              <DeviceUnlockViewer order={order} compact className="mt-1.5" />
-            ) : (
-              <p className="mt-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-                {custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
-                  ? "设备未留店，不登记手机密码。"
-                  : "保管状态待确认，暂不展示手机密码。"}
-              </p>
-            )}
+            <DeviceUnlockViewer order={order} compact className="mt-1.5" />
           </div>
         </section>
       </div>

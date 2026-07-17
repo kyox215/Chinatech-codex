@@ -787,19 +787,17 @@ describe("mock order WhatsApp notification workflow", () => {
 });
 
 describe("mock order inline editing workflow", () => {
-  it("creates both custody states explicitly and rejects secrets for customer-held devices", async () => {
-    await expect(
-      createMockOrder({
-        device_custody_status: "with_customer",
-        device_unlock: { method: "pin", value: "001258" },
-      }),
-    ).rejects.toThrow("设备未留店时不能保存手机密码");
-
-    const id = await createMockOrder({ device_custody_status: "with_customer" });
+  it("creates both custody states explicitly while retaining customer-held unlock credentials", async () => {
+    const id = await createMockOrder({
+      device_custody_status: "with_customer",
+      device_unlock: { method: "pin", value: "001258" },
+    });
     const detail = await getOrder(id);
 
     expect(detail.order.device_custody_status).toBe("with_customer");
     expect(detail.order.delivered_at).toBeUndefined();
+    expect(detail.order.device_unlock_method).toBe("pin");
+    expect(detail.order.device_unlock_value).toBe("001258");
     expect(detail.events.find((event) => event.event_type === "created")?.payload).toMatchObject({
       device_custody_status: "with_customer",
     });
@@ -821,7 +819,8 @@ describe("mock order inline editing workflow", () => {
     });
     const afterReturn = await getOrder(id);
     expect(afterReturn.order.delivered_at).toBeDefined();
-    expect(afterReturn.order.device_unlock_value).toBeUndefined();
+    expect(afterReturn.order.device_unlock_method).toBe("pin");
+    expect(afterReturn.order.device_unlock_value).toBe("001258");
 
     const replay = await updateOrderCustody(id, {
       expected_updated_at: createdUpdatedAt,
@@ -967,19 +966,21 @@ describe("mock order inline editing workflow", () => {
     ).rejects.toThrow("无需确认退还");
   });
 
-  it("blocks unlock writes until legacy custody is confirmed", async () => {
+  it("allows unlock writes on legacy orders while retaining explicit custody confirmation", async () => {
     const id = await createMockOrder({ device_custody_status: "with_shop" });
     const row = mockOrders.find((item) => item.id === id);
     if (!row) throw new Error("fixture order missing");
     row.device_custody_status = null;
     const before = await getOrder(id);
 
-    await expect(
-      patchOrder(id, {
-        expected_updated_at: before.order.updated_at,
-        changes: { device_unlock: { method: "pin", value: "001258" } },
-      }),
-    ).rejects.toThrow("设备未留店时不能保存手机密码");
+    await patchOrder(id, {
+      expected_updated_at: before.order.updated_at,
+      changes: { device_unlock: { method: "pin", value: "001258" } },
+    });
+    const after = await getOrder(id);
+    expect(after.order.device_custody_status).toBeNull();
+    expect(after.order.device_unlock_method).toBe("pin");
+    expect(after.order.device_unlock_value).toBe("001258");
   });
 
   it("assigns technician from the creator account and ignores client spoofing", async () => {

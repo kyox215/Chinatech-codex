@@ -106,7 +106,7 @@ describe("order repository role projection", () => {
   });
 
   it.each(["with_customer", null] as const)(
-    "never sends unlock secrets when device custody is %s",
+    "keeps unlock secrets visible to authorized detail readers when device custody is %s",
     (device_custody_status) => {
       const source = detail();
       const projected = projectOrderDetailForActor(
@@ -114,10 +114,9 @@ describe("order repository role projection", () => {
         actor("owner"),
       );
 
-      expect(projected.order.device_unlock_method).toBeUndefined();
-      expect(projected.order.device_unlock_value).toBeUndefined();
-      expect(projected.order.device_unlock_pattern).toBeUndefined();
-      expect(projected.order.sensitive_redacted).toBe(true);
+      expect(projected.order.device_unlock_method).toBe("pin");
+      expect(projected.order.device_unlock_value).toBe("1234");
+      expect(projected.order.sensitive_redacted).toBeUndefined();
     },
   );
 

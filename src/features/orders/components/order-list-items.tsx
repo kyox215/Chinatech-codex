@@ -244,7 +244,7 @@ export function OrderMobileCard({
                 <ReceiptText className="size-2.5 shrink-0 text-primary" />
                 <span className="truncate">{primaryRepairLabel}</span>
               </span>
-              {order.device_custody_status === "with_shop" ? (
+              {order.device_unlock_method ? (
                 <DeviceUnlockListBadge
                   method={order.device_unlock_method}
                   className="max-w-[82px] shrink-0 px-1 py-0.5 text-[9px] leading-3"

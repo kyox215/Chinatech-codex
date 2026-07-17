@@ -329,7 +329,7 @@ export function NewOrderDeviceUnlockSection({
         title="手机密码"
         description={
           form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
-            ? "设备未留店，不收集解锁信息"
+            ? "设备未留店也可登记，后续交还不会自动清除"
             : "设备留店时可登记，默认隐藏"
         }
         className="mb-1.5"
@@ -338,10 +338,6 @@ export function NewOrderDeviceUnlockSection({
         {form.deviceCustodyStatus === null ? (
           <p className="rounded-lg bg-status-warn/45 px-2 py-2 text-[10px] font-medium leading-4 text-status-warn-foreground">
             请先确认设备是留在店内，还是由客人自行保管。
-          </p>
-        ) : form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER ? (
-          <p className="rounded-lg bg-primary/5 px-2 py-2 text-[10px] font-medium leading-4 text-primary">
-            设备由客人保管。系统不会保存手机密码、PIN 或解锁图案。
           </p>
         ) : (
           <>
@@ -384,7 +380,7 @@ function NewOrderDeviceCustodySelector({
     },
     {
       value: DEVICE_CUSTODY_WITH_CUSTOMER,
-      description: "客人带走设备，不登记解锁信息",
+      description: "客人带走设备，解锁信息仍可保留",
       icon: UserRound,
     },
   ];
