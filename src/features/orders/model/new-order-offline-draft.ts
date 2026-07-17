@@ -9,6 +9,10 @@ import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
 
 import { isDeviceCustodyStatus } from "./device-custody";
 import { initialNewOrderForm, type NewOrderFormState } from "./new-order-form";
+import {
+  UNKNOWN_ISSUE_DESCRIPTION,
+  inferIssueCaptureModeForLegacyDraft,
+} from "./order-diagnosis-quote";
 
 export type NewOrderOfflineDraftRestoreResult = {
   form: NewOrderFormState;
@@ -36,7 +40,7 @@ export function buildNewOrderOfflineDraftInput({
 export function buildNewOrderOfflineDraftPayload(
   form: NewOrderFormState,
 ): RepairDeskOfflineSafeRecord {
-  const repairItems = form.faults
+  const repairItems = (form.issueCaptureMode === "unknown" ? [] : form.faults)
     .map((item) => ({
       key: item.key,
       categoryKey: item.categoryKey,
@@ -58,7 +62,9 @@ export function buildNewOrderOfflineDraftPayload(
     deviceNotes: form.deviceNotes.trim(),
     deviceCustody: form.deviceCustodyStatus,
     imei: form.imei.trim(),
-    issueDescription: form.issue.trim(),
+    issueMode: form.issueCaptureMode,
+    issueDescription:
+      form.issueCaptureMode === "unknown" ? UNKNOWN_ISSUE_DESCRIPTION : form.issue.trim(),
     accessoryNotes: form.accessoryNotes.trim(),
     warrantyDraft: {
       text: form.warrantyText.trim(),
@@ -158,7 +164,11 @@ export function restoreNewOrderFormFromOfflineDraft(
       model: readString(payload.deviceModel) ?? "",
       imei: readString(payload.imei) ?? "",
       deviceCustodyStatus: restoredCustody,
-      issue: readString(payload.issueDescription) ?? "",
+      issueCaptureMode: readIssueCaptureMode(payload.issueMode, payload.issueDescription),
+      issue:
+        readIssueCaptureMode(payload.issueMode, payload.issueDescription) === "unknown"
+          ? ""
+          : (readString(payload.issueDescription) ?? ""),
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
       warrantyText: readString(warrantyDraft.text) ?? initialNewOrderForm.warrantyText,
       warrantyMonths: readNumber(warrantyDraft.months) ?? initialNewOrderForm.warrantyMonths,
@@ -175,6 +185,11 @@ export function restoreNewOrderFormFromOfflineDraft(
   };
 }
 
+function readIssueCaptureMode(value: unknown, legacyDescription: unknown) {
+  if (value === "reported" || value === "unknown") return value;
+  return inferIssueCaptureModeForLegacyDraft(readString(legacyDescription));
+}
+
 export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boolean {
   return Boolean(
     form.deviceCustodyStatus !== initialNewOrderForm.deviceCustodyStatus ||
@@ -183,6 +198,7 @@ export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boo
     form.brand.trim() ||
     form.model.trim() ||
     form.imei.trim() ||
+    form.issueCaptureMode !== initialNewOrderForm.issueCaptureMode ||
     form.issue.trim() ||
     form.accessoryNotes.trim() ||
     form.warrantyChangeReason.trim() ||

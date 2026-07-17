@@ -23,6 +23,8 @@ import {
   listOrdersPage,
   patchOrder,
   patchOrderFinance,
+  publishOrderQuote,
+  confirmOrderQuoteSent,
   recordPayment,
   reopenOrder,
   reorderOrderWorkflowStatuses,
@@ -176,6 +178,7 @@ import type {
   OrderStats,
   PatchOrderFinanceInput,
   PatchOrderInput,
+  PublishOrderQuoteInput,
   RepairDeskOptions,
   SupplierInput,
   UpdateInventoryItemInput,
@@ -238,6 +241,8 @@ import {
   orderWorkflowTransitionsUpdateBodySchema,
   patchOrderBodySchema,
   patchOrderFinanceBodySchema,
+  publishOrderQuoteBodySchema,
+  confirmOrderQuoteSentBodySchema,
   paymentBodySchema,
   reopenOrderBodySchema,
   storeCreateBodySchema,
@@ -318,6 +323,8 @@ const supabaseSource = {
   listStoreMembers,
   patchOrder,
   patchOrderFinance,
+  publishOrderQuote,
+  confirmOrderQuoteSent,
   recordInventoryCheck,
   recordInventoryTransaction,
   recordPayment,
@@ -694,6 +701,13 @@ function fail(error: unknown) {
         : "请求处理失败";
 
   return privateJson({ error: message }, 400);
+}
+
+function routeConflict(code: string, message: string) {
+  const error = new Error(message) as Error & { status: number; code: string };
+  error.status = 409;
+  error.code = code;
+  return error;
 }
 
 export async function handleRepairDeskGet(path: string, searchParams?: URLSearchParams) {
@@ -1215,6 +1229,28 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           ),
         );
       }
+      case "order/publish-quote": {
+        const { id, input } = publishOrderQuoteBodySchema.parse(body);
+        assertOrderQuotePreparePermission(actor, input);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.publishOrderQuote(id, input, actor),
+            realtimeBroadcasts.orderTransitioned,
+          ),
+        );
+      }
+      case "order/confirm-quote-sent": {
+        const { id, input } = confirmOrderQuoteSentBodySchema.parse(body);
+        assertOrderQuoteSendPermission(actor);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.confirmOrderQuoteSent(id, input, actor),
+            realtimeBroadcasts.orderTransitioned,
+          ),
+        );
+      }
       case "order/correct-terminal": {
         const { id, input } = correctTerminalOrderBodySchema.parse(body);
         assertRepairDeskPermission(actor, "order:correct");
@@ -1266,6 +1302,12 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       case "order/transition": {
         const { id, to, reason, expected_updated_at, idempotency_key } =
           transitionOrderBodySchema.parse(body);
+        if (to === "quoted") {
+          throw routeConflict(
+            "USE_PUBLISH_QUOTE",
+            "进入已报价阶段必须使用“发布报价”，以校验诊断、金额和版本",
+          );
+        }
         assertOrderTransitionPermission(actor);
         return ok(
           await auditGeneric(
@@ -1304,6 +1346,9 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       }
       case "order/batch-transition": {
         const { ids, to } = batchTransitionBodySchema.parse(body);
+        if (to === "quoted") {
+          throw routeConflict("USE_PUBLISH_QUOTE", "批量流转不能发布报价，请逐单完成检测与报价");
+        }
         assertOrderBatchTransitionPermission(actor);
         return ok(
           await auditGeneric(
@@ -1432,6 +1477,12 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           transition_to,
           recipient_phone,
         } = whatsappNotificationBodySchema.parse(body);
+        if (template_kind === "approval_request") {
+          throw routeConflict(
+            "USE_CONFIRM_QUOTE_SENT",
+            "报价审批必须先打开 WhatsApp，再使用“确认已发送”绑定最新报价",
+          );
+        }
         assertOrderCustomerMessagePermission(actor);
         return ok(
           await runWithRealtime(
@@ -1450,14 +1501,10 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         );
       }
       case "order/approval-request": {
-        const { id, body: messageBody, recipient_phone } = approvalRequestBodySchema.parse(body);
-        assertOrderCustomerMessagePermission(actor);
-        return ok(
-          await runWithRealtime(
-            actor,
-            () => api.sendApprovalRequest(id, messageBody, actor, recipient_phone),
-            realtimeBroadcasts.orderUpdated,
-          ),
+        approvalRequestBodySchema.parse(body);
+        throw routeConflict(
+          "USE_CONFIRM_QUOTE_SENT",
+          "报价审批必须先打开 WhatsApp，再使用“确认已发送”绑定最新报价",
         );
       }
       case "order/approval-decision": {
@@ -1848,6 +1895,18 @@ export function assertOrderCustodyPermission(actor: AuditActor, _input: UpdateOr
 
 export function assertOrderFinancePermission(actor: AuditActor, _input: PatchOrderFinanceInput) {
   assertRepairDeskPermission(actor, "payment:adjust");
+}
+
+export function assertOrderQuotePreparePermission(
+  actor: AuditActor,
+  _input?: PublishOrderQuoteInput,
+) {
+  assertRepairDeskPermission(actor, "order:quote_prepare");
+}
+
+export function assertOrderQuoteSendPermission(actor: AuditActor) {
+  assertRepairDeskPermission(actor, "order:quote_prepare");
+  assertRepairDeskPermission(actor, "customer:message");
 }
 
 export function assertOrderPaymentPermission(actor: AuditActor) {

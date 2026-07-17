@@ -219,6 +219,38 @@ describe("new order offline draft mapping", () => {
     });
   });
 
+  it("round trips an explicit unknown issue without creating repair items", () => {
+    const payload = buildNewOrderOfflineDraftPayload(
+      makeForm({ issueCaptureMode: "unknown", issue: "", faults: [] }),
+    );
+    expect(payload).toMatchObject({
+      issueMode: "unknown",
+      issueDescription: "客户暂时无法确认具体故障，需检测。",
+      repairItems: [],
+      quotedPriceCents: 0,
+    });
+
+    const restored = restoreNewOrderFormFromOfflineDraft({
+      localDraftId: "draft_unknown",
+      localOrderId: "local_order_unknown",
+      storeId: "store_1",
+      userId: "user_1",
+      mode: "create",
+      draftPayload: payload,
+      customerLinkMode: "walk_in_snapshot_only",
+      deviceLinkMode: "order_snapshot_only",
+      hasSensitiveVaultEntry: false,
+      attachmentStagingIds: [],
+      createdAt: "2026-07-17T18:00:00.000Z",
+      updatedAt: "2026-07-17T18:00:00.000Z",
+      expiresAt: "2026-08-17T18:00:00.000Z",
+      status: "draft_local",
+    });
+    expect(restored.form.issueCaptureMode).toBe("unknown");
+    expect(restored.form.issue).toBe("");
+    expect(restored.form.faults).toEqual([]);
+  });
+
   it("round trips customer-held custody and never retains a sensitive unlock draft", () => {
     const form = makeForm({
       customerPhone: "+393331112222",

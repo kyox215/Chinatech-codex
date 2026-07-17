@@ -71,6 +71,7 @@ import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
+import { issueDescriptionForIntake } from "@/features/orders/model/order-diagnosis-quote";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { formatMoney } from "@/lib/money";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -200,9 +201,6 @@ export function NewOrderScreen({
     () => validFaultDrafts.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
     [validFaultDrafts],
   );
-  const faultSummary = validFaultDrafts.map((item) => item.name).join("，");
-  const issueDescription =
-    form.issue.trim() || faultSummary || "客户未补充故障描述，按所选故障项目检测。";
   const createStatusLabel =
     selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status;
 
@@ -401,13 +399,14 @@ export function NewOrderScreen({
         device_model: form.model,
         device_imei: form.imei,
         device_custody_status: custodyStatus,
-        issue_description: issueDescription,
+        issue_description: issueDescriptionForIntake(form.issueCaptureMode, form.issue),
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,
         warranty_change_reason: form.warrantyChangeReason || undefined,
         device_unlock: normalizeUnlockForCustody(custodyStatus, form.deviceUnlock),
-        fault_prices: toFaultPriceItems(validFaultDrafts),
+        fault_prices:
+          form.issueCaptureMode === "unknown" ? [] : toFaultPriceItems(validFaultDrafts),
         deposit_amount: form.deposit,
       });
       return { kind: "online", id: result.id, replayed: result.replayed };
@@ -441,7 +440,7 @@ export function NewOrderScreen({
     form.customerPhone.trim() &&
     form.brand.trim() &&
     form.model.trim() &&
-    (validFaultDrafts.length > 0 || form.issue.trim()) &&
+    (form.issueCaptureMode === "unknown" || Boolean(form.issue.trim())) &&
     form.deposit <= total &&
     !(
       form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&

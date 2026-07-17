@@ -15,6 +15,8 @@ import {
   listOrdersPage,
   patchOrder,
   patchOrderFinance,
+  publishOrderQuote,
+  confirmOrderQuoteSent,
   recordPayment,
   sendNotification,
   sendApprovalRequest,
@@ -47,6 +49,94 @@ async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator =
   );
   return result.id;
 }
+
+describe("mock atomic diagnosis quote workflow", () => {
+  it("publishes an opaque quote revision, replays safely and confirms manual WhatsApp sending", async () => {
+    const id = await createMockOrder({
+      issue_description: "客户暂时无法确认具体故障，需检测。",
+      fault_prices: [],
+      deposit_amount: 0,
+    });
+    const before = await getOrder(id);
+    const input = {
+      expected_updated_at: before.order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+      diagnosis_result: "检测确认电池健康度过低",
+      fault_prices: [{ name: "更换电池", price: 59, currency_code: "EUR" as const }],
+    };
+    const published = await publishOrderQuote(id, input);
+    expect(published).toMatchObject({
+      code: "published",
+      quotation_amount: 59,
+      status: "quoted",
+      replayed: false,
+    });
+    expect(published.quote_event_id).toMatch(/^[0-9a-f-]{36}$/i);
+
+    const replay = await publishOrderQuote(id, input);
+    expect(replay).toMatchObject({
+      code: "idempotent_replay",
+      quote_event_id: published.quote_event_id,
+      replayed: true,
+    });
+
+    const confirmed = await confirmOrderQuoteSent(id, {
+      expected_updated_at: published.updated_at,
+      idempotency_key: crypto.randomUUID(),
+      quote_event_id: published.quote_event_id,
+      message_body: "Preventivo pronto: €59",
+    });
+    expect(confirmed).toMatchObject({
+      code: "confirmed",
+      quote_event_id: published.quote_event_id,
+      from: "quoted",
+      to: "waiting_approval",
+    });
+    const after = await getOrder(id);
+    expect(after.order.status).toBe("waiting_approval");
+    expect(after.order.approval_flow_status).toBe("waiting_customer");
+    expect(after.messages[0]).toMatchObject({
+      id: confirmed.message_id,
+      message_body: "Preventivo pronto: €59",
+      status: "sent",
+    });
+  });
+
+  it("rejects a quote below already received money and an outdated notification revision", async () => {
+    const id = await createMockOrder({
+      fault_prices: [{ name: "初始检测", price: 120 }],
+      deposit_amount: 20,
+    });
+    const before = await getOrder(id);
+    await expect(
+      publishOrderQuote(id, {
+        expected_updated_at: before.order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        diagnosis_result: "检测完成",
+        fault_prices: [{ name: "折价维修", price: 10 }],
+      }),
+    ).rejects.toThrow("已经收取");
+
+    const first = await publishOrderQuote(id, {
+      expected_updated_at: before.order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+      diagnosis_result: "检测完成",
+      fault_prices: [{ name: "维修", price: 120 }],
+    });
+    const changed = await patchOrder(id, {
+      expected_updated_at: first.updated_at,
+      changes: { diagnosis_result: "检测结论已更新" },
+    });
+    await expect(
+      confirmOrderQuoteSent(id, {
+        expected_updated_at: changed.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        quote_event_id: first.quote_event_id,
+        message_body: "Preventivo pronto",
+      }),
+    ).rejects.toThrow("报价内容已变化");
+  });
+});
 
 describe("mock order WhatsApp notification workflow", () => {
   it("rejects customer notifications after an order is voided", async () => {

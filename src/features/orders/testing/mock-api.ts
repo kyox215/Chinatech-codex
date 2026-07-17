@@ -26,6 +26,10 @@ import type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  PublishOrderQuoteInput,
+  PublishOrderQuoteResult,
+  ConfirmOrderQuoteSentInput,
+  ConfirmOrderQuoteSentResult,
   PaymentResult,
   RepairOrder,
   ReopenOrderInput,
@@ -591,6 +595,12 @@ export async function getOrder(id: string, _actor?: AuditActor) {
   if (!o) throw new Error("工单不存在");
   assertMockOrderInActorScope(o, _actor);
   const workflowBucket = mockOrderWorkflowBucket(o);
+  const latestQuoteEvent = extraEvents.find(
+    (event) =>
+      event.order_id === o.id &&
+      event.event_type === "quoted" &&
+      event.payload.action === "quote_published",
+  );
   const orderView = { ...decorate(o), workflow_bucket: workflowBucket };
   const terminal = isMockTerminalOrder(o);
   const voided = o.record_state === "voided" || Boolean(o.deleted_at);
@@ -616,10 +626,20 @@ export async function getOrder(id: string, _actor?: AuditActor) {
     attachments: extraAttachments
       .filter((attachment) => attachment.order_id === o.id)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    latest_quote_event_id: latestQuoteEvent?.id,
+    latest_quote_published_at: latestQuoteEvent?.created_at,
     capabilities: {
       canEditIntake: !terminal && !voided,
       canEditRepair: !terminal && !voided,
       canAdjustFinance: !terminal && !voided,
+      canPrepareQuote:
+        !terminal && !voided && (!_actor || _actor.isSystem || can(_actor, "order:quote_prepare")),
+      canSendQuote:
+        !terminal &&
+        !voided &&
+        (!_actor ||
+          _actor.isSystem ||
+          (can(_actor, "order:quote_prepare") && can(_actor, "customer:message"))),
       canCollectPayment: isOrderPaymentCollectible(orderView),
       canTransition: !terminal && !voided,
       canConfirmCancelledReturn:
@@ -2075,6 +2095,298 @@ export async function sendApprovalRequest(
     allowInvalidTransition: true,
     markApprovalPending: true,
   });
+}
+
+export async function publishOrderQuote(
+  id: string,
+  input: PublishOrderQuoteInput,
+  operator: MockOperator = "前台",
+): Promise<PublishOrderQuoteResult> {
+  const order = orders.find((item) => item.id === id);
+  if (!order) throw new Error("工单不存在");
+  assertMockRoutineMutationAllowed(order);
+  if (typeof operator !== "string" && !operator.isSystem && !can(operator, "order:quote_prepare")) {
+    throw new ForbiddenError("当前员工没有发布报价权限");
+  }
+
+  const fingerprint = JSON.stringify({
+    actor: typeof operator === "string" ? operator : operator.id,
+    order: id,
+    expected: input.expected_updated_at,
+    diagnosis: input.diagnosis_result.trim(),
+    items: input.fault_prices.map((item) => ({
+      name: item.name.trim(),
+      price: Number(item.price),
+      currency_code: item.currency_code ?? CURRENCY_CODE,
+      note: item.note?.trim() ?? "",
+    })),
+    exception: input.price_exception ?? null,
+  });
+  const replay = extraEvents.find(
+    (event) =>
+      event.order_id === id &&
+      event.event_type === "quoted" &&
+      event.payload.idempotency_key === input.idempotency_key,
+  );
+  if (replay) {
+    if (replay.payload.request_fingerprint !== fingerprint) {
+      throw new Error("该操作标识已用于不同请求，请刷新后重试");
+    }
+    return {
+      ok: true,
+      code: "idempotent_replay",
+      quote_event_id: replay.id,
+      updated_at: String(replay.payload.updated_at_after),
+      quotation_amount: Number(replay.payload.quotation_amount),
+      deposit_amount: Number(replay.payload.deposit_amount),
+      paid_amount: Number(replay.payload.paid_amount),
+      balance_amount: Number(replay.payload.balance_amount),
+      is_paid: Boolean(replay.payload.is_paid),
+      payment_status: String(
+        replay.payload.payment_status,
+      ) as PublishOrderQuoteResult["payment_status"],
+      status: String(replay.payload.to),
+      approval_status: "pending",
+      approval_flow_status: "not_required",
+      approval_reset: Boolean(replay.payload.approval_reset),
+      replayed: true,
+    };
+  }
+  if (order.updated_at !== input.expected_updated_at) {
+    throw new Error("工单已被其他操作更新，请刷新后比较并重试");
+  }
+
+  const diagnosis = input.diagnosis_result.trim();
+  if (!diagnosis || diagnosis.length > 8000) throw new Error("检测结论无效");
+  const faults = input.fault_prices.map((item) => ({
+    name: item.name.trim(),
+    price: Number(item.price),
+    currency_code: CURRENCY_CODE,
+    ...(item.note?.trim() ? { note: item.note.trim() } : {}),
+  }));
+  if (
+    faults.length < 1 ||
+    faults.length > 50 ||
+    faults.some(
+      (item) =>
+        !item.name ||
+        item.name.length > 120 ||
+        !Number.isFinite(item.price) ||
+        item.price < 0 ||
+        Math.abs(item.price * 100 - Math.round(item.price * 100)) >= 1e-8,
+    )
+  ) {
+    throw new Error("报价项目无效");
+  }
+  const hasZero = faults.some((item) => item.price === 0);
+  if (hasZero && (!input.price_exception || input.price_exception.reason.trim().length < 4)) {
+    throw new Error("零元项目必须填写价格例外原因");
+  }
+  if (!hasZero && input.price_exception) throw new Error("没有零元项目时不能提交价格例外");
+
+  const quotation = faults.reduce((sum, item) => sum + item.price, 0);
+  const paidAmount = Math.max(
+    0,
+    order.quotation_amount - order.deposit_amount - order.balance_amount,
+  );
+  const received = order.deposit_amount + paidAmount;
+  if (quotation < received) throw new Error("新报价不能低于已经收取的定金和款项");
+
+  const now = new Date().toISOString();
+  const quoteEventId = crypto.randomUUID();
+  const from = order.status;
+  const approvalReset =
+    order.approval_flow_status !== "not_required" ||
+    Boolean(order.approval_sent_at || order.approval_confirmed_at);
+  order.diagnosis_result = diagnosis;
+  order.fault_prices = faults;
+  order.quotation_amount = quotation;
+  order.balance_amount = quotation - received;
+  order.is_paid = order.balance_amount === 0;
+  order.payment_status = paymentStatusFromMoney({
+    isPaid: order.is_paid,
+    depositAmount: order.deposit_amount,
+    balanceAmount: order.balance_amount,
+  });
+  order.status = "quoted";
+  order.workflow_status = "quote";
+  order.approval_status = "pending";
+  order.approval_flow_status = "not_required";
+  order.approval_sent_at = undefined;
+  order.approval_confirmed_at = undefined;
+  order.notify_status = "not_sent";
+  order.updated_at = now;
+
+  extraEvents.unshift({
+    id: quoteEventId,
+    order_id: id,
+    event_type: "quoted",
+    payload: {
+      action: "quote_published",
+      idempotency_key: input.idempotency_key,
+      request_fingerprint: fingerprint,
+      diagnosis_hash: mockQuoteFingerprint(diagnosis),
+      fault_prices_hash: mockQuoteFingerprint(JSON.stringify(faults)),
+      updated_at_before: input.expected_updated_at,
+      updated_at_after: now,
+      quotation_amount: quotation,
+      deposit_amount: order.deposit_amount,
+      paid_amount: paidAmount,
+      balance_amount: order.balance_amount,
+      is_paid: order.is_paid,
+      payment_status: order.payment_status,
+      item_count: faults.length,
+      price_exception_kind: input.price_exception?.kind ?? null,
+      approval_reset: approvalReset,
+      from,
+      to: "quoted",
+      currency_code: CURRENCY_CODE,
+    },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+
+  return {
+    ok: true,
+    code: "published",
+    quote_event_id: quoteEventId,
+    updated_at: now,
+    quotation_amount: quotation,
+    deposit_amount: order.deposit_amount,
+    paid_amount: paidAmount,
+    balance_amount: order.balance_amount,
+    is_paid: order.is_paid,
+    payment_status: order.payment_status ?? "unpaid",
+    status: order.status,
+    approval_status: order.approval_status,
+    approval_flow_status: order.approval_flow_status ?? "not_required",
+    approval_reset: approvalReset,
+    replayed: false,
+  };
+}
+
+export async function confirmOrderQuoteSent(
+  id: string,
+  input: ConfirmOrderQuoteSentInput,
+  operator: MockOperator = "前台",
+): Promise<ConfirmOrderQuoteSentResult> {
+  const order = orders.find((item) => item.id === id);
+  if (!order) throw new Error("工单不存在");
+  assertMockRoutineMutationAllowed(order);
+  if (
+    typeof operator !== "string" &&
+    !operator.isSystem &&
+    (!can(operator, "order:quote_prepare") || !can(operator, "customer:message"))
+  ) {
+    throw new ForbiddenError("当前员工没有发送报价权限");
+  }
+  const fingerprint = JSON.stringify({
+    actor: typeof operator === "string" ? operator : operator.id,
+    order: id,
+    quote: input.quote_event_id,
+    expected: input.expected_updated_at,
+    body: input.message_body.trim(),
+  });
+  const replay = extraEvents.find(
+    (event) =>
+      event.order_id === id &&
+      event.event_type === "approval_sent" &&
+      event.payload.idempotency_key === input.idempotency_key,
+  );
+  if (replay) {
+    if (replay.payload.request_fingerprint !== fingerprint) {
+      throw new Error("该操作标识已用于不同请求，请刷新后重试");
+    }
+    return {
+      ok: true,
+      code: "idempotent_replay",
+      message_id: String(replay.payload.message_id),
+      quote_event_id: input.quote_event_id,
+      updated_at: String(replay.payload.updated_at_after),
+      from: String(replay.payload.from),
+      to: String(replay.payload.to),
+      replayed: true,
+    };
+  }
+  if (order.updated_at !== input.expected_updated_at) {
+    throw new Error("工单已被其他操作更新，请刷新后比较并重试");
+  }
+  const latestQuote = [...extraEvents, ...getEvents(id)]
+    .filter(
+      (event) =>
+        event.order_id === id &&
+        event.event_type === "quoted" &&
+        event.payload.action === "quote_published",
+    )
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+  if (!latestQuote || latestQuote.id !== input.quote_event_id) {
+    throw new Error("该报价已不是最新版本，请刷新后重新打开通知");
+  }
+  if (
+    latestQuote.payload.diagnosis_hash !==
+      mockQuoteFingerprint((order.diagnosis_result ?? "").trim()) ||
+    latestQuote.payload.fault_prices_hash !==
+      mockQuoteFingerprint(JSON.stringify(order.fault_prices))
+  ) {
+    throw new Error("报价内容已变化，请刷新后重新发布报价");
+  }
+  const message = input.message_body.trim();
+  if (!message || message.length > 8000) throw new Error("通知内容无效");
+  const from = order.status;
+  const now = new Date().toISOString();
+  const messageId = crypto.randomUUID();
+  order.status = "waiting_approval";
+  order.workflow_status = "quote";
+  order.approval_status = "pending";
+  order.approval_flow_status = "waiting_customer";
+  order.approval_sent_at = now;
+  order.approval_confirmed_at = undefined;
+  order.notify_status = "sent";
+  order.updated_at = now;
+  extraMessages.unshift({
+    id: messageId,
+    order_id: id,
+    channel: "whatsapp",
+    message_body: message,
+    status: "sent",
+    sent_at: now,
+  });
+  extraEvents.unshift({
+    id: crypto.randomUUID(),
+    order_id: id,
+    event_type: "approval_sent",
+    payload: {
+      action: "quote_sent_confirmed",
+      idempotency_key: input.idempotency_key,
+      request_fingerprint: fingerprint,
+      quote_event_id: input.quote_event_id,
+      message_id: messageId,
+      updated_at_after: now,
+      from,
+      to: "waiting_approval",
+    },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  return {
+    ok: true,
+    code: "confirmed",
+    message_id: messageId,
+    quote_event_id: input.quote_event_id,
+    updated_at: now,
+    from,
+    to: "waiting_approval",
+    replayed: false,
+  };
+}
+
+function mockQuoteFingerprint(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
 }
 
 // GET /api/customers/suggest?q=

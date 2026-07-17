@@ -210,6 +210,13 @@ export interface FaultPriceItem {
   note?: string;
 }
 
+export type QuotePriceExceptionKind = "free" | "warranty" | "diagnostic_only";
+
+export interface QuotePriceException {
+  kind: QuotePriceExceptionKind;
+  reason: string;
+}
+
 export interface DeviceSnapshot {
   brand: string;
   model: string;
@@ -374,6 +381,50 @@ export interface WhatsappNotificationResult {
   statusChanged: boolean;
   from?: RepairOrderStatus;
   to?: RepairOrderStatus;
+}
+
+export interface PublishOrderQuoteInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  diagnosis_result: string;
+  fault_prices: FaultPriceItem[];
+  price_exception?: QuotePriceException;
+}
+
+export interface PublishOrderQuoteResult {
+  ok: true;
+  code: "published" | "idempotent_replay" | "already_published";
+  quote_event_id: string;
+  updated_at: string;
+  quotation_amount: number;
+  deposit_amount: number;
+  paid_amount: number;
+  balance_amount: number;
+  is_paid: boolean;
+  payment_status: OrderPaymentStatus;
+  status: RepairOrderStatus;
+  approval_status: ApprovalStatus;
+  approval_flow_status: OrderApprovalFlowStatus;
+  approval_reset: boolean;
+  replayed: boolean;
+}
+
+export interface ConfirmOrderQuoteSentInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  quote_event_id: string;
+  message_body: string;
+}
+
+export interface ConfirmOrderQuoteSentResult {
+  ok: true;
+  code: "confirmed" | "idempotent_replay";
+  message_id: string;
+  quote_event_id: string;
+  updated_at: string;
+  from: RepairOrderStatus;
+  to: RepairOrderStatus;
+  replayed: boolean;
 }
 
 export interface OrderApprovalDecisionInput {
@@ -639,6 +690,8 @@ export interface OrderDetail {
   events: OrderEvent[];
   messages: MessageLog[];
   attachments: OrderAttachment[];
+  latest_quote_event_id?: string;
+  latest_quote_published_at?: string;
   capabilities?: OrderCapabilities;
 }
 
@@ -646,6 +699,8 @@ export type OrderCapabilityKey =
   | "editIntake"
   | "editRepair"
   | "adjustFinance"
+  | "prepareQuote"
+  | "sendQuote"
   | "collectPayment"
   | "transition"
   | "confirmCancelledReturn"
@@ -657,6 +712,8 @@ export interface OrderCapabilities {
   canEditIntake: boolean;
   canEditRepair: boolean;
   canAdjustFinance: boolean;
+  canPrepareQuote: boolean;
+  canSendQuote: boolean;
   canCollectPayment: boolean;
   canTransition: boolean;
   canConfirmCancelledReturn: boolean;

@@ -50,6 +50,8 @@ export function NotifyDialog({
   onRetryStoreSettings,
   onReloadStoreContext,
   busy,
+  approvalQuoteReady = true,
+  approvalQuoteBlockedReason,
   onConfirm,
 }: {
   open: boolean;
@@ -63,7 +65,10 @@ export function NotifyDialog({
   onRetryStoreSettings?: () => void | Promise<unknown>;
   onReloadStoreContext?: () => void | Promise<unknown>;
   busy: boolean;
+  approvalQuoteReady?: boolean;
+  approvalQuoteBlockedReason?: string;
   onConfirm: (input: {
+    idempotencyKey: string;
     body: string;
     templateKind: OrderWhatsappTemplateKind;
     recipientPhone?: string;
@@ -86,8 +91,11 @@ export function NotifyDialog({
     }),
   );
   const [phone, setPhone] = useState(defaultPhone);
+  const [whatsappOpened, setWhatsappOpened] = useState(false);
+  const [confirmationId, setConfirmationId] = useState(() => crypto.randomUUID());
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
   const transitionTo = getOrderWhatsappTransition(effectiveStatus, templateKind);
+  const approvalQuoteBlocked = templateKind === "approval_request" && !approvalQuoteReady;
 
   useEffect(() => {
     if (!open) return;
@@ -101,6 +109,8 @@ export function NotifyDialog({
       }),
     );
     setPhone(nextPhone);
+    setWhatsappOpened(false);
+    setConfirmationId(crypto.randomUUID());
   }, [data, effectiveStatus, open, orderUrl, storeIdentity]);
 
   const updateTemplate = (kind: OrderWhatsappTemplateKind) => {
@@ -108,11 +118,15 @@ export function NotifyDialog({
     setBody(
       buildOrderWhatsappMessage(data, kind, orderUrl, { recipientPhone: phone, storeIdentity }),
     );
+    setWhatsappOpened(false);
+    setConfirmationId(crypto.randomUUID());
   };
 
   const updatePhone = (nextPhone: string) => {
     setPhone(nextPhone);
     setBody((current) => replaceOrderWhatsappRecipientPhone(current, nextPhone));
+    setWhatsappOpened(false);
+    setConfirmationId(crypto.randomUUID());
   };
 
   return (
@@ -123,7 +137,7 @@ export function NotifyDialog({
         <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
           <DialogTitle>预览 WhatsApp 通知</DialogTitle>
           <DialogDescription className="text-xs">
-            内容将以意大利语发送给客户。确认后会打开 WhatsApp，并记录到通知历史。
+            第一步只打开 WhatsApp，不会记录为已发送；发送完成后请回到这里人工确认。
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
@@ -187,6 +201,19 @@ export function NotifyDialog({
               确认发送后将同步流转为「{getWorkflowStatusLabel(workflow, transitionTo)}」。
             </div>
           )}
+          {approvalQuoteBlocked ? (
+            <div className="mt-2 rounded-md border border-status-danger-foreground/20 bg-status-danger/10 px-2 py-1.5 text-xs text-status-danger-foreground">
+              {approvalQuoteBlockedReason || "请先发布最新正式报价，再通知客户审批。"}
+            </div>
+          ) : null}
+          {whatsappOpened ? (
+            <div
+              aria-live="polite"
+              className="mt-2 rounded-md border border-status-success-foreground/20 bg-status-success/10 px-2 py-1.5 text-xs text-status-success-foreground"
+            >
+              WhatsApp 已打开。请确认消息确实发送后，再点击“我已发送”。
+            </div>
+          ) : null}
           <div className="mt-2">
             <Label className="text-xs">通知内容</Label>
             <Textarea
@@ -194,7 +221,11 @@ export function NotifyDialog({
               rows={10}
               value={body}
               disabled={!storeIdentity.canOutput}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setBody(e.target.value);
+                setWhatsappOpened(false);
+                setConfirmationId(crypto.randomUUID());
+              }}
               className="mt-1 min-h-[260px] resize-none font-mono text-xs leading-relaxed"
             />
           </div>
@@ -203,16 +234,45 @@ export function NotifyDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>
+          {whatsappOpened ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || approvalQuoteBlocked || !canOpenWhatsApp}
+              onClick={() => {
+                const url = buildWhatsAppUrl(phone, body.trim());
+                if (url) window.open(url, "_blank", "noopener,noreferrer");
+              }}
+            >
+              重新打开 WhatsApp
+            </Button>
+          ) : null}
           <Button
-            disabled={busy || !storeIdentity.canOutput || !body.trim() || !canOpenWhatsApp}
+            disabled={
+              busy ||
+              approvalQuoteBlocked ||
+              !storeIdentity.canOutput ||
+              !body.trim() ||
+              !canOpenWhatsApp
+            }
             onClick={async () => {
+              if (!whatsappOpened) {
+                const url = buildWhatsAppUrl(phone, body.trim());
+                if (!url || !canOpenWhatsApp) {
+                  toast.error("客户电话号码不可用于 WhatsApp");
+                  return;
+                }
+                window.open(url, "_blank", "noopener,noreferrer");
+                setWhatsappOpened(true);
+                return;
+              }
               const url = buildWhatsAppUrl(phone, body.trim());
               if (!url || !canOpenWhatsApp) {
                 toast.error("客户电话号码不可用于 WhatsApp");
                 return;
               }
-              window.open(url, "_blank", "noopener,noreferrer");
               await onConfirm({
+                idempotencyKey: confirmationId,
                 body: body.trim(),
                 templateKind,
                 recipientPhone: phone.trim() || undefined,
@@ -221,7 +281,8 @@ export function NotifyDialog({
               onOpenChange(false);
             }}
           >
-            <Send className="mr-1.5 size-3.5" /> 确认并打开 WhatsApp
+            <Send className="mr-1.5 size-3.5" />
+            {busy ? "记录中…" : whatsappOpened ? "我已发送，记录并继续" : "打开 WhatsApp"}
           </Button>
         </DialogFooter>
       </DialogContent>

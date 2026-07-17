@@ -49,6 +49,10 @@ import type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  PublishOrderQuoteInput,
+  PublishOrderQuoteResult,
+  ConfirmOrderQuoteSentInput,
+  ConfirmOrderQuoteSentResult,
   ReopenOrderInput,
   BatchTransitionResult,
   CustomerCreateInput,
@@ -219,6 +223,10 @@ export type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  PublishOrderQuoteInput,
+  PublishOrderQuoteResult,
+  ConfirmOrderQuoteSentInput,
+  ConfirmOrderQuoteSentResult,
   ReopenOrderInput,
   BatchTransitionResult,
   CustomerCreateInput,
@@ -1124,6 +1132,20 @@ export async function patchOrderFinance(
   input: PatchOrderFinanceInput,
 ): Promise<PatchOrderResult> {
   return postJson<PatchOrderResult>("order/finance", { id, input });
+}
+
+export async function publishOrderQuote(
+  id: string,
+  input: PublishOrderQuoteInput,
+): Promise<PublishOrderQuoteResult> {
+  return postJson<PublishOrderQuoteResult>("order/publish-quote", { id, input });
+}
+
+export async function confirmOrderQuoteSent(
+  id: string,
+  input: ConfirmOrderQuoteSentInput,
+): Promise<ConfirmOrderQuoteSentResult> {
+  return postJson<ConfirmOrderQuoteSentResult>("order/confirm-quote-sent", { id, input });
 }
 
 export async function correctTerminalOrder(

@@ -30,6 +30,8 @@ import {
   orderListPageInputSchema,
   patchOrderInputSchema,
   paymentBodySchema,
+  publishOrderQuoteInputSchema,
+  confirmOrderQuoteSentInputSchema,
   storeInviteLinkCreateBodySchema,
   storeInviteLinkDecisionBodySchema,
   storeInviteLinkRedeemBodySchema,
@@ -44,6 +46,57 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it("accepts a strict diagnosis quote publication and exact quote send confirmation", () => {
+    const quote = {
+      expected_updated_at: "2026-07-17T18:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000801",
+      diagnosis_result: "检测确认电池健康度过低",
+      fault_prices: [{ name: "更换电池", price: 59, currency_code: "EUR" as const }],
+    };
+    expect(publishOrderQuoteInputSchema.parse(quote)).toEqual(quote);
+    expect(
+      confirmOrderQuoteSentInputSchema.parse({
+        expected_updated_at: "2026-07-17T18:01:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000802",
+        quote_event_id: "00000000-0000-4000-8000-000000000803",
+        message_body: "Preventivo pronto",
+      }),
+    ).toMatchObject({ quote_event_id: "00000000-0000-4000-8000-000000000803" });
+  });
+
+  it("rejects malformed quote rows, hidden fields and invalid zero-price exceptions", () => {
+    const base = {
+      expected_updated_at: "2026-07-17T18:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000804",
+      diagnosis_result: "检测完成",
+    };
+    expect(() =>
+      publishOrderQuoteInputSchema.parse({
+        ...base,
+        fault_prices: [{ name: "屏幕", price: 59.999 }],
+      }),
+    ).toThrow("两位小数");
+    expect(() =>
+      publishOrderQuoteInputSchema.parse({
+        ...base,
+        fault_prices: [{ name: "保修检测", price: 0 }],
+      }),
+    ).toThrow("零元项目");
+    expect(() =>
+      publishOrderQuoteInputSchema.parse({
+        ...base,
+        fault_prices: [{ name: "屏幕", price: 59, total: 59 }],
+      }),
+    ).toThrow();
+    expect(() =>
+      publishOrderQuoteInputSchema.parse({
+        ...base,
+        fault_prices: [{ name: "屏幕", price: 59 }],
+        price_exception: { kind: "free", reason: "无零元项目" },
+      }),
+    ).toThrow("没有零元项目");
+  });
+
   it.each([0, 3, 6, 12, 24])("accepts terminal warranty month %s", (warrantyMonths) => {
     expect(
       correctTerminalOrderInputSchema.parse({

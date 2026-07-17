@@ -15,6 +15,8 @@ export {
   listOrdersPage,
   patchOrder,
   patchOrderFinance,
+  publishOrderQuote,
+  confirmOrderQuoteSent,
   recordPayment,
   reopenOrder,
   reorderOrderWorkflowStatuses,

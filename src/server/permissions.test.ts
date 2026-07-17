@@ -8,6 +8,7 @@ import {
   can,
   getPermissionDecision,
   isStoreRoleFrontdesk,
+  isGrantablePermissionAction,
   permissionActionDefinitions,
   permissionActions,
   permissionRoles,
@@ -97,6 +98,15 @@ describe("server permission matrix", () => {
     expect(can(actor("sales"), "order:create")).toBe(true);
     expect(can(actor("sales"), "payment:collect")).toBe(true);
     expect(can(actor("sales"), "payment:adjust")).toBe(false);
+  });
+
+  it("allows only owner, manager and sales to publish quotes without making it grantable", () => {
+    expect(can(actor("owner"), "order:quote_prepare")).toBe(true);
+    expect(can(actor("manager"), "order:quote_prepare")).toBe(true);
+    expect(can(actor("sales"), "order:quote_prepare")).toBe(true);
+    expect(can(actor("technician"), "order:quote_prepare", { scopeSatisfied: true })).toBe(false);
+    expect(can(actor("viewer"), "order:quote_prepare")).toBe(false);
+    expect(isGrantablePermissionAction("order:quote_prepare")).toBe(false);
   });
 
   it("separates buyback evidence capture, restricted read, and finalization", () => {

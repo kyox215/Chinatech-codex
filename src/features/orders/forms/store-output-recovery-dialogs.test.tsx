@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
@@ -37,8 +38,54 @@ describe("order customer-output recovery dialogs", () => {
     expect(recoveryLink).toHaveAttribute("href", "/settings?section=store");
     expect(recoveryLink).toHaveAttribute("target", "_blank");
     expect(recoveryLink.getAttribute("href")).not.toMatch(/store-private|private-order/);
-    expect(screen.getByRole("button", { name: "确认并打开 WhatsApp" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "打开 WhatsApp" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "通知内容" })).toBeDisabled();
+  });
+
+  it("opens WhatsApp without writing, then records only after explicit sent confirmation", async () => {
+    const user = userEvent.setup();
+    const data = await getOrder(orders[0].id);
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-ready", name: "Etna Phone Lab" },
+      settings: {
+        store_id: "store-ready",
+        store_name: "Etna Phone Lab",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        message_signature: "Etna Phone Lab",
+        print_footer: "Grazie per la fiducia.",
+      },
+    });
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    const onOpenChange = vi.fn();
+    const openWhatsApp = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    render(
+      <NotifyDialog
+        open
+        onOpenChange={onOpenChange}
+        data={data}
+        orderUrl="https://example.test/orders/order-ready"
+        storeIdentity={identity}
+        canReadStoreSettings
+        canUpdateStoreSettings
+        busy={false}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "打开 WhatsApp" }));
+
+    expect(openWhatsApp).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "我已发送，记录并继续" }));
+
+    expect(onConfirm).toHaveBeenCalledOnce();
+    expect(onConfirm.mock.calls[0]?.[0]).toMatchObject({
+      idempotencyKey: expect.any(String),
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it("routes an approval message with notification-only gaps to notification settings", async () => {

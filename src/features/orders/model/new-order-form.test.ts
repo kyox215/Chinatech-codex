@@ -13,6 +13,7 @@ import {
 describe("new order customer name helpers", () => {
   it("starts with an explicit and visible shop-custody default", () => {
     expect(initialNewOrderForm.deviceCustodyStatus).toBe("with_shop");
+    expect(initialNewOrderForm.issueCaptureMode).toBe("reported");
   });
 
   it("treats generated phone-only customer names as blank", () => {

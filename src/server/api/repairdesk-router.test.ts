@@ -41,6 +41,8 @@ import {
   assertOrderCustodyPermission,
   assertOrderCustomerMessagePermission,
   assertOrderFinancePermission,
+  assertOrderQuotePreparePermission,
+  assertOrderQuoteSendPermission,
   assertOrderPaymentPermission,
   assertOrderPatchPermission,
   assertOrderTransitionPermission,
@@ -97,6 +99,26 @@ describe("repairdesk router pending-store access", () => {
 });
 
 describe("repairdesk router order write permissions", () => {
+  it("separates diagnosis scope from final quote publication and sending", () => {
+    const quoteInput = {
+      expected_updated_at: "2026-07-17T18:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000901",
+      diagnosis_result: "检测完成",
+      fault_prices: [{ name: "电池", price: 59 }],
+    };
+    for (const role of ["owner", "manager", "sales"] as const) {
+      expect(() => assertOrderQuotePreparePermission(actor(role), quoteInput)).not.toThrow();
+      expect(() => assertOrderQuoteSendPermission(actor(role))).not.toThrow();
+    }
+    expect(() =>
+      assertOrderQuotePreparePermission(
+        actor("technician", { activeMembershipId: "membership_1" }),
+        quoteInput,
+      ),
+    ).toThrow(ForbiddenError);
+    expect(() => assertOrderQuoteSendPermission(actor("viewer"))).toThrow(ForbiddenError);
+  });
+
   it("requires scoped order read permissions for restricted roles", () => {
     expect(() => assertOrderListPermission(actor("owner"))).not.toThrow();
     expect(() => assertOrderDetailReadPermission(actor("sales"))).not.toThrow();

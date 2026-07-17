@@ -3,7 +3,54 @@
 > [历史导出 / Snapshot]
 > 本文档保留为早期 TanStack Start 工单模块复刻材料，不是当前 RepairDesk 实施权威。
 > 当前项目规则以 `AGENTS.md`、`docs/project-charter.md`、`docs/UI_PAGE_GENERATION_DECLARATION.md`、`docs/REPAIROS_MOBILE_DETAIL_STANDARD.md` 和 `.ai-company/memory/PROJECT_MEMORY.md` 为准：路由使用 Next.js App Router `src/app/`，任务记忆使用 `.ai-company/memory/tasks/`，RepairOS 当前规则优先于本文档。
-> Last reviewed: 2026-07-16 by `TASK-20260716-005-device-custody-status-implementation`.
+> Last reviewed: 2026-07-17 by `TASK-20260717-004-order-diagnosis-quote-implementation`.
+
+## Current addendum: 未知故障、检测与正式报价（2026-07-17）
+
+本节是当前 Next.js RepairDesk 的实施合同，在“接单时未知问题、检测后报价及 WhatsApp 人工通知”范围内优先于本文后续的历史 Snapshot。
+
+### 接单语义
+
+- 新建工单必须显式选择“问题明确”或“问题未知，需检测”。未知模式使用统一客户可见描述“客户暂时无法确认具体故障，需检测。”，不根据自由文本反推业务模式。
+- 未知模式不得生成空名称或零元的假报价，不得收取未确认项目的定金；客户原始报障、技师检测结论和收费项目分别存入 `issue_description`、`diagnosis_result` 与 `fault_prices`。
+- 离线草稿和 outbox 必须保存显式 `issueMode`；同步白名单不得因为安全字段过滤而丢失该模式。
+
+### 角色与交接
+
+| 能力                                     | Owner / Manager / Sales | Technician | Viewer |
+| ---------------------------------------- | ----------------------- | ---------- | ------ |
+| 记录检测结论                             | 是                      | 是         | 否     |
+| 准备并发布正式报价 `order:quote_prepare` | 是                      | 否         | 否     |
+| 确认报价已人工发送                       | 是（对象能力允许时）    | 否         | 否     |
+
+- `order:quote_prepare` 是固定窄权限，不进入可自定义授权列表；技师保存诊断后交接给前台、经理或销售定价。
+- 发布报价不允许修改定金，也不继承 `payment:adjust`；付款纠正继续使用独立高权限路径。
+
+### 报价发布合同
+
+正式报价必须同时满足：检测结论非空、1–50 个合法项目、金额为非负且最多两位小数、报价不低于已收款。零元项目只允许 `free`、`warranty` 或 `diagnostic_only` 例外，并要求原因。
+
+`repairdesk_publish_order_quote` 是唯一正式发布入口：
+
+- 服务端验证 actor、店铺、对象权限和角色；客户端不能直接决定授权。
+- 请求携带 UUID 幂等键和 `expected_updated_at`；RPC 使用 advisory lock、行锁和 CAS 防止重复或覆盖并发修改。
+- 服务端重新派生报价、尾款、付款状态，重置旧审批并按配置推进到 `quoted`；订单、账本、事件和审计在同一事务提交。
+- 返回的 `quote_event_id` 是不透明 UUID，即该次报价的版本标识。旧通用状态流转不得直接进入 `quoted`。
+
+### WhatsApp 人工发送合同
+
+- 报价通知必须绑定最新 `quote_event_id` 和服务端校验过的消息内容；旧报价或已变化的正文返回稳定冲突，不得发送。
+- 第一步“打开 WhatsApp”只调用客户端 `wa.me`，不写消息、不改变状态，也不宣称已送达。
+- 员工确认消息确实发送后，第二步调用 `repairdesk_confirm_order_quote_sent`。RPC 以幂等键、CAS、最新报价 UUID 和内容指纹校验，在同一事务写消息、事件、审计并从 `quoted` 推进到 `waiting_approval`。
+- 数据库中的 `sent` 仅表示员工人工确认已发送，不表示 Meta provider 已送达或已读。
+- 旧审批通知路由和通用 WhatsApp 审批模板必须返回稳定错误 `USE_CONFIRM_QUOTE_SENT`；旧通用流转报价必须返回 `USE_PUBLISH_QUOTE`。
+
+### 数据库与安全
+
+- 两个 RPC 使用 `security invoker` 和空 `search_path`，所有对象均以 schema 限定；只授予 `service_role` 执行权，`public`、`anon`、`authenticated` 无执行权。
+- migration `20260717213518_order_diagnosis_quote_atomic.sql` 以 additive 方式补齐旧生产 schema 可能缺少的 `message_logs.channel`，默认值为 `whatsapp`，使消息读取合同与现有应用写入保持一致。
+- API 输入使用严格 schema；审计净化器不得把客户报障、检测结论、报价明细或价格例外原因复制进通用审计 metadata。
+- 迁移采用 additive / forward-fix 策略。应用回滚时关闭新入口并保留已产生的报价、消息、事件和审计历史，不执行破坏性 down migration。
 
 ## Current addendum: 设备保管与交接（2026-07-16）
 

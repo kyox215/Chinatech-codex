@@ -44,6 +44,7 @@ import {
 import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
+import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog";
 import {
   FaultDiagnosisPicker,
   normalizeFaultPrices,
@@ -92,8 +93,9 @@ import {
   listOrderWorkflow,
   patchOrder,
   patchOrderFinance,
+  publishOrderQuote,
+  confirmOrderQuoteSent,
   recordPayment,
-  sendApprovalRequest,
   sendWhatsappNotification,
   transitionOrder,
   updateOrderCustody,
@@ -262,6 +264,7 @@ export function OrderDetailScreen({
     [activeStoreId, activeUserId],
   );
   const [notifyOpen, setNotifyOpen] = useState(false);
+  const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelledReturnOpen, setCancelledReturnOpen] = useState(false);
@@ -477,19 +480,24 @@ export function OrderDetailScreen({
             ).faultPrices,
           ) || Number(baseline.deposit_amount ?? 0) !== Number(input.deposit_amount ?? 0);
       const hasRoutineChanges = Object.keys(changes).length > 0;
-      if (hasRoutineChanges && financeChanged) {
-        throw new Error("普通资料与报价需要分别保存，请先保存其中一类修改");
+      let expectedUpdatedAt = data.order.updated_at;
+      if (hasRoutineChanges) {
+        const routineResult = await patchOrder(id, {
+          expected_updated_at: expectedUpdatedAt,
+          changes,
+        });
+        expectedUpdatedAt = routineResult.updated_at;
       }
       if (financeChanged) {
         if (!capabilities.canAdjustFinance) throw new Error("当前账号没有调整报价的权限");
         return patchOrderFinance(id, {
-          expected_updated_at: data.order.updated_at,
+          expected_updated_at: expectedUpdatedAt,
           fault_prices: input.fault_prices,
           deposit_amount: input.deposit_amount,
         });
       }
       if (!hasRoutineChanges) throw new Error("没有可保存的修改");
-      return patchOrder(id, { expected_updated_at: data.order.updated_at, changes });
+      return { ok: true, updated_at: expectedUpdatedAt };
     },
     onSuccess: () => {
       toast.success("工单信息已保存");
@@ -530,6 +538,29 @@ export function OrderDetailScreen({
       toast.success("故障描述已保存");
       invalidate();
     },
+  });
+
+  const quotePublish = useMutation({
+    mutationFn: (input: {
+      idempotencyKey: string;
+      diagnosisResult: string;
+      faultPrices: OrderDetail["order"]["fault_prices"];
+      priceException?: Parameters<typeof publishOrderQuote>[1]["price_exception"];
+    }) => {
+      if (!data) throw new Error("工单未加载");
+      return publishOrderQuote(id, {
+        expected_updated_at: data.order.updated_at,
+        idempotency_key: input.idempotencyKey,
+        diagnosis_result: input.diagnosisResult,
+        fault_prices: input.faultPrices,
+        price_exception: input.priceException,
+      });
+    },
+    onSuccess: (result) => {
+      toast.success(result.replayed ? "正式报价已存在" : "正式报价已发布");
+      invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const deviceUnlockUpdate = useMutation({
@@ -615,11 +646,18 @@ export function OrderDetailScreen({
     },
   });
 
-  const approval = useMutation({
-    mutationFn: (input: { body: string; recipientPhone?: string }) =>
-      sendApprovalRequest(id, input.body, input.recipientPhone),
+  const quoteSentConfirmation = useMutation({
+    mutationFn: (input: { body: string; quoteEventId: string; idempotencyKey: string }) => {
+      if (!data) throw new Error("工单未加载");
+      return confirmOrderQuoteSent(id, {
+        expected_updated_at: data.order.updated_at,
+        idempotency_key: input.idempotencyKey,
+        quote_event_id: input.quoteEventId,
+        message_body: input.body,
+      });
+    },
     onSuccess: () => {
-      toast.success("审批消息已记录，并已打开 WhatsApp");
+      toast.success("已确认报价消息发送，工单进入待客户审批");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -864,6 +902,16 @@ export function OrderDetailScreen({
     storeOutputIdentity.canOutput,
   );
   const canNotify = !isVoided && !order.customer_contact_redacted;
+  const latestPublishedQuoteId = data.latest_quote_event_id;
+  const canOpenDiagnosisQuote = Boolean(
+    data.capabilities?.canEditRepair || data.capabilities?.canPrepareQuote,
+  );
+  const approvalQuoteReady = Boolean(
+    data.capabilities?.canSendQuote &&
+    latestPublishedQuoteId &&
+    order.status === "quoted" &&
+    order.contact_phones.some((phone) => phone.replace(/\D/g, "").length >= 6),
+  );
   const supplierPermissions = repairDeskOptions?.permissions ?? {
     canReadSuppliers: false,
     canAssignSuppliers: false,
@@ -1005,6 +1053,30 @@ export function OrderDetailScreen({
       ) : (
         renderCustodyPanel()
       )}
+      {surface === "page" ? (
+        canOpenDiagnosisQuote ? (
+          <section className={cn(repairOs.mobileInfoCard, "mb-2 md:hidden")}>
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold">检测与正式报价</div>
+                <div className="truncate text-[10px] text-muted-foreground">
+                  {order.diagnosis_result
+                    ? "已记录检测结论，可继续完善报价"
+                    : "检测后补充问题并发布报价"}
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 shrink-0 text-xs"
+                onClick={() => setDiagnosisQuoteOpen(true)}
+              >
+                {data.capabilities?.canPrepareQuote ? "检测与报价" : "记录检测"}
+              </Button>
+            </div>
+          </section>
+        ) : null
+      ) : null}
       {surface === "page" ? (
         <MobileOrderDetailView
           data={data}
@@ -1168,6 +1240,26 @@ export function OrderDetailScreen({
               onRestore={() => void restoreEditOfflineDraft()}
               onDiscard={() => void discardEditOfflinePrompt()}
             />
+            {canOpenDiagnosisQuote ? (
+              <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold">检测与正式报价工作区</div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {latestPublishedQuoteId
+                      ? "已有正式报价；修改后会生成新的报价版本并重置旧审批"
+                      : "补充检测结论、维修项目和价格，然后发布正式报价"}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  onClick={() => setDiagnosisQuoteOpen(true)}
+                >
+                  {data.capabilities?.canPrepareQuote ? "打开检测报价" : "记录检测结论"}
+                </Button>
+              </section>
+            ) : null}
             <OrderOverviewTab
               order={order}
               customer={customer}
@@ -1297,19 +1389,46 @@ export function OrderDetailScreen({
           canUpdateStoreSettings={shell.permissions?.canUpdateStoreSettings === true}
           onRetryStoreSettings={storeSettingsQuery.refetch}
           onReloadStoreContext={shell.retry}
-          busy={whatsappNotification.isPending || approval.isPending}
+          busy={whatsappNotification.isPending || quoteSentConfirmation.isPending}
+          approvalQuoteReady={approvalQuoteReady}
+          approvalQuoteBlockedReason={
+            data.capabilities?.canSendQuote !== true
+              ? "当前账号没有发送正式报价的权限，请交给前台、经理或销售处理。"
+              : !latestPublishedQuoteId
+                ? "请先发布正式报价，再通知客户审批。"
+                : order.status !== "quoted"
+                  ? "当前工单不在已报价阶段，请刷新并检查最新状态。"
+                  : "客户缺少可用的 WhatsApp 电话。"
+          }
           onConfirm={async (input) => {
             if (
               input.templateKind === "approval_request" &&
               (order.status === "quoted" || order.status === "waiting_approval")
             ) {
-              await approval.mutateAsync({
+              if (!latestPublishedQuoteId) throw new Error("请先发布最新正式报价");
+              await quoteSentConfirmation.mutateAsync({
                 body: input.body,
-                recipientPhone: input.recipientPhone,
+                quoteEventId: latestPublishedQuoteId,
+                idempotencyKey: input.idempotencyKey,
               });
               return;
             }
             await whatsappNotification.mutateAsync(input);
+          }}
+        />
+      ) : null}
+      {canOpenDiagnosisQuote ? (
+        <DiagnosisQuoteDialog
+          open={diagnosisQuoteOpen}
+          onOpenChange={setDiagnosisQuoteOpen}
+          order={order}
+          capabilities={data.capabilities}
+          isPending={quotePublish.isPending || faultUpdate.isPending}
+          onSaveDiagnosis={async (diagnosisResult) => {
+            await faultUpdate.mutateAsync({ diagnosis_result: diagnosisResult });
+          }}
+          onPublish={async (input) => {
+            await quotePublish.mutateAsync(input);
           }}
         />
       ) : null}

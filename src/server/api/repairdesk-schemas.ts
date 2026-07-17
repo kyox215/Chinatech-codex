@@ -63,6 +63,8 @@ import type {
   CorrectTerminalOrderInput,
   PatchOrderFinanceInput,
   PatchOrderInput,
+  PublishOrderQuoteInput,
+  ConfirmOrderQuoteSentInput,
   ReopenOrderInput,
   StoreCreateInput,
   StoreInvitationDecisionInput,
@@ -608,6 +610,81 @@ export const patchOrderFinanceBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: patchOrderFinanceInputSchema,
 });
+
+const quoteMoneySchema = z
+  .number()
+  .finite()
+  .min(0, "报价金额不能为负数")
+  .max(999_999.99, "报价金额过大")
+  .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8, {
+    message: "报价金额最多保留两位小数",
+  });
+
+const publishQuoteItemSchema = z
+  .object({
+    name: z.string().trim().min(1, "报价项目名称不能为空").max(120, "报价项目名称最多 120 个字符"),
+    price: quoteMoneySchema,
+    currency_code: z.literal("EUR").optional(),
+    note: z.string().trim().max(500, "报价备注最多 500 个字符").optional(),
+  })
+  .strict();
+
+const quotePriceExceptionSchema = z
+  .object({
+    kind: z.enum(["free", "warranty", "diagnostic_only"]),
+    reason: z.string().trim().min(4, "零元报价原因至少 4 个字符").max(1000),
+  })
+  .strict();
+
+export const publishOrderQuoteInputSchema = z
+  .object({
+    expected_updated_at: z.string().datetime({ offset: true }),
+    idempotency_key: z.string().uuid("报价操作标识无效"),
+    diagnosis_result: z.string().trim().min(1, "请填写检测结论").max(8000),
+    fault_prices: z.array(publishQuoteItemSchema).min(1, "至少需要一个报价项目").max(50),
+    price_exception: quotePriceExceptionSchema.optional(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    const hasZeroPrice = input.fault_prices.some((item) => item.price === 0);
+    if (hasZeroPrice && !input.price_exception) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["price_exception"],
+        message: "零元项目必须说明免费、保修或仅检测原因",
+      });
+    }
+    if (!hasZeroPrice && input.price_exception) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["price_exception"],
+        message: "没有零元项目时不能提交价格例外",
+      });
+    }
+  }) satisfies z.ZodType<PublishOrderQuoteInput>;
+
+export const publishOrderQuoteBodySchema = z
+  .object({
+    id: z.string().min(1, "工单标识无效"),
+    input: publishOrderQuoteInputSchema,
+  })
+  .strict();
+
+export const confirmOrderQuoteSentInputSchema = z
+  .object({
+    expected_updated_at: z.string().datetime({ offset: true }),
+    idempotency_key: z.string().uuid("发送确认操作标识无效"),
+    quote_event_id: z.string().uuid("报价版本无效"),
+    message_body: z.string().trim().min(1, "通知内容不能为空").max(8000),
+  })
+  .strict() satisfies z.ZodType<ConfirmOrderQuoteSentInput>;
+
+export const confirmOrderQuoteSentBodySchema = z
+  .object({
+    id: z.string().min(1, "工单标识无效"),
+    input: confirmOrderQuoteSentInputSchema,
+  })
+  .strict();
 
 const terminalReasonSchema = z
   .string()

@@ -557,6 +557,8 @@ export function projectOrderCapabilities(
       "editIntake",
       "editRepair",
       "adjustFinance",
+      "prepareQuote",
+      "sendQuote",
       "collectPayment",
       "transition",
       "confirmCancelledReturn",
@@ -570,6 +572,8 @@ export function projectOrderCapabilities(
     blockedReasons.editIntake = "已结束工单请使用“纠正记录”";
     blockedReasons.editRepair = "已结束工单请使用“纠正记录”";
     blockedReasons.adjustFinance = "终态财务只能通过后续冲销/退款流程处理";
+    blockedReasons.prepareQuote = "已结束工单请先按审计流程重新打开";
+    blockedReasons.sendQuote = "已结束工单不能发送新报价";
     blockedReasons.transition = "已结束工单请使用“重新打开”";
   }
   if (isOrderCancelledForPayment(order) && !voided) {
@@ -583,6 +587,8 @@ export function projectOrderCapabilities(
     canEditIntake: routine && permitted("order:update_intake"),
     canEditRepair: routine && permitted("order:update_repair"),
     canAdjustFinance: routine && permitted("payment:adjust"),
+    canPrepareQuote: routine && permitted("order:quote_prepare"),
+    canSendQuote: routine && permitted("order:quote_prepare") && permitted("customer:message"),
     canCollectPayment: isOrderPaymentCollectible(order) && permitted("payment:collect"),
     canTransition: routine && permitted("order:transition"),
     canConfirmCancelledReturn:
@@ -1425,6 +1431,14 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
   fail(workflowStatusError, "读取工单状态口径失败");
 
   const row = orderRow as DbRecord;
+  const latestQuoteRow = ((eventRows ?? []) as DbRecord[]).find(
+    (event) =>
+      requiredString(event.event_type) === "quoted" &&
+      event.payload &&
+      typeof event.payload === "object" &&
+      !Array.isArray(event.payload) &&
+      requiredString((event.payload as DbRecord).action) === "quote_published",
+  );
   const decoratedOrder = {
     ...decorate(row),
     workflow_bucket:
@@ -1444,6 +1458,10 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
       attachments: attachmentError
         ? []
         : await attachSignedUrls(supabase, (attachmentRows ?? []) as DbRecord[], storeId, id),
+      latest_quote_event_id: latestQuoteRow ? requiredString(latestQuoteRow.id) : undefined,
+      latest_quote_published_at: latestQuoteRow
+        ? requiredString(latestQuoteRow.created_at)
+        : undefined,
     },
     actor,
     {

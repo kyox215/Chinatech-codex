@@ -29,3 +29,5 @@ export {
   updateOrder,
   voidOrder,
 } from "./order.repository";
+
+export { confirmOrderQuoteSent, publishOrderQuote } from "./order-quote.repository";

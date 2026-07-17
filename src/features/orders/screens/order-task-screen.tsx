@@ -28,6 +28,7 @@ import {
   StatusBadge,
 } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
+import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,8 @@ import {
   getOrder,
   listAvailableKioskDevices,
   listOrderWorkflow,
+  patchOrder,
+  publishOrderQuote,
   transitionOrder,
 } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
@@ -85,6 +88,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const activeStoreId = shell.activeStore?.id;
   const [transitionAction, setTransitionAction] = useState<WorkflowNextAction | null>(null);
   const [transitionReason, setTransitionReason] = useState("");
+  const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
 
   useEffect(() => {
     document.body.dataset.orderDetailActive = "true";
@@ -93,7 +97,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     };
   }, []);
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ordersKeys.detail(id, activeStoreId),
     queryFn: ({ signal }) => getOrder(id, { signal }),
     staleTime: CACHE_TIMES.detail,
@@ -151,6 +155,42 @@ export function OrderTaskScreen({ id }: { id: string }) {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const diagnosisSave = useMutation({
+    mutationFn: (diagnosisResult: string) => {
+      if (!order) throw new Error("工单未加载");
+      return patchOrder(id, {
+        expected_updated_at: order.updated_at,
+        changes: { diagnosis_result: diagnosisResult },
+      });
+    },
+    onSuccess: () => {
+      toast.success("检测结论已保存");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const quotePublish = useMutation({
+    mutationFn: (input: {
+      idempotencyKey: string;
+      diagnosisResult: string;
+      faultPrices: NonNullable<typeof order>["fault_prices"];
+      priceException?: Parameters<typeof publishOrderQuote>[1]["price_exception"];
+    }) => {
+      if (!order) throw new Error("工单未加载");
+      return publishOrderQuote(id, {
+        expected_updated_at: order.updated_at,
+        idempotency_key: input.idempotencyKey,
+        diagnosis_result: input.diagnosisResult,
+        fault_prices: input.faultPrices,
+        price_exception: input.priceException,
+      });
+    },
+    onSuccess: () => {
+      toast.success("正式报价已发布");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const kioskPickupRequest = useMutation({
     mutationFn: () => {
       if (!order) throw new Error("工单未加载");
@@ -176,7 +216,35 @@ export function OrderTaskScreen({ id }: { id: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading || !order || !guidance) {
+  if (isError) {
+    return (
+      <main data-order-task-root="true" className={orderTaskPageShell}>
+        <div className="grid min-h-[52vh] min-w-0 place-items-center rounded-2xl border border-status-danger-foreground/25 bg-status-danger/10 p-4 text-center md:rounded-[var(--radius-lg)]">
+          <div className="mx-auto max-w-md">
+            <h1 className="text-lg font-semibold">任务加载失败</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {error instanceof Error ? error.message : "请稍后重试。"}
+            </p>
+            <div className="mt-3 flex justify-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                onClick={() => void refetch()}
+              >
+                重新加载
+              </Button>
+              <Button asChild variant="outline" className="h-9">
+                <Link href="/orders">返回订单</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (isLoading || !order || !guidance || !data) {
     return (
       <main data-order-task-root="true" className={orderTaskPageShell}>
         <Skeleton className="h-14 w-full rounded-2xl md:h-11 md:rounded-[var(--radius-lg)]" />
@@ -195,28 +263,11 @@ export function OrderTaskScreen({ id }: { id: string }) {
     );
   }
 
-  if (isError) {
-    return (
-      <main data-order-task-root="true" className={orderTaskPageShell}>
-        <div className="grid min-h-[52vh] min-w-0 place-items-center rounded-2xl border border-status-danger-foreground/25 bg-status-danger/10 p-4 text-center md:rounded-[var(--radius-lg)]">
-          <div className="mx-auto max-w-md">
-            <h1 className="text-lg font-semibold">任务加载失败</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {error instanceof Error ? error.message : "请稍后重试。"}
-            </p>
-            <Button asChild variant="outline" className="mt-3 h-9">
-              <Link href="/orders">返回订单</Link>
-            </Button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   const taskActions =
     canTransition && !cancelled && !voided
       ? [next.primary, ...next.secondary]
           .filter((action): action is WorkflowNextAction => Boolean(action))
+          .filter((action) => action.to !== "quoted")
           .filter((action) =>
             deviceCustodyAllowsStatus(
               order.device_custody_status,
@@ -364,6 +415,24 @@ export function OrderTaskScreen({ id }: { id: string }) {
             <TaskLine label="故障" value={order.issue_description || "-"} wide />
             <TaskLine label="随附物品" value={order.accessory_notes || "-"} wide />
           </div>
+          {data.capabilities?.canEditRepair || data.capabilities?.canPrepareQuote ? (
+            <div className="mt-1 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold">检测与正式报价</div>
+                <div className="truncate text-[10px] text-muted-foreground">
+                  {order.diagnosis_result || "尚未记录检测结论"}
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 shrink-0 text-xs"
+                onClick={() => setDiagnosisQuoteOpen(true)}
+              >
+                {data.capabilities?.canPrepareQuote ? "检测与报价" : "记录检测"}
+              </Button>
+            </div>
+          ) : null}
         </section>
 
         <div className="grid min-w-0 gap-3 md:sticky md:top-16 md:self-start md:gap-2">
@@ -426,7 +495,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
                   target="_blank"
                 >
                   <MessageCircle className="size-4" />
-                  WhatsApp
+                  普通聊天
                 </a>
               </Button>
               <Button
@@ -492,6 +561,17 @@ export function OrderTaskScreen({ id }: { id: string }) {
           transition.mutate({ to: transitionAction.to, reason: reason || undefined });
         }}
       />
+      {data.capabilities?.canEditRepair || data.capabilities?.canPrepareQuote ? (
+        <DiagnosisQuoteDialog
+          open={diagnosisQuoteOpen}
+          onOpenChange={setDiagnosisQuoteOpen}
+          order={order}
+          capabilities={data.capabilities}
+          isPending={diagnosisSave.isPending || quotePublish.isPending}
+          onSaveDiagnosis={(diagnosisResult) => diagnosisSave.mutateAsync(diagnosisResult)}
+          onPublish={(input) => quotePublish.mutateAsync(input)}
+        />
+      ) : null}
     </main>
   );
 }
