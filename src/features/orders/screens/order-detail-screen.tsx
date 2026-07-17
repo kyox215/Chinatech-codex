@@ -192,7 +192,7 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
-import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
+import { invalidateOrderReadCaches, patchOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -410,15 +410,41 @@ export function OrderDetailScreen({
 
   const custodyUpdate = useMutation({
     mutationFn: (input: { target: DeviceCustodyStatus; reason?: string }) => {
-      if (!data) throw new Error("工单未加载");
+      const currentDetail =
+        queryClient.getQueryData<OrderDetail>(ordersKeys.detail(id, activeStoreId)) ?? data;
+      if (!currentDetail) throw new Error("工单未加载");
       return updateOrderCustody(id, {
-        expected_updated_at: data.order.updated_at,
+        expected_updated_at: currentDetail.order.updated_at,
         device_custody_status: input.target,
         idempotency_key: crypto.randomUUID(),
         reason: input.reason,
       });
     },
-    onSuccess: (_result, input) => {
+    onSuccess: (result, input) => {
+      const cachedDetail =
+        queryClient.getQueryData<OrderDetail>(ordersKeys.detail(id, activeStoreId)) ?? data;
+      const previousOrder = cachedDetail?.order;
+      const previousCustodyStatus = previousOrder
+        ? deviceCustodyStatusFromOrder(previousOrder)
+        : null;
+      const previousWorkflowBucket =
+        previousOrder?.workflow_bucket ??
+        (previousOrder ? getWorkflowStatus(workflow, previousOrder.status)?.bucket : undefined);
+      const previousTerminal =
+        previousOrder?.status === "completed" ||
+        (previousOrder ? isOrderCancelledState(previousOrder) : false) ||
+        previousWorkflowBucket === "done" ||
+        (previousWorkflowBucket === undefined && previousOrder?.workflow_status === "closed");
+      patchOrderReadCaches(queryClient, id, {
+        updated_at: result.updated_at,
+        device_custody_status: input.target,
+        clear_device_unlock: input.target === DEVICE_CUSTODY_WITH_CUSTOMER,
+        ...(input.target === DEVICE_CUSTODY_WITH_SHOP
+          ? { delivered_at: null }
+          : previousCustodyStatus === DEVICE_CUSTODY_WITH_SHOP && !previousTerminal
+            ? { delivered_at: result.updated_at }
+            : {}),
+      });
       toast.success(
         input.target === DEVICE_CUSTODY_WITH_SHOP ? "已确认门店收到设备" : "已确认设备由客人保管",
       );

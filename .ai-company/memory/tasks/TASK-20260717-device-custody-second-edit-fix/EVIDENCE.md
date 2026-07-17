@@ -1,0 +1,1 @@
+- `2026-07-17T18:04:32Z` `e307204e03` — 已运行：npm run test -- src/features/orders/api/cache-sync.test.ts；npm run test -- src/features/orders/testing/mock-api.test.ts -t custody；npm run typecheck；npm run lint；npm run test；npm run build（沙箱失败后非沙箱通过）；Playwright device-custody-order-flow 3/3 通过；截图 screenshots/device-custody-second-edit-mobile-ord_1.png。

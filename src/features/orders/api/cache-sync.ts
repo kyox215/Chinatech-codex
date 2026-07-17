@@ -2,6 +2,7 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 
 import type {
   DashboardSummary,
+  DeviceCustodyStatus,
   OrderDetail,
   OrderListItem,
   OrderListResult,
@@ -16,6 +17,9 @@ export const ordersListPageCachePrefix = [...ordersKeys.lists(), "page"] as cons
 export const ordersDashboardSummaryCachePrefix = [...ordersKeys.all, "dashboard-summary"] as const;
 
 export type OrderListItemCachePatch = {
+  clear_device_unlock?: boolean;
+  delivered_at?: string | null;
+  device_custody_status?: DeviceCustodyStatus | null;
   parts_supplier_id?: string | null;
   updated_at?: string;
 };
@@ -128,6 +132,21 @@ function patchOrderListItem(order: OrderListItem, patch: OrderListItemCachePatch
   const next: OrderListItem = { ...order };
   if ("updated_at" in patch && patch.updated_at) {
     next.updated_at = patch.updated_at;
+  }
+  if ("device_custody_status" in patch) {
+    next.device_custody_status = patch.device_custody_status ?? null;
+  }
+  if ("delivered_at" in patch) {
+    if (patch.delivered_at) {
+      next.delivered_at = patch.delivered_at;
+    } else {
+      delete next.delivered_at;
+    }
+  }
+  if (patch.clear_device_unlock) {
+    delete next.device_unlock_method;
+    delete next.device_unlock_value;
+    delete next.device_unlock_pattern;
   }
   if ("parts_supplier_id" in patch) {
     if (patch.parts_supplier_id) {

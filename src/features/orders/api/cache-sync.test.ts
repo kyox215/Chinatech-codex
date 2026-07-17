@@ -108,6 +108,53 @@ describe("order cache sync", () => {
         ?.list.items[0]?.parts_supplier_id,
     ).toBeUndefined();
   });
+
+  it("patches custody state and the version used by the next mutation", () => {
+    const queryClient = new QueryClient();
+    const order = makeOrder({
+      id: "order-1",
+      delivered_at: "2026-07-07T09:00:00.000Z",
+      device_custody_status: "with_customer",
+      device_unlock_method: "pin",
+      device_unlock_value: "001258",
+      device_unlock_pattern: [1, 2, 3],
+      updated_at: "old-version",
+    });
+
+    queryClient.setQueryData(ordersKeys.detail(order.id, storeId), makeDetail(order));
+    queryClient.setQueryData(
+      ordersKeys.queueSummary({ page: 1 }, storeId),
+      makeQueueSummary(order),
+    );
+
+    patchOrderReadCaches(queryClient, order.id, {
+      clear_device_unlock: true,
+      delivered_at: null,
+      device_custody_status: "with_shop",
+      updated_at: "new-version",
+    });
+
+    expect(
+      queryClient.getQueryData<OrderDetail>(ordersKeys.detail(order.id, storeId))?.order,
+    ).toMatchObject({
+      device_custody_status: "with_shop",
+      updated_at: "new-version",
+    });
+    const detailOrder = queryClient.getQueryData<OrderDetail>(
+      ordersKeys.detail(order.id, storeId),
+    )?.order;
+    expect(detailOrder?.delivered_at).toBeUndefined();
+    expect(detailOrder?.device_unlock_method).toBeUndefined();
+    expect(detailOrder?.device_unlock_value).toBeUndefined();
+    expect(detailOrder?.device_unlock_pattern).toBeUndefined();
+    expect(
+      queryClient.getQueryData<OrderQueueSummary>(ordersKeys.queueSummary({ page: 1 }, storeId))
+        ?.list.items[0],
+    ).toMatchObject({
+      device_custody_status: "with_shop",
+      updated_at: "new-version",
+    });
+  });
 });
 
 const storeId = "store-1";
