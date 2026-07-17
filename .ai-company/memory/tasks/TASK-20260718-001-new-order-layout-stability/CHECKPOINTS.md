@@ -29,3 +29,21 @@
 - **Evidence:**
   - commit 18d09ef9; full Vitest 218/1489; Playwright 6/6; Next Webpack build 24 routes; Supabase list aligned through 20260717223354; dry-run Remote database is up to date.
 - **Recorded by:** IntegrationLead
+
+## 2026-07-17T23:23:22Z — 新建工单布局稳定化已非强制推送 main；Vercel 生产部署 READY 且路由冒烟通过；Supabase post-push migration list 对齐并 dry-run up to date。
+
+- **Phase:** release
+- **Completed/current state:** 新建工单布局稳定化已非强制推送 main；Vercel 生产部署 READY 且路由冒烟通过；Supabase post-push migration list 对齐并 dry-run up to date。
+- **Next:** 执行正式 close-task，提交并非强制推送关闭记录，再核验远端 main。
+- **Decision:** 本任务复用既有报价 schema，无新 migration；授权的 Supabase apply 正确执行为已验证 no-op，不创建空迁移。
+- **Evidence:**
+  - remote main fe7b2c8f5f8927effa0345b535379dbd84e0374a; Vercel dpl_AKcXerXNG5Em1q2ZW9enonDRBj68 READY for fe7b2c8; /orders/new 307 login then 200; Supabase list local=remote through 20260717223354 and db push dry-run Remote database is up to date.
+- **Recorded by:** IntegrationLead
+
+## 2026-07-17T23:23:31Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 客户报障已紧凑化，报价处理中栏稳定，模式切换与离线同步安全；全量 QA、六档浏览器证据、Supabase no-op、main 推送与 Vercel 生产验证均完成。
+- **Residual risks:** 未在生产创建真实工单；这是为避免写入客户数据，UI 行为已由本地端到端测试与生产只读路由冒烟覆盖。
+- **Follow-up:** 无必须后续；正常观察门店首批新建工单即可。
+- **Closed by:** IntegrationLead

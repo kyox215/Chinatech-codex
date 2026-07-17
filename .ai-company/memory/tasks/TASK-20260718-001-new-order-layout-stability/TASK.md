@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-001-new-order-layout-stability"
 title: "新建工单客户报障紧凑化与报价中栏稳定实施"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["DATA", "DOC", "FE", "QA", "Release", "SEC", "UX"]
 created_at: "2026-07-17T22:23:35Z"
-updated_at: "2026-07-17T23:06:08Z"
+updated_at: "2026-07-17T23:23:31Z"
+closed_at: "2026-07-17T23:23:31Z"
 ---
 
 # Task — 新建工单客户报障紧凑化与报价中栏稳定实施
@@ -55,7 +56,7 @@ updated_at: "2026-07-17T23:06:08Z"
 - [x] 问题明确与待检测切换不删除客户描述或报价草稿，提交语义保持安全。
 - [x] 390/430/768/1024/1280/1440 响应式无横向溢出且报价卡不因模式切换移位。
 - [x] 离线草稿兼容旧数据并安全保存暂停的报障与报价草稿。
-- [ ] lint、typecheck、test、build、浏览器截图、Supabase linked no-op/历史核验、main 推送全部有证据。
+- [x] lint、typecheck、test、build、浏览器截图、Supabase linked no-op/历史核验、main 推送全部有证据。
 
 ## Facts, assumptions, and unknowns
 
@@ -66,8 +67,9 @@ updated_at: "2026-07-17T23:06:08Z"
 | Unknown mode must not submit retained deposit/quote                                 | verified | security review and create/offline payload inspection                                                    | resolved through shared intake resolver                                     |
 | Paused local fields originally would enter outbox                                   | verified | offline promotion boundary review                                                                        | stripped before outbox; adapter defense test added                          |
 | Desktop grid rows could couple right-column whitespace to quote height              | verified | UX static review                                                                                         | independent right stack at xl                                               |
-| Production migration history was ahead of Git main by four employee-invite versions | verified | linked `migration list`; employee invite commits through `00d3eca4`                                      | resolved; local and remote now align through `20260717223354`               |
+| Production migration history was ahead of Git main by four employee-invite versions | verified | linked `migration list`; employee invite commits through `00d3eca4`                                      | resolved; local and remote align through `20260717223354`                   |
 | Employee invite Route exported non-handler helpers and failed Next production build | verified | first post-rebase `next build --webpack`                                                                 | fixed by moving helpers to `src/features/auth/model/invite-confirmation.ts` |
+| Final Git and production deployment match this release                              | verified | remote `main@fe7b2c8f`; Vercel build log `Commit: fe7b2c8`, deployment READY                             | production smoke passed; no recent error logs                               |
 
 ## Decision and approval points
 
@@ -75,7 +77,7 @@ updated_at: "2026-07-17T23:06:08Z"
 - **No-migration decision:** this UI/client-draft task reuses existing schema. If linked dry-run is up to date, record no-op instead of manufacturing a migration.
 - **Responsive order:** DOM, keyboard and visual order stay identical: customer/device → quote → report → unlock. At `>=1280px` these become left / center / right independent columns.
 - **Paused-data decision:** TTL-bound local draft may retain paused report/quote/deposit; online create and outbox use only resolved canonical description, empty items and zero deposit.
-- **Concurrent release gate:** employee invite code/migrations and closeout are now on `main`; this branch must take its final rebase onto `00d3eca4` before push. No SQL was copied or repaired.
+- **Concurrent release gate:** employee invite code/migrations and closeout were absorbed before the final rebase; `fe7b2c8f` was non-force pushed to `main`. No SQL was copied or repaired.
 
 ## Work packages
 
