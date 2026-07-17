@@ -14,7 +14,7 @@ The Owner's TASK-009 instruction authorized bounded linked verification for the 
 
 2026-07-10 update: the Owner explicitly approved push/apply for the release. The only executed exception was payment-only: `20260710145642_order_payment_ledger_atomic_rpc.sql` after linked dry-run listed exactly that file and post-apply checks confirmed remote migration history, object existence and least-privilege grants.
 
-Targeted TASK-009 evidence records only counts, booleans and object names. It does not expose customer rows. It confirms the payment table/RPC are currently absent remotely, one plaintext unlock pattern remains, and the payment migration is the only new reviewed pending file.
+Targeted TASK-009 evidence records only counts, booleans and object names. It does not expose customer rows. Before the approved payment-only apply, it confirmed that the payment table/RPC were absent remotely, one plaintext unlock pattern remained, and the payment migration was the only new reviewed pending file. The payment migration was subsequently applied and verified as described above; the remaining stop conditions still apply.
 
 ## Pack Metadata
 
