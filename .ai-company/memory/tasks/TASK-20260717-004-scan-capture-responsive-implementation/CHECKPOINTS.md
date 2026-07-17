@@ -29,3 +29,10 @@
 - **Next:** Stage and commit clean worktree diff, push scan-capture-responsive-release to origin main, then verify remote/main. Do not apply Supabase migrations for this task.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-17T19:31:07Z — Closed after push to main. Final commit `79f265521e7942b0bb628b4cbd925849d92fb6e6` is on `origin/main`. No Supabase migration was introduced by this task, so no Supabase apply was run.
+
+- **Phase:** closed
+- **Completed/current state:** Scan/capture responsive implementation is merged to main. Remote verification shows `origin/main` and clean worktree `HEAD` both at `79f265521e7942b0bb628b4cbd925849d92fb6e6`.
+- **Next:** None for this task. Treat future Supabase/store-identity migrations as separate tasks and do not back-apply them under this scan/capture release.
+- **Evidence:** E-015 through E-021 in `EVIDENCE.md`.
+- **Recorded by:** IntegrationLead
