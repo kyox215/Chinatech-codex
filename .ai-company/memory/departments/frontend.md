@@ -71,6 +71,7 @@ Verified cross-department contract from `TASK-20260716-005-device-custody-status
 | FE-20260620-001 | Order detail screen remains large and contains both desktop/mobile transition surfaces | Review cost and regression risk | Frontend + QA | future order detail split task | open |
 | FE-20260713-002 | `buyback-quote-workspace.tsx` now owns a large multi-step workflow and client image-compression helper | Review and regression cost | Frontend + Architecture + QA | split by step/upload model in a dedicated refactor after behavior stabilizes | open |
 | FE-20260713-001 | Settings five-role/error/50+ member browser matrix is incomplete | UI behavior may drift outside representative scenarios | Frontend + QA | after every latest-main integration and before production | open |
+| FE-20260717-001 | New-order submit previously exposed only a disabled “创建中…” button while waiting; first-phase recovery now shows pending/confirming/uncertain messages and blocks repeat submit after timeout | Desktop/mobile duplicate-submit risk is reduced, but full atomic create is still outside UI | Frontend + UX + Backend + QA | keep operation-status recovery; future atomic-create task must preserve equivalent UX | mitigated_first_phase |
 
 ## Lessons and anti-patterns
 
@@ -104,3 +105,5 @@ Verified cross-department contract from `TASK-20260716-005-device-custody-status
 | 2026-07-16 | Superseded fixed two-column Orders selector with compact responsive queues and explicit pending/error/offline/latest-intent states | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + UX/QA reviewers | active |
 | 2026-07-16 | Added explicit customer finance labels, dual repair/payment states and capability-driven terminal-action UI | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + UX/QA reviewers | active |
 | 2026-07-13 | Recorded nine-section Settings capability, store-bound transient, touch-target and visual-evidence contracts | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 reviewers | local_verified |
+| 2026-07-17 | Recorded shared desktop/mobile order-create pending and ambiguous-success recovery gap | TASK-20260717-163954-task | Integration Lead | verified_debt |
+| 2026-07-17 | Added first-phase online create recovery UX: operation id, confirming/uncertain state, repeat-submit block and desktop/mobile screenshots | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |

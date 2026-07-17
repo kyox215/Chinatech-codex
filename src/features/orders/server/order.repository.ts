@@ -3717,10 +3717,11 @@ export async function sendApprovalRequest(
 export async function createOrder(
   input: CreateOrderInput,
   operator: string | AuditActor = "前台",
-): Promise<{ id: string }> {
+): Promise<{ id: string; replayed?: boolean }> {
   const requestActor = typeof operator === "string" ? undefined : operator;
   const storeId = requireStoreIdFromActor(requestActor);
   const operatorName = operatorNameFromActor(operator);
+  const operationId = input.operation_id?.trim();
   if (
     input.assignee_membership_id &&
     !requestActor?.isSystem &&
@@ -3749,6 +3750,10 @@ export async function createOrder(
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
 
   const supabase = getSupabaseAdmin();
+  if (operationId) {
+    const existing = await findCreatedOrderByOperationId(supabase, storeId, operationId);
+    if (existing) return { id: existing.id, replayed: true };
+  }
   const requestedAssignee = input.assignee_membership_id?.trim();
   if (requestedAssignee && !(await isOrderAssignmentSupported(supabase, storeId))) {
     throw new Error("负责人功能尚未完成数据库迁移，请联系店主");
@@ -3993,6 +3998,7 @@ export async function createOrder(
     event_type: "created",
     payload: {
       type: input.order_type,
+      ...(operationId ? { operation_id: operationId } : {}),
       device_custody_status: deviceCustodyStatus,
       device_unlock_method: deviceUnlock.method,
       warranty_months: warranty.warranty_months,
@@ -4015,6 +4021,34 @@ export async function createOrder(
   }
 
   return { id: orderId };
+}
+
+export async function getOrderCreateOperationStatus(
+  operationId: string,
+  actor?: AuditActor,
+): Promise<{ status: "pending" } | { status: "created"; id: string }> {
+  const storeId = requireStoreIdFromActor(actor);
+  const existing = await findCreatedOrderByOperationId(getSupabaseAdmin(), storeId, operationId);
+  return existing ? { status: "created", id: existing.id } : { status: "pending" };
+}
+
+async function findCreatedOrderByOperationId(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  operationId: string,
+): Promise<{ id: string } | null> {
+  const { data, error } = await supabase
+    .from("order_events")
+    .select("order_id")
+    .eq("store_id", storeId)
+    .eq("event_type", "created")
+    .contains("payload", { operation_id: operationId })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  fail(error, "确认创建结果失败");
+  const id = maybeString((data as DbRecord | null)?.order_id);
+  return id ? { id } : null;
 }
 export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDeskOptions> {
   const storeId = requireStoreIdFromActor(actor);

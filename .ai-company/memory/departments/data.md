@@ -78,6 +78,7 @@ as owner of this file.
 | DATA-20260713-003 | Buyback restricted-evidence runtime grants, staged cleanup and retention/legal-hold behavior remain unverified for activation; dormant schema is present but empty and revoked | PII exposure, orphan files or noncompliant retention | Data + Security + Operations + Owner | separate approved production-readiness task before evidence activation | contained_by_feature_off_and_revoked_runtime_acl |
 | DATA-20260713-001 | Settings candidate migrations, scheduled cleanup, transaction sizing and restore evidence are not linked-environment proven | Data loss/privacy/release risk | Data + Security + Operations + Owner | exact preflight/dry-run/apply/post-check gates | open |
 | DATA-20260716-004 | Order device-custody migration and legacy NULL preservation | False historical custody, rollout mismatch, or silent field loss | Data + API + Security + Owner | migration `20260716235650`, PG17 144 pgTAP assertions and production legacy-NULL/ACL postchecks; reopen on schema change | mitigated_scoped_verified |
+| DATA-20260717-001 | Online order creation still does not use one transaction or a persistent operation ledger; first-phase code uses `order_events.payload.operation_id` as a no-DDL recovery index | Timeout/retry duplicate risk is reduced after created event is written; customer/device partial side effects remain possible | Data + Backend + Security + QA | design and review a store-scoped service-role-only atomic create RPC in a separate approved task | mitigated_first_phase; migration_not_started |
 
 ## Lessons and anti-patterns
 
@@ -116,3 +117,5 @@ as owner of this file.
 | 2026-07-16 | Applied and postchecked four customer finance/order lifecycle migrations after exact PG17 replay | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/release reviewers | scoped_verified |
 | 2026-07-13 | Recorded Settings migration order, exact-set dry-run, retention and atomic-staging boundaries | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_contract |
 | 2026-07-17 | Applied and postchecked the additive device-custody reconciliation migration while preserving 6298 legacy unknown rows | TASK-20260716-005-device-custody-status-implementation | Integration Lead + DATA/API/SEC reviewers | scoped_verified |
+| 2026-07-17 | Recorded non-atomic online order-create and missing idempotency data risk; no schema/data change performed | TASK-20260717-163954-task | Integration Lead + API/Data reviewer | verified_debt |
+| 2026-07-17 | Recorded first-phase no-DDL operation-id recovery via order event payload; full atomic RPC still pending approval | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |

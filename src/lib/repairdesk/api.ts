@@ -14,6 +14,7 @@ import type {
   DashboardSummary,
   DashboardSummaryInput,
   OrderDetail,
+  OrderCreateOperationStatus,
   OrderApprovalFlowStatus,
   OrderExceptionStatus,
   OrderWorkflow,
@@ -140,8 +141,19 @@ export class RepairDeskApiError extends Error {
   }
 }
 
+export class RepairDeskRequestTimeoutError extends Error {
+  constructor(message = "请求超时，请稍后重试") {
+    super(message);
+    this.name = "RepairDeskRequestTimeoutError";
+  }
+}
+
 export function isRepairDeskAuthorizationError(error: unknown) {
   return error instanceof RepairDeskApiError && (error.status === 401 || error.status === 403);
+}
+
+export function isRepairDeskRequestTimeoutError(error: unknown) {
+  return error instanceof RepairDeskRequestTimeoutError;
 }
 
 export type RepairDeskRequestOptions = {
@@ -167,6 +179,7 @@ export type {
   FaultPriceItem,
   MessageLog,
   OrderDetail,
+  OrderCreateOperationStatus,
   OrderCapabilities,
   OrderEvent,
   OrderApprovalFlowStatus,
@@ -744,7 +757,7 @@ async function requestRaw(
     });
   } catch (error) {
     if (didTimeout) {
-      throw new Error("请求超时，请稍后重试");
+      throw new RepairDeskRequestTimeoutError();
     }
     throw error;
   } finally {
@@ -1074,8 +1087,22 @@ export async function sendCustomerMessage(
   return postJson<{ ok: boolean; id: string }>("customer/message", { customerId, input });
 }
 
-export async function createOrder(input: CreateOrderInput): Promise<{ id: string }> {
-  return postJson<{ id: string }>("orders/create", input);
+export async function createOrder(
+  input: CreateOrderInput,
+  options?: RepairDeskRequestOptions,
+): Promise<{ id: string; replayed?: boolean }> {
+  return postJson<{ id: string; replayed?: boolean }>("orders/create", input, options);
+}
+
+export async function getOrderCreateOperationStatus(
+  operationId: string,
+  options?: RepairDeskRequestOptions,
+): Promise<OrderCreateOperationStatus> {
+  return postJson<OrderCreateOperationStatus>(
+    "orders/create/status",
+    { operation_id: operationId },
+    options,
+  );
 }
 
 export async function syncOfflineOrderCreate(

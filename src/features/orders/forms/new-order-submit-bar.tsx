@@ -14,6 +14,7 @@ export function NewOrderSubmitBar({
   deposit,
   valid,
   pending,
+  statusMessage,
   custodyStatus,
   onCancel,
   surface = "page",
@@ -22,6 +23,7 @@ export function NewOrderSubmitBar({
   deposit: number;
   valid: boolean;
   pending: boolean;
+  statusMessage?: string;
   custodyStatus: DeviceCustodyStatus | null;
   onCancel?: () => void;
   surface?: "page" | "dialog";
@@ -67,9 +69,20 @@ export function NewOrderSubmitBar({
             </Link>
           </Button>
         )}
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 md:ml-auto md:justify-start">
-          <span className="text-[10px] font-medium text-muted-foreground">设备保管</span>
-          <DeviceCustodyBadge status={custodyStatus} className="text-[10px]" />
+        <div className="flex min-w-0 flex-col gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 md:ml-auto">
+          <div className="flex min-w-0 items-center justify-between gap-2 md:justify-start">
+            <span className="text-[10px] font-medium text-muted-foreground">设备保管</span>
+            <DeviceCustodyBadge status={custodyStatus} className="text-[10px]" />
+          </div>
+          {statusMessage ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="max-w-[26rem] text-[10px] text-muted-foreground"
+            >
+              {statusMessage}
+            </p>
+          ) : null}
         </div>
         <div className="contents md:flex md:min-w-0 md:items-center md:gap-2">
           <div
@@ -85,7 +98,7 @@ export function NewOrderSubmitBar({
             style={{ background: "var(--gradient-brand)" }}
           >
             <Banknote className="size-3.5" />
-            {pending ? "创建中…" : "创建工单"}
+            {pending ? "处理中…" : "创建工单"}
           </Button>
         </div>
       </div>

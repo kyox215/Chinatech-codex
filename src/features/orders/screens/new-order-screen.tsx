@@ -28,7 +28,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-import { createOrder, getCustomerDetail, getOnboardingStatus } from "@/lib/repairdesk/api";
+import {
+  createOrder,
+  getCustomerDetail,
+  getOnboardingStatus,
+  getOrderCreateOperationStatus,
+  isRepairDeskRequestTimeoutError,
+} from "@/lib/repairdesk/api";
 import type {
   CustomerDetail,
   CustomerHistoryDeviceCandidate,
@@ -89,6 +95,10 @@ export function NewOrderScreen({
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
+  const [createRecovery, setCreateRecovery] = useState<NewOrderCreateRecoveryState>({
+    state: "idle",
+  });
+  const createOperationIdRef = useRef<string | null>(null);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
     "calc(env(safe-area-inset-top) + 5.5rem)",
   );
@@ -324,9 +334,49 @@ export function NewOrderScreen({
     };
   }, [queryPrefilled]);
 
+  const completeOnlineOrderCreated = useCallback(
+    (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {
+      createOperationIdRef.current = null;
+      setCreateRecovery({ state: "idle" });
+      void offlineDraft.discardCurrentDraft();
+      invalidateOrderReadCaches(queryClient, id);
+      queryClient.invalidateQueries({ queryKey: ordersKeys.options() });
+      queryClient.invalidateQueries({ queryKey: customersKeys.all });
+      toast.success(options.recovered || options.replayed ? "已确认工单已创建" : "工单已创建");
+      if (onCreated) {
+        onCreated(id);
+      } else {
+        router.push(`/orders/${id}`);
+      }
+    },
+    [offlineDraft, onCreated, queryClient, router],
+  );
+
+  const confirmCreateOperation = useCallback(
+    async (operationId: string) => {
+      setCreateRecovery({ state: "confirming", operationId });
+      try {
+        for (let attempt = 0; attempt < CREATE_OPERATION_CONFIRM_ATTEMPTS; attempt += 1) {
+          if (attempt > 0) await waitForCreateOperationConfirmAttempt(attempt);
+          const status = await getOrderCreateOperationStatus(operationId, { timeoutMs: 8_000 });
+          if (status.status === "created") {
+            completeOnlineOrderCreated(status.id, { recovered: true });
+            return;
+          }
+        }
+      } catch {
+        // Keep the UI in a non-duplicating state when result confirmation fails.
+      }
+      setCreateRecovery({ state: "uncertain", operationId });
+      toast.error("暂时无法确认创建结果，请先查看工单列表，避免重复创建");
+    },
+    [completeOnlineOrderCreated],
+  );
+
   const create = useMutation({
     mutationFn: async (): Promise<
-      { kind: "online"; id: string } | { kind: "offline_queued"; operationId: string }
+      | { kind: "online"; id: string; replayed?: boolean }
+      | { kind: "offline_queued"; operationId: string }
     > => {
       const custodyStatus = form.deviceCustodyStatus;
       if (!custodyStatus) throw new Error("请确认设备是否留店");
@@ -339,7 +389,10 @@ export function NewOrderScreen({
           operationId: await offlineDraft.queueCurrentDraftForSync(),
         };
       }
+      const operationId = createOperationIdRef.current ?? createRepairDeskCreateOperationId();
+      createOperationIdRef.current = operationId;
       const result = await createOrder({
+        operation_id: operationId,
         order_type: form.type,
         status: form.status,
         customer_id: form.customerId,
@@ -359,7 +412,7 @@ export function NewOrderScreen({
         fault_prices: toFaultPriceItems(validFaultDrafts),
         deposit_amount: form.deposit,
       });
-      return { kind: "online", id: result.id };
+      return { kind: "online", id: result.id, replayed: result.replayed };
     },
     onSuccess: (result) => {
       if (result.kind === "offline_queued") {
@@ -371,19 +424,18 @@ export function NewOrderScreen({
         }
         return;
       }
-      const { id } = result;
-      void offlineDraft.discardCurrentDraft();
-      invalidateOrderReadCaches(queryClient, id);
-      queryClient.invalidateQueries({ queryKey: ordersKeys.options() });
-      queryClient.invalidateQueries({ queryKey: customersKeys.all });
-      toast.success("工单已创建");
-      if (onCreated) {
-        onCreated(id);
-      } else {
-        router.push(`/orders/${id}`);
-      }
+      completeOnlineOrderCreated(result.id, { replayed: result.replayed });
     },
-    onError: (error: Error) => toast.error(getCreateOrderErrorMessage(error)),
+    onError: (error: Error) => {
+      if (isRepairDeskRequestTimeoutError(error) && createOperationIdRef.current) {
+        toast.message("创建请求仍在确认中，请不要重复提交");
+        void confirmCreateOperation(createOperationIdRef.current);
+        return;
+      }
+      createOperationIdRef.current = null;
+      setCreateRecovery({ state: "idle" });
+      toast.error(getCreateOrderErrorMessage(error));
+    },
   });
 
   const valid =
@@ -450,6 +502,18 @@ export function NewOrderScreen({
     hasSensitiveUnlockDraft: offlineDraft.hasSensitiveUnlockDraft,
     scopeReady: Boolean(offlineScope),
   };
+  const createSubmitBlocked =
+    create.isPending ||
+    createRecovery.state === "confirming" ||
+    createRecovery.state === "uncertain";
+  const createSubmitMessage =
+    createRecovery.state === "confirming"
+      ? "请求超时，正在确认是否已经创建。请不要重复提交或刷新。"
+      : createRecovery.state === "uncertain"
+        ? "暂时无法确认创建结果，请使用页面提示打开工单或客户列表检查，避免重复创建。"
+        : create.isPending
+          ? "正在提交工单，请保持页面打开。"
+          : undefined;
 
   return (
     <div
@@ -489,6 +553,14 @@ export function NewOrderScreen({
         }}
         onSubmit={(event) => {
           event.preventDefault();
+          if (createRecovery.state === "confirming" || createRecovery.state === "uncertain") {
+            toast.message(
+              createRecovery.state === "confirming"
+                ? "正在确认创建结果，请稍候"
+                : "请先查看工单列表确认是否已创建，避免重复提交",
+            );
+            return;
+          }
           if (!valid) {
             toast.error(
               form.deviceCustodyStatus === null
@@ -572,6 +644,15 @@ export function NewOrderScreen({
           />
         ) : null}
 
+        {createRecovery.state !== "idle" ? (
+          <NewOrderCreateRecoveryCard
+            state={createRecovery}
+            onRetry={() => {
+              void confirmCreateOperation(createRecovery.operationId);
+            }}
+          />
+        ) : null}
+
         <div
           data-new-order-workspace-grid="true"
           className={cn(
@@ -623,7 +704,8 @@ export function NewOrderScreen({
           total={total}
           deposit={form.deposit}
           valid={Boolean(valid)}
-          pending={create.isPending}
+          pending={createSubmitBlocked}
+          statusMessage={createSubmitMessage}
           custodyStatus={form.deviceCustodyStatus}
           onCancel={onCancel}
           surface={surface}
@@ -661,6 +743,90 @@ function getCreateOrderErrorMessage(error: Error) {
     return "创建工单失败：工单编号生成失败，请重试或联系管理员";
   }
   return message;
+}
+
+const CREATE_OPERATION_CONFIRM_ATTEMPTS = 6;
+
+type NewOrderCreateRecoveryState =
+  | { state: "idle" }
+  | { state: "confirming"; operationId: string }
+  | { state: "uncertain"; operationId: string };
+
+function createRepairDeskCreateOperationId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `00000000-0000-4000-8000-${Math.random().toString().slice(2, 14).padEnd(12, "0")}`;
+}
+
+function waitForCreateOperationConfirmAttempt(attempt: number) {
+  const delayMs = attempt < 2 ? 1_200 : 2_500;
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+function NewOrderCreateRecoveryCard({
+  state,
+  onRetry,
+}: {
+  state: Exclude<NewOrderCreateRecoveryState, { state: "idle" }>;
+  onRetry: () => void;
+}) {
+  const confirming = state.state === "confirming";
+  return (
+    <section
+      data-new-order-create-recovery="true"
+      className={cn(
+        repairOs.mobileInfoCard,
+        "mb-2 grid min-w-0 gap-2 border-status-warn/60 bg-status-warn/35 p-2.5 text-status-warn-foreground md:mb-3 md:rounded-[var(--radius-lg)] md:p-3 md:shadow-none",
+      )}
+    >
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold leading-4">
+          {confirming ? (
+            <RotateCcw className="size-3.5 shrink-0 animate-spin" />
+          ) : (
+            <CircleAlert className="size-3.5 shrink-0" />
+          )}
+          <span className="truncate">
+            {confirming ? "正在确认创建结果" : "创建结果暂时无法确认"}
+          </span>
+        </div>
+        <p className="mt-1 text-[10px] leading-4">
+          {confirming
+            ? "请求已发送，但浏览器没有及时收到结果。系统正在用本次操作标识确认是否已经创建工单。"
+            : "不要再次点击创建。请先打开工单列表或客户列表检查是否已经生成记录，也可以重新确认一次结果。"}
+        </p>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <Button type="button" size="sm" className="h-8 rounded-xl text-xs" asChild>
+          <Link href="/orders">
+            <ClipboardList className="mr-1.5 size-3.5" />
+            查看工单列表
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 rounded-xl border-status-warn/70 bg-background/80 text-xs"
+          asChild
+        >
+          <Link href="/customers">打开客户列表</Link>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 rounded-xl text-xs"
+          disabled={confirming}
+          onClick={onRetry}
+        >
+          <RotateCcw className="mr-1.5 size-3.5" />
+          重新确认
+        </Button>
+      </div>
+    </section>
+  );
 }
 
 type NewOrderOfflineStatusSummary = {

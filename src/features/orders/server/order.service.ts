@@ -5,6 +5,7 @@ export {
   createOrder,
   decideOrderApproval,
   getOrder,
+  getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
   listOrderWorkflow,

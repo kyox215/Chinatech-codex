@@ -70,6 +70,7 @@ Verified cross-department contract from `TASK-20260716-005-device-custody-status
 | BE-20260716-002 | Legacy `dashboard/summary` remains for rolling-client compatibility and generic priority read failures map to HTTP 400 | Contract debt and weaker unavailable-service observability | Backend + QA | deprecate old endpoint and introduce a 503-class error in a separate compatibility task | monitoring |
 | BE-20260716-003 | Orders archive/all still scans narrow index batches up to 1,000 and the two-phase read is not a transactional snapshot | Higher-volume latency or a transient missed row during concurrent change | Backend + Data | observe production p95/volume; introduce a database read model only with measured evidence | monitoring |
 | BE-20260713-003 | Member and workflow writes lack independent production kill switches and proven atomic RPCs | Partial writes or weak containment | Backend + Security + Data | before either production release unit | open |
+| BE-20260717-001 | Online `orders/create` remains multi-write, but first-phase code now accepts `operation_id`, replays by created event lookup and skips duplicate audit/realtime on replay | Client timeout duplicate-submit risk is reduced; partial-write risk remains without an atomic RPC | Backend + Data + QA | future Owner-approved atomic-create/observability task | mitigated_first_phase; atomic_rpc_pending |
 
 ## Lessons and anti-patterns
 
@@ -100,3 +101,5 @@ Verified cross-department contract from `TASK-20260716-005-device-custody-status
 | 2026-07-16 | Added bounded two-phase Orders list repository contract with tenant/assignment and projection preservation | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + DATA/SEC/performance reviewers | active |
 | 2026-07-16 | Added changed-fields-only order updates and audited atomic terminal command boundary | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/QA reviewers | active |
 | 2026-07-13 | Recorded Settings expected-store/typed-conflict authority and atomic-Apply boundary | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_verified |
+| 2026-07-17 | Recorded online create ambiguous-success, idempotency and post-create audit reliability debt | TASK-20260717-163954-task | Integration Lead + API/Data reviewer | verified_debt |
+| 2026-07-17 | Added first-phase order-create operation id replay through `order_events` and duplicate audit/realtime suppression | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |

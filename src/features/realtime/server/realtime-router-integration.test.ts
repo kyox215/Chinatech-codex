@@ -88,7 +88,9 @@ describe("repairdesk router realtime integration", () => {
   });
 
   it("queues realtime metadata only after a successful audited mutation", async () => {
+    const operationId = "00000000-0000-4000-8000-000000000903";
     const response = await handleRepairDeskPost("orders/create", {
+      operation_id: operationId,
       order_type: "quick_repair",
       status: "new",
       issue_description: "Schermo rotto",
@@ -96,6 +98,10 @@ describe("repairdesk router realtime integration", () => {
     });
 
     expect(response.status).toBe(200);
+    expect(mocks.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ operation_id: operationId }),
+      expect.objectContaining({ storeId }),
+    );
     expect(mocks.queueRepairDeskRealtimeBroadcast).toHaveBeenCalledWith({
       storeId,
       domain: "orders",
@@ -115,6 +121,25 @@ describe("repairdesk router realtime integration", () => {
     });
 
     expect(response.status).toBe(400);
+    expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
+  });
+
+  it("does not write duplicate audit or realtime events for an idempotent create replay", async () => {
+    mocks.createOrder.mockResolvedValueOnce({ id: "order_1", replayed: true });
+
+    const response = await handleRepairDeskPost("orders/create", {
+      operation_id: "00000000-0000-4000-8000-000000000904",
+      order_type: "quick_repair",
+      status: "new",
+      issue_description: "Schermo rotto",
+      fault_prices: [],
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "order_1", replayed: true },
+    });
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
     expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
   });
 

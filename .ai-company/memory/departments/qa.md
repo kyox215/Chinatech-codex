@@ -97,6 +97,7 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 | QA-20260710-001 | Release validation can become stale when another executor changes remote DB/Git/deploy state | A green gate may describe the wrong target state | QA + Platform + Integration Lead | require remote pre/post assertions and serialized release ownership | open |
 | QA-20260712-001 | Default parallel Vitest can exceed fixed 5s test timeouts in existing Radix/user-event suites under local resource contention | False regression classification | QA | review test concurrency/timeout policy in a dedicated test-infrastructure task | observed; serial full suite green |
 | QA-20260713-001 | Settings five-role, offline/409, full overlay and 50+ member E2E matrix remains incomplete | Local representative green can overstate release coverage | QA + Frontend + Security | fresh post-integration gate and again before production | open |
+| QA-20260717-001 | Online order create now has first-phase tests for timeout error typing, operation-status lookup, replay audit/realtime suppression, full unit suite and responsive E2E; atomic RPC cases remain uncovered | Normal-path green tests can still miss database-level partial-write classes | QA + Backend + Data + Frontend | add timeout-after-commit, concurrent submit and RPC atomicity tests in future atomic-create task | mitigated_first_phase; rpc_gate_pending |
 
 ## Lessons and anti-patterns
 
@@ -145,3 +146,5 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 | 2026-07-16 | Recorded customer finance/lifecycle SQL, permission, atomicity, full-suite, responsive and production postcheck matrix | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + QA/DATA/SEC/UX reviewers | active |
 | 2026-07-13 | Recorded Settings exact interaction/screenshot/post-integration gates and remaining matrix gaps | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 QA reviewer | conditional |
 | 2026-07-17 | Closed the device-custody regression, SQL state-machine, responsive visual and production postcheck matrix | TASK-20260716-005-device-custody-status-implementation | Integration Lead + QA/SEC/DATA reviewers | scoped_verified |
+| 2026-07-17 | Added online order-create ambiguous-success and idempotency recovery test matrix | TASK-20260717-163954-task | Integration Lead + API/Data reviewer | proposed_gate |
+| 2026-07-17 | Verified first-phase order-create recovery with focused tests, full Vitest, build, mobile E2E, overflow E2E and screenshots | TASK-20260717-165957-task | Integration Lead | verified_local |

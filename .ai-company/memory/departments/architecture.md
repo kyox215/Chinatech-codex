@@ -42,6 +42,8 @@ as owner of this file.
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
 | Lifecycle command/read-model boundary | Backend + Data + Frontend | Additive v3 facts and dedicated terminal commands; old read overloads delegate during compatibility | Fail closed on invalid contract; forward-fix additive schema and keep immutable evidence | TASK-20260716-003-customer-finance-order-correction-plan | verified |
+| Proposed online order-create command | Backend + Data + Frontend + QA | One store-scoped idempotency key and request hash; atomically return the original order for same-key/same-payload replay | Reject key/payload conflicts; expose result lookup for browser timeout recovery; no production change until approved | TASK-20260717-163954-task | proposed |
+| First-phase online order-create recovery | Backend + Data + Frontend + QA | Client `operation_id`, server created-event replay lookup, status endpoint and no duplicate audit/realtime on replay | UI blocks repeat submit while confirming; full atomicity remains out of scope | TASK-20260717-165957-task | verified_local |
 
 ## SOPs and checklists
 
@@ -54,6 +56,7 @@ as owner of this file.
 |---|---|---|---|---|---|
 | ARCH-20260619-001 | Legacy route files remain after active dependency removal | Search/review confusion and accidental reuse risk | Architecture + Frontend + QA | Owner-approved deletion cleanup task | preflight ready; deletion approval pending |
 | ARCH-20260619-002 | Large modules exceed comfortable review size | Higher bug/regression risk | Architecture + QA | during 60-day refactor plan | open |
+| ARCH-20260717-001 | Online order create crosses customer/device/order/event/audit boundaries without one transaction; first-phase event replay reduces ambiguous-success UX but is not the final command boundary | Partial writes and pre-event duplicate races remain possible | Architecture + Backend + Data + Security | Owner review in a separate T3/R3 atomic RPC task; ADR required before migration | mitigated_first_phase; decision_proposed |
 
 ## Lessons and anti-patterns
 
@@ -79,3 +82,5 @@ as owner of this file.
 | 2026-06-20 | Added approval-gated deletion preflight contract and baseline for legacy route cleanup | TASK-20260620-003 | Integration Lead | active |
 | 2026-07-16 | Recorded additive customer read model and dedicated atomic terminal-command architecture | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + architecture/data reviewers | active |
 | 2026-07-17 | Promoted the proposed order-custody architecture to production-verified implementation with atomic active/terminal commands | TASK-20260716-005-device-custody-status-implementation | Integration Lead + DATA/API/SEC reviewers | scoped_verified |
+| 2026-07-17 | Added proposed atomic, idempotent online order-create command boundary and ADR trigger | TASK-20260717-163954-task | Integration Lead + API/Data reviewer | proposed |
+| 2026-07-17 | Added verified first-phase no-DDL online create recovery boundary and retained atomic RPC as future architecture decision | TASK-20260717-165957-task | Integration Lead | verified_local |

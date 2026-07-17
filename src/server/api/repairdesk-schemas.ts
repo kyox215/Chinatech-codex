@@ -501,6 +501,7 @@ export const createOrderSchema = z
   .object({
     customer_id: optionalText,
     device_id: optionalText,
+    operation_id: z.string().uuid().optional(),
     customer_name: optionalText,
     customer_phone: optionalText,
     device_brand: optionalText,
@@ -522,6 +523,12 @@ export const createOrderSchema = z
     assignee_membership_id: z.string().uuid().optional(),
   })
   .strip() satisfies z.ZodType<CreateOrderInput>;
+
+export const orderCreateOperationStatusSchema = z
+  .object({
+    operation_id: z.string().uuid(),
+  })
+  .strict();
 
 export const updateOrderInputSchema = z
   .object({

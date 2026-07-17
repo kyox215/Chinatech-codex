@@ -788,6 +788,7 @@ export interface CustomerDetail {
 }
 
 export interface CreateOrderInput {
+  operation_id?: string;
   customer_id?: string;
   device_id?: string;
   customer_name?: string;
@@ -810,6 +811,8 @@ export interface CreateOrderInput {
   deposit_amount?: number;
   assignee_membership_id?: string;
 }
+
+export type OrderCreateOperationStatus = { status: "pending" } | { status: "created"; id: string };
 
 export interface UpdateOrderInput {
   expected_updated_at: string;

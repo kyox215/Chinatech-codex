@@ -6,6 +6,7 @@ import {
   isOrderAttachmentStorageScoped,
   isOrderInActorScope,
   getOrder,
+  getOrderCreateOperationStatus,
   getOrderStats,
   listOrdersPage,
   patchOrder,
@@ -708,6 +709,47 @@ describe("order repository database pagination", () => {
 
     await expect(getOrder("order_1", actor("technician"))).rejects.toThrow("当前工单未分配给你");
     expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("order repository create operation recovery", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("finds a created order by store-scoped create operation id", async () => {
+    const query = createSupabaseQuery({
+      data: { order_id: "order_recovered" },
+      error: null,
+      count: 1,
+    });
+    mocks.supabase.from.mockReturnValueOnce(query);
+
+    await expect(
+      getOrderCreateOperationStatus("00000000-0000-4000-8000-000000000901", actor("owner")),
+    ).resolves.toEqual({ status: "created", id: "order_recovered" });
+
+    expect(mocks.supabase.from).toHaveBeenCalledWith("order_events");
+    expect(query.eq).toHaveBeenCalledWith("store_id", "store_1");
+    expect(query.eq).toHaveBeenCalledWith("event_type", "created");
+    expect(query.contains).toHaveBeenCalledWith("payload", {
+      operation_id: "00000000-0000-4000-8000-000000000901",
+    });
+  });
+
+  it("reports pending when no create event has been written yet", async () => {
+    mocks.supabase.from.mockReturnValueOnce(
+      createSupabaseQuery({
+        data: null,
+        error: null,
+        count: 0,
+      }),
+    );
+
+    await expect(
+      getOrderCreateOperationStatus("00000000-0000-4000-8000-000000000902", actor("owner")),
+    ).resolves.toEqual({ status: "pending" });
   });
 });
 
@@ -1431,9 +1473,11 @@ function createSupabaseQuery(result: { data: unknown; error: unknown; count: num
     neq: vi.fn(() => query),
     is: vi.fn(() => query),
     not: vi.fn(() => query),
+    contains: vi.fn(() => query),
     or: vi.fn(() => query),
     order: vi.fn(() => query),
     range: vi.fn(() => query),
+    limit: vi.fn(() => query),
     single: vi.fn(() => query),
     maybeSingle: vi.fn(() => query),
   };

@@ -5,6 +5,7 @@ export {
   confirmCancelledOrderReturn,
   correctTerminalOrder,
   createOrder,
+  getOrderCreateOperationStatus,
   createOrderWorkflowStatus,
   decideOrderApproval,
   getOrder,

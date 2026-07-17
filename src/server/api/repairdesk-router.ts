@@ -15,6 +15,7 @@ import {
   createOrder,
   decideOrderApproval,
   getOrder,
+  getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
   listOrderWorkflow,
@@ -188,6 +189,7 @@ import {
   batchTransitionBodySchema,
   confirmCancelledOrderReturnBodySchema,
   correctTerminalOrderBodySchema,
+  orderCreateOperationStatusSchema,
   createOrderSchema,
   customerCreateBodySchema,
   customerDeviceDeleteBodySchema,
@@ -292,6 +294,7 @@ const supabaseSource = {
   getInventorySummary,
   getOnboardingStatus,
   getOrder,
+  getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
   getStoreContext,
@@ -1005,17 +1008,24 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
       case "orders/create": {
         const input = createOrderSchema.parse(body);
         assertOrderCreatePermission(actor, input);
-        return ok(
-          await auditGeneric(
+        const result = await api.createOrder(input, actor);
+        if (!result.replayed) {
+          await writeAuditLog({
             actor,
-            "create",
-            "repair_order",
-            "new",
-            body,
-            () => api.createOrder(input, actor),
-            realtimeBroadcasts.orderCreated,
-          ),
-        );
+            action: "create",
+            entityType: "repair_order",
+            entityId: result.id,
+            after: asRecord(result),
+            metadata: { input: asRecord(body) },
+          });
+          queueRealtimeBroadcast(actor, realtimeBroadcasts.orderCreated);
+        }
+        return ok(result);
+      }
+      case "orders/create/status": {
+        const { operation_id: operationId } = orderCreateOperationStatusSchema.parse(body);
+        assertOrderCreatePermission(actor);
+        return ok(await api.getOrderCreateOperationStatus(operationId, actor));
       }
       case "offline/orders/create": {
         const result = await syncRepairDeskOfflineOrderCreate(body, actor);

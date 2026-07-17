@@ -2111,7 +2111,12 @@ export async function sendApprovalRequest(
 export async function createOrder(
   input: CreateOrderInput,
   operator: MockOperator = "前台",
-): Promise<{ id: string }> {
+): Promise<{ id: string; replayed?: boolean }> {
+  const operationId = input.operation_id?.trim();
+  if (operationId) {
+    const existing = findCreatedOrderByOperationId(operationId);
+    if (existing) return { id: existing.id, replayed: true };
+  }
   const requestedStatus = workflowStatuses.find((status) => status.code === input.status);
   if (requestedStatus && (!requestedStatus.enabled || !requestedStatus.allowed_for_create)) {
     throw new Error(`「${requestedStatus.label}」不能作为新建工单状态`);
@@ -2284,6 +2289,7 @@ export async function createOrder(
     event_type: "created",
     payload: {
       type: input.order_type,
+      ...(operationId ? { operation_id: operationId } : {}),
       device_custody_status: deviceCustodyStatus,
       device_unlock_method: deviceUnlock.method,
       warranty_months: warranty.warranty_months,
@@ -2294,4 +2300,23 @@ export async function createOrder(
     created_at: now,
   });
   return { id };
+}
+
+export async function getOrderCreateOperationStatus(
+  operationId: string,
+): Promise<{ status: "pending" } | { status: "created"; id: string }> {
+  const existing = findCreatedOrderByOperationId(operationId);
+  return existing ? { status: "created", id: existing.id } : { status: "pending" };
+}
+
+function findCreatedOrderByOperationId(operationId: string): { id: string } | null {
+  const event = extraEvents.find(
+    (item) =>
+      item.event_type === "created" &&
+      typeof item.payload === "object" &&
+      item.payload !== null &&
+      !Array.isArray(item.payload) &&
+      (item.payload as Record<string, unknown>).operation_id === operationId,
+  );
+  return event?.order_id ? { id: event.order_id } : null;
 }

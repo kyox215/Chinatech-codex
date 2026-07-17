@@ -2,15 +2,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   acceptKioskSession,
+  createOrder,
   downloadOrderDataTemplate,
   getDashboardSummary,
   getInventorySummary,
+  getOrderCreateOperationStatus,
   getOrderQueueSummary,
   getOrderStats,
   getStoreContext,
   isRepairDeskAuthorizationError,
   listAvailableKioskDevices,
   listOrderDataBatchHistory,
+  isRepairDeskRequestTimeoutError,
   RepairDeskApiError,
   returnKioskSession,
   previewOrderDataImport,
@@ -342,9 +345,53 @@ describe("repairdesk api client", () => {
       ),
     );
 
-    const request = expect(getOrderStats({ timeoutMs: 5 })).rejects.toThrow("请求超时，请稍后重试");
+    const request = getOrderStats({ timeoutMs: 5 }).catch((caught: unknown) => caught);
     await vi.advanceTimersByTimeAsync(5);
-    await request;
+    const error = await request;
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toMatchObject({ message: "请求超时，请稍后重试" });
+    expect(isRepairDeskRequestTimeoutError(error)).toBe(true);
+  });
+
+  it("sends create operation ids and reads their recovery status", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { id: "order_1" } }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { status: "created", id: "order_1" } }), {
+          status: 200,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createOrder({
+      operation_id: "00000000-0000-4000-8000-000000000905",
+      order_type: "quick_repair",
+      status: "new",
+      issue_description: "Schermo rotto",
+      fault_prices: [],
+    });
+    await expect(
+      getOrderCreateOperationStatus("00000000-0000-4000-8000-000000000905"),
+    ).resolves.toEqual({ status: "created", id: "order_1" });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/repairdesk/orders/create",
+      expect.objectContaining({
+        body: expect.stringContaining("00000000-0000-4000-8000-000000000905"),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/repairdesk/orders/create/status",
+      expect.objectContaining({
+        body: JSON.stringify({ operation_id: "00000000-0000-4000-8000-000000000905" }),
+      }),
+    );
   });
 
   it.each([401, 403])(
