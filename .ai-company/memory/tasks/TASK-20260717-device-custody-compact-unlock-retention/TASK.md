@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260717-device-custody-compact-unlock-retention"
 title: "Device custody compact mobile UI and unlock retention"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["data", "product", "security"]
 created_at: "2026-07-17T18:42:55Z"
-updated_at: "2026-07-17T18:43:06Z"
+updated_at: "2026-07-17T18:45:24Z"
+closed_at: "2026-07-17T18:45:24Z"
 ---
 # Task — Device custody compact mobile UI and unlock retention
 

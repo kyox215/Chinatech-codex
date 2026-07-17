@@ -17,3 +17,10 @@
 - **Evidence:**
   - npm run lint; npm run typecheck; npm run test; npm run build with sandbox escalation; REPAIRDESK_E2E_BUSINESS_DESKTOP=1 playwright device-custody-order-flow 3 passed; supabase db push dry-run showed only 20260717182220; supabase db push applied; migration list includes 20260717182220; remote schema dump shows no old unlock-clear constraint and functions emit credentials_cleared false.
 - **Recorded by:** IntegrationLead
+## 2026-07-17T18:45:24Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** Implemented and released device custody compact mobile UI plus unlock-retention rule. Linked Supabase migration 20260717182220 applied, main commit 9e010a07 pushed and verified origin/main 0/0.
+- **Residual risks:** Workspace still contains unrelated unstaged capture, store-lifecycle and older memory/task files that were intentionally excluded from this task commit.
+- **Follow-up:** Monitor production order detail and custody handover flows; if owner wants stronger privacy controls, add a separate manual unlock-retention policy/audit task rather than reintroducing custody-triggered clearing.
+- **Closed by:** IntegrationLead
