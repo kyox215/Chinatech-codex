@@ -1,1 +1,0 @@
-- `2026-07-08T11:28:04Z` `e3118d8701` — npm run lint pass; npm run typecheck pass; vitest platform/stores/auth/router/schema focused suite 5 files 74 tests pass; npm run build pass after sandbox escalation; screenshot screenshots/TASK-20260708-007-platform-onboarding/platform-queue-fixed.png
