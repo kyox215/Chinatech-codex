@@ -46,6 +46,7 @@ as owner of this file.
 - Settings must be split into independent code-only, member, Kiosk, workflow, order-data preview/export,
   and order-data Apply release units. Use a clean latest-main worktree, serialized release owner, exact
   target/config/migration assertions, observation owner, and rollback/forward-fix record.
+- `TASK-20260717-004-order-diagnosis-quote-implementation` completed a serialized DB-first release from an isolated worktree while preserving the dirty primary checkout. A concurrent main/migration-replay repair was absorbed before non-force push; the single pending migration was applied and postchecked before `main@6e511c56` reached Vercel READY with clean 15-minute error observation.
 
 ## Interfaces and dependencies
 
@@ -102,3 +103,4 @@ as owner of this file.
 | 2026-07-16 | Recorded serialized four-migration DB-first apply with clone replay and exact postchecks | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/QA reviewers | scoped_verified |
 | 2026-07-17 | Recorded exact-SHA Vercel release, contained identity block, production auth-boundary smoke and clean runtime observation | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + release reviewers | scoped_verified |
 | 2026-07-13 | Recorded Settings split-release, serialized integration, observation and rollback ownership contract | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | no_go |
+| 2026-07-17 | Recorded serialized single-migration quote release, concurrent-main absorption, exact-SHA deployment and clean runtime smoke | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + DATA/SEC/QA/Release reviewers | scoped_verified |

@@ -47,6 +47,7 @@ as owner of this file.
   transient secret, output identity, unauthorized write, missing high-risk audit, or post-failure partial
   write is a zero-tolerance release stop; local flags and mocks are not production proof.
 - `TASK-20260716-005-device-custody-status-implementation` enforces that customer-held devices cannot retain unlock credentials. Custody changes require server-side store/actor/role checks, version locking and redacted audit events; anon/authenticated cannot execute any custody RPC, NULL actors/targets fail closed, and database constraints prevent secret-bearing customer-held rows.
+- `TASK-20260717-004-order-diagnosis-quote-implementation` enforces same-store active actor checks, narrow non-grantable quote authority, CAS and idempotency in both quote RPCs. Both functions are security invoker with an empty search path; only service role has EXECUTE, while PUBLIC/anon/authenticated are denied. Message and audit payloads retain only bounded quote/send evidence.
 
 ## Interfaces and dependencies
 
@@ -106,3 +107,4 @@ as owner of this file.
 | 2026-07-16 | Verified service-role-only terminal RPCs, layered bypass denial and finance-redacted customer projection | TASK-20260716-003-customer-finance-order-correction-plan | Security reviewer + Integration Lead | scoped_verified |
 | 2026-07-13 | Recorded Settings dual-flag containment and zero-tolerance tenant/PII/partial-write stops | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_contract |
 | 2026-07-17 | Verified custody permission, tenant, NULL-input and unlock-secret controls in app, pgTAP and production ACL/constraint postchecks | TASK-20260716-005-device-custody-status-implementation | Security reviewers + Integration Lead | scoped_verified |
+| 2026-07-17 | Verified quote role/tenant/CAS/idempotency controls and service-role-only production RPC ACLs | TASK-20260717-004-order-diagnosis-quote-implementation | Security/Data reviewers + Integration Lead | scoped_verified |

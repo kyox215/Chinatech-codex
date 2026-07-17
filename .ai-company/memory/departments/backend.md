@@ -42,6 +42,7 @@ as owner of this file.
 - Settings APIs must treat server capability projection and `expectedStoreId`/version checks as authority;
   typed 403/409/422 errors preserve recoverable drafts. High-risk member, workflow, Kiosk, or order-data
   Apply work may not sequence legacy endpoints and claim atomicity.
+- Formal quote publication and staff-confirmed sending use separate strict API commands and separate atomic RPCs. `order:quote_prepare` is non-grantable and defaults to Owner/Manager/Sales; technicians may diagnose but cannot publish price by default. Legacy direct transition-to-quoted and approval-send routes fail closed so clients cannot bypass CAS, idempotency, derived money, approval reset or audit.
 
 ## Interfaces and dependencies
 
@@ -103,3 +104,4 @@ Verified cross-department contract from `TASK-20260716-005-device-custody-status
 | 2026-07-13 | Recorded Settings expected-store/typed-conflict authority and atomic-Apply boundary | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_verified |
 | 2026-07-17 | Recorded online create ambiguous-success, idempotency and post-create audit reliability debt | TASK-20260717-163954-task | Integration Lead + API/Data reviewer | verified_debt |
 | 2026-07-17 | Added first-phase order-create operation id replay through `order_events` and duplicate audit/realtime suppression | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |
+| 2026-07-17 | Added production strict quote publish/confirm-send commands, narrow capability and legacy-route bypass denial | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + DATA/API/SEC/QA reviewers | scoped_verified |

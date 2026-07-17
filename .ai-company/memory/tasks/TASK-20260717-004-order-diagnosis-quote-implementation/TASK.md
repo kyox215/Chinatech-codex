@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260717-004-order-diagnosis-quote-implementation"
 title: "未知故障接单、检测、原子报价与客户确认闭环实施"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["API", "DATA", "DOC", "FE", "FLOW", "QA", "Release", "SEC", "UX"]
 created_at: "2026-07-17T18:30:05Z"
-updated_at: "2026-07-17T19:48:26Z"
+updated_at: "2026-07-17T19:58:20Z"
+closed_at: "2026-07-17T19:52:33Z"
 ---
 # Task — 未知故障接单、检测、原子报价与客户确认闭环实施
 
@@ -57,7 +58,7 @@ updated_at: "2026-07-17T19:48:26Z"
 - [x] 客户原始描述、技术诊断与收费报价语义分离且桌面/移动流程可完成。
 - [x] 报价发布具备服务端权限、租户隔离、CAS、幂等、审批重置与审计证据。
 - [x] WhatsApp 打开与人工确认发送分离，旧报价不可发送。
-- [ ] lint、typecheck、完整 test、build、E2E、截图、迁移 dry-run/apply/postcheck、main 推送和发布验证完成。
+- [x] lint、typecheck、完整 test、build、E2E、截图、迁移 dry-run/apply/postcheck、main 推送和发布验证完成。
 
 ## Facts, assumptions, and unknowns
 

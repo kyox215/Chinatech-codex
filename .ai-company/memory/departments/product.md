@@ -34,6 +34,7 @@ as owner of this file.
 - `TASK-20260716-001-dashboard-handoff-priority` makes Dashboard an operational handoff workbench: keep quick repair intake and buyback quote, then show the actor-authorized order to handle first with an explainable reason, current step, next step, assignee and update time. Finance does not influence V1 priority and Dashboard performs no direct workflow mutation.
 - `TASK-20260716-003-customer-finance-order-correction-plan` separates customer history from valid repair/finance facts: cancelled/custom-cancelled/voided/deleted orders remain discoverable history but contribute zero to valid count, active work, lifetime quote and receivables. Customer UI shows repair and payment states independently. Terminal corrections/reopen require Manager or Owner; safe void is Owner-only, preserves evidence and is never a normal hard delete.
 - `TASK-20260716-005-device-custody-status-implementation` makes device custody an independent live order dimension. Repair type and accessory notes are not reused; legacy unknown remains visible; completed-to-shop requires reopen; cancelled shop-held devices require audited return; customer-held rows do not create false pickup or unlock expectations.
+- `TASK-20260717-004-order-diagnosis-quote-implementation` makes unknown intake a real “待检测” condition rather than a zero-price quote. Preserve the customer report, technical diagnosis and charge lines as separate facts; technicians diagnose and hand off, while Owner/Manager/Sales publish and confirm formal quote notification. Opening WhatsApp is never evidence that a quote was sent.
 
 ## Interfaces and dependencies
 
@@ -79,3 +80,4 @@ as owner of this file.
 | 2026-07-16 | Recorded beginner-friendly Dashboard priority and store-handoff product contract | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
 | 2026-07-16 | Recorded customer finance/history split and audited terminal correction/reopen/void product contract | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/UX/QA reviewers | active |
 | 2026-07-17 | Promoted the order device-custody product contract to production-verified behavior | TASK-20260716-005-device-custody-status-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
+| 2026-07-17 | Promoted unknown intake, diagnosis handoff, formal quote and confirmed-send semantics to production-verified behavior | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | active |

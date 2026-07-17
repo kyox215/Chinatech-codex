@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260717-004-order-diagnosis-quote-implementation"
-status: "active"
+status: "closed"
 phase: "implementation"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-17T19:48:26Z"
+last_checkpoint_at: "2026-07-17T19:58:20Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Supabase migration 20260717213518 已成功应用并通过历史、RPC、ACL、search_path、字段、索引与幂等重复组 postcheck；rebase origin/main@f44e95f0 后 lint/typecheck、210 文件 1446 测试和 Webpack build 通过。
+最终关闭门禁通过：agents:check、diff check、视觉证据路径、任务/部门/项目/能力记忆与 CEO 报告均已核验；等待文档收尾提交同步 main。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Supabase migration 20260717213518 已成功应用并通过历史、RPC、ACL、s
 
 ## Next action
 
-提交证据，最终 fetch/assert 后推送 main；验证精确 Git SHA、Vercel production deployment 与匿名 smoke，然后完成 closeout。
+提交并非强制推送关闭文档，核验远端 main；若触发 Vercel 文档构建则确认 READY，随后释放发布锁并正式关闭目标。
 
 ## Resume protocol
 

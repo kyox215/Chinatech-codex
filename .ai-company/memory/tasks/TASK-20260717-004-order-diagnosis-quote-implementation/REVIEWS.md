@@ -20,5 +20,5 @@
 
 ## Integration Lead gate
 
-- Current result: **production database gate passed; conditional only on main push and exact deployment smoke**.
+- Current result: **PASS — production database, main push, exact deployment and anonymous/runtime smoke are verified**.
 - Known repository-level blocker outside this migration: clean replay of all historical migrations fails at `20260611102805` before reaching this task. Incremental linked history is aligned and the task migration remains the sole pending file.
