@@ -26,7 +26,7 @@ test("mobile shell uses drawer navigation and one global quick action", async ({
 
   await page.getByRole("button", { name: "打开导航菜单" }).click();
   await expect(page.getByRole("dialog", { name: "导航菜单" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /订单管理/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /维修工单/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /客户管理/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /回收管理/ })).toBeVisible();
 });

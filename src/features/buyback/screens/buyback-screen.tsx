@@ -16,6 +16,7 @@ import {
   FileText,
   Plus,
   Recycle,
+  RefreshCw,
   ScanLine,
   Search,
   Smartphone,
@@ -162,17 +163,20 @@ export function BuybackScreen() {
     [deferredSearch],
   );
 
-  const { data: allBuybackItems = [], isLoading: statsLoading } = useQuery({
+  const statsQuery = useQuery({
     queryKey: inventoryKeys.list(buybackScopeFilters, activeStoreId),
     queryFn: ({ signal }) => listInventoryItems(buybackScopeFilters, { signal }),
     staleTime: CACHE_TIMES.stats,
   });
-  const { data: items = [], isLoading } = useQuery({
+  const listQuery = useQuery({
     queryKey: inventoryKeys.list(filters, activeStoreId),
     queryFn: ({ signal }) => listInventoryItems(filters, { signal }),
     placeholderData: keepPreviousData,
     staleTime: CACHE_TIMES.hotList,
   });
+  const allBuybackItems = useMemo(() => statsQuery.data ?? [], [statsQuery.data]);
+  const items = useMemo(() => listQuery.data ?? [], [listQuery.data]);
+  const statsUnavailable = statsQuery.isLoading || (statsQuery.isError && !statsQuery.data);
 
   const summary = useMemo(() => buildBuybackListSummary(allBuybackItems), [allBuybackItems]);
   const views = useMemo(() => buildBuybackListViews(allBuybackItems), [allBuybackItems]);
@@ -266,22 +270,22 @@ export function BuybackScreen() {
               metrics={[
                 {
                   label: "回收记录",
-                  value: statsLoading ? "-" : summary.total,
-                  hint: "iPhone 回收",
+                  value: statsUnavailable ? "—" : summary.total,
+                  hint: statsQuery.isError ? "统计读取失败" : "iPhone 回收",
                   icon: Recycle,
                   tone: "blue",
                 },
                 {
                   label: "待检测",
-                  value: summary.pendingCount,
-                  hint: "收机/估价",
+                  value: statsUnavailable ? "—" : summary.pendingCount,
+                  hint: statsQuery.isError ? "统计读取失败" : "收机/估价",
                   icon: ScanLine,
                   tone: "amber",
                 },
                 {
                   label: "已报价",
-                  value: summary.quotedCount,
-                  hint: "待客户确认",
+                  value: statsUnavailable ? "—" : summary.quotedCount,
+                  hint: statsQuery.isError ? "统计读取失败" : "待客户确认",
                   icon: Euro,
                   tone: "green",
                 },
@@ -322,12 +326,41 @@ export function BuybackScreen() {
           />
         </motion.div>
 
-        {isLoading ? (
+        {listQuery.isError && listQuery.data ? (
+          <RepairOsBusinessCard
+            as="div"
+            data-ui="buyback-refresh-warning"
+            leading={<AlertTriangle className="size-3.5" />}
+            trailing={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 gap-1 px-2 text-xs"
+                onClick={() => void listQuery.refetch()}
+              >
+                <RefreshCw className="size-3" /> 重试
+              </Button>
+            }
+            className="mb-2 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground shadow-none hover:bg-status-warn/10"
+          >
+            当前显示上次成功读取的数据；刷新失败，请检查网络后重试。
+          </RepairOsBusinessCard>
+        ) : null}
+
+        {listQuery.isLoading ? (
           <div className="mt-2 space-y-2">
             {Array.from({ length: 5 }).map((_, index) => (
               <Skeleton key={index} className="h-24 w-full" />
             ))}
           </div>
+        ) : listQuery.isError && !listQuery.data ? (
+          <BuybackLoadError
+            message={
+              listQuery.error instanceof Error ? listQuery.error.message : "回收记录加载失败"
+            }
+            onRetry={() => void listQuery.refetch()}
+          />
         ) : filteredItems.length === 0 ? (
           <BuybackEmptyState onCreate={handleCreateQuote} />
         ) : (
@@ -359,6 +392,30 @@ export function BuybackScreen() {
           onOpenInventoryRecord={handleOpenInventoryRecord}
         />
       </RepairOsListScaffold>
+    </motion.div>
+  );
+}
+
+function BuybackLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <motion.div variants={fadeUp}>
+      <RepairOsBusinessCard
+        as="div"
+        data-ui="buyback-load-error"
+        className="mx-auto mt-8 !flex max-w-md flex-col items-center rounded-xl border-status-danger-foreground/25 px-5 py-5 text-center"
+        bodyClassName="flex min-w-0 flex-col items-center"
+      >
+        <span className="grid size-10 place-items-center rounded-full bg-status-danger/15 text-status-danger-foreground">
+          <AlertTriangle className="size-5" />
+        </span>
+        <h2 className="mt-3 text-base font-semibold leading-5">回收记录加载失败</h2>
+        <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+          这不是空数据。{message || "请检查网络或登录状态后重试。"}
+        </p>
+        <Button type="button" variant="outline" className="mt-3 h-9 gap-1.5" onClick={onRetry}>
+          <RefreshCw className="size-3.5" /> 重新加载
+        </Button>
+      </RepairOsBusinessCard>
     </motion.div>
   );
 }

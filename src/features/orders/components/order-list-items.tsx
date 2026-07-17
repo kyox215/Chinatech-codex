@@ -22,7 +22,6 @@ import {
   getWorkflowProgressValue,
   orderTaskStages,
 } from "@/features/orders/model/order-task-flow";
-import { OrderSupplierPicker } from "@/features/suppliers/components/order-supplier-picker";
 import type { OrderListItem } from "@/lib/repairdesk/api";
 import type { OrderWorkflowStatusCode, Supplier } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
@@ -33,8 +32,6 @@ import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/
 export interface OrderMobileCardProps {
   order: OrderListItem;
   suppliers?: Supplier[];
-  isPartsSupplierUpdating?: boolean;
-  onPartsSupplierChange?: (supplierId: string | null) => void;
   onPrefetch?: () => void;
   onCancelPrefetch?: () => void;
 }
@@ -42,8 +39,6 @@ export interface OrderMobileCardProps {
 export function OrderMobileCard({
   order,
   suppliers = [],
-  isPartsSupplierUpdating = false,
-  onPartsSupplierChange,
   onPrefetch,
   onCancelPrefetch,
 }: OrderMobileCardProps) {
@@ -95,20 +90,7 @@ export function OrderMobileCard({
       ? "text-status-danger-foreground"
       : "text-muted-foreground";
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
-  const supplierControl = onPartsSupplierChange ? (
-    <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
-      <OrderSupplierPicker
-        supplier={partsSupplier}
-        suppliers={suppliers}
-        isUpdating={isPartsSupplierUpdating}
-        onChange={onPartsSupplierChange}
-        mode="sheet"
-        size="micro"
-        label="供"
-        className="max-w-[96px]"
-      />
-    </div>
-  ) : partsSupplier ? (
+  const supplierControl = partsSupplier ? (
     <span className="inline-flex h-5 max-w-[90px] shrink-0 items-center gap-1 rounded bg-primary/10 px-1.5 text-[9px] font-semibold leading-none text-primary">
       <PackageSearch className="size-2.5 shrink-0" />
       <span className="truncate">{partsSupplier.short_name || partsSupplier.name}</span>

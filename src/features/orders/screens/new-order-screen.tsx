@@ -435,6 +435,11 @@ export function NewOrderScreen({
     },
   });
 
+  const custodyStatusBlocked = Boolean(
+    form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
+    selectedCreateStatus &&
+    deviceCustodyBlocksStatus(selectedCreateStatus.code, selectedCreateStatus.bucket),
+  );
   const valid =
     form.deviceCustodyStatus !== null &&
     form.customerPhone.trim() &&
@@ -442,13 +447,15 @@ export function NewOrderScreen({
     form.model.trim() &&
     (form.issueCaptureMode === "unknown" || Boolean(form.issue.trim())) &&
     form.deposit <= total &&
-    !(
-      form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
-      selectedCreateStatus &&
-      deviceCustodyBlocksStatus(selectedCreateStatus.code, selectedCreateStatus.bucket)
-    ) &&
+    !custodyStatusBlocked &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
+  const missingItems = getNewOrderMissingItems({
+    form,
+    total,
+    defaultWarrantyMonths,
+    custodyStatusBlocked,
+  });
 
   const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
     const next = [...form.faults];
@@ -624,12 +631,11 @@ export function NewOrderScreen({
     >
       {surface === "page" ? (
         <NewOrderMobileHeader
-          form={form}
           operatorName={operatorName}
           statusLabel={createStatusLabel}
           valid={Boolean(valid)}
           total={total}
-          defaultWarrantyMonths={defaultWarrantyMonths}
+          missingItems={missingItems}
           offlineStatus={offlineStatus}
           onHeightChange={handleFloatingHeaderHeight}
         />
@@ -703,12 +709,11 @@ export function NewOrderScreen({
         ) : null}
 
         <NewOrderDesktopHeader
-          form={form}
           operatorName={operatorName}
           statusLabel={createStatusLabel}
           valid={Boolean(valid)}
           total={total}
-          defaultWarrantyMonths={defaultWarrantyMonths}
+          missingItems={missingItems}
           surface={surface}
           offlineStatus={offlineStatus}
           onClose={surface === "dialog" ? onCancel : undefined}
@@ -926,39 +931,75 @@ type NewOrderOfflineStatusSummary = {
   scopeReady: boolean;
 };
 
-function NewOrderDesktopHeader({
+type NewOrderMissingItem = {
+  label: string;
+  target: string;
+};
+
+function getNewOrderMissingItems({
   form,
+  total,
+  defaultWarrantyMonths,
+  custodyStatusBlocked,
+}: {
+  form: NewOrderFormState;
+  total: number;
+  defaultWarrantyMonths: number;
+  custodyStatusBlocked: boolean;
+}): NewOrderMissingItem[] {
+  const items: Array<NewOrderMissingItem | null> = [
+    !form.customerPhone.trim() ? { label: "客户电话", target: "customer-phone" } : null,
+    form.deviceCustodyStatus === null ? { label: "设备保管", target: "device-custody" } : null,
+    !form.brand.trim() ? { label: "设备品牌", target: "device-brand" } : null,
+    !form.model.trim() ? { label: "设备型号", target: "device-model" } : null,
+    form.issueCaptureMode !== "unknown" && !form.issue.trim()
+      ? { label: "故障描述", target: "issue-description" }
+      : null,
+    form.deposit > total ? { label: "定金不能超过总额", target: "deposit" } : null,
+    custodyStatusBlocked ? { label: "创建阶段与保管方式冲突", target: "create-status" } : null,
+    warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
+    !form.warrantyChangeReason.trim()
+      ? { label: "质保变更原因", target: "warranty-reason" }
+      : null,
+  ];
+
+  return items.filter((item): item is NewOrderMissingItem => item !== null);
+}
+
+function NewOrderDesktopHeader({
   operatorName,
   statusLabel,
   valid,
   total,
-  defaultWarrantyMonths,
+  missingItems,
   surface,
   offlineStatus,
   onClose,
 }: {
-  form: NewOrderFormState;
   operatorName: string;
   statusLabel: string;
   valid: boolean;
   total: number;
-  defaultWarrantyMonths: number;
+  missingItems: NewOrderMissingItem[];
   surface: "page" | "dialog";
   offlineStatus: NewOrderOfflineStatusSummary;
   onClose?: () => void;
 }) {
-  const customerReady = Boolean(form.customerPhone.trim());
-  const deviceReady = Boolean(form.brand.trim() && form.model.trim());
-  const diagnosisReady = Boolean(form.issue.trim() || form.faults.some((item) => item.name.trim()));
-  const warrantyReady =
-    !warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
-    Boolean(form.warrantyChangeReason.trim());
-  const readiness = [
-    { label: "客户", done: customerReady },
-    { label: "设备", done: deviceReady },
-    { label: "故障", done: diagnosisReady },
-    { label: "质保", done: warrantyReady },
-  ];
+  const focusMissingItem = (item: NewOrderMissingItem) => {
+    const target = document.querySelector<HTMLElement>(`[data-new-order-field="${item.target}"]`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => {
+      const focusable = target.matches(
+        "input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex='0']",
+      )
+        ? target
+        : target.querySelector<HTMLElement>(
+            "input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex='0']",
+          );
+      focusable?.focus({ preventScroll: true });
+    }, 250);
+  };
 
   return (
     <section
@@ -976,7 +1017,7 @@ function NewOrderDesktopHeader({
           variant="ghost"
           size="icon"
           className="absolute right-2 top-2 size-8 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
-          aria-label="关闭新建维修订单"
+          aria-label="关闭新建维修工单"
           onClick={onClose}
         >
           <X className="size-4" />
@@ -986,7 +1027,7 @@ function NewOrderDesktopHeader({
         <div className="text-[11px] font-medium leading-4 text-muted-foreground">
           {surface === "dialog" ? "弹窗录入" : "工作台录入"}
         </div>
-        <h1 className="truncate text-lg font-semibold leading-6">新建维修订单</h1>
+        <h1 className="truncate text-lg font-semibold leading-6">新建维修工单</h1>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className="truncate">{operatorName}</span>
           <span className="size-1 rounded-full bg-muted-foreground/35" />
@@ -997,7 +1038,9 @@ function NewOrderDesktopHeader({
 
       <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2">
         <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
-          <span className="truncate text-[11px] font-semibold leading-4">资料完整度</span>
+          <span className="truncate text-[11px] font-semibold leading-4">
+            {valid ? "资料已齐全" : `还差 ${missingItems.length || 1} 项`}
+          </span>
           <span
             className={cn(
               "inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
@@ -1010,21 +1053,27 @@ function NewOrderDesktopHeader({
             {valid ? "可创建" : "待补全"}
           </span>
         </div>
-        <div className="grid min-w-0 grid-cols-4 gap-1.5">
-          {readiness.map((item) => (
-            <span
-              key={item.label}
-              className={cn(
-                "inline-flex h-6 min-w-0 items-center justify-center rounded-md px-1.5 text-[10px] font-medium",
-                item.done
-                  ? "bg-status-success/45 text-status-success-foreground"
-                  : "bg-background text-muted-foreground",
-              )}
-            >
-              <span className="truncate">{item.label}</span>
-            </span>
-          ))}
-        </div>
+        {valid ? (
+          <p className="rounded-md bg-status-success/35 px-2 py-1.5 text-[10px] font-medium text-status-success-foreground">
+            可以创建；系统会保留设备保管、密码和金额记录。
+          </p>
+        ) : (
+          <div data-new-order-missing-items="true" className="flex min-w-0 flex-wrap gap-1.5">
+            {(missingItems.length
+              ? missingItems
+              : [{ label: "必填资料", target: "customer-phone" }]
+            ).map((item) => (
+              <button
+                key={`${item.target}-${item.label}`}
+                type="button"
+                className="inline-flex h-7 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => focusMissingItem(item)}
+              >
+                补充：{item.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid min-w-0 justify-items-start gap-1.5 md:col-span-2 md:grid-cols-[auto_auto_auto] md:items-center md:justify-start xl:col-span-1 xl:grid-cols-none xl:justify-items-end">
@@ -1059,7 +1108,7 @@ function NewOrderDialogMobileHeader({
     >
       <div className="min-w-0 flex-1">
         <div className="text-[10px] font-medium leading-3 text-muted-foreground">弹窗录入</div>
-        <div className="truncate text-sm font-semibold leading-5">新建维修订单</div>
+        <div className="truncate text-sm font-semibold leading-5">新建维修工单</div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
           <span className="truncate">{operatorName}</span>
           <span className="size-1 rounded-full bg-muted-foreground/35" />
@@ -1083,7 +1132,7 @@ function NewOrderDialogMobileHeader({
         variant="ghost"
         size="icon"
         className="size-8 shrink-0 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
-        aria-label="关闭新建维修订单"
+        aria-label="关闭新建维修工单"
         onClick={onClose}
       >
         <X className="size-4" />
@@ -1210,42 +1259,26 @@ function compareDate(a?: string, b?: string) {
 }
 
 function NewOrderMobileHeader({
-  form,
   operatorName,
   statusLabel,
   valid,
   total,
-  defaultWarrantyMonths,
+  missingItems,
   offlineStatus,
   onHeightChange,
 }: {
-  form: NewOrderFormState;
   operatorName: string;
   statusLabel: string;
   valid: boolean;
   total: number;
-  defaultWarrantyMonths: number;
+  missingItems: NewOrderMissingItem[];
   offlineStatus: NewOrderOfflineStatusSummary;
   onHeightChange?: (height: number) => void;
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const customerReady = Boolean(form.customerPhone.trim());
-  const deviceReady = Boolean(form.brand.trim() && form.model.trim());
-  const diagnosisReady = Boolean(form.issue.trim() || form.faults.some((item) => item.name.trim()));
-  const warrantyReady =
-    !warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
-    Boolean(form.warrantyChangeReason.trim());
-  const missingItems = [
-    !customerReady ? "客户电话" : null,
-    !form.brand.trim() ? "设备品牌" : null,
-    !form.model.trim() ? "设备型号" : null,
-    !diagnosisReady ? "故障与诊断" : null,
-    form.deposit > total ? "定金金额" : null,
-    !warrantyReady ? "质保原因" : null,
-  ].filter(Boolean);
   const helperText = valid
     ? `资料已补全，创建后进入「${statusLabel}」。`
-    : `还差：${missingItems.join("、") || "必填资料"}`;
+    : `还差：${missingItems.map((item) => item.label).join("、") || "必填资料"}`;
 
   useEffect(() => {
     const node = shellRef.current;

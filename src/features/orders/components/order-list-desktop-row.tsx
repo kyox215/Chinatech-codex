@@ -41,7 +41,6 @@ import {
 } from "@/features/orders/model/order-task-flow";
 import { cn } from "@/lib/utils";
 import type { Supplier } from "@/lib/repairdesk/types";
-import { OrderSupplierPicker } from "@/features/suppliers/components/order-supplier-picker";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
 import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/model/order-date";
@@ -61,8 +60,6 @@ export function DesktopOrderQueueRow({
   canPrint = true,
   onStopInteraction,
   suppliers,
-  onPartsSupplierChange,
-  isPartsSupplierUpdating = false,
 }: {
   order: OrderListItem;
   workflow?: OrderWorkflow;
@@ -76,8 +73,6 @@ export function DesktopOrderQueueRow({
   canPrint?: boolean;
   onStopInteraction: (event: SyntheticEvent) => void;
   suppliers: Supplier[];
-  onPartsSupplierChange?: (supplierId: string | null) => void;
-  isPartsSupplierUpdating?: boolean;
 }) {
   const hoverTimerRef = useRef<number | null>(null);
   const exceptionStatus = order.exception_status;
@@ -290,17 +285,7 @@ export function DesktopOrderQueueRow({
             />
           ) : null}
         </div>
-        {onPartsSupplierChange ? (
-          <div className="mt-1 min-w-0" onClick={onStopInteraction}>
-            <OrderSupplierPicker
-              supplier={partsSupplier}
-              suppliers={suppliers}
-              isUpdating={isPartsSupplierUpdating}
-              onChange={onPartsSupplierChange}
-              mode="dropdown"
-            />
-          </div>
-        ) : partsSupplier ? (
+        {partsSupplier ? (
           <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-3 text-primary">
             <PackageSearch className="size-2.5 shrink-0" />
             <span className="truncate">{partsSupplier.short_name || partsSupplier.name}</span>

@@ -86,7 +86,7 @@ test.describe("customer-output identity recovery", () => {
       });
       const recheck = recovery.getByRole("button", { name: "重新检查资料" });
       const messageBody = dialog.getByRole("textbox", { name: "通知内容" });
-      const primaryAction = dialog.getByRole("button", { name: "确认并打开 WhatsApp" });
+      const primaryAction = dialog.getByRole("button", { name: "打开 WhatsApp" });
 
       await expect(recovery).toContainText("请先补齐当前店铺资料");
       await expect(settingsLink).toHaveAttribute("href", "/settings?section=store");

@@ -999,7 +999,7 @@ test.describe("settings draft safety", () => {
     test.setTimeout(60_000);
     await gotoReady(page, "/settings?section=store");
     await page.getByLabel("店铺名", { exact: true }).fill("Sidebar Draft");
-    const ordersLink = page.getByRole("link", { name: "订单管理", exact: true }).first();
+    const ordersLink = page.getByRole("link", { name: "维修工单", exact: true }).first();
 
     await ordersLink.click();
     const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });

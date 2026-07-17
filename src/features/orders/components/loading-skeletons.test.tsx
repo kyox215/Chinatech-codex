@@ -16,7 +16,7 @@ describe("RepairOS loading skeletons", () => {
     expect(orderListSkeleton).toHaveClass("[--orders-mobile-header-offset:21.25rem]");
     expect(orderListSkeleton).toHaveClass("min-[360px]:[--orders-mobile-header-offset:18.75rem]");
     expect(screen.queryByText("正在加载工单...")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("正在准备订单管理");
+    expect(screen.getByRole("status")).toHaveTextContent("正在准备维修工单");
 
     rerender(<CustomerListSkeleton />);
     expect(container.querySelector('[data-ui="customer-list-skeleton"]')).toHaveAttribute(

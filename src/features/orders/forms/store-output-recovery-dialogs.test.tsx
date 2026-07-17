@@ -8,7 +8,10 @@ import { NotifyDialog } from "@/features/orders/forms/notify-dialog";
 import { getOrder } from "@/features/orders/testing/mock-api";
 import { orders } from "@/lib/mock/state";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("order customer-output recovery dialogs", () => {
   it("keeps WhatsApp disabled and exposes only the safe store-settings destination", async () => {
@@ -118,7 +121,51 @@ describe("order customer-output recovery dialogs", () => {
       "href",
       "/settings?section=notifications",
     );
-    expect(screen.getByRole("button", { name: "确认并打开 WhatsApp" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "打开 WhatsApp" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "审批消息内容" })).toBeDisabled();
+  });
+
+  it("does not record an approval request until the operator confirms it was sent", async () => {
+    const user = userEvent.setup();
+    const data = await getOrder(orders[0].id);
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-ready", name: "Etna Phone Lab" },
+      settings: {
+        store_id: "store-ready",
+        store_name: "Etna Phone Lab",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        message_signature: "Etna Phone Lab",
+        print_footer: "Grazie per la fiducia.",
+      },
+    });
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    const onOpenChange = vi.fn();
+    const openWhatsApp = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    render(
+      <ApprovalRequestDialog
+        open
+        onOpenChange={onOpenChange}
+        data={data}
+        orderUrl="https://example.test/orders/order-ready"
+        storeIdentity={identity}
+        canReadStoreSettings
+        canUpdateStoreSettings
+        busy={false}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "打开 WhatsApp" }));
+
+    expect(openWhatsApp).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByText(/请确认消息确实发送后/)).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "我已发送，记录并继续" }));
+
+    expect(onConfirm).toHaveBeenCalledOnce();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

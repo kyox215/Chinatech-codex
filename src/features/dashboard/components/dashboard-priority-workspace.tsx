@@ -54,6 +54,7 @@ export function DashboardPriorityWorkspace({
   if (hasHardError || !summary) return <DashboardPriorityError onRetry={onRetry} />;
 
   const filteredTotal = getFilterTotal(summary, filter);
+  const visibleItems = filteredItems.slice(0, 5);
 
   return (
     <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -123,14 +124,14 @@ export function DashboardPriorityWorkspace({
           />
         ) : (
           <div className="mt-3 min-w-0 space-y-2" data-ui="dashboard-priority-list">
-            <DashboardPriorityCard item={filteredItems[0]} primary />
-            {filteredItems.slice(1).map((item) => (
+            <DashboardPriorityCard item={visibleItems[0]} primary />
+            {visibleItems.slice(1).map((item) => (
               <DashboardPriorityCard key={item.orderId} item={item} />
             ))}
-            {filteredTotal > filteredItems.length ? (
+            {filteredTotal > visibleItems.length ? (
               <div className="rounded-xl border border-dashed border-[var(--border-panel)] px-3 py-2 text-center text-xs text-muted-foreground">
-                {filter === "all" ? "已显示最高优先级" : "当前优先列表显示"}的{" "}
-                {filteredItems.length} 单；
+                {filter === "all" ? "已显示最高优先级" : "当前优先列表显示"}的 {visibleItems.length}{" "}
+                单；
                 {filter === "all"
                   ? "完整队列"
                   : `${getDashboardFilterLabel(filter)}完整队列`}共 {filteredTotal} 单。

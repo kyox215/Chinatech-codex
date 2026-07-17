@@ -33,7 +33,7 @@ export function buildNewOrderOfflineDraftInput({
     mode: "create",
     draftPayload: buildNewOrderOfflineDraftPayload(form),
     relationshipPlan: buildNewOrderOfflineRelationshipPlan(form),
-    hasSensitiveVaultEntry: false,
+    hasSensitiveVaultEntry: hasNewOrderSensitiveUnlockDraft(form),
   };
 }
 
@@ -218,7 +218,6 @@ export function getNewOrderOfflineDraftFingerprint(form: NewOrderFormState): str
 }
 
 export function hasNewOrderSensitiveUnlockDraft(form: NewOrderFormState): boolean {
-  if (form.deviceCustodyStatus === "with_customer") return false;
   const unlock = form.deviceUnlock;
   if (unlock.method === "text" || unlock.method === "pin") return Boolean(unlock.value.trim());
   if (unlock.method === "pattern") return unlock.pattern.length > 0;

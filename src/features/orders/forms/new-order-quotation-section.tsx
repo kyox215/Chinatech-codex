@@ -216,16 +216,18 @@ export function NewOrderQuotationSection({
         </div>
 
         <div className="grid min-w-0 grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] gap-2">
-          <FormItem label="定金">
-            <MoneyKeypadInput
-              ariaLabel="定金"
-              value={moneyDraftValue(form.deposit)}
-              onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
-              triggerClassName={cn(controlClass, "h-9 px-2 font-mono")}
-              placeholder="0"
-              disabled={form.issueCaptureMode === "unknown"}
-            />
-          </FormItem>
+          <div data-new-order-field="deposit">
+            <FormItem label="定金">
+              <MoneyKeypadInput
+                ariaLabel="定金"
+                value={moneyDraftValue(form.deposit)}
+                onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
+                triggerClassName={cn(controlClass, "h-9 px-2 font-mono")}
+                placeholder="0"
+                disabled={form.issueCaptureMode === "unknown"}
+              />
+            </FormItem>
+          </div>
           <FormItem label="保修">
             <WarrantyPicker
               valueMonths={form.warrantyMonths}
@@ -235,6 +237,7 @@ export function NewOrderQuotationSection({
               compact
               triggerClassName={serviceSelectTriggerClass}
               contentClassName={serviceDropdownContentClass}
+              reasonFieldTarget="warranty-reason"
               onChange={(warranty) =>
                 setForm({
                   ...form,
@@ -302,7 +305,10 @@ export function NewOrderQuotationSection({
               value={form.status}
               onValueChange={(value) => setForm({ ...form, status: value })}
             >
-              <SelectTrigger className={serviceSelectTriggerClass}>
+              <SelectTrigger
+                data-new-order-field="create-status"
+                className={serviceSelectTriggerClass}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className={serviceDropdownContentClass}>

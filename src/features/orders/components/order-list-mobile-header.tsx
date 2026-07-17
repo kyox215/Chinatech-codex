@@ -109,7 +109,7 @@ export function MobileOrdersFloatingHeader({
         <header className={repairOs.mobileFloatingHeaderNav}>
           <SidebarTrigger className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
-            <p className="truncate text-sm font-semibold leading-5">订单管理</p>
+            <p className="truncate text-sm font-semibold leading-5">维修工单</p>
             <p className="flex items-center justify-center gap-1 truncate text-[9px] leading-3 text-muted-foreground">
               <span className="truncate">
                 {pendingLabel
@@ -226,7 +226,7 @@ export function MobileOrdersFloatingHeader({
             role={searchValue || pendingLabel ? undefined : "status"}
             aria-live={searchValue || pendingLabel ? "off" : "polite"}
           >
-            当前显示 {activeGroup?.label ?? "全部待办"}，共 {activeGroup?.count ?? totalOrders} 条
+            当前显示 {activeGroup?.label ?? "全部任务"}，共 {activeGroup?.count ?? totalOrders} 条
           </span>
         </div>
       </section>

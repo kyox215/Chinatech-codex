@@ -11,6 +11,7 @@ import {
   getCustomerDetailHref,
   getCustomerLifetimeQuotedAmount,
   getCustomerOutstandingAmount,
+  getCustomerWorkSummary,
 } from "@/features/customers/model/customer-list";
 import { CustomerStatusBadges } from "@/features/customers/components/customer-status-badges";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
@@ -163,6 +164,7 @@ export function CustomerRow({
 }) {
   const router = useRouter();
   const href = getCustomerDetailHref(customer.id);
+  const workSummary = getCustomerWorkSummary(customer);
 
   function openDetail() {
     if (onOpenDetail) {
@@ -240,15 +242,10 @@ export function CustomerRow({
           <MoneyText amount={getCustomerLifetimeQuotedAmount(customer)} />
         )}
       </td>
-      <td className="whitespace-nowrap px-2 py-2 text-right text-xs">
-        {customer.finance_redacted ? (
-          <span className="text-muted-foreground">受限</span>
-        ) : (
-          <MoneyText amount={getCustomerOutstandingAmount(customer)} />
-        )}
-      </td>
-      <td className="whitespace-nowrap px-2 py-2 text-[11px]">
-        <CustomerStatusBadges customer={customer} />
+      <td className="min-w-0 px-2 py-2 text-[11px]">
+        <div className="truncate font-semibold text-foreground">{workSummary.actionLabel}</div>
+        <div className="truncate text-muted-foreground">{workSummary.detail}</div>
+        <CustomerStatusBadges customer={customer} compact className="mt-1" />
       </td>
       <td className="px-2 py-2 text-right">
         <Button

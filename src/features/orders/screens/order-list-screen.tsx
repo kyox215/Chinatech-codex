@@ -68,12 +68,7 @@ import {
 } from "@/features/orders/components/order-list-states";
 import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen";
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
-import {
-  batchTransition,
-  patchOrder,
-  type OrderListFilters,
-  type OrderListItem,
-} from "@/lib/repairdesk/api";
+import { batchTransition, type OrderListFilters, type OrderListItem } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderListPageInput, OrderListView, OrderQueueGroup } from "@/lib/repairdesk/types";
 import {
@@ -113,13 +108,7 @@ import {
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
-import {
-  invalidateOrderReadCaches,
-  isOrderVersionConflict,
-  patchOrderReadCaches,
-  restoreOrderReadCaches,
-  snapshotOrderReadCaches,
-} from "@/features/orders/api/cache-sync";
+import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
@@ -141,7 +130,7 @@ const emptyOrderOptions = {
 };
 
 const orderStageHints: Record<OrderQueueGroup | "all", string> = {
-  all: "全部客户队列",
+  all: "所有待处理维修工单",
   processing: orderQueueGroupMeta.processing.hint,
   ordered: orderQueueGroupMeta.ordered.hint,
   arrived: orderQueueGroupMeta.arrived.hint,
@@ -357,7 +346,6 @@ export function OrderListScreen() {
 
   const options = orderOptions ?? emptyOrderOptions;
   const canReadSuppliers = options.permissions.canReadSuppliers;
-  const canAssignSuppliers = options.permissions.canAssignSuppliers;
   const canBrowseOrderArchive = options.permissions.canBrowseOrderArchive === true;
   const canSearchOrderArchive = options.permissions.canSearchOrderArchive === true;
   const canExportOrders = options.permissions.canExportOrders === true;
@@ -413,7 +401,7 @@ export function OrderListScreen() {
     return [
       {
         key: "all" as const,
-        label: "全部待办",
+        label: "全部任务",
         shortLabel: "全",
         tone: "neutral" as const,
         count: queueCounts.all,
@@ -691,48 +679,6 @@ export function OrderListScreen() {
       );
       setSelected([]);
       refreshOrderData();
-    },
-  });
-
-  const partsSupplierMutation = useMutation({
-    mutationFn: ({ order, supplierId }: { order: OrderListItem; supplierId: string | null }) =>
-      patchOrder(order.id, {
-        expected_updated_at: order.updated_at,
-        changes: { parts_supplier_id: supplierId },
-      }),
-    onMutate: async (vars) => {
-      const freshnessGuard = coordinator?.beginMutation(["orders.all"]);
-      await queryClient.cancelQueries({ queryKey: ordersKeys.all });
-      const snapshot = snapshotOrderReadCaches(queryClient, vars.order.id);
-      patchOrderReadCaches(queryClient, vars.order.id, { parts_supplier_id: vars.supplierId });
-      return { freshnessGuard, snapshot };
-    },
-    onSuccess: (result, vars) => {
-      patchOrderReadCaches(queryClient, vars.order.id, {
-        parts_supplier_id: vars.supplierId,
-        updated_at: result.updated_at,
-      });
-      const supplierName =
-        visibleSuppliers.find((supplier) => supplier.id === vars.supplierId)?.short_name ??
-        visibleSuppliers.find((supplier) => supplier.id === vars.supplierId)?.name;
-      toast.success(
-        vars.supplierId ? `已标记配件供应商：${supplierName ?? "已选择"}` : "已清除配件供应商",
-      );
-      refreshOrderData(vars.order.id);
-    },
-    onError: (error, vars, context) => {
-      if (!coordinator || coordinator.canRestoreMutationSnapshot(context?.freshnessGuard)) {
-        restoreOrderReadCaches(queryClient, context?.snapshot);
-      }
-      if (isOrderVersionConflict(error)) {
-        refreshOrderData(vars.order.id);
-        toast.error("工单已被更新，已刷新最新数据，请确认后重新选择供应商");
-        return;
-      }
-      toast.error(error instanceof Error ? error.message : "保存配件供应商失败");
-    },
-    onSettled: (_data, _error, _vars, context) => {
-      coordinator?.endMutation(context?.freshnessGuard);
     },
   });
 
@@ -1348,7 +1294,7 @@ export function OrderListScreen() {
             >
               <div className="mb-2 flex min-w-0 items-center justify-between gap-2 px-1">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold">工单工作队列</div>
+                  <div className="text-sm font-semibold">维修工单</div>
                   <div className="text-[11px] text-muted-foreground">
                     {canUseBulkActions
                       ? "点击查看详情，勾选后可执行批量操作。"
@@ -1429,16 +1375,6 @@ export function OrderListScreen() {
                                 canPrint={canExportOrders}
                                 onStopInteraction={stopRowClick}
                                 suppliers={visibleSuppliers}
-                                onPartsSupplierChange={
-                                  canAssignSuppliers
-                                    ? (supplierId) =>
-                                        partsSupplierMutation.mutate({ order, supplierId })
-                                    : undefined
-                                }
-                                isPartsSupplierUpdating={
-                                  partsSupplierMutation.isPending &&
-                                  partsSupplierMutation.variables?.order.id === order.id
-                                }
                               />
                             </div>
                           );
@@ -1473,15 +1409,6 @@ export function OrderListScreen() {
                           onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
                           onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
                           suppliers={visibleSuppliers}
-                          isPartsSupplierUpdating={
-                            partsSupplierMutation.isPending &&
-                            partsSupplierMutation.variables?.order.id === order.id
-                          }
-                          onPartsSupplierChange={
-                            canAssignSuppliers
-                              ? (supplierId) => partsSupplierMutation.mutate({ order, supplierId })
-                              : undefined
-                          }
                         />
                       </div>
                     ))}
@@ -1573,7 +1500,7 @@ export function OrderListScreen() {
       <Dialog open={newOrderOpen} onOpenChange={setNewOrderOpen}>
         <DialogContent showCloseButton={false} className={componentOverlay.formWorkspace}>
           <DialogHeader className="sr-only">
-            <DialogTitle>新建维修订单</DialogTitle>
+            <DialogTitle>新建维修工单</DialogTitle>
             <DialogDescription>在弹窗中填写客户、设备、故障与报价信息。</DialogDescription>
           </DialogHeader>
           <NewOrderScreen

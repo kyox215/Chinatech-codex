@@ -50,7 +50,11 @@ import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-pe
 import { clearRepairDeskOfflineIndexedDb } from "@/features/offline/model/offline-indexeddb";
 import { indicatorSpring } from "@/lib/motion";
 import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
-import { getWorkspaceNavItems, isActiveNavItem } from "@/shared/config/navigation";
+import {
+  canShowWorkspaceNavItem,
+  getWorkspaceNavItems,
+  isActiveNavItem,
+} from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
@@ -63,8 +67,8 @@ export function AppSidebar() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const shell = useStoreShellContext();
   const { isMobile, setOpenMobile } = useSidebar();
-  const nav = getWorkspaceNavItems(shell.isPlatformAdmin).filter(
-    (item) => shell.permissions?.canReadInventory || !["inventory", "buyback"].includes(item.id),
+  const nav = getWorkspaceNavItems(shell.isPlatformAdmin).filter((item) =>
+    canShowWorkspaceNavItem(item, shell.permissions),
   );
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
   const accountDisplayName = shell.displayName?.trim() || "当前账号";

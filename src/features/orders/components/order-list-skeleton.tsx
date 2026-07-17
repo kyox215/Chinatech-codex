@@ -87,7 +87,7 @@ export function OrderListSkeleton() {
       aria-busy="true"
     >
       <span className="sr-only" role="status" aria-live="polite">
-        正在准备订单管理
+        正在准备维修工单
       </span>
 
       <div aria-hidden="true">

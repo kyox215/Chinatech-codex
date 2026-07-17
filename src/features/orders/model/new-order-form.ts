@@ -37,7 +37,7 @@ export const initialNewOrderForm: NewOrderFormState = {
   model: "",
   imei: "",
   deviceNotes: "",
-  deviceCustodyStatus: "with_shop",
+  deviceCustodyStatus: null,
   deviceUnlock: { method: "none" },
   issueCaptureMode: "reported",
   issue: "",

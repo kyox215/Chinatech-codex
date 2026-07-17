@@ -63,6 +63,7 @@ export function WarrantyPicker({
   appearance = "outlined",
   triggerClassName,
   contentClassName,
+  reasonFieldTarget,
 }: {
   valueMonths?: number | null;
   valueText?: string | null;
@@ -73,6 +74,7 @@ export function WarrantyPicker({
   appearance?: "outlined" | "quiet";
   triggerClassName?: string;
   contentClassName?: string;
+  reasonFieldTarget?: string;
 }) {
   const quiet = appearance === "quiet";
   const normalizedDefault = normalizeWarrantyMonths(defaultMonths);
@@ -133,6 +135,7 @@ export function WarrantyPicker({
       {needsReason && (
         <div className="space-y-1">
           <Input
+            data-new-order-field={reasonFieldTarget}
             value={reason ?? ""}
             onChange={(event) => updateReason(event.target.value)}
             placeholder="请输入非默认质保原因"

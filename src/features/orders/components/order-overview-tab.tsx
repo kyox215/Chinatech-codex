@@ -67,6 +67,7 @@ import {
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import type { OrderDetailPrimaryAction } from "@/features/orders/model/order-detail-primary-action";
 import { fadeUp } from "@/lib/motion";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import type {
@@ -386,6 +387,7 @@ export function OrderDetailActionDock({
   paymentDisabled = false,
   onNotify,
   notifyDisabled = false,
+  primaryAction = null,
   surface = "page",
 }: {
   order: OrderDetail["order"];
@@ -399,6 +401,7 @@ export function OrderDetailActionDock({
   paymentDisabled?: boolean;
   onNotify: () => void;
   notifyDisabled?: boolean;
+  primaryAction?: OrderDetailPrimaryAction;
   surface?: DetailSurface;
 }) {
   const { isMobile, state: sidebarState } = useSidebar();
@@ -423,6 +426,9 @@ export function OrderDetailActionDock({
         isPaid: order.is_paid,
       };
   const flowActionLabel = approvalDecisionAvailable ? "审批处理" : "流转";
+  const notifyPrimary = primaryAction === "notify";
+  const flowPrimary = primaryAction === "flow" || primaryAction === "approval";
+  const paymentPrimary = primaryAction === "payment";
   const pageDockStyle: React.CSSProperties | undefined =
     surface === "page"
       ? {
@@ -500,8 +506,13 @@ export function OrderDetailActionDock({
             <Button
               type="button"
               size="sm"
-              className="h-9 gap-1.5 border-0 px-2 text-xs text-primary-foreground"
-              style={{ background: "var(--gradient-brand)" }}
+              variant={notifyPrimary ? "default" : "outline"}
+              data-primary-action={notifyPrimary ? "true" : undefined}
+              className={cn(
+                "h-9 gap-1.5 px-2 text-xs",
+                notifyPrimary && "border-0 text-primary-foreground",
+              )}
+              style={notifyPrimary ? { background: "var(--gradient-brand)" } : undefined}
               disabled={isEditing || notifyDisabled}
               onClick={onNotify}
             >
@@ -511,8 +522,13 @@ export function OrderDetailActionDock({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-9 gap-1.5 px-2 text-xs"
+              variant={flowPrimary ? "default" : "outline"}
+              data-primary-action={flowPrimary ? "true" : undefined}
+              className={cn(
+                "h-9 gap-1.5 px-2 text-xs",
+                flowPrimary && "border-0 text-primary-foreground",
+              )}
+              style={flowPrimary ? { background: "var(--gradient-brand)" } : undefined}
               disabled={isEditing || (!approvalDecisionAvailable && flowDisabled)}
               onClick={approvalDecisionAvailable ? onApprovalDecision : onFlow}
             >
@@ -522,8 +538,13 @@ export function OrderDetailActionDock({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-9 gap-1.5 px-2 text-xs"
+              variant={paymentPrimary ? "default" : "outline"}
+              data-primary-action={paymentPrimary ? "true" : undefined}
+              className={cn(
+                "h-9 gap-1.5 px-2 text-xs",
+                paymentPrimary && "border-0 text-primary-foreground",
+              )}
+              style={paymentPrimary ? { background: "var(--gradient-brand)" } : undefined}
               disabled={
                 financeRedacted ||
                 isEditing ||

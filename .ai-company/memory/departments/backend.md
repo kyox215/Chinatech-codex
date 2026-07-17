@@ -46,7 +46,7 @@ as owner of this file.
 
 ## Interfaces and dependencies
 
-Verified cross-department contract from `TASK-20260716-005-device-custody-status-implementation`: API/Backend exposes store-scoped, version-locked active custody mutation plus dedicated terminal correction/return commands. Required custody fields are never silently stripped; missing migration fails closed. Browser roles have no RPC execution, and customer handover clears unlock secrets atomically.
+Verified cross-department custody contract: API/Backend exposes store-scoped, version-locked active custody mutation plus dedicated terminal correction/return commands. Required custody fields are never silently stripped and browser roles have no direct RPC execution. Migration `20260717182220` supersedes automatic secret clearing: handover preserves credentials unless an authorized request explicitly updates/clears unlock fields.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|

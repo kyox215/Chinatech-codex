@@ -83,6 +83,7 @@ export function NewOrderFaultDiagnosisSection({
           <FormItem label="客户描述的故障现象" className="space-y-1">
             <div className="relative">
               <Textarea
+                data-new-order-field="issue-description"
                 value={form.issue}
                 onChange={(event) => setForm({ ...form, issue: event.target.value })}
                 rows={2}

@@ -4,6 +4,24 @@ const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for guided buyback checks.");
 
+test("a failed buyback request is never presented as an empty list", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route("**/api/repairdesk/inventory/list", async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "controlled buyback failure" }),
+    });
+  });
+
+  await page.goto("/buyback", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByRole("heading", { name: "回收记录加载失败" })).toBeVisible();
+  await expect(page.getByText("这不是空数据")).toBeVisible();
+  await expect(page.getByText("还没有回收报价")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "重新加载" })).toBeVisible();
+});
+
 for (const role of ["owner", "manager", "sales"] as const) {
   for (const viewport of [
     { width: 390, height: 844 },

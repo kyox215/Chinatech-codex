@@ -11,8 +11,8 @@ import {
 } from "./new-order-form";
 
 describe("new order customer name helpers", () => {
-  it("starts with an explicit and visible shop-custody default", () => {
-    expect(initialNewOrderForm.deviceCustodyStatus).toBe("with_shop");
+  it("requires the operator to confirm who holds the device", () => {
+    expect(initialNewOrderForm.deviceCustodyStatus).toBeNull();
     expect(initialNewOrderForm.issueCaptureMode).toBe("reported");
   });
 

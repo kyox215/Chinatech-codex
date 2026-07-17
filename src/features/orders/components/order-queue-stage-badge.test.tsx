@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 describe("OrderQueueStageBadge", () => {
   it.each([
-    [{ status: "parts_ordered", workflow_status: "parts" }, "下单", "ordered"],
+    [{ status: "parts_ordered", workflow_status: "parts" }, "等待配件", "ordered"],
     [
       {
         status: "parts_arrived",
@@ -15,7 +15,7 @@ describe("OrderQueueStageBadge", () => {
         parts_status: "arrived",
         notify_status: "not_sent",
       },
-      "到货",
+      "配件已到",
       "arrived",
     ],
     [
@@ -25,13 +25,13 @@ describe("OrderQueueStageBadge", () => {
         parts_status: "arrived",
         notify_status: "sent",
       },
-      "到货已通知",
+      "已通知到货",
       "arrived_notified",
     ],
-    [{ status: "repaired", workflow_status: "repair" }, "修好", "repaired"],
+    [{ status: "repaired", workflow_status: "repair" }, "待通知取机", "repaired"],
     [
       { status: "repaired", workflow_status: "repair", notify_status: "sent" },
-      "修好已通知",
+      "等待客户取机",
       "repaired_notified",
     ],
   ] as const)("renders %s as %s", (order, label, key) => {

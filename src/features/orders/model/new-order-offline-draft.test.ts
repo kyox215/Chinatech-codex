@@ -93,7 +93,7 @@ describe("new order offline draft mapping", () => {
     const input = buildNewOrderOfflineDraftInput({ form });
 
     expect(hasNewOrderSensitiveUnlockDraft(form)).toBe(true);
-    expect(input.hasSensitiveVaultEntry).toBe(false);
+    expect(input.hasSensitiveVaultEntry).toBe(true);
     expect(JSON.stringify(input.draftPayload)).not.toContain("001258");
     expect(JSON.stringify(input.draftPayload).toLowerCase()).not.toContain("unlock");
 
@@ -106,7 +106,7 @@ describe("new order offline draft mapping", () => {
     const saved = await service.saveDraft(input);
 
     expect(saved.ok).toBe(true);
-    expect(saved.ok && saved.value.hasSensitiveVaultEntry).toBe(false);
+    expect(saved.ok && saved.value.hasSensitiveVaultEntry).toBe(true);
   });
 
   it("restores normal fields but requires sensitive unlock re-entry", async () => {
@@ -145,7 +145,7 @@ describe("new order offline draft mapping", () => {
 
     const restored = restoreNewOrderFormFromOfflineDraft(saved.value);
 
-    expect(restored.sensitiveUnlockNeedsReentry).toBe(false);
+    expect(restored.sensitiveUnlockNeedsReentry).toBe(true);
     expect(restored.form).toMatchObject({
       customerId: "customer_1",
       customerName: "Mario Rossi",
@@ -203,7 +203,7 @@ describe("new order offline draft mapping", () => {
     expect(payload).toMatchObject({
       orderType: "quick_repair",
       orderStatus: "new",
-      deviceCustody: "with_shop",
+      deviceCustody: null,
       customerName: "Mario Rossi",
       customerPhone: "+393331112222",
       deviceBrand: "Apple",
@@ -251,16 +251,18 @@ describe("new order offline draft mapping", () => {
     expect(restored.form.faults).toEqual([]);
   });
 
-  it("round trips customer-held custody and never retains a sensitive unlock draft", () => {
+  it("keeps a customer-held PIN re-entry marker without persisting the PIN", () => {
     const form = makeForm({
       customerPhone: "+393331112222",
       deviceCustodyStatus: "with_customer",
       deviceUnlock: { method: "pin", value: "001258" },
     });
-    const payload = buildNewOrderOfflineDraftPayload(form);
+    const input = buildNewOrderOfflineDraftInput({ form });
+    const payload = input.draftPayload;
 
     expect(payload.deviceCustody).toBe("with_customer");
-    expect(hasNewOrderSensitiveUnlockDraft(form)).toBe(false);
+    expect(hasNewOrderSensitiveUnlockDraft(form)).toBe(true);
+    expect(input.hasSensitiveVaultEntry).toBe(true);
     expect(JSON.stringify(payload)).not.toContain("001258");
     expect(isNewOrderFormWorthOfflineAutosave(form)).toBe(true);
   });

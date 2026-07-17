@@ -164,6 +164,7 @@ import {
   isOrderCancelledState,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
+import { resolveOrderDetailPrimaryAction } from "@/features/orders/model/order-detail-primary-action";
 import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
@@ -989,11 +990,14 @@ export function OrderDetailScreen({
   }
   const { order, customer, device, supplier, events, messages } = data;
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
+  const cancelled = isOrderCancelledState(order);
   const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(
     order,
     storeOutputIdentity.canOutput,
   );
-  const canNotify = !isVoided && !order.customer_contact_redacted;
+  const canNotify = !isVoided && !cancelled && !order.customer_contact_redacted;
+  const canPromoteNotification =
+    canNotify && order.contact_phones.some((phone) => phone.replace(/\D/g, "").length >= 6);
   const latestPublishedQuoteId = data.latest_quote_event_id;
   const canOpenDiagnosisQuote = Boolean(
     data.capabilities?.canEditRepair || data.capabilities?.canPrepareQuote,
@@ -1017,7 +1021,6 @@ export function OrderDetailScreen({
   const partsSupplier = supplierPermissions.canReadSuppliers
     ? (data.parts_supplier ?? supplierOptions.find((item) => item.id === order.parts_supplier_id))
     : undefined;
-  const cancelled = isOrderCancelledState(order);
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   const next = cancelled
     ? { primary: undefined, secondary: [] }
@@ -1046,6 +1049,17 @@ export function OrderDetailScreen({
     !cancelled &&
     !isVoided &&
     isApprovalDecisionAvailable(order);
+  const desktopPrimaryAction = resolveOrderDetailPrimaryAction({
+    status: order.status,
+    cancelled: cancelled || isVoided,
+    notifyStatus: order.notify_status,
+    approvalOverdue: order.approval_overdue,
+    pickupOverdue: order.pickup_overdue,
+    approvalDecisionAvailable: canDecideApproval,
+    flowAvailable: desktopStatusActions.length > 0,
+    notificationAvailable: canPromoteNotification,
+    paymentAvailable: canCollectPayment && !order.finance_redacted,
+  });
   const deviceBrand = order.device_snapshot?.brand || device?.brand || "";
   const deviceModel = order.device_snapshot?.model || device?.model || "";
   const deviceLabel = `${deviceBrand} ${deviceModel}`.trim() || order.device_label;
@@ -1464,6 +1478,7 @@ export function OrderDetailScreen({
             paymentDisabled={!canCollectPayment}
             onNotify={() => setNotifyOpen(true)}
             notifyDisabled={!canNotify}
+            primaryAction={desktopPrimaryAction}
             surface={surface}
           />
         ) : null}
@@ -2017,6 +2032,9 @@ function OrderRecordsWorkspace({
   workflow: Parameters<typeof getWorkflowStatusLabel>[0];
   surface: "page" | "dialog";
 }) {
+  const showAssignee = Boolean(onAssigneeChange);
+  const showSupplier = Boolean(partsSupplier || supplierOptions.length || onPartsSupplierChange);
+
   return (
     <motion.div
       variants={fadeUp}
@@ -2028,23 +2046,33 @@ function OrderRecordsWorkspace({
           : "lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]",
       )}
     >
+      {showAssignee || showSupplier ? (
+        <div
+          data-order-responsibility-row="true"
+          className={cn(
+            "grid min-w-0 gap-2 sm:gap-3 lg:col-span-2",
+            showAssignee && showSupplier ? "md:grid-cols-2" : "grid-cols-1",
+          )}
+        >
+          {onAssigneeChange ? (
+            <OrderAssigneeCard
+              order={order}
+              options={assigneeOptions}
+              pending={assigneePending}
+              onChange={onAssigneeChange}
+            />
+          ) : null}
+          {showSupplier ? (
+            <OrderPartsSupplierCard
+              supplier={partsSupplier}
+              suppliers={supplierOptions}
+              isUpdating={partsSupplierPending}
+              onChange={onPartsSupplierChange}
+            />
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid min-w-0 content-start gap-2 sm:gap-3">
-        {onAssigneeChange ? (
-          <OrderAssigneeCard
-            order={order}
-            options={assigneeOptions}
-            pending={assigneePending}
-            onChange={onAssigneeChange}
-          />
-        ) : null}
-        {partsSupplier || supplierOptions.length || onPartsSupplierChange ? (
-          <OrderPartsSupplierCard
-            supplier={partsSupplier}
-            suppliers={supplierOptions}
-            isUpdating={partsSupplierPending}
-            onChange={onPartsSupplierChange}
-          />
-        ) : null}
         <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} className="h-fit" />
         <OrderMessagesLog messages={messages} />
       </div>

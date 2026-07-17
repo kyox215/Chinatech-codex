@@ -29,6 +29,7 @@ as owner of this file.
 - RepairOS list/management pages should open directly into KPI, filters, chips, toolbars, or business content; do not add duplicate page-body module title blocks when AppBar already provides module context.
 - Visual claims require screenshot/browser evidence when UI changes are made.
 - Dashboard mobile opens with two equal quick-start entries and one complete first-priority card; the Dashboard-only status rail and duplicate floating quick Dock stay absent. Desktop uses a primary queue plus compact handoff/business sidebar. Priority meaning is never color-only and every card spells out reason, current step, next step, assignee and time.
+- Desktop business workflows should be read-first and novice-legible: one visually recommended action, advanced/correction actions secondary, exact missing-field focus, no duplicate responsibility editors in dense lists, and distinct loading/empty/error states. Preserve full functionality in detail instead of hiding it globally.
 
 ## Interfaces and dependencies
 
@@ -65,3 +66,4 @@ as owner of this file.
 | 2026-06-19 | Initial RepairDesk design baseline synchronized | TASK-20260619-003 | Integration Lead | active |
 | 2026-07-07 | Added no-duplicate-module-title rule for RepairOS list/management pages | TASK-20260707-005 | Integration Lead | active |
 | 2026-07-16 | Recorded responsive Dashboard handoff hierarchy and current visual-evidence contract | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + UX/FLOW reviewer | active |
+| 2026-07-17 | Recorded one-primary-action desktop hierarchy and exact missing-field/error-state evidence | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + UX/QA reviewers | verified |

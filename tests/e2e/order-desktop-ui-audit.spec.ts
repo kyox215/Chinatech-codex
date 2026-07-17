@@ -9,6 +9,7 @@ const desktopQueueViewports = [
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
   { width: 1536, height: 900 },
+  { width: 1600, height: 1000 },
 ] as const;
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for order desktop UI audit.");
@@ -33,7 +34,7 @@ test.describe("order desktop UI audit", () => {
       await gotoReady(page, "/orders");
 
       await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-      await expectFirstVisible(page.getByText("工单工作队列"), "/orders work queue heading");
+      await expectFirstVisible(page.getByText("维修工单"), "/orders work queue heading");
       const desktopList = page.locator('[data-order-desktop-list="true"]');
       await expectFirstVisible(desktopList, "/orders desktop queue");
       await expect(page.locator('[data-order-mobile-list="true"]')).toBeHidden();
@@ -138,6 +139,7 @@ test.describe("order desktop UI audit", () => {
       await expectVisibleButtonCount(hero.getByRole("button", { name: "收款" }), 0, "顶部收款");
       await expectVisibleButtonCount(hero.getByRole("button", { name: "报价" }), 0, "顶部报价");
       const actionDock = detail.locator('[data-order-action-dock="true"]');
+      await expect(actionDock.locator('[data-primary-action="true"]')).toHaveCount(1);
       await expectVisibleButtonCount(
         actionDock.getByRole("button", { name: "WhatsApp" }),
         1,
@@ -525,7 +527,7 @@ async function expectInlineEditWorkspace(
 
 async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
   await clickFirstVisible(page.locator('[data-order-list-new-button="true"]'), "新建工单");
-  const dialog = page.getByRole("dialog", { name: "新建维修订单" });
+  const dialog = page.getByRole("dialog", { name: "新建维修工单" });
   await expect(dialog).toBeVisible();
   await expectFirstVisible(
     page.locator('[data-new-order-desktop-header="true"]'),
@@ -535,6 +537,9 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     page.locator('[data-new-order-workspace-grid="true"]'),
     "新建工单桌面网格",
   );
+  const missingItems = page.locator('[data-new-order-missing-items="true"]');
+  await expectFirstVisible(missingItems, "新建工单缺失项提示");
+  await expect(missingItems.getByRole("button", { name: "补充：设备保管" })).toBeVisible();
   await expectFirstVisible(page.locator('[data-new-order-section="customer"]'), "新建工单客户区");
   await expectFirstVisible(
     page.locator('[data-new-order-section="customer"]').getByText("客户信息"),
@@ -553,8 +558,8 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     "新建工单故障与诊断区",
   );
   await expectFirstVisible(
-    page.locator('[data-new-order-section="fault-diagnosis"]').getByText("故障与诊断"),
-    "新建工单故障与诊断标题",
+    page.locator('[data-new-order-section="fault-diagnosis"]').getByText("客户报障"),
+    "新建工单客户报障标题",
   );
   await expectFirstVisible(
     page.locator('[data-new-order-section="quotation"]'),

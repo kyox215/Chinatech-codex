@@ -8,13 +8,11 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
   Filter,
   LoaderCircle,
   Plus,
   RefreshCw,
   Search,
-  Smartphone,
   Users,
   Wrench,
 } from "lucide-react";
@@ -212,6 +210,7 @@ export function CustomerListScreen() {
   });
 
   const activeFilterCount = useMemo(() => getCustomerActiveFilterCount(baseFilters), [baseFilters]);
+  const hasCustomerConstraints = activeFilterCount > 0 || Boolean(searchDraft.trim());
   const queryErrorMessage = error instanceof Error ? error.message : "客户加载失败";
   const activeWorkFilter = baseFilters.work ?? "all";
   const customerHeaderChips = buildCustomerWorkFilterChips(stats);
@@ -311,12 +310,6 @@ export function CustomerListScreen() {
         >
           <CustomerKpiCard icon={Users} label="总客户" value={stats?.total ?? 0} />
           <CustomerKpiCard icon={Wrench} label="在修客户" value={stats?.activeRepairs ?? 0} />
-          <CustomerKpiCard
-            icon={CircleDollarSign}
-            label={stats?.financeRedacted ? "金额权限" : "有待收客户"}
-            value={stats?.financeRedacted ? "受限" : (stats?.unpaid ?? 0)}
-          />
-          <CustomerKpiCard icon={Smartphone} label="有设备" value={stats?.withDevices ?? 0} />
         </motion.div>
       }
     >
@@ -412,8 +405,32 @@ export function CustomerListScreen() {
           <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
             <Search className="size-5" />
           </span>
-          <h3 className="mt-3 text-base font-semibold leading-5">暂无符合条件的客户</h3>
-          <p className="mt-1 text-xs text-muted-foreground">调整筛选条件，或新建客户档案。</p>
+          <h3 className="mt-3 text-base font-semibold leading-5">
+            {hasCustomerConstraints ? "没有找到符合条件的客户" : "还没有客户档案"}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {hasCustomerConstraints
+              ? "清除搜索和筛选后再试，现有客户不会被删除。"
+              : "先新建客户，之后可从客户档案直接发起维修工单。"}
+          </p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {hasCustomerConstraints ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchDraft("");
+                  updateFilters({ work: "all" });
+                }}
+              >
+                清除搜索和筛选
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-3.5" /> 新建客户
+            </Button>
+          </div>
         </RepairOsBusinessCard>
       ) : (
         <>
@@ -439,12 +456,11 @@ export function CustomerListScreen() {
               >
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b border-border/40">
-                    <th className="w-[280px] px-3 py-2 text-left font-medium">客户</th>
-                    <th className="w-[220px] px-2 py-2 text-left font-medium">设备/工单</th>
-                    <th className="w-[104px] px-2 py-2 text-right font-medium">有效工单额</th>
-                    <th className="w-[104px] px-2 py-2 text-right font-medium">待收</th>
-                    <th className="w-[176px] px-2 py-2 text-left font-medium">状态</th>
-                    <th className="w-[72px] px-2 py-2"></th>
+                    <th className="w-[230px] px-3 py-2 text-left font-medium">客户</th>
+                    <th className="w-[170px] px-2 py-2 text-left font-medium">设备/工单</th>
+                    <th className="w-[96px] px-2 py-2 text-right font-medium">有效工单额</th>
+                    <th className="w-[190px] px-2 py-2 text-left font-medium">当前事项</th>
+                    <th className="w-[64px] px-2 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>

@@ -20,13 +20,37 @@ test("new order requires an explicit custody choice and customer-held devices ke
 
   const withShop = page.getByRole("button", { name: /设备留店/ });
   const withCustomer = page.getByRole("button", { name: /设备未留店/ });
-  await expect(withShop).toHaveAttribute("aria-pressed", "true");
+  await expect(withShop).toHaveAttribute("aria-pressed", "false");
   await expect(withCustomer).toHaveAttribute("aria-pressed", "false");
+
+  await expect(page.getByText("系统不会替你默认选择")).toBeVisible();
+
+  await withShop.click();
+  await expect(withShop).toHaveAttribute("aria-pressed", "true");
+
+  await page.locator('[data-device-unlock-method="pin"]').click();
+  const pinTrigger = page.getByRole("button", { name: "数字 PIN" });
+  await pinTrigger.click();
+  for (const digit of ["0", "0", "1", "2"]) {
+    await page.locator(`[data-device-unlock-pin-digit="${digit}"]`).click();
+  }
+  await page.locator('[data-device-unlock-pin-done="true"]').click();
+  await expect(pinTrigger).toContainText("0012");
 
   await withCustomer.click();
   await expect(withCustomer).toHaveAttribute("aria-pressed", "true");
   await expect(withShop).toHaveAttribute("aria-pressed", "false");
+  await expect(pinTrigger).toContainText("0012");
   await expect(page.getByText("设备未留店也可登记，后续交还不会自动清除")).toBeVisible();
+  await expect(
+    page
+      .locator('[data-new-order-offline-status="true"]:visible')
+      .getByText(/PIN 或图案不会进入本机草稿/),
+  ).toBeVisible();
+
+  await withShop.click();
+  await expect(withShop).toHaveAttribute("aria-pressed", "true");
+  await expect(pinTrigger).toContainText("0012");
   await expectNoHorizontalOverflow(page);
 });
 

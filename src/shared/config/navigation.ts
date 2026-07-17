@@ -54,6 +54,13 @@ export interface RepairDeskNavItem {
   primaryAction?: RepairDeskShellAction;
 }
 
+type RepairDeskNavigationPermissions = {
+  canReadInventory?: boolean;
+  canReadMessageTemplates?: boolean;
+};
+
+type RepairDeskNavigationRole = "owner" | "manager" | "technician" | "sales" | "viewer";
+
 export const newOrderShellAction: RepairDeskShellAction = {
   id: "new-order",
   kind: "route",
@@ -87,11 +94,11 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
   },
   {
     id: "orders",
-    title: "订单管理",
-    shortTitle: "订单",
+    title: "维修工单",
+    shortTitle: "工单",
     url: "/orders",
     icon: ClipboardList,
-    commandLabel: "工单列表",
+    commandLabel: "维修工单",
     aliases: ["工单", "维修单", "接单", "orders"],
     primaryAction: newOrderShellAction,
   },
@@ -223,6 +230,19 @@ export function getWorkspaceNavItems(isPlatformAdmin: boolean) {
   ];
 }
 
+export function canShowWorkspaceNavItem(
+  item: RepairDeskNavItem,
+  permissions?: RepairDeskNavigationPermissions,
+) {
+  if (["inventory", "buyback"].includes(item.id)) {
+    return permissions?.canReadInventory === true;
+  }
+  if (item.id === "messages") {
+    return permissions?.canReadMessageTemplates === true;
+  }
+  return true;
+}
+
 export function isActiveNavItem(pathname: string, item: RepairDeskNavItem) {
   return item.exact
     ? pathname === item.url
@@ -238,8 +258,11 @@ export function getShellPrimaryAction(pathname: string, isPlatformAdmin = true) 
   return getActiveWorkspaceItem(pathname, isPlatformAdmin).primaryAction ?? newOrderShellAction;
 }
 
-export function getShellCommandActions() {
-  return [
+export function getShellCommandActions(
+  permissions?: RepairDeskNavigationPermissions,
+  role?: RepairDeskNavigationRole,
+) {
+  const actions = [
     {
       id: "account-center",
       kind: "route",
@@ -254,11 +277,20 @@ export function getShellCommandActions() {
     workspaceNavItems.find((item) => item.id === "buyback")!.primaryAction!,
     workspaceNavItems.find((item) => item.id === "inventory")!.primaryAction!,
   ];
+
+  if (role === "viewer") return actions.filter((action) => action.id === "account-center");
+  return actions.filter((action) => {
+    if (action.id === "new-buyback") {
+      return permissions?.canReadInventory === true && (role === "owner" || role === "manager");
+    }
+    if (action.id === "new-inventory") return permissions?.canReadInventory === true;
+    return true;
+  });
 }
 
 export const routeLabels: Record<string, string> = {
   "": "概览",
-  orders: "订单管理",
+  orders: "维修工单",
   customers: "客户管理",
   buyback: "回收管理",
   inventory: "库存商品",

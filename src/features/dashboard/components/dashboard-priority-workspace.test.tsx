@@ -107,6 +107,38 @@ describe("DashboardPriorityWorkspace", () => {
     expect(screen.queryByRole("button", { name: "重试" })).not.toBeInTheDocument();
     expect(screen.queryByText("第 1 优先")).not.toBeInTheDocument();
   });
+
+  it("keeps the overview focused on the first five tasks", () => {
+    const items = Array.from({ length: 8 }, (_, index) => ({
+      ...priorityItem(),
+      rank: index + 1,
+      orderId: `order-${index + 1}`,
+      publicNo: `R-SYNTH-${index + 1}`,
+      detailHref: `/orders/order-${index + 1}`,
+      action: {
+        ...priorityItem().action,
+        href: `/orders/order-${index + 1}/task`,
+      },
+    }));
+
+    const { container } = render(
+      <DashboardPriorityWorkspace
+        summary={{
+          ...summary(),
+          totalCandidates: 8,
+          counts: { overdue: 8, ready: 0, active: 0, waiting: 0 },
+          items,
+        }}
+        isLoading={false}
+        hasHardError={false}
+        hasStaleData={false}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelectorAll('[data-ui="dashboard-priority-card"]')).toHaveLength(5);
+    expect(screen.getByText(/完整队列共 8 单/)).toBeInTheDocument();
+  });
 });
 
 function summary(): DashboardSummary {

@@ -315,15 +315,15 @@ export function OrderStatusFilterControls({
             <ListChecks className="size-3" />
           </span>
           <div className="min-w-0">
-            <div className="text-xs font-semibold leading-4">阶段队列</div>
+            <div className="text-xs font-semibold leading-4">现在要处理</div>
             <div className="truncate text-[11px] text-muted-foreground">
               {groupValue === "all"
-                ? "先选阶段，再处理下一步"
+                ? "选择一类任务，再逐张处理"
                 : `当前：${activeGroup?.label ?? groupValue} · ${activeGroup?.count ?? 0} 条`}
             </div>
           </div>
         </div>
-        <span className="hidden text-[10px] text-muted-foreground sm:inline">处理视图</span>
+        <span className="hidden text-[10px] text-muted-foreground sm:inline">任务视图</span>
       </div>
 
       <div

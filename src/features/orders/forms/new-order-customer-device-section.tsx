@@ -108,31 +108,33 @@ export function NewOrderCustomerSection({
         className="mb-1.5"
       />
       <div className="grid min-w-0 gap-1.5">
-        <CustomerIntakeLookup
-          mode="phone"
-          resultsPlacement="inline"
-          fieldLabel="电话"
-          fieldRequired
-          fieldLeading={<Search className="size-3.5" />}
-          fieldTrailing={<UserRound className="size-3.5 text-primary" />}
-          value={form.customerPhone}
-          selectedCustomerId={form.customerId}
-          selectedDeviceId={form.deviceId}
-          className={visualInputClass}
-          containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
-          placeholder="输入电话号码"
-          onChange={(customerPhone) => {
-            onClearCustomerContext();
-            setForm({
-              ...form,
-              customerPhone,
-              customerId: undefined,
-              deviceId: undefined,
-            });
-          }}
-          onPickCustomer={onPickCustomer}
-          onPickHistoryDevice={onPickHistoryDevice}
-        />
+        <div data-new-order-field="customer-phone">
+          <CustomerIntakeLookup
+            mode="phone"
+            resultsPlacement="inline"
+            fieldLabel="电话"
+            fieldRequired
+            fieldLeading={<Search className="size-3.5" />}
+            fieldTrailing={<UserRound className="size-3.5 text-primary" />}
+            value={form.customerPhone}
+            selectedCustomerId={form.customerId}
+            selectedDeviceId={form.deviceId}
+            className={visualInputClass}
+            containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
+            placeholder="输入电话号码"
+            onChange={(customerPhone) => {
+              onClearCustomerContext();
+              setForm({
+                ...form,
+                customerPhone,
+                customerId: undefined,
+                deviceId: undefined,
+              });
+            }}
+            onPickCustomer={onPickCustomer}
+            onPickHistoryDevice={onPickHistoryDevice}
+          />
+        </div>
         <CustomerIntakeLookup
           mode="name"
           resultsPlacement="inline"
@@ -234,6 +236,7 @@ export function NewOrderDeviceInfoSection({
       )}
       <div className="grid min-w-0 gap-1.5">
         <DensePillField
+          fieldTarget="device-brand"
           label="品牌"
           required
           trailingInteractive
@@ -256,6 +259,7 @@ export function NewOrderDeviceInfoSection({
           />
         </DensePillField>
         <DensePillField
+          fieldTarget="device-model"
           label="型号"
           required
           trailingInteractive
@@ -386,7 +390,11 @@ function NewOrderDeviceCustodySelector({
   ];
 
   return (
-    <fieldset className="grid min-w-0 gap-1.5" aria-required="true">
+    <fieldset
+      data-new-order-field="device-custody"
+      className="grid min-w-0 gap-1.5"
+      aria-required="true"
+    >
       <legend className="text-[10.5px] font-semibold leading-4 text-muted-foreground">
         设备保管 <span className="text-destructive">*</span>
       </legend>
@@ -409,10 +417,7 @@ function NewOrderDeviceCustodySelector({
                 setForm((current) => ({
                   ...current,
                   deviceCustodyStatus: option.value,
-                  deviceUnlock:
-                    option.value === DEVICE_CUSTODY_WITH_CUSTOMER
-                      ? { method: "none" }
-                      : current.deviceUnlock,
+                  deviceUnlock: current.deviceUnlock,
                 }))
               }
             >
@@ -432,7 +437,7 @@ function NewOrderDeviceCustodySelector({
       </div>
       {form.deviceCustodyStatus === null ? (
         <p className="rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
-          这是旧版草稿，请重新确认设备是否留店后再创建。
+          必须主动确认设备由门店还是客户保管；系统不会替你默认选择。
         </p>
       ) : null}
       {form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && form.accessoryNotes.trim() ? (
@@ -457,6 +462,7 @@ function getShellClass(surface: "page" | "dialog") {
 }
 
 function DensePillField({
+  fieldTarget,
   label,
   required,
   leading,
@@ -464,6 +470,7 @@ function DensePillField({
   trailingInteractive = false,
   children,
 }: {
+  fieldTarget?: string;
   label: string;
   required?: boolean;
   leading?: ReactNode;
@@ -472,7 +479,10 @@ function DensePillField({
   children: ReactNode;
 }) {
   return (
-    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
+    <div
+      data-new-order-field={fieldTarget}
+      className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]"
+    >
       <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
         {label}
         {required ? <span className="text-destructive"> *</span> : null}

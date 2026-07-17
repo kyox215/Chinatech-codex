@@ -47,10 +47,11 @@ as owner of this file.
 - Dashboard does not pass status chips to `RepairOsListScaffold`. Mobile shows the two business quick starts before the priority queue; desktop uses the same two actions in the page header. Priority cards show reason/current/next/assignee/time and only navigate to task/detail. A limited sample must use full counts to distinguish true filtered empty from “present beyond this sample”. Any 401/403 hides cached priority data instead of presenting it as stale.
 - Customer cards/details render `累计订单额` and `待收` from explicit valid finance facts and keep repair/payment badges orthogonal. Finance-restricted payloads omit KPI/detail values instead of fabricating €0. Order screens project server capabilities, submit changed fields only, and use accessible reason/version/idempotency terminal-action dialogs consistently on desktop and mobile.
 - Unknown order intake uses an explicit reported/unknown choice and does not fabricate a fault-price row. Desktop detail, mobile detail and task page reuse one diagnosis/quote workspace; the preview is bound to the latest quoted event UUID. Opening `wa.me` is client-only, and only the separate employee confirmation action records sent state.
+- Desktop beginner pages use a read-first hierarchy: at most one recommended action is visually primary, list rows avoid inline responsibility/supplier mutation, missing-field chips focus the exact control, and error states never reuse true-empty copy. Navigation and command shortcuts must share the same permission/role projection.
 
 ## Interfaces and dependencies
 
-Verified cross-department contract from `TASK-20260716-005-device-custody-status-implementation`: Frontend keeps repair type, accessories and device custody independent; new order visibly defaults to `with_shop` but sends an explicit choice, customer-held clears/hides unlock input, and detail changes use a dedicated online Sheet/Dialog action with version and reason where required.
+Verified custody contract: Frontend keeps repair type, accessories, custody and unlock credentials independent. New order begins with no custody selection and requires an explicit choice; switching to/from customer-held preserves the entered unlock method/value; detail changes use a dedicated online Sheet/Dialog action with version and reason where required.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
@@ -109,3 +110,4 @@ Verified cross-department contract from `TASK-20260716-005-device-custody-status
 | 2026-07-17 | Recorded shared desktop/mobile order-create pending and ambiguous-success recovery gap | TASK-20260717-163954-task | Integration Lead | verified_debt |
 | 2026-07-17 | Added first-phase online create recovery UX: operation id, confirming/uncertain state, repeat-submit block and desktop/mobile screenshots | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |
 | 2026-07-17 | Added explicit unknown intake and reusable responsive diagnosis/quote/confirmed-send UI contract | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
+| 2026-07-17 | Added read-first desktop hierarchy, exact missing-field focus, shared shortcut permissions and custody credential retention | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + UX/QA reviewers | verified |

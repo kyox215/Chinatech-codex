@@ -18,7 +18,7 @@ const scope: RepairDeskOfflineScope = { storeId: "store_1", userId: "user_1" };
 type HookValue = ReturnType<typeof useNewOrderOfflineAutosave>;
 
 describe("useNewOrderOfflineAutosave", () => {
-  it("autosaves non-sensitive new-order fields without storing raw unlock values", async () => {
+  it("autosaves safe fields with only a sensitive re-entry marker", async () => {
     const harness = createServiceHarness();
     let latest: HookValue | undefined;
 
@@ -50,7 +50,7 @@ describe("useNewOrderOfflineAutosave", () => {
       deviceModel: "iPhone 13",
       issueDescription: "Schermo rotto",
     });
-    expect(drafts.ok && drafts.value[0]?.hasSensitiveVaultEntry).toBe(false);
+    expect(drafts.ok && drafts.value[0]?.hasSensitiveVaultEntry).toBe(true);
     expect(JSON.stringify(drafts.ok && drafts.value[0])).not.toContain("001258");
     expect(JSON.stringify(drafts.ok && drafts.value[0]).toLowerCase()).not.toContain("unlock");
   });

@@ -46,7 +46,7 @@ as owner of this file.
 - Settings Kiosk and order-data routes use exact default-off dual flags. Any confirmed cross-store data,
   transient secret, output identity, unauthorized write, missing high-risk audit, or post-failure partial
   write is a zero-tolerance release stop; local flags and mocks are not production proof.
-- `TASK-20260716-005-device-custody-status-implementation` enforces that customer-held devices cannot retain unlock credentials. Custody changes require server-side store/actor/role checks, version locking and redacted audit events; anon/authenticated cannot execute any custody RPC, NULL actors/targets fail closed, and database constraints prevent secret-bearing customer-held rows.
+- Custody changes require server-side store/actor/role checks, version locking and redacted audit events; anon/authenticated cannot execute custody RPCs and NULL actors/targets fail closed. Migration `20260717182220` intentionally allows customer-held devices to retain credentials. Raw secrets remain separately permissioned and are excluded from ordinary offline drafts and event/audit payloads; a boolean re-entry marker is safe to persist.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` enforces same-store active actor checks, narrow non-grantable quote authority, CAS and idempotency in both quote RPCs. Both functions are security invoker with an empty search path; only service role has EXECUTE, while PUBLIC/anon/authenticated are denied. Message and audit payloads retain only bounded quote/send evidence.
 
 ## Interfaces and dependencies
@@ -73,7 +73,7 @@ as owner of this file.
 | SEC-20260710-001 | Reviewed legacy browser-role grants were revoked under exact Owner-approved containment; RLS/default ACL/policy/function residuals and observation gaps remain | Residual customer/business data and governance exposure | Security + Data + Owner | separate R4 hardening and fresh release review | contained_residual_open |
 | SEC-20260710-002 | One plaintext unlock pattern remains and no approved retention/key-management policy exists | Sensitive device-access secret risk | Security + Data + Owner | policy decision before encryption migration, purge or export | blocked_by_policy |
 | SEC-20260713-003 | Buyback evidence retention, staged-file deletion, runtime bucket/RLS grants, legal wording and advanced file sanitization are not production-verified | Identity-document/privacy exposure | Security + Data + Operations + Owner | approved production-readiness/legal task before evidence activation | contained_by_feature_off_and_revoked_runtime_acl |
-| SEC-20260716-004 | Device-custody and unlock-clear behavior is planned but not implemented | False custody evidence or retained device-access secrets | Security + Backend + Product + Owner | implementation WP-01 through WP-05 | proposed |
+| SEC-20260716-004 | Custody and credential retention previously conflicted across code/memory | False custody evidence or unintended secret clearing | Security + Backend + Product + Owner | `20260717182220` superseding `20260716235650`, UI/E2E and linked dry-run evidence | mitigated_scoped_verified |
 | SEC-20260713-001 | Kiosk limiting/token/retention/signature policy and order-data ingress/retention/limiting remain unapproved | PII abuse, leakage or over-retention | Security + Data + Operations + Owner | before Kiosk or order-data production unit | open |
 
 ## Lessons and anti-patterns
@@ -108,3 +108,4 @@ as owner of this file.
 | 2026-07-13 | Recorded Settings dual-flag containment and zero-tolerance tenant/PII/partial-write stops | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | local_contract |
 | 2026-07-17 | Verified custody permission, tenant, NULL-input and unlock-secret controls in app, pgTAP and production ACL/constraint postchecks | TASK-20260716-005-device-custody-status-implementation | Security reviewers + Integration Lead | scoped_verified |
 | 2026-07-17 | Verified quote role/tenant/CAS/idempotency controls and service-role-only production RPC ACLs | TASK-20260717-004-order-diagnosis-quote-implementation | Security/Data reviewers + Integration Lead | scoped_verified |
+| 2026-07-17 | Superseded automatic custody secret clearing while preserving permission, offline and audit minimization boundaries | TASK-20260717-008-desktop-novice-ui-implementation | Security/QA reviewers + Integration Lead | scoped_verified |

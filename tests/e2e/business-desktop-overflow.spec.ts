@@ -6,6 +6,7 @@ const desktopViewports = [
   { width: 1024, height: 768 },
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
+  { width: 1600, height: 1000 },
 ] as const;
 
 const businessRoutes = [
@@ -66,7 +67,7 @@ test.describe("business desktop overflow guard", () => {
         );
         if (route.path === "/orders") {
           await expectFirstVisible(
-            page.locator("main").last().getByText("工单工作队列"),
+            page.locator("main").last().getByText("维修工单"),
             "/orders desktop work queue",
           );
         }
@@ -128,7 +129,7 @@ async function auditOrderDialogs(page: Page, viewport: DesktopViewport) {
   await expectFirstVisible(page.locator('[data-order-row="true"]'), "/orders first row");
 
   await clickFirstVisible(page.locator('[data-order-list-new-button="true"]'), "新建工单");
-  await expect(page.getByRole("dialog", { name: "新建维修订单" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "新建维修工单" })).toBeVisible();
   await expectOpenDialogsFit(page, "/orders new order", viewport.width);
   await expectNoPageOverflow(page, "/orders new order", viewport.width);
   await closeDialogs(page);

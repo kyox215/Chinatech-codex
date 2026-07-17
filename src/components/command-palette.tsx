@@ -14,7 +14,11 @@ import { useQuery } from "@tanstack/react-query";
 import { orderListPageQueryOptions } from "@/features/orders/api/query-options";
 import { toggleThemePreference } from "@/lib/theme";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { getShellCommandActions, getWorkspaceNavItems } from "@/shared/config/navigation";
+import {
+  canShowWorkspaceNavItem,
+  getShellCommandActions,
+  getWorkspaceNavItems,
+} from "@/shared/config/navigation";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
 
 export function CommandPalette({
@@ -58,10 +62,10 @@ export function CommandPalette({
     onOpenChange(false);
     onOpenScanner();
   };
-  const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin).filter(
-    (item) => shell.permissions?.canReadInventory || !["inventory", "buyback"].includes(item.id),
+  const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin).filter((item) =>
+    canShowWorkspaceNavItem(item, shell.permissions),
   );
-  const shellActions = getShellCommandActions();
+  const shellActions = getShellCommandActions(shell.permissions, shell.activeStore?.role);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>

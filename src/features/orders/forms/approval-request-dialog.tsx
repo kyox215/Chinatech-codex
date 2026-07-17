@@ -66,6 +66,7 @@ export function ApprovalRequestDialog({
     }),
   );
   const [phone, setPhone] = useState(defaultPhone);
+  const [whatsappOpened, setWhatsappOpened] = useState(false);
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
 
   useEffect(() => {
@@ -78,11 +79,13 @@ export function ApprovalRequestDialog({
       }),
     );
     setPhone(nextPhone);
+    setWhatsappOpened(false);
   }, [data, open, orderUrl, storeIdentity]);
 
   const updatePhone = (nextPhone: string) => {
     setPhone(nextPhone);
     setBody((current) => replaceOrderWhatsappRecipientPhone(current, nextPhone));
+    setWhatsappOpened(false);
   };
 
   return (
@@ -93,7 +96,7 @@ export function ApprovalRequestDialog({
         <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
           <DialogTitle>预览 WhatsApp 审批消息</DialogTitle>
           <DialogDescription className="text-xs">
-            内容将以意大利语发送给客户。确认后会打开 WhatsApp，并记录到通知历史。
+            先打开 WhatsApp；只有确认实际发送后，系统才会记录通知并继续流程。
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
@@ -134,16 +137,28 @@ export function ApprovalRequestDialog({
               rows={10}
               value={body}
               disabled={!storeIdentity.canOutput}
-              onChange={(event) => setBody(event.target.value)}
+              onChange={(event) => {
+                setBody(event.target.value);
+                setWhatsappOpened(false);
+              }}
               className="min-h-[260px] resize-none font-mono text-xs leading-relaxed"
             />
           </div>
+          {whatsappOpened ? (
+            <div
+              aria-live="polite"
+              className="mt-2 rounded-md border border-status-success-foreground/20 bg-status-success/10 px-2 py-1.5 text-xs text-status-success-foreground"
+            >
+              WhatsApp 已打开。请确认消息确实发送后，再点击“我已发送”。
+            </div>
+          ) : null}
         </div>
         <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消
           </Button>
           <Button
+            type="button"
             disabled={busy || !storeIdentity.canOutput || !body.trim() || !canOpenWhatsApp}
             onClick={async () => {
               const url = buildWhatsAppUrl(phone, body.trim());
@@ -151,11 +166,17 @@ export function ApprovalRequestDialog({
                 toast.error("客户电话号码不可用于 WhatsApp");
                 return;
               }
-              window.open(url, "_blank", "noopener,noreferrer");
+              if (!whatsappOpened) {
+                window.open(url, "_blank", "noopener,noreferrer");
+                setWhatsappOpened(true);
+                return;
+              }
               await onConfirm({ body: body.trim(), recipientPhone: phone.trim() || undefined });
+              onOpenChange(false);
             }}
           >
-            <Send className="mr-1.5 size-3.5" /> 确认并打开 WhatsApp
+            <Send className="mr-1.5 size-3.5" />
+            {busy ? "记录中…" : whatsappOpened ? "我已发送，记录并继续" : "打开 WhatsApp"}
           </Button>
         </DialogFooter>
       </DialogContent>
