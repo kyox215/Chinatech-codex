@@ -2,15 +2,18 @@
 schema_version: 1
 task_id: "TASK-20260717-005-store-identity-hardcode-removal-plan"
 title: "移除客户可见 Chinatech 硬编码并建立多店铺输出身份"
-status: "planned"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L1_for_production_customer_output"
 owner: "IntegrationLead"
-departments: ["Product", "Architecture", "Frontend", "API", "Data", "Security", "QA", "Documentation"]
+departments:
+  ["Product", "Architecture", "Frontend", "API", "Data", "Security", "QA", "Documentation"]
 created_at: "2026-07-17T18:45:36Z"
-updated_at: "2026-07-17T19:29:40Z"
+updated_at: "2026-07-17T19:55:26Z"
+closed_at: "2026-07-17T19:55:26Z"
 ---
+
 # Task - 移除客户可见 Chinatech 硬编码并建立多店铺输出身份
 
 ## Owner Goal
@@ -43,6 +46,10 @@ Out of scope until separately approved:
 - 自动发送 WhatsApp Business API；当前仍按 `wa.me` 打开并记录。
 - 重新启用 buyback restricted evidence/finalize。
 - 删除或重写历史迁移文件。
+
+Release authorization note: the Owner later explicitly approved the scoped migration apply,
+`main` push, and production deployment. Production DML/backfill, domain purchase/switching,
+and buyback legal reactivation remained out of scope throughout the release.
 
 ## Hard Constraint
 
