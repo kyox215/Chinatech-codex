@@ -34,7 +34,7 @@ as owner of this file.
 - `TASK-20260620-002` classified all six remaining `src/routes/*` files as delete-ready after Owner approval and post-deletion validation. No deletion was performed in that classification task.
 - `TASK-20260620-003` produced the approval-gated deletion preflight contract and green non-destructive baseline. Future deletion should follow that contract exactly.
 - Cross-feature order lifecycle changes use an additive database contract plus thin API/router adapters: ordinary active-order patches remain field-scoped, while terminal correction/reopen/void are dedicated atomic commands. Customer history/finance reads use explicit v3 facts with a compatibility delegator rather than overloading ambiguous v2 names.
-- `TASK-20260716-004-device-left-status-plan` proposes nullable two-state current custody plus existing `delivered_at`, with a dedicated versioned mutation and no duplicate `returned/unknown` business enum. This is a proposed contract, not implemented architecture.
+- `TASK-20260716-005-device-custody-status-implementation` implements nullable two-state current custody plus existing `delivered_at`, with dedicated versioned active/terminal mutations and no duplicate `returned/unknown` business enum. Migration `20260716235650`, PG17 replay and production postchecks make this the scoped-verified architecture; legacy NULL remains a fact, not an enum value.
 
 ## Interfaces and dependencies
 
@@ -78,4 +78,4 @@ as owner of this file.
 | 2026-06-20 | Classified remaining `src/routes/*` files as delete-ready after Owner approval | TASK-20260620-002 | Integration Lead | active |
 | 2026-06-20 | Added approval-gated deletion preflight contract and baseline for legacy route cleanup | TASK-20260620-003 | Integration Lead | active |
 | 2026-07-16 | Recorded additive customer read model and dedicated atomic terminal-command architecture | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + architecture/data reviewers | active |
-| 2026-07-16 | Recorded proposed order-custody architecture and its non-implementation boundary | TASK-20260716-004-device-left-status-plan | Integration Lead + DATA/API reviewer | proposed |
+| 2026-07-17 | Promoted the proposed order-custody architecture to production-verified implementation with atomic active/terminal commands | TASK-20260716-005-device-custody-status-implementation | Integration Lead + DATA/API/SEC reviewers | scoped_verified |

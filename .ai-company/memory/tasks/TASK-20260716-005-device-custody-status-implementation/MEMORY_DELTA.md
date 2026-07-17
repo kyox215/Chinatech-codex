@@ -2,15 +2,15 @@
 
 ## Candidate project facts
 
-- **Fact:** `repair_orders.device_custody_status` uses nullable `with_shop | with_customer`; `NULL` means legacy unknown and is never bulk backfilled. Source: migration/domain tests. Status: verified locally. Owner: DATA. Review trigger: schema change.
-- **Fact:** pushing RepairDesk `main` automatically deploys production on Vercel, while the current production DB lacks the custody column. Source: 2026-07-16 read-only Vercel/Supabase inspection. Status: live, drift-prone. Owner: RELEASE. Review trigger: every release.
-- **Fact:** offline order create remains disabled and fail closed because production migration history records a draft while the expected RPC is absent. Source: linked schema inspection and migration stub. Status: verified. Owner: BACKEND/RELEASE. Review trigger: offline activation proposal.
+- **Fact:** `repair_orders.device_custody_status` uses nullable `with_shop | with_customer`; `NULL` means legacy unknown and is never bulk backfilled. Production migration `20260716235650` left all 6298 historical rows NULL and sets `with_shop` only as the future omitted-value default. Source: migration/domain/pgTAP and production postchecks. Status: scoped_verified. Owner: DATA. Review trigger: schema change.
+- **Fact:** production application SHA `452f8985` is live through Vercel deployment `dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv`; its aliases, anonymous boundary and task-related runtime errors were checked. Source: Vercel deployment/build/runtime evidence. Status: scoped_verified, drift-prone. Owner: RELEASE. Review trigger: every release.
+- **Fact:** offline order create remains disabled and fail closed through a service-role-only RPC returning `blocked_operation`; activation still requires a separate migration, HMAC configuration and release gate. Source: applied migration and ACL postcheck. Status: verified. Owner: BACKEND/RELEASE. Review trigger: offline activation proposal.
 
 ## Candidate department updates
 
-- **BACKEND/DATA:** physical custody writes use a version-locked atomic RPC; custom workflow status codes remain text and are validated against the same store's enabled status definitions.
-- **FRONTEND/PRODUCT:** create defaults to explicit “设备留店”; customer-held hides/clears unlock input; mobile detail renders the custody card below the sticky workflow header.
-- **QA/SEC:** exception-only cancellation is derived as cancelled; customer-held orders are excluded from pickup/notification/kiosk paths; event payloads never include unlock secrets.
+- **BACKEND/DATA:** verified in production schema: physical custody writes use version-locked atomic RPCs; custom workflow status codes remain text and are validated against the same store's enabled definitions; terminal correction/return evidence is immutable.
+- **FRONTEND/PRODUCT:** verified in app/E2E: create defaults to explicit “设备留店”; customer-held hides/clears unlock input; mobile detail renders the custody card below the sticky workflow header.
+- **QA/SEC:** verified across app and pgTAP: exception-only cancellation is derived as cancelled; customer-held orders are excluded from false pickup/return paths; browser roles cannot execute custody RPCs and event payloads never include unlock secrets.
 
 ## Candidate decisions / ADRs
 

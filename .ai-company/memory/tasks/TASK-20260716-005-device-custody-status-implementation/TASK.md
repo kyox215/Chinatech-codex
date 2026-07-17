@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260716-005-device-custody-status-implementation"
 title: "设备留机与保管状态端到端实施"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["API", "ARCH", "DATA", "DOC", "FLOW", "INT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-16T18:23:37Z"
-updated_at: "2026-07-16T23:25:22Z"
+updated_at: "2026-07-17T00:22:05Z"
+closed_at: "2026-07-17T00:22:05Z"
 ---
 # Task — 设备留机与保管状态端到端实施
 
@@ -55,25 +56,25 @@ updated_at: "2026-07-16T23:25:22Z"
 - [x] 未留机订单不会产生虚假退还、交付、取机逾期、催取机或解锁凭据
 - [x] 旧订单保持未知，不批量伪造历史；迁移兼容旧行并采用保留 nullable 列的应用回滚策略
 - [x] 定向测试、lint、typecheck、全量 test、build、E2E 与截图证据通过
-- [ ] 范围内变更安全集成并推送 main；生产迁移和部署按明确批准门禁执行
+- [x] 范围内变更安全集成并推送 main；生产迁移和部署按明确批准门禁执行
 
 ## Facts, assumptions, and unknowns
 
 | Item | Type | Evidence | Status / next action |
 |---|---|---|---|
 | 当前没有独立保管字段；现有“留存”是随附物品 | verified | 规划 `EVIDENCE.md` 与当前代码 | implement independent contract |
-| 实施分支已 rebase 到当时最新 `origin/main@184672fe` | verified | rebase、人工解四处订单模块冲突、重新验证 | re-fetch before release |
-| 当前未提交文件全部属于留机规划/任务记忆 | verified | `git status`, `git diff --name-only` | preserve and stage exactly |
+| 实施分支已 rebase 到发布时最新 `origin/main@614cf8ff` | verified | rebase、仅两处记忆冲突人工合并、重新跑全量门禁 | released at `main@452f8985` |
+| 发布候选和关闭记录只包含本任务范围 | verified | isolated worktree、精确暂存、`git diff --check` | preserve unrelated root checkout files |
 | 生产 Supabase 广泛 parity/recovery 仍有开放冲突 | verified | `OPEN_CONFLICTS.md` CONFLICT-20260619-006 | no production apply without new gate/approval |
-| 推送 main 会自动触发 Vercel 生产部署 | verified/live | Vercel 项目只读配置与最近 main 发布记录 | main push 必须和 DB migration 串行发布 |
-| 行更新、清密、交接事件需原子一致 | verified | `repairdesk_apply_order_atomic_mutation` migration、repository 与回归测试 | production apply pending D3 approval |
-| 生产库尚无 `device_custody_status`，且离线创建 RPC 不存在 | verified/live | Supabase 只读 schema/RPC 复核 | migration 前禁止 push main；离线创建保持 flag off/fail closed |
+| 推送 main 会自动触发 Vercel 生产部署 | verified/live | Vercel 项目与发布记录 | DB-first 顺序已执行；Git 副本因官方事件排队，CLI 精确 SHA 部署完成 |
+| 行更新、清密、交接事件需原子一致 | verified | atomic migration、repository、pgTAP 42/42 与生产 ACL/函数后检 | active contract |
+| 生产库已有 nullable `device_custody_status`；离线创建仍被占位 RPC 拒绝 | verified/live | migration `20260716235650`、6298 legacy NULL、ACL/函数检查 | 不得在独立离线 migration/HMAC/门禁前开启 flag |
 
 ## Decision and approval points
 
 - **R3 / L2:** schema、订单状态机、物理保管证据和解锁秘密使实现按最高影响分类；本地可逆实施和测试已由 Owner 的“开始”授权。
 - **D2:** 主线程可决定最小代码结构、测试、文案微调和兼容实现，只要不偏离批准计划。
-- **D3:** 生产 migration、生产 deploy、权限政策变化、历史批量修复必须另行明确批准。
+- **D3:** Owner 于 2026-07-17 明确“授权发布”；只授权本任务的 additive migration 与生产部署。权限政策变化、历史批量修复仍未授权。
 - **D4:** 数据删除、不可逆回填和秘密处理未授权。
 - 强制独立审查：DATA/API/ARCH、SEC/QA、UX/FLOW；发布前重新 fetch 并串行化 Git/DB/deploy。
 

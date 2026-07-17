@@ -71,3 +71,39 @@
 - **Next:** 由主线程执行隔离 PG17 ON_ERROR_STOP replay、pg_catalog 函数/ACL/trigger/constraint 检查及 void-reopen-custom-cancel-return 状态机测试；并确认旧 20260716183000 未在目标环境应用。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-17T00:09:48Z — Owner 已授权生产发布；候选已 rebase 到 origin/main，完整应用门禁、PG17 102+42 pgTAP 和 3/3 E2E 通过。Supabase 精确迁移 20260716235650 已应用并完成 metadata/ACL/legacy-NULL/异常/advisor 后检，main 已非强制推送至 452f8985。Vercel Git 副本因官方 Git-linked deployment 事件取消，干净工作树 CLI 生产部署 dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv 正处系统构建队列，任务尚未关闭。
+
+- **Phase:** implementation
+- **Completed/current state:** Owner 已授权生产发布；候选已 rebase 到 origin/main，完整应用门禁、PG17 102+42 pgTAP 和 3/3 E2E 通过。Supabase 精确迁移 20260716235650 已应用并完成 metadata/ACL/legacy-NULL/异常/advisor 后检，main 已非强制推送至 452f8985。Vercel Git 副本因官方 Git-linked deployment 事件取消，干净工作树 CLI 生产部署 dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv 正处系统构建队列，任务尚未关闭。
+- **Next:** 持续轮询 dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv 至 READY；读取构建日志、验证精确 SHA/生产别名/API 与运行错误；随后同步 EVIDENCE/HANDOFF/TASK，提交并推送关闭记录，完成最终 checkpoint/closeout。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-17T00:19:33Z — 设备保管端到端任务已满足全部验收：Supabase 20260716235650 已应用且 6298 legacy NULL/ACL/约束/异常后检通过；main@452f8985 已推送；Vercel dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv READY 并绑定生产域名；manifest/login/auth API/runtime error/5xx 冒烟通过。EVIDENCE、HANDOFF、CEO_REPORT、项目/部门/能力记忆已同步，残余风险均有 owner 与触发条件。
+
+- **Phase:** implementation
+- **Completed/current state:** 设备保管端到端任务已满足全部验收：Supabase 20260716235650 已应用且 6298 legacy NULL/ACL/约束/异常后检通过；main@452f8985 已推送；Vercel dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv READY 并绑定生产域名；manifest/login/auth API/runtime error/5xx 冒烟通过。EVIDENCE、HANDOFF、CEO_REPORT、项目/部门/能力记忆已同步，残余风险均有 owner 与触发条件。
+- **Next:** 执行 close-task closed，验证工作树差异与 AI Company 结构，提交并推送关闭记录，确认最终 main 与生产状态。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-17T00:19:44Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 设备留店/未留店端到端逻辑已完成，生产 migration、main、exact-SHA Vercel 部署及运行后检全部通过。
+- **Residual risks:** 旧单保管继续为未知直至人工补录；通知/kiosk 跨表写入仍是 guarded 非单事务；离线建单继续 blocked_operation；全历史 reset/PITR 风险属独立治理项。
+- **Follow-up:** 仅在离线 replay、通知/kiosk 原子化或恢复演练进入独立批准任务时继续；本任务无需待办。
+- **Closed by:** CEO-Orchestrator
+## 2026-07-17T00:21:53Z — 关闭记录已完成差异、冲突、敏感信息、Agent 规则与治理结构验证；本任务文件仅待精确提交和非强制推送。ai_company validate 的 12 项错误均为既有重复 Agent 名称，agents:check 与其余 11 类检查通过。
+
+- **Phase:** closeout
+- **Completed/current state:** 关闭记录已完成差异、冲突、敏感信息、Agent 规则与治理结构验证；本任务文件仅待精确提交和非强制推送。ai_company validate 的 12 项错误均为既有重复 Agent 名称，agents:check 与其余 11 类检查通过。
+- **Next:** 精确暂存本任务关闭记录，提交、fetch/rebase 断言后推送 main；确认最终 main、生产 exact-SHA 部署与释放锁。
+- **Evidence:**
+  - git diff --check; npm run agents:check; tools/ai_company.py validate; CEO_REPORT.md; EVIDENCE.md
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-17T00:22:05Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 设备留店/未留店端到端逻辑已完成，生产 migration、main、exact-SHA Vercel 部署及运行后检全部通过。
+- **Residual risks:** 旧单保管继续为未知直至人工补录；通知/kiosk 跨表写入仍是 guarded 非单事务；离线建单继续 blocked_operation；全历史 reset/PITR 风险属独立治理项。
+- **Follow-up:** 仅在离线 replay、通知/kiosk 原子化或恢复演练进入独立批准任务时继续；本任务无需待办。
+- **Closed by:** CEO-Orchestrator

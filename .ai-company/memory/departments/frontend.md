@@ -49,7 +49,7 @@ as owner of this file.
 
 ## Interfaces and dependencies
 
-Proposed cross-department contract from `TASK-20260716-004-device-left-status-plan`: Frontend should keep repair type, accessories, and device custody independent; new order sends an explicit choice, while detail changes use a dedicated online Sheet/Dialog action. This is not implemented behavior.
+Verified cross-department contract from `TASK-20260716-005-device-custody-status-implementation`: Frontend keeps repair type, accessories and device custody independent; new order visibly defaults to `with_shop` but sends an explicit choice, customer-held clears/hides unlock input, and detail changes use a dedicated online Sheet/Dialog action with version and reason where required.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|

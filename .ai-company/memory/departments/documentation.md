@@ -61,6 +61,7 @@ as owner of this file.
 - `docs/SETTINGS_CENTER_OPERATOR_GUIDE.md` and WP08 release/acceptance packets are active local
   contracts, not production authorization. `docs/CUSTOMER_KIOSK_IPAD_PLAN.md` is a historical planning
   snapshot and must not override the WP05-B/WP08 production NO-GO status.
+- For device custody, the current addendum at the top of `docs/ORDERS_SPEC.md` plus `TASK-20260716-005-device-custody-status-implementation/CEO_REPORT.md` is the production authority. The addendum is current despite the remainder of `ORDERS_SPEC` being a historical snapshot; it records explicit create choice, nullable legacy unknown, secret clearing, terminal receive/return rules, fail-closed offline behavior and release order.
 
 ## Interfaces and dependencies
 
@@ -138,3 +139,4 @@ as owner of this file.
 | 2026-07-16 | Synchronized Orders mobile UI/query/release authority and closeout evidence | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + department reviewers | active |
 | 2026-07-16 | Synchronized customer finance, dual-state and terminal-action docs with code, migration and release evidence | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + department reviewers | active |
 | 2026-07-13 | Recorded Settings operator/release package authority boundary and historical Kiosk snapshot label | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 documentation reviewer | local_contract |
+| 2026-07-17 | Synchronized the device-custody addendum, migration, permissions, visual evidence, release and rollback authority | TASK-20260716-005-device-custody-status-implementation | Integration Lead + department reviewers | active |

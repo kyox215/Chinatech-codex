@@ -37,6 +37,7 @@ Chinatech RepairDesk is a Next.js internal management system for a phone repair 
 - Closed `TASK-20260716-001-dashboard-handoff-priority` defines the current Dashboard contract: `dashboard/priority-summary` ranks the complete actor-visible active order set before applying its display limit, preserves technician membership assignment scope, and returns an allowlisted non-financial handoff DTO. Dashboard actions only navigate to permission-checked task/detail pages. The old `dashboard/summary` endpoint is retained temporarily for rolling-client compatibility.
 - Closed `TASK-20260716-002-orders-mobile-filter-loading-plan` defines the current Orders list performance contract: first fetch store/view/assignment-scoped narrow index rows, then one store-scoped detail query capped at 50 IDs. Mobile queue controls use two columns below 360px and three columns from 360px, expose pending/error/offline/latest-intent states, and omit the mobile funnel plus redundant selected-queue summary. Production evidence did not justify a database migration.
 - `TASK-20260716-003-customer-finance-order-correction-plan` and `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md` define the current customer/order lifecycle contract: retained history is separate from valid repair/finance facts; cancelled/custom-cancelled/voided/deleted rows contribute zero to valid counts, active work, quoted total and receivables; routine edits are changed-fields-only; terminal correction/reopen/Owner safe void use dedicated audited atomic commands. Production migrations `20260716221119`, `20260716221139`, `20260716221159` and `20260716221448` are applied and postchecked.
+- Closed `TASK-20260716-005-device-custody-status-implementation` defines the current device-custody contract: `device_custody_status` is nullable `with_shop | with_customer`, legacy NULL is never inferred, and only future omitted creates default to `with_shop`. Create/detail/cancel/complete/pickup/offline/data paths share this fact; customer-held devices cannot retain unlock credentials; active mutations and terminal correction/return use service-role-only versioned atomic RPCs. Production migration `20260716235650` and application `main@452f8985` are live and postchecked.
 
 ## Authentication, authorization and sensitive data
 
@@ -72,6 +73,8 @@ verified preservation refs/stash. Only the current branch's fresh gate may estab
 WP09 counts and SHAs are historical. Push/PR, database work, real flags, deployment and production release
 remain separately gated.
 
+`TASK-20260716-005-device-custody-status-implementation` projects physical custody and secret authority explicitly: browser roles cannot execute custody RPCs; customer-held rows are constrained to have no unlock method/value/pattern; completed devices cannot move back to shop custody without reopen; cancelled shop-held devices use dedicated audited return confirmation. UI visibility is not authorization.
+
 ## Environments, build, deploy and operations
 
 - Package scripts include `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and `npm run agents:check`.
@@ -92,6 +95,7 @@ remain separately gated.
 - Generic AI Company OS roles map into existing RepairDesk departments rather than replacing them.
 - Project charter lives at `docs/project-charter.md`.
 - Active order lifecycle and customer finance behavior lives at `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`; historical `docs/ORDERS_SPEC.md` cannot override it.
+- The current device-custody addendum lives at the top of `docs/ORDERS_SPEC.md` and is backed by task `TASK-20260716-005-device-custody-status-implementation`; the rest of that document remains historical snapshot context.
 
 ## Risks, technical debt and exceptions
 
@@ -185,6 +189,8 @@ remain separately gated.
 - `.ai-company/memory/tasks/TASK-20260619-019/TASK.md`
 - `.ai-company/memory/tasks/TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260716-003-customer-finance-order-correction-plan/EVIDENCE.md`
+- `.ai-company/memory/tasks/TASK-20260716-005-device-custody-status-implementation/CEO_REPORT.md`
+- `.ai-company/memory/tasks/TASK-20260716-005-device-custody-status-implementation/EVIDENCE.md`
 - `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`
 - `.ai-company/memory/tasks/TASK-20260619-020/ARCHIVE_SNAPSHOT_BANNER_REPORT.md`
 - `.ai-company/memory/tasks/TASK-20260619-021/ACTIVE_DOC_METADATA_REPORT.md`

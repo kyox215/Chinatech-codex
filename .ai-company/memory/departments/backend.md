@@ -45,7 +45,7 @@ as owner of this file.
 
 ## Interfaces and dependencies
 
-Proposed cross-department contract from `TASK-20260716-004-device-left-status-plan`: API/Backend should expose a dedicated, store-scoped, version-locked custody mutation and must not silently strip the field when a required migration is absent. This is not implemented behavior.
+Verified cross-department contract from `TASK-20260716-005-device-custody-status-implementation`: API/Backend exposes store-scoped, version-locked active custody mutation plus dedicated terminal correction/return commands. Required custody fields are never silently stripped; missing migration fails closed. Browser roles have no RPC execution, and customer handover clears unlock secrets atomically.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|

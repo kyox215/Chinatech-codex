@@ -33,7 +33,7 @@ as owner of this file.
 - `TASK-20260619-230350-l2-025-role-policy-decision-package/ROLE_POLICY_DECISION_PACKAGE.md` is the current Owner-approval package for role policy. It recommends Option A, a conservative shop-operations policy, but it is not approved or implemented yet.
 - `TASK-20260716-001-dashboard-handoff-priority` makes Dashboard an operational handoff workbench: keep quick repair intake and buyback quote, then show the actor-authorized order to handle first with an explainable reason, current step, next step, assignee and update time. Finance does not influence V1 priority and Dashboard performs no direct workflow mutation.
 - `TASK-20260716-003-customer-finance-order-correction-plan` separates customer history from valid repair/finance facts: cancelled/custom-cancelled/voided/deleted orders remain discoverable history but contribute zero to valid count, active work, lifetime quote and receivables. Customer UI shows repair and payment states independently. Terminal corrections/reopen require Manager or Owner; safe void is Owner-only, preserves evidence and is never a normal hard delete.
-- `TASK-20260716-004-device-left-status-plan` proposes an independent device-custody dimension for orders. It is planning evidence only: repair type and accessory notes must not be reused, and no runtime rule is active until implementation closes.
+- `TASK-20260716-005-device-custody-status-implementation` makes device custody an independent live order dimension. Repair type and accessory notes are not reused; legacy unknown remains visible; completed-to-shop requires reopen; cancelled shop-held devices require audited return; customer-held rows do not create false pickup or unlock expectations.
 
 ## Interfaces and dependencies
 
@@ -78,4 +78,4 @@ as owner of this file.
 | 2026-06-20 | Added Owner-ready role-policy decision package as proposed product policy | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead | proposed |
 | 2026-07-16 | Recorded beginner-friendly Dashboard priority and store-handoff product contract | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
 | 2026-07-16 | Recorded customer finance/history split and audited terminal correction/reopen/void product contract | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/UX/QA reviewers | active |
-| 2026-07-16 | Recorded proposed order device-custody product contract and explicit non-implementation boundary | TASK-20260716-004-device-left-status-plan | Integration Lead + FLOW/UX reviewers | proposed |
+| 2026-07-17 | Promoted the order device-custody product contract to production-verified behavior | TASK-20260716-005-device-custody-status-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
