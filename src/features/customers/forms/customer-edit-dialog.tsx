@@ -55,7 +55,7 @@ export function CustomerEditDialog({
   const canSave = form.name.trim() && form.phone_e164.trim();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.formContent}>
+      <DialogContent className={`${componentOverlay.formContent} !animate-none`}>
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>编辑客户</DialogTitle>
           <DialogDescription className={componentOverlay.description}>

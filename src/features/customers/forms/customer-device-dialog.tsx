@@ -51,7 +51,7 @@ export function CustomerDeviceDialog({
   }, [device, open]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.formContent}>
+      <DialogContent className={`${componentOverlay.formContent} !animate-none`}>
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>
             {device ? "编辑设备" : "添加设备"}
