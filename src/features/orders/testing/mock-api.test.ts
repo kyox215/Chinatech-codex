@@ -5,6 +5,7 @@ import { orders as mockOrders } from "@/lib/mock/state";
 import { createMockSupplier, resetMockSuppliers } from "@/features/suppliers/testing/mock-api";
 import {
   confirmCancelledOrderReturn,
+  correctTerminalOrder,
   createOrderWorkflowStatus,
   createOrder,
   decideOrderApproval,
@@ -48,6 +49,19 @@ async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator =
 }
 
 describe("mock order WhatsApp notification workflow", () => {
+  it("rejects customer notifications after an order is voided", async () => {
+    const id = await createMockOrder();
+    const row = mockOrders.find((item) => item.id === id);
+    if (!row) throw new Error("fixture order missing");
+    row.record_state = "voided";
+    row.deleted_at = "2026-07-16T20:00:00.000Z";
+
+    await expect(sendNotification(id, "Test message")).rejects.toThrow("已作废");
+    await expect(sendWhatsappNotification(id, "Test WhatsApp", "repair_status")).rejects.toThrow(
+      "已作废",
+    );
+  });
+
   it("binds workflow snapshots to the requesting active store", async () => {
     const workflow = await listOrderWorkflow({
       id: "staff-store-scope",
@@ -68,6 +82,98 @@ describe("mock order WhatsApp notification workflow", () => {
     const detail = await getOrder(id);
 
     expect(detail.order.public_no).toMatch(/^R\d+$/);
+  });
+
+  it("enforces assigned-order scope and kiosk capability in mock detail reads", async () => {
+    const id = await createMockOrder();
+    const row = mockOrders.find((item) => item.id === id);
+    if (!row) throw new Error("fixture order missing");
+    row.assignee_membership_id = "membership_assigned";
+
+    const assignedTechnician = {
+      id: "staff_assigned",
+      displayName: "Assigned technician",
+      role: "technician" as const,
+      storeRole: "technician" as const,
+      storeId: "00000000-0000-0000-0000-000000000001",
+      activeMembershipId: "membership_assigned",
+    };
+    const otherTechnician = {
+      ...assignedTechnician,
+      id: "staff_other",
+      activeMembershipId: "membership_other",
+    };
+
+    await expect(getOrder(id, assignedTechnician)).resolves.toMatchObject({
+      capabilities: { canCreateKioskSession: true },
+    });
+    await expect(getOrder(id, otherTechnician)).rejects.toThrow("当前工单未分配给你");
+
+    row.record_state = "voided";
+    await expect(getOrder(id, assignedTechnician)).resolves.toMatchObject({
+      capabilities: { canCreateKioskSession: false },
+    });
+  });
+
+  it("derives custom terminal behavior from the workflow registry", async () => {
+    const doneCode = `custom_done_${seq + 1}`;
+    await createOrderWorkflowStatus({
+      code: doneCode,
+      label: "自定义完成",
+      short_label: "完成",
+      tone: "success",
+      bucket: "done",
+      enabled: true,
+      show_in_order_filters: true,
+      allowed_for_create: true,
+    });
+    const completedId = await createMockOrder({
+      status: doneCode,
+      device_custody_status: "with_customer",
+    });
+    const completedRow = mockOrders.find((item) => item.id === completedId);
+    if (!completedRow) throw new Error("fixture order missing");
+    completedRow.workflow_status = "repair";
+
+    const completed = await getOrder(completedId);
+    expect(completed.order.workflow_bucket).toBe("done");
+    expect(completed.capabilities).toMatchObject({
+      canTransition: false,
+      canCorrect: true,
+      canReopen: true,
+    });
+    await expect(
+      correctTerminalOrder(completedId, {
+        expected_updated_at: completed.order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        reason: "custom terminal correction",
+        changes: { diagnosis_result: "custom terminal confirmed" },
+      }),
+    ).resolves.toMatchObject({ code: "recorded" });
+
+    const cancelledCode = `custom_cancelled_${seq + 1}`;
+    await createOrderWorkflowStatus({
+      code: cancelledCode,
+      label: "自定义取消",
+      short_label: "取消",
+      tone: "danger",
+      bucket: "cancelled",
+      enabled: true,
+      show_in_order_filters: true,
+      allowed_for_create: true,
+    });
+    const cancelledId = await createMockOrder({
+      status: cancelledCode,
+      device_custody_status: "with_shop",
+    });
+    const cancelled = await getOrder(cancelledId);
+    expect(cancelled.capabilities.canConfirmCancelledReturn).toBe(true);
+    await expect(
+      confirmCancelledOrderReturn(cancelledId, {
+        expectedUpdatedAt: cancelled.order.updated_at,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ).resolves.toMatchObject({ alreadyConfirmed: false });
   });
 
   it("sorts order cards by simplified progress from 1 to 5", async () => {
@@ -1346,5 +1452,24 @@ describe("mock order inline editing workflow", () => {
     const waiting = await getOrder(id);
     expect(waiting.order.status).toBe("waiting_approval");
     expect(waiting.order.approval_flow_status).toBe("waiting_customer");
+  });
+
+  it("rejects an unmapped custom default when the requested status is unknown", async () => {
+    const code = `custom_default_${seq + 1}`;
+    await createOrderWorkflowStatus({
+      code,
+      label: "未映射默认状态",
+      short_label: "未映射",
+      tone: "warn",
+      bucket: "custom",
+      enabled: true,
+      show_in_order_filters: true,
+      allowed_for_create: true,
+      is_default_create_status: true,
+    });
+
+    await expect(
+      createMockOrder({ status: "missing_registry_status" as CreateOrderInput["status"] }),
+    ).rejects.toThrow("尚未绑定主流程阶段");
   });
 });

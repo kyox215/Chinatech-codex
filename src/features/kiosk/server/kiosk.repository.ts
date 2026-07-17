@@ -172,24 +172,14 @@ export async function createKioskSession(
     ? await readOrderSummary(supabase, storeId, normalized.order_id)
     : undefined;
   assertKioskSessionCreateScope(actor, order);
-  if (order?.record_state === "voided" || order?.deleted_at) {
-    throw new Error("该工单记录已作废，只能查看历史证据");
-  }
-  if (
-    normalized.session_type === "pickup_signature" &&
-    order?.device_custody_status !== "with_shop"
-  ) {
-    throw new Error("只有已确认由门店保管的设备可以发起取机确认");
-  }
   const customer = normalized.customer_id
     ? await readKioskCustomerTarget(supabase, storeId, normalized.customer_id)
     : undefined;
-  if (order?.customer_id && customer && order.customer_id !== customer.id) {
-    throw new Error("iPad 任务绑定的客户与工单不一致");
-  }
+  assertKioskSessionCreateTarget(normalized, order, customer?.id);
   if (normalized.order_id) {
     order = await readOrderSummary(supabase, storeId, normalized.order_id);
     assertKioskSessionCreateScope(actor, order);
+    assertKioskSessionCreateTarget(normalized, order, customer?.id);
   }
   const now = new Date();
   const expiresAt = addMinutes(now, normalized.expires_in_minutes).toISOString();
@@ -293,6 +283,7 @@ export async function acceptKioskSession(
   const order = session.order_id
     ? await readOrderReviewTarget(supabase, storeId, session.order_id)
     : undefined;
+  if (order) assertKioskReviewOrderActive(order);
   if (session.session_type === "pickup_signature" && order?.device_custody_status !== "with_shop") {
     throw new Error("只有已确认由门店保管的设备可以确认取机交接");
   }
@@ -631,7 +622,9 @@ async function readSubmittedSession(
 async function readOrderReviewTarget(supabase: SupabaseAdmin, storeId: string, orderId: string) {
   const { data, error } = await supabase
     .from("repair_orders")
-    .select("id,customer_id,contact_phones,device_custody_status,updated_at")
+    .select(
+      "id,customer_id,contact_phones,device_custody_status,record_state,deleted_at,updated_at",
+    )
     .eq("store_id", storeId)
     .eq("id", orderId)
     .maybeSingle();
@@ -642,6 +635,8 @@ async function readOrderReviewTarget(supabase: SupabaseAdmin, storeId: string, o
     id: requiredString(row.id),
     customer_id: requiredString(row.customer_id),
     contact_phones: stringArray(row.contact_phones),
+    record_state: maybeString(row.record_state),
+    deleted_at: maybeString(row.deleted_at),
     updated_at: requiredString(row.updated_at),
     device_custody_status:
       row.device_custody_status === "with_shop" || row.device_custody_status === "with_customer"
@@ -657,9 +652,27 @@ async function assertPickupCustodyUnchanged(
   expectedUpdatedAt: string,
 ) {
   const latest = await readOrderReviewTarget(supabase, storeId, orderId);
-  if (latest.device_custody_status !== "with_shop" || latest.updated_at !== expectedUpdatedAt) {
+  assertKioskReviewOrderActive(latest);
+  if (
+    latest.device_custody_status !== "with_shop" ||
+    !timestampsRepresentSameInstant(latest.updated_at, expectedUpdatedAt)
+  ) {
     throw new Error("工单或设备保管状态已更新，请刷新后重新确认取机交接");
   }
+}
+
+function assertKioskReviewOrderActive(order: { record_state?: string; deleted_at?: string }) {
+  if (order.record_state === "voided" || order.deleted_at) {
+    throw new Error("该工单记录已作废，只能查看历史证据");
+  }
+}
+
+function timestampsRepresentSameInstant(left: string, right: string) {
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  return Number.isFinite(leftTime) && Number.isFinite(rightTime)
+    ? leftTime === rightTime
+    : left === right;
 }
 
 async function applyKioskCustomerSubmission(
@@ -1043,10 +1056,26 @@ function assertKioskSessionCreateScope(
     !isTechnician ||
     Boolean(
       order &&
-        actor?.activeMembershipId &&
-        order.assignee_membership_id === actor.activeMembershipId,
+      actor?.activeMembershipId &&
+      order.assignee_membership_id === actor.activeMembershipId,
     );
   assertPermission(actor, "order:update_intake", { scopeSatisfied });
+}
+
+function assertKioskSessionCreateTarget(
+  input: ReturnType<typeof normalizeKioskSessionCreateInput>,
+  order: Awaited<ReturnType<typeof readOrderSummary>> | undefined,
+  customerId?: string,
+) {
+  if (order?.record_state === "voided" || order?.deleted_at) {
+    throw new Error("该工单记录已作废，只能查看历史证据");
+  }
+  if (input.session_type === "pickup_signature" && order?.device_custody_status !== "with_shop") {
+    throw new Error("只有已确认由门店保管的设备可以发起取机确认");
+  }
+  if (order?.customer_id && customerId && order.customer_id !== customerId) {
+    throw new Error("iPad 任务绑定的客户与工单不一致");
+  }
 }
 
 async function readStoreName(supabase: SupabaseAdmin, storeId: string) {

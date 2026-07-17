@@ -592,6 +592,7 @@ export function projectOrderCapabilities(
       order.device_custody_status === DEVICE_CUSTODY_WITH_SHOP &&
       !order.delivered_at &&
       permitted("order:transition"),
+    canCreateKioskSession: !voided && permitted("order:update_intake"),
     canCorrect: terminal && !voided && permitted("order:correct"),
     canReopen: terminal && !voided && permitted("order:reopen"),
     canVoid: terminal && !voided && !hasFinancialEvidence && permitted("order:void"),
@@ -865,10 +866,18 @@ async function validateManualOrderTransitionTarget(
     const toLabel = maybeString((target as DbRecord).label) || to;
     return { ok: false, reason: `「${toLabel}」已停用，不能流转到该状态` };
   }
+  const bucket = (maybeString((target as DbRecord).bucket) ||
+    "custom") as OrderWorkflowStatus["bucket"];
+  if (bucket === "custom") {
+    return {
+      ok: false,
+      reason: "自定义状态尚未绑定主流程阶段，当前不能用于工单流转",
+    };
+  }
   return {
     ok: true,
     label: maybeString((target as DbRecord).label) || to,
-    bucket: (maybeString((target as DbRecord).bucket) || "custom") as OrderWorkflowStatus["bucket"],
+    bucket,
   };
 }
 
@@ -937,9 +946,13 @@ async function resolveInitialOrderStatus(
   if (requestedStatus) {
     const row = requestedStatus as DbRecord;
     if (Boolean(row.enabled) && Boolean(row.allowed_for_create)) {
+      const bucket = (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"];
+      if (bucket === "custom") {
+        throw new Error("自定义状态尚未绑定主流程阶段，当前不能用于新建工单");
+      }
       return {
         code: requiredString(row.code) as RepairOrderStatus,
-        bucket: (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"],
+        bucket,
       };
     }
     throw new Error("初始状态不允许用于新建工单");
@@ -959,9 +972,13 @@ async function resolveInitialOrderStatus(
 
   if (defaultStatus) {
     const row = defaultStatus as DbRecord;
+    const bucket = (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"];
+    if (bucket === "custom") {
+      throw new Error("自定义状态尚未绑定主流程阶段，当前不能用于新建工单");
+    }
     return {
       code: requiredString(row.code) as RepairOrderStatus,
-      bucket: (maybeString(row.bucket) || "custom") as OrderWorkflowStatus["bucket"],
+      bucket,
     };
   }
   if (ORDER_STATUS_ALLOWED_FOR_CREATE.includes(requested)) {

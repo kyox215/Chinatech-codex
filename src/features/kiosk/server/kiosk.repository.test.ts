@@ -4,6 +4,7 @@ import type { AuditActor } from "@/lib/repairdesk/types";
 
 import {
   acceptKioskSession,
+  createKioskSession,
   listKioskSessions,
   pairKioskDevice,
   returnKioskSession,
@@ -123,7 +124,9 @@ describe("kiosk repository pickup acceptance", () => {
       storeId: "store_1",
     };
 
-    await expect(acceptKioskSession("session_1", actor)).resolves.toMatchObject({
+    await expect(
+      acceptKioskSession({ id: "session_1", expected_submission_version: 1 }, actor),
+    ).resolves.toMatchObject({
       id: "session_1",
       status: "accepted",
     });
@@ -131,7 +134,9 @@ describe("kiosk repository pickup acceptance", () => {
     expect(acceptedSessionUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ status: "accepted", updated_at: currentOrderUpdatedAt }),
     );
-    await expect(acceptKioskSession("session_1", actor)).rejects.toThrow("没有可审核");
+    await expect(
+      acceptKioskSession({ id: "session_1", expected_submission_version: 1 }, actor),
+    ).rejects.toThrow("没有可审核");
   });
 });
 
@@ -167,6 +172,147 @@ const actor: AuditActor = {
 describe("kiosk repository local safety contracts", () => {
   beforeEach(() => {
     mocks.supabase.from.mockReset();
+  });
+
+  it("rejects an unbound technician before cancelling an existing kiosk session", async () => {
+    const technician: AuditActor = {
+      ...actor,
+      id: "tech-1",
+      storeRole: "technician",
+      activeMembershipId: "membership-tech-1",
+    };
+    mocks.supabase.from.mockReturnValueOnce(
+      createQuery({ data: deviceRow({ id: "device-a" }), error: null }),
+    );
+
+    await expect(
+      createKioskSession({ device_id: "device-a", session_type: "intake_contact" }, technician),
+    ).rejects.toThrow("没有权限");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalledWith("customer_kiosk_sessions");
+  });
+
+  it.each([
+    {
+      label: "the order is voided",
+      actor,
+      latest: orderRow({ record_state: "voided", deleted_at: "2026-07-17T00:00:00.000Z" }),
+      message: "已作废",
+    },
+    {
+      label: "pickup custody moves to the customer",
+      actor,
+      latest: orderRow({ device_custody_status: "with_customer" }),
+      message: "门店保管",
+    },
+    {
+      label: "the technician assignment changes",
+      actor: {
+        ...actor,
+        id: "tech-1",
+        storeRole: "technician" as const,
+        activeMembershipId: "membership-tech-1",
+      },
+      latest: orderRow({ assignee_membership_id: "membership-tech-2" }),
+      message: "没有权限",
+    },
+  ])("revalidates $label before cancelling the previous task", async (testCase) => {
+    const initial = orderRow({ assignee_membership_id: "membership-tech-1" });
+    mocks.supabase.from
+      .mockReturnValueOnce(createQuery({ data: deviceRow(), error: null }))
+      .mockReturnValueOnce(createQuery({ data: initial, error: null }))
+      .mockReturnValueOnce(createQuery({ data: testCase.latest, error: null }));
+
+    await expect(
+      createKioskSession(
+        {
+          device_id: "device-a",
+          order_id: "order-a",
+          session_type: "pickup_signature",
+        },
+        testCase.actor,
+      ),
+    ).rejects.toThrow(testCase.message);
+
+    expect(mocks.supabase.from).not.toHaveBeenCalledWith("customer_kiosk_sessions");
+  });
+
+  it("allows an assigned technician while preserving both pre-write scope checks", async () => {
+    const technician: AuditActor = {
+      ...actor,
+      id: "tech-1",
+      storeRole: "technician",
+      activeMembershipId: "membership-tech-1",
+    };
+    const assignedOrder = orderRow({ assignee_membership_id: "membership-tech-1" });
+    const cancelled = createQuery({ data: null, error: null });
+    const created = createQuery({
+      data: {
+        ...sessionRow(),
+        id: "session-created",
+        order_id: "order-a",
+        status: "queued",
+        submission_payload: {},
+        submission_version: 0,
+      },
+      error: null,
+    });
+    mocks.supabase.from
+      .mockReturnValueOnce(createQuery({ data: deviceRow(), error: null }))
+      .mockReturnValueOnce(createQuery({ data: assignedOrder, error: null }))
+      .mockReturnValueOnce(createQuery({ data: assignedOrder, error: null }))
+      .mockReturnValueOnce(cancelled)
+      .mockReturnValueOnce(created)
+      .mockReturnValueOnce(createQuery({ data: null, error: null }));
+
+    await expect(
+      createKioskSession(
+        {
+          device_id: "device-a",
+          order_id: "order-a",
+          session_type: "order_contact_signature",
+        },
+        technician,
+      ),
+    ).resolves.toMatchObject({ id: "session-created", order_id: "order-a" });
+
+    expect(cancelled.update).toHaveBeenCalledWith(expect.objectContaining({ status: "cancelled" }));
+    expect(created.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ order_id: "order-a", requested_by: expect.any(String) }),
+    );
+  });
+
+  it("rejects review of a voided order before touching customer or signature data", async () => {
+    const submitted = createQuery({
+      data: {
+        ...sessionRow({ confirmation_checked: true }),
+        order_id: "order-a",
+        session_type: "pickup_signature",
+        status: "submitted",
+        submission_version: 2,
+      },
+      error: null,
+    });
+    const voidedOrder = createQuery({
+      data: {
+        id: "order-a",
+        customer_id: "customer-a",
+        contact_phones: [],
+        device_custody_status: "with_shop",
+        record_state: "voided",
+        deleted_at: "2026-07-17T00:00:00.000Z",
+        updated_at: "2026-07-17T00:00:00.000Z",
+      },
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(submitted).mockReturnValueOnce(voidedOrder);
+
+    await expect(
+      acceptKioskSession({ id: "session-a", expected_submission_version: 2 }, actor),
+    ).rejects.toThrow("已作废");
+
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+    expect(mocks.supabase.from).not.toHaveBeenCalledWith("customers");
   });
 
   it("never returns a raw signature data URL in the staff session list", async () => {
@@ -426,6 +572,26 @@ function deviceRow(overrides: Record<string, unknown> = {}) {
     paired_at: "2026-07-13T00:00:00.000Z",
     created_at: "2026-07-13T00:00:00.000Z",
     updated_at: "2026-07-13T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function orderRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "order-a",
+    store_id: actor.storeId,
+    public_no: "R0000001",
+    customer_id: "customer-a",
+    status: "repairing",
+    record_state: "active",
+    deleted_at: null,
+    assignee_membership_id: "membership-owner",
+    device_custody_status: "with_shop",
+    customer_name: "Cliente",
+    customer_phone: "+39 333 000 0000",
+    device_label: "iPhone 15",
+    balance_amount: 0,
+    updated_at: "2026-07-17T00:00:00.000Z",
     ...overrides,
   };
 }

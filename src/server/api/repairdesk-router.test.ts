@@ -27,6 +27,7 @@ import {
   assertInventoryTransactionPermission,
   assertInventoryTransitionPermission,
   assertLegacyElectronicsImportPermission,
+  assertKioskSessionCreatePermission,
   assertKioskSessionReviewPermission,
   assertInventoryUpdatePermission,
   assertMemberInvitePermission,
@@ -263,6 +264,24 @@ describe("repairdesk router customer read permissions", () => {
 });
 
 describe("repairdesk router non-order write permissions", () => {
+  it("requires an assigned order for technician kiosk creation", () => {
+    for (const role of ["owner", "manager", "sales"] as const) {
+      expect(() => assertKioskSessionCreatePermission(actor(role), {})).not.toThrow();
+    }
+    expect(() =>
+      assertKioskSessionCreatePermission(actor("technician"), { order_id: "order-a" }),
+    ).not.toThrow();
+    expect(() => assertKioskSessionCreatePermission(actor("technician"), {})).toThrow(
+      ForbiddenError,
+    );
+    expect(() =>
+      assertKioskSessionCreatePermission(actor("technician", { activeMembershipId: undefined }), {
+        order_id: "order-a",
+      }),
+    ).toThrow(ForbiddenError);
+    expect(() => assertKioskSessionCreatePermission(actor("viewer"), {})).toThrow(ForbiddenError);
+  });
+
   it("limits kiosk session review to store owners and managers", () => {
     expect(() => assertKioskSessionReviewPermission(actor("owner"))).not.toThrow();
     expect(() => assertKioskSessionReviewPermission(actor("manager"))).not.toThrow();

@@ -55,6 +55,13 @@ describe("RepairDesk realtime invalidation map", () => {
       },
     ]);
   });
+
+  it("keeps order-scoped kiosk availability under the device invalidation prefix", () => {
+    const devicePrefix = kioskKeys.devices(storeId);
+    const availableDevices = kioskKeys.availableDevices(storeId, "order_1");
+
+    expect(availableDevices.slice(0, devicePrefix.length)).toEqual(devicePrefix);
+  });
 });
 
 function buildEvent(queryGroups: RepairDeskRealtimeEvent["queryGroups"]): RepairDeskRealtimeEvent {

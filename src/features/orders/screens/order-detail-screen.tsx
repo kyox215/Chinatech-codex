@@ -88,7 +88,7 @@ import {
   createKioskSession,
   getRepairDeskOptions,
   getStoreSettings,
-  listKioskDevices,
+  listAvailableKioskDevices,
   listOrderWorkflow,
   patchOrder,
   patchOrderFinance,
@@ -112,7 +112,10 @@ import {
   getPreferredImeiCandidate,
   type ImeiCandidate,
 } from "@/features/capture/model/barcode-parser";
-import { RepairOrderPrintSheet } from "@/features/orders/components/repair-order-print-sheet";
+import {
+  RepairOrderPrintSheet,
+  canPrintRepairOrderCustomerDocument,
+} from "@/features/orders/components/repair-order-print-sheet";
 import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
 import { orderDetailQueryOptions } from "@/features/orders/api/query-options";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
@@ -337,11 +340,12 @@ export function OrderDetailScreen({
     queryFn: ({ signal }) => getRepairDeskOptions({ signal }),
     staleTime: CACHE_TIMES.options,
   });
+  const canCreateKioskSession = data?.capabilities?.canCreateKioskSession === true;
   const { data: kioskDevices = [] } = useQuery({
-    queryKey: kioskKeys.devices(activeStoreId),
-    queryFn: ({ signal }) => listKioskDevices({ signal }),
+    queryKey: kioskKeys.availableDevices(activeStoreId, id),
+    queryFn: ({ signal }) => listAvailableKioskDevices(id, { signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId),
+    enabled: Boolean(activeStoreId && canCreateKioskSession),
   });
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
@@ -828,6 +832,10 @@ export function OrderDetailScreen({
   }
   const { order, customer, device, supplier, events, messages } = data;
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
+  const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(
+    order,
+    storeOutputIdentity.canOutput,
+  );
   const canNotify = !isVoided && !order.customer_contact_redacted;
   const supplierPermissions = repairDeskOptions?.permissions ?? {
     canReadSuppliers: false,
@@ -1051,14 +1059,18 @@ export function OrderDetailScreen({
           whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
           onPay={() => setPayOpen(true)}
           paymentDisabled={!canCollectPayment}
-          onPrint={() => storeOutputIdentity.canOutput && window.print()}
-          printDisabled={!storeOutputIdentity.canOutput}
+          onPrint={() => canPrintCustomerDocument && window.print()}
+          printDisabled={!canPrintCustomerDocument}
           onCancel={() => setCancelOpen(true)}
           canCancel={canCancelOrder}
-          onRequestKioskSignature={isVoided ? undefined : () => kioskSignatureRequest.mutate()}
+          onRequestKioskSignature={
+            canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
+          }
           kioskSignaturePending={kioskSignatureRequest.isPending}
           kioskSignatureAvailable={
-            Boolean(activeKioskDevice) && custodyStatus === DEVICE_CUSTODY_WITH_SHOP
+            canCreateKioskSession &&
+            Boolean(activeKioskDevice) &&
+            custodyStatus === DEVICE_CUSTODY_WITH_SHOP
           }
           partsSupplier={partsSupplier}
           supplierOptions={supplierOptions}
@@ -1089,8 +1101,8 @@ export function OrderDetailScreen({
         <div className="relative z-20">
           <OrderHero
             order={order}
-            onPrint={() => storeOutputIdentity.canOutput && window.print()}
-            printDisabled={!storeOutputIdentity.canOutput}
+            onPrint={() => canPrintCustomerDocument && window.print()}
+            printDisabled={!canPrintCustomerDocument}
             onCancel={() => setCancelOpen(true)}
             canCancel={canCancelOrder}
             onEdit={
@@ -1178,10 +1190,14 @@ export function OrderDetailScreen({
               signatureAttachments={signatureAttachments}
               photoUploadPending={attachmentUpload.isPending}
               onPhotoCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
-              onRequestKioskSignature={isVoided ? undefined : () => kioskSignatureRequest.mutate()}
+              onRequestKioskSignature={
+                canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
+              }
               kioskSignaturePending={kioskSignatureRequest.isPending}
               kioskSignatureAvailable={
-                Boolean(activeKioskDevice) && custodyStatus === DEVICE_CUSTODY_WITH_SHOP
+                canCreateKioskSession &&
+                Boolean(activeKioskDevice) &&
+                custodyStatus === DEVICE_CUSTODY_WITH_SHOP
               }
             />
             <div ref={desktopRecordsRef} className="scroll-mt-24">

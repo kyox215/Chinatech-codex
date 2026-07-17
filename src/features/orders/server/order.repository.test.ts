@@ -191,6 +191,22 @@ describe("order repository role projection", () => {
     });
   });
 
+  it("exposes kiosk creation only for an active order in the actor's scope", () => {
+    expect(projectOrderCapabilities(order(), actor("owner")).canCreateKioskSession).toBe(true);
+    expect(projectOrderCapabilities(order(), actor("technician")).canCreateKioskSession).toBe(true);
+    expect(
+      projectOrderCapabilities(
+        order({ assignee_membership_id: "membership_other" }),
+        actor("technician"),
+      ).canCreateKioskSession,
+    ).toBe(false);
+    expect(projectOrderCapabilities(order(), actor("viewer")).canCreateKioskSession).toBe(false);
+    expect(
+      projectOrderCapabilities(order({ record_state: "voided" }), actor("owner"))
+        .canCreateKioskSession,
+    ).toBe(false);
+  });
+
   it("offers cancelled return only when the store still holds the device", () => {
     expect(
       projectOrderCapabilities(
@@ -589,8 +605,16 @@ describe("order repository database pagination", () => {
         }),
       )
       .mockReturnValueOnce(
+        createSupabaseQuery({ data: { bucket: "intake" }, error: null, count: 1 }),
+      )
+      .mockReturnValueOnce(
         createSupabaseQuery({
-          data: { code: "waiting_vendor", label: "等待供应商", enabled: true },
+          data: {
+            code: "waiting_vendor",
+            label: "等待供应商",
+            bucket: "custom",
+            enabled: true,
+          },
           error: null,
           count: 1,
         }),
@@ -599,7 +623,7 @@ describe("order repository database pagination", () => {
     await expect(
       transitionOrder("order_custom_guard", "waiting_vendor", { operator: actor("owner") }),
     ).rejects.toThrow("尚未绑定主流程阶段");
-    expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(3);
   });
 
   it("rejects a renamed technician opening a legacy order before loading child data", async () => {

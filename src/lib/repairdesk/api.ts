@@ -80,6 +80,7 @@ import type {
   InventoryStats,
   InventorySummary,
   InventoryTransactionInput,
+  KioskAvailableDevice,
   KioskDevice,
   KioskDevicePairingInput,
   KioskDevicePairingResult,
@@ -543,6 +544,17 @@ export async function getStoreMembers(
 
 export async function listKioskDevices(options?: RepairDeskRequestOptions): Promise<KioskDevice[]> {
   return requestJson<KioskDevice[]>("kiosk/devices", {}, options);
+}
+
+export async function listAvailableKioskDevices(
+  orderId: string,
+  options?: RepairDeskRequestOptions,
+): Promise<KioskAvailableDevice[]> {
+  return requestJson<KioskAvailableDevice[]>(
+    `kiosk/available-devices?order_id=${encodeURIComponent(orderId)}`,
+    {},
+    options,
+  );
 }
 
 export async function createKioskDevicePairing(

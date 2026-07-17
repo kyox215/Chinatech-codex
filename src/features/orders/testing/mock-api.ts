@@ -82,9 +82,10 @@ import {
 import { getMockSupplier } from "@/features/suppliers/testing/mock-api";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
+import { ForbiddenError } from "@/server/auth-context";
+import { can } from "@/server/permissions";
 import {
   approvalFlowStatusFromLegacyStatus,
-  isDefaultRepairOrderStatus,
   notifyStatusFromLegacyStatus,
   orderWorkflowStatuses,
   partsStatusFromLegacyStatus,
@@ -108,11 +109,37 @@ function mockOrderWorkflowBucket(order: Pick<RepairOrder, "status">) {
   return workflowStatuses.find((status) => status.code === order.status)?.bucket;
 }
 
-function assertMockRoutineMutationAllowed(order: RepairOrder) {
+function isMockTerminalOrder(
+  order: Pick<RepairOrder, "status" | "exception_status" | "workflow_status">,
+) {
   const workflowBucket = mockOrderWorkflowBucket(order);
+  return (
+    order.status === "completed" ||
+    order.status === "cancelled" ||
+    order.exception_status === "cancelled" ||
+    workflowBucket === "done" ||
+    workflowBucket === "cancelled" ||
+    (workflowBucket === undefined && order.workflow_status === "closed")
+  );
+}
+
+function assertMockOrderNotVoided(order: Pick<RepairOrder, "record_state" | "deleted_at">) {
   if (order.record_state === "voided" || order.deleted_at) {
     throw new Error("该工单记录已作废，只能查看历史证据");
   }
+}
+
+function assertMockOrderInActorScope(order: RepairOrder, actor?: AuditActor) {
+  const role = actor?.storeRole ?? actor?.role;
+  if (!actor || actor.isSystem || role !== "technician") return;
+  if (!actor.activeMembershipId || order.assignee_membership_id !== actor.activeMembershipId) {
+    throw new ForbiddenError("当前工单未分配给你");
+  }
+}
+
+function assertMockRoutineMutationAllowed(order: RepairOrder) {
+  const workflowBucket = mockOrderWorkflowBucket(order);
+  assertMockOrderNotVoided(order);
   if (
     order.status === "completed" ||
     order.status === "cancelled" ||
@@ -197,7 +224,7 @@ function validateMockManualTransitionTarget(from: RepairOrderStatus, to: RepairO
   if (!targetStatus.enabled) {
     return { ok: false, reason: `「${targetStatus.label}」已停用，不能流转到该状态` };
   }
-  if (!isDefaultRepairOrderStatus(to)) {
+  if (targetStatus.bucket === "custom") {
     return {
       ok: false,
       reason: "自定义状态尚未绑定主流程阶段，当前不能用于工单流转",
@@ -563,18 +590,17 @@ export async function updateOrderWorkflowTransitions(
 export async function getOrder(id: string, _actor?: AuditActor) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockOrderInActorScope(o, _actor);
   const workflowBucket = mockOrderWorkflowBucket(o);
   const orderView = { ...decorate(o), workflow_bucket: workflowBucket };
-  const terminal =
-    o.status === "completed" ||
-    o.status === "cancelled" ||
-    o.exception_status === "cancelled" ||
-    workflowBucket === "done" ||
-    workflowBucket === "cancelled" ||
-    (workflowBucket === undefined && o.workflow_status === "closed");
+  const terminal = isMockTerminalOrder(o);
   const voided = o.record_state === "voided" || Boolean(o.deleted_at);
   const hasFinancialEvidence =
     o.is_paid || o.deposit_amount > 0 || o.quotation_amount > o.balance_amount;
+  const role = _actor?.storeRole ?? _actor?.role;
+  const kioskScopeSatisfied =
+    role === "technician" &&
+    Boolean(_actor?.activeMembershipId && o.assignee_membership_id === _actor.activeMembershipId);
   return {
     order: orderView,
     customer: getCustomer(o.customer_id),
@@ -602,6 +628,11 @@ export async function getOrder(id: string, _actor?: AuditActor) {
         isOrderCancelledState(orderView) &&
         o.device_custody_status === DEVICE_CUSTODY_WITH_SHOP &&
         !o.delivered_at,
+      canCreateKioskSession:
+        !voided &&
+        (!_actor ||
+          _actor.isSystem ||
+          can(_actor, "order:update_intake", { scopeSatisfied: kioskScopeSatisfied })),
       canCorrect: terminal && !voided,
       canReopen: terminal && !voided,
       canVoid: terminal && !voided && !hasFinancialEvidence,
@@ -1722,7 +1753,7 @@ function readMockTerminalRequest(
   if ((input.reason.trim().length ?? 0) < 5) throw new Error("原因至少需要 5 个字符");
   if (order.record_state === "voided" || order.deleted_at)
     throw new Error("当前工单状态不允许执行该操作");
-  if (order.status !== "completed" && order.status !== "cancelled") {
+  if (!isMockTerminalOrder(order)) {
     throw new Error("当前工单状态不允许执行该操作");
   }
   return { order, fingerprint };
@@ -1872,6 +1903,7 @@ export async function sendNotification(
   if (!message) throw new Error("通知内容不能为空");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockOrderNotVoided(o);
   const now = new Date().toISOString();
   const messageId = `msg_${Date.now()}`;
   o.updated_at = now;
@@ -1921,6 +1953,7 @@ function writeMockWhatsappMessage({
   if (!message) throw new Error("通知内容不能为空");
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockOrderNotVoided(o);
   const now = new Date().toISOString();
   const messageId = `msg_whatsapp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const from = o.status;
@@ -1943,6 +1976,8 @@ function writeMockWhatsappMessage({
     if (transitionTo === "completed" || transitionTo === "cancelled") {
       throw new Error("完成或取消工单必须使用专用状态操作，不能随通知一起流转");
     }
+    const targetValidation = validateMockManualTransitionTarget(from, transitionTo);
+    if (!targetValidation.ok) throw new Error(targetValidation.reason);
     const targetStatus = workflowStatuses.find((status) => status.code === transitionTo);
     if (targetStatus && !targetStatus.enabled) {
       throw new Error(`「${targetStatus.label}」已停用，不能流转到该状态`);
@@ -2081,13 +2116,14 @@ export async function createOrder(
   if (requestedStatus && (!requestedStatus.enabled || !requestedStatus.allowed_for_create)) {
     throw new Error(`「${requestedStatus.label}」不能作为新建工单状态`);
   }
-  const status =
-    requestedStatus?.code ??
-    workflowStatuses.find((item) => item.enabled && item.is_default_create_status)?.code;
-  if (!status) throw new Error("店铺没有可用于新建工单的状态");
-  if (!isDefaultRepairOrderStatus(status)) {
+  const resolvedStatus =
+    requestedStatus ??
+    workflowStatuses.find((item) => item.enabled && item.is_default_create_status);
+  if (!resolvedStatus) throw new Error("店铺没有可用于新建工单的状态");
+  if (resolvedStatus.bucket === "custom") {
     throw new Error("自定义状态尚未绑定主流程阶段，当前不能用于新建工单");
   }
+  const status = resolvedStatus.code;
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;

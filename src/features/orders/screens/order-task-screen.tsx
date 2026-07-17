@@ -66,7 +66,7 @@ import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import {
   createKioskSession,
   getOrder,
-  listKioskDevices,
+  listAvailableKioskDevices,
   listOrderWorkflow,
   transitionOrder,
 } from "@/lib/repairdesk/api";
@@ -103,11 +103,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });
+  const canCreateKioskSession = data?.capabilities?.canCreateKioskSession === true;
   const { data: kioskDevices = [] } = useQuery({
-    queryKey: kioskKeys.devices(activeStoreId),
-    queryFn: ({ signal }) => listKioskDevices({ signal }),
+    queryKey: kioskKeys.availableDevices(activeStoreId, id),
+    queryFn: ({ signal }) => listAvailableKioskDevices(id, { signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId),
+    enabled: Boolean(activeStoreId && canCreateKioskSession),
   });
 
   const order = data?.order;
@@ -266,7 +267,9 @@ export function OrderTaskScreen({ id }: { id: string }) {
           variant="outline"
           size="icon"
           className="size-10 rounded-full md:size-8 md:rounded-lg"
-          onClick={() => window.print()}
+          aria-label="打印工单"
+          disabled={voided}
+          onClick={() => !voided && window.print()}
         >
           <Printer className="size-4" />
         </Button>
@@ -437,7 +440,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 </Link>
               </Button>
             </div>
-            {canTransition && !cancelled && !voided ? (
+            {canCreateKioskSession && !voided ? (
               <Button
                 type="button"
                 variant="outline"

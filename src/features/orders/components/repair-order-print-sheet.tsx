@@ -51,7 +51,7 @@ export function RepairOrderPrintSheet({
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
   const taskUrl = getOrderTaskUrl(order.id, getPrintOrigin(orderUrl));
 
-  if (!storeProfile.canOutput) return null;
+  if (!canPrintRepairOrderCustomerDocument(order, storeProfile.canOutput)) return null;
 
   return (
     <PrintPortal paperMode="a4-portrait-half">
@@ -213,6 +213,13 @@ export function RepairOrderPrintSheet({
       </section>
     </PrintPortal>
   );
+}
+
+export function canPrintRepairOrderCustomerDocument(
+  order: Pick<OrderDetail["order"], "record_state" | "deleted_at">,
+  storeCanOutput: boolean,
+) {
+  return storeCanOutput && order.record_state !== "voided" && !order.deleted_at;
 }
 
 function getPrintOrigin(value: string) {

@@ -169,6 +169,7 @@ import type {
   CreateOrderInput,
   InventoryItemStatus,
   InventoryTransactionInput,
+  KioskSessionCreateInput,
   OrderListItem,
   OrderListResult,
   OrderStats,
@@ -692,7 +693,7 @@ function fail(error: unknown) {
   return privateJson({ error: message }, 400);
 }
 
-export async function handleRepairDeskGet(path: string) {
+export async function handleRepairDeskGet(path: string, searchParams?: URLSearchParams) {
   try {
     const actor = await getRequestActor(true, {
       allowPendingStore: allowsPendingStore(path, "GET"),
@@ -729,6 +730,21 @@ export async function handleRepairDeskGet(path: string) {
       case "kiosk/devices":
         assertRepairDeskPermission(actor, "settings:update_store");
         return ok(await api.listKioskDevices(actor));
+      case "kiosk/available-devices": {
+        const orderId = z.string().trim().min(1).max(128).parse(searchParams?.get("order_id"));
+        assertKioskSessionCreatePermission(actor, { order_id: orderId });
+        assertKioskEndToEndEnabled();
+        const order = await api.getOrder(orderId, actor);
+        if (order.capabilities?.canCreateKioskSession !== true) {
+          throw new ForbiddenError("当前工单不能创建 iPad 任务");
+        }
+        const devices = await api.listKioskDevices(actor);
+        return ok(
+          devices
+            .filter((device) => device.status === "active")
+            .map(({ id, label, status }) => ({ id, label, status })),
+        );
+      }
       case "kiosk/sessions":
         assertKioskSessionReviewPermission(actor);
         return ok(await api.listKioskSessions(actor));
@@ -850,9 +866,9 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         );
       }
       case "kiosk/sessions/create": {
-        assertRepairDeskPermission(actor, "order:update_intake");
-        assertKioskEndToEndEnabled();
         const { input } = kioskSessionCreateBodySchema.parse(body);
+        assertKioskSessionCreatePermission(actor, input);
+        assertKioskEndToEndEnabled();
         return ok(
           await runWithRealtime(
             actor,
@@ -1955,6 +1971,17 @@ export function assertStoreSettingsUpdatePermission(actor: AuditActor) {
 export function assertKioskSessionReviewPermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "settings:update_store");
   assertRepairDeskPermission(actor, "order:update_intake");
+}
+
+export function assertKioskSessionCreatePermission(
+  actor: AuditActor,
+  input: Pick<KioskSessionCreateInput, "order_id">,
+) {
+  const role = actor.storeRole ?? actor.role;
+  assertRepairDeskPermission(actor, "order:update_intake", {
+    scopeSatisfied:
+      role === "technician" && Boolean(actor.activeMembershipId && input.order_id?.trim()),
+  });
 }
 
 export function assertWorkflowConfigurePermission(actor: AuditActor) {

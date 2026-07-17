@@ -9,6 +9,7 @@ import {
   getOrderStats,
   getStoreContext,
   isRepairDeskAuthorizationError,
+  listAvailableKioskDevices,
   listOrderDataBatchHistory,
   RepairDeskApiError,
   returnKioskSession,
@@ -47,6 +48,27 @@ describe("repairdesk api client", () => {
       total: 3,
       inProgress: 2,
     });
+  });
+
+  it("scopes available kiosk devices to the selected order", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: [{ id: "device_1", label: "Front iPad", status: "active" }],
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listAvailableKioskDevices("order/with space")).resolves.toEqual([
+      { id: "device_1", label: "Front iPad", status: "active" },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/repairdesk/kiosk/available-devices?order_id=order%2Fwith%20space",
+      expect.not.objectContaining({ method: "POST" }),
+    );
   });
 
   it("posts dashboard summary requests to the aggregate endpoint", async () => {

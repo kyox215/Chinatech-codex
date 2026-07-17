@@ -660,6 +660,7 @@ export interface OrderCapabilities {
   canCollectPayment: boolean;
   canTransition: boolean;
   canConfirmCancelledReturn: boolean;
+  canCreateKioskSession: boolean;
   canCorrect: boolean;
   canReopen: boolean;
   canVoid: boolean;
@@ -1794,6 +1795,8 @@ export interface KioskDevice {
   created_at: string;
   updated_at: string;
 }
+
+export type KioskAvailableDevice = Pick<KioskDevice, "id" | "label" | "status">;
 
 export interface KioskDevicePairingInput {
   label: string;

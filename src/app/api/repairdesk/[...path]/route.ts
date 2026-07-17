@@ -30,9 +30,9 @@ async function readJson(request: NextRequest): Promise<unknown> {
   return request.json().catch(() => ({}));
 }
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   const path = (await context.params).path?.join("/") ?? "";
-  return handleRepairDeskGet(path);
+  return handleRepairDeskGet(path, request.nextUrl.searchParams);
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {

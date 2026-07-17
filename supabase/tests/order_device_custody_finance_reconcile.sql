@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(55);
 
 select has_column('public', 'repair_orders', 'device_custody_status', 'custody column exists');
 select is(
@@ -139,6 +139,40 @@ insert into public.repair_orders (
   '2026-07-17T10:09:00Z', '2026-07-17T10:09:00Z'
 );
 
+insert into auth.users (id, email, created_at, updated_at) values
+  ('00000000-0000-4000-8000-000000003003', 'custody-tech@example.test', now(), now());
+
+insert into public.staff_profiles (id, email, display_name, role, status) values
+  ('00000000-0000-4000-8000-000000003003', 'custody-tech@example.test', 'Custody Technician', 'technician', 'active');
+
+insert into public.store_memberships (
+  id, store_id, user_id, email, display_name, role, status
+) values (
+  '00000000-0000-4000-8000-000000003013',
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003003',
+  'custody-tech@example.test', 'Custody Technician', 'technician', 'active'
+);
+
+insert into public.repair_orders (
+  id, store_id, public_no, order_type, status, customer_id, issue_description,
+  quotation_amount, deposit_amount, balance_amount, is_paid, approval_status,
+  technician_name, assignee_membership_id, fault_prices, workflow_status,
+  exception_status, payment_status, device_custody_status,
+  device_unlock_method, device_unlock_value, device_unlock_pattern,
+  completed_at, delivered_at, created_at, updated_at
+) values (
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003000',
+  'CUST-11', 'quick_repair', 'new',
+  '00000000-0000-4000-8000-000000003020',
+  'Hardening scope fixture', 0, 0, 0, false, 'pending',
+  'Custody Technician', '00000000-0000-4000-8000-000000003013',
+  '[]', 'intake', null, 'unpaid', 'with_shop',
+  null, null, null, null, null,
+  '2026-07-17T10:11:00Z', '2026-07-17T10:11:00Z'
+);
+
 create temp table custody_results (
   label text primary key,
   payload jsonb,
@@ -183,6 +217,119 @@ select ok(
   (select failed from custody_results where label = 'customer_secret_constraint'),
   'customer custody cannot retain unlock credentials'
 );
+
+set local role service_role;
+insert into custody_results (label, payload)
+select 'hardening_generic_first', public.repairdesk_apply_order_atomic_mutation(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003003',
+  '2026-07-17T10:11:00Z',
+  jsonb_build_object('diagnosis_result', 'hardening authorized'),
+  'note', jsonb_build_object('action', 'order_updated'),
+  '00000000-0000-4000-8000-000000003215'
+);
+insert into custody_results (label, payload)
+select 'hardening_generic_replay_authorized', public.repairdesk_apply_order_atomic_mutation(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003003',
+  '2026-07-17T10:11:00Z',
+  jsonb_build_object('diagnosis_result', 'hardening authorized'),
+  'note', jsonb_build_object('action', 'order_updated'),
+  '00000000-0000-4000-8000-000000003215'
+);
+reset role;
+
+update public.repair_orders
+set assignee_membership_id = '00000000-0000-4000-8000-000000003012',
+    technician_name = 'Custody Manager'
+where id = '00000000-0000-4000-8000-000000003111';
+
+set local role service_role;
+insert into custody_results (label, payload)
+select 'hardening_generic_replay_reassigned', public.repairdesk_apply_order_atomic_mutation(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003003',
+  '2026-07-17T10:11:00Z',
+  jsonb_build_object('diagnosis_result', 'hardening authorized'),
+  'note', jsonb_build_object('action', 'order_updated'),
+  '00000000-0000-4000-8000-000000003215'
+);
+insert into custody_results (label, payload)
+select 'hardening_unassigned_tech', public.repairdesk_apply_order_atomic_mutation(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003003',
+  (select updated_at from public.repair_orders where id = '00000000-0000-4000-8000-000000003111'),
+  jsonb_build_object('diagnosis_result', 'must not persist'),
+  'note', jsonb_build_object('action', 'order_updated'),
+  '00000000-0000-4000-8000-000000003216'
+);
+insert into custody_results (label, payload)
+select 'hardening_nested_sensitive', public.repairdesk_apply_order_atomic_mutation(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003001',
+  (select updated_at from public.repair_orders where id = '00000000-0000-4000-8000-000000003111'),
+  jsonb_build_object('diagnosis_result', 'must not persist'),
+  'note',
+  jsonb_build_object(
+    'action', 'order_updated',
+    'metadata', jsonb_build_object(
+      'items', jsonb_build_array(jsonb_build_object('secret', 'redacted'))
+    )
+  ),
+  '00000000-0000-4000-8000-000000003217'
+);
+insert into custody_results (label, payload)
+select 'hardening_completion_missing_custody', public.repairdesk_apply_order_atomic_mutation(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003001',
+  (select updated_at from public.repair_orders where id = '00000000-0000-4000-8000-000000003111'),
+  jsonb_build_object(
+    'status', 'completed', 'workflow_status', 'closed',
+    'completed_at', '2026-07-17T10:12:00Z',
+    'delivered_at', '2026-07-17T10:12:00Z',
+    'device_unlock_method', null,
+    'device_unlock_value', null,
+    'device_unlock_pattern', null
+  ),
+  'status_changed', jsonb_build_object('from', 'new', 'to', 'completed'),
+  '00000000-0000-4000-8000-000000003218'
+);
+insert into custody_results (label, payload)
+select 'hardening_completion_null_custody', public.repairdesk_apply_order_atomic_mutation(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003111',
+  '00000000-0000-4000-8000-000000003001',
+  (select updated_at from public.repair_orders where id = '00000000-0000-4000-8000-000000003111'),
+  jsonb_build_object(
+    'status', 'completed', 'workflow_status', 'closed',
+    'completed_at', '2026-07-17T10:12:00Z',
+    'delivered_at', '2026-07-17T10:12:00Z',
+    'device_custody_status', null,
+    'device_unlock_method', null,
+    'device_unlock_value', null,
+    'device_unlock_pattern', null
+  ),
+  'status_changed', jsonb_build_object('from', 'new', 'to', 'completed'),
+  '00000000-0000-4000-8000-000000003219'
+);
+reset role;
+
+select is((select payload->>'code' from custody_results where label = 'hardening_generic_first'), 'updated', 'assigned technician can perform generic mutation');
+select is((select payload->>'code' from custody_results where label = 'hardening_generic_replay_authorized'), 'idempotent_replay', 'still-authorized technician can replay before stale-version rejection');
+select is((select payload->>'code' from custody_results where label = 'hardening_generic_replay_reassigned'), 'actor_forbidden', 'reassigned technician cannot replay an earlier mutation');
+select is((select payload->>'code' from custody_results where label = 'hardening_unassigned_tech'), 'actor_forbidden', 'unassigned technician cannot mutate the order');
+select is((select payload->>'code' from custody_results where label = 'hardening_nested_sensitive'), 'sensitive_event_payload', 'recursive event scan rejects a nested array secret');
+select is((select payload->>'code' from custody_results where label = 'hardening_completion_missing_custody'), 'invalid_completion_update', 'completion requires an explicit customer custody key');
+select is((select payload->>'code' from custody_results where label = 'hardening_completion_null_custody'), 'invalid_custody_status', 'completion rejects JSON null custody');
+select is((select count(*) from public.order_events where payload->>'idempotency_key' = '00000000-0000-4000-8000-000000003215'), 1::bigint, 'authorized replay preserves one generic event');
+select is((select count(*) from public.order_events where payload->>'idempotency_key' = any(array['00000000-0000-4000-8000-000000003216','00000000-0000-4000-8000-000000003217','00000000-0000-4000-8000-000000003218','00000000-0000-4000-8000-000000003219'])), 0::bigint, 'denied hardening mutations write no events');
+select ok((select status = 'new' and diagnosis_result = 'hardening authorized' and device_custody_status = 'with_shop' and assignee_membership_id = '00000000-0000-4000-8000-000000003012' from public.repair_orders where id = '00000000-0000-4000-8000-000000003111'), 'denied hardening mutations leave order state unchanged');
 
 set local role service_role;
 insert into custody_results (label, payload)
@@ -267,6 +414,24 @@ select 'cancelled_return_replay', public.repairdesk_confirm_cancelled_order_retu
   '00000000-0000-4000-8000-000000003001',
   '2026-07-17T10:04:00Z', '00000000-0000-4000-8000-000000003208'
 );
+reset role;
+update public.store_memberships
+set status = 'inactive'
+where id = '00000000-0000-4000-8000-000000003011';
+set local role service_role;
+insert into custody_results (label, payload)
+select 'cancelled_return_replay_inactive_actor', public.repairdesk_confirm_cancelled_order_return(
+  '00000000-0000-4000-8000-000000003000',
+  '00000000-0000-4000-8000-000000003104',
+  '00000000-0000-4000-8000-000000003001',
+  '2026-07-17T10:04:00Z',
+  '00000000-0000-4000-8000-000000003208'
+);
+reset role;
+update public.store_memberships
+set status = 'active'
+where id = '00000000-0000-4000-8000-000000003011';
+set local role service_role;
 insert into custody_results (label, payload)
 select 'custom_cancelled_return', public.repairdesk_confirm_cancelled_order_return(
   '00000000-0000-4000-8000-000000003000',
@@ -294,6 +459,7 @@ select ok((select device_custody_status = 'with_customer' and delivered_at is no
 select ok((select device_unlock_method is null and device_unlock_value is null from public.repair_orders where public_no = 'CUST-04'), 'cancelled return clears credentials');
 select is((select count(*) from public.order_terminal_operations where idempotency_key = '00000000-0000-4000-8000-000000003208'), 1::bigint, 'cancelled return writes one ledger row');
 select is((select payload->>'code' from custody_results where label = 'cancelled_return_replay'), 'idempotent_replay', 'cancelled return replay is idempotent');
+select is((select payload->>'code' from custody_results where label = 'cancelled_return_replay_inactive_actor'), 'actor_forbidden', 'inactive actor cannot replay a cancelled return');
 select is((select payload->>'code' from custody_results where label = 'custom_cancelled_return'), 'recorded', 'custom cancelled bucket uses return RPC');
 select is((select device_custody_status from public.repair_orders where public_no = 'CUST-05'), 'with_customer', 'custom cancelled return updates custody');
 
@@ -389,6 +555,46 @@ begin
 end;
 $$;
 select ok((select failed from custody_results where label = 'voided_immutable'), 'voided custody record remains immutable');
+
+set local role service_role;
+do $$
+declare
+  v_operation text;
+begin
+  foreach v_operation in array array[
+    'correction', 'reopen', 'void', 'custody_return', 'custody_correction'
+  ] loop
+    perform pg_catalog.set_config('repairdesk.terminal_operation', v_operation, true);
+    begin
+      update public.repair_orders
+      set quotation_amount = quotation_amount + 1
+      where id = '00000000-0000-4000-8000-000000003103';
+      insert into custody_results (label, payload, failed)
+      values ('whitelist_' || v_operation, null, false);
+    exception when others then
+      insert into custody_results (label, payload, failed)
+      values ('whitelist_' || v_operation, null, true);
+    end;
+    perform pg_catalog.set_config('repairdesk.terminal_operation', '', true);
+  end loop;
+end;
+$$;
+reset role;
+
+select is(
+  (select count(*) from custody_results
+   where label = any(array[
+     'whitelist_correction', 'whitelist_reopen', 'whitelist_void',
+     'whitelist_custody_return', 'whitelist_custody_correction'
+   ]) and failed),
+  5::bigint,
+  'all five terminal operation whitelists reject quotation changes'
+);
+select is(
+  (select quotation_amount from public.repair_orders where id = '00000000-0000-4000-8000-000000003103'),
+  0::numeric,
+  'failed whitelist probes preserve quotation amount'
+);
 
 select * from finish();
 rollback;
