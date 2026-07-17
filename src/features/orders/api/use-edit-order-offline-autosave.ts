@@ -50,6 +50,11 @@ export type UseEditOrderOfflineAutosaveOptions = {
   serviceFactory?: (scope: RepairDeskOfflineScope) => RepairDeskOfflineOrderService;
 };
 
+type EditOrderOfflineDraftSnapshot = {
+  draft: UpdateOrderInput;
+  orderDetail: OrderDetail;
+};
+
 export function useEditOrderOfflineAutosave({
   draft,
   orderDetail,
@@ -72,6 +77,7 @@ export function useEditOrderOfflineAutosave({
   const currentDraftIdRef = useRef<string | undefined>(undefined);
   const lastSavedFingerprintRef = useRef<string | undefined>(undefined);
   const storageAvailableRef = useRef(false);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const scopeStoreId = scope?.storeId;
   const scopeUserId = scope?.userId;
   const orderId = orderDetail?.order.id;
@@ -93,6 +99,7 @@ export function useEditOrderOfflineAutosave({
 
   useEffect(() => {
     let active = true;
+    const activeDraftId = currentDraftIdRef.current;
     storageAvailableRef.current = false;
     currentDraftIdRef.current = undefined;
     lastSavedFingerprintRef.current = undefined;
@@ -124,6 +131,22 @@ export function useEditOrderOfflineAutosave({
         .filter((item) => item.mode === "edit" && item.serverOrderId === orderId)
         .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
       if (!newest) return;
+      if (
+        activeDraftId &&
+        newest.localDraftId === activeDraftId &&
+        newest.baseUpdatedAt === orderUpdatedAt
+      ) {
+        currentDraftIdRef.current = activeDraftId;
+        const activeDraft = latestDraftRef.current;
+        const currentOrderDetail = latestOrderDetailRef.current;
+        lastSavedFingerprintRef.current =
+          activeDraft && currentOrderDetail
+            ? getEditOrderAutosaveFingerprint({ data: currentOrderDetail, draft: activeDraft })
+            : undefined;
+        setLastSavedAt(newest.updatedAt);
+        setState("saved");
+        return;
+      }
       setDraftPrompt({
         localDraftId: newest.localDraftId,
         updatedAt: newest.updatedAt,
@@ -141,56 +164,80 @@ export function useEditOrderOfflineAutosave({
     };
   }, [orderId, orderUpdatedAt, service]);
 
+  const persistSnapshot = useCallback(
+    async ({
+      draft: currentDraft,
+      orderDetail: currentOrderDetail,
+    }: EditOrderOfflineDraftSnapshot) => {
+      if (
+        !service ||
+        !storageAvailableRef.current ||
+        draftPrompt ||
+        !autosaveEnabled ||
+        !currentDraft ||
+        !currentOrderDetail
+      ) {
+        return false;
+      }
+      if (
+        !isEditOrderFormWorthOfflineAutosave({
+          data: currentOrderDetail,
+          draft: currentDraft,
+          defaultWarrantyMonths,
+        })
+      ) {
+        return false;
+      }
+
+      const fingerprint = getEditOrderAutosaveFingerprint({
+        data: currentOrderDetail,
+        draft: currentDraft,
+      });
+      if (fingerprint === lastSavedFingerprintRef.current && currentDraftIdRef.current) return true;
+
+      setState("saving");
+      setErrorMessage(null);
+      const saved = await service.saveDraft(
+        buildEditOrderOfflineDraftInput({
+          data: currentOrderDetail,
+          draft: currentDraft,
+          localDraftId: currentDraftIdRef.current,
+        }),
+      );
+
+      if (!saved.ok) {
+        setState("error");
+        setErrorMessage(formatOfflineStorageError(saved.error));
+        return false;
+      }
+
+      currentDraftIdRef.current = saved.value.localDraftId;
+      lastSavedFingerprintRef.current = fingerprint;
+      setLastSavedAt(saved.value.updatedAt);
+      setState("saved");
+      return true;
+    },
+    [autosaveEnabled, defaultWarrantyMonths, draftPrompt, service],
+  );
+
+  const saveDraftSnapshot = useCallback(
+    (snapshot: EditOrderOfflineDraftSnapshot) => {
+      const queued = saveQueueRef.current.then(() => persistSnapshot(snapshot));
+      saveQueueRef.current = queued.then(
+        () => undefined,
+        () => undefined,
+      );
+      return queued;
+    },
+    [persistSnapshot],
+  );
+
   const saveNow = useCallback(async () => {
     const currentDraft = latestDraftRef.current;
     const currentOrderDetail = latestOrderDetailRef.current;
-    if (
-      !service ||
-      !storageAvailableRef.current ||
-      draftPrompt ||
-      !autosaveEnabled ||
-      !currentDraft ||
-      !currentOrderDetail
-    ) {
-      return;
-    }
-    if (
-      !isEditOrderFormWorthOfflineAutosave({
-        data: currentOrderDetail,
-        draft: currentDraft,
-        defaultWarrantyMonths,
-      })
-    ) {
-      return;
-    }
-
-    const fingerprint = getEditOrderOfflineDraftFingerprint({
-      data: currentOrderDetail,
-      draft: currentDraft,
-    });
-    if (fingerprint === lastSavedFingerprintRef.current && currentDraftIdRef.current) return;
-
-    setState("saving");
-    setErrorMessage(null);
-    const saved = await service.saveDraft(
-      buildEditOrderOfflineDraftInput({
-        data: currentOrderDetail,
-        draft: currentDraft,
-        localDraftId: currentDraftIdRef.current,
-      }),
-    );
-
-    if (!saved.ok) {
-      setState("error");
-      setErrorMessage(formatOfflineStorageError(saved.error));
-      return;
-    }
-
-    currentDraftIdRef.current = saved.value.localDraftId;
-    lastSavedFingerprintRef.current = fingerprint;
-    setLastSavedAt(saved.value.updatedAt);
-    setState("saved");
-  }, [autosaveEnabled, defaultWarrantyMonths, draftPrompt, service]);
+    if (!currentDraft || !currentOrderDetail) return false;
+    return saveDraftSnapshot({ draft: currentDraft, orderDetail: currentOrderDetail });
+  }, [saveDraftSnapshot]);
 
   useEffect(() => {
     if (!service || !storageAvailableRef.current || draftPrompt || !autosaveEnabled) return;
@@ -261,7 +308,7 @@ export function useEditOrderOfflineAutosave({
       }
 
       currentDraftIdRef.current = restored.value.localDraftId;
-      lastSavedFingerprintRef.current = getEditOrderOfflineDraftFingerprint({
+      lastSavedFingerprintRef.current = getEditOrderAutosaveFingerprint({
         data: currentOrderDetail,
         draft: restoreResult.draft,
       });
@@ -316,6 +363,7 @@ export function useEditOrderOfflineAutosave({
     pendingRestoreNotice,
     hasSensitiveUnlockDraft: hasEditOrderSensitiveUnlockDraft(draft),
     saveNow,
+    saveDraftSnapshot,
     restorePromptDraft,
     discardPromptDraft,
     discardCurrentDraft,
@@ -325,6 +373,19 @@ export function useEditOrderOfflineAutosave({
 function createIndexedDbOrderService(scope: RepairDeskOfflineScope) {
   const store = createRepairDeskIndexedDbOfflineStore({ scope });
   return createRepairDeskOfflineOrderService({ store, scope });
+}
+
+function getEditOrderAutosaveFingerprint({
+  data,
+  draft,
+}: {
+  data: OrderDetail;
+  draft: UpdateOrderInput;
+}) {
+  return JSON.stringify({
+    baseUpdatedAt: draft.expected_updated_at,
+    content: getEditOrderOfflineDraftFingerprint({ data, draft }),
+  });
 }
 
 function formatOfflineStorageError(error: RepairDeskOfflineError | undefined) {

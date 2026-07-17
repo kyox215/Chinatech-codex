@@ -127,7 +127,12 @@ import {
   DeviceUnlockViewer,
 } from "@/features/orders/components/device-unlock-fields";
 import { OrderHero } from "@/features/orders/components/order-hero";
-import { buildOrderPatchChanges } from "@/features/orders/model/order-edit-diff";
+import {
+  advanceOrderEditBaseline,
+  buildOrderEditSavePlan,
+  executeOrderEditSavePlan,
+  OrderEditSaveExecutionError,
+} from "@/features/orders/model/order-edit-save";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
@@ -276,12 +281,14 @@ export function OrderDetailScreen({
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [editBaseline, setEditBaseline] = useState<UpdateOrderInput | null>(null);
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
   const [mobileFinanceEditing, setMobileFinanceEditing] = useState(false);
   const [mobileFinanceSaveError, setMobileFinanceSaveError] = useState("");
   const [financeDraft, setFinanceDraft] = useState<FinanceDraftState>(() =>
     createFinanceDraftState([], 0),
   );
+  const editSaveInFlightRef = useRef(false);
   const desktopRecordsRef = useRef<HTMLDivElement | null>(null);
 
   const closeCustodyOverlay = useCallback(() => {
@@ -354,6 +361,18 @@ export function OrderDetailScreen({
   });
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
+  const editFinance = useMemo(() => {
+    if (!data || !editDraft) return null;
+    return normalizeFinanceDraft(financeDraft, inferOrderPaidAmount(data.order));
+  }, [data, editDraft, financeDraft]);
+  const persistedEditDraft = useMemo(() => {
+    if (!editDraft || !editFinance?.canSave) return editDraft;
+    return {
+      ...editDraft,
+      fault_prices: editFinance.faultPrices,
+      deposit_amount: editFinance.deposit,
+    };
+  }, [editDraft, editFinance]);
   const {
     state: editOfflineState,
     errorMessage: editOfflineErrorMessage,
@@ -364,8 +383,9 @@ export function OrderDetailScreen({
     restorePromptDraft: restoreEditOfflinePromptDraft,
     discardPromptDraft: discardEditOfflinePromptDraft,
     discardCurrentDraft: discardCurrentEditOfflineDraft,
+    saveDraftSnapshot: saveEditOfflineDraftSnapshot,
   } = useEditOrderOfflineAutosave({
-    draft: editDraft,
+    draft: persistedEditDraft,
     orderDetail: data,
     scope: offlineScope,
     defaultWarrantyMonths,
@@ -460,53 +480,66 @@ export function OrderDetailScreen({
   });
 
   const orderUpdate = useMutation({
-    mutationFn: async (input: UpdateOrderInput) => {
-      if (!data) throw new Error("工单未加载");
-      const capabilities = data.capabilities;
-      if (!capabilities) throw new Error("未取得工单编辑权限，请刷新后重试");
-      const baseline = buildEditForm(data, defaultWarrantyMonths);
-      const changes = buildOrderPatchChanges(baseline, input, capabilities);
-      const financeChanged =
-        JSON.stringify(
-          normalizeFinanceDraft(
-            createFinanceDraftState(baseline.fault_prices, baseline.deposit_amount ?? 0),
-            inferOrderPaidAmount(data.order),
-          ).faultPrices,
-        ) !==
-          JSON.stringify(
-            normalizeFinanceDraft(
-              createFinanceDraftState(input.fault_prices, input.deposit_amount ?? 0),
-              inferOrderPaidAmount(data.order),
-            ).faultPrices,
-          ) || Number(baseline.deposit_amount ?? 0) !== Number(input.deposit_amount ?? 0);
-      const hasRoutineChanges = Object.keys(changes).length > 0;
-      let expectedUpdatedAt = data.order.updated_at;
-      if (hasRoutineChanges) {
-        const routineResult = await patchOrder(id, {
-          expected_updated_at: expectedUpdatedAt,
-          changes,
-        });
-        expectedUpdatedAt = routineResult.updated_at;
-      }
-      if (financeChanged) {
-        if (!capabilities.canAdjustFinance) throw new Error("当前账号没有调整报价的权限");
-        return patchOrderFinance(id, {
-          expected_updated_at: expectedUpdatedAt,
-          fault_prices: input.fault_prices,
-          deposit_amount: input.deposit_amount,
-        });
-      }
-      if (!hasRoutineChanges) throw new Error("没有可保存的修改");
-      return { ok: true, updated_at: expectedUpdatedAt };
+    retry: false,
+    mutationFn: async (input: {
+      baseline: UpdateOrderInput;
+      draft: UpdateOrderInput;
+      capabilities: {
+        canEditIntake: boolean;
+        canEditRepair: boolean;
+        canAdjustFinance: boolean;
+      };
+    }) => {
+      const plan = buildOrderEditSavePlan(input);
+      const result = await executeOrderEditSavePlan({
+        plan,
+        expectedUpdatedAt: input.baseline.expected_updated_at,
+        saveRoutine: (expectedUpdatedAt, changes) =>
+          patchOrder(id, { expected_updated_at: expectedUpdatedAt, changes }),
+        saveFinance: (expectedUpdatedAt, change) =>
+          patchOrderFinance(id, {
+            expected_updated_at: expectedUpdatedAt,
+            fault_prices: change.faultPrices,
+            deposit_amount: change.depositAmount,
+          }),
+      });
+      return { ...result, plan };
     },
-    onSuccess: () => {
-      toast.success("工单信息已保存");
+    onSuccess: (result) => {
+      patchOrderReadCaches(queryClient, id, { updated_at: result.updatedAt });
+      toast.success(getOrderEditSaveSuccessMessage(result.completedSteps));
       void discardCurrentEditOfflineDraft();
       setIsEditing(false);
+      setEditBaseline(null);
       setEditDraft(null);
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: async (error, input) => {
+      if (error instanceof OrderEditSaveExecutionError && error.completedSteps.length > 0) {
+        const plan = buildOrderEditSavePlan(input);
+        const nextBaseline = advanceOrderEditBaseline({
+          baseline: input.baseline,
+          plan,
+          completedSteps: error.completedSteps,
+          updatedAt: error.latestUpdatedAt,
+        });
+        const nextDraft = { ...input.draft, expected_updated_at: error.latestUpdatedAt };
+        setEditBaseline(nextBaseline);
+        setEditDraft(nextDraft);
+        if (data) {
+          await saveEditOfflineDraftSnapshot({
+            draft: nextDraft,
+            orderDetail: {
+              ...data,
+              order: { ...data.order, updated_at: error.latestUpdatedAt },
+            },
+          }).catch(() => false);
+        }
+        patchOrderReadCaches(queryClient, id, { updated_at: error.latestUpdatedAt });
+        invalidate();
+      }
+      toast.error(getOrderEditSaveErrorMessage(error));
+    },
   });
 
   const quickImeiUpdate = useMutation({
@@ -728,27 +761,69 @@ export function OrderDetailScreen({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const editFinance = useMemo(() => {
-    if (!data || !editDraft) return null;
-    return normalizeFinanceDraft(financeDraft, inferOrderPaidAmount(data.order));
-  }, [data, editDraft, financeDraft]);
   const mobileFinance = useMemo(() => {
     if (!data) return null;
     return normalizeFinanceDraft(financeDraft, inferOrderPaidAmount(data.order));
   }, [data, financeDraft]);
 
+  const editSavePlanState = useMemo(() => {
+    if (!data?.capabilities || !editBaseline || !persistedEditDraft) {
+      return { plan: null, error: undefined };
+    }
+    try {
+      return {
+        plan: buildOrderEditSavePlan({
+          baseline: editBaseline,
+          draft: persistedEditDraft,
+          capabilities: data.capabilities,
+        }),
+        error: undefined,
+      };
+    } catch (error) {
+      return {
+        plan: null,
+        error: error instanceof Error ? error.message : "无法生成保存计划。",
+      };
+    }
+  }, [data?.capabilities, editBaseline, persistedEditDraft]);
+  const editSavePlan = editSavePlanState.plan;
+  const baselineFinanceDraft = useMemo(
+    () =>
+      editBaseline
+        ? createFinanceDraftState(editBaseline.fault_prices, editBaseline.deposit_amount ?? 0)
+        : null,
+    [editBaseline],
+  );
+  const invalidFinanceDraftChanged = Boolean(
+    editFinance &&
+    !editFinance.canSave &&
+    baselineFinanceDraft &&
+    JSON.stringify(financeDraft) !== JSON.stringify(baselineFinanceDraft),
+  );
+  const editFinanceChanged = Boolean(
+    editSavePlan?.financeChange || editSavePlanState.error || invalidFinanceDraftChanged,
+  );
   const editValidationError = useMemo(
     () =>
-      getEditValidationError(editDraft, editFinance?.error, defaultWarrantyMonths, {
-        canEditIntake: Boolean(data?.capabilities?.canEditIntake),
-        canEditRepair: Boolean(data?.capabilities?.canEditRepair),
-        canAdjustFinance: Boolean(data?.capabilities?.canAdjustFinance),
+      editSavePlanState.error ??
+      getEditValidationError(editDraft, {
+        routineChanges: editSavePlan?.routineChanges ?? {},
+        financeChanged: editFinanceChanged,
+        financeError: editFinance?.error,
+        defaultWarrantyMonths,
       }),
-    [data?.capabilities, defaultWarrantyMonths, editDraft, editFinance?.error],
+    [
+      defaultWarrantyMonths,
+      editDraft,
+      editFinance?.error,
+      editFinanceChanged,
+      editSavePlan?.routineChanges,
+      editSavePlanState.error,
+    ],
   );
   const editCanSave = Boolean(
-    editDraft &&
-    (!data?.capabilities?.canAdjustFinance || editFinance?.canSave) &&
+    persistedEditDraft &&
+    (editSavePlan?.steps.length || editFinanceChanged) &&
     !editValidationError,
   );
 
@@ -768,6 +843,7 @@ export function OrderDetailScreen({
       return;
     }
     const draft = buildEditForm(data, defaultWarrantyMonths);
+    setEditBaseline(draft);
     setEditDraft(draft);
     setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
     setIsEditing(true);
@@ -776,6 +852,7 @@ export function OrderDetailScreen({
   const cancelEditing = useCallback(() => {
     void discardCurrentEditOfflineDraft();
     setIsEditing(false);
+    setEditBaseline(null);
     setEditDraft(null);
     if (data) {
       const draft = buildEditForm(data, defaultWarrantyMonths);
@@ -788,27 +865,41 @@ export function OrderDetailScreen({
   }, []);
 
   const saveEditing = useCallback(async () => {
-    if (!editDraft || !editFinance) return;
-    const validationError = getEditValidationError(
-      editDraft,
-      editFinance.error,
-      defaultWarrantyMonths,
-      {
-        canEditIntake: Boolean(data?.capabilities?.canEditIntake),
-        canEditRepair: Boolean(data?.capabilities?.canEditRepair),
-        canAdjustFinance: Boolean(data?.capabilities?.canAdjustFinance),
-      },
-    );
-    if (validationError || (data?.capabilities?.canAdjustFinance && !editFinance.canSave)) {
-      toast.error(validationError ?? editFinance.error ?? "请检查工单信息。");
+    if (
+      editSaveInFlightRef.current ||
+      orderUpdate.isPending ||
+      !editBaseline ||
+      !persistedEditDraft ||
+      !editFinance ||
+      !data?.capabilities
+    ) {
       return;
     }
-    await orderUpdate.mutateAsync({
-      ...editDraft,
-      fault_prices: editFinance.faultPrices,
-      deposit_amount: editFinance.deposit,
-    });
-  }, [data?.capabilities, defaultWarrantyMonths, editDraft, editFinance, orderUpdate]);
+    if (editValidationError || (editFinanceChanged && !editFinance.canSave)) {
+      toast.error(editValidationError ?? editFinance.error ?? "请检查工单信息。");
+      return;
+    }
+    editSaveInFlightRef.current = true;
+    try {
+      await orderUpdate.mutateAsync({
+        baseline: editBaseline,
+        draft: persistedEditDraft,
+        capabilities: data.capabilities,
+      });
+    } catch {
+      // Mutation callbacks preserve retry state and show the actionable error.
+    } finally {
+      editSaveInFlightRef.current = false;
+    }
+  }, [
+    data?.capabilities,
+    editBaseline,
+    editFinance,
+    editFinanceChanged,
+    editValidationError,
+    orderUpdate,
+    persistedEditDraft,
+  ]);
   const restoreEditOfflineDraft = useCallback(async () => {
     const result = await restoreEditOfflinePromptDraft();
     if (!result) return;
@@ -816,13 +907,14 @@ export function OrderDetailScreen({
       toast.error(result.message);
       return;
     }
+    if (data) setEditBaseline(buildEditForm(data, defaultWarrantyMonths));
     setEditDraft(result.draft);
     setFinanceDraft(
       createFinanceDraftState(result.draft.fault_prices, result.draft.deposit_amount ?? 0),
     );
     setIsEditing(true);
     toast.success("本机编辑草稿已恢复");
-  }, [restoreEditOfflinePromptDraft]);
+  }, [data, defaultWarrantyMonths, restoreEditOfflinePromptDraft]);
   const discardEditOfflinePrompt = useCallback(async () => {
     const discarded = await discardEditOfflinePromptDraft();
     if (discarded) toast.success("本机编辑草稿已丢弃");
@@ -4801,11 +4893,34 @@ function getFinanceSaveErrorMessage(error: Error) {
   return message.startsWith("保存失败") ? message : `保存失败：${message}`;
 }
 
+function getOrderEditSaveSuccessMessage(steps: Array<"routine" | "finance">) {
+  if (steps.includes("routine") && steps.includes("finance")) return "普通资料与报价已保存";
+  if (steps.includes("finance")) return "报价已保存";
+  return "工单信息已保存";
+}
+
+function getOrderEditSaveErrorMessage(error: unknown) {
+  if (!(error instanceof OrderEditSaveExecutionError)) {
+    return getOrderPatchSaveErrorMessage(error);
+  }
+  const reason = error.reason instanceof Error ? error.reason : new Error(error.message);
+  if (error.failedStep === "finance") {
+    const financeMessage = getFinanceSaveErrorMessage(reason);
+    return error.completedSteps.includes("routine")
+      ? `普通资料已保存；${financeMessage}`
+      : financeMessage;
+  }
+  return getOrderPatchSaveErrorMessage(reason);
+}
+
 function getOrderPatchSaveErrorMessage(error: unknown) {
   const raw = error instanceof Error && error.message ? error.message : "保存失败，请稍后重试。";
   const message = raw.replace(/^Error:\s*/i, "").trim();
   if (/工单已被更新|版本|expected_updated_at|conflict/i.test(message)) {
-    return "保存失败：工单刚刚被其他操作更新，请刷新后再保存。";
+    return "保存失败：工单刚刚被其他操作更新，本次草稿仍保留；请重新打开编辑并核对后再保存。";
+  }
+  if (/写入.*时间线|写入.*审计|日志/i.test(message)) {
+    return "普通资料可能已保存，但记录日志失败。请刷新页面确认，避免重复提交。";
   }
   if (/没有可保存的字段|缺少版本|字段|schema|column/i.test(message)) {
     return `保存失败：${message}`;
@@ -5207,26 +5322,42 @@ function renderEvent(
 
 function getEditValidationError(
   draft: UpdateOrderInput | null,
-  financeError?: string,
-  defaultWarrantyMonths = 6,
-  capabilities: {
-    canEditIntake: boolean;
-    canEditRepair: boolean;
-    canAdjustFinance: boolean;
-  } = { canEditIntake: true, canEditRepair: true, canAdjustFinance: true },
+  {
+    routineChanges,
+    financeChanged,
+    financeError,
+    defaultWarrantyMonths = 6,
+  }: {
+    routineChanges: PatchOrderChanges;
+    financeChanged: boolean;
+    financeError?: string;
+    defaultWarrantyMonths?: number;
+  },
 ): string | undefined {
   if (!draft) return "缺少工单草稿。";
-  if (capabilities.canEditIntake && !draft.customer_name.trim()) return "客户姓名不能为空。";
-  if (capabilities.canEditIntake && !draft.customer_phone.trim()) return "手机号不能为空。";
-  if (capabilities.canEditIntake && !draft.device_brand.trim()) return "设备品牌不能为空。";
-  if (capabilities.canEditIntake && !draft.device_model.trim()) return "设备型号不能为空。";
-  if (capabilities.canEditIntake && !draft.issue_description.trim()) return "故障描述不能为空。";
+  if (routineChanges.customer_name !== undefined && !draft.customer_name.trim()) {
+    return "客户姓名不能为空。";
+  }
+  if (routineChanges.customer_phone !== undefined && !draft.customer_phone.trim()) {
+    return "手机号不能为空。";
+  }
   if (
-    capabilities.canEditRepair &&
+    (routineChanges.device_brand !== undefined || routineChanges.device_model !== undefined) &&
+    (!draft.device_brand.trim() || !draft.device_model.trim())
+  ) {
+    return "设备品牌和型号不能为空。";
+  }
+  if (routineChanges.issue_description !== undefined && !draft.issue_description.trim()) {
+    return "故障描述不能为空。";
+  }
+  if (
+    (routineChanges.warranty_text !== undefined ||
+      routineChanges.warranty_months !== undefined ||
+      routineChanges.warranty_change_reason !== undefined) &&
     warrantyReasonRequired(draft.warranty_months ?? defaultWarrantyMonths, defaultWarrantyMonths) &&
     !draft.warranty_change_reason?.trim()
   ) {
     return "非默认质保需要填写原因。";
   }
-  return capabilities.canAdjustFinance ? financeError : undefined;
+  return financeChanged ? financeError : undefined;
 }

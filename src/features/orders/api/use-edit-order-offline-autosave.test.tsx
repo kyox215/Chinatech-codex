@@ -74,6 +74,52 @@ describe("useEditOrderOfflineAutosave", () => {
     expect(latest?.errorMessage).toContain("无法使用本机编辑草稿");
   });
 
+  it("rebases the active local draft without presenting it as a restore conflict", async () => {
+    const harness = createServiceHarness();
+    const data = makeOrderDetail();
+    const draft = { ...buildEditForm(data), issue_description: "Updated issue and quote" };
+    let latest: HookValue | undefined;
+    const view = render(
+      <AutosaveHarness
+        orderDetail={data}
+        draft={draft}
+        onValue={(value) => {
+          latest = value;
+        }}
+        serviceFactory={() => harness.service}
+      />,
+    );
+
+    await waitFor(() => expect(latest?.state).toBe("saved"));
+
+    const updatedAt = "2026-07-06T10:30:00.000Z";
+    const rebasedData = makeOrderDetail({ updatedAt });
+    const rebasedDraft = { ...draft, expected_updated_at: updatedAt };
+    await act(async () => {
+      await requireHook(latest).saveDraftSnapshot({
+        draft: rebasedDraft,
+        orderDetail: rebasedData,
+      });
+    });
+
+    view.rerender(
+      <AutosaveHarness
+        orderDetail={rebasedData}
+        draft={rebasedDraft}
+        onValue={(value) => {
+          latest = value;
+        }}
+        serviceFactory={() => harness.service}
+      />,
+    );
+
+    await waitFor(() => expect(latest?.state).toBe("saved"));
+    expect(latest?.draftPrompt).toBeNull();
+    const drafts = await harness.store.listOrderDrafts({ ...scope, status: "draft_local" });
+    expect(drafts.ok && drafts.value).toHaveLength(1);
+    expect(drafts.ok && drafts.value[0]?.baseUpdatedAt).toBe(updatedAt);
+  });
+
   it("restores and discards only the prompted edit draft for the current order", async () => {
     const harness = createServiceHarness();
     const data = makeOrderDetail();
