@@ -54,6 +54,7 @@ export function OrderHero({
   editSaveDisabled = false,
   showBackLink = true,
   surface = "page",
+  onClose,
   currentStage,
   currentStageIndex = 0,
   nextActionLabel,
@@ -74,6 +75,7 @@ export function OrderHero({
   editSaveDisabled?: boolean;
   showBackLink?: boolean;
   surface?: "page" | "dialog";
+  onClose?: () => void;
   currentStage?: OrderTaskStage;
   currentStageIndex?: number;
   nextActionLabel?: string;
@@ -178,6 +180,18 @@ export function OrderHero({
           <Pencil className="size-3.5" /> 编辑
         </Button>
       ) : null}
+      {surface === "dialog" && onClose ? (
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className="size-7"
+          onClick={onClose}
+          aria-label="关闭工单详情"
+        >
+          <X className="size-4" />
+        </Button>
+      ) : null}
     </div>
   );
 
@@ -188,7 +202,7 @@ export function OrderHero({
       className={cn(
         "sticky z-20 min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]/95 shadow-[var(--shadow-workspace)] backdrop-blur-xl",
         surface === "dialog"
-          ? cn(detailWorkspace.flatHero, "top-0 mb-2 p-1.5 pr-9 sm:mb-2 sm:p-1.5 sm:pr-9")
+          ? cn(detailWorkspace.flatHero, "top-0 mb-2 p-1.5 sm:mb-2 sm:p-1.5")
           : "top-12 mb-2 p-1.5 sm:top-14 sm:p-2",
       )}
     >

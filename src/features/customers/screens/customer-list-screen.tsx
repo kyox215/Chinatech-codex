@@ -506,13 +506,17 @@ export function CustomerListScreen() {
           if (!open) setPreviewCustomerId(undefined);
         }}
       >
-        <DialogContent className={componentOverlay.detailWorkspace}>
+        <DialogContent showCloseButton={false} className={componentOverlay.detailWorkspace}>
           <DialogHeader className="sr-only">
             <DialogTitle>客户详情预览</DialogTitle>
             <DialogDescription>查看客户资料、设备、历史工单和回访记录。</DialogDescription>
           </DialogHeader>
           {previewCustomerId ? (
-            <CustomerDetailScreen id={previewCustomerId} surface="dialog" />
+            <CustomerDetailScreen
+              id={previewCustomerId}
+              surface="dialog"
+              onClose={() => setPreviewCustomerId(undefined)}
+            />
           ) : null}
         </DialogContent>
       </Dialog>

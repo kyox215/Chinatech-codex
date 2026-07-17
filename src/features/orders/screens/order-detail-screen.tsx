@@ -788,20 +788,22 @@ export function OrderDetailScreen({
             : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
         )}
       >
-        {surface === "dialog" && onClose ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="absolute right-2 top-2 z-40 size-8 rounded-full bg-card/95 shadow-[var(--shadow-card)]"
-            onClick={onClose}
-            aria-label="关闭工单详情"
-          >
-            <X className="size-4" />
-          </Button>
-        ) : null}
         <section className="rounded-xl border border-status-danger-foreground/20 bg-status-danger px-4 py-4 text-status-danger-foreground">
-          <p className="text-sm font-semibold">工单详情加载失败</p>
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <p className="min-w-0 text-sm font-semibold">工单详情加载失败</p>
+            {surface === "dialog" && onClose ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8 shrink-0 rounded-lg bg-background/80"
+                onClick={onClose}
+                aria-label="关闭工单详情"
+              >
+                <X className="size-4" />
+              </Button>
+            ) : null}
+          </div>
           <p className="mt-1 break-words text-xs leading-5">{message}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
@@ -908,7 +910,6 @@ export function OrderDetailScreen({
         <section
           className={cn(
             "mb-2 flex min-w-0 items-center gap-2 border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground md:rounded-lg",
-            surface === "dialog" && "pr-12",
           )}
         >
           <PackageCheck className="size-4 shrink-0" />
@@ -974,18 +975,6 @@ export function OrderDetailScreen({
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
-      {surface === "dialog" && onClose ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="absolute right-2 top-2 z-40 size-8 rounded-full bg-card/95 shadow-[var(--shadow-card)]"
-          onClick={onClose}
-          aria-label="关闭工单详情"
-        >
-          <X className="size-4" />
-        </Button>
-      ) : null}
       {surface === "page" ? (
         <div className="hidden md:block">{renderCustodyPanel()}</div>
       ) : (
@@ -1120,6 +1109,7 @@ export function OrderDetailScreen({
             editSaveDisabled={!editCanSave}
             showBackLink={surface === "page"}
             surface={surface}
+            onClose={onClose}
             currentStage={desktopCurrentStage}
             currentStageIndex={desktopStageIndex}
             nextActionLabel={canDecideApproval ? "处理客户审批" : next.primary?.label}

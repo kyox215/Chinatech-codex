@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, Edit3, Send, Wrench } from "lucide-react";
+import { ArrowLeft, Bell, Edit3, Send, Wrench, X } from "lucide-react";
 
 import { PhoneText } from "@/components/orders/badges";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +19,14 @@ export function CustomerHero({
   onFollowup,
   onEdit,
   showBackLink = true,
+  onClose,
 }: {
   data: CustomerDetail;
   onMessage: () => void;
   onFollowup: () => void;
   onEdit: () => void;
   showBackLink?: boolean;
+  onClose?: () => void;
 }) {
   const { customer } = data;
   const summary = getCustomerDetailWorkSummary(data);
@@ -83,6 +85,18 @@ export function CustomerHero({
           <Button size="sm" variant="outline" className="h-8 gap-1.5 sm:h-9" onClick={onEdit}>
             <Edit3 className="size-4" /> 编辑客户
           </Button>
+          {onClose ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="size-8 sm:size-9"
+              onClick={onClose}
+              aria-label="关闭客户详情"
+            >
+              <X className="size-4" />
+            </Button>
+          ) : null}
         </div>
       </header>
 

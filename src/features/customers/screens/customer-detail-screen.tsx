@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Bell, Edit3, RefreshCw, Send, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bell, Edit3, RefreshCw, Send, Wrench, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
@@ -79,9 +79,11 @@ type CustomerDetailSurface = "page" | "dialog";
 export function CustomerDetailScreen({
   id,
   surface = "page",
+  onClose,
 }: {
   id: string;
   surface?: CustomerDetailSurface;
+  onClose?: () => void;
 }) {
   const queryClient = useQueryClient();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -242,6 +244,20 @@ export function CustomerDetailScreen({
             : cn(detailWorkspace.root, "flex h-full min-h-0 flex-col space-y-3 p-3 sm:p-4"),
         )}
       >
+        {surface === "dialog" && onClose ? (
+          <div className="flex shrink-0 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8 rounded-lg"
+              onClick={onClose}
+              aria-label="关闭客户详情"
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        ) : null}
         <Skeleton className="h-28 w-full rounded-2xl" />
         <Skeleton className="h-9 w-full rounded-full sm:w-96" />
         <Skeleton className="h-56 w-full rounded-2xl" />
@@ -255,6 +271,7 @@ export function CustomerDetailScreen({
         message={queryErrorMessage}
         onRetry={() => void refetch()}
         surface={surface}
+        onClose={onClose}
       />
     );
   }
@@ -265,6 +282,7 @@ export function CustomerDetailScreen({
         message="未找到这个客户档案。"
         onRetry={() => void refetch()}
         surface={surface}
+        onClose={onClose}
       />
     );
   }
@@ -401,6 +419,7 @@ export function CustomerDetailScreen({
           onFollowup={openCustomerFollowup}
           onEdit={() => setEditOpen(true)}
           showBackLink={surface === "page"}
+          onClose={surface === "dialog" ? onClose : undefined}
         />
       </div>
 
@@ -733,10 +752,12 @@ function CustomerDetailLoadError({
   message,
   onRetry,
   surface,
+  onClose,
 }: {
   message: string;
   onRetry: () => void;
   surface: CustomerDetailSurface;
+  onClose?: () => void;
 }) {
   return (
     <div
@@ -762,12 +783,24 @@ function CustomerDetailLoadError({
           {message}
         </span>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Button asChild variant="outline" className="h-9 gap-1.5 text-xs">
-            <Link href="/customers">
-              <ArrowLeft className="size-3.5" />
-              返回客户
-            </Link>
-          </Button>
+          {surface === "dialog" && onClose ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 gap-1.5 text-xs"
+              onClick={onClose}
+            >
+              <X className="size-3.5" />
+              关闭
+            </Button>
+          ) : (
+            <Button asChild variant="outline" className="h-9 gap-1.5 text-xs">
+              <Link href="/customers">
+                <ArrowLeft className="size-3.5" />
+                返回客户
+              </Link>
+            </Button>
+          )}
           <Button type="button" className="h-9 gap-1.5 text-xs" onClick={onRetry}>
             <RefreshCw className="size-3.5" />
             重新加载

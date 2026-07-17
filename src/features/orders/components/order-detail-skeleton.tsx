@@ -62,16 +62,18 @@ export function OrderDetailSkeleton({
         </div>
       ) : null}
       {surface === "dialog" && onClose ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="absolute right-2 top-2 z-40 size-8 rounded-full bg-card/95 shadow-[var(--shadow-card)]"
-          onClick={onClose}
-          aria-label="关闭工单详情"
-        >
-          <X className="size-4" />
-        </Button>
+        <div className="mb-2 flex shrink-0 justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-8 rounded-lg bg-card/95 shadow-[var(--shadow-card)]"
+            onClick={onClose}
+            aria-label="关闭工单详情"
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
       ) : null}
 
       <div aria-hidden="true" className="flex min-h-0 flex-1 flex-col gap-2">
