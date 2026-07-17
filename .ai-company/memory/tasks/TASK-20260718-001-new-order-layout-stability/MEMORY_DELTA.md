@@ -18,7 +18,8 @@
 ## Candidate lessons and capability evidence
 
 - Browser measurement must normalize rects to the scrollable workspace rather than `window.scrollY`, because RepairDesk uses internal scroll containers. **Status:** observed and fixed in E2E. **Owner:** QA. **Scope:** layout-stability tests. **Review trigger:** shared browser measurement helper.
-- A production migration history ahead of Git main is a hard serialization gate even for a no-migration UI release; wait for the migration owner to push complete code rather than copying SQL or repairing history. **Status:** active gate. **Owner:** Release/DATA. **Scope:** concurrent releases. **Source:** linked list plus employee-invite worktree inspection. **Review trigger:** latest-main parity.
+- A production migration history ahead of Git main is a hard serialization gate even for a no-migration UI release; wait for the migration owner to push complete code rather than copying SQL or repairing history. **Status:** resolved correctly in this task. **Owner:** Release/DATA. **Scope:** concurrent releases. **Source:** linked list, employee-invite worktree inspection and later aligned dry-run. **Review trigger:** any future migration/Git parity drift.
+- Next.js Route files may export only supported HTTP handlers/config; reusable validation helpers belong in ordinary feature modules even when route tests import them. **Status:** build-verified integration fix. **Owner:** FE/Auth. **Scope:** App Router route handlers. **Source:** failed then passing Webpack build. **Review trigger:** new route helper export.
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.

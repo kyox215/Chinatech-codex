@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["DATA", "DOC", "FE", "QA", "Release", "SEC", "UX"]
 created_at: "2026-07-17T22:23:35Z"
-updated_at: "2026-07-17T22:53:31Z"
+updated_at: "2026-07-17T23:06:08Z"
 ---
 
 # Task — 新建工单客户报障紧凑化与报价中栏稳定实施
@@ -59,14 +59,15 @@ updated_at: "2026-07-17T22:53:31Z"
 
 ## Facts, assumptions, and unknowns
 
-| Item                                                                               | Type     | Evidence                                                                                                 | Status / next action                                  |
-| ---------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Existing issue/quote fields already cover this UI                                  | verified | `NewOrderFormState`, `repair_orders.issue_description`, `fault_prices`, prior migration `20260717213518` | no schema change                                      |
-| Primary workspace contains unrelated store-lifecycle work and untracked migrations | observed | initial and current primary `git status`                                                                 | isolate and preserve                                  |
-| Unknown mode must not submit retained deposit/quote                                | verified | security review and create/offline payload inspection                                                    | resolved through shared intake resolver               |
-| Paused local fields originally would enter outbox                                  | verified | offline promotion boundary review                                                                        | stripped before outbox; adapter defense test added    |
-| Desktop grid rows could couple right-column whitespace to quote height             | verified | UX static review                                                                                         | independent right stack at xl                         |
-| Production migration history is ahead of Git main by four employee-invite versions | verified | linked `migration list`; `origin/main@1f643313`                                                          | wait for concurrent owner to push before this release |
+| Item                                                                                | Type     | Evidence                                                                                                 | Status / next action                                                        |
+| ----------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Existing issue/quote fields already cover this UI                                   | verified | `NewOrderFormState`, `repair_orders.issue_description`, `fault_prices`, prior migration `20260717213518` | no schema change                                                            |
+| Primary workspace contains unrelated store-lifecycle work and untracked migrations  | observed | initial and current primary `git status`                                                                 | isolate and preserve                                                        |
+| Unknown mode must not submit retained deposit/quote                                 | verified | security review and create/offline payload inspection                                                    | resolved through shared intake resolver                                     |
+| Paused local fields originally would enter outbox                                   | verified | offline promotion boundary review                                                                        | stripped before outbox; adapter defense test added                          |
+| Desktop grid rows could couple right-column whitespace to quote height              | verified | UX static review                                                                                         | independent right stack at xl                                               |
+| Production migration history was ahead of Git main by four employee-invite versions | verified | linked `migration list`; employee invite commits through `00d3eca4`                                      | resolved; local and remote now align through `20260717223354`               |
+| Employee invite Route exported non-handler helpers and failed Next production build | verified | first post-rebase `next build --webpack`                                                                 | fixed by moving helpers to `src/features/auth/model/invite-confirmation.ts` |
 
 ## Decision and approval points
 
@@ -74,7 +75,7 @@ updated_at: "2026-07-17T22:53:31Z"
 - **No-migration decision:** this UI/client-draft task reuses existing schema. If linked dry-run is up to date, record no-op instead of manufacturing a migration.
 - **Responsive order:** DOM, keyboard and visual order stay identical: customer/device → quote → report → unlock. At `>=1280px` these become left / center / right independent columns.
 - **Paused-data decision:** TTL-bound local draft may retain paused report/quote/deposit; online create and outbox use only resolved canonical description, empty items and zero deposit.
-- **Concurrent release gate:** do not copy or push the employee-invite task's four already-applied migrations; wait for its complete code/migration commit on `main`, then rebase and revalidate.
+- **Concurrent release gate:** employee invite code/migrations and closeout are now on `main`; this branch must take its final rebase onto `00d3eca4` before push. No SQL was copied or repaired.
 
 ## Work packages
 
