@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Mail, MessageSquare, Phone, Plus, Printer, ReceiptText, Store } from "lucide-react";
+import {
+  Check,
+  Link as LinkIcon,
+  Mail,
+  MessageSquare,
+  Phone,
+  Plus,
+  Printer,
+  ReceiptText,
+  Store,
+} from "lucide-react";
 
 import {
   AlertDialog,
@@ -438,8 +448,31 @@ function StoreProfileCard({
               onChange={(event) => onDraftChange({ store_address: event.target.value })}
             />
           </SettingsField>
+          <SettingsField
+            label="客户门户域名"
+            htmlFor="public-base-url"
+            icon={LinkIcon}
+            className="mt-3"
+            error={getSettingsFieldError(fieldErrors, "public_base_url")}
+          >
+            <Input
+              id="public-base-url"
+              type="url"
+              className="h-10 text-sm"
+              value={draft.public_base_url ?? ""}
+              inputMode="url"
+              placeholder="https://example.test"
+              aria-invalid={Boolean(getSettingsFieldError(fieldErrors, "public_base_url"))}
+              aria-describedby={getSettingsFieldErrorId(
+                fieldErrors,
+                "public_base_url",
+                "public-base-url",
+              )}
+              onChange={(event) => onDraftChange({ public_base_url: event.target.value })}
+            />
+          </SettingsField>
           <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-            电话、WhatsApp、邮箱至少填写一个；保存前的草稿不会改变当前客户输出状态。
+            电话、WhatsApp、邮箱至少填写一个；客户门户域名为空时，外发客户消息会自动省略链接。
           </p>
         </>
       )}
@@ -453,6 +486,7 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
     ["邮箱", draft.store_email],
     ["电话", draft.store_phone],
     ["WhatsApp", draft.store_whatsapp],
+    ["客户门户域名", draft.public_base_url ?? ""],
     ["地址", draft.store_address],
   ] as const;
 

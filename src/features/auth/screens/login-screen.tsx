@@ -2,16 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  CheckCircle2,
-  KeyRound,
-  Loader2,
-  LogIn,
-  Mail,
-  MapPin,
-  Store,
-  UserPlus,
-} from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, LogIn, Mail, Store, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -223,25 +214,22 @@ export function LoginScreen() {
               <Store className="size-6" />
             </div>
             <div className="min-w-0 space-y-2">
-              <p className="text-sm font-medium text-primary">Chinatech</p>
+              <p className="text-sm font-medium text-primary">RepairDesk Platform</p>
               <h2 className="font-display text-4xl font-semibold tracking-tight text-foreground">
                 RepairDesk
               </h2>
               <p className="max-w-md text-sm leading-6 text-muted-foreground">
-                Viale Vittorio Veneto 7, 96014 Floridia, Siracusa
+                多店铺维修、客户、库存和消息协作后台。登录后系统会读取你当前店铺的资料。
               </p>
             </div>
             <div className="grid max-w-lg grid-cols-2 gap-3 text-sm">
               <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3">
-                <p className="text-xs text-muted-foreground">门店</p>
-                <p className="mt-1 truncate font-medium">Chinatech</p>
+                <p className="text-xs text-muted-foreground">店铺资料</p>
+                <p className="mt-1 truncate font-medium">登录后读取</p>
               </div>
               <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3">
-                <p className="text-xs text-muted-foreground">地区</p>
-                <p className="mt-1 flex min-w-0 items-center gap-1.5 font-medium">
-                  <MapPin className="size-3.5 shrink-0 text-primary" />
-                  <span className="truncate">Floridia</span>
-                </p>
+                <p className="text-xs text-muted-foreground">对外身份</p>
+                <p className="mt-1 truncate font-medium">按当前店铺配置</p>
               </div>
             </div>
           </div>

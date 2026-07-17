@@ -194,7 +194,10 @@ import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches, patchOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import {
+  buildStoreCustomerOutputUrl,
+  resolveStoreOutputIdentity,
+} from "@/entities/store/model/store-output-identity";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   getWorkflowNextActions,
@@ -269,7 +272,6 @@ export function OrderDetailScreen({
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
-  const [orderUrl, setOrderUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
   const [mobileFinanceEditing, setMobileFinanceEditing] = useState(false);
@@ -371,9 +373,10 @@ export function OrderDetailScreen({
     invalidateOrderReadCaches(queryClient, id);
   }, [id, queryClient]);
 
-  useEffect(() => {
-    setOrderUrl(window.location.href);
-  }, [id]);
+  const orderUrl = useMemo(
+    () => buildStoreCustomerOutputUrl(storeOutputIdentity, `/orders/${id}`),
+    [id, storeOutputIdentity],
+  );
 
   useEffect(() => {
     setNotifyOpen(false);

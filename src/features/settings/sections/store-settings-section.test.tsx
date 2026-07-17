@@ -26,6 +26,7 @@ const completeSettings: StoreSettings = {
   store_phone: "+39 000 000000",
   store_whatsapp: "",
   store_email: "repair@example.test",
+  public_base_url: "",
   default_order_warranty_text: "6个月",
   default_order_warranty_months: 6,
   default_inventory_warranty_months: 12,
@@ -43,6 +44,12 @@ describe("StoreSettingsSectionContent", () => {
 
     fireEvent.change(screen.getByLabelText("店铺名"), { target: { value: "Repair Lab Due" } });
     expect(onDraftChange).toHaveBeenCalledWith({ store_name: "Repair Lab Due" });
+    fireEvent.change(screen.getByLabelText("客户门户域名"), {
+      target: { value: "https://repair.example.test" },
+    });
+    expect(onDraftChange).toHaveBeenCalledWith({
+      public_base_url: "https://repair.example.test",
+    });
     expect(screen.getByText("店主")).toBeInTheDocument();
 
     view.rerender(storeSection({ newStoreName: "A", onDraftChange, onCreateStore }));
@@ -199,5 +206,6 @@ function toStoreDraft(settings: StoreSettings): StoreSettingsDraftValues["store"
     store_phone: settings.store_phone,
     store_whatsapp: settings.store_whatsapp,
     store_email: settings.store_email,
+    public_base_url: settings.public_base_url ?? "",
   };
 }

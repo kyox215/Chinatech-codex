@@ -175,6 +175,7 @@ export function buildCustomerMessage(
 ) {
   const { customer, orders, stats } = data;
   const latest = orders[0];
+  const customerBaseUrl = appOrigin.replace(/\/+$/, "");
   return [
     `Gentile ${customer.name},`,
     "",
@@ -183,7 +184,7 @@ export function buildCustomerMessage(
       : "la contattiamo per il servizio di assistenza.",
     latest ? `Ultimo ordine: ${latest.public_no} - ${latest.device_label}` : null,
     `Dispositivi registrati: ${stats.device_count}`,
-    appOrigin ? `Area assistenza: ${appOrigin}/customers/${customer.id}` : null,
+    customerBaseUrl ? `Area assistenza: ${customerBaseUrl}/customers/${customer.id}` : null,
     "",
     "Restiamo a disposizione per qualsiasi necessità.",
     "Grazie,",

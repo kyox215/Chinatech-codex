@@ -21,6 +21,14 @@ const optionalEmailSchema = z
   .max(254, "邮箱不能超过 254 个字符")
   .refine((value) => value === "" || z.string().email().safeParse(value).success, "邮箱格式无效");
 
+const optionalPublicBaseUrlSchema = z
+  .string()
+  .trim()
+  .max(2048, "客户门户域名不能超过 2048 个字符")
+  .refine((value) => value === "" || isSafePublicBaseUrl(value), {
+    message: "客户门户域名必须使用 HTTPS，或本地开发 localhost HTTP",
+  });
+
 const storeInputSchema = z
   .object({
     store_name: z.string().trim().min(1, "店铺名不能为空").max(120, "店铺名不能超过 120 个字符"),
@@ -28,6 +36,7 @@ const storeInputSchema = z
     store_phone: optionalContactSchema,
     store_whatsapp: optionalContactSchema,
     store_email: optionalEmailSchema,
+    public_base_url: optionalPublicBaseUrlSchema.optional(),
   })
   .strict();
 
@@ -121,4 +130,14 @@ export function getStoreSettingsValidationFieldErrors(error: z.ZodError) {
     fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message];
   }
   return fieldErrors;
+}
+
+function isSafePublicBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol === "https:") return true;
+    return url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
+  } catch {
+    return false;
+  }
 }

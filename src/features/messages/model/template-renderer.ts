@@ -13,6 +13,7 @@ import {
   translateFaultName,
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
+import { normalizePublicBaseUrl } from "@/entities/store/model/store-output-identity";
 import { withStoreSettingsDefaults } from "./message-template-defaults";
 
 export type TemplateContext = Record<string, string | number | boolean | null | undefined>;
@@ -238,6 +239,7 @@ export function buildStoreTemplateContext(settings?: Partial<StoreSettings> | nu
     store_phone: store.store_phone,
     store_whatsapp: store.store_whatsapp,
     store_email: store.store_email,
+    public_base_url: normalizePublicBaseUrl(store.public_base_url),
     message_signature: store.message_signature.trim() || storeName,
     print_footer:
       store.print_footer.trim() || (storeName ? `Grazie per aver scelto ${storeName}.` : ""),
@@ -308,7 +310,8 @@ export function buildCustomerTemplateContext(
 ): TemplateContext {
   const { customer, orders, stats } = data;
   const latest = orders[0];
-  const customerUrl = appOrigin ? `${appOrigin}/customers/${customer.id}` : "";
+  const customerBaseUrl = appOrigin.replace(/\/+$/, "");
+  const customerUrl = customerBaseUrl ? `${customerBaseUrl}/customers/${customer.id}` : "";
 
   return {
     ...buildStoreTemplateContext(storeSettings),

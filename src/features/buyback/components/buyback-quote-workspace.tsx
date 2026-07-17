@@ -67,6 +67,7 @@ import {
   BUYBACK_PRIVACY_NOTICE_TEXT_IT,
   BUYBACK_PRIVACY_NOTICE_VERSION,
   BUYBACK_TERMS_TEXT_IT,
+  canUseConfiguredBuybackLegalProfile,
   canonicalizeBuybackAgreement,
   documentNumberLast4,
   hashBuybackAgreementSnapshot,
@@ -158,8 +159,10 @@ export function BuybackQuoteWorkspace({
     agreementId?: string;
     reviewOnly?: boolean;
   } | null>(null);
+  const canUseBuybackLegalProfile = canUseConfiguredBuybackLegalProfile();
   const canCaptureEvidence = BUYBACK_SENSITIVE_WORKFLOW_ENABLED && canCaptureEvidencePermission;
-  const canFinalize = BUYBACK_SENSITIVE_WORKFLOW_ENABLED && canFinalizePermission;
+  const hasFinalizePermission = BUYBACK_SENSITIVE_WORKFLOW_ENABLED && canFinalizePermission;
+  const canFinalize = hasFinalizePermission && canUseBuybackLegalProfile;
   const activeSteps = BUYBACK_SENSITIVE_WORKFLOW_ENABLED
     ? buybackQuoteSteps
     : buybackQuoteRecordSteps;
@@ -172,7 +175,17 @@ export function BuybackQuoteWorkspace({
     () => canonicalizeBuybackAgreement(agreementSnapshot),
     [agreementSnapshot],
   );
-  const intakeValidation = useMemo(() => validateBuybackIntake(draft, result), [draft, result]);
+  const intakeValidation = useMemo(() => {
+    const validation = validateBuybackIntake(draft, result);
+    if (!BUYBACK_SENSITIVE_WORKFLOW_ENABLED || canUseBuybackLegalProfile) return validation;
+    return {
+      ...validation,
+      canSave: false,
+      hardBlockReasons: Array.from(
+        new Set([...validation.hardBlockReasons, "当前店铺没有已批准的回收协议法务配置"]),
+      ),
+    };
+  }, [draft, result, canUseBuybackLegalProfile]);
   const currentStep = activeSteps[stepIndex];
   const estimateGateMessage = getEstimateGateMessage(draft);
   const functionGateMessage = useMemo(
@@ -273,10 +286,13 @@ export function BuybackQuoteWorkspace({
   const saveMutation = useMutation({
     mutationFn: async () => {
       setSaveError("");
-      if (!canFinalize) {
+      if (!canUseBuybackLegalProfile) {
+        throw new Error("当前店铺没有已批准的回收协议法务配置");
+      }
+      if (!hasFinalizePermission) {
         throw new Error("当前员工不能确认回收成交，请交由店主或店长处理");
       }
-      const validation = validateBuybackIntake(draft, result);
+      const validation = intakeValidation;
       if (!validation.canSave) {
         throw new Error(
           [...validation.missing, ...validation.hardBlockReasons].slice(0, 3).join("、") ||
@@ -662,6 +678,7 @@ export function BuybackQuoteWorkspace({
                     validation={intakeValidation}
                     onSignature={updateSignature}
                     signatureResetKey={agreementCanonical}
+                    canUseBuybackLegalProfile={canUseBuybackLegalProfile}
                   />
                 ) : null}
                 {currentStep.key === "confirm" ? (
@@ -762,7 +779,10 @@ export function BuybackQuoteWorkspace({
                   className={cn("h-11 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
                   style={brandGradientStyle}
                   disabled={
-                    saveMutation.isPending || !draft.model.trim() || !intakeValidation.canSave
+                    saveMutation.isPending ||
+                    !canFinalize ||
+                    !draft.model.trim() ||
+                    !intakeValidation.canSave
                   }
                   onClick={() => saveMutation.mutate()}
                 >
@@ -2643,6 +2663,7 @@ function EvidenceStep({
   validation,
   onSignature,
   signatureResetKey,
+  canUseBuybackLegalProfile,
 }: {
   draft: BuybackQuoteDraft;
   result: ReturnType<typeof calculateBuybackQuote>;
@@ -2652,6 +2673,7 @@ function EvidenceStep({
   validation: ReturnType<typeof validateBuybackIntake>;
   onSignature: (file?: File) => Promise<void>;
   signatureResetKey: string;
+  canUseBuybackLegalProfile: boolean;
 }) {
   const needsBack = draft.customer_document_type !== "passport";
   return (
@@ -2727,15 +2749,27 @@ function EvidenceStep({
           <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
             <p className="text-xs font-semibold">Informativa e condizioni da firmare</p>
             <span className="text-[10px] text-muted-foreground">
-              {BUYBACK_PRIVACY_NOTICE_VERSION} · {BUYBACK_AGREEMENT_VERSION}
+              {canUseBuybackLegalProfile
+                ? `${BUYBACK_PRIVACY_NOTICE_VERSION} · ${BUYBACK_AGREEMENT_VERSION}`
+                : "未配置"}
             </span>
           </div>
           <div className="max-h-52 space-y-3 overflow-y-auto rounded-lg bg-background p-2 text-[10px] leading-4 text-foreground">
-            <LegalDocumentText text={BUYBACK_PRIVACY_NOTICE_TEXT_IT} />
-            <LegalDocumentText text={BUYBACK_TERMS_TEXT_IT} />
+            {canUseBuybackLegalProfile ? (
+              <>
+                <LegalDocumentText text={BUYBACK_PRIVACY_NOTICE_TEXT_IT} />
+                <LegalDocumentText text={BUYBACK_TERMS_TEXT_IT} />
+              </>
+            ) : (
+              <p role="alert" className="text-status-warn-foreground">
+                当前店铺没有已批准的回收协议法务配置，不能让客户签署成交协议。
+              </p>
+            )}
           </div>
           <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
-            Il testo e la versione visualizzati vengono inclusi nel riepilogo firmato.
+            {canUseBuybackLegalProfile
+              ? "Il testo e la versione visualizzati vengono inclusi nel riepilogo firmato."
+              : "请先完成当前店铺自己的回收协议与隐私告知配置。"}
           </p>
         </div>
         <ToggleRow

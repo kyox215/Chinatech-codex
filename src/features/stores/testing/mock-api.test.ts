@@ -68,7 +68,7 @@ describe("store mock api invitation parity", () => {
       },
     );
 
-    expect(context.activeStore?.name).toBe("ChinaTech");
+    expect(context.activeStore?.name).toBe("Demo Repair Store");
     const members = await api.listStoreMembers();
     expect(members.invitations).toHaveLength(0);
     expect(members.members).toEqual(

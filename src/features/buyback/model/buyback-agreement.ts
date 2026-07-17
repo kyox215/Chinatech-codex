@@ -1,30 +1,24 @@
 import type { BuybackDocumentType } from "@/lib/repairdesk/types";
 
-export const BUYBACK_AGREEMENT_VERSION = "chinatech-buyback-v1";
-export const BUYBACK_PRIVACY_NOTICE_VERSION = "chinatech-privacy-v1";
+export const BUYBACK_AGREEMENT_VERSION = "store-legal-config-required-buyback-v1";
+export const BUYBACK_PRIVACY_NOTICE_VERSION = "store-legal-config-required-privacy-v1";
 export const BUYBACK_AGREEMENT_LANGUAGE = "it-IT";
 export const BUYBACK_PRIVACY_NOTICE_TEXT_IT = [
-  "INFORMATIVA PRIVACY PER IL RITIRO DI DISPOSITIVI USATI (art. 13 GDPR)",
-  "Titolare del trattamento: Chinatech, Viale Vittorio Veneto 7, 96014 Floridia (SR), Italia. Contatto per privacy e diritti: kyox120@gmail.com.",
-  "Dati e finalità: trattiamo dati identificativi e di contatto, immagini del documento, ultime quattro cifre del documento, firma, dati del dispositivo e del pagamento per verificare identità e titolarità, eseguire la compravendita e il pagamento, prevenire frodi, adempiere obblighi contabili e legali e tutelare i nostri diritti. Questi dati non sono usati per marketing.",
-  "Basi giuridiche: esecuzione del contratto e misure precontrattuali, adempimento di obblighi di legge e legittimo interesse alla prevenzione delle frodi e alla difesa di diritti.",
-  "Destinatari e sicurezza: accedono solo personale autorizzato e fornitori tecnici, contabili o professionali necessari e vincolati alla riservatezza. I dati non sono diffusi. Eventuali trasferimenti fuori dallo SEE avvengono solo con le garanzie richieste dal GDPR.",
-  "Conservazione: i dati sono conservati per il tempo necessario alla compravendita e fino alla scadenza dei termini legali, contabili e di contestazione applicabili; le immagini del documento e la firma sono cancellate o rese anonime quando non sono più necessarie, salvo obbligo di legge o blocco per contenzioso.",
-  "Diritti: puoi chiedere accesso, rettifica, cancellazione, limitazione, opposizione e portabilità quando applicabile, scrivendo al contatto sopra indicato; puoi inoltre proporre reclamo al Garante per la protezione dei dati personali. Il conferimento dei dati necessari è facoltativo, ma senza di essi non possiamo completare il ritiro. Non sono adottate decisioni esclusivamente automatizzate.",
+  "CONFIGURAZIONE PRIVACY DEL NEGOZIO NON DISPONIBILE",
+  "La firma di acquisto usato e la raccolta di documenti sono disabilitate finche il negozio non configura una propria informativa privacy approvata.",
 ].join("\n\n");
 export const BUYBACK_TERMS_TEXT_IT = [
-  "CONDIZIONI DI CESSIONE DEL DISPOSITIVO USATO",
-  "Il venditore dichiara di essere maggiorenne, proprietario del dispositivo o legittimato a venderlo, e che il dispositivo non è rubato, smarrito, sottoposto a vincoli o gravato da diritti di terzi.",
-  "Il venditore conferma che identità, contatti, IMEI o numero di serie, caratteristiche, stato del dispositivo, accessori e documenti indicati nel riepilogo sono corretti e autorizza Chinatech a verificarli.",
-  "Prima della consegna il venditore deve effettuare il proprio backup, rimuovere SIM e account personali e disattivare blocchi di attivazione. Il venditore autorizza Chinatech a cancellare i dati residui dal dispositivo; Chinatech non risponde della perdita di dati non salvati dal venditore.",
-  "Il prezzo e il metodo di pagamento sono quelli mostrati nel riepilogo firmato. La cessione diventa definitiva al pagamento confermato. Chinatech può testare, riparare, ricondizionare, riciclare o rivendere il dispositivo nel rispetto della legge.",
-  "L'eventuale assenza di fattura, confezione o accessori e i difetti rilevati sono registrati nel riepilogo. Le immagini del documento e la firma sono utilizzate come prova della cessione secondo l'informativa privacy sopra riportata.",
-  "Con la firma il venditore accetta il riepilogo del dispositivo, l'importo, il pagamento, le dichiarazioni e la presente versione delle condizioni. Una copia può essere richiesta al negozio.",
+  "CONDIZIONI DI ACQUISTO USATO NON CONFIGURATE",
+  "La firma di cessione del dispositivo e disabilitata finche il negozio non configura condizioni contrattuali proprie approvate.",
 ].join("\n\n");
 export const BUYBACK_PRIVACY_NOTICE_SHA256 =
-  "6dc1170ad137c5c8e0b027c24f47adae7f3cada24bf3e9432e4495999996eec6";
+  "9b8afa4c444ac8a2502789df24237d5f04615cfee99ccb245bf80867a91195f6";
 export const BUYBACK_TERMS_SHA256 =
-  "6078b738a34bbe22e01b004cef8ebd58f3ae914b941adf605302540c35d73361";
+  "432a1393cf92ec12ab85c57c4667cd611c419550c1bb48990ed8cfa29976d908";
+
+export function canUseConfiguredBuybackLegalProfile() {
+  return false;
+}
 
 export interface BuybackAgreementSnapshot {
   [key: string]: unknown;

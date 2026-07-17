@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import {
+  buildStoreCustomerOutputUrl,
+  resolveStoreOutputIdentity,
+} from "@/entities/store/model/store-output-identity";
 
 const forbidden = ["ChinaTech", "Chinatech", "Viale Vittorio Veneto", "Floridia"];
 
@@ -13,6 +16,7 @@ describe("resolveStoreOutputIdentity", () => {
         store_name: "Ripara Subito",
         store_address: "Via Roma 12, Siracusa",
         store_phone: "+39 0931 000000",
+        public_base_url: "https://ripara.example.test/app/",
         message_signature: "Ripara Subito · Assistenza",
         print_footer: "Grazie per aver scelto Ripara Subito.",
       },
@@ -25,11 +29,59 @@ describe("resolveStoreOutputIdentity", () => {
       contactLine: "Tel: +39 0931 000000",
       messageSignature: "Ripara Subito · Assistenza",
       printFooter: "Grazie per aver scelto Ripara Subito.",
+      publicBaseUrl: "https://ripara.example.test/app",
       missingFields: [],
     });
     expect(identity.blockCode).toBeUndefined();
     expect(identity.recoveryTarget).toBeUndefined();
     for (const value of forbidden) expect(JSON.stringify(identity)).not.toContain(value);
+    expect(buildStoreCustomerOutputUrl(identity, "/orders/order-a")).toBe(
+      "https://ripara.example.test/app/orders/order-a",
+    );
+  });
+
+  it("rejects customer output paths that could escape the configured store URL", () => {
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-a", name: "Ripara Subito" },
+      settings: {
+        store_id: "store-a",
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        public_base_url: "https://ripara.example.test/app",
+        message_signature: "Ripara Subito · Assistenza",
+        print_footer: "Grazie per aver scelto Ripara Subito.",
+      },
+    });
+
+    expect(buildStoreCustomerOutputUrl(identity, "https://evil.example/orders/order-a")).toBe("");
+    expect(buildStoreCustomerOutputUrl(identity, "//evil.example/orders/order-a")).toBe("");
+    expect(buildStoreCustomerOutputUrl(identity, "../admin")).toBe("");
+    expect(buildStoreCustomerOutputUrl(identity, "%2e%2e/admin")).toBe("");
+    expect(buildStoreCustomerOutputUrl(identity, "orders/%2E%2E/admin")).toBe("");
+    expect(buildStoreCustomerOutputUrl(identity, "orders/order-a")).toBe(
+      "https://ripara.example.test/app/orders/order-a",
+    );
+  });
+
+  it("omits customer links when public base URL is missing or invalid", () => {
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-a", name: "Ripara Subito" },
+      settings: {
+        store_id: "store-a",
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        public_base_url: "http://unsafe.example.test",
+        message_signature: "Ripara Subito · Assistenza",
+        print_footer: "Grazie per aver scelto Ripara Subito.",
+      },
+    });
+
+    expect(identity.canOutput).toBe(true);
+    expect(identity.publicBaseUrl).toBe("");
+    expect(identity.warnings).toContain("客户门户域名无效，客户消息将不会包含外部链接");
+    expect(buildStoreCustomerOutputUrl(identity, "/orders/order-a")).toBe("");
   });
 
   it("blocks output until customer-facing store identity fields are complete", () => {
@@ -188,5 +240,28 @@ describe("resolveStoreOutputIdentity", () => {
       recoveryTarget: "notifications",
     });
     expect(JSON.stringify(identity)).not.toMatch(/ChinaTech|Floridia/i);
+  });
+
+  it("blocks legacy public customer URLs for non-default stores", () => {
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-partner", name: "Ripara Subito" },
+      settings: {
+        store_id: "store-partner",
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        public_base_url: "https://chinatech.in",
+        message_signature: "Ripara Subito · Assistenza",
+        print_footer: "Grazie per aver scelto Ripara Subito.",
+      },
+    });
+
+    expect(identity).toMatchObject({
+      canOutput: false,
+      blockCode: "legacy_identity",
+      recoveryTarget: "store",
+    });
+    expect(buildStoreCustomerOutputUrl(identity, "/orders/order-a")).toBe("");
+    expect(JSON.stringify(identity)).not.toMatch(/chinatech\.in|ChinaTech/i);
   });
 });

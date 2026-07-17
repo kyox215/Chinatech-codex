@@ -17,7 +17,7 @@ This document defines the first supported QR/barcode payloads for RepairDesk sca
 
 | Entity         | Preferred payload                                       | URL form                                     | Result                                                                 |
 | -------------- | ------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
-| Order task     | existing print QR `/orders/{orderId}/task`              | `https://chinatech.in/orders/{orderId}/task` | Open internal task page, or search the scanned id on the current page. |
+| Order task     | existing print QR `/orders/{orderId}/task`              | `https://example.test/orders/{orderId}/task` | Open internal task page, or search the scanned id on the current page. |
 | Order detail   | `order:{orderId}`                                       | `/orders/{orderId}`                          | Open order, or search the scanned value.                               |
 | Customer       | `customer:{customerId}`                                 | `/customers/{customerId}`                    | Open customer, or search the scanned value.                            |
 | Inventory item | `inventory:{itemId}`                                    | `/inventory?item={itemId}`                   | Open focused inventory item, or search the scanned value.              |

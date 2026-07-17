@@ -57,7 +57,7 @@ function createInitialKioskMockState(): KioskMockState {
   return {
     tokens: new Map([["demo-kiosk-token", "kiosk_device_demo"]]),
     pairingCodes: new Map(),
-    storeNames: new Map([[mockStoreId, "ChinaTech"]]),
+    storeNames: new Map([[mockStoreId, "Demo Repair Store"]]),
     devices: [
       {
         id: "kiosk_device_demo",

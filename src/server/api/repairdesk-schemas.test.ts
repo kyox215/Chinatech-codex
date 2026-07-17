@@ -129,8 +129,8 @@ describe("repairdesk API schemas", () => {
       item_patch: {},
       quality_check: {},
       agreement_snapshot: {
-        agreement_version: "chinatech-buyback-v1",
-        privacy_notice_version: "chinatech-privacy-v1",
+        agreement_version: BUYBACK_AGREEMENT_VERSION,
+        privacy_notice_version: BUYBACK_PRIVACY_NOTICE_VERSION,
         language: "it-IT",
         legal_documents: {
           privacy_notice: {
@@ -170,8 +170,8 @@ describe("repairdesk API schemas", () => {
         },
       },
       agreement_hash: "a".repeat(64),
-      agreement_version: "chinatech-buyback-v1",
-      privacy_notice_version: "chinatech-privacy-v1",
+      agreement_version: BUYBACK_AGREEMENT_VERSION,
+      privacy_notice_version: BUYBACK_PRIVACY_NOTICE_VERSION,
       language: "it-IT",
       document_type: "id_card",
       document_no_last4: "1234",

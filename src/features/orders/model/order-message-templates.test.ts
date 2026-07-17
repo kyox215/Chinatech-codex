@@ -69,6 +69,22 @@ describe("order WhatsApp message templates", () => {
     expect(message).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
   });
 
+  it("omits order links when no safe public base URL is available", async () => {
+    const [order] = await listOrders();
+    const detail = await getOrder(order.id);
+
+    const message = buildOrderWhatsappMessage(detail, "repair_status", "", {
+      storeIdentity: {
+        storeName: "Etna Phone Lab",
+        messageSignature: "Etna Phone Lab",
+      },
+    });
+
+    expect(message).toContain("Etna Phone Lab");
+    expect(message).not.toContain("Link ordine:");
+    expect(message).not.toMatch(/chinatech\\.in|ChinaTech|Floridia|Viale Vittorio Veneto/i);
+  });
+
   it("uses status-safe notification transitions", () => {
     expect(getOrderWhatsappTransition("quoted", "approval_request")).toBe("waiting_approval");
     expect(getOrderWhatsappTransition("repaired", "pickup_ready")).toBe("notified");

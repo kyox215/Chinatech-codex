@@ -4,7 +4,7 @@ import type { OnboardingStatus } from "@/lib/repairdesk/types";
 import { resolvePostLoginPath } from "./post-login-redirect";
 
 const baseStatus: OnboardingStatus = {
-  email: "kyox120@gmail.com",
+  email: "owner@example.com",
   displayName: "最高管理员",
   isPlatformAdmin: false,
   stores: [],
@@ -21,16 +21,16 @@ describe("resolvePostLoginPath", () => {
           isPlatformAdmin: true,
           activeStore: {
             id: "store_1",
-            name: "ChinaTech",
-            slug: "chinatech",
+            name: "Demo Repair Store",
+            slug: "demo-repair-store",
             role: "owner",
             status: "active",
           },
           stores: [
             {
               id: "store_1",
-              name: "ChinaTech",
-              slug: "chinatech",
+              name: "Demo Repair Store",
+              slug: "demo-repair-store",
               role: "owner",
               status: "active",
             },
@@ -56,8 +56,8 @@ describe("resolvePostLoginPath", () => {
           ...baseStatus,
           activeStore: {
             id: "store_1",
-            name: "ChinaTech",
-            slug: "chinatech",
+            name: "Demo Repair Store",
+            slug: "demo-repair-store",
             role: "technician",
             status: "active",
           },

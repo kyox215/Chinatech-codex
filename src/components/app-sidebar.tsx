@@ -123,7 +123,7 @@ export function AppSidebar() {
               RepairDesk
             </span>
             <span className="truncate text-[11px] leading-4 text-muted-foreground">
-              ChinaTech 工作台
+              {activeStoreName}
             </span>
           </div>
         </div>

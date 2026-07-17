@@ -411,7 +411,7 @@ export function OnboardingScreen() {
                     type="email"
                     value={targetOwnerEmail}
                     onChange={(event) => setTargetOwnerEmail(event.target.value)}
-                    placeholder="例如 owner@chinatech.in"
+                    placeholder="例如 owner@example.com"
                     autoComplete="email"
                   />
                 </div>
@@ -459,7 +459,7 @@ export function OnboardingScreen() {
                     id="storeName"
                     value={storeName}
                     onChange={(event) => setStoreName(event.target.value)}
-                    placeholder="例如 ChinaTech Roma"
+                    placeholder="例如 Centro Riparazioni Roma"
                   />
                 </div>
                 <div className="rounded-[var(--radius-lg)] border border-primary/15 bg-primary/5 px-3 py-2 text-xs leading-5 text-muted-foreground">

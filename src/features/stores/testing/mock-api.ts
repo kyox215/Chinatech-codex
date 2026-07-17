@@ -27,8 +27,8 @@ import { can } from "@/server/permissions";
 const mockStores = [
   {
     id: "00000000-0000-0000-0000-000000000001",
-    name: "ChinaTech",
-    slug: "chinatech",
+    name: "Demo Repair Store",
+    slug: "demo-repair-store",
     role: "owner",
     status: "active",
     membershipId: "10000000-0000-4000-8000-000000000001",
@@ -93,7 +93,7 @@ const mockAccessRequestsByStore = new Map<string, OnboardingRequest[]>([
         display_name: "演示申请人",
         request_type: "join_store",
         target_store_id: activeStoreId,
-        target_store_name: "ChinaTech",
+        target_store_name: "Demo Repair Store",
         request_note: "希望加入当前门店协助前台接待。",
         review_scope: "store",
         requested_role: "sales",

@@ -80,7 +80,7 @@ function onboardingRequest(overrides: Partial<OnboardingRequest> = {}): Onboardi
     desired_store_name: overrides.desired_store_name,
     target_store_id: overrides.target_store_id,
     target_store_name: overrides.target_store_name,
-    target_owner_email: overrides.target_owner_email ?? "owner@chinatech.in",
+    target_owner_email: overrides.target_owner_email ?? "owner@example.com",
     request_note: overrides.request_note,
     review_scope: overrides.review_scope ?? "platform",
     requested_role: overrides.requested_role ?? "technician",
@@ -161,7 +161,7 @@ describe("OnboardingScreen", () => {
         {
           id: "00000000-0000-4000-8000-000000000101",
           store_id: "store_1",
-          store_name: "ChinaTech",
+          store_name: "Demo Repair Store",
           email: "staff@example.com",
           role: "viewer",
           status: "invited",
@@ -175,8 +175,8 @@ describe("OnboardingScreen", () => {
     apiMocks.acceptStoreInvitation.mockResolvedValue({
       activeStore: {
         id: "store_1",
-        name: "ChinaTech",
-        slug: "chinatech",
+        name: "Demo Repair Store",
+        slug: "demo-repair-store",
         role: "viewer",
         status: "active",
       },
@@ -210,7 +210,7 @@ describe("OnboardingScreen", () => {
     });
     apiMocks.redeemStoreInviteLink.mockResolvedValue({
       id: "00000000-0000-4000-8000-000000000101",
-      store_name: "ChinaTech",
+      store_name: "Demo Repair Store",
       email: "staff@example.com",
       role: "viewer",
       status: "invited",

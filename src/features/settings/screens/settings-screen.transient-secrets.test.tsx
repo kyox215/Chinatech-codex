@@ -380,6 +380,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
         store_phone: "",
         store_whatsapp: "",
         store_email: "",
+        public_base_url: "",
       },
     });
 

@@ -79,6 +79,7 @@ describe("message settings repository tenant boundaries", () => {
         store_id: "store_partner",
         store_name: "Ripara Subito",
         store_address: "",
+        public_base_url: "",
         print_footer: "Grazie per aver scelto Ripara Subito.",
         message_signature: "Ripara Subito",
       }),
@@ -119,6 +120,53 @@ describe("message settings repository tenant boundaries", () => {
     expect(updateQuery.eq).toHaveBeenCalledWith("store_id", "store_partner");
     expect(updateQuery.eq).toHaveBeenCalledWith("updated_at", "2026-07-12T00:00:00.000Z");
     expect(updateQuery.maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it("normalizes and clears public customer portal URLs before saving", async () => {
+    const normalized = storeSettingsRow({
+      public_base_url: "https://example.test/customer",
+    });
+    const normalizeQuery = createSupabaseQuery({ data: normalized, error: null });
+    mocks.supabase.from.mockReturnValueOnce(normalizeQuery);
+
+    await updateStoreSettingsRow({
+      input: { public_base_url: " https://user:pass@example.test/customer/?token=secret#top " },
+      expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+      actorId: "actor_1",
+      storeId: "store_partner",
+    });
+
+    expect(normalizeQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({ public_base_url: "https://example.test/customer" }),
+    );
+
+    const cleared = storeSettingsRow({ public_base_url: "" });
+    const clearQuery = createSupabaseQuery({ data: cleared, error: null });
+    mocks.supabase.from.mockReturnValueOnce(clearQuery);
+
+    await updateStoreSettingsRow({
+      input: { public_base_url: "   " },
+      expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+      actorId: "actor_1",
+      storeId: "store_partner",
+    });
+
+    expect(clearQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({ public_base_url: "" }),
+    );
+  });
+
+  it("rejects unsafe public customer portal URLs before touching Supabase", async () => {
+    await expect(
+      updateStoreSettingsRow({
+        input: { public_base_url: "http://example.test" },
+        expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+        actorId: "actor_1",
+        storeId: "store_partner",
+      }),
+    ).rejects.toThrow("客户门户域名必须使用 HTTPS");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
   it("returns null for a lost CAS and defensively rejects a blank store name", async () => {
@@ -169,6 +217,7 @@ function storeSettingsRow(overrides: Record<string, unknown> = {}) {
     store_phone: "",
     store_whatsapp: "",
     store_email: "",
+    public_base_url: "",
     default_order_warranty_text: "6个月",
     default_order_warranty_months: 6,
     default_inventory_warranty_months: 12,

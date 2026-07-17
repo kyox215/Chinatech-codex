@@ -1,7 +1,4 @@
-const explicitStaffNamesByEmail = new Map<string, string>([
-  ["kyox120@gmail.com", "Alessio"],
-  ["owner@repairdesk.local", "Alessio"],
-]);
+const explicitStaffNamesByEmail = new Map<string, string>([["owner@repairdesk.local", "Alessio"]]);
 
 const roleLikeDisplayNames = new Set([
   "最高管理员",

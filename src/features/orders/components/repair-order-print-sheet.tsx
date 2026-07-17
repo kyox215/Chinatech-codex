@@ -226,7 +226,6 @@ function getPrintOrigin(value: string) {
   try {
     return new URL(value).origin;
   } catch {
-    if (typeof window !== "undefined") return window.location.origin;
     return undefined;
   }
 }

@@ -5,6 +5,7 @@ import {
   BUYBACK_PRIVACY_NOTICE_TEXT_IT,
   BUYBACK_TERMS_SHA256,
   BUYBACK_TERMS_TEXT_IT,
+  canUseConfiguredBuybackLegalProfile,
   canonicalizeBuybackAgreement,
   documentNumberLast4,
   hashBuybackAgreementSnapshot,
@@ -68,5 +69,11 @@ describe("buyback agreement binding", () => {
   it("rejects verification notes that try to retain a separated document number", () => {
     expect(isSafeBuybackVerificationNote("Documento verificato in negozio")).toBe(true);
     expect(isSafeBuybackVerificationNote("Documento A-1-2-3-4-5")).toBe(false);
+  });
+
+  it("does not allow the placeholder legal profile as a multi-store default", () => {
+    expect(canUseConfiguredBuybackLegalProfile()).toBe(false);
+    expect(BUYBACK_PRIVACY_NOTICE_TEXT_IT).not.toMatch(/ChinaTech|Chinatech|Floridia/i);
+    expect(BUYBACK_TERMS_TEXT_IT).not.toMatch(/ChinaTech|Chinatech|Floridia/i);
   });
 });

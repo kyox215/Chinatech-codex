@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildStoreTemplateContext,
   evaluateTemplateHealth,
   getUnknownTemplateVariables,
   insertTemplateVariable,
@@ -35,6 +36,17 @@ describe("template renderer helpers", () => {
     expect(renderTemplate("Ciao {{customer_name}} {{unknown}}", { customer_name: "Mario" })).toBe(
       "Ciao Mario",
     );
+  });
+
+  it("normalizes public base URLs before exposing them to templates", () => {
+    expect(
+      buildStoreTemplateContext({
+        public_base_url: "https://user:pass@example.test/customer/?token=secret#section",
+      }).public_base_url,
+    ).toBe("https://example.test/customer");
+    expect(
+      buildStoreTemplateContext({ public_base_url: "javascript:alert(1)" }).public_base_url,
+    ).toBe("");
   });
 
   it("marks enabled templates with unknown variables as blocked", () => {

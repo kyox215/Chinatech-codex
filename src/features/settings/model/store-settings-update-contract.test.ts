@@ -91,6 +91,45 @@ describe("store settings update contract", () => {
     });
   });
 
+  it("validates optional public customer portal URLs", () => {
+    const base = {
+      section: "store" as const,
+      expectedStoreId: storeId,
+      expectedUpdatedAt: updatedAt,
+      input: {
+        store_name: "Repair Lab",
+        store_address: "Via Roma 12",
+        store_phone: "+39 333 111 2222",
+        store_whatsapp: "",
+        store_email: "",
+      },
+    };
+
+    const httpsResult = storeSettingsSectionUpdateSchema.parse({
+      ...base,
+      input: { ...base.input, public_base_url: " https://example.test/customer " },
+    });
+    const localhostResult = storeSettingsSectionUpdateSchema.parse({
+      ...base,
+      input: { ...base.input, public_base_url: "http://localhost:3000" },
+    });
+
+    expect(httpsResult.section).toBe("store");
+    if (httpsResult.section === "store") {
+      expect(httpsResult.input.public_base_url).toBe("https://example.test/customer");
+    }
+    expect(localhostResult.section).toBe("store");
+    if (localhostResult.section === "store") {
+      expect(localhostResult.input.public_base_url).toBe("http://localhost:3000");
+    }
+    expect(() =>
+      storeSettingsSectionUpdateSchema.parse({
+        ...base,
+        input: { ...base.input, public_base_url: "http://example.test" },
+      }),
+    ).toThrow("客户门户域名必须使用 HTTPS");
+  });
+
   it("validates a client request with the same contract used by the API", () => {
     const result = validateStoreSettingsSectionUpdateRequest({
       section: "store",

@@ -289,6 +289,7 @@ function storeValueFromSettings(settings: StoreSettings): StoreSettingsDraftValu
     store_phone: settings.store_phone,
     store_whatsapp: settings.store_whatsapp,
     store_email: settings.store_email,
+    public_base_url: settings.public_base_url ?? "",
   };
 }
 

@@ -175,7 +175,6 @@ export function OrderListPrintSheet({
 }
 
 function getPrintOrigin() {
-  if (typeof window !== "undefined") return window.location.origin;
   return undefined;
 }
 

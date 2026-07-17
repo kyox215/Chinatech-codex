@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { isRoleLikeDisplayName, resolveStaffDisplayName } from "@/server/staff-display-name";
 
 describe("staff display name", () => {
-  it("uses Alessio for the owner email even when the stored profile is a role label", () => {
+  it("uses explicit configured names even when the stored profile is a role label", () => {
     expect(
       resolveStaffDisplayName({
-        email: "kyox120@gmail.com",
+        email: "owner@repairdesk.local",
         displayName: "最高管理员",
         role: "owner",
       }),

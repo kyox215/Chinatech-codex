@@ -16,4 +16,16 @@ describe("customer message identity", () => {
     expect(message).toContain("Etna Phone Lab · Assistenza");
     expect(message).not.toMatch(/ChinaTech|Chinatech|Floridia|Viale Vittorio Veneto/i);
   });
+
+  it("omits the assistance link when the store has no safe public base URL", async () => {
+    const detail = await getCustomerDetail(customers[0].id);
+    const message = buildCustomerMessage(detail, "", {
+      storeName: "Etna Phone Lab",
+      messageSignature: "Etna Phone Lab · Assistenza",
+    });
+
+    expect(message).toContain("Etna Phone Lab");
+    expect(message).not.toContain("Area assistenza:");
+    expect(message).not.toMatch(/chinatech\\.in|ChinaTech|Floridia|Viale Vittorio Veneto/i);
+  });
 });

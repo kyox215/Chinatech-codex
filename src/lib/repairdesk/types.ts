@@ -1714,6 +1714,7 @@ export interface StoreSettings {
   store_phone: string;
   store_whatsapp: string;
   store_email: string;
+  public_base_url?: string;
   default_order_warranty_text: string;
   default_order_warranty_months: number;
   default_inventory_warranty_months: number;
@@ -1730,6 +1731,7 @@ export interface StoreSettingsUpdateInput {
   store_phone?: string;
   store_whatsapp?: string;
   store_email?: string;
+  public_base_url?: string;
   default_order_warranty_text?: string;
   default_order_warranty_months?: number;
   default_inventory_warranty_months?: number;
@@ -1745,6 +1747,7 @@ export interface StoreSettingsStoreSectionInput {
   store_phone: string;
   store_whatsapp: string;
   store_email: string;
+  public_base_url?: string;
 }
 
 export interface StoreSettingsNotificationsSectionInput {

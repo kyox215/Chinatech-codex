@@ -13,7 +13,7 @@ import {
 } from "./onboarding-flow";
 
 const baseStatus: Pick<OnboardingStatus, "availableStores"> = {
-  availableStores: [{ id: "store_1", name: "ChinaTech", slug: "chinatech" }],
+  availableStores: [{ id: "store_1", name: "Demo Repair Store", slug: "demo-repair-store" }],
 };
 
 function request(overrides: Partial<OnboardingRequest>): OnboardingRequest {
@@ -25,7 +25,8 @@ function request(overrides: Partial<OnboardingRequest>): OnboardingRequest {
     request_type: overrides.request_type ?? "join_store",
     desired_store_name: overrides.desired_store_name,
     target_store_id: "target_store_id" in overrides ? overrides.target_store_id : "store_1",
-    target_store_name: "target_store_name" in overrides ? overrides.target_store_name : "ChinaTech",
+    target_store_name:
+      "target_store_name" in overrides ? overrides.target_store_name : "Demo Repair Store",
     target_owner_email: overrides.target_owner_email,
     request_note: overrides.request_note,
     review_scope: overrides.review_scope ?? "store",
@@ -86,22 +87,22 @@ describe("onboarding flow helpers", () => {
       getOnboardingRequestSummary(
         request({
           request_type: "create_store",
-          desired_store_name: "ChinaTech Roma",
+          desired_store_name: "Centro Riparazioni Roma",
           requested_role: "owner",
         }),
       ),
-    ).toBe("创建店铺：ChinaTech Roma");
+    ).toBe("创建店铺：Centro Riparazioni Roma");
 
     expect(
       getOnboardingRequestSummary(
         request({
           request_type: "join_store",
           target_store_name: undefined,
-          target_owner_email: "owner@chinatech.in",
+          target_owner_email: "owner@example.com",
           requested_role: "sales",
         }),
       ),
-    ).toBe("加入店铺：负责人 owner@chinatech.in · 销售/前台");
+    ).toBe("加入店铺：负责人 owner@example.com · 销售/前台");
   });
 
   it("validates join store requirements", () => {
@@ -124,7 +125,7 @@ describe("onboarding flow helpers", () => {
       reason: "店铺负责人邮箱格式不正确",
     });
     expect(
-      validateOnboardingForm({ ...form, targetOwnerEmail: "owner@chinatech.in" }, baseStatus),
+      validateOnboardingForm({ ...form, targetOwnerEmail: "owner@example.com" }, baseStatus),
     ).toMatchObject({
       canSubmit: true,
     });
@@ -144,7 +145,7 @@ describe("onboarding flow helpers", () => {
       reason: "店铺名称至少需要 2 个字符",
     });
     expect(
-      validateOnboardingForm({ ...form, storeName: "ChinaTech Roma" }, baseStatus),
+      validateOnboardingForm({ ...form, storeName: "Centro Riparazioni Roma" }, baseStatus),
     ).toMatchObject({
       canSubmit: true,
       reason: "将立即创建你的独立私有店铺",
@@ -155,7 +156,7 @@ describe("onboarding flow helpers", () => {
     expect(() =>
       buildOnboardingRequestInput({
         mode: "create_store",
-        storeName: "  ChinaTech Roma  ",
+        storeName: "  Centro Riparazioni Roma  ",
         targetOwnerEmail: "",
         note: "",
         requestedRole: "technician",
@@ -166,13 +167,13 @@ describe("onboarding flow helpers", () => {
       buildOnboardingRequestInput({
         mode: "join_store",
         storeName: "",
-        targetOwnerEmail: " OWNER@ChinaTech.in ",
+        targetOwnerEmail: " OWNER@Example.COM ",
         note: "  我是新员工  ",
         requestedRole: "manager",
       }),
     ).toEqual({
       request_type: "join_store",
-      target_owner_email: "owner@chinatech.in",
+      target_owner_email: "owner@example.com",
       note: "我是新员工",
       requested_role: "manager",
     });

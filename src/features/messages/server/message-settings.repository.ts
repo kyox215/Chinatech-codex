@@ -13,6 +13,7 @@ import {
   templateIdForStore,
   withStoreSettingsDefaults,
 } from "@/features/messages/model/message-template-defaults";
+import { normalizePublicBaseUrl } from "@/entities/store/model/store-output-identity";
 import {
   formatWarrantyText,
   normalizeWarrantyMonths,
@@ -55,6 +56,7 @@ export async function getStoreSettings(
       store_phone: defaults.store_phone,
       store_whatsapp: defaults.store_whatsapp,
       store_email: defaults.store_email,
+      public_base_url: defaults.public_base_url,
       default_order_warranty_text: defaults.default_order_warranty_text,
       default_order_warranty_months: defaults.default_order_warranty_months,
       default_inventory_warranty_months: defaults.default_inventory_warranty_months,
@@ -190,6 +192,13 @@ function sanitizeStoreSettingsInput(input: StoreSettingsUpdateInput) {
   if (input.store_phone !== undefined) update.store_phone = input.store_phone.trim();
   if (input.store_whatsapp !== undefined) update.store_whatsapp = input.store_whatsapp.trim();
   if (input.store_email !== undefined) update.store_email = input.store_email.trim();
+  if (input.public_base_url !== undefined) {
+    const publicBaseUrl = input.public_base_url.trim();
+    update.public_base_url = publicBaseUrl ? normalizePublicBaseUrl(publicBaseUrl) : "";
+    if (publicBaseUrl && !update.public_base_url) {
+      throw new Error("客户门户域名必须使用 HTTPS，或本地开发 localhost HTTP");
+    }
+  }
   if (input.default_order_warranty_months !== undefined) {
     const months = normalizeWarrantyMonths(input.default_order_warranty_months);
     update.default_order_warranty_months = months;
@@ -240,6 +249,7 @@ function storeSettingsFromRow(row: DbRecord): StoreSettings {
     store_phone: String(row.store_phone ?? ""),
     store_whatsapp: String(row.store_whatsapp ?? ""),
     store_email: String(row.store_email ?? ""),
+    public_base_url: String(row.public_base_url ?? ""),
     default_order_warranty_text: String(row.default_order_warranty_text ?? ""),
     default_order_warranty_months: Number(row.default_order_warranty_months ?? 6),
     default_inventory_warranty_months: Number(row.default_inventory_warranty_months ?? 12),

@@ -287,7 +287,7 @@ export const customerInteractions: CustomerInteraction[] = customers
     customer_id: customer.id,
     channel: "whatsapp",
     direction: "outbound",
-    message_body: `Gentile ${customer.name}, grazie per aver scelto ChinaTech. Restiamo a disposizione per assistenza.`,
+    message_body: `Gentile ${customer.name}, grazie per aver scelto Demo Repair Store. Restiamo a disposizione per assistenza.`,
     status: "sent",
     operator_name: "前台",
     created_at: new Date(Date.now() - index * 86_400_000).toISOString(),

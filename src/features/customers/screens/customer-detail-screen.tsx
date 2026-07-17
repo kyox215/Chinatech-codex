@@ -21,7 +21,10 @@ import { customersKeys } from "@/features/customers/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
-import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import {
+  buildStoreCustomerOutputUrl,
+  resolveStoreOutputIdentity,
+} from "@/entities/store/model/store-output-identity";
 import {
   CustomerFollowupsPanel,
   CustomerMessagesPanel,
@@ -96,7 +99,6 @@ export function CustomerDetailScreen({
   const [followupOrderId, setFollowupOrderId] = useState<string | undefined>();
   const [messageOpen, setMessageOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
-  const [orderUrl, setOrderUrl] = useState("");
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const storeSettingsQuery = useQuery({
@@ -129,9 +131,10 @@ export function CustomerDetailScreen({
     retry: 1,
   });
 
-  useEffect(() => {
-    setOrderUrl(window.location.origin);
-  }, []);
+  const customerBaseUrl = useMemo(
+    () => buildStoreCustomerOutputUrl(storeOutputIdentity, "/"),
+    [storeOutputIdentity],
+  );
 
   useEffect(() => {
     setMessageOpen(false);
@@ -476,7 +479,7 @@ export function CustomerDetailScreen({
         open={messageOpen}
         onOpenChange={setMessageOpen}
         data={data}
-        appOrigin={orderUrl}
+        appOrigin={customerBaseUrl}
         storeIdentity={storeOutputIdentity}
         canReadStoreSettings={shell.permissions?.canReadStoreSettings === true}
         canUpdateStoreSettings={shell.permissions?.canUpdateStoreSettings === true}
