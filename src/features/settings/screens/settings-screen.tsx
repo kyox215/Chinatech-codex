@@ -217,6 +217,7 @@ export function SettingsScreen() {
   const canManageSuppliers = settingsCapabilities?.canManageSuppliers === true;
   const canManageOrderData = settingsCapabilities?.canManageOrderData === true;
   const canApplyOrderData = settingsCapabilities?.canApplyOrderData === true;
+  const canManageOrderCosts = settingsCapabilities?.can_manage_order_costs === true;
   const canUpdateStoreSettings = settingsCapabilities?.canUpdateStoreSettings === true;
   const canConfigureWorkflow = settingsCapabilities?.canConfigureWorkflow === true;
   const canListMembers = settingsCapabilities?.canListMembers === true;
@@ -1641,6 +1642,9 @@ export function SettingsScreen() {
                     canInviteMembers={canInviteMembers}
                     canRevokeMembers={canRevokeMembers}
                     canReviewAccessRequests={canReviewAccessRequests}
+                    orderCostsEnabled={
+                      storeContextQuery.data?.permissions?.can_manage_order_costs === true
+                    }
                     isLoading={storeMembersQuery.isLoading}
                     isError={storeMembersQuery.isError}
                     isAccessRequestsLoading={storeAccessRequestsQuery.isLoading}
@@ -1828,6 +1832,8 @@ export function SettingsScreen() {
                     draft={activeDrafts.sections.rules.value}
                     isDraftDirty={sectionDirtyState.rules}
                     canUpdateSettings={canUpdateStoreSettings}
+                    activeStoreId={canManageOrderCosts ? activeStoreId : undefined}
+                    canManageOrderCosts={canManageOrderCosts}
                     fieldErrors={settingsFieldErrors}
                     onDraftChange={(patch) => updateSettingsField("rules", patch)}
                   />

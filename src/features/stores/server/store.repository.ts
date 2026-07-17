@@ -467,6 +467,17 @@ export async function updateStoreMemberPermissions(
   if (member.status !== "active") {
     throw new ForbiddenError("停用员工不能修改额外权限，请先恢复员工");
   }
+  if (
+    process.env.REPAIRDESK_ORDER_COSTS_ENABLED !== "1" &&
+    input.permissions.includes("finance:cost_manage")
+  ) {
+    const existingGrants = await listStoreMemberPermissionGrantRows(supabase, storeId);
+    const alreadyGranted = existingGrants.some(
+      (row) =>
+        requiredString(row.membership_id) === member.id && row.action === "finance:cost_manage",
+    );
+    if (!alreadyGranted) throw new ForbiddenError("内部成本功能尚未启用");
+  }
   const permissions = normalizeStorePermissionGrants(input.permissions, member.role);
   const { data, error } = await supabase.rpc("repairdesk_replace_member_permission_grants_rpc", {
     p_store_id: storeId,
@@ -1403,6 +1414,8 @@ async function storePermissionsFromActor(
     canReadOrderFinance: can(actor, "finance:order_read"),
     canReadAggregateFinance: can(actor, "finance:aggregate_read"),
     canReadProfit: can(actor, "finance:profit_read"),
+    can_manage_order_costs:
+      process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" && can(actor, "finance:cost_manage"),
     canExportOrders: can(actor, "order:export"),
     canReadStoreSettings: Boolean(actor.storeId && !actor.isSystem),
     canUpdateStoreSettings,

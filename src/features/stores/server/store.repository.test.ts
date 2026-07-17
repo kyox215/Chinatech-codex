@@ -217,6 +217,35 @@ describe("store repository access request boundaries", () => {
     }
   });
 
+  it("publishes repair cost management only when the feature flag and permission both allow it", async () => {
+    expect((await getStoreContext(storeOwner)).permissions).toMatchObject({
+      can_manage_order_costs: false,
+    });
+
+    vi.stubEnv("REPAIRDESK_ORDER_COSTS_ENABLED", "1");
+    const grantedManager = {
+      ...storeManager,
+      permissionGrants: ["finance:cost_manage" as const],
+    };
+    const [ownerContext, managerContext, grantedManagerContext, technicianContext, salesContext] =
+      await Promise.all([
+        getStoreContext(storeOwner),
+        getStoreContext(storeManager),
+        getStoreContext(grantedManager),
+        getStoreContext({
+          ...storeTechnician,
+          permissionGrants: ["finance:cost_manage"],
+        }),
+        getStoreContext({ ...storeSales, permissionGrants: ["finance:cost_manage"] }),
+      ]);
+
+    expect(ownerContext.permissions).toMatchObject({ can_manage_order_costs: true });
+    expect(managerContext.permissions).toMatchObject({ can_manage_order_costs: false });
+    expect(grantedManagerContext.permissions).toMatchObject({ can_manage_order_costs: true });
+    expect(technicianContext.permissions).toMatchObject({ can_manage_order_costs: false });
+    expect(salesContext.permissions).toMatchObject({ can_manage_order_costs: false });
+  });
+
   it("lists only pending store-scoped requests explicitly routed to the active store", async () => {
     const query = createSupabaseQuery({ data: [], error: null });
     mocks.supabase.from.mockReturnValue(query);
@@ -1105,6 +1134,57 @@ describe("store repository access request boundaries", () => {
         after: {
           permission_grants: ["finance:aggregate_read", "finance:profit_read"],
         },
+      }),
+    );
+  });
+
+  it("rejects a new repair-cost grant while the rollout flag is off", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "manager", status: "active" }),
+      error: null,
+    });
+    const grantsQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from.mockReturnValueOnce(memberReadQuery).mockReturnValueOnce(grantsQuery);
+
+    await expect(
+      updateStoreMemberPermissions(
+        { id: "membership_staff", permissions: ["finance:cost_manage"] },
+        storeOwner,
+      ),
+    ).rejects.toThrow("内部成本功能尚未启用");
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("preserves an existing repair-cost grant during a flag-off rollback", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "manager", status: "active" }),
+      error: null,
+    });
+    const grantsQuery = createSupabaseQuery({
+      data: [
+        {
+          membership_id: "membership_staff",
+          action: "finance:cost_manage",
+        },
+      ],
+      error: null,
+    });
+    mocks.supabase.from.mockReturnValueOnce(memberReadQuery).mockReturnValueOnce(grantsQuery);
+    mocks.supabase.rpc.mockResolvedValueOnce({ data: null, error: { message: "stop-after-rpc" } });
+
+    await expect(
+      updateStoreMemberPermissions(
+        {
+          id: "membership_staff",
+          permissions: ["finance:cost_manage", "supplier:read"],
+        },
+        storeOwner,
+      ),
+    ).rejects.toThrow("stop-after-rpc");
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_replace_member_permission_grants_rpc",
+      expect.objectContaining({
+        p_actions: ["supplier:read", "finance:cost_manage"],
       }),
     );
   });

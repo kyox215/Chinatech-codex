@@ -7,12 +7,14 @@ export const storePermissionActions = [
   "order:archive_browse",
   "finance:aggregate_read",
   "finance:profit_read",
+  "finance:cost_manage",
 ] as const satisfies readonly StorePermissionAction[];
 
 const managerOnlyGrants = new Set<StorePermissionAction>([
   "order:archive_browse",
   "finance:aggregate_read",
   "finance:profit_read",
+  "finance:cost_manage",
 ]);
 
 export function isStorePermissionAction(value: unknown): value is StorePermissionAction {

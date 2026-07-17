@@ -176,6 +176,23 @@ describe("server permission matrix", () => {
     expect(can(actor("owner"), "finance:profit_read")).toBe(true);
   });
 
+  it("keeps repair cost management independent and manager-grantable", () => {
+    expect(can(actor("owner"), "finance:cost_manage")).toBe(true);
+    expect(can(actor("manager"), "finance:cost_manage")).toBe(false);
+
+    const grantedManager = actor("manager", {
+      permissionGrants: ["finance:cost_manage"],
+    });
+    expect(can(grantedManager, "finance:cost_manage")).toBe(true);
+    expect(can(grantedManager, "finance:profit_read")).toBe(false);
+    expect(can(grantedManager, "finance:aggregate_read")).toBe(false);
+
+    for (const role of ["technician", "sales", "viewer"] as const) {
+      const forged = actor(role, { permissionGrants: ["finance:cost_manage"] });
+      expect(can(forged, "finance:cost_manage"), role).toBe(false);
+    }
+  });
+
   it("lets operational roles search archives while keeping archive browsing owner-gated", () => {
     for (const role of ["owner", "manager", "technician", "sales"] as const) {
       expect(
@@ -324,6 +341,7 @@ describe("server permission matrix", () => {
       "supplier:read",
       "supplier:assign",
       "supplier:manage",
+      "finance:cost_manage",
       "unlock:read",
       "attachment:read",
     ] as const;

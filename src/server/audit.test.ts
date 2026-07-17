@@ -88,4 +88,28 @@ describe("audit log redaction", () => {
     expect(sanitized?.has_target_owner_email).toBe(true);
     expect(sanitized?.target_owner_email).toBe("[redacted]");
   });
+
+  it("redacts every internal cost payload shape", () => {
+    const sanitized = sanitizeAuditRecord({
+      cost_inputs: [{ line_id: "line-1", amount: 15 }],
+      cost_amount: 15,
+      default_cost_amount: 10,
+      internal_cost: 8,
+      cost: 7,
+      unit_cost: 6,
+      internalCost: 5,
+      safe_item_count: 1,
+    });
+
+    expect(sanitized).toEqual({
+      cost_inputs: "[redacted]",
+      cost_amount: "[redacted]",
+      default_cost_amount: "[redacted]",
+      internal_cost: "[redacted]",
+      cost: "[redacted]",
+      unit_cost: "[redacted]",
+      internalCost: "[redacted]",
+      safe_item_count: 1,
+    });
+  });
 });

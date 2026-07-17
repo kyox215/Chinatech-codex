@@ -31,7 +31,15 @@ describe("offline order create sync adapter", () => {
         order: {
           device_custody_status: "with_customer",
           deposit_amount: 20,
-          fault_prices: [{ name: "Display", price: 100, currency_code: "EUR" }],
+          fault_prices: [
+            {
+              line_id: "00000000-0000-4000-8000-000000000103",
+              catalog_key: "display:main",
+              name: "屏幕",
+              price: 100,
+              currency_code: "EUR",
+            },
+          ],
         },
       },
     });
@@ -104,7 +112,14 @@ function entry(
       issueDescription: "Schermo rotto",
       accessoryNotes: "Custodia",
       depositAmountCents: 2_000,
-      repairItems: [{ name: "Display", price: 100 }],
+      repairItems: [
+        {
+          line_id: "00000000-0000-4000-8000-000000000103",
+          catalog_key: "display:main",
+          name: "屏幕",
+          price: 100,
+        },
+      ],
       warrantyDraft: { text: "6 mesi", months: 6 },
     },
     relationshipPlan: {

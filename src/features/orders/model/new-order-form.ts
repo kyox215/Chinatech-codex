@@ -1,4 +1,5 @@
 import type { SelectedFault } from "@/components/orders/fault-diagnosis-picker";
+import { createOrderLineId } from "@/entities/order/model/order-line-identity";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { DeviceCustodyStatus, DeviceUnlockInput } from "@/lib/repairdesk/types";
 
@@ -49,6 +50,18 @@ export const initialNewOrderForm: NewOrderFormState = {
   deposit: 0,
   faults: [],
 };
+
+export function createCustomFaultForNewOrder(): SelectedFault {
+  return {
+    line_id: createOrderLineId(),
+    key: `custom:${Date.now()}`,
+    categoryKey: "custom",
+    categoryLabel: "自定义",
+    name: "",
+    price: 0,
+    note: "Intervento personalizzato",
+  };
+}
 
 type CustomerNameSource = {
   name?: string | null;

@@ -39,6 +39,7 @@ import {
   OrderWorkspaceQuoteDisplayRow,
 } from "@/features/orders/components/order-workspace-primitives";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
+import { OrderInternalCostCard } from "@/features/orders/components/order-internal-cost-card";
 import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
@@ -122,6 +123,9 @@ export function OrderOverviewTab({
   canEditIntake = false,
   canEditRepair = false,
   canAdjustFinance = false,
+  activeStoreId,
+  canReadInternalCosts = false,
+  canManageInternalCosts = false,
   defaultWarrantyMonths = 6,
   onQuickImeiSave,
   quickImeiPending = false,
@@ -156,6 +160,9 @@ export function OrderOverviewTab({
   canEditIntake?: boolean;
   canEditRepair?: boolean;
   canAdjustFinance?: boolean;
+  activeStoreId?: string;
+  canReadInternalCosts?: boolean;
+  canManageInternalCosts?: boolean;
   defaultWarrantyMonths?: number;
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending?: boolean;
@@ -292,6 +299,14 @@ export function OrderOverviewTab({
           />
         </div>
       </div>
+      {canReadInternalCosts && activeStoreId ? (
+        <OrderInternalCostCard
+          orderId={order.id}
+          storeId={activeStoreId}
+          faultPrices={order.fault_prices}
+          canManage={canManageInternalCosts}
+        />
+      ) : null}
     </motion.div>
   );
 }
@@ -1720,7 +1735,12 @@ function FinanceInlineEditor({
                 value={item.name}
                 placeholder="项目名称"
                 className={cn(inlineFinanceInputClass, "min-w-0 text-xs font-medium")}
-                onChange={(event) => patchFault(index, { name: event.target.value })}
+                onChange={(event) =>
+                  patchFault(index, {
+                    name: event.target.value,
+                    catalog_key: undefined,
+                  })
+                }
               />
               <MoneyDraftField
                 ariaLabel={`报价项目 ${index + 1} 金额`}

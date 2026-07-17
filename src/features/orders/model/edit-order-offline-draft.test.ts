@@ -77,7 +77,15 @@ describe("edit order offline draft mapping", () => {
       ...buildEditForm(data),
       issue_description: "Updated issue from local draft",
       device_unlock: { method: "pin", value: "009999" } as const,
-      fault_prices: [{ name: "Display", price: 89, note: "OLED" }],
+      fault_prices: [
+        {
+          line_id: "00000000-0000-4000-8000-000000000102",
+          catalog_key: "display:main",
+          name: "屏幕",
+          price: 89,
+          note: "OLED",
+        },
+      ],
       deposit_amount: 30,
     };
     const service = createRepairDeskOfflineOrderService({
@@ -104,8 +112,17 @@ describe("edit order offline draft mapping", () => {
       issue_description: "Updated issue from local draft",
       deposit_amount: 30,
       device_unlock: { method: "pin", value: "001258" },
-      fault_prices: [{ name: "Display", price: 89, note: "OLED" }],
+      fault_prices: [
+        {
+          line_id: "00000000-0000-4000-8000-000000000102",
+          catalog_key: "display:main",
+          name: "屏幕",
+          price: 89,
+          note: "OLED",
+        },
+      ],
     });
+    expect(JSON.stringify(saved.value.draftPayload).toLowerCase()).not.toContain("cost");
   });
 
   it("blocks restoring an edit draft when the server order version changed", async () => {

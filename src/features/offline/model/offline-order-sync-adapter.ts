@@ -34,8 +34,12 @@ export function buildRepairDeskOfflineOrderCreateSyncInput(
     const name = readString(item.name);
     if (!name) return [];
     const note = readString(item.note);
+    const lineId = readString(item.line_id);
+    const catalogKey = readString(item.catalog_key);
     return [
       {
+        ...(lineId ? { line_id: lineId } : {}),
+        ...(catalogKey ? { catalog_key: catalogKey } : {}),
         name,
         price: readMoney(item.price),
         currency_code: "EUR" as const,

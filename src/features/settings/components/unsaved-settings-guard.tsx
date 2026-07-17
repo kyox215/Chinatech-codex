@@ -1,11 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
-import {
-  useNavigationGuard,
-  type NavigationGuardResolution,
-} from "@/components/navigation-guard-provider";
+import { UnsavedNavigationGuard } from "@/components/unsaved-navigation-guard";
+import type { NavigationGuardResolution } from "@/components/navigation-guard-provider";
 
 export interface UnsavedSettingsGuardProps {
   id?: string;
@@ -21,32 +17,6 @@ export interface UnsavedSettingsGuardProps {
 }
 
 export function UnsavedSettingsGuard(props: UnsavedSettingsGuardProps) {
-  const { registerGuard } = useNavigationGuard();
   const id = props.id ?? "settings-store-draft";
-  const latestRef = useRef(props);
-  latestRef.current = props;
-
-  useEffect(
-    () =>
-      registerGuard({
-        id,
-        label: () => latestRef.current.label,
-        isDirty: () => latestRef.current.isDirty?.() ?? latestRef.current.dirty,
-        isBusy: () => latestRef.current.busy,
-        canSave: () =>
-          typeof latestRef.current.canSave === "function"
-            ? latestRef.current.canSave()
-            : (latestRef.current.canSave ?? true),
-        saveUnavailableReason: () =>
-          typeof latestRef.current.saveUnavailableReason === "function"
-            ? latestRef.current.saveUnavailableReason()
-            : (latestRef.current.saveUnavailableReason ?? ""),
-        save: () => latestRef.current.onSave(),
-        discard: () => latestRef.current.onDiscard(),
-        focusFallback: () => latestRef.current.onFocusFallback?.(),
-      }),
-    [id, registerGuard],
-  );
-
-  return null;
+  return <UnsavedNavigationGuard {...props} id={id} />;
 }

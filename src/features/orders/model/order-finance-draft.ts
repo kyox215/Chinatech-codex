@@ -1,6 +1,9 @@
 import type { FaultPriceItem } from "@/lib/repairdesk/types";
+import { ensureOrderLineId } from "@/entities/order/model/order-line-identity";
 
 export interface FinanceFaultDraft {
+  line_id?: string;
+  catalog_key?: string;
   name: string;
   priceText: string;
   note: string;
@@ -30,6 +33,8 @@ export function financeDraftFromPrices(
   opts: { zeroAsEmpty?: boolean } = {},
 ): FinanceFaultDraft[] {
   return faultPrices.map((item) => ({
+    ...(item.line_id ? { line_id: item.line_id } : {}),
+    ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
     name: item.name,
     priceText: opts.zeroAsEmpty && Number(item.price) === 0 ? "" : moneyDraftText(item.price),
     note: item.note ?? "",
@@ -37,7 +42,7 @@ export function financeDraftFromPrices(
 }
 
 export function emptyFinanceFaultDraft(): FinanceFaultDraft {
-  return { name: "", priceText: "", note: "" };
+  return { line_id: ensureOrderLineId(undefined), name: "", priceText: "", note: "" };
 }
 
 export function createFinanceDraftState(
@@ -72,6 +77,8 @@ export function normalizeFinanceDraft(
     }
 
     faultPrices.push({
+      ...(item.line_id ? { line_id: item.line_id } : {}),
+      ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
       name,
       price: parsedPrice.value,
       ...(note ? { note } : {}),

@@ -52,6 +52,7 @@ export interface MemberEditorSheetProps {
   member: StoreMember | null;
   isSaving: boolean;
   errorMessage?: string;
+  orderCostsEnabled?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -62,6 +63,7 @@ export function MemberEditorSheet({
   member,
   isSaving,
   errorMessage,
+  orderCostsEnabled = false,
   returnFocusRef,
   onOpenChange,
   onDirtyChange,
@@ -98,7 +100,7 @@ export function MemberEditorSheet({
   const roleOptions = member.management?.allowed_roles ?? [];
   const roleDirty = member.role !== draft.role;
   const canEditRole = member.management?.can_update_role === true && member.status === "active";
-  const permissionOptions = visibleMemberPermissionOptions(draft.role);
+  const permissionOptions = visibleMemberPermissionOptions(draft.role, orderCostsEnabled);
   const canEditPermissions =
     member.management?.can_update_permissions === true &&
     member.status === "active" &&

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   createKioskDevicePairing: vi.fn(),
   createKioskSession: vi.fn(),
   createOrder: vi.fn(),
+  getOrder: vi.fn(),
   getRequestActor: vi.fn(),
   hasSupabaseConfig: vi.fn(),
   isRepairDeskE2eAuthBypassEnabled: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock("@/lib/mock/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/mock/api")>()),
   acceptKioskSession: mocks.acceptKioskSession,
   createOrder: mocks.createOrder,
+  getOrder: mocks.getOrder,
   returnKioskSession: mocks.returnKioskSession,
   updateStoreSettings: mocks.updateStoreSettings,
 }));
@@ -75,6 +77,9 @@ describe("repairdesk router realtime integration", () => {
       id: "order_1",
       public_no: "RD-1",
       status: "new",
+    });
+    mocks.getOrder.mockResolvedValue({
+      order: { id: "order_1", fault_prices: [] },
     });
     mocks.acceptKioskSession.mockResolvedValue({ id: "session_1", status: "accepted" });
     mocks.returnKioskSession.mockResolvedValue({ id: "session_1", status: "returned" });

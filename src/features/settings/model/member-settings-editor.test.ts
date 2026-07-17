@@ -60,12 +60,50 @@ describe("member settings editor", () => {
     expect(visibleMemberPermissionOptions("viewer")).toEqual([]);
   });
 
+  it("offers repair cost management only to managers without adding profit access", () => {
+    const managerOptions = visibleMemberPermissionOptions("manager");
+    expect(managerOptions.some((option) => option.action === "finance:cost_manage")).toBe(true);
+    expect(
+      visibleMemberPermissionOptions("technician").some(
+        (option) => option.action === "finance:cost_manage",
+      ),
+    ).toBe(false);
+    expect(
+      visibleMemberPermissionOptions("sales").some(
+        (option) => option.action === "finance:cost_manage",
+      ),
+    ).toBe(false);
+
+    const draft = updateMemberEditorPermission(
+      { role: "manager", permissions: [] },
+      "finance:cost_manage",
+      true,
+    );
+    expect(draft.permissions).toEqual(["finance:cost_manage"]);
+    expect(draft.permissions).not.toContain("finance:profit_read");
+    expect(draft.permissions).not.toContain("finance:aggregate_read");
+  });
+
+  it("hides repair cost management while the rollout flag is off", () => {
+    expect(
+      visibleMemberPermissionOptions("manager", false).some(
+        (option) => option.action === "finance:cost_manage",
+      ),
+    ).toBe(false);
+  });
+
   it("marks manager elevation and newly added sensitive grants for confirmation", () => {
     expect(isSensitiveMemberEditorChange(member, { role: "manager", permissions: [] })).toBe(true);
     expect(
       isSensitiveMemberEditorChange(
         { ...member, role: "manager", permission_grants: [] },
         { role: "manager", permissions: ["finance:aggregate_read"] },
+      ),
+    ).toBe(true);
+    expect(
+      isSensitiveMemberEditorChange(
+        { ...member, role: "manager", permission_grants: [] },
+        { role: "manager", permissions: ["finance:cost_manage"] },
       ),
     ).toBe(true);
   });

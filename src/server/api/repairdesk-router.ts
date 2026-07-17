@@ -48,6 +48,18 @@ import {
   listOrderDataBatchHistory,
   previewOrderDataImport,
 } from "@/features/orders/server/order-data.service";
+import {
+  getOrderLineCosts,
+  getStoreFaultCostDefaults,
+  updateOrderLineCosts,
+  updateStoreFaultCostDefaults,
+  CostOperationError,
+} from "@/features/orders/server/order-cost.repository";
+import {
+  assertCanManageOrderCosts,
+  assertCanReadOrderCosts,
+} from "@/features/orders/server/order-cost-feature";
+import { repairServiceCatalogItems } from "@/entities/order";
 import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
 import {
   completeCustomerFollowup,
@@ -175,11 +187,14 @@ import type {
   KioskSessionCreateInput,
   OrderListItem,
   OrderListResult,
+  OrderLineCostsResult,
   OrderStats,
   PatchOrderFinanceInput,
   PatchOrderInput,
   PublishOrderQuoteInput,
   RepairDeskOptions,
+  StoreFaultCostDefaultItem,
+  StoreMemberPermissionUpdateInput,
   SupplierInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
@@ -241,6 +256,10 @@ import {
   orderWorkflowTransitionsUpdateBodySchema,
   patchOrderBodySchema,
   patchOrderFinanceBodySchema,
+  orderLineCostsReadBodySchema,
+  orderLineCostsUpdateBodySchema,
+  storeFaultCostDefaultsUpdateBodySchema,
+  storeFaultCostDefaultsReadBodySchema,
   publishOrderQuoteBodySchema,
   confirmOrderQuoteSentBodySchema,
   paymentBodySchema,
@@ -299,11 +318,13 @@ const supabaseSource = {
   getInventorySummary,
   getOnboardingStatus,
   getOrder,
+  getOrderLineCosts,
   getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
   getStoreContext,
   getStoreSettings,
+  getStoreFaultCostDefaults,
   listSuppliers,
   importElectronicsCsvPreview,
   inviteStoreMember,
@@ -358,6 +379,8 @@ const supabaseSource = {
   updateInventoryItem,
   updateMessageTemplate,
   updateOrder,
+  updateOrderLineCosts,
+  updateStoreFaultCostDefaults,
   voidOrder,
   updateOrderCustody,
   updateOrderWorkflowStatus,
@@ -465,6 +488,40 @@ const realtimeBroadcasts = {
   },
 } as const satisfies Record<string, RepairDeskRealtimeMutationBroadcast>;
 
+type MockCostDefaultsState = {
+  version: number;
+  items: StoreFaultCostDefaultItem[];
+};
+
+const mockCostDefaultsByStore = new Map<string, MockCostDefaultsState>();
+const mockOrderCostState = new Map<string, OrderLineCostsResult>();
+
+function mockCostDefaultsForStore(storeId: string) {
+  const saved = mockCostDefaultsByStore.get(storeId);
+  if (saved) return saved;
+  const created: MockCostDefaultsState = {
+    version: 0,
+    items: repairServiceCatalogItems.map((item) => ({
+      catalog_key: item.catalogKey,
+      catalog_name: item.name,
+      default_cost_amount: null,
+    })),
+  };
+  mockCostDefaultsByStore.set(storeId, created);
+  return created;
+}
+
+function assertMockCostStore(expectedStoreId: string, actor: AuditActor) {
+  if (!actor.storeId || actor.storeId !== expectedStoreId) {
+    throw new CostOperationError("店铺上下文已变化，请刷新后重试", "store_context_changed", 409);
+  }
+  return actor.storeId;
+}
+
+function mockOrderCostKey(storeId: string, orderId: string) {
+  return `${storeId}:${orderId}`;
+}
+
 async function source() {
   const { isRepairDeskE2eAuthBypassEnabled } = await import("@/shared/lib/e2e-auth-bypass");
   const { hasSupabaseConfig } = await import("@/server/supabase");
@@ -508,8 +565,159 @@ async function source() {
         canAssignOrders: true,
       },
     }),
+    createOrder: async (input: CreateOrderInput, actor: AuditActor) => {
+      const result = await mock.createOrder(input, actor);
+      if (result.replayed) return result;
+      const storeId = actor.storeId;
+      if (!storeId) throw new Error("缺少当前店铺");
+      const detail = await mock.getOrder(result.id, actor);
+      const defaults = mockCostDefaultsForStore(storeId);
+      const defaultsByKey = new Map(
+        defaults.items.map((item) => [item.catalog_key, item.default_cost_amount]),
+      );
+      const inputsByLine = new Map(input.cost_inputs?.map((item) => [item.line_id, item]) ?? []);
+      mockOrderCostState.set(mockOrderCostKey(storeId, result.id), {
+        order_id: result.id,
+        version: 1,
+        currency_code: "EUR",
+        unidentified_line_count: detail.order.fault_prices.filter((item) => !item.line_id).length,
+        items: detail.order.fault_prices.flatMap((item) => {
+          if (!item.line_id) return [];
+          const costInput = inputsByLine.get(item.line_id);
+          const manual = costInput?.mode === "manual";
+          const blank = costInput?.mode === "blank";
+          return [
+            {
+              line_id: item.line_id,
+              catalog_key: item.catalog_key,
+              name: item.name,
+              cost_amount: manual
+                ? (costInput.amount ?? null)
+                : blank
+                  ? null
+                  : item.catalog_key
+                    ? (defaultsByKey.get(item.catalog_key) ?? null)
+                    : null,
+              source: manual
+                ? ("manual" as const)
+                : blank
+                  ? ("manual_blank" as const)
+                  : ("store_default" as const),
+            },
+          ];
+        }),
+      });
+      return result;
+    },
+    getStoreFaultCostDefaults: async (expectedStoreId: string, actor: AuditActor) => {
+      const storeId = assertMockCostStore(expectedStoreId, actor);
+      const state = mockCostDefaultsForStore(storeId);
+      return {
+        version: state.version,
+        currency_code: "EUR" as const,
+        items: state.items,
+      };
+    },
+    updateStoreFaultCostDefaults: async (
+      input: { expected_store_id: string; items: StoreFaultCostDefaultItem[] },
+      actor: AuditActor,
+    ) => {
+      const storeId = assertMockCostStore(input.expected_store_id, actor);
+      const previous = mockCostDefaultsForStore(storeId);
+      const next = { version: previous.version + 1, items: input.items };
+      mockCostDefaultsByStore.set(storeId, next);
+      return { ...next, currency_code: "EUR" as const };
+    },
+    getOrderLineCosts: async (id: string, actor: AuditActor) => {
+      const storeId = actor.storeId;
+      if (!storeId) throw new Error("缺少当前店铺");
+      const stateKey = mockOrderCostKey(storeId, id);
+      const saved = mockOrderCostState.get(stateKey);
+      if (saved) return saved;
+      const detail = await mock.getOrder(id, actor);
+      const result: OrderLineCostsResult = {
+        order_id: id,
+        version: 1,
+        currency_code: "EUR" as const,
+        unidentified_line_count: detail.order.fault_prices.filter((item) => !item.line_id).length,
+        items: detail.order.fault_prices.flatMap((item) =>
+          item.line_id
+            ? [
+                {
+                  line_id: item.line_id,
+                  catalog_key: item.catalog_key,
+                  name: item.name,
+                  cost_amount: null,
+                  source: "store_default" as const,
+                },
+              ]
+            : [],
+        ),
+      };
+      mockOrderCostState.set(stateKey, result);
+      return result;
+    },
+    updateOrderLineCosts: async (
+      id: string,
+      input: {
+        expected_store_id: string;
+        expected_version: number;
+        items: Array<{ line_id: string; mode: "manual" | "blank"; amount?: number }>;
+      },
+      actor: AuditActor,
+    ) => {
+      const storeId = assertMockCostStore(input.expected_store_id, actor);
+      const stateKey = mockOrderCostKey(storeId, id);
+      const detail = await mock.getOrder(id, actor);
+      const costs = new Map(input.items.map((item) => [item.line_id, item]));
+      const previous = mockOrderCostState.get(stateKey);
+      const previousByLine = new Map(previous?.items.map((item) => [item.line_id, item]) ?? []);
+      const result: OrderLineCostsResult = {
+        order_id: id,
+        version: input.expected_version + 1,
+        currency_code: "EUR" as const,
+        unidentified_line_count: detail.order.fault_prices.filter((item) => !item.line_id).length,
+        items: detail.order.fault_prices.flatMap((item) => {
+          if (!item.line_id) return [];
+          const cost = costs.get(item.line_id);
+          const existing = previousByLine.get(item.line_id);
+          if (!cost && existing) return [existing];
+          return [
+            {
+              line_id: item.line_id,
+              catalog_key: item.catalog_key,
+              name: item.name,
+              cost_amount: cost?.mode === "manual" ? (cost.amount ?? null) : null,
+              source:
+                cost?.mode === "manual"
+                  ? ("manual" as const)
+                  : cost?.mode === "blank"
+                    ? ("manual_blank" as const)
+                    : ("store_default" as const),
+            },
+          ];
+        }),
+      };
+      mockOrderCostState.set(stateKey, result);
+      return result;
+    },
     listSuppliers: async (actor: AuditActor) => listMockSuppliers(actor),
-    updateStoreMemberPermissions: mock.updateStoreMemberPermissions,
+    updateStoreMemberPermissions: async (
+      input: StoreMemberPermissionUpdateInput,
+      actor: AuditActor,
+    ) => {
+      if (
+        process.env.REPAIRDESK_ORDER_COSTS_ENABLED !== "1" &&
+        input.permissions.includes("finance:cost_manage")
+      ) {
+        const existing = await mock.listStoreMembers(actor);
+        const target = existing.members.find((member) => member.id === input.id);
+        if (!target?.permission_grants?.includes("finance:cost_manage")) {
+          throw new ForbiddenError("内部成本功能尚未启用");
+        }
+      }
+      return mock.updateStoreMemberPermissions(input, actor);
+    },
     updateSupplier: async (id: string, input: SupplierInput, actor: AuditActor) =>
       updateMockSupplier(id, input, actor),
     getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
@@ -1039,6 +1247,9 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         assertInventoryReadPermission(actor);
         return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
       case "orders/create": {
+        if (hasOwnOrderCostInputs(body)) {
+          assertCanManageOrderCosts(actor);
+        }
         const input = createOrderSchema.parse(body);
         assertOrderCreatePermission(actor, input);
         const result = await api.createOrder(input, actor);
@@ -1053,6 +1264,52 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           });
           queueRealtimeBroadcast(actor, realtimeBroadcasts.orderCreated);
         }
+        return ok(result);
+      }
+      case "orders/cost-defaults/read": {
+        assertCanManageOrderCosts(actor);
+        const { expected_store_id: expectedStoreId } =
+          storeFaultCostDefaultsReadBodySchema.parse(body);
+        const result = await api.getStoreFaultCostDefaults(expectedStoreId, actor);
+        await writeAuditLog({
+          actor,
+          action: "read",
+          entityType: "store_fault_cost_defaults",
+          entityId: expectedStoreId,
+          metadata: { item_count: result.items.length, version: result.version },
+        });
+        return ok(result);
+      }
+      case "orders/cost-defaults/update": {
+        assertCanManageOrderCosts(actor);
+        const input = storeFaultCostDefaultsUpdateBodySchema.parse(body);
+        const result = await api.updateStoreFaultCostDefaults(input, actor);
+        // The database RPC writes this mutation audit in the same transaction.
+        // Do not add a second fallible audit after the cost data has committed.
+        return ok(result);
+      }
+      case "orders/internal-costs/read": {
+        assertCanReadOrderCosts(actor);
+        const { id } = orderLineCostsReadBodySchema.parse(body);
+        const result = await api.getOrderLineCosts(id, actor);
+        await writeAuditLog({
+          actor,
+          action: "read",
+          entityType: "repair_order_line_costs",
+          entityId: id,
+          metadata: {
+            item_count: result.items.length,
+            unidentified_line_count: result.unidentified_line_count,
+            version: result.version,
+          },
+        });
+        return ok(result);
+      }
+      case "orders/internal-costs/update": {
+        assertCanManageOrderCosts(actor);
+        const { id, input } = orderLineCostsUpdateBodySchema.parse(body);
+        const result = await api.updateOrderLineCosts(id, input, actor);
+        // The database RPC writes this mutation audit atomically with the data.
         return ok(result);
       }
       case "orders/create/status": {
@@ -1754,19 +2011,17 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
             realtimeBroadcasts.storeMembershipChanged,
           ),
         );
-      case "stores/members/update-permissions":
+      case "stores/members/update-permissions": {
         assertMemberPermissionGrantPermission(actor);
+        const input = storeMemberPermissionUpdateBodySchema.parse(body);
         return ok(
           await runWithRealtime(
             actor,
-            () =>
-              api.updateStoreMemberPermissions(
-                storeMemberPermissionUpdateBodySchema.parse(body),
-                actor,
-              ),
+            () => api.updateStoreMemberPermissions(input, actor),
             realtimeBroadcasts.storeMembershipChanged,
           ),
         );
+      }
       case "stores/members/disable":
         assertMemberManagePermission(actor);
         return ok(
@@ -1881,6 +2136,31 @@ export function allowsPendingStore(path: string, method: "GET" | "POST") {
     path === "platform/onboarding/approve" ||
     path === "platform/onboarding/reject"
   );
+}
+
+export function hasOwnOrderCostInputs(body: unknown) {
+  const seen = new WeakSet<object>();
+  const costKeys = new Set([
+    "cost",
+    "costamount",
+    "costinputs",
+    "defaultcost",
+    "internalcost",
+    "unitcost",
+  ]);
+
+  const visit = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") return false;
+    if (seen.has(value)) return false;
+    seen.add(value);
+    if (Array.isArray(value)) return value.some(visit);
+    return Object.entries(value as Record<string, unknown>).some(([key, nested]) => {
+      const normalizedKey = key.replace(/[-_]/g, "").toLowerCase();
+      return costKeys.has(normalizedKey) || visit(nested);
+    });
+  };
+
+  return visit(body);
 }
 
 export function assertOrderListPermission(actor: AuditActor) {

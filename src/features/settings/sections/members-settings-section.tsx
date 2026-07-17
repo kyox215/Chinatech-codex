@@ -50,6 +50,7 @@ export interface MembersSettingsSectionProps {
   canInviteMembers: boolean;
   canRevokeMembers: boolean;
   canReviewAccessRequests: boolean;
+  orderCostsEnabled: boolean;
   isLoading: boolean;
   isError: boolean;
   isAccessRequestsLoading: boolean;
@@ -249,6 +250,7 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
         member={editingMember}
         isSaving={props.isSavingMember}
         errorMessage={props.memberSaveError}
+        orderCostsEnabled={props.orderCostsEnabled}
         returnFocusRef={returnFocusRef}
         onOpenChange={(open) => !open && setEditingMember(null)}
         onDirtyChange={props.onDirtyChange}

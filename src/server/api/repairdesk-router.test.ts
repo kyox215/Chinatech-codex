@@ -9,7 +9,7 @@ import type {
 import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
 import { ForbiddenError } from "@/server/auth-context";
 
-import { allowsPendingStore } from "./repairdesk-router";
+import { allowsPendingStore, hasOwnOrderCostInputs } from "./repairdesk-router";
 import {
   assertOrderDetailReadPermission,
   assertOrderListPermission,
@@ -95,6 +95,18 @@ describe("repairdesk router pending-store access", () => {
     expect(allowsPendingStore("onboarding/anything-else", "GET")).toBe(false);
     expect(allowsPendingStore("platform/orders", "GET")).toBe(false);
     expect(allowsPendingStore("account/anything-else", "POST")).toBe(false);
+  });
+});
+
+describe("repairdesk router internal cost boundary", () => {
+  it("detects every explicit cost payload before schema stripping", () => {
+    expect(hasOwnOrderCostInputs({ fault_prices: [] })).toBe(false);
+    expect(hasOwnOrderCostInputs({ cost_inputs: [] })).toBe(true);
+    expect(hasOwnOrderCostInputs({ cost_inputs: null })).toBe(true);
+    expect(hasOwnOrderCostInputs({ cost: 15 })).toBe(true);
+    expect(hasOwnOrderCostInputs({ fault_prices: [{ unit_cost: 15 }] })).toBe(true);
+    expect(hasOwnOrderCostInputs({ nested: { internalCost: 15 } })).toBe(true);
+    expect(hasOwnOrderCostInputs(Object.create({ cost_inputs: [] }))).toBe(false);
   });
 });
 

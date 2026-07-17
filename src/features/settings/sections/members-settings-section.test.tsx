@@ -180,6 +180,7 @@ function renderMembers(
     canInviteMembers: true,
     canRevokeMembers: true,
     canReviewAccessRequests: true,
+    orderCostsEnabled: true,
     isLoading: false,
     isError: false,
     isAccessRequestsLoading: false,

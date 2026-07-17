@@ -57,6 +57,7 @@ src/
 - `server/api/repairdesk-router.ts` is the only HTTP dispatch boundary. Multipart is accepted only for `orders/data/import/preview`.
 - Business writes happen through the database batch RPC; client code never writes order import rows directly.
 - See `docs/ORDER_DATA_ROUNDTRIP.md` for permissions, data lifecycle, limits, and rollback.
+- See `docs/ORDER_INTERNAL_COSTS.md` for repair-line cost isolation, permissions, snapshots, and rollout order.
 
 ### Realtime And Intelligent Preload
 

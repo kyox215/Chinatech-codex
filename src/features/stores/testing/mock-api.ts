@@ -450,6 +450,9 @@ function context(actor?: AuditActor): StoreContext {
       canReadInventory: can(scopedActor, "inventory:read"),
       canManageOrderData,
       canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
+      can_manage_order_costs:
+        process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
+        can(scopedActor, "finance:cost_manage"),
       canReadStoreSettings: true,
       canUpdateStoreSettings,
       canConfigureWorkflow: can(scopedActor, "settings:update_workflow"),

@@ -29,6 +29,7 @@ import {
   STORE_RULE_DEFAULTS,
 } from "@/entities/store/model/store-setting-defaults";
 import { ORDER_WARRANTY_OPTIONS, formatWarrantyText } from "@/features/orders/model/order-warranty";
+import { RepairCostDefaultsCard } from "@/features/settings/components/repair-cost-defaults-card";
 import { SettingsField } from "@/features/settings/components/settings-field";
 import type { SettingsFieldErrors } from "@/features/settings/model/settings-field-errors";
 import {
@@ -44,6 +45,8 @@ export interface RulesSettingsSectionProps {
   draft: StoreSettingsDraftValues["rules"];
   isDraftDirty: boolean;
   canUpdateSettings: boolean;
+  activeStoreId?: string;
+  canManageOrderCosts?: boolean;
   fieldErrors: SettingsFieldErrors;
   onDraftChange: (patch: Partial<StoreSettingsDraftValues["rules"]>) => void;
 }
@@ -52,6 +55,8 @@ export function RulesSettingsSection({
   draft,
   isDraftDirty,
   canUpdateSettings,
+  activeStoreId,
+  canManageOrderCosts = false,
   fieldErrors,
   onDraftChange,
 }: RulesSettingsSectionProps) {
@@ -266,6 +271,9 @@ export function RulesSettingsSection({
           </div>
         ) : null}
       </section>
+      {canManageOrderCosts && activeStoreId ? (
+        <RepairCostDefaultsCard key={activeStoreId} storeId={activeStoreId} />
+      ) : null}
     </div>
   );
 }

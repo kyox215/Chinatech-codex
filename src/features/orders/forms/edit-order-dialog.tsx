@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
 import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
+import { createOrderLineId } from "@/entities/order/model/order-line-identity";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import { EditField } from "@/features/orders/forms/edit-field";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
@@ -228,12 +229,17 @@ export function EditOrderDialog({
             <div className="space-y-2">
               {form.fault_prices.map((item, index) => (
                 <div
-                  key={index}
+                  key={item.line_id ?? index}
                   className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_112px_minmax(0,1fr)_36px]"
                 >
                   <Input
                     value={item.name}
-                    onChange={(event) => patchFault(index, { name: event.target.value })}
+                    onChange={(event) =>
+                      patchFault(index, {
+                        name: event.target.value,
+                        catalog_key: undefined,
+                      })
+                    }
                     placeholder="项目"
                   />
                   <MoneyKeypadInput
@@ -275,7 +281,10 @@ export function EditOrderDialog({
                 onClick={() =>
                   setForm({
                     ...form,
-                    fault_prices: [...form.fault_prices, { name: "", price: 0 }],
+                    fault_prices: [
+                      ...form.fault_prices,
+                      { line_id: createOrderLineId(), name: "", price: 0 },
+                    ],
                   })
                 }
               >

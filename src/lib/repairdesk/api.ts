@@ -15,6 +15,7 @@ import type {
   DashboardSummaryInput,
   OrderDetail,
   OrderCreateOperationStatus,
+  OrderLineCostsResult,
   OrderApprovalFlowStatus,
   OrderExceptionStatus,
   OrderWorkflow,
@@ -105,6 +106,7 @@ import type {
   RepairDeskOptions,
   StoreRole,
   StoreContext,
+  StoreFaultCostDefaultsResult,
   StoreCreateInput,
   StoreInvitation,
   StoreInvitationDecisionInput,
@@ -125,6 +127,8 @@ import type {
   Supplier,
   SupplierInput,
   UpdateOrderInput,
+  UpdateOrderLineCostsRequest,
+  UpdateStoreFaultCostDefaultsRequest,
   VoidOrderInput,
   UpdateOrderCustodyInput,
   UpdateInventoryItemInput,
@@ -185,6 +189,7 @@ export type {
   OrderDetail,
   OrderCreateOperationStatus,
   OrderCapabilities,
+  OrderLineCostsResult,
   OrderEvent,
   OrderApprovalFlowStatus,
   OrderExceptionStatus,
@@ -319,6 +324,7 @@ export type {
   StoreMemberRoleUpdateInput,
   StoreMembersResult,
   StorePermissionAction,
+  StoreFaultCostDefaultsResult,
   StoreSettings,
   StoreSettingsSection,
   StoreSettingsSectionUpdateRequest,
@@ -326,6 +332,8 @@ export type {
   Supplier,
   SupplierInput,
   UpdateOrderInput,
+  UpdateOrderLineCostsRequest,
+  UpdateStoreFaultCostDefaultsRequest,
   VoidOrderInput,
   UpdateOrderCustodyInput,
   UpdateInventoryItemInput,
@@ -1100,6 +1108,31 @@ export async function createOrder(
   options?: RepairDeskRequestOptions,
 ): Promise<{ id: string; replayed?: boolean }> {
   return postJson<{ id: string; replayed?: boolean }>("orders/create", input, options);
+}
+
+export async function getStoreFaultCostDefaults(
+  expectedStoreId: string,
+): Promise<StoreFaultCostDefaultsResult> {
+  return postJson<StoreFaultCostDefaultsResult>("orders/cost-defaults/read", {
+    expected_store_id: expectedStoreId,
+  });
+}
+
+export async function updateStoreFaultCostDefaults(
+  input: UpdateStoreFaultCostDefaultsRequest,
+): Promise<StoreFaultCostDefaultsResult> {
+  return postJson<StoreFaultCostDefaultsResult>("orders/cost-defaults/update", input);
+}
+
+export async function getOrderLineCosts(id: string): Promise<OrderLineCostsResult> {
+  return postJson<OrderLineCostsResult>("orders/internal-costs/read", { id });
+}
+
+export async function updateOrderLineCosts(
+  id: string,
+  input: UpdateOrderLineCostsRequest,
+): Promise<OrderLineCostsResult> {
+  return postJson<OrderLineCostsResult>("orders/internal-costs/update", { id, input });
 }
 
 export async function getOrderCreateOperationStatus(

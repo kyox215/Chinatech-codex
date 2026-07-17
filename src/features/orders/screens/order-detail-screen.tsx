@@ -1383,6 +1383,9 @@ export function OrderDetailScreen({
               canEditIntake={Boolean(data.capabilities?.canEditIntake)}
               canEditRepair={Boolean(data.capabilities?.canEditRepair)}
               canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
+              activeStoreId={activeStoreId}
+              canReadInternalCosts={Boolean(data.capabilities?.canReadInternalCosts)}
+              canManageInternalCosts={Boolean(data.capabilities?.canManageInternalCosts)}
               defaultWarrantyMonths={defaultWarrantyMonths}
               onQuickImeiSave={
                 data.capabilities?.canEditIntake
@@ -4763,6 +4766,8 @@ function MobileFinanceEditor({
         draft.faults
           .filter((item) => item.name.trim())
           .map((item) => ({
+            ...(item.line_id ? { line_id: item.line_id } : {}),
+            ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
             name: item.name,
             note: item.note,
             price: parseFinancePickerPrice(item.priceText),
@@ -4789,10 +4794,15 @@ function MobileFinanceEditor({
       <div className="space-y-1">
         {draft.faults.length ? (
           draft.faults.map((item, index) => (
-            <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_74px_24px] gap-1">
+            <div
+              key={item.line_id ?? index}
+              className="grid min-w-0 grid-cols-[minmax(0,1fr)_74px_24px] gap-1"
+            >
               <MobileDenseFinanceInput
                 value={item.name}
-                onValueChange={(value) => patchFault(index, { name: value })}
+                onValueChange={(value) =>
+                  patchFault(index, { name: value, catalog_key: undefined })
+                }
                 disabled={pending}
                 placeholder="项目"
               />
@@ -5081,13 +5091,20 @@ function mergeSelectedFaultsIntoFinanceDraft(
   draft: FinanceDraftState,
   selected: ReturnType<typeof normalizeFaultPrices>,
 ): FinanceDraftState {
+  const existingByLineId = new Map(
+    draft.faults.flatMap((item) => (item.line_id ? [[item.line_id, item] as const] : [])),
+  );
   const existingByName = new Map(draft.faults.map((item) => [item.name, item]));
   return {
     ...draft,
     faults: toFaultPriceItems(selected).map((item) => {
-      const existing = existingByName.get(item.name);
+      const existing =
+        (item.line_id ? existingByLineId.get(item.line_id) : undefined) ??
+        existingByName.get(item.name);
       const price = Number(item.price);
       return {
+        ...(item.line_id ? { line_id: item.line_id } : {}),
+        ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
         name: item.name,
         note: item.note ?? existing?.note ?? "",
         priceText:

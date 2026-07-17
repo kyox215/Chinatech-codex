@@ -30,6 +30,8 @@ import {
   getCustomerDetail,
   getOnboardingStatus,
   getOrderCreateOperationStatus,
+  getStoreContext,
+  getStoreFaultCostDefaults,
   isRepairDeskRequestTimeoutError,
 } from "@/lib/repairdesk/api";
 import type {
@@ -55,6 +57,7 @@ import {
   customerLabelForNewOrder,
   customerNameForNewOrder,
   customerNameValueForCreateOrder,
+  createCustomFaultForNewOrder,
   initialNewOrderForm,
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
@@ -69,6 +72,14 @@ import { isRepairDeskOfflineSyncEnabled } from "@/features/offline/model/offline
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { storesKeys } from "@/features/stores/api/query-keys";
+import {
+  buildCreateOrderCostInputs,
+  hasTouchedNewOrderCostDrafts,
+  syncNewOrderCostDrafts,
+  updateNewOrderCostDraft,
+  type NewOrderCostDraft,
+} from "@/features/orders/model/order-cost-draft";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import {
@@ -94,6 +105,8 @@ export function NewOrderScreen({
   const queryClient = useQueryClient();
   const { registerGuard } = useNavigationGuard();
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
+  const [costDrafts, setCostDrafts] = useState<Record<string, NewOrderCostDraft>>({});
+  const [isOnline, setIsOnline] = useState(true);
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [queryPrefilled, setQueryPrefilled] = useState(false);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
@@ -108,6 +121,17 @@ export function NewOrderScreen({
 
   useEffect(() => {
     setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const syncOnline = () => setIsOnline(navigator.onLine);
+    syncOnline();
+    window.addEventListener("online", syncOnline);
+    window.addEventListener("offline", syncOnline);
+    return () => {
+      window.removeEventListener("online", syncOnline);
+      window.removeEventListener("offline", syncOnline);
+    };
   }, []);
 
   useEffect(() => {
@@ -126,6 +150,21 @@ export function NewOrderScreen({
   });
   const hydratedOnboardingStatus = hydrated ? onboardingStatus : undefined;
   const activeStoreId = hydratedOnboardingStatus?.activeStore?.id;
+  const { data: storeContext } = useQuery({
+    queryKey: storesKeys.context,
+    queryFn: ({ signal }) => getStoreContext({ signal }),
+    retry: false,
+    staleTime: CACHE_TIMES.shell,
+  });
+  const costStoreId = storeContext?.activeStore?.id;
+  const canManageOrderCosts = storeContext?.permissions?.can_manage_order_costs === true;
+  const costDefaultsQuery = useQuery({
+    queryKey: [...ordersKeys.all, "cost-defaults", costStoreId] as const,
+    queryFn: () => getStoreFaultCostDefaults(costStoreId!),
+    enabled: Boolean(costStoreId && canManageOrderCosts && costStoreId === activeStoreId),
+    retry: false,
+    staleTime: CACHE_TIMES.settings,
+  });
   const offlineScope = useMemo(
     () =>
       activeStoreId && hydratedOnboardingStatus?.userId
@@ -213,6 +252,22 @@ export function NewOrderScreen({
   });
   const activeTotal = activeQuote.total;
   const activeDeposit = activeQuote.deposit;
+  const draftFaultPrices = useMemo(() => toFaultPriceItems(validFaultDrafts), [validFaultDrafts]);
+  const validFaultPrices = quoteActive ? draftFaultPrices : [];
+  const hasCatalogCostLines = validFaultPrices.some((item) => Boolean(item.catalog_key));
+  const costDefaultsBlocked =
+    canManageOrderCosts &&
+    hasCatalogCostLines &&
+    (costDefaultsQuery.isPending || costDefaultsQuery.isError);
+  useEffect(() => {
+    if (!canManageOrderCosts) {
+      setCostDrafts({});
+      return;
+    }
+    setCostDrafts((current) =>
+      syncNewOrderCostDrafts(current, draftFaultPrices, costDefaultsQuery.data?.items),
+    );
+  }, [canManageOrderCosts, costDefaultsQuery.data?.items, draftFaultPrices]);
   const createStatusLabel =
     selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status;
 
@@ -388,7 +443,13 @@ export function NewOrderScreen({
     > => {
       const custodyStatus = form.deviceCustodyStatus;
       if (!custodyStatus) throw new Error("请确认设备是否留店");
+      if (costDefaultsBlocked) {
+        throw new Error("默认成本尚未成功读取，请重试后再创建工单");
+      }
       if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (canManageOrderCosts && Object.values(costDrafts).some((draft) => draft.touched)) {
+          throw new Error("内部成本仅支持联网保存；请恢复网络后创建，或清除本次成本修改");
+        }
         if (!isRepairDeskOfflineSyncEnabled()) {
           throw new Error("离线创建尚未启用，请恢复网络后创建工单");
         }
@@ -417,7 +478,10 @@ export function NewOrderScreen({
         warranty_months: form.warrantyMonths,
         warranty_change_reason: form.warrantyChangeReason || undefined,
         device_unlock: normalizeUnlockForCustody(custodyStatus, form.deviceUnlock),
-        fault_prices: toFaultPriceItems(activeQuote.items),
+        fault_prices: validFaultPrices,
+        ...(canManageOrderCosts && validFaultPrices.length > 0
+          ? { cost_inputs: buildCreateOrderCostInputs(validFaultPrices, costDrafts) }
+          : {}),
         deposit_amount: activeDeposit,
       });
       return { kind: "online", id: result.id, replayed: result.replayed };
@@ -459,6 +523,7 @@ export function NewOrderScreen({
     (form.issueCaptureMode === "unknown" || Boolean(form.issue.trim())) &&
     activeDeposit <= activeTotal &&
     !custodyStatusBlocked &&
+    !costDefaultsBlocked &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
   const missingItems = getNewOrderMissingItems({
@@ -466,6 +531,7 @@ export function NewOrderScreen({
     total,
     defaultWarrantyMonths,
     custodyStatusBlocked,
+    costDefaultsBlocked,
   });
 
   const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
@@ -477,17 +543,7 @@ export function NewOrderScreen({
   const addCustomFault = () => {
     setForm({
       ...form,
-      faults: [
-        ...form.faults,
-        {
-          key: `custom:${Date.now()}`,
-          categoryKey: "custom",
-          categoryLabel: "自定义",
-          name: "",
-          price: 0,
-          note: "Intervento personalizzato",
-        },
-      ],
+      faults: [...form.faults, createCustomFaultForNewOrder()],
     });
   };
 
@@ -532,12 +588,14 @@ export function NewOrderScreen({
   const guardSnapshotRef = useRef({
     surface,
     offlineDraft,
+    hasTouchedCostDrafts: hasTouchedNewOrderCostDrafts(costDrafts),
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
   });
   guardSnapshotRef.current = {
     surface,
     offlineDraft,
+    hasTouchedCostDrafts: hasTouchedNewOrderCostDrafts(costDrafts),
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
   };
@@ -553,6 +611,7 @@ export function NewOrderScreen({
           return (
             Boolean(snapshot.offlineDraft.draftPrompt) ||
             snapshot.offlineDraft.isCurrentDraftDirty() ||
+            snapshot.hasTouchedCostDrafts ||
             snapshot.createPending ||
             snapshot.createRecoveryState !== "idle"
           );
@@ -571,6 +630,7 @@ export function NewOrderScreen({
           return (
             !snapshot.offlineDraft.draftPrompt &&
             !snapshot.offlineDraft.hasSensitiveUnlockDraft &&
+            !snapshot.hasTouchedCostDrafts &&
             !snapshot.createPending &&
             snapshot.createRecoveryState === "idle" &&
             snapshot.offlineDraft.state !== "unavailable"
@@ -587,6 +647,9 @@ export function NewOrderScreen({
           if (snapshot.offlineDraft.hasSensitiveUnlockDraft) {
             return "手机密码、PIN 或图案不会进入本机草稿；请先清除或选择放弃修改。";
           }
+          if (snapshot.hasTouchedCostDrafts) {
+            return "内部成本不会保存到本机；请留在当前页面提交工单，或选择放弃成本修改。";
+          }
           if (snapshot.offlineDraft.state === "unavailable") {
             return "本机草稿不可用，无法确认保存后离开。";
           }
@@ -598,7 +661,8 @@ export function NewOrderScreen({
             snapshot.createPending ||
             snapshot.createRecoveryState !== "idle" ||
             snapshot.offlineDraft.draftPrompt ||
-            snapshot.offlineDraft.hasSensitiveUnlockDraft
+            snapshot.offlineDraft.hasSensitiveUnlockDraft ||
+            snapshot.hasTouchedCostDrafts
           ) {
             return { status: "blocked" };
           }
@@ -612,6 +676,7 @@ export function NewOrderScreen({
           }
           await snapshot.offlineDraft.discardCurrentDraft();
           setForm(initialNewOrderForm);
+          setCostDrafts({});
           setHistoryDevices([]);
           return { status: "resolved" };
         },
@@ -794,6 +859,18 @@ export function NewOrderScreen({
                 operatorRole={operatorRole}
                 onPatchFault={patchFault}
                 onAddCustomFault={addCustomFault}
+                canManageOrderCosts={canManageOrderCosts}
+                costDrafts={costDrafts}
+                costDefaultsPending={costDefaultsQuery.isPending && canManageOrderCosts}
+                costDefaultsError={costDefaultsQuery.isError && canManageOrderCosts}
+                isOnline={isOnline}
+                onRetryCostDefaults={() => void costDefaultsQuery.refetch()}
+                onCostDraftChange={(lineId, text) =>
+                  setCostDrafts((current) => ({
+                    ...current,
+                    [lineId]: updateNewOrderCostDraft(text),
+                  }))
+                }
                 createStatuses={createStatuses}
                 defaultWarrantyMonths={defaultWarrantyMonths}
                 surface={surface}
@@ -954,11 +1031,13 @@ function getNewOrderMissingItems({
   total,
   defaultWarrantyMonths,
   custodyStatusBlocked,
+  costDefaultsBlocked,
 }: {
   form: NewOrderFormState;
   total: number;
   defaultWarrantyMonths: number;
   custodyStatusBlocked: boolean;
+  costDefaultsBlocked: boolean;
 }): NewOrderMissingItem[] {
   const items: Array<NewOrderMissingItem | null> = [
     !form.customerPhone.trim() ? { label: "客户电话", target: "customer-phone" } : null,
@@ -972,6 +1051,7 @@ function getNewOrderMissingItems({
       ? { label: "定金不能超过总额", target: "deposit" }
       : null,
     custodyStatusBlocked ? { label: "创建阶段与保管方式冲突", target: "create-status" } : null,
+    costDefaultsBlocked ? { label: "默认成本尚未读取", target: "quotation" } : null,
     warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
     !form.warrantyChangeReason.trim()
       ? { label: "质保变更原因", target: "warranty-reason" }

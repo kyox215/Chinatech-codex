@@ -117,6 +117,9 @@ import {
 } from "@/server/repairdesk-shared";
 import { assertStaffRole, ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
+import { resolveRepairServiceCatalogItem } from "@/entities/order";
+import { applyCreateOrderCostInputs } from "@/features/orders/server/order-cost.repository";
+import { isOrderCostsEnabled } from "@/features/orders/server/order-cost-feature";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
   countOrderQueueGroups,
@@ -601,6 +604,11 @@ export function projectOrderCapabilities(
     canCorrect: terminal && !voided && permitted("order:correct"),
     canReopen: terminal && !voided && permitted("order:reopen"),
     canVoid: terminal && !voided && !hasFinancialEvidence && permitted("order:void"),
+    canReadInternalCosts:
+      !voided &&
+      isOrderCostsEnabled() &&
+      (permitted("finance:profit_read") || permitted("finance:cost_manage")),
+    canManageInternalCosts: !voided && isOrderCostsEnabled() && permitted("finance:cost_manage"),
     blockedReasons,
   };
 }
@@ -2781,13 +2789,23 @@ function deviceUnlockUpdateFromInput(input: PatchOrderInput["changes"]["device_u
   };
 }
 
-function normalizeFaultPriceInput(input: PatchOrderFinanceInput["fault_prices"]) {
+function normalizeFaultPriceInput(
+  input: PatchOrderFinanceInput["fault_prices"],
+  options: { generateLineIds?: boolean } = {},
+) {
   return input.map((item) => {
     const name = item.name.trim();
     const price = Number(item.price);
     if (!name) throw new Error("报价项目名称不能为空");
     if (!Number.isFinite(price) || price < 0) throw new Error("报价金额不能为负数");
+    const catalog = item.catalog_key ? resolveRepairServiceCatalogItem(item) : undefined;
     return {
+      ...(item.line_id
+        ? { line_id: item.line_id }
+        : options.generateLineIds
+          ? { line_id: crypto.randomUUID() }
+          : {}),
+      ...(catalog ? { catalog_key: catalog.catalogKey } : {}),
       name,
       price,
       currency_code: CURRENCY_CODE,
@@ -2933,14 +2951,7 @@ export async function updateOrder(
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
 
-  const validFaults = input.fault_prices
-    .filter((item) => item.name.trim() && Number(item.price) >= 0)
-    .map((item) => ({
-      name: item.name.trim(),
-      price: Number(item.price),
-      currency_code: CURRENCY_CODE,
-      ...(item.note?.trim() ? { note: item.note.trim() } : {}),
-    }));
+  const validFaults = normalizeFaultPriceInput(input.fault_prices);
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
   const deposit = Number(input.deposit_amount ?? 0);
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
@@ -3715,14 +3726,7 @@ export async function createOrder(
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
 
-  const validFaults = input.fault_prices
-    .filter((item) => item.name.trim() && Number(item.price) >= 0)
-    .map((item) => ({
-      name: item.name.trim(),
-      price: Number(item.price),
-      currency_code: CURRENCY_CODE,
-      ...(item.note?.trim() ? { note: item.note.trim() } : {}),
-    }));
+  const validFaults = normalizeFaultPriceInput(input.fault_prices, { generateLineIds: true });
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
   const deposit = Number(input.deposit_amount ?? 0);
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
@@ -3971,6 +3975,25 @@ export async function createOrder(
   }
 
   const orderId = requiredString(inserted.id);
+  if (input.cost_inputs !== undefined) {
+    try {
+      await applyCreateOrderCostInputs(
+        orderId,
+        input.cost_inputs,
+        requestActor ?? { displayName: operatorName },
+      );
+    } catch (error) {
+      const { error: rollbackError } = await supabase
+        .from("repair_orders")
+        .delete()
+        .eq("store_id", storeId)
+        .eq("id", orderId);
+      if (rollbackError) {
+        throw new Error("保存新工单成本失败，且工单回滚失败，请立即联系管理员");
+      }
+      throw error;
+    }
+  }
   const { error: eventError } = await supabase.from("order_events").insert({
     id: crypto.randomUUID(),
     store_id: storeId,

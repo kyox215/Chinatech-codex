@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { createOrderLineId, ensureOrderLineId } from "@/entities/order/model/order-line-identity";
 import {
   getQuoteDraftReadiness,
   quoteReadinessLabel,
@@ -40,6 +41,7 @@ import { moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
 
 type QuoteDraftRow = {
   id: string;
+  catalogKey?: string;
   name: string;
   priceText: string;
   note: string;
@@ -91,6 +93,8 @@ export function DiagnosisQuoteDialog({
   const faultPrices = useMemo(
     () =>
       rows.map((row) => ({
+        line_id: row.id,
+        ...(row.catalogKey ? { catalog_key: row.catalogKey } : {}),
         name: row.name.trim(),
         price: parseMoneyDraft(row.priceText),
         currency_code: "EUR" as const,
@@ -204,7 +208,7 @@ export function DiagnosisQuoteDialog({
                     onClick={() =>
                       setRows((current) => [
                         ...current,
-                        { id: crypto.randomUUID(), name: "", priceText: "", note: "" },
+                        { id: createOrderLineId(), name: "", priceText: "", note: "" },
                       ])
                     }
                   >
@@ -232,7 +236,10 @@ export function DiagnosisQuoteDialog({
                         placeholder="例如：更换电池"
                         className="h-9 text-base md:text-sm"
                         onChange={(event) =>
-                          patchRow(setRows, row.id, { name: event.target.value })
+                          patchRow(setRows, row.id, {
+                            name: event.target.value,
+                            catalogKey: undefined,
+                          })
                         }
                       />
                       <Input
@@ -363,12 +370,13 @@ export function DiagnosisQuoteDialog({
 
 function rowsFromOrder(order: RepairOrder): QuoteDraftRow[] {
   const rows = order.fault_prices.map((item) => ({
-    id: crypto.randomUUID(),
+    id: ensureOrderLineId(item.line_id),
+    ...(item.catalog_key ? { catalogKey: item.catalog_key } : {}),
     name: item.name,
     priceText: moneyDraftValue(item.price),
     note: item.note ?? "",
   }));
-  return rows.length ? rows : [{ id: crypto.randomUUID(), name: "", priceText: "", note: "" }];
+  return rows.length ? rows : [{ id: createOrderLineId(), name: "", priceText: "", note: "" }];
 }
 
 function patchRow(

@@ -5,12 +5,23 @@ import {
   customerLabelForNewOrder,
   customerNameForNewOrder,
   customerNameValueForCreateOrder,
+  createCustomFaultForNewOrder,
   deviceModelSuggestionsForBrand,
   initialNewOrderForm,
   isAppleDeviceModelSuggestion,
 } from "./new-order-form";
 
 describe("new order customer name helpers", () => {
+  it("assigns a stable line identity before a custom row can receive a cost", () => {
+    const customFault = createCustomFaultForNewOrder();
+
+    expect(customFault.line_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(customFault.categoryKey).toBe("custom");
+    expect(customFault.catalog_key).toBeUndefined();
+  });
+
   it("requires the operator to confirm who holds the device", () => {
     expect(initialNewOrderForm.deviceCustodyStatus).toBeNull();
     expect(initialNewOrderForm.issueCaptureMode).toBe("reported");

@@ -128,6 +128,8 @@ describe("new order offline draft mapping", () => {
           deviceUnlock: { method: "pattern", pattern: [1, 2, 5, 8] },
           faults: [
             {
+              line_id: "00000000-0000-4000-8000-000000000101",
+              catalog_key: "display:lcd",
               key: "display:lcd",
               categoryKey: "display",
               categoryLabel: "屏幕",
@@ -157,6 +159,8 @@ describe("new order offline draft mapping", () => {
       deposit: 30,
       faults: [
         {
+          line_id: "00000000-0000-4000-8000-000000000101",
+          catalog_key: "display:lcd",
           key: "display:lcd",
           categoryKey: "display",
           categoryLabel: "屏幕",
@@ -165,6 +169,7 @@ describe("new order offline draft mapping", () => {
         },
       ],
     });
+    expect(JSON.stringify(saved.value.draftPayload).toLowerCase()).not.toContain("cost");
   });
 
   it("detects whether a form is worth autosaving and fingerprints meaningful changes", () => {

@@ -88,6 +88,13 @@ describe("RulesSettingsSection", () => {
     expect(dialog).toHaveTextContent("未填写");
     expect(dialog).not.toHaveTextContent("NaN");
   });
+
+  it("does not mount or name internal cost controls without the dedicated permission", () => {
+    renderRules({ canManageOrderCosts: false, activeStoreId: "store-a" });
+
+    expect(screen.queryByLabelText("维修项目默认成本")).not.toBeInTheDocument();
+    expect(screen.queryByText("成本仅供获授权管理人员查看")).not.toBeInTheDocument();
+  });
 });
 
 function renderRules({
@@ -96,6 +103,8 @@ function renderRules({
     default_inventory_warranty_months: 18,
   },
   canUpdateSettings = true,
+  canManageOrderCosts = false,
+  activeStoreId,
   onDraftChange = vi.fn(),
 }: {
   draft?: {
@@ -103,6 +112,8 @@ function renderRules({
     default_inventory_warranty_months: number;
   };
   canUpdateSettings?: boolean;
+  canManageOrderCosts?: boolean;
+  activeStoreId?: string;
   onDraftChange?: (patch: {
     default_order_warranty_months?: 0 | 3 | 6 | 12 | 24;
     default_inventory_warranty_months?: number;
@@ -113,6 +124,8 @@ function renderRules({
       draft={draft}
       isDraftDirty
       canUpdateSettings={canUpdateSettings}
+      activeStoreId={activeStoreId}
+      canManageOrderCosts={canManageOrderCosts}
       fieldErrors={{}}
       onDraftChange={onDraftChange}
     />,

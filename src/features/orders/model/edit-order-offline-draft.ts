@@ -5,6 +5,7 @@ import type {
   RepairDeskOfflineSafeRecord,
 } from "@/features/offline/model/offline-types";
 import type { FaultPriceItem, OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/types";
+import { ensureOrderLineId } from "@/entities/order/model/order-line-identity";
 
 import { buildEditForm } from "./edit-order-form";
 
@@ -49,6 +50,8 @@ export function buildEditOrderOfflineDraftPayload(
 ): RepairDeskOfflineSafeRecord {
   const repairItems = draft.fault_prices
     .map((item) => ({
+      ...(item.line_id ? { line_id: item.line_id } : {}),
+      ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
       name: item.name.trim(),
       price: normalizeMoneyNumber(item.price),
       currency_code: item.currency_code,
@@ -218,6 +221,8 @@ function readRepairItems(value: unknown): FaultPriceItem[] {
       const note = readString(record.note) ?? "";
       const currencyCode = readString(record.currency_code);
       return {
+        line_id: ensureOrderLineId(readString(record.line_id)),
+        ...(readString(record.catalog_key) ? { catalog_key: readString(record.catalog_key) } : {}),
         name,
         price,
         ...(currencyCode ? { currency_code: currencyCode as FaultPriceItem["currency_code"] } : {}),

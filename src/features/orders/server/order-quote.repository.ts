@@ -7,6 +7,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { fail, money, requiredString, requireStoreIdFromActor } from "@/server/repairdesk-shared";
+import { isOrderCostsEnabled } from "./order-cost-feature";
 
 export class OrderQuoteOperationError extends Error {
   constructor(
@@ -29,18 +30,27 @@ export async function publishOrderQuote(
   if (!actor.id) throw quoteFailure("actor_forbidden");
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.rpc("repairdesk_publish_order_quote", {
+  const rpcName = getOrderQuotePublishRpcName();
+  const faultPrices = isOrderCostsEnabled()
+    ? input.fault_prices
+    : input.fault_prices.map(({ name, price, currency_code, note }) => ({
+        name,
+        price,
+        ...(currency_code ? { currency_code } : {}),
+        ...(note ? { note } : {}),
+      }));
+  const { data, error } = await supabase.rpc(rpcName, {
     p_store_id: storeId,
     p_order_id: id,
     p_actor_id: actor.id,
     p_expected_updated_at: input.expected_updated_at,
     p_idempotency_key: input.idempotency_key,
     p_diagnosis_result: input.diagnosis_result,
-    p_fault_prices: input.fault_prices,
+    p_fault_prices: faultPrices,
     p_price_exception_kind: input.price_exception?.kind ?? null,
     p_price_exception_reason: input.price_exception?.reason ?? null,
   });
-  if (isMissingRpc(error, "repairdesk_publish_order_quote")) {
+  if (isMissingRpc(error, rpcName)) {
     throw new Error("报价发布数据库迁移尚未应用，请联系店主");
   }
   fail(error, "发布报价失败");
@@ -76,6 +86,12 @@ export async function publishOrderQuote(
     approval_reset: result.approval_reset === true,
     replayed: code === "idempotent_replay" || code === "already_published",
   };
+}
+
+export function getOrderQuotePublishRpcName() {
+  return isOrderCostsEnabled()
+    ? "repairdesk_publish_order_quote_v2"
+    : "repairdesk_publish_order_quote";
 }
 
 export async function confirmOrderQuoteSent(

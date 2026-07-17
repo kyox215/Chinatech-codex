@@ -170,24 +170,31 @@ export function OrderWorkspaceQuoteRow({
   children,
   price,
   action,
+  priceFullWidth = false,
   className,
 }: {
   children: ReactNode;
   price: ReactNode;
   action?: ReactNode;
+  priceFullWidth?: boolean;
   className?: string;
 }) {
   return (
     <div
       data-order-workspace-quote-row="true"
       className={cn(
-        "grid min-w-0 grid-cols-[minmax(0,1fr)_78px_auto] items-center gap-1 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 sm:grid-cols-[minmax(0,1fr)_96px_auto] sm:gap-1.5 sm:p-2",
+        "grid min-w-0 items-center gap-1 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 sm:gap-1.5 sm:p-2",
+        priceFullWidth
+          ? "grid-cols-[minmax(0,1fr)_auto]"
+          : "grid-cols-[minmax(0,1fr)_78px_auto] sm:grid-cols-[minmax(0,1fr)_96px_auto]",
         className,
       )}
     >
       <div className="min-w-0">{children}</div>
-      <div className="min-w-0">{price}</div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      <div className={cn("min-w-0", priceFullWidth && "col-span-2 row-start-2")}>{price}</div>
+      {action ? (
+        <div className={cn("shrink-0", priceFullWidth && "col-start-2 row-start-1")}>{action}</div>
+      ) : null}
     </div>
   );
 }

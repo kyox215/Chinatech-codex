@@ -6,6 +6,7 @@ import type {
 } from "@/features/offline/model/offline-types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
+import { ensureOrderLineId } from "@/entities/order/model/order-line-identity";
 
 import { isDeviceCustodyStatus } from "./device-custody";
 import { initialNewOrderForm, type NewOrderFormState } from "./new-order-form";
@@ -43,6 +44,8 @@ export function buildNewOrderOfflineDraftPayload(
 ): RepairDeskOfflineSafeRecord {
   const serializedRepairItems = form.faults
     .map((item) => ({
+      ...(item.line_id ? { line_id: item.line_id } : {}),
+      ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
       key: item.key,
       categoryKey: item.categoryKey,
       categoryLabel: item.categoryLabel,
@@ -264,6 +267,8 @@ function readRepairItems(value: unknown): NewOrderFormState["faults"] {
       const price = readNumber(record.price) ?? 0;
       const note = readString(record.note) ?? "";
       return {
+        line_id: ensureOrderLineId(readString(record.line_id)),
+        ...(readString(record.catalog_key) ? { catalog_key: readString(record.catalog_key) } : {}),
         key: readString(record.key) ?? `offline:${index}`,
         categoryKey: readString(record.categoryKey) ?? "offline",
         categoryLabel: readString(record.categoryLabel) ?? "本机草稿",

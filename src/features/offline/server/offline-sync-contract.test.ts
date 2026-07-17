@@ -70,7 +70,15 @@ function validCreatePayload() {
         device_custody_status: "with_shop",
         issue_description: "Schermo rotto",
         accessory_notes: "Custodia presente",
-        fault_prices: [{ name: "Display", price: 89, currency_code: "EUR" }],
+        fault_prices: [
+          {
+            line_id: "00000000-0000-4000-8000-000000000104",
+            catalog_key: "display:main",
+            name: "屏幕",
+            price: 89,
+            currency_code: "EUR",
+          },
+        ],
       },
     },
   };
@@ -143,6 +151,52 @@ describe("offline sync contract schemas", () => {
         },
       }).payload.order.deposit_amount,
     ).toBe(20);
+  });
+
+  it("accepts non-sensitive line identity and rejects internal cost fields", () => {
+    expect(
+      repairDeskOfflineOrderCreateSyncSchema.parse(validCreatePayload()).payload.order
+        .fault_prices[0],
+    ).toMatchObject({
+      line_id: "00000000-0000-4000-8000-000000000104",
+      catalog_key: "display:main",
+    });
+
+    expect(() =>
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: {
+            ...validCreatePayload().payload.order,
+            fault_prices: [
+              {
+                ...validCreatePayload().payload.order.fault_prices[0],
+                cost_amount: 15,
+              },
+            ],
+          },
+        },
+      }),
+    ).toThrow();
+
+    expect(() =>
+      repairDeskOfflineOrderCreateSyncSchema.parse({
+        ...validCreatePayload(),
+        payload: {
+          ...validCreatePayload().payload,
+          order: {
+            ...validCreatePayload().payload.order,
+            fault_prices: [
+              {
+                ...validCreatePayload().payload.order.fault_prices[0],
+                catalog_key: "battery:main",
+              },
+            ],
+          },
+        },
+      }),
+    ).toThrow();
   });
 
   it("keeps offline warranty months aligned to database presets", () => {

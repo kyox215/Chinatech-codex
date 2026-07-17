@@ -25,6 +25,11 @@ import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
 import {
+  isNewOrderCostInputDisabled,
+  parseOrderCostDraftAmount,
+  type NewOrderCostDraft,
+} from "@/features/orders/model/order-cost-draft";
+import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   deviceCustodyBlocksStatus,
 } from "@/features/orders/model/device-custody";
@@ -42,6 +47,13 @@ export function NewOrderQuotationSection({
   operatorRole,
   onPatchFault,
   onAddCustomFault,
+  canManageOrderCosts = false,
+  costDrafts = {},
+  costDefaultsPending = false,
+  costDefaultsError = false,
+  isOnline = true,
+  onCostDraftChange,
+  onRetryCostDefaults,
   createStatuses,
   defaultWarrantyMonths = 6,
   surface = "page",
@@ -53,6 +65,13 @@ export function NewOrderQuotationSection({
   operatorRole?: string;
   onPatchFault: (index: number, patch: Partial<FaultPriceItem>) => void;
   onAddCustomFault: () => void;
+  canManageOrderCosts?: boolean;
+  costDrafts?: Record<string, NewOrderCostDraft>;
+  costDefaultsPending?: boolean;
+  costDefaultsError?: boolean;
+  isOnline?: boolean;
+  onCostDraftChange?: (lineId: string, text: string) => void;
+  onRetryCostDefaults?: () => void;
   createStatuses: OrderWorkflowStatus[];
   defaultWarrantyMonths?: number;
   surface?: "page" | "dialog";
@@ -82,9 +101,14 @@ export function NewOrderQuotationSection({
     form.issueCaptureMode === "unknown"
       ? "待检测模式：报价草稿会保留，但本次创建不会提交报价项目或定金。"
       : "可在接单时先报价，也可以保留为空，检测后再发布正式报价。";
+  const hasCatalogCostLines = form.faults.some((item) => Boolean(item.catalog_key));
 
   return (
-    <Shell data-new-order-section="quotation" className={cn(shellClass, "space-y-2")}>
+    <Shell
+      data-new-order-section="quotation"
+      data-new-order-field="quotation"
+      className={cn(shellClass, "space-y-2")}
+    >
       <OrderWorkspaceSectionHeader
         icon={ReceiptText}
         title="报价处理"
@@ -140,6 +164,17 @@ export function NewOrderQuotationSection({
               报价项目
             </span>
           </div>
+          {canManageOrderCosts && hasCatalogCostLines && costDefaultsError ? (
+            <div
+              role="alert"
+              className="mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-status-danger-foreground/20 bg-status-danger/10 px-2 py-1.5 text-[10px] leading-4 text-status-danger-foreground"
+            >
+              <span>默认成本读取失败，暂不能创建含目录项目的工单。</span>
+              <Button type="button" variant="outline" size="sm" onClick={onRetryCostDefaults}>
+                重试
+              </Button>
+            </div>
+          ) : null}
           <div className="min-w-0 space-y-1.5">
             {form.faults.length === 0 ? (
               <OrderWorkspaceEmptyBlock>
@@ -150,14 +185,72 @@ export function NewOrderQuotationSection({
                 {form.faults.map((item, index) => (
                   <OrderWorkspaceQuoteRow
                     key={item.key}
+                    priceFullWidth={canManageOrderCosts && Boolean(item.line_id)}
                     price={
-                      <MoneyKeypadInput
-                        ariaLabel={`报价项目 ${index + 1} 金额`}
-                        value={moneyDraftValue(Number(item.price) || 0)}
-                        onChange={(value) => onPatchFault(index, { price: parseMoneyDraft(value) })}
-                        triggerClassName={cn(controlClass, "px-2 font-mono")}
-                        placeholder="0"
-                      />
+                      canManageOrderCosts && item.line_id ? (
+                        <div className="grid min-w-0 grid-cols-2 gap-1.5">
+                          <label className="min-w-0">
+                            <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground">
+                              内部成本
+                            </span>
+                            <Input
+                              value={costDrafts[item.line_id]?.text ?? ""}
+                              inputMode="decimal"
+                              autoComplete="off"
+                              placeholder={
+                                costDefaultsPending
+                                  ? "读取中"
+                                  : costDefaultsError
+                                    ? "读取失败"
+                                    : "留空"
+                              }
+                              disabled={isNewOrderCostInputDisabled({
+                                catalogKey: item.catalog_key,
+                                isOnline,
+                                defaultsPending: costDefaultsPending,
+                                defaultsError: costDefaultsError,
+                              })}
+                              aria-label={`维修项目 ${index + 1} 内部成本`}
+                              className={cn(controlClass, "px-2 font-mono")}
+                              onChange={(event) =>
+                                onCostDraftChange?.(item.line_id!, event.target.value)
+                              }
+                            />
+                          </label>
+                          <label className="min-w-0">
+                            <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground">
+                              客户报价
+                            </span>
+                            <MoneyKeypadInput
+                              ariaLabel={`报价项目 ${index + 1} 金额`}
+                              value={moneyDraftValue(Number(item.price) || 0)}
+                              onChange={(value) =>
+                                onPatchFault(index, { price: parseMoneyDraft(value) })
+                              }
+                              triggerClassName={cn(controlClass, "px-2 font-mono")}
+                              placeholder="0"
+                            />
+                          </label>
+                          {costExceedsQuote(
+                            costDrafts[item.line_id]?.text ?? "",
+                            Number(item.price),
+                          ) ? (
+                            <span className="col-span-2 text-[8px] font-medium leading-3 text-status-warn-foreground">
+                              成本高于报价，请确认
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <MoneyKeypadInput
+                          ariaLabel={`报价项目 ${index + 1} 金额`}
+                          value={moneyDraftValue(Number(item.price) || 0)}
+                          onChange={(value) =>
+                            onPatchFault(index, { price: parseMoneyDraft(value) })
+                          }
+                          triggerClassName={cn(controlClass, "px-2 font-mono")}
+                          placeholder="0"
+                        />
+                      )
                     }
                     action={
                       <Button
@@ -349,6 +442,11 @@ export function NewOrderQuotationSection({
       </div>
     </Shell>
   );
+}
+
+function costExceedsQuote(costText: string, quote: number) {
+  const cost = parseOrderCostDraftAmount(costText);
+  return cost !== null && Number.isFinite(quote) && cost > quote;
 }
 
 function getOperatorRoleLabel(role?: string) {

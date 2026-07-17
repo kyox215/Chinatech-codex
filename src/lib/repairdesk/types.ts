@@ -84,7 +84,8 @@ export type StorePermissionAction =
   | "supplier:manage"
   | "order:archive_browse"
   | "finance:aggregate_read"
-  | "finance:profit_read";
+  | "finance:profit_read"
+  | "finance:cost_manage";
 
 export type OrderWorkflowStatusCode =
   | "intake"
@@ -204,10 +205,69 @@ export interface OrderWorkflowTransitionsUpdateInput {
 }
 
 export interface FaultPriceItem {
+  line_id?: string;
+  catalog_key?: string;
   name: string;
   price: number;
   currency_code?: CurrencyCode;
   note?: string;
+}
+
+export type OrderCostInputMode = "default" | "manual" | "blank";
+
+export interface CreateOrderCostInput {
+  line_id: string;
+  catalog_key?: string;
+  mode: OrderCostInputMode;
+  amount?: number;
+}
+
+export type OrderLineCostSource = "store_default" | "manual" | "manual_blank";
+
+export interface OrderLineCostItem {
+  line_id: string;
+  catalog_key?: string;
+  name: string;
+  cost_amount: number | null;
+  source: OrderLineCostSource;
+}
+
+export interface OrderLineCostsResult {
+  order_id: string;
+  version: number;
+  currency_code: CurrencyCode;
+  items: OrderLineCostItem[];
+  unidentified_line_count: number;
+}
+
+export interface UpdateOrderLineCostInput {
+  line_id: string;
+  mode: Exclude<OrderCostInputMode, "default">;
+  amount?: number;
+}
+
+export interface UpdateOrderLineCostsRequest {
+  expected_store_id: string;
+  expected_version: number;
+  items: UpdateOrderLineCostInput[];
+}
+
+export interface StoreFaultCostDefaultItem {
+  catalog_key: string;
+  catalog_name: string;
+  default_cost_amount: number | null;
+}
+
+export interface StoreFaultCostDefaultsResult {
+  version: number;
+  currency_code: CurrencyCode;
+  items: StoreFaultCostDefaultItem[];
+}
+
+export interface UpdateStoreFaultCostDefaultsRequest {
+  expected_store_id: string;
+  expected_version: number;
+  items: StoreFaultCostDefaultItem[];
 }
 
 export type QuotePriceExceptionKind = "free" | "warranty" | "diagnostic_only";
@@ -721,6 +781,8 @@ export interface OrderCapabilities {
   canCorrect: boolean;
   canReopen: boolean;
   canVoid: boolean;
+  canReadInternalCosts?: boolean;
+  canManageInternalCosts?: boolean;
   blockedReasons?: Partial<Record<OrderCapabilityKey, string>>;
   reopenTargets?: Array<{ code: RepairOrderStatus; label: string }>;
 }
@@ -865,6 +927,7 @@ export interface CreateOrderInput {
   warranty_months?: number;
   warranty_change_reason?: string;
   fault_prices: FaultPriceItem[];
+  cost_inputs?: CreateOrderCostInput[];
   deposit_amount?: number;
   assignee_membership_id?: string;
 }
@@ -1220,6 +1283,7 @@ export interface StoreContext {
     canReadOrderFinance?: boolean;
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
+    can_manage_order_costs?: boolean;
     canExportOrders?: boolean;
     canReadStoreSettings?: boolean;
     canUpdateStoreSettings?: boolean;

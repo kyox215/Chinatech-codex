@@ -8,7 +8,10 @@ import {
 describe("store permission grants", () => {
   it("keeps sensitive finance and archive grants manager-only", () => {
     expect(canRoleReceiveStorePermissionGrant("manager", "finance:aggregate_read")).toBe(true);
+    expect(canRoleReceiveStorePermissionGrant("manager", "finance:cost_manage")).toBe(true);
     expect(canRoleReceiveStorePermissionGrant("technician", "finance:aggregate_read")).toBe(false);
+    expect(canRoleReceiveStorePermissionGrant("technician", "finance:cost_manage")).toBe(false);
+    expect(canRoleReceiveStorePermissionGrant("sales", "finance:cost_manage")).toBe(false);
     expect(canRoleReceiveStorePermissionGrant("sales", "order:archive_browse")).toBe(false);
     expect(canRoleReceiveStorePermissionGrant("viewer", "supplier:read")).toBe(false);
   });
@@ -24,5 +27,9 @@ describe("store permission grants", () => {
       "finance:profit_read",
     ]);
     expect(normalizeStorePermissionGrants(["finance:profit_read"], "technician")).toEqual([]);
+    expect(normalizeStorePermissionGrants(["finance:cost_manage"], "manager")).toEqual([
+      "finance:cost_manage",
+    ]);
+    expect(normalizeStorePermissionGrants(["finance:cost_manage"], "sales")).toEqual([]);
   });
 });

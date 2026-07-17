@@ -45,6 +45,13 @@ export const MEMBER_PERMISSION_OPTIONS: readonly MemberPermissionOption[] = [
     sensitive: true,
   },
   {
+    action: "finance:cost_manage",
+    label: "管理维修项目成本",
+    description: "可查看、输入并修改工单项目成本和店铺默认成本。",
+    group: "历史与财务",
+    sensitive: true,
+  },
+  {
     action: "supplier:read",
     label: "查看供应商",
     description: "可读取当前店铺的供应商资料。",
@@ -91,9 +98,11 @@ export function createMemberEditorDraft(member: StoreMember): MemberEditorDraft 
   };
 }
 
-export function visibleMemberPermissionOptions(role: StoreRole) {
-  return MEMBER_PERMISSION_OPTIONS.filter((option) =>
-    canRoleReceiveStorePermissionGrant(role, option.action),
+export function visibleMemberPermissionOptions(role: StoreRole, orderCostsEnabled = true) {
+  return MEMBER_PERMISSION_OPTIONS.filter(
+    (option) =>
+      (orderCostsEnabled || option.action !== "finance:cost_manage") &&
+      canRoleReceiveStorePermissionGrant(role, option.action),
   );
 }
 

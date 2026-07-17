@@ -2,6 +2,10 @@ import { createHmac } from "node:crypto";
 
 import { z } from "zod";
 
+import {
+  isRepairServiceCatalogKey,
+  resolveRepairServiceCatalogItem,
+} from "@/entities/order/model/repair-service-catalog";
 import type { AuditActor } from "@/lib/repairdesk/types";
 import { assertPermission } from "@/server/permissions";
 import type { PermissionAction, PermissionContext } from "@/server/permissions";
@@ -178,12 +182,32 @@ export const repairDeskOfflineOrderRelationshipPlanSchema = z
 
 const faultPriceSchema = z
   .object({
+    line_id: z.string().uuid().optional(),
+    catalog_key: z
+      .string()
+      .trim()
+      .refine(isRepairServiceCatalogKey, "Offline catalog key is not recognized.")
+      .optional(),
     name: text.max(140),
     price: moneyAmount,
     currency_code: z.literal("EUR").optional(),
     note: optionalText,
   })
-  .strict();
+  .strict()
+  .superRefine((item, context) => {
+    if (!item.catalog_key) return;
+    const catalogItem = resolveRepairServiceCatalogItem({
+      catalogKey: item.catalog_key,
+      name: item.name,
+    });
+    if (catalogItem?.catalogKey !== item.catalog_key) {
+      context.addIssue({
+        code: "custom",
+        path: ["catalog_key"],
+        message: "Offline catalog key does not match the repair item name.",
+      });
+    }
+  });
 
 const offlineOrderCreateDraftSchema = z
   .object({
