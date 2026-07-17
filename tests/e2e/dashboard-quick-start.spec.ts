@@ -62,9 +62,7 @@ for (const viewport of viewports) {
     await expect(page).toHaveURL(/\/buyback\?new=1$/);
     const buybackDialog = page.getByRole("dialog");
     await expect(buybackDialog).toBeVisible();
-    await expect(
-      buybackDialog.getByText("当前只能保存报价与检测", { exact: true }),
-    ).toBeVisible();
+    await expect(buybackDialog.getByText("当前只能保存报价与检测", { exact: true })).toBeVisible();
     await expect(
       buybackDialog.getByRole("heading", { name: "选择 iPhone", exact: true }),
     ).toBeVisible();

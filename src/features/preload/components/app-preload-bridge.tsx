@@ -146,14 +146,7 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
       if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
       if (secondaryTimeoutHandle !== undefined) window.clearTimeout(secondaryTimeoutHandle);
     };
-  }, [
-    canReadInventory,
-    canReadStoreSettings,
-    coordinator,
-    pathname,
-    shell.isRefreshing,
-    storeId,
-  ]);
+  }, [canReadInventory, canReadStoreSettings, coordinator, pathname, shell.isRefreshing, storeId]);
 
   return children;
 }
