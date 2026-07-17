@@ -41,3 +41,14 @@
 - **Evidence:**
   - EVIDENCE.md E-002..E-014; root read-only status tracked=4 untracked=14; stash/ref/recovery verification; candidate HEAD 79ed5f31 before clarification commit
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-17T02:04:23Z — Root residuals are fully recoverable and archived: 18 items under stash/ref 1186ee89 and 25 branch-switch conflict copies under stash/ref 6147070d; root is clean main@origin/main@7a1d2330. Final candidate removed all 997 tracked conflict-copy paths, including 290 duplicate screenshots, and now has zero full-path suffix matches. Post-cleanup agents/lint/typecheck, 203 files/1398 tests, 7 files/34 focused tests, Webpack 22/22 routes, diff checks and fresh fetch pass; no production DB, push or deploy occurred.
+
+- **Phase:** release_gate
+- **Completed/current state:** Root residuals are fully recoverable and archived: 18 items under stash/ref 1186ee89 and 25 branch-switch conflict copies under stash/ref 6147070d; root is clean main@origin/main@7a1d2330. Final candidate removed all 997 tracked conflict-copy paths, including 290 duplicate screenshots, and now has zero full-path suffix matches. Post-cleanup agents/lint/typecheck, 203 files/1398 tests, 7 files/34 focused tests, Webpack 22/22 routes, diff checks and fresh fetch pass; no production DB, push or deploy occurred.
+- **Next:** Keep the local candidate unchanged until Owner D3 approval. After approval, refresh fetch and migration inventory, execute backup/preflight, apply 20260714180000 then 20260717030000 with metadata/ACL/pgTAP postchecks, then non-force push and verify exact Vercel SHA/runtime. If branch-switch conflict copies recur, migrate the development clone outside Documents/File Provider sync.
+- **Decision:** Local release candidate GO; production migrations, main push and automatic deployment remain NO-GO until exact Owner D3 approval and DB-first postchecks.
+- **Blocker:** Owner D3 approval is required for linked production migration apply, main push and Vercel automatic deployment.
+- **Evidence:**
+  - EVIDENCE.md E-002..E-020; commits a971e207 55e3c0fa 3a9b48ff; stashes/refs 1186ee89 6147070d; agents/lint/typecheck; full Vitest 203/1398; focused 7/34; Webpack 22/22; fresh git fetch --prune; zero duplicate-suffix scan
+- **Recorded by:** CEO-Orchestrator
