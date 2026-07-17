@@ -11,12 +11,12 @@
 
 ## Required production configuration
 
-- `NEXT_PUBLIC_SITE_URL=https://chinatech-codex.vercel.app`
+- `NEXT_PUBLIC_SITE_URL=https://www.chinatech.in`
 - `REPAIRDESK_EMAIL_INVITES_ENABLED=true`
-- Supabase Auth Site URL: `https://chinatech-codex.vercel.app`
-- Redirect allow-list: `https://chinatech-codex.vercel.app/**`
+- Supabase Auth Site URL: `https://www.chinatech.in`
+- Redirect allow-list: `https://www.chinatech.in/**` and `https://chinatech.in/**`
 - Hosted Invite and Magic Link templates must match `supabase/templates/invite.html` and `supabase/templates/magic_link.html`.
-- Configure a production custom SMTP provider and disable provider link tracking. Do not enable invitation email delivery until a real inbox smoke test succeeds.
+- Before relying on email invitations at scale, configure a production custom SMTP provider, disable provider link tracking, and complete a real inbox smoke test.
 - Do not push the local `supabase/config.toml` to hosted Auth without first replacing the local Site URL and preserving the live MFA, OTP and existing redirect settings. Always review the CLI diff before confirming.
 
 ## Release gates

@@ -21,7 +21,8 @@ site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = [
   "https://v0.app/chat/api/supabase/redirect/OtqWtsok2ce",
   "https://v0.app/chat/api/supabase/redirect/ElXSaMNgoXx",
-  "https://chinatech-codex.vercel.app/**",
+  "https://www.chinatech.in/**",
+  "https://chinatech.in/**",
   "http://127.0.0.1:3000/**",
 ]
 jwt_expiry = 3600
