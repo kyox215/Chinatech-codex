@@ -1,5 +1,5 @@
 # Handoff
 
-Current phase: release validation.
+Current phase: closed.
 
-Resume from the isolated worktree and run `git status --short --branch`. Do not use or clean the primary dirty worktree. Implementation, production DB/Auth configuration and local gates are complete. Validate the scoped diff, run the required checkpoint, push the isolated branch commit to `origin/main`, then verify Vercel deployment and production `/auth/confirm` behavior. Do not send a real invitation without an explicitly provided employee test inbox.
+No required implementation or release action remains. `origin/main` contains `3469512f`, production is Ready on `https://www.chinatech.in`, and the linked database/Auth configuration is applied. If continuing operational validation, use a dedicated employee test inbox, verify actual Invite and existing-account Magic Link delivery, and configure custom SMTP before higher-volume use. Do not use or clean the unrelated primary dirty worktree.

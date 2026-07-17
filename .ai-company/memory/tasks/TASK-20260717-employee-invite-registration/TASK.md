@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260717-employee-invite-registration"
 title: "员工邮箱邀请注册完整流程"
-status: "release_ready"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2_code_L1_production"
 owner: "IntegrationLead"
 departments: ["FLOW", "UX", "DATA", "API", "SEC", "QA", "INT"]
 created_at: "2026-07-17T22:00:00Z"
-updated_at: "2026-07-17T22:53:58Z"
+updated_at: "2026-07-17T23:01:45Z"
 ---
 # Owner goal
 
@@ -79,4 +79,7 @@ Required: Settings member invitation on mobile/desktop and dedicated invitation 
 - Linked migrations `20260717220219`, `20260717223030`, `20260717223222` and `20260717223354` are applied and aligned; remote database lint reports no schema errors.
 - Hosted Auth Site URL, redirect allow-list and Invite/Magic Link templates are applied while preserving existing MFA/OTP settings and callbacks.
 - Vercel Production has `NEXT_PUBLIC_SITE_URL` and `REPAIRDESK_EMAIL_INVITES_ENABLED` configured.
-- Remaining before close: scoped commit, push `main`, verify the resulting Vercel deployment and production routes.
+- Feature commit `66f2cd82` and canonical-origin fix `3469512f` are on `origin/main`.
+- Vercel production deployment `dpl_7H7J8Poo9usmGkcXqaZWJGKnHmFs` is Ready and aliased to `https://www.chinatech.in` and `https://chinatech.in`.
+- Production `/auth/confirm` returns 200 with `no-store` and `no-referrer`; unauthenticated `/invite/complete` correctly redirects to login.
+- Closed with one operational residual: real inbox deliverability/spam placement was not tested because no dedicated employee test address was supplied.

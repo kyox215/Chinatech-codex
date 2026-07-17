@@ -38,4 +38,8 @@
 - Final schema-only dump confirms delivery columns/checks/index and `repairdesk_accept_store_invitation_rpc` granted to `service_role` with PUBLIC revoked.
 - Supabase project is `ACTIVE_HEALTHY` on Pro. Hosted Site URL, production redirect and both custom templates are applied; original TOTP, 8-digit OTP, one-minute frequency and v0 callbacks were preserved.
 - Vercel Production variables `NEXT_PUBLIC_SITE_URL` and `REPAIRDESK_EMAIL_INVITES_ENABLED` were added without exposing secrets.
+- GitHub `origin/main` is `3469512fe92248799f1303bd219c5297e32de820` (`66f2cd82` feature plus `3469512f` canonical production origin fix).
+- The first production smoke exposed an invalid provisional `chinatech-codex.vercel.app` origin. Vercel and hosted Supabase Auth were corrected to `https://www.chinatech.in`; both canonical and bare-domain redirect patterns are now allowed.
+- Final Vercel deployment `dpl_7H7J8Poo9usmGkcXqaZWJGKnHmFs` is Ready. `vercel inspect https://www.chinatech.in` resolves to that deployment and lists both custom-domain aliases.
+- Production `GET /auth/confirm` returns 200 with `Cache-Control: private, no-cache, no-store` and `Referrer-Policy: no-referrer`. Unauthenticated `GET /invite/complete?...` returns the expected 307 login redirect.
 - Residual external check: no real employee inbox address was supplied, so actual inbox delivery and spam placement remain unverified; dedicated custom SMTP is still recommended before higher-volume use.

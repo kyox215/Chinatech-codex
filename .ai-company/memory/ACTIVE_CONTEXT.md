@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260717-employee-invite-registration"
-status: "release_ready"
-phase: "implementation"
+status: "closed"
+phase: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2_code_L1_production"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-17T22:53:58Z"
+last_checkpoint_at: "2026-07-17T23:01:45Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-员工邮件邀请注册流程、原子权限授予、生产数据库迁移、Auth 邮件模板和 Vercel 环境变量已完成；全量 lint、typecheck、217 个测试文件/1484 项测试及生产构建通过。
+员工邀请注册流程已推送 main；生产数据库/Auth/Vercel 配置已应用，主域名为 www.chinatech.in；最终部署 Ready，认证确认页生产冒烟通过，任务已关闭。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-提交范围内变更，获取并对齐最新 origin/main，推送 main，验证 Vercel 生产部署后关闭任务。
+无必需产品改动。后续仅在提供专用测试邮箱后验证真实收件与垃圾邮件投递，并在扩大使用前配置自定义 SMTP。
 
 ## Resume protocol
 
