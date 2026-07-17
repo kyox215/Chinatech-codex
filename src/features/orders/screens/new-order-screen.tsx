@@ -71,7 +71,10 @@ import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
-import { issueDescriptionForIntake } from "@/features/orders/model/order-diagnosis-quote";
+import {
+  issueDescriptionForIntake,
+  resolveIntakeQuoteDraft,
+} from "@/features/orders/model/order-diagnosis-quote";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { formatMoney } from "@/lib/money";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -201,6 +204,15 @@ export function NewOrderScreen({
     () => validFaultDrafts.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
     [validFaultDrafts],
   );
+  const quoteActive = form.issueCaptureMode !== "unknown";
+  const activeQuote = resolveIntakeQuoteDraft({
+    mode: form.issueCaptureMode,
+    items: validFaultDrafts,
+    total,
+    deposit: form.deposit,
+  });
+  const activeTotal = activeQuote.total;
+  const activeDeposit = activeQuote.deposit;
   const createStatusLabel =
     selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status;
 
@@ -405,9 +417,8 @@ export function NewOrderScreen({
         warranty_months: form.warrantyMonths,
         warranty_change_reason: form.warrantyChangeReason || undefined,
         device_unlock: normalizeUnlockForCustody(custodyStatus, form.deviceUnlock),
-        fault_prices:
-          form.issueCaptureMode === "unknown" ? [] : toFaultPriceItems(validFaultDrafts),
-        deposit_amount: form.deposit,
+        fault_prices: toFaultPriceItems(activeQuote.items),
+        deposit_amount: activeDeposit,
       });
       return { kind: "online", id: result.id, replayed: result.replayed };
     },
@@ -446,7 +457,7 @@ export function NewOrderScreen({
     form.brand.trim() &&
     form.model.trim() &&
     (form.issueCaptureMode === "unknown" || Boolean(form.issue.trim())) &&
-    form.deposit <= total &&
+    activeDeposit <= activeTotal &&
     !custodyStatusBlocked &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
@@ -634,7 +645,7 @@ export function NewOrderScreen({
           operatorName={operatorName}
           statusLabel={createStatusLabel}
           valid={Boolean(valid)}
-          total={total}
+          total={activeTotal}
           missingItems={missingItems}
           offlineStatus={offlineStatus}
           onHeightChange={handleFloatingHeaderHeight}
@@ -660,7 +671,7 @@ export function NewOrderScreen({
             toast.error(
               form.deviceCustodyStatus === null
                 ? "请确认设备是否留店"
-                : form.deposit > total
+                : quoteActive && form.deposit > total
                   ? "定金不能超过订单总金额"
                   : form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
                       selectedCreateStatus &&
@@ -712,7 +723,7 @@ export function NewOrderScreen({
           operatorName={operatorName}
           statusLabel={createStatusLabel}
           valid={Boolean(valid)}
-          total={total}
+          total={activeTotal}
           missingItems={missingItems}
           surface={surface}
           offlineStatus={offlineStatus}
@@ -750,12 +761,12 @@ export function NewOrderScreen({
         <div
           data-new-order-workspace-grid="true"
           className={cn(
-            "grid min-w-0 gap-1.5 sm:gap-2 md:gap-3 lg:grid-cols-2",
+            "grid min-w-0 items-start gap-1.5 sm:gap-2 md:gap-3 lg:grid-cols-2",
             "xl:grid-cols-[minmax(260px,0.9fr)_minmax(360px,1.18fr)_minmax(240px,0.82fr)]",
             "2xl:grid-cols-[minmax(300px,0.88fr)_minmax(430px,1.18fr)_minmax(280px,0.82fr)]",
           )}
         >
-          <div className="grid min-w-0 gap-1.5 sm:gap-3">
+          <div className="grid min-w-0 gap-1.5 sm:gap-3 lg:col-start-1 lg:row-start-1">
             <NewOrderCustomerSection
               form={form}
               setForm={setForm}
@@ -773,30 +784,32 @@ export function NewOrderScreen({
             />
           </div>
 
-          <div className="grid min-w-0 gap-1.5 sm:gap-3">
-            <NewOrderFaultDiagnosisSection form={form} setForm={setForm} surface={surface} />
-            <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
-          </div>
+          <div className="contents lg:col-start-2 lg:row-start-1 lg:grid lg:min-w-0 lg:content-start lg:gap-3 xl:contents">
+            <div className="min-w-0 xl:col-start-2 xl:row-start-1">
+              <NewOrderQuotationSection
+                form={form}
+                setForm={setForm}
+                total={total}
+                operatorName={operatorName}
+                operatorRole={operatorRole}
+                onPatchFault={patchFault}
+                onAddCustomFault={addCustomFault}
+                createStatuses={createStatuses}
+                defaultWarrantyMonths={defaultWarrantyMonths}
+                surface={surface}
+              />
+            </div>
 
-          <div className="min-w-0">
-            <NewOrderQuotationSection
-              form={form}
-              setForm={setForm}
-              total={total}
-              operatorName={operatorName}
-              operatorRole={operatorRole}
-              onPatchFault={patchFault}
-              onAddCustomFault={addCustomFault}
-              createStatuses={createStatuses}
-              defaultWarrantyMonths={defaultWarrantyMonths}
-              surface={surface}
-            />
+            <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 xl:col-start-3 xl:row-start-1">
+              <NewOrderFaultDiagnosisSection form={form} setForm={setForm} surface={surface} />
+              <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
+            </div>
           </div>
         </div>
 
         <NewOrderSubmitBar
-          total={total}
-          deposit={form.deposit}
+          total={activeTotal}
+          deposit={activeDeposit}
           valid={Boolean(valid)}
           pending={createSubmitBlocked}
           statusMessage={createSubmitMessage}
@@ -953,9 +966,11 @@ function getNewOrderMissingItems({
     !form.brand.trim() ? { label: "设备品牌", target: "device-brand" } : null,
     !form.model.trim() ? { label: "设备型号", target: "device-model" } : null,
     form.issueCaptureMode !== "unknown" && !form.issue.trim()
-      ? { label: "故障描述", target: "issue-description" }
+      ? { label: "故障描述", target: "customer-report-edit" }
       : null,
-    form.deposit > total ? { label: "定金不能超过总额", target: "deposit" } : null,
+    form.issueCaptureMode !== "unknown" && form.deposit > total
+      ? { label: "定金不能超过总额", target: "deposit" }
+      : null,
     custodyStatusBlocked ? { label: "创建阶段与保管方式冲突", target: "create-status" } : null,
     warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
     !form.warrantyChangeReason.trim()
@@ -998,6 +1013,7 @@ function NewOrderDesktopHeader({
             "input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex='0']",
           );
       focusable?.focus({ preventScroll: true });
+      if (item.target === "customer-report-edit") focusable?.click();
     }, 250);
   };
 

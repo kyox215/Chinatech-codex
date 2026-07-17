@@ -46,6 +46,33 @@ describe("offline order create sync adapter", () => {
     ).toThrow("只能从“新工单”状态开始");
   });
 
+  it("ignores local-only paused quote fields and syncs the resolved unknown intake", () => {
+    const input = buildRepairDeskOfflineOrderCreateSyncInput(
+      entry({
+        payload: {
+          ...entry().payload,
+          issueMode: "unknown",
+          issueDescription: "客户暂时无法确认具体故障，需检测。",
+          reportedIssueDraft: "掉电很快",
+          repairItems: [],
+          pausedRepairItems: [{ name: "更换电池", price: 59 }],
+          depositAmountCents: 0,
+          pausedDepositAmountCents: 2_000,
+        },
+      }),
+    );
+
+    const parsed = repairDeskOfflineOrderCreateSyncSchema.parse(input);
+    expect(parsed.payload.order).toMatchObject({
+      issue_description: "客户暂时无法确认具体故障，需检测。",
+      fault_prices: [],
+      deposit_amount: 0,
+    });
+    expect(JSON.stringify(parsed)).not.toContain("reportedIssueDraft");
+    expect(JSON.stringify(parsed)).not.toContain("pausedRepairItems");
+    expect(JSON.stringify(parsed)).not.toContain("pausedDepositAmountCents");
+  });
+
   it("keeps a temporary active-store mismatch retryable", () => {
     expect(
       classifyRepairDeskOfflineOrderSyncError(new Error("离线工单需要切回原店铺后再同步")),

@@ -6,6 +6,7 @@ import {
   getQuoteNotificationReadiness,
   inferIssueCaptureModeForLegacyDraft,
   issueDescriptionForIntake,
+  resolveIntakeQuoteDraft,
 } from "./order-diagnosis-quote";
 
 describe("unknown issue intake", () => {
@@ -17,6 +18,26 @@ describe("unknown issue intake", () => {
   it("requires and preserves the customer's reported symptom when the problem is known", () => {
     expect(issueDescriptionForIntake("reported", "  掉电很快  ")).toBe("掉电很快");
     expect(() => issueDescriptionForIntake("reported", "  ")).toThrow("请填写客户描述的故障现象");
+  });
+
+  it("keeps paused quote drafts out of unknown-intake submissions", () => {
+    const draftItems = [{ name: "更换电池", price: 59 }];
+    expect(
+      resolveIntakeQuoteDraft({
+        mode: "unknown",
+        items: draftItems,
+        total: 59,
+        deposit: 20,
+      }),
+    ).toEqual({ items: [], total: 0, deposit: 0 });
+    expect(
+      resolveIntakeQuoteDraft({
+        mode: "reported",
+        items: draftItems,
+        total: 59,
+        deposit: 20,
+      }),
+    ).toEqual({ items: draftItems, total: 59, deposit: 20 });
   });
 });
 

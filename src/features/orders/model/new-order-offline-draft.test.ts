@@ -219,36 +219,85 @@ describe("new order offline draft mapping", () => {
     });
   });
 
-  it("round trips an explicit unknown issue without creating repair items", () => {
-    const payload = buildNewOrderOfflineDraftPayload(
-      makeForm({ issueCaptureMode: "unknown", issue: "", faults: [] }),
-    );
+  it("round trips paused customer and quote drafts without syncing them in unknown mode", async () => {
+    const form = makeForm({
+      issueCaptureMode: "unknown",
+      issue: "掉电很快",
+      faults: [
+        {
+          key: "battery:main",
+          categoryKey: "battery",
+          categoryLabel: "电池",
+          name: "更换电池",
+          price: 59,
+          note: "Sostituzione batteria",
+        },
+      ],
+      deposit: 20,
+    });
+    const payload = buildNewOrderOfflineDraftPayload(form);
     expect(payload).toMatchObject({
       issueMode: "unknown",
       issueDescription: "客户暂时无法确认具体故障，需检测。",
+      reportedIssueDraft: "掉电很快",
+      pausedRepairItems: [{ name: "更换电池", price: 59 }],
+      pausedDepositAmountCents: 2000,
       repairItems: [],
       quotedPriceCents: 0,
+      depositAmountCents: 0,
     });
 
+    const service = createRepairDeskOfflineOrderService({
+      store: createRepairDeskOfflineMemoryStore(),
+      scope: { storeId: "store_1", userId: "user_1" },
+      now: () => "2026-07-17T18:00:00.000Z",
+      idFactory: () => "id_unknown",
+    });
+    const saved = await service.saveDraft(buildNewOrderOfflineDraftInput({ form }));
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+
+    const restored = restoreNewOrderFormFromOfflineDraft(saved.value);
+    expect(restored.form.issueCaptureMode).toBe("unknown");
+    expect(restored.form.issue).toBe("掉电很快");
+    expect(restored.form.deposit).toBe(20);
+    expect(restored.form.faults).toEqual([
+      expect.objectContaining({ name: "更换电池", price: 59 }),
+    ]);
+  });
+
+  it("restores a legacy unknown draft without the new paused fields", async () => {
+    const service = createRepairDeskOfflineOrderService({
+      store: createRepairDeskOfflineMemoryStore(),
+      scope: { storeId: "store_1", userId: "user_1" },
+      now: () => "2026-07-17T18:00:00.000Z",
+      idFactory: () => "id_legacy_unknown",
+    });
+    const saved = await service.saveDraft(
+      buildNewOrderOfflineDraftInput({
+        form: makeForm({
+          issueCaptureMode: "unknown",
+          issue: "旧版不会保存的客户原话",
+          deposit: 20,
+        }),
+      }),
+    );
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+
+    const legacyPayload = { ...saved.value.draftPayload };
+    delete legacyPayload.reportedIssueDraft;
+    delete legacyPayload.pausedRepairItems;
+    delete legacyPayload.pausedDepositAmountCents;
+
     const restored = restoreNewOrderFormFromOfflineDraft({
-      localDraftId: "draft_unknown",
-      localOrderId: "local_order_unknown",
-      storeId: "store_1",
-      userId: "user_1",
-      mode: "create",
-      draftPayload: payload,
-      customerLinkMode: "walk_in_snapshot_only",
-      deviceLinkMode: "order_snapshot_only",
-      hasSensitiveVaultEntry: false,
-      attachmentStagingIds: [],
-      createdAt: "2026-07-17T18:00:00.000Z",
-      updatedAt: "2026-07-17T18:00:00.000Z",
-      expiresAt: "2026-08-17T18:00:00.000Z",
-      status: "draft_local",
+      ...saved.value,
+      draftPayload: legacyPayload,
     });
     expect(restored.form.issueCaptureMode).toBe("unknown");
     expect(restored.form.issue).toBe("");
     expect(restored.form.faults).toEqual([]);
+    expect(restored.form.deposit).toBe(0);
   });
 
   it("keeps a customer-held PIN re-entry marker without persisting the PIN", () => {

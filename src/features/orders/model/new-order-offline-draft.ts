@@ -12,6 +12,7 @@ import { initialNewOrderForm, type NewOrderFormState } from "./new-order-form";
 import {
   UNKNOWN_ISSUE_DESCRIPTION,
   inferIssueCaptureModeForLegacyDraft,
+  resolveIntakeQuoteDraft,
 } from "./order-diagnosis-quote";
 
 export type NewOrderOfflineDraftRestoreResult = {
@@ -40,7 +41,7 @@ export function buildNewOrderOfflineDraftInput({
 export function buildNewOrderOfflineDraftPayload(
   form: NewOrderFormState,
 ): RepairDeskOfflineSafeRecord {
-  const repairItems = (form.issueCaptureMode === "unknown" ? [] : form.faults)
+  const serializedRepairItems = form.faults
     .map((item) => ({
       key: item.key,
       categoryKey: item.categoryKey,
@@ -50,7 +51,17 @@ export function buildNewOrderOfflineDraftPayload(
       note: item.note?.trim() ?? "",
     }))
     .filter((item) => item.name || item.price > 0 || item.note);
-  const quotedPriceCents = repairItems.reduce((sum, item) => sum + moneyToCents(item.price), 0);
+  const serializedQuoteTotal = serializedRepairItems.reduce(
+    (sum, item) => sum + normalizeMoneyNumber(item.price),
+    0,
+  );
+  const activeQuote = resolveIntakeQuoteDraft({
+    mode: form.issueCaptureMode,
+    items: serializedRepairItems,
+    total: serializedQuoteTotal,
+    deposit: form.deposit,
+  });
+  const quotedPriceCents = moneyToCents(activeQuote.total);
 
   return {
     orderType: form.type,
@@ -65,15 +76,24 @@ export function buildNewOrderOfflineDraftPayload(
     issueMode: form.issueCaptureMode,
     issueDescription:
       form.issueCaptureMode === "unknown" ? UNKNOWN_ISSUE_DESCRIPTION : form.issue.trim(),
+    ...(form.issueCaptureMode === "unknown" && form.issue.trim()
+      ? { reportedIssueDraft: form.issue.trim() }
+      : {}),
+    ...(form.issueCaptureMode === "unknown" && serializedRepairItems.length
+      ? { pausedRepairItems: serializedRepairItems }
+      : {}),
+    ...(form.issueCaptureMode === "unknown" && form.deposit > 0
+      ? { pausedDepositAmountCents: moneyToCents(form.deposit) }
+      : {}),
     accessoryNotes: form.accessoryNotes.trim(),
     warrantyDraft: {
       text: form.warrantyText.trim(),
       months: normalizeInteger(form.warrantyMonths),
       changeReason: form.warrantyChangeReason.trim(),
     },
-    depositAmountCents: moneyToCents(form.deposit),
+    depositAmountCents: moneyToCents(activeQuote.deposit),
     quotedPriceCents,
-    repairItems,
+    repairItems: activeQuote.items,
   };
 }
 
@@ -139,7 +159,9 @@ export function restoreNewOrderFormFromOfflineDraft(
 ): NewOrderOfflineDraftRestoreResult {
   const payload = draft.draftPayload;
   const warrantyDraft = readRecord(payload.warrantyDraft);
+  const issueCaptureMode = readIssueCaptureMode(payload.issueMode, payload.issueDescription);
   const restoredFaults = readRepairItems(payload.repairItems);
+  const pausedRepairItems = readRepairItems(payload.pausedRepairItems);
   const restoredCustody = readDeviceCustodyStatus(payload.deviceCustody);
 
   return {
@@ -164,17 +186,26 @@ export function restoreNewOrderFormFromOfflineDraft(
       model: readString(payload.deviceModel) ?? "",
       imei: readString(payload.imei) ?? "",
       deviceCustodyStatus: restoredCustody,
-      issueCaptureMode: readIssueCaptureMode(payload.issueMode, payload.issueDescription),
+      issueCaptureMode,
       issue:
-        readIssueCaptureMode(payload.issueMode, payload.issueDescription) === "unknown"
-          ? ""
+        issueCaptureMode === "unknown"
+          ? (readString(payload.reportedIssueDraft) ?? "")
           : (readString(payload.issueDescription) ?? ""),
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
       warrantyText: readString(warrantyDraft.text) ?? initialNewOrderForm.warrantyText,
       warrantyMonths: readNumber(warrantyDraft.months) ?? initialNewOrderForm.warrantyMonths,
       warrantyChangeReason: readString(warrantyDraft.changeReason) ?? "",
-      deposit: centsToMoney(readNumber(payload.depositAmountCents)),
-      faults: restoredFaults,
+      deposit:
+        issueCaptureMode === "unknown"
+          ? centsToMoney(
+              readNumber(payload.pausedDepositAmountCents) ??
+                readNumber(payload.depositAmountCents),
+            )
+          : centsToMoney(readNumber(payload.depositAmountCents)),
+      faults:
+        issueCaptureMode === "unknown" && pausedRepairItems.length
+          ? pausedRepairItems
+          : restoredFaults,
       deviceUnlock: { method: "none" },
     },
     sensitiveUnlockNeedsReentry: draft.hasSensitiveVaultEntry,

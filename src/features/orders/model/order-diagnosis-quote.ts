@@ -33,6 +33,23 @@ export function issueDescriptionForIntake(mode: IssueCaptureMode, issue: string)
   return normalized;
 }
 
+export function resolveIntakeQuoteDraft<T>({
+  mode,
+  items,
+  total,
+  deposit,
+}: {
+  mode: IssueCaptureMode;
+  items: T[];
+  total: number;
+  deposit: number;
+}) {
+  if (mode === "unknown") {
+    return { items: [] as T[], total: 0, deposit: 0 };
+  }
+  return { items, total, deposit };
+}
+
 // Legacy drafts did not persist a separate capture-mode field. Keep this as a
 // presentation-only compatibility heuristic; server workflow rules must never
 // infer business state from localized display copy.

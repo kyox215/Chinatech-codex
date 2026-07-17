@@ -100,15 +100,23 @@ const allowedOrderDraftPayloadKeys = new Set([
   "orderType",
   "order_status",
   "order_type",
+  "pausedDepositAmountCents",
+  "pausedRepairItems",
   "quotedPriceCents",
   "quoted_price_cents",
   "repairItems",
   "repair_items",
+  "reportedIssueDraft",
   "serialNumber",
   "serial_number",
   "status",
   "warrantyDraft",
   "warranty_draft",
+]);
+const localOnlyOrderDraftPayloadKeys = new Set([
+  "pausedDepositAmountCents",
+  "pausedRepairItems",
+  "reportedIssueDraft",
 ]);
 const allowedCustomerSnapshotKeys = new Set([
   "customerId",
@@ -350,7 +358,7 @@ function buildOutboxEntry({
     userId: draft.userId,
     domain: "orders",
     action,
-    payload: draft.draftPayload,
+    payload: stripLocalOnlyDraftPayload(draft.draftPayload),
     relationshipPlan: {
       customerLinkMode: draft.customerLinkMode,
       customerLinkDraft: draft.customerLinkDraft,
@@ -364,6 +372,12 @@ function buildOutboxEntry({
     sensitiveVaultEntryIds,
     attachmentStagingIds: draft.attachmentStagingIds,
   });
+}
+
+function stripLocalOnlyDraftPayload(payload: RepairDeskOfflineSafeRecord) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => !localOnlyOrderDraftPayloadKeys.has(key)),
+  );
 }
 
 function outboxStatusForDraft(

@@ -1,25 +1,26 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260717-employee-invite-registration"
-status: "closed"
-phase: "closed"
+current_task_id: "TASK-20260718-001-new-order-layout-stability"
+status: "active"
+phase: "release"
 task_class: "T3"
 risk_level: "R3"
-autonomy_level: "L2_code_L1_production"
+autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-17T23:01:45Z"
+last_checkpoint_at: "2026-07-17T23:06:08Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
+
 # Active Context
 
 ## Current objective
 
-**员工邮箱邀请注册完整流程**
+**新建工单客户报障紧凑化与报价中栏稳定实施**
 
 ## Current state
 
-员工邀请注册流程已推送 main；生产数据库/Auth/Vercel 配置已应用，主域名为 www.chinatech.in；最终部署 Ready，认证确认页生产冒烟通过，任务已关闭。
+已吸收员工邀请并发发布，修复其 Next Route 非法导出构建阻断；lint/typecheck/agents、218 文件 1489 测试、24 路由 Webpack build、六档 Playwright 通过；linked Supabase list 对齐且 db push dry-run 为 up to date。
 
 ## Blocking decisions
 
@@ -27,11 +28,11 @@ last_rehydrated_at: null
 
 ## Next action
 
-无必需产品改动。后续仅在提供专用测试邮箱后验证真实收件与垃圾邮件投递，并在扩大使用前配置自定义 SMTP。
+完成 origin/main@00d3eca4 rebase 后复跑受影响门禁，获取发布锁并非强制推送 HEAD:main；验证远端 SHA、Vercel READY、生产 /orders/new 和 post-push Supabase no-op 后关闭任务。
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260717-employee-invite-registration/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260718-001-new-order-layout-stability/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.

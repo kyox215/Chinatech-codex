@@ -180,6 +180,45 @@ describe("RepairDesk offline order autosave/outbox service", () => {
     expect(outbox.ok && outbox.value).toHaveLength(1);
   });
 
+  it("keeps paused intake drafts local when promoting an order to the outbox", async () => {
+    const { service } = createServiceHarness();
+    await service.saveDraft({
+      mode: "create",
+      draftPayload: safePayload({
+        issueMode: "unknown",
+        issueDescription: "客户暂时无法确认具体故障，需检测。",
+        reportedIssueDraft: "掉电很快",
+        repairItems: [],
+        pausedRepairItems: [{ name: "更换电池", price: 59 }],
+        depositAmountCents: 0,
+        pausedDepositAmountCents: 2000,
+      }),
+      relationshipPlan: walkInRelationship(),
+    });
+
+    const queued = await service.queueDraftForSync({
+      localDraftId: "draft_id_1",
+      operationId: "op_1",
+    });
+
+    expect(queued.ok).toBe(true);
+    if (!queued.ok) return;
+    expect(queued.value.draft.draftPayload).toMatchObject({
+      reportedIssueDraft: "掉电很快",
+      pausedRepairItems: [{ name: "更换电池", price: 59 }],
+      pausedDepositAmountCents: 2000,
+    });
+    expect(queued.value.outboxEntry.payload).toMatchObject({
+      issueMode: "unknown",
+      issueDescription: "客户暂时无法确认具体故障，需检测。",
+      repairItems: [],
+      depositAmountCents: 0,
+    });
+    expect(queued.value.outboxEntry.payload).not.toHaveProperty("reportedIssueDraft");
+    expect(queued.value.outboxEntry.payload).not.toHaveProperty("pausedRepairItems");
+    expect(queued.value.outboxEntry.payload).not.toHaveProperty("pausedDepositAmountCents");
+  });
+
   it("promotes an edit draft to an update outbox entry with baseUpdatedAt", async () => {
     const { service } = createServiceHarness();
     await service.saveDraft({

@@ -78,6 +78,10 @@ export function NewOrderQuotationSection({
     form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
       ? createStatuses.filter((status) => !deviceCustodyBlocksStatus(status.code, status.bucket))
       : createStatuses;
+  const quoteModeNote =
+    form.issueCaptureMode === "unknown"
+      ? "待检测模式：报价草稿会保留，但本次创建不会提交报价项目或定金。"
+      : "可在接单时先报价，也可以保留为空，检测后再发布正式报价。";
 
   return (
     <Shell data-new-order-section="quotation" className={cn(shellClass, "space-y-2")}>
@@ -88,17 +92,36 @@ export function NewOrderQuotationSection({
         className="mb-1"
         action={
           <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
-            {form.faults.length} 项
+            {form.issueCaptureMode === "unknown" ? "报价暂停" : `${form.faults.length} 项`}
           </span>
         }
       />
 
-      {form.issueCaptureMode === "unknown" ? (
-        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-3 text-xs leading-5 text-muted-foreground">
-          本单已标记为“问题未知，需检测”。接单时不会携带隐藏报价或定金；检测完成后请在工单详情的“检测与正式报价”工作区补充电池、屏幕等问题并发布报价。
+      <div
+        data-new-order-quote-draft="true"
+        className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1.5"
+      >
+        <div
+          id="new-order-quote-mode-note"
+          className={cn(
+            "mb-1.5 flex h-9 min-w-0 items-center overflow-hidden rounded-lg border px-2 py-1 text-[10px] leading-4",
+            form.issueCaptureMode === "unknown"
+              ? "border-primary/20 bg-primary/5 text-foreground"
+              : "border-[var(--border-panel)] bg-card text-muted-foreground",
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="min-w-0 truncate" title={quoteModeNote}>
+            {quoteModeNote}
+          </span>
         </div>
-      ) : (
-        <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1.5">
+
+        <fieldset
+          disabled={form.issueCaptureMode === "unknown"}
+          className="min-w-0 space-y-1.5 disabled:opacity-60"
+          aria-describedby="new-order-quote-mode-note"
+        >
           <div className="mb-2 rounded-xl border border-[var(--border-panel)] bg-card p-1">
             <div className="px-1 pb-1 text-[10px] font-medium leading-3 text-muted-foreground">
               常见维修项目（可选）
@@ -123,61 +146,63 @@ export function NewOrderQuotationSection({
                 接单时可以暂不报价；检测后再从工单详情发布正式报价
               </OrderWorkspaceEmptyBlock>
             ) : (
-              form.faults.map((item, index) => (
-                <OrderWorkspaceQuoteRow
-                  key={item.key}
-                  price={
-                    <MoneyKeypadInput
-                      ariaLabel={`报价项目 ${index + 1} 金额`}
-                      value={moneyDraftValue(Number(item.price) || 0)}
-                      onChange={(value) => onPatchFault(index, { price: parseMoneyDraft(value) })}
-                      triggerClassName={cn(controlClass, "px-2 font-mono")}
-                      placeholder="0"
-                    />
-                  }
-                  action={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 shrink-0 sm:size-8"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          faults: form.faults.filter((_, faultIndex) => faultIndex !== index),
-                        })
-                      }
-                      aria-label="删除报价项目"
-                    >
-                      <Trash2 className="size-3 text-muted-foreground sm:size-4" />
-                    </Button>
-                  }
-                >
-                  {item.categoryKey === "custom" ? (
-                    <Input
-                      value={item.name}
-                      onChange={(event) => onPatchFault(index, { name: event.target.value })}
-                      className={cn(controlClass, "px-2")}
-                      placeholder="自定义项目"
-                    />
-                  ) : (
-                    <>
-                      <div
-                        className="truncate text-[10px] font-medium leading-4 sm:text-[11px]"
-                        title={item.name}
+              <div className="max-h-60 min-w-0 space-y-1.5 overflow-y-auto pr-0.5">
+                {form.faults.map((item, index) => (
+                  <OrderWorkspaceQuoteRow
+                    key={item.key}
+                    price={
+                      <MoneyKeypadInput
+                        ariaLabel={`报价项目 ${index + 1} 金额`}
+                        value={moneyDraftValue(Number(item.price) || 0)}
+                        onChange={(value) => onPatchFault(index, { price: parseMoneyDraft(value) })}
+                        triggerClassName={cn(controlClass, "px-2 font-mono")}
+                        placeholder="0"
+                      />
+                    }
+                    action={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            faults: form.faults.filter((_, faultIndex) => faultIndex !== index),
+                          })
+                        }
+                        aria-label="删除报价项目"
                       >
-                        {item.name}
-                      </div>
-                      <div
-                        className="truncate text-[9px] leading-3 text-muted-foreground"
-                        title={item.note}
-                      >
-                        {item.note}
-                      </div>
-                    </>
-                  )}
-                </OrderWorkspaceQuoteRow>
-              ))
+                        <Trash2 className="size-3 text-muted-foreground sm:size-4" />
+                      </Button>
+                    }
+                  >
+                    {item.categoryKey === "custom" ? (
+                      <Input
+                        value={item.name}
+                        onChange={(event) => onPatchFault(index, { name: event.target.value })}
+                        className={cn(controlClass, "px-2")}
+                        placeholder="自定义项目"
+                      />
+                    ) : (
+                      <>
+                        <div
+                          className="truncate text-[10px] font-medium leading-4 sm:text-[11px]"
+                          title={item.name}
+                        >
+                          {item.name}
+                        </div>
+                        <div
+                          className="truncate text-[9px] leading-3 text-muted-foreground"
+                          title={item.note}
+                        >
+                          {item.note}
+                        </div>
+                      </>
+                    )}
+                  </OrderWorkspaceQuoteRow>
+                ))}
+              </div>
             )}
             <Button
               type="button"
@@ -196,8 +221,8 @@ export function NewOrderQuotationSection({
             variant="finance"
             className="mt-1.5"
           />
-        </div>
-      )}
+        </fieldset>
+      </div>
 
       <div className="min-w-0 space-y-2 rounded-xl border border-[var(--border-panel)] bg-card p-2">
         <div className="flex min-w-0 items-center justify-between gap-1.5 px-0.5">
