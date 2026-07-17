@@ -58,6 +58,7 @@ as owner of this file.
 - `TASK-20260716-001-dashboard-handoff-priority` and `docs/UI_PAGE_GENERATION_DECLARATION.md` are the current Dashboard generation authority: no Dashboard status chips, two quick starts, complete actor-scoped ranking before slice, allowlisted non-financial projection, navigation-only actions and distinct loading/empty/filtered/error/permission states.
 - `TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md` is the current Orders mobile queue/loading performance release authority: compact responsive queues, explicit transition/offline states, bounded two-phase list reads, exact production proof and the evidence-based no-migration decision.
 - For customer finance and terminal-order behavior, use `TASK-20260716-003-customer-finance-order-correction-plan`, `docs/CUSTOMER_MANAGEMENT_WORKBENCH_PLAN.md` and active `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`: `累计订单额/待收`, orthogonal repair/payment states, finance omission on restricted reads, changed-fields-only routine edits and audited correction/reopen/Owner void are the current contract. `docs/ORDERS_SPEC.md` remains a historical snapshot and only points to the active standard.
+- For device custody, the current addendum at the top of `docs/ORDERS_SPEC.md` plus `TASK-20260716-005-device-custody-status-implementation/CEO_REPORT.md` is the production authority. The addendum is current despite the remainder of `ORDERS_SPEC` being a historical snapshot; it records explicit create choice, nullable legacy unknown, secret clearing, terminal receive/return rules, fail-closed offline behavior and release order.
 
 ## Interfaces and dependencies
 
@@ -133,3 +134,4 @@ as owner of this file.
 | 2026-07-16 | Synchronized active Dashboard UI/API/security/visual rules with the handoff implementation | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
 | 2026-07-16 | Synchronized Orders mobile UI/query/release authority and closeout evidence | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + department reviewers | active |
 | 2026-07-16 | Synchronized customer finance, dual-state and terminal-action docs with code, migration and release evidence | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + department reviewers | active |
+| 2026-07-17 | Synchronized the device-custody addendum, migration, permissions, visual evidence, release and rollback authority | TASK-20260716-005-device-custody-status-implementation | Integration Lead + department reviewers | active |

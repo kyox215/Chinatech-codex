@@ -62,7 +62,7 @@ as owner of this file.
 
 ## Interfaces and dependencies
 
-Proposed verification contract from `TASK-20260716-004-device-left-status-plan`: future implementation must cover create/detail/cancel/complete/pickup/offline/import-export/permission/tenant cases and responsive screenshots; no such runtime gate has passed yet.
+Verified gate from `TASK-20260716-005-device-custody-status-implementation`: create/detail/cancel/complete/pickup/offline/import-export/permission/tenant cases are covered by 1087 app tests, PG17 102+42 pgTAP assertions, 3/3 responsive E2E, four screenshots, exact production metadata/ACL checks and clean runtime observation.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
@@ -138,4 +138,4 @@ Proposed verification contract from `TASK-20260716-004-device-left-status-plan`:
 | 2026-07-16 | Recorded Dashboard priority authorization, truth-state, responsive, privacy, full-suite and visual evidence matrix | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + QA/SEC/UX reviewers | active |
 | 2026-07-16 | Recorded Orders queue loading/race/offline, bounded-query, realtime/preload, full-suite and responsive visual gates | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + QA/SEC/UX reviewers | active |
 | 2026-07-16 | Recorded customer finance/lifecycle SQL, permission, atomicity, full-suite, responsive and production postcheck matrix | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + QA/DATA/SEC/UX reviewers | active |
-| 2026-07-16 | Recorded proposed device-custody regression and visual-evidence matrix; runtime validation remains pending implementation | TASK-20260716-004-device-left-status-plan | Integration Lead + QA/SEC reviewer | proposed |
+| 2026-07-17 | Closed the device-custody regression, SQL state-machine, responsive visual and production postcheck matrix | TASK-20260716-005-device-custody-status-implementation | Integration Lead + QA/SEC/DATA reviewers | scoped_verified |
