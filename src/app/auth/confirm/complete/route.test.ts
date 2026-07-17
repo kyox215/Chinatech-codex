@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { POST } from "@/app/auth/confirm/complete/route";
 import {
   isSameOriginRequest,
-  POST,
   safeInviteCompletionPath,
-} from "@/app/auth/confirm/complete/route";
+} from "@/features/auth/model/invite-confirmation";
 
 const verifyOtp = vi.hoisted(() => vi.fn());
 
