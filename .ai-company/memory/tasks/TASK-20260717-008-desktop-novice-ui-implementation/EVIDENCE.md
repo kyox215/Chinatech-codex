@@ -50,6 +50,15 @@ Controlled mock data only; no production credentials or customer PII.
 - Fresh `supabase db push --linked --dry-run` result: `Remote database is up to date.`
 - Therefore the correct apply result is a verified no-op: zero pending task migrations, zero DDL/data writes, no `--include-all`, and no dummy migration.
 
+## Git and production release evidence
+
+- Scoped implementation commit: `f39f9b8400a16e6f6ba7ec7c2e6f3838fd5b07b7` (`feat(ui): simplify desktop repair workflows`).
+- Non-force push completed; a fresh `git ls-remote origin refs/heads/main` returned the exact implementation SHA.
+- Vercel production deployment `dpl_7yH1MgiVAR3xGV4ZGvNfSn5NHoh6` is `READY` and serves `chinatech.in`, `www.chinatech.in`, and the production main alias.
+- Anonymous production smoke: `/login` resolves to `https://www.chinatech.in/login` with HTTP 200; `/orders` redirects through the login guard and resolves with HTTP 200.
+- Fifteen-minute observation found zero HTTP 500 logs. Two error-level entries were stale-browser `refresh_token_not_found` authentication events; the affected requests still returned 200/307 and do not indicate a release regression.
+- The isolated worktree was clean after the implementation commit; the original dirty checkout and unrelated user changes remained untouched.
+
 ## Documentation impact matrix
 
 | Reader | Impact | Authoritative update | Verification |
@@ -69,6 +78,7 @@ No README, API route, environment variable, dependency or new schema documentati
 
 ## Rollback
 
-- Application rollback: revert the scoped release commit; do not roll back or delete `20260717182220`.
+- Application rollback: revert scoped commit `f39f9b8400a16e6f6ba7ec7c2e6f3838fd5b07b7` or promote the preceding READY deployment; do not roll back or delete `20260717182220`.
 - Database rollback: not applicable because this task performs no database write.
 - If a UI regression appears, keep the existing migration history intact and apply a forward UI fix.
+- `2026-07-17T21:31:06Z` `26a21a6cb2` — main business release f39f9b8400a16e6f6ba7ec7c2e6f3838fd5b07b7; Vercel dpl_7yH1MgiVAR3xGV4ZGvNfSn5NHoh6 READY; Supabase remote up to date; all quality gates and screenshots passed.

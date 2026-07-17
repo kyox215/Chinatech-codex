@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260717-008-desktop-novice-ui-implementation"
 title: "桌面端小白化工作台实施与发布"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2_code_L1_production"
 owner: "IntegrationLead"
 departments: ["Product", "UX", "Frontend", "Data", "Security", "QA", "Release", "Documentation"]
 created_at: "2026-07-17T22:20:00+02:00"
-updated_at: "2026-07-17T21:18:00Z"
+updated_at: "2026-07-17T21:31:06Z"
+closed_at: "2026-07-17T21:29:33Z"
 ---
 # Task
 
@@ -67,3 +68,10 @@ updated_at: "2026-07-17T21:18:00Z"
 - UX/FE、FLOW/DATA/SEC、QA/Release 子代理：只读复核。
 - 隔离 worktree：`/private/tmp/repairdesk-desktop-novice-ui-20260717`。
 - 分支：`codex/desktop-novice-ui-20260717`，基线 `origin/main@91a5d077`。
+
+## Closure
+
+- 业务实现提交：`f39f9b8400a16e6f6ba7ec7c2e6f3838fd5b07b7`，已非强制推送并精确核验为远端 `main`。
+- Vercel production：`dpl_7yH1MgiVAR3xGV4ZGvNfSn5NHoh6`，状态 `READY`，`chinatech.in` 与 `www.chinatech.in` 已绑定。
+- Supabase：本地/远端 migration 历史对齐至 `20260717213518`，linked dry-run 为 `Remote database is up to date.`；本任务正确应用结果为零数据库写入。
+- 所有验收项、全量质量门禁、独立复核、截图和生产无凭据冒烟均已通过；残余风险见 `CEO_REPORT.md`。

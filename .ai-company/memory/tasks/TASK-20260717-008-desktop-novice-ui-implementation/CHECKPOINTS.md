@@ -16,3 +16,12 @@
 - **Evidence:**
   - EVIDENCE.md；screenshots/TASK-20260717-008-desktop-novice-ui-implementation；QA final GO
 - **Recorded by:** IntegrationLead
+## 2026-07-17T21:31:06Z — 桌面端小白化实施已推送 main 并完成 Vercel READY、生产无凭据冒烟与 Supabase linked no-op 核验。
+
+- **Phase:** closed
+- **Completed/current state:** 桌面端小白化实施已推送 main 并完成 Vercel READY、生产无凭据冒烟与 Supabase linked no-op 核验。
+- **Next:** 无必需后续动作；如出现回归，按 CEO_REPORT 和 HANDOFF 从精确角色、生命周期与视口复现。
+- **Decision:** No new migration was created or applied because the linked local and remote histories were already identical; the production database received zero writes.
+- **Evidence:**
+  - main business release f39f9b8400a16e6f6ba7ec7c2e6f3838fd5b07b7; Vercel dpl_7yH1MgiVAR3xGV4ZGvNfSn5NHoh6 READY; Supabase remote up to date; all quality gates and screenshots passed.
+- **Recorded by:** IntegrationLead
