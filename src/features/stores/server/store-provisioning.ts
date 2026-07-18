@@ -214,6 +214,7 @@ const DEFAULT_ORDER_WORKFLOW_TRANSITIONS = [
 export interface StoreProvisioningInput {
   storeId: string;
   storeName: string;
+  storeAddress?: string;
   actorId?: string;
   now?: string;
 }
@@ -246,7 +247,7 @@ async function seedStoreSettings(
       id: storeSettingsIdForStore(input.storeId),
       store_id: input.storeId,
       store_name: storeName,
-      store_address: "",
+      store_address: input.storeAddress?.trim() ?? "",
       store_phone: "",
       store_whatsapp: "",
       store_email: "",

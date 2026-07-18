@@ -23,6 +23,10 @@ import {
   formatWarrantyText,
   normalizeWarrantyMonths,
 } from "@/features/orders/model/order-warranty";
+import {
+  getActiveMockStoreId,
+  getCreatedMockStoreProfile,
+} from "@/features/stores/testing/mock-api";
 
 const DEFAULT_MOCK_STORE_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -35,7 +39,7 @@ const messageTemplates: MessageTemplate[] = DEFAULT_MESSAGE_TEMPLATES.map((templ
 }));
 
 export async function getStoreSettings(_actor?: AuditActor): Promise<StoreSettings> {
-  const storeId = _actor?.storeId ?? DEFAULT_MOCK_STORE_ID;
+  const storeId = resolveMockStoreId(_actor);
   return { ...getOrCreateStoreSettings(storeId), store_id: storeId };
 }
 
@@ -43,7 +47,7 @@ export async function updateStoreSettings(
   request: StoreSettingsSectionUpdateRequest,
   _actor?: AuditActor,
 ): Promise<StoreSettings> {
-  const storeId = _actor?.storeId ?? DEFAULT_MOCK_STORE_ID;
+  const storeId = resolveMockStoreId(_actor);
   if (request.expectedStoreId !== storeId) throw SettingsMutationError.contextChanged();
   const current = getOrCreateStoreSettings(storeId);
   if (request.expectedUpdatedAt !== current.updated_at)
@@ -76,14 +80,23 @@ function getOrCreateStoreSettings(storeId: string) {
   const existing = storeSettingsByStore.get(storeId);
   if (existing) return existing;
   const now = new Date().toISOString();
+  const storeProfile = getCreatedMockStoreProfile(storeId);
   const created = withStoreSettingsDefaults({
     ...DEFAULT_STORE_SETTINGS,
     store_id: storeId,
+    store_name: storeProfile?.name ?? DEFAULT_STORE_SETTINGS.store_name,
+    store_address: storeProfile?.address ?? DEFAULT_STORE_SETTINGS.store_address,
+    print_footer: storeProfile?.name ? `Grazie per aver scelto ${storeProfile.name}.` : "",
+    message_signature: storeProfile?.name ?? "",
     created_at: now,
     updated_at: now,
   });
   storeSettingsByStore.set(storeId, created);
   return created;
+}
+
+function resolveMockStoreId(actor?: AuditActor) {
+  return actor?.storeId ?? getActiveMockStoreId() ?? DEFAULT_MOCK_STORE_ID;
 }
 
 export async function listMessageTemplates(_actor?: AuditActor): Promise<MessageTemplate[]> {
@@ -139,7 +152,7 @@ export async function renderMessageTemplatePreview(
     ? messageTemplates.find((item) => item.id === input.templateId)
     : undefined;
   const bodyTemplate = input.bodyTemplate ?? template?.body_template ?? "";
-  const storeId = _actor?.storeId ?? DEFAULT_MOCK_STORE_ID;
+  const storeId = resolveMockStoreId(_actor);
   const context = {
     ...createPreviewTemplateContext(getOrCreateStoreSettings(storeId)),
     ...(input.context ?? {}),

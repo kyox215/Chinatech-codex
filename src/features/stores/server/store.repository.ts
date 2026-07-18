@@ -138,6 +138,7 @@ export async function createStore(
     await provisionStoreDefaults(supabase, {
       storeId: createdStore.id,
       storeName: createdStore.name,
+      storeAddress: input.address,
       actorId: actor.id,
       now,
     });

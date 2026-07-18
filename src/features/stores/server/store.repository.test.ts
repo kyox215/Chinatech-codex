@@ -554,7 +554,11 @@ describe("store repository access request boundaries", () => {
       .mockReturnValueOnce(activateStoreQuery);
 
     const context = await createStore(
-      { name: "  ChinaTech Roma  ", currency_code: "EUR" },
+      {
+        name: "  ChinaTech Roma  ",
+        address: "  Via Roma 12, Roma  ",
+        currency_code: "EUR",
+      },
       newOwner,
     );
 
@@ -601,7 +605,7 @@ describe("store repository access request boundaries", () => {
       expect.objectContaining({
         store_id: "store_new",
         store_name: "ChinaTech Roma",
-        store_address: "",
+        store_address: "Via Roma 12, Roma",
         message_signature: "ChinaTech Roma",
         updated_by: "owner_2",
       }),

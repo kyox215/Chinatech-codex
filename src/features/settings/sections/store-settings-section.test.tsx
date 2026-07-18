@@ -57,11 +57,21 @@ describe("StoreSettingsSectionContent", () => {
     fireEvent.keyDown(createInput, { key: "Enter" });
     expect(onCreateStore).not.toHaveBeenCalled();
 
-    view.rerender(storeSection({ newStoreName: "Second Lab", onDraftChange, onCreateStore }));
+    view.rerender(
+      storeSection({
+        newStoreName: "Second Lab",
+        newStoreAddress: "Via Etnea 24, Catania",
+        onDraftChange,
+        onCreateStore,
+      }),
+    );
     fireEvent.keyDown(screen.getByLabelText("新店铺名称"), { key: "Enter" });
     expect(onCreateStore).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog", { name: "确认创建独立店铺？" })).toHaveTextContent(
       "Second Lab",
+    );
+    expect(screen.getByRole("alertdialog", { name: "确认创建独立店铺？" })).toHaveTextContent(
+      "Via Etnea 24, Catania",
     );
     fireEvent.click(screen.getByRole("button", { name: "确认创建并切换" }));
     expect(onCreateStore).toHaveBeenCalledTimes(1);
@@ -76,6 +86,7 @@ describe("StoreSettingsSectionContent", () => {
     expect(within(details as HTMLElement).getByText("店铺名").tagName).toBe("DT");
     expect(within(details as HTMLElement).getByText("Repair Lab").tagName).toBe("DD");
     expect(screen.getByLabelText("新店铺名称")).toBeEnabled();
+    expect(screen.getByLabelText("默认打印地址（可选）")).toBeEnabled();
     expect(screen.getByText("当前账号可查看店铺资料；修改请联系店主或经理。")).toBeVisible();
   });
 
@@ -118,6 +129,7 @@ function renderStore({
   isDraftDirty = false,
   canUpdateSettings = true,
   newStoreName = "",
+  newStoreAddress = "",
   switchError,
   createError,
   onDraftChange = vi.fn(),
@@ -128,6 +140,7 @@ function renderStore({
   isDraftDirty?: boolean;
   canUpdateSettings?: boolean;
   newStoreName?: string;
+  newStoreAddress?: string;
   switchError?: string;
   createError?: string;
   onDraftChange?: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
@@ -140,6 +153,7 @@ function renderStore({
       isDraftDirty,
       canUpdateSettings,
       newStoreName,
+      newStoreAddress,
       switchError,
       createError,
       onDraftChange,
@@ -154,6 +168,7 @@ function storeSection({
   isDraftDirty = false,
   canUpdateSettings = true,
   newStoreName = "",
+  newStoreAddress = "",
   switchError,
   createError,
   onDraftChange = vi.fn(),
@@ -164,6 +179,7 @@ function storeSection({
   isDraftDirty?: boolean;
   canUpdateSettings?: boolean;
   newStoreName?: string;
+  newStoreAddress?: string;
   switchError?: string;
   createError?: string;
   onDraftChange?: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
@@ -180,7 +196,9 @@ function storeSection({
       switchError={switchError}
       createError={createError}
       newStoreName={newStoreName}
+      newStoreAddress={newStoreAddress}
       onNewStoreNameChange={vi.fn()}
+      onNewStoreAddressChange={vi.fn()}
       onSwitchStore={vi.fn()}
       onCreateStore={onCreateStore}
       draft={draft}

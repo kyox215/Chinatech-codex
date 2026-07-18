@@ -450,7 +450,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     render(settingsTree(queryClient));
 
     expect(await screen.findByText("当前已暂停")).toBeVisible();
-    await user.type(screen.getByLabelText("地址"), "Via Roma 12");
+    await user.type(screen.getByLabelText("门店默认地址（用于打印）"), "Via Roma 12");
 
     expect(screen.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
     expect(screen.queryByText("当前已就绪")).not.toBeInTheDocument();
@@ -477,7 +477,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     navigationMocks.search = "section=notifications";
     view.rerender(settingsTree(queryClient));
     const messagePreview = (await screen.findByText("客户消息预览")).closest("div");
-    const printPreview = screen.getByText("打印页脚预览").closest("div");
+    const printPreview = screen.getByText("打印资料预览").closest("div");
 
     expect(messagePreview).toHaveTextContent("Ripara Subito");
     expect(messagePreview).not.toHaveTextContent("Hidden Store Draft");
@@ -740,6 +740,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     expect(nameInput).toHaveValue("Ripara Subito");
 
     await user.type(screen.getByLabelText("新店铺名称"), "Failed Store");
+    await user.type(screen.getByLabelText("默认打印地址（可选）"), "Via Etnea 24");
     await user.click(screen.getByRole("button", { name: "创建并切换" }));
     await user.click(
       within(screen.getByRole("alertdialog", { name: "确认创建独立店铺？" })).getByRole("button", {
@@ -747,7 +748,10 @@ describe("SettingsScreen store-bound transient secrets", () => {
       }),
     );
     await waitFor(() => expect(apiMocks.createStore).toHaveBeenCalledTimes(1));
-    expect(apiMocks.createStore.mock.calls[0]?.[0]).toEqual({ name: "Failed Store" });
+    expect(apiMocks.createStore.mock.calls[0]?.[0]).toEqual({
+      name: "Failed Store",
+      address: "Via Etnea 24",
+    });
     expect(nameInput).toHaveValue("Ripara Subito");
   });
 
@@ -763,6 +767,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "Unsaved Current Store");
     await user.type(screen.getByLabelText("新店铺名称"), "Second Store");
+    await user.type(screen.getByLabelText("默认打印地址（可选）"), "Via Roma 99");
     await user.click(screen.getByRole("button", { name: "创建并切换" }));
     await user.click(
       within(screen.getByRole("alertdialog", { name: "确认创建独立店铺？" })).getByRole("button", {
@@ -775,6 +780,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     await user.click(within(guard).getByRole("button", { name: "取消" }));
     expect(nameInput).toHaveValue("Unsaved Current Store");
     expect(screen.getByLabelText("新店铺名称")).toHaveValue("Second Store");
+    expect(screen.getByLabelText("默认打印地址（可选）")).toHaveValue("Via Roma 99");
   }, 10_000);
 
   it("guards the account display-name draft before settings navigation", async () => {

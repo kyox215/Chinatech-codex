@@ -41,6 +41,7 @@ const mockStores = [
 ] satisfies StoreContext["stores"];
 
 let activeStoreId = mockStores[0].id;
+const createdStoreProfiles = new Map<string, { name: string; address: string }>();
 const mockMembersByStore = new Map<string, StoreMember[]>([
   [
     activeStoreId,
@@ -139,6 +140,10 @@ export async function createStore(
     status: "active",
     membershipId,
   });
+  createdStoreProfiles.set(id, {
+    name,
+    address: input.address?.trim() ?? "",
+  });
   storeMembers(id).unshift({
     id: membershipId,
     user_id: actor?.id ?? "mock_user_owner",
@@ -151,6 +156,15 @@ export async function createStore(
   });
   activeStoreId = id;
   return context(actor);
+}
+
+export function getCreatedMockStoreProfile(storeId: string) {
+  const profile = createdStoreProfiles.get(storeId);
+  return profile ? { ...profile } : undefined;
+}
+
+export function getActiveMockStoreId() {
+  return activeStoreId;
 }
 
 export async function listStoreMembers(actor?: AuditActor): Promise<StoreMembersResult> {

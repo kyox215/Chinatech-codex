@@ -71,6 +71,26 @@ describe("store settings readiness", () => {
     };
 
     expect(buildStoreMessagePreview(settings)).toContain("Contatto: 未填写 WhatsApp / 电话");
+    expect(buildStorePrintPreview(completeSettings)).toContain(
+      "Indirizzo: Viale Vittorio Veneto 7",
+    );
+    expect(buildStorePrintPreview(completeSettings)).toContain(
+      "Contatti: Tel: +39 0931 · WhatsApp: +39 333 · info@example.test",
+    );
+    expect(
+      buildStorePrintPreview({
+        ...settings,
+        store_address: "",
+        store_email: "",
+      }),
+    ).toContain("Indirizzo: 未填写门店地址");
+    expect(
+      buildStorePrintPreview({
+        ...settings,
+        store_address: "",
+        store_email: "",
+      }),
+    ).toContain("Contatti: 未填写电话 / WhatsApp / 邮箱");
     expect(buildStorePrintPreview(settings)).toContain("未填写打印页脚");
   });
 });

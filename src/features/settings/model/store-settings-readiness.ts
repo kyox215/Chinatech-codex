@@ -103,14 +103,29 @@ export function buildStoreMessagePreview(settings: StoreSettingsReadinessInput) 
 
 export function buildStorePrintPreview(settings: StoreSettingsReadinessInput) {
   const storeName = cleanText(settings.store_name) || "未填写店铺名";
+  const address = cleanText(settings.store_address);
+  const contactLine = [
+    formatContact("Tel", settings.store_phone),
+    formatContact("WhatsApp", settings.store_whatsapp),
+    cleanText(settings.store_email),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const footer = cleanText(settings.print_footer);
   const warrantyMonths = Number(settings.default_inventory_warranty_months);
 
   return [
     storeName,
+    address ? `Indirizzo: ${address}` : "Indirizzo: 未填写门店地址",
+    contactLine ? `Contatti: ${contactLine}` : "Contatti: 未填写电话 / WhatsApp / 邮箱",
     `Garanzia usato: ${Number.isFinite(warrantyMonths) ? warrantyMonths : 0} mesi`,
     footer || "未填写打印页脚",
   ].join("\n");
+}
+
+function formatContact(label: string, value: string | undefined) {
+  const normalized = cleanText(value);
+  return normalized ? `${label}: ${normalized}` : "";
 }
 
 function hasText(value: string | undefined) {

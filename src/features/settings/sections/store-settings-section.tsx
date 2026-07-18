@@ -73,7 +73,9 @@ export interface StoreSettingsSectionContentProps {
   switchError?: string;
   createError?: string;
   newStoreName: string;
+  newStoreAddress: string;
   onNewStoreNameChange: (value: string) => void;
+  onNewStoreAddressChange: (value: string) => void;
   onSwitchStore: (storeId: string) => void;
   onCreateStore: () => void;
   lifecyclePreflight?: StoreLifecyclePreflight;
@@ -101,7 +103,9 @@ export function StoreSettingsSectionContent({
   switchError,
   createError,
   newStoreName,
+  newStoreAddress,
   onNewStoreNameChange,
+  onNewStoreAddressChange,
   onSwitchStore,
   onCreateStore,
   lifecyclePreflight,
@@ -163,7 +167,9 @@ export function StoreSettingsSectionContent({
         isCreating={isCreating}
         error={createError}
         newStoreName={newStoreName}
+        newStoreAddress={newStoreAddress}
         onNewStoreNameChange={onNewStoreNameChange}
+        onNewStoreAddressChange={onNewStoreAddressChange}
         onCreateStore={onCreateStore}
       />
     </div>
@@ -357,13 +363,17 @@ function StoreCreationCard({
   isCreating,
   error,
   newStoreName,
+  newStoreAddress,
   onNewStoreNameChange,
+  onNewStoreAddressChange,
   onCreateStore,
 }: {
   isCreating: boolean;
   error?: string;
   newStoreName: string;
+  newStoreAddress: string;
   onNewStoreNameChange: (value: string) => void;
+  onNewStoreAddressChange: (value: string) => void;
   onCreateStore: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -376,23 +386,36 @@ function StoreCreationCard({
     <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
       <RepairOsSectionHeader icon={Plus} iconFrame={false} title="创建独立店铺" />
       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-        <SettingsField label="新店铺名称" htmlFor="new-store">
-          <Input
-            id="new-store"
-            className="h-10 text-sm"
-            value={newStoreName}
-            maxLength={80}
-            placeholder="输入至少 2 个字符"
-            disabled={isCreating}
-            onChange={(event) => onNewStoreNameChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                requestCreate();
-              }
-            }}
-          />
-        </SettingsField>
+        <div className="grid min-w-0 gap-3">
+          <SettingsField label="新店铺名称" htmlFor="new-store">
+            <Input
+              id="new-store"
+              className="h-10 text-sm"
+              value={newStoreName}
+              maxLength={80}
+              placeholder="输入至少 2 个字符"
+              disabled={isCreating}
+              onChange={(event) => onNewStoreNameChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  requestCreate();
+                }
+              }}
+            />
+          </SettingsField>
+          <SettingsField label="默认打印地址（可选）" htmlFor="new-store-address">
+            <Textarea
+              id="new-store-address"
+              rows={2}
+              maxLength={500}
+              value={newStoreAddress}
+              placeholder="例如 Via Roma 12, Siracusa"
+              disabled={isCreating}
+              onChange={(event) => onNewStoreAddressChange(event.target.value)}
+            />
+          </SettingsField>
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -406,7 +429,7 @@ function StoreCreationCard({
         </Button>
       </div>
       <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-        将创建新的独立私有租户并切换过去。此入口沿用现有账号资格策略，不受当前店铺资料编辑权限影响。
+        将创建新的独立私有租户并切换过去。维修工单、批量工单和二手销售票据会使用填写的默认地址；创建后仍可修改。
       </p>
       {error ? (
         <div
@@ -422,7 +445,11 @@ function StoreCreationCard({
             <AlertDialogTitle>确认创建独立店铺？</AlertDialogTitle>
             <AlertDialogDescription>
               将创建“{newStoreName.trim()}
-              ”作为新的独立私有租户，并在成功后切换过去。当前店铺的数据与权限不会复制。
+              ”作为新的独立私有租户，并在成功后切换过去。
+              {newStoreAddress.trim()
+                ? ` 默认打印地址为“${newStoreAddress.trim()}”。`
+                : " 默认打印地址暂不填写，完成后可在店铺设置补充。"}
+              当前店铺的数据与权限不会复制。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -555,7 +582,7 @@ function StoreProfileCard({
             </SettingsField>
           </div>
           <SettingsField
-            label="地址"
+            label="门店默认地址（用于打印）"
             htmlFor="store-address"
             className="mt-3"
             error={getSettingsFieldError(fieldErrors, "store_address")}
@@ -567,14 +594,18 @@ function StoreProfileCard({
               value={draft.store_address}
               autoComplete="street-address"
               aria-invalid={Boolean(getSettingsFieldError(fieldErrors, "store_address"))}
-              aria-describedby={getSettingsFieldErrorId(
-                fieldErrors,
-                "store_address",
-                "store-address",
-              )}
+              aria-describedby={[
+                getSettingsFieldErrorId(fieldErrors, "store_address", "store-address"),
+                "store-address-help",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               onChange={(event) => onDraftChange({ store_address: event.target.value })}
             />
           </SettingsField>
+          <p id="store-address-help" className="mt-2 text-[11px] leading-4 text-muted-foreground">
+            维修工单、批量工单和二手销售票据会使用此地址；留空时客户输出保持暂停，不会回退到其他店铺地址。
+          </p>
           <SettingsField
             label="客户门户域名"
             htmlFor="public-base-url"
@@ -614,7 +645,7 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
     ["电话", draft.store_phone],
     ["WhatsApp", draft.store_whatsapp],
     ["客户门户域名", draft.public_base_url ?? ""],
-    ["地址", draft.store_address],
+    ["默认打印地址", draft.store_address],
   ] as const;
 
   return (
@@ -628,7 +659,7 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
             key={label}
             className={cn(
               "min-w-0 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2.5",
-              label === "地址" && "sm:col-span-2",
+              label === "默认打印地址" && "sm:col-span-2",
             )}
           >
             <dt className="text-[10px] font-medium text-muted-foreground">{label}</dt>

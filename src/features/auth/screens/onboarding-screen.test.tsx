@@ -110,6 +110,44 @@ describe("OnboardingScreen", () => {
     toastMocks.success.mockReset();
   });
 
+  it("creates a new store with its own optional default print address", async () => {
+    const user = userEvent.setup();
+    apiMocks.getOnboardingStatus.mockResolvedValue({
+      email: "owner@example.com",
+      displayName: "Owner",
+      isPlatformAdmin: false,
+      stores: [],
+      requests: [],
+      invitations: [],
+      availableStores: [],
+    });
+    apiMocks.createStore.mockResolvedValue({
+      activeStore: {
+        id: "store-roma",
+        name: "Ripara Roma",
+        slug: "ripara-roma",
+        role: "owner",
+        status: "active",
+      },
+      stores: [],
+    });
+
+    renderOnboardingScreen();
+
+    await user.click(await screen.findByRole("tab", { name: "创建店铺" }));
+    await user.type(screen.getByLabelText("店铺名称"), "Ripara Roma");
+    await user.type(screen.getByLabelText("默认打印地址（可选）"), "Via Roma 12");
+    await user.click(screen.getByRole("button", { name: "创建店铺" }));
+
+    await waitFor(() =>
+      expect(apiMocks.createStore).toHaveBeenCalledWith({
+        name: "Ripara Roma",
+        address: "Via Roma 12",
+        currency_code: "EUR",
+      }),
+    );
+  });
+
   it("lets an applicant cancel a pending onboarding request", async () => {
     const user = userEvent.setup();
     apiMocks.getOnboardingStatus.mockResolvedValue(

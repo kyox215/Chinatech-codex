@@ -1721,6 +1721,7 @@ export const supplierArchiveBodySchema = z.object({
 export const storeCreateInputSchema = z
   .object({
     name: z.string().min(2, "店铺名称至少需要 2 个字符").max(80, "店铺名称不能超过 80 个字符"),
+    address: z.string().trim().max(500, "店铺地址不能超过 500 个字符").optional(),
     timezone: optionalText,
     currency_code: z.literal("EUR").optional(),
   })

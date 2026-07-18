@@ -364,7 +364,9 @@ test.describe("settings account and store workspace details", () => {
 
     await gotoReady(page, "/settings?section=store");
     await expect(page.getByText("当前已暂停")).toBeVisible();
-    await page.getByLabel("地址").fill("Via Roma 12, Floridia");
+    await page
+      .getByRole("textbox", { name: "门店默认地址（用于打印）", exact: true })
+      .fill("Via Roma 12, Floridia");
     await expect(page.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
     await expect(page.getByText("当前已暂停")).toBeVisible();
     await expectNoPageOverflow(page, "store draft projection 390px");
@@ -417,7 +419,7 @@ test.describe("settings notifications and default rules", () => {
 
     const section = page.locator("[data-settings-notifications-section]");
     await expect(section.getByText("客户消息预览")).toBeVisible();
-    await expect(section.getByText("打印页脚预览")).toBeVisible();
+    await expect(section.getByText("打印资料预览")).toBeVisible();
     await expect(section.getByRole("link", { name: /打开消息模板/ })).toHaveAttribute(
       "href",
       "/messages",
@@ -1136,7 +1138,10 @@ test.describe("settings mobile overlay and guard safety", () => {
 
   test("keeps the focused address field as the top hit target", async ({ page }) => {
     await gotoReady(page, "/settings?section=store");
-    const address = page.getByLabel("地址");
+    const address = page.getByRole("textbox", {
+      name: "门店默认地址（用于打印）",
+      exact: true,
+    });
     await address.scrollIntoViewIfNeeded();
     await address.focus();
     const box = await address.boundingBox();

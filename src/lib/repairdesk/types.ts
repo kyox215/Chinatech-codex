@@ -1920,6 +1920,7 @@ export interface StoreContext {
 
 export interface StoreCreateInput {
   name: string;
+  address?: string;
   timezone?: string;
   currency_code?: CurrencyCode;
 }

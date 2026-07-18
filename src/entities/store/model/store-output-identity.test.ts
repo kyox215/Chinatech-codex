@@ -123,6 +123,27 @@ describe("resolveStoreOutputIdentity", () => {
     expect(JSON.stringify(identity)).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
   });
 
+  it("blocks the photo regression when only a partner store address carries the legacy location", () => {
+    const identity = resolveStoreOutputIdentity({
+      activeStore: { id: "store-partner", name: "ZYG HOME Riparazioni" },
+      settings: {
+        store_id: "store-partner",
+        store_name: "ZYG HOME Riparazioni",
+        store_address: "Viale Vittorio Veneto 7, 96014 Floridia, Siracusa",
+        store_phone: "+39 0932 91663",
+        message_signature: "ZYG HOME Riparazioni",
+        print_footer: "Grazie per aver scelto ZYG HOME Riparazioni.",
+      },
+    });
+
+    expect(identity).toMatchObject({
+      canOutput: false,
+      blockCode: "legacy_identity",
+      recoveryTarget: "store",
+    });
+    expect(JSON.stringify(identity)).not.toMatch(/Floridia|Viale Vittorio Veneto/i);
+  });
+
   it("allows the configured legacy identity only for the actual default store", () => {
     const identity = resolveStoreOutputIdentity({
       activeStore: {

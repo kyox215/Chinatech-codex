@@ -300,6 +300,7 @@ export function SettingsScreen() {
   const accountNameDraftRef = useRef("");
   const accountNameBaseRef = useRef("");
   const [newStoreName, setNewStoreName] = useState("");
+  const [newStoreAddress, setNewStoreAddress] = useState("");
   const [supplierActionError, setSupplierActionError] = useState("");
   const [memberActionError, setMemberActionError] = useState("");
   const [memberSaveError, setMemberSaveError] = useState("");
@@ -830,6 +831,7 @@ export function SettingsScreen() {
     onSuccess: async (context) => {
       toast.success(`已创建 ${context.activeStore?.name ?? "新店铺"}`);
       setNewStoreName("");
+      setNewStoreAddress("");
       await queryClient.invalidateQueries();
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "创建店铺失败"),
@@ -1598,9 +1600,14 @@ export function SettingsScreen() {
                         : undefined
                     }
                     newStoreName={newStoreName}
+                    newStoreAddress={newStoreAddress}
                     onNewStoreNameChange={(value) => {
                       createStoreMutation.reset();
                       setNewStoreName(value);
+                    }}
+                    onNewStoreAddressChange={(value) => {
+                      createStoreMutation.reset();
+                      setNewStoreAddress(value);
                     }}
                     onSwitchStore={(storeId) => {
                       if (!storeId || storeId === storeContextQuery.data?.activeStore?.id) return;
@@ -1619,7 +1626,11 @@ export function SettingsScreen() {
                       runGuardedTransition({
                         kind: "store-create",
                         label: `创建店铺 ${name}`,
-                        run: () => createStoreMutation.mutateAsync({ name }),
+                        run: () =>
+                          createStoreMutation.mutateAsync({
+                            name,
+                            address: newStoreAddress.trim() || undefined,
+                          }),
                       });
                     }}
                     lifecyclePreflight={

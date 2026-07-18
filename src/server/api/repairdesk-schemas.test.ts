@@ -48,6 +48,7 @@ import {
   storeInviteLinkDecisionBodySchema,
   storeInviteLinkRedeemBodySchema,
   storeCloseBodySchema,
+  storeCreateInputSchema,
   storeLifecycleChallengeBodySchema,
   storeMemberDecisionBodySchema,
   storeMemberRoleUpdateBodySchema,
@@ -63,6 +64,24 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it("trims an optional new-store print address and bounds its length", () => {
+    expect(
+      storeCreateInputSchema.parse({
+        name: "Negozio Roma",
+        address: "  Via Roma 12  ",
+        currency_code: "EUR",
+      }),
+    ).toMatchObject({ address: "Via Roma 12" });
+
+    expect(() =>
+      storeCreateInputSchema.parse({
+        name: "Negozio Roma",
+        address: "x".repeat(501),
+        currency_code: "EUR",
+      }),
+    ).toThrow();
+  });
+
   it("keeps blank costs distinct from zero and requires a complete default catalog", () => {
     const items = repairServiceCatalogItems.map((item) => ({
       catalog_key: item.catalogKey,

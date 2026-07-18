@@ -4,15 +4,19 @@ import { buildStorePrintProfile } from "./store-print-profile";
 
 describe("buildStorePrintProfile", () => {
   it("builds a printable profile from active store settings", () => {
-    const profile = buildStorePrintProfile({
-      store_name: "Ripara Subito",
-      store_address: "Via Roma 12, Siracusa",
-      store_phone: "+39 0931 000000",
-      store_whatsapp: "+39 333 1111111",
-      store_email: "info@ripara.test",
-      print_footer: "Grazie per la fiducia.",
-      message_signature: "Ripara Subito · Assistenza",
-    });
+    const profile = buildStorePrintProfile(
+      {
+        store_id: "store-a",
+        store_name: "Ripara Subito",
+        store_address: "Via Roma 12, Siracusa",
+        store_phone: "+39 0931 000000",
+        store_whatsapp: "+39 333 1111111",
+        store_email: "info@ripara.test",
+        print_footer: "Grazie per la fiducia.",
+        message_signature: "Ripara Subito · Assistenza",
+      },
+      { id: "store-a", name: "Ripara Subito" },
+    );
 
     expect(profile).toMatchObject({
       storeName: "Ripara Subito",
@@ -21,6 +25,7 @@ describe("buildStorePrintProfile", () => {
       storeSummaryLine:
         "Via Roma 12, Siracusa · Tel: +39 0931 000000 · WhatsApp: +39 333 1111111 · info@ripara.test",
       printFooter: "Grazie per la fiducia.",
+      canOutput: true,
     });
   });
 

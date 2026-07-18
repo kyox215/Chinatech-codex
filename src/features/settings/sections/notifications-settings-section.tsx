@@ -257,7 +257,7 @@ function NotificationPreviewCard({
           value={messagePreview}
         />
         <OutputPreview
-          title={isDraftDirty ? "未保存草稿 · 打印页脚" : "打印页脚预览"}
+          title={isDraftDirty ? "未保存草稿 · 打印资料" : "打印资料预览"}
           icon={Printer}
           value={printPreview}
         />

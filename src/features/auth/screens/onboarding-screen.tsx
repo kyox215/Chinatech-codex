@@ -28,6 +28,7 @@ import {
   redeemStoreInviteLink,
   submitOnboardingRequest,
   type OnboardingRequestInput,
+  type StoreCreateInput,
 } from "@/lib/repairdesk/api";
 import { brandGradientStyle, controls, formLayout } from "@/lib/ui-patterns";
 import { createClient } from "@/utils/supabase/client";
@@ -50,6 +51,7 @@ export function OnboardingScreen() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<OnboardingRequestInput["request_type"]>("join_store");
   const [storeName, setStoreName] = useState("");
+  const [storeAddress, setStoreAddress] = useState("");
   const [targetOwnerEmail, setTargetOwnerEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [requestNote, setRequestNote] = useState("");
@@ -89,7 +91,7 @@ export function OnboardingScreen() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "提交失败"),
   });
   const createStoreMutation = useMutation({
-    mutationFn: (name: string) => createStore({ name, currency_code: "EUR" }),
+    mutationFn: (input: StoreCreateInput) => createStore(input),
     onSuccess: async () => {
       toast.success("店铺已创建");
       await Promise.all([
@@ -157,7 +159,11 @@ export function OnboardingScreen() {
       return;
     }
     if (formState.mode === "create_store") {
-      createStoreMutation.mutate(formState.storeName.trim());
+      createStoreMutation.mutate({
+        name: formState.storeName.trim(),
+        address: storeAddress.trim() || undefined,
+        currency_code: "EUR",
+      });
       return;
     }
     joinStoreMutation.mutate(buildOnboardingRequestInput(formState));
@@ -461,6 +467,22 @@ export function OnboardingScreen() {
                     onChange={(event) => setStoreName(event.target.value)}
                     placeholder="例如 Centro Riparazioni Roma"
                   />
+                </div>
+                <div className={formLayout.field}>
+                  <Label htmlFor="storeAddress" className={formLayout.label}>
+                    默认打印地址（可选）
+                  </Label>
+                  <Textarea
+                    id="storeAddress"
+                    value={storeAddress}
+                    maxLength={500}
+                    onChange={(event) => setStoreAddress(event.target.value)}
+                    placeholder="例如 Via Roma 12, Siracusa"
+                    rows={2}
+                  />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    维修工单、批量工单和二手销售票据使用此地址；留空时客户输出保持暂停，创建后可在设置中补充。
+                  </p>
                 </div>
                 <div className="rounded-[var(--radius-lg)] border border-primary/15 bg-primary/5 px-3 py-2 text-xs leading-5 text-muted-foreground">
                   创建后你会成为该店铺 owner。店铺资料默认只对本店成员可见，不进入平台审核队列。
