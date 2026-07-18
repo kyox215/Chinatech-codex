@@ -59,3 +59,49 @@
 - **Next:** 等待 Owner 明确批准先应用独立 AI 成本治理 migration；批准后重新 fetch、linked dry-run 与生产前置检查，再串行 apply 四份 migration，先 schema+shadow+Chinatech allowlist 对账，随后 commands/UI 单店灰度。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T21:19:50Z — Owner 已明确批准应用 20260718174042_ai_assistant_cost_governance_v1.sql，并继续四份生产迁移及 Chinatech 单店灰度。原有恢复、RLS/ACL、回滚和 main exact-SHA 证据仍需在 apply 前重新核对；V1 写入、全店扩量和数据删除仍未批准。
+
+- **Phase:** implementation
+- **Completed/current state:** Owner 已明确批准应用 20260718174042_ai_assistant_cost_governance_v1.sql，并继续四份生产迁移及 Chinatech 单店灰度。原有恢复、RLS/ACL、回滚和 main exact-SHA 证据仍需在 apply 前重新核对；V1 写入、全店扩量和数据删除仍未批准。
+- **Next:** 重新 fetch main、linked dry-run、迁移历史、备份和 advisors；门禁通过后串行应用四份 migration，先验证 schema/ACL/AI 休眠，再只启用 Chinatech schema+shadow 对账。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T21:51:17Z — 四份 approved additive migrations 已按 linked 顺序进入生产；10 张新表 RLS/ACL 与 9 个 RPC 权限符合合同，AI 治理保持空且图片识别休眠。Chinatech 已按 schema/shadow 后 commands/UI 分阶段启用，V1 mutations 保持开启；桌面/手机六步录入、AI 可选提示、型号与唯一标识录入已截图验证。生产 rollback-only canary 零残留，最终对账 healthy，Vercel 观察窗无 runtime error/warning/fatal。证据 E-020 至 E-028。
+
+- **Phase:** implementation
+- **Completed/current state:** 四份 approved additive migrations 已按 linked 顺序进入生产；10 张新表 RLS/ACL 与 9 个 RPC 权限符合合同，AI 治理保持空且图片识别休眠。Chinatech 已按 schema/shadow 后 commands/UI 分阶段启用，V1 mutations 保持开启；桌面/手机六步录入、AI 可选提示、型号与唯一标识录入已截图验证。生产 rollback-only canary 零残留，最终对账 healthy，Vercel 观察窗无 runtime error/warning/fatal。证据 E-020 至 E-028。
+- **Next:** 保持 Chinatech 单店 allowlist 并做常规监控；如 V2 异常先关闭 INVENTORY_V2_UI 与 INVENTORY_V2_COMMANDS 后重新部署，保留 V1 和 V2 数据证据。第二门店扩量、AI 供应商启用、V1 关闭或数据清理须新任务和 Owner 批准。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T21:56:48Z — 任务正式关闭：四份生产迁移与 Chinatech 单店灰度通过，V1 保持开启，AI 图片识别休眠，rollback-only canary 零残留，最终对账与即时观察健康。发布运行手册、项目/部门记忆、索引、C1 能力候选、CEO 报告和四张生产截图已同步；agents:check、diff check 与聚焦秘密扫描通过。证据 E-020 至 E-029。
+
+- **Phase:** implementation
+- **Completed/current state:** 任务正式关闭：四份生产迁移与 Chinatech 单店灰度通过，V1 保持开启，AI 图片识别休眠，rollback-only canary 零残留，最终对账与即时观察健康。发布运行手册、项目/部门记忆、索引、C1 能力候选、CEO 报告和四张生产截图已同步；agents:check、diff check 与聚焦秘密扫描通过。证据 E-020 至 E-029。
+- **Next:** 保持 Chinatech 单店 allowlist 和常规监控；任何第二门店、AI 供应商、V1 关闭或数据清理都新建 Owner-approved R4/D4 任务。异常时先关闭 UI/commands 并重新部署，不执行 down/delete。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T21:57:39Z — 最终关闭记录已完成：迁移、Chinatech 单店灰度、V1 保留、AI 休眠、零残留回滚、对账、QA、观察、文档/部门记忆/能力审查与 CEO 报告均有 E-020 至 E-029 证据；四张截图已按真实 JPEG 格式命名。
+
+- **Phase:** implementation
+- **Completed/current state:** 最终关闭记录已完成：迁移、Chinatech 单店灰度、V1 保留、AI 休眠、零残留回滚、对账、QA、观察、文档/部门记忆/能力审查与 CEO 报告均有 E-020 至 E-029 证据；四张截图已按真实 JPEG 格式命名。
+- **Next:** 常规监控 Chinatech；异常先关闭 UI/commands，不 down/delete；任何扩店、AI 供应商、V1 关闭或清理须新 Owner-approved R4/D4 任务。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T21:58:15Z — Inventory V2 Chinatech 单店生产任务已关闭；迁移、灰度、V1 回滚边界、AI 休眠、零残留 rollback-only canary、对账、QA、观察、文档与治理证据均完成。
+
+- **Phase:** closeout
+- **Completed/current state:** Inventory V2 Chinatech 单店生产任务已关闭；迁移、灰度、V1 回滚边界、AI 休眠、零残留 rollback-only canary、对账、QA、观察、文档与治理证据均完成。
+- **Next:** 常规监控 Chinatech；扩店、AI 供应商、V1 关闭或数据清理必须新建 Owner-approved R4/D4 任务。
+- **Decision:** 关闭状态为 PASS；保持 Chinatech-only allowlist 和 V1 mutations=1；事故先关 UI/commands，不 down/delete。
+- **Evidence:**
+  - E-020..E-029；CEO_REPORT.md；四张生产 JPEG 截图；agents:check、lint、typecheck、297 files/1862 tests、build、linked dry-run、runtime observation。
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T22:00:11Z — 最终文档漂移复核完成：AI 成本治理 migration 已更新为生产中空且休眠，旧 Inventory V2 production-off 索引均标记为被本任务取代；其余迁移、灰度、回滚、QA、观察和治理证据不变。
+
+- **Phase:** closeout
+- **Completed/current state:** 最终文档漂移复核完成：AI 成本治理 migration 已更新为生产中空且休眠，旧 Inventory V2 production-off 索引均标记为被本任务取代；其余迁移、灰度、回滚、QA、观察和治理证据不变。
+- **Next:** 常规监控 Chinatech；任何扩店、AI 供应商、V1 关闭或清理须新 Owner-approved R4/D4 任务。
+- **Decision:** 任务保持 closed/PASS；Chinatech-only、V1 on、AI provider dormant。
+- **Evidence:**
+  - E-020..E-029；PROJECT_MEMORY.md；MEMORY_INDEX.md；docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md。
+- **Recorded by:** CEO-Orchestrator

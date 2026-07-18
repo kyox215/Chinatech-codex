@@ -22,12 +22,13 @@ CSV export, guarded history backfill and immutable original-currency snapshots. 
  empty. Owner Option B accepts unproven physical restore/RPO/RTO and the pre-existing full-history
  replay failure for this release only; it does not close the independent recovery P0.
 
-2026-07-18 Inventory V2 safe slice: `TASK-20260718-011-inventory-product-v2-plan` shipped additive,
-fail-closed catalog/variant/unit inventory contracts, atomic command scaffolding, a six-step responsive
-entry flow, AI-as-draft review and `docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md`. Production Web contains
-the code, but migrations `20260718175622` and `20260718181148`, RPC grants, store allowlist and all V2
-flags remain unapplied/off. V1 data, routes and mutations remain the rollback path; activation is a
-separate D4 release.
+2026-07-18 Inventory V2 Chinatech canary: `TASK-20260718-013-inventory-v2-production-canary`
+supersedes the prior production-off statement from `TASK-20260718-011-inventory-product-v2-plan`.
+Four linked migrations are applied; ten new tables remain RLS-on with no browser grants, and three V2
+RPCs remain service-role-only. Only Chinatech is allowlisted with schema/shadow/commands/UI enabled;
+V1 mutations remain enabled. Production rollback-only intake/sale/reconcile passed with zero residual
+rows, desktop/mobile six-step entry is verified, and AI image recognition remains optional and dormant.
+Second-store rollout, AI provider activation, V1 retirement and data cleanup remain separate D4 work.
 
 2026-07-18 workspace integration release: `TASK-20260718-012-workspace-integration-release` safely
 reconstructed three proven release units on latest `main`: workflow-progress order sorting,
@@ -65,7 +66,7 @@ The mixed original checkout was preserved; reverify the live remote SHA before a
 - Closed `TASK-20260716-005-device-custody-status-implementation` defines the independent nullable custody state and audited mutation paths. Migration `20260717182220` supersedes its credential-clearing rule: moving to `with_customer` or returning a device no longer clears stored unlock credentials; only an authorized explicit unlock update clears them. New-order UI requires an explicit custody choice, while legacy NULL remains unknown. Both `20260716235650` and `20260717182220` are present in linked production history.
 - Closed `TASK-20260717-004-order-diagnosis-quote-implementation` defines the current intake-to-quote contract: unknown intake creates no fake price, customer report/diagnosis/charge lines remain distinct, technicians diagnose and hand off, and Owner/Manager/Sales publish and confirm notification. Quote and confirmed-send are separate versioned, idempotent, service-role-only atomic RPCs; opening WhatsApp does not write sent state. Migration `20260717213518` and business application `main@6e511c56` are live and postchecked.
 - Conditional `TASK-20260718-009-ai-assistant-implementation` defines the dormant AI Phase 0–2 contract: staff order assistance is limited to server-derived actor/store/RBAC and two read-only tools with server-built cards; inventory label recognition may only populate an employee-reviewed page-memory form draft before the ordinary save path. Parent/child flags, empty store allowlist, zero quota and fake provider fail closed. Production `main@8bef230` is verified READY without AI/OpenAI environment names, key sync, external calls, migration, image/draft persistence or public entry. Any live provider, persistent draft, workflow expansion or public assistant remains a separate R4/D4 task.
-- Conditionally closed `TASK-20260718-011-ai-assistant-cost-governance` released the dormant Phase 3A cost-governance extension on `main@d84dae86` / READY `dpl_8nFPJjX3dY7Xbh9KTxBCdc5wRVfF`. Capability/RBAC and an all-request abuse guard remain ahead of a conservative deterministic order planner; deterministic hits use no provider quota. Complete local label candidates may skip cloud upload but remain reviewed, unsaved packaging claims. Fixed runtime/model snapshots, HMAC safety identifiers, integer micro-USD estimates and a durable atomic quota migration are verified as default-off code/local schema evidence only. The migration remains unapplied, OpenAI provider remains fail-closed, and all budget/privacy/key/live flags remain D4 decisions.
+- Conditionally closed `TASK-20260718-011-ai-assistant-cost-governance` released the dormant Phase 3A cost-governance extension on `main@d84dae86` / READY `dpl_8nFPJjX3dY7Xbh9KTxBCdc5wRVfF`. Capability/RBAC and an all-request abuse guard remain ahead of a conservative deterministic order planner; deterministic hits use no provider quota. Complete local label candidates may skip cloud upload but remain reviewed, unsaved packaging claims. `TASK-20260718-013-inventory-v2-production-canary` later applied the durable atomic quota migration as empty, dormant governance infrastructure: policy/bucket/request rows remain zero, OpenAI provider remains fail-closed, and all budget/privacy/key/live AI activation decisions remain separate D4 work.
 
 ## Authentication, authorization and sensitive data
 

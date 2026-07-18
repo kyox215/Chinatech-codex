@@ -50,6 +50,7 @@ as owner of this file.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` completed a serialized DB-first release from an isolated worktree while preserving the dirty primary checkout. A concurrent main/migration-replay repair was absorbed before non-force push; the single pending migration was applied and postchecked before `main@6e511c56` reached Vercel READY with clean 15-minute error observation.
 - `TASK-20260717-007-store-lifecycle-implementation` used an isolated latest-main worktree to preserve unrelated root changes, applied exactly six reviewed lifecycle migrations, and non-force pushed implementation SHA `55cb7ab5`. Keep all five flags off until a separate activation task proves disposable-store flows, encrypted sink/KMS and restore; any real purge needs a second exact-target approval.
 - `TASK-20260718-009-ai-assistant-implementation` released the AI Phase 0–2 code as an intentionally dormant unit from an isolated worktree. The operational proof combines exact `main@8bef230`, READY deployment `dpl_HWmQRHjy9XRYPMvLT1E1oraee7jr`, absence of production AI/OpenAI variable names, anonymous auth/API smoke, empty error-level observation and READY rollback deployment `dpl_5tbk1iFUafSExZK3ezWAkxoawQSi`. No key, migration or live provider was released.
+- `TASK-20260718-013-inventory-v2-production-canary` executed the release runbook serially from an isolated worktree: exact four-migration apply/postcheck, schema/shadow deployment before commands/UI, Chinatech-only allowlist, authenticated desktop/mobile proof, rollback-only command canary and clean immediate runtime observation. Operational rollback remains flags first, V1 on and no down/delete.
 
 ## Interfaces and dependencies
 
@@ -80,7 +81,7 @@ scoped slice into broad recovery certification.
 | OPS-20260619-003 | Duplicate cleanup without fresh scan and explicit path list could remove semantic evidence | Governance/review risk | Operations + QA | before deleting newly discovered or now-different duplicate-like files | open |
 | OPS-20260619-004 | Batch C cleanup could lose the attachment-inventory E2E idea | QA backlog loss | Operations + QA | backlog note created and Batch C duplicates deleted by TASK-20260619-011 | closed |
 | OPS-20260713-001 | A Settings candidate can become stale or lose release ownership as main advances | Wrong artifact or uncontained release | Operations + Integration Lead + Owner | require fresh origin, exact target/baseline, on-call, window and recovery owner before push/PR/deploy | open |
-| OPS-20260718-002 | Inventory V2 Web code is deployed while schema/RPC/allowlist remain intentionally inactive | An operator could enable child flags out of order or remove the V1 rollback path | Operations + Data + Security + Owner | run the release runbook in order; schema-ready first, one-store canary later, keep legacy mutations on during observation | contained_by_runbook_and_flags_off |
+| OPS-20260718-002 | Inventory V2 is active for the Chinatech one-store canary | An operator could expand the allowlist, enable AI provider calls or remove the V1 rollback path without new proof | Operations + Data + Security + Owner | keep Chinatech-only allowlist and legacy mutations on; flags-off first on incident; new D4 task before expansion | contained_by_single_store_canary |
 
 ## Lessons and anti-patterns
 

@@ -2,14 +2,16 @@
 schema_version: 1
 task_id: "TASK-20260718-013-inventory-v2-production-canary"
 title: "库存商品 V2 生产恢复门禁与 Chinatech 单店灰度"
-status: "active"
+status: "closed"
+phase: "closeout"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["data", "documentation", "integration", "qa", "release", "security"]
 created_at: "2026-07-18T19:43:02Z"
-updated_at: "2026-07-18T21:11:23Z"
+updated_at: "2026-07-18T22:00:11Z"
+closed_at: "2026-07-18T21:51:17Z"
 ---
 # Task — 库存商品 V2 生产恢复门禁与 Chinatech 单店灰度
 
@@ -52,33 +54,37 @@ Owner 选中“按发布运行手册完成数据库恢复验证和单店灰度�
 ## Acceptance criteria
 
 - [x] 生产恢复/备份证据满足发布门禁，或明确记录阻断并停止
-- [ ] 四份候选 additive migrations 精确应用且后置元数据/RLS/grants/幂等检查通过
-- [ ] 仅 Chinatech 门店进入 allowlist，V1 写入保持开启
-- [ ] shadow、commands、UI 分阶段启用并完成生产冒烟、对账和回滚验证
-- [ ] 任何异常先关闭 UI/commands 并保留 V2 数据证据
+- [x] 四份候选 additive migrations 精确应用且后置元数据/RLS/grants/幂等检查通过
+- [x] 仅 Chinatech 门店进入 allowlist，V1 写入保持开启
+- [x] shadow、commands、UI 分阶段启用并完成生产冒烟、对账和回滚验证
+- [x] 回滚路径已以 commands/UI 关闭态和生产事务强制回滚两种方式验证，未触发数据删除
 
 ## Facts, assumptions, and unknowns
 
 | Item | Type | Evidence | Status / next action |
 |---|---|---|---|
 | Task title and initial metadata | observed | owner request | verify scope |
-| Web/base release is current | verified | `origin/main=92d7cdad`; Vercel production exact-SHA deployment READY | dormant hardening release passed |
+| Web/base release is current | verified | `origin/main=d6b9eaca`; Vercel production exact-SHA deployment READY | Chinatech canary deployment rebuilt from the same release SHA |
 | Production target | verified | `supabase/config.toml`; MCP project | `xluzcoduqsdvjoouqhkc`, ACTIVE_HEALTHY, PG 17.6 |
-| V2 migrations pending | verified with new blocker | final linked dry-run | four migrations are pending: unapproved AI cost governance `20260718174042` precedes the three approved V2 migrations |
+| V2 migration history | verified in production | linked migration list and final dry-run | `20260718174042`, `20260718175622`, `20260718181148`, `20260718195257` all applied; remote up to date |
 | Backup visibility | verified | `supabase backups list` | physical backup completed 2026-07-18 06:49Z; PITR disabled |
 | Data-level restore drill | verified | restricted logical dump, isolated PostgreSQL 17 restore, row-count fingerprint | 116 dumped tables / 40,458 rows exactly restored; two expected empty managed migration tables excluded from data dump |
 | Migration compatibility | verified | fresh full-data restore plus all four pending migrations in exact linked order | AI remains dormant; corrected one-shot V2 definitions execute on restored production data |
 | Runtime transaction behavior | verified in rollback-only restore | `RECOVERY_CANARY_ROLLBACK.sql` | intake, duplicate guard, replay, atomic sale, V2 status/movement projection, reconciliation and conflict guard PASS; zero residual rows |
 | Shadow reconciliation | verified | `repairdesk_inventory_v2_reconcile` and server repository/route | owner/manager + schema/shadow/allowlist gated; empty Chinatech baseline healthy; browser roles have no execute grant |
 | Sale projection defect | fixed and verified | foundation migration plus enhanced recovery script | V2 unit now becomes `sold`, version increments and one `sell -1` movement is written atomically |
-| Exact production apply | blocked | task-011 contract plus linked dry-run | cannot apply only the three V2 versions without bypassing migration order; `--include-all` and AI migration apply are unapproved |
+| Exact production apply | completed | Owner approval, `supabase db push --linked --yes`, post-apply catalog checks | four approved additive migrations applied in linked order; no `--include-all`, seed, V1 disablement or destructive SQL |
 | Historical full reset drift | verified risk | runbook and prior isolated validation | do not edit applied history; use production metadata + isolated restore |
+| Chinatech canary | verified in production | Vercel flags, staged deployments and authenticated browser | schema/shadow first, then commands/UI; allowlist contains only Chinatech and legacy mutations remain enabled |
+| Production rollback | verified | `RECOVERY_CANARY_ROLLBACK.sql` and post-rollback reconciliation | intake/sale/idempotency/duplicate/conflict path passed inside transaction; all residual V2/AI rows zero and V1 inventory count remained 5 |
+| Production observation | verified for release window | Vercel runtime errors/logs, Supabase PostgreSQL logs | no runtime error/warning/fatal on final deployment; recent PostgreSQL entries were normal LOG/checkpoint activity |
 
 ## Decision and approval points
 
 - **R4 / L1 / D4.** Owner has approved the production recovery-and-canary objective, exact additive V2 migrations, minimal RPC enablement and one-store feature rollout.
 - The no-cost logical data recovery drill satisfies this runbook gate. A paid restore-to-new-project remains an optional last-resort exercise and still requires separate approval.
 - Destructive restore over the live project, V1 disablement, all-store expansion and data deletion remain unapproved.
+- Chinatech is the only enabled store. Any second-store rollout, AI image-provider activation, V1 disablement or cleanup remains a new Owner approval point.
 - Mandatory reviewers are DATA, SECURITY, QA and RELEASE; because the chain is sequential and touches production credentials/state, the Integration Lead performs the reviews in the main thread. `no-spawn reason`: parallel agents cannot safely own or observe the same production migration/flag state and must not handle secrets.
 
 ## Work packages
@@ -105,3 +111,9 @@ Owner 选中“按发布运行手册完成数据库恢复验证和单店灰度�
 - Required QA/security/data/release gates are satisfied or formally accepted.
 - Documentation and formal memory are synchronized.
 - Residual risks have owners and deadlines.
+
+## Closeout
+
+- **Result:** complete. Production database, Chinatech one-store flags, desktop/mobile UI, rollback-only canary and immediate observation all passed.
+- **Live state:** Chinatech Inventory V2 schema/shadow/commands/UI enabled; V1 mutations enabled; AI image recognition preserved but dormant/unconfigured; no V2 canary data retained.
+- **Residual boundary:** keep the allowlist at one store and monitor before any expansion. Existing Supabase advisor warnings predate this release and were not changed by this task.

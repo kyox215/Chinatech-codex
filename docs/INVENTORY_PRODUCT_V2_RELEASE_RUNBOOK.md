@@ -13,6 +13,14 @@
 
 因此，代码推送和自动 Web 部署不会让 V2 在生产门店生效，也不会要求生产数据库立即变更。
 
+## 当前生产状态（2026-07-18）
+
+- 四份 linked migrations `20260718174042`、`20260718175622`、`20260718181148`、`20260718195257` 已按 Owner 批准顺序应用；最终 linked dry-run 为 up to date。
+- 仅 Chinatech 门店进入 allowlist；`SCHEMA_READY`、`SHADOW_READ`、`COMMANDS`、`UI` 已启用，`LEGACY_MUTATIONS_ENABLED` 继续为 `1`。
+- 正式域名已验证桌面与手机六步录入、型号/唯一标识输入和 V1 fallback；生产 rollback-only canary 最终零残留，对账 `healthy=true`。
+- AI 图片识别步骤仍保留为可选入口，但没有启用图片供应商或付费调用；员工可跳过 AI 手工扫码/输入。
+- 当前状态的审计证据、截图和回滚结果以 `TASK-20260718-013-inventory-v2-production-canary` 为准。第二门店扩量、AI 供应商启用、V1 关闭或数据清理仍需新的 Owner 批准。
+
 ## 功能开关
 
 默认值：
@@ -54,5 +62,6 @@ INVENTORY_LEGACY_MUTATIONS_ENABLED=1
 - 十张新增表 RLS 已开启且无策略；`anon`/`authenticated` 无表权限和 RPC 执行权，`service_role` 仅有最小表权限和三个 V2 RPC 执行权。
 - lint、typecheck、全量 Vitest、Next production build 通过。
 - 390×844 和 1440×900 的来源、AI、复核页面通过浏览器检查。
+- 生产分阶段灰度、正式域名截图、rollback-only canary、最终对账和即时 runtime 观察记录在 `TASK-20260718-013-inventory-v2-production-canary/EVIDENCE.md`。
 
 历史 migration 链存在早于 V2 的本地 reset 漂移：`20260611102805_repairdesk_remote_schema_compatibility.sql` 假设远端专用列存在，后续还有 trigram immutable 问题。V2 已在最小真实依赖契约的 PostgreSQL 17 空库独立验证，但全链 reset 修复应单独治理，不能通过修改已应用历史 migration 偷渡解决。

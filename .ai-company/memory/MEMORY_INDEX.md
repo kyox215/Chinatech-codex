@@ -29,13 +29,15 @@
 
 ## Active task index
 
+- [TASK-20260718-013-inventory-v2-production-canary](tasks/TASK-20260718-013-inventory-v2-production-canary/TASK.md): Closed production recovery-and-canary release for Inventory V2. Four linked migrations are applied; only Chinatech has schema/shadow/commands/UI enabled, V1 mutations remain enabled, rollback-only canary is zero-residual and AI image recognition remains dormant.
+
 - [TASK-20260718-013-cross-session-orchestration-implementation](tasks/TASK-20260718-013-cross-session-orchestration-implementation/TASK.md): Closed Phase 0A cross-session orchestration release with shared Registry identity, immutable Context Packets, fail-closed ACTIVE_CONTEXT compatibility, project declaration and reusable Skill; automation and production authority remain explicitly off.
 
 - [TASK-20260718-011-ai-assistant-cost-governance](tasks/TASK-20260718-011-ai-assistant-cost-governance/TASK.md): Conditionally closed production release of Phase 3A deterministic/local zero-provider paths, versioned runtime/cost controls and an unapplied atomic quota migration; code is READY on `main`, while key, paid call, production DB apply, policy seed and AI activation remain D4-blocked.
 
-- [TASK-20260718-012-workspace-integration-release](tasks/TASK-20260718-012-workspace-integration-release/TASK.md): Closed production integration release for order progress sorting, custody-safe unlock retention and tenant print address. Exact migration `20260718150000` is applied without row changes; final `main`/Vercel SHA is verified, while lifecycle purge activation and Inventory V2 production activation remain separate gates.
+- [TASK-20260718-012-workspace-integration-release](tasks/TASK-20260718-012-workspace-integration-release/TASK.md): Closed production integration release for order progress sorting, custody-safe unlock retention and tenant print address. Its Inventory V2 production-off boundary is historical and superseded by `TASK-20260718-013-inventory-v2-production-canary`; lifecycle purge activation remains separate.
 
-- [TASK-20260718-011-inventory-product-v2-plan](tasks/TASK-20260718-011-inventory-product-v2-plan/TASK.md): Conditionally closed additive Inventory V2 vertical slice. Web code and release runbook are on `main`, but both V2 migrations, RPC grants, store allowlist and all V2 flags remain unapplied/off; V1 stays available.
+- [TASK-20260718-011-inventory-product-v2-plan](tasks/TASK-20260718-011-inventory-product-v2-plan/TASK.md): Conditionally closed additive Inventory V2 design/build slice. Its production-off statement is historical and superseded by `TASK-20260718-013-inventory-v2-production-canary`; V1 still stays available.
 
 - [TASK-20260718-009-ai-assistant-implementation](tasks/TASK-20260718-009-ai-assistant-implementation/TASK.md): Conditionally closed production release of the dormant AI Phase 0–2 safe slice; bounded staff order reads and image-to-unsaved-inventory-form review are live in code but all AI capabilities remain fail-closed with no production key, external call, migration or public activation. Phase 3–5 require separate D4 tasks.
 

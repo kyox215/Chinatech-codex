@@ -2,9 +2,9 @@
 
 ## Current handoff
 
-- **Status:** recovery and pre-production migration gates passed; production migration/flags unchanged because an earlier unapproved AI cost migration blocks exact V2-only apply.
-- **Last verified:** 2026-07-18T21:11:23Z
-- **Workspace/branch:** `/private/tmp/repairdesk-inventory-v2-production-canary-20260718`; `codex/inventory-v2-production-canary-20260718`; default-off hardening is on `origin/main@92d7cdad` and the Vercel production deployment is READY at the same SHA.
-- **Latest gate:** full-data restore and exact four-migration chain pass; atomic sale now updates V2 unit/movement; store-scoped shadow reconciliation returns healthy and browser ACLs remain closed.
-- **First action:** wait for Owner's independent D4 decision on whether `20260718174042_ai_assistant_cost_governance_v1.sql` may be applied first. If approved, refetch/requery and repeat all DB preflight before any apply; otherwise keep V2 dormant.
-- **Stop conditions:** do not apply production migration if rebase, dry-run, recovery, RLS/grant or build evidence changes; do not open flags before exact migration history and post-apply checks pass.
+- **Status:** complete; Chinatech Inventory V2 one-store production canary is active and V1 remains enabled.
+- **Last verified:** 2026-07-18T21:48:47Z
+- **Workspace/branch:** `/private/tmp/repairdesk-inventory-v2-production-canary-20260718`; `codex/inventory-v2-production-canary-20260718`; production code SHA `d6b9eaca` and deployment `dpl_3ktYrDKMYJ86G9rju3DjU4YTEKpW` are READY.
+- **Latest gate:** linked history up to date; production reconcile healthy; rollback-only command canary zero residual; desktop/mobile screenshots captured; immediate runtime observation clean.
+- **First action:** routine monitoring only. Do not expand beyond Chinatech without a new Owner decision.
+- **Stop conditions:** if a V2 error appears, set `INVENTORY_V2_UI=0` and `INVENTORY_V2_COMMANDS=0` first, redeploy, keep V1 enabled and retain V2 evidence. Do not delete data or run a down migration.

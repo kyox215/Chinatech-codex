@@ -50,6 +50,7 @@ as owner of this file.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` enforces same-store active actor checks, narrow non-grantable quote authority, CAS and idempotency in both quote RPCs. Both functions are security invoker with an empty search path; only service role has EXECUTE, while PUBLIC/anon/authenticated are denied. Message and audit payloads retain only bounded quote/send evidence.
 - Store lifecycle mutations use recent TOTP/AAL2 and one-use challenges, immutable store UUID binding, service-role-only destructive RPCs and a second approval for purge. The 2026-07-18 production slice has zero browser table/function grants and remains dormant behind five off-by-default flags; schema presence is not activation authority.
 - Cross-session Registry identity is an accidental-contamination control, not a same-user security sandbox. Store IDs/states/hashes only; exclude prompts, stdout, diffs, environment, secrets and customer PII. Binding and lease possession never grant permission, and a holder can close only its own bound task/run.
+- `TASK-20260718-013-inventory-v2-production-canary` production-verifies the Chinatech-only V2 boundary: ten new tables have RLS and no browser grants/policies, V2 RPCs are service-role-only invoker functions with empty search path, and the allowlist prevents other stores from mounting commands/UI. V1 remains enabled; AI image-provider activation and any additional store remain separate D4/privacy reviews.
 
 ## Interfaces and dependencies
 

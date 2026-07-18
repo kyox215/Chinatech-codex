@@ -111,6 +111,7 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 - Promote repeated evidence, not stylistic preference, into durable standards.
 - TASK-009 final gate baseline is agents/lint/typecheck PASS, 106 files/710 tests PASS, standard build PASS, strict desktop E2E 11/11 PASS and payment pgTAP 19/19 PASS.
 - Dormant AI releases require both in-app evidence and production-negative evidence: full regression/build, responsive masked E2E, exact Git/deploy identity, env-name-only fail-closed proof, anonymous auth/API denial, error observation and a READY rollback target. One flaky first run must be retained and fixed rather than rewritten as an initial pass.
+- Inventory V2 activation evidence must pair staged flag behavior with database proof: schema/shadow healthy before commands/UI, authenticated desktop/mobile pages, rollback-only intake/sale/idempotency/duplicate/conflict checks, zero residual rows, V1 count preservation, full regression/build and deployment error observation. `TASK-20260718-013-inventory-v2-production-canary` is scoped proof for Chinatech only.
 
 ## Capability and tool notes
 

@@ -64,7 +64,7 @@ as owner of this file.
   snapshot and must not override the WP05-B/WP08 production NO-GO status.
 - For device custody, the current addendum at the top of `docs/ORDERS_SPEC.md` is authoritative despite the remainder being historical. It records explicit create choice, nullable legacy unknown, credential retention until authorized explicit clear, terminal receive/return rules, fail-closed raw-secret offline behavior and release order. Earlier task memory claiming automatic clear is superseded by migration `20260717182220` and TASK-20260717-008.
 - `docs/STORE_LIFECYCLE_IMPLEMENTATION_RUNBOOK.md` and `TASK-20260717-007-store-lifecycle-implementation` are the current store lifecycle release authority. Documentation must distinguish applied schema/code from activation: all five flags are off, no real store was renamed, closed, exported or purged, and permanent deletion still requires a separate exact-target approval.
-- `docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md` and `TASK-20260718-011-inventory-product-v2-plan` are the current Inventory V2 authority. Documentation must distinguish deployed default-off Web code from unapplied schema/RPC/allowlist activation, and must retain V1 as the rollback path until a separately approved D4 canary closes.
+- `docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md` and `TASK-20260718-013-inventory-v2-production-canary` are the current Inventory V2 production authority. They supersede the prior production-off statement: the four linked migrations and Chinatech-only schema/shadow/commands/UI flags are active, V1 mutations remain the rollback path, and AI image recognition remains optional/dormant. Do not describe this as all-store activation, AI provider activation or V1 retirement.
 
 ## Interfaces and dependencies
 
