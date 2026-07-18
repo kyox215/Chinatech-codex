@@ -56,6 +56,8 @@
 | E-052       | migration compatibility | current production schema accepts exactly the six Phase 2 migrations | fresh PostgreSQL 17 database `repairdesk_cost_phase2_current_schema_20260718_g`; sequential `ON_ERROR_STOP=1` replay | schema restore and all six migrations passed | 2026-07-18 | IntegrationLead |
 | E-053       | post-replay security | restored-current-schema Phase 2 objects satisfy release assertions | catalog assertion pack on isolated database | 11 tables present/RLS; zero browser table/RPC grants; 21 RPC overloads; safe search paths; invoker view; zero unvalidated constraints | 2026-07-18 | IntegrationLead |
 | E-054       | git hygiene       | isolated candidate remained unpolluted during gate remediation | `git status --short --branch`; `git diff --stat` before documentation checkpoint | clean; eight ahead/zero behind before this documentation-only delta | 2026-07-18 | IntegrationLead |
+| E-055       | owner approval    | untested physical restore and full-history replay risk accepted for this release only | Owner reply `B`; Stage 08 decision mapping | Option B approved; no destructive SQL, backfill, feature activation, unrelated migration or force push authorized | 2026-07-18T15:26:29Z | Owner |
+| E-056       | release control   | one local release executor owns DB/Git/deploy writes | atomic directory `/private/tmp/repairdesk-production-release-xluzcoduqsdvjoouqhkc.lock`; worktree inspection | lock acquired; primary checkout remains assigned to a separate task | 2026-07-18 | IntegrationLead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

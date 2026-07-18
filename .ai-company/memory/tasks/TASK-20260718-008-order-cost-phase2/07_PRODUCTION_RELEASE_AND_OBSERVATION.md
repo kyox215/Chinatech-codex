@@ -1,6 +1,6 @@
 # Stage 07 — Production Release and Observation
 
-Status: current-schema gate passed; awaiting recovery decision — 2026-07-18T15:06:52Z
+Status: Option B approved; refreshing production preflight — 2026-07-18T15:26:29Z
 
 ## Goal
 
@@ -93,9 +93,10 @@ Result: **NO-GO pending explicit recovery decision / conditional delivery.** No 
 changed, no Phase 2 feature flag was enabled, `main` was not pushed and Vercel was not deployed.
 This is the required outcome of a failing R4 production gate, not a partial hidden release.
 
-Stage 08 records the two permitted resume paths: an isolated full backup restore drill, or a
-written Owner exception that explicitly accepts the untested physical-restore and full-history
-replay risks for this release only. Without either decision, the safe default is no mutation.
+Stage 08 now records the Owner's Option B selection: a written exception accepting the untested
+physical-restore and full-history replay risks for this release only. This removes only that
+approval stop; every remote-state, exact-migration, metadata, Git and deployment assertion remains
+mandatory and must be refreshed before its corresponding write.
 
 A complete P0 recovery/security package should still:
 
@@ -106,6 +107,5 @@ A complete P0 recovery/security package should still:
    over-permissive write policies and mutable-path functions;
 4. repeats fresh fetch, migration list, exact dry-run, advisors and pre/post release assertions.
 
-After an approved Stage 08 path and a fresh preflight, this stage may continue from migration apply
-step 6. The six migration files and all application flags must remain unchanged and off in the
-meantime.
+After the fresh preflight passes, this stage may continue from migration apply step 6. The six
+migration files and all application flags must remain unchanged and off in the meantime.

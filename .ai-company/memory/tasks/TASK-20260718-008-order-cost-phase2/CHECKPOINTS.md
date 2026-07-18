@@ -124,3 +124,10 @@
 - **Next:** 读取 08_PRODUCTION_GATE_REMEDIATION_AND_APPROVAL.md，记录 Owner 明确选择 A/B/C；若批准 A 或 B，先从 fresh fetch、linked migration list、精确 dry-run、backup 与 advisors 重新开始，任何漂移立即停止。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T15:28:22Z — Owner 已选择 Stage 08 Option B，接受本次发布的未验证物理恢复与全历史 replay 风险；共享原子 release lock 已取得，主检出目录不修改，所有第二期子开关保持关闭，尚未执行生产写入。
+
+- **Phase:** implementation
+- **Completed/current state:** Owner 已选择 Stage 08 Option B，接受本次发布的未验证物理恢复与全历史 replay 风险；共享原子 release lock 已取得，主检出目录不修改，所有第二期子开关保持关闭，尚未执行生产写入。
+- **Next:** 在隔离工作树内 fresh fetch，核对 origin/main、linked migration list、精确 dry-run、backup 与 advisors；任何额外迁移或远端漂移立即停止。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

@@ -1,6 +1,22 @@
 # Stage 08 — Production Gate Remediation and Owner Approval
 
-Status: awaiting Owner decision — 2026-07-18T15:06:52Z
+Status: Option B approved — 2026-07-18T15:26:29Z
+
+## Owner decision
+
+The Owner replied `B` in the main task thread on 2026-07-18. This selects the written bounded
+release exception below and explicitly accepts, for this release only, the absence of a proven
+physical-backup restore/RPO/RTO and the pre-existing full-history migration replay failure.
+
+This approval does not authorize destructive SQL, production historical-cost backfill, feature
+flag activation, unrelated migrations, force pushing, customer communication, or any change to
+the recovery baseline. All six Phase 2 child flags remain off during the release, and every remote
+write remains subject to the fresh stop conditions in this packet.
+
+The main Integration Lead acquired the shared local atomic release lock at
+`/private/tmp/repairdesk-production-release-xluzcoduqsdvjoouqhkc.lock`. The primary checkout is
+owned by a separate active task and will not be modified; release work remains in the isolated
+Phase 2 worktree.
 
 ## Objective
 
@@ -78,7 +94,7 @@ Decision required: choose one release path.
 - Leave the branch, six pending migrations and all child flags unchanged/off.
 - Open a separate P0 recovery-baseline project and resume only after it closes.
 
-Default if no explicit decision: **Option C / no production mutation**.
+Recorded decision: **Option B / bounded release exception**.
 
 ## Exact release command set after approval
 
