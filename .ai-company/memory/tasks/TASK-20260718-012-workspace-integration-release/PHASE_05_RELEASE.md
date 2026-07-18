@@ -14,4 +14,3 @@
 ## Exit condition
 
 Git、database、deployment、runtime 四层证据一致；否则执行回滚或停止。
-

@@ -87,4 +87,3 @@ updated_at: "2026-07-18T19:32:51Z"
 - migration dry-run/history、备份恢复、RLS/grant 或权限复核未通过。
 - 任一关键测试、构建、生产冒烟或日志门禁失败。
 - 发现秘密、PII 泄露、真实 purge/删除路径可能被启用。
-
