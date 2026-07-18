@@ -7,8 +7,8 @@
 - [x] 任务相关单测/集成测试逐批通过。
 - [x] `npm run lint`
 - [x] `npm run typecheck`
-- [x] `npm run test` — 280 files / 1786 tests PASS。
-- [x] `npm run build` — Next.js 16.2.6 production build PASS；首次 sandbox 网络字体失败不计产品失败，获准联网复跑通过。
+- [x] `npm run test` — 重放到 Inventory V2 主线后最终为 286 files / 1803 tests PASS。
+- [x] `npm run build` — Next.js 16.2.6 production build PASS；重放后 26 routes/pages 生成完成。
 - [x] 权限、租户隔离、失败/恢复和 feature-off 行为验证。
 - [x] UI 关键桌面/移动页面截图，且仅使用 synthetic data。
 - [x] `npm run test:e2e:settings:mock` — 67/67 PASS。

@@ -48,3 +48,19 @@
 - **Baseline comparison:** the 1024 order print locator fails identically on `origin/main@448c2404`; buyback/inventory dialog failures are in untouched modules. Release-unit behavior passes at the remaining desktop widths and both mobile/desktop browser matrices.
 - **Remote change:** `origin/main` advanced during validation to Inventory V2 closeout commit `9465ead4`; no database apply or push occurred from the stale base.
 - **Next:** commit evidence, rebase the five scoped commits onto the new remote main, resolve only semantic overlaps, and rerun affected gates before linked Supabase dry-run.
+
+## 2026-07-18T21:31:00+02:00 — Phase 04 exact production migration complete
+
+- **Phase:** 04 completed; 05 release in progress.
+- **Latest-main reconciliation:** seven scoped commits now sit cleanly above Inventory V2 `origin/main@9465ead4`; lint, typecheck, 146 overlap tests, full 286-file/1803-test suite and production build pass.
+- **Applied:** only `20260718150000_neutralize_store_settings_identity_defaults.sql`; no `--include-all`, row DML, purge, delete, restore, Inventory V2 migration or feature enablement.
+- **Post-check:** target defaults empty; row count/max update/fingerprint unchanged; RLS/policy/ACL unchanged; zero lifecycle jobs, locks and long transactions; exact dry-run up to date.
+- **Held:** Inventory V2 `20260718175622` and `20260718181148` remain pending under their separate D4 migration/RPC/allowlist gate.
+- **Next:** commit database evidence, refetch remote main, run final staged/secret/diff gates, fast-forward push `HEAD:main`, then verify the matching Vercel production deployment.
+## 2026-07-18T19:32:51Z — Phase 04 完成：本次分支已重放到 Inventory V2 main；最终 lint/typecheck/1803 tests/build 通过；仅 20260718150000 店铺默认值迁移完成精确 dry-run、生产 apply 与无行变更回读，Inventory V2 两份迁移继续保持 D4 未应用。
+
+- **Phase:** implementation
+- **Completed/current state:** Phase 04 完成：本次分支已重放到 Inventory V2 main；最终 lint/typecheck/1803 tests/build 通过；仅 20260718150000 店铺默认值迁移完成精确 dry-run、生产 apply 与无行变更回读，Inventory V2 两份迁移继续保持 D4 未应用。
+- **Next:** 提交数据库证据，重新 fetch origin/main，执行最终 diff/secret/agents 门禁，非强制快进推送 HEAD:main，并验证同 SHA Vercel 生产部署与运行日志。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

@@ -28,11 +28,22 @@
 - RU-01 commit `bdffa5f8`: order queues sort by workflow progress before creation timestamp; 128 focused tests PASS.
 - RU-02 commit `05de4df8`: custody transitions no longer clear cached device unlock details and customer-held mobile orders keep the authorized masked edit entry; 117 focused tests plus targeted device-custody E2E 3/3 PASS.
 - RU-03 commit `675d2082`: tenant address is accepted during store creation and used by tenant print identity; forward migration `20260718150000_neutralize_store_settings_identity_defaults.sql` has a 5-second lock timeout and no row DML; 166 focused tests PASS. Its version was finalized between linked `20260718140000` and the separately gated Inventory V2 migrations to prevent out-of-order history.
-- Full gates: lint PASS, typecheck PASS, 280 test files / 1786 tests PASS, production build PASS, `agents:check` PASS, `git diff --check` PASS.
+- Full gates on the final Inventory V2 main base: lint PASS, typecheck PASS, 286 test files / 1803 tests PASS, 26-route production build PASS, `agents:check` PASS, `git diff --check` PASS.
 - Settings formal E2E: 67/67 PASS after correcting stale test fixtures that hard-coded the retired tenant name and an impossible permission/capability combination. The same three original failures were reproduced on `origin/main@448c2404` before the fixture correction.
 - Browser evidence used only synthetic records. Workflow progress values were nondecreasing in every order group; 390px and 1440px views had no horizontal overflow; customer-held unlock dialog stayed masked; store/print previews used the selected tenant address and contact.
 - Desktop broad suite: 50/58 PASS. Seven failures are unchanged buyback/inventory dialog locators in untouched modules. The remaining 1024 order print locator failure reproduced identically on `origin/main@448c2404`; the same order audit passed at 1280/1440/1536/1600.
 - During validation `origin/main` advanced to `9465ead4` with Inventory V2 commits. This branch must be rebased and revalidated before database or release actions; no stale push is allowed.
+
+## Phase 04 production database evidence
+
+- The six scoped commits rebased cleanly onto `origin/main@9465ead4`; eight semantic-overlap test files / 146 tests and the full quality suite passed afterward.
+- Initial full linked dry-run listed `20260718175622_inventory_product_v2_foundation.sql`, `20260718181148_inventory_product_v2_identity.sql`, and the store-default migration. No SQL was applied from that view.
+- To avoid either bundling Inventory V2 or creating out-of-order history, the store-default migration was finalized as `20260718150000_neutralize_store_settings_identity_defaults.sql` and released from a detached database worktree where both Inventory V2 files were absent.
+- Exact pre-apply dry-run listed only `20260718150000`; apply succeeded without `--include-all`.
+- Pre/post row evidence is identical: count `7`, maximum `updated_at` `2026-07-17 20:51:32.467+00`, aggregate fingerprint `9809a92b6f9a45016d0d2bbabcd93ae7`.
+- Post defaults are empty text for `store_name`, `store_address`, `print_footer`, and `message_signature`; RLS/policy/ACL fingerprints, zero lifecycle jobs, zero waiting locks and zero long transactions are unchanged.
+- MCP migration history includes `20260718150000`. Exact post-dry-run is up to date; full main dry-run now lists only the two separately gated Inventory V2 migrations.
+- Supabase security advisor still reports existing project-wide INFO/WARN items (including RLS-with-no-policy patterns used with revoked/direct access and older mutable-search-path/permissive-policy debt). This migration introduced no object, grant, policy, or RLS change; remediation remains a separate security program.
 
 ## Visual evidence
 

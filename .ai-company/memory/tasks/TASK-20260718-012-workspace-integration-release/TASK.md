@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["integration", "architecture", "data", "security", "qa", "release", "documentation"]
 created_at: "2026-07-18T18:03:43Z"
-updated_at: "2026-07-18T18:23:04Z"
+updated_at: "2026-07-18T19:32:51Z"
 ---
 # Task — 整合并发布此前所有已完成改动，然后启动库存 V2 Phase 0
 
