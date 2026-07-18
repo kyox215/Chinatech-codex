@@ -145,5 +145,5 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     return privateError("请求内容无法读取，请重试", 400);
   }
-  return handleRepairDeskPost(path, body, preauthenticatedActor);
+  return handleRepairDeskPost(path, body, preauthenticatedActor, request.signal);
 }

@@ -17,6 +17,7 @@ import {
 import type { AiAssistantProvider } from "./provider";
 import { aiQuotaExhaustedError } from "./errors";
 import { runAiInventoryVisionRecognition } from "./vision-assistant.service";
+import { resetAiAssistantLocalRateLimitForTests } from "./request-rate-limit";
 import type { AuditActor } from "@/lib/repairdesk/types";
 
 const enabledEnv = {
@@ -26,7 +27,10 @@ const enabledEnv = {
 } as const;
 
 describe("inventory vision assistant service", () => {
-  beforeEach(() => mocks.writeAiAssistantAudit.mockReset());
+  beforeEach(() => {
+    mocks.writeAiAssistantAudit.mockReset();
+    resetAiAssistantLocalRateLimitForTests();
+  });
 
   it("checks feature and permission gates before image or provider processing", async () => {
     const provider = providerFor();
@@ -82,10 +86,16 @@ describe("inventory vision assistant service", () => {
 
   it("rejects malformed derived image claims before provider execution", async () => {
     const provider = providerFor();
+    const consumeQuota = vi.fn();
     const input = validInput();
     await expect(
-      run({ provider, input: { ...input, byte_length: input.byte_length + 1 } }),
+      run({
+        provider,
+        consumeQuota,
+        input: { ...input, byte_length: input.byte_length + 1 },
+      }),
     ).rejects.toMatchObject({ code: "AI_INVALID_INPUT", status: 400 });
+    expect(consumeQuota).not.toHaveBeenCalled();
     expect(provider.recognizeInventoryLabel).not.toHaveBeenCalled();
     expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
       expect.objectContaining({ status: "failed", errorCode: "AI_INVALID_INPUT" }),
@@ -111,6 +121,21 @@ describe("inventory vision assistant service", () => {
       code: "AI_PROVIDER_PROTOCOL_ERROR",
       status: 502,
     });
+  });
+
+  it("maps Node provider deadline timeouts to the stable timeout envelope", async () => {
+    const provider = providerFor();
+    vi.mocked(provider.recognizeInventoryLabel).mockRejectedValueOnce(
+      new DOMException("provider deadline", "TimeoutError"),
+    );
+
+    await expect(run({ provider })).rejects.toMatchObject({
+      code: "AI_PROVIDER_TIMEOUT",
+      status: 504,
+    });
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed", errorCode: "AI_PROVIDER_TIMEOUT" }),
+    );
   });
 
   it("fails closed if a non-fake provider reaches the Phase 2 service", async () => {

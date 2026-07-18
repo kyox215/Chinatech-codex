@@ -4,7 +4,7 @@
 
 Phase 2 只为已登录且有库存权限的员工提供“拍照识别 → 人工复核 → 回填现有表单”。识别和“应用确认字段”都不会创建库存记录；只有员工返回普通入库表单并点击 `保存商品` 后，现有 `createInventoryIntake` 流程才会执行正式写入。
 
-当前实现保持 `fake` provider、页面内临时状态和全部生产旗标关闭。它不会调用 OpenAI、不会把原图写入数据库或 Storage，也不会安装尚未批准的图片处理依赖。识别、复核和应用不会写库存、订单、草稿或图片业务记录；唯一有意持久化的是现有 allowlist、聚合型安全审计事件。
+当前实现保持 `fake` provider、页面内临时状态和全部生产旗标关闭。它先运行本地条码/OCR；当品牌、型号、RAM、存储四个关键字段完整且无冲突/无效标识符时，不创建上传 data URL，也不请求云端。它不会调用 OpenAI、不会把原图写入数据库或 Storage，也不会安装尚未批准的图片处理依赖。识别、复核和应用不会写库存、订单、草稿或图片业务记录；唯一有意持久化的是现有 allowlist、聚合型安全审计事件。
 
 ## 安全图片边界
 
@@ -17,6 +17,8 @@ Phase 2 只为已登录且有库存权限的员工提供“拍照识别 → 人�
 - 原图、文件名、OCR 原文和完整标识符不进入普通日志、审计、任务记忆或截图。
 
 浏览器原生 TextDetector 与仓库内打包的 ZXing 只产生临时候选；图片中的文字始终作为不可信数据，不作为指令执行。Tesseract fallback 已关闭，避免默认从第三方 CDN 加载 worker、WASM 或语言数据；只有固定版本资源同源托管并通过 CSP/网络断言复核后才可重新启用。服务器审计只记录事件、状态、模型版本、数量、字节/延迟桶和 Token 聚合。
+
+本地充分性是保守成本门：四个关键字段必须全部存在，且仍逐字段人工复核；不支持 TextDetector 的浏览器通常会进入服务端 fallback。真实门店“本地命中率”必须先用锁定清晰标签集建立 baseline，不得把 70% 目标写成现有生产保证。完整成本合同见 `docs/AI_ASSISTANT_COST_GOVERNANCE.md`。
 
 ## 人工复核与字段映射
 
@@ -38,6 +40,7 @@ AI_DRAFT_APPLY_ENABLED=0
 AI_ASSISTANT_PROVIDER=fake
 AI_ASSISTANT_STORE_ALLOWLIST=
 AI_ASSISTANT_REQUESTS_PER_STORE_DAY=0
+AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE=30
 AI_ASSISTANT_EXTERNAL_DATA_APPROVED=0
 AI_ASSISTANT_BUDGET_APPROVED=0
 ```

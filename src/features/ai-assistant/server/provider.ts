@@ -6,7 +6,10 @@ import type {
 
 export type AiAssistantUsage = {
   inputTokens?: number;
+  cachedInputTokens?: number;
+  cacheWriteTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
   totalTokens?: number;
 };
 
@@ -15,6 +18,7 @@ export type AiAssistantProviderMetadata = {
   model: string;
   requestId?: string;
   usage?: AiAssistantUsage;
+  attempts?: number;
   latencyMs: number;
 };
 
@@ -22,6 +26,7 @@ export type AiOrderPlannerInput = {
   message: string;
   locale: AiAssistantLocale;
   safetyIdentifier?: string;
+  signal?: AbortSignal;
 };
 
 export type AiInventoryRecognitionInput = {
@@ -29,6 +34,7 @@ export type AiInventoryRecognitionInput = {
   mimeType: "image/jpeg" | "image/png" | "image/webp";
   locale: AiAssistantLocale;
   safetyIdentifier?: string;
+  signal?: AbortSignal;
   fixtureKey?: string;
 };
 

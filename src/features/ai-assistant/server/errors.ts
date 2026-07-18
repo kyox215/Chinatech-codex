@@ -2,6 +2,7 @@ export type AiServiceErrorCode =
   | "AI_DISABLED"
   | "AI_NOT_AUTHORIZED"
   | "AI_INVALID_INPUT"
+  | "AI_RATE_LIMITED"
   | "AI_QUOTA_EXHAUSTED"
   | "AI_PROVIDER_PROTOCOL_ERROR"
   | "AI_PROVIDER_RATE_LIMITED"
@@ -92,5 +93,14 @@ export function aiQuotaExhaustedError() {
     "AI_QUOTA_EXHAUSTED",
     429,
     { retryable: false },
+  );
+}
+
+export function aiRequestRateLimitedError() {
+  return new AiServiceError(
+    "AI 查询请求过于频繁，请稍后重试或继续使用手工查询",
+    "AI_RATE_LIMITED",
+    429,
+    { retryable: true },
   );
 }

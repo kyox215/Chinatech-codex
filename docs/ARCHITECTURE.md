@@ -3,7 +3,7 @@
 Status: active
 Owner: Architecture + Documentation / Integration Lead
 Scope: current module boundaries, import rules, migration phases, and quality gates for RepairDesk.
-Last reviewed: 2026-07-12 CEST by `TASK-20260712-002-mobile-interaction-click-reliability`
+Last reviewed: 2026-07-18 CEST by `TASK-20260718-011-ai-assistant-cost-governance`
 
 This project is a modular Next.js App Router application. URLs stay in `src/app`, while business UI, data hooks, and server rules move into feature modules over time.
 
@@ -70,6 +70,15 @@ src/
   rollback use the same coordinator.
 - See `docs/REALTIME_PRELOAD_COORDINATION.md` for the conflict matrix, flags, security boundary, and
   production activation gate.
+
+### AI Assistant Cost Governance
+
+- `features/ai-assistant/server/order-intent-router.ts` is a conservative pure route before provider selection; it never owns actor/store scope or business reads.
+- Every AI endpoint uses a short-window abuse guard. Provider quota is separate and is consumed only after direct/local resolution fails.
+- `cost-policy.ts`, `runtime-policy.ts`, `provider-signal.ts`, and `safety-identifier.ts` are server-only policy boundaries; client UI must not choose a model, budget, deadline, price, store, or Safety ID.
+- `provider-budget.ts` is the business-facing durable reservation contract. Business services must not import Supabase RPC types directly.
+- The additive quota migration is expand-only and dormant: database apply must precede any caller that depends on its RPC, while OpenAI activation remains a separate Owner gate.
+- See `docs/AI_ASSISTANT_COST_GOVERNANCE.md` for the canonical request order, exact models/pricing snapshot, data minimization, environment gates, verification, and rollback.
 
 ## Legacy Route Migration Status
 

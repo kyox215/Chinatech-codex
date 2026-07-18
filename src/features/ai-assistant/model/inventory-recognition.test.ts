@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AI_ASSISTANT_CONTRACT_VERSION, type AiInventoryRecognition } from "./contracts";
 import {
   buildLocalInventoryRecognition,
+  isLocalInventoryRecognitionSufficient,
   mergeInventoryRecognitions,
 } from "./inventory-recognition";
 
@@ -60,6 +61,20 @@ describe("inventory recognition merge", () => {
         expect.objectContaining({ target: "storage_capacity", values: ["128 GB", "64 GB"] }),
       ]),
     );
+  });
+
+  it("skips cloud fallback only for a complete, conflict-free local label", () => {
+    const complete = buildLocalInventoryRecognition({
+      ocrText: "REDMI A7 Pro Black 4GB RAM 64GB ROM",
+    });
+    const incomplete = buildLocalInventoryRecognition({ ocrText: "REDMI A7 Pro Black" });
+    const invalid = buildLocalInventoryRecognition({
+      ocrText: "REDMI A7 Pro Black 4GB RAM 64GB ROM IMEI 123456789012345",
+    });
+
+    expect(isLocalInventoryRecognitionSufficient(complete)).toBe(true);
+    expect(isLocalInventoryRecognitionSufficient(incomplete)).toBe(false);
+    expect(isLocalInventoryRecognitionSufficient(invalid)).toBe(false);
   });
 });
 

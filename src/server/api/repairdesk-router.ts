@@ -1416,7 +1416,12 @@ export function getRepairDeskPostActor(path: string) {
   });
 }
 
-export async function handleRepairDeskPost(path: string, body: unknown, requestActor?: AuditActor) {
+export async function handleRepairDeskPost(
+  path: string,
+  body: unknown,
+  requestActor?: AuditActor,
+  requestSignal?: AbortSignal,
+) {
   try {
     const actor = requestActor ?? (await getRepairDeskPostActor(path));
     if (path === "ai/vision/extract") {
@@ -1424,7 +1429,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         await runAiInventoryVisionRecognition({
           actor,
           input: aiInventoryVisionRequestSchema.parse(body),
-          dependencies: { provider: getAiAssistantProvider },
+          dependencies: { provider: getAiAssistantProvider, requestSignal },
         }),
       );
     }
@@ -1439,6 +1444,7 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
               provider: getAiAssistantProvider,
               listOrdersPage: api.listOrdersPage,
               getOrder: api.getOrder,
+              requestSignal,
             },
           }),
         );

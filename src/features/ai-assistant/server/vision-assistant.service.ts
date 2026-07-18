@@ -16,6 +16,7 @@ import {
   type WriteAiAssistantAuditInput,
 } from "./audit";
 import { getAiAssistantCapabilities } from "./capabilities";
+import { AI_PRICING_VERSION, estimateAiUsageMicroUsd } from "./cost-policy";
 import {
   AiServiceError,
   aiAuditUnavailableError,
@@ -24,7 +25,14 @@ import {
 } from "./errors";
 import type { AiAssistantFeatureEnvironment } from "./feature-flags";
 import type { AiAssistantProvider } from "./provider";
+import { createAiProviderSignal, isAiProviderTimeoutError } from "./provider-signal";
 import { consumeAiAssistantRequestQuota, type ConsumeAiAssistantQuotaInput } from "./quota";
+import {
+  consumeAiAssistantRequestRateLimit,
+  type ConsumeAiAssistantRequestRateLimitInput,
+} from "./request-rate-limit";
+import { getAiModelRuntimePolicy } from "./runtime-policy";
+import { createAiSafetyIdentifierIfConfigured } from "./safety-identifier";
 import { AiVisionInputValidationError, validateAiInventoryVisionInput } from "./vision-input";
 import type { AuditActor } from "@/lib/repairdesk/types";
 
@@ -32,7 +40,11 @@ type VisionAssistantDependencies = {
   provider: AiAssistantProvider | (() => AiAssistantProvider);
   env?: AiAssistantFeatureEnvironment;
   now?: () => Date;
+  requestSignal?: AbortSignal;
   consumeQuota?: (input: ConsumeAiAssistantQuotaInput) => unknown | Promise<unknown>;
+  consumeRequestRateLimit?: (
+    input: ConsumeAiAssistantRequestRateLimitInput,
+  ) => unknown | Promise<unknown>;
 };
 
 export async function runAiInventoryVisionRecognition({
@@ -55,12 +67,24 @@ export async function runAiInventoryVisionRecognition({
     | "inputTokens"
     | "outputTokens"
     | "latencyBucket"
+    | "requestKind"
+    | "resolutionPath"
+    | "cachedInputTokens"
+    | "cacheWriteTokens"
+    | "providerAttemptCount"
+    | "policyVersion"
+    | "pricingVersion"
+    | "estimatedMicroUsd"
+    | "budgetOutcome"
+    | "safetyIdentifierPresent"
   > = {
     event: "vision_recognition",
     provider: "none",
     modelVersion: "not_started",
     inputImageCount: 1,
     inputBytesBucket: bucketAiAssistantInputBytes(input.byte_length),
+    requestKind: "inventory_vision",
+    resolutionPath: "provider",
   };
   let stage: "authorization" | "input" | "provider" | "protocol" = "authorization";
 
@@ -74,7 +98,7 @@ export async function runAiInventoryVisionRecognition({
       throw aiNotAuthorizedError();
     }
 
-    await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
+    await (dependencies.consumeRequestRateLimit ?? consumeAiAssistantRequestRateLimit)({
       actor,
       env: dependencies.env,
       now: dependencies.now,
@@ -83,24 +107,57 @@ export async function runAiInventoryVisionRecognition({
     stage = "input";
     validateAiInventoryVisionInput(input);
 
+    await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
+      actor,
+      env: dependencies.env,
+      now: dependencies.now,
+    });
+
     stage = "provider";
     const provider =
       typeof dependencies.provider === "function" ? dependencies.provider() : dependencies.provider;
     if (provider.name !== "fake") throw visionMisconfiguredError();
     auditContext.provider = provider.name;
+    const runtimePolicy = getAiModelRuntimePolicy("inventory_vision");
+    const safetyIdentifier = createAiSafetyIdentifierIfConfigured(actor, dependencies.env);
+    auditContext.policyVersion = runtimePolicy.policyVersion;
+    auditContext.safetyIdentifierPresent = Boolean(safetyIdentifier);
     const result = await provider.recognizeInventoryLabel({
       imageDataUrl: input.image_data_url,
       mimeType: input.mime_type,
       locale: input.locale,
+      safetyIdentifier,
+      signal: createAiProviderSignal(dependencies.requestSignal, runtimePolicy.providerDeadlineMs),
       fixtureKey: process.env.NODE_ENV === "production" ? undefined : input.fixture_key,
     });
     auditContext.provider = result.metadata.provider;
     auditContext.modelVersion = result.metadata.model;
     auditContext.inputTokens = result.metadata.usage?.inputTokens;
+    auditContext.cachedInputTokens = result.metadata.usage?.cachedInputTokens;
+    auditContext.cacheWriteTokens = result.metadata.usage?.cacheWriteTokens;
     auditContext.outputTokens = result.metadata.usage?.outputTokens;
+    auditContext.providerAttemptCount = result.metadata.attempts;
     auditContext.latencyBucket = bucketAiAssistantLatency(result.metadata.latencyMs);
 
     stage = "protocol";
+    if (result.metadata.provider === "openai") {
+      const usage = result.metadata.usage;
+      if (usage?.inputTokens === undefined || usage.outputTokens === undefined) {
+        throw visionProtocolError();
+      }
+      auditContext.pricingVersion = AI_PRICING_VERSION;
+      auditContext.estimatedMicroUsd = estimateAiUsageMicroUsd({
+        model: result.metadata.model,
+        usage: {
+          inputTokens: usage.inputTokens,
+          cachedInputTokens: usage.cachedInputTokens ?? 0,
+          cacheWriteTokens: usage.cacheWriteTokens ?? 0,
+          outputTokens: usage.outputTokens,
+        },
+      });
+    } else {
+      auditContext.budgetOutcome = "not_required";
+    }
     const recognition = aiInventoryRecognitionSchema.safeParse(result.recognition);
     if (!recognition.success) throw visionProtocolError();
     response = aiInventoryVisionResponseSchema.parse({
@@ -149,7 +206,7 @@ function normalizeVisionAssistantError(
   }
   if (stage === "provider") {
     if (isRateLimitedError(error)) return visionProviderRateLimitedError();
-    if (error instanceof Error && error.name === "AbortError") return visionProviderTimeoutError();
+    if (isAiProviderTimeoutError(error)) return visionProviderTimeoutError();
     return visionProviderUnavailableError();
   }
   return visionProtocolError();
@@ -166,7 +223,11 @@ function isRateLimitedError(error: unknown) {
 
 function auditStatusFor(error: AiServiceError): AiAssistantAuditStatus {
   if (error.code === "AI_NOT_AUTHORIZED" || error.code === "AI_DISABLED") return "rejected";
-  if (error.code === "AI_PROVIDER_RATE_LIMITED" || error.code === "AI_QUOTA_EXHAUSTED") {
+  if (
+    error.code === "AI_PROVIDER_RATE_LIMITED" ||
+    error.code === "AI_QUOTA_EXHAUSTED" ||
+    error.code === "AI_RATE_LIMITED"
+  ) {
     return "rate_limited";
   }
   return "failed";

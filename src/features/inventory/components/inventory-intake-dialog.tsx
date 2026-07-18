@@ -50,7 +50,10 @@ import {
   type PreparedAiInventoryImage,
 } from "@/features/ai-assistant/model/inventory-image";
 import { recognizeAiInventoryImageLocally } from "@/features/ai-assistant/model/inventory-local-recognition";
-import { mergeInventoryRecognitions } from "@/features/ai-assistant/model/inventory-recognition";
+import {
+  isLocalInventoryRecognitionSufficient,
+  mergeInventoryRecognitions,
+} from "@/features/ai-assistant/model/inventory-recognition";
 import {
   applyInventoryRecognitionReview,
   createEmptyInventoryIntakeDraft,
@@ -265,14 +268,31 @@ export function InventoryIntakeDialog({
         }
         replacePrepared(nextPrepared);
         setStatus("recognizing");
-        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob);
         const fixtureKey =
           process.env.NODE_ENV !== "production" &&
           file.name.toLowerCase().includes("synthetic-redmi-a7-pro-box")
             ? ("synthetic-redmi-a7-pro-box" as const)
             : undefined;
-        const [localResult, serverResult] = await Promise.allSettled([
+        const localResult = await Promise.allSettled([
           recognizeAiInventoryImageLocally(nextPrepared, { signal: controller.signal }),
+        ]);
+        if (controller.signal.aborted || runId !== runIdRef.current) return;
+
+        const local = localResult[0]?.status === "fulfilled" ? localResult[0].value : null;
+        if (local && isLocalInventoryRecognitionSufficient(local)) {
+          const resolved = withFallbackWarnings(local, {
+            localFailed: false,
+            serverFailed: false,
+            serverSkipped: true,
+          });
+          setRecognition(resolved);
+          setReview(createInventoryRecognitionReview(resolved));
+          setStatus("result");
+          return;
+        }
+
+        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob);
+        const serverResult = await Promise.allSettled([
           runAiInventoryVisionRecognition(
             {
               image_data_url: imageDataUrl,
@@ -288,12 +308,12 @@ export function InventoryIntakeDialog({
         ]);
         if (controller.signal.aborted || runId !== runIdRef.current) return;
 
-        const local = localResult.status === "fulfilled" ? localResult.value : null;
-        const vision = serverResult.status === "fulfilled" ? serverResult.value.recognition : null;
+        const vision =
+          serverResult[0]?.status === "fulfilled" ? serverResult[0].value.recognition : null;
         if (!local && !vision) throw new Error("recognition unavailable");
         const merged = withFallbackWarnings(
           local && vision ? mergeInventoryRecognitions(vision, local) : (vision ?? local)!,
-          { localFailed: !local, serverFailed: !vision },
+          { localFailed: !local, serverFailed: !vision, serverSkipped: false },
         );
         setRecognition(merged);
         setReview(createInventoryRecognitionReview(merged));
@@ -650,7 +670,9 @@ export function InventoryIntakeDialog({
                 >
                   <p className="flex items-center gap-2 text-sm font-semibold text-status-info-foreground">
                     <Loader2 className="size-4 animate-spin" />
-                    {status === "preparing" ? "正在安全处理图片…" : "正在合并本地与假视觉识别…"}
+                    {status === "preparing"
+                      ? "正在安全处理图片…"
+                      : "正在进行本地识别，必要时请求视觉服务…"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     关闭或取消后不会在后台排队上传。
@@ -1121,14 +1143,15 @@ function DecisionBadge({ decision }: { decision: InventoryFieldReview["decision"
 
 function withFallbackWarnings(
   recognition: AiInventoryRecognition,
-  failures: { localFailed: boolean; serverFailed: boolean },
+  failures: { localFailed: boolean; serverFailed: boolean; serverSkipped: boolean },
 ) {
   return aiInventoryRecognitionSchema.parse({
     ...recognition,
     warnings: [
       ...recognition.warnings,
       ...(failures.localFailed ? ["本地 OCR/条码未完成，请加强人工核对。"] : []),
-      ...(failures.serverFailed ? ["假视觉服务未完成，本次仅采用本地候选。"] : []),
+      ...(failures.serverFailed ? ["云端视觉服务未完成，本次仅采用本地候选。"] : []),
+      ...(failures.serverSkipped ? ["本地 OCR/条码候选已足够，本次未上传至云端视觉服务。"] : []),
     ].filter((warning, index, values) => values.indexOf(warning) === index),
   });
 }
@@ -1213,7 +1236,7 @@ function draftFieldLabel(field: string) {
 
 function evidenceSourceLabel(value: AiInventoryFieldCandidate["source"]) {
   const labels: Record<AiInventoryFieldCandidate["source"], string> = {
-    vision: "假视觉",
+    vision: "视觉服务",
     ocr: "本地 OCR",
     barcode: "本地条码",
     merged: "多证据合并",

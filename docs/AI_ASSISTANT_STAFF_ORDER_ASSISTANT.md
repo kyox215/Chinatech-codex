@@ -4,6 +4,7 @@
 
 - 已登录员工可从桌面 AppBar、手机订单浮动标题或其他手机模块的快捷操作打开 AI Sheet。
 - 助手仅规划 `search_orders` 与 `get_order_summary` 两类只读意图；`actor`、当前门店与权限始终由服务端注入。
+- 完整工单号和三个固定快捷查询在权限与短窗限流后直接解析，命中时不创建 provider、不扣付费额度；姓名、电话、IMEI、部分编号和含糊组合仍交给 planner，绝不猜测。
 - 订单卡由 RepairDesk 业务服务构造。客户姓名会脱敏，且不返回电话、IMEI、财务明细或模型自由生成的订单字段。
 - 会话仅保存在当前页面内；关闭、门店/权限指纹变化或取消操作会中止请求。
 
@@ -17,6 +18,7 @@ AI_ORDER_READ_TOOLS_ENABLED=0
 AI_ASSISTANT_PROVIDER=fake
 AI_ASSISTANT_STORE_ALLOWLIST=
 AI_ASSISTANT_REQUESTS_PER_STORE_DAY=0
+AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE=30
 AI_ASSISTANT_EXTERNAL_DATA_APPROVED=0
 AI_ASSISTANT_BUDGET_APPROVED=0
 ```
@@ -30,6 +32,8 @@ AI_ASSISTANT_BUDGET_APPROVED=0
 
 当前 `openai` provider 会安全失败并提示继续手工查询，不会发出外部请求。
 
+成本、模型 snapshot、Safety ID、门店时区日桶、durable quota 和所有新 fail-closed 变量的权威说明见 `docs/AI_ASSISTANT_COST_GOVERNANCE.md`。
+
 照片识别到库存表单草稿的独立边界、图片限制与验证步骤见
 `docs/AI_ASSISTANT_INVENTORY_VISION.md`。
 
@@ -38,7 +42,7 @@ AI_ASSISTANT_BUDGET_APPROVED=0
 - `GET /api/repairdesk/ai/capabilities`：返回当前 actor/store 的服务端 capability projection。
 - `POST /api/repairdesk/ai/order/turn`：接受最多 800 字的自然语言问题；Next route 对该端点额外执行认证前置和 4096 字节请求上限。
 - 超时、provider 不可用、审计不可用、依赖不可用、配额耗尽和配置错误只返回稳定短错误码，不返回内部错误正文。
-- 审计只允许事件名、版本、工具名、数量、Token 聚合、延迟桶、状态与短错误码；禁止问题正文、工具参数/结果、客户 PII、标识符、图片或 secret。
+- 审计只允许事件名、解析路径、版本、工具名、数量、Token/估算 micro-USD 聚合、延迟桶、预算状态与短错误码；禁止问题正文、工具参数/结果、客户 PII、标识符、Safety ID、图片或 secret。
 
 ## 验证与回滚
 

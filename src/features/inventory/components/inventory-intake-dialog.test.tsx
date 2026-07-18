@@ -136,6 +136,24 @@ describe("InventoryIntakeDialog AI review", () => {
     expect(apiMocks.createInventoryIntake).not.toHaveBeenCalled();
   });
 
+  it("keeps a complete local label on-device and skips the cloud request", async () => {
+    recognitionMocks.recognizeAiInventoryImageLocally.mockResolvedValue(sampleRecognition());
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByRole("button", { name: "拍照识别" }));
+    await user.upload(
+      screen.getByLabelText("从相册选择设备标签照片"),
+      new File(["synthetic"], "clear-local-label.jpg", { type: "image/jpeg" }),
+    );
+
+    expect(await screen.findByLabelText("型号识别值")).toHaveValue("A7 Pro");
+    expect(screen.getByText(/本次未上传至云端视觉服务/)).toBeInTheDocument();
+    expect(apiMocks.runAiInventoryVisionRecognition).not.toHaveBeenCalled();
+    expect(imageMocks.aiInventoryImageBlobToDataUrl).not.toHaveBeenCalled();
+    expect(apiMocks.createInventoryIntake).not.toHaveBeenCalled();
+  });
+
   it("requires a real field decision, focuses edit input, and announces recognition completion", async () => {
     const user = userEvent.setup();
     renderDialog();

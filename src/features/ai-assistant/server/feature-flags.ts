@@ -1,3 +1,5 @@
+import { assertAiLiveBudgetConfiguration } from "./runtime-policy";
+
 export type AiAssistantFeatureEnvironment = {
   AI_ASSISTANT_ENABLED?: string;
   AI_ORDER_READ_TOOLS_ENABLED?: string;
@@ -8,6 +10,16 @@ export type AiAssistantFeatureEnvironment = {
   AI_ASSISTANT_EXTERNAL_DATA_APPROVED?: string;
   AI_ASSISTANT_BUDGET_APPROVED?: string;
   AI_ASSISTANT_REQUESTS_PER_STORE_DAY?: string;
+  AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE?: string;
+  AI_ASSISTANT_DURABLE_QUOTA_BACKEND?: string;
+  AI_ASSISTANT_POLICY_VERSION?: string;
+  AI_ASSISTANT_PRICING_VERSION?: string;
+  AI_ASSISTANT_MONTHLY_BUDGET_MICRO_USD?: string;
+  AI_ASSISTANT_ORDER_TEXT_PER_STORE_DAY?: string;
+  AI_ASSISTANT_INVENTORY_VISION_PER_STORE_DAY?: string;
+  AI_ASSISTANT_PROVIDER_REQUESTS_GLOBAL_DAY?: string;
+  AI_ASSISTANT_QUOTA_TIMEZONE?: string;
+  AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET?: string;
   AI_ASSISTANT_STORE_ALLOWLIST?: string;
   OPENAI_AI_ASSISTANT_MODEL?: string;
   OPENAI_API_BASE_URL?: string;
@@ -87,6 +99,15 @@ export function getAiAssistantDailyRequestLimit(
   return Number.isSafeInteger(value) && value > 0 ? value : 0;
 }
 
+export function getAiAssistantRequestsPerActorMinute(
+  env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
+) {
+  const configured = env.AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE;
+  if (configured === undefined || configured.trim() === "") return 30;
+  const value = Number(configured);
+  return Number.isSafeInteger(value) && value >= 1 && value <= 300 ? value : 30;
+}
+
 export function isAiAssistantStoreEnabled(
   storeId: string | null | undefined,
   env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
@@ -103,10 +124,5 @@ export function assertOpenAiExternalCallsApproved(
   env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
 ) {
   if (getAiAssistantProviderName(env) !== "openai") return;
-  if (env.AI_ASSISTANT_EXTERNAL_DATA_APPROVED !== "1") {
-    throw new Error("OpenAI 外部数据处理尚未批准");
-  }
-  if (env.AI_ASSISTANT_BUDGET_APPROVED !== "1" || getAiAssistantDailyRequestLimit(env) === 0) {
-    throw new Error("OpenAI API 预算与门店日限额尚未批准");
-  }
+  assertAiLiveBudgetConfiguration(env);
 }

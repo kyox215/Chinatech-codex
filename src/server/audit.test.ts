@@ -92,15 +92,21 @@ describe("audit log redaction", () => {
   it("keeps aggregate AI token counts while continuing to redact token values", () => {
     const sanitized = sanitizeAuditRecord({
       input_token_count: 120,
+      cached_input_token_count: 40,
+      cache_write_token_count: 10,
       output_token_count: 30,
       total_token_count: 150,
+      estimated_cost_microusd: 12,
       access_token: "SECRET",
     });
 
     expect(sanitized).toEqual({
       input_token_count: 120,
+      cached_input_token_count: 40,
+      cache_write_token_count: 10,
       output_token_count: 30,
       total_token_count: 150,
+      estimated_cost_microusd: 12,
       access_token: "[redacted]",
     });
   });

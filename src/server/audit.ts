@@ -104,7 +104,10 @@ export function sanitizeAuditRecord(
 
 function sanitizeAuditValue(value: unknown, key = "", depth = 0): unknown {
   const leafKey = key.split(".").pop() ?? "";
-  if (/^(?:input|output|total)_token_count$/.test(leafKey) && typeof value === "number") {
+  if (
+    /^(?:input|cached_input|cache_write|output|total)_token_count$/.test(leafKey) &&
+    typeof value === "number"
+  ) {
     return value;
   }
   if (isSensitiveAuditKey(key)) {

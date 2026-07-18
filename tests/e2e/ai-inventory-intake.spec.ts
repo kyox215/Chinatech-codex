@@ -19,6 +19,7 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
     }) => {
       await installSyntheticLocalDetectors(page);
       await installInventoryCreateCounter(page);
+      await installVisionRequestCounter(page);
       await page.setViewportSize(viewport);
       await gotoReady(page, "/inventory");
       await expectVisionCapability(page);
@@ -35,9 +36,11 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
 
       await expect(dialog.getByLabel("型号识别值")).toHaveValue("A7 Pro", { timeout: 20_000 });
       await expect(dialog.getByText("仅为包装标签声称值")).toBeVisible();
+      await expect(dialog.getByText(/本次未上传至云端视觉服务/)).toBeVisible();
+      expect(await visionRequestCount(page)).toBe(0);
       await expectDialogFits(dialog, viewport.width, viewport.height);
       await expectNoHorizontalOverflow(page);
-      await saveEvidence(page, `phase2-ai-inventory-${viewport.width}-review.png`);
+      await saveEvidence(page, `phase3a-ai-inventory-local-${viewport.width}-review.png`);
 
       if (viewport.width === 1280) {
         await dialog.getByRole("button", { name: "品牌：接受建议" }).click();
@@ -56,7 +59,7 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
         await expect(dialog.getByLabel("入库成本")).toHaveValue("");
         await expect(dialog.getByLabel("标价")).toHaveValue("");
         expect(await inventoryCreateRequestCount(page)).toBe(0);
-        await saveEvidence(page, "phase2-ai-inventory-1280-applied-unsaved.png", [
+        await saveEvidence(page, "phase3a-ai-inventory-1280-applied-unsaved.png", [
           dialog.getByLabel("IMEI/序列号"),
         ]);
       }
@@ -66,7 +69,7 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
   test("cancel aborts the vision request and offline mode never queues a photo", async ({
     page,
   }) => {
-    await installSyntheticLocalDetectors(page);
+    await installIncompleteLocalDetectors(page);
     await page.addInitScript(() => {
       const testWindow = window as typeof window & { __visionRequestCount?: number };
       const originalFetch = window.fetch.bind(window);
@@ -96,7 +99,7 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
       mimeType: "image/png",
       buffer: await createSyntheticPng(page),
     });
-    await expect(dialog.getByText("正在合并本地与假视觉识别…")).toBeVisible();
+    await expect(dialog.getByText("正在进行本地识别，必要时请求视觉服务…")).toBeVisible();
     await dialog.getByRole("button", { name: "取消识别" }).click();
     await expect(dialog.getByText(/已取消识别，照片不会排队上传/)).toBeVisible();
     const countAfterCancel = await visionRequestCount(page);
@@ -131,6 +134,27 @@ async function installSyntheticLocalDetectors(page: Page) {
   });
 }
 
+async function installIncompleteLocalDetectors(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "BarcodeDetector", {
+      configurable: true,
+      value: class IncompleteBarcodeDetector {
+        async detect() {
+          return [];
+        }
+      },
+    });
+    Object.defineProperty(window, "TextDetector", {
+      configurable: true,
+      value: class IncompleteTextDetector {
+        async detect() {
+          return [{ rawValue: "REDMI" }];
+        }
+      },
+    });
+  });
+}
+
 async function createSyntheticPng(page: Page) {
   const dataUrl = await page.evaluate(() => {
     const canvas = document.createElement("canvas");
@@ -157,6 +181,21 @@ async function installInventoryCreateCounter(page: Page) {
       if (new URL(url, window.location.origin).pathname.endsWith("/inventory/intake/create")) {
         testWindow.__inventoryCreateRequestCount =
           (testWindow.__inventoryCreateRequestCount ?? 0) + 1;
+      }
+      return originalFetch(input, init);
+    };
+  });
+}
+
+async function installVisionRequestCounter(page: Page) {
+  await page.addInitScript(() => {
+    const testWindow = window as typeof window & { __visionRequestCount?: number };
+    const originalFetch = window.fetch.bind(window);
+    testWindow.__visionRequestCount = 0;
+    window.fetch = (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (new URL(url, window.location.origin).pathname.endsWith("/ai/vision/extract")) {
+        testWindow.__visionRequestCount = (testWindow.__visionRequestCount ?? 0) + 1;
       }
       return originalFetch(input, init);
     };

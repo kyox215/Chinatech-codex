@@ -117,6 +117,23 @@ export function mergeInventoryRecognitions(
   });
 }
 
+/**
+ * Conservative local-first gate. A cloud fallback is skipped only when the
+ * label yielded all four commercially important fields without conflicts or
+ * invalid identifier evidence. Candidates still require the existing human
+ * review and are never written automatically.
+ */
+export function isLocalInventoryRecognitionSufficient(recognition: AiInventoryRecognition) {
+  if (recognition.conflicts.length > 0) return false;
+  if (recognition.identifiers.some((candidate) => candidate.validation === "invalid")) return false;
+  return [
+    recognition.fields.brand,
+    recognition.fields.model,
+    recognition.fields.ram_capacity,
+    recognition.fields.storage_capacity,
+  ].every((candidate) => Boolean(candidate.value?.trim()));
+}
+
 function localField(value: string | null, evidence: string | null): AiInventoryFieldCandidate {
   return {
     value,

@@ -17,6 +17,17 @@ describe("FakeAiAssistantProvider", () => {
     expect(JSON.stringify(result.toolCall)).not.toMatch(/actor|store/i);
   });
 
+  it("preserves the legacy provider fallback for a reference inside free text", async () => {
+    const result = await provider.planOrderQuery({
+      message: "订单 R2026001 状态怎么样",
+      locale: "zh-CN",
+    });
+    expect(result.toolCall).toEqual({
+      name: "get_order_summary",
+      arguments: { order_reference: "R2026001" },
+    });
+  });
+
   it.each([
     ["查找未付款工单", { paid: "unpaid", overdue: null, queue_group: null }],
     ["查看逾期工单", { paid: "all", overdue: "any", queue_group: null }],

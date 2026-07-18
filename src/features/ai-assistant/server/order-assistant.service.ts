@@ -15,6 +15,7 @@ import {
   type WriteAiAssistantAuditInput,
 } from "./audit";
 import { getAiAssistantCapabilities } from "./capabilities";
+import { AI_PRICING_VERSION, estimateAiUsageMicroUsd } from "./cost-policy";
 import {
   AiServiceError,
   aiAuditUnavailableError,
@@ -28,7 +29,15 @@ import {
 } from "./errors";
 import type { AiAssistantFeatureEnvironment } from "./feature-flags";
 import type { AiAssistantProvider } from "./provider";
+import { planDeterministicOrderQuery } from "./order-intent-router";
+import { createAiProviderSignal, isAiProviderTimeoutError } from "./provider-signal";
 import { consumeAiAssistantRequestQuota, type ConsumeAiAssistantQuotaInput } from "./quota";
+import {
+  consumeAiAssistantRequestRateLimit,
+  type ConsumeAiAssistantRequestRateLimitInput,
+} from "./request-rate-limit";
+import { getAiModelRuntimePolicy } from "./runtime-policy";
+import { createAiSafetyIdentifierIfConfigured } from "./safety-identifier";
 import { getStatusMeta } from "@/lib/mock/enums";
 import type {
   AuditActor,
@@ -44,7 +53,11 @@ type OrderAssistantDependencies = {
   getOrder: (id: string, actor: AuditActor) => Promise<OrderDetail>;
   env?: AiAssistantFeatureEnvironment;
   now?: () => Date;
+  requestSignal?: AbortSignal;
   consumeQuota?: (input: ConsumeAiAssistantQuotaInput) => unknown | Promise<unknown>;
+  consumeRequestRateLimit?: (
+    input: ConsumeAiAssistantRequestRateLimitInput,
+  ) => unknown | Promise<unknown>;
 };
 
 export async function runAiOrderAssistantTurn({
@@ -66,10 +79,21 @@ export async function runAiOrderAssistantTurn({
     | "inputTokens"
     | "outputTokens"
     | "latencyBucket"
+    | "requestKind"
+    | "resolutionPath"
+    | "policyVersion"
+    | "cachedInputTokens"
+    | "cacheWriteTokens"
+    | "providerAttemptCount"
+    | "pricingVersion"
+    | "estimatedMicroUsd"
+    | "budgetOutcome"
+    | "safetyIdentifierPresent"
   > = {
     event: "order_plan",
     provider: "none",
     modelVersion: "not_started",
+    requestKind: "order_text",
   };
   let stage: "authorization" | "provider" | "protocol" | "repository" = "authorization";
 
@@ -83,28 +107,81 @@ export async function runAiOrderAssistantTurn({
       throw aiNotAuthorizedError();
     }
 
-    await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
+    await (dependencies.consumeRequestRateLimit ?? consumeAiAssistantRequestRateLimit)({
       actor,
       env: dependencies.env,
       now: dependencies.now,
     });
 
-    stage = "provider";
-    const provider =
-      typeof dependencies.provider === "function" ? dependencies.provider() : dependencies.provider;
-    auditContext.provider = provider.name;
-    const planned = await provider.planOrderQuery({
-      message: input.message,
-      locale: input.locale,
-    });
-    auditContext.provider = planned.metadata.provider;
-    auditContext.modelVersion = planned.metadata.model;
-    auditContext.inputTokens = planned.metadata.usage?.inputTokens;
-    auditContext.outputTokens = planned.metadata.usage?.outputTokens;
-    auditContext.latencyBucket = bucketAiAssistantLatency(planned.metadata.latencyMs);
+    const deterministic = planDeterministicOrderQuery(input);
+    let plannedToolCall: unknown;
+    if (deterministic) {
+      plannedToolCall = deterministic.toolCall;
+      auditContext.provider = "none";
+      auditContext.modelVersion = deterministic.policyVersion;
+      auditContext.policyVersion = deterministic.policyVersion;
+      auditContext.resolutionPath = "deterministic";
+      auditContext.budgetOutcome = "not_required";
+      auditContext.safetyIdentifierPresent = false;
+    } else {
+      await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
+        actor,
+        env: dependencies.env,
+        now: dependencies.now,
+      });
+
+      stage = "provider";
+      const provider =
+        typeof dependencies.provider === "function"
+          ? dependencies.provider()
+          : dependencies.provider;
+      auditContext.provider = provider.name;
+      auditContext.resolutionPath = "provider";
+      const runtimePolicy = getAiModelRuntimePolicy("order_text");
+      const safetyIdentifier = createAiSafetyIdentifierIfConfigured(actor, dependencies.env);
+      auditContext.policyVersion = runtimePolicy.policyVersion;
+      auditContext.safetyIdentifierPresent = Boolean(safetyIdentifier);
+      const planned = await provider.planOrderQuery({
+        message: input.message,
+        locale: input.locale,
+        safetyIdentifier,
+        signal: createAiProviderSignal(
+          dependencies.requestSignal,
+          runtimePolicy.providerDeadlineMs,
+        ),
+      });
+      plannedToolCall = planned.toolCall;
+      auditContext.provider = planned.metadata.provider;
+      auditContext.modelVersion = planned.metadata.model;
+      auditContext.inputTokens = planned.metadata.usage?.inputTokens;
+      auditContext.cachedInputTokens = planned.metadata.usage?.cachedInputTokens;
+      auditContext.cacheWriteTokens = planned.metadata.usage?.cacheWriteTokens;
+      auditContext.outputTokens = planned.metadata.usage?.outputTokens;
+      auditContext.providerAttemptCount = planned.metadata.attempts;
+      auditContext.latencyBucket = bucketAiAssistantLatency(planned.metadata.latencyMs);
+      stage = "protocol";
+      if (planned.metadata.provider === "openai") {
+        const usage = planned.metadata.usage;
+        if (usage?.inputTokens === undefined || usage.outputTokens === undefined) {
+          throw aiProtocolError();
+        }
+        auditContext.pricingVersion = AI_PRICING_VERSION;
+        auditContext.estimatedMicroUsd = estimateAiUsageMicroUsd({
+          model: planned.metadata.model,
+          usage: {
+            inputTokens: usage.inputTokens,
+            cachedInputTokens: usage.cachedInputTokens ?? 0,
+            cacheWriteTokens: usage.cacheWriteTokens ?? 0,
+            outputTokens: usage.outputTokens,
+          },
+        });
+      } else {
+        auditContext.budgetOutcome = "not_required";
+      }
+    }
 
     stage = "protocol";
-    const parsedCall = aiOrderToolCallSchema.safeParse(planned.toolCall);
+    const parsedCall = aiOrderToolCallSchema.safeParse(plannedToolCall);
     if (!parsedCall.success) throw aiProtocolError();
     auditContext.event = "order_tool";
     auditContext.toolName = parsedCall.data.name;
@@ -218,7 +295,7 @@ function normalizeOrderAssistantError(
   if (error instanceof AiServiceError) return error;
   if (stage === "provider") {
     if (isRateLimitedError(error)) return aiProviderRateLimitedError();
-    if (error instanceof Error && error.name === "AbortError") return aiProviderTimeoutError();
+    if (isAiProviderTimeoutError(error)) return aiProviderTimeoutError();
     return aiProviderUnavailableError();
   }
   if (stage === "repository") return aiDependencyUnavailableError();
@@ -236,7 +313,11 @@ function isRateLimitedError(error: unknown) {
 
 function auditStatusFor(error: AiServiceError): AiAssistantAuditStatus {
   if (error.code === "AI_NOT_AUTHORIZED" || error.code === "AI_DISABLED") return "rejected";
-  if (error.code === "AI_PROVIDER_RATE_LIMITED" || error.code === "AI_QUOTA_EXHAUSTED") {
+  if (
+    error.code === "AI_PROVIDER_RATE_LIMITED" ||
+    error.code === "AI_QUOTA_EXHAUSTED" ||
+    error.code === "AI_RATE_LIMITED"
+  ) {
     return "rate_limited";
   }
   return "failed";

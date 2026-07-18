@@ -9,7 +9,9 @@ vi.mock("./audit", async (importOriginal) => {
 
 import type { AiOrderToolCall } from "@/features/ai-assistant/model/contracts";
 import type { AiAssistantProvider } from "./provider";
-import { aiQuotaExhaustedError } from "./errors";
+import { aiQuotaExhaustedError, aiRequestRateLimitedError } from "./errors";
+import { resetAiAssistantLocalRateLimitForTests } from "./request-rate-limit";
+import { FakeAiAssistantProvider } from "@/features/ai-assistant/testing/fake-provider";
 import type {
   AuditActor,
   OrderDetail,
@@ -25,7 +27,10 @@ const enabledEnv = {
 } as const;
 
 describe("order assistant service", () => {
-  beforeEach(() => mocks.writeAiAssistantAudit.mockReset());
+  beforeEach(() => {
+    mocks.writeAiAssistantAudit.mockReset();
+    resetAiAssistantLocalRateLimitForTests();
+  });
 
   it("checks the feature gate before invoking the provider or repository", async () => {
     const provider = providerFor(searchCall());
@@ -104,6 +109,90 @@ describe("order assistant service", () => {
     );
   });
 
+  it("routes an exact order reference without provider construction or paid quota", async () => {
+    const selected = order();
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const consumeQuota = vi.fn();
+    const consumeRequestRateLimit = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "请查工单 R2026001", locale: "zh-CN" },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage: vi.fn(async () => result([selected], 1)),
+        getOrder: vi.fn(async () => detail(selected)),
+        env: enabledEnv,
+        consumeQuota,
+        consumeRequestRateLimit,
+      },
+    });
+
+    expect(response).toMatchObject({ kind: "order_summary", total: 1 });
+    expect(consumeRequestRateLimit).toHaveBeenCalledOnce();
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "none",
+        resolutionPath: "deterministic",
+        policyVersion: "order-direct-v1",
+        requestKind: "order_text",
+      }),
+    );
+  });
+
+  it("rate limits direct queries without consuming paid quota", async () => {
+    const consumeQuota = vi.fn();
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: owner,
+        input: { message: "R2026001", locale: "zh-CN" },
+        dependencies: {
+          provider: providerFor(searchCall()),
+          listOrdersPage: vi.fn(),
+          getOrder: vi.fn(),
+          env: enabledEnv,
+          consumeQuota,
+          consumeRequestRateLimit: vi.fn(() => {
+            throw aiRequestRateLimitedError();
+          }),
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_RATE_LIMITED", status: 429 });
+
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "rate_limited", errorCode: "AI_RATE_LIMITED" }),
+    );
+  });
+
+  it("keeps an ambiguous reference sentence on the provider path without regressing its result", async () => {
+    const selected = order();
+    const provider = new FakeAiAssistantProvider();
+    const providerSpy = vi.spyOn(provider, "planOrderQuery");
+    const consumeQuota = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "订单 R2026001 状态怎么样", locale: "zh-CN" },
+      dependencies: {
+        provider,
+        listOrdersPage: vi.fn(async () => result([selected], 1)),
+        getOrder: vi.fn(async () => detail(selected)),
+        env: enabledEnv,
+        consumeQuota,
+      },
+    });
+
+    expect(providerSpy).toHaveBeenCalledOnce();
+    expect(consumeQuota).toHaveBeenCalledOnce();
+    expect(response).toMatchObject({ kind: "order_summary", total: 1 });
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "fake", resolutionPath: "provider" }),
+    );
+  });
+
   it("runs bounded search through the existing actor-scoped repository and returns minimal cards", async () => {
     const sensitiveOrder = order({
       customer_name: "Mario Rossi",
@@ -148,6 +237,35 @@ describe("order assistant service", () => {
     expect(serialized).not.toContain("999");
     expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
       expect.objectContaining({ event: "order_tool", toolName: "search_orders", resultCount: 1 }),
+    );
+  });
+
+  it("passes only a HMAC safety identifier and bounded signal to the provider", async () => {
+    const provider = providerFor(searchCall());
+    await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "查询 Mario 的订单", locale: "zh-CN" },
+      dependencies: {
+        provider,
+        listOrdersPage: vi.fn(async () => result([], 0)),
+        getOrder: vi.fn(),
+        env: {
+          ...enabledEnv,
+          AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET: "test-only-secret-with-at-least-32-characters",
+        },
+      },
+    });
+
+    expect(provider.planOrderQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        safetyIdentifier: expect.stringMatching(/^u1_/),
+      }),
+    );
+    const serialized = JSON.stringify(vi.mocked(provider.planOrderQuery).mock.calls[0]?.[0]);
+    expect(serialized).not.toContain(owner.id);
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ safetyIdentifierPresent: true }),
     );
   });
 
@@ -255,6 +373,30 @@ describe("order assistant service", () => {
         status: "failed",
         errorCode: "AI_PROVIDER_UNAVAILABLE",
       }),
+    );
+  });
+
+  it("maps Node provider deadline timeouts to the stable timeout envelope", async () => {
+    const provider = providerFor(searchCall());
+    vi.mocked(provider.planOrderQuery).mockRejectedValueOnce(
+      new DOMException("provider deadline", "TimeoutError"),
+    );
+
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: owner,
+        input: { message: "查询订单", locale: "zh-CN" },
+        dependencies: {
+          provider,
+          listOrdersPage: vi.fn(),
+          getOrder: vi.fn(),
+          env: enabledEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_TIMEOUT", status: 504 });
+
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed", errorCode: "AI_PROVIDER_TIMEOUT" }),
     );
   });
 

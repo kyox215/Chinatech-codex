@@ -8,8 +8,9 @@ import type {
   AiInventoryRecognitionInput,
   AiOrderPlannerInput,
 } from "@/features/ai-assistant/server/provider";
+import { planDeterministicOrderQuery } from "@/features/ai-assistant/server/order-intent-router";
 
-const orderReferencePattern =
+const legacyOrderReferencePattern =
   /(?:#|RD[-\s]?|工单(?:号)?\s*)?([A-Z]{0,4}-?\d{3,}|[0-9a-f]{8}-[0-9a-f-]{27,})/i;
 
 export class FakeAiAssistantProvider implements AiAssistantProvider {
@@ -17,31 +18,34 @@ export class FakeAiAssistantProvider implements AiAssistantProvider {
 
   async planOrderQuery(input: AiOrderPlannerInput) {
     const startedAt = Date.now();
-    const reference = input.message.match(orderReferencePattern)?.[1]?.trim();
-    const toolCall = reference
-      ? {
-          name: "get_order_summary" as const,
-          arguments: { order_reference: reference },
-        }
-      : {
-          name: "search_orders" as const,
-          arguments: {
-            search: extractSearchTerm(input.message),
-            view: /历史|归档|archive/i.test(input.message)
-              ? ("archive" as const)
-              : ("active" as const),
-            paid: /未付|欠款|unpaid|da pagare/i.test(input.message)
-              ? ("unpaid" as const)
-              : /已付|paid|pagat/i.test(input.message)
-                ? ("paid" as const)
-                : ("all" as const),
-            overdue: /超时|逾期|overdue|ritardo/i.test(input.message) ? ("any" as const) : null,
-            queue_group: /正在维修|处理中|processing|in lavorazione/i.test(input.message)
-              ? ("processing" as const)
-              : null,
-            page_size: 8,
-          },
-        };
+    const deterministic = planDeterministicOrderQuery(input);
+    const legacyReference = input.message.match(legacyOrderReferencePattern)?.[1]?.trim();
+    const toolCall =
+      deterministic?.toolCall ??
+      (legacyReference
+        ? {
+            name: "get_order_summary" as const,
+            arguments: { order_reference: legacyReference },
+          }
+        : {
+            name: "search_orders" as const,
+            arguments: {
+              search: extractSearchTerm(input.message),
+              view: /历史|归档|archive/i.test(input.message)
+                ? ("archive" as const)
+                : ("active" as const),
+              paid: /未付|欠款|unpaid|da pagare/i.test(input.message)
+                ? ("unpaid" as const)
+                : /已付|paid|pagat/i.test(input.message)
+                  ? ("paid" as const)
+                  : ("all" as const),
+              overdue: /超时|逾期|overdue|ritardo/i.test(input.message) ? ("any" as const) : null,
+              queue_group: /正在维修|处理中|processing|in lavorazione/i.test(input.message)
+                ? ("processing" as const)
+                : null,
+              page_size: 8,
+            },
+          });
 
     return {
       toolCall: aiOrderToolCallSchema.parse(toolCall),
