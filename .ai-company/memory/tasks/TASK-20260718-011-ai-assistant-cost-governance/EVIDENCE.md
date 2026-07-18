@@ -47,3 +47,6 @@ IDs, test reports, screenshots, or concise log references.
 - `2026-07-18T20:26:10Z` `7d91d76323` — main lineage check: ca271119 is an ancestor of 19c4feb8; downstream diff is limited to TASK-013 memory and Inventory V2 migration-recovery files.
 - `2026-07-18T20:26:10Z` `453ecb4290` — Vercel deployment dpl_8jQ3jopzibHgL249jCMRVqeYn3F9 is Ready and aliases www.chinatech.in plus chinatech.in.
 - `2026-07-18T20:26:10Z` `58a4d961e5` — Task business candidate gates remain agents/lint/typecheck, 296 files and 1858 tests, Webpack 26-page build, staff 6/6, focused local-first tests and three independent P0=0/P1=0 reviews.
+- `2026-07-18T20:34:14Z` `62b997df69` — git merge-base confirms 15829cbb is an ancestor of remote main ffddbb35.
+- `2026-07-18T20:34:14Z` `530ced4586` — 15829cbb..ffddbb35 contains only cross-session orchestration agent, policy, docs and tooling files; git diff --check passes.
+- `2026-07-18T20:34:14Z` `40f55ebd86` — Production dpl_3kyaibnPVREsNF38A85EGaRPeMoG was READY on both custom domains; anonymous route/auth smoke passed and 15-minute error/fatal/5xx counts were all zero.
