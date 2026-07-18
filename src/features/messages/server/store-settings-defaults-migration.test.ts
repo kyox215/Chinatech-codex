@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260718183206_neutralize_store_settings_identity_defaults.sql",
+    "supabase/migrations/20260718150000_neutralize_store_settings_identity_defaults.sql",
   ),
   "utf8",
 ).toLowerCase();

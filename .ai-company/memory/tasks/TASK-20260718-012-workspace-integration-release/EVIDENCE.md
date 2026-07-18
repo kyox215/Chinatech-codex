@@ -27,7 +27,7 @@
 
 - RU-01 commit `bdffa5f8`: order queues sort by workflow progress before creation timestamp; 128 focused tests PASS.
 - RU-02 commit `05de4df8`: custody transitions no longer clear cached device unlock details and customer-held mobile orders keep the authorized masked edit entry; 117 focused tests plus targeted device-custody E2E 3/3 PASS.
-- RU-03 commit `675d2082`: tenant address is accepted during store creation and used by tenant print identity; forward migration `20260718183206_neutralize_store_settings_identity_defaults.sql` has a 5-second lock timeout and no row DML; 166 focused tests PASS.
+- RU-03 commit `675d2082`: tenant address is accepted during store creation and used by tenant print identity; forward migration `20260718150000_neutralize_store_settings_identity_defaults.sql` has a 5-second lock timeout and no row DML; 166 focused tests PASS. Its version was finalized between linked `20260718140000` and the separately gated Inventory V2 migrations to prevent out-of-order history.
 - Full gates: lint PASS, typecheck PASS, 280 test files / 1786 tests PASS, production build PASS, `agents:check` PASS, `git diff --check` PASS.
 - Settings formal E2E: 67/67 PASS after correcting stale test fixtures that hard-coded the retired tenant name and an impossible permission/capability combination. The same three original failures were reproduced on `origin/main@448c2404` before the fixture correction.
 - Browser evidence used only synthetic records. Workflow progress values were nondecreasing in every order group; 390px and 1440px views had no horizontal overflow; customer-held unlock dialog stayed masked; store/print previews used the selected tenant address and contact.

@@ -38,7 +38,7 @@
 - **Phase:** 02 integration completed; 03 validation in progress.
 - **Completed:** reconstructed three release units on clean `origin/main@448c2404` as commits `bdffa5f8`, `05de4df8`, and `675d2082`.
 - **Immediate verification:** RU-01 128 focused tests PASS; RU-02 117 focused tests PASS; RU-03 166 focused tests plus lint/typecheck PASS.
-- **Database decision:** skipped old `20260717175731`; created `20260718183206` with bounded lock and no row DML.
+- **Database decision:** skipped old `20260717175731`; created `20260718150000` with bounded lock and no row DML. The version is after linked `20260718140000` and before separately gated Inventory V2 migrations, so it can be applied without migration-history inversion.
 - **Next:** commit task evidence, run agents check, full test/build, browser E2E and screenshots before any database or release action.
 
 ## 2026-07-18T21:15:00+02:00 — Phase 03 release-unit quality gate complete

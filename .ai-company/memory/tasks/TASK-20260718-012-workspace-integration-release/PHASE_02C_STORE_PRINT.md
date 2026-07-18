@@ -13,7 +13,7 @@
 
 - 旧分支 `f74b82cb` 只作语义参考，未 cherry-pick。
 - 保留最新 main 的 `public_base_url`、lifecycle、order-cost、invite 与 AI 逻辑。
-- 跳过失序 migration `20260717175731`；用 Supabase CLI 创建 `20260718183206_neutralize_store_settings_identity_defaults.sql`。
+- 跳过失序 migration `20260717175731`；使用 `20260718150000_neutralize_store_settings_identity_defaults.sql`，位于已应用 `20260718140000` 之后、独立门禁的 Inventory V2 migrations 之前。
 - migration 使用 5 秒 `lock_timeout`，目标表缺失时 fail closed。
 
 ## Verification
