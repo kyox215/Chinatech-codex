@@ -55,6 +55,58 @@ describe("order list grouping", () => {
     ]);
   });
 
+  it("sorts each business queue by the displayed five-step progress before created date", () => {
+    const rows = [
+      order("pickup", "diagnosing", "2026-05-01T10:00:00Z", {
+        workflow_status: "pickup",
+      }),
+      order("repair", "repairing", "2026-05-02T10:00:00Z", {
+        workflow_status: "repair",
+      }),
+      order("quote", "quoted", "2026-05-03T10:00:00Z", {
+        workflow_status: "quote",
+      }),
+      order("intake", "new", "2026-05-04T10:00:00Z", {
+        workflow_status: "intake",
+      }),
+    ];
+
+    expect(rows.map((row) => getOrderResultGroup(row))).toEqual([
+      "processing",
+      "processing",
+      "processing",
+      "processing",
+    ]);
+    expect(rows.sort(compareOrdersForQueue).map((row) => row.id)).toEqual([
+      "intake",
+      "quote",
+      "repair",
+      "pickup",
+    ]);
+  });
+
+  it("keeps the existing created-date and stable-number order within the same progress step", () => {
+    const rows = [
+      order("newer", "diagnosing", "2026-05-02T10:00:00Z", {
+        workflow_status: "diagnosis",
+      }),
+      order("later-number", "quoted", "2026-05-01T10:00:00Z", {
+        public_no: "R-10",
+        workflow_status: "quote",
+      }),
+      order("earlier-number", "quoted", "2026-05-01T10:00:00Z", {
+        public_no: "R-2",
+        workflow_status: "quote",
+      }),
+    ];
+
+    expect(rows.sort(compareOrdersForQueue).map((row) => row.id)).toEqual([
+      "earlier-number",
+      "later-number",
+      "newer",
+    ]);
+  });
+
   it("returns only non-empty groups and counts terminal results separately", () => {
     const rows = [
       order("active", "new", "2026-05-01T10:00:00Z"),

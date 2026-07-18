@@ -1,5 +1,9 @@
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
+  getOrderWorkflowStatus,
+  getWorkflowProgressValue,
+} from "@/features/orders/model/order-task-flow";
+import {
   getOrderQueueGroup,
   orderQueueGroupMeta,
   orderQueueGroups,
@@ -70,6 +74,11 @@ export function compareOrdersForQueue(a: GroupableOrder, b: GroupableOrder) {
     orderResultGroupMeta[getOrderResultGroup(a)].sortOrder -
     orderResultGroupMeta[getOrderResultGroup(b)].sortOrder;
   if (groupSort !== 0) return groupSort;
+
+  const progressSort =
+    getWorkflowProgressValue(getOrderWorkflowStatus(a)) -
+    getWorkflowProgressValue(getOrderWorkflowStatus(b));
+  if (progressSort !== 0) return progressSort;
 
   const createdSort = dateSortValue(a.created_at) - dateSortValue(b.created_at);
   if (createdSort !== 0) return createdSort;
