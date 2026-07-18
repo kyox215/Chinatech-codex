@@ -3,7 +3,7 @@ schema_version: 1
 department: backend
 status: active
 owner: Backend Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -45,6 +45,11 @@ as owner of this file.
 - Formal quote publication and staff-confirmed sending use separate strict API commands and separate atomic RPCs. `order:quote_prepare` is non-grantable and defaults to Owner/Manager/Sales; technicians may diagnose but cannot publish price by default. Legacy direct transition-to-quoted and approval-send routes fail closed so clients cannot bypass CAS, idempotency, derived money, approval reset or audit.
 
 ## Interfaces and dependencies
+
+`TASK-20260718-008-order-cost-phase2` verifies layered cost commands: parent/child feature flags,
+server-computed capabilities, store/actor validation, service-role repository calls and precise
+RPC grants. Current projections use append-only revisions and immutable EUR/original-currency
+snapshots; export is bounded/minimized and backfill is preview-first, idempotent and compensating.
 
 Verified cross-department custody contract: API/Backend exposes store-scoped, version-locked active custody mutation plus dedicated terminal correction/return commands. Required custody fields are never silently stripped and browser roles have no direct RPC execution. Migration `20260717182220` supersedes automatic secret clearing: handover preserves credentials unless an authorized request explicitly updates/clears unlock fields.
 
@@ -105,3 +110,4 @@ Verified cross-department custody contract: API/Backend exposes store-scoped, ve
 | 2026-07-17 | Recorded online create ambiguous-success, idempotency and post-create audit reliability debt | TASK-20260717-163954-task | Integration Lead + API/Data reviewer | verified_debt |
 | 2026-07-17 | Added first-phase order-create operation id replay through `order_events` and duplicate audit/realtime suppression | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |
 | 2026-07-17 | Added production strict quote publish/confirm-send commands, narrow capability and legacy-route bypass denial | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + DATA/API/SEC/QA reviewers | scoped_verified |
+| 2026-07-18 | Added production-verified dormant cost ledger/report/procurement/export/backfill/currency command boundaries | TASK-20260718-008-order-cost-phase2 | Integration Lead + DATA/SEC/QA reviewers | scoped_verified_option_b |

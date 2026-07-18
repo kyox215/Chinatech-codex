@@ -3,7 +3,7 @@ schema_version: 1
 department: documentation
 status: active
 owner: Documentation Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -65,6 +65,11 @@ as owner of this file.
 - `docs/STORE_LIFECYCLE_IMPLEMENTATION_RUNBOOK.md` and `TASK-20260717-007-store-lifecycle-implementation` are the current store lifecycle release authority. Documentation must distinguish applied schema/code from activation: all five flags are off, no real store was renamed, closed, exported or purged, and permanent deletion still requires a separate exact-target approval.
 
 ## Interfaces and dependencies
+
+`docs/ORDER_INTERNAL_COSTS.md` is the active authority for Phase 1/2 cost meaning, permissions,
+flags, migration order, production dormant status and rollback. Task Stage 00–09, EVIDENCE,
+CEO_REPORT and production screenshots provide the release audit trail; Option B must remain
+visible wherever the release is summarized.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
@@ -143,3 +148,4 @@ as owner of this file.
 | 2026-07-17 | Synchronized the device-custody addendum, migration, permissions, visual evidence, release and rollback authority | TASK-20260716-005-device-custody-status-implementation | Integration Lead + department reviewers | active |
 | 2026-07-17 | Corrected custody credential-retention memory and recorded desktop evidence/document impact matrix | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + department reviewers | active |
 | 2026-07-17 | Added employee invite registration runbook and synchronized the account self-service plan, hosted Auth preservation warning and production evidence | TASK-20260717-employee-invite-registration | Integration Lead + department reviewers | active |
+| 2026-07-18 | Synchronized order-cost semantics, permissions, migrations, dormant production state, screenshots and Option B residual risk | TASK-20260718-008-order-cost-phase2 | Integration Lead + department reviewers | active |

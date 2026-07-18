@@ -3,7 +3,7 @@ schema_version: 1
 department: security
 status: active
 owner: Security Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -51,6 +51,12 @@ as owner of this file.
 - Store lifecycle mutations use recent TOTP/AAL2 and one-use challenges, immutable store UUID binding, service-role-only destructive RPCs and a second approval for purge. The 2026-07-18 production slice has zero browser table/function grants and remains dormant behind five off-by-default flags; schema presence is not activation authority.
 
 ## Interfaces and dependencies
+
+`TASK-20260718-008-order-cost-phase2` production-verifies the cost-data boundary: browser roles
+have zero direct privileges on all 11 Phase 2 tables and 21 RPC overloads; server permissions,
+store scope and feature flags fail closed; unauthorized UI does not mount profit, export,
+procurement, backfill or currency controls. No cost is added to customer DTOs, print, messaging,
+Realtime or offline storage.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
@@ -113,3 +119,4 @@ as owner of this file.
 | 2026-07-17 | Verified quote role/tenant/CAS/idempotency controls and service-role-only production RPC ACLs | TASK-20260717-004-order-diagnosis-quote-implementation | Security/Data reviewers + Integration Lead | scoped_verified |
 | 2026-07-17 | Superseded automatic custody secret clearing while preserving permission, offline and audit minimization boundaries | TASK-20260717-008-desktop-novice-ui-implementation | Security/QA reviewers + Integration Lead | scoped_verified |
 | 2026-07-17 | Verified current-Auth-email binding, prefetch-safe token POST, service-role-only atomic acceptance and redacted delivery failures | TASK-20260717-employee-invite-registration | Security/QA reviewers + Integration Lead | scoped_verified |
+| 2026-07-18 | Verified production cost-data ACL/permission/tenant containment and dormant child-feature behavior | TASK-20260718-008-order-cost-phase2 | Security/Data reviewers + Integration Lead | scoped_verified_option_b |

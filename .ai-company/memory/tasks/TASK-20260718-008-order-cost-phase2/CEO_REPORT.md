@@ -1,51 +1,55 @@
 # CEO Report — TASK-20260718-008 Order Cost Phase 2
 
-Status: conditional / awaiting recovery decision
+Status: **conditional close / Owner Option B accepted**
 
-## Delivered locally
+## Business outcome
 
-Stages 00–06 are implemented, independently staged in seven commits and verified on current
-`origin/main`. The candidate includes the append-only cost ledger, operational repair-profit
-center, supplier/parts lots and allocation, PII-minimized CSV export, preview/apply/compensate
-history backfill tool, and immutable multi-currency procurement snapshots. All Phase 2 child
-flags default to off and production deployment never runs a historical backfill automatically.
+RepairDesk now contains the complete second-phase internal-cost foundation: append-only cost
+revisions, repair operating-margin reports, supplier/parts purchase lots and allocation,
+PII-minimized CSV export, preview/apply/compensate history backfill, and immutable original-currency
+procurement snapshots. The production schema is present, while all five second-phase child
+capabilities remain intentionally off. Phase 1 order entry continues to show “内部成本” beside
+“客户报价” only to authorized management users.
 
-## Verification
+## Release result
 
-- Fresh PostgreSQL 17 minimal ledger and complete Stage 01–05 chains passed.
-- 11/11 Phase 2 tables have RLS; browser CRUD and Phase 2 RPC execution are denied.
-- `npm run agents:check`, lint, typecheck and 259 test files / 1669 tests passed.
-- Webpack production build passed and generated 25 application pages.
-- Responsive, permission-hidden and authorized flows have synthetic PII-free browser evidence.
-- Linked history and exact dry-run select only the six reviewed TASK-008 migrations.
-- The current production schema was exported without row data, restored into fresh PostgreSQL 17,
-  and accepted all six migrations. Post-replay RLS, ACL, RPC, search-path, view and constraint
-  assertions passed.
+- Owner selected Stage 08 Option B, accepting the unproven physical restore/RPO/RTO and the
+  pre-existing full-history migration replay failure for this release only.
+- Exactly six reviewed migrations were applied to linked project `xluzcoduqsdvjoouqhkc`. Immediate
+  and delayed dry-runs report the database is up to date.
+- All 11 second-phase tables have RLS; browser table/RPC grants are zero; 21 RPC overloads, safe
+  search paths, invoker view, constraints and indexes passed postchecks.
+- Business commit `b8932b2c` was pushed non-force to `main`. Vercel deployment
+  `dpl_4EenkJkcbQu9QoDnkqobRNq2Rt46` is READY for that exact SHA and serves both production domains.
+- Production has the Phase 1 parent cost flag only; the five Phase 2 child flag names are absent.
+- `/finance` showed the authorized-only closed state, Settings showed Phase 1 defaults without the
+  procurement/currency/backfill cards, and `/orders/new` exposed the Phase 1 internal-cost and
+  customer-quote fields after selecting “屏幕”. No order was submitted.
+- A two-hour Vercel error-log lookback covering the deployment since creation returned no entries.
+  Browser consoles were clean. Delayed
+  table statistics kept procurement/allocation/stock/backfill rows at zero, with 15 cost revisions
+  and 7/35/35 currency config/rate/revision rows unchanged.
 
-## Production decision
+## Verification summary
 
-The physical-recovery gate remains NO-GO. PITR is disabled and there is no isolated data restore
-proof. The current-schema replay proves Phase 2 compatibility but does not certify a physical
-backup restore or the repository-wide historical reset. Fresh live evidence also corrects an older
-claim: the 17 RLS-disabled legacy tables and permissive-policy tables currently have no browser
-grants, though defense-in-depth and consumer-discovery debt remains. Therefore no linked migration,
-production data write, `main` push, Vercel deploy, feature-flag change or production backfill
-occurred.
-
-## Resume requirement
-
-Choose Stage 08 Option A (isolated full backup restore drill), Option B (written bounded release
-exception accepting untested restore/full-history risks for this release), or Option C (keep
-production unchanged). If A or B is approved, repeat the entire Stage 07 preflight from fresh
-state before migration-first apply, fast-forward main, exact-SHA deploy, smoke and observation.
+- 259 test files / 1,669 tests passed before release; lint, typecheck, agent checks and Webpack
+  production build passed.
+- Fresh PostgreSQL 17 harnesses covered ledger, profit, procurement, export, backfill and currencies.
+- Current production schema restored into fresh PostgreSQL 17 and accepted all six migrations.
+- Final quality conclusion is **CONDITIONAL**, because Option B accepts rather than fixes the broad
+  restore and historical-replay gaps. This task is otherwise complete and the residual is owned by
+  the existing Data/Operations P0 recovery work.
 
 ## Visual evidence
 
-- Profit Center: `screenshots/stage-02-profit-center-390.png` and
-  `screenshots/stage-02-profit-center-1440.png`
-- Parts procurement/allocation and supplier breakdown: task `screenshots/stage-03-*.png`
-- Authorized and hidden export: task `screenshots/stage-04a-*.png`
-- Backfill preview/confirmation: `screenshots/stage-04b-history-backfill-*.png`
-- Currency settings and USD procurement preview: `screenshots/stage-05-*.png`
+- Production closed Profit Center: `screenshots/production-finance-feature-off.jpg`
+- Production Phase 1-only Settings: `screenshots/production-settings-phase1-only.jpg`
+- Production new-order cost field: `screenshots/production-new-order-cost-field.jpg`
+- Synthetic authorized Phase 2 flows remain under `screenshots/stage-02-*` through `stage-05-*`.
 
-No production screenshot exists because the release was correctly stopped before deployment.
+## Rollback and operating boundary
+
+Do not enable a child flag or run historical backfill as part of this closeout. If dormant code
+regresses, keep child flags absent/off and roll back the application; preserve additive schema and
+audit history and use a reviewed forward fix. Physical restore certification, full-history replay
+repair and legacy RLS/policy hardening remain separate P0 work and were not silently closed here.

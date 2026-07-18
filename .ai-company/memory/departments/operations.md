@@ -3,7 +3,7 @@ schema_version: 1
 department: operations
 status: active
 owner: Operations Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -50,6 +50,12 @@ as owner of this file.
 - `TASK-20260717-007-store-lifecycle-implementation` used an isolated latest-main worktree to preserve unrelated root changes, applied exactly six reviewed lifecycle migrations, and non-force pushed implementation SHA `55cb7ab5`. Keep all five flags off until a separate activation task proves disposable-store flows, encrypted sink/KMS and restore; any real purge needs a second exact-target approval.
 
 ## Interfaces and dependencies
+
+`TASK-20260718-008-order-cost-phase2` verifies the serialized database-first release sequence:
+atomic release lock, fresh remote/history/dry-run/backup/advisor assertions, exact migration apply,
+postchecks, non-force main push, exact-SHA Vercel READY, child flags absent, browser/log/data
+observation, then lock release. Owner exceptions must be recorded separately and do not convert a
+scoped slice into broad recovery certification.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
@@ -105,3 +111,4 @@ as owner of this file.
 | 2026-07-17 | Recorded exact-SHA Vercel release, contained identity block, production auth-boundary smoke and clean runtime observation | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + release reviewers | scoped_verified |
 | 2026-07-13 | Recorded Settings split-release, serialized integration, observation and rollback ownership contract | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | no_go |
 | 2026-07-17 | Recorded serialized single-migration quote release, concurrent-main absorption, exact-SHA deployment and clean runtime smoke | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + DATA/SEC/QA/Release reviewers | scoped_verified |
+| 2026-07-18 | Recorded serialized six-migration cost release, exact business SHA deployment, dormant flags and clean database/runtime observation | TASK-20260718-008-order-cost-phase2 | Integration Lead + DATA/SEC/QA reviewers | scoped_verified_option_b |

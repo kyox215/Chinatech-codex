@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260718-008-order-cost-phase2](tasks/TASK-20260718-008-order-cost-phase2/TASK.md): Conditionally closed production order-cost Phase 2 release; six migrations and business `main@b8932b2c` are live, all five child flags remain off, no backfill ran, and Owner Option B leaves physical-restore/full-history recovery debt open.
+
 - [TASK-20260718-095500-order-create-navigation-release](tasks/TASK-20260718-095500-order-create-navigation-release/TASK.md): Closed production fix for canonical `/orders/{id}` navigation after successful creation from both the direct page and list Dialog; E2E, full app gates, screenshot, exact main SHA and Vercel READY/runtime smoke are recorded.
 
 - [TASK-20260717-007-store-lifecycle-implementation](tasks/TASK-20260717-007-store-lifecycle-implementation/TASK.md): Closed production schema/code release for UUID-bound store lifecycle P0-P5; six migrations and implementation commit `55cb7ab5` are verified on `main`, while all runtime flags and real store mutations remain off.

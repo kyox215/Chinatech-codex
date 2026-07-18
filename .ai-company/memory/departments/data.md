@@ -3,7 +3,7 @@ schema_version: 1
 department: data
 status: active
 owner: Data Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -55,6 +55,7 @@ as owner of this file.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` applied additive migration `20260717213518`: production UUID row IDs and the missing `message_logs.channel` compatibility column were reconciled; two invoker/empty-search-path RPCs, a partial unique idempotency index and zero duplicate groups were postchecked. The slice is aligned and up to date but does not close historical reset failure `DATA-20260710-002`.
 - `TASK-20260717-employee-invite-registration` applied migration chain `20260717220219`..`20260717223354`: delivery state/checks/index plus a service-role-only atomic invitation-accept RPC. Two post-apply lint findings were corrected only by immutable forward migrations; final history aligns, final remote lint is clean, and schema dump confirms PUBLIC revoke/service-role grant.
 - `TASK-20260717-007-store-lifecycle-implementation` applied six additive lifecycle migrations to `xluzcoduqsdvjoouqhkc` on 2026-07-18. Postchecks found 7/7 lifecycle rows, export/purge catalogs of 39/37 tables, zero missing RLS, browser grants, non-UUID store scopes or unhandled restrictive edges; the final linked dry-run is up to date. This proves the dormant schema slice, not authorization for a real store purge.
+- `TASK-20260718-008-order-cost-phase2` applied six additive cost migrations after exact current-schema PG17 replay and linked dry-run. Production postchecks prove 11/11 Phase 2 tables with RLS, zero browser table/RPC grants, 21 RPC overloads, 15 cost revisions, 7/35/35 currency rows and zero procurement/backfill business rows. This is a dormant slice PASS under Owner Option B, not physical-restore or full-history certification.
 
 ## Interfaces and dependencies
 
@@ -126,3 +127,4 @@ as owner of this file.
 | 2026-07-17 | Applied and postchecked atomic quote publish/confirm-send migration with UUID compatibility and zero idempotency duplicates | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + DATA/API/SEC reviewers | scoped_verified |
 | 2026-07-17 | Recorded linked custody-retention migration parity and a zero-pending desktop release dry-run | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + DATA/QA reviewers | scoped_verified_no_write |
 | 2026-07-17 | Applied and forward-hardened employee invitation delivery/atomic acceptance through clean remote lint and ACL/schema postcheck | TASK-20260717-employee-invite-registration | Integration Lead + DATA/SEC reviewers | scoped_verified |
+| 2026-07-18 | Applied and postchecked the dormant six-migration order-cost Phase 2 slice while preserving the independent restore/full-history P0 | TASK-20260718-008-order-cost-phase2 | Integration Lead + DATA/SEC reviewers | scoped_verified_option_b |

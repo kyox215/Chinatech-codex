@@ -52,6 +52,11 @@ as owner of this file.
 
 ## Interfaces and dependencies
 
+`TASK-20260718-008-order-cost-phase2` verifies the cost UI boundary: authorized management gets
+Phase 1 internal cost beside customer quote and store default costs; Phase 2 profit/export,
+procurement, backfill and currency components are capability-driven and do not mount when their
+independent child flags are off. Low-permission behavior remains the pre-cost UI with no cost copy.
+
 Verified custody contract: Frontend keeps repair type, accessories, custody and unlock credentials independent. New order begins with no custody selection and requires an explicit choice; switching to/from customer-held preserves the entered unlock method/value; detail changes use a dedicated online Sheet/Dialog action with version and reason where required.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
@@ -113,3 +118,4 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 | 2026-07-17 | Added explicit unknown intake and reusable responsive diagnosis/quote/confirmed-send UI contract | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
 | 2026-07-17 | Added read-first desktop hierarchy, exact missing-field focus, shared shortcut permissions and custody credential retention | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + UX/QA reviewers | verified |
 | 2026-07-18 | Recorded canonical order-create success navigation for both page and list-Dialog entry points | TASK-20260718-095500-order-create-navigation-release | Integration Lead | production_verified |
+| 2026-07-18 | Recorded responsive cost/profit/procurement/backfill/currency UI and production dormant-state behavior | TASK-20260718-008-order-cost-phase2 | Integration Lead + UX/QA reviewers | scoped_verified_option_b |

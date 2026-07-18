@@ -3,7 +3,7 @@ schema_version: 1
 department: product
 status: active
 owner: Product Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -40,6 +40,12 @@ as owner of this file.
 - `TASK-20260717-007-store-lifecycle-implementation` shipped the P0-P5 store lifecycle control plane on 2026-07-18. Rename, close/archive, restore, export and purge remain separate explicit actions bound to immutable store UUIDs; all five runtime flags remain off and no real store lifecycle action occurred during release.
 
 ## Interfaces and dependencies
+
+The production order-cost contract from `TASK-20260718-008-order-cost-phase2` defines repair
+operating margin, not accounting net profit. Unknown cost is excluded from exact margin rather
+than treated as zero; explicit zero remains a real value; estimated and confirmed costs remain
+distinct. Customer quotes and store reporting stay EUR, while original currency is internal
+procurement evidence only.
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
@@ -86,3 +92,4 @@ as owner of this file.
 | 2026-07-17 | Promoted unknown intake, diagnosis handoff, formal quote and confirmed-send semantics to production-verified behavior | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | active |
 | 2026-07-17 | Superseded custody credential clearing and recorded one-recommended-action desktop beginner rules | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + FLOW/UX/QA reviewers | verified |
 | 2026-07-17 | Recorded the new/existing employee email invitation, explicit acceptance and delivery-state product contract | TASK-20260717-employee-invite-registration | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified |
+| 2026-07-18 | Promoted the internal-cost, operating-margin, procurement, guarded-backfill and currency-snapshot product contract to dormant production schema | TASK-20260718-008-order-cost-phase2 | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified_option_b |

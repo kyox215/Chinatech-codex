@@ -1,6 +1,6 @@
 # Stage 07 — Production Release and Observation
 
-Status: production migrations and database postchecks passed — 2026-07-18T15:37:16Z
+Status: production release and dormant-state observation passed — 2026-07-18T15:53:47Z
 
 ## Goal
 
@@ -159,3 +159,49 @@ Immediate postchecks proved:
 
 Result: **database release slice PASS.** Next authorized write is a non-force fast-forward push of
 the exact reviewed candidate to remote `main`, after another fresh fetch/divergence assertion.
+
+## Git and application release
+
+After a fresh fetch, candidate and `origin/main` were confirmed fast-forward compatible. The
+Integration Lead used a non-force `git push --porcelain origin HEAD:main`; remote `main`, branch
+HEAD and the reviewed business release all resolved to
+`b8932b2c7b5d5752c0cb5dfc6597a68decbe2262` with zero divergence.
+
+Git integration created Vercel deployment `dpl_4EenkJkcbQu9QoDnkqobRNq2Rt46`. Production metadata
+reported `READY`, target `production`, the exact Git SHA above, and aliases `chinatech.in`,
+`www.chinatech.in`, the production project alias and the main-branch alias.
+
+The production environment contains `REPAIRDESK_ORDER_COSTS_ENABLED`; none of the five Phase 2
+child flag names exists. No flag value was read or recorded. Dormant rollout is therefore
+fail-closed at both code and configuration boundaries.
+
+## Production smoke and visual evidence
+
+Using the existing authenticated Owner test workspace without opening customer/order records or
+submitting any form:
+
+- `/finance` rendered “此页面仅对获授权人员开放” and no profit metrics, export or drilldown;
+- `/settings?section=rules` retained the Phase 1 default-cost editor but exact text counts for
+  procurement, currency and history-backfill cards were all zero;
+- `/orders/new`, after locally selecting “屏幕”, showed “内部成本” beside “客户报价”; no customer
+  data was entered and the order remained unsubmitted;
+- browser warning/error logs were empty for all three routes.
+
+PII-free evidence is stored at:
+
+- `screenshots/production-finance-feature-off.jpg`
+- `screenshots/production-settings-phase1-only.jpg`
+- `screenshots/production-new-order-cost-field.jpg`
+
+## Observation
+
+- A two-hour Vercel error-level lookback covering the deployment since creation returned no entries.
+- A delayed linked migration dry-run reported `Remote database is up to date`.
+- Delayed linked table statistics kept parts catalog, purchase lots, allocations, stock movements,
+  backfill runs and candidates at zero. Cost revisions remained 15; currency configs/rates/rate
+  revisions remained 7/35/35.
+- No child capability was enabled, no export was triggered and no historical backfill was run.
+
+Result: **Stage 07 PASS under the Owner-approved Option B exception.** The task can close as
+CONDITIONAL because the product release and observation passed while physical restore and the
+pre-existing full-history replay remain explicitly accepted, unresolved P0 recovery debt.

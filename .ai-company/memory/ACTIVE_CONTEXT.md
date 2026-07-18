@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260718-008-order-cost-phase2"
-status: "active"
-phase: "production_git_push"
+status: "closed"
+phase: "closeout"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T15:38:13Z"
+last_checkpoint_at: "2026-07-18T16:04:25Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,18 +19,15 @@ last_rehydrated_at: null
 
 ## Current state
 
-六个第二期生产迁移已精确应用；linked history 与 no-op dry-run、11 表 RLS/ACL、21 RPC、search_path、security-invoker 视图、约束、索引、迁移快照和零自动回填后检全部通过；advisors 无新增 Phase 2 告警。Git push/deploy 尚未执行。
+Stage 09关闭包和最终差异已验证；任务按Owner Option B有条件关闭，五个Phase2子功能仍关闭且未运行真实回填。
 
 ## Blocking decisions
 
-- Database release slice passed; do not reapply migrations.
-- Option B recovery risks remain accepted but unresolved.
-- Stop on remote main drift, non-fast-forward push, deployment SHA mismatch or production
-  regression; all Phase 2 child flags remain off.
+- None recorded. Check the task file and `OPEN_CONFLICTS.md` before assuming this remains true.
 
 ## Next action
 
-提交数据库应用证据；fresh fetch 并断言 origin/main 未漂移、候选零 behind、工作树干净，然后非强制 push HEAD:main，立即核验远端 SHA。
+本任务无剩余动作；恢复基线、子功能启用或真实回填必须新建Owner批准任务。
 
 ## Resume protocol
 

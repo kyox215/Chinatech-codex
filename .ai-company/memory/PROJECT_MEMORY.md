@@ -14,6 +14,14 @@ Chinatech RepairDesk is a Next.js internal management system for a phone repair 
 
 2026-07-18 store lifecycle release: `TASK-20260717-007-store-lifecycle-implementation` shipped immutable-UUID preflight, structured access reasons, recent-TOTP owner rename, reversible close/archive/restore gates, DB+Storage export/restore proof and approval-locked resumable purge controls. Six migrations are applied to `xluzcoduqsdvjoouqhkc` and implementation commit `55cb7ab5` is included in `main`; all five lifecycle feature flags remain off, and no real store rename, close, export or purge occurred.
 
+2026-07-18 order-cost Phase 2 release: `TASK-20260718-008-order-cost-phase2` applied six additive
+migrations and deployed business commit `b8932b2c`. The production slice has append-only cost
+revisions, quote-based operating-margin reporting, supplier/parts lots and allocation, minimized
+CSV export, guarded history backfill and immutable original-currency snapshots. All five Phase 2
+child flags remain absent/off, no production backfill ran, and procurement/backfill tables stayed
+empty. Owner Option B accepts unproven physical restore/RPO/RTO and the pre-existing full-history
+replay failure for this release only; it does not close the independent recovery P0.
+
 ## Users, roles and core workflows
 
 - Owner / manager: business decisions, oversight, approvals, reporting.

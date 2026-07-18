@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260718-008-order-cost-phase2"
 title: "订单成本第二期分阶段实施与发布"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["API", "DATA", "DOC", "FE", "FLOW", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-18T10:18:13Z"
-updated_at: "2026-07-18T15:38:13Z"
+updated_at: "2026-07-18T16:04:25Z"
 ---
 # Task — 订单成本第二期分阶段实施与发布
 
@@ -58,19 +58,19 @@ updated_at: "2026-07-18T15:38:13Z"
 - [x] 利润报表与趋势不把未知成本当作零，并遵守角色和门店隔离
 - [x] 供应商、配件采购批次与订单项目成本可追溯且不会静默改写历史
 - [x] 导出、历史回填和多币种均具备权限、审计、幂等及回滚边界
-- [ ] 完整门禁通过后精确应用本任务迁移、快进推送 main、部署并完成生产观察（当前生产 schema 与六迁移重放已通过；Stage 08 Option B 已批准，正在 fresh 生产预检）
+- [x] 在 Stage 08 Option B 书面例外下精确应用六个迁移、非强制推送 `main`、部署精确业务 SHA，并完成默认关闭、页面、日志和数据库无后台写入观察
 
 ## Facts, assumptions, and unknowns
 
 | Item | Type | Evidence | Status / next action |
 |---|---|---|---|
 | 第一阶段已在生产发布 | verified | `docs/ORDER_INTERNAL_COSTS.md`; Phase 1 TASK/EVIDENCE; commits `fa6bf5c4`, `09b78664`, `3e969dd4` | 作为第二期基线 |
-| 当前最新远端基线 | verified | isolated worktree rebased to `origin/main@0c474318` | 所有写入在隔离分支完成 |
+| 生产业务版本 | verified | `origin/main@b8932b2c`; Vercel `dpl_4EenkJkcbQu9QoDnkqobRNq2Rt46` | 精确 SHA 已 READY 并绑定生产域名 |
 | 普通报价仍固定 EUR | verified | `src/lib/money.ts`; Zod literal EUR | 第二期只扩展内部采购成本原币种 |
 | 现有库存主要是二手设备 | verified | `InventoryItem` 设备字段与 `inventory_transactions` | 配件库存使用独立轻量模型 |
 | 利润口径 | owner-approved plan default | 经营毛利，不是会计净利润 | 代码和 UI 必须明确命名 |
 | 历史回填生产执行 | unsafe assumption | 无逐条可靠成本证据 | 只交付工具，不自动执行生产回填 |
-| 生产迁移恢复门禁 | open risk | `OPEN_CONFLICTS.md` CONFLICT-20260619-006/011 | 发布前重新核验；失败则停止生产写入 |
+| 生产迁移恢复门禁 | owner-accepted residual | Stage 08 Option B; E-045/E-052/E-055 | 仅本次发布例外；PITR/物理恢复和全历史 replay 仍由独立 P0 任务处理 |
 
 ## Decision and approval points
 
@@ -79,6 +79,15 @@ updated_at: "2026-07-18T15:38:13Z"
 - D3：生产 linked migration、开关启用和部署仅在全部门禁通过后按 Owner 本次授权串行执行。
 - D4 保留：数据删除、真实历史成本批量回填、付费汇率服务、会计/VAT 口径、权限例外均不在本次自动执行授权内。
 - Stage 08：Owner 已选择 Option B，书面接受本次发布的未验证物理恢复与全历史 replay 风险；其余精确迁移、远端漂移、安全后检、非强制推送和部署观察门禁不豁免。
+
+## Final outcome
+
+- 六个第二期迁移已应用且 linked dry-run 为 up to date；未运行历史成本回填。
+- 业务提交 `b8932b2c` 已非强制推送到 `main`，对应 Vercel 生产部署 READY。
+- 五个第二期子开关在生产未配置，利润、采购、导出、回填和多币种能力继续 fail-closed。
+- 生产浏览器验证了一期新建订单“内部成本 + 客户报价”入口仍正常；二期利润页和设置卡片保持隐藏/拒绝。
+- 生产错误日志为空，采购、分配、库存流水、回填运行和候选表仍为零。
+- 任务按 Owner Option B **有条件关闭**；恢复基线风险未被宣称解决。
 
 ## Work packages
 
