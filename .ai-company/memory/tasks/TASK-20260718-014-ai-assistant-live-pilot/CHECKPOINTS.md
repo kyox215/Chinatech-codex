@@ -35,6 +35,14 @@
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
 
+## 2026-07-18T23:05:01Z — Owner D4 approved; release baseline rebased
+
+- **Phase:** production release.
+- **Completed/current state:** Owner explicitly approved the exact D4 packet. The isolated branch was fetched and rebased onto `origin/main@9c52a4a7`; the only conflicts were the single active-task pointer and were resolved in favor of the current AI release while preserving the completed Inventory V2 baseline. Root checkout changes remain untouched.
+- **Decision:** release is R4/L1 with exact D4 authority for ChinaTech-only, non-PII staff order text, USD 50/month policy, migration `20260718223739`, Production secrets/flags, push/deploy, one durable service-path billable smoke, and 30-minute observation.
+- **Boundary:** vision, draft apply, public assistant, PII egress, automatic writes, additional stores, changed budget/model, and destructive rollback remain prohibited.
+- **Next:** rerun post-rebase quality/secret gates, refresh linked Supabase/Vercel preflight, then execute the serialized production runbook.
+
 ## 2026-07-18T22:53:47Z — Phase 3B local candidate reconciled against live read-only state: 7 active stores; proposed ChinaTech canary 5248dda1-2b32-46cd-8ed0-d15386a9e8ed; dormant 20260718174042 already applied with AI policy/bucket/request rows all zero. Applied migration restored unchanged; new additive 20260718223739 passes PostgreSQL 17 chain assertions and linked dry-run would push only it. Agents, lint, typecheck, focused 159 tests, full 1893 tests, exact-key scan and zero-cost OpenAI auth passed. No new production mutation, policy, Vercel secret, flag, push, deploy or billable call.
 
 - **Phase:** implementation

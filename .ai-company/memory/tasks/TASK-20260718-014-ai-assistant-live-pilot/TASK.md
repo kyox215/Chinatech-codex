@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["API", "DATA", "DOC", "INT", "QA", "Release", "SEC"]
 created_at: "2026-07-18T21:11:07Z"
-updated_at: "2026-07-18T22:56:59Z"
+updated_at: "2026-07-18T23:05:01Z"
 ---
 
 # Task — RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度
@@ -37,7 +37,7 @@ RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度
 - Arbitrary model tools, web access, code execution, or provider-managed conversation storage.
 - Multi-store rollout, customer-PII live tests, or unbounded image uploads.
 - Model/pricing-family migration in the same canary; it is tracked as a follow-up before the deprecated model removal date.
-- Production migration, policy seed, Vercel secret upload, live flag activation, push, and deployment until their explicit D4 gate is approved.
+- Any production effect beyond the exact approved D4 packet: second store, vision, PII egress, automatic writes, model/budget changes, or destructive database rollback.
 
 ## Hard constraints
 
@@ -63,17 +63,17 @@ RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度
 | Paid quota is currently process-local; the migration exposes service-role-only atomic reserve/finalize/release RPCs                       | observed           | `quota.ts`; governance migration                                                                               | add server-only durable adapter                                                |
 | Owner approved creation/storage of a fresh OpenAI Platform key                                                                            | observed           | owner confirmation in main thread                                                                              | key exists only in ignored root `.env.local`; never copy to source/task memory |
 | Production DB already applied dormant `20260718174042`; policy/bucket/request tables are all empty                                        | verified read-only | linked migration history, REST count-only query, OpenAPI schema                                                | preserve history; apply only new upgrade after D4                              |
-| Seven active stores exist; proposed first canary is ChinaTech `5248dda1-2b32-46cd-8ed0-d15386a9e8ed`                                      | verified read-only | store metadata query                                                                                           | Owner must approve exact canary before allowlisting                            |
+| Seven active stores exist; approved first canary is ChinaTech `5248dda1-2b32-46cd-8ed0-d15386a9e8ed`                                      | verified + approved | store metadata query; Owner D4 decision                                                                        | allowlist only this store                                                       |
 | Existing exact model snapshots and pricing policy are versioned; the order snapshot has a future removal date                             | observed           | runtime/cost policy plus current official OpenAI docs                                                          | keep for first canary; create P1 upgrade before removal                        |
-| Numeric budget and canary store are proposed defaults, not owner-approved production values                                               | assumed            | Phase 3A plan                                                                                                  | request approval before production activation                                  |
+| Production caps are USD 50/month, 20 order calls/store/day, 300 global/day, 30/actor/minute, `Europe/Rome`; vision stays off                | approved           | Owner D4 decision                                                                                              | enforce through env attestation and durable policy                              |
 
 ## Decision and approval points
 
 - **D1 / approved:** isolated local implementation, mocked tests, and zero-cost real-key authentication.
-- **D4 / pending:** apply the new linked production upgrade migration and seed the initial pricing/budget policy.
-- **D4 / pending:** upload `OPENAI_API_KEY` and safety secret to Vercel, select the one-store canary, and enable live flags.
-- **D4 / pending:** push the release branch, deploy/promote, observe, and retain or roll back the canary.
-- Proposed first-canary defaults for owner review: USD 50/month, 20 order-text and 10 vision calls/store/day, 300 calls/day globally, `Europe/Rome`, one store only.
+- **D4 / approved:** apply only the new linked production upgrade migration and seed/attest/enable the exact initial pricing/budget policy.
+- **D4 / approved:** upload Production-only secrets, allowlist ChinaTech only, and enable staff order-text flags; vision/draft/public flags stay off.
+- **D4 / approved:** push, deploy, run one no-PII service-path billable smoke, observe for 30 minutes, and retain or roll back by the written thresholds.
+- **Boundary:** USD 50/month; 20 order-text calls/store/day; 300 calls/day globally; 30 calls/actor/minute; `Europe/Rome`; one store only.
 
 ## Work packages
 
