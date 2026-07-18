@@ -9,6 +9,7 @@ import type {
   ReceivePartLotInput,
   ReleaseOrderPartInput,
 } from "@/lib/repairdesk/types";
+import { isCostMultiCurrencyEnabled } from "@/features/orders/server/order-cost-feature";
 import { getSupabaseAdmin } from "@/server/supabase";
 import {
   fail,
@@ -69,6 +70,10 @@ function rpcResult(data: unknown, error: { message: string } | null, fallback: s
     line_already_allocated: 409,
     insufficient_quantity: 409,
     allocation_already_released: 409,
+    currency_not_approved: 409,
+    currency_rate_missing: 409,
+    currency_rate_stale: 409,
+    eur_snapshot_out_of_range: 422,
   };
   const messages: Record<string, string> = {
     actor_forbidden: "无权管理配件采购成本",
@@ -85,6 +90,10 @@ function rpcResult(data: unknown, error: { message: string } | null, fallback: s
     line_already_allocated: "该报价项目已经分配了配件批次",
     insufficient_quantity: `采购批次数量不足（可用 ${numberValue(result.available_quantity)}）`,
     allocation_already_released: "该配件分配已经释放",
+    currency_not_approved: "该采购成本币种尚未由店主启用",
+    currency_rate_missing: "该币种缺少兑 EUR 汇率",
+    currency_rate_stale: "该币种汇率已超过 30 天，请店主更新后再入库",
+    eur_snapshot_out_of_range: "折算后的 EUR 单位成本超出允许范围",
   };
   throw new ProcurementOperationError(messages[code] ?? fallback, code, statuses[code] ?? 422);
 }
@@ -134,6 +143,10 @@ function lotItem(value: unknown): PartPurchaseLot | undefined {
     fx_rate_to_eur: numberValue(row.fx_rate_to_eur),
     fx_rate_at: requiredString(row.fx_rate_at),
     fx_rate_source: requiredString(row.fx_rate_source),
+    fx_rate_revision:
+      row.fx_rate_revision === null || row.fx_rate_revision === undefined
+        ? undefined
+        : numberValue(row.fx_rate_revision),
     unit_cost_eur: numberValue(row.unit_cost_eur),
     evidence_status: row.evidence_status === "reconciled" ? "reconciled" : "confirmed",
     received_at: requiredString(row.received_at),
@@ -228,23 +241,62 @@ export async function receivePartLot(input: ReceivePartLotInput, actor: AuditAct
       409,
     );
   }
-  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_receive_part_lot_rpc", {
-    p_store_id: storeId,
-    p_actor_id: actorId(actor),
-    p_part_item_id: input.part_item_id,
-    p_supplier_id: input.supplier_id ?? null,
-    p_lot_code: input.lot_code,
-    p_supplier_document_ref: input.supplier_document_ref ?? null,
-    p_quantity: input.quantity,
-    p_original_unit_cost: input.original_unit_cost,
-    p_original_currency_code: input.original_currency_code,
-    p_fx_rate_to_eur: input.fx_rate_to_eur,
-    p_fx_rate_at: input.fx_rate_at,
-    p_fx_rate_source: input.fx_rate_source,
-    p_idempotency_key: input.idempotency_key,
-  });
+  const multiCurrency = isCostMultiCurrencyEnabled();
+  if (!multiCurrency && input.original_currency_code !== "EUR") {
+    throw new ProcurementOperationError(
+      "多币种采购成本功能尚未启用",
+      "multi_currency_disabled",
+      409,
+    );
+  }
+  if (
+    !multiCurrency &&
+    ((input.fx_rate_to_eur ?? 1) !== 1 || (input.fx_rate_source ?? "store_base") !== "store_base")
+  ) {
+    throw new ProcurementOperationError("EUR 汇率快照无效", "invalid_input", 422);
+  }
+  const { data, error } = multiCurrency
+    ? await getSupabaseAdmin().rpc("repairdesk_receive_part_lot_v2_rpc", {
+        p_store_id: storeId,
+        p_actor_id: actorId(actor),
+        p_part_item_id: input.part_item_id,
+        p_supplier_id: input.supplier_id ?? null,
+        p_lot_code: input.lot_code,
+        p_supplier_document_ref: input.supplier_document_ref ?? null,
+        p_quantity: input.quantity,
+        p_original_unit_cost: input.original_unit_cost,
+        p_original_currency_code: input.original_currency_code,
+        p_idempotency_key: input.idempotency_key,
+      })
+    : await getSupabaseAdmin().rpc("repairdesk_receive_part_lot_rpc", {
+        p_store_id: storeId,
+        p_actor_id: actorId(actor),
+        p_part_item_id: input.part_item_id,
+        p_supplier_id: input.supplier_id ?? null,
+        p_lot_code: input.lot_code,
+        p_supplier_document_ref: input.supplier_document_ref ?? null,
+        p_quantity: input.quantity,
+        p_original_unit_cost: input.original_unit_cost,
+        p_original_currency_code: "EUR",
+        p_fx_rate_to_eur: input.fx_rate_to_eur ?? 1,
+        p_fx_rate_at: input.fx_rate_at ?? new Date().toISOString(),
+        p_fx_rate_source: input.fx_rate_source ?? "store_base",
+        p_idempotency_key: input.idempotency_key,
+      });
   const result = rpcResult(data, error, "登记配件采购批次失败");
-  return { id: requiredString(result.id), replayed: result.code === "idempotent_replay" };
+  return {
+    id: requiredString(result.id),
+    replayed: result.code === "idempotent_replay",
+    ...(multiCurrency
+      ? {
+          unit_cost_eur: numberValue(result.unit_cost_eur),
+          fx_rate_to_eur: numberValue(result.fx_rate_to_eur),
+          fx_rate_at: requiredString(result.fx_rate_at),
+          fx_rate_source: requiredString(result.fx_rate_source),
+          fx_rate_revision: numberValue(result.fx_rate_revision),
+        }
+      : {}),
+  };
 }
 
 export async function allocateOrderPart(

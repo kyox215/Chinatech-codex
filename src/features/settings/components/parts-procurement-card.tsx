@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Boxes, PackagePlus, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -15,16 +15,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { partsProcurementQueryOptions } from "@/features/procurement/api/query-options";
+import {
+  costCurrencyQueryOptions,
+  partsProcurementQueryOptions,
+} from "@/features/procurement/api/query-options";
 import { procurementKeys } from "@/features/procurement/api/query-keys";
+import { COST_CURRENCY_LABELS } from "@/features/procurement/model/cost-currencies";
 import { createPartCatalogItem, receivePartLot } from "@/lib/repairdesk/api";
+import type { CostCurrencyCode } from "@/lib/repairdesk/types";
 import { formatMoney } from "@/lib/money";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
-export function PartsProcurementCard({ storeId }: { storeId: string }) {
+export function PartsProcurementCard({
+  storeId,
+  multiCurrencyEnabled = false,
+}: {
+  storeId: string;
+  multiCurrencyEnabled?: boolean;
+}) {
   const client = useQueryClient();
   const query = useQuery(partsProcurementQueryOptions(storeId));
+  const currencyQuery = useQuery({
+    ...costCurrencyQueryOptions(storeId, "options"),
+    enabled: multiCurrencyEnabled,
+  });
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
   const [partId, setPartId] = useState("");
@@ -32,6 +47,22 @@ export function PartsProcurementCard({ storeId }: { storeId: string }) {
   const [lotCode, setLotCode] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unitCost, setUnitCost] = useState("");
+  const [currencyCode, setCurrencyCode] = useState<CostCurrencyCode>("EUR");
+  const selectedCurrency = useMemo(
+    () => currencyQuery.data?.items.find((item) => item.currency_code === currencyCode),
+    [currencyCode, currencyQuery.data?.items],
+  );
+  const eurPreview =
+    multiCurrencyEnabled && selectedCurrency?.rate_to_eur !== null && selectedCurrency?.rate_to_eur
+      ? Math.round(Number(unitCost) * selectedCurrency.rate_to_eur * 100) / 100
+      : Number(unitCost);
+
+  useEffect(() => {
+    if (!multiCurrencyEnabled || currencyCode === "EUR") return;
+    if (!currencyQuery.data?.items.some((item) => item.currency_code === currencyCode)) {
+      setCurrencyCode("EUR");
+    }
+  }, [currencyCode, currencyQuery.data?.items, multiCurrencyEnabled]);
 
   const refresh = async () => {
     await client.invalidateQueries({ queryKey: procurementKeys.all });
@@ -62,10 +93,14 @@ export function PartsProcurementCard({ storeId }: { storeId: string }) {
         lot_code: lotCode.trim(),
         quantity: Number(quantity),
         original_unit_cost: Number(unitCost),
-        original_currency_code: "EUR",
-        fx_rate_to_eur: 1,
-        fx_rate_at: new Date().toISOString(),
-        fx_rate_source: "store_base",
+        original_currency_code: multiCurrencyEnabled ? currencyCode : "EUR",
+        ...(multiCurrencyEnabled
+          ? {}
+          : {
+              fx_rate_to_eur: 1,
+              fx_rate_at: new Date().toISOString(),
+              fx_rate_source: "store_base",
+            }),
         idempotency_key: crypto.randomUUID(),
       }),
     onSuccess: async () => {
@@ -78,7 +113,10 @@ export function PartsProcurementCard({ storeId }: { storeId: string }) {
   });
 
   return (
-    <section className={cn(repairOs.mobileInfoCard, "min-w-0 space-y-4 p-3 sm:p-4")}>
+    <section
+      aria-label="配件采购成本与库存"
+      className={cn(repairOs.mobileInfoCard, "min-w-0 space-y-4 p-3 sm:p-4")}
+    >
       <div>
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Boxes className="size-4 text-primary" /> 配件采购成本与库存
@@ -146,7 +184,7 @@ export function PartsProcurementCard({ storeId }: { storeId: string }) {
 
         <div className="grid gap-2 rounded-xl bg-muted/25 p-3 sm:grid-cols-2">
           <p className="col-span-full flex items-center gap-1.5 text-xs font-semibold">
-            <PackagePlus className="size-3.5" /> 登记 EUR 采购批次
+            <PackagePlus className="size-3.5" /> 登记采购批次
           </p>
           <Label className="col-span-full text-xs">
             配件
@@ -193,8 +231,33 @@ export function PartsProcurementCard({ storeId }: { storeId: string }) {
               onChange={(e) => setQuantity(e.target.value)}
             />
           </Label>
+          {multiCurrencyEnabled ? (
+            <Label className="text-xs">
+              成本币种
+              <Select
+                value={currencyCode}
+                onValueChange={(value) => setCurrencyCode(value as CostCurrencyCode)}
+              >
+                <SelectTrigger aria-label="采购成本币种">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencyQuery.data?.items.map((item) => (
+                    <SelectItem
+                      key={item.currency_code}
+                      value={item.currency_code}
+                      disabled={item.stale}
+                    >
+                      {COST_CURRENCY_LABELS[item.currency_code]}
+                      {item.stale ? "（汇率已过期）" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Label>
+          ) : null}
           <Label className="text-xs">
-            单位成本 €
+            单位成本 {multiCurrencyEnabled ? currencyCode : "€"}
             <Input
               type="number"
               min={0}
@@ -203,6 +266,17 @@ export function PartsProcurementCard({ storeId }: { storeId: string }) {
               onChange={(e) => setUnitCost(e.target.value)}
             />
           </Label>
+          {multiCurrencyEnabled ? (
+            <div className="col-span-full rounded-lg border border-border/60 bg-card px-3 py-2 text-[11px] text-muted-foreground">
+              {currencyQuery.isPending
+                ? "正在读取店主设置的采购汇率…"
+                : selectedCurrency?.stale
+                  ? "该汇率已超过 30 天，请店主先更新。"
+                  : selectedCurrency?.rate_to_eur === null || !selectedCurrency
+                    ? "当前币种没有可用汇率。"
+                    : `1 ${currencyCode} = ${selectedCurrency.rate_to_eur} EUR；当前单位成本约 ${formatMoney(Number.isFinite(eurPreview) ? eurPreview : 0)}。入库后保存不可变快照。`}
+            </div>
+          ) : null}
           <Button
             type="button"
             className="col-span-full sm:justify-self-end"
@@ -213,7 +287,12 @@ export function PartsProcurementCard({ storeId }: { storeId: string }) {
               !lotCode.trim() ||
               Number(quantity) < 1 ||
               !Number.isFinite(Number(unitCost)) ||
-              Number(unitCost) < 0
+              Number(unitCost) < 0 ||
+              (multiCurrencyEnabled &&
+                (currencyQuery.isPending ||
+                  !selectedCurrency ||
+                  selectedCurrency.stale ||
+                  selectedCurrency.rate_to_eur === null))
             }
             onClick={() => receive.mutate()}
           >

@@ -985,6 +985,82 @@ export const costBackfillRevertBodySchema = costBackfillApplyBodySchema
   .omit({ expected_fixture_hash: true })
   .strict();
 
+const costCurrencyCodeSchema = z.enum(["EUR", "USD", "GBP", "CNY", "CHF"]);
+
+export const costCurrencyReadBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    mode: z.enum(["settings", "options"]).optional(),
+  })
+  .strict();
+
+const costCurrencySettingSchema = z
+  .object({
+    currency_code: costCurrencyCodeSchema,
+    enabled: z.boolean(),
+    rate_to_eur: z
+      .number()
+      .finite()
+      .positive()
+      .max(1_000_000)
+      .refine(
+        (value) => Math.abs(value * 10_000_000_000 - Math.round(value * 10_000_000_000)) < 1e-5,
+        "汇率最多保留十位小数",
+      )
+      .nullable(),
+    rate_at: z.string().datetime({ offset: true }).optional(),
+  })
+  .strict();
+
+export const costCurrencyUpdateBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    expected_version: z.number().int().min(1),
+    items: z.array(costCurrencySettingSchema).length(5),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    const codes = input.items.map((item) => item.currency_code);
+    if (new Set(codes).size !== 5) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["items"], message: "币种不能重复" });
+    }
+    for (const code of ["EUR", "USD", "GBP", "CNY", "CHF"] as const) {
+      if (!codes.includes(code)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["items"], message: `缺少 ${code}` });
+      }
+    }
+    for (const [index, item] of input.items.entries()) {
+      if (item.rate_at && Date.parse(item.rate_at) > Date.now() + 5 * 60 * 1000) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["items", index, "rate_at"],
+          message: "汇率时间不能晚于当前时间",
+        });
+      }
+      if (item.currency_code === "EUR") {
+        if (!item.enabled || item.rate_to_eur !== 1 || !item.rate_at) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["items", index],
+            message: "EUR 必须启用且汇率固定为 1",
+          });
+        }
+      } else if (item.enabled && (item.rate_to_eur === null || !item.rate_at)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["items", index],
+          message: "启用币种必须填写汇率和汇率时间",
+        });
+      } else if (!item.enabled && (item.rate_to_eur !== null || item.rate_at)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["items", index],
+          message: "停用币种不能保留当前汇率",
+        });
+      }
+    }
+  });
+
 const procurementIdempotencyKeySchema = z.string().uuid("重复操作标识无效");
 const procurementQuantitySchema = z.number().int().min(1).max(100_000);
 
@@ -1012,16 +1088,36 @@ export const partLotReceiveBodySchema = z
     supplier_document_ref: z.string().trim().min(1).max(160).optional(),
     quantity: procurementQuantitySchema,
     original_unit_cost: costAmountSchema,
-    original_currency_code: z
-      .string()
-      .trim()
-      .regex(/^[A-Z]{3}$/, "货币代码无效"),
-    fx_rate_to_eur: z.number().finite().positive().max(1_000_000),
-    fx_rate_at: z.string().datetime({ offset: true }),
-    fx_rate_source: z.string().trim().min(1).max(80),
+    original_currency_code: costCurrencyCodeSchema,
+    fx_rate_to_eur: z.number().finite().positive().max(1_000_000).optional(),
+    fx_rate_at: z.string().datetime({ offset: true }).optional(),
+    fx_rate_source: z.string().trim().min(1).max(80).optional(),
     idempotency_key: procurementIdempotencyKeySchema,
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    const supplied = [input.fx_rate_to_eur, input.fx_rate_at, input.fx_rate_source].filter(
+      (value) => value !== undefined,
+    ).length;
+    if (supplied !== 0 && supplied !== 3) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fx_rate_to_eur"],
+        message: "汇率快照字段必须完整提供或全部省略",
+      });
+    }
+    if (
+      input.original_currency_code === "EUR" &&
+      input.fx_rate_to_eur !== undefined &&
+      input.fx_rate_to_eur !== 1
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fx_rate_to_eur"],
+        message: "EUR 汇率必须为 1",
+      });
+    }
+  });
 
 export const orderPartAllocateBodySchema = z
   .object({

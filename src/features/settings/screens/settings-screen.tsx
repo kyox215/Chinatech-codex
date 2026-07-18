@@ -224,6 +224,8 @@ export function SettingsScreen() {
   const canApplyOrderData = settingsCapabilities?.canApplyOrderData === true;
   const canManageOrderCosts = settingsCapabilities?.can_manage_order_costs === true;
   const canAllocatePartsCosts = settingsCapabilities?.canAllocatePartsCosts === true;
+  const canReadCostCurrencies = settingsCapabilities?.canReadCostCurrencies === true;
+  const canManageCostCurrencies = settingsCapabilities?.canManageCostCurrencies === true;
   const canPreviewCostBackfill = settingsCapabilities?.canPreviewCostBackfill === true;
   const canApplyCostBackfill = settingsCapabilities?.canApplyCostBackfill === true;
   const canUpdateStoreSettings = settingsCapabilities?.canUpdateStoreSettings === true;
@@ -1890,12 +1892,17 @@ export function SettingsScreen() {
                     isDraftDirty={sectionDirtyState.rules}
                     canUpdateSettings={canUpdateStoreSettings}
                     activeStoreId={
-                      canManageOrderCosts || canAllocatePartsCosts || canPreviewCostBackfill
+                      canManageOrderCosts ||
+                      canAllocatePartsCosts ||
+                      canManageCostCurrencies ||
+                      canPreviewCostBackfill
                         ? activeStoreId
                         : undefined
                     }
                     canManageOrderCosts={canManageOrderCosts}
                     canAllocatePartsCosts={canAllocatePartsCosts}
+                    canReadCostCurrencies={canReadCostCurrencies}
+                    canManageCostCurrencies={canManageCostCurrencies}
                     canPreviewCostBackfill={canPreviewCostBackfill}
                     canApplyCostBackfill={canApplyCostBackfill}
                     fieldErrors={settingsFieldErrors}

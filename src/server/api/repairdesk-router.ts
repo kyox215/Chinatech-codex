@@ -31,12 +31,21 @@ import {
 } from "@/features/procurement/server/procurement.repository";
 import { assertCanAllocatePartsCosts } from "@/features/procurement/server/procurement-feature";
 import {
+  readCostCurrencySettings,
+  replaceCostCurrencySettings,
+} from "@/features/procurement/server/cost-currency.service";
+import { assertCostCurrencyAccess } from "@/features/procurement/server/cost-currency-feature";
+import {
   allocateMockOrderPart,
   createMockPartCatalogItem,
   getMockPartsProcurement,
   receiveMockPartLot,
   releaseMockOrderPart,
 } from "@/features/procurement/testing/mock-api";
+import {
+  readMockCostCurrencySettings,
+  replaceMockCostCurrencySettings,
+} from "@/features/procurement/testing/cost-currency-mock";
 import { syncRepairDeskOfflineOrderCreate } from "@/features/offline/server/offline-order-create-sync";
 import { statusGroups } from "@/lib/mock/enums";
 import {
@@ -313,6 +322,8 @@ import {
   costBackfillPreviewBodySchema,
   costBackfillApplyBodySchema,
   costBackfillRevertBodySchema,
+  costCurrencyReadBodySchema,
+  costCurrencyUpdateBodySchema,
   partsProcurementReadBodySchema,
   partCatalogCreateBodySchema,
   partLotReceiveBodySchema,
@@ -397,6 +408,8 @@ const supabaseSource = {
   previewCostBackfill,
   applyCostBackfill,
   revertCostBackfill,
+  readCostCurrencySettings,
+  replaceCostCurrencySettings,
   getPartsProcurement,
   getOrderCreateOperationStatus,
   getOrderStats,
@@ -662,6 +675,8 @@ async function source() {
     previewCostBackfill: previewMockCostBackfill,
     applyCostBackfill: applyMockCostBackfill,
     revertCostBackfill: revertMockCostBackfill,
+    readCostCurrencySettings: readMockCostCurrencySettings,
+    replaceCostCurrencySettings: replaceMockCostCurrencySettings,
     getPartsProcurement: getMockPartsProcurement,
     createPartCatalogItem: createMockPartCatalogItem,
     receivePartLot: receiveMockPartLot,
@@ -776,6 +791,8 @@ async function source() {
         canReadAggregateFinance: true,
         canReadProfit: true,
         canAllocatePartsCosts: true,
+        canReadCostCurrencies: true,
+        canManageCostCurrencies: true,
         canExportOrders: true,
         canBatchTransitionOrders: true,
         canAssignOrders: true,
@@ -1730,6 +1747,20 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         const input = costBackfillRevertBodySchema.parse(body);
         assertCostBackfillAccess(actor, input.expected_store_id, "apply");
         return ok(await api.revertCostBackfill(input, actor));
+      }
+      case "finance/cost-currencies/read": {
+        const input = costCurrencyReadBodySchema.parse(body);
+        assertCostCurrencyAccess(
+          actor,
+          input.expected_store_id,
+          input.mode === "settings" ? "manage" : "read",
+        );
+        return ok(await api.readCostCurrencySettings(input, actor));
+      }
+      case "finance/cost-currencies/update": {
+        const input = costCurrencyUpdateBodySchema.parse(body);
+        assertCostCurrencyAccess(actor, input.expected_store_id, "manage");
+        return ok(await api.replaceCostCurrencySettings(input, actor));
       }
       case "procurement/parts/read": {
         assertCanAllocatePartsCosts(actor);

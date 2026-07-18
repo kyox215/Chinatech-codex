@@ -359,6 +359,20 @@ export interface ProfitOrderDrilldownItem {
   cost_completeness: "incomplete" | "estimated" | "confirmed";
   is_refunded: boolean;
   is_rework: boolean;
+  currency_costs?: ProfitCostCurrencyDrilldownItem[];
+}
+
+export interface ProfitCostCurrencyDrilldownItem {
+  line_id: string;
+  line_name: string;
+  cost_amount_eur: number;
+  original_amount: number;
+  original_currency_code: CostCurrencyCode;
+  fx_rate_to_eur: number;
+  fx_rate_at?: string;
+  fx_rate_source?: "store_base" | "owner_manual";
+  cost_source: string;
+  evidence_status: string;
 }
 
 export interface ProfitCenterResult {
@@ -541,9 +555,38 @@ export interface PartPurchaseLot {
   fx_rate_to_eur: number;
   fx_rate_at: string;
   fx_rate_source: string;
+  fx_rate_revision?: number;
   unit_cost_eur: number;
   evidence_status: "confirmed" | "reconciled";
   received_at: string;
+}
+
+export type CostCurrencyCode = "EUR" | "USD" | "GBP" | "CNY" | "CHF";
+
+export interface CostCurrencyRate {
+  currency_code: CostCurrencyCode;
+  enabled: boolean;
+  rate_to_eur: number | null;
+  rate_at?: string;
+  rate_source?: "store_base" | "owner_manual";
+  revision: number;
+  stale: boolean;
+}
+
+export interface CostCurrencySettingsResult {
+  version: number;
+  items: CostCurrencyRate[];
+}
+
+export interface UpdateCostCurrencySettingsInput {
+  expected_store_id: string;
+  expected_version: number;
+  items: Array<{
+    currency_code: CostCurrencyCode;
+    enabled: boolean;
+    rate_to_eur: number | null;
+    rate_at?: string;
+  }>;
 }
 
 export interface OrderPartAllocation {
@@ -589,11 +632,21 @@ export interface ReceivePartLotInput {
   supplier_document_ref?: string;
   quantity: number;
   original_unit_cost: number;
-  original_currency_code: string;
-  fx_rate_to_eur: number;
-  fx_rate_at: string;
-  fx_rate_source: string;
+  original_currency_code: CostCurrencyCode;
+  fx_rate_to_eur?: number;
+  fx_rate_at?: string;
+  fx_rate_source?: string;
   idempotency_key: string;
+}
+
+export interface ReceivePartLotResult {
+  id: string;
+  replayed: boolean;
+  unit_cost_eur?: number;
+  fx_rate_to_eur?: number;
+  fx_rate_at?: string;
+  fx_rate_source?: string;
+  fx_rate_revision?: number;
 }
 
 export interface AllocateOrderPartInput {
@@ -1467,6 +1520,8 @@ export interface RepairDeskOptions {
     canPreviewCostBackfill?: boolean;
     canApplyCostBackfill?: boolean;
     canAllocatePartsCosts?: boolean;
+    canReadCostCurrencies?: boolean;
+    canManageCostCurrencies?: boolean;
     canExportOrders?: boolean;
     canBatchTransitionOrders?: boolean;
     canAssignOrders?: boolean;
@@ -1833,6 +1888,8 @@ export interface StoreContext {
     canPreviewCostBackfill?: boolean;
     canApplyCostBackfill?: boolean;
     canAllocatePartsCosts?: boolean;
+    canReadCostCurrencies?: boolean;
+    canManageCostCurrencies?: boolean;
     can_manage_order_costs?: boolean;
     canExportOrders?: boolean;
     canReadStoreSettings?: boolean;

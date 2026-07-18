@@ -2,9 +2,11 @@
 
 ## Current handoff
 
-- **Status:** Stages 00–04B complete; Stage 05 is next.
-- **Last verified:** 2026-07-18 Stage 04B close.
+- **Status:** Stages 00–05 complete; Stage 06 quality/security/release gate is next.
+- **Last verified:** 2026-07-18 Stage 05 close.
 - **Workspace/branch:** `/private/tmp/repairdesk-order-cost-phase2-20260718` on
   `codex/order-cost-phase2-20260718`.
-- **First action:** read `05_MULTI_CURRENCY_COSTS.md`; preserve immutable original-amount and
-  EUR-conversion snapshots, use no network FX dependency, and keep currency management Owner-only.
+- **First action:** commit the verified Stage 05 scope independently, then read
+  `06_QUALITY_SECURITY_AND_RELEASE.md` and freeze the exact release candidate. Recheck all known
+  production database blockers; do not treat the disposable harness as permission to apply linked
+  migrations.

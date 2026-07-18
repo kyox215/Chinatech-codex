@@ -11,6 +11,9 @@ import type {
   ReceivePartLotInput,
   ReleaseOrderPartInput,
 } from "@/lib/repairdesk/types";
+import { isCostMultiCurrencyEnabled } from "@/features/orders/server/order-cost-feature";
+
+import { resolveMockCostCurrencyRate } from "./cost-currency-mock";
 
 const itemId = "00000000-0000-4000-8000-000000000301";
 const lotId = "00000000-0000-4000-8000-000000000302";
@@ -94,8 +97,26 @@ export async function receiveMockPartLot(input: ReceivePartLotInput, actor: Audi
   assertStore(actor, input.expected_store_id);
   const part = items.find((item) => item.id === input.part_item_id);
   if (!part) throw new Error("配件不存在");
+  const multiCurrency = isCostMultiCurrencyEnabled();
+  if (!multiCurrency && input.original_currency_code !== "EUR") {
+    throw new Error("多币种采购成本功能尚未启用");
+  }
+  if (
+    !multiCurrency &&
+    ((input.fx_rate_to_eur ?? 1) !== 1 || (input.fx_rate_source ?? "store_base") !== "store_base")
+  ) {
+    throw new Error("EUR 汇率快照无效");
+  }
+  const snapshot = multiCurrency
+    ? resolveMockCostCurrencyRate(input.original_currency_code)
+    : {
+        rate_to_eur: 1,
+        rate_at: input.fx_rate_at ?? new Date().toISOString(),
+        rate_source: "store_base" as const,
+        revision: 1,
+      };
   const id = randomUUID();
-  const unitCostEur = input.original_unit_cost * input.fx_rate_to_eur;
+  const unitCostEur = Math.round(input.original_unit_cost * snapshot.rate_to_eur * 100) / 100;
   lots.push({
     id,
     part_item_id: part.id,
@@ -110,15 +131,28 @@ export async function receiveMockPartLot(input: ReceivePartLotInput, actor: Audi
     available_quantity: input.quantity,
     original_unit_cost: input.original_unit_cost,
     original_currency_code: input.original_currency_code,
-    fx_rate_to_eur: input.fx_rate_to_eur,
-    fx_rate_at: input.fx_rate_at,
-    fx_rate_source: input.fx_rate_source,
+    fx_rate_to_eur: snapshot.rate_to_eur,
+    fx_rate_at: snapshot.rate_at,
+    fx_rate_source: snapshot.rate_source,
+    fx_rate_revision: snapshot.revision,
     unit_cost_eur: unitCostEur,
     evidence_status: "confirmed",
     received_at: new Date().toISOString(),
   });
   part.available_quantity += input.quantity;
-  return { id, replayed: false };
+  return {
+    id,
+    replayed: false,
+    ...(multiCurrency
+      ? {
+          unit_cost_eur: unitCostEur,
+          fx_rate_to_eur: snapshot.rate_to_eur,
+          fx_rate_at: snapshot.rate_at,
+          fx_rate_source: snapshot.rate_source,
+          fx_rate_revision: snapshot.revision,
+        }
+      : {}),
+  };
 }
 
 export async function allocateMockOrderPart(

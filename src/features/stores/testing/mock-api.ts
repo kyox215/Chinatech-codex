@@ -22,6 +22,7 @@ import {
   isOrderDataApplyEnabled,
   isOrderDataExportEnabled,
 } from "@/features/orders/server/order-data-feature-flags";
+import { isCostMultiCurrencyEnabled } from "@/features/orders/server/order-cost-feature";
 import { can } from "@/server/permissions";
 
 const mockStores = [
@@ -486,6 +487,13 @@ function context(actor?: AuditActor): StoreContext {
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         process.env.REPAIRDESK_PARTS_PROCUREMENT_ENABLED === "1" &&
         can(scopedActor, "inventory:cost_allocate"),
+      canReadCostCurrencies:
+        isCostMultiCurrencyEnabled() &&
+        (can(scopedActor, "finance:currency_manage") ||
+          can(scopedActor, "finance:cost_manage") ||
+          can(scopedActor, "inventory:cost_allocate")),
+      canManageCostCurrencies:
+        isCostMultiCurrencyEnabled() && can(scopedActor, "finance:currency_manage"),
       canReadStoreSettings: true,
       canUpdateStoreSettings,
       canConfigureWorkflow: can(scopedActor, "settings:update_workflow"),

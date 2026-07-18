@@ -30,6 +30,7 @@ import {
 } from "@/entities/store/model/store-setting-defaults";
 import { ORDER_WARRANTY_OPTIONS, formatWarrantyText } from "@/features/orders/model/order-warranty";
 import { CostBackfillCard } from "@/features/settings/components/cost-backfill-card";
+import { CostCurrencySettingsCard } from "@/features/settings/components/cost-currency-settings-card";
 import { RepairCostDefaultsCard } from "@/features/settings/components/repair-cost-defaults-card";
 import { PartsProcurementCard } from "@/features/settings/components/parts-procurement-card";
 import { SettingsField } from "@/features/settings/components/settings-field";
@@ -50,6 +51,8 @@ export interface RulesSettingsSectionProps {
   activeStoreId?: string;
   canManageOrderCosts?: boolean;
   canAllocatePartsCosts?: boolean;
+  canReadCostCurrencies?: boolean;
+  canManageCostCurrencies?: boolean;
   canPreviewCostBackfill?: boolean;
   canApplyCostBackfill?: boolean;
   fieldErrors: SettingsFieldErrors;
@@ -63,6 +66,8 @@ export function RulesSettingsSection({
   activeStoreId,
   canManageOrderCosts = false,
   canAllocatePartsCosts = false,
+  canReadCostCurrencies = false,
+  canManageCostCurrencies = false,
   canPreviewCostBackfill = false,
   canApplyCostBackfill = false,
   fieldErrors,
@@ -282,8 +287,18 @@ export function RulesSettingsSection({
       {canManageOrderCosts && activeStoreId ? (
         <RepairCostDefaultsCard key={activeStoreId} storeId={activeStoreId} />
       ) : null}
+      {canManageCostCurrencies && activeStoreId ? (
+        <CostCurrencySettingsCard
+          key={`cost-currencies-${activeStoreId}`}
+          storeId={activeStoreId}
+        />
+      ) : null}
       {canAllocatePartsCosts && activeStoreId ? (
-        <PartsProcurementCard key={`parts-${activeStoreId}`} storeId={activeStoreId} />
+        <PartsProcurementCard
+          key={`parts-${activeStoreId}`}
+          storeId={activeStoreId}
+          multiCurrencyEnabled={canReadCostCurrencies}
+        />
       ) : null}
       {canPreviewCostBackfill && activeStoreId ? (
         <CostBackfillCard

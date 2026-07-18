@@ -42,6 +42,7 @@ import {
 import {
   isCostBackfillEnabled,
   isCostExportEnabled,
+  isCostMultiCurrencyEnabled,
   isPartsProcurementEnabled,
   isProfitReportsEnabled,
 } from "@/features/orders/server/order-cost-feature";
@@ -1431,6 +1432,12 @@ async function storePermissionsFromActor(
     canPreviewCostBackfill: isCostBackfillEnabled() && can(actor, "finance:cost_backfill_preview"),
     canApplyCostBackfill: isCostBackfillEnabled() && can(actor, "finance:cost_backfill_apply"),
     canAllocatePartsCosts: isPartsProcurementEnabled() && can(actor, "inventory:cost_allocate"),
+    canReadCostCurrencies:
+      isCostMultiCurrencyEnabled() &&
+      (can(actor, "finance:currency_manage") ||
+        can(actor, "finance:cost_manage") ||
+        can(actor, "inventory:cost_allocate")),
+    canManageCostCurrencies: isCostMultiCurrencyEnabled() && can(actor, "finance:currency_manage"),
     can_manage_order_costs:
       process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" && can(actor, "finance:cost_manage"),
     canExportOrders: can(actor, "order:export"),

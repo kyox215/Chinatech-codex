@@ -64,3 +64,20 @@
 - **Next:** Commit Stage 04B independently, then read and implement 05_MULTI_CURRENCY_COSTS.md with immutable original-currency and EUR FX snapshots; do not use network FX or change customer quote currency.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-18T14:20:29Z — Stage 05 completed: Owner-managed offline procurement currencies and immutable EUR snapshots passed full database, application, build and browser gates.
+
+- **Phase:** implementation
+- **Completed/current state:** Fixed EUR/USD/GBP/CNY/CHF configuration, Owner-only rate management, exact authorized read scope, 30-day stale blocking, server-resolved receipt v2, EUR-only compatibility RPC, append-only rate revisions, immutable lot/allocation/order snapshots, EUR report aggregation, original-currency report drilldown and CSV reconciliation are complete.
+- **Evidence:** E-031 through E-036; disposable DB `repairdesk_cost_currency_20260718_c`; 259 files / 1669 tests passed; two screenshots under `screenshots/`.
+- **Decisions:** no network FX; EUR remains customer/report currency; feature-off keeps Phase 1 EUR behavior; database resolves rates, never the browser.
+- **Risks/blockers:** production DB release remains blocked unless Stage 07 proves the pre-existing migration replay, browser-role exposure and recovery/restore gates. No production data or linked database was changed.
+- **Next:** Commit Stage 05 independently, then execute Stage 06 full quality/security/data/release review and freeze the exact release candidate before any production write.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T14:21:44Z — Stage 05 completed: Owner-managed EUR/USD/GBP/CNY/CHF procurement rates, server-resolved immutable EUR snapshots, original-currency report/export reconciliation, fresh Stage 01-05 PostgreSQL replay, 1669 tests, lint/type/build and browser evidence passed.
+
+- **Phase:** implementation
+- **Completed/current state:** Stage 05 completed: Owner-managed EUR/USD/GBP/CNY/CHF procurement rates, server-resolved immutable EUR snapshots, original-currency report/export reconciliation, fresh Stage 01-05 PostgreSQL replay, 1669 tests, lint/type/build and browser evidence passed.
+- **Next:** Commit Stage 05 independently, then execute Stage 06 quality, security, data migration and release governance. Preserve the existing production DB blockers until fresh linked replay, browser-role and restore evidence prove GO.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

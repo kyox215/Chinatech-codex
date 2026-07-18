@@ -122,6 +122,9 @@ describe("ProfitCenterScreen", () => {
     expect(screen.getByText(/不是会计净利润/)).toBeVisible();
     expect(screen.getByText("维修类别与供应商毛利拆分")).toBeVisible();
     expect(screen.getByText("UTOPYA")).toBeVisible();
+    expect(screen.getByText("原币成本快照 1 项")).toBeVisible();
+    await user.click(screen.getByText("原币成本快照 1 项"));
+    expect(screen.getByText(/10.00 USD × 0.9 = €9.00/)).toBeVisible();
     expect(apiMocks.getProfitCenter).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "按月" }));
     expect(screen.getByText("每月毛利趋势")).toBeVisible();
@@ -209,6 +212,20 @@ function fixture(): ProfitCenterResult {
         cost_completeness: "incomplete",
         is_refunded: false,
         is_rework: false,
+        currency_costs: [
+          {
+            line_id: "line-usd",
+            line_name: "屏幕",
+            cost_amount_eur: 9,
+            original_amount: 10,
+            original_currency_code: "USD",
+            fx_rate_to_eur: 0.9,
+            fx_rate_at: "2026-07-18T10:00:00.000Z",
+            fx_rate_source: "owner_manual",
+            cost_source: "purchase_lot",
+            evidence_status: "confirmed",
+          },
+        ],
       },
       {
         order_id: "order-zero",

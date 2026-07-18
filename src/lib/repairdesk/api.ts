@@ -64,6 +64,9 @@ import type {
   ReceivePartLotInput,
   AllocateOrderPartInput,
   ReleaseOrderPartInput,
+  CostCurrencySettingsResult,
+  UpdateCostCurrencySettingsInput,
+  ReceivePartLotResult,
   PublishOrderQuoteInput,
   PublishOrderQuoteResult,
   ConfirmOrderQuoteSentInput,
@@ -1243,6 +1246,19 @@ export async function revertCostBackfill(input: RevertCostBackfillInput): Promis
   return postJson("finance/cost-backfill/revert", input);
 }
 
+export async function readCostCurrencySettings(input: {
+  expected_store_id: string;
+  mode?: "settings" | "options";
+}): Promise<CostCurrencySettingsResult> {
+  return postJson("finance/cost-currencies/read", input);
+}
+
+export async function updateCostCurrencySettings(
+  input: UpdateCostCurrencySettingsInput,
+): Promise<CostCurrencySettingsResult> {
+  return postJson("finance/cost-currencies/update", input);
+}
+
 export async function getPartsProcurement(
   orderId?: string,
   options?: RepairDeskRequestOptions,
@@ -1255,7 +1271,7 @@ export async function createPartCatalogItem(input: CreatePartCatalogItemInput) {
 }
 
 export async function receivePartLot(input: ReceivePartLotInput) {
-  return postJson<{ id: string; replayed: boolean }>("procurement/lots/receive", input);
+  return postJson<ReceivePartLotResult>("procurement/lots/receive", input);
 }
 
 export async function allocateOrderPart(orderId: string, input: AllocateOrderPartInput) {

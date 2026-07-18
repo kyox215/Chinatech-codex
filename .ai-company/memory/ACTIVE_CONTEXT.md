@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T13:32:02Z"
+last_checkpoint_at: "2026-07-18T14:21:44Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,20 +19,21 @@ last_rehydrated_at: null
 
 ## Current state
 
-Stage 04B completed: preview-only historical cost candidates, Owner-only bounded apply, conflict-safe resume, compensating revert, fresh Stage 01-04B PostgreSQL replay, 94 focused tests, lint/type/build and browser confirmation passed.
+Stage 05 completed: Owner-managed EUR/USD/GBP/CNY/CHF procurement rates, server-resolved immutable EUR snapshots, original-currency report/export reconciliation, fresh Stage 01-05 PostgreSQL replay, 1669 tests, lint/type/build and browser evidence passed.
 
 ## Blocking decisions
 
-- Local Stage 05–06 work may continue, but production database/release remains NO-GO until the
-  known historical replay failure at `20260611102805_repairdesk_remote_schema_compatibility.sql`
-  (`inventory_items.product_channel` missing) is resolved or formally accepted.
-- Production release also requires closure or explicit acceptance of the legacy browser-role
-  exposure conflict and current PITR/isolated-restore proof. Re-read `OPEN_CONFLICTS.md` and run
-  the Stage 07 fresh linked dry-run and recovery gate; do not infer clearance from local harnesses.
+- Broad production database release remains NO-GO: the historical replay still fails at
+  `20260611102805_repairdesk_remote_schema_compatibility.sql` because
+  `inventory_items.product_channel` is missing.
+- Legacy browser-role table exposure remains open under `CONFLICT-20260619-006`.
+- PITR/recovery baseline and an isolated restore proof remain absent.
+- Stage 07 must re-fetch and serialize the release, prove the exact linked pending set/dry-run and
+  recovery evidence, and stop without applying or deploying if any gate remains open.
 
 ## Next action
 
-Commit Stage 04B independently, then read and implement 05_MULTI_CURRENCY_COSTS.md with immutable original-currency and EUR FX snapshots; do not use network FX or change customer quote currency.
+Commit Stage 05 independently, then execute Stage 06 quality, security, data migration and release governance. Preserve the existing production DB blockers until fresh linked replay, browser-role and restore evidence prove GO.
 
 ## Resume protocol
 

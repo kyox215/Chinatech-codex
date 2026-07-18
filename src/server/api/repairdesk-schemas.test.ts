@@ -37,6 +37,8 @@ import {
   costBackfillApplyBodySchema,
   costBackfillPreviewBodySchema,
   costBackfillRevertBodySchema,
+  costCurrencyReadBodySchema,
+  costCurrencyUpdateBodySchema,
   partCatalogCreateBodySchema,
   partLotReceiveBodySchema,
   orderPartAllocateBodySchema,
@@ -259,6 +261,100 @@ describe("repairdesk API schemas", () => {
         idempotency_key: idempotency,
       }),
     ).toThrow();
+  });
+
+  it("requires a complete five-currency cost configuration with EUR fixed at one", () => {
+    const store = "00000000-0000-4000-8000-000000000001";
+    const settings = {
+      expected_store_id: store,
+      expected_version: 1,
+      items: [
+        {
+          currency_code: "EUR" as const,
+          enabled: true,
+          rate_to_eur: 1,
+          rate_at: "2026-07-18T10:00:00.000Z",
+        },
+        {
+          currency_code: "USD" as const,
+          enabled: true,
+          rate_to_eur: 0.92,
+          rate_at: "2026-07-18T10:00:00.000Z",
+        },
+        { currency_code: "GBP" as const, enabled: false, rate_to_eur: null },
+        {
+          currency_code: "CNY" as const,
+          enabled: true,
+          rate_to_eur: 0.12,
+          rate_at: "2026-07-18T10:00:00.000Z",
+        },
+        { currency_code: "CHF" as const, enabled: false, rate_to_eur: null },
+      ],
+    };
+    expect(costCurrencyReadBodySchema.parse({ expected_store_id: store, mode: "options" })).toEqual(
+      {
+        expected_store_id: store,
+        mode: "options",
+      },
+    );
+    expect(costCurrencyUpdateBodySchema.parse(settings).items).toHaveLength(5);
+    expect(() =>
+      costCurrencyUpdateBodySchema.parse({
+        ...settings,
+        items: settings.items.map((item) =>
+          item.currency_code === "EUR" ? { ...item, rate_to_eur: 0.99 } : item,
+        ),
+      }),
+    ).toThrow("EUR");
+    expect(() =>
+      costCurrencyUpdateBodySchema.parse({
+        ...settings,
+        items: settings.items.map((item) =>
+          item.currency_code === "GBP" ? { ...item, enabled: true } : item,
+        ),
+      }),
+    ).toThrow("启用币种");
+    expect(() =>
+      costCurrencyUpdateBodySchema.parse({
+        ...settings,
+        items: settings.items.map((item) =>
+          item.currency_code === "CHF" ? { ...item, rate_to_eur: 1.02 } : item,
+        ),
+      }),
+    ).toThrow("停用币种");
+    expect(() =>
+      costCurrencyUpdateBodySchema.parse({
+        ...settings,
+        items: settings.items.map((item) =>
+          item.currency_code === "USD" ? { ...item, rate_to_eur: 0.12345678901 } : item,
+        ),
+      }),
+    ).toThrow("十位小数");
+  });
+
+  it("accepts server-resolved FX fields while keeping EUR snapshots exact", () => {
+    const base = {
+      expected_store_id: "00000000-0000-4000-8000-000000000001",
+      part_item_id: "00000000-0000-4000-8000-000000000002",
+      lot_code: "LOT-USD",
+      quantity: 2,
+      original_unit_cost: 10,
+      original_currency_code: "USD" as const,
+      idempotency_key: "00000000-0000-4000-8000-000000000004",
+    };
+    expect(partLotReceiveBodySchema.parse(base)).toEqual(base);
+    expect(() => partLotReceiveBodySchema.parse({ ...base, fx_rate_to_eur: 0.9 })).toThrow(
+      "完整提供",
+    );
+    expect(() =>
+      partLotReceiveBodySchema.parse({
+        ...base,
+        original_currency_code: "EUR",
+        fx_rate_to_eur: 0.9,
+        fx_rate_at: "2026-07-18T10:00:00.000Z",
+        fx_rate_source: "store_base",
+      }),
+    ).toThrow("EUR 汇率必须为 1");
   });
 
   it("accepts a strict diagnosis quote publication and exact quote send confirmation", () => {

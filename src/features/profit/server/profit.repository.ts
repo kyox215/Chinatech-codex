@@ -2,6 +2,7 @@ import type {
   AuditActor,
   ProfitCenterInput,
   ProfitCenterResult,
+  ProfitCostCurrencyDrilldownItem,
   ProfitBreakdownItem,
   ProfitOrderDrilldownItem,
   ProfitPeriodSummary,
@@ -14,7 +15,10 @@ import {
   requiredString,
   requireStoreIdFromActor,
 } from "@/server/repairdesk-shared";
-import { isPartsProcurementEnabled } from "@/features/orders/server/order-cost-feature";
+import {
+  isCostMultiCurrencyEnabled,
+  isPartsProcurementEnabled,
+} from "@/features/orders/server/order-cost-feature";
 import { assertCanReadProfitCenter } from "./profit-feature";
 
 type Row = Record<string, unknown>;
@@ -164,6 +168,40 @@ function breakdownItem(value: unknown): ProfitBreakdownItem | undefined {
   };
 }
 
+function currencyCostItem(
+  value: unknown,
+): (ProfitCostCurrencyDrilldownItem & { order_id: string }) | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as Row;
+  const orderId = maybeString(row.order_id);
+  const lineId = maybeString(row.line_id);
+  const lineName = maybeString(row.line_name);
+  const currency = maybeString(row.original_currency_code);
+  if (
+    !orderId ||
+    !lineId ||
+    !lineName ||
+    !currency ||
+    !["EUR", "USD", "GBP", "CNY", "CHF"].includes(currency)
+  ) {
+    return undefined;
+  }
+  const source = maybeString(row.fx_rate_source);
+  return {
+    order_id: orderId,
+    line_id: lineId,
+    line_name: lineName,
+    cost_amount_eur: finiteNumber(row.cost_amount_eur),
+    original_amount: finiteNumber(row.original_amount),
+    original_currency_code: currency as ProfitCostCurrencyDrilldownItem["original_currency_code"],
+    fx_rate_to_eur: finiteNumber(row.fx_rate_to_eur),
+    fx_rate_at: maybeString(row.fx_rate_at),
+    fx_rate_source: source === "store_base" || source === "owner_manual" ? source : undefined,
+    cost_source: requiredString(row.cost_source),
+    evidence_status: requiredString(row.evidence_status),
+  };
+}
+
 export async function getProfitCenter(
   input: ProfitCenterInput,
   actor: AuditActor,
@@ -216,6 +254,32 @@ export async function getProfitCenter(
       ).flatMap((item) => breakdownItem(item) ?? []),
     };
   }
+  const currencyCostsByOrder = new Map<string, ProfitCostCurrencyDrilldownItem[]>();
+  if (isCostMultiCurrencyEnabled()) {
+    const currencyResponse = await getSupabaseAdmin().rpc(
+      "repairdesk_read_profit_currency_drilldown_rpc",
+      {
+        p_store_id: storeId,
+        p_actor_id: requireActorId(actor),
+        p_start_date: input.start_date,
+        p_end_date: input.end_date,
+      },
+    );
+    const currencyResult = assertProfitRpcResult(currencyResponse.data, currencyResponse.error);
+    if (currencyResult.overflow === true) {
+      throw new ProfitOperationError(
+        "报表原币明细超过 5000 行，请缩小日期范围",
+        "row_limit_exceeded",
+        422,
+      );
+    }
+    for (const value of Array.isArray(currencyResult.items) ? currencyResult.items : []) {
+      const item = currencyCostItem(value);
+      if (!item) continue;
+      const { order_id: orderId, ...cost } = item;
+      currencyCostsByOrder.set(orderId, [...(currencyCostsByOrder.get(orderId) ?? []), cost]);
+    }
+  }
 
   return {
     timezone: requiredString(result.timezone) || "Europe/Rome",
@@ -242,7 +306,16 @@ export async function getProfitCenter(
     }),
     orders: (Array.isArray(result.orders) ? result.orders : []).flatMap((item) => {
       const parsed = drilldownItem(item);
-      return parsed ? [parsed] : [];
+      return parsed
+        ? [
+            {
+              ...parsed,
+              ...(currencyCostsByOrder.has(parsed.order_id)
+                ? { currency_costs: currencyCostsByOrder.get(parsed.order_id) }
+                : {}),
+            },
+          ]
+        : [];
     }),
     ...(breakdowns ? { breakdowns } : {}),
   };

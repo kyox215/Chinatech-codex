@@ -270,6 +270,25 @@ function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
               </TableCell>
               <TableCell>
                 <CompletenessBadge order={order} />
+                {order.currency_costs?.length ? (
+                  <details className="mt-1.5 text-[10px] text-muted-foreground">
+                    <summary className="cursor-pointer">
+                      原币成本快照 {order.currency_costs.length} 项
+                    </summary>
+                    <div className="mt-1 space-y-1 rounded-lg bg-muted/30 p-2">
+                      {order.currency_costs.map((cost) => (
+                        <p key={cost.line_id}>
+                          <span className="font-medium text-foreground">{cost.line_name}</span>
+                          {" · "}
+                          <span className="font-mono">
+                            {cost.original_amount.toFixed(2)} {cost.original_currency_code} ×{" "}
+                            {cost.fx_rate_to_eur} = €{cost.cost_amount_eur.toFixed(2)}
+                          </span>
+                        </p>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
               </TableCell>
               <TableCell className="text-right">
                 <MoneyText amount={order.quote_amount} />
