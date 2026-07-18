@@ -1268,9 +1268,177 @@ export interface ActorStoreMembership {
   status: StoreMembershipStatus;
 }
 
+export type OrderDataAccessCode =
+  | "available"
+  | "available_export_only"
+  | "feature_disabled"
+  | "store_context_required"
+  | "owner_role_required"
+  | "primary_owner_required"
+  | "store_unavailable";
+
+export interface OrderDataAccessCapability {
+  code: OrderDataAccessCode;
+  can_export: boolean;
+  can_apply: boolean;
+}
+
+export type StoreLifecyclePhase =
+  | "active"
+  | "closing"
+  | "archived"
+  | "purge_scheduled"
+  | "purging"
+  | "purge_failed"
+  | "purged";
+
+export interface StoreLifecycleState {
+  store_id: string;
+  phase: StoreLifecyclePhase;
+  revision: number;
+  close_requested_at?: string;
+  access_cutoff_at?: string;
+  archive_eligible_at?: string;
+  archived_at?: string;
+  purge_after?: string;
+  retention_until?: string;
+  legal_hold_until?: string;
+}
+
+export type StoreLifecycleBlockerCode =
+  | "open_orders"
+  | "unsettled_balance"
+  | "device_in_custody"
+  | "open_kiosk_sessions"
+  | "pending_invitations"
+  | "retention_hold"
+  | "legal_hold"
+  | "storage_manifest_unavailable";
+
+export interface StoreLifecycleBlocker {
+  code: StoreLifecycleBlockerCode;
+  count?: number;
+  amount?: number;
+}
+
+export interface StoreLifecyclePreflight {
+  id: string;
+  store_id: string;
+  store_name: string;
+  lifecycle: StoreLifecycleState;
+  state: "eligible" | "blocked";
+  counts: Record<string, number>;
+  blockers: StoreLifecycleBlocker[];
+  snapshot_hash: string;
+  expires_at: string;
+}
+
+export interface StoreLifecycleMutationInput {
+  expectedStoreId: string;
+  expectedRevision: number;
+  operationId: string;
+  reauthChallengeId: string;
+}
+
+export type StoreLifecycleChallengeKind = "rename" | "request_close" | "restore" | "schedule_purge";
+
+export interface StoreLifecycleChallengeInput {
+  expectedStoreId: string;
+  expectedRevision: number;
+  operationKind: StoreLifecycleChallengeKind;
+  preflightSnapshotHash?: string;
+}
+
+export interface StoreLifecycleChallengeResult {
+  id: string;
+  store_id: string;
+  operation_kind: StoreLifecycleChallengeKind;
+  lifecycle_revision: number;
+  assurance_level: "aal2";
+  expires_at: string;
+}
+
+export interface StoreRenameInput extends StoreLifecycleMutationInput {
+  name: string;
+  syncCustomerFacingName: boolean;
+}
+
+export interface StoreCloseInput extends StoreLifecycleMutationInput {
+  preflightSnapshotHash: string;
+  confirmationStoreName: string;
+  confirmationStoreIdSuffix: string;
+  reasonCode: string;
+}
+
+export type StoreRestoreInput = StoreLifecycleMutationInput;
+
+export interface StorePurgeScheduleInput extends StoreLifecycleMutationInput {
+  preflightSnapshotHash: string;
+  exportJobId: string;
+  approvalRefHash: string;
+  purgeAfter: string;
+}
+
+export interface StoreLifecycleMutationResult {
+  operation_id: string;
+  replayed: boolean;
+  lifecycle: StoreLifecycleState;
+  store?: ActorStoreMembership;
+}
+
+export interface StoreExportTableManifest {
+  table_name: string;
+  row_count: number;
+  content_sha256: string;
+}
+
+export interface StoreStorageObjectManifest {
+  bucket: string;
+  path: string;
+  size: number;
+  content_sha256: string;
+  metadata_sha256: string;
+}
+
+export interface StoreExportManifest {
+  store_id: string;
+  schema_version: string;
+  app_version: string;
+  database_tables: StoreExportTableManifest[];
+  storage_objects: StoreStorageObjectManifest[];
+  database_manifest_sha256: string;
+  storage_manifest_sha256: string;
+  artifact_sha256: string;
+}
+
+export interface StoreExportPrepareInput {
+  expectedStoreId: string;
+  preflightSnapshotHash: string;
+  schemaVersion: string;
+  appVersion: string;
+}
+
+export interface StoreExportPrepareResult {
+  export_job_id: string;
+  store_id: string;
+  state: "pending";
+}
+
+export interface StoreRestoreProof {
+  store_id: string;
+  export_job_id: string;
+  verified: boolean;
+  table_mismatches: string[];
+  storage_mismatches: string[];
+  proof_sha256: string;
+  verified_at: string;
+}
+
 export interface StoreContext {
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
+  orderDataAccess?: OrderDataAccessCapability;
+  lifecycle?: StoreLifecycleState;
   permissions?: {
     canReadSuppliers: boolean;
     canAssignSuppliers: boolean;
@@ -1413,6 +1581,8 @@ export interface AuditActor {
   stores?: ActorStoreMembership[];
   activeStoreExplicit?: boolean;
   requestIpHash?: string;
+  authAssuranceLevel?: "aal1" | "aal2";
+  recentAuthAt?: string;
   isSystem?: boolean;
 }
 

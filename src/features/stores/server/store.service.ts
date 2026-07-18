@@ -17,3 +17,15 @@ export {
   updateStoreMemberPermissions,
   updateStoreMemberRole,
 } from "./store.repository";
+
+export {
+  createStoreLifecyclePreflight,
+  finalizeDueStoreArchive,
+  getStoreLifecycleState,
+  issueStoreLifecycleChallenge,
+  prepareStoreExport,
+  renameStoreWorkspace,
+  requestStoreClose,
+  restoreStoreWorkspace,
+  scheduleStorePurge,
+} from "./store-lifecycle.service";

@@ -45,6 +45,10 @@ import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { buildAccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
 import {
+  getOrderDataAccessDescription,
+  getOrderDataAccessSummary,
+} from "@/features/settings/model/order-data-access-copy";
+import {
   getSettingsFieldError as fieldError,
   getSettingsFieldErrorId as fieldErrorId,
 } from "@/features/settings/model/settings-field-errors";
@@ -94,6 +98,7 @@ import { RepairOsBusinessCard, RepairOsListScaffold, RepairOsSectionHeader } fro
 import {
   acceptKioskSession,
   createStore,
+  createStoreLifecyclePreflight,
   approveStoreAccessRequest,
   archiveSupplier,
   createSupplier,
@@ -824,6 +829,18 @@ export function SettingsScreen() {
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "创建店铺失败"),
   });
+  const lifecyclePreflightMutation = useMutation({
+    mutationFn: (request: { requestedStoreId: string; requestEpoch: number }) =>
+      createStoreLifecyclePreflight(request.requestedStoreId),
+    onSuccess: (_preflight, request) => {
+      if (!isCurrentStoreRequest(request)) return;
+      toast.success("店铺安全预检已完成");
+    },
+    onError: (error, request) => {
+      if (!isCurrentStoreRequest(request)) return;
+      toast.error(error instanceof Error ? error.message : "店铺安全预检失败");
+    },
+  });
   const createKioskPairingMutation = useMutation({
     mutationFn: ({
       input,
@@ -1299,7 +1316,12 @@ export function SettingsScreen() {
           ...section,
           access,
           dirty: sectionDirtyState[section.key],
-          summary: access === "readonly" ? "只读" : undefined,
+          summary:
+            section.key === "order-data" && (access === "blocked" || access === "unavailable")
+              ? getOrderDataAccessSummary(storeContextQuery.data?.orderDataAccess)
+              : access === "readonly"
+                ? "只读"
+                : undefined,
         };
       }),
     }),
@@ -1473,6 +1495,11 @@ export function SettingsScreen() {
               <SettingsSectionAccessState
                 section={selectedSection}
                 unavailable={selectedSectionAccess === "unavailable"}
+                description={
+                  selectedSection === "order-data"
+                    ? getOrderDataAccessDescription(storeContextQuery.data?.orderDataAccess)
+                    : undefined
+                }
               />
             ) : selectedSectionAccess === "readonly" ? (
               <div
@@ -1588,6 +1615,33 @@ export function SettingsScreen() {
                         kind: "store-create",
                         label: `创建店铺 ${name}`,
                         run: () => createStoreMutation.mutateAsync({ name }),
+                      });
+                    }}
+                    lifecyclePreflight={
+                      lifecyclePreflightMutation.variables?.requestedStoreId === activeStoreId &&
+                      lifecyclePreflightMutation.isSuccess
+                        ? lifecyclePreflightMutation.data
+                        : undefined
+                    }
+                    isLifecyclePreflighting={
+                      lifecyclePreflightMutation.isPending &&
+                      lifecyclePreflightMutation.variables?.requestedStoreId === activeStoreId
+                    }
+                    lifecyclePreflightError={
+                      lifecyclePreflightMutation.isError &&
+                      lifecyclePreflightMutation.variables?.requestedStoreId === activeStoreId
+                        ? lifecyclePreflightMutation.error instanceof Error
+                          ? lifecyclePreflightMutation.error.message
+                          : "未知错误"
+                        : undefined
+                    }
+                    canRunLifecyclePreflight={storeContextQuery.data?.activeStore?.role === "owner"}
+                    onRunLifecyclePreflight={() => {
+                      const request = currentStoreRequestScope();
+                      if (!request.requestedStoreId) return;
+                      lifecyclePreflightMutation.mutate({
+                        requestedStoreId: request.requestedStoreId,
+                        requestEpoch: request.requestEpoch,
                       });
                     }}
                     draft={activeDrafts?.sections.store.value}
@@ -1957,9 +2011,11 @@ function SettingsSectionDataState({
 function SettingsSectionAccessState({
   section,
   unavailable,
+  description,
 }: {
   section: SettingsSectionKey;
   unavailable: boolean;
+  description?: string;
 }) {
   const sectionLabel = getSettingsSection(section).label;
   return (
@@ -1979,9 +2035,10 @@ function SettingsSectionAccessState({
             {unavailable ? `无法确认${sectionLabel}权限` : `无法打开${sectionLabel}`}
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {unavailable
-              ? "当前店铺的权限状态不可用，请重新加载页面后再试。"
-              : "当前账号不具备此分组所需的店铺权限。页面未读取或显示相关业务数据。"}
+            {description ??
+              (unavailable
+                ? "当前店铺的权限状态不可用，请重新加载页面后再试。"
+                : "当前账号不具备此分组所需的店铺权限。页面未读取或显示相关业务数据。")}
           </p>
           <Button asChild type="button" size="sm" variant="outline" className="mt-3 min-h-11">
             <Link href="/settings">返回设置总览</Link>

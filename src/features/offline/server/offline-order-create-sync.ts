@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { AuditActor } from "@/lib/repairdesk/types";
+import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
 import { ForbiddenError } from "@/server/auth-context";
 import { getSupabaseAdmin } from "@/server/supabase";
 
@@ -47,6 +48,7 @@ export async function syncRepairDeskOfflineOrderCreate(
     getSecret?: () => string;
     rpc?: OfflineCreateRpc;
     isEnabled?: () => boolean;
+    assertLifecycleActive?: (storeId: string) => Promise<void>;
   } = {},
 ): Promise<RepairDeskOfflineOrderCreateSyncResult> {
   if (!(options.isEnabled ?? isRepairDeskOfflineSyncEnabled)()) {
@@ -60,6 +62,7 @@ export async function syncRepairDeskOfflineOrderCreate(
   if (parsed.expectedStoreId !== actor.storeId) {
     throw new ForbiddenError("离线工单需要切回原店铺后再同步");
   }
+  await (options.assertLifecycleActive ?? assertStoreLifecycleActive)(actor.storeId);
 
   const secret = (options.getSecret ?? readOfflineSyncSecret)();
   const requestHash = createRepairDeskOfflineRequestHash(parsed, secret);

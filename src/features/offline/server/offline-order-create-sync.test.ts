@@ -28,6 +28,7 @@ describe("offline order create RPC boundary", () => {
     const result = await syncRepairDeskOfflineOrderCreate(validInput(), actor, {
       isEnabled: () => true,
       getSecret: () => "test-offline-sync-secret-001",
+      assertLifecycleActive: vi.fn(async () => undefined),
       rpc,
     });
 
@@ -56,6 +57,7 @@ describe("offline order create RPC boundary", () => {
       syncRepairDeskOfflineOrderCreate(validInput(), actor, {
         isEnabled: () => true,
         getSecret: () => "short",
+        assertLifecycleActive: vi.fn(async () => undefined),
         rpc: vi.fn(),
       }),
     ).rejects.toThrow("at least 16 characters");
@@ -67,6 +69,7 @@ describe("offline order create RPC boundary", () => {
         {
           isEnabled: () => true,
           getSecret: () => "test-offline-sync-secret-001",
+          assertLifecycleActive: vi.fn(async () => undefined),
           rpc: vi.fn(),
         },
       ),
@@ -79,9 +82,33 @@ describe("offline order create RPC boundary", () => {
       syncRepairDeskOfflineOrderCreate(
         { ...validInput(), expectedStoreId: "00000000-0000-4000-8000-000000000999" },
         actor,
-        { isEnabled: () => true, getSecret: () => "test-offline-sync-secret-001", rpc },
+        {
+          isEnabled: () => true,
+          getSecret: () => "test-offline-sync-secret-001",
+          assertLifecycleActive: vi.fn(async () => undefined),
+          rpc,
+        },
       ),
     ).rejects.toThrow("切回原店铺");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before secret hashing and RPC when the queued store is closing", async () => {
+    const rpc = vi.fn();
+    const getSecret = vi.fn(() => "test-offline-sync-secret-001");
+
+    await expect(
+      syncRepairDeskOfflineOrderCreate(validInput(), actor, {
+        isEnabled: () => true,
+        getSecret,
+        assertLifecycleActive: vi.fn(async () => {
+          throw new ForbiddenError("店铺已进入关闭流程");
+        }),
+        rpc,
+      }),
+    ).rejects.toThrow("关闭流程");
+
+    expect(getSecret).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
 

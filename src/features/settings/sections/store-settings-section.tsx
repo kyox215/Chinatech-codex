@@ -10,6 +10,7 @@ import {
   Plus,
   Printer,
   ReceiptText,
+  ShieldCheck,
   Store,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { SettingsField } from "@/features/settings/components/settings-field";
+import { StoreLifecycleActions } from "@/features/settings/sections/store-lifecycle-actions";
 import type { SettingsFieldErrors } from "@/features/settings/model/settings-field-errors";
 import {
   getSettingsFieldError,
@@ -45,7 +47,11 @@ import {
 import type { StoreSettingsDraftValues } from "@/features/settings/model/store-settings-draft";
 import type { StoreSettingsReadiness } from "@/features/settings/model/store-settings-readiness";
 import { getStoreOutputDraftProjectionCopy } from "@/features/settings/model/store-output-draft-projection";
-import type { ActorStoreMembership, StoreRole } from "@/lib/repairdesk/types";
+import type {
+  ActorStoreMembership,
+  StoreLifecyclePreflight,
+  StoreRole,
+} from "@/lib/repairdesk/types";
 import { formLayout, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
@@ -70,6 +76,11 @@ export interface StoreSettingsSectionContentProps {
   onNewStoreNameChange: (value: string) => void;
   onSwitchStore: (storeId: string) => void;
   onCreateStore: () => void;
+  lifecyclePreflight?: StoreLifecyclePreflight;
+  isLifecyclePreflighting?: boolean;
+  lifecyclePreflightError?: string;
+  canRunLifecyclePreflight?: boolean;
+  onRunLifecyclePreflight?: () => void;
   draft?: StoreSettingsDraftValues["store"];
   savedReadiness?: StoreSettingsReadiness;
   draftReadiness?: StoreSettingsReadiness;
@@ -93,6 +104,11 @@ export function StoreSettingsSectionContent({
   onNewStoreNameChange,
   onSwitchStore,
   onCreateStore,
+  lifecyclePreflight,
+  isLifecyclePreflighting = false,
+  lifecyclePreflightError,
+  canRunLifecyclePreflight = false,
+  onRunLifecyclePreflight = () => undefined,
   draft,
   savedReadiness,
   draftReadiness,
@@ -112,6 +128,15 @@ export function StoreSettingsSectionContent({
         isSwitching={isSwitching}
         error={switchError}
         onSwitchStore={onSwitchStore}
+      />
+
+      <StoreLifecycleCard
+        store={stores.find((store) => store.id === activeStoreId)}
+        preflight={lifecyclePreflight}
+        isLoading={isLifecyclePreflighting}
+        error={lifecyclePreflightError}
+        canRun={canRunLifecyclePreflight}
+        onRun={onRunLifecyclePreflight}
       />
 
       {draft ? (
@@ -142,6 +167,108 @@ export function StoreSettingsSectionContent({
         onCreateStore={onCreateStore}
       />
     </div>
+  );
+}
+
+const lifecycleBlockerLabels: Record<StoreLifecyclePreflight["blockers"][number]["code"], string> =
+  {
+    open_orders: "仍有开放工单",
+    unsettled_balance: "仍有未结余额",
+    device_in_custody: "仍有设备由门店保管",
+    open_kiosk_sessions: "仍有开放的客户 iPad 会话",
+    pending_invitations: "仍有待处理邀请",
+    retention_hold: "数据仍在保留期",
+    legal_hold: "存在法律保留",
+    storage_manifest_unavailable: "Storage 清单尚未完整验证",
+  };
+
+function StoreLifecycleCard({
+  store,
+  preflight,
+  isLoading,
+  error,
+  canRun,
+  onRun,
+}: {
+  store?: ActorStoreMembership;
+  preflight?: StoreLifecyclePreflight;
+  isLoading: boolean;
+  error?: string;
+  canRun: boolean;
+  onRun: () => void;
+}) {
+  return (
+    <section className={cn(repairOs.adminSection, "space-y-3 p-2.5 sm:p-3")}>
+      <RepairOsSectionHeader
+        icon={ShieldCheck}
+        iconFrame={false}
+        title="店铺生命周期"
+        description="先做只读预检，再决定完整重命名、可恢复关闭或继续保留。"
+      />
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
+          <p className="text-xs font-semibold">安全实施门禁</p>
+          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+            预检只返回脱敏计数和阻断原因，不会重命名、关闭或删除任何数据。永久清除默认关闭。
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 w-full sm:w-auto"
+          disabled={!canRun || isLoading}
+          aria-busy={isLoading}
+          onClick={onRun}
+        >
+          {isLoading ? "预检中…" : "运行安全预检"}
+        </Button>
+      </div>
+      {!canRun ? (
+        <p className="text-[11px] leading-4 text-muted-foreground">
+          只有当前店铺的店主可以请求预检；服务端还会再次核对主创建者和精确 UUID。
+        </p>
+      ) : null}
+      {preflight ? (
+        <div
+          role="status"
+          className={cn(
+            "rounded-xl border px-3 py-2.5 text-xs",
+            preflight.state === "eligible"
+              ? "border-status-success-foreground/25 bg-status-success/10"
+              : "border-status-warn-foreground/25 bg-status-warn/10",
+          )}
+        >
+          <p className="font-semibold">
+            {preflight.state === "eligible" ? "当前预检未发现业务阻断" : "当前不能关闭或清除店铺"}
+          </p>
+          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+            店铺 UUID 尾号 {preflight.store_id.slice(-8)} · 生命周期版本{" "}
+            {preflight.lifecycle.revision} · 快照有效至{" "}
+            {new Date(preflight.expires_at).toLocaleTimeString("zh-CN")}
+          </p>
+          {preflight.blockers.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-[11px] leading-4">
+              {preflight.blockers.map((blocker) => (
+                <li key={blocker.code}>
+                  {lifecycleBlockerLabels[blocker.code]}
+                  {blocker.count !== undefined ? `：${blocker.count}` : ""}
+                  {blocker.amount !== undefined ? `（€${blocker.amount.toFixed(2)}）` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+      {error ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground"
+        >
+          预检失败：{error}。未执行任何店铺变更。
+        </div>
+      ) : null}
+      {canRun && store ? <StoreLifecycleActions store={store} preflight={preflight} /> : null}
+    </section>
   );
 }
 

@@ -115,6 +115,14 @@ import type {
   StoreInviteLinkDecisionInput,
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
+  StoreCloseInput,
+  StoreLifecycleChallengeInput,
+  StoreLifecycleChallengeResult,
+  StoreLifecycleMutationResult,
+  StoreLifecyclePreflight,
+  StoreLifecycleState,
+  StoreRenameInput,
+  StoreRestoreInput,
   StoreMemberDecisionInput,
   StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
@@ -318,6 +326,14 @@ export type {
   StoreInviteLinkDecisionInput,
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
+  StoreCloseInput,
+  StoreLifecycleChallengeInput,
+  StoreLifecycleChallengeResult,
+  StoreLifecycleMutationResult,
+  StoreLifecyclePreflight,
+  StoreLifecycleState,
+  StoreRenameInput,
+  StoreRestoreInput,
   StoreMember,
   StoreMemberDecisionInput,
   StoreMemberPermissionUpdateInput,
@@ -638,6 +654,44 @@ export async function createStore(input: StoreCreateInput): Promise<StoreContext
 
 export async function switchStore(storeId: string): Promise<StoreContext> {
   return postJson<StoreContext>("stores/switch", { storeId });
+}
+
+export async function createStoreLifecyclePreflight(
+  expectedStoreId: string,
+): Promise<StoreLifecyclePreflight> {
+  return postJson<StoreLifecyclePreflight>("stores/lifecycle/preflight", {
+    expectedStoreId,
+  });
+}
+
+export async function getStoreLifecycleState(
+  expectedStoreId: string,
+): Promise<StoreLifecycleState> {
+  return postJson<StoreLifecycleState>("stores/lifecycle/state", { expectedStoreId });
+}
+
+export async function issueStoreLifecycleChallenge(
+  input: StoreLifecycleChallengeInput,
+): Promise<StoreLifecycleChallengeResult> {
+  return postJson<StoreLifecycleChallengeResult>("stores/lifecycle/challenge", input);
+}
+
+export async function renameStoreWorkspace(
+  input: StoreRenameInput,
+): Promise<StoreLifecycleMutationResult> {
+  return postJson<StoreLifecycleMutationResult>("stores/lifecycle/rename", input);
+}
+
+export async function requestStoreClose(
+  input: StoreCloseInput,
+): Promise<StoreLifecycleMutationResult> {
+  return postJson<StoreLifecycleMutationResult>("stores/lifecycle/request-close", input);
+}
+
+export async function restoreStoreWorkspace(
+  input: StoreRestoreInput,
+): Promise<StoreLifecycleMutationResult> {
+  return postJson<StoreLifecycleMutationResult>("stores/lifecycle/restore", input);
 }
 
 export async function inviteStoreMember(input: StoreInviteInput): Promise<StoreMembersResult> {

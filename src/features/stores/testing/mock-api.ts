@@ -440,16 +440,29 @@ function context(actor?: AuditActor): StoreContext {
     isOrderDataExportEnabled() &&
     scopedActor.storeRole === "owner" &&
     scopedActor.id === primaryOwnerUserId;
+  const canApplyOrderData = canManageOrderData && isOrderDataApplyEnabled();
+  const orderDataAccess: NonNullable<StoreContext["orderDataAccess"]> = !isOrderDataExportEnabled()
+    ? { code: "feature_disabled", can_export: false, can_apply: false }
+    : scopedActor.storeRole !== "owner"
+      ? { code: "owner_role_required", can_export: false, can_apply: false }
+      : scopedActor.id !== primaryOwnerUserId
+        ? { code: "primary_owner_required", can_export: false, can_apply: false }
+        : {
+            code: canApplyOrderData ? "available" : "available_export_only",
+            can_export: true,
+            can_apply: canApplyOrderData,
+          };
   return {
     activeStore,
     stores: mockStores.map((store) => (store.id === activeStoreId ? activeStore : store)),
+    orderDataAccess,
     permissions: {
       canReadSuppliers: can(scopedActor, "supplier:read"),
       canAssignSuppliers: can(scopedActor, "supplier:assign"),
       canManageSuppliers: can(scopedActor, "supplier:manage"),
       canReadInventory: can(scopedActor, "inventory:read"),
       canManageOrderData,
-      canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
+      canApplyOrderData,
       can_manage_order_costs:
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         can(scopedActor, "finance:cost_manage"),

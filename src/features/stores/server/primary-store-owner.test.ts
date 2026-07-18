@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuditActor } from "@/lib/repairdesk/types";
 import { ForbiddenError } from "@/server/auth-context";
 
-import { assertPrimaryStoreOwner, isPrimaryStoreOwner } from "./primary-store-owner";
+import {
+  assertPrimaryStoreOwner,
+  evaluatePrimaryStoreOwner,
+  isPrimaryStoreOwner,
+} from "./primary-store-owner";
 
 const mocks = vi.hoisted(() => ({ from: vi.fn() }));
 
@@ -55,6 +59,32 @@ describe("primary store owner", () => {
   it("returns a generic forbidden error when the actor is not the primary owner", async () => {
     mocks.from.mockReturnValue(query(null));
     await expect(assertPrimaryStoreOwner(owner)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("returns non-sensitive structured denial reasons", async () => {
+    await expect(
+      evaluatePrimaryStoreOwner({ ...owner, activeStoreExplicit: false }),
+    ).resolves.toEqual({ allowed: false, reason: "store_context_required" });
+    await expect(evaluatePrimaryStoreOwner({ ...owner, storeRole: "manager" })).resolves.toEqual({
+      allowed: false,
+      reason: "owner_role_required",
+    });
+
+    mocks.from.mockReturnValueOnce(query(null)).mockReturnValueOnce(
+      query({
+        id: owner.storeId,
+        owner_user_id: "00000000-0000-0000-0000-000000000099",
+        status: "active",
+      }),
+    );
+    await expect(evaluatePrimaryStoreOwner(owner)).resolves.toEqual({
+      allowed: false,
+      reason: "store_unavailable",
+    });
+    await expect(evaluatePrimaryStoreOwner(owner)).resolves.toEqual({
+      allowed: false,
+      reason: "primary_owner_required",
+    });
   });
 });
 

@@ -34,6 +34,8 @@ const mocks = vi.hoisted(() => ({
   deliverStoreInvitationEmail: vi.fn(),
   setCookie: vi.fn(),
   isPrimaryStoreOwner: vi.fn(),
+  evaluatePrimaryStoreOwner: vi.fn(),
+  assertStoreLifecycleActive: vi.fn(),
 }));
 
 vi.mock("@/server/supabase", () => ({
@@ -50,6 +52,11 @@ vi.mock("@/features/stores/server/store-invitation-email", () => ({
 
 vi.mock("@/features/stores/server/primary-store-owner", () => ({
   isPrimaryStoreOwner: mocks.isPrimaryStoreOwner,
+  evaluatePrimaryStoreOwner: mocks.evaluatePrimaryStoreOwner,
+}));
+
+vi.mock("@/features/stores/server/store-lifecycle-access", () => ({
+  assertStoreLifecycleActive: mocks.assertStoreLifecycleActive,
 }));
 
 vi.mock("next/headers", () => ({
@@ -132,6 +139,13 @@ describe("store repository access request boundaries", () => {
       },
       error: null,
     });
+    mocks.evaluatePrimaryStoreOwner.mockReset();
+    mocks.evaluatePrimaryStoreOwner.mockResolvedValue({
+      allowed: false,
+      reason: "primary_owner_required",
+    });
+    mocks.assertStoreLifecycleActive.mockReset();
+    mocks.assertStoreLifecycleActive.mockResolvedValue(undefined);
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -244,6 +258,63 @@ describe("store repository access request boundaries", () => {
     expect(grantedManagerContext.permissions).toMatchObject({ can_manage_order_costs: true });
     expect(technicianContext.permissions).toMatchObject({ can_manage_order_costs: false });
     expect(salesContext.permissions).toMatchObject({ can_manage_order_costs: false });
+  });
+
+  it("publishes a structured order-data reason without querying owner identity when disabled", async () => {
+    vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "0");
+
+    const context = await getStoreContext(storeOwner);
+
+    expect(context.orderDataAccess).toEqual({
+      code: "feature_disabled",
+      can_export: false,
+      can_apply: false,
+    });
+    expect(mocks.evaluatePrimaryStoreOwner).not.toHaveBeenCalled();
+  });
+
+  it("blocks member restoration and access approval before database reads when lifecycle is inactive", async () => {
+    mocks.assertStoreLifecycleActive.mockRejectedValue(new Error("STORE_LIFECYCLE_NOT_ACTIVE"));
+
+    await expect(restoreStoreMember({ id: "membership_staff" }, storeOwner)).rejects.toThrow(
+      "STORE_LIFECYCLE_NOT_ACTIVE",
+    );
+    await expect(
+      approveStoreAccessRequest(
+        { id: "00000000-0000-4000-8000-000000000001", approved_role: "viewer" },
+        storeOwner,
+      ),
+    ).rejects.toThrow("STORE_LIFECYCLE_NOT_ACTIVE");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes export-only access from a non-primary owner denial", async () => {
+    vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "1");
+    vi.stubEnv("ORDER_DATA_APPLY_ENABLED", "0");
+    mocks.evaluatePrimaryStoreOwner.mockResolvedValueOnce({
+      allowed: true,
+      actorId: storeOwner.id,
+      storeId: storeOwner.storeId,
+    });
+
+    const available = await getStoreContext(storeOwner);
+    expect(available.orderDataAccess).toEqual({
+      code: "available_export_only",
+      can_export: true,
+      can_apply: false,
+    });
+
+    mocks.evaluatePrimaryStoreOwner.mockResolvedValueOnce({
+      allowed: false,
+      reason: "primary_owner_required",
+    });
+    const denied = await getStoreContext(storeOwner);
+    expect(denied.orderDataAccess).toEqual({
+      code: "primary_owner_required",
+      can_export: false,
+      can_apply: false,
+    });
   });
 
   it("lists only pending store-scoped requests explicitly routed to the active store", async () => {

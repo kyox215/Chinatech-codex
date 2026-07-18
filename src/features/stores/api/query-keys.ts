@@ -2,6 +2,8 @@ import { storeQueryScope } from "@/shared/lib/store-query-scope";
 
 export const storesKeys = {
   context: ["stores", "context"] as const,
+  lifecycle: (storeId?: string | null) =>
+    ["stores", "lifecycle", ...storeQueryScope(storeId)] as const,
   members: ["stores", "members"] as const,
   membersScoped: (storeId?: string | null) =>
     [...storesKeys.members, ...storeQueryScope(storeId)] as const,

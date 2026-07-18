@@ -27,13 +27,14 @@ import type {
   StoreMember,
   StoreMembersResult,
   StoreMembershipStatus,
+  OrderDataAccessCapability,
   StorePermissionAction,
   StoreRole,
 } from "@/lib/repairdesk/types";
 import { writeAuditLog } from "@/server/audit";
 import { assertVerifiedEmail, ForbiddenError } from "@/server/auth-context";
 import { assertPermission, can } from "@/server/permissions";
-import { isPrimaryStoreOwner } from "@/features/stores/server/primary-store-owner";
+import { evaluatePrimaryStoreOwner } from "@/features/stores/server/primary-store-owner";
 import {
   isOrderDataApplyEnabled,
   isOrderDataExportEnabled,
@@ -50,6 +51,7 @@ import {
 } from "@/entities/staff/model/store-permission-policy";
 import { deliverStoreInvitationEmail } from "@/features/stores/server/store-invitation-email";
 import { isVerifiedEmailAuthUser } from "@/server/auth-context";
+import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -63,10 +65,12 @@ const STORE_ACTIVATION_ERROR = "创建店铺激活失败，请稍后重试";
 const EMAIL_INVITE_COOLDOWN_MS = 60 * 1000;
 
 export async function getStoreContext(actor: AuditActor): Promise<StoreContext> {
+  const { orderDataAccess, ...permissions } = await storePermissionsFromActor(actor);
   return {
     activeStore: activeStoreFromActor(actor),
     stores: actor.stores ?? [],
-    permissions: await storePermissionsFromActor(actor),
+    orderDataAccess,
+    permissions,
   };
 }
 
@@ -255,6 +259,7 @@ export async function inviteStoreMember(
 ): Promise<StoreMembersResult> {
   assertPermission(actor, "member:invite");
   const storeId = requireActiveStoreId(actor);
+  await assertStoreLifecycleActive(storeId);
   const email = sanitizeEmail(input.email);
   const role = sanitizeInviteRole(input.role);
   assertCanGrantStoreRole(actor, role);
@@ -496,6 +501,7 @@ export async function disableStoreMember(
 ): Promise<StoreMembersResult> {
   assertCanManageStoreMembers(actor);
   const storeId = requireActiveStoreId(actor);
+  await assertStoreLifecycleActive(storeId);
   const supabase = getSupabaseAdmin();
   const member = await readStoreMemberForManagement(supabase, storeId, input.id);
   assertCanManageStoreMember(actor, member, { disable: true });
@@ -528,6 +534,7 @@ export async function restoreStoreMember(
 ): Promise<StoreMembersResult> {
   assertCanManageStoreMembers(actor);
   const storeId = requireActiveStoreId(actor);
+  await assertStoreLifecycleActive(storeId);
   const supabase = getSupabaseAdmin();
   const member = await readStoreMemberForManagement(supabase, storeId, input.id);
   assertCanManageStoreMember(actor, member, { restore: true });
@@ -637,6 +644,7 @@ export async function createStoreInviteLink(
 ): Promise<StoreInviteLinkCreateResult> {
   assertCanManageStoreMembers(actor);
   const storeId = requireActiveStoreId(actor);
+  await assertStoreLifecycleActive(storeId);
   const role = sanitizeInviteRole(input.role);
   assertCanGrantStoreRole(actor, role);
   const label = sanitizeInviteLinkLabel(input.label);
@@ -753,6 +761,7 @@ export async function redeemStoreInviteLink(
 
   const link = linkRow as DbRecord;
   const storeId = requiredString(link.store_id);
+  await assertStoreLifecycleActive(storeId);
   const role = sanitizeAccessRole(toStoreRole(link.role));
   if (new Date(requiredString(link.expires_at)).getTime() <= Date.now()) {
     await recordInviteLinkAttempt(supabase, {
@@ -875,6 +884,7 @@ export async function redeemStoreInviteLink(
 export async function listStoreAccessRequests(actor: AuditActor): Promise<OnboardingRequest[]> {
   assertCanReviewStoreAccessRequests(actor);
   const storeId = requireActiveStoreId(actor);
+  await assertStoreLifecycleActive(storeId);
   const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase
@@ -896,6 +906,7 @@ export async function approveStoreAccessRequest(
 ): Promise<OnboardingRequest> {
   assertCanReviewStoreAccessRequests(actor);
   const storeId = requireActiveStoreId(actor);
+  await assertStoreLifecycleActive(storeId);
   const supabase = getSupabaseAdmin();
   const request = await getPendingStoreAccessRequest(supabase, input.id, storeId);
   const context = await getStoreReviewContext(supabase, storeId, actor);
@@ -1382,13 +1393,13 @@ async function storePermissionsFromActor(
   actor: AuditActor,
   options: { primaryOwnerOverride?: boolean } = {},
 ) {
-  const canManageOrderData =
-    isOrderDataExportEnabled() &&
-    (options.primaryOwnerOverride === true || (await isPrimaryStoreOwner(actor)));
+  const orderDataAccess = await orderDataAccessFromActor(actor, options);
+  const canManageOrderData = orderDataAccess.can_export;
   const canUpdateStoreSettings = can(actor, "settings:update_store");
   const canManageMembers = can(actor, "member:manage_basic");
   const canInviteMembers = canManageMembers && can(actor, "member:invite");
   return {
+    orderDataAccess,
     canReadSuppliers: can(actor, "supplier:read"),
     canAssignSuppliers: can(actor, "supplier:assign"),
     canManageSuppliers: can(actor, "supplier:manage"),
@@ -1495,10 +1506,44 @@ async function nextContext(
     storeRole: activeStore.role,
     activeStoreExplicit: true,
   };
+  const { orderDataAccess, ...permissions } = await storePermissionsFromActor(nextActor, {
+    primaryOwnerOverride,
+  });
   return {
     activeStore,
     stores: [activeStore, ...stores],
-    permissions: await storePermissionsFromActor(nextActor, { primaryOwnerOverride }),
+    orderDataAccess,
+    permissions,
+  };
+}
+
+async function orderDataAccessFromActor(
+  actor: AuditActor,
+  options: { primaryOwnerOverride?: boolean },
+): Promise<OrderDataAccessCapability> {
+  if (!isOrderDataExportEnabled()) {
+    return { code: "feature_disabled", can_export: false, can_apply: false };
+  }
+
+  if (options.primaryOwnerOverride === true) {
+    const canApply = isOrderDataApplyEnabled();
+    return {
+      code: canApply ? "available" : "available_export_only",
+      can_export: true,
+      can_apply: canApply,
+    };
+  }
+
+  const ownerAccess = await evaluatePrimaryStoreOwner(actor);
+  if (!ownerAccess.allowed) {
+    return { code: ownerAccess.reason, can_export: false, can_apply: false };
+  }
+
+  const canApply = isOrderDataApplyEnabled();
+  return {
+    code: canApply ? "available" : "available_export_only",
+    can_export: true,
+    can_apply: canApply,
   };
 }
 

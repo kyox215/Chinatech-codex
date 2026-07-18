@@ -137,6 +137,12 @@ import {
   approveStoreAccessRequest,
   createStoreInviteLink,
   createStore,
+  createStoreLifecyclePreflight,
+  getStoreLifecycleState,
+  issueStoreLifecycleChallenge,
+  renameStoreWorkspace,
+  requestStoreClose,
+  restoreStoreWorkspace,
   getStoreContext,
   disableStoreMember,
   inviteStoreMember,
@@ -161,6 +167,8 @@ import {
   updateAccountProfile,
 } from "@/features/platform/server/platform.service";
 import { getRequestActor, UnauthorizedError, ForbiddenError } from "@/server/auth-context";
+import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
+import { isStoreLifecycleEnforcementEnabled } from "@/features/stores/server/store-lifecycle-feature-flags";
 import {
   assertPermission,
   type PermissionAction,
@@ -265,6 +273,11 @@ import {
   paymentBodySchema,
   reopenOrderBodySchema,
   storeCreateBodySchema,
+  storeLifecyclePreflightBodySchema,
+  storeLifecycleChallengeBodySchema,
+  storeRenameBodySchema,
+  storeCloseBodySchema,
+  storeRestoreBodySchema,
   storeInviteBodySchema,
   storeInviteLinkCreateBodySchema,
   storeInviteLinkDecisionBodySchema,
@@ -308,6 +321,12 @@ const supabaseSource = {
   createOrderWorkflowStatus,
   createSupplier,
   createStore,
+  createStoreLifecyclePreflight,
+  getStoreLifecycleState,
+  issueStoreLifecycleChallenge,
+  renameStoreWorkspace,
+  requestStoreClose,
+  restoreStoreWorkspace,
   createStoreInviteLink,
   decideOrderApproval,
   deleteCustomerDevice,
@@ -537,6 +556,91 @@ async function source() {
   };
   return {
     ...mock,
+    createStoreLifecyclePreflight: async (expectedStoreId: string) => ({
+      id: randomUUID(),
+      store_id: expectedStoreId,
+      store_name: "Mock Store",
+      lifecycle: {
+        store_id: expectedStoreId,
+        phase: "active" as const,
+        revision: 1,
+      },
+      state: "blocked" as const,
+      counts: { repair_orders: 2, customers: 2 },
+      blockers: [
+        { code: "open_orders" as const, count: 2 },
+        { code: "storage_manifest_unavailable" as const },
+      ],
+      snapshot_hash: "0".repeat(64),
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    }),
+    getStoreLifecycleState: async (expectedStoreId: string) => ({
+      store_id: expectedStoreId,
+      phase: "active" as const,
+      revision: 1,
+    }),
+    issueStoreLifecycleChallenge: async (input: {
+      expectedStoreId: string;
+      expectedRevision: number;
+      operationKind: "rename" | "request_close" | "restore" | "schedule_purge";
+    }) => ({
+      id: randomUUID(),
+      store_id: input.expectedStoreId,
+      operation_kind: input.operationKind,
+      lifecycle_revision: input.expectedRevision,
+      assurance_level: "aal2" as const,
+      expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    }),
+    renameStoreWorkspace: async (input: {
+      expectedStoreId: string;
+      expectedRevision: number;
+      operationId: string;
+      name: string;
+    }) => ({
+      operation_id: input.operationId,
+      replayed: false,
+      lifecycle: {
+        store_id: input.expectedStoreId,
+        phase: "active" as const,
+        revision: input.expectedRevision + 1,
+      },
+      store: {
+        id: input.expectedStoreId,
+        name: input.name,
+        slug: "mock-store",
+        role: "owner" as const,
+        status: "active" as const,
+      },
+    }),
+    requestStoreClose: async (input: {
+      expectedStoreId: string;
+      expectedRevision: number;
+      operationId: string;
+    }) => ({
+      operation_id: input.operationId,
+      replayed: false,
+      lifecycle: {
+        store_id: input.expectedStoreId,
+        phase: "closing" as const,
+        revision: input.expectedRevision + 1,
+        close_requested_at: new Date().toISOString(),
+        access_cutoff_at: new Date().toISOString(),
+        archive_eligible_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      },
+    }),
+    restoreStoreWorkspace: async (input: {
+      expectedStoreId: string;
+      expectedRevision: number;
+      operationId: string;
+    }) => ({
+      operation_id: input.operationId,
+      replayed: false,
+      lifecycle: {
+        store_id: input.expectedStoreId,
+        phase: "active" as const,
+        revision: input.expectedRevision + 1,
+      },
+    }),
     archiveSupplier: async (id: string, actor: AuditActor) => archiveMockSupplier(id, actor),
     createSupplier: async (input: SupplierInput, actor: AuditActor) =>
       createMockSupplier(input, actor),
@@ -1006,6 +1110,13 @@ export function getRepairDeskPostActor(path: string) {
   }).then(async (actor) => {
     if (path === "orders/data/import/preview") {
       await assertOrderDataAccess(actor, "order:import_preview", actor.storeId ?? "");
+    }
+    if (
+      actor.storeId &&
+      isStoreLifecycleEnforcementEnabled() &&
+      !allowsLifecycleControlPost(path)
+    ) {
+      await assertStoreLifecycleActive(actor.storeId);
     }
     return actor;
   });
@@ -1991,6 +2102,27 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         const { storeId } = storeSwitchBodySchema.parse(body);
         return ok(await api.switchActiveStore(storeId, actor));
       }
+      case "stores/lifecycle/preflight": {
+        const { expectedStoreId } = storeLifecyclePreflightBodySchema.parse(body);
+        return ok(await api.createStoreLifecyclePreflight(expectedStoreId, actor));
+      }
+      case "stores/lifecycle/state": {
+        const { expectedStoreId } = storeLifecyclePreflightBodySchema.parse(body);
+        return ok(await api.getStoreLifecycleState(expectedStoreId, actor));
+      }
+      case "stores/lifecycle/challenge":
+        return ok(
+          await api.issueStoreLifecycleChallenge(
+            storeLifecycleChallengeBodySchema.parse(body),
+            actor,
+          ),
+        );
+      case "stores/lifecycle/rename":
+        return ok(await api.renameStoreWorkspace(storeRenameBodySchema.parse(body), actor));
+      case "stores/lifecycle/request-close":
+        return ok(await api.requestStoreClose(storeCloseBodySchema.parse(body), actor));
+      case "stores/lifecycle/restore":
+        return ok(await api.restoreStoreWorkspace(storeRestoreBodySchema.parse(body), actor));
       case "stores/invite-member": {
         const { input } = storeInviteBodySchema.parse(body);
         assertMemberInvitePermission(actor);
@@ -2120,6 +2252,10 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
   } catch (error) {
     return fail(error);
   }
+}
+
+function allowsLifecycleControlPost(path: string) {
+  return path === "stores/lifecycle/preflight" || path.startsWith("stores/lifecycle/");
 }
 
 export function allowsPendingStore(path: string, method: "GET" | "POST") {

@@ -37,8 +37,12 @@ import {
   storeInviteLinkCreateBodySchema,
   storeInviteLinkDecisionBodySchema,
   storeInviteLinkRedeemBodySchema,
+  storeCloseBodySchema,
+  storeLifecycleChallengeBodySchema,
   storeMemberDecisionBodySchema,
   storeMemberRoleUpdateBodySchema,
+  storeRenameBodySchema,
+  storeRestoreBodySchema,
   storeSettingsUpdateBodySchema,
   storeFaultCostDefaultsUpdateBodySchema,
   supplierCreateBodySchema,
@@ -576,6 +580,50 @@ describe("repairdesk API schemas", () => {
       }),
     ).toEqual({ id: "00000000-0000-4000-8000-000000000301" });
     expect(() => storeMemberDecisionBodySchema.parse({ id: "membership_staff" })).toThrow();
+  });
+
+  it("binds lifecycle challenges and mutations to UUID, revision and exact confirmation", () => {
+    const base = {
+      expectedStoreId: "00000000-0000-4000-8000-000000000301",
+      expectedRevision: 7,
+      operationId: "00000000-0000-4000-8000-000000000302",
+      reauthChallengeId: "00000000-0000-4000-8000-000000000303",
+    };
+    expect(
+      storeLifecycleChallengeBodySchema.parse({
+        expectedStoreId: base.expectedStoreId,
+        expectedRevision: 7,
+        operationKind: "request_close",
+        preflightSnapshotHash: "a".repeat(64),
+      }),
+    ).toMatchObject({ operationKind: "request_close" });
+    expect(() =>
+      storeLifecycleChallengeBodySchema.parse({
+        expectedStoreId: base.expectedStoreId,
+        expectedRevision: 7,
+        operationKind: "request_close",
+      }),
+    ).toThrow("预检摘要");
+    expect(
+      storeRenameBodySchema.parse({
+        ...base,
+        name: "  Chinatech Centro  ",
+        syncCustomerFacingName: true,
+      }),
+    ).toMatchObject({ name: "Chinatech Centro" });
+    expect(
+      storeCloseBodySchema.parse({
+        ...base,
+        preflightSnapshotHash: "b".repeat(64),
+        confirmationStoreName: "Chinatech Centro",
+        confirmationStoreIdSuffix: "00000301",
+        reasonCode: "duplicate_store",
+      }),
+    ).toMatchObject({ confirmationStoreIdSuffix: "00000301" });
+    expect(storeRestoreBodySchema.parse(base)).toEqual(base);
+    expect(() =>
+      storeRenameBodySchema.parse({ ...base, name: "x", syncCustomerFacingName: false }),
+    ).toThrow();
   });
 
   it("validates order types from the canonical runtime enum", () => {

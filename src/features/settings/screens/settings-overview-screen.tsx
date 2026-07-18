@@ -106,7 +106,7 @@ export function SettingsOverviewScreen({
                     ) : null}
                   </span>
                   <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                    {blocked ? "当前账号无法访问此设置。" : item.description}
+                    {blocked ? item.summary || "当前账号无法访问此设置。" : item.description}
                   </span>
                 </RepairOsBusinessCard>
               );

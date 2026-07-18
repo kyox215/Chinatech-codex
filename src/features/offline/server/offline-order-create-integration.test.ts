@@ -62,6 +62,7 @@ describe("queued offline order create integration", () => {
     const syncOptions = {
       isEnabled: () => true,
       getSecret: () => "integration-offline-secret-001",
+      assertLifecycleActive: vi.fn(async () => undefined),
       rpc,
     };
     const actor: AuditActor = {

@@ -15,6 +15,7 @@ import {
   kioskSessionConflictError,
 } from "@/features/kiosk/model/kiosk-public-error";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
 import { isLegacyTenantIdentityContamination } from "@/entities/store/model/store-output-identity";
 import {
   ORDER_SELECT,
@@ -443,6 +444,7 @@ export async function pairKioskDevice(code: string): Promise<KioskDevicePairClai
 
   const token = createDeviceToken();
   const pairingRow = data as DbRecord;
+  await assertStoreLifecycleActive(requiredString(pairingRow.store_id));
   const { data: updated, error: updateError } = await supabase
     .from("store_kiosk_devices")
     .update({
@@ -469,6 +471,7 @@ export async function pairKioskDevice(code: string): Promise<KioskDevicePairClai
 export async function getKioskPublicSession(token: string): Promise<KioskPublicSession | null> {
   const supabase = getSupabaseAdmin();
   const device = await readDeviceByToken(supabase, token);
+  await assertStoreLifecycleActive(device.store_id);
   await touchDevice(supabase, device.store_id, device.id);
   await expireOldSessions(supabase, device.store_id);
 
@@ -544,6 +547,7 @@ export async function submitKioskPublicSession(
 ): Promise<{ ok: boolean; session_id: string; store_id: string }> {
   const supabase = getSupabaseAdmin();
   const device = await readDeviceByToken(supabase, token);
+  await assertStoreLifecycleActive(device.store_id);
   const submission = normalizeKioskSubmission(input);
   const now = new Date().toISOString();
   const { data, error } = await supabase

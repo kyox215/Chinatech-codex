@@ -1,0 +1,14 @@
+export const STORE_LIFECYCLE_ERROR_CODES = {
+  contextChanged: "STORE_LIFECYCLE_CONTEXT_CHANGED",
+  versionConflict: "STORE_LIFECYCLE_VERSION_CONFLICT",
+  idempotencyConflict: "STORE_LIFECYCLE_IDEMPOTENCY_CONFLICT",
+  invalidState: "STORE_LIFECYCLE_INVALID_STATE",
+  preflightStale: "STORE_LIFECYCLE_PREFLIGHT_STALE",
+  blocked: "STORE_LIFECYCLE_BLOCKED",
+  reauthRequired: "STORE_LIFECYCLE_REAUTH_REQUIRED",
+  legalHold: "STORE_LIFECYCLE_LEGAL_HOLD",
+  forbidden: "STORE_LIFECYCLE_FORBIDDEN",
+} as const;
+
+export type StoreLifecycleErrorCode =
+  (typeof STORE_LIFECYCLE_ERROR_CODES)[keyof typeof STORE_LIFECYCLE_ERROR_CODES];

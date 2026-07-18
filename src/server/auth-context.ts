@@ -66,6 +66,7 @@ export async function getRequestActor(
 
   const email = typeof claims.email === "string" ? claims.email : undefined;
   const emailVerifiedFromClaims = isVerifiedEmailClaim(claims);
+  const authAssurance = resolveAuthAssuranceFromClaims(claims);
   if (!hasSupabaseConfig()) {
     return {
       id: claims.sub,
@@ -73,6 +74,7 @@ export async function getRequestActor(
       emailVerified: emailVerifiedFromClaims,
       displayName: resolveStaffDisplayName({ email, displayName: email, fallback: "员工" }),
       requestIpHash,
+      ...authAssurance,
     };
   }
 
@@ -122,6 +124,33 @@ export async function getRequestActor(
     stores: memberships,
     activeStoreExplicit: activeStoreResolution?.explicit ?? false,
     requestIpHash,
+    ...authAssurance,
+  };
+}
+
+export function resolveAuthAssuranceFromClaims(
+  claims: Record<string, unknown>,
+): Pick<AuditActor, "authAssuranceLevel" | "recentAuthAt"> {
+  const authAssuranceLevel = claims.aal === "aal2" ? "aal2" : "aal1";
+  const totpTimestamps = Array.isArray(claims.amr)
+    ? claims.amr
+        .map((entry) => {
+          if (!entry || typeof entry !== "object") return undefined;
+          const authentication = entry as Record<string, unknown>;
+          if (authentication.method !== "totp") return undefined;
+          const timestamp = authentication.timestamp;
+          return typeof timestamp === "number" && Number.isFinite(timestamp)
+            ? timestamp
+            : undefined;
+        })
+        .filter((timestamp): timestamp is number => timestamp !== undefined)
+    : [];
+  const latestAuthenticationSeconds = Math.max(...totpTimestamps, 0);
+  return {
+    authAssuranceLevel,
+    ...(latestAuthenticationSeconds > 0
+      ? { recentAuthAt: new Date(latestAuthenticationSeconds * 1000).toISOString() }
+      : {}),
   };
 }
 

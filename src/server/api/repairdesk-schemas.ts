@@ -73,6 +73,10 @@ import type {
   StoreInviteLinkDecisionInput,
   StoreInviteLinkRedeemInput,
   StoreInviteInput,
+  StoreCloseInput,
+  StoreLifecycleChallengeInput,
+  StoreRenameInput,
+  StoreRestoreInput,
   StoreMemberDecisionInput,
   StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
@@ -1471,6 +1475,72 @@ export const storeCreateBodySchema = z.object({
 export const storeSwitchBodySchema = z.object({
   storeId: z.string().uuid("店铺 id 不正确"),
 });
+
+export const storeLifecyclePreflightBodySchema = z
+  .object({
+    expectedStoreId: z.string().uuid("店铺 id 不正确"),
+  })
+  .strict();
+
+const lifecycleStoreIdSchema = z.string().uuid("店铺 id 不正确");
+const lifecycleRevisionSchema = z.number().int().min(1, "生命周期版本不正确");
+const lifecycleSha256Schema = z.string().regex(/^[0-9a-f]{64}$/, "预检摘要不正确");
+const containsControlCharacter = (value: string) =>
+  Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 31 || codePoint === 127;
+  });
+const storeLifecycleMutationBase = z.object({
+  expectedStoreId: lifecycleStoreIdSchema,
+  expectedRevision: lifecycleRevisionSchema,
+  operationId: z.string().uuid("操作 id 不正确"),
+  reauthChallengeId: z.string().uuid("安全挑战 id 不正确"),
+});
+
+export const storeLifecycleChallengeBodySchema = z
+  .object({
+    expectedStoreId: lifecycleStoreIdSchema,
+    expectedRevision: lifecycleRevisionSchema,
+    operationKind: z.enum(["rename", "request_close", "restore", "schedule_purge"]),
+    preflightSnapshotHash: lifecycleSha256Schema.optional(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      (input.operationKind === "request_close" || input.operationKind === "schedule_purge") &&
+      !input.preflightSnapshotHash
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["preflightSnapshotHash"],
+        message: "关闭店铺前需要安全预检摘要",
+      });
+    }
+  }) satisfies z.ZodType<StoreLifecycleChallengeInput>;
+
+export const storeRenameBodySchema = storeLifecycleMutationBase
+  .extend({
+    name: z
+      .string()
+      .trim()
+      .min(2, "店铺名称至少需要 2 个字符")
+      .max(80, "店铺名称不能超过 80 个字符")
+      .refine((value) => !containsControlCharacter(value), "店铺名称包含无效控制字符"),
+    syncCustomerFacingName: z.boolean(),
+  })
+  .strict() satisfies z.ZodType<StoreRenameInput>;
+
+export const storeCloseBodySchema = storeLifecycleMutationBase
+  .extend({
+    preflightSnapshotHash: lifecycleSha256Schema,
+    confirmationStoreName: z.string().min(2).max(80),
+    confirmationStoreIdSuffix: z.string().regex(/^[0-9a-f]{8}$/i, "店铺 UUID 尾号不正确"),
+    reasonCode: z.string().trim().min(2, "请选择或填写关闭原因").max(80),
+  })
+  .strict() satisfies z.ZodType<StoreCloseInput>;
+
+export const storeRestoreBodySchema =
+  storeLifecycleMutationBase.strict() satisfies z.ZodType<StoreRestoreInput>;
 
 export const storeInviteInputSchema = z
   .object({

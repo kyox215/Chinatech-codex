@@ -18,12 +18,17 @@ const mocks = vi.hoisted(() => {
   return {
     from,
     storageFrom,
+    assertStoreLifecycleActive: vi.fn(),
     supabase: { from, storage: { from: storageFrom } },
   };
 });
 
 vi.mock("@/server/supabase", () => ({
   getSupabaseAdmin: () => mocks.supabase,
+}));
+
+vi.mock("@/features/stores/server/store-lifecycle-access", () => ({
+  assertStoreLifecycleActive: mocks.assertStoreLifecycleActive,
 }));
 
 describe("kiosk repository pickup acceptance", () => {
