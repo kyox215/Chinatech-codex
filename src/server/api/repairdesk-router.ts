@@ -144,6 +144,7 @@ import {
   importElectronicsCsvPreview,
   listInventoryItems,
   listInventoryItemsPage,
+  reconcileInventoryV2,
   recordInventoryCheck,
   recordInventoryTransaction,
   sellInventoryItem,
@@ -151,7 +152,10 @@ import {
   updateInventoryItem,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
-import { assertInventoryV2CommandEnabled } from "@/features/inventory/server/inventory-v2-feature-flags";
+import {
+  assertInventoryV2CommandEnabled,
+  assertInventoryV2ShadowReadEnabled,
+} from "@/features/inventory/server/inventory-v2-feature-flags";
 import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/inventory-v2-sale-contract";
 import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
 import {
@@ -440,6 +444,7 @@ const supabaseSource = {
   listCustomersPage,
   listInventoryItems,
   listInventoryItemsPage,
+  reconcileInventoryV2,
   listKioskDevices,
   listKioskSessions,
   listMessageTemplates,
@@ -1678,6 +1683,11 @@ export async function handleRepairDeskPost(
       case "inventory/summary":
         assertInventoryReadPermission(actor);
         return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
+      case "inventory/v2/reconciliation":
+        assertInventoryReadPermission(actor);
+        assertRepairDeskPermission(actor, "settings:update_store");
+        assertInventoryV2ShadowReadEnabled(actor.storeId ?? "");
+        return ok(await api.reconcileInventoryV2(actor));
       case "orders/create": {
         if (hasOwnOrderCostInputs(body)) {
           assertCanManageOrderCosts(actor);

@@ -4,6 +4,7 @@ import {
   areLegacyInventoryMutationsEnabled,
   isInventoryV2CommandEnabledForStore,
   isInventoryV2ShadowReadEnabled,
+  isInventoryV2ShadowReadEnabledForStore,
   isInventoryV2UiEnabledForStore,
 } from "./inventory-v2-feature-flags";
 
@@ -18,6 +19,8 @@ describe("inventory V2 feature flags", () => {
 
   it("requires schema readiness and store allowlist for every V2 surface", () => {
     expect(isInventoryV2ShadowReadEnabled(enabled)).toBe(true);
+    expect(isInventoryV2ShadowReadEnabledForStore("store-a", enabled)).toBe(true);
+    expect(isInventoryV2ShadowReadEnabledForStore("store-c", enabled)).toBe(false);
     expect(isInventoryV2CommandEnabledForStore("store-a", enabled)).toBe(true);
     expect(isInventoryV2UiEnabledForStore("store-b", enabled)).toBe(true);
     expect(isInventoryV2UiEnabledForStore("store-c", enabled)).toBe(false);

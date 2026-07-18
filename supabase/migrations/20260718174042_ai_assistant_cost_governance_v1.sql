@@ -2,6 +2,8 @@
 -- enabled policy, sends no provider request, and stores no prompt, image, OCR,
 -- order reference, IMEI, safety identifier, actor identity, or model output.
 
+set lock_timeout = '5s';
+
 create table public.ai_assistant_usage_policies (
   policy_version text primary key,
   status text not null default 'disabled',

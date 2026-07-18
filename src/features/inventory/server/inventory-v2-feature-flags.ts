@@ -50,6 +50,13 @@ export function isInventoryV2CommandEnabledForStore(
   return isInventoryV2CommandsEnabled(env) && isInventoryV2StoreEnabled(storeId, env);
 }
 
+export function isInventoryV2ShadowReadEnabledForStore(
+  storeId: string | null | undefined,
+  env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
+) {
+  return isInventoryV2ShadowReadEnabled(env) && isInventoryV2StoreEnabled(storeId, env);
+}
+
 export function isInventoryV2UiEnabledForStore(
   storeId: string | null | undefined,
   env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
@@ -66,5 +73,11 @@ export function areLegacyInventoryMutationsEnabled(
 export function assertInventoryV2CommandEnabled(storeId: string) {
   if (!isInventoryV2CommandEnabledForStore(storeId)) {
     throw new Error("库存 V2 正式命令尚未对当前门店开放");
+  }
+}
+
+export function assertInventoryV2ShadowReadEnabled(storeId: string) {
+  if (!isInventoryV2ShadowReadEnabledForStore(storeId)) {
+    throw new Error("库存 V2 影子对账尚未对当前门店开放");
   }
 }

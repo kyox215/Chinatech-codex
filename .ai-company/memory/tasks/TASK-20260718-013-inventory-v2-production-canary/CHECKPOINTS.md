@@ -37,3 +37,18 @@
 - **Next:** 等待 Owner 独立 D4 决定：是否批准先应用 20260718174042_ai_assistant_cost_governance_v1.sql。若批准，必须重新 fetch、linked dry-run、恢复/RLS/grant preflight 后串行 apply；禁止 --include-all。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T21:01:46Z — 最终候选链与影子对账门禁通过
+
+- **Phase:** implementation
+- **Completed/current state:** 在第四个全新 PostgreSQL 17 生产快照恢复库中按 linked 顺序执行 AI 成本治理和三份 V2 migration；116 张原表、40,458 行逐表一致。修复售出后 V2 unit/movement 未同步缺陷；新增单店、owner/manager、schema/shadow/allowlist 门禁的只读对账 RPC 和服务端入口。事务回滚演练覆盖入库、重复、幂等、售出、V2 投影、对账和冲突，零残留。10 张新增表 RLS 开启、0 policy，浏览器角色无表/RPC 权限。
+- **Next:** 运行完整 lint/typecheck/test/build，复核 diff、同步发布证据并推送休眠代码；生产 apply 继续等待独立 AI migration 的 Owner D4 批准。
+- **Decision:** 未改变生产数据库或 flags；禁止 `--include-all`，V1 写入继续开启。
+- **Evidence:** E-013 至 E-016。
+- **Recorded by:** Integration Lead
+## 2026-07-18T21:05:28Z — 最终候选链在全新 PostgreSQL 17 生产快照恢复库通过：116 张原表、40,458 行逐表一致；修复 V2 售出投影并新增单店影子对账，事务回滚、RLS/ACL、297 files/1862 tests、lint、typecheck、build 均通过。生产数据库和 flags 未变更；AI 成本治理 migration 仍需 Owner 独立 D4 批准。
+
+- **Phase:** implementation
+- **Completed/current state:** 最终候选链在全新 PostgreSQL 17 生产快照恢复库通过：116 张原表、40,458 行逐表一致；修复 V2 售出投影并新增单店影子对账，事务回滚、RLS/ACL、297 files/1862 tests、lint、typecheck、build 均通过。生产数据库和 flags 未变更；AI 成本治理 migration 仍需 Owner 独立 D4 批准。
+- **Next:** 提交当前 default-off 变更，rebase origin/main 并复验后非强制推送 main；之后等待 Owner 明确批准 AI migration，禁止 --include-all，批准前不 apply 生产或开灰度。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

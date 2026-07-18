@@ -1003,6 +1003,34 @@ export async function createInventoryUnitV2(
   return result;
 }
 
+export async function reconcileInventoryV2(actor: AuditActor) {
+  const role = actor.storeRole ?? actor.role;
+  if (!actor.isSystem && !["owner", "manager"].includes(role ?? "")) {
+    throw new Error("只有店主或店长可以查看库存 V2 对账");
+  }
+  const totalUnits = mockInventoryItems.filter(
+    (item) => recordOrEmpty(item.legacy_payload).inventory_v2_intake === true,
+  ).length;
+  return {
+    ok: true as const,
+    code: "reconciled" as const,
+    store_id: actor.storeId ?? "mock-store",
+    checked_at: new Date().toISOString(),
+    healthy: true,
+    total_units: totalUnits,
+    total_v1_marked_items: totalUnits,
+    linked_pairs: totalUnits,
+    missing_v2_units: 0,
+    missing_v1_items: 0,
+    payload_link_mismatches: 0,
+    status_mismatches: 0,
+    movement_mismatches: 0,
+    identifier_mismatches: 0,
+    intake_ledger_mismatches: 0,
+    sale_ledger_mismatches: 0,
+  };
+}
+
 export function importElectronicsCsvPreview(
   csvContent: string,
   actor: AuditActor,

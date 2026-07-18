@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["data", "documentation", "integration", "qa", "release", "security"]
 created_at: "2026-07-18T19:43:02Z"
-updated_at: "2026-07-18T20:27:57Z"
+updated_at: "2026-07-18T21:05:28Z"
 ---
 # Task — 库存商品 V2 生产恢复门禁与 Chinatech 单店灰度
 
@@ -28,8 +28,8 @@ Owner 选中“按发布运行手册完成数据库恢复验证和单店灰度�
 - 对生产 schema 做无 PII 的逻辑 schema 导出与隔离恢复验证。
 - 在权限受限的临时目录完成逻辑数据备份与完整数据恢复演练；不把备份内容写入仓库、日志或截图。
 - 仅当无费用的逻辑恢复门禁失败且 Owner 另行批准费用时，才使用官方 physical backup “Restore to a New Project”。
-- 精确应用 `20260718175622`、`20260718181148` 两份 additive migration。
-- 新建并审查独立 migration，仅向 `service_role` grant 两个 V2 RPC 的 EXECUTE。
+- 按 linked history 精确审查四份候选 migration：默认休眠的 AI 成本治理、V2 foundation、V2 identity、V2 service-role grants。
+- grant migration 仅向 `service_role` 开放两个 V2 命令 RPC 和一个只读影子对账 RPC。
 - 仅把 Chinatech 门店加入 allowlist；按 schema → shadow → commands → UI 顺序启用。
 - 保持 `INVENTORY_LEGACY_MUTATIONS_ENABLED=1`，执行生产冒烟、对账、日志和回滚验证。
 
@@ -52,7 +52,7 @@ Owner 选中“按发布运行手册完成数据库恢复验证和单店灰度�
 ## Acceptance criteria
 
 - [x] 生产恢复/备份证据满足发布门禁，或明确记录阻断并停止
-- [ ] 两份 V2 additive migrations 精确应用且后置元数据/RLS/grants/幂等检查通过
+- [ ] 四份候选 additive migrations 精确应用且后置元数据/RLS/grants/幂等检查通过
 - [ ] 仅 Chinatech 门店进入 allowlist，V1 写入保持开启
 - [ ] shadow、commands、UI 分阶段启用并完成生产冒烟、对账和回滚验证
 - [ ] 任何异常先关闭 UI/commands 并保留 V2 数据证据
@@ -66,9 +66,11 @@ Owner 选中“按发布运行手册完成数据库恢复验证和单店灰度�
 | Production target | verified | `supabase/config.toml`; MCP project | `xluzcoduqsdvjoouqhkc`, ACTIVE_HEALTHY, PG 17.6 |
 | V2 migrations pending | verified with new blocker | final linked dry-run | four migrations are pending: unapproved AI cost governance `20260718174042` precedes the three approved V2 migrations |
 | Backup visibility | verified | `supabase backups list` | physical backup completed 2026-07-18 06:49Z; PITR disabled |
-| Data-level restore drill | verified | restricted logical dump, isolated PostgreSQL 17 restore, row-count fingerprint | 116 dumped tables / 40,457 rows exactly restored; two expected empty managed migration tables excluded from data dump |
-| Migration compatibility | verified | full data restore plus all three migrations | first rehearsal caught UUID FK and UUID validation defects; corrected one-shot definitions execute on restored production data |
-| Runtime transaction behavior | verified in rollback-only restore | `RECOVERY_CANARY_ROLLBACK.sql` | intake, duplicate guard, replay, sale, conflict guard PASS; zero residual rows |
+| Data-level restore drill | verified | restricted logical dump, isolated PostgreSQL 17 restore, row-count fingerprint | 116 dumped tables / 40,458 rows exactly restored; two expected empty managed migration tables excluded from data dump |
+| Migration compatibility | verified | fresh full-data restore plus all four pending migrations in exact linked order | AI remains dormant; corrected one-shot V2 definitions execute on restored production data |
+| Runtime transaction behavior | verified in rollback-only restore | `RECOVERY_CANARY_ROLLBACK.sql` | intake, duplicate guard, replay, atomic sale, V2 status/movement projection, reconciliation and conflict guard PASS; zero residual rows |
+| Shadow reconciliation | verified | `repairdesk_inventory_v2_reconcile` and server repository/route | owner/manager + schema/shadow/allowlist gated; empty Chinatech baseline healthy; browser roles have no execute grant |
+| Sale projection defect | fixed and verified | foundation migration plus enhanced recovery script | V2 unit now becomes `sold`, version increments and one `sell -1` movement is written atomically |
 | Exact production apply | blocked | task-011 contract plus linked dry-run | cannot apply only the three V2 versions without bypassing migration order; `--include-all` and AI migration apply are unapproved |
 | Historical full reset drift | verified risk | runbook and prior isolated validation | do not edit applied history; use production metadata + isolated restore |
 

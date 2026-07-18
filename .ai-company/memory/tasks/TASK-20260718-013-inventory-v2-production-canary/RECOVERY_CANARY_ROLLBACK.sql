@@ -20,7 +20,11 @@ declare
   sale_result jsonb;
   sale_replay_result jsonb;
   sale_conflict_result jsonb;
+  reconciliation_result jsonb;
   v_item_id uuid;
+  v_stock_unit_id uuid;
+  v_stock_unit_status text;
+  v_stock_unit_version bigint;
   row_total bigint;
 begin
   select store_row.id, membership.user_id
@@ -73,6 +77,7 @@ begin
     raise exception 'Unexpected intake result: %', intake_result ->> 'code';
   end if;
   v_item_id := (intake_result ->> 'item_id')::uuid;
+  v_stock_unit_id := (intake_result ->> 'stock_unit_id')::uuid;
 
   replay_result := public.repairdesk_create_inventory_unit_v2(
     v_store_id,
@@ -208,6 +213,43 @@ begin
     raise exception 'Sale idempotency conflict guard failed';
   end if;
 
+  select unit.status::text, unit.version
+    into v_stock_unit_status, v_stock_unit_version
+    from public.inventory_stock_units as unit
+   where unit.id = v_stock_unit_id
+     and unit.store_id = v_store_id;
+  if v_stock_unit_status <> 'sold' or v_stock_unit_version <> 2 then
+    raise exception 'V2 stock unit sale projection mismatch';
+  end if;
+
+  select count(*) into row_total
+    from public.inventory_stock_movements as movement
+   where movement.stock_unit_id = v_stock_unit_id
+     and movement.store_id = v_store_id;
+  if row_total <> 2 then
+    raise exception 'V2 stock movement cardinality mismatch';
+  end if;
+
+  select count(*) into row_total
+    from public.inventory_stock_movements as movement
+   where movement.stock_unit_id = v_stock_unit_id
+     and movement.store_id = v_store_id
+     and movement.movement_type = 'sell'
+     and movement.quantity = -1
+     and movement.idempotency_key = sale_key;
+  if row_total <> 1 then
+    raise exception 'V2 sell movement mismatch';
+  end if;
+
+  reconciliation_result := public.repairdesk_inventory_v2_reconcile(
+    v_store_id,
+    v_actor_id
+  );
+  if reconciliation_result ->> 'code' <> 'reconciled'
+     or coalesce((reconciliation_result ->> 'healthy')::boolean, false) is not true then
+    raise exception 'V1/V2 reconciliation failed after sale: %', reconciliation_result;
+  end if;
+
   select count(*) into row_total
     from public.inventory_intake_command_ledger
    where idempotency_key = intake_key;
@@ -222,7 +264,7 @@ begin
     raise exception 'Sale ledger cardinality mismatch';
   end if;
 
-  raise notice 'rollback canary passed: intake, duplicate guard, replay, sale and conflict guard';
+  raise notice 'rollback canary passed: intake, duplicate guard, replay, sale, reconciliation and conflict guard';
 end;
 $$;
 

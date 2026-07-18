@@ -10,6 +10,13 @@ const identitySql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/20260718181148_inventory_product_v2_identity.sql"),
   "utf8",
 );
+const grantsSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260718195257_inventory_product_v2_service_role_grants.sql",
+  ),
+  "utf8",
+);
 
 describe("inventory product V2 foundation migration", () => {
   it("keeps the expand slice dormant and service-role-only", () => {
@@ -59,6 +66,24 @@ describe("inventory product V2 foundation migration", () => {
     expect(body).not.toMatch(/exception\s+when/i);
   });
 
+  it("projects V2 stock units and movements in the same sale transaction", () => {
+    const functionStart = sql.indexOf(
+      "create or replace function public.repairdesk_complete_inventory_sale_v2",
+    );
+    const functionEnd = sql.indexOf("revoke all on function", functionStart);
+    const body = sql.slice(functionStart, functionEnd);
+
+    expect(body).toContain("from public.inventory_stock_units");
+    expect(body).toContain("update public.inventory_stock_units");
+    expect(body).toContain("status = 'sold'");
+    expect(body).toContain("version = version + 1");
+    expect(body).toContain("insert into public.inventory_stock_movements");
+    expect(body).toContain("'sell'");
+    expect(body).toContain("-1");
+    expect(body).toContain("p_idempotency_key");
+    expect(body).toContain("v2_state_conflict");
+  });
+
   it("adds catalog, variant, serial unit, identifiers and append-only movements", () => {
     for (const table of [
       "inventory_product_catalog_items",
@@ -105,6 +130,34 @@ describe("inventory product V2 foundation migration", () => {
     );
     expect(identitySql).not.toMatch(
       /grant execute on function public\.repairdesk_create_inventory_unit_v2/i,
+    );
+  });
+
+  it("adds a dormant store-scoped shadow reconciliation RPC", () => {
+    const functionStart = identitySql.indexOf(
+      "create or replace function public.repairdesk_inventory_v2_reconcile",
+    );
+    const functionEnd = identitySql.indexOf("revoke all on function", functionStart);
+    const body = identitySql.slice(functionStart, functionEnd);
+
+    expect(body).toContain("security invoker");
+    expect(body).toContain("set search_path = ''");
+    expect(body).toContain("membership.role in ('owner', 'manager')");
+    expect(body).toContain("missing_v2_units");
+    expect(body).toContain("status_mismatches");
+    expect(body).toContain("movement_mismatches");
+    expect(body).toContain("identifier_mismatches");
+    expect(identitySql).toMatch(
+      /revoke all on function public\.repairdesk_inventory_v2_reconcile\(uuid, uuid\)[\s\S]*from public, anon, authenticated, service_role/i,
+    );
+    expect(identitySql).not.toMatch(
+      /grant execute on function public\.repairdesk_inventory_v2_reconcile/i,
+    );
+    expect(grantsSql).toMatch(
+      /grant execute on function public\.repairdesk_inventory_v2_reconcile\(uuid, uuid\)[\s\S]*to service_role/i,
+    );
+    expect(grantsSql).not.toMatch(
+      /grant execute on function public\.repairdesk_inventory_v2_reconcile[\s\S]*to (?:anon|authenticated)/i,
     );
   });
 });

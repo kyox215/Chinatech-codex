@@ -667,3 +667,185 @@ comment on function public.repairdesk_create_inventory_unit_v2(
   uuid, uuid, uuid, text, uuid, uuid, text, text, text, text, text, text,
   jsonb, numeric, numeric, integer, text, text, text, timestamptz
 ) is 'Dormant atomic serial-unit intake. EXECUTE requires a separate Owner-approved enable migration.';
+
+create or replace function public.repairdesk_inventory_v2_reconcile(
+  p_store_id uuid,
+  p_actor_id uuid
+)
+returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = ''
+as $$
+declare
+  v_result jsonb;
+begin
+  if not exists (
+    select 1
+      from public.store_memberships as membership
+     where membership.store_id = p_store_id
+       and membership.user_id = p_actor_id
+       and membership.status = 'active'
+       and membership.role in ('owner', 'manager')
+  ) then
+    return jsonb_build_object('ok', false, 'code', 'actor_forbidden');
+  end if;
+
+  with unit_rollup as (
+    select
+      unit.id,
+      unit.legacy_inventory_item_id,
+      unit.status::text as unit_status,
+      item.id as legacy_item_id,
+      item.status::text as legacy_status,
+      item.legacy_payload ->> 'inventory_v2_unit_id' as payload_unit_id,
+      coalesce((
+        select sum(movement.quantity)
+          from public.inventory_stock_movements as movement
+         where movement.store_id = p_store_id
+           and movement.stock_unit_id = unit.id
+      ), 0)::bigint as movement_balance,
+      (
+        select count(*)
+          from public.inventory_stock_movements as movement
+         where movement.store_id = p_store_id
+           and movement.stock_unit_id = unit.id
+           and movement.movement_type = 'receive'
+      )::bigint as receive_count,
+      (
+        select count(*)
+          from public.inventory_stock_movements as movement
+         where movement.store_id = p_store_id
+           and movement.stock_unit_id = unit.id
+           and movement.movement_type = 'sell'
+      )::bigint as sell_count,
+      (
+        select count(*)
+          from public.inventory_stock_unit_identifiers as identifier
+         where identifier.store_id = p_store_id
+           and identifier.stock_unit_id = unit.id
+           and identifier.retired_at is null
+      )::bigint as active_identifier_count,
+      (
+        select count(*)
+          from public.inventory_stock_unit_identifiers as identifier
+         where identifier.store_id = p_store_id
+           and identifier.stock_unit_id = unit.id
+           and identifier.retired_at is null
+           and identifier.is_primary
+      )::bigint as primary_identifier_count,
+      exists (
+        select 1
+          from public.inventory_intake_command_ledger as ledger
+         where ledger.store_id = p_store_id
+           and ledger.stock_unit_id = unit.id
+      ) as has_intake_ledger,
+      exists (
+        select 1
+          from public.inventory_sale_command_ledger as ledger
+         where ledger.store_id = p_store_id
+           and ledger.inventory_item_id = unit.legacy_inventory_item_id
+      ) as has_sale_ledger
+    from public.inventory_stock_units as unit
+    left join public.inventory_items as item
+      on item.store_id = p_store_id
+     and item.id = unit.legacy_inventory_item_id
+    where unit.store_id = p_store_id
+  ), marked_items as (
+    select item.id
+      from public.inventory_items as item
+     where item.store_id = p_store_id
+       and item.legacy_payload @> '{"inventory_v2_intake": true}'::jsonb
+  ), metrics as (
+    select
+      (select count(*) from unit_rollup)::bigint as total_units,
+      (select count(*) from marked_items)::bigint as total_v1_marked_items,
+      (select count(*) from unit_rollup where legacy_item_id is not null)::bigint
+        as linked_pairs,
+      (
+        select count(*)
+          from marked_items as marked
+         where not exists (
+           select 1
+             from unit_rollup as unit
+            where unit.legacy_inventory_item_id = marked.id
+         )
+      )::bigint as missing_v2_units,
+      (select count(*) from unit_rollup where legacy_item_id is null)::bigint
+        as missing_v1_items,
+      (
+        select count(*)
+          from unit_rollup
+         where payload_unit_id is distinct from id::text
+      )::bigint as payload_link_mismatches,
+      (
+        select count(*)
+          from unit_rollup
+         where unit_status is distinct from legacy_status
+      )::bigint as status_mismatches,
+      (
+        select count(*)
+          from unit_rollup
+         where receive_count <> 1
+            or case
+              when unit_status = 'sold' then sell_count <> 1 or movement_balance <> 0
+              when unit_status in (
+                'intake', 'evaluating', 'refurbishing', 'ready_for_sale', 'listed', 'reserved'
+              ) then sell_count <> 0 or movement_balance <> 1
+              else true
+            end
+      )::bigint as movement_mismatches,
+      (
+        select count(*)
+          from unit_rollup
+         where active_identifier_count < 1
+            or primary_identifier_count <> 1
+      )::bigint as identifier_mismatches,
+      (select count(*) from unit_rollup where not has_intake_ledger)::bigint
+        as intake_ledger_mismatches,
+      (
+        select count(*)
+          from unit_rollup
+         where unit_status = 'sold'
+           and not has_sale_ledger
+      )::bigint as sale_ledger_mismatches
+  )
+  select jsonb_build_object(
+    'ok', true,
+    'code', 'reconciled',
+    'store_id', p_store_id,
+    'checked_at', clock_timestamp(),
+    'healthy',
+      missing_v2_units = 0
+      and missing_v1_items = 0
+      and payload_link_mismatches = 0
+      and status_mismatches = 0
+      and movement_mismatches = 0
+      and identifier_mismatches = 0
+      and intake_ledger_mismatches = 0
+      and sale_ledger_mismatches = 0,
+    'total_units', total_units,
+    'total_v1_marked_items', total_v1_marked_items,
+    'linked_pairs', linked_pairs,
+    'missing_v2_units', missing_v2_units,
+    'missing_v1_items', missing_v1_items,
+    'payload_link_mismatches', payload_link_mismatches,
+    'status_mismatches', status_mismatches,
+    'movement_mismatches', movement_mismatches,
+    'identifier_mismatches', identifier_mismatches,
+    'intake_ledger_mismatches', intake_ledger_mismatches,
+    'sale_ledger_mismatches', sale_ledger_mismatches
+  )
+    into v_result
+    from metrics;
+
+  return v_result;
+end;
+$$;
+
+revoke all on function public.repairdesk_inventory_v2_reconcile(uuid, uuid)
+  from public, anon, authenticated, service_role;
+
+comment on function public.repairdesk_inventory_v2_reconcile(uuid, uuid)
+  is 'Store-scoped V1/V2 shadow reconciliation. Runtime EXECUTE requires a separate Owner-approved enable migration.';

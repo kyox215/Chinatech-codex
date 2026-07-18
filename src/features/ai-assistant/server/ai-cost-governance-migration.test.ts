@@ -14,6 +14,7 @@ describe("AI cost governance migration draft", () => {
     expect(sql).toContain("create table public.ai_assistant_usage_policies");
     expect(sql).toContain("create table public.ai_assistant_usage_buckets");
     expect(sql).toContain("create table public.ai_assistant_usage_requests");
+    expect(sql).toContain("set lock_timeout = '5s';");
     expect(sql).not.toMatch(/insert\s+into\s+public\.ai_assistant_usage_policies/i);
     expect(sql).not.toMatch(/drop\s+(?:table|column|schema)/i);
   });

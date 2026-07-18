@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-18T20:27:57Z"
+last_checkpoint_at: "2026-07-18T21:05:28Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,15 +19,15 @@ last_rehydrated_at: null
 
 ## Current state
 
-默认关闭代码已非强制快进到 main@19c4feb8；Vercel production dpl_FE2Xa6p9nZ8NGNms9zmVfCzoUhvV exact-SHA READY。生产 env-name-only 检查无 Inventory V2/AI/OpenAI 变量，登录/库存鉴权/API 401 冒烟和 error-log 检查通过。生产数据库与 flags 未变更；更早且未批准的 AI 成本治理 migration 继续阻断精确 V2 apply。
+最终候选链在全新 PostgreSQL 17 生产快照恢复库通过：116 张原表、40,458 行逐表一致；修复 V2 售出投影并新增单店影子对账，事务回滚、RLS/ACL、297 files/1862 tests、lint、typecheck、build 均通过。生产数据库和 flags 未变更；AI 成本治理 migration 仍需 Owner 独立 D4 批准。
 
 ## Blocking decisions
 
-- None recorded. Check the task file and `OPEN_CONFLICTS.md` before assuming this remains true.
+- Owner must explicitly approve applying the independent `20260718174042_ai_assistant_cost_governance_v1.sql` migration before the linked Inventory V2 migrations. Until then, production database apply and all Inventory V2 flags remain unchanged.
 
 ## Next action
 
-等待 Owner 独立 D4 决定：是否批准先应用 20260718174042_ai_assistant_cost_governance_v1.sql。若批准，必须重新 fetch、linked dry-run、恢复/RLS/grant preflight 后串行 apply；禁止 --include-all。
+提交当前 default-off 变更，rebase origin/main 并复验后非强制推送 main；之后等待 Owner 明确批准 AI migration，禁止 --include-all，批准前不 apply 生产或开灰度。
 
 ## Resume protocol
 

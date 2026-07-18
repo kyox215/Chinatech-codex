@@ -130,6 +130,10 @@ declare
   v_warranty_snapshot jsonb := coalesce(p_warranty_snapshot, '{}'::jsonb);
   v_sale_id uuid := gen_random_uuid();
   v_payment_id uuid := gen_random_uuid();
+  v_stock_movement_id uuid := gen_random_uuid();
+  v_stock_unit_id uuid;
+  v_stock_variant_id uuid;
+  v_stock_unit_status text;
   v_now timestamptz := clock_timestamp();
   v_sold_at timestamptz := p_sold_at;
   v_warranty_until timestamptz;
@@ -271,6 +275,20 @@ begin
     return jsonb_build_object('ok', false, 'code', 'inspection_blocked');
   end if;
 
+  select unit.id, unit.variant_id, unit.status::text
+    into v_stock_unit_id, v_stock_variant_id, v_stock_unit_status
+    from public.inventory_stock_units as unit
+   where unit.store_id = p_store_id
+     and unit.legacy_inventory_item_id = p_item_id
+   for update;
+
+  if v_stock_unit_id is not null
+     and v_stock_unit_status not in (
+       'intake', 'evaluating', 'refurbishing', 'ready_for_sale', 'listed', 'reserved'
+     ) then
+    return jsonb_build_object('ok', false, 'code', 'v2_state_conflict');
+  end if;
+
   v_warranty_until := case
     when p_warranty_months > 0 then v_sold_at + pg_catalog.make_interval(months => p_warranty_months)
     else null
@@ -326,6 +344,50 @@ begin
     p_actor_id,
     v_sold_at
   );
+
+  if v_stock_unit_id is not null then
+    update public.inventory_stock_units
+       set status = 'sold',
+           version = version + 1,
+           updated_by = p_actor_id,
+           updated_at = v_now
+     where store_id = p_store_id
+       and id = v_stock_unit_id;
+
+    insert into public.inventory_stock_movements (
+      id,
+      store_id,
+      stock_unit_id,
+      variant_id,
+      movement_type,
+      quantity,
+      source_kind,
+      source_id,
+      idempotency_key,
+      actor_id,
+      metadata,
+      occurred_at,
+      created_at
+    ) values (
+      v_stock_movement_id,
+      p_store_id,
+      v_stock_unit_id,
+      v_stock_variant_id,
+      'sell',
+      -1,
+      'inventory_sale_v2',
+      v_sale_id::text,
+      p_idempotency_key,
+      p_actor_id,
+      jsonb_build_object(
+        'inventory_item_id', p_item_id,
+        'payment_id', v_payment_id,
+        'fiscal_status', v_fiscal_status
+      ),
+      v_sold_at,
+      v_now
+    );
+  end if;
 
   insert into public.inventory_sale_command_ledger (
     id,

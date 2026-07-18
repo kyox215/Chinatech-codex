@@ -65,6 +65,7 @@ export {
   listInventoryItemsPage,
   recordInventoryCheck,
   recordInventoryTransaction,
+  reconcileInventoryV2,
   sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
