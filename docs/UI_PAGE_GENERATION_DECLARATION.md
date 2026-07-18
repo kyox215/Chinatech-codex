@@ -205,6 +205,8 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 
 Mutation 成功后至少 invalidate 当前资源和相关统计。例如创建/流转/付款工单后，应 invalidate `orders`、`order-stats`，详情页还要 invalidate `["order", id]`。
 
+新建工单成功后，无论入口是独立 `/orders/new` 页面还是 `/orders` 内的新建 Dialog，都必须进入 canonical `/orders/{id}` 详情页；不要以叠放或瞬时切换第二个详情 Dialog 代替成功导航。
+
 ## 6. 新页面生成流程
 
 1. 选择页面类型：Dashboard、List、Detail、Form、Workspace、Placeholder。

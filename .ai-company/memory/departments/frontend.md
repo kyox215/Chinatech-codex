@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -35,6 +35,7 @@ as owner of this file.
   one-time values, previews, and late responses; mobile recovery actions require at least 44px height.
 - Informational progress/count chips must render as static content. Use button semantics only when a real handler exists; shared mobile menu triggers should retain a practical touch target (40px in the current RepairOS list header).
 - Order detail manual status flow uses an inline desktop panel in `src/features/orders/screens/order-detail-screen.tsx`; do not reintroduce the old second desktop `状态流转` Dialog. Mobile may keep the bottom Sheet pattern for the same action list.
+- Online new-order success uses one canonical destination: both `/orders/new` and the `/orders` new-order Dialog navigate to `/orders/{id}` after cache invalidation. The list Dialog must close without opening a second detail Dialog in the same transition.
 - Active order lists use six operational queue groups: `处理中`, `下单`, `到货`, `到货已通知`, `修好`, and `修好已通知`. Blue identifies ordering, yellow identifies arrival/arrival notification, and green identifies repaired/repaired notification; text and icons remain mandatory. Mobile renders two columns below 360px and three columns from 360px with no horizontal status scrolling; it omits the funnel and redundant selected-queue summary but retains scan and all seven choices including `全部待办`. Desktop retains its advanced filter.
 - Queue changes keep the previous list visible but dimmed/inert, expose a target-specific pending indicator within 100ms, use latest-intent-wins semantics, roll back on failure with retry, and disable queue/search/scan/filter controls while offline. Workflow/options metadata uses five-minute store-scoped caches and page preload must defer to the stable workspace authority.
 - Order search uses a draft/committed split with a 300ms debounce; Enter and scan submit immediately. Debounce, fetching with retained results, success totals, empty and retryable error states remain visible and are announced with `aria-live`. Result pages render non-empty status sections in queue order and show Europe/Rome intake dates plus relative age on mobile and desktop. Detail status time accepts only a real transition into the current status and otherwise labels the intake time fallback consistently.
@@ -111,3 +112,4 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 | 2026-07-17 | Added first-phase online create recovery UX: operation id, confirming/uncertain state, repeat-submit block and desktop/mobile screenshots | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |
 | 2026-07-17 | Added explicit unknown intake and reusable responsive diagnosis/quote/confirmed-send UI contract | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
 | 2026-07-17 | Added read-first desktop hierarchy, exact missing-field focus, shared shortcut permissions and custody credential retention | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + UX/QA reviewers | verified |
+| 2026-07-18 | Recorded canonical order-create success navigation for both page and list-Dialog entry points | TASK-20260718-095500-order-create-navigation-release | Integration Lead | production_verified |

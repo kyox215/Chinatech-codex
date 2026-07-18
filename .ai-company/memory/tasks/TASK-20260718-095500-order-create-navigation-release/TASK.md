@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-095500-order-create-navigation-release"
 title: "创建工单成功后统一跳转详情并发布"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["Frontend", "Operations", "QA"]
 created_at: "2026-07-18T08:05:56Z"
-updated_at: "2026-07-18T08:15:23Z"
+updated_at: "2026-07-18T08:22:33Z"
+closed_at: "2026-07-18T08:22:33Z"
 ---
 # Task — 创建工单成功后统一跳转详情并发布
 
@@ -47,21 +48,21 @@ updated_at: "2026-07-18T08:15:23Z"
 
 ## Acceptance criteria
 
-- [ ] 列表弹窗创建成功后导航到 /orders/{id}
-- [ ] 直接创建页成功导航保持正常
-- [ ] 关键 E2E、lint、typecheck、test、build 通过
-- [ ] 提交推送到 main 并完成生产部署验证
+- [x] 列表弹窗创建成功后导航到 /orders/{id}
+- [x] 直接创建页成功导航保持正常
+- [x] 关键 E2E、lint、typecheck、test、build 通过
+- [x] 提交推送到 main 并完成生产部署验证
 
 ## Facts, assumptions, and unknowns
 
-| Item | Type | Evidence | Status / next action |
-|---|---|---|---|
-| 列表弹窗传入 `onCreated` 后会跳过 `router.push` | observed | `new-order-screen.tsx` success callback | verified |
-| 列表回调仅关闭新建 Dialog、设置 `detailOrderId` | observed | `order-list-screen.tsx` handler | verified |
-| 直接 `/orders/new` 会进入 canonical 详情页 | observed | 代码与上一任务本地浏览器证据 | verified |
-| 生产创建 API 与数据库写入正常 | observed | 上一诊断任务 Vercel/Supabase 只读证据 | verified |
-| 最新基线 | observed | isolated worktree at `origin/main` `1fadd288` | verify again before push |
-| Vercel 自动生产部署触发方式 | assumption | 既有 main deployment workflow | verify after push; use explicit production deploy only if required |
+| Item                                            | Type     | Evidence                                                    | Status / next action |
+| ----------------------------------------------- | -------- | ----------------------------------------------------------- | -------------------- |
+| 列表弹窗传入 `onCreated` 后会跳过 `router.push` | observed | `new-order-screen.tsx` success callback                     | verified             |
+| 列表回调仅关闭新建 Dialog、设置 `detailOrderId` | observed | `order-list-screen.tsx` handler                             | verified             |
+| 直接 `/orders/new` 会进入 canonical 详情页      | observed | 代码与上一任务本地浏览器证据                                | verified             |
+| 生产创建 API 与数据库写入正常                   | observed | 上一诊断任务 Vercel/Supabase 只读证据                       | verified             |
+| 发布提交                                        | observed | `3022ba83291d04adcb55506b2b54de64d56ef0af` on `origin/main` | verified             |
+| Vercel 生产部署                                 | observed | `dpl_FRW6tZNUggwmtdo7vGPLHhVD7QcT` READY                    | verified             |
 
 ## Decision and approval points
 
@@ -93,13 +94,13 @@ updated_at: "2026-07-18T08:15:23Z"
 
 ### 测试与证据矩阵
 
-| 验收项 | 验证 | 证据 |
-|---|---|---|
-| 列表弹窗创建后进入详情页 | Playwright mock E2E + 最终浏览器截图 | E2E 输出、截图 |
-| 直接创建页不回退 | Playwright mock E2E | E2E 输出 |
-| 静态与回归安全 | lint、typecheck、vitest、build | 命令退出码 |
-| 生产已发布 | Vercel READY + production URL/commit | deployment 记录 |
-| 真实用户路径正常 | production smoke，不创建真实工单时验证部署/页面；创建行为由 mock E2E 与线上请求日志共同证明 | smoke 截图、日志 |
+| 验收项                   | 验证                                                                                        | 证据             |
+| ------------------------ | ------------------------------------------------------------------------------------------- | ---------------- |
+| 列表弹窗创建后进入详情页 | Playwright mock E2E + 最终浏览器截图                                                        | E2E 输出、截图   |
+| 直接创建页不回退         | Playwright mock E2E                                                                         | E2E 输出         |
+| 静态与回归安全           | lint、typecheck、vitest、build                                                              | 命令退出码       |
+| 生产已发布               | Vercel READY + production URL/commit                                                        | deployment 记录  |
+| 真实用户路径正常         | production smoke，不创建真实工单时验证部署/页面；创建行为由 mock E2E 与线上请求日志共同证明 | smoke 截图、日志 |
 
 ### 暂停条件
 

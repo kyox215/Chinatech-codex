@@ -1,11 +1,12 @@
 # Evidence Index — TASK-20260718-095500-order-create-navigation-release
 
-| Evidence ID | Type | Claim supported | Source/path/command | Result | Collected at | Collector |
-|---|---|---|---|---|---|---|
-| E-001 | request | task exists and title is recorded | `TASK.md` | observed | 2026-07-18T08:05:56Z | IntegrationLead |
+| Evidence ID | Type    | Claim supported                   | Source/path/command | Result   | Collected at         | Collector       |
+| ----------- | ------- | --------------------------------- | ------------------- | -------- | -------------------- | --------------- |
+| E-001       | request | task exists and title is recorded | `TASK.md`           | observed | 2026-07-18T08:05:56Z | IntegrationLead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
+
 - `2026-07-18T08:07:07Z` `81604b9790` — .ai-company/memory/tasks/TASK-20260718-095500-order-create-navigation-release/TASK.md
 
 ## Implemented change
@@ -22,14 +23,14 @@ IDs, test reports, screenshots, or concise log references.
 
 ## Executed validation
 
-| Gate | Command / environment | Result |
-|---|---|---|
-| Target E2E | Playwright Chromium, desktop mock, webpack dev server, 1 worker | PASS — 2/2 |
-| Lint | `npm run lint` | PASS |
-| TypeScript | `npm run typecheck` | PASS |
-| Unit/integration | `npm run test` | PASS — 238 files, 1579 tests |
-| Production build | `npx next build --webpack` | PASS — 24 static pages generated |
-| Diff check | `git diff --check` | PASS |
+| Gate             | Command / environment                                           | Result                           |
+| ---------------- | --------------------------------------------------------------- | -------------------------------- |
+| Target E2E       | Playwright Chromium, desktop mock, webpack dev server, 1 worker | PASS — 2/2                       |
+| Lint             | `npm run lint`                                                  | PASS                             |
+| TypeScript       | `npm run typecheck`                                             | PASS                             |
+| Unit/integration | `npm run test`                                                  | PASS — 238 files, 1579 tests     |
+| Production build | `npx next build --webpack`                                      | PASS — 24 static pages generated |
+| Diff check       | `git diff --check`                                              | PASS                             |
 
 ## Environment-only failures
 
@@ -44,5 +45,35 @@ IDs, test reports, screenshots, or concise log references.
 ## Quality conclusion before release
 
 - PASS：验收范围内的前端行为、静态检查、完整测试和构建均通过。
-- Release gate pending：尚未提交、推送或验证生产部署。
+- Release gate：PASS，详细记录见下节。
 - `2026-07-18T08:15:23Z` `7d130c6518` — .ai-company/memory/tasks/TASK-20260718-095500-order-create-navigation-release/EVIDENCE.md
+
+## Documentation impact matrix
+
+| Reader            | Authority                                | Result                                             |
+| ----------------- | ---------------------------------------- | -------------------------------------------------- |
+| Frontend/QA       | `docs/UI_PAGE_GENERATION_DECLARATION.md` | Updated canonical creation-success navigation rule |
+| API/Data/Security | API/schema/permission docs               | No update; contracts unchanged                     |
+| Operations        | release evidence in this task            | Deployment and rollback IDs recorded at closeout   |
+
+## Production release record
+
+- Git：`3022ba83291d04adcb55506b2b54de64d56ef0af`（`Fix order creation detail navigation`）已推送至 `origin/main`。
+- Vercel：`dpl_FRW6tZNUggwmtdo7vGPLHhVD7QcT`，target `production`，状态 `READY`，部署提交与 Git SHA 完全一致。
+- Production aliases：`www.chinatech.in`、`chinatech.in` 已指向该部署，alias error 为 null。
+- 远端标准 Turbopack build：23.8 秒编译通过，TypeScript 30.4 秒通过，24/24 静态页面生成，部署完成。
+- 无登录 smoke：`https://www.chinatech.in/orders` 返回 200 并匹配 `/login`，说明生产域名、路由和认证保护正常。
+- 运行时观察：部署后 15 分钟窗口无 runtime error；已观察状态码为 200（4 次）和 307（1 次），无 5xx。
+- 未在生产创建测试工单：避免写入业务数据。成功导航由 2/2 mock E2E 证明；生产创建 API/数据库完整性由前置诊断任务的只读证据证明。
+
+## Rollback
+
+- 首选回滚点：`dpl_5cXmYBqeJdrnJLuLmGhkaedMEYTh`（上一 READY production，commit `1fadd288`）。
+- 代码前滚/回滚：revert `3022ba83` 后重新部署；本变更无数据库迁移和数据回滚步骤。
+
+## Final quality / release conclusion
+
+- PASS：代码、QA、文档、生产部署、无写入 smoke 与运行时错误扫描均通过。
+- 残余风险：未在生产写入真实测试工单；由已有生产创建完整性证据和同提交前端 E2E 覆盖，Owner 为 Integration Lead，若用户仍复现则立即按 incident flow 收集浏览器/订单时间窗。
+- `2026-07-18T08:21:21Z` `7d130c6518` — .ai-company/memory/tasks/TASK-20260718-095500-order-create-navigation-release/EVIDENCE.md
+- `2026-07-18T08:22:26Z` `7a1cef7855` — .ai-company/memory/tasks/TASK-20260718-095500-order-create-navigation-release/CLOSEOUT.md

@@ -3,7 +3,7 @@ schema_version: 1
 department: qa
 status: active
 owner: QA Department / Integration Lead
-last_verified_at: 2026-07-17
+last_verified_at: 2026-07-18
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -65,6 +65,7 @@ as owner of this file.
 - Customer finance/order lifecycle releases require cancellation/void aggregate parity, permission forgery, stale/idempotent/atomic terminal actions, CRM same-store/delete/null behavior, full app gates, pgTAP and desktop/mobile visual evidence. `TASK-20260716-003-customer-finance-order-correction-plan` passed 144 files / 1021 tests, pgTAP 102/102, full agents/lint/typecheck/build and 7/7 responsive Playwright checks with four redacted screenshots.
 - Quote workflow releases must cover unknown intake without fake prices, reported/diagnosed/quoted separation, role and tenant denials, stale quote/version rejection, idempotent publish/send, legacy bypass denial and desktop/mobile/task visual states. `TASK-20260717-004-order-diagnosis-quote-implementation` passed lint/typecheck, 210 files / 1446 tests, Webpack and Vercel builds, four screenshots, database ACL/index/anomaly postchecks and exact-SHA runtime smoke.
 - Desktop beginner releases require final-state readiness before screenshots, role-filtered navigation/commands, terminal-action selection, exact missing-field focus, true error-vs-empty behavior, and custody secret-retention regression. `TASK-20260717-008-desktop-novice-ui-implementation` passed 213 files / 1467 tests, build, 53 overflow/dialog checks, 5 order audits, 4 custody/visual checks and seven reviewed screenshots.
+- Order-create navigation regression must cover both `/orders/new` and the `/orders` new-order Dialog. Each success case must assert the canonical `/orders/{id}` URL, visible page detail root, removed new-order root, and—on the list entry—no remaining detail Dialog shell. Stub only the create success response when the mock actor lacks store context; keep actual API/database completeness as a separate integration/production gate.
 
 ## Interfaces and dependencies
 
@@ -153,3 +154,4 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 | 2026-07-17 | Closed unknown-intake/quote regression, permission, atomicity, responsive visual and production release matrix | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + QA/DATA/SEC/UX reviewers | scoped_verified |
 | 2026-07-17 | Verified novice desktop hierarchy, terminal/permission/custody regressions, final-state screenshots and no-migration release gate | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + QA/FLOW/DATA reviewers | scoped_verified |
 | 2026-07-17 | Verified employee invite new/existing delivery, same-origin confirmation, atomic denial matrix, 217/1484 full tests, build and desktop/mobile screenshots | TASK-20260717-employee-invite-registration | Integration Lead + QA/SEC/FLOW reviewers | scoped_verified |
+| 2026-07-18 | Added and executed two-entry order-create canonical navigation regression with full app gates and production deployment smoke | TASK-20260718-095500-order-create-navigation-release | Integration Lead | production_verified |
