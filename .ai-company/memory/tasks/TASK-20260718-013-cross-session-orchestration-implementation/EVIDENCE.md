@@ -12,6 +12,7 @@
 | E-008 | release drift | latest origin/main was integrated while preserving both remote and local capability entries | rebase on origin/main@15829cbbf488 | verified |
 | E-009 | scoped release | rebased implementation contains only the 32 planned orchestration/governance files | git diff origin/main...608e77f7 | verified |
 | E-010 | recovery | instruction version advanced and a fresh immutable recovery packet was issued after the final checkpoint | Registry Context Packet v2, sha256 d6d46acec5b0 | verified |
+| E-011 | remote release | the rebased orchestration and readiness commits reached origin/main by non-force push and exact remote verification | main@ffddbb353d4b | verified |
 
 No screenshot: this task has no UI or browser-visible RepairDesk feature. CLI/test/commit evidence replaces screenshots.
 - `2026-07-18T20:07:15Z` `9de142fee0` — 40 orchestration unit/concurrency/recovery/security tests passed
@@ -29,5 +30,7 @@ No screenshot: this task has no UI or browser-visible RepairDesk feature. CLI/te
 - `2026-07-18T20:27:54Z` `6b1cbff1f7` — b3007c4ab6fa release candidate; post-rebase gates green
 - `2026-07-18T20:28:00Z` `d6d46acec5b0` — Registry instruction v2 packet issued from the post-rebase Task Memory checkpoint
 - `2026-07-18T20:30:42Z` `latest-main-gates` — 46/46 tests, Skill validation, Agent rules, strict 13/13 validation, doctor and diff check passed after the second rebase
+- `2026-07-18T20:33:00Z` `ffddbb353d4b` — Non-force push succeeded and `git ls-remote origin refs/heads/main` exactly matched the local release head
 - `2026-07-18T20:29:00Z` `04972c21e8` — 46/46 tests; three reviewer GO; v2 packet d6d46acec5b0
 - `2026-07-18T20:31:39Z` `435d0a68df` — origin/main@15829cbbf488; 46/46; doctor ok; reviewer GO
+- `2026-07-18T20:36:47Z` `94c73e9254` — 46/46 tests; 13/13 strict validation; exact remote ffddbb353d4b; no UI screenshot applicable

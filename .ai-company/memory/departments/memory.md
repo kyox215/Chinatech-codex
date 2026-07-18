@@ -36,12 +36,14 @@ as owner of this file.
 - `TASK-20260619-016` is the authority for active-context drift hygiene: the old order-detail UI audit task is `on_hold` and should only be resumed deliberately.
 - `TASK-20260619-017` is the authority for task-status registry hygiene: after normalization, no standard `TASK.md` frontmatter should use `status: "complete"`; use `closed`, `conditional`, or `on_hold` as current non-active status vocabulary.
 - Conditional and on-hold task records are valid memory states, not dirt to auto-close. Each must carry a reason and a next action.
+- With orchestration enabled, the shared Registry is the only runtime-open-task authority. Implicit legacy context selection requires exactly one Registry task; Registry-selected and explicit task packets exclude `ACTIVE_CONTEXT.md`. Missing/disabled configuration alone permits legacy fallback, while malformed configuration or a missing/corrupt enabled Registry fails closed.
 
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
+| Cross-session recovery packet | Architecture + Operations + QA | Allowlisted Task Memory compiled into immutable task/run/window/instruction-version JSON with exact Registry SHA | Reject stale, changed, missing, oversized, quarantined or foreign packets; preserve evidence instead of overwriting | TASK-20260718-013 E-007, E-010 | scoped_verified_shadow |
 
 ## SOPs and checklists
 
@@ -83,3 +85,4 @@ as owner of this file.
 | 2026-06-19 | Recorded L2-011 as final authority for empty duplicate directory cleanup and generated-output inventory | TASK-20260619-015 | Integration Lead | active |
 | 2026-06-19 | Marked old UI audit task on_hold and isolated it from automatic active-context resume | TASK-20260619-016 | Integration Lead | active |
 | 2026-06-19 | Normalized task-status registry and recorded current status vocabulary | TASK-20260619-017 | Integration Lead | active |
+| 2026-07-18 | Promoted Registry-first task identity, ACTIVE_CONTEXT compatibility and immutable packet recovery rules | TASK-20260718-013-cross-session-orchestration-implementation | Integration Lead + Memory/Architecture/QA reviewers | scoped_verified_shadow |

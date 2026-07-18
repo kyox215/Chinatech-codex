@@ -25,6 +25,7 @@ as owner of this file.
 ## Verified rules and conventions
 
 - Root `AGENTS.md` and RepairDesk docs override generic AI Company OS templates.
+- New applicable top-level windows automatically route through `$cross-session-orchestration`; `docs/CROSS_SESSION_ORCHESTRATION_DECLARATION.md` is the human contract and `.ai-company/orchestration.json` is the machine declaration. Already-open windows may need to reload project rules.
 - `PROJECT_TAKEOVER_REPORT.md` is the initial 2026-06-19 takeover baseline.
 - Documentation changes after code/API/data behavior changes must be synchronized through `documentation-sync`.
 - Cursor/docs ` 2` duplicates reviewed in `TASK-20260619-005` are stale or deprecated and must not override canonical App Router, RepairOS, or AI Company OS guidance.
@@ -152,3 +153,4 @@ visible wherever the release is summarized.
 | 2026-07-18 | Synchronized order-cost semantics, permissions, migrations, dormant production state, screenshots and Option B residual risk | TASK-20260718-008-order-cost-phase2 | Integration Lead + department reviewers | active |
 | 2026-07-18 | Synchronized released deterministic/local/provider behavior, versioned cost governance, unapplied quota migration, proposed-limit labels, visual and production-negative evidence | TASK-20260718-011-ai-assistant-cost-governance | Integration Lead + department reviewers | scoped_verified_dormant |
 | 2026-07-18 | Synchronized workspace release evidence and the Inventory V2 deployed-code versus production-activation boundary | TASK-20260718-012-workspace-integration-release | Integration Lead + department reviewers | active |
+| 2026-07-18 | Published the cross-session declaration, root auto-trigger, reusable Skill, ADR and closeout guidance | TASK-20260718-013-cross-session-orchestration-implementation | Integration Lead + Documentation/Skill reviewer | active_rule |

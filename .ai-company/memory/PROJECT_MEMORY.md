@@ -108,6 +108,7 @@ Device custody and unlock credentials are independent facts. Browser roles still
 - Package scripts include `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and `npm run agents:check`.
 - Rules-only changes should run `npm run agents:config`, `npm run agents:templates`, and `npm run agents:check`.
 - Codex One Command Mode v3.2 is integrated at `.ai-company/ONE_COMMAND_MODE.md`; root `AGENTS.md` remains the executable entry for Owner Simple Mode, while the adapter is the long-form natural-language task intake reference.
+- Cross-session orchestration Phase 0A is active in cooperative shadow mode under `.ai-company/orchestration.json`, `tools/orchestration`, and `$cross-session-orchestration`. New applicable top-level windows must start UNBOUND, read the shared Git-common-dir SQLite Registry, bind one explicit task/run/window/role, and verify an immutable Context Packet. `ACTIVE_CONTEXT.md` is only a foreground compatibility hint; binding or an integration lease never grants Git, deploy, migration, secret, production, or cross-task closure authority.
 - Safe local cleanup can delete ignored generated artifacts such as `.next/`, `dist/`, `storybook-static/`, `playwright-report/`, `test-results/`, `tsconfig.tsbuildinfo`, `.DS_Store`, and Python `__pycache__/` after confirming they are not Git-tracked. Do not auto-delete screenshots, exports, governance memory, migrations, source files, or `node_modules/` without a separate approval decision.
 - In the current dirty RepairDesk checkout, blanket `git clean -nd` / `git clean -ndX` is unsafe because it would remove untracked governance files, screenshots, exports, migrations, source files, environment/deployment state, or dependencies. Cleanup should use explicit paths only.
 - Full app gates are required for code/UI changes unless clearly blocked by unrelated worktree state or environment failure.
@@ -119,6 +120,7 @@ Device custody and unlock credentials are independent facts. Browser roles still
 
 - AI Company OS Codex Native v3.0 adopted as subordinate governance package under `.ai-company/`, `.codex/`, and `.agents/skills/`.
 - Codex One Command Mode v3.2 adopted as the RepairDesk natural-language Owner task intake layer under `.ai-company/ONE_COMMAND_MODE.md`.
+- ADR-20260718-002 adopts a project-scoped SQLite/WAL Registry plus task-local immutable Context Packets for Phase 0A cross-session identity; automatic GUI control, worktree assignment, integration, deploy and migration remain deferred.
 - RepairDesk Integration Lead remains the only user-facing decision owner.
 - Generic AI Company OS roles map into existing RepairDesk departments rather than replacing them.
 - Project charter lives at `docs/project-charter.md`.

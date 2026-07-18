@@ -41,6 +41,9 @@ Allowed:
 - .ai-company/memory/decisions/ADR-20260718-002-cross-session-orchestration-phase-0a.md
 - .ai-company/memory/DECISION_INDEX.md
 - .ai-company/memory/CAPABILITY_REGISTRY.md
+- .ai-company/memory/PROJECT_MEMORY.md
+- .ai-company/memory/MEMORY_INDEX.md
+- .ai-company/memory/departments/{architecture,documentation,memory,operations,qa,security}.md
 - this task directory
 
 Forbidden:

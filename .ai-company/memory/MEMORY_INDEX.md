@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260718-013-cross-session-orchestration-implementation](tasks/TASK-20260718-013-cross-session-orchestration-implementation/TASK.md): Closed Phase 0A cross-session orchestration release with shared Registry identity, immutable Context Packets, fail-closed ACTIVE_CONTEXT compatibility, project declaration and reusable Skill; automation and production authority remain explicitly off.
+
 - [TASK-20260718-011-ai-assistant-cost-governance](tasks/TASK-20260718-011-ai-assistant-cost-governance/TASK.md): Conditionally closed production release of Phase 3A deterministic/local zero-provider paths, versioned runtime/cost controls and an unapplied atomic quota migration; code is READY on `main`, while key, paid call, production DB apply, policy seed and AI activation remain D4-blocked.
 
 - [TASK-20260718-012-workspace-integration-release](tasks/TASK-20260718-012-workspace-integration-release/TASK.md): Closed production integration release for order progress sorting, custody-safe unlock retention and tenant print address. Exact migration `20260718150000` is applied without row changes; final `main`/Vercel SHA is verified, while lifecycle purge activation and Inventory V2 production activation remain separate gates.

@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-013-cross-session-orchestration-implementation"
 title: "实施并发布 RepairDesk 多窗口强隔离调度 Phase 0A"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["INT", "Architecture", "QA", "SEC", "DOC", "Release"]
 created_at: "2026-07-18T19:07:41Z"
-updated_at: "2026-07-18T20:31:39Z"
+updated_at: "2026-07-18T20:36:47Z"
+closed_at: "2026-07-18T20:34:20Z"
 ---
 # Task — 实施并发布 RepairDesk 多窗口强隔离调度 Phase 0A
 
@@ -82,7 +83,7 @@ RepairDesk 获得一个不依赖聊天历史或单一 ACTIVE_CONTEXT 猜测任�
 - [x] 项目声明明确触发语、边界、运行命令、恢复和 No-Go。
 - [x] cross-session-orchestration Skill 可被项目发现、通过 quick_validate 并完成独立 forward-test。
 - [x] Python 单元/并发测试、agent rules、AI Company validate 和 secret scan 通过。
-- [ ] 仅本任务文件被提交；非强制推送到最新 origin/main。
+- [x] 仅本任务文件被提交；非强制推送到最新 origin/main。
 
 ## Work packages
 
