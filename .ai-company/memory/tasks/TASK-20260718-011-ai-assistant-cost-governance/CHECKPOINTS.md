@@ -47,3 +47,21 @@
 - **Next:** 完成最终三部门只读复核和生产 env-name-only preflight；若 origin/main 未变化则非强制推送并 dormant 部署，随后 exact-SHA/auth-boundary/log/rollback 验证。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-18T19:52:52Z — Latest-main candidate and final release preflight
+
+- **Phase:** Phase 3A4 verified; Phase 3A5 dormant push/deploy pending.
+- **Completed:** integrated `origin/main@de5f8b49`; closed the authority-hydration and Inventory V2 local-first review gaps; passed Agent rules, lint, typecheck, 296 files / 1858 tests, focused 0/1 provider-call tests and the 26-page Webpack build.
+- **Browser evidence:** staff 6/6; inventory 1280/430/cancel passed in the combined run and 390 passed on a fresh Webpack server. The retained failed trace showed only the server-rendered disabled shell and no store/inventory/AI business request, so it remains a Next dev hydration/HMR limitation rather than a hidden product pass.
+- **Security/release:** tracked OpenAI-shaped key count 0; defaults off/fake; Vercel production AI/OpenAI env-name count 0; previous READY rollback target is `dpl_FueK1juPvAp8UJrE1FdvPxRYRy4o`.
+- **Independent review:** Architecture/API reports code P0=0/P1=0. Data/Security reports dormant P0=0/P1=0. Product/QA/Release must reissue its final conclusion on the stable latest-main SHA before release.
+- **Hard stops:** no key read/sync, live provider request, production migration apply, policy seed or AI/public activation.
+- **Next:** record the formal memory checkpoint, obtain final stable-SHA read-only review, then non-force push and dormant Vercel deploy with exact-SHA/auth/log/rollback smoke.
+- **Recorded by:** IntegrationLead
+## 2026-07-18T19:54:08Z — Phase 3A dormant candidate integrated origin/main@de5f8b49; authority routing and Inventory V2 local-first gaps closed; agents/lint/typecheck, 296 files/1858 tests, Webpack build, staff 6/6 and all inventory behaviors verified; OpenAI-shaped tracked secret count 0; production AI/OpenAI env-name count 0; no key/call/apply/activation.
+
+- **Phase:** implementation
+- **Completed/current state:** Phase 3A dormant candidate integrated origin/main@de5f8b49; authority routing and Inventory V2 local-first gaps closed; agents/lint/typecheck, 296 files/1858 tests, Webpack build, staff 6/6 and all inventory behaviors verified; OpenAI-shaped tracked secret count 0; production AI/OpenAI env-name count 0; no key/call/apply/activation.
+- **Next:** Commit checkpoint and evidence, obtain stable-SHA Architecture/Data/Product release reviews, fetch latest main, then non-force push and dormant Vercel deploy with exact-SHA auth/log/rollback smoke.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T19:27:37Z"
+last_checkpoint_at: "2026-07-18T19:54:08Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Phase 3A 的零模型订单路由、固定运行策略、成本估算、持久额度网关、审计最小化、本地优先图片识别和默认关闭边界已经实现。当前正在把候选安全重放到最新 `origin/main`，之后必须重新通过发布差异检查与只读终审，才能推送和部署。
+Phase 3A dormant candidate integrated origin/main@de5f8b49; authority routing and Inventory V2 local-first gaps closed; agents/lint/typecheck, 296 files/1858 tests, Webpack build, staff 6/6 and all inventory behaviors verified; OpenAI-shaped tracked secret count 0; production AI/OpenAI env-name count 0; no key/call/apply/activation.
 
 ## Blocking decisions
 
@@ -31,7 +31,7 @@ Phase 3A 的零模型订单路由、固定运行策略、成本估算、持久�
 
 ## Next action
 
-完成最新主线整合，更新发布证据和正式检查点；仅在 P0/P1 为零后执行非强制推送、默认关闭部署和 exact-SHA 生产冒烟。
+Commit checkpoint and evidence, obtain stable-SHA Architecture/Data/Product release reviews, fetch latest main, then non-force push and dormant Vercel deploy with exact-SHA auth/log/rollback smoke.
 
 ## Resume protocol
 

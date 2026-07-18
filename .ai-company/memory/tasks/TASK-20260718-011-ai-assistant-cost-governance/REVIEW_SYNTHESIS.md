@@ -23,6 +23,8 @@ All three were genuinely spawned read-only. They made no edits, handled no secre
 | P1 | UTC “today” resets at 01:00/02:00 Italy time | migration uses policy/store IANA timezone for day/month periods; timestamps remain UTC |
 | P1 | current local OCR availability cannot support a universal 70% promise | treated 70% as calibrated supported-browser target, not dormant release gate |
 | P1 | Safety ID/AbortSignal seams existed but were unused | added HMAC Safety ID, route cancellation propagation and fixed provider deadline |
+| P1 integration | Inventory V2 authority hydration could choose legacy before refreshed flags arrived | added a pure `wait / v2 / legacy` route decision and guarded both list and deep-link paths until store authority is stable |
+| P1 integration | Inventory V2 encoded and uploaded every photo even when local recognition was sufficient | changed V2 to sequential local-first orchestration; tests prove complete local candidates perform zero encoding/server calls and incomplete candidates perform one fallback |
 | P2 | cost estimate can drift from invoice/tax/FX | label as versioned estimate in micro-USD; independent provider-side budget/reconciliation remains required |
 
 ## Deferred by design
@@ -34,5 +36,6 @@ All three were genuinely spawned read-only. They made no edits, handled no secre
 
 ## Review outcome
 
-- **Dormant/default-off implementation:** proceed to full quality gates.
+- **Dormant/default-off implementation on `origin/main@de5f8b49`:** Architecture/API final review reports P0=0/P1=0; full quality and focused regression gates pass. Proceed only through the dormant release path.
 - **Paid pilot / migration apply / real data:** BLOCKED pending Owner D4 decisions and production database gate.
+- **Residual P2:** caller cancellation is still observed as provider timeout, the short-window guard is process-local, retention cleanup is not implemented, and the repository-wide historical migration replay remains blocked by pre-existing `product_channel` drift. These do not open a path to live provider use because the provider remains fail-closed.
