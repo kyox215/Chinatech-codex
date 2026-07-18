@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260718-008-order-cost-phase2"
 status: "active"
-phase: "implementation"
+phase: "release_readiness"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T14:21:44Z"
+last_checkpoint_at: "2026-07-18T14:38:02Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Stage 05 completed: Owner-managed EUR/USD/GBP/CNY/CHF procurement rates, server-resolved immutable EUR snapshots, original-currency report/export reconciliation, fresh Stage 01-05 PostgreSQL replay, 1669 tests, lint/type/build and browser evidence passed.
+Stage 06 completed locally: candidate rebased to origin/main@51d5b3b9; out-of-order Phase 2 migrations reissued after Phase 1; fresh PostgreSQL 17 ledger/full chains, 1669 tests, lint, typecheck, agent rules, ACL/RLS review and webpack build passed; production Database Application Gate remains NO-GO.
 
 ## Blocking decisions
 
@@ -29,11 +29,11 @@ Stage 05 completed: Owner-managed EUR/USD/GBP/CNY/CHF procurement rates, server-
 - Legacy browser-role table exposure remains open under `CONFLICT-20260619-006`.
 - PITR/recovery baseline and an isolated restore proof remain absent.
 - Stage 07 must re-fetch and serialize the release, prove the exact linked pending set/dry-run and
-  recovery evidence, and stop without applying or deploying if any gate remains open.
+  recovery evidence, and stop without applying, pushing or deploying if any gate remains open.
 
 ## Next action
 
-Commit Stage 05 independently, then execute Stage 06 quality, security, data migration and release governance. Preserve the existing production DB blockers until fresh linked replay, browser-role and restore evidence prove GO.
+Commit Stage 06, then run Stage 07 read-only linked/remote preflight under serialized release control. Stop before DB/Git/deploy writes unless historical replay, legacy browser-role exposure and PITR/isolated restore proof gates are all GO.
 
 ## Resume protocol
 

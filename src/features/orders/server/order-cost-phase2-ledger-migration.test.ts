@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260718103018_order_cost_phase2_ledger_permissions.sql",
+  "supabase/migrations/20260718122000_order_cost_phase2_ledger_permissions.sql",
 );
 const sql = readFileSync(migrationPath, "utf8").toLowerCase();
 

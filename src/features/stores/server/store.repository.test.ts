@@ -75,8 +75,6 @@ const storeOwner: AuditActor = {
   storeRole: "owner",
 };
 
-const futureInviteExpiry = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
 const storeManager: AuditActor = {
   id: "manager_1",
   email: "manager@chinatech.in",
@@ -2281,7 +2279,7 @@ function invitationRow(overrides: Record<string, unknown> = {}) {
     last_email_delivery_error_code: overrides.last_email_delivery_error_code ?? null,
     revoked_at: overrides.revoked_at ?? null,
     revoked_by: overrides.revoked_by ?? null,
-    expires_at: overrides.expires_at ?? futureInviteExpiry(),
+    expires_at: overrides.expires_at ?? "2026-07-18T09:00:00.000Z",
     created_at: overrides.created_at ?? "2026-07-04T09:00:00.000Z",
     updated_at: overrides.updated_at ?? "2026-07-04T09:00:00.000Z",
   };
@@ -2295,7 +2293,7 @@ function inviteLinkRow(overrides: Record<string, unknown> = {}) {
     role: overrides.role ?? "technician",
     status: overrides.status ?? "active",
     token_hash: overrides.token_hash ?? "hash",
-    expires_at: overrides.expires_at ?? futureInviteExpiry(),
+    expires_at: overrides.expires_at ?? "2026-07-18T09:00:00.000Z",
     max_uses: overrides.max_uses ?? 1,
     used_count: overrides.used_count ?? 0,
     created_by: overrides.created_by ?? "owner_1",

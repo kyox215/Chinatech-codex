@@ -1,4 +1,5 @@
 -- Store-private spare-parts procurement and repair-line cost allocation.
+-- Reissued after the applied Phase 1 migrations so linked history stays append-only.
 -- This remains separate from resale-device inventory_items.
 
 set lock_timeout = '5s';

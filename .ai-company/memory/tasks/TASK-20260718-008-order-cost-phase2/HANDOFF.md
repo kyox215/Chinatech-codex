@@ -2,11 +2,11 @@
 
 ## Current handoff
 
-- **Status:** Stages 00–05 complete; Stage 06 quality/security/release gate is next.
-- **Last verified:** 2026-07-18 Stage 05 close.
+- **Status:** Stages 00–06 complete locally; Stage 07 production gate is next and currently NO-GO.
+- **Last verified:** 2026-07-18 Stage 06 release-candidate close.
 - **Workspace/branch:** `/private/tmp/repairdesk-order-cost-phase2-20260718` on
   `codex/order-cost-phase2-20260718`.
-- **First action:** commit the verified Stage 05 scope independently, then read
-  `06_QUALITY_SECURITY_AND_RELEASE.md` and freeze the exact release candidate. Recheck all known
-  production database blockers; do not treat the disposable harness as permission to apply linked
-  migrations.
+- **First action:** commit the verified Stage 06 scope independently, then execute only the
+  read-only Stage 07 remote/linked preflight under a serialized release lock. Do not apply linked
+  migrations, push `main` or deploy while the historical replay, legacy browser-role exposure or
+  PITR/isolated restore proof gates remain open.

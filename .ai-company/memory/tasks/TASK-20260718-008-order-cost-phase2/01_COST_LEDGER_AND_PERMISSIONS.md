@@ -36,7 +36,7 @@ Keep new columns/tables dormant, disable Phase 2 flags, and retain audit history
 
 ## Completed implementation
 
-- Additive migration `20260718103018_order_cost_phase2_ledger_permissions.sql` keeps the
+- Additive migration `20260718122000_order_cost_phase2_ledger_permissions.sql` keeps the
   Phase 1 EUR projection and adds evidence status, original-currency snapshots, source
   references, append-only line revisions and effective-dated default-cost history.
 - Existing Phase 1 write RPCs remain compatible through projection triggers; a real harness

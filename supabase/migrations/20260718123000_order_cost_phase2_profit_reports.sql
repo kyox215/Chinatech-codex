@@ -1,4 +1,5 @@
 -- Bounded, store-private operational repair gross-margin reporting.
+-- Reissued after the applied Phase 1 migrations so linked history stays append-only.
 -- This intentionally reports final-quote margin, not VAT/accounting net profit or
 -- refund-adjusted realized cash profit. Collections remain a separate reference metric.
 

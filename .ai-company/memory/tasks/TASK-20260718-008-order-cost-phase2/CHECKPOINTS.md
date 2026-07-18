@@ -81,3 +81,21 @@
 - **Next:** Commit Stage 05 independently, then execute Stage 06 quality, security, data migration and release governance. Preserve the existing production DB blockers until fresh linked replay, browser-role and restore evidence prove GO.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-18T14:36:02Z — Stage 06 completed locally; production Database Application Gate remains NO-GO
+
+- **Phase:** release readiness
+- **Completed/current state:** rebased onto `origin/main@51d5b3b9`; corrected the three out-of-order Phase 2 migration versions; synchronized the Phase 2 operating document; repeated the minimal ledger and full Stage 01–05 PostgreSQL 17 chains; completed architecture/data/security/QA/UX/release review.
+- **Evidence:** E-037 through E-043; 11/11 Phase 2 tables passed RLS/browser ACL checks; Phase 2 RPCs deny browser execution; Agent checks, lint, typecheck, 259 files / 1669 tests, diff check and webpack production build passed.
+- **Decisions:** exact six-file candidate is `20260718122000`, `123000`, `124000`, `130000`, `133000`, `140000`; never use `--include-all`; all child flags stay off; deployment never applies historical backfill.
+- **Review execution:** no new Stage 06 sub-agent because active orchestration policy forbids unrequested spawning; main thread performed separate checklist passes. Stage 00's three real department reviews remain the independent design evidence.
+- **Risks/blockers:** full historical replay still fails before TASK-008 at `20260611102805`; 17 legacy public tables/browser-role exposure remains open; PITR/isolated restore proof remains absent; release serialization evidence must be fresh. Default Turbopack is blocked only by the temporary worktree's external `node_modules` symlink; webpack passed.
+- **Next:** commit Stage 06 independently, then enter Stage 07 read-only production preflight. Stop before DB/Git/deploy writes unless every Database Application Gate condition becomes GO.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T14:38:02Z — Stage 06 completed locally: candidate rebased to origin/main@51d5b3b9; out-of-order Phase 2 migrations reissued after Phase 1; fresh PostgreSQL 17 ledger/full chains, 1669 tests, lint, typecheck, agent rules, ACL/RLS review and webpack build passed; production Database Application Gate remains NO-GO.
+
+- **Phase:** implementation
+- **Completed/current state:** Stage 06 completed locally: candidate rebased to origin/main@51d5b3b9; out-of-order Phase 2 migrations reissued after Phase 1; fresh PostgreSQL 17 ledger/full chains, 1669 tests, lint, typecheck, agent rules, ACL/RLS review and webpack build passed; production Database Application Gate remains NO-GO.
+- **Next:** Commit Stage 06, then run Stage 07 read-only linked/remote preflight under serialized release control. Stop before DB/Git/deploy writes unless historical replay, legacy browser-role exposure and PITR/isolated restore proof gates are all GO.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

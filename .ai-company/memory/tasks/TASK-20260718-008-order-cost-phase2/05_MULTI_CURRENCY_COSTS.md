@@ -1,6 +1,6 @@
 # Stage 05 — Multi-Currency Costs
 
-Status: complete
+Status: completed
 
 ## Goal
 

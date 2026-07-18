@@ -1,4 +1,5 @@
 -- RepairDesk internal-cost Phase 2 foundation.
+-- Reissued after the applied Phase 1 migrations so linked history stays append-only.
 --
 -- Expand-only guarantees:
 -- - Phase 1 repair_order_line_costs stays the current EUR projection.
