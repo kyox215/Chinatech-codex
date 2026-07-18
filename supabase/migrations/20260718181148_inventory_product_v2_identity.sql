@@ -67,10 +67,10 @@ create table if not exists public.inventory_stock_units (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null,
   variant_id uuid not null,
-  legacy_inventory_item_id text not null,
+  legacy_inventory_item_id uuid not null,
   source_type text not null,
-  source_supplier_id text,
-  source_customer_id text,
+  source_supplier_id uuid,
+  source_customer_id uuid,
   status text not null default 'intake',
   location text,
   cost_amount numeric(12, 2) not null default 0,
@@ -211,7 +211,7 @@ create table if not exists public.inventory_intake_command_ledger (
   idempotency_key uuid not null,
   request_hash text not null,
   actor_id uuid not null,
-  inventory_item_id text not null,
+  inventory_item_id uuid not null,
   stock_unit_id uuid not null,
   created_at timestamptz not null default now(),
   constraint inventory_intake_command_ledger_store_fkey
@@ -315,8 +315,8 @@ create or replace function public.repairdesk_create_inventory_unit_v2(
   p_actor_id uuid,
   p_idempotency_key uuid,
   p_source_type text,
-  p_customer_id text,
-  p_supplier_id text,
+  p_customer_id uuid,
+  p_supplier_id uuid,
   p_category text,
   p_brand text,
   p_model text,
@@ -344,7 +344,7 @@ declare
   v_catalog_id uuid;
   v_variant_id uuid;
   v_unit_id uuid := gen_random_uuid();
-  v_item_id text := gen_random_uuid()::text;
+  v_item_id uuid := gen_random_uuid();
   v_movement_id uuid := gen_random_uuid();
   v_request_hash text;
   v_catalog_key text;
@@ -575,7 +575,7 @@ begin
     buyback_price, list_price, currency_code, warranty_months, notes,
     legacy_payload, created_by, updated_by, created_at, updated_at
   ) values (
-    v_item_id, p_store_id, 'intake', p_source_type, p_supplier_id, p_customer_id,
+    v_item_id, p_store_id, 'intake', p_source_type, p_supplier_id::text, p_customer_id,
     btrim(p_category), btrim(p_brand), btrim(p_model),
     nullif(btrim(coalesce(p_color, '')), ''),
     nullif(btrim(coalesce(p_storage_capacity, '')), ''),
@@ -635,7 +635,7 @@ begin
     id, store_id, item_id, event_type, to_status, payload,
     operator_user_id, operator_name, created_at
   ) values (
-    gen_random_uuid()::text, p_store_id, v_item_id, 'created', 'intake',
+    gen_random_uuid(), p_store_id, v_item_id, 'created', 'intake',
     jsonb_build_object('inventory_v2_unit_id', v_unit_id, 'movement_id', v_movement_id),
     p_actor_id, v_actor_name, v_now
   );
@@ -659,11 +659,11 @@ end;
 $$;
 
 revoke all on function public.repairdesk_create_inventory_unit_v2(
-  uuid, uuid, uuid, text, text, text, text, text, text, text, text, text,
+  uuid, uuid, uuid, text, uuid, uuid, text, text, text, text, text, text,
   jsonb, numeric, numeric, integer, text, text, text, timestamptz
 ) from public, anon, authenticated, service_role;
 
 comment on function public.repairdesk_create_inventory_unit_v2(
-  uuid, uuid, uuid, text, text, text, text, text, text, text, text, text,
+  uuid, uuid, uuid, text, uuid, uuid, text, text, text, text, text, text,
   jsonb, numeric, numeric, integer, text, text, text, timestamptz
 ) is 'Dormant atomic serial-unit intake. EXECUTE requires a separate Owner-approved enable migration.';

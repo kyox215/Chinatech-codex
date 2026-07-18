@@ -13,8 +13,8 @@ create unique index if not exists inventory_transactions_id_store_id_uidx
 create table if not exists public.inventory_sale_command_ledger (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null,
-  inventory_item_id text not null,
-  buyer_customer_id text,
+  inventory_item_id uuid not null,
+  buyer_customer_id uuid,
   idempotency_key uuid not null,
   request_hash text not null,
   actor_id uuid not null,
@@ -28,7 +28,7 @@ create table if not exists public.inventory_sale_command_ledger (
   warranty_snapshot jsonb not null default '{}'::jsonb,
   fiscal_status text not null default 'pending',
   fiscal_reference text,
-  payment_transaction_id text not null,
+  payment_transaction_id uuid not null,
   item_updated_at_before timestamptz not null,
   item_updated_at_after timestamptz not null,
   sold_at timestamptz not null,
@@ -97,11 +97,11 @@ grant select, insert on table public.inventory_sale_command_ledger to service_ro
 
 create or replace function public.repairdesk_complete_inventory_sale_v2(
   p_store_id uuid,
-  p_item_id text,
+  p_item_id uuid,
   p_actor_id uuid,
   p_expected_updated_at timestamptz,
   p_idempotency_key uuid,
-  p_buyer_customer_id text,
+  p_buyer_customer_id uuid,
   p_sale_price numeric,
   p_payment_amount numeric,
   p_payment_method text,
@@ -129,12 +129,12 @@ declare
   v_fiscal_reference text := nullif(btrim(coalesce(p_fiscal_reference, '')), '');
   v_warranty_snapshot jsonb := coalesce(p_warranty_snapshot, '{}'::jsonb);
   v_sale_id uuid := gen_random_uuid();
-  v_payment_id text := gen_random_uuid()::text;
+  v_payment_id uuid := gen_random_uuid();
   v_now timestamptz := clock_timestamp();
   v_sold_at timestamptz := p_sold_at;
   v_warranty_until timestamptz;
 begin
-  if p_store_id is null or nullif(btrim(coalesce(p_item_id, '')), '') is null then
+  if p_store_id is null or p_item_id is null then
     return jsonb_build_object('ok', false, 'code', 'invalid_target');
   end if;
   if p_actor_id is null then
@@ -385,7 +385,7 @@ begin
     operator_name,
     created_at
   ) values (
-    gen_random_uuid()::text,
+    gen_random_uuid(),
     p_store_id,
     p_item_id,
     'sold',
@@ -443,11 +443,11 @@ $$;
 
 revoke all on function public.repairdesk_complete_inventory_sale_v2(
   uuid,
-  text,
+  uuid,
   uuid,
   timestamptz,
   uuid,
-  text,
+  uuid,
   numeric,
   numeric,
   text,
@@ -464,11 +464,11 @@ comment on table public.inventory_sale_command_ledger is
 
 comment on function public.repairdesk_complete_inventory_sale_v2(
   uuid,
-  text,
+  uuid,
   uuid,
   timestamptz,
   uuid,
-  text,
+  uuid,
   numeric,
   numeric,
   text,
