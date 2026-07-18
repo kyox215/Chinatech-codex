@@ -185,6 +185,7 @@ export function InventoryScreen() {
   const shell = useStoreShellContext();
   const aiAssistant = useAiAssistantWorkspace();
   const activeStoreId = shell.activeStore?.id;
+  const intakeAuthorityReady = Boolean(activeStoreId) && !shell.isLoading && !shell.isRefreshing;
   const storeSettingsQuery = useQuery({
     ...storeSettingsQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
@@ -339,7 +340,11 @@ export function InventoryScreen() {
       } 件`}
       eyebrow="工作台 / 库存"
       action={
-        <RepairOsHeaderActionButton ariaLabel="新增商品" onClick={openInventoryIntake}>
+        <RepairOsHeaderActionButton
+          ariaLabel="新增商品"
+          disabled={!intakeAuthorityReady}
+          onClick={openInventoryIntake}
+        >
           <Plus className="size-4" />
         </RepairOsHeaderActionButton>
       }
@@ -382,6 +387,7 @@ export function InventoryScreen() {
           <Button
             className={cn("h-9 gap-2", controls.brandButton)}
             style={brandGradientStyle}
+            disabled={!intakeAuthorityReady}
             onClick={openInventoryIntake}
           >
             <Plus className="size-4" /> 新增商品

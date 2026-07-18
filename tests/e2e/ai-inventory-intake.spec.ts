@@ -210,7 +210,7 @@ async function gotoReady(page: Page, route: string) {
       .getByRole("button", { name: /新增商品/ })
       .filter({ visible: true })
       .first(),
-  ).toBeVisible({ timeout: 20_000 });
+  ).toBeEnabled({ timeout: 20_000 });
 }
 
 async function clickFirstVisible(locator: Locator) {
