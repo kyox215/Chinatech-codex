@@ -6,6 +6,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppBar } from "@/components/app-bar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { DesktopVirtualKeyboardPreferenceProvider } from "@/components/desktop-virtual-keyboard-preference-provider";
 import { useCommandPalette } from "@/components/use-command-palette";
 import { MobileWorkspaceDock } from "@/components/mobile-workspace-dock";
 import { NavigationGuardProvider } from "@/components/navigation-guard-provider";
@@ -53,34 +54,36 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <NavigationGuardProvider>
-        <RealtimeAppBridge>
-          <AppPreloadBridge>
-            <OfflineOutboxSyncBridge />
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-                <AppBar
-                  onOpenCommand={() => setOpen(true)}
+      <DesktopVirtualKeyboardPreferenceProvider>
+        <NavigationGuardProvider>
+          <RealtimeAppBridge>
+            <AppPreloadBridge>
+              <OfflineOutboxSyncBridge />
+              <SidebarProvider>
+                <AppSidebar />
+                <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
+                  <AppBar
+                    onOpenCommand={() => setOpen(true)}
+                    onOpenScanner={() => setScannerOpen(true)}
+                  />
+                  <main className={appShell.content}>{children}</main>
+                  <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
+                </SidebarInset>
+              </SidebarProvider>
+              <PwaServiceWorker />
+              {open ? (
+                <CommandPalette
+                  open={open}
+                  onOpenChange={setOpen}
                   onOpenScanner={() => setScannerOpen(true)}
                 />
-                <main className={appShell.content}>{children}</main>
-                <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
-              </SidebarInset>
-            </SidebarProvider>
-            <PwaServiceWorker />
-            {open ? (
-              <CommandPalette
-                open={open}
-                onOpenChange={setOpen}
-                onOpenScanner={() => setScannerOpen(true)}
-              />
-            ) : null}
-            <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
-            <Toaster />
-          </AppPreloadBridge>
-        </RealtimeAppBridge>
-      </NavigationGuardProvider>
+              ) : null}
+              <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
+              <Toaster />
+            </AppPreloadBridge>
+          </RealtimeAppBridge>
+        </NavigationGuardProvider>
+      </DesktopVirtualKeyboardPreferenceProvider>
     </QueryClientProvider>
   );
 }

@@ -5,9 +5,11 @@ import { Check, Delete, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
+import { useVirtualKeyboardSurface } from "@/hooks/use-virtual-keyboard-surface";
 import { cn } from "@/lib/utils";
 import {
   applyMoneyKeypadKey,
+  decimalKeyboardProps,
   normalizeMoneyKeypadDraft,
   type MoneyKeypadKey,
 } from "@/shared/lib/mobile-input";
@@ -52,10 +54,18 @@ export function MoneyKeypadInput({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizeMoneyKeypadDraft(value));
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const nativeInputRef = useRef<HTMLInputElement | null>(null);
+  const keyboardSurface = useVirtualKeyboardSurface();
 
   useEffect(() => {
     if (!open) setDraft(normalizeMoneyKeypadDraft(value));
   }, [open, value]);
+
+  useEffect(() => {
+    if (keyboardSurface !== "native" || !open) return;
+    setOpen(false);
+    queueMicrotask(() => nativeInputRef.current?.focus());
+  }, [keyboardSurface, open]);
 
   const displayDraft = open ? draft : normalizeMoneyKeypadDraft(value);
   const displayValue = displayDraft || placeholder;
@@ -71,6 +81,37 @@ export function MoneyKeypadInput({
     setOpen(nextOpen);
     if (nextOpen) setDraft(normalizeMoneyKeypadDraft(value));
   };
+
+  if (keyboardSurface === "native") {
+    return (
+      <div
+        data-money-keypad-native-input="true"
+        className={cn(
+          "grid h-9 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-within:outline-none focus-within:ring-1 focus-within:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          invalid && "border-status-danger-foreground/50",
+          className,
+          triggerClassName,
+        )}
+      >
+        <span className="shrink-0 font-mono text-muted-foreground">{currencySymbol}</span>
+        <input
+          ref={nativeInputRef}
+          {...decimalKeyboardProps}
+          aria-label={ariaLabel}
+          aria-invalid={invalid || undefined}
+          disabled={disabled}
+          value={normalizeMoneyKeypadDraft(value)}
+          placeholder={placeholder}
+          className={cn(
+            "h-full w-full min-w-0 border-0 bg-transparent px-0 font-mono tabular-nums shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50",
+            align === "right" ? "text-right" : "text-left",
+            valueClassName,
+          )}
+          onChange={(event) => onChange(normalizeMoneyKeypadDraft(event.target.value))}
+        />
+      </div>
+    );
+  }
 
   return (
     <>

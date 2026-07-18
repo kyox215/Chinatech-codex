@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_EDIT_SAVE === "1" ||
@@ -29,13 +29,13 @@ test("ordinary details and quote save once with sequential version handoff", asy
   await hero.getByRole("button", { name: "编辑" }).click();
 
   const issueInput = detail.locator('textarea[aria-label="故障描述"]:visible').first();
-  const quoteInput = detail.getByRole("button", { name: "报价项目 1 金额" });
+  const quoteInput = detail.getByLabel("报价项目 1 金额");
   const currentPrice =
-    Number((await quoteInput.innerText()).replace(/[^0-9,.]/g, "").replace(",", ".")) || 75;
+    Number((await quoteInput.inputValue()).replace(/[^0-9,.]/g, "").replace(",", ".")) || 75;
   const updatedIssue = "Mock combined save verification";
   const updatedPrice = (currentPrice + 1).toFixed(2);
   await issueInput.fill(updatedIssue);
-  await fillMoneyKeypad(page, quoteInput, "报价项目 1 金额", updatedPrice);
+  await quoteInput.fill(updatedPrice);
 
   const routineResponsePromise = page.waitForResponse(
     (response) =>
@@ -85,17 +85,6 @@ test("ordinary details and quote save once with sequential version handoff", asy
     .poll(() => hasVisibleMatch(detail.getByText(new RegExp(updatedPrice.replace(".", "[.,]")))))
     .toBe(true);
 });
-
-async function fillMoneyKeypad(page: Page, trigger: Locator, label: string, value: string) {
-  await trigger.click();
-  const keypad = page.getByRole("group", { name: `${label} 虚拟金额键盘` });
-  await expect(keypad).toBeVisible();
-  await keypad.getByRole("button", { name: "清空" }).click();
-  for (const key of value) {
-    await keypad.getByRole("button", { name: key, exact: true }).click();
-  }
-  await keypad.getByRole("button", { name: "完成" }).click();
-}
 
 async function hasVisibleMatch(locator: Locator) {
   const count = await locator.count();

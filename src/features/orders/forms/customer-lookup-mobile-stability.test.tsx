@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { StoreShellContextSnapshot } from "@/features/stores/model/store-shell-context";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -35,11 +35,16 @@ beforeAll(() => {
 
 describe("customer lookup mobile stability", () => {
   beforeEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     apiMocks.searchCustomerIntakeCandidates.mockReset();
     apiMocks.searchCustomers.mockReset();
     apiMocks.searchCustomerIntakeCandidates.mockResolvedValue([]);
     apiMocks.searchCustomers.mockResolvedValue([]);
     vi.mocked(useStoreShellContext).mockReturnValue(makeShellContext());
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
   });
 
   it("keeps the new-order intake popover closed until phone input reaches 3 digits", async () => {

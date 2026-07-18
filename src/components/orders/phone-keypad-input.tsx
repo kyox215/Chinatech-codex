@@ -6,6 +6,7 @@ import { Check, Delete, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
+import { useVirtualKeyboardSurface } from "@/hooks/use-virtual-keyboard-surface";
 import { cn } from "@/lib/utils";
 import {
   applyPhoneKeypadKey,
@@ -57,10 +58,18 @@ export function PhoneKeypadInput({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizePhoneKeypadDraft(value));
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const nativeInputRef = useRef<HTMLInputElement | null>(null);
+  const keyboardSurface = useVirtualKeyboardSurface();
 
   useEffect(() => {
     if (!open) setDraft(normalizePhoneKeypadDraft(value));
   }, [open, value]);
+
+  useEffect(() => {
+    if (keyboardSurface !== "native" || !open) return;
+    setOpen(false);
+    queueMicrotask(() => nativeInputRef.current?.focus());
+  }, [keyboardSurface, open]);
 
   const displayDraft = open ? draft : normalizePhoneKeypadDraft(value);
   const displayValue = displayDraft || placeholder;
@@ -97,13 +106,15 @@ export function PhoneKeypadInput({
     if (event.key === "Enter") setOpenState(false);
   };
 
-  return (
-    <>
+  if (keyboardSurface === "native") {
+    return (
       <Input
+        ref={nativeInputRef}
         type="tel"
         inputMode="tel"
         autoComplete="tel"
         data-phone-native-input="true"
+        data-phone-keypad-native-input="true"
         aria-label={ariaLabel}
         role="combobox"
         aria-autocomplete="list"
@@ -113,7 +124,12 @@ export function PhoneKeypadInput({
         disabled={disabled}
         value={normalizePhoneKeypadDraft(value)}
         placeholder={placeholder}
-        className={cn("hidden min-w-0 font-mono tabular-nums lg:flex", className, triggerClassName)}
+        className={cn(
+          "flex min-w-0 font-mono tabular-nums",
+          className,
+          triggerClassName,
+          valueClassName,
+        )}
         onChange={(event) => onChange(normalizePhoneKeypadDraft(event.target.value))}
         onFocus={() => onOpenChange?.(true)}
         onBlur={() => onOpenChange?.(false)}
@@ -121,6 +137,11 @@ export function PhoneKeypadInput({
           if (event.key === "Escape") onOpenChange?.(false);
         }}
       />
+    );
+  }
+
+  return (
+    <>
       <button
         ref={triggerRef}
         type="button"
@@ -131,7 +152,7 @@ export function PhoneKeypadInput({
         aria-activedescendant={ariaActiveDescendant}
         disabled={disabled}
         className={cn(
-          "flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm lg:hidden",
+          "flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           className,
           triggerClassName,
         )}
@@ -156,7 +177,6 @@ export function PhoneKeypadInput({
         onOpenChange={setOpenState}
         label={`${ariaLabel} 虚拟数字键盘`}
         triggerRef={triggerRef}
-        className="lg:hidden"
         panelClassName={contentClassName}
       >
         <div data-phone-keypad="true">

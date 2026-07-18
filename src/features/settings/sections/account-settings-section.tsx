@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
+  Keyboard,
   KeyRound,
   Mail,
   ShieldCheck,
@@ -15,7 +16,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { useDesktopVirtualKeyboardPreference } from "@/components/desktop-virtual-keyboard-preference-context";
 import { SettingsField } from "@/features/settings/components/settings-field";
 import type { AccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
@@ -45,6 +49,8 @@ export function AccountSettingsSection({
   onNameDraftChange,
   onSave,
 }: AccountSettingsSectionProps) {
+  const { desktopVirtualKeyboardEnabled, preferenceReady, setDesktopVirtualKeyboardEnabled } =
+    useDesktopVirtualKeyboardPreference();
   const normalizedName = nameDraft.trim();
   const nameError = normalizedName ? undefined : "显示名称不能为空";
   const email = summary?.email ?? "";
@@ -154,6 +160,40 @@ export function AccountSettingsSection({
               />
             </div>
           </div>
+
+          <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <Keyboard className="size-4 shrink-0 text-primary" />
+                <Label htmlFor="desktop-virtual-keyboard" className="text-xs font-semibold">
+                  桌面端显示虚拟键盘
+                </Label>
+              </div>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                关闭时，电脑使用普通输入框；iPad 和手机始终保留触摸键盘。
+              </p>
+              <p
+                role="status"
+                aria-live="polite"
+                className="mt-1 text-[10px] leading-3 text-muted-foreground"
+              >
+                {!preferenceReady
+                  ? "正在读取当前账号的浏览器偏好…"
+                  : desktopVirtualKeyboardEnabled
+                    ? "当前电脑端会显示虚拟键盘。"
+                    : "当前电脑端会使用普通输入框。"}
+              </p>
+            </div>
+            <Switch
+              id="desktop-virtual-keyboard"
+              checked={desktopVirtualKeyboardEnabled}
+              disabled={!preferenceReady}
+              onCheckedChange={setDesktopVirtualKeyboardEnabled}
+            />
+          </div>
+          <p className="text-[10px] leading-3 text-muted-foreground">
+            此偏好只保存在当前账号的此浏览器，不影响店铺设置或其他账号。
+          </p>
 
           <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">

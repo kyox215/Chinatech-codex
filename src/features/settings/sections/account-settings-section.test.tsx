@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { DesktopVirtualKeyboardPreferenceContext } from "@/components/desktop-virtual-keyboard-preference-context";
 import type { AccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
 import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
 
@@ -106,5 +107,34 @@ describe("AccountSettingsSection", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("名称保存失败：network unavailable");
     expect(screen.getByLabelText("显示名称")).toHaveValue("Mario Pending");
     expect(screen.getByRole("button", { name: "保存名称" })).toBeEnabled();
+  });
+
+  it("lets a user choose whether their desktop browser shows virtual keyboards", async () => {
+    const user = userEvent.setup();
+    const setDesktopVirtualKeyboardEnabled = vi.fn();
+    render(
+      <DesktopVirtualKeyboardPreferenceContext.Provider
+        value={{
+          desktopVirtualKeyboardEnabled: false,
+          preferenceReady: true,
+          setDesktopVirtualKeyboardEnabled,
+        }}
+      >
+        <AccountSettingsSection
+          summary={summary}
+          isLoading={false}
+          nameDraft="Mario"
+          hasNameChange={false}
+          isSaving={false}
+          onNameDraftChange={vi.fn()}
+          onSave={vi.fn()}
+        />
+      </DesktopVirtualKeyboardPreferenceContext.Provider>,
+    );
+
+    expect(screen.getByText("桌面端显示虚拟键盘")).toBeInTheDocument();
+    expect(screen.getByText("当前电脑端会使用普通输入框。")).toBeInTheDocument();
+    await user.click(screen.getByRole("switch", { name: "桌面端显示虚拟键盘" }));
+    expect(setDesktopVirtualKeyboardEnabled).toHaveBeenCalledWith(true);
   });
 });
