@@ -53,3 +53,18 @@
 - `screenshots/TASK-20260718-012-workspace-integration-release/ru03-store-address-1440.png`
 - `screenshots/TASK-20260718-012-workspace-integration-release/ru03-store-address-390.png`
 - `screenshots/TASK-20260718-012-workspace-integration-release/ru03-print-preview-1440.png`
+
+## Phase 05 production release evidence
+
+- `origin/main` 由 `9465ead4` 非强制快进到业务发布 SHA `e4aee9231745de4def661b3c79400a616b2e3e55`。
+- Vercel deployment `dpl_AjMLSbHA9fnA9Vytd7si9jRafkrP` 对应精确 SHA、状态 READY，并绑定 `https://chinatech.in` 与 `https://www.chinatech.in`。
+- 未登录生产冒烟：`/login` 200；`/`、`/orders`、`/settings?section=store`、`/inventory/new` 均 307 到登录；`/api/repairdesk/stores/context` 401。
+- Vercel 名称级环境检查未发现 Inventory V2、legacy-mutation 或 lifecycle 激活变量；默认关闭边界未改变。最近 10 分钟 error 级日志无条目。
+- 回滚目标为上一 READY Web deployment `chinatech-codex-36c0kpcd7-kyox120-9295s-projects.vercel.app`；数据库 migration 为无 DML 的 forward-only default neutralization，保留 schema 并以前向修复回滚。
+
+## Phase 06 / 07 closeout evidence
+
+- 原 checkout 的两个领先提交经 `git cherry -v origin/main main` 均显示 `-`，证明 patch-equivalent；未重放、reset 或删除。
+- `git branch --no-merged origin/main` 仍含旧 preservation/WIP 和未完成任务分支；它们被保留并按任务状态隔离，不作为本次“此前所有已完成改动”漏发证据。
+- Inventory V2 的 `f7df2df8`、`7238123c`、`9465ead4` 已在本次分支基线内；其任务、runbook、截图和默认关闭契约完整。
+- 生产 linked dry-run 仍只列出 Inventory V2 `20260718175622` 与 `20260718181148`，确认本次未应用下一阶段数据库变化。

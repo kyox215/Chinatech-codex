@@ -64,3 +64,10 @@
 - **Next:** 提交数据库证据，重新 fetch origin/main，执行最终 diff/secret/agents 门禁，非强制快进推送 HEAD:main，并验证同 SHA Vercel 生产部署与运行日志。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T19:46:45Z — 三个此前完成的 release unit 已安全整合并推送 main；只应用 20260718150000 门店默认值迁移且生产数据指纹不变；同 SHA Vercel 部署 READY；库存 V2 Phase 0 与默认关闭纵向切片已采纳，V2 migration、RPC、flags 和 V1 退役继续保持独立 D4 门禁。
+
+- **Phase:** implementation
+- **Completed/current state:** 三个此前完成的 release unit 已安全整合并推送 main；只应用 20260718150000 门店默认值迁移且生产数据指纹不变；同 SHA Vercel 部署 READY；库存 V2 Phase 0 与默认关闭纵向切片已采纳，V2 migration、RPC、flags 和 V1 退役继续保持独立 D4 门禁。
+- **Next:** 正式启用 Inventory V2 时，严格从 release runbook 的恢复证明、精确 linked dry-run、单独 migration/RPC 批准和单店 allowlist 开始；在此之前不执行生产变化。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

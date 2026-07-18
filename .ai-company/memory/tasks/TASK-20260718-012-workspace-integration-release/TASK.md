@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-012-workspace-integration-release"
 title: "整合并发布此前所有已完成改动，然后启动库存 V2 Phase 0"
-status: "in_progress"
+status: "complete"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["integration", "architecture", "data", "security", "qa", "release", "documentation"]
 created_at: "2026-07-18T18:03:43Z"
-updated_at: "2026-07-18T19:32:51Z"
+updated_at: "2026-07-18T19:46:45Z"
+closed_at: "2026-07-18T19:44:19Z"
 ---
 # Task — 整合并发布此前所有已完成改动，然后启动库存 V2 Phase 0
 
@@ -47,14 +48,14 @@ updated_at: "2026-07-18T19:32:51Z"
 
 ## Acceptance criteria
 
-- [ ] 每个当前变更、候选提交和 migration 都被归入任务/状态/发布决策矩阵，不使用宽泛 `git add -A` 代替归属审查。
-- [ ] 原主工作区与所有用户改动保持可恢复，不 reset、clean 或覆盖；集成在最新 `origin/main` 隔离工作树完成。
-- [ ] 每个进入发布的任务切片都有独立验证证据；跨切片整体验证通过 lint、typecheck、test、build 及相关浏览器流程。
-- [ ] 权限、租户隔离、敏感操作、RLS、grant、SECURITY DEFINER 和 feature flag 经过独立复核。
-- [ ] migration history 与 linked database 对齐；只 dry-run/apply 明确批准的精确迁移，不使用 `--include-all`。
-- [ ] `origin/main` 非强制快进到记录的提交 SHA；生产部署为同一 SHA 且 READY。
-- [ ] 生产关键流程冒烟、错误日志、截图/替代证据和回滚入口验证完成。
-- [ ] 发布任务完成正式 closeout 和 memory checkpoint；随后启动库存 V2 Phase 0，且仍不删除 V1、不 apply V2 migration、不启用付费 AI。
+- [x] 每个当前变更、候选提交和 migration 都被归入任务/状态/发布决策矩阵，不使用宽泛 `git add -A` 代替归属审查。
+- [x] 原主工作区与所有用户改动保持可恢复，不 reset、clean 或覆盖；集成在最新 `origin/main` 隔离工作树完成。
+- [x] 每个进入发布的任务切片都有独立验证证据；跨切片整体验证通过 lint、typecheck、test、build 及相关浏览器流程。
+- [x] 权限、租户隔离、敏感操作、RLS、grant、SECURITY DEFINER 和 feature flag 经过独立复核。
+- [x] migration history 与 linked database 对齐；只 dry-run/apply 明确批准的精确迁移，不使用 `--include-all`。
+- [x] `origin/main` 非强制快进到记录的提交 SHA；生产部署为同一 SHA 且 READY。
+- [x] 生产关键流程冒烟、错误日志、截图/替代证据和回滚入口验证完成。
+- [x] 发布任务完成正式 closeout 和 memory checkpoint；随后确认库存 V2 Phase 0 已由并行批准链完成，且仍不删除 V1、不 apply V2 migration、不启用付费 AI。
 
 ## Phase gates
 

@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260718-012-workspace-integration-release"
-status: "in_progress"
-phase: "05_release"
+status: "complete"
+phase: "implementation"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
-owner: "鹤祥"
-last_checkpoint_at: "2026-07-18T19:32:51Z"
+owner: "IntegrationLead"
+last_checkpoint_at: "2026-07-18T19:46:45Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Phase 04 完成：本次分支已重放到 Inventory V2 main；最终 lint/typecheck/1803 tests/build 通过；仅 20260718150000 店铺默认值迁移完成精确 dry-run、生产 apply 与无行变更回读，Inventory V2 两份迁移继续保持 D4 未应用。
+三个此前完成的 release unit 已安全整合并推送 main；只应用 20260718150000 门店默认值迁移且生产数据指纹不变；同 SHA Vercel 部署 READY；库存 V2 Phase 0 与默认关闭纵向切片已采纳，V2 migration、RPC、flags 和 V1 退役继续保持独立 D4 门禁。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ Phase 04 完成：本次分支已重放到 Inventory V2 main；最终 lint/typec
 
 ## Next action
 
-提交数据库证据，重新 fetch origin/main，执行最终 diff/secret/agents 门禁，非强制快进推送 HEAD:main，并验证同 SHA Vercel 生产部署与运行日志。
+正式启用 Inventory V2 时，严格从 release runbook 的恢复证明、精确 linked dry-run、单独 migration/RPC 批准和单店 allowlist 开始；在此之前不执行生产变化。
 
 ## Resume protocol
 
