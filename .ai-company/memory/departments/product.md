@@ -37,6 +37,7 @@ as owner of this file.
 - Desktop beginner workflows present one recommended action, keep correction/advanced actions secondary, require exact missing-field guidance during intake, and never replace server workflow/permission authority with UI inference.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` makes unknown intake a real “待检测” condition rather than a zero-price quote. Preserve the customer report, technical diagnosis and charge lines as separate facts; technicians diagnose and hand off, while Owner/Manager/Sales publish and confirm formal quote notification. Opening WhatsApp is never evidence that a quote was sent.
 - Employee email verification and store authorization are separate product gates. A Supabase Invite/Magic Link may verify and sign in the employee, but store data remains unavailable until the employee explicitly accepts a matching, active, unexpired non-owner business invitation.
+- `TASK-20260717-007-store-lifecycle-implementation` shipped the P0-P5 store lifecycle control plane on 2026-07-18. Rename, close/archive, restore, export and purge remain separate explicit actions bound to immutable store UUIDs; all five runtime flags remain off and no real store lifecycle action occurred during release.
 
 ## Interfaces and dependencies
 

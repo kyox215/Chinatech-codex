@@ -4,13 +4,15 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-17 CEST
+- Last verified: 2026-07-18 CEST
 
 ## Product and business overview
 
 Chinatech RepairDesk is a Next.js internal management system for a phone repair and electronics shop in Floridia, Siracusa, Italy. It supports repair orders, customers, buyback, inventory, payments, messaging, platform settings, and mobile task/detail workflows.
 
 2026-07-04 product direction update: multi-store planning should treat RepairDesk as a privacy-first platform for independent partner store owners, not as one headquarters company with branch employees. Each store is a private tenant controlled by its own store owner. Platform operators manage the system, cooperation status, and support controls, but should not have default access to store business data. The active long-term plan is `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PLAN.md`; progress and owner decisions are tracked in `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PROGRESS.md`.
+
+2026-07-18 store lifecycle release: `TASK-20260717-007-store-lifecycle-implementation` shipped immutable-UUID preflight, structured access reasons, recent-TOTP owner rename, reversible close/archive/restore gates, DB+Storage export/restore proof and approval-locked resumable purge controls. Six migrations are applied to `xluzcoduqsdvjoouqhkc` and implementation commit `55cb7ab5` is included in `main`; all five lifecycle feature flags remain off, and no real store rename, close, export or purge occurred.
 
 ## Users, roles and core workflows
 

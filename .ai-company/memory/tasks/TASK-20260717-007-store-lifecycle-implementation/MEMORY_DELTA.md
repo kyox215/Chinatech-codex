@@ -12,6 +12,6 @@
 
 ## Not promoted
 
-- Production migration and feature flags are not applied.
+- Production migrations are applied and `main` is pushed; feature flags remain off.
 - The target store is not renamed, closed or deleted.
 - The real encrypted backup destination/KMS, production restore environment, retention decision and exact purge target remain undecided and require release approval.

@@ -48,6 +48,7 @@ as owner of this file.
   write is a zero-tolerance release stop; local flags and mocks are not production proof.
 - Custody changes require server-side store/actor/role checks, version locking and redacted audit events; anon/authenticated cannot execute custody RPCs and NULL actors/targets fail closed. Migration `20260717182220` intentionally allows customer-held devices to retain credentials. Raw secrets remain separately permissioned and are excluded from ordinary offline drafts and event/audit payloads; a boolean re-entry marker is safe to persist.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` enforces same-store active actor checks, narrow non-grantable quote authority, CAS and idempotency in both quote RPCs. Both functions are security invoker with an empty search path; only service role has EXECUTE, while PUBLIC/anon/authenticated are denied. Message and audit payloads retain only bounded quote/send evidence.
+- Store lifecycle mutations use recent TOTP/AAL2 and one-use challenges, immutable store UUID binding, service-role-only destructive RPCs and a second approval for purge. The 2026-07-18 production slice has zero browser table/function grants and remains dormant behind five off-by-default flags; schema presence is not activation authority.
 
 ## Interfaces and dependencies
 

@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260717-007-store-lifecycle-implementation"
 title: "店铺生命周期 P0-P5 安全控制面实施"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2_code_L1_production"
 owner: "IntegrationLead"
 departments: ["Architecture", "Product", "Data", "Security", "QA", "Documentation"]
 created_at: "2026-07-17T21:45:00+02:00"
-updated_at: "2026-07-18T07:51:09Z"
+updated_at: "2026-07-18T07:58:49Z"
+closed_at: "2026-07-18T07:58:49Z"
 ---
 # Task
 
@@ -50,7 +51,7 @@ updated_at: "2026-07-18T07:51:09Z"
 - P5：完成，批准锁定的调度、可恢复 worker、Storage-first、FK child-before-parent、目标 UUID cycle break、其他租户 guard、零残留证明和无 PII tombstone 已实现。
 - 浏览器永久删除入口刻意不存在；五个 feature flags 默认关闭。
 
-代码、本地验证和六个生产 migration apply 已完成；当前等待从隔离最新 `origin/main` 候选快进推送代码。不能表述为真实店铺已经删除或当前可直接永久清除。
+代码、本地验证、六个生产 migration apply 和 `main` 快进推送均已完成。不能表述为真实店铺已经删除或当前可直接永久清除。
 
 ## Verification evidence
 
@@ -65,6 +66,7 @@ updated_at: "2026-07-18T07:51:09Z"
 ## Release state
 
 - 六个 migration 已生产应用；五个 feature flags 保持关闭，未执行真实店铺动作。
-- 当前根工作区仍包含其他任务改动；发布候选已在最新 `origin/main` 隔离工作树完成集成与全量验证，等待提交并快进推送 `main`。
-- 代码 push 完成后再写入最终 SHA 和关闭证据。
+- 当前根工作区的其他任务改动未被暂存；生命周期候选在最新 `origin/main` 隔离工作树集成并以非强制快进推送。
+- 实施提交（已纳入远端 `main`）：`55cb7ab5a928b67daf4856e80486f2ccec5fbd59`。
+- 推送后 linked dry-run 返回 `Remote database is up to date`。
 - 生产 purge 必须重新绑定目标 UUID，重新跑 P0、完成真实加密 sink/KMS 与隔离 restore proof，并获得第二次不可逆批准。

@@ -47,8 +47,10 @@
 - Mutation and lifecycle enforcement feature flags remain exact-string opt-in and are off by default.
 - No browser purge route/button exists. Destructive RPCs require `service_role`, due approved job, lease, verified export/restore proof, released holds and separate exact flags.
 
-## Production state before code push
+## Production state
 
 - Linked project `xluzcoduqsdvjoouqhkc` applied exactly the six dry-run-reviewed lifecycle migrations on 2026-07-18.
 - Post-apply: 7 stores / 7 active lifecycle rows / 0 missing; 0 lifecycle tables without RLS; 0 browser table or function grants; 26 lifecycle functions; 1 initialization trigger; 0 export/purge jobs; linked public-schema error lint PASS.
-- No feature flag, rename, close, restore, export, purge or direct deploy action occurred. Code commit/push is the remaining release step.
+- Implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `origin/main`; `git ls-remote` confirmed the exact SHA before the documentation-only closeout commit.
+- Final linked dry-run returned `Remote database is up to date`.
+- No feature flag, rename, close, restore, export, purge or direct deploy action occurred.

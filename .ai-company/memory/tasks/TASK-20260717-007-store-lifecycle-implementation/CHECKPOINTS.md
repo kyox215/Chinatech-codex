@@ -30,3 +30,17 @@
 - **Next:** 下一次发布前先隔离当前任务文件并安全同步 origin/main；未经 Owner 单独批准，不要把整个 dirty worktree 直接提交或推送。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T07:58:32Z — P0-P5 已发布：六个 lifecycle migration 已应用到 xluzcoduqsdvjoouqhkc，main 实施提交为 55cb7ab5a928b67daf4856e80486f2ccec5fbd59；生产后置检查通过，五个 feature flags 保持关闭，未执行真实店铺变更或删除。
+
+- **Phase:** implementation
+- **Completed/current state:** P0-P5 已发布：六个 lifecycle migration 已应用到 xluzcoduqsdvjoouqhkc，main 实施提交为 55cb7ab5a928b67daf4856e80486f2ccec5fbd59；生产后置检查通过，五个 feature flags 保持关闭，未执行真实店铺变更或删除。
+- **Next:** 后续必须新建 activation task：先用一次性店铺验证 rename/close/restore 与拒绝路径，配置真实加密 sink/KMS 并完成隔离 restore proof；任何真实 purge 需第二次精确目标批准。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T07:58:49Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** P0-P5 店铺生命周期控制已完成并发布：6 个 migration 已应用并通过后置检查，实施提交 55cb7ab5 已非强制推送至 main；所有运行开关关闭，未执行真实店铺 rename/close/export/purge。
+- **Residual risks:** 尚未完成一次性店铺激活演练、真实加密 sink/KMS 与隔离 restore proof；永久 purge 继续受第二次精确批准和 feature flag 双重门禁。
+- **Follow-up:** 新建独立 activation task，在一次性店铺完成 rename/close/restore 与拒绝路径，再配置加密导出/恢复；真实 purge 另行获得精确 UUID 批准。
+- **Closed by:** CEO-Orchestrator

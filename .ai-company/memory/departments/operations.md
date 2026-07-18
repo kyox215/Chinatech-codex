@@ -47,6 +47,7 @@ as owner of this file.
   and order-data Apply release units. Use a clean latest-main worktree, serialized release owner, exact
   target/config/migration assertions, observation owner, and rollback/forward-fix record.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` completed a serialized DB-first release from an isolated worktree while preserving the dirty primary checkout. A concurrent main/migration-replay repair was absorbed before non-force push; the single pending migration was applied and postchecked before `main@6e511c56` reached Vercel READY with clean 15-minute error observation.
+- `TASK-20260717-007-store-lifecycle-implementation` used an isolated latest-main worktree to preserve unrelated root changes, applied exactly six reviewed lifecycle migrations, and non-force pushed implementation SHA `55cb7ab5`. Keep all five flags off until a separate activation task proves disposable-store flows, encrypted sink/KMS and restore; any real purge needs a second exact-target approval.
 
 ## Interfaces and dependencies
 

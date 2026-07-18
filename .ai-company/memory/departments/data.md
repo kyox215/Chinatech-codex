@@ -54,6 +54,7 @@ as owner of this file.
 - Migration `20260717182220` is present in linked history and supersedes the customer-custody credential-clear constraint. `TASK-20260717-008-desktop-novice-ui-implementation` changes no migration; fresh linked list parity and `db push --dry-run` both prove an up-to-date no-op.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` applied additive migration `20260717213518`: production UUID row IDs and the missing `message_logs.channel` compatibility column were reconciled; two invoker/empty-search-path RPCs, a partial unique idempotency index and zero duplicate groups were postchecked. The slice is aligned and up to date but does not close historical reset failure `DATA-20260710-002`.
 - `TASK-20260717-employee-invite-registration` applied migration chain `20260717220219`..`20260717223354`: delivery state/checks/index plus a service-role-only atomic invitation-accept RPC. Two post-apply lint findings were corrected only by immutable forward migrations; final history aligns, final remote lint is clean, and schema dump confirms PUBLIC revoke/service-role grant.
+- `TASK-20260717-007-store-lifecycle-implementation` applied six additive lifecycle migrations to `xluzcoduqsdvjoouqhkc` on 2026-07-18. Postchecks found 7/7 lifecycle rows, export/purge catalogs of 39/37 tables, zero missing RLS, browser grants, non-UUID store scopes or unhandled restrictive edges; the final linked dry-run is up to date. This proves the dormant schema slice, not authorization for a real store purge.
 
 ## Interfaces and dependencies
 

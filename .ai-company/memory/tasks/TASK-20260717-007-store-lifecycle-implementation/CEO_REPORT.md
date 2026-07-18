@@ -1,7 +1,7 @@
 # CEO Report — Store Lifecycle P0-P5
 
 Date: 2026-07-18
-Decision: **release in progress — six production migrations applied; code push pending**
+Decision: **closed — production schema applied and verified code pushed to `main`; runtime flags remain off**
 
 ## Business result
 
@@ -28,7 +28,7 @@ There is deliberately no browser permanent-delete button. All five lifecycle fla
 | Database migration correctness | six migrations replayed on isolated PostgreSQL 17; lifecycle PL/pgSQL `plpgsql_check` zero findings | PASS isolated |
 | Full application quality gate | ESLint and typecheck PASS; 238 files / 1578 tests PASS; 24-page production build; runtime audit 0 | PASS latest-main candidate |
 | Visual result | `screenshots/store-lifecycle-actions-mobile.png`, 390x844, no horizontal overflow | PASS local |
-| Linked/production release | exactly six migrations applied to `xluzcoduqsdvjoouqhkc`; postchecks and linked lint PASS; code push pending | PASS database / code pending |
+| Linked/production release | exactly six migrations applied to `xluzcoduqsdvjoouqhkc`; postchecks and linked lint PASS; implementation commit `55cb7ab5` verified on `main` | PASS |
 
 ## Documentation impact matrix
 
@@ -65,8 +65,7 @@ No new sub-agent was spawned in this continuation: the user did not request mult
 
 ## Next approved sequence
 
-1. Commit the verified isolated candidate and fast-forward push it to `main`.
-2. Record the pushed SHA and confirm `origin/main` points to it.
-3. Before enabling mutations, run disposable-store rename/close/restore and rejection-path checks.
-4. Configure the encrypted sink/KMS and complete restore proof before export rollout.
-5. Request a second exact approval before any real purge scheduling or worker enablement.
+1. Keep all five feature flags off until an explicit activation task.
+2. Before enabling mutations, run disposable-store rename/close/restore and rejection-path checks.
+3. Configure the encrypted sink/KMS and complete restore proof before export rollout.
+4. Request a second exact approval before any real purge scheduling or worker enablement.

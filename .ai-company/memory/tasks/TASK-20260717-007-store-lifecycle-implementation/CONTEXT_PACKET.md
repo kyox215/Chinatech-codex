@@ -6,6 +6,9 @@
 
 ## Verified current state
 
+- Production Supabase project `xluzcoduqsdvjoouqhkc` contains all six lifecycle migrations; post-apply metadata/RLS/grants/catalog/lint checks passed.
+- `origin/main` includes implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59`.
+- All five lifecycle feature flags remain off and no real store mutation or purge occurred.
 - P0 UUID 预检和 P1 结构化工单数据访问原因已实现并验证。
 - P2 近期 TOTP/AAL2、一次性 challenge、主店主 atomic rename、API/UI、CAS/幂等/审计已完成。
 - P3 close/archive/restore、非店主停用、Kiosk/邀请撤销、普通 API/Kiosk/邀请/离线门禁已完成。

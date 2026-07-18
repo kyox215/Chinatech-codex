@@ -31,6 +31,7 @@ as owner of this file.
 - TASK-009 production state was scoped-verified on 2026-07-10: `origin/main=cee5a1b4`, Vercel deployment `dpl_CehRUKZ7WhybvvJhbaFFQZjwnwKA` is Ready on production aliases, and the first 20-minute error scan returned no entries.
 - `TASK-20260716-003-customer-finance-order-correction-plan` scoped-verified Vercel production deployment `dpl_Buv1EGr9wizVgZ1YogCKgwSGenbq`: exact application SHA `e83527379ddc048940ac628fb72821d60b2c8c91`, `READY`, both production domains promoted, anonymous auth-boundary smoke passed, and no runtime error cluster or error/fatal log appeared in the observed 30-minute window. The earlier identity-blocked attempt made no runtime change.
 - `TASK-20260716-005-device-custody-status-implementation` scoped-verified Vercel deployment `dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv`: exact SHA `452f89855e83aa4104bc2945e0ca087bbffca77c`, Next.js 16.2.6 Turbopack/TypeScript build, production aliases, anonymous login/API boundary and zero exact-deployment error/fatal/5xx logs. During the official Git-linked deployment incident, cancel only redundant queued copies and retain one clean-worktree CLI deployment; never treat queue delay as code failure.
+- `TASK-20260717-007-store-lifecycle-implementation` verified that `origin/main` includes implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` and that linked Supabase project `xluzcoduqsdvjoouqhkc` contains the six migrations. The five runtime flags remain off; this release included no direct feature activation or store mutation.
 
 ## Interfaces and dependencies
 

@@ -4,7 +4,7 @@ Last updated: 2026-07-18
 
 ## Current release boundary
 
-P0-P5 has a locally verified implementation path and its six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc` on 2026-07-18. All lifecycle feature flags remain off. This does **not** authorize a production store mutation, feature-flag change, worker activation or permanent purge.
+P0-P5 has a verified implementation path. Its six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc`, and implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `main` on 2026-07-18. All lifecycle feature flags remain off. This does **not** authorize a production store mutation, feature-flag change, worker activation or permanent purge.
 
 | Phase | Implemented and locally verified | Production gate still required |
 |---|---|---|

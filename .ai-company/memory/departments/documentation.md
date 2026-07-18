@@ -62,6 +62,7 @@ as owner of this file.
   contracts, not production authorization. `docs/CUSTOMER_KIOSK_IPAD_PLAN.md` is a historical planning
   snapshot and must not override the WP05-B/WP08 production NO-GO status.
 - For device custody, the current addendum at the top of `docs/ORDERS_SPEC.md` is authoritative despite the remainder being historical. It records explicit create choice, nullable legacy unknown, credential retention until authorized explicit clear, terminal receive/return rules, fail-closed raw-secret offline behavior and release order. Earlier task memory claiming automatic clear is superseded by migration `20260717182220` and TASK-20260717-008.
+- `docs/STORE_LIFECYCLE_IMPLEMENTATION_RUNBOOK.md` and `TASK-20260717-007-store-lifecycle-implementation` are the current store lifecycle release authority. Documentation must distinguish applied schema/code from activation: all five flags are off, no real store was renamed, closed, exported or purged, and permanent deletion still requires a separate exact-target approval.
 
 ## Interfaces and dependencies
 

@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260717-007-store-lifecycle-implementation](tasks/TASK-20260717-007-store-lifecycle-implementation/TASK.md): Closed production schema/code release for UUID-bound store lifecycle P0-P5; six migrations and implementation commit `55cb7ab5` are verified on `main`, while all runtime flags and real store mutations remain off.
+
 - [TASK-20260619-001](tasks/TASK-20260619-001/TASK_MEMORY.md): AI Company OS v2.0 adoption into RepairDesk project rules and runtime memory. Migrated from legacy runtime memory.
 - [TASK-20260619-002](tasks/TASK-20260619-002/TASK.md): Upgrade RepairDesk AI Company OS rules to Codex Native v3.0.
 - [TASK-20260619-003](tasks/TASK-20260619-003/TASK.md): RepairDesk project takeover and health baseline.
