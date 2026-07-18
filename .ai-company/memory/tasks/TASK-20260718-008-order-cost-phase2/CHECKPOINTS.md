@@ -138,3 +138,10 @@
 - **Next:** 提交 fresh preflight 证据；立即再次执行 exact dry-run，若仍为六文件则运行 supabase db push --linked，并在返回后先重读 migration history 与 Phase 2 元数据/ACL，再允许 Git 推送。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T15:38:13Z — 六个第二期生产迁移已精确应用；linked history 与 no-op dry-run、11 表 RLS/ACL、21 RPC、search_path、security-invoker 视图、约束、索引、迁移快照和零自动回填后检全部通过；advisors 无新增 Phase 2 告警。Git push/deploy 尚未执行。
+
+- **Phase:** implementation
+- **Completed/current state:** 六个第二期生产迁移已精确应用；linked history 与 no-op dry-run、11 表 RLS/ACL、21 RPC、search_path、security-invoker 视图、约束、索引、迁移快照和零自动回填后检全部通过；advisors 无新增 Phase 2 告警。Git push/deploy 尚未执行。
+- **Next:** 提交数据库应用证据；fresh fetch 并断言 origin/main 未漂移、候选零 behind、工作树干净，然后非强制 push HEAD:main，立即核验远端 SHA。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

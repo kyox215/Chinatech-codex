@@ -1,6 +1,6 @@
 # Stage 07 — Production Release and Observation
 
-Status: Option B approved; fresh production preflight passed — 2026-07-18T15:32:27Z
+Status: production migrations and database postchecks passed — 2026-07-18T15:37:16Z
 
 ## Goal
 
@@ -130,3 +130,32 @@ At `2026-07-18T15:32:27Z`, under the atomic release lock:
 
 Result: **GO for the exact six-file linked apply only.** Any subsequent drift reverts this result
 to NO-GO.
+
+## Production database apply and postcheck
+
+Under the same release lock, `supabase db push --linked --yes` applied exactly the six migrations
+listed above without `--include-all`, seed, roles or backfill execution. The command returned
+success for each version.
+
+Immediate postchecks proved:
+
+- linked history contains all six local/remote versions and a new exact dry-run reports the remote
+  database is up to date;
+- all 11 Phase 2 tables exist, all 11 have RLS, all 11 allow service-role SELECT, and browser table
+  privileges remain zero;
+- all 21 expected RPC overloads exist, browser EXECUTE privileges remain zero, and no expected
+  security-definer function lacks `search_path=''`;
+- the profit fact view has `security_invoker=true`; no Phase 2 constraint is unvalidated and no
+  Phase 2 index is invalid or unready;
+- the 15 existing Phase 1 cost rows produced exactly 15 append-only migration revisions; zero cost
+  defaults produced zero default versions;
+- seven stores produced seven currency configs, 35 fixed currency rows and 35 migration revision
+  snapshots;
+- parts catalog, lots, allocations, stock movements, backfill runs and backfill candidates all
+  remain empty, proving deployment did not create procurement activity or execute a historical
+  backfill;
+- post-apply security advisors match the pre-apply legacy warning set and contain no Phase 2
+  finding.
+
+Result: **database release slice PASS.** Next authorized write is a non-force fast-forward push of
+the exact reviewed candidate to remote `main`, after another fresh fetch/divergence assertion.
