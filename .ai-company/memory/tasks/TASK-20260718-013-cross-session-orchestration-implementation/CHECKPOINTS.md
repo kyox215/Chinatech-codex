@@ -31,3 +31,21 @@
 - **Remote state:** origin/main advanced to `19c4feb8dc5e`; this branch is 23 commits behind and only the capability registry is a known overlapping scoped file.
 - **Next:** create a scoped implementation commit, rebase on latest origin/main while preserving both capability entries, rerun all gates, then checkpoint and non-force push.
 - **Recorded by:** IntegrationLead
+## 2026-07-18T20:27:54Z — Rebased Phase 0A onto origin/main@19c4feb8dc5e; 46/46 tests and all governance/Skill gates pass; three independent reviewers returned GO
+
+- **Phase:** release-integration
+- **Completed/current state:** Rebased Phase 0A onto origin/main@19c4feb8dc5e; 46/46 tests and all governance/Skill gates pass; three independent reviewers returned GO
+- **Next:** Issue instruction/context v2, renew integration lease, refresh origin/main, non-force push and verify remote SHA
+- **Decision:** Preserve cooperative shadow mode and both remote/local capability entries
+- **Evidence:**
+  - b3007c4ab6fa release candidate; post-rebase gates green
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T20:29:00Z — Post-rebase recovery state sealed; v2 packet issued and release candidate remains green
+
+- **Phase:** release-integration
+- **Completed/current state:** Post-rebase recovery state sealed; v2 packet issued and release candidate remains green
+- **Next:** Renew and verify integration lease, refresh origin/main, non-force push, then verify remote SHA
+- **Decision:** Use the Registry-selected task and immutable packet; do not reactivate legacy ACTIVE_CONTEXT
+- **Evidence:**
+  - 46/46 tests; three reviewer GO; v2 packet d6d46acec5b0
+- **Recorded by:** CEO-Orchestrator

@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["INT", "Architecture", "QA", "SEC", "DOC", "Release"]
 created_at: "2026-07-18T19:07:41Z"
-updated_at: "2026-07-18T20:23:52Z"
+updated_at: "2026-07-18T20:29:00Z"
 ---
 # Task — 实施并发布 RepairDesk 多窗口强隔离调度 Phase 0A
 
