@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260718-008-order-cost-phase2"
 status: "active"
-phase: "production_release_preflight"
+phase: "production_database_apply"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T15:28:23Z"
+last_checkpoint_at: "2026-07-18T15:33:09Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,20 +19,19 @@ last_rehydrated_at: null
 
 ## Current state
 
-Owner 已选择 Stage 08 Option B，接受本次发布的未验证物理恢复与全历史 replay 风险；共享原子 release lock 已取得，主检出目录不修改，所有第二期子开关保持关闭，尚未执行生产写入。
+Option B fresh 生产写入前门禁通过：origin/main 未漂移；linked history 与 dry-run 仅含六个审核迁移；八个物理备份完成；advisors 只有既有告警；PG17.6 count-only SQL 与浏览器 ACL 基线匹配。尚未生产写入。
 
 ## Blocking decisions
 
-- PITR and isolated physical restore remain unproven; Owner accepted that risk for this release
-  only under Stage 08 Option B.
-- Full historical migration replay remains broken before TASK-008; Option B accepts but does not
-  resolve that recovery-baseline debt.
-- Any remote drift, extra migration, failed backup visibility, failed post-apply assertion, Git
-  non-fast-forward, deployment SHA mismatch or production regression remains a hard stop.
+- Option B accepts the missing physical-restore and full-history replay proof for this release
+  only; it does not resolve those standing recovery risks.
+- Exact six-file dry-run, backup visibility and current-schema/ACL preflight are green.
+- Stop on any extra migration, remote drift, failed apply/postcheck, Git non-fast-forward,
+  deployment SHA mismatch or production regression.
 
 ## Next action
 
-在隔离工作树内 fresh fetch，核对 origin/main、linked migration list、精确 dry-run、backup 与 advisors；任何额外迁移或远端漂移立即停止。
+提交 fresh preflight 证据；立即再次执行 exact dry-run，若仍为六文件则运行 supabase db push --linked，并在返回后先重读 migration history 与 Phase 2 元数据/ACL，再允许 Git 推送。
 
 ## Resume protocol
 

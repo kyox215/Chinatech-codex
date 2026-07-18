@@ -1,6 +1,6 @@
 # Stage 07 — Production Release and Observation
 
-Status: Option B approved; refreshing production preflight — 2026-07-18T15:26:29Z
+Status: Option B approved; fresh production preflight passed — 2026-07-18T15:32:27Z
 
 ## Goal
 
@@ -109,3 +109,24 @@ A complete P0 recovery/security package should still:
 
 After the fresh preflight passes, this stage may continue from migration apply step 6. The six
 migration files and all application flags must remain unchanged and off in the meantime.
+
+## Option B fresh write-preflight
+
+At `2026-07-18T15:32:27Z`, under the atomic release lock:
+
+- `origin/main` remained `51d5b3b9648e77b355bb5635edf8df4c431eeb74`; candidate
+  `a7a95d18e4b8abe06ce16cc7be7bd88c4606ae9c` was zero behind and ten ahead.
+- Linked migration history still showed Phase 1 through `20260718121000` applied and exactly the
+  six reviewed Phase 2 versions pending.
+- `supabase db push --linked --dry-run` selected only those six files and did not mutate data.
+- Eight completed physical backups remained visible; latest backup ID `1145221500` was completed
+  at `2026-07-18T06:49:11.673Z`. PITR remained disabled, as accepted by Option B.
+- Security advisors were unchanged: five pre-existing mutable-search-path functions, seven
+  pre-existing permissive policies and leaked-password protection disabled. No Phase 2 object was
+  reported.
+- Count-only linked SQL returned PostgreSQL `17.6`, 6,326 repair orders, 15 Phase 1 cost lines,
+  zero defaults, zero Phase 2 tables, zero browser grants on Phase 2 names, and zero browser grants
+  on the three advisor policy tables.
+
+Result: **GO for the exact six-file linked apply only.** Any subsequent drift reverts this result
+to NO-GO.

@@ -131,3 +131,10 @@
 - **Next:** 在隔离工作树内 fresh fetch，核对 origin/main、linked migration list、精确 dry-run、backup 与 advisors；任何额外迁移或远端漂移立即停止。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T15:33:09Z — Option B fresh 生产写入前门禁通过：origin/main 未漂移；linked history 与 dry-run 仅含六个审核迁移；八个物理备份完成；advisors 只有既有告警；PG17.6 count-only SQL 与浏览器 ACL 基线匹配。尚未生产写入。
+
+- **Phase:** implementation
+- **Completed/current state:** Option B fresh 生产写入前门禁通过：origin/main 未漂移；linked history 与 dry-run 仅含六个审核迁移；八个物理备份完成；advisors 只有既有告警；PG17.6 count-only SQL 与浏览器 ACL 基线匹配。尚未生产写入。
+- **Next:** 提交 fresh preflight 证据；立即再次执行 exact dry-run，若仍为六文件则运行 supabase db push --linked，并在返回后先重读 migration history 与 Phase 2 元数据/ACL，再允许 Git 推送。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
