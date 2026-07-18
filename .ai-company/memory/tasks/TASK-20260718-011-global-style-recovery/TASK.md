@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-011-global-style-recovery"
 title: "防止后台恢复时暴露无样式 RepairDesk 页面"
-status: "conditional"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FE", "UX", "QA", "DOC"]
 created_at: "2026-07-18T19:21:26+02:00"
-updated_at: "2026-07-18T19:33:20+02:00"
+updated_at: "2026-07-18T18:04:29Z"
+closed_at: "2026-07-18T18:04:29Z"
 ---
 
 # Task — 防止后台恢复时暴露无样式 RepairDesk 页面
@@ -29,9 +30,8 @@ updated_at: "2026-07-18T19:33:20+02:00"
 
 ### Out of scope
 
-- 生产发布与域名切换。
 - Service Worker 离线业务能力重构。
-- 业务页面、权限、数据库和 API 行为变化。
+- 业务页面、权限、数据库、API 和域名配置变化。
 
 ## Acceptance criteria
 
@@ -51,8 +51,8 @@ updated_at: "2026-07-18T19:33:20+02:00"
 
 ## Change contract
 
-- Allowed: `src/app/layout.tsx`, `src/styles.css`, style-recovery component/helper/tests, task evidence.
-- Forbidden: database, auth, permissions, payments, production deploy, unrelated dirty files.
+- Allowed: `src/app/layout.tsx`, `src/styles.css`, style-recovery component/helper/tests, task evidence, Owner-authorized `main` push and Vercel production verification.
+- Forbidden: database, auth, permissions, payments, unrelated dirty files.
 - Rollback: remove the guard/recovery files and revert the scoped layout/style additions.
 
 ## Agent plan
@@ -67,7 +67,9 @@ updated_at: "2026-07-18T19:33:20+02:00"
 
 ## Closeout
 
-- Result: scoped implementation and browser acceptance completed.
-- Quality gate: CONDITIONAL because the repository-wide suite has five unrelated date-sensitive failures in the already modified store invitation tests; 1487 other tests passed.
-- Production: not deployed. Owner approval is required for release.
-- Visual evidence: `screenshots/TASK-20260718-011-global-style-recovery/mobile-login-styled.jpg` and `desktop-login-styled.jpg`.
+- Result: implementation, release and production acceptance completed.
+- Quality gate: PASS on the latest `origin/main`: lint, typecheck, production build, 278 test files / 1776 tests, Chromium 3/3 and WebKit 3/3.
+- GitHub: `main` contains `45d4b6697328a4bfd987d7da2598c45f908a011a` (`fix: recover from missing app styles`).
+- Production: Vercel deployment `dpl_8p27HyeyuazzCykGSF4tfaRGbbrp` reached `READY`; `chinatech.in` served the critical guard, style-ready marker and locally hosted font assets.
+- Visual evidence: local build screenshots `mobile-login-styled.jpg` / `desktop-login-styled.jpg`; public production screenshots `mobile-login-production.jpg` / `desktop-login-production.jpg` in the task screenshot directory.
+- Residual risk: browsers, networks and CDNs can still fail to load resources, but known stylesheet-failure paths no longer expose raw business DOM and automatic reload is limited by a 30-second session cooldown.
