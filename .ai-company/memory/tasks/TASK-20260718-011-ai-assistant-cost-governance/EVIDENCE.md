@@ -44,3 +44,6 @@
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
+- `2026-07-18T20:26:10Z` `7d91d76323` — main lineage check: ca271119 is an ancestor of 19c4feb8; downstream diff is limited to TASK-013 memory and Inventory V2 migration-recovery files.
+- `2026-07-18T20:26:10Z` `453ecb4290` — Vercel deployment dpl_8jQ3jopzibHgL249jCMRVqeYn3F9 is Ready and aliases www.chinatech.in plus chinatech.in.
+- `2026-07-18T20:26:10Z` `58a4d961e5` — Task business candidate gates remain agents/lint/typecheck, 296 files and 1858 tests, Webpack 26-page build, staff 6/6, focused local-first tests and three independent P0=0/P1=0 reviews.

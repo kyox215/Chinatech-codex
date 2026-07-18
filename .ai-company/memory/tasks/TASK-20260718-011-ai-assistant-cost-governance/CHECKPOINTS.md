@@ -72,3 +72,15 @@
 - **Next:** No active execution. Any paid/live Phase 3B work requires a new R4 task and Owner D4 approvals for budget, privacy/vendor, key, migration, retention, distributed limiting and canary activation.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T20:26:10Z — Phase 3A dormant cost governance remains preserved in main lineage; final task closeout commit ca271119 is READY as deployment dpl_8jQ3jopzibHgL249jCMRVqeYn3F9 and owns both production aliases; latest main 19c4feb8 is a descendant that adds independent Inventory V2 migration-recovery work without overwriting Phase 3A.
+
+- **Phase:** conditional-closeout
+- **Completed/current state:** Phase 3A dormant cost governance remains preserved in main lineage; final task closeout commit ca271119 is READY as deployment dpl_8jQ3jopzibHgL249jCMRVqeYn3F9 and owns both production aliases; latest main 19c4feb8 is a descendant that adds independent Inventory V2 migration-recovery work without overwriting Phase 3A.
+- **Next:** Keep AI key, provider, policy seed, production AI migration and activation disabled. Resume only under a new R4 task with Owner D4 approvals; current TASK-013 remains the active independent production-migration gate.
+- **Decision:** Treat 19c4feb8 as an independent downstream task, not part of Phase 3A acceptance or authorization; preserve TASK-013 active context after this checkpoint.
+- **Blocker:** Live AI remains blocked on separate approvals for budget, privacy/vendor, API key, migration application, retention, distributed limiting and canary activation.
+- **Evidence:**
+  - main lineage check: ca271119 is an ancestor of 19c4feb8; downstream diff is limited to TASK-013 memory and Inventory V2 migration-recovery files.
+  - Vercel deployment dpl_8jQ3jopzibHgL249jCMRVqeYn3F9 is Ready and aliases www.chinatech.in plus chinatech.in.
+  - Task business candidate gates remain agents/lint/typecheck, 296 files and 1858 tests, Webpack 26-page build, staff 6/6, focused local-first tests and three independent P0=0/P1=0 reviews.
+- **Recorded by:** IntegrationLead

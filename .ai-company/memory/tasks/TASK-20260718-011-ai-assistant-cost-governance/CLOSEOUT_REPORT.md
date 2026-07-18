@@ -31,8 +31,8 @@
 - Reviewed scope SHA: `2a917a00fb6b20bc96e57180b8c6a6a65b862fac`。
 - Git：命名恢复分支与 `main` 均通过非强制快进接收本次范围。
 - Exact-scope deployment：`dpl_8VBRyFn5WZ9k4YKt25ACkaQ1AEPC`，READY，metadata `gitCommitSha=2a917a00...`。
-- Final main：`d84dae8676e9b53609efb79d2ef69c093794f134`；它只在本次 SHA 之后追加 TASK-012 记忆关闭文件，不改变业务代码。
-- Final production：`dpl_8nFPJjX3dY7Xbh9KTxBCdc5wRVfF`，READY，绑定 `https://www.chinatech.in`，Vercel Git metadata 对应 `d84dae86`。
+- Phase 3A closeout：`ca2711196432f71352622d4768d59544468d0828`；生产部署 `dpl_8jQ3jopzibHgL249jCMRVqeYn3F9` 为 READY，同时绑定 `https://www.chinatech.in` 与 `https://chinatech.in`。
+- 后继 `main@19c4feb8dc5e307dff6ef717041d429acc779c98` 包含上述 closeout；其新增差异仅属于独立 `TASK-20260718-013` 记忆与 Inventory V2 migration-recovery 文件，没有覆盖 Phase 3A。该后继不属于本任务验收，也不代表任何 migration 已获准或已 apply。
 - Rollback：`dpl_FueK1juPvAp8UJrE1FdvPxRYRy4o` / `main@de5f8b49`，READY。
 - Production env-name review：`AI_*` / `OPENAI_*` 名称为 0；父/子 flags 缺省 `0`，provider 缺省 `fake`。
 
