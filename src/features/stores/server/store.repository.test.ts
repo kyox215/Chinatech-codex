@@ -1223,6 +1223,23 @@ describe("store repository access request boundaries", () => {
     expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 
+  it("rejects phase-two cost grants and their implicit prerequisites while the parent flag is off", async () => {
+    const memberReadQuery = createSupabaseQuery({
+      data: membershipRow({ role: "manager", status: "active" }),
+      error: null,
+    });
+    const grantsQuery = createSupabaseQuery({ data: [], error: null });
+    mocks.supabase.from.mockReturnValueOnce(memberReadQuery).mockReturnValueOnce(grantsQuery);
+
+    await expect(
+      updateStoreMemberPermissions(
+        { id: "membership_staff", permissions: ["finance:cost_export"] },
+        storeOwner,
+      ),
+    ).rejects.toThrow("内部成本功能尚未启用");
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it("preserves an existing repair-cost grant during a flag-off rollback", async () => {
     const memberReadQuery = createSupabaseQuery({
       data: membershipRow({ role: "manager", status: "active" }),

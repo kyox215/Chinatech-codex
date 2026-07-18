@@ -1,0 +1,17 @@
+# Evidence Index — TASK-20260718-008-order-cost-phase2
+
+| Evidence ID | Type | Claim supported | Source/path/command | Result | Collected at | Collector |
+|---|---|---|---|---|---|---|
+| E-001 | request | task exists and title is recorded | `TASK.md` | observed | 2026-07-18T10:18:13Z | IntegrationLead |
+| E-002 | git | isolated implementation baseline is current | `git rev-parse HEAD` | `0c474318512f98827000ef6ab1755843bc9b8d8d` | 2026-07-18 | IntegrationLead |
+| E-003 | test | Phase 1 focused baseline remains green | focused `vitest run` command in Stage 00 | 7 files / 49 tests passed | 2026-07-18 | IntegrationLead |
+| E-004 | review | product, architecture and UX boundary accepted | agent `019f720b-283f-7591-9e66-408042c665b0` | projection + ledger; quote-margin naming | 2026-07-18 | FLOW/UX/Architecture |
+| E-005 | review | data and security boundary accepted conditionally | agent `019f720b-48a1-7dc2-a6ed-567b9e099ea2` | local proceed; production DB gate remains | 2026-07-18 | DATA/SEC |
+| E-006 | review | QA and release matrix defined | agent `019f720b-6f58-7000-81a0-d9d8163e5064` | pgTAP/E2E/release-lock requirements | 2026-07-18 | QA/Release |
+| E-007 | migration | Stage 01 additive schema and ACL contract | `supabase/migrations/20260718103018_order_cost_phase2_ledger_permissions.sql` | exact migration applied in disposable Postgres harness | 2026-07-18 | IntegrationLead |
+| E-008 | database behavior | null/zero, estimated/confirmed, revision append and forged-grant denial | `supabase/test-fixtures/order_cost_phase2_minimal_*` | `order_cost_phase2_minimal_harness_passed` | 2026-07-18 | IntegrationLead |
+| E-009 | test | Stage 01 focused verification | focused Vitest, typecheck, changed-file ESLint, `git diff --check` | 56 focused tests + 4 permission tests passed; type/lint/diff green | 2026-07-18 | IntegrationLead |
+| E-010 | blocker | clean repository migration replay remains broken before TASK-008 | isolated `supabase start` with temporary project ID/ports | legacy migration failed: missing `inventory_items.product_channel` | 2026-07-18 | IntegrationLead |
+
+Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
+IDs, test reports, screenshots, or concise log references.

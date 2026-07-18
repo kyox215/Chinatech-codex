@@ -3,6 +3,12 @@ import type {
   AuditActor,
   CreateOrderCostInput,
   FaultPriceItem,
+  InternalCostCurrencySnapshot,
+  OrderCostHistoryResult,
+  OrderLineCostEvidenceStatus,
+  OrderLineCostRevisionItem,
+  OrderLineCostRevisionKind,
+  OrderLineCostSource,
   OrderLineCostsResult,
   StoreFaultCostDefaultsResult,
   UpdateOrderLineCostsRequest,
@@ -40,6 +46,63 @@ function requireActorId(actor: AuditActor) {
 function nullableMoney(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
   return money(value);
+}
+
+const costSources = new Set<OrderLineCostSource>([
+  "store_default",
+  "manual",
+  "manual_blank",
+  "historical_unknown",
+  "purchase_lot",
+  "supplier_document",
+  "backfill_estimate",
+]);
+
+const evidenceStatuses = new Set<OrderLineCostEvidenceStatus>([
+  "unknown",
+  "estimated",
+  "confirmed",
+  "reconciled",
+]);
+
+const revisionKinds = new Set<OrderLineCostRevisionKind>([
+  "migration_snapshot",
+  "created",
+  "corrected",
+  "activated",
+  "deactivated",
+  "allocated",
+  "reversed",
+  "backfill_applied",
+  "backfill_reverted",
+  "reconciled",
+]);
+
+function costSource(value: unknown): OrderLineCostSource {
+  return costSources.has(value as OrderLineCostSource)
+    ? (value as OrderLineCostSource)
+    : "historical_unknown";
+}
+
+function evidenceStatus(value: unknown, amount: number | null): OrderLineCostEvidenceStatus {
+  if (evidenceStatuses.has(value as OrderLineCostEvidenceStatus)) {
+    return value as OrderLineCostEvidenceStatus;
+  }
+  return amount === null ? "unknown" : "estimated";
+}
+
+function currencySnapshot(row: Row): InternalCostCurrencySnapshot | undefined {
+  const originalAmount = Number(row.original_amount);
+  const rate = Number(row.fx_rate_to_eur);
+  const code = maybeString(row.original_currency_code);
+  if (!Number.isFinite(originalAmount) || !Number.isFinite(rate) || !code) return undefined;
+  return {
+    original_amount: originalAmount,
+    original_currency_code: code,
+    fx_rate_to_eur: rate,
+    fx_rate_at: maybeString(row.fx_rate_at),
+    fx_rate_source: maybeString(row.fx_rate_source),
+  };
 }
 
 function assertCostRpcResult(data: unknown, error: { message: string } | null, context: string) {
@@ -172,16 +235,62 @@ export async function getOrderLineCosts(
       if (!line.line_id) return [];
       const row = byLine.get(line.line_id);
       const catalog = line.catalog_key ? resolveRepairServiceCatalogItem(line) : undefined;
+      const amount = nullableMoney(row?.cost_amount);
       return [
         {
           line_id: line.line_id,
           catalog_key: catalog?.catalogKey ?? line.catalog_key,
           name: line.name,
-          cost_amount: nullableMoney(row?.cost_amount),
-          source:
-            row?.source === "manual" || row?.source === "manual_blank"
-              ? row.source
-              : "store_default",
+          cost_amount: amount,
+          source: costSource(row?.source),
+          evidence_status: evidenceStatus(row?.evidence_status, amount),
+          currency_snapshot: row ? currencySnapshot(row) : undefined,
+          source_reference_type: maybeString(row?.source_reference_type),
+          source_reference_id: maybeString(row?.source_reference_id),
+        },
+      ];
+    }),
+  };
+}
+
+export async function getOrderCostHistory(
+  orderId: string,
+  actor: AuditActor,
+): Promise<OrderCostHistoryResult> {
+  assertCanReadOrderCosts(actor);
+  const storeId = requireStoreIdFromActor(actor);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_read_order_cost_history_rpc", {
+    p_store_id: storeId,
+    p_order_id: orderId,
+    p_actor_id: requireActorId(actor),
+  });
+  const result = assertCostRpcResult(data, error, "读取工单成本历史失败");
+  const rows = Array.isArray(result.items) ? (result.items as Row[]) : [];
+  return {
+    order_id: orderId,
+    items: rows.flatMap((row): OrderLineCostRevisionItem[] => {
+      const id = maybeString(row.id);
+      const lineId = maybeString(row.line_id);
+      const createdAt = maybeString(row.created_at);
+      const amount = nullableMoney(row.cost_amount);
+      const kind = row.change_kind as OrderLineCostRevisionKind;
+      if (!id || !lineId || !createdAt || !revisionKinds.has(kind)) return [];
+      return [
+        {
+          id,
+          line_id: lineId,
+          projection_revision: Number(row.projection_revision ?? 0),
+          change_kind: kind,
+          catalog_key: maybeString(row.catalog_key),
+          cost_amount: amount,
+          source: costSource(row.source),
+          evidence_status: evidenceStatus(row.evidence_status, amount),
+          is_active: row.is_active === true,
+          currency_snapshot: currencySnapshot(row),
+          source_reference_type: maybeString(row.source_reference_type),
+          source_reference_id: maybeString(row.source_reference_id),
+          reason: maybeString(row.reason),
+          created_at: createdAt,
         },
       ];
     }),

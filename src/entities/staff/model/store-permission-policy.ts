@@ -8,6 +8,16 @@ export const storePermissionActions = [
   "finance:aggregate_read",
   "finance:profit_read",
   "finance:cost_manage",
+  "finance:cost_export",
+  "finance:cost_backfill_preview",
+  "inventory:cost_allocate",
+] as const satisfies readonly StorePermissionAction[];
+
+export const orderCostGrantActions = [
+  "finance:cost_manage",
+  "finance:cost_export",
+  "finance:cost_backfill_preview",
+  "inventory:cost_allocate",
 ] as const satisfies readonly StorePermissionAction[];
 
 const managerOnlyGrants = new Set<StorePermissionAction>([
@@ -15,10 +25,17 @@ const managerOnlyGrants = new Set<StorePermissionAction>([
   "finance:aggregate_read",
   "finance:profit_read",
   "finance:cost_manage",
+  "finance:cost_export",
+  "finance:cost_backfill_preview",
+  "inventory:cost_allocate",
 ]);
 
 export function isStorePermissionAction(value: unknown): value is StorePermissionAction {
   return storePermissionActions.includes(value as StorePermissionAction);
+}
+
+export function isOrderCostGrantAction(value: unknown): value is StorePermissionAction {
+  return orderCostGrantActions.includes(value as (typeof orderCostGrantActions)[number]);
 }
 
 export function canRoleReceiveStorePermissionGrant(role: StoreRole, action: StorePermissionAction) {
@@ -44,6 +61,9 @@ export function normalizeStorePermissionGrants(
     normalized.add("supplier:read");
   }
   if (normalized.has("supplier:assign")) normalized.add("supplier:read");
+  if (normalized.has("finance:cost_export")) normalized.add("finance:profit_read");
+  if (normalized.has("finance:cost_backfill_preview")) normalized.add("finance:cost_manage");
+  if (normalized.has("inventory:cost_allocate")) normalized.add("finance:cost_manage");
   if (normalized.has("finance:profit_read")) normalized.add("finance:aggregate_read");
 
   return storePermissionActions.filter((action) => normalized.has(action));

@@ -46,6 +46,7 @@ import {
   provisionStoreDefaults,
 } from "@/features/stores/server/store-provisioning";
 import {
+  isOrderCostGrantAction,
   isStorePermissionAction,
   normalizeStorePermissionGrants,
 } from "@/entities/staff/model/store-permission-policy";
@@ -472,18 +473,26 @@ export async function updateStoreMemberPermissions(
   if (member.status !== "active") {
     throw new ForbiddenError("停用员工不能修改额外权限，请先恢复员工");
   }
+  const permissions = normalizeStorePermissionGrants(input.permissions, member.role);
   if (
     process.env.REPAIRDESK_ORDER_COSTS_ENABLED !== "1" &&
-    input.permissions.includes("finance:cost_manage")
+    permissions.some(isOrderCostGrantAction)
   ) {
     const existingGrants = await listStoreMemberPermissionGrantRows(supabase, storeId);
-    const alreadyGranted = existingGrants.some(
-      (row) =>
-        requiredString(row.membership_id) === member.id && row.action === "finance:cost_manage",
+    const existingCostActions = new Set(
+      existingGrants
+        .filter((row) => requiredString(row.membership_id) === member.id)
+        .map((row) => row.action)
+        .filter(isOrderCostGrantAction),
     );
-    if (!alreadyGranted) throw new ForbiddenError("内部成本功能尚未启用");
+    if (
+      permissions.some(
+        (action) => isOrderCostGrantAction(action) && !existingCostActions.has(action),
+      )
+    ) {
+      throw new ForbiddenError("内部成本功能尚未启用");
+    }
   }
-  const permissions = normalizeStorePermissionGrants(input.permissions, member.role);
   const { error } = await supabase.rpc("repairdesk_replace_member_permission_grants_rpc", {
     p_store_id: storeId,
     p_membership_id: member.id,

@@ -14,6 +14,7 @@ import type {
   DashboardSummary,
   DashboardSummaryInput,
   OrderDetail,
+  OrderCostHistoryResult,
   OrderCreateOperationStatus,
   OrderLineCostsResult,
   OrderApprovalFlowStatus,
@@ -195,6 +196,7 @@ export type {
   FaultPriceItem,
   MessageLog,
   OrderDetail,
+  OrderCostHistoryResult,
   OrderCreateOperationStatus,
   OrderCapabilities,
   OrderLineCostsResult,
@@ -1180,6 +1182,10 @@ export async function updateStoreFaultCostDefaults(
 
 export async function getOrderLineCosts(id: string): Promise<OrderLineCostsResult> {
   return postJson<OrderLineCostsResult>("orders/internal-costs/read", { id });
+}
+
+export async function getOrderCostHistory(id: string): Promise<OrderCostHistoryResult> {
+  return postJson<OrderCostHistoryResult>("orders/internal-costs/history", { id });
 }
 
 export async function updateOrderLineCosts(

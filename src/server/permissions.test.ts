@@ -193,6 +193,48 @@ describe("server permission matrix", () => {
     }
   });
 
+  it("separates grantable phase-two finance operations from owner-only bulk writes", () => {
+    const owner = actor("owner");
+    for (const action of [
+      "finance:cost_export",
+      "finance:cost_backfill_preview",
+      "finance:cost_backfill_apply",
+      "finance:currency_manage",
+      "inventory:cost_allocate",
+    ] as const) {
+      expect(can(owner, action), action).toBe(true);
+    }
+
+    const manager = actor("manager", {
+      permissionGrants: [
+        "finance:aggregate_read",
+        "finance:profit_read",
+        "finance:cost_manage",
+        "finance:cost_export",
+        "finance:cost_backfill_preview",
+        "inventory:cost_allocate",
+      ],
+    });
+    expect(can(manager, "finance:cost_export")).toBe(true);
+    expect(can(manager, "finance:cost_backfill_preview")).toBe(true);
+    expect(can(manager, "inventory:cost_allocate")).toBe(true);
+    expect(can(manager, "finance:cost_backfill_apply")).toBe(false);
+    expect(can(manager, "finance:currency_manage")).toBe(false);
+
+    for (const role of ["technician", "sales", "viewer"] as const) {
+      const forged = actor(role, {
+        permissionGrants: [
+          "finance:cost_export",
+          "finance:cost_backfill_preview",
+          "inventory:cost_allocate",
+        ],
+      });
+      expect(can(forged, "finance:cost_export"), role).toBe(false);
+      expect(can(forged, "finance:cost_backfill_preview"), role).toBe(false);
+      expect(can(forged, "inventory:cost_allocate"), role).toBe(false);
+    }
+  });
+
   it("lets operational roles search archives while keeping archive browsing owner-gated", () => {
     for (const role of ["owner", "manager", "technician", "sales"] as const) {
       expect(

@@ -52,6 +52,27 @@ export const MEMBER_PERMISSION_OPTIONS: readonly MemberPermissionOption[] = [
     sensitive: true,
   },
   {
+    action: "finance:cost_export",
+    label: "导出维修成本与毛利",
+    description: "包含成本利润查看权限，并可导出脱敏财务明细。",
+    group: "历史与财务",
+    sensitive: true,
+  },
+  {
+    action: "finance:cost_backfill_preview",
+    label: "预览历史成本回填",
+    description: "包含成本管理权限，可生成历史成本候选；不能批量应用。",
+    group: "历史与财务",
+    sensitive: true,
+  },
+  {
+    action: "inventory:cost_allocate",
+    label: "分配维修配件成本",
+    description: "包含成本管理权限，可把采购批次分配到维修项目。",
+    group: "历史与财务",
+    sensitive: true,
+  },
+  {
     action: "supplier:read",
     label: "查看供应商",
     description: "可读取当前店铺的供应商资料。",
@@ -101,7 +122,13 @@ export function createMemberEditorDraft(member: StoreMember): MemberEditorDraft 
 export function visibleMemberPermissionOptions(role: StoreRole, orderCostsEnabled = true) {
   return MEMBER_PERMISSION_OPTIONS.filter(
     (option) =>
-      (orderCostsEnabled || option.action !== "finance:cost_manage") &&
+      (orderCostsEnabled ||
+        ![
+          "finance:cost_manage",
+          "finance:cost_export",
+          "finance:cost_backfill_preview",
+          "inventory:cost_allocate",
+        ].includes(option.action)) &&
       canRoleReceiveStorePermissionGrant(role, option.action),
   );
 }
@@ -132,6 +159,11 @@ export function updateMemberEditorPermission(
     }
     if (action === "supplier:assign") next.delete("supplier:manage");
     if (action === "finance:aggregate_read") next.delete("finance:profit_read");
+    if (action === "finance:profit_read") next.delete("finance:cost_export");
+    if (action === "finance:cost_manage") {
+      next.delete("finance:cost_backfill_preview");
+      next.delete("inventory:cost_allocate");
+    }
   }
   return {
     ...draft,

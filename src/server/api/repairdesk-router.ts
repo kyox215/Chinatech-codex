@@ -49,6 +49,7 @@ import {
   previewOrderDataImport,
 } from "@/features/orders/server/order-data.service";
 import {
+  getOrderCostHistory,
   getOrderLineCosts,
   getStoreFaultCostDefaults,
   updateOrderLineCosts,
@@ -60,6 +61,10 @@ import {
   assertCanReadOrderCosts,
 } from "@/features/orders/server/order-cost-feature";
 import { repairServiceCatalogItems } from "@/entities/order";
+import {
+  isOrderCostGrantAction,
+  normalizeStorePermissionGrants,
+} from "@/entities/staff/model/store-permission-policy";
 import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
 import {
   completeCustomerFollowup,
@@ -195,6 +200,7 @@ import type {
   KioskSessionCreateInput,
   OrderListItem,
   OrderListResult,
+  OrderCostHistoryResult,
   OrderLineCostsResult,
   OrderStats,
   PatchOrderFinanceInput,
@@ -337,6 +343,7 @@ const supabaseSource = {
   getInventorySummary,
   getOnboardingStatus,
   getOrder,
+  getOrderCostHistory,
   getOrderLineCosts,
   getOrderCreateOperationStatus,
   getOrderStats,
@@ -514,6 +521,7 @@ type MockCostDefaultsState = {
 
 const mockCostDefaultsByStore = new Map<string, MockCostDefaultsState>();
 const mockOrderCostState = new Map<string, OrderLineCostsResult>();
+const mockOrderCostHistory = new Map<string, OrderCostHistoryResult>();
 
 function mockCostDefaultsForStore(storeId: string) {
   const saved = mockCostDefaultsByStore.get(storeId);
@@ -761,6 +769,16 @@ async function source() {
       mockOrderCostState.set(stateKey, result);
       return result;
     },
+    getOrderCostHistory: async (id: string, actor: AuditActor) => {
+      const storeId = actor.storeId;
+      if (!storeId) throw new Error("缺少当前店铺");
+      return (
+        mockOrderCostHistory.get(mockOrderCostKey(storeId, id)) ?? {
+          order_id: id,
+          items: [],
+        }
+      );
+    },
     updateOrderLineCosts: async (
       id: string,
       input: {
@@ -810,13 +828,12 @@ async function source() {
       input: StoreMemberPermissionUpdateInput,
       actor: AuditActor,
     ) => {
-      if (
-        process.env.REPAIRDESK_ORDER_COSTS_ENABLED !== "1" &&
-        input.permissions.includes("finance:cost_manage")
-      ) {
+      if (process.env.REPAIRDESK_ORDER_COSTS_ENABLED !== "1") {
         const existing = await mock.listStoreMembers(actor);
         const target = existing.members.find((member) => member.id === input.id);
-        if (!target?.permission_grants?.includes("finance:cost_manage")) {
+        const requested = normalizeStorePermissionGrants(input.permissions, target?.role);
+        const current = new Set(target?.permission_grants ?? []);
+        if (requested.some((action) => isOrderCostGrantAction(action) && !current.has(action))) {
           throw new ForbiddenError("内部成本功能尚未启用");
         }
       }
@@ -1413,6 +1430,19 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
             unidentified_line_count: result.unidentified_line_count,
             version: result.version,
           },
+        });
+        return ok(result);
+      }
+      case "orders/internal-costs/history": {
+        assertCanReadOrderCosts(actor);
+        const { id } = orderLineCostsReadBodySchema.parse(body);
+        const result = await api.getOrderCostHistory(id, actor);
+        await writeAuditLog({
+          actor,
+          action: "read",
+          entityType: "repair_order_line_cost_revisions",
+          entityId: id,
+          metadata: { item_count: result.items.length },
         });
         return ok(result);
       }

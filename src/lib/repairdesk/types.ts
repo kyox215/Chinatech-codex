@@ -85,7 +85,10 @@ export type StorePermissionAction =
   | "order:archive_browse"
   | "finance:aggregate_read"
   | "finance:profit_read"
-  | "finance:cost_manage";
+  | "finance:cost_manage"
+  | "finance:cost_export"
+  | "finance:cost_backfill_preview"
+  | "inventory:cost_allocate";
 
 export type OrderWorkflowStatusCode =
   | "intake"
@@ -222,7 +225,24 @@ export interface CreateOrderCostInput {
   amount?: number;
 }
 
-export type OrderLineCostSource = "store_default" | "manual" | "manual_blank";
+export type OrderLineCostSource =
+  | "store_default"
+  | "manual"
+  | "manual_blank"
+  | "historical_unknown"
+  | "purchase_lot"
+  | "supplier_document"
+  | "backfill_estimate";
+
+export type OrderLineCostEvidenceStatus = "unknown" | "estimated" | "confirmed" | "reconciled";
+
+export interface InternalCostCurrencySnapshot {
+  original_amount: number;
+  original_currency_code: string;
+  fx_rate_to_eur: number;
+  fx_rate_at?: string;
+  fx_rate_source?: string;
+}
 
 export interface OrderLineCostItem {
   line_id: string;
@@ -230,6 +250,10 @@ export interface OrderLineCostItem {
   name: string;
   cost_amount: number | null;
   source: OrderLineCostSource;
+  evidence_status?: OrderLineCostEvidenceStatus;
+  currency_snapshot?: InternalCostCurrencySnapshot;
+  source_reference_type?: string;
+  source_reference_id?: string;
 }
 
 export interface OrderLineCostsResult {
@@ -238,6 +262,40 @@ export interface OrderLineCostsResult {
   currency_code: CurrencyCode;
   items: OrderLineCostItem[];
   unidentified_line_count: number;
+}
+
+export type OrderLineCostRevisionKind =
+  | "migration_snapshot"
+  | "created"
+  | "corrected"
+  | "activated"
+  | "deactivated"
+  | "allocated"
+  | "reversed"
+  | "backfill_applied"
+  | "backfill_reverted"
+  | "reconciled";
+
+export interface OrderLineCostRevisionItem {
+  id: string;
+  line_id: string;
+  projection_revision: number;
+  change_kind: OrderLineCostRevisionKind;
+  catalog_key?: string;
+  cost_amount: number | null;
+  source: OrderLineCostSource;
+  evidence_status: OrderLineCostEvidenceStatus;
+  is_active: boolean;
+  currency_snapshot?: InternalCostCurrencySnapshot;
+  source_reference_type?: string;
+  source_reference_id?: string;
+  reason?: string;
+  created_at: string;
+}
+
+export interface OrderCostHistoryResult {
+  order_id: string;
+  items: OrderLineCostRevisionItem[];
 }
 
 export interface UpdateOrderLineCostInput {

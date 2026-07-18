@@ -1,12 +1,25 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { canManageOrderCosts, canReadOrderCosts } from "./order-cost-feature";
+import {
+  canManageOrderCosts,
+  canReadOrderCosts,
+  isCostBackfillEnabled,
+  isCostExportEnabled,
+  isCostMultiCurrencyEnabled,
+  isPartsProcurementEnabled,
+  isProfitReportsEnabled,
+} from "./order-cost-feature";
 
 const previousFlag = process.env.REPAIRDESK_ORDER_COSTS_ENABLED;
 
 afterEach(() => {
   if (previousFlag === undefined) delete process.env.REPAIRDESK_ORDER_COSTS_ENABLED;
   else process.env.REPAIRDESK_ORDER_COSTS_ENABLED = previousFlag;
+  delete process.env.REPAIRDESK_PROFIT_REPORTS_ENABLED;
+  delete process.env.REPAIRDESK_PARTS_PROCUREMENT_ENABLED;
+  delete process.env.REPAIRDESK_COST_EXPORT_ENABLED;
+  delete process.env.REPAIRDESK_COST_BACKFILL_ENABLED;
+  delete process.env.REPAIRDESK_COST_MULTI_CURRENCY_ENABLED;
 });
 
 describe("order cost feature gate", () => {
@@ -42,5 +55,30 @@ describe("order cost feature gate", () => {
     };
     expect(canReadOrderCosts(sales)).toBe(false);
     expect(canManageOrderCosts(sales)).toBe(false);
+  });
+
+  it("keeps every phase-two child capability fail-closed behind the phase-one flag", () => {
+    process.env.REPAIRDESK_PROFIT_REPORTS_ENABLED = "1";
+    process.env.REPAIRDESK_PARTS_PROCUREMENT_ENABLED = "1";
+    process.env.REPAIRDESK_COST_EXPORT_ENABLED = "1";
+    process.env.REPAIRDESK_COST_BACKFILL_ENABLED = "1";
+    process.env.REPAIRDESK_COST_MULTI_CURRENCY_ENABLED = "1";
+
+    process.env.REPAIRDESK_ORDER_COSTS_ENABLED = "0";
+    expect(isProfitReportsEnabled()).toBe(false);
+    expect(isPartsProcurementEnabled()).toBe(false);
+    expect(isCostExportEnabled()).toBe(false);
+    expect(isCostBackfillEnabled()).toBe(false);
+    expect(isCostMultiCurrencyEnabled()).toBe(false);
+
+    process.env.REPAIRDESK_ORDER_COSTS_ENABLED = "1";
+    expect(isProfitReportsEnabled()).toBe(true);
+    expect(isPartsProcurementEnabled()).toBe(true);
+    expect(isCostExportEnabled()).toBe(true);
+    expect(isCostBackfillEnabled()).toBe(true);
+    expect(isCostMultiCurrencyEnabled()).toBe(true);
+
+    process.env.REPAIRDESK_COST_EXPORT_ENABLED = "true";
+    expect(isCostExportEnabled()).toBe(false);
   });
 });

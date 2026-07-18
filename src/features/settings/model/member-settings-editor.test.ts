@@ -90,6 +90,35 @@ describe("member settings editor", () => {
         (option) => option.action === "finance:cost_manage",
       ),
     ).toBe(false);
+    expect(
+      visibleMemberPermissionOptions("manager", false).some((option) =>
+        [
+          "finance:cost_export",
+          "finance:cost_backfill_preview",
+          "inventory:cost_allocate",
+        ].includes(option.action),
+      ),
+    ).toBe(false);
+  });
+
+  it("adds prerequisite grants for phase-two cost capabilities", () => {
+    const exportDraft = updateMemberEditorPermission(
+      { role: "manager", permissions: [] },
+      "finance:cost_export",
+      true,
+    );
+    expect(exportDraft.permissions).toEqual([
+      "finance:aggregate_read",
+      "finance:profit_read",
+      "finance:cost_export",
+    ]);
+
+    const allocationDraft = updateMemberEditorPermission(
+      { role: "manager", permissions: [] },
+      "inventory:cost_allocate",
+      true,
+    );
+    expect(allocationDraft.permissions).toEqual(["finance:cost_manage", "inventory:cost_allocate"]);
   });
 
   it("marks manager elevation and newly added sensitive grants for confirmation", () => {

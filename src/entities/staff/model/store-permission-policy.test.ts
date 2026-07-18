@@ -9,6 +9,11 @@ describe("store permission grants", () => {
   it("keeps sensitive finance and archive grants manager-only", () => {
     expect(canRoleReceiveStorePermissionGrant("manager", "finance:aggregate_read")).toBe(true);
     expect(canRoleReceiveStorePermissionGrant("manager", "finance:cost_manage")).toBe(true);
+    expect(canRoleReceiveStorePermissionGrant("manager", "finance:cost_export")).toBe(true);
+    expect(canRoleReceiveStorePermissionGrant("manager", "finance:cost_backfill_preview")).toBe(
+      true,
+    );
+    expect(canRoleReceiveStorePermissionGrant("manager", "inventory:cost_allocate")).toBe(true);
     expect(canRoleReceiveStorePermissionGrant("technician", "finance:aggregate_read")).toBe(false);
     expect(canRoleReceiveStorePermissionGrant("technician", "finance:cost_manage")).toBe(false);
     expect(canRoleReceiveStorePermissionGrant("sales", "finance:cost_manage")).toBe(false);
@@ -31,5 +36,18 @@ describe("store permission grants", () => {
       "finance:cost_manage",
     ]);
     expect(normalizeStorePermissionGrants(["finance:cost_manage"], "sales")).toEqual([]);
+    expect(normalizeStorePermissionGrants(["finance:cost_export"], "manager")).toEqual([
+      "finance:aggregate_read",
+      "finance:profit_read",
+      "finance:cost_export",
+    ]);
+    expect(normalizeStorePermissionGrants(["inventory:cost_allocate"], "manager")).toEqual([
+      "finance:cost_manage",
+      "inventory:cost_allocate",
+    ]);
+    expect(normalizeStorePermissionGrants(["finance:cost_backfill_preview"], "manager")).toEqual([
+      "finance:cost_manage",
+      "finance:cost_backfill_preview",
+    ]);
   });
 });
