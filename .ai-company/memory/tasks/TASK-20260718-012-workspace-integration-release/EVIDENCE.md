@@ -22,3 +22,23 @@
 - `RELEASE_UNIT_MATRIX.md`: three scoped units are classified for latest-main reconstruction: order progress sorting, device unlock retention, and store print address with a new forward migration.
 - Store-print direct cherry-pick is FAIL: 14 paths overlap newer main work, including `public_base_url`, lifecycle and order-cost tests. Manual semantic replay is required.
 - Old `20260717175731` migration is skipped; a new migration later than linked `20260718140000` must use lock timeout, avoid DML, and fail closed if the table/columns are absent.
+
+## Phase 02 / 03 implementation and validation
+
+- RU-01 commit `bdffa5f8`: order queues sort by workflow progress before creation timestamp; 128 focused tests PASS.
+- RU-02 commit `05de4df8`: custody transitions no longer clear cached device unlock details and customer-held mobile orders keep the authorized masked edit entry; 117 focused tests plus targeted device-custody E2E 3/3 PASS.
+- RU-03 commit `675d2082`: tenant address is accepted during store creation and used by tenant print identity; forward migration `20260718183206_neutralize_store_settings_identity_defaults.sql` has a 5-second lock timeout and no row DML; 166 focused tests PASS.
+- Full gates: lint PASS, typecheck PASS, 280 test files / 1786 tests PASS, production build PASS, `agents:check` PASS, `git diff --check` PASS.
+- Settings formal E2E: 67/67 PASS after correcting stale test fixtures that hard-coded the retired tenant name and an impossible permission/capability combination. The same three original failures were reproduced on `origin/main@448c2404` before the fixture correction.
+- Browser evidence used only synthetic records. Workflow progress values were nondecreasing in every order group; 390px and 1440px views had no horizontal overflow; customer-held unlock dialog stayed masked; store/print previews used the selected tenant address and contact.
+- Desktop broad suite: 50/58 PASS. Seven failures are unchanged buyback/inventory dialog locators in untouched modules. The remaining 1024 order print locator failure reproduced identically on `origin/main@448c2404`; the same order audit passed at 1280/1440/1536/1600.
+- During validation `origin/main` advanced to `9465ead4` with Inventory V2 commits. This branch must be rebased and revalidated before database or release actions; no stale push is allowed.
+
+## Visual evidence
+
+- `screenshots/TASK-20260718-012-workspace-integration-release/ru01-orders-progress-1440.png`
+- `screenshots/TASK-20260718-012-workspace-integration-release/ru01-orders-progress-390.png`
+- `screenshots/TASK-20260718-012-workspace-integration-release/ru02-device-unlock-customer-held-390.png`
+- `screenshots/TASK-20260718-012-workspace-integration-release/ru03-store-address-1440.png`
+- `screenshots/TASK-20260718-012-workspace-integration-release/ru03-store-address-390.png`
+- `screenshots/TASK-20260718-012-workspace-integration-release/ru03-print-preview-1440.png`

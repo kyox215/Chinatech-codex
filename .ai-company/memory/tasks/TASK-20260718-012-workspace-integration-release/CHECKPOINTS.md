@@ -40,3 +40,11 @@
 - **Immediate verification:** RU-01 128 focused tests PASS; RU-02 117 focused tests PASS; RU-03 166 focused tests plus lint/typecheck PASS.
 - **Database decision:** skipped old `20260717175731`; created `20260718183206` with bounded lock and no row DML.
 - **Next:** commit task evidence, run agents check, full test/build, browser E2E and screenshots before any database or release action.
+
+## 2026-07-18T21:15:00+02:00 — Phase 03 release-unit quality gate complete
+
+- **Phase:** 03 completed; latest-main reconciliation required before Phase 04.
+- **Completed:** lint, typecheck, 1786 unit/integration tests, production build, agents check, settings E2E 67/67, device-custody E2E 3/3, DOM assertions and six synthetic-data screenshots.
+- **Baseline comparison:** the 1024 order print locator fails identically on `origin/main@448c2404`; buyback/inventory dialog failures are in untouched modules. Release-unit behavior passes at the remaining desktop widths and both mobile/desktop browser matrices.
+- **Remote change:** `origin/main` advanced during validation to Inventory V2 closeout commit `9465ead4`; no database apply or push occurred from the stale base.
+- **Next:** commit evidence, rebase the five scoped commits onto the new remote main, resolve only semantic overlaps, and rerun affected gates before linked Supabase dry-run.
