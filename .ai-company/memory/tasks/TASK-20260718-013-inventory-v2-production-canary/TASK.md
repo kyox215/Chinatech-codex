@@ -10,7 +10,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["data", "documentation", "integration", "qa", "release", "security"]
 created_at: "2026-07-18T19:43:02Z"
-updated_at: "2026-07-18T22:00:11Z"
+updated_at: "2026-07-18T22:22:08Z"
 closed_at: "2026-07-18T21:51:17Z"
 ---
 # Task — 库存商品 V2 生产恢复门禁与 Chinatech 单店灰度

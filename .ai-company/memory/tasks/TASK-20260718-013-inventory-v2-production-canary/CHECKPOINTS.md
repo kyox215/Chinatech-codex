@@ -105,3 +105,12 @@
 - **Evidence:**
   - E-020..E-029；PROJECT_MEMORY.md；MEMORY_INDEX.md；docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md。
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T22:22:08Z — 2026-07-19 复核：origin/main@1a86bc75、生产部署 dpl_AQrMFc1fdhzuNrLVMEtJWkRRDHdW 与 www.chinatech.in 一致且 READY；Supabase linked migration history 对齐，dry-run 为 Remote database is up to date；近 1 小时无 runtime error/warning/fatal。数据库 apply 判定为 no-op，不重放迁移；仅推送本复核检查点并验证 Git 集成部署。
+
+- **Phase:** closeout
+- **Completed/current state:** 2026-07-19 复核：origin/main@1a86bc75、生产部署 dpl_AQrMFc1fdhzuNrLVMEtJWkRRDHdW 与 www.chinatech.in 一致且 READY；Supabase linked migration history 对齐，dry-run 为 Remote database is up to date；近 1 小时无 runtime error/warning/fatal。数据库 apply 判定为 no-op，不重放迁移；仅推送本复核检查点并验证 Git 集成部署。
+- **Next:** 保持 Chinatech 单店 allowlist 常规监控；任何新代码、扩店、AI 供应商、V1 关闭或数据清理须新任务与 Owner 批准。
+- **Decision:** 数据库安全 no-op：不重复生产迁移、不从原始脏工作区推送；只提交复核记录，由 Git 集成生成同代码生产部署并核对 exact SHA。
+- **Evidence:**
+  - git fetch + origin/main exact SHA；Supabase migration list --linked 与 db push --linked --dry-run；Vercel get_deployment/inspect 与 1h runtime errors/logs。
+- **Recorded by:** CEO-Orchestrator

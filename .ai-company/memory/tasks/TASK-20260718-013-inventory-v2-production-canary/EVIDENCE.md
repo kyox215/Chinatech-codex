@@ -36,3 +36,4 @@ Do not record secrets or unsupported “passed” claims. Prefer stable paths, c
 IDs, test reports, screenshots, or concise log references.
 - `2026-07-18T21:58:15Z` `d01baabb0f` — E-020..E-029；CEO_REPORT.md；四张生产 JPEG 截图；agents:check、lint、typecheck、297 files/1862 tests、build、linked dry-run、runtime observation。
 - `2026-07-18T22:00:11Z` `61f832e2ba` — E-020..E-029；PROJECT_MEMORY.md；MEMORY_INDEX.md；docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md。
+- `2026-07-18T22:22:08Z` `76a5752238` — git fetch + origin/main exact SHA；Supabase migration list --linked 与 db push --linked --dry-run；Vercel get_deployment/inspect 与 1h runtime errors/logs。

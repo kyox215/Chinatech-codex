@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-18T22:00:11Z"
+last_checkpoint_at: "2026-07-18T22:22:08Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-最终文档漂移复核完成：AI 成本治理 migration 已更新为生产中空且休眠，旧 Inventory V2 production-off 索引均标记为被本任务取代；其余迁移、灰度、回滚、QA、观察和治理证据不变。
+2026-07-19 复核：origin/main@1a86bc75、生产部署 dpl_AQrMFc1fdhzuNrLVMEtJWkRRDHdW 与 www.chinatech.in 一致且 READY；Supabase linked migration history 对齐，dry-run 为 Remote database is up to date；近 1 小时无 runtime error/warning/fatal。数据库 apply 判定为 no-op，不重放迁移；仅推送本复核检查点并验证 Git 集成部署。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-常规监控 Chinatech；任何扩店、AI 供应商、V1 关闭或清理须新 Owner-approved R4/D4 任务。
+保持 Chinatech 单店 allowlist 常规监控；任何新代码、扩店、AI 供应商、V1 关闭或数据清理须新任务与 Owner 批准。
 
 ## Resume protocol
 
