@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-011-ai-assistant-cost-governance"
 title: "RepairDesk AI 小助手 Phase 3A 成本治理与上线准备"
-status: "active"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["API", "Architecture", "DATA", "DOC", "FLOW", "QA", "Release", "SEC"]
 created_at: "2026-07-18T17:11:44Z"
-updated_at: "2026-07-18T19:54:08Z"
+updated_at: "2026-07-18T20:16:13Z"
+closed_at: "2026-07-18T20:10:17Z"
 ---
 # Task — RepairDesk AI 小助手 Phase 3A 成本治理与上线准备
 

@@ -5,8 +5,8 @@
 | Staff / support | exact order and complete local labels can bypass provider; manual save remains required | `docs/AI_ASSISTANT_STAFF_ORDER_ASSISTANT.md`, `docs/AI_ASSISTANT_INVENTORY_VISION.md` | focused component/service tests |
 | Developers | direct/local/provider order, separate abuse/budget guards, signal/Safety ID and audit fields | `docs/AI_ASSISTANT_COST_GOVERNANCE.md`, `docs/ARCHITECTURE.md` | typecheck + focused tests |
 | DATA / Security | three-table ledger, four RPCs, RLS/Grants, conservative settlement, IANA periods | migration + canonical cost governance doc | PostgreSQL 17 parse/catalog/behavior evidence |
-| Ops / Release | new variables fail closed; no enabled policy/apply/key; rollback preserves manual paths | `.env.example`, `RELEASE_PLAN.md`, canonical doc | provider-factory/runtime tests; dormant release proof pending |
-| QA | provider=0/local cloud=0, cost math, migration concurrency and regression matrix | `PHASE_PLAN.md`, `REVIEW_SYNTHESIS.md`, `EVIDENCE.md` | 292 files / 1841 tests, Webpack build, 6/6 staff E2E and all four inventory scenarios verified; HMR environment limitation recorded |
+| Ops / Release | new variables fail closed; no enabled policy/apply/key; rollback preserves manual paths | `.env.example`, `RELEASE_PLAN.md`, canonical doc | exact-scope and final-main READY deploys, auth/API smoke, zero error/fatal/5xx observation and READY rollback verified |
+| QA | provider=0/local cloud=0, cost math, migration concurrency and regression matrix | `PHASE_PLAN.md`, `REVIEW_SYNTHESIS.md`, `EVIDENCE.md` | 296 files / 1858 tests, Webpack build, 6/6 staff E2E and all four inventory behaviors verified; unhydrated Next dev shell limitation recorded |
 
 ## No public contract change
 

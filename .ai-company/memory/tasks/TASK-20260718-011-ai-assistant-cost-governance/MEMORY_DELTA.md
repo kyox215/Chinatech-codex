@@ -20,7 +20,7 @@
 ## Candidate lessons and capability evidence
 
 - Three independent read-only specialist packages produced actionable findings; architecture and data/security final reviews reached P0=0/P1=0 for the dormant slice. Source: `REVIEW_SYNTHESIS.md`; status: verified; permission/autonomy unchanged.
-- Latest-main integration passed Agent checks, lint, typecheck, 292 files / 1841 tests, a 26-page Webpack build, 6/6 staff E2E and all four inventory scenarios across clean dev servers. Source: E-017–E-020; status: verified with the documented HMR limitation.
+- Latest-main integration passed Agent checks, lint, typecheck, 296 files / 1858 tests, a 26-page Webpack build, 6/6 staff E2E and all four inventory behaviors across fresh dev servers. Source: E-024–E-027; status: verified with the documented unhydrated Next dev shell limitation.
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.
@@ -41,5 +41,5 @@ before long-term consolidation.
 ### Not promoted
 
 - Proposed `$50/month`, `20 text + 10 vision/store/day`, global `300/day`, model procurement and retention period remain proposals until Owner D4 approval.
-- The intermittent Next dev/HMR invalid-token event is task-local tooling evidence, not a product architecture rule.
+- The intermittent Next dev unhydrated-shell/HMR event is task-local tooling evidence, not a product architecture rule.
 - Raw traces, local key presence, synthetic identifiers, screenshots and temporary PostgreSQL paths remain scoped evidence only.

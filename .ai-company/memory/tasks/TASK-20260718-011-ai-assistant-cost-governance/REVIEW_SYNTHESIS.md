@@ -36,6 +36,6 @@ All three were genuinely spawned read-only. They made no edits, handled no secre
 
 ## Review outcome
 
-- **Dormant/default-off implementation on `origin/main@de5f8b49`:** Architecture/API final review reports P0=0/P1=0; full quality and focused regression gates pass. Proceed only through the dormant release path.
+- **Dormant/default-off implementation:** all three final reviewers reported P0=0/P1=0 on `2a917a00`; the scope is on final `main@d84dae86` and production READY, with `2a917a00` as an ancestor and exact-scope READY deployment proof.
 - **Paid pilot / migration apply / real data:** BLOCKED pending Owner D4 decisions and production database gate.
 - **Residual P2:** caller cancellation is still observed as provider timeout, the short-window guard is process-local, retention cleanup is not implemented, and the repository-wide historical migration replay remains blocked by pre-existing `product_channel` drift. These do not open a path to live provider use because the provider remains fail-closed.
