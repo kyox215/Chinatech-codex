@@ -35,6 +35,7 @@ import {
   InventoryV2VisionDraftCard,
   type InventoryV2VisionDraft,
 } from "@/features/inventory/components/inventory-v2-vision-draft";
+import { resolveInventoryIntakeRoute } from "@/features/inventory/model/inventory-intake-route";
 import { createInventoryUnitV2InputSchema } from "@/features/inventory/model/inventory-v2-intake-contract";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
@@ -108,22 +109,30 @@ export function InventoryIntakeScreen() {
   const v2Available =
     shell.permissions?.inventoryV2UiEnabled === true &&
     shell.permissions?.inventoryV2CommandsEnabled === true;
+  const authorityReady =
+    shell.status === "ready" &&
+    Boolean(shell.activeStore?.id) &&
+    !shell.isLoading &&
+    !shell.isRefreshing;
+  const intakeRoute = resolveInventoryIntakeRoute({
+    requested: true,
+    authorityReady,
+    inventoryV2Available: v2Available,
+  });
 
   useEffect(() => {
-    if (shell.status !== "ready" || v2Available) return;
-    router.replace("/inventory?new=1");
-  }, [router, shell.status, v2Available]);
+    if (intakeRoute === "legacy") router.replace("/inventory?new=1");
+  }, [intakeRoute, router]);
 
   const suppliersQuery = useQuery({
     queryKey: ["inventory-v2", "suppliers", shell.activeStore?.id],
     queryFn: ({ signal }) => listSuppliers({ signal }),
-    enabled:
-      shell.status === "ready" && v2Available && shell.permissions?.canReadSuppliers === true,
+    enabled: intakeRoute === "v2" && shell.permissions?.canReadSuppliers === true,
   });
   const customersQuery = useQuery({
     queryKey: ["inventory-v2", "customers", shell.activeStore?.id, deferredCustomerSearch],
     queryFn: () => searchCustomers(deferredCustomerSearch, 8),
-    enabled: shell.status === "ready" && v2Available && deferredCustomerSearch.length >= 2,
+    enabled: intakeRoute === "v2" && deferredCustomerSearch.length >= 2,
   });
 
   const input = useMemo<CreateInventoryUnitV2Input>(
@@ -163,13 +172,13 @@ export function InventoryIntakeScreen() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "入库失败，请重试"),
   });
 
-  if (shell.status !== "ready") {
-    if (shell.status === "loading") {
+  if (shell.status !== "ready" || intakeRoute === "wait") {
+    if (shell.status === "loading" || shell.isLoading || shell.isRefreshing) {
       return <div className="p-6 text-sm text-muted-foreground">正在读取门店权限…</div>;
     }
     return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
   }
-  if (!v2Available) {
+  if (intakeRoute === "legacy") {
     return <div className="p-6 text-sm text-muted-foreground">正在返回兼容入库流程…</div>;
   }
   if (!shell.permissions?.canCreateInventory) {

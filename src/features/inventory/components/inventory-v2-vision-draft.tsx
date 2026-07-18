@@ -14,7 +14,10 @@ import {
   type PreparedAiInventoryImage,
 } from "@/features/ai-assistant/model/inventory-image";
 import { recognizeAiInventoryImageLocally } from "@/features/ai-assistant/model/inventory-local-recognition";
-import { mergeInventoryRecognitions } from "@/features/ai-assistant/model/inventory-recognition";
+import {
+  isLocalInventoryRecognitionSufficient,
+  mergeInventoryRecognitions,
+} from "@/features/ai-assistant/model/inventory-recognition";
 import { runAiInventoryVisionRecognition } from "@/lib/repairdesk/api";
 import type { InventoryV2IdentifierInput } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
@@ -91,24 +94,31 @@ export function InventoryV2VisionDraftCard({
         return;
       }
       setPrepared(nextPrepared);
-      const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob);
-      const [localResult, serverResult] = await Promise.allSettled([
+      const [localResult] = await Promise.allSettled([
         recognizeAiInventoryImageLocally(nextPrepared, { signal: controller.signal }),
-        runAiInventoryVisionRecognition(
-          {
-            image_data_url: imageDataUrl,
-            mime_type: nextPrepared.mimeType,
-            byte_length: nextPrepared.byteLength,
-            width: nextPrepared.width,
-            height: nextPrepared.height,
-            locale: "zh-CN",
-          },
-          { signal: controller.signal },
-        ),
       ]);
       if (controller.signal.aborted) return;
       const local = localResult.status === "fulfilled" ? localResult.value : null;
-      const server = serverResult.status === "fulfilled" ? serverResult.value.recognition : null;
+      const localOnly = Boolean(local && isLocalInventoryRecognitionSufficient(local));
+      let server: AiInventoryRecognition | null = null;
+      if (!localOnly) {
+        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob);
+        const [serverResult] = await Promise.allSettled([
+          runAiInventoryVisionRecognition(
+            {
+              image_data_url: imageDataUrl,
+              mime_type: nextPrepared.mimeType,
+              byte_length: nextPrepared.byteLength,
+              width: nextPrepared.width,
+              height: nextPrepared.height,
+              locale: "zh-CN",
+            },
+            { signal: controller.signal },
+          ),
+        ]);
+        if (controller.signal.aborted) return;
+        server = serverResult.status === "fulfilled" ? serverResult.value.recognition : null;
+      }
       if (!local && !server) throw new Error("识别服务暂不可用");
       const merged =
         local && server ? mergeInventoryRecognitions(server, local) : (server ?? local)!;
@@ -123,7 +133,11 @@ export function InventoryV2VisionDraftCard({
           .map(({ index }) => index),
       );
       setStatus("ready");
-      setMessage("AI 仅生成候选，请取消不正确的项目后再确认应用。");
+      setMessage(
+        localOnly
+          ? "本地候选已足够，本次未上传至云端视觉服务；请复核后再应用。"
+          : "AI 仅生成候选，请取消不正确的项目后再确认应用。",
+      );
     } catch (error) {
       if (controller.signal.aborted) return;
       setStatus("error");

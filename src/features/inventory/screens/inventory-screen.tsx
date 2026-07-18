@@ -108,6 +108,7 @@ import {
   buildInventoryBuybackSummary,
   type InventoryBuybackSummary,
 } from "@/features/inventory/model/inventory-buyback-summary";
+import { resolveInventoryIntakeRoute } from "@/features/inventory/model/inventory-intake-route";
 import {
   buildInventorySaleReceiptData,
   getInventoryWarrantyState,
@@ -213,6 +214,11 @@ export function InventoryScreen() {
   const inventoryV2Available =
     shell.permissions?.inventoryV2UiEnabled === true &&
     shell.permissions?.inventoryV2CommandsEnabled === true;
+  const requestedIntakeRoute = resolveInventoryIntakeRoute({
+    requested: searchParams.get("new") === "1",
+    authorityReady: intakeAuthorityReady,
+    inventoryV2Available,
+  });
 
   useEffect(() => {
     setHydrated(true);
@@ -261,10 +267,9 @@ export function InventoryScreen() {
   };
 
   useEffect(() => {
-    if (searchParams.get("new") !== "1") return;
-    if (inventoryV2Available) router.replace("/inventory/new");
-    else setIntakeOpen(true);
-  }, [inventoryV2Available, router, searchParams]);
+    if (requestedIntakeRoute === "v2") router.replace("/inventory/new");
+    else if (requestedIntakeRoute === "legacy") setIntakeOpen(true);
+  }, [requestedIntakeRoute, router]);
 
   useEffect(() => {
     const query = searchParams.get("q");
@@ -325,6 +330,7 @@ export function InventoryScreen() {
   }
 
   function openInventoryIntake() {
+    if (!intakeAuthorityReady) return;
     if (inventoryV2Available) {
       router.push("/inventory/new");
       return;

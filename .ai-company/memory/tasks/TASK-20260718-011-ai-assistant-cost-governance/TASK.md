@@ -9,9 +9,8 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["API", "Architecture", "DATA", "DOC", "FLOW", "QA", "Release", "SEC"]
 created_at: "2026-07-18T17:11:44Z"
-updated_at: "2026-07-18T18:00:04Z"
+updated_at: "2026-07-18T19:27:37Z"
 ---
-
 # Task — RepairDesk AI 小助手 Phase 3A 成本治理与上线准备
 
 ## Owner request
@@ -61,7 +60,7 @@ updated_at: "2026-07-18T18:00:04Z"
 - [x] provider usage 只写入 Token/估算微美元/模型和策略版本等 allowlist 聚合审计，不写敏感正文。
 - [x] durable quota 接口与 additive migration 草案覆盖原子预留、结算、释放、幂等、RLS、最小 Grants 和索引；文档明确保留/回滚计划与未实施边界；本任务不得 apply。
 - [x] 所有真实付费调用、密钥同步、图片外发、生产迁移和 public activation 继续 fail-closed。
-- [ ] 定向测试、lint、typecheck、全量 test、Webpack build、相关 fake E2E、安全/数据复核和检查点均有真实证据。
+- [x] 定向测试、lint、typecheck、全量 test、Webpack build、相关 fake E2E、安全/数据复核和检查点均有真实证据；库存 E2E 整文件开发服务器运行发现一例 Next/HMR 脚本解析环境故障，trace 证明发生在任何业务 API 请求前，受影响 390px 场景已在全新服务器独立通过并如实记录。
 
 ## Facts, assumptions, and unknowns
 
