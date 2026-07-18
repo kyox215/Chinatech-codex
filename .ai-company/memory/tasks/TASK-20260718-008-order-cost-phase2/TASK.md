@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260718-008-order-cost-phase2"
 title: "订单成本第二期分阶段实施与发布"
-status: "active"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["API", "DATA", "DOC", "FE", "FLOW", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-18T10:18:13Z"
-updated_at: "2026-07-18T14:38:02Z"
+updated_at: "2026-07-18T14:48:02Z"
 ---
 # Task — 订单成本第二期分阶段实施与发布
 
@@ -58,7 +58,7 @@ updated_at: "2026-07-18T14:38:02Z"
 - [x] 利润报表与趋势不把未知成本当作零，并遵守角色和门店隔离
 - [x] 供应商、配件采购批次与订单项目成本可追溯且不会静默改写历史
 - [x] 导出、历史回填和多币种均具备权限、审计、幂等及回滚边界
-- [ ] 完整门禁通过后精确应用本任务迁移、快进推送 main、部署并完成生产观察
+- [ ] 完整门禁通过后精确应用本任务迁移、快进推送 main、部署并完成生产观察（Stage 07 NO-GO：恢复、历史 replay 与 legacy 安全门未通过）
 
 ## Facts, assumptions, and unknowns
 

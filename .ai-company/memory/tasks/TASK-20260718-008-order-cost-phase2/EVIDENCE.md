@@ -45,6 +45,11 @@
 | E-041       | quality           | rebased candidate passes complete repository gates | `agents:check`; lint; typecheck; full Vitest; `git diff --check` | all passed; 259 files / 1669 tests | 2026-07-18 | IntegrationLead |
 | E-042       | build             | exact candidate compiles in production mode | `npx next build --webpack` | passed; 25 application pages; default Turbopack blocked only by external node_modules symlink | 2026-07-18 | IntegrationLead |
 | E-043       | documentation     | public behavior, permissions, flags, migration order and rollback match Phase 2 code | `docs/ORDER_INTERNAL_COSTS.md`; `.env.example`; Stage 06 packet | synchronized; production NO-GO retained | 2026-07-18 | IntegrationLead |
+| E-044       | linked preflight  | production migration history selects exactly the reviewed candidate | `supabase migration list --linked`; `supabase db push --linked --dry-run` | Phase 1 applied; exactly six TASK-008 migrations pending/dry-run; no write | 2026-07-18 | IntegrationLead |
+| E-045       | recovery          | current backup visibility does not satisfy restore certification | `supabase backups list --project-ref xluzcoduqsdvjoouqhkc` | latest physical backup completed 2026-07-18T06:49:11.673Z; PITR false; no isolated restore proof | 2026-07-18 | IntegrationLead |
+| E-046       | live security     | broad legacy database gate remains unsafe despite no current RLS-disabled/browser-grant overlap | read-only catalog SQL; Supabase security advisors | 17 RLS-disabled legacy tables; 0 overlap with 15 browser-granted tables; 7 permissive write policies and 5 mutable-path functions | 2026-07-18 | IntegrationLead |
+| E-047       | git               | final remote assertion is current and no release write occurred | final `git fetch --prune`; divergence and SHA checks | candidate 8e504672 seven ahead / zero behind origin/main@51d5b3b9; not pushed | 2026-07-18 | IntegrationLead |
+| E-048       | release decision  | failing R4 gates stopped every production mutation | Stage 07 stop record | no DB apply, no main push, no deploy, no flags, no production backfill | 2026-07-18 | IntegrationLead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

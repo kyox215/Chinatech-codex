@@ -99,3 +99,21 @@
 - **Next:** Commit Stage 06, then run Stage 07 read-only linked/remote preflight under serialized release control. Stop before DB/Git/deploy writes unless historical replay, legacy browser-role exposure and PITR/isolated restore proof gates are all GO.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-18T14:44:15Z — Stage 07 stopped at the production Database Application Gate
+
+- **Phase:** production preflight / blocked
+- **Completed/current state:** final fetch is current; linked history and exact dry-run select only the six reviewed TASK-008 migrations; live backup, catalog and security advisor evidence were refreshed without mutation.
+- **Passed:** exact pending set and dry-run; candidate `8e504672` is seven ahead/zero behind `origin/main@51d5b3b9`; latest physical backup is completed; RLS-disabled tables and browser-granted tables currently have zero overlap.
+- **Failed:** PITR is false and no isolated restore proof exists; full historical replay still fails at `20260611102805`; 17 legacy public tables still have RLS disabled; advisors report seven overly permissive write policies and five mutable-path functions.
+- **Decision:** NO-GO. No linked apply, production data change, main push, deploy, feature-flag change or historical backfill occurred.
+- **Next:** Owner must authorize a separate P0 recovery/security remediation scope. After it closes, resume Stage 07 at fresh remote/link/dry-run preflight; do not reuse stale evidence.
+- **Evidence:** E-044 through E-048.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T14:48:02Z — Stage 07 read-only preflight is NO-GO: linked history and exact dry-run select only six TASK-008 migrations, but PITR is false with no isolated restore proof, historical replay still fails before TASK-008, and live legacy security findings remain. No DB apply, main push, deploy, flag change or backfill occurred.
+
+- **Phase:** implementation
+- **Completed/current state:** Stage 07 read-only preflight is NO-GO: linked history and exact dry-run select only six TASK-008 migrations, but PITR is false with no isolated restore proof, historical replay still fails before TASK-008, and live legacy security findings remain. No DB apply, main push, deploy, flag change or backfill occurred.
+- **Next:** Await Owner authorization for a separate P0 recovery/security remediation package. After it closes, repeat Stage 07 fetch, linked list/dry-run, backup and advisor checks from fresh state before any production write.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
