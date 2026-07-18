@@ -2,11 +2,11 @@
 
 ## Current state
 
-首个 V2 可发布纵向切片已在隔离工作树完成：additive schema、原子入库/售卖、六步跨端页面、AI 人工复核、权限/flag、mock/API 和发布手册均已实现。生产 DB 未 apply，V2 flags 默认关闭，V1 保持可用。
+首个 V2 可发布纵向切片已推送 `main`，并由 Vercel Git 集成完成 production Ready：additive schema、原子入库/售卖、六步跨端页面、AI 人工复核、权限/flag、mock/API 和发布手册均已实现。生产 DB 未 apply，V2 flags 默认关闭，V1 保持可用。
 
 ## Resume first action
 
-先确认当前提交已推送到 `main` 且自动 Web 部署对应同一 SHA。生产正式启用时，从 `docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md` 的 linked dry-run、恢复证明和单店 allowlist 开始；不得直接打开全部 flags。
+生产正式启用时，从 `docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md` 的 linked dry-run、恢复证明和单店 allowlist 开始；不得直接打开全部 flags。
 
 ## Stop conditions
 

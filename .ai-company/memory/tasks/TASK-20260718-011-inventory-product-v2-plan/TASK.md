@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-011-inventory-product-v2-plan"
 title: "RepairDesk 库存商品 V2 重建与正式上线规划"
-status: "in_progress"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["Architecture", "DATA", "FLOW", "QA", "SEC", "UX", "DOC", "Release"]
 created_at: "2026-07-18T17:00:00Z"
-updated_at: "2026-07-18T19:07:05Z"
+updated_at: "2026-07-18T19:11:13Z"
+closed_at: "2026-07-18T19:11:13Z"
 ---
 # Task — RepairDesk 库存商品 V2 重建与正式上线规划
 
@@ -57,7 +58,7 @@ updated_at: "2026-07-18T19:07:05Z"
 - [x] 新手六步录入、来源主体和原子销售入口跨端可用；检测/上架继续复用 V1 兼容工作流。
 - [x] 既有 AI 拍照识别可应用到 V2 草稿，且不能直接正式写入。
 - [x] lint、typecheck、test、build、迁移静态/隔离验证和浏览器截图通过。
-- [ ] 任务范围提交并在远端未漂移前推送 `main`。
+- [x] 任务范围提交并在远端未漂移前推送 `main`。
 
 ## Risk and autonomy
 

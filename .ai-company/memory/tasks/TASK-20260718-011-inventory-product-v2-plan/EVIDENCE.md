@@ -16,6 +16,7 @@
 | E-012 | Regression | 最新 `origin/main` 基线回归通过 | `npm run lint/typecheck/test/build` | lint 0；typecheck 0；284 files / 1793 tests；Next production build 0 |
 | E-013 | UX | 手机/桌面逐步录入通过 | `evidence/inventory-v2-mobile-review.png`、`inventory-v2-desktop-review.png` | 390×844、1440×900；来源→AI→型号→来源主体→价格→复核，草稿保持 |
 | E-014 | Release | 默认上线不改变生产行为 | `.env.example`、feature-flag tests、release runbook | flags 默认关闭；V2 RPC 对 service_role 仍 revoke；V1 fallback 保留 |
+| E-015 | Release | `main` 与生产 Web 发布完成 | GitHub `main`、Vercel `dpl_FuGZktZ9odY6Coce73vtx4SRfYuF` | `7238123c102f9b6872e679334cccaa54a087d8e3` 已推送；production Ready；`/inventory` 未登录正确 307 到登录页；最近 10 分钟无 error logs |
 
 本任务不记录 secret、完整客户 PII、完整 IMEI 或生产数据。
 - `2026-07-18T17:34:39Z` `853770b8a4` — docs/INVENTORY_PRODUCT_V2_RELAUNCH_PLAN.md

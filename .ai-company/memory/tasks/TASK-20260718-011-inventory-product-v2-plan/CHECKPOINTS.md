@@ -49,3 +49,17 @@
 - **Next:** 提交最新基线回归证据，重新 fetch 确认 main 未漂移后推送；核验远端 SHA 与 Vercel Git 自动部署，不执行生产数据库 migration。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T19:11:13Z — 库存商品 V2 已推送 GitHub main；Vercel production 部署 dpl_FuGZktZ9odY6Coce73vtx4SRfYuF 对应提交 7238123c102f9b6872e679334cccaa54a087d8e3 并 Ready，未登录库存路由 307 登录符合预期，最近 10 分钟无 error logs。
+
+- **Phase:** release
+- **Completed/current state:** 库存商品 V2 已推送 GitHub main；Vercel production 部署 dpl_FuGZktZ9odY6Coce73vtx4SRfYuF 对应提交 7238123c102f9b6872e679334cccaa54a087d8e3 并 Ready，未登录库存路由 307 登录符合预期，最近 10 分钟无 error logs。
+- **Next:** 以 conditional 状态关闭本切片；后续仅在 Owner 独立批准后执行生产 linked migration dry-run、恢复门禁、RPC grant 与单店 allowlist。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T19:11:13Z — Task closeout
+
+- **Status:** conditional
+- **Outcome:** 库存商品 V2 可发布代码、跨端六步流程、AI 人工确认、原子入库/售卖、迁移和发布手册已验证、推送 main 并完成 production Web 部署；V2 生产能力保持默认关闭。
+- **Residual risks:** 生产数据库尚未 apply；历史全链 supabase db reset 存在 pre-V2 migration 漂移；RPC grant、真实数据对账、财政/保修政策和单店灰度仍需独立 D4 批准。
+- **Follow-up:** Owner 批准正式启用后，严格按 INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md 执行 linked dry-run、恢复验证、单店 allowlist 和观察窗口。
+- **Closed by:** CEO-Orchestrator
