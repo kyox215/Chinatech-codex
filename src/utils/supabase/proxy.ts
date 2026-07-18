@@ -14,6 +14,7 @@ export async function updateSession(request: NextRequest) {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const pathname = request.nextUrl.pathname;
   const isRepairDeskApi = pathname.startsWith("/api/repairdesk");
+  const isAiUsageMaintenanceCron = pathname === "/api/cron/ai-usage-maintenance";
   const isKioskRoute = pathname === "/kiosk" || pathname.startsWith("/api/kiosk");
   const isLoginPage = pathname === "/login";
   const isForgotPasswordPage = pathname === "/forgot-password";
@@ -41,6 +42,13 @@ export async function updateSession(request: NextRequest) {
   const hasPasswordRecoveryCookie = request.cookies.get(PASSWORD_RECOVERY_COOKIE)?.value === "1";
 
   if (isRepairDeskE2eAuthBypassEnabled()) {
+    return NextResponse.next({ request });
+  }
+
+  // This server-to-server route performs its own constant-time CRON_SECRET
+  // check. Let it reach the route handler instead of redirecting an unauthenticated
+  // Vercel Cron request to the login page.
+  if (isAiUsageMaintenanceCron) {
     return NextResponse.next({ request });
   }
 
