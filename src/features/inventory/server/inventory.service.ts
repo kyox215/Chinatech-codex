@@ -16,3 +16,6 @@ export {
   updateInventoryItem,
   uploadInventoryAttachment,
 } from "./inventory.repository";
+
+export { completeInventorySaleV2 } from "./inventory-v2-sale.repository";
+export { createInventoryUnitV2 } from "./inventory-v2-intake.repository";

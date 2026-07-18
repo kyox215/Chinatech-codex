@@ -2,7 +2,7 @@
 
 import type * as React from "react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -119,10 +119,12 @@ import { PrintPortal } from "@/features/orders/components/print-portal";
 import {
   accessInventoryAttachment,
   applyElectronicsCsvImport,
+  completeInventorySaleV2,
   getInventoryItem,
   importElectronicsCsvPreview,
   recordInventoryCheck,
   sellInventoryItem,
+  searchCustomers,
   transitionInventoryItem,
   updateInventoryItem,
   type InventoryDetail,
@@ -132,6 +134,7 @@ import {
   type SellInventoryItemInput,
   type UpdateInventoryItemInput,
 } from "@/lib/repairdesk/api";
+import type { CompleteInventorySaleV2Input, Customer } from "@/lib/repairdesk/types";
 import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp } from "@/lib/motion";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -177,6 +180,7 @@ const inventoryDetailActions = [
 const EMPTY_INVENTORY_ITEMS: InventoryListItem[] = [];
 
 export function InventoryScreen() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const aiAssistant = useAiAssistantWorkspace();
@@ -205,6 +209,9 @@ export function InventoryScreen() {
   const [action, setAction] = useState<InventoryActionMode | null>(null);
   const itemFocusFallbackRef = useRef<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const inventoryV2Available =
+    shell.permissions?.inventoryV2UiEnabled === true &&
+    shell.permissions?.inventoryV2CommandsEnabled === true;
 
   useEffect(() => {
     setHydrated(true);
@@ -253,8 +260,10 @@ export function InventoryScreen() {
   };
 
   useEffect(() => {
-    if (searchParams.get("new") === "1") setIntakeOpen(true);
-  }, [searchParams]);
+    if (searchParams.get("new") !== "1") return;
+    if (inventoryV2Available) router.replace("/inventory/new");
+    else setIntakeOpen(true);
+  }, [inventoryV2Available, router, searchParams]);
 
   useEffect(() => {
     const query = searchParams.get("q");
@@ -314,6 +323,14 @@ export function InventoryScreen() {
     openActionForItem(item, primaryAction.actionKind);
   }
 
+  function openInventoryIntake() {
+    if (inventoryV2Available) {
+      router.push("/inventory/new");
+      return;
+    }
+    setIntakeOpen(true);
+  }
+
   return (
     <RepairOsListScaffold
       title="库存商品"
@@ -322,7 +339,7 @@ export function InventoryScreen() {
       } 件`}
       eyebrow="工作台 / 库存"
       action={
-        <RepairOsHeaderActionButton ariaLabel="新增商品" onClick={() => setIntakeOpen(true)}>
+        <RepairOsHeaderActionButton ariaLabel="新增商品" onClick={openInventoryIntake}>
           <Plus className="size-4" />
         </RepairOsHeaderActionButton>
       }
@@ -365,7 +382,7 @@ export function InventoryScreen() {
           <Button
             className={cn("h-9 gap-2", controls.brandButton)}
             style={brandGradientStyle}
-            onClick={() => setIntakeOpen(true)}
+            onClick={openInventoryIntake}
           >
             <Plus className="size-4" /> 新增商品
           </Button>
@@ -526,9 +543,11 @@ export function InventoryScreen() {
       <InventoryActionDialog
         action={action}
         item={actionItem ?? selectedItem}
+        activeStoreId={activeStoreId}
         storeOutputIdentity={storeOutputIdentity}
         canReadStoreSettings={shell.permissions?.canReadStoreSettings === true}
         canUpdateStoreSettings={shell.permissions?.canUpdateStoreSettings === true}
+        useAtomicSale={inventoryV2Available && shell.permissions?.canSellInventory === true}
         onRetryStoreSettings={storeSettingsQuery.refetch}
         onReloadStoreContext={shell.retry}
         onOpenChange={(open) => {
@@ -1596,9 +1615,11 @@ function InventoryDetailEmptyLine({
 function InventoryActionDialog({
   action,
   item,
+  activeStoreId,
   storeOutputIdentity,
   canReadStoreSettings,
   canUpdateStoreSettings,
+  useAtomicSale,
   onRetryStoreSettings,
   onReloadStoreContext,
   onOpenChange,
@@ -1606,14 +1627,35 @@ function InventoryActionDialog({
 }: {
   action: InventoryActionMode | null;
   item?: InventoryListItem;
+  activeStoreId?: string;
   storeOutputIdentity: StoreOutputIdentity;
   canReadStoreSettings: boolean;
   canUpdateStoreSettings: boolean;
+  useAtomicSale: boolean;
   onRetryStoreSettings?: () => void | Promise<unknown>;
   onReloadStoreContext?: () => void | Promise<unknown>;
   onOpenChange: (open: boolean) => void;
   onDone: (id?: string) => void;
 }) {
+  const [buyerSearch, setBuyerSearch] = useState("");
+  const [selectedBuyer, setSelectedBuyer] = useState<Customer | null>(null);
+  const deferredBuyerSearch = useDeferredValue(buyerSearch.trim());
+  const saleCommandRef = useRef<{ itemId: string; key: string; soldAt: string } | null>(null);
+  const buyersQuery = useQuery({
+    queryKey: ["inventory-v2", "sale-customers", activeStoreId, deferredBuyerSearch],
+    queryFn: () => searchCustomers(deferredBuyerSearch, 6),
+    enabled:
+      Boolean(activeStoreId) &&
+      useAtomicSale &&
+      action === "sell" &&
+      deferredBuyerSearch.length >= 2,
+  });
+
+  useEffect(() => {
+    setBuyerSearch("");
+    setSelectedBuyer(null);
+    saleCommandRef.current = null;
+  }, [action, activeStoreId, item?.id]);
   const updateMutation = useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateInventoryItemInput }) =>
       updateInventoryItem(id, input),
@@ -1649,6 +1691,16 @@ function InventoryActionDialog({
       sellInventoryItem(id, input),
     onSuccess: (_, { id }) => {
       toast.success("已登记售出");
+      onDone(id);
+      onOpenChange(false);
+    },
+    onError: (error) => toast.error((error as Error).message),
+  });
+  const atomicSellMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: CompleteInventorySaleV2Input }) =>
+      completeInventorySaleV2(id, input),
+    onSuccess: (_, { id }) => {
+      toast.success("成交、收款、库存与审计已一次完成");
       onDone(id);
       onOpenChange(false);
     },
@@ -1717,6 +1769,41 @@ function InventoryActionDialog({
   function handleSell(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    if (useAtomicSale) {
+      if (!saleCommandRef.current || saleCommandRef.current.itemId !== currentItem.id) {
+        saleCommandRef.current = {
+          itemId: currentItem.id,
+          key: crypto.randomUUID(),
+          soldAt: new Date().toISOString(),
+        };
+      }
+      const salePrice = numberValue(formData, "sale_price") ?? 0;
+      atomicSellMutation.mutate({
+        id: currentItem.id,
+        input: {
+          expected_updated_at: currentItem.updated_at,
+          idempotency_key: saleCommandRef.current.key,
+          buyer_customer_id: selectedBuyer?.id,
+          sale_price: salePrice,
+          payment_amount: salePrice,
+          payment_method: textValue(formData, "payment_method"),
+          sale_channel: textValue(formData, "sale_channel"),
+          warranty_months: numberValue(formData, "warranty_months") ?? 0,
+          warranty_snapshot: {
+            version: "inventory-sale-v2-2026-07",
+            language: "it",
+            terms: INVENTORY_SALE_RECEIPT_TERMS,
+          },
+          fiscal_status: textValue(
+            formData,
+            "fiscal_status",
+          ) as CompleteInventorySaleV2Input["fiscal_status"],
+          fiscal_reference: optionalValue(formData, "fiscal_reference"),
+          sold_at: saleCommandRef.current.soldAt,
+        },
+      });
+      return;
+    }
     sellMutation.mutate({ id: currentItem.id, input: sellInput(formData) });
   }
 
@@ -1893,8 +1980,11 @@ function InventoryActionDialog({
             description={currentItem.item_label}
             onSubmit={handleSell}
             footer={
-              <Button type="submit" disabled={sellMutation.isPending}>
-                确认售出
+              <Button
+                type="submit"
+                disabled={sellMutation.isPending || atomicSellMutation.isPending}
+              >
+                {useAtomicSale ? "确认成交并全额收款" : "确认售出"}
               </Button>
             }
           >
@@ -1919,8 +2009,43 @@ function InventoryActionDialog({
               />
             </div>
             <div className={compactInventoryGrid}>
-              <Field name="buyer_name" label="买家姓名" />
-              <Field name="buyer_phone" label="买家电话" />
+              {useAtomicSale ? (
+                <div className="col-span-2 space-y-1.5">
+                  <Label>关联客户（可选）</Label>
+                  <Input
+                    value={buyerSearch}
+                    onChange={(event) => {
+                      setBuyerSearch(event.target.value);
+                      setSelectedBuyer(null);
+                    }}
+                    placeholder="输入姓名或电话搜索"
+                    className={compactInventoryInputClass}
+                  />
+                  {selectedBuyer ? (
+                    <p className="text-xs text-status-success-foreground">
+                      已选择：{selectedBuyer.name} · {selectedBuyer.phone_raw}
+                    </p>
+                  ) : null}
+                  {(buyersQuery.data ?? []).map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      className="block w-full rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-left text-xs"
+                      onClick={() => {
+                        setSelectedBuyer(customer);
+                        setBuyerSearch(`${customer.name} · ${customer.phone_raw}`);
+                      }}
+                    >
+                      {customer.name} · {customer.phone_raw}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <Field name="buyer_name" label="买家姓名" />
+                  <Field name="buyer_phone" label="买家电话" />
+                </>
+              )}
               <Field
                 name="sale_price"
                 label="成交价"
@@ -1929,15 +2054,42 @@ function InventoryActionDialog({
                 defaultValue={String(currentItem.list_price || currentItem.sale_price || 0)}
                 required
               />
-              <Field name="payment_method" label="付款方式" />
-              <Field name="sale_channel" label="售卖渠道" defaultValue="store" />
+              <Field
+                name="payment_method"
+                label="付款方式"
+                defaultValue={useAtomicSale ? "cash" : undefined}
+                required={useAtomicSale}
+              />
+              <Field
+                name="sale_channel"
+                label="售卖渠道"
+                defaultValue="store"
+                required={useAtomicSale}
+              />
               <Field
                 name="warranty_months"
                 label="保修月数"
                 type="number"
                 defaultValue={String(currentItem.warranty_months)}
+                required={useAtomicSale}
               />
             </div>
+            {useAtomicSale ? (
+              <div className={compactInventoryGrid}>
+                <SelectField
+                  name="fiscal_status"
+                  label="财政凭证"
+                  options={["pending", "not_required", "recorded"] as const}
+                  optionLabel={(value) =>
+                    ({ pending: "待登记", not_required: "无需登记", recorded: "已登记" })[value]
+                  }
+                />
+                <Field name="fiscal_reference" label="财政凭证引用（已登记时必填）" />
+                <p className="col-span-2 text-xs leading-5 text-muted-foreground">
+                  首版正式成交只支持一次全额收款；库存、收款、售卖事件与审计会在同一事务完成。
+                </p>
+              </div>
+            ) : null}
             <TextAreaField name="notes" label="售卖备注" />
           </ActionForm>
         ) : null}

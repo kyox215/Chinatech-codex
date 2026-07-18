@@ -1510,6 +1510,10 @@ export interface RepairDeskOptions {
     canAssignSuppliers: boolean;
     canManageSuppliers: boolean;
     canReadInventory?: boolean;
+    canCreateInventory?: boolean;
+    canSellInventory?: boolean;
+    inventoryV2UiEnabled?: boolean;
+    inventoryV2CommandsEnabled?: boolean;
     canSearchOrderArchive?: boolean;
     canBrowseOrderArchive?: boolean;
     canReadOrderFinance?: boolean;
@@ -1876,6 +1880,10 @@ export interface StoreContext {
     canAssignSuppliers: boolean;
     canManageSuppliers: boolean;
     canReadInventory?: boolean;
+    canCreateInventory?: boolean;
+    canSellInventory?: boolean;
+    inventoryV2UiEnabled?: boolean;
+    inventoryV2CommandsEnabled?: boolean;
     canManageOrderData?: boolean;
     canApplyOrderData?: boolean;
     canSearchOrderArchive?: boolean;
@@ -2406,6 +2414,82 @@ export interface SellInventoryItemInput {
   warranty_terms_snapshot?: string[];
   sold_at?: string;
   notes?: string;
+}
+
+export type InventoryV2FiscalStatus = "not_required" | "pending" | "recorded";
+
+export interface InventoryV2WarrantySnapshot {
+  version: string;
+  language: "it" | "zh" | "en";
+  terms: string[];
+  disclosed_defects?: string[];
+}
+
+export interface CompleteInventorySaleV2Input {
+  expected_updated_at: string;
+  idempotency_key: string;
+  buyer_customer_id?: string;
+  sale_price: number;
+  payment_amount: number;
+  payment_method: string;
+  sale_channel: string;
+  warranty_months: number;
+  warranty_snapshot: InventoryV2WarrantySnapshot;
+  fiscal_status: InventoryV2FiscalStatus;
+  fiscal_reference?: string;
+  sold_at: string;
+}
+
+export interface CompleteInventorySaleV2Result {
+  ok: true;
+  code: "completed" | "idempotent_replay";
+  sale_id: string;
+  payment_id: string;
+  item_id: string;
+  updated_at: string;
+  fiscal_status: InventoryV2FiscalStatus;
+}
+
+export type InventoryV2IntakeSource = "supplier_purchase" | "repair_resale" | "manual_stock";
+export type InventoryV2StandardizationStatus = "standard" | "unstandardized" | "needs_review";
+export type InventoryV2IdentifierKind = "imei1" | "imei2" | "serial" | "eid" | "ean" | "sku";
+export type InventoryV2IdentifierSource = "manual" | "scan" | "ai_confirmed";
+
+export interface InventoryV2IdentifierInput {
+  kind: InventoryV2IdentifierKind;
+  value: string;
+  slot?: number;
+  source: InventoryV2IdentifierSource;
+  primary: boolean;
+}
+
+export interface CreateInventoryUnitV2Input {
+  idempotency_key: string;
+  source_type: InventoryV2IntakeSource;
+  customer_id?: string;
+  supplier_id?: string;
+  category: string;
+  brand: string;
+  model: string;
+  ram_capacity?: string;
+  storage_capacity?: string;
+  color?: string;
+  identifiers: InventoryV2IdentifierInput[];
+  cost_amount: number;
+  list_price: number;
+  warranty_months: number;
+  location?: string;
+  notes?: string;
+  standardization_status: InventoryV2StandardizationStatus;
+  created_at: string;
+}
+
+export interface CreateInventoryUnitV2Result {
+  ok: true;
+  code: "created" | "idempotent_replay";
+  item_id: string;
+  stock_unit_id: string;
+  created_at: string;
 }
 
 export interface ElectronicsImportWarning {

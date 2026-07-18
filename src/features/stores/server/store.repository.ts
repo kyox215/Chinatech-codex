@@ -60,6 +60,10 @@ import {
 import { deliverStoreInvitationEmail } from "@/features/stores/server/store-invitation-email";
 import { isVerifiedEmailAuthUser } from "@/server/auth-context";
 import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
+import {
+  isInventoryV2CommandEnabledForStore,
+  isInventoryV2UiEnabledForStore,
+} from "@/features/inventory/server/inventory-v2-feature-flags";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -1420,6 +1424,10 @@ async function storePermissionsFromActor(
     canAssignSuppliers: can(actor, "supplier:assign"),
     canManageSuppliers: can(actor, "supplier:manage"),
     canReadInventory: can(actor, "inventory:read"),
+    canCreateInventory: can(actor, "inventory:create"),
+    canSellInventory: can(actor, "inventory:sale"),
+    inventoryV2UiEnabled: isInventoryV2UiEnabledForStore(actor.storeId),
+    inventoryV2CommandsEnabled: isInventoryV2CommandEnabledForStore(actor.storeId),
     canManageOrderData,
     canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
     canSearchOrderArchive: can(actor, "order:archive_search"),

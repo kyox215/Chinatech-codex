@@ -54,6 +54,8 @@ export {
   applyElectronicsCsvImport,
   accessInventoryAttachment,
   createInventoryIntake,
+  createInventoryUnitV2,
+  completeInventorySaleV2,
   finalizeBuybackPurchase,
   getInventoryItem,
   getInventoryStats,

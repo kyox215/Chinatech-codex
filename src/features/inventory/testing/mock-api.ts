@@ -3,6 +3,10 @@ import type {
   AuditActor,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
+  CompleteInventorySaleV2Input,
+  CompleteInventorySaleV2Result,
+  CreateInventoryUnitV2Input,
+  CreateInventoryUnitV2Result,
   CreateInventoryIntakeInput,
   Customer,
   ElectronicsImportPreview,
@@ -185,6 +189,14 @@ const mockInventoryTransactions: InventoryTransaction[] = [
     created_at: mockInventoryItems[2].sold_at ?? mockInventoryItems[2].updated_at,
   },
 ];
+const mockInventoryV2Sales = new Map<
+  string,
+  CompleteInventorySaleV2Result & { itemId: string; fingerprint: string }
+>();
+const mockInventoryV2Intakes = new Map<
+  string,
+  CreateInventoryUnitV2Result & { fingerprint: string }
+>();
 const mockInventoryEvents: InventoryEvent[] = mockInventoryItems.map((item) => ({
   id: `${item.id}_evt_created`,
   item_id: item.id,
@@ -836,6 +848,159 @@ export async function sellInventoryItem(
     note: "售出收款",
   });
   return { ok: true };
+}
+
+export async function completeInventorySaleV2(
+  id: string,
+  input: CompleteInventorySaleV2Input,
+  _actor?: AuditActor,
+): Promise<CompleteInventorySaleV2Result> {
+  const fingerprint = JSON.stringify({ id, input });
+  const existing = mockInventoryV2Sales.get(input.idempotency_key);
+  if (existing) {
+    if (existing.fingerprint !== fingerprint) {
+      throw new Error("该销售操作标识已用于不同请求，请刷新后重试");
+    }
+    return { ...existing, code: "idempotent_replay" };
+  }
+
+  const item = findItem(id);
+  if (item.updated_at !== input.expected_updated_at) {
+    throw new Error("库存资料已被其他人更新，请刷新后重试");
+  }
+  if (!["ready_for_sale", "listed", "reserved"].includes(item.status)) {
+    throw new Error("当前库存状态不能确认销售");
+  }
+  assertMockBuybackSaleReadiness(item, "sold");
+  if (input.sale_price !== input.payment_amount) {
+    throw new Error("首版原子成交只支持一次全额收款");
+  }
+
+  item.status = "sold";
+  item.buyer_customer_id = input.buyer_customer_id;
+  item.sale_price = input.sale_price;
+  item.deposit_amount = input.payment_amount;
+  item.payment_method = input.payment_method;
+  item.sale_channel = input.sale_channel;
+  item.warranty_months = input.warranty_months;
+  item.warranty_until =
+    input.warranty_months > 0 ? addMonthsIso(input.sold_at, input.warranty_months) : undefined;
+  item.sold_at = input.sold_at;
+  item.updated_at = input.sold_at;
+  item.legacy_payload = {
+    ...recordOrEmpty(item.legacy_payload),
+    sale_receipt: input.warranty_snapshot,
+    fiscal_status: input.fiscal_status,
+    fiscal_reference: input.fiscal_reference,
+  };
+  const paymentId = crypto.randomUUID();
+  mockInventoryTransactions.unshift({
+    id: paymentId,
+    item_id: id,
+    transaction_type: "sale_payment",
+    amount: input.payment_amount,
+    currency_code: CURRENCY_CODE,
+    method: input.payment_method,
+    note: "Inventory V2 atomic sale",
+    created_at: input.sold_at,
+  });
+  const result: CompleteInventorySaleV2Result & { itemId: string; fingerprint: string } = {
+    ok: true,
+    code: "completed",
+    sale_id: crypto.randomUUID(),
+    payment_id: paymentId,
+    item_id: id,
+    updated_at: input.sold_at,
+    fiscal_status: input.fiscal_status,
+    itemId: id,
+    fingerprint,
+  };
+  mockInventoryV2Sales.set(input.idempotency_key, result);
+  addEvent(id, "sold", undefined, "sold", { sale_id: result.sale_id }, input.sold_at);
+  return result;
+}
+
+export async function createInventoryUnitV2(
+  input: CreateInventoryUnitV2Input,
+  _actor?: AuditActor,
+): Promise<CreateInventoryUnitV2Result> {
+  const fingerprint = JSON.stringify(input);
+  const existing = mockInventoryV2Intakes.get(input.idempotency_key);
+  if (existing) {
+    if (existing.fingerprint !== fingerprint) {
+      throw new Error("该入库操作标识已用于不同请求，请刷新后重试");
+    }
+    return { ...existing, code: "idempotent_replay" };
+  }
+  if (input.source_type === "supplier_purchase" && !input.supplier_id) {
+    throw new Error("供应商采购必须选择供应商");
+  }
+  if (input.source_type === "repair_resale" && !input.customer_id) {
+    throw new Error("维修转售必须选择关联客户");
+  }
+  const primary = input.identifiers.find((identifier) => identifier.primary);
+  if (!primary) throw new Error("必须选择一个主要 IMEI 或序列号");
+  if (
+    mockInventoryItems.some(
+      (item) =>
+        item.serial_or_imei?.replace(/[^A-Za-z0-9]/g, "").toUpperCase() ===
+        primary.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase(),
+    )
+  ) {
+    throw new Error("IMEI 或序列号已经绑定其他库存设备");
+  }
+
+  const itemId = crypto.randomUUID();
+  const unitId = crypto.randomUUID();
+  mockInventoryItems.unshift({
+    id: itemId,
+    public_no: `I-V2-${String(mockInventoryItems.length + 1).padStart(4, "0")}`,
+    status: "intake",
+    source_type: input.source_type,
+    source_ref: input.supplier_id,
+    customer_id: input.customer_id,
+    category: input.category,
+    brand: input.brand,
+    model: input.model,
+    color: input.color,
+    storage_capacity: input.storage_capacity,
+    serial_or_imei: primary.value,
+    imei_check_status: "unknown",
+    activation_lock_status: "unchecked",
+    data_wipe_status: "unchecked",
+    cosmetic_grade: "unknown",
+    functional_grade: "untested",
+    buyback_price: input.cost_amount,
+    list_price: input.list_price,
+    sale_price: 0,
+    deposit_amount: 0,
+    repair_cost_amount: 0,
+    fees_amount: 0,
+    currency_code: CURRENCY_CODE,
+    warranty_months: input.warranty_months,
+    notes: input.notes,
+    legacy_payload: { inventory_v2_unit_id: unitId, inventory_v2_intake: true },
+    created_at: input.created_at,
+    updated_at: input.created_at,
+  });
+  const result: CreateInventoryUnitV2Result & { fingerprint: string } = {
+    ok: true,
+    code: "created",
+    item_id: itemId,
+    stock_unit_id: unitId,
+    created_at: input.created_at,
+    fingerprint,
+  };
+  mockInventoryV2Intakes.set(input.idempotency_key, result);
+  addEvent(
+    itemId,
+    "created",
+    undefined,
+    "intake",
+    { inventory_v2_unit_id: unitId },
+    input.created_at,
+  );
+  return result;
 }
 
 export function importElectronicsCsvPreview(

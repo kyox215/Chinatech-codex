@@ -91,6 +91,10 @@ import type {
   CustomerMessageInput,
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
+  CreateInventoryUnitV2Input,
+  CreateInventoryUnitV2Result,
+  CompleteInventorySaleV2Input,
+  CompleteInventorySaleV2Result,
   PaymentResult,
   ElectronicsImportPreview,
   ElectronicsImportReport,
@@ -433,6 +437,12 @@ export async function createInventoryIntake(
   return postJson<{ id: string }>("inventory/intake/create", { input });
 }
 
+export async function createInventoryUnitV2(
+  input: CreateInventoryUnitV2Input,
+): Promise<CreateInventoryUnitV2Result> {
+  return postJson<CreateInventoryUnitV2Result>("inventory/v2/intake/create", { input });
+}
+
 export async function updateInventoryItem(
   id: string,
   input: UpdateInventoryItemInput,
@@ -491,6 +501,13 @@ export async function sellInventoryItem(
   input: SellInventoryItemInput,
 ): Promise<{ ok: boolean }> {
   return postJson<{ ok: boolean }>("inventory/sell", { id, input });
+}
+
+export async function completeInventorySaleV2(
+  id: string,
+  input: CompleteInventorySaleV2Input,
+): Promise<CompleteInventorySaleV2Result> {
+  return postJson<CompleteInventorySaleV2Result>("inventory/v2/sales/complete", { id, input });
 }
 
 export async function importElectronicsCsvPreview(

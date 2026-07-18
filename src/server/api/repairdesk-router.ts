@@ -135,6 +135,8 @@ import {
   applyElectronicsCsvImport,
   accessInventoryAttachment,
   createInventoryIntake,
+  createInventoryUnitV2,
+  completeInventorySaleV2,
   finalizeBuybackPurchase,
   getInventoryItem,
   getInventoryStats,
@@ -149,6 +151,9 @@ import {
   updateInventoryItem,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
+import { assertInventoryV2CommandEnabled } from "@/features/inventory/server/inventory-v2-feature-flags";
+import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/inventory-v2-sale-contract";
+import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
 import {
   BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
   BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
@@ -385,6 +390,8 @@ const supabaseSource = {
   createCustomer,
   createCustomerFollowup,
   createInventoryIntake,
+  createInventoryUnitV2,
+  completeInventorySaleV2,
   finalizeBuybackPurchase,
   createKioskDevicePairing,
   createKioskSession,
@@ -2355,6 +2362,18 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           ),
         );
       }
+      case "inventory/v2/intake/create": {
+        const { input } = createInventoryUnitV2BodySchema.parse(body);
+        assertInventoryCreatePermission(actor);
+        assertInventoryV2CommandEnabled(actor.storeId ?? "");
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createInventoryUnitV2(input, actor),
+            realtimeBroadcasts.inventoryCreated,
+          ),
+        );
+      }
       case "inventory/update": {
         const { id, input } = inventoryUpdateBodySchema.parse(body);
         assertInventoryUpdatePermission(actor, input);
@@ -2443,6 +2462,18 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           await runWithRealtime(
             actor,
             () => api.sellInventoryItem(id, input, actor),
+            realtimeBroadcasts.inventoryTransitioned,
+          ),
+        );
+      }
+      case "inventory/v2/sales/complete": {
+        const { id, input } = completeInventorySaleV2BodySchema.parse(body);
+        assertInventorySalePermission(actor);
+        assertInventoryV2CommandEnabled(actor.storeId ?? "");
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.completeInventorySaleV2(id, input, actor),
             realtimeBroadcasts.inventoryTransitioned,
           ),
         );

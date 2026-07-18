@@ -153,7 +153,7 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
       shortLabel: "入库",
       description: "新增配件、翻新机或商品",
       icon: PackagePlus,
-      href: "/inventory?new=1",
+      href: "/inventory/new",
     },
   },
   {
