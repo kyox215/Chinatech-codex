@@ -298,6 +298,84 @@ export interface OrderCostHistoryResult {
   items: OrderLineCostRevisionItem[];
 }
 
+export interface ProfitPeriodSummary {
+  order_count: number;
+  eligible_order_count: number;
+  quote_amount: number;
+  known_cost_amount: number;
+  exact_margin_amount: number;
+  exact_order_count: number;
+  incomplete_order_count: number;
+  estimated_order_count: number;
+  negative_margin_order_count: number;
+}
+
+export interface ProfitCenterSummary {
+  expected: ProfitPeriodSummary;
+  completed: ProfitPeriodSummary;
+  data_quality: {
+    unknown_line_count: number;
+    refunded_order_count: number;
+    rework_order_count: number;
+  };
+  collection_reference: {
+    amount: number;
+    entry_count: number;
+    non_eur_entry_count: number;
+  };
+}
+
+export interface ProfitTrendPoint {
+  date: string;
+  expected_order_count: number;
+  expected_quote_amount: number;
+  expected_known_cost_amount: number;
+  expected_exact_margin_amount: number;
+  expected_incomplete_order_count: number;
+  completed_order_count: number;
+  completed_quote_amount: number;
+  completed_known_cost_amount: number;
+  completed_exact_margin_amount: number;
+  completed_incomplete_order_count: number;
+}
+
+export interface ProfitOrderDrilldownItem {
+  order_id: string;
+  public_no: string;
+  status: string;
+  exception_status?: string;
+  payment_status: OrderPaymentStatus;
+  created_at: string;
+  completed_at?: string;
+  delivered_at?: string;
+  quote_amount: number;
+  known_cost_amount: number;
+  quote_gross_margin: number | null;
+  quote_gross_margin_percent: number | null;
+  quote_line_count: number;
+  unknown_cost_line_count: number;
+  estimated_cost_line_count: number;
+  confirmed_cost_line_count: number;
+  cost_completeness: "incomplete" | "estimated" | "confirmed";
+  is_refunded: boolean;
+  is_rework: boolean;
+}
+
+export interface ProfitCenterResult {
+  timezone: string;
+  start_date: string;
+  end_date: string;
+  definition: "final_quote_operational_gross_margin";
+  summary: ProfitCenterSummary;
+  trend: ProfitTrendPoint[];
+  orders: ProfitOrderDrilldownItem[];
+}
+
+export interface ProfitCenterInput {
+  start_date: string;
+  end_date: string;
+}
+
 export interface UpdateOrderLineCostInput {
   line_id: string;
   mode: Exclude<OrderCostInputMode, "default">;
@@ -1148,6 +1226,7 @@ export interface RepairDeskOptions {
     canReadOrderFinance?: boolean;
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
+    canReadRepairProfitReports?: boolean;
     canExportOrders?: boolean;
     canBatchTransitionOrders?: boolean;
     canAssignOrders?: boolean;
@@ -1509,6 +1588,7 @@ export interface StoreContext {
     canReadOrderFinance?: boolean;
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
+    canReadRepairProfitReports?: boolean;
     can_manage_order_costs?: boolean;
     canExportOrders?: boolean;
     canReadStoreSettings?: boolean;

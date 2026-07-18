@@ -5,6 +5,8 @@ import { Buffer } from "node:buffer";
 import { z } from "zod";
 
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
+import { getProfitCenter } from "@/features/profit/server/profit.repository";
+import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
 import { syncRepairDeskOfflineOrderCreate } from "@/features/offline/server/offline-order-create-sync";
 import { statusGroups } from "@/lib/mock/enums";
 import {
@@ -205,6 +207,7 @@ import type {
   OrderStats,
   PatchOrderFinanceInput,
   PatchOrderInput,
+  ProfitCenterResult,
   PublishOrderQuoteInput,
   RepairDeskOptions,
   StoreFaultCostDefaultItem,
@@ -272,6 +275,7 @@ import {
   patchOrderFinanceBodySchema,
   orderLineCostsReadBodySchema,
   orderLineCostsUpdateBodySchema,
+  profitCenterReadBodySchema,
   storeFaultCostDefaultsUpdateBodySchema,
   storeFaultCostDefaultsReadBodySchema,
   publishOrderQuoteBodySchema,
@@ -345,6 +349,7 @@ const supabaseSource = {
   getOrder,
   getOrderCostHistory,
   getOrderLineCosts,
+  getProfitCenter,
   getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
@@ -779,6 +784,119 @@ async function source() {
         }
       );
     },
+    getProfitCenter: async (
+      input: { start_date: string; end_date: string },
+      _actor: AuditActor,
+    ): Promise<ProfitCenterResult> => ({
+      timezone: "Europe/Rome",
+      start_date: input.start_date,
+      end_date: input.end_date,
+      definition: "final_quote_operational_gross_margin",
+      summary: {
+        expected: {
+          order_count: 4,
+          eligible_order_count: 3,
+          quote_amount: 310,
+          known_cost_amount: 135,
+          exact_margin_amount: 105,
+          exact_order_count: 2,
+          incomplete_order_count: 1,
+          estimated_order_count: 1,
+          negative_margin_order_count: 1,
+        },
+        completed: {
+          order_count: 2,
+          eligible_order_count: 2,
+          quote_amount: 190,
+          known_cost_amount: 85,
+          exact_margin_amount: 105,
+          exact_order_count: 2,
+          incomplete_order_count: 0,
+          estimated_order_count: 1,
+          negative_margin_order_count: 0,
+        },
+        data_quality: {
+          unknown_line_count: 1,
+          refunded_order_count: 1,
+          rework_order_count: 1,
+        },
+        collection_reference: { amount: 230, entry_count: 3, non_eur_entry_count: 0 },
+      },
+      trend: [
+        {
+          date: input.end_date,
+          expected_order_count: 3,
+          expected_quote_amount: 310,
+          expected_known_cost_amount: 135,
+          expected_exact_margin_amount: 105,
+          expected_incomplete_order_count: 1,
+          completed_order_count: 2,
+          completed_quote_amount: 190,
+          completed_known_cost_amount: 85,
+          completed_exact_margin_amount: 105,
+          completed_incomplete_order_count: 0,
+        },
+      ],
+      orders: [
+        {
+          order_id: "00000000-0000-4000-8000-000000000101",
+          public_no: "R-DEMO-1042",
+          status: "diagnosing",
+          payment_status: "partial",
+          created_at: `${input.end_date}T08:15:00.000Z`,
+          quote_amount: 120,
+          known_cost_amount: 50,
+          quote_gross_margin: null,
+          quote_gross_margin_percent: null,
+          quote_line_count: 2,
+          unknown_cost_line_count: 1,
+          estimated_cost_line_count: 0,
+          confirmed_cost_line_count: 1,
+          cost_completeness: "incomplete",
+          is_refunded: false,
+          is_rework: false,
+        },
+        {
+          order_id: "00000000-0000-4000-8000-000000000102",
+          public_no: "R-DEMO-1041",
+          status: "delivered",
+          payment_status: "paid",
+          created_at: `${input.end_date}T07:10:00.000Z`,
+          completed_at: `${input.end_date}T10:00:00.000Z`,
+          delivered_at: `${input.end_date}T11:00:00.000Z`,
+          quote_amount: 140,
+          known_cost_amount: 85,
+          quote_gross_margin: 55,
+          quote_gross_margin_percent: 39.29,
+          quote_line_count: 1,
+          unknown_cost_line_count: 0,
+          estimated_cost_line_count: 0,
+          confirmed_cost_line_count: 1,
+          cost_completeness: "confirmed",
+          is_refunded: false,
+          is_rework: false,
+        },
+        {
+          order_id: "00000000-0000-4000-8000-000000000103",
+          public_no: "R-DEMO-1039",
+          status: "ready",
+          exception_status: "rework",
+          payment_status: "unpaid",
+          created_at: `${input.end_date}T06:25:00.000Z`,
+          quote_amount: 50,
+          known_cost_amount: 65,
+          quote_gross_margin: -15,
+          quote_gross_margin_percent: -30,
+          quote_line_count: 1,
+          unknown_cost_line_count: 0,
+          estimated_cost_line_count: 1,
+          confirmed_cost_line_count: 0,
+          cost_completeness: "estimated",
+          is_refunded: false,
+          is_rework: true,
+        },
+      ],
+    }),
     updateOrderLineCosts: async (
       id: string,
       input: {
@@ -1443,6 +1561,24 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           entityType: "repair_order_line_cost_revisions",
           entityId: id,
           metadata: { item_count: result.items.length },
+        });
+        return ok(result);
+      }
+      case "finance/profit-center/read": {
+        assertCanReadProfitCenter(actor);
+        const input = profitCenterReadBodySchema.parse(body);
+        const result = await api.getProfitCenter(input, actor);
+        await writeAuditLog({
+          actor,
+          action: "read",
+          entityType: "repair_profit_report",
+          entityId: actor.storeId ?? "unknown",
+          metadata: {
+            start_date: input.start_date,
+            end_date: input.end_date,
+            expected_order_count: result.summary.expected.order_count,
+            incomplete_order_count: result.summary.expected.incomplete_order_count,
+          },
         });
         return ok(result);
       }

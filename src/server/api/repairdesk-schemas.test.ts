@@ -32,6 +32,7 @@ import {
   orderLineCostsUpdateBodySchema,
   patchOrderInputSchema,
   paymentBodySchema,
+  profitCenterReadBodySchema,
   publishOrderQuoteInputSchema,
   confirmOrderQuoteSentInputSchema,
   storeInviteLinkCreateBodySchema,
@@ -106,6 +107,33 @@ describe("repairdesk API schemas", () => {
         },
       }),
     ).toThrow("请输入成本");
+  });
+
+  it("accepts valid report-local dates and rejects reversed or oversized profit ranges", () => {
+    expect(
+      profitCenterReadBodySchema.parse({
+        start_date: "2026-07-01",
+        end_date: "2026-07-18",
+      }),
+    ).toEqual({ start_date: "2026-07-01", end_date: "2026-07-18" });
+    expect(() =>
+      profitCenterReadBodySchema.parse({
+        start_date: "2026-07-19",
+        end_date: "2026-07-18",
+      }),
+    ).toThrow("367 天以内");
+    expect(() =>
+      profitCenterReadBodySchema.parse({
+        start_date: "2025-01-01",
+        end_date: "2026-07-18",
+      }),
+    ).toThrow("367 天以内");
+    expect(() =>
+      profitCenterReadBodySchema.parse({
+        start_date: "2026-02-30",
+        end_date: "2026-03-01",
+      }),
+    ).toThrow("日期无效");
   });
 
   it("accepts a strict diagnosis quote publication and exact quote send confirmation", () => {

@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Camera,
+  ChartNoAxesCombined,
   ClipboardList,
   ClipboardPlus,
   MessageSquare,
@@ -24,6 +25,7 @@ export type RepairDeskModuleId =
   | "customers"
   | "buyback"
   | "inventory"
+  | "finance"
   | "messages"
   | "platform"
   | "settings";
@@ -57,6 +59,7 @@ export interface RepairDeskNavItem {
 type RepairDeskNavigationPermissions = {
   canReadInventory?: boolean;
   canReadMessageTemplates?: boolean;
+  canReadRepairProfitReports?: boolean;
 };
 
 type RepairDeskNavigationRole = "owner" | "manager" | "technician" | "sales" | "viewer";
@@ -154,6 +157,14 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
     },
   },
   {
+    id: "finance",
+    title: "维修毛利",
+    shortTitle: "毛利",
+    url: "/finance",
+    icon: ChartNoAxesCombined,
+    aliases: ["毛利", "利润", "成本", "财务", "finance"],
+  },
+  {
     id: "messages",
     title: "消息模板",
     shortTitle: "消息",
@@ -240,6 +251,9 @@ export function canShowWorkspaceNavItem(
   if (item.id === "messages") {
     return permissions?.canReadMessageTemplates === true;
   }
+  if (item.id === "finance") {
+    return permissions?.canReadRepairProfitReports === true;
+  }
   return true;
 }
 
@@ -294,6 +308,7 @@ export const routeLabels: Record<string, string> = {
   customers: "客户管理",
   buyback: "回收管理",
   inventory: "库存商品",
+  finance: "维修毛利",
   messages: "消息模板",
   platform: "平台审批",
   settings: "设置",

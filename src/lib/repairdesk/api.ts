@@ -51,6 +51,8 @@ import type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  ProfitCenterInput,
+  ProfitCenterResult,
   PublishOrderQuoteInput,
   PublishOrderQuoteResult,
   ConfirmOrderQuoteSentInput,
@@ -238,6 +240,8 @@ export type {
   PatchOrderFinanceInput,
   PatchOrderInput,
   PatchOrderResult,
+  ProfitCenterInput,
+  ProfitCenterResult,
   PublishOrderQuoteInput,
   PublishOrderQuoteResult,
   ConfirmOrderQuoteSentInput,
@@ -1186,6 +1190,13 @@ export async function getOrderLineCosts(id: string): Promise<OrderLineCostsResul
 
 export async function getOrderCostHistory(id: string): Promise<OrderCostHistoryResult> {
   return postJson<OrderCostHistoryResult>("orders/internal-costs/history", { id });
+}
+
+export async function getProfitCenter(
+  input: ProfitCenterInput,
+  options?: RepairDeskRequestOptions,
+): Promise<ProfitCenterResult> {
+  return postJson<ProfitCenterResult>("finance/profit-center/read", input, options);
 }
 
 export async function updateOrderLineCosts(

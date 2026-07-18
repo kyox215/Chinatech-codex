@@ -885,6 +885,38 @@ export const orderLineCostsUpdateBodySchema = z
     }
   });
 
+const reportLocalDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式无效")
+  .refine((value) => {
+    const [year, month, day] = value.split("-").map(Number);
+    const parsed = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1));
+    return (
+      parsed.getUTCFullYear() === year &&
+      parsed.getUTCMonth() === (month ?? 1) - 1 &&
+      parsed.getUTCDate() === day
+    );
+  }, "日期无效");
+
+export const profitCenterReadBodySchema = z
+  .object({
+    start_date: reportLocalDateSchema,
+    end_date: reportLocalDateSchema,
+  })
+  .strict()
+  .superRefine((input, context) => {
+    const start = Date.parse(`${input.start_date}T00:00:00Z`);
+    const end = Date.parse(`${input.end_date}T00:00:00Z`);
+    const dayCount = (end - start) / 86_400_000;
+    if (dayCount < 0 || dayCount > 366) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["end_date"],
+        message: "报表日期范围必须在 367 天以内",
+      });
+    }
+  });
+
 export const publishOrderQuoteBodySchema = z
   .object({
     id: z.string().min(1, "工单标识无效"),

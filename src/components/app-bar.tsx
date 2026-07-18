@@ -28,7 +28,9 @@ function useCrumbs() {
 function usesRepairOsMobileHeader(pathname: string) {
   return (
     pathname === "/" ||
-    /^\/(?:orders|customers|buyback|inventory|messages|platform|settings)(?:\/|$)/.test(pathname)
+    /^\/(?:orders|customers|buyback|inventory|finance|messages|platform|settings)(?:\/|$)/.test(
+      pathname,
+    )
   );
 }
 

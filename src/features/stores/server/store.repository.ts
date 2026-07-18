@@ -39,6 +39,7 @@ import {
   isOrderDataApplyEnabled,
   isOrderDataExportEnabled,
 } from "@/features/orders/server/order-data-feature-flags";
+import { isProfitReportsEnabled } from "@/features/orders/server/order-cost-feature";
 import { type DbRecord, fail, requiredString } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
 import {
@@ -1420,6 +1421,7 @@ async function storePermissionsFromActor(
     canReadOrderFinance: can(actor, "finance:order_read"),
     canReadAggregateFinance: can(actor, "finance:aggregate_read"),
     canReadProfit: can(actor, "finance:profit_read"),
+    canReadRepairProfitReports: isProfitReportsEnabled() && can(actor, "finance:profit_read"),
     can_manage_order_costs:
       process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" && can(actor, "finance:cost_manage"),
     canExportOrders: can(actor, "order:export"),

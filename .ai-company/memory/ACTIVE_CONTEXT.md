@@ -7,10 +7,11 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T11:02:49Z"
+last_checkpoint_at: "2026-07-18T11:34:32Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
+
 # Active Context
 
 ## Current objective
@@ -19,15 +20,21 @@ last_rehydrated_at: null
 
 ## Current state
 
-Stage 01 completed: additive source-aware cost projection, append-only line revisions, effective-dated defaults, cost-history API, permission dependencies and fail-closed child flags passed focused tests, type/lint/diff checks and an exact disposable Postgres behavior harness. Full repository replay remains blocked before TASK-008 by the known missing inventory_items.product_channel legacy migration.
+Stage 02 completed: bounded store-timezone repair profit RPC, permission-hidden /finance UI, expected and delivered quote margins, daily/monthly trends, data-quality coverage and PII-free drilldown passed exact PostgreSQL assertions, 56 focused tests, type/lint/build and six responsive browser widths.
 
 ## Blocking decisions
 
-- None recorded. Check the task file and `OPEN_CONFLICTS.md` before assuming this remains true.
+- Local implementation may continue, but broad production database application remains NO-GO
+  under `.ai-company/memory/OPEN_CONFLICTS.md`: the legacy migration chain still cannot replay
+  from zero, legacy browser-role exposure remains open, and isolated backup/PITR restore proof is
+  absent.
+- Stage 07 must re-fetch `origin/main`, acquire the serialized release lock, prove the exact linked
+  pending set and dry-run, and obtain the required recovery/restore evidence before any migration
+  apply or production deployment. Do not bypass this gate based on local harness success.
 
 ## Next action
 
-Implement Stage 02 bounded profit reporting RPCs and the hidden-by-permission responsive Profit Center using quote-based operational gross margin and visible unknown-cost coverage.
+Begin Stage 03 parts procurement and supplier linking; integrate catalog and supplier dimensions into the Profit Center and rerun Stage 02 profit regression before Stage 03 close.
 
 ## Resume protocol
 
