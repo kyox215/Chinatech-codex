@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["data", "documentation", "integration", "qa", "release", "security"]
 created_at: "2026-07-18T19:43:02Z"
-updated_at: "2026-07-18T20:19:18Z"
+updated_at: "2026-07-18T20:27:57Z"
 ---
 # Task — 库存商品 V2 生产恢复门禁与 Chinatech 单店灰度
 
@@ -62,7 +62,7 @@ Owner 选中“按发布运行手册完成数据库恢复验证和单店灰度�
 | Item | Type | Evidence | Status / next action |
 |---|---|---|---|
 | Task title and initial metadata | observed | owner request | verify scope |
-| Web/base release is current | verified then refreshed | previous production `e4aee923` READY; branch rebased onto `origin/main=ca271119` | final push and deployment verification pending |
+| Web/base release is current | verified | `origin/main=19c4feb8`; Vercel `dpl_FE2Xa6p9nZ8NGNms9zmVfCzoUhvV` production READY with exact same SHA | dormant release passed |
 | Production target | verified | `supabase/config.toml`; MCP project | `xluzcoduqsdvjoouqhkc`, ACTIVE_HEALTHY, PG 17.6 |
 | V2 migrations pending | verified with new blocker | final linked dry-run | four migrations are pending: unapproved AI cost governance `20260718174042` precedes the three approved V2 migrations |
 | Backup visibility | verified | `supabase backups list` | physical backup completed 2026-07-18 06:49Z; PITR disabled |

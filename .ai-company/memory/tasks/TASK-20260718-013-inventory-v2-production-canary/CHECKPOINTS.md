@@ -30,3 +30,10 @@
 - **Next:** 先把默认关闭且已验证的 migration 修复和证据非强制推送 main，验证 exact-SHA dormant deployment；随后等待 Owner 对 AI 成本治理 migration 是否可先 apply 的独立 D4 决定，禁止 --include-all 或绕过历史。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T20:27:57Z — 默认关闭代码已非强制快进到 main@19c4feb8；Vercel production dpl_FE2Xa6p9nZ8NGNms9zmVfCzoUhvV exact-SHA READY。生产 env-name-only 检查无 Inventory V2/AI/OpenAI 变量，登录/库存鉴权/API 401 冒烟和 error-log 检查通过。生产数据库与 flags 未变更；更早且未批准的 AI 成本治理 migration 继续阻断精确 V2 apply。
+
+- **Phase:** implementation
+- **Completed/current state:** 默认关闭代码已非强制快进到 main@19c4feb8；Vercel production dpl_FE2Xa6p9nZ8NGNms9zmVfCzoUhvV exact-SHA READY。生产 env-name-only 检查无 Inventory V2/AI/OpenAI 变量，登录/库存鉴权/API 401 冒烟和 error-log 检查通过。生产数据库与 flags 未变更；更早且未批准的 AI 成本治理 migration 继续阻断精确 V2 apply。
+- **Next:** 等待 Owner 独立 D4 决定：是否批准先应用 20260718174042_ai_assistant_cost_governance_v1.sql。若批准，必须重新 fetch、linked dry-run、恢复/RLS/grant preflight 后串行 apply；禁止 --include-all。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

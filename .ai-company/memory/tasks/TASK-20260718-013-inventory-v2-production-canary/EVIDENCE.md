@@ -12,6 +12,8 @@
 | E-008 | QA | application remains release-buildable after latest-main rebase | `npm run agents:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build` | pass; 296 test files / 1,858 tests; production build pass | 2026-07-18 | Integration Lead |
 | E-009 | migration | linked production scope has an unrelated order blocker | final `supabase db push --linked --dry-run` | pending order is AI cost governance `20260718174042`, then three V2 migrations; exact V2-only apply stopped, no `--include-all` | 2026-07-18 | Integration Lead |
 | E-010 | git | reviewed migration fix is isolated | rebased commit `a20366d0` | three migration files only | 2026-07-18T20:12:08Z | Integration Lead |
+| E-011 | release | default-off code is published without DB activation | Git/Vercel exact-SHA checks | `origin/main=19c4feb8`; production deployment `dpl_FE2Xa6p9nZ8NGNms9zmVfCzoUhvV` READY, same SHA | 2026-07-18T20:26:37Z | Integration Lead |
+| E-012 | smoke | dormant production boundary is intact | production env-name-only list, HTTP smoke, deployment error logs | no Inventory V2/AI/OpenAI env names; login 200, protected inventory redirects to login, unauthenticated orders API 401; no error logs found | 2026-07-18T20:26:37Z | Integration Lead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
