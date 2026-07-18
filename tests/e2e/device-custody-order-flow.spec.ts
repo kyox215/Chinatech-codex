@@ -64,6 +64,13 @@ test("mobile detail keeps the receive action below the sticky header", async ({ 
   await expect(card).toBeVisible();
   await expect(card.getByText("客户持有")).toBeVisible();
   await expect(card.getByRole("button", { name: "确认收机" })).toBeVisible();
+  const unlockButton = page.getByRole("button", { name: "密码", exact: true });
+  await expect(unlockButton).toBeVisible();
+  await unlockButton.click();
+  await expect(page.getByRole("heading", { name: "编辑手机密码" })).toBeVisible();
+  await expect(page.getByText(/默认只在详情里遮挡查看/)).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("001258");
+  await page.getByRole("button", { name: "取消", exact: true }).click();
 
   const headerBox = await header.boundingBox();
   const cardBox = await card.boundingBox();

@@ -3061,8 +3061,7 @@ function MobileOrderDetailView({
             action={
               data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
                 <div className="flex shrink-0 items-center gap-1">
-                  {data.capabilities?.canEditRepair &&
-                  custodyStatus === DEVICE_CUSTODY_WITH_SHOP ? (
+                  {data.capabilities?.canEditRepair ? (
                     <Button
                       type="button"
                       variant="outline"

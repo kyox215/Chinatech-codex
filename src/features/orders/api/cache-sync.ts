@@ -17,7 +17,6 @@ export const ordersListPageCachePrefix = [...ordersKeys.lists(), "page"] as cons
 export const ordersDashboardSummaryCachePrefix = [...ordersKeys.all, "dashboard-summary"] as const;
 
 export type OrderListItemCachePatch = {
-  clear_device_unlock?: boolean;
   delivered_at?: string | null;
   device_custody_status?: DeviceCustodyStatus | null;
   parts_supplier_id?: string | null;
@@ -142,11 +141,6 @@ function patchOrderListItem(order: OrderListItem, patch: OrderListItemCachePatch
     } else {
       delete next.delivered_at;
     }
-  }
-  if (patch.clear_device_unlock) {
-    delete next.device_unlock_method;
-    delete next.device_unlock_value;
-    delete next.device_unlock_pattern;
   }
   if ("parts_supplier_id" in patch) {
     if (patch.parts_supplier_id) {

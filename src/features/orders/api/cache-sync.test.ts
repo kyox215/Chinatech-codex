@@ -109,7 +109,7 @@ describe("order cache sync", () => {
     ).toBeUndefined();
   });
 
-  it("patches custody state and the version used by the next mutation", () => {
+  it("patches custody state without implicitly clearing unlock credentials", () => {
     const queryClient = new QueryClient();
     const order = makeOrder({
       id: "order-1",
@@ -128,7 +128,6 @@ describe("order cache sync", () => {
     );
 
     patchOrderReadCaches(queryClient, order.id, {
-      clear_device_unlock: true,
       delivered_at: null,
       device_custody_status: "with_shop",
       updated_at: "new-version",
@@ -144,14 +143,17 @@ describe("order cache sync", () => {
       ordersKeys.detail(order.id, storeId),
     )?.order;
     expect(detailOrder?.delivered_at).toBeUndefined();
-    expect(detailOrder?.device_unlock_method).toBeUndefined();
-    expect(detailOrder?.device_unlock_value).toBeUndefined();
-    expect(detailOrder?.device_unlock_pattern).toBeUndefined();
+    expect(detailOrder?.device_unlock_method).toBe("pin");
+    expect(detailOrder?.device_unlock_value).toBe("001258");
+    expect(detailOrder?.device_unlock_pattern).toEqual([1, 2, 3]);
     expect(
       queryClient.getQueryData<OrderQueueSummary>(ordersKeys.queueSummary({ page: 1 }, storeId))
         ?.list.items[0],
     ).toMatchObject({
       device_custody_status: "with_shop",
+      device_unlock_method: "pin",
+      device_unlock_value: "001258",
+      device_unlock_pattern: [1, 2, 3],
       updated_at: "new-version",
     });
   });
