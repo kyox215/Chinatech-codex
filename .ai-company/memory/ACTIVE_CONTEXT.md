@@ -11,6 +11,7 @@ last_checkpoint_at: "2026-07-18T23:05:01Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
+
 # Active Context
 
 ## Current objective
