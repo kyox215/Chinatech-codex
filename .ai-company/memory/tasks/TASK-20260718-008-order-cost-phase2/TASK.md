@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["API", "DATA", "DOC", "FE", "FLOW", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-07-18T10:18:13Z"
-updated_at: "2026-07-18T14:48:02Z"
+updated_at: "2026-07-18T15:09:14Z"
 ---
 # Task — 订单成本第二期分阶段实施与发布
 
@@ -58,7 +58,7 @@ updated_at: "2026-07-18T14:48:02Z"
 - [x] 利润报表与趋势不把未知成本当作零，并遵守角色和门店隔离
 - [x] 供应商、配件采购批次与订单项目成本可追溯且不会静默改写历史
 - [x] 导出、历史回填和多币种均具备权限、审计、幂等及回滚边界
-- [ ] 完整门禁通过后精确应用本任务迁移、快进推送 main、部署并完成生产观察（Stage 07 NO-GO：恢复、历史 replay 与 legacy 安全门未通过）
+- [ ] 完整门禁通过后精确应用本任务迁移、快进推送 main、部署并完成生产观察（当前生产 schema 与六迁移重放已通过；Stage 08 等待物理恢复演练或 Owner 书面有界例外）
 
 ## Facts, assumptions, and unknowns
 
@@ -78,6 +78,7 @@ updated_at: "2026-07-18T14:48:02Z"
 - D1/D2：目录、组件、测试、加法式 schema 和默认关闭的功能开关由 Integration Lead 在合同内决定。
 - D3：生产 linked migration、开关启用和部署仅在全部门禁通过后按 Owner 本次授权串行执行。
 - D4 保留：数据删除、真实历史成本批量回填、付费汇率服务、会计/VAT 口径、权限例外均不在本次自动执行授权内。
+- Stage 08 待 Owner 明确选择：隔离完整恢复演练，或书面接受本次发布的未验证物理恢复与全历史 replay 风险。未明确选择时保持生产不变。
 
 ## Work packages
 
@@ -91,6 +92,7 @@ updated_at: "2026-07-18T14:48:02Z"
 - `05_MULTI_CURRENCY_COSTS.md`
 - `06_QUALITY_SECURITY_AND_RELEASE.md`
 - `07_PRODUCTION_RELEASE_AND_OBSERVATION.md`
+- `08_PRODUCTION_GATE_REMEDIATION_AND_APPROVAL.md`
 
 ## Definition of done
 

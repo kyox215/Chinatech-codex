@@ -1,6 +1,6 @@
 # CEO Report — TASK-20260718-008 Order Cost Phase 2
 
-Status: conditional / production release blocked
+Status: conditional / awaiting recovery decision
 
 ## Delivered locally
 
@@ -18,21 +18,26 @@ flags default to off and production deployment never runs a historical backfill 
 - Webpack production build passed and generated 25 application pages.
 - Responsive, permission-hidden and authorized flows have synthetic PII-free browser evidence.
 - Linked history and exact dry-run select only the six reviewed TASK-008 migrations.
+- The current production schema was exported without row data, restored into fresh PostgreSQL 17,
+  and accepted all six migrations. Post-replay RLS, ACL, RPC, search-path, view and constraint
+  assertions passed.
 
 ## Production decision
 
-The Database Application Gate is NO-GO. PITR is disabled and there is no isolated restore proof;
-the historical migration chain still fails before TASK-008; 17 legacy public tables have RLS
-disabled; and current security advisors report seven overly permissive write policies plus five
-mutable-search-path functions. Therefore no linked migration, production data write, `main` push,
-Vercel deploy, feature-flag change or production backfill occurred.
+The physical-recovery gate remains NO-GO. PITR is disabled and there is no isolated data restore
+proof. The current-schema replay proves Phase 2 compatibility but does not certify a physical
+backup restore or the repository-wide historical reset. Fresh live evidence also corrects an older
+claim: the 17 RLS-disabled legacy tables and permissive-policy tables currently have no browser
+grants, though defense-in-depth and consumer-discovery debt remains. Therefore no linked migration,
+production data write, `main` push, Vercel deploy, feature-flag change or production backfill
+occurred.
 
 ## Resume requirement
 
-Authorize and close a separate P0 recovery/security remediation package, then repeat the entire
-Stage 07 remote, linked, backup and advisor preflight from fresh state. Only a green gate may
-continue with migration-first apply, fast-forward main, exact-SHA deploy, role smoke and
-observation.
+Choose Stage 08 Option A (isolated full backup restore drill), Option B (written bounded release
+exception accepting untested restore/full-history risks for this release), or Option C (keep
+production unchanged). If A or B is approved, repeat the entire Stage 07 preflight from fresh
+state before migration-first apply, fast-forward main, exact-SHA deploy, smoke and observation.
 
 ## Visual evidence
 

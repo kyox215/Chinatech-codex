@@ -1,6 +1,6 @@
 # Stage 07 — Production Release and Observation
 
-Status: blocked at production gate — 2026-07-18T14:44:15Z
+Status: current-schema gate passed; awaiting recovery decision — 2026-07-18T15:06:52Z
 
 ## Goal
 
@@ -58,31 +58,46 @@ behind `origin/main@51d5b3b9648e77b355bb5635edf8df4c431eeb74`.
 - A live catalog query found browser grants and RLS-disabled legacy tables no longer overlap:
   17 public tables have RLS disabled, 15 different public tables have anon/authenticated grants,
   and the intersection count is zero. This narrows but does not close the older security debt.
+- A fresh schema-only dump of the current production database contained no data statements and
+  restored completely into a new PostgreSQL 17 database. The six Phase 2 migrations then applied
+  in exact order with `ON_ERROR_STOP=1`.
+- The restored-current-schema assertions passed: 11/11 tables present with RLS, zero browser table
+  grants, 11/11 service-role SELECT coverage, zero browser execution grants across 21 Phase 2 RPC
+  overloads, safe empty function search paths, `security_invoker=true` on the profit view, and zero
+  unvalidated Phase 2 constraints.
+- Live count-only inspection showed 6,326 repair orders but only 15 existing Phase 1 cost rows and
+  zero default-cost rows. Historical backfill remains an explicit Owner action and was not run.
 
 ### Failed hard gates
 
 1. **Recovery gate — FAIL.** `supabase backups list` reports `pitr_enabled=false`; there is no
    isolated restore drill, verified restore artifact, RPO/RTO or restore-owner proof. A visible
    completed backup is not proof that recovery works.
-2. **Historical replay gate — FAIL.** The same-day clean replay still stops before TASK-008 at
+2. **Historical recovery baseline — OWNER EXCEPTION OR REMEDIATION REQUIRED.** The same-day clean replay still stops before TASK-008 at
    `20260611102805_repairdesk_remote_schema_compatibility.sql` because
-   `inventory_items.product_channel` is absent. The Phase 2 schema-clone harness does not repair
-   or certify the full repository recovery chain.
-3. **Legacy security gate — FAIL.** The live database still has 17 public legacy tables with RLS
-   disabled. Current Supabase security advisors also report seven overly permissive write policies:
-   INSERT/UPDATE/DELETE on `orders`, INSERT/UPDATE/DELETE on `repair_quotes`, and ALL on
-   `suppliers`. Five legacy functions also have mutable search paths. These findings predate
-   TASK-008 but remain incompatible with the broad Database Application Gate.
+   `inventory_items.product_channel` is absent. Current production schema recovery plus all six
+   Phase 2 migrations now passes, so this is not a Phase 2 compatibility failure; it remains an
+   unresolved broad recovery-baseline risk under the project Database Application Gate.
+3. **Legacy defense-in-depth gate — OPEN, NOT A CURRENT BROWSER BYPASS.** The live database still
+   has 17 public legacy tables with RLS disabled, but none has anon/authenticated grants. The
+   permissive policies on `orders`, `repair_quotes`, and `suppliers` also have no current browser
+   grants. Five legacy functions have mutable search paths, and `recycling_models` showed recent
+   database activity. Consumer discovery is required before legacy hardening; the older direct
+   browser-exposure wording is superseded by the fresh catalog evidence.
 4. **Observation gate — NOT STARTED.** Because migration apply, Git push and deployment were
    correctly stopped, no exact-SHA production smoke or observation window can be claimed.
 
 ## Stop decision
 
-Result: **NO-GO / conditional delivery.** No linked migration was applied, no production data was
+Result: **NO-GO pending explicit recovery decision / conditional delivery.** No linked migration was applied, no production data was
 changed, no Phase 2 feature flag was enabled, `main` was not pushed and Vercel was not deployed.
 This is the required outcome of a failing R4 production gate, not a partial hidden release.
 
-The task can resume only after a separately scoped P0 recovery/security package:
+Stage 08 records the two permitted resume paths: an isolated full backup restore drill, or a
+written Owner exception that explicitly accepts the untested physical-restore and full-history
+replay risks for this release only. Without either decision, the safe default is no mutation.
+
+A complete P0 recovery/security package should still:
 
 1. reconstructs or repairs the full historical migration recovery baseline;
 2. records a current backup/PITR strategy and completes an isolated restore drill with artifact,
@@ -91,5 +106,6 @@ The task can resume only after a separately scoped P0 recovery/security package:
    over-permissive write policies and mutable-path functions;
 4. repeats fresh fetch, migration list, exact dry-run, advisors and pre/post release assertions.
 
-Only then may this stage continue from migration apply step 6. The six migration files and all
-application flags must remain unchanged and off in the meantime.
+After an approved Stage 08 path and a fresh preflight, this stage may continue from migration apply
+step 6. The six migration files and all application flags must remain unchanged and off in the
+meantime.
