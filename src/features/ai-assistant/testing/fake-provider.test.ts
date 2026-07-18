@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+
+import { FakeAiAssistantProvider } from "./fake-provider";
+
+describe("FakeAiAssistantProvider", () => {
+  const provider = new FakeAiAssistantProvider();
+
+  it("plans a deterministic summary lookup without actor or store arguments", async () => {
+    const result = await provider.planOrderQuery({
+      message: "帮我查工单 RD-12345",
+      locale: "zh-CN",
+    });
+    expect(result.toolCall).toEqual({
+      name: "get_order_summary",
+      arguments: { order_reference: "RD-12345" },
+    });
+    expect(JSON.stringify(result.toolCall)).not.toMatch(/actor|store/i);
+  });
+
+  it.each([
+    ["查找未付款工单", { paid: "unpaid", overdue: null, queue_group: null }],
+    ["查看逾期工单", { paid: "all", overdue: "any", queue_group: null }],
+    ["搜索正在维修的订单", { paid: "all", overdue: null, queue_group: "processing" }],
+  ] as const)(
+    "maps the visible suggestion %s to filters without a stray search term",
+    async (message, filters) => {
+      const result = await provider.planOrderQuery({ message, locale: "zh-CN" });
+
+      expect(result.toolCall).toMatchObject({
+        name: "search_orders",
+        arguments: { search: null, ...filters },
+      });
+    },
+  );
+
+  it("keeps the synthetic label fixture free of identifiers and price guesses", async () => {
+    const result = await provider.recognizeInventoryLabel({
+      imageDataUrl: "data:image/jpeg;base64,ZmFrZQ==",
+      mimeType: "image/jpeg",
+      locale: "zh-CN",
+      fixtureKey: "synthetic-redmi-a7-pro-box",
+    });
+    expect(result.recognition.fields.ram_capacity.value).toBe("4 GB");
+    expect(result.recognition.fields.storage_capacity.value).toBe("64 GB");
+    expect(result.recognition.identifiers).toEqual([]);
+    expect(result.recognition.label_claim_only).toBe(true);
+    expect(JSON.stringify(result.recognition)).not.toMatch(/cost|price|imei\d{4}/i);
+  });
+});

@@ -72,6 +72,8 @@ import {
 } from "@/components/ui/table";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { inventorySummaryQueryOptions } from "@/features/inventory/api/query-options";
+import { InventoryIntakeDialog } from "@/features/inventory/components/inventory-intake-dialog";
+import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { useRealtimeSync } from "@/features/realtime";
 import {
@@ -117,14 +119,12 @@ import { PrintPortal } from "@/features/orders/components/print-portal";
 import {
   accessInventoryAttachment,
   applyElectronicsCsvImport,
-  createInventoryIntake,
   getInventoryItem,
   importElectronicsCsvPreview,
   recordInventoryCheck,
   sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
-  type CreateInventoryIntakeInput,
   type InventoryDetail,
   type InventoryItemStatus,
   type InventoryListItem,
@@ -149,13 +149,6 @@ import { cn } from "@/lib/utils";
 const checkOptions = ["unchecked", "pass", "fail", "unknown"] as const;
 const cosmeticOptions = ["unknown", "new", "mint", "good", "fair", "poor", "for_parts"] as const;
 const functionalOptions = ["untested", "passed", "needs_repair", "failed", "for_parts"] as const;
-const inventoryCreateSourceOptions = [
-  "manual_stock",
-  "supplier_purchase",
-  "repair_resale",
-  "buyback",
-] as const;
-const inventoryCreateStatusOptions = ["listed", "ready_for_sale", "intake"] as const;
 const compactInventoryInputClass = "h-8 text-sm sm:h-9";
 const compactInventoryTextareaClass = "min-h-20 text-sm";
 const compactInventorySelectClass =
@@ -186,6 +179,7 @@ const EMPTY_INVENTORY_ITEMS: InventoryListItem[] = [];
 export function InventoryScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
+  const aiAssistant = useAiAssistantWorkspace();
   const activeStoreId = shell.activeStore?.id;
   const storeSettingsQuery = useQuery({
     ...storeSettingsQueryOptions(activeStoreId),
@@ -511,9 +505,12 @@ export function InventoryScreen() {
         </>
       )}
 
-      <IntakeDialog
+      <InventoryIntakeDialog
         open={intakeOpen}
         defaultWarrantyMonths={storeSettingsQuery.data?.default_inventory_warranty_months}
+        canUseVisionIntake={aiAssistant.capabilities?.canUseVisionIntake === true}
+        canApplyInventoryDraft={aiAssistant.capabilities?.canApplyInventoryDraft === true}
+        authorityKey={shell.authorityFingerprint}
         onOpenChange={setIntakeOpen}
         onDone={(id) => {
           invalidate(id);
@@ -1593,119 +1590,6 @@ function InventoryDetailEmptyLine({
     >
       <span className="block text-[11px] leading-4 text-muted-foreground">{children}</span>
     </RepairOsBusinessCard>
-  );
-}
-
-function IntakeDialog({
-  open,
-  defaultWarrantyMonths,
-  onOpenChange,
-  onDone,
-}: {
-  open: boolean;
-  defaultWarrantyMonths?: number;
-  onOpenChange: (open: boolean) => void;
-  onDone: (id: string) => void;
-}) {
-  const mutation = useMutation({
-    mutationFn: createInventoryIntake,
-    onSuccess: ({ id }) => {
-      toast.success("已创建库存记录");
-      onDone(id);
-      onOpenChange(false);
-    },
-    onError: (error) => toast.error((error as Error).message),
-  });
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    mutation.mutate(intakeInput(new FormData(event.currentTarget)));
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(componentOverlay.formContent, inventoryDialogContentClass)}>
-        <form className="flex max-h-[calc(100svh-24px)] min-h-0 flex-col" onSubmit={handleSubmit}>
-          <DialogHeader className={cn(componentOverlay.header, inventoryDialogHeaderClass)}>
-            <DialogTitle className={componentOverlay.title}>新增库存商品</DialogTitle>
-            <DialogDescription className={componentOverlay.description}>
-              录入手机、平板、电脑或配件；后续可按 IMEI/型号查找并登记售卖与保修。
-            </DialogDescription>
-          </DialogHeader>
-          <div className={cn(inventoryDialogBodyClass, "space-y-3")}>
-            <div className="rounded-xl border border-status-info-foreground/15 bg-status-info/10 px-3 py-2 text-xs text-status-info-foreground">
-              默认作为直接库存商品进入已上架状态；如果是回收设备，请选择回收来源并从回收流程补齐报价和凭证。
-            </div>
-            <div className={compactInventoryGrid}>
-              <SelectField
-                name="source_type"
-                label="商品来源"
-                options={inventoryCreateSourceOptions}
-                optionLabel={inventorySourceLabel}
-                defaultValue="manual_stock"
-              />
-              <SelectField
-                name="initial_status"
-                label="入库状态"
-                options={inventoryCreateStatusOptions}
-                optionLabel={(value) => inventoryStatusMeta[value].label}
-                defaultValue="listed"
-              />
-              <Field name="brand" label="品牌" required />
-              <Field name="model" label="型号" required />
-              <Field name="category" label="类别" defaultValue="phone" />
-              <Field name="color" label="颜色" />
-              <Field name="storage_capacity" label="容量" />
-              <Field name="serial_or_imei" label="IMEI/序列号" />
-              <Field name="buyback_price" label="入库成本" type="number" step="0.01" />
-              <Field name="repair_cost_amount" label="整备成本" type="number" step="0.01" />
-              <Field name="list_price" label="标价" type="number" step="0.01" />
-              <Field
-                name="warranty_months"
-                label="默认保修月数"
-                type="number"
-                min="0"
-                step="1"
-                defaultValue=""
-                placeholder={
-                  defaultWarrantyMonths === undefined
-                    ? "留空按当前店铺默认"
-                    : `留空按当前店铺默认（${inventoryWarrantyLabel(defaultWarrantyMonths)}）`
-                }
-                hint="只有手动填写才会覆盖；留空时由服务器读取提交时的店铺默认值。"
-              />
-              <Field name="payment_method" label="采购/入库付款方式" />
-              <Field name="customer_name" label="来源客户/供应商" />
-              <Field name="customer_phone" label="来源电话" />
-            </div>
-            <div className={formLayout.field}>
-              <Label htmlFor="notes">来源、保修或商品备注</Label>
-              <Textarea id="notes" name="notes" className={compactInventoryTextareaClass} />
-            </div>
-          </div>
-          <DialogFooter className={inventoryDialogFooterClass}>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => onOpenChange(false)}
-            >
-              取消
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={mutation.isPending}
-              className={cn("h-8", controls.brandButton)}
-              style={brandGradientStyle}
-            >
-              保存商品
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -2960,27 +2844,6 @@ function SelectField<T extends string>({
       </select>
     </div>
   );
-}
-
-function intakeInput(formData: FormData): CreateInventoryIntakeInput {
-  return {
-    customer_name: optionalValue(formData, "customer_name"),
-    customer_phone: optionalValue(formData, "customer_phone"),
-    source_type: optionalValue(formData, "source_type"),
-    initial_status: optionalValue(formData, "initial_status") as InventoryItemStatus | undefined,
-    category: optionalValue(formData, "category"),
-    brand: textValue(formData, "brand"),
-    model: textValue(formData, "model"),
-    color: optionalValue(formData, "color"),
-    storage_capacity: optionalValue(formData, "storage_capacity"),
-    serial_or_imei: optionalValue(formData, "serial_or_imei"),
-    buyback_price: numberValue(formData, "buyback_price"),
-    repair_cost_amount: numberValue(formData, "repair_cost_amount"),
-    list_price: numberValue(formData, "list_price"),
-    warranty_months: numberValue(formData, "warranty_months"),
-    payment_method: optionalValue(formData, "payment_method"),
-    notes: optionalValue(formData, "notes"),
-  };
 }
 
 function inventoryWarrantyLabel(months: number) {

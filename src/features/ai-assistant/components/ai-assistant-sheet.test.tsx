@@ -1,0 +1,174 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const apiMocks = vi.hoisted(() => ({ runAiOrderAssistantTurn: vi.fn() }));
+
+vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
+  runAiOrderAssistantTurn: apiMocks.runAiOrderAssistantTurn,
+}));
+
+import type { AiOrderAssistantResponse } from "@/features/ai-assistant/model/contracts";
+import { AiAssistantSheet } from "./ai-assistant-sheet";
+
+const capabilities = {
+  canUseOrderAssistant: true,
+  canUseVisionIntake: false,
+  canApplyInventoryDraft: false,
+} as const;
+
+describe("AiAssistantSheet", () => {
+  beforeEach(() => {
+    apiMocks.runAiOrderAssistantTurn.mockReset();
+    setOnline(true);
+  });
+
+  afterEach(() => {
+    cleanup();
+    setOnline(true);
+  });
+
+  it("submits a bounded question and renders the minimal order card", async () => {
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R2026001", "order-1"));
+    renderSheet();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+      target: { value: "查找 Mario 的未付款工单" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("R2026001")).toBeInTheDocument();
+    expect(screen.getByText("M*** R***")).toBeInTheDocument();
+    expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledWith(
+      { message: "查找 Mario 的未付款工单", locale: "zh-CN" },
+      { signal: expect.any(AbortSignal) },
+    );
+  });
+
+  it("does not queue a request while offline and keeps the manual input visible", () => {
+    setOnline(false);
+    renderSheet();
+
+    const input = screen.getByRole("textbox", { name: "输入工单查询问题" });
+    fireEvent.change(input, { target: { value: "离线时保留的查询" } });
+
+    expect(screen.getByText("当前离线")).toBeInTheDocument();
+    expect(input).toHaveValue("离线时保留的查询");
+    expect(screen.getByRole("button", { name: "查找未付款工单" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "发送" })).toBeDisabled();
+    expect(apiMocks.runAiOrderAssistantTurn).not.toHaveBeenCalled();
+  });
+
+  it("aborts the previous request and only renders the latest intent", async () => {
+    let firstSignal: AbortSignal | undefined;
+    apiMocks.runAiOrderAssistantTurn
+      .mockImplementationOnce(
+        (_input, options: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            firstSignal = options.signal;
+            options.signal?.addEventListener("abort", () => {
+              reject(new DOMException("Aborted", "AbortError"));
+            });
+          }),
+      )
+      .mockResolvedValueOnce(response("R-LATEST", "order-latest"));
+    renderSheet();
+    const input = screen.getByRole("textbox", { name: "输入工单查询问题" });
+
+    fireEvent.change(input, { target: { value: "第一个问题" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await waitFor(() => expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(input, { target: { value: "第二个问题" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(await screen.findByText("R-LATEST")).toBeInTheDocument();
+    expect(firstSignal?.aborted).toBe(true);
+    expect(screen.queryByText("第一个问题")).not.toBeInTheDocument();
+    expect(screen.getByText("第二个问题")).toBeInTheDocument();
+  });
+
+  it("cancels an in-flight request and preserves the current input", async () => {
+    apiMocks.runAiOrderAssistantTurn.mockImplementationOnce(
+      (_input, options: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        }),
+    );
+    renderSheet();
+    const input = screen.getByRole("textbox", { name: "输入工单查询问题" });
+    fireEvent.change(input, { target: { value: "保留这段查询内容" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await waitFor(() => expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(
+      await screen.findByText("已取消本次查询。输入内容仍保留，可修改后重新发送。"),
+    ).toBeInTheDocument();
+    expect(input).toHaveValue("保留这段查询内容");
+  });
+
+  it("shows permission denial without enabling the composer", () => {
+    renderSheet({
+      capabilities: {
+        canUseOrderAssistant: false,
+        canUseVisionIntake: false,
+        canApplyInventoryDraft: false,
+        reason: "permission_denied",
+      },
+    });
+
+    expect(screen.getByText("当前账号没有使用权限")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "输入工单查询问题" })).toBeDisabled();
+  });
+});
+
+function renderSheet(overrides: Partial<React.ComponentProps<typeof AiAssistantSheet>> = {}) {
+  return render(
+    <AiAssistantSheet
+      open
+      onOpenChange={vi.fn()}
+      capabilities={capabilities}
+      capabilitiesLoading={false}
+      capabilitiesError={false}
+      onRetryCapabilities={vi.fn()}
+      storeKey="store-1"
+      {...overrides}
+    />,
+  );
+}
+
+function response(publicNo: string, id: string): AiOrderAssistantResponse {
+  return {
+    request_id: "00000000-0000-4000-8000-000000000001",
+    contract_version: "ai-assistant-v1",
+    kind: "search_results",
+    message: "RepairDesk 找到 1 条符合条件的工单。",
+    cards: [
+      {
+        id,
+        public_no: publicNo,
+        customer_hint: "M*** R***",
+        device_label: "Redmi A7 Pro",
+        status: "intake",
+        status_label: "接待",
+        updated_at: "2026-07-18T12:00:00.000Z",
+        href: `/orders/${id}`,
+      },
+    ],
+    total: 1,
+    result_truncated: false,
+    generated_at: "2026-07-18T12:00:00.000Z",
+    source: "repairdesk",
+  };
+}
+
+function setOnline(value: boolean) {
+  Object.defineProperty(window.navigator, "onLine", {
+    configurable: true,
+    value,
+  });
+}

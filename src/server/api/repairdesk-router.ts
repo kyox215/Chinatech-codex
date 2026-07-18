@@ -4,6 +4,14 @@ import { NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 
+import {
+  aiAssistantRequestSchema,
+  aiInventoryVisionRequestSchema,
+} from "@/features/ai-assistant/model/contracts";
+import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
+import { runAiOrderAssistantTurn } from "@/features/ai-assistant/server/order-assistant.service";
+import { getAiAssistantProvider } from "@/features/ai-assistant/server/provider-factory";
+import { runAiInventoryVisionRecognition } from "@/features/ai-assistant/server/vision-assistant.service";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
 import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
@@ -1322,6 +1330,9 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
     const actor = await getRequestActor(true, {
       allowPendingStore: allowsPendingStore(path, "GET"),
     });
+    if (path === "ai/capabilities") {
+      return ok(getAiAssistantCapabilities(actor));
+    }
     const api = await source();
     switch (path) {
       case "onboarding/status":
@@ -1401,8 +1412,29 @@ export function getRepairDeskPostActor(path: string) {
 export async function handleRepairDeskPost(path: string, body: unknown, requestActor?: AuditActor) {
   try {
     const actor = requestActor ?? (await getRepairDeskPostActor(path));
+    if (path === "ai/vision/extract") {
+      return ok(
+        await runAiInventoryVisionRecognition({
+          actor,
+          input: aiInventoryVisionRequestSchema.parse(body),
+          dependencies: { provider: getAiAssistantProvider },
+        }),
+      );
+    }
     const api = await source();
     switch (path) {
+      case "ai/order/turn":
+        return ok(
+          await runAiOrderAssistantTurn({
+            actor,
+            input: aiAssistantRequestSchema.parse(body),
+            dependencies: {
+              provider: getAiAssistantProvider,
+              listOrdersPage: api.listOrdersPage,
+              getOrder: api.getOrder,
+            },
+          }),
+        );
       case "orders/data/template": {
         const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
         return binaryResponse(await downloadOrderDataTemplate({ expectedStoreId, actor }));

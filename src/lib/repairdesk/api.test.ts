@@ -4,6 +4,7 @@ import {
   acceptKioskSession,
   createOrder,
   downloadOrderDataTemplate,
+  getAiAssistantCapabilities,
   getDashboardSummary,
   getInventorySummary,
   getOrderCreateOperationStatus,
@@ -15,6 +16,8 @@ import {
   listOrderDataBatchHistory,
   isRepairDeskRequestTimeoutError,
   RepairDeskApiError,
+  runAiInventoryVisionRecognition,
+  runAiOrderAssistantTurn,
   returnKioskSession,
   previewOrderDataImport,
   updateStoreSettings,
@@ -51,6 +54,118 @@ describe("repairdesk api client", () => {
       total: 3,
       inProgress: 2,
     });
+  });
+
+  it("uses private AI capability and turn endpoints without caller-controlled scope", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              canUseOrderAssistant: true,
+              canUseVisionIntake: false,
+              canApplyInventoryDraft: false,
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              request_id: "00000000-0000-4000-8000-000000000001",
+              contract_version: "ai-assistant-v1",
+              kind: "clarification",
+              message: "请补充订单号",
+              cards: [],
+              total: 0,
+              result_truncated: false,
+              generated_at: "2026-07-18T12:00:00.000Z",
+              source: "repairdesk",
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getAiAssistantCapabilities()).resolves.toMatchObject({
+      canUseOrderAssistant: true,
+    });
+    await expect(
+      runAiOrderAssistantTurn({ message: "查询订单", locale: "zh-CN" }),
+    ).resolves.toMatchObject({ kind: "clarification" });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/repairdesk/ai/capabilities",
+      expect.not.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/repairdesk/ai/order/turn",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ message: "查询订单", locale: "zh-CN" }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it("uses the bounded private AI vision endpoint with caller cancellation support", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              request_id: "00000000-0000-4000-8000-000000000002",
+              contract_version: "ai-assistant-v1",
+              recognition: {
+                schema_version: "ai-assistant-v1",
+                fields: Object.fromEntries(
+                  ["brand", "model", "color", "ram_capacity", "storage_capacity"].map((name) => [
+                    name,
+                    { value: null, confidence: "unknown", evidence: null, source: "unknown" },
+                  ]),
+                ),
+                identifiers: [],
+                conflicts: [],
+                warnings: ["请手工录入"],
+                label_claim_only: true,
+              },
+              provider: "fake",
+              model_version: "fake-vision-test",
+              generated_at: "2026-07-18T12:00:00.000Z",
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const input = {
+      image_data_url: "data:image/jpeg;base64,/9j/wAA=",
+      mime_type: "image/jpeg" as const,
+      byte_length: 5,
+      width: 1,
+      height: 1,
+      locale: "zh-CN" as const,
+    };
+
+    await expect(
+      runAiInventoryVisionRecognition(input, { signal: controller.signal }),
+    ).resolves.toMatchObject({ provider: "fake" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/repairdesk/ai/vision/extract",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(input),
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   it("scopes available kiosk devices to the selected order", async () => {

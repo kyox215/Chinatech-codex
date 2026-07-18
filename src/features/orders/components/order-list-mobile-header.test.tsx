@@ -40,7 +40,8 @@ const groups = [
 function renderHeader({
   pendingGroupValue,
   interactionDisabled,
-}: { pendingGroupValue?: string; interactionDisabled?: boolean } = {}) {
+  aiAction,
+}: { pendingGroupValue?: string; interactionDisabled?: boolean; aiAction?: React.ReactNode } = {}) {
   const onGroupChange = vi.fn();
   const result = render(
     <SidebarProvider>
@@ -52,6 +53,7 @@ function renderHeader({
         totalOrders={174}
         onGroupChange={onGroupChange}
         onCreateOrder={vi.fn()}
+        aiAction={aiAction}
         searchValue=""
         searchBusy={false}
         interactionDisabled={interactionDisabled}
@@ -105,5 +107,12 @@ describe("MobileOrdersFloatingHeader", () => {
     expect(ordered).toBeDisabled();
     fireEvent.click(ordered);
     expect(onGroupChange).not.toHaveBeenCalled();
+  });
+
+  it("renders the contextual AI action without removing the new-order action", () => {
+    renderHeader({ aiAction: <button aria-label="打开 RepairDesk AI 小助手">AI</button> });
+
+    expect(screen.getByRole("button", { name: "打开 RepairDesk AI 小助手" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新建工单" })).toBeInTheDocument();
   });
 });

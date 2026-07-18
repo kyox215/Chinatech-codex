@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { ScanLine, Search, ShieldCheck, Store } from "lucide-react";
+import { ScanLine, Search, ShieldCheck, Sparkles, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { RealtimeSyncIndicator } from "@/features/realtime";
+import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { appShell } from "@/lib/ui-patterns";
 import { getActiveWorkspaceItem, routeLabels } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ export function AppBar({
   const crumbs = useCrumbs();
   const pathname = usePathname() ?? "/";
   const shell = useStoreShellContext();
+  const aiAssistant = useAiAssistantWorkspace();
   const activeModule = getActiveWorkspaceItem(pathname, shell.isPlatformAdmin);
   const hideOnMobile = usesRepairOsMobileHeader(pathname);
   const mobileContextTitle =
@@ -106,6 +108,21 @@ export function AppBar({
             ⌘K
           </kbd>
         </button>
+
+        {aiAssistant.canOpenOrderAssistant ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="hidden h-9 shrink-0 gap-1.5 border-primary/30 bg-primary/10 px-2.5 text-primary hover:bg-primary/15 md:inline-flex"
+            aria-label="打开 RepairDesk AI 小助手"
+            data-ai-assistant-trigger="desktop"
+            onClick={aiAssistant.openAssistant}
+          >
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            <span className="hidden lg:inline">AI 助手</span>
+          </Button>
+        ) : null}
 
         <Button
           type="button"

@@ -67,6 +67,7 @@ export function MobileOrdersFloatingHeader({
   totalOrders,
   onGroupChange,
   onCreateOrder,
+  aiAction,
   scanAction,
   searchValue,
   searchBusy,
@@ -91,6 +92,7 @@ export function MobileOrdersFloatingHeader({
   totalOrders: number;
   onGroupChange: (value: string) => void;
   onCreateOrder: () => void;
+  aiAction?: ReactNode;
   scanAction?: ReactNode;
   searchValue: string;
   searchBusy: boolean;
@@ -119,16 +121,19 @@ export function MobileOrdersFloatingHeader({
               <RealtimeSyncIndicator compact />
             </p>
           </div>
-          <Button
-            type="button"
-            size="icon"
-            className="size-10 rounded-xl border-0 text-primary-foreground shadow-[var(--shadow-action)]"
-            style={brandGradientStyle}
-            onClick={onCreateOrder}
-            aria-label="新建工单"
-          >
-            <Plus className="size-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {aiAction}
+            <Button
+              type="button"
+              size="icon"
+              className="size-10 rounded-xl border-0 text-primary-foreground shadow-[var(--shadow-action)]"
+              style={brandGradientStyle}
+              onClick={onCreateOrder}
+              aria-label="新建工单"
+            >
+              <Plus className="size-4" />
+            </Button>
+          </div>
         </header>
 
         <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>

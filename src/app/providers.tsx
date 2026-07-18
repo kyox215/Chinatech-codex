@@ -14,6 +14,7 @@ import { PwaServiceWorker } from "@/components/pwa-service-worker";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { ScanSearchSheet } from "@/features/capture";
+import { AiAssistantWorkspaceProvider } from "@/features/ai-assistant";
 import { AppPreloadBridge } from "@/features/preload";
 import { RealtimeAppBridge } from "@/features/realtime";
 import { OfflineOutboxSyncBridge } from "@/features/offline/components/offline-outbox-sync-bridge";
@@ -58,28 +59,30 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <NavigationGuardProvider>
           <RealtimeAppBridge>
             <AppPreloadBridge>
-              <OfflineOutboxSyncBridge />
-              <SidebarProvider>
-                <AppSidebar />
-                <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-                  <AppBar
-                    onOpenCommand={() => setOpen(true)}
+              <AiAssistantWorkspaceProvider>
+                <OfflineOutboxSyncBridge />
+                <SidebarProvider>
+                  <AppSidebar />
+                  <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
+                    <AppBar
+                      onOpenCommand={() => setOpen(true)}
+                      onOpenScanner={() => setScannerOpen(true)}
+                    />
+                    <main className={appShell.content}>{children}</main>
+                    <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
+                  </SidebarInset>
+                </SidebarProvider>
+                <PwaServiceWorker />
+                {open ? (
+                  <CommandPalette
+                    open={open}
+                    onOpenChange={setOpen}
                     onOpenScanner={() => setScannerOpen(true)}
                   />
-                  <main className={appShell.content}>{children}</main>
-                  <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
-                </SidebarInset>
-              </SidebarProvider>
-              <PwaServiceWorker />
-              {open ? (
-                <CommandPalette
-                  open={open}
-                  onOpenChange={setOpen}
-                  onOpenScanner={() => setScannerOpen(true)}
-                />
-              ) : null}
-              <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
-              <Toaster />
+                ) : null}
+                <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
+                <Toaster />
+              </AiAssistantWorkspaceProvider>
             </AppPreloadBridge>
           </RealtimeAppBridge>
         </NavigationGuardProvider>

@@ -1,5 +1,12 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type {
+  AiAssistantCapabilities,
+  AiAssistantRequest,
+  AiInventoryVisionRequest,
+  AiInventoryVisionResponse,
+  AiOrderAssistantResponse,
+} from "@/features/ai-assistant/model/contracts";
+import type {
   RepairDeskOfflineHandlerResult,
   RepairDeskOfflineOrderCreateSyncInput,
 } from "@/features/offline/server/offline-sync-contract";
@@ -195,6 +202,8 @@ export type RepairDeskRequestOptions = {
 };
 
 const DEFAULT_REPAIRDESK_REQUEST_TIMEOUT_MS = 30_000;
+
+export type { AiAssistantCapabilities, AiAssistantRequest, AiOrderAssistantResponse };
 
 export type {
   ApprovedStoreRole,
@@ -807,6 +816,32 @@ export async function renderMessageTemplatePreview(
   input: MessageTemplatePreviewInput,
 ): Promise<MessageTemplatePreviewResult> {
   return postJson<MessageTemplatePreviewResult>("message-template/preview", input);
+}
+
+export async function getAiAssistantCapabilities(
+  options?: RepairDeskRequestOptions,
+): Promise<AiAssistantCapabilities> {
+  return requestJson<AiAssistantCapabilities>("ai/capabilities", {}, options);
+}
+
+export async function runAiOrderAssistantTurn(
+  input: AiAssistantRequest,
+  options: RepairDeskRequestOptions = {},
+): Promise<AiOrderAssistantResponse> {
+  return postJson<AiOrderAssistantResponse>("ai/order/turn", input, {
+    ...options,
+    timeoutMs: options.timeoutMs ?? 20_000,
+  });
+}
+
+export async function runAiInventoryVisionRecognition(
+  input: AiInventoryVisionRequest,
+  options: RepairDeskRequestOptions = {},
+): Promise<AiInventoryVisionResponse> {
+  return postJson<AiInventoryVisionResponse>("ai/vision/extract", input, {
+    ...options,
+    timeoutMs: options.timeoutMs ?? 45_000,
+  });
 }
 
 async function requestJson<T>(

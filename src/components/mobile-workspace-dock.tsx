@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Command } from "lucide-react";
+import { Command, Sparkles } from "lucide-react";
 
 import {
   AttachmentDraftPanel,
@@ -27,6 +27,7 @@ import { globalMobileQuickActions, getShellPrimaryAction } from "@/shared/config
 import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 import { cn } from "@/lib/utils";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
+import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 
 interface MobileWorkspaceDockProps {
   onOpenCommand: () => void;
@@ -51,6 +52,7 @@ function MobileWorkspaceDockContent({
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
+  const aiAssistant = useAiAssistantWorkspace();
   attachmentDraftsRef.current = attachmentDrafts;
 
   useEffect(() => {
@@ -103,28 +105,55 @@ function MobileWorkspaceDockContent({
             <SheetDescription>当前模块动作与扫码、拍照、搜索工具。</SheetDescription>
           </SheetHeader>
           <div className={repairOs.quickActionList}>
-            {actions.map((action, index) => {
-              const isPrimary = index === 0;
+            {actions.slice(0, 1).map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                data-mobile-workspace-action="primary"
+                onClick={() => runAction(action)}
+                className={cn(repairOs.quickActionItem, repairOs.quickActionPrimary)}
+              >
+                <span className={cn(repairOs.quickActionIcon, repairOs.quickActionIconPrimary)}>
+                  <action.icon className="size-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className={repairOs.quickActionLabel}>当前 · {action.label}</span>
+                  <span className={repairOs.quickActionDescription}>{action.description}</span>
+                </span>
+              </button>
+            ))}
+            {aiAssistant.canOpenOrderAssistant ? (
+              <button
+                type="button"
+                data-ai-assistant-trigger="mobile-dock"
+                onClick={() => {
+                  setOpen(false);
+                  window.requestAnimationFrame(aiAssistant.openAssistant);
+                }}
+                className={repairOs.quickActionItem}
+              >
+                <span className={repairOs.quickActionIcon}>
+                  <Sparkles className="size-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className={repairOs.quickActionLabel}>AI 小助手</span>
+                  <span className={repairOs.quickActionDescription}>只读查询当前门店工单</span>
+                </span>
+              </button>
+            ) : null}
+            {actions.slice(1).map((action) => {
               return (
                 <button
                   key={action.label}
                   type="button"
                   onClick={() => runAction(action)}
-                  className={cn(repairOs.quickActionItem, isPrimary && repairOs.quickActionPrimary)}
+                  className={repairOs.quickActionItem}
                 >
-                  <span
-                    className={cn(
-                      repairOs.quickActionIcon,
-                      isPrimary && repairOs.quickActionIconPrimary,
-                    )}
-                  >
+                  <span className={repairOs.quickActionIcon}>
                     <action.icon className="size-4" />
                   </span>
                   <span className="min-w-0">
-                    <span className={repairOs.quickActionLabel}>
-                      {isPrimary ? "当前 · " : null}
-                      {action.label}
-                    </span>
+                    <span className={repairOs.quickActionLabel}>{action.label}</span>
                     <span className={repairOs.quickActionDescription}>{action.description}</span>
                   </span>
                 </button>

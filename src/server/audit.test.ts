@@ -89,6 +89,22 @@ describe("audit log redaction", () => {
     expect(sanitized?.target_owner_email).toBe("[redacted]");
   });
 
+  it("keeps aggregate AI token counts while continuing to redact token values", () => {
+    const sanitized = sanitizeAuditRecord({
+      input_token_count: 120,
+      output_token_count: 30,
+      total_token_count: 150,
+      access_token: "SECRET",
+    });
+
+    expect(sanitized).toEqual({
+      input_token_count: 120,
+      output_token_count: 30,
+      total_token_count: 150,
+      access_token: "[redacted]",
+    });
+  });
+
   it("redacts every internal cost payload shape", () => {
     const sanitized = sanitizeAuditRecord({
       cost_inputs: [{ line_id: "line-1", amount: 15 }],

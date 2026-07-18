@@ -13,7 +13,16 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Filter, LoaderCircle, Plus, Printer, Search, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Filter,
+  LoaderCircle,
+  Plus,
+  Printer,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,6 +119,7 @@ import { storeSettingsQueryOptions } from "@/features/messages/api/query-options
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -201,6 +211,7 @@ export function OrderListScreen() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
+  const aiAssistant = useAiAssistantWorkspace();
   const activeStoreId = shell.activeStore?.id;
   const canLoadOrderData = Boolean(activeStoreId) && !shell.isRefreshing;
   const { coordinator } = useRealtimeSync();
@@ -1003,6 +1014,21 @@ export function OrderListScreen() {
         totalOrders={totalOrders}
         onGroupChange={handleStatusGroupChange}
         onCreateOrder={() => setNewOrderOpen(true)}
+        aiAction={
+          aiAssistant.canOpenOrderAssistant ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-10 rounded-xl border-primary/30 bg-primary/10 text-primary"
+              aria-label="打开 RepairDesk AI 小助手"
+              data-ai-assistant-trigger="mobile-orders"
+              onClick={aiAssistant.openAssistant}
+            >
+              <Sparkles className="size-4" aria-hidden="true" />
+            </Button>
+          ) : undefined
+        }
         searchValue={searchInput.draftValue}
         searchBusy={searchBusy}
         interactionDisabled={!isOnline}
