@@ -71,3 +71,10 @@
 - **Next:** 正式启用 Inventory V2 时，严格从 release runbook 的恢复证明、精确 linked dry-run、单独 migration/RPC 批准和单店 allowlist 开始；在此之前不执行生产变化。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T20:00:04Z — 任务正式关闭：三个 release unit、精确 20260718150000 迁移与 main@de5f8b49 已发布，Vercel dpl_FueK1juPvAp8UJrE1FdvPxRYRy4o READY 且生产冒烟/错误日志通过；Inventory V2 默认关闭切片已采纳但两份迁移、RPC、allowlist、flags 与 V1 退役继续 D4；项目/部门/能力记忆已同步且能力仍 C1 restricted。
+
+- **Phase:** implementation
+- **Completed/current state:** 任务正式关闭：三个 release unit、精确 20260718150000 迁移与 main@de5f8b49 已发布，Vercel dpl_FueK1juPvAp8UJrE1FdvPxRYRy4o READY 且生产冒烟/错误日志通过；Inventory V2 默认关闭切片已采纳但两份迁移、RPC、allowlist、flags 与 V1 退役继续 D4；项目/部门/能力记忆已同步且能力仍 C1 restricted。
+- **Next:** 后续仅在 Owner 单独批准时按 Inventory V2 runbook 启动恢复证明、精确迁移、RPC grant 与单店 canary；lifecycle purge retry-baseline 修复前不得启用 worker/scheduler/flags。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

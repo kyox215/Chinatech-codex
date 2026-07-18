@@ -83,6 +83,7 @@ Realtime or offline storage.
 | SEC-20260716-004 | Custody and credential retention previously conflicted across code/memory | False custody evidence or unintended secret clearing | Security + Backend + Product + Owner | `20260717182220` superseding `20260716235650`, UI/E2E and linked dry-run evidence | mitigated_scoped_verified |
 | SEC-20260713-001 | Kiosk limiting/token/retention/signature policy and order-data ingress/retention/limiting remain unapproved | PII abuse, leakage or over-retention | Security + Data + Operations + Owner | before Kiosk or order-data production unit | open |
 | SEC-20260718-001 | Real AI requests would expose device images/identifiers without approved budget, DPA/ZDR/region/retention/deletion, durable limiting or server image sanitation | Privacy, cross-border, secret, cost and abuse risk | Security + Privacy + Architecture + Owner | independent R4/D4 approval before any provider activation | contained_by_fail_closed_flags |
+| SEC-20260718-002 | Lifecycle purge retry-baseline proof does not independently bind a retry to the original approved baseline | Permanent tenant deletion could be authorized from incomplete retry evidence | Security + Data + Operations + Owner | keep worker/scheduler/flags off until a reviewed forward fix and adversarial retry tests pass | blocked_activation |
 
 ## Lessons and anti-patterns
 
@@ -123,3 +124,4 @@ Realtime or offline storage.
 | 2026-07-18 | Verified production cost-data ACL/permission/tenant containment and dormant child-feature behavior | TASK-20260718-008-order-cost-phase2 | Security/Data reviewers + Integration Lead | scoped_verified_option_b |
 | 2026-07-18 | Verified AI server-derived authority, audit minimization, CDN-free local recognition, pre-decode image limits and production no-key/no-call dormant state | TASK-20260718-009-ai-assistant-implementation | Security/Architecture reviewer + Integration Lead | scoped_verified_dormant |
 | 2026-07-18 | Verified all-request abuse control, HMAC safety identifiers, aggregate-only cost audit, zero enabled policy and no key/call/apply Phase 3A boundary | TASK-20260718-011-ai-assistant-cost-governance | Security/Data reviewer + Integration Lead | verified_dormant_candidate |
+| 2026-07-18 | Verified store-default migration changed no RLS/policy/ACL, Inventory V2 remained ungranted/off and lifecycle purge activation stayed blocked | TASK-20260718-012-workspace-integration-release | Security/Data reviewers + Integration Lead | scoped_verified |

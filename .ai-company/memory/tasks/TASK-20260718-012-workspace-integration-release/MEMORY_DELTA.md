@@ -8,3 +8,10 @@
 - Lifecycle purge retry-baseline 缺陷继续阻止 worker/scheduler 激活，不能因 schema 已存在而推断可安全启用。
 
 这些结论已写入任务 handoff 和 release evidence；不包含秘密、客户 PII 或生产凭据。
+
+## Consolidation result
+
+- 已提升到 `PROJECT_MEMORY.md` 与 `MEMORY_INDEX.md`：两个任务的真实发布/默认关闭状态和生产激活边界。
+- 已同步 DATA、SEC、QA、Operations、Documentation 部门：精确 migration SOP、Inventory V2 D4 边界、purge retry-baseline 阻塞、基线 E2E 债务、exact-SHA 发布与文档权威。
+- Capability Registry 只增加第二次受控发布证据；`CAP-TASK009-RELEASE-20260710` 仍为 C1/restricted，没有权限或自治升级。
+- 未提升临时部署等待日志、完整 worktree 清单、合成记录内容或分支噪声；它们只保留在任务证据中。

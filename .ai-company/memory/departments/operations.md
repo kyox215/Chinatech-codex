@@ -78,6 +78,7 @@ scoped slice into broad recovery certification.
 | OPS-20260619-003 | Duplicate cleanup without fresh scan and explicit path list could remove semantic evidence | Governance/review risk | Operations + QA | before deleting newly discovered or now-different duplicate-like files | open |
 | OPS-20260619-004 | Batch C cleanup could lose the attachment-inventory E2E idea | QA backlog loss | Operations + QA | backlog note created and Batch C duplicates deleted by TASK-20260619-011 | closed |
 | OPS-20260713-001 | A Settings candidate can become stale or lose release ownership as main advances | Wrong artifact or uncontained release | Operations + Integration Lead + Owner | require fresh origin, exact target/baseline, on-call, window and recovery owner before push/PR/deploy | open |
+| OPS-20260718-002 | Inventory V2 Web code is deployed while schema/RPC/allowlist remain intentionally inactive | An operator could enable child flags out of order or remove the V1 rollback path | Operations + Data + Security + Owner | run the release runbook in order; schema-ready first, one-store canary later, keep legacy mutations on during observation | contained_by_runbook_and_flags_off |
 
 ## Lessons and anti-patterns
 
@@ -116,3 +117,4 @@ scoped slice into broad recovery certification.
 | 2026-07-18 | Recorded serialized six-migration cost release, exact business SHA deployment, dormant flags and clean database/runtime observation | TASK-20260718-008-order-cost-phase2 | Integration Lead + DATA/SEC/QA reviewers | scoped_verified_option_b |
 | 2026-07-18 | Recorded exact-SHA dormant AI release, no-key/no-flag configuration proof, anonymous smoke, clean error observation and READY rollback target | TASK-20260718-009-ai-assistant-implementation | Integration Lead + Security/QA/Release reviewers | scoped_verified_dormant |
 | 2026-07-18 | Recorded Phase 3A dormant release contract: flags/key absent, fake/fail-closed provider, unapplied migration, exact identity/smoke/rollback required before close | TASK-20260718-011-ai-assistant-cost-governance | Integration Lead + Release reviewer | release_candidate |
+| 2026-07-18 | Recorded exact-migration apply, non-force main integration, exact-SHA READY deploy, production smoke, rollback target and preservation of the mixed source checkout | TASK-20260718-012-workspace-integration-release | Integration Lead + Data/Security/QA reviewers | scoped_verified |

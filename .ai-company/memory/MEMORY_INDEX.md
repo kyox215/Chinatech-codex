@@ -31,6 +31,10 @@
 
 - [TASK-20260718-011-ai-assistant-cost-governance](tasks/TASK-20260718-011-ai-assistant-cost-governance/TASK.md): Active Phase 3A dormant release candidate for deterministic/local zero-provider paths, versioned runtime/cost controls and an unapplied atomic quota migration; no key, paid call, production DB apply or AI activation is authorized.
 
+- [TASK-20260718-012-workspace-integration-release](tasks/TASK-20260718-012-workspace-integration-release/TASK.md): Closed production integration release for order progress sorting, custody-safe unlock retention and tenant print address. Exact migration `20260718150000` is applied without row changes; final `main`/Vercel SHA is verified, while lifecycle purge activation and Inventory V2 production activation remain separate gates.
+
+- [TASK-20260718-011-inventory-product-v2-plan](tasks/TASK-20260718-011-inventory-product-v2-plan/TASK.md): Conditionally closed additive Inventory V2 vertical slice. Web code and release runbook are on `main`, but both V2 migrations, RPC grants, store allowlist and all V2 flags remain unapplied/off; V1 stays available.
+
 - [TASK-20260718-009-ai-assistant-implementation](tasks/TASK-20260718-009-ai-assistant-implementation/TASK.md): Conditionally closed production release of the dormant AI Phase 0–2 safe slice; bounded staff order reads and image-to-unsaved-inventory-form review are live in code but all AI capabilities remain fail-closed with no production key, external call, migration or public activation. Phase 3–5 require separate D4 tasks.
 
 - [TASK-20260718-008-order-cost-phase2](tasks/TASK-20260718-008-order-cost-phase2/TASK.md): Conditionally closed production order-cost Phase 2 release; six migrations and business `main@b8932b2c` are live, all five child flags remain off, no backfill ran, and Owner Option B leaves physical-restore/full-history recovery debt open.

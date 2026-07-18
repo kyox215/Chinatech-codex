@@ -18,9 +18,24 @@ Chinatech RepairDesk is a Next.js internal management system for a phone repair 
 migrations and deployed business commit `b8932b2c`. The production slice has append-only cost
 revisions, quote-based operating-margin reporting, supplier/parts lots and allocation, minimized
 CSV export, guarded history backfill and immutable original-currency snapshots. All five Phase 2
-child flags remain absent/off, no production backfill ran, and procurement/backfill tables stayed
-empty. Owner Option B accepts unproven physical restore/RPO/RTO and the pre-existing full-history
-replay failure for this release only; it does not close the independent recovery P0.
+ child flags remain absent/off, no production backfill ran, and procurement/backfill tables stayed
+ empty. Owner Option B accepts unproven physical restore/RPO/RTO and the pre-existing full-history
+ replay failure for this release only; it does not close the independent recovery P0.
+
+2026-07-18 Inventory V2 safe slice: `TASK-20260718-011-inventory-product-v2-plan` shipped additive,
+fail-closed catalog/variant/unit inventory contracts, atomic command scaffolding, a six-step responsive
+entry flow, AI-as-draft review and `docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md`. Production Web contains
+the code, but migrations `20260718175622` and `20260718181148`, RPC grants, store allowlist and all V2
+flags remain unapplied/off. V1 data, routes and mutations remain the rollback path; activation is a
+separate D4 release.
+
+2026-07-18 workspace integration release: `TASK-20260718-012-workspace-integration-release` safely
+reconstructed three proven release units on latest `main`: workflow-progress order sorting,
+custody-safe unlock retention and tenant store/print address propagation. Production applied only
+`20260718150000_neutralize_store_settings_identity_defaults.sql`; store-settings row count, timestamp,
+fingerprint, RLS, policies and ACL were unchanged. Business closeout `main@de5f8b49` and Vercel
+deployment `dpl_FueK1juPvAp8UJrE1FdvPxRYRy4o` were exact-SHA READY before the final memory-only sync.
+The mixed original checkout was preserved; reverify the live remote SHA before any next release.
 
 ## Users, roles and core workflows
 

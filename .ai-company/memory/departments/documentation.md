@@ -63,6 +63,7 @@ as owner of this file.
   snapshot and must not override the WP05-B/WP08 production NO-GO status.
 - For device custody, the current addendum at the top of `docs/ORDERS_SPEC.md` is authoritative despite the remainder being historical. It records explicit create choice, nullable legacy unknown, credential retention until authorized explicit clear, terminal receive/return rules, fail-closed raw-secret offline behavior and release order. Earlier task memory claiming automatic clear is superseded by migration `20260717182220` and TASK-20260717-008.
 - `docs/STORE_LIFECYCLE_IMPLEMENTATION_RUNBOOK.md` and `TASK-20260717-007-store-lifecycle-implementation` are the current store lifecycle release authority. Documentation must distinguish applied schema/code from activation: all five flags are off, no real store was renamed, closed, exported or purged, and permanent deletion still requires a separate exact-target approval.
+- `docs/INVENTORY_PRODUCT_V2_RELEASE_RUNBOOK.md` and `TASK-20260718-011-inventory-product-v2-plan` are the current Inventory V2 authority. Documentation must distinguish deployed default-off Web code from unapplied schema/RPC/allowlist activation, and must retain V1 as the rollback path until a separately approved D4 canary closes.
 
 ## Interfaces and dependencies
 
@@ -150,3 +151,4 @@ visible wherever the release is summarized.
 | 2026-07-17 | Added employee invite registration runbook and synchronized the account self-service plan, hosted Auth preservation warning and production evidence | TASK-20260717-employee-invite-registration | Integration Lead + department reviewers | active |
 | 2026-07-18 | Synchronized order-cost semantics, permissions, migrations, dormant production state, screenshots and Option B residual risk | TASK-20260718-008-order-cost-phase2 | Integration Lead + department reviewers | active |
 | 2026-07-18 | Synchronized deterministic/local/provider behavior, versioned cost governance, unapplied quota migration, proposed-limit labels and visual evidence | TASK-20260718-011-ai-assistant-cost-governance | Integration Lead + department reviewers | release_candidate |
+| 2026-07-18 | Synchronized workspace release evidence and the Inventory V2 deployed-code versus production-activation boundary | TASK-20260718-012-workspace-integration-release | Integration Lead + department reviewers | active |
