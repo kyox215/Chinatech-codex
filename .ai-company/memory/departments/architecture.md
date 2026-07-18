@@ -35,6 +35,7 @@ as owner of this file.
 - `TASK-20260620-003` produced the approval-gated deletion preflight contract and green non-destructive baseline. Future deletion should follow that contract exactly.
 - Cross-feature order lifecycle changes use an additive database contract plus thin API/router adapters: ordinary active-order patches remain field-scoped, while terminal correction/reopen/void are dedicated atomic commands. Customer history/finance reads use explicit v3 facts with a compatibility delegator rather than overloading ambiguous v2 names.
 - `TASK-20260716-005-device-custody-status-implementation` implements nullable two-state current custody plus existing `delivered_at`, with dedicated versioned active/terminal mutations and no duplicate `returned/unknown` business enum. Migration `20260716235650`, PG17 replay and production postchecks make this the scoped-verified architecture; legacy NULL remains a fact, not an enum value.
+- `TASK-20260718-009-ai-assistant-implementation` verifies the dormant AI boundary: existing Next.js BFF, strict provider interface, server-derived actor/store/RBAC, allowlisted read tools, server-built cards and hierarchical fail-closed flags. Image recognition only produces a reviewed page-memory inventory form draft; any live provider, write tool or persistence requires a new architecture/security decision.
 
 ## Interfaces and dependencies
 
@@ -44,6 +45,7 @@ as owner of this file.
 | Lifecycle command/read-model boundary | Backend + Data + Frontend | Additive v3 facts and dedicated terminal commands; old read overloads delegate during compatibility | Fail closed on invalid contract; forward-fix additive schema and keep immutable evidence | TASK-20260716-003-customer-finance-order-correction-plan | verified |
 | Proposed online order-create command | Backend + Data + Frontend + QA | One store-scoped idempotency key and request hash; atomically return the original order for same-key/same-payload replay | Reject key/payload conflicts; expose result lookup for browser timeout recovery; no production change until approved | TASK-20260717-163954-task | proposed |
 | First-phase online order-create recovery | Backend + Data + Frontend + QA | Client `operation_id`, server created-event replay lookup, status endpoint and no duplicate audit/realtime on replay | UI blocks repeat submit while confirming; full atomicity remains out of scope | TASK-20260717-165957-task | verified_local |
+| Dormant bounded AI assistant | Backend + Frontend + Security + QA | Server-owned actor/store/RBAC, two read-only order tools, strict vision contract and reviewed page-memory inventory draft | Parent/child flags, empty store allowlist, zero quota and fake provider fail closed; no formal save until existing service path | TASK-20260718-009-ai-assistant-implementation E-009–E-039 | production_verified_dormant |
 
 ## SOPs and checklists
 
@@ -57,6 +59,7 @@ as owner of this file.
 | ARCH-20260619-001 | Legacy route files remain after active dependency removal | Search/review confusion and accidental reuse risk | Architecture + Frontend + QA | Owner-approved deletion cleanup task | preflight ready; deletion approval pending |
 | ARCH-20260619-002 | Large modules exceed comfortable review size | Higher bug/regression risk | Architecture + QA | during 60-day refactor plan | open |
 | ARCH-20260717-001 | Online order create crosses customer/device/order/event/audit boundaries without one transaction; first-phase event replay reduces ambiguous-success UX but is not the final command boundary | Partial writes and pre-event duplicate races remain possible | Architecture + Backend + Data + Security | Owner review in a separate T3/R3 atomic RPC task; ADR required before migration | mitigated_first_phase; decision_proposed |
+| ARCH-20260718-001 | Live OpenAI activation lacks approved provider dependency, durable quota/deadline/safety identifier and server-side image sanitation | External-call cost, reliability and data-processing risk | Architecture + Security + Operations + Owner | new R4 task before any live provider or real image request | blocked_by_approval |
 
 ## Lessons and anti-patterns
 
@@ -84,3 +87,4 @@ as owner of this file.
 | 2026-07-17 | Promoted the proposed order-custody architecture to production-verified implementation with atomic active/terminal commands | TASK-20260716-005-device-custody-status-implementation | Integration Lead + DATA/API/SEC reviewers | scoped_verified |
 | 2026-07-17 | Added proposed atomic, idempotent online order-create command boundary and ADR trigger | TASK-20260717-163954-task | Integration Lead + API/Data reviewer | proposed |
 | 2026-07-17 | Added verified first-phase no-DDL online create recovery boundary and retained atomic RPC as future architecture decision | TASK-20260717-165957-task | Integration Lead | verified_local |
+| 2026-07-18 | Added production-verified dormant bounded-AI BFF and page-memory vision-draft boundary; retained live provider/persistence as separate approval gates | TASK-20260718-009-ai-assistant-implementation | Integration Lead + Architecture/Security reviewer | scoped_verified_dormant |

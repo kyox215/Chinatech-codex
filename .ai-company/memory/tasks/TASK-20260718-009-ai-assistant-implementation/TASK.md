@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-009-ai-assistant-implementation"
 title: "RepairDesk AI 小助手分阶段实施与生产发布"
-status: "active"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["API", "Architecture", "DATA", "DOC", "FLOW", "QA", "Release", "SEC", "UX"]
 created_at: "2026-07-18T12:35:20Z"
-updated_at: "2026-07-18T16:15:54Z"
+updated_at: "2026-07-18T16:31:14Z"
+closed_at: "2026-07-18T16:31:14Z"
 ---
 # Task — RepairDesk AI 小助手分阶段实施与生产发布
 
@@ -54,13 +55,13 @@ updated_at: "2026-07-18T16:15:54Z"
 
 ## Acceptance criteria
 
-- [ ] 按 docs/AI_ASSISTANT_VISION_INTAKE_PLAN.md 的 Phase 0-5 逐阶段重读、验证并记录检查点
-- [ ] AI 不直接执行正式业务写入，订单工具只读且复用服务端权限和门店隔离
-- [ ] 照片识别输出结构化候选并由员工确认后应用到现有表单
-- [ ] 数据迁移具有 RLS、最小 Grants、幂等、回滚与 linked 验证证据
-- [ ] 完整 UI 在移动与桌面视口通过验证并提供脱敏截图
-- [ ] 通过 lint、typecheck、test、build、安全、数据、E2E、发布与生产冒烟门禁
-- [ ] 最终提交推送并部署，完成观察与回滚验证
+- [ ] 按 docs/AI_ASSISTANT_VISION_INTAKE_PLAN.md 的 Phase 0-5 逐阶段重读、验证并记录检查点（Phase 0–2 已完成；Phase 3–5 等待独立 D4 批准）
+- [x] AI 不直接执行正式业务写入，订单工具只读且复用服务端权限和门店隔离
+- [x] 照片识别输出结构化候选并由员工确认后应用到现有表单
+- [ ] 数据迁移具有 RLS、最小 Grants、幂等、回滚与 linked 验证证据（Phase 3 未执行，也未伪装为本次发布内容）
+- [x] 完整 UI 在移动与桌面视口通过验证并提供脱敏截图
+- [x] 通过 lint、typecheck、test、build、安全、数据、E2E、发布与生产冒烟门禁
+- [x] Phase 0–2 安全切片最终提交已推送并部署，完成观察与回滚验证
 
 ## Phase progress
 
@@ -70,7 +71,7 @@ updated_at: "2026-07-18T16:15:54Z"
 - [ ] Phase 3：持久草稿与 additive data expansion
 - [ ] Phase 4：回收与新维修单安全预填
 - [ ] Phase 5：独立 public customer assistant default-off 实现
-- [ ] Release：scope-only push、CI、默认关闭部署、生产 smoke/观察/回滚
+- [x] Release：scope-only push、CI、默认关闭部署、生产 smoke/观察/回滚
 
 ## Facts, assumptions, and unknowns
 
@@ -90,6 +91,10 @@ updated_at: "2026-07-18T16:15:54Z"
 | Phase 2 图片与草稿边界 | verified | 257 files / 1690 tests、10/10 Playwright、独立复核、脱敏截图 | 解码前头部尺寸门禁；仅页面草稿；正式保存仍走现有表单 |
 | Phase 2 本地 OCR | verified safe degradation | `inventory-local-recognition.ts` 与独立安全复核 | 原生 TextDetector 可用时本地处理；Tesseract CDN fallback 已关闭 |
 | Phase 2 持久化 | verified boundary | service/audit/review | 无库存、订单、草稿或图片业务写入；仅现有 allowlist 聚合审计事件 |
+| Git 发布 | verified | `origin/main@8bef230f94d2` 与命名恢复分支 | fast-forward、无强推，业务提交已推送 |
+| Vercel 生产发布 | verified | `dpl_HWmQRHjy9XRYPMvLT1E1oraee7jr` | exact `8bef230`、READY、主域名别名生效 |
+| 生产 AI 配置 | verified fail-closed | production env 名称清单 | 无 `AI_*`/`OPENAI_*`；本地 key 未同步，缺省配置等同全关闭 |
+| 生产冒烟与回滚 | verified | 无登录 HTTP、错误日志、上一部署检查 | 登录跳转正常、AI capabilities 401/no-store、无 error 日志；回滚目标 `dpl_5tbk1iFUafSExZK3ezWAkxoawQSi` / `0f5ed6e` |
 
 ## Decision and approval points
 
@@ -98,6 +103,13 @@ updated_at: "2026-07-18T16:15:54Z"
 - **D3 复核后可执行**：预览环境、脱敏黄金集、非生产集成测试、兼容性新增代码。
 - **D4 Owner 保留**：API 预算、真实客户数据外发、DPA/ZDR/驻留/隐私告知、生产迁移 apply、公开客户入口激活、任何直接正式写入、最终生产发布。
 - Owner 已明确授权“最终推送以及部署应用”，该授权在全量质量/安全/数据/回滚门禁满足后生效；若发布内容包含尚未单独批准的生产迁移或公开客户激活，必须再次提供执行级批准包。
+
+## Final outcome
+
+- **条件关闭范围：** Phase 0–2 的 default-off/fake/page-memory 安全切片已实施、验证、推送并部署到生产。
+- **生产行为：** 所有 AI 能力缺省关闭；无 OpenAI 生产密钥、无外部 AI 请求、无生产迁移、无图片或草稿持久化、无公开客户入口。
+- **未关闭范围：** Phase 3–5 仍是独立高风险后续，必须先完成预算、隐私/数据处理、依赖、持久化/RLS/Grants、滥用防护和公开激活批准。
+- **关闭依据：** `CLOSEOUT_REPORT.md`、E-033–E-039、最终检查点和三组只读复核。
 
 ## Work packages
 

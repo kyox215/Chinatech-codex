@@ -10,7 +10,7 @@
 | Phase 3 | pending | production apply remains D4 pending |
 | Phase 4 | pending | depends on shared Phase 2 contract |
 | Phase 5 | pending | public activation remains D4 pending |
-| Release | in_progress | latest-main integration and post-rebase gates passed; push/deploy/smoke pending |
+| Release | completed | E-033–E-039: fast-forward push, exact-SHA READY deploy, fail-closed env check, smoke/observation and rollback target |
 
 ## 全局阶段协议
 
@@ -126,3 +126,12 @@
 - 从隔离分支进行 scope-only commit，推送并经过 CI。
 - 生产环境只配置批准的 Secret/flags/migration，完成 smoke 和观察窗口。
 - 回滚顺序：关闭 public/write/draft/tool/assistant flags → 回退部署 → 轮换泄露密钥；不紧急删除表。
+
+### 2026-07-18 release result
+
+- Business commit `8bef230f94d2` was pushed without force to the named recovery branch and `main`.
+- Vercel deployment `dpl_HWmQRHjy9XRYPMvLT1E1oraee7jr` built exact commit `8bef230`, reached `READY`, and received the `www.chinatech.in` aliases.
+- Production contains no `AI_*` or `OPENAI_*` environment names; absent variables keep every AI capability disabled and no local key was synchronized.
+- Logged-out root/inventory/orders safely resolve to login; unauthenticated AI capabilities returns `401` with `private, no-store`; the immediate error-log query returned no entries.
+- Rollback target is READY deployment `dpl_5tbk1iFUafSExZK3ezWAkxoawQSi` built from `main@0f5ed6e`.
+- Phase 3–5 remain pending and are not part of this completed release unit.

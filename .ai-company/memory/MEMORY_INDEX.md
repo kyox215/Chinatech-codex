@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260718-009-ai-assistant-implementation](tasks/TASK-20260718-009-ai-assistant-implementation/TASK.md): Conditionally closed production release of the dormant AI Phase 0–2 safe slice; bounded staff order reads and image-to-unsaved-inventory-form review are live in code but all AI capabilities remain fail-closed with no production key, external call, migration or public activation. Phase 3–5 require separate D4 tasks.
+
 - [TASK-20260718-008-order-cost-phase2](tasks/TASK-20260718-008-order-cost-phase2/TASK.md): Conditionally closed production order-cost Phase 2 release; six migrations and business `main@b8932b2c` are live, all five child flags remain off, no backfill ran, and Owner Option B leaves physical-restore/full-history recovery debt open.
 
 - [TASK-20260718-095500-order-create-navigation-release](tasks/TASK-20260718-095500-order-create-navigation-release/TASK.md): Closed production fix for canonical `/orders/{id}` navigation after successful creation from both the direct page and list Dialog; E2E, full app gates, screenshot, exact main SHA and Vercel READY/runtime smoke are recorded.

@@ -108,6 +108,7 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 - Do not infer project facts from the generic AI Company OS template.
 - Promote repeated evidence, not stylistic preference, into durable standards.
 - TASK-009 final gate baseline is agents/lint/typecheck PASS, 106 files/710 tests PASS, standard build PASS, strict desktop E2E 11/11 PASS and payment pgTAP 19/19 PASS.
+- Dormant AI releases require both in-app evidence and production-negative evidence: full regression/build, responsive masked E2E, exact Git/deploy identity, env-name-only fail-closed proof, anonymous auth/API denial, error observation and a READY rollback target. One flaky first run must be retained and fixed rather than rewritten as an initial pass.
 
 ## Capability and tool notes
 
@@ -157,3 +158,4 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 | 2026-07-17 | Verified employee invite new/existing delivery, same-origin confirmation, atomic denial matrix, 217/1484 full tests, build and desktop/mobile screenshots | TASK-20260717-employee-invite-registration | Integration Lead + QA/SEC/FLOW reviewers | scoped_verified |
 | 2026-07-18 | Added and executed two-entry order-create canonical navigation regression with full app gates and production deployment smoke | TASK-20260718-095500-order-create-navigation-release | Integration Lead | production_verified |
 | 2026-07-18 | Closed the full order-cost Phase 2 functional/security/migration/release matrix with dormant production observation and an explicit recovery exception | TASK-20260718-008-order-cost-phase2 | Integration Lead + QA/DATA/SEC reviewers | conditional_scoped_verified |
+| 2026-07-18 | Verified dormant AI Phase 0–2 with 277 files / 1772 tests, Webpack build, final 10/10 responsive E2E, masked screenshots, exact-SHA deploy, anonymous denial and clean error observation | TASK-20260718-009-ai-assistant-implementation | QA/Release reviewer + Integration Lead | scoped_verified_dormant |

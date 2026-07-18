@@ -2,10 +2,11 @@
 
 ## Current handoff
 
-- **Status:** Phase 2 default-off/fake/page-memory inventory vision slice complete and integrated one fast-forward commit above latest `origin/main`; push/deploy is next. Live activation and Phase 3–5 gates remain pending.
-- **Last verified:** 2026-07-18 after post-rebase full lint/typecheck, 277 files / 1772 tests, Webpack production build and final combined 10/10 Playwright flows.
-- **Workspace/branch:** `/private/tmp/repairdesk-ai-assistant.tqlBEu/worktree`, `codex/ai-assistant-implementation-20260718` at baseline `51d5b3b9` plus task changes.
-- **Completed:** Phase 0–1 plus Phase 2 pre-decode image safety, ephemeral native/ZXing recognition, fake-only vision BFF, controlled field review, manual-value conflict policy, unsaved form application, cancellation/offline/authority cleanup, documentation, masked screenshots and independent review fixes.
-- **Pending approvals:** `openai`/`sharp` dependencies, numeric budget, real-data privacy/DPA/ZDR/region, durable live quota/deadline, production migration, public activation.
-- **First action:** fetch once more, require fast-forward ancestry, push the named branch and remote main, then deploy project `chinatech-codex` with all AI flags off and no key sync.
-- **Stop condition:** do not install `openai`/`sharp`, call OpenAI, persist original images, apply migrations, copy the user's attached photo into the repo, or enable production AI flags while approvals are pending. Existing aggregate allowlisted audit persistence is the sole intentional recognition-time write.
+- **Status:** conditionally closed for the deployed Phase 0–2 safe slice. Phase 3–5 remain separate approval-gated follow-up work.
+- **Last verified:** 2026-07-18 after full lint/typecheck, 277 files / 1772 tests, Webpack build, 10/10 Playwright, exact-SHA Vercel READY deployment, production auth smoke and error-log observation.
+- **Git/runtime:** business commit `8bef230f94d2` is on the named recovery branch and `main`; Vercel `dpl_HWmQRHjy9XRYPMvLT1E1oraee7jr` built exact `8bef230` and serves `https://www.chinatech.in`.
+- **Production safety state:** no production `AI_*`/`OPENAI_*` variable names, all capabilities fail closed, no key sync, no OpenAI call, no migration and no public assistant activation.
+- **Completed:** bounded staff order assistant and image-to-unsaved-inventory-form review flow, masked responsive evidence, documentation, independent reviews, push, deploy, smoke and rollback record.
+- **Pending approvals:** official live dependencies, numeric budget, real-data privacy/DPA/ZDR/region/deletion, durable quota/deadline/safety identifier, Phase 3 schema/apply, Phase 4 workflow expansion and Phase 5 public activation.
+- **Resume action:** open a new R4 task for exactly one pending phase, reread the master plan and this handoff, and obtain its D4 decisions before enabling any live/external/data-writing path.
+- **Stop condition:** do not install live dependencies, call OpenAI with real data, persist original images, apply migrations, or enable production AI/public flags without the recorded approvals.

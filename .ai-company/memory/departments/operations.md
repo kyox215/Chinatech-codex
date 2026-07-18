@@ -48,6 +48,7 @@ as owner of this file.
   target/config/migration assertions, observation owner, and rollback/forward-fix record.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` completed a serialized DB-first release from an isolated worktree while preserving the dirty primary checkout. A concurrent main/migration-replay repair was absorbed before non-force push; the single pending migration was applied and postchecked before `main@6e511c56` reached Vercel READY with clean 15-minute error observation.
 - `TASK-20260717-007-store-lifecycle-implementation` used an isolated latest-main worktree to preserve unrelated root changes, applied exactly six reviewed lifecycle migrations, and non-force pushed implementation SHA `55cb7ab5`. Keep all five flags off until a separate activation task proves disposable-store flows, encrypted sink/KMS and restore; any real purge needs a second exact-target approval.
+- `TASK-20260718-009-ai-assistant-implementation` released the AI Phase 0–2 code as an intentionally dormant unit from an isolated worktree. The operational proof combines exact `main@8bef230`, READY deployment `dpl_HWmQRHjy9XRYPMvLT1E1oraee7jr`, absence of production AI/OpenAI variable names, anonymous auth/API smoke, empty error-level observation and READY rollback deployment `dpl_5tbk1iFUafSExZK3ezWAkxoawQSi`. No key, migration or live provider was released.
 
 ## Interfaces and dependencies
 
@@ -61,6 +62,7 @@ scoped slice into broad recovery certification.
 |---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | — | unknown |
 | Serialized DB-first release | Data + Security + QA + Integration Lead | Freeze exact migrations, replay target schema, apply one sequence, postcheck before app push | Stop on remote interleave/anomaly; preserve additive schema and forward-fix, never destructive rollback | TASK-20260716-003-customer-finance-order-correction-plan E-014, E-022..E-025 | scoped_verified |
+| Dormant AI code release | Architecture + Security + QA + Integration Lead | Exact Git/deploy identity plus env-name-only fail-closed proof, anonymous denial smoke, error observation and READY rollback | Keep all flags absent/off; roll back deployment or revert scope commit; rotate provider key only on suspected leak | TASK-20260718-009-ai-assistant-implementation E-033–E-039 | scoped_verified_dormant |
 
 ## SOPs and checklists
 
@@ -112,3 +114,4 @@ scoped slice into broad recovery certification.
 | 2026-07-13 | Recorded Settings split-release, serialized integration, observation and rollback ownership contract | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 release reviewer | no_go |
 | 2026-07-17 | Recorded serialized single-migration quote release, concurrent-main absorption, exact-SHA deployment and clean runtime smoke | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + DATA/SEC/QA/Release reviewers | scoped_verified |
 | 2026-07-18 | Recorded serialized six-migration cost release, exact business SHA deployment, dormant flags and clean database/runtime observation | TASK-20260718-008-order-cost-phase2 | Integration Lead + DATA/SEC/QA reviewers | scoped_verified_option_b |
+| 2026-07-18 | Recorded exact-SHA dormant AI release, no-key/no-flag configuration proof, anonymous smoke, clean error observation and READY rollback target | TASK-20260718-009-ai-assistant-implementation | Integration Lead + Security/QA/Release reviewers | scoped_verified_dormant |

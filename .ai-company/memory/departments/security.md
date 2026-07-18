@@ -82,6 +82,7 @@ Realtime or offline storage.
 | SEC-20260713-003 | Buyback evidence retention, staged-file deletion, runtime bucket/RLS grants, legal wording and advanced file sanitization are not production-verified | Identity-document/privacy exposure | Security + Data + Operations + Owner | approved production-readiness/legal task before evidence activation | contained_by_feature_off_and_revoked_runtime_acl |
 | SEC-20260716-004 | Custody and credential retention previously conflicted across code/memory | False custody evidence or unintended secret clearing | Security + Backend + Product + Owner | `20260717182220` superseding `20260716235650`, UI/E2E and linked dry-run evidence | mitigated_scoped_verified |
 | SEC-20260713-001 | Kiosk limiting/token/retention/signature policy and order-data ingress/retention/limiting remain unapproved | PII abuse, leakage or over-retention | Security + Data + Operations + Owner | before Kiosk or order-data production unit | open |
+| SEC-20260718-001 | Real AI requests would expose device images/identifiers without approved budget, DPA/ZDR/region/retention/deletion, durable limiting or server image sanitation | Privacy, cross-border, secret, cost and abuse risk | Security + Privacy + Architecture + Owner | independent R4/D4 approval before any provider activation | contained_by_fail_closed_flags |
 
 ## Lessons and anti-patterns
 
@@ -120,3 +121,4 @@ Realtime or offline storage.
 | 2026-07-17 | Superseded automatic custody secret clearing while preserving permission, offline and audit minimization boundaries | TASK-20260717-008-desktop-novice-ui-implementation | Security/QA reviewers + Integration Lead | scoped_verified |
 | 2026-07-17 | Verified current-Auth-email binding, prefetch-safe token POST, service-role-only atomic acceptance and redacted delivery failures | TASK-20260717-employee-invite-registration | Security/QA reviewers + Integration Lead | scoped_verified |
 | 2026-07-18 | Verified production cost-data ACL/permission/tenant containment and dormant child-feature behavior | TASK-20260718-008-order-cost-phase2 | Security/Data reviewers + Integration Lead | scoped_verified_option_b |
+| 2026-07-18 | Verified AI server-derived authority, audit minimization, CDN-free local recognition, pre-decode image limits and production no-key/no-call dormant state | TASK-20260718-009-ai-assistant-implementation | Security/Architecture reviewer + Integration Lead | scoped_verified_dormant |

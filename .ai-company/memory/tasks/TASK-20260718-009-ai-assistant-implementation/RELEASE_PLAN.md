@@ -64,3 +64,12 @@ Absent variables have the same fail-closed effect. The local `OPENAI_API_KEY` mu
 - Real OpenAI text/image calls, numeric API budget, real-data privacy/DPA/ZDR/region/deletion approval.
 - Official OpenAI/server image dependencies, durable quota, server deadlines/safety identifier and live golden-set validation.
 - Phase 3 migration/apply, Phase 4 formal workflow expansion and Phase 5 public activation.
+
+## Production release record — 2026-07-18
+
+- Git: named branch and `main` both received business commit `8bef230f94d2` by non-force fast-forward.
+- Runtime: Vercel deployment `dpl_HWmQRHjy9XRYPMvLT1E1oraee7jr`, exact Git commit `8bef230`, status `READY`, canonical alias `https://www.chinatech.in`.
+- Configuration: production variable-name review found no `AI_*`/`OPENAI_*`; absent values preserve the mandatory fail-closed state and the local key was not synchronized.
+- Smoke: `/`, `/inventory`, and `/orders` safely resolved to `/login`; `/api/repairdesk/ai/capabilities` returned unauthenticated `401` with `private, no-store`.
+- Observation: Vercel build completed successfully with 25 static pages; the immediate error-level runtime query returned no entries.
+- Rollback: previous READY production deployment `dpl_5tbk1iFUafSExZK3ezWAkxoawQSi`, URL `https://chinatech-codex-1nk9lvvus-kyox120-9295s-projects.vercel.app`, Git commit `0f5ed6e`.

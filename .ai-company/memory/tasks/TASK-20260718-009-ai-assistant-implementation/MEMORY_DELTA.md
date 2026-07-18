@@ -32,3 +32,26 @@
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.
+
+## Final Memory Change Set — 2026-07-18
+
+### Promoted as verified
+
+- Project: bounded AI BFF uses server-derived actor/store/RBAC, strict allowlisted read tools, server-built business cards, hierarchical fail-closed flags and a fake-first provider boundary. Source: ADR-20260718-001 and E-009–E-018. Owner: Architecture/Security. Review trigger: any live provider, new tool or write capability.
+- Project: inventory vision recognition may only populate a reviewed page-memory draft; ordinary existing save remains the sole formal inventory write. Source: E-021–E-032. Owner: Product/Frontend/Security. Review trigger: any persistence, workflow reuse or accepted-format change.
+- Security: browser OCR must not silently load third-party CDN assets; untrusted images require pre-decode header limits and post-decode dimension verification. Source: E-022–E-023 and independent review. Owner: Security/Frontend. Review trigger: OCR/decoder/dependency change.
+- Operations/Release: a dormant AI slice is releasable only with exact Git/deploy identity, env-name-only fail-closed proof, anonymous auth/API smoke, error observation and a READY rollback target. Source: E-033–E-039. Owner: Operations/Release. Review trigger: any AI production activation or deployment-platform change.
+
+### Capability candidate
+
+- `CAP-AI-SAFE-SLICE-20260718`: C1 candidate for Integration Lead plus read-only Product/Architecture/Security/QA reviewers to deliver a default-off/fake/no-migration AI safe slice. Evidence: three independent final passes, 277 files / 1772 tests, 10/10 E2E, exact-SHA READY deploy and safe observation. Permission/autonomy: unchanged; no live provider, secret sync, DB migration or public activation authority.
+
+### Not promoted
+
+- Native detector/ZXing cancellation details and auth-before-body capability preflight remain P2 task-local hardening candidates; one release is insufficient to establish a project-wide standard.
+- Numeric budget, DPA/ZDR/region/deletion choices, live SDK/model and Phase 3–5 contracts remain pending proposals, not approved facts.
+- Raw logs, screenshots, synthetic identifier values, transient worktree paths and local key existence are retained only in scoped evidence or omitted; none become general memory.
+
+### Conflicts / superseded items
+
+- No durable-memory conflict found. This record narrows “no writes” to “no inventory/order/draft/image business writes; aggregate allowlisted audit metadata may persist.”
