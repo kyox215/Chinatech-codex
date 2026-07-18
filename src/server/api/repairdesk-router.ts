@@ -10,6 +10,19 @@ import { assertCanReadProfitCenter } from "@/features/profit/server/profit-featu
 import { exportCostReport } from "@/features/profit/server/cost-export.service";
 import { assertCanExportCosts } from "@/features/profit/server/cost-export-feature";
 import {
+  applyCostBackfill,
+  previewCostBackfill,
+  readCostBackfillRuns,
+  revertCostBackfill,
+} from "@/features/profit/server/cost-backfill.service";
+import { assertCostBackfillAccess } from "@/features/profit/server/cost-backfill-feature";
+import {
+  applyMockCostBackfill,
+  previewMockCostBackfill,
+  readMockCostBackfillRuns,
+  revertMockCostBackfill,
+} from "@/features/profit/testing/cost-backfill-mock";
+import {
   allocateOrderPart,
   createPartCatalogItem,
   getPartsProcurement,
@@ -296,6 +309,10 @@ import {
   orderLineCostsUpdateBodySchema,
   profitCenterReadBodySchema,
   costExportBodySchema,
+  costBackfillReadBodySchema,
+  costBackfillPreviewBodySchema,
+  costBackfillApplyBodySchema,
+  costBackfillRevertBodySchema,
   partsProcurementReadBodySchema,
   partCatalogCreateBodySchema,
   partLotReceiveBodySchema,
@@ -376,6 +393,10 @@ const supabaseSource = {
   getOrderLineCosts,
   getProfitCenter,
   exportCostReport,
+  readCostBackfillRuns,
+  previewCostBackfill,
+  applyCostBackfill,
+  revertCostBackfill,
   getPartsProcurement,
   getOrderCreateOperationStatus,
   getOrderStats,
@@ -637,6 +658,10 @@ async function source() {
         overflow: false,
         rows: [mockCostExportRow(input.end_date)],
       })),
+    readCostBackfillRuns: readMockCostBackfillRuns,
+    previewCostBackfill: previewMockCostBackfill,
+    applyCostBackfill: applyMockCostBackfill,
+    revertCostBackfill: revertMockCostBackfill,
     getPartsProcurement: getMockPartsProcurement,
     createPartCatalogItem: createMockPartCatalogItem,
     receivePartLot: receiveMockPartLot,
@@ -1685,6 +1710,26 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
         assertCanExportCosts(actor);
         const input = costExportBodySchema.parse(body);
         return binaryResponse(await api.exportCostReport(input, actor));
+      }
+      case "finance/cost-backfill/read": {
+        const input = costBackfillReadBodySchema.parse(body);
+        assertCostBackfillAccess(actor, input.expected_store_id, "preview");
+        return ok(await api.readCostBackfillRuns(input, actor));
+      }
+      case "finance/cost-backfill/preview": {
+        const input = costBackfillPreviewBodySchema.parse(body);
+        assertCostBackfillAccess(actor, input.expected_store_id, "preview");
+        return ok(await api.previewCostBackfill(input, actor));
+      }
+      case "finance/cost-backfill/apply": {
+        const input = costBackfillApplyBodySchema.parse(body);
+        assertCostBackfillAccess(actor, input.expected_store_id, "apply");
+        return ok(await api.applyCostBackfill(input, actor));
+      }
+      case "finance/cost-backfill/revert": {
+        const input = costBackfillRevertBodySchema.parse(body);
+        assertCostBackfillAccess(actor, input.expected_store_id, "apply");
+        return ok(await api.revertCostBackfill(input, actor));
       }
       case "procurement/parts/read": {
         assertCanAllocatePartsCosts(actor);

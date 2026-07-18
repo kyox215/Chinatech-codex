@@ -29,6 +29,7 @@ import {
   STORE_RULE_DEFAULTS,
 } from "@/entities/store/model/store-setting-defaults";
 import { ORDER_WARRANTY_OPTIONS, formatWarrantyText } from "@/features/orders/model/order-warranty";
+import { CostBackfillCard } from "@/features/settings/components/cost-backfill-card";
 import { RepairCostDefaultsCard } from "@/features/settings/components/repair-cost-defaults-card";
 import { PartsProcurementCard } from "@/features/settings/components/parts-procurement-card";
 import { SettingsField } from "@/features/settings/components/settings-field";
@@ -49,6 +50,8 @@ export interface RulesSettingsSectionProps {
   activeStoreId?: string;
   canManageOrderCosts?: boolean;
   canAllocatePartsCosts?: boolean;
+  canPreviewCostBackfill?: boolean;
+  canApplyCostBackfill?: boolean;
   fieldErrors: SettingsFieldErrors;
   onDraftChange: (patch: Partial<StoreSettingsDraftValues["rules"]>) => void;
 }
@@ -60,6 +63,8 @@ export function RulesSettingsSection({
   activeStoreId,
   canManageOrderCosts = false,
   canAllocatePartsCosts = false,
+  canPreviewCostBackfill = false,
+  canApplyCostBackfill = false,
   fieldErrors,
   onDraftChange,
 }: RulesSettingsSectionProps) {
@@ -279,6 +284,13 @@ export function RulesSettingsSection({
       ) : null}
       {canAllocatePartsCosts && activeStoreId ? (
         <PartsProcurementCard key={`parts-${activeStoreId}`} storeId={activeStoreId} />
+      ) : null}
+      {canPreviewCostBackfill && activeStoreId ? (
+        <CostBackfillCard
+          key={`cost-backfill-${activeStoreId}`}
+          storeId={activeStoreId}
+          canApply={canApplyCostBackfill}
+        />
       ) : null}
     </div>
   );

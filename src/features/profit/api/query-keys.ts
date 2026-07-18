@@ -6,3 +6,9 @@ export const profitKeys = {
   center: (input: ProfitCenterInput, storeId?: string | null) =>
     [...profitKeys.all, "center", ...storeQueryScope(storeId), input] as const,
 };
+
+export const costBackfillKeys = {
+  all: ["profit", "cost-backfill"] as const,
+  runs: (storeId?: string | null) =>
+    [...costBackfillKeys.all, ...storeQueryScope(storeId)] as const,
+};

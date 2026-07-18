@@ -50,3 +50,17 @@
 - **Next:** Read 04B_HISTORY_BACKFILL.md; implement preview-first bounded historical cost candidate runs, owner-only apply/revert, idempotency and no automatic production backfill; stop if evidence provenance or rollback cannot be proven.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T13:30:53Z — Stage 04B completed: preview-only historical candidates, owner-only bounded apply, conflict-safe resume and compensating revert passed a fresh Stage 01–04B PostgreSQL replay, 94 focused tests, type/lint/build and browser confirmation verification.
+
+- **Phase:** implementation
+- **Completed/current state:** Stage 04B completed. Historical effective defaults are used only when evidence exists; unknown remains unknown; today's defaults cannot leak through missing-line normalization; later human edits stop compensation; deployment never auto-runs a backfill.
+- **Next:** Read `05_MULTI_CURRENCY_COSTS.md`; add owner-managed offline FX snapshots for procurement costs while keeping order quotes and reporting base currency EUR, then repeat exact database and application gates.
+- **Evidence:** E-026 through E-030 in `EVIDENCE.md`; disposable DB `repairdesk_cost_backfill_20260718_f`; screenshots under `screenshots/`.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-18T13:32:02Z — Stage 04B completed: preview-only historical cost candidates, Owner-only bounded apply, conflict-safe resume, compensating revert, fresh Stage 01-04B PostgreSQL replay, 94 focused tests, lint/type/build and browser confirmation passed.
+
+- **Phase:** implementation
+- **Completed/current state:** Stage 04B completed: preview-only historical cost candidates, Owner-only bounded apply, conflict-safe resume, compensating revert, fresh Stage 01-04B PostgreSQL replay, 94 focused tests, lint/type/build and browser confirmation passed.
+- **Next:** Commit Stage 04B independently, then read and implement 05_MULTI_CURRENCY_COSTS.md with immutable original-currency and EUR FX snapshots; do not use network FX or change customer quote currency.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

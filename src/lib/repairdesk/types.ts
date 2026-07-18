@@ -404,6 +404,96 @@ export interface CostExportRow {
   margin_amount_eur: number | null;
 }
 
+export type CostBackfillRunState =
+  | "draft"
+  | "previewed"
+  | "applying"
+  | "applied"
+  | "partially_applied"
+  | "reverting"
+  | "reverted"
+  | "revert_partial"
+  | "rejected";
+
+export type CostBackfillCandidateStatus =
+  | "previewed"
+  | "applied"
+  | "skipped_conflict"
+  | "failed"
+  | "reverted"
+  | "revert_conflict";
+
+export interface CostBackfillCandidate {
+  id: string;
+  order_id: string;
+  line_ordinal: number;
+  planned_line_id: string;
+  line_id_was_missing: boolean;
+  catalog_key?: string;
+  line_name: string;
+  proposed_cost_amount: number | null;
+  proposed_source: "historical_unknown" | "backfill_estimate";
+  proposed_evidence_status: "unknown" | "estimated";
+  status: CostBackfillCandidateStatus;
+  error_code?: string;
+  applied_projection_revision?: number;
+  applied_at?: string;
+  reverted_at?: string;
+}
+
+export interface CostBackfillRunSummary {
+  id: string;
+  state: CostBackfillRunState;
+  start_date: string;
+  end_date: string;
+  fixture_hash: string;
+  candidate_count: number;
+  estimated_count: number;
+  unknown_count: number;
+  applied_count: number;
+  conflict_count: number;
+  failed_count: number;
+  reverted_count: number;
+  revert_conflict_count: number;
+  created_at: string;
+  applied_at?: string;
+  reverted_at?: string;
+}
+
+export interface CostBackfillRun extends CostBackfillRunSummary {
+  store_id: string;
+  max_candidates: number;
+  candidates: CostBackfillCandidate[];
+}
+
+export interface CostBackfillRunsResult {
+  runs: CostBackfillRunSummary[];
+  selected?: CostBackfillRun;
+}
+
+export interface PreviewCostBackfillInput {
+  expected_store_id: string;
+  start_date: string;
+  end_date: string;
+  max_candidates: number;
+  idempotency_key: string;
+}
+
+export interface ApplyCostBackfillInput {
+  expected_store_id: string;
+  run_id: string;
+  expected_fixture_hash: string;
+  batch_size: number;
+  idempotency_key: string;
+}
+
+export interface RevertCostBackfillInput {
+  expected_store_id: string;
+  run_id: string;
+  batch_size: number;
+  idempotency_key: string;
+}
+
 export interface ProfitBreakdownItem {
   key: string;
   label: string;
@@ -1374,6 +1464,8 @@ export interface RepairDeskOptions {
     canReadProfit?: boolean;
     canReadRepairProfitReports?: boolean;
     canExportRepairCosts?: boolean;
+    canPreviewCostBackfill?: boolean;
+    canApplyCostBackfill?: boolean;
     canAllocatePartsCosts?: boolean;
     canExportOrders?: boolean;
     canBatchTransitionOrders?: boolean;
@@ -1738,6 +1830,8 @@ export interface StoreContext {
     canReadProfit?: boolean;
     canReadRepairProfitReports?: boolean;
     canExportRepairCosts?: boolean;
+    canPreviewCostBackfill?: boolean;
+    canApplyCostBackfill?: boolean;
     canAllocatePartsCosts?: boolean;
     can_manage_order_costs?: boolean;
     canExportOrders?: boolean;

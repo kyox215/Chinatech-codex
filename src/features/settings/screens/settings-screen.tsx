@@ -224,6 +224,8 @@ export function SettingsScreen() {
   const canApplyOrderData = settingsCapabilities?.canApplyOrderData === true;
   const canManageOrderCosts = settingsCapabilities?.can_manage_order_costs === true;
   const canAllocatePartsCosts = settingsCapabilities?.canAllocatePartsCosts === true;
+  const canPreviewCostBackfill = settingsCapabilities?.canPreviewCostBackfill === true;
+  const canApplyCostBackfill = settingsCapabilities?.canApplyCostBackfill === true;
   const canUpdateStoreSettings = settingsCapabilities?.canUpdateStoreSettings === true;
   const canConfigureWorkflow = settingsCapabilities?.canConfigureWorkflow === true;
   const canListMembers = settingsCapabilities?.canListMembers === true;
@@ -1888,10 +1890,14 @@ export function SettingsScreen() {
                     isDraftDirty={sectionDirtyState.rules}
                     canUpdateSettings={canUpdateStoreSettings}
                     activeStoreId={
-                      canManageOrderCosts || canAllocatePartsCosts ? activeStoreId : undefined
+                      canManageOrderCosts || canAllocatePartsCosts || canPreviewCostBackfill
+                        ? activeStoreId
+                        : undefined
                     }
                     canManageOrderCosts={canManageOrderCosts}
                     canAllocatePartsCosts={canAllocatePartsCosts}
+                    canPreviewCostBackfill={canPreviewCostBackfill}
+                    canApplyCostBackfill={canApplyCostBackfill}
                     fieldErrors={settingsFieldErrors}
                     onDraftChange={(patch) => updateSettingsField("rules", patch)}
                   />

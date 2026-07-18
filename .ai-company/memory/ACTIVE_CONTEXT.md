@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T12:46:39Z"
+last_checkpoint_at: "2026-07-18T13:32:02Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,11 +19,11 @@ last_rehydrated_at: null
 
 ## Current state
 
-Stage 04A completed: permission-gated PII-minimized formula-safe cost/margin CSV export passed Stage 01-04A disposable PostgreSQL replay, 57 focused tests, targeted store capability test, lint, typecheck, production build and authorized/feature-off browser verification.
+Stage 04B completed: preview-only historical cost candidates, Owner-only bounded apply, conflict-safe resume, compensating revert, fresh Stage 01-04B PostgreSQL replay, 94 focused tests, lint/type/build and browser confirmation passed.
 
 ## Blocking decisions
 
-- Local Stage 04B work may continue, but production database/release remains NO-GO until the
+- Local Stage 05–06 work may continue, but production database/release remains NO-GO until the
   known historical replay failure at `20260611102805_repairdesk_remote_schema_compatibility.sql`
   (`inventory_items.product_channel` missing) is resolved or formally accepted.
 - Production release also requires closure or explicit acceptance of the legacy browser-role
@@ -32,7 +32,7 @@ Stage 04A completed: permission-gated PII-minimized formula-safe cost/margin CSV
 
 ## Next action
 
-Read 04B_HISTORY_BACKFILL.md; implement preview-first bounded historical cost candidate runs, owner-only apply/revert, idempotency and no automatic production backfill; stop if evidence provenance or rollback cannot be proven.
+Commit Stage 04B independently, then read and implement 05_MULTI_CURRENCY_COSTS.md with immutable original-currency and EUR FX snapshots; do not use network FX or change customer quote currency.
 
 ## Resume protocol
 

@@ -34,6 +34,9 @@ import {
   paymentBodySchema,
   profitCenterReadBodySchema,
   costExportBodySchema,
+  costBackfillApplyBodySchema,
+  costBackfillPreviewBodySchema,
+  costBackfillRevertBodySchema,
   partCatalogCreateBodySchema,
   partLotReceiveBodySchema,
   orderPartAllocateBodySchema,
@@ -163,6 +166,43 @@ describe("repairdesk API schemas", () => {
         start_date: "2025-01-01",
       }),
     ).toThrow("367 天以内");
+  });
+
+  it("bounds preview, apply, and compensating revert inputs", () => {
+    const store = "00000000-0000-4000-8000-000000000001";
+    const run = "00000000-0000-4000-8000-000000000002";
+    const preview = {
+      expected_store_id: store,
+      start_date: "2026-01-01",
+      end_date: "2026-12-31",
+      max_candidates: 5_000,
+      idempotency_key: run,
+    };
+    expect(costBackfillPreviewBodySchema.parse(preview)).toEqual(preview);
+    expect(() =>
+      costBackfillPreviewBodySchema.parse({ ...preview, max_candidates: 5_001 }),
+    ).toThrow();
+    expect(() =>
+      costBackfillPreviewBodySchema.parse({ ...preview, start_date: "2025-01-01" }),
+    ).toThrow("367 天以内");
+
+    const apply = {
+      expected_store_id: store,
+      run_id: run,
+      expected_fixture_hash: "a".repeat(64),
+      batch_size: 100,
+      idempotency_key: run,
+    };
+    expect(costBackfillApplyBodySchema.parse(apply)).toEqual(apply);
+    expect(() => costBackfillApplyBodySchema.parse({ ...apply, batch_size: 101 })).toThrow();
+    expect(
+      costBackfillRevertBodySchema.parse({
+        expected_store_id: store,
+        run_id: run,
+        batch_size: 1,
+        idempotency_key: run,
+      }),
+    ).toMatchObject({ run_id: run, batch_size: 1 });
   });
 
   it("validates traceable procurement catalog, lot and allocation inputs", () => {

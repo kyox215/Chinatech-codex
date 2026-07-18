@@ -40,6 +40,7 @@ import {
   isOrderDataExportEnabled,
 } from "@/features/orders/server/order-data-feature-flags";
 import {
+  isCostBackfillEnabled,
   isCostExportEnabled,
   isPartsProcurementEnabled,
   isProfitReportsEnabled,
@@ -1427,6 +1428,8 @@ async function storePermissionsFromActor(
     canReadProfit: can(actor, "finance:profit_read"),
     canReadRepairProfitReports: isProfitReportsEnabled() && can(actor, "finance:profit_read"),
     canExportRepairCosts: isCostExportEnabled() && can(actor, "finance:cost_export"),
+    canPreviewCostBackfill: isCostBackfillEnabled() && can(actor, "finance:cost_backfill_preview"),
+    canApplyCostBackfill: isCostBackfillEnabled() && can(actor, "finance:cost_backfill_apply"),
     canAllocatePartsCosts: isPartsProcurementEnabled() && can(actor, "inventory:cost_allocate"),
     can_manage_order_costs:
       process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" && can(actor, "finance:cost_manage"),

@@ -2,9 +2,9 @@
 
 ## Current handoff
 
-- **Status:** Stages 00–04A complete; Stage 04B is next.
-- **Last verified:** 2026-07-18 Stage 04A close.
+- **Status:** Stages 00–04B complete; Stage 05 is next.
+- **Last verified:** 2026-07-18 Stage 04B close.
 - **Workspace/branch:** `/private/tmp/repairdesk-order-cost-phase2-20260718` on
   `codex/order-cost-phase2-20260718`.
-- **First action:** read `04B_HISTORY_BACKFILL.md`; design the preview-only candidate model and
-  run-level rollback contract before adding any apply path. Never auto-run production backfill.
+- **First action:** read `05_MULTI_CURRENCY_COSTS.md`; preserve immutable original-amount and
+  EUR-conversion snapshots, use no network FX dependency, and keep currency management Owner-only.

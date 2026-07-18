@@ -474,6 +474,14 @@ function context(actor?: AuditActor): StoreContext {
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         process.env.REPAIRDESK_COST_EXPORT_ENABLED === "1" &&
         can(scopedActor, "finance:cost_export"),
+      canPreviewCostBackfill:
+        process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
+        process.env.REPAIRDESK_COST_BACKFILL_ENABLED === "1" &&
+        can(scopedActor, "finance:cost_backfill_preview"),
+      canApplyCostBackfill:
+        process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
+        process.env.REPAIRDESK_COST_BACKFILL_ENABLED === "1" &&
+        can(scopedActor, "finance:cost_backfill_apply"),
       canAllocatePartsCosts:
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         process.env.REPAIRDESK_PARTS_PROCUREMENT_ENABLED === "1" &&

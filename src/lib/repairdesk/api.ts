@@ -54,6 +54,11 @@ import type {
   ProfitCenterInput,
   ProfitCenterResult,
   CostExportInput,
+  CostBackfillRunsResult,
+  CostBackfillRun,
+  PreviewCostBackfillInput,
+  ApplyCostBackfillInput,
+  RevertCostBackfillInput,
   PartsProcurementResult,
   CreatePartCatalogItemInput,
   ReceivePartLotInput,
@@ -1215,6 +1220,27 @@ export async function getProfitCenter(
 
 export async function exportCostReport(input: CostExportInput) {
   return requestFile("finance/cost-export/download", input);
+}
+
+export async function readCostBackfillRuns(input: {
+  expected_store_id: string;
+  run_id?: string;
+}): Promise<CostBackfillRunsResult> {
+  return postJson("finance/cost-backfill/read", input);
+}
+
+export async function previewCostBackfill(
+  input: PreviewCostBackfillInput,
+): Promise<CostBackfillRun> {
+  return postJson("finance/cost-backfill/preview", input);
+}
+
+export async function applyCostBackfill(input: ApplyCostBackfillInput): Promise<CostBackfillRun> {
+  return postJson("finance/cost-backfill/apply", input);
+}
+
+export async function revertCostBackfill(input: RevertCostBackfillInput): Promise<CostBackfillRun> {
+  return postJson("finance/cost-backfill/revert", input);
 }
 
 export async function getPartsProcurement(

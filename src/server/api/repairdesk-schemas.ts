@@ -942,6 +942,49 @@ export const costExportBodySchema = z
     }
   });
 
+export const costBackfillReadBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    run_id: z.string().uuid("回填运行标识无效").optional(),
+  })
+  .strict();
+
+export const costBackfillPreviewBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    start_date: reportLocalDateSchema,
+    end_date: reportLocalDateSchema,
+    max_candidates: z.number().int().min(1).max(5_000),
+    idempotency_key: z.string().uuid("重复操作标识无效"),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    const start = Date.parse(`${input.start_date}T00:00:00Z`);
+    const end = Date.parse(`${input.end_date}T00:00:00Z`);
+    const dayCount = (end - start) / 86_400_000;
+    if (dayCount < 0 || dayCount > 366) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["end_date"],
+        message: "回填预览日期范围必须在 367 天以内",
+      });
+    }
+  });
+
+export const costBackfillApplyBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    run_id: z.string().uuid("回填运行标识无效"),
+    expected_fixture_hash: z.string().regex(/^[a-f0-9]{64}$/, "预览校验哈希无效"),
+    batch_size: z.number().int().min(1).max(100),
+    idempotency_key: z.string().uuid("重复操作标识无效"),
+  })
+  .strict();
+
+export const costBackfillRevertBodySchema = costBackfillApplyBodySchema
+  .omit({ expected_fixture_hash: true })
+  .strict();
+
 const procurementIdempotencyKeySchema = z.string().uuid("重复操作标识无效");
 const procurementQuantitySchema = z.number().int().min(1).max(100_000);
 
