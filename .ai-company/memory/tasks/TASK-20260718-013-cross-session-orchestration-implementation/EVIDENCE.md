@@ -9,8 +9,8 @@
 | E-005 | isolation | implementation starts from origin/main in a dedicated worktree | git worktree/log | verified |
 | E-006 | independent review | Architecture, Safety/QA and Documentation/Skill agents all returned final GO | real sub-agent outputs | verified |
 | E-007 | regression | foreign task/run termination, foreign ACTIVE_CONTEXT and malformed config fail-open paths are rejected | 46-test orchestration suite | verified |
-| E-008 | release drift | latest origin/main was integrated while preserving both remote and local capability entries | rebase on origin/main@19c4feb8dc5e | verified |
-| E-009 | scoped release | rebased implementation contains only the 32 planned orchestration/governance files | git diff origin/main...b3007c4ab6fa | verified |
+| E-008 | release drift | latest origin/main was integrated while preserving both remote and local capability entries | rebase on origin/main@15829cbbf488 | verified |
+| E-009 | scoped release | rebased implementation contains only the 32 planned orchestration/governance files | git diff origin/main...608e77f7 | verified |
 | E-010 | recovery | instruction version advanced and a fresh immutable recovery packet was issued after the final checkpoint | Registry Context Packet v2, sha256 d6d46acec5b0 | verified |
 
 No screenshot: this task has no UI or browser-visible RepairDesk feature. CLI/test/commit evidence replaces screenshots.
@@ -24,8 +24,10 @@ No screenshot: this task has no UI or browser-visible RepairDesk feature. CLI/te
 - `2026-07-18T20:23:52Z` `review-docs-skill` — Documentation/Skill final GO; automatic routing and command forward-test passed
 - `2026-07-18T20:23:52Z` `orchestration-tests` — 46/46 unit, concurrency, crash, recovery, isolation, permission and redaction tests passed
 - `2026-07-18T20:23:52Z` `registry-doctor` — Actual shared Registry doctor returned ok=true with only TASK-013 open and a matching integration binding
-- `2026-07-18T20:27:27Z` `b3007c4ab6fa` — Implementation rebased on `origin/main@19c4feb8dc5e`; only `CAPABILITY_REGISTRY.md` conflicted and both entries were preserved
+- `2026-07-18T20:30:42Z` `608e77f7` — Implementation rebased on `origin/main@15829cbbf488`; the late remote commit had no scoped file overlap
 - `2026-07-18T20:27:27Z` `post-rebase-gates` — 46/46 tests, Skill validation, three Agent gates, strict 13/13 validation, secret scan and diff check passed after rebase
 - `2026-07-18T20:27:54Z` `6b1cbff1f7` — b3007c4ab6fa release candidate; post-rebase gates green
 - `2026-07-18T20:28:00Z` `d6d46acec5b0` — Registry instruction v2 packet issued from the post-rebase Task Memory checkpoint
+- `2026-07-18T20:30:42Z` `latest-main-gates` — 46/46 tests, Skill validation, Agent rules, strict 13/13 validation, doctor and diff check passed after the second rebase
 - `2026-07-18T20:29:00Z` `04972c21e8` — 46/46 tests; three reviewer GO; v2 packet d6d46acec5b0
+- `2026-07-18T20:31:39Z` `435d0a68df` — origin/main@15829cbbf488; 46/46; doctor ok; reviewer GO

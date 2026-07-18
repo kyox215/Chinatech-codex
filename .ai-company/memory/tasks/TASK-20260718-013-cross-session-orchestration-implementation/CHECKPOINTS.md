@@ -49,3 +49,12 @@
 - **Evidence:**
   - 46/46 tests; three reviewer GO; v2 packet d6d46acec5b0
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T20:31:39Z — Second latest-main rebase completed with no scoped overlap; release candidate 608e77f7 and all 46 tests/gates remain green
+
+- **Phase:** release-integration
+- **Completed/current state:** Second latest-main rebase completed with no scoped overlap; release candidate 608e77f7 and all 46 tests/gates remain green
+- **Next:** Refresh origin/main, verify lease version 3, non-force push, and verify remote SHA
+- **Decision:** Abort publication on any new remote divergence; never force-push
+- **Evidence:**
+  - origin/main@15829cbbf488; 46/46; doctor ok; reviewer GO
+- **Recorded by:** CEO-Orchestrator
