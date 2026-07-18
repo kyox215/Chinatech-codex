@@ -1,0 +1,6 @@
+interface:
+  display_name: "RepairDesk 跨会话调度"
+  short_description: "安全登记、绑定、隔离并恢复 RepairDesk 多窗口任务"
+  default_prompt: "Use $cross-session-orchestration to register and bind this window, isolate the requested RepairDesk task, and proceed only after identity and ownership checks pass."
+policy:
+  allow_implicit_invocation: true

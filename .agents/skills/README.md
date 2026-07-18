@@ -4,6 +4,7 @@ Codex initially sees each Skill name and description; full instructions are load
 
 | Skill | Trigger summary |
 |---|---|
+| `$cross-session-orchestration` | 用于新窗口、跨会话、多窗口并行、另开任务、继续/恢复/暂停/取消/查看进度；先登记并显式绑定身份，再验证不可变 Context Packet。 |
 | `$company-task-intake` | 用于接收老板的新任务，把目标转换为任务章程、范围、验收标准、约束和待确认事实；微小纯问答不触发。 |
 | `$context-rehydrate` | 用于新会话、长上下文压缩、任务恢复或交接后，按证据恢复最小充分上下文；简单独立问答不触发。 |
 | `$risk-autonomy-classify` | 用于任务接收、范围变化或高影响操作前，判定 R0–R4 风险、L0–L4 自治和 D1–D4 决策权限。 |

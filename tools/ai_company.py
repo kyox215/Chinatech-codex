@@ -59,6 +59,7 @@ SKILL_NAMES = {
     "department-memory-sync", "handoff-resume", "capability-review",
     "project-health-check", "incident-response", "documentation-sync",
     "task-closeout",
+    "cross-session-orchestration",
 }
 
 
@@ -242,6 +243,42 @@ def active_data(root: Path) -> dict[str, Any]:
     return data
 
 
+def registered_open_task_ids(root: Path) -> list[str] | None:
+    """Return runtime-open tasks; never infer them from historical Task files."""
+    config_path = root / ".ai-company" / "orchestration.json"
+    if not config_path.exists():
+        return None
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise SystemExit(
+            "Cross-session orchestration config is unreadable or malformed; "
+            "refusing implicit task selection."
+        ) from exc
+    if not isinstance(config, dict) or not isinstance(config.get("enabled"), bool):
+        raise SystemExit(
+            "Cross-session orchestration config must be an object with boolean 'enabled'; "
+            "refusing implicit task selection."
+        )
+    if not config["enabled"]:
+        return None
+    try:
+        from orchestration.identity import identify_project, resolve_runtime_root
+        from orchestration.store import OrchestrationStore
+
+        identity = identify_project(root)
+        store = OrchestrationStore(identity, resolve_runtime_root(identity))
+        if not store.db_path.is_file():
+            raise SystemExit(
+                "Cross-session orchestration is enabled but the Registry is not initialized."
+            )
+        return [str(row["task_id"]) for row in store.open_tasks()]
+    except Exception as exc:
+        raise SystemExit(
+            "Cross-session registry could not verify active tasks; refusing implicit task selection."
+        ) from exc
+
+
 def render_active(task_id: str | None, *, status: str, phase: str = "none",
                   task_class: str | None = None, risk: str | None = None,
                   autonomy: str | None = None, owner: str = "CEO-Orchestrator",
@@ -300,7 +337,7 @@ No active task.
 
 ## Next action
 
-Create a task with `python tools/ai_company.py new-task --title "..."`.
+Create a task with `/opt/homebrew/bin/python3.12 tools/ai_company.py new-task --title "..."`.
 '''
     return render_frontmatter(data, body)
 
@@ -370,7 +407,11 @@ def cmd_new_task(args: argparse.Namespace) -> int:
     root = find_root(args.root)
     ensure_skeleton(root)
     active = active_data(root)
-    if active.get("current_task_id") and active.get("status") in {"active", "blocked", "conditional"} and not args.allow_parallel:
+    has_foreground = bool(active.get("current_task_id")) and active.get("status") in {
+        "proposed", "approved", "active", "in_progress", "blocked", "paused",
+        "on_hold", "review", "verified", "released", "conditional",
+    }
+    if has_foreground and not args.allow_parallel and not args.activate:
         raise SystemExit(
             f"Active task {active['current_task_id']} exists. Close it or pass --allow-parallel "
             "and manage ACTIVE_CONTEXT explicitly."
@@ -495,19 +536,21 @@ before long-term consolidation.
 - **Workspace/branch:** inspect before resuming.
 - **First action:** read `TASK.md` and latest checkpoint, then inspect the repository.
 ''')
-    atomic_write_text(memory_dir(root) / "ACTIVE_CONTEXT.md", render_active(
-        task_id, status="active", phase="intake", task_class=args.task_class,
-        risk=args.risk, autonomy=args.autonomy, owner=args.owner, title=args.title,
-        summary="Task created. Scope, facts, risk, and acceptance evidence require refinement.",
-        next_action="Run task intake and risk classification before implementation.",
-    ))
-    state = runtime_state(root)
-    state.update({
-        "dirty": False, "dirty_since": None, "last_checkpoint_at": now,
-        "last_checkpoint_task": task_id, "last_tool_name": "ai_company.new-task",
-        "last_command_sha256": None,
-    })
-    save_runtime(root, state)
+    should_activate = bool(args.activate or not has_foreground)
+    if should_activate:
+        atomic_write_text(memory_dir(root) / "ACTIVE_CONTEXT.md", render_active(
+            task_id, status="active", phase="intake", task_class=args.task_class,
+            risk=args.risk, autonomy=args.autonomy, owner=args.owner, title=args.title,
+            summary="Task created. Scope, facts, risk, and acceptance evidence require refinement.",
+            next_action="Run task intake and risk classification before implementation.",
+        ))
+        state = runtime_state(root)
+        state.update({
+            "dirty": False, "dirty_since": None, "last_checkpoint_at": now,
+            "last_checkpoint_task": task_id, "last_tool_name": "ai_company.new-task",
+            "last_command_sha256": None,
+        })
+        save_runtime(root, state)
     print(task_id)
     print(f"Created {task_dir.relative_to(root)}")
     return 0
@@ -515,7 +558,16 @@ before long-term consolidation.
 
 def task_dir_or_die(root: Path, task_id: str | None) -> tuple[str, Path]:
     if not task_id:
-        task_id = active_data(root).get("current_task_id")
+        registered = registered_open_task_ids(root)
+        if registered is not None:
+            if len(registered) != 1:
+                reason = "No" if not registered else "Multiple"
+                raise SystemExit(
+                    f"{reason} registry tasks are open; pass --task explicitly."
+                )
+            task_id = registered[0]
+        else:
+            task_id = active_data(root).get("current_task_id")
     if not task_id:
         raise SystemExit("No task specified and no active task found.")
     path = memory_dir(root) / "tasks" / str(task_id)
@@ -551,22 +603,25 @@ def cmd_checkpoint(args: argparse.Namespace) -> int:
             atomic_append(task_dir / "EVIDENCE.md", f"\n- `{now}` `{digest}` — {item}\n")
     update_frontmatter(task_dir / "TASK.md", {"updated_at": now})
     task_meta, task_body = parse_frontmatter((task_dir / "TASK.md").read_text(encoding="utf-8"))
-    atomic_write_text(memory_dir(root) / "ACTIVE_CONTEXT.md", render_active(
-        task_id, status=str(task_meta.get("status", "active")), phase=args.phase,
-        task_class=str(task_meta.get("task_class") or "T1"),
-        risk=str(task_meta.get("risk_level") or "R1"),
-        autonomy=str(task_meta.get("autonomy_level") or "L2"),
-        owner=str(task_meta.get("owner") or args.actor),
-        title=str(task_meta.get("title") or task_id), summary=args.summary,
-        next_action=args.next,
-    ))
-    state = runtime_state(root)
-    state.update({
-        "dirty": False, "dirty_since": None, "last_checkpoint_at": now,
-        "last_checkpoint_task": task_id, "last_tool_name": "ai_company.checkpoint",
-        "last_command_sha256": None,
-    })
-    save_runtime(root, state)
+    foreground = active_data(root).get("current_task_id")
+    should_activate = bool(args.activate or foreground == task_id)
+    if should_activate:
+        atomic_write_text(memory_dir(root) / "ACTIVE_CONTEXT.md", render_active(
+            task_id, status=str(task_meta.get("status", "active")), phase=args.phase,
+            task_class=str(task_meta.get("task_class") or "T1"),
+            risk=str(task_meta.get("risk_level") or "R1"),
+            autonomy=str(task_meta.get("autonomy_level") or "L2"),
+            owner=str(task_meta.get("owner") or args.actor),
+            title=str(task_meta.get("title") or task_id), summary=args.summary,
+            next_action=args.next,
+        ))
+        state = runtime_state(root)
+        state.update({
+            "dirty": False, "dirty_since": None, "last_checkpoint_at": now,
+            "last_checkpoint_task": task_id, "last_tool_name": "ai_company.checkpoint",
+            "last_command_sha256": None,
+        })
+        save_runtime(root, state)
     print(f"Checkpoint recorded for {task_id} at {now}")
     return 0
 
@@ -592,10 +647,22 @@ def compile_context(root: Path, task_id: str | None, max_chars: int | None = Non
     budget = max_chars or int(cfg.get("context_max_chars", 12000))
     per_file = int(cfg.get("context_file_max_chars", 5000))
     mem = memory_dir(root)
+    explicit_task = bool(task_id)
+    registry_selected_task = False
     active_text = safe_read(mem / "ACTIVE_CONTEXT.md", per_file)
     if not task_id:
-        task_id = parse_frontmatter(active_text)[0].get("current_task_id")
-    paths = [mem / "ACTIVE_CONTEXT.md", mem / "PROJECT_MEMORY.md", mem / "OPEN_CONFLICTS.md"]
+        registered = registered_open_task_ids(root)
+        if registered is not None:
+            if len(registered) != 1:
+                reason = "No" if not registered else "Multiple"
+                raise SystemExit(f"{reason} registry tasks are open; pass --task explicitly.")
+            task_id = registered[0]
+            registry_selected_task = True
+        else:
+            task_id = parse_frontmatter(active_text)[0].get("current_task_id")
+    paths = [mem / "PROJECT_MEMORY.md", mem / "OPEN_CONFLICTS.md"]
+    if not explicit_task and not registry_selected_task:
+        paths.insert(0, mem / "ACTIVE_CONTEXT.md")
     if task_id:
         td = mem / "tasks" / str(task_id)
         paths += [td / "TASK.md", td / "CHECKPOINTS.md", td / "EVIDENCE.md", td / "HANDOFF.md"]
@@ -630,6 +697,8 @@ def cmd_context(args: argparse.Namespace) -> int:
         output = Path(args.output)
         if not output.is_absolute():
             output = root / output
+        if output.exists():
+            raise SystemExit(f"Refusing to overwrite existing context output: {output}")
         atomic_write_text(output, text)
         print(f"Wrote {output}")
     else:
@@ -767,6 +836,54 @@ def validate_bundle(root: Path, strict: bool = False) -> ValidationReport:
     except Exception as exc:
         report.error(f"Invalid settings.json: {exc}")
 
+    try:
+        orchestration = json.loads((root / ".ai-company/orchestration.json").read_text(encoding="utf-8"))
+        required_orchestration = {
+            "schema_version", "project_id", "enabled", "mode", "runtime_strategy",
+            "require_explicit_window_binding", "active_context_role",
+            "fail_closed_on_ambiguous_task", "immutable_context_packets", "automation",
+        }
+        missing = sorted(required_orchestration - set(orchestration))
+        if missing:
+            raise ValueError("missing keys: " + ", ".join(missing))
+        if orchestration.get("mode") != "shadow":
+            raise ValueError("Phase 0A mode must be shadow")
+        if not isinstance(orchestration.get("enabled"), bool):
+            raise ValueError("enabled must be boolean")
+        if orchestration.get("runtime_strategy") != "git_common_worktree_state":
+            raise ValueError("unsupported runtime_strategy")
+        for key in (
+            "require_explicit_window_binding", "fail_closed_on_ambiguous_task",
+            "immutable_context_packets",
+        ):
+            if orchestration.get(key) is not True:
+                raise ValueError(f"{key} must be true")
+        if orchestration.get("active_context_role") != "foreground_hint":
+            raise ValueError("active_context_role must be foreground_hint")
+        retention = orchestration.get("runtime_retention_days")
+        if not isinstance(retention, int) or not 1 <= retention <= 90:
+            raise ValueError("runtime_retention_days must be an integer from 1 to 90")
+        automation = orchestration.get("automation")
+        required_automation = {
+            "spawn", "worktree", "writer_transfer", "integrate",
+            "commit", "push", "deploy", "migrate",
+        }
+        if not isinstance(automation, dict) or set(automation) != required_automation:
+            raise ValueError("automation keys do not match the Phase 0A contract")
+        if any(value is not False for value in automation.values()):
+            raise ValueError("Phase 0A automation flags must all be false")
+        report.ok("Parsed and checked .ai-company/orchestration.json")
+    except Exception as exc:
+        report.error(f"Invalid orchestration.json: {exc}")
+
+    try:
+        schema = json.loads((root / ".ai-company/schemas/orchestration.schema.json").read_text(encoding="utf-8"))
+        if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+            raise ValueError("draft 2020-12 declaration missing")
+        report.ok("Parsed orchestration.schema.json")
+    except Exception as exc:
+        report.error(f"Invalid orchestration.schema.json: {exc}")
+
     agent_names: set[str] = set()
     agent_files = list((root / ".codex" / "agents").glob("*.toml"))
     if not agent_files:
@@ -815,7 +932,11 @@ def validate_bundle(root: Path, strict: bool = False) -> ValidationReport:
     report.ok("Checked core memory files")
 
     # Compile all package Python without importing it or writing __pycache__.
-    py_files = list(root.glob("tools/*.py")) + list(root.glob(".codex/hooks/*.py"))
+    py_files = (
+        list(root.glob("tools/*.py"))
+        + list(root.glob("tools/orchestration/**/*.py"))
+        + list(root.glob(".codex/hooks/*.py"))
+    )
     for path in py_files:
         result = subprocess.run(
             [
@@ -944,6 +1065,15 @@ def cmd_memory_audit(args: argparse.Namespace) -> int:
     return 1 if issues and args.strict else 0
 
 
+def cmd_orchestrator(args: argparse.Namespace) -> int:
+    from orchestration.cli import main as orchestration_main
+
+    forwarded = list(args.orchestrator_args)
+    if forwarded[:1] == ["--"]:
+        forwarded = forwarded[1:]
+    return orchestration_main(forwarded, default_root=str(find_root(args.root)))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AI Company OS task and memory control utility")
     parser.add_argument("--root", help="Repository root (defaults to detected Git/AI Company root)")
@@ -967,6 +1097,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--departments", action="append", help="Comma-separated; repeatable")
     p.add_argument("--acceptance", action="append", help="Acceptance criterion; repeatable")
     p.add_argument("--allow-parallel", action="store_true")
+    p.add_argument("--activate", action="store_true", help="Explicitly switch ACTIVE_CONTEXT to the new task")
     p.set_defaults(func=cmd_new_task)
 
     p = sub.add_parser("checkpoint", help="Record a recoverable task checkpoint and clear dirty state")
@@ -978,6 +1109,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--decision")
     p.add_argument("--blocker")
     p.add_argument("--actor", default="CEO-Orchestrator")
+    p.add_argument("--activate", action="store_true", help="Explicitly switch ACTIVE_CONTEXT to this task")
     p.set_defaults(func=cmd_checkpoint)
 
     p = sub.add_parser("context", help="Compile a size-bounded, redacted context packet")
@@ -1009,6 +1141,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("memory-audit", help="Find stale metadata, placeholders, and conflicts")
     p.add_argument("--strict", action="store_true")
     p.set_defaults(func=cmd_memory_audit)
+
+    p = sub.add_parser("orchestrator", help="Run the cross-session orchestration control plane")
+    p.add_argument("orchestrator_args", nargs=argparse.REMAINDER)
+    p.set_defaults(func=cmd_orchestrator)
     return parser
 
 

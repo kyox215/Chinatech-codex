@@ -11,35 +11,38 @@ AI Company OS Codex Native v3.0 is available under `.ai-company/`, `.codex/`, an
 ## Required Flow
 
 1. Read `AGENTS.md`.
-2. Read `.ai-company/REPAIRDESK_ADOPTION.md`.
-3. Read `.ai-company/policies/CODEX_OPERATING_MODEL.md`, `.ai-company/policies/PROJECT_RULES.md`, and `.ai-company/policies/TASK_FLOW.md` for non-trivial tasks.
-4. Read `.ai-company/memory/ACTIVE_CONTEXT.md` and the current task under `.ai-company/memory/tasks/` when present.
-5. Read `AI智能部门管理/部门化管理设计.md`.
-6. Read this directory:
+2. For every new top-level window and applicable non-micro task, automatically invoke `$cross-session-orchestration`; stay `UNBOUND` until project/task/run/window identity is explicit and the immutable Context Packet verifies.
+3. Read `.ai-company/REPAIRDESK_ADOPTION.md`.
+4. Read `.ai-company/policies/CODEX_OPERATING_MODEL.md`, `.ai-company/policies/PROJECT_RULES.md`, and `.ai-company/policies/TASK_FLOW.md` for non-trivial tasks.
+5. Treat `.ai-company/memory/ACTIVE_CONTEXT.md` as a foreground hint only; read the Registry-selected task under `.ai-company/memory/tasks/`.
+6. Read `AI智能部门管理/部门化管理设计.md`.
+7. Read this directory:
    - `.agents/repairdesk-multiagent.yaml`
    - `.agents/decision-flow.md`
    - `.agents/department-roster.md`
    - `.agents/task-package-template.md`
    - `.agents/integration-checklist.md`
    - `.agents/route-cases.yaml`
-7. Load task-relevant skills from `.agents/skills/*` only when useful.
-8. Classify the request with the agenda intake.
-9. Decide single-agent or multi-agent.
-10. If multi-agent is required, spawn only bounded sidecar work that can run in parallel.
-11. Keep the main thread as Integration Lead / CEO Agent.
-12. Integrate, verify, update `.ai-company/memory/` when required, and report.
+8. Load other task-relevant skills from `.agents/skills/*` only when useful.
+9. Classify the request with the agenda intake.
+10. Decide single-agent or multi-agent.
+11. If multi-agent is required, spawn only bounded sidecar work that can run in parallel.
+12. Keep final integration in the one top-level window holding the active integration lease.
+13. Integrate, verify, update `.ai-company/memory/` when required, and report.
 
 ## Operating Model
 
 RepairDesk uses a manager-led multi-agent model:
 
-- The main Codex thread is always Integration Lead.
+- A top-level Codex thread is a logical main thread, but only the active integration-lease holder is final Integration Lead.
 - The Integration Lead is the only user-facing decision owner.
 - Sub-agents are departments, not autonomous owners.
 - Sub-agents are read-only by default.
 - Scoped write is allowed only when file ownership is explicit and disjoint.
 - No sub-agent may perform final merge, final validation, destructive commands, migration push, deploy, or secret handling.
 - Sub-agents report blockers and disagreements back to the Integration Lead instead of asking the user directly.
+
+Top-level cross-session orchestration is distinct from spawned sub-agents. Phase 0A does not remotely control arbitrary GUI windows and does not automatically spawn agents, create worktrees, transfer writers, integrate, commit, push, deploy, or migrate.
 
 ## Decision Owner Flow
 

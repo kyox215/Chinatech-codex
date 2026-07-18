@@ -1,0 +1,23 @@
+{
+  "$schema": "./schemas/orchestration.schema.json",
+  "schema_version": 1,
+  "project_id": "repairdesk-chinatech",
+  "enabled": true,
+  "mode": "shadow",
+  "runtime_strategy": "git_common_worktree_state",
+  "require_explicit_window_binding": true,
+  "active_context_role": "foreground_hint",
+  "fail_closed_on_ambiguous_task": true,
+  "immutable_context_packets": true,
+  "runtime_retention_days": 14,
+  "automation": {
+    "spawn": false,
+    "worktree": false,
+    "writer_transfer": false,
+    "integrate": false,
+    "commit": false,
+    "push": false,
+    "deploy": false,
+    "migrate": false
+  }
+}

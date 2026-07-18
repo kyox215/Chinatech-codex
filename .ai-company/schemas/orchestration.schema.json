@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://repairdesk.local/schemas/orchestration.schema.json",
+  "title": "RepairDesk Cross-Session Orchestration Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "enabled",
+    "mode",
+    "runtime_strategy",
+    "require_explicit_window_binding",
+    "active_context_role",
+    "fail_closed_on_ambiguous_task",
+    "immutable_context_packets",
+    "runtime_retention_days",
+    "automation"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "enabled": { "type": "boolean" },
+    "mode": { "const": "shadow" },
+    "runtime_strategy": { "const": "git_common_worktree_state" },
+    "require_explicit_window_binding": { "const": true },
+    "active_context_role": { "const": "foreground_hint" },
+    "fail_closed_on_ambiguous_task": { "const": true },
+    "immutable_context_packets": { "const": true },
+    "runtime_retention_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 90
+    },
+    "automation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spawn",
+        "worktree",
+        "writer_transfer",
+        "integrate",
+        "commit",
+        "push",
+        "deploy",
+        "migrate"
+      ],
+      "properties": {
+        "spawn": { "const": false },
+        "worktree": { "const": false },
+        "writer_transfer": { "const": false },
+        "integrate": { "const": false },
+        "commit": { "const": false },
+        "push": { "const": false },
+        "deploy": { "const": false },
+        "migrate": { "const": false }
+      }
+    }
+  }
+}
