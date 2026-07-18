@@ -48,6 +48,7 @@ import {
 import { NewOrderFaultDiagnosisSection } from "@/features/orders/forms/new-order-fault-diagnosis-section";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
+import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import {
   useNewOrderOfflineAutosave,
   type NewOrderOfflineAutosaveState,
@@ -87,7 +88,6 @@ import {
   resolveIntakeQuoteDraft,
 } from "@/features/orders/model/order-diagnosis-quote";
 import { platformKeys } from "@/features/platform/api/query-keys";
-import { formatMoney } from "@/lib/money";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { detailWorkspace, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -789,6 +789,7 @@ export function NewOrderScreen({
           statusLabel={createStatusLabel}
           valid={Boolean(valid)}
           total={activeTotal}
+          deposit={activeDeposit}
           missingItems={missingItems}
           surface={surface}
           offlineStatus={offlineStatus}
@@ -885,8 +886,6 @@ export function NewOrderScreen({
         </div>
 
         <NewOrderSubmitBar
-          total={activeTotal}
-          deposit={activeDeposit}
           valid={Boolean(valid)}
           pending={createSubmitBlocked}
           statusMessage={createSubmitMessage}
@@ -1066,6 +1065,7 @@ function NewOrderDesktopHeader({
   statusLabel,
   valid,
   total,
+  deposit,
   missingItems,
   surface,
   offlineStatus,
@@ -1075,11 +1075,13 @@ function NewOrderDesktopHeader({
   statusLabel: string;
   valid: boolean;
   total: number;
+  deposit: number;
   missingItems: NewOrderMissingItem[];
   surface: "page" | "dialog";
   offlineStatus: NewOrderOfflineStatusSummary;
   onClose?: () => void;
 }) {
+  const balance = Math.max(0, total - deposit);
   const focusMissingItem = (item: NewOrderMissingItem) => {
     const target = document.querySelector<HTMLElement>(`[data-new-order-field="${item.target}"]`);
     if (!target) return;
@@ -1101,7 +1103,7 @@ function NewOrderDesktopHeader({
     <section
       data-new-order-desktop-header="true"
       className={cn(
-        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none md:grid md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] md:items-center md:gap-3 xl:grid-cols-[minmax(220px,0.85fr)_minmax(360px,1.2fr)_minmax(210px,0.7fr)]",
+        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none md:grid md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] md:items-center md:gap-3 xl:grid-cols-[minmax(220px,0.75fr)_minmax(340px,1fr)_minmax(330px,1.05fr)]",
         surface === "page" && "shadow-[var(--shadow-workspace)]",
         surface === "dialog" && onClose && "pr-12",
       )}
@@ -1172,12 +1174,18 @@ function NewOrderDesktopHeader({
         )}
       </div>
 
-      <div className="grid min-w-0 justify-items-start gap-1.5 md:col-span-2 md:grid-cols-[auto_auto_auto] md:items-center md:justify-start xl:col-span-1 xl:grid-cols-none xl:justify-items-end">
-        <div className="text-[11px] font-medium leading-4 text-muted-foreground">预计总额</div>
-        <div className="font-mono text-xl font-semibold leading-6 tabular-nums">
-          {formatMoney(total)}
-        </div>
-        <div className="flex min-w-0 items-center gap-1.5 rounded-full bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary">
+      <div
+        data-new-order-header-finance="true"
+        className="grid min-w-0 gap-1.5 md:col-span-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center xl:col-span-1 xl:grid-cols-1"
+      >
+        <OrderWorkspaceMoneyStrip
+          total={total}
+          deposit={deposit}
+          balance={balance}
+          compact
+          variant="finance"
+        />
+        <div className="flex min-w-0 items-center justify-self-start gap-1.5 rounded-full bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary xl:justify-self-end">
           <ClipboardList className="size-3" />
           <span className="truncate">{statusLabel}</span>
         </div>

@@ -5,13 +5,10 @@ import { ArrowLeft, Banknote } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DeviceCustodyBadge } from "@/components/orders/badges";
-import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import { cn } from "@/lib/utils";
 import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
 
 export function NewOrderSubmitBar({
-  total,
-  deposit,
   valid,
   pending,
   statusMessage,
@@ -19,8 +16,6 @@ export function NewOrderSubmitBar({
   onCancel,
   surface = "page",
 }: {
-  total: number;
-  deposit: number;
   valid: boolean;
   pending: boolean;
   statusMessage?: string;
@@ -28,7 +23,6 @@ export function NewOrderSubmitBar({
   onCancel?: () => void;
   surface?: "page" | "dialog";
 }) {
-  const balance = Math.max(0, total - deposit);
   const isDialog = surface === "dialog";
 
   return (
@@ -84,13 +78,7 @@ export function NewOrderSubmitBar({
             </p>
           ) : null}
         </div>
-        <div className="contents md:flex md:min-w-0 md:items-center md:gap-2">
-          <div
-            data-new-order-money-strip="true"
-            className="hidden rounded-lg border border-[var(--border-panel)] bg-background/65 p-1 md:block md:flex-none"
-          >
-            <OrderWorkspaceMoneyStrip total={total} deposit={deposit} balance={balance} compact />
-          </div>
+        <div className="contents md:flex md:min-w-0 md:items-center">
           <Button
             type="submit"
             disabled={!valid || pending}

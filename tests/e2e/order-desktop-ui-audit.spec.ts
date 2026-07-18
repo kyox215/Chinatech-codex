@@ -570,12 +570,15 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     "新建工单报价处理标题",
   );
   const newOrderMoneyStrip = page.locator(
-    '[data-new-order-money-strip="true"] [data-order-workspace-money-strip="true"]',
+    '[data-new-order-header-finance="true"] [data-order-workspace-money-strip="true"]',
   );
-  await expectFirstVisible(newOrderMoneyStrip, "新建工单统一金额条");
+  await expectFirstVisible(newOrderMoneyStrip, "新建工单顶部金额条");
   await expectFirstVisible(newOrderMoneyStrip.getByText("总额").first(), "新建金额总额");
   await expectFirstVisible(newOrderMoneyStrip.getByText("定金").first(), "新建金额定金");
   await expectFirstVisible(newOrderMoneyStrip.getByText("尾款").first(), "新建金额尾款");
+  await expect(
+    page.locator('[data-new-order-desktop-header="true"]').getByText("预计总额"),
+  ).toHaveCount(0);
   await expectFirstVisible(
     page.locator(
       '[data-new-order-section="quotation"] [data-order-workspace-quote-row="true"], [data-new-order-section="quotation"] [data-order-workspace-empty-block="true"]',
@@ -586,6 +589,9 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     page.locator('[data-new-order-submit-card="true"]'),
     "新建工单提交工作条",
   );
+  await expect(
+    page.locator('[data-new-order-submit-card="true"] [data-order-workspace-money-strip="true"]'),
+  ).toHaveCount(0);
   await expectFirstVisible(
     page.locator('[data-new-order-dialog-close="true"]'),
     "新建工单关闭按钮",
