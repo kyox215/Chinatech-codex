@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260718-003-safari-phone-input-fix"
 title: "Safari桌面端电话输入与响应式键盘修复"
-status: "active"
+status: "closed"
 task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FE", "QA", "UX"]
 created_at: "2026-07-18T07:44:02Z"
-updated_at: "2026-07-18T07:56:44Z"
+updated_at: "2026-07-18T08:00:39Z"
+closed_at: "2026-07-18T08:00:39Z"
 ---
 # Task — Safari桌面端电话输入与响应式键盘修复
 

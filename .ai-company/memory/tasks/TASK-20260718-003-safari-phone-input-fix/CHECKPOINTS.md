@@ -35,3 +35,21 @@
   - post-rebase npm run build -- --webpack passed
   - post-rebase WebKit desktop native input + 1023px tablet virtual keypad 2/2 passed
 - **Recorded by:** IntegrationLead
+## 2026-07-18T08:00:29Z — 提交2b8b2352已推送GitHub main；Vercel生产部署dpl_FtLBehB6W2KmtSH4fkZXoqAxvPEp状态READY并绑定chinatech.in/www.chinatech.in，生产域名冒烟正常。
+
+- **Phase:** released
+- **Completed/current state:** 提交2b8b2352已推送GitHub main；Vercel生产部署dpl_FtLBehB6W2KmtSH4fkZXoqAxvPEp状态READY并绑定chinatech.in/www.chinatech.in，生产域名冒烟正常。
+- **Next:** 关闭任务并推送任务关闭记录；观察老板在真实Safari会话中的电话输入反馈。
+- **Decision:** 生产构建成功且无alias错误，质量门禁PASS，允许任务关闭。
+- **Evidence:**
+  - origin/main = 2b8b23528ae264ebce3eb7af8072903bacda8479
+  - Vercel deployment dpl_FtLBehB6W2KmtSH4fkZXoqAxvPEp READY, target production, commit 2b8b2352
+  - curl https://chinatech.in/orders/new -> HTTP 200 at /login?next=/orders/new (expected unauthenticated flow)
+- **Recorded by:** IntegrationLead
+## 2026-07-18T08:00:39Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** Safari桌面端电话字段已改为原生tel输入，手机和平板保留固定底部虚拟键盘；跨浏览器、移动回归、全量门禁、main推送和生产部署均完成。
+- **Residual risks:** 自动化未使用真实生产账号登录；生产交互依赖老板现有Safari会话最终体验确认。
+- **Follow-up:** 若真实Safari缓存仍显示旧界面，刷新页面或重新打开新建工单后复测。
+- **Closed by:** IntegrationLead

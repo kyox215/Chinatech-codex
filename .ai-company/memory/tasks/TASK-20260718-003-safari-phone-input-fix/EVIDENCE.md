@@ -17,3 +17,6 @@ IDs, test reports, screenshots, or concise log references.
 - `2026-07-18T07:56:44Z` `a109705794` — post-rebase npm run test passed (238 files, 1579 tests)
 - `2026-07-18T07:56:44Z` `dfc9cf05a7` — post-rebase npm run build -- --webpack passed
 - `2026-07-18T07:56:44Z` `3e5ce4dff7` — post-rebase WebKit desktop native input + 1023px tablet virtual keypad 2/2 passed
+- `2026-07-18T08:00:29Z` `96860314a5` — origin/main = 2b8b23528ae264ebce3eb7af8072903bacda8479
+- `2026-07-18T08:00:29Z` `f9d3e1be02` — Vercel deployment dpl_FtLBehB6W2KmtSH4fkZXoqAxvPEp READY, target production, commit 2b8b2352
+- `2026-07-18T08:00:29Z` `fba0fe7352` — curl https://chinatech.in/orders/new -> HTTP 200 at /login?next=/orders/new (expected unauthenticated flow)
