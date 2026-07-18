@@ -246,13 +246,9 @@ export function OrderInternalCostCard({
         ) : (
           result.items.map((item) => {
             const text = drafts[item.line_id] ?? "";
-            const numeric = text.trim() === "" ? null : Number(text.replace(",", "."));
+            const numeric = parseOrderCostDraftAmount(text);
             const quote = quotes.get(item.line_id);
-            const belowCost =
-              numeric !== null &&
-              Number.isFinite(numeric) &&
-              quote !== undefined &&
-              numeric > quote;
+            const belowCost = numeric !== null && quote !== undefined && numeric > quote;
             return (
               <div
                 key={item.line_id}

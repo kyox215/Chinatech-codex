@@ -1127,15 +1127,7 @@ describe("store repository access request boundaries", () => {
       },
     );
     expect(result.members[0]?.permission_grants).toEqual(["finance:aggregate_read"]);
-    expect(mocks.writeAuditLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "update_member_permissions",
-        before: { permission_grants: ["supplier:read"] },
-        after: {
-          permission_grants: ["finance:aggregate_read", "finance:profit_read"],
-        },
-      }),
-    );
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
   });
 
   it("rejects a new repair-cost grant while the rollout flag is off", async () => {

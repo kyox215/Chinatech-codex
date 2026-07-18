@@ -479,27 +479,13 @@ export async function updateStoreMemberPermissions(
     if (!alreadyGranted) throw new ForbiddenError("内部成本功能尚未启用");
   }
   const permissions = normalizeStorePermissionGrants(input.permissions, member.role);
-  const { data, error } = await supabase.rpc("repairdesk_replace_member_permission_grants_rpc", {
+  const { error } = await supabase.rpc("repairdesk_replace_member_permission_grants_rpc", {
     p_store_id: storeId,
     p_membership_id: member.id,
     p_actions: permissions,
     p_actor_id: actor.id ?? null,
   });
   fail(error, "更新成员权限失败");
-  const result = (Array.isArray(data) ? data[0] : data) as DbRecord | null;
-  const previousPermissions = Array.isArray(result?.before)
-    ? result.before.filter(isStorePermissionAction)
-    : [];
-
-  await writeAuditLog({
-    actor,
-    action: "update_member_permissions",
-    entityType: "store_membership",
-    entityId: member.id,
-    before: { permission_grants: previousPermissions },
-    after: { permission_grants: permissions },
-    metadata: { target_user_id: member.user_id },
-  });
 
   return listStoreMembers(actor);
 }

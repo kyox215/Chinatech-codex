@@ -57,6 +57,20 @@ describe("OrderInternalCostCard", () => {
     await waitFor(() => expect(input).toHaveValue("25"));
     expect(input).toBeEnabled();
   });
+
+  it("uses the strict saved amount grammar for the quote warning", async () => {
+    const user = userEvent.setup();
+    renderCard();
+    const input = await screen.findByLabelText("屏幕 内部成本");
+
+    await user.clear(input);
+    await user.type(input, "1e2");
+    expect(screen.queryByText("成本高于客户报价，请确认")).not.toBeInTheDocument();
+
+    await user.clear(input);
+    await user.type(input, "100");
+    expect(screen.getByText("成本高于客户报价，请确认")).toBeVisible();
+  });
 });
 
 function renderCard() {
