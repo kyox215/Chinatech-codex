@@ -13,7 +13,7 @@
 | E-009 | External | 序列设备应按实例追踪 | GS1/Odoo 官方资料 | 支持 catalog/variant 与 serial unit 分层 |
 | E-010 | External | 保修与财政票据需要独立正式边界 | MIMIT/Your Europe/Agenzia Entrate | 二手保证、2026 告知、RT/Documento Commerciale 需要发布前确认 |
 | E-011 | DB | V2 migration 可执行且命令原子/幂等 | PostgreSQL 17 隔离容器；最小真实依赖 schema | 两 migration、入库/售卖、幂等重放、失败无残留、RLS 与默认 RPC revoke 全部通过 |
-| E-012 | Regression | 代码质量门禁通过 | `npm run lint/typecheck/test/build` | lint 0；typecheck 0；283 files / 1789 tests；Next production build 0 |
+| E-012 | Regression | 最新 `origin/main` 基线回归通过 | `npm run lint/typecheck/test/build` | lint 0；typecheck 0；284 files / 1793 tests；Next production build 0 |
 | E-013 | UX | 手机/桌面逐步录入通过 | `evidence/inventory-v2-mobile-review.png`、`inventory-v2-desktop-review.png` | 390×844、1440×900；来源→AI→型号→来源主体→价格→复核，草稿保持 |
 | E-014 | Release | 默认上线不改变生产行为 | `.env.example`、feature-flag tests、release runbook | flags 默认关闭；V2 RPC 对 service_role 仍 revoke；V1 fallback 保留 |
 
