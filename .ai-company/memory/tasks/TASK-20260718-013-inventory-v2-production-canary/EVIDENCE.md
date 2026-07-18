@@ -18,6 +18,9 @@
 | E-014 | transaction | V2 sale keeps V1 and V2 projections atomic | enhanced `RECOVERY_CANARY_ROLLBACK.sql` | unit becomes sold/version 2; exactly one `sell -1` movement; replay/conflict guards pass; transaction rollback leaves zero residual | 2026-07-18T21:01:10Z | Integration Lead |
 | E-015 | shadow | store-scoped shadow reconciliation is executable and healthy | `repairdesk_inventory_v2_reconcile` on restored Chinatech snapshot | owner/manager authorized result `healthy=true`; 0 units and every mismatch 0 before canary | 2026-07-18T21:01:10Z | Integration Lead |
 | E-016 | security | final database surface is fail-closed | isolated catalog/ACL checks | 10 new tables RLS on/0 policies; anon/auth have no V2 table or RPC rights; service role has only intended grants; five checked functions are invoker with empty search path | 2026-07-18T21:01:10Z | Integration Lead |
+| E-017 | git | reviewed default-off hardening is on main without force | `git push origin HEAD:main`, `git ls-remote` | `origin/main=92d7cdad581fd5d00fc85001a838df8739c353bf` | 2026-07-18T21:09Z | Integration Lead |
+| E-018 | release | production deployment matches pushed code | Vercel deployment list and unauthenticated HTTP smoke | exact SHA `92d7cdad`, production READY; login 200, inventory 307 to login, reconciliation API 401 | 2026-07-18T21:10Z | Integration Lead |
+| E-019 | privacy | temporary production snapshot was not retained | exact container/directory deletion and absence check | `repairdesk_inventory_v2_chain_pg` and `/private/tmp/repairdesk-inventory-v2-chain-recovery-20260718-HTayJs` removed | 2026-07-18T21:09Z | Integration Lead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

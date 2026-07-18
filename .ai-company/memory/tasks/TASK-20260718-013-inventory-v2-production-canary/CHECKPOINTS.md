@@ -52,3 +52,10 @@
 - **Next:** 提交当前 default-off 变更，rebase origin/main 并复验后非强制推送 main；之后等待 Owner 明确批准 AI migration，禁止 --include-all，批准前不 apply 生产或开灰度。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T21:11:23Z — 休眠修复已非强制快进推送 main@92d7cdad；Vercel exact-SHA production deployment READY。登录 200、库存未登录 307 到登录、影子对账 API 未登录 401。敏感生产快照临时容器和目录已永久清除。生产 Supabase migration history 与 Inventory V2 flags 仍未改变。
+
+- **Phase:** implementation
+- **Completed/current state:** 休眠修复已非强制快进推送 main@92d7cdad；Vercel exact-SHA production deployment READY。登录 200、库存未登录 307 到登录、影子对账 API 未登录 401。敏感生产快照临时容器和目录已永久清除。生产 Supabase migration history 与 Inventory V2 flags 仍未改变。
+- **Next:** 等待 Owner 明确批准先应用独立 AI 成本治理 migration；批准后重新 fetch、linked dry-run 与生产前置检查，再串行 apply 四份 migration，先 schema+shadow+Chinatech allowlist 对账，随后 commands/UI 单店灰度。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
