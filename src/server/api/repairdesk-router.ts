@@ -11,6 +11,7 @@ import {
 import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
 import { runAiOrderAssistantTurn } from "@/features/ai-assistant/server/order-assistant.service";
 import { getAiAssistantProvider } from "@/features/ai-assistant/server/provider-factory";
+import { getAiProviderBudgetGateway } from "@/features/ai-assistant/server/supabase-provider-budget";
 import { runAiInventoryVisionRecognition } from "@/features/ai-assistant/server/vision-assistant.service";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
@@ -1434,7 +1435,11 @@ export async function handleRepairDeskPost(
         await runAiInventoryVisionRecognition({
           actor,
           input: aiInventoryVisionRequestSchema.parse(body),
-          dependencies: { provider: getAiAssistantProvider, requestSignal },
+          dependencies: {
+            provider: getAiAssistantProvider,
+            budgetGateway: getAiProviderBudgetGateway,
+            requestSignal,
+          },
         }),
       );
     }
@@ -1447,6 +1452,7 @@ export async function handleRepairDeskPost(
             input: aiAssistantRequestSchema.parse(body),
             dependencies: {
               provider: getAiAssistantProvider,
+              budgetGateway: getAiProviderBudgetGateway,
               listOrdersPage: api.listOrdersPage,
               getOrder: api.getOrder,
               requestSignal,

@@ -76,6 +76,7 @@ export function AiAssistantSheet({
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   const requestSequenceRef = useRef(0);
+  const lastClientRequestIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const syncOnlineState = () => setIsOnline(window.navigator.onLine);
@@ -96,6 +97,7 @@ export function AiAssistantSheet({
     setStatus("idle");
     setResponse(undefined);
     setError(undefined);
+    lastClientRequestIdRef.current = undefined;
   }, [storeKey]);
 
   useEffect(() => {
@@ -116,7 +118,7 @@ export function AiAssistantSheet({
   const canSubmit = capabilities?.canUseOrderAssistant === true;
 
   const submit = useCallback(
-    async (messageOverride?: string) => {
+    async (messageOverride?: string, reuseLastRequest = false) => {
       const message = (messageOverride ?? input).trim();
       if (!message || !canSubmit || !isOnline) return;
 
@@ -129,10 +131,15 @@ export function AiAssistantSheet({
       setStatus("loading");
       setResponse(undefined);
       setError(undefined);
+      const clientRequestId =
+        reuseLastRequest && lastClientRequestIdRef.current
+          ? lastClientRequestIdRef.current
+          : crypto.randomUUID();
+      lastClientRequestIdRef.current = clientRequestId;
 
       try {
         const result = await runAiOrderAssistantTurn(
-          { message, locale: "zh-CN" },
+          { client_request_id: clientRequestId, message, locale: "zh-CN" },
           { signal: controller.signal },
         );
         if (requestSequenceRef.current !== sequence) return;
@@ -225,7 +232,7 @@ export function AiAssistantSheet({
               {status === "loading" ? <LoadingState /> : null}
               {status === "cancelled" ? <CancelledState /> : null}
               {status === "error" && error ? (
-                <ErrorState error={error} onRetry={() => void submit(lastQuestion)} />
+                <ErrorState error={error} onRetry={() => void submit(lastQuestion, true)} />
               ) : null}
               {status === "result" && response ? (
                 <ResultState response={response} onNavigate={() => onOpenChange(false)} />
@@ -250,6 +257,11 @@ export function AiAssistantSheet({
             void submit();
           }}
         >
+          <p className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+            复杂且已获门店批准的非敏感问题可能发送至
+            OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。 默认安全监控日志可能保留最多 30
+            天，敏感查询请改用订单页面手工搜索。
+          </p>
           <label htmlFor="ai-assistant-message" className="sr-only">
             输入工单查询问题
           </label>
@@ -265,7 +277,7 @@ export function AiAssistantSheet({
               event.preventDefault();
               void submit();
             }}
-            placeholder="例如：查找 Mario 的未付款工单"
+            placeholder="例如：请列出仍在处理且未付款的工单"
             className="min-h-20 resize-none text-base sm:text-sm"
           />
           <div className="flex items-center justify-between gap-2">
@@ -527,6 +539,23 @@ function toAssistantError(error: unknown): AssistantErrorState {
         message: "请继续使用订单页面的手工搜索。",
         retryable: false,
       };
+    }
+    if (error.code === "AI_SENSITIVE_INPUT") {
+      return {
+        title: "请改用手工搜索",
+        message: "系统检测到可能的客户或设备敏感信息，本次不会发送至外部 AI。",
+        retryable: false,
+      };
+    }
+    if (error.code === "AI_BUDGET_UNAVAILABLE") {
+      return {
+        title: "AI 用量账本暂不可用",
+        message: "为避免未记账费用，本次已安全停止；请使用手工搜索。",
+        retryable: true,
+      };
+    }
+    if (error.code === "AI_REQUEST_CANCELLED") {
+      return { title: "已取消", message: "本次请求已取消。", retryable: true };
     }
     if (error.code === "AI_PROVIDER_RATE_LIMITED") {
       return { title: "AI 服务繁忙", message: "稍后可重试，手工搜索仍可使用。", retryable: true };

@@ -72,6 +72,9 @@ export function assertAiLiveBudgetConfiguration(env: AiAssistantFeatureEnvironme
   if ((env.AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET?.trim().length ?? 0) < 32) {
     throw new Error("OpenAI safety identifier secret 尚未安全配置");
   }
+  if ((env.AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET?.trim().length ?? 0) < 32) {
+    throw new Error("OpenAI request fingerprint secret 尚未安全配置");
+  }
 }
 
 function requirePositiveInteger(value: string | undefined, label: string) {

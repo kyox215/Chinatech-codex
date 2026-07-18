@@ -2,9 +2,9 @@
 
 ## 当前交付边界
 
-Phase 2 只为已登录且有库存权限的员工提供“拍照识别 → 人工复核 → 回填现有表单”。识别和“应用确认字段”都不会创建库存记录；只有员工返回普通入库表单并点击 `保存商品` 后，现有 `createInventoryIntake` 流程才会执行正式写入。
+当前能力只为已登录且有库存权限的员工提供“拍照识别 → 人工复核 → 回填现有表单”。识别和“应用确认字段”都不会创建库存记录；只有员工返回普通入库表单并点击 `保存商品` 后，现有 `createInventoryIntake` 流程才会执行正式写入。
 
-当前实现保持 `fake` provider、页面内临时状态和全部生产旗标关闭。它先运行本地条码/OCR；当品牌、型号、RAM、存储四个关键字段完整且无冲突/无效标识符时，不创建上传 data URL，也不请求云端。它不会调用 OpenAI、不会把原图写入数据库或 Storage，也不会安装尚未批准的图片处理依赖。识别、复核和应用不会写库存、订单、草稿或图片业务记录；唯一有意持久化的是现有 allowlist、聚合型安全审计事件。
+当前实现仍以本地条码/OCR 为第一路径；当品牌、型号、RAM、存储四个关键字段完整且无冲突/无效标识符时，不创建上传 data URL，也不请求云端。Phase 3B 已实现真实 OpenAI vision fallback 和 durable 费用结算，但全部生产旗标、图片数据外发批准与数据库政策仍关闭，因此生产不会发送图片。图片不写入数据库或 Storage；识别、复核和应用不会写库存、订单、草稿或图片业务记录。
 
 ## 安全图片边界
 
@@ -15,6 +15,7 @@ Phase 2 只为已登录且有库存权限的员工提供“拍照识别 → 人�
 - BFF 在认证后执行 3.4 MB 请求上限，并再次验证 canonical base64、MIME/magic、动画、实际字节数和图片头尺寸。
 - 替换照片、关闭弹窗、取消识别、离线或门店/权限变化时，中止请求并释放对象 URL；离线照片不会排队上传。
 - 原图、文件名、OCR 原文和完整标识符不进入普通日志、审计、任务记忆或截图。
+- 云端 schema 强制 `identifiers=[]`：IMEI/SN 只允许由本地扫码/OCR或人工录入处理，不能采用云端返回的标识符。员工必须尽量只框入规格标签并避开人脸、证件、客户资料和支付信息；当前尚无可证明的自动裁切/遮挡，因此视觉 live canary 必须独立审批，不能跟随文字 canary 自动开启。
 
 浏览器原生 TextDetector 与仓库内打包的 ZXing 只产生临时候选；图片中的文字始终作为不可信数据，不作为指令执行。Tesseract fallback 已关闭，避免默认从第三方 CDN 加载 worker、WASM 或语言数据；只有固定版本资源同源托管并通过 CSP/网络断言复核后才可重新启用。服务器审计只记录事件、状态、模型版本、数量、字节/延迟桶和 Token 聚合。
 
@@ -42,6 +43,7 @@ AI_ASSISTANT_STORE_ALLOWLIST=
 AI_ASSISTANT_REQUESTS_PER_STORE_DAY=0
 AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE=30
 AI_ASSISTANT_EXTERNAL_DATA_APPROVED=0
+AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=0
 AI_ASSISTANT_BUDGET_APPROVED=0
 ```
 
@@ -60,15 +62,15 @@ npx next build --webpack
 
 ## Live provider 与生产数据门禁
 
-以下条件全部完成前，`openai` provider 必须继续安全失败：
+以下条件全部完成前，真实 vision fallback 必须继续安全失败：
 
 1. Owner 批准明确的 API 日/月预算与门店硬上限；
 2. Owner/隐私负责人批准真实图片和标识符外发、DPA、ZDR/MAM、欧盟数据区域/传输、隐私告知与删除策略；
-3. 批准并安装官方 OpenAI SDK，以及用于服务端完整安全解码/清元数据的图片依赖；
-4. 实现服务器 deadline/AbortSignal、safety identifier、durable atomic quota 和真实图片黄金集门禁；
+3. 验证现有 Canvas 清元数据、服务端 magic/dimension/animation 校验和 Base64 上限满足批准的数据范围；如需要真正裁切/自动遮挡，再单独批准依赖与交互；
+4. 服务器 deadline/AbortSignal、safety identifier、请求指纹、durable atomic quota、政策一致性证明和真实图片黄金集门禁全部通过；
 5. 完成独立安全、权限、数据、E2E、发布和回滚复核。
 
-本地 `.env.local` 中的密钥不代表生产放行，也不得复制到客户端、Git、日志或截图。
+原生 server-side Responses API 适配器使用 `store:false`、严格 JSON Schema、一次尝试、25 秒 provider deadline 和 1024 output-token 上限。但 `store:false` 不等于 Zero Data Retention；默认 abuse-monitoring 日志仍可能保留输入/输出最多约 30 天。图片数据范围必须单独完成 DPA/Article 28、法律基础、EU/ZDR/MAM 与告知确认。本地 `.env.local` 中的密钥不代表生产放行，也不得复制到客户端、Git、日志或截图。
 
 ## 回滚
 

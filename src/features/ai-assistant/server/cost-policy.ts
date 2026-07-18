@@ -10,7 +10,7 @@ export type AiBillableUsage = {
   outputTokens: number;
 };
 
-type ModelRates = {
+export type AiModelPricingRates = {
   inputMicroUsdPerMillion: number;
   cachedInputMicroUsdPerMillion: number;
   cacheWriteMicroUsdPerMillion: number;
@@ -36,9 +36,15 @@ const ratesByExactModel = {
     cacheWriteMicroUsdPerMillion: 250_000,
     outputMicroUsdPerMillion: 2_000_000,
   },
-} as const satisfies Record<string, ModelRates>;
+} as const satisfies Record<string, AiModelPricingRates>;
 
 export type AiPricedModel = keyof typeof ratesByExactModel;
+
+export function getAiModelPricingRates(model: string): AiModelPricingRates {
+  const rates = ratesByExactModel[model as AiPricedModel];
+  if (!rates) throw new AiCostPolicyError("unknown exact model pricing");
+  return { ...rates };
+}
 
 export class AiCostPolicyError extends Error {
   constructor(message: string) {
@@ -79,6 +85,39 @@ export function estimateAiUsageMicroUsd({
     roundedClassCost(usage.outputTokens, rates.outputMicroUsdPerMillion);
   if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new AiCostPolicyError("estimated cost exceeds safe integer range");
+  }
+  return Number(total);
+}
+
+export function estimateAiMaximumReservationMicroUsd({
+  model,
+  maxInputTokens,
+  maxOutputTokens,
+}: {
+  model: string;
+  maxInputTokens: number;
+  maxOutputTokens: number;
+}) {
+  const rates = ratesByExactModel[model as AiPricedModel];
+  if (!rates) throw new AiCostPolicyError("unknown exact model pricing");
+  if (
+    !Number.isSafeInteger(maxInputTokens) ||
+    maxInputTokens <= 0 ||
+    !Number.isSafeInteger(maxOutputTokens) ||
+    maxOutputTokens <= 0
+  ) {
+    throw new AiCostPolicyError("invalid maximum token usage");
+  }
+  const inputRate = Math.max(
+    rates.inputMicroUsdPerMillion,
+    rates.cachedInputMicroUsdPerMillion,
+    rates.cacheWriteMicroUsdPerMillion,
+  );
+  const total =
+    roundedClassCost(maxInputTokens, inputRate) +
+    roundedClassCost(maxOutputTokens, rates.outputMicroUsdPerMillion);
+  if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new AiCostPolicyError("maximum reservation exceeds safe integer range");
   }
   return Number(total);
 }

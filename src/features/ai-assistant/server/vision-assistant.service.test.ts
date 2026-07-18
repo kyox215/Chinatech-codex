@@ -14,7 +14,8 @@ import {
   type AiInventoryRecognition,
   type AiInventoryVisionRequest,
 } from "@/features/ai-assistant/model/contracts";
-import type { AiAssistantProvider } from "./provider";
+import { AiProviderRequestError, type AiAssistantProvider } from "./provider";
+import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-budget";
 import { aiQuotaExhaustedError } from "./errors";
 import { runAiInventoryVisionRecognition } from "./vision-assistant.service";
 import { resetAiAssistantLocalRateLimitForTests } from "./request-rate-limit";
@@ -24,6 +25,26 @@ const enabledEnv = {
   AI_ASSISTANT_ENABLED: "1",
   AI_VISION_INTAKE_ENABLED: "1",
   AI_ASSISTANT_STORE_ALLOWLIST: "store-1",
+} as const;
+
+const liveVisionEnv = {
+  ...enabledEnv,
+  AI_ASSISTANT_PROVIDER: "openai",
+  AI_ASSISTANT_EXTERNAL_DATA_APPROVED: "1",
+  AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED: "1",
+  AI_ASSISTANT_BUDGET_APPROVED: "1",
+  AI_ASSISTANT_DURABLE_QUOTA_BACKEND: "supabase-v1",
+  AI_ASSISTANT_POLICY_VERSION: "ai-runtime-v1",
+  AI_ASSISTANT_PRICING_VERSION: "openai-pricing-2026-07-18",
+  AI_ASSISTANT_MONTHLY_BUDGET_MICRO_USD: "50000000",
+  AI_ASSISTANT_ORDER_TEXT_PER_STORE_DAY: "20",
+  AI_ASSISTANT_INVENTORY_VISION_PER_STORE_DAY: "10",
+  AI_ASSISTANT_PROVIDER_REQUESTS_GLOBAL_DAY: "300",
+  AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE: "30",
+  AI_ASSISTANT_QUOTA_TIMEZONE: "Europe/Rome",
+  AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET: "test-only-safety-secret-with-at-least-32-characters",
+  AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET:
+    "test-only-fingerprint-secret-with-at-least-32-characters",
 } as const;
 
 describe("inventory vision assistant service", () => {
@@ -148,6 +169,73 @@ describe("inventory vision assistant service", () => {
     expect(provider.recognizeInventoryLabel).not.toHaveBeenCalled();
   });
 
+  it("runs the live vision budget lifecycle before returning strict recognition", async () => {
+    const events: string[] = [];
+    const provider = openAiProviderFor(events);
+    const gateway = durableGateway(events);
+    const input = { ...validInput(), client_request_id: "00000000-0000-4000-8000-000000000103" };
+
+    const response = await run({ provider, gateway, env: liveVisionEnv, input });
+
+    expect(response).toMatchObject({
+      provider: "openai",
+      model_version: "gpt-4o-mini-2024-07-18",
+      recognition: { identifiers: [], label_claim_only: true },
+    });
+    expect(events).toEqual(["reserve", "provider", "settle:completed"]);
+    expect(gateway.reserve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientRequestId: input.client_request_id,
+        requestKind: "inventory_vision",
+        reservedMicroUsd: 8115n,
+      }),
+    );
+    expect(gateway.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "completed", estimatedMicroUsd: 27n }),
+    );
+  });
+
+  it("blocks live vision before provider dispatch when the durable quota rejects", async () => {
+    const provider = openAiProviderFor();
+    const gateway = durableGateway();
+    vi.mocked(gateway.reserve).mockRejectedValueOnce(
+      new AiProviderBudgetError("quota", "monthly_budget_reached"),
+    );
+
+    await expect(run({ provider, gateway, env: liveVisionEnv })).rejects.toMatchObject({
+      code: "AI_QUOTA_EXHAUSTED",
+      status: 429,
+    });
+    expect(provider.recognizeInventoryLabel).not.toHaveBeenCalled();
+    expect(gateway.settle).not.toHaveBeenCalled();
+  });
+
+  it("holds sent-unknown live vision reservations and releases only not-sent failures", async () => {
+    const unknownProvider = openAiProviderFor();
+    const unknownGateway = durableGateway();
+    vi.mocked(unknownProvider.recognizeInventoryLabel).mockRejectedValueOnce(
+      new AiProviderRequestError("transport", "sent_unknown"),
+    );
+    await expect(
+      run({ provider: unknownProvider, gateway: unknownGateway, env: liveVisionEnv }),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_UNAVAILABLE" });
+    expect(unknownGateway.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "sent_unknown" }),
+    );
+
+    const notSentProvider = openAiProviderFor();
+    const notSentGateway = durableGateway();
+    vi.mocked(notSentProvider.recognizeInventoryLabel).mockRejectedValueOnce(
+      new AiProviderRequestError("configuration", "not_sent"),
+    );
+    await expect(
+      run({ provider: notSentProvider, gateway: notSentGateway, env: liveVisionEnv }),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_UNAVAILABLE" });
+    expect(notSentGateway.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "not_sent" }),
+    );
+  });
+
   it("fails closed without logging provider details when required audit persistence fails", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.writeAiAssistantAudit.mockRejectedValueOnce(new Error("SECRET audit database detail"));
@@ -176,6 +264,7 @@ function run({
   env = enabledEnv,
   input = validInput(),
   consumeQuota,
+  gateway,
   now,
 }: {
   provider: AiAssistantProvider;
@@ -183,13 +272,68 @@ function run({
   env?: typeof enabledEnv | Record<string, string>;
   input?: AiInventoryVisionRequest;
   consumeQuota?: () => unknown;
+  gateway?: AiProviderBudgetGateway;
   now?: () => Date;
 }) {
   return runAiInventoryVisionRecognition({
     actor,
     input,
-    dependencies: { provider, env, consumeQuota, now },
+    dependencies: { provider, env, consumeQuota, budgetGateway: gateway, now },
   });
+}
+
+function openAiProviderFor(orderOfEvents: string[] = []): AiAssistantProvider {
+  return {
+    name: "openai",
+    planOrderQuery: vi.fn(async () => {
+      throw new Error("not used in vision tests");
+    }),
+    recognizeInventoryLabel: vi.fn(async () => {
+      orderOfEvents.push("provider");
+      return {
+        recognition: recognition(),
+        metadata: {
+          provider: "openai" as const,
+          model: "gpt-4o-mini-2024-07-18",
+          requestId: "req_test_vision",
+          usage: {
+            inputTokens: 100,
+            cachedInputTokens: 10,
+            cacheWriteTokens: 0,
+            outputTokens: 20,
+            reasoningTokens: 0,
+            totalTokens: 120,
+          },
+          attempts: 1 as const,
+          latencyMs: 50,
+        },
+      };
+    }),
+  };
+}
+
+function durableGateway(orderOfEvents: string[] = []): AiProviderBudgetGateway {
+  return {
+    durability: "durable",
+    reserve: vi.fn(async (input) => {
+      orderOfEvents.push("reserve");
+      return {
+        reservationId: "00000000-0000-4000-8000-000000000104",
+        clientRequestId: input.clientRequestId,
+        policyVersion: input.policyVersion,
+        reservedMicroUsd: input.reservedMicroUsd,
+        expiresAt: "2026-07-18T12:10:00.000Z",
+      };
+    }),
+    settle: vi.fn<AiProviderBudgetGateway["settle"]>(async (input) => {
+      orderOfEvents.push(`settle:${input.outcome}`);
+      if (input.outcome === "completed") {
+        return { state: "succeeded", estimatedMicroUsd: 27n };
+      }
+      if (input.outcome === "not_sent") return { state: "failed_pre_dispatch" };
+      return { state: "held_for_stale_settlement" };
+    }),
+  };
 }
 
 function providerFor(): AiAssistantProvider {

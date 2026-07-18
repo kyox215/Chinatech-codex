@@ -29,6 +29,11 @@ const completeLiveBudgetConfig = {
   AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE: "30",
   AI_ASSISTANT_QUOTA_TIMEZONE: "Europe/Rome",
   AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET: "test-only-secret-with-at-least-32-characters",
+  AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET:
+    "test-only-fingerprint-secret-with-at-least-32-characters",
+  OPENAI_API_KEY: "test-only-openai-key-not-a-real-secret",
+  OPENAI_AI_ASSISTANT_ORDER_MODEL: "gpt-5-nano-2025-08-07",
+  OPENAI_AI_ASSISTANT_VISION_MODEL: "gpt-4o-mini-2024-07-18",
 } as const;
 
 describe("AI assistant feature flags", () => {
@@ -40,9 +45,13 @@ describe("AI assistant feature flags", () => {
     expect(isAiPublicCustomerAssistantEnabled({ AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED: "1" })).toBe(
       false,
     );
-    expect(getAiAssistantProviderName({ AI_ASSISTANT_PROVIDER: "anything" })).toBe("fake");
-    expect(getAiAssistantModel({})).toBe("fake-ai-assistant-v1");
-    expect(() => getAiAssistantModel({ AI_ASSISTANT_PROVIDER: "openai" })).toThrow("模型");
+    expect(() => getAiAssistantProviderName({ AI_ASSISTANT_PROVIDER: "anything" })).toThrow(
+      "provider",
+    );
+    expect(getAiAssistantModel("order_text", {})).toBe("fake-ai-assistant-v1");
+    expect(() => getAiAssistantModel("order_text", { AI_ASSISTANT_PROVIDER: "openai" })).toThrow(
+      "模型",
+    );
   });
 
   it("requires parent flags before child capabilities", () => {

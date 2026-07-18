@@ -33,16 +33,40 @@ describe("AiAssistantSheet", () => {
     renderSheet();
 
     fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
-      target: { value: "查找 Mario 的未付款工单" },
+      target: { value: "请列出仍在处理且未付款的工单" },
     });
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
 
     expect(await screen.findByText("R2026001")).toBeInTheDocument();
     expect(screen.getByText("M*** R***")).toBeInTheDocument();
-    expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledWith(
-      { message: "查找 Mario 的未付款工单", locale: "zh-CN" },
-      { signal: expect.any(AbortSignal) },
+    expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledOnce();
+    const [request, options] = apiMocks.runAiOrderAssistantTurn.mock.calls[0]!;
+    expect(request).toMatchObject({
+      message: "请列出仍在处理且未付款的工单",
+      locale: "zh-CN",
+    });
+    expect(request.client_request_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
+    expect(options.signal).toMatchObject({ aborted: false });
+  });
+
+  it("reuses the same client request id for an explicit error retry", async () => {
+    apiMocks.runAiOrderAssistantTurn
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce(response("R-RETRY", "order-retry"));
+    renderSheet();
+    const input = screen.getByRole("textbox", { name: "输入工单查询问题" });
+    fireEvent.change(input, { target: { value: "查找未付款工单" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "重试查询" }));
+    expect(await screen.findByText("R-RETRY")).toBeInTheDocument();
+
+    const firstRequest = apiMocks.runAiOrderAssistantTurn.mock.calls[0]?.[0];
+    const retryRequest = apiMocks.runAiOrderAssistantTurn.mock.calls[1]?.[0];
+    expect(firstRequest?.client_request_id).toBeTruthy();
+    expect(retryRequest?.client_request_id).toBe(firstRequest?.client_request_id);
   });
 
   it("does not queue a request while offline and keeps the manual input visible", () => {

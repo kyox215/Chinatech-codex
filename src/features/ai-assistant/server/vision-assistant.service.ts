@@ -16,15 +16,22 @@ import {
   type WriteAiAssistantAuditInput,
 } from "./audit";
 import { getAiAssistantCapabilities } from "./capabilities";
-import { AI_PRICING_VERSION, estimateAiUsageMicroUsd } from "./cost-policy";
+import { AI_PRICING_VERSION } from "./cost-policy";
+import { assertAiProviderEgressAllowed } from "./egress-policy";
 import {
   AiServiceError,
   aiAuditUnavailableError,
+  aiBudgetUnavailableError,
   aiDisabledError,
   aiNotAuthorizedError,
+  aiQuotaExhaustedError,
+  aiRequestCancelledError,
+  aiRequestRateLimitedError,
 } from "./errors";
 import type { AiAssistantFeatureEnvironment } from "./feature-flags";
-import type { AiAssistantProvider } from "./provider";
+import { AiProviderRequestError, type AiAssistantProvider } from "./provider";
+import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-budget";
+import { AiProviderBudgetSession } from "./provider-budget-lifecycle";
 import { createAiProviderSignal, isAiProviderTimeoutError } from "./provider-signal";
 import { consumeAiAssistantRequestQuota, type ConsumeAiAssistantQuotaInput } from "./quota";
 import {
@@ -42,6 +49,7 @@ type VisionAssistantDependencies = {
   now?: () => Date;
   requestSignal?: AbortSignal;
   consumeQuota?: (input: ConsumeAiAssistantQuotaInput) => unknown | Promise<unknown>;
+  budgetGateway?: AiProviderBudgetGateway | (() => AiProviderBudgetGateway);
   consumeRequestRateLimit?: (
     input: ConsumeAiAssistantRequestRateLimitInput,
   ) => unknown | Promise<unknown>;
@@ -56,7 +64,7 @@ export async function runAiInventoryVisionRecognition({
   input: AiInventoryVisionRequest;
   dependencies: VisionAssistantDependencies;
 }): Promise<AiInventoryVisionResponse> {
-  const requestId = randomUUID();
+  const requestId = input.client_request_id ?? randomUUID();
   const auditContext: Pick<
     WriteAiAssistantAuditInput,
     | "event"
@@ -75,6 +83,7 @@ export async function runAiInventoryVisionRecognition({
     | "policyVersion"
     | "pricingVersion"
     | "estimatedMicroUsd"
+    | "reservedMicroUsd"
     | "budgetOutcome"
     | "safetyIdentifierPresent"
   > = {
@@ -86,7 +95,8 @@ export async function runAiInventoryVisionRecognition({
     requestKind: "inventory_vision",
     resolutionPath: "provider",
   };
-  let stage: "authorization" | "input" | "provider" | "protocol" = "authorization";
+  let stage: "authorization" | "input" | "budget" | "provider" | "protocol" = "authorization";
+  let budgetSession: AiProviderBudgetSession | undefined;
 
   let response: AiInventoryVisionResponse;
   try {
@@ -107,21 +117,45 @@ export async function runAiInventoryVisionRecognition({
     stage = "input";
     validateAiInventoryVisionInput(input);
 
-    await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
-      actor,
-      env: dependencies.env,
-      now: dependencies.now,
-    });
-
-    stage = "provider";
     const provider =
       typeof dependencies.provider === "function" ? dependencies.provider() : dependencies.provider;
-    if (provider.name !== "fake") throw visionMisconfiguredError();
     auditContext.provider = provider.name;
     const runtimePolicy = getAiModelRuntimePolicy("inventory_vision");
     const safetyIdentifier = createAiSafetyIdentifierIfConfigured(actor, dependencies.env);
     auditContext.policyVersion = runtimePolicy.policyVersion;
     auditContext.safetyIdentifierPresent = Boolean(safetyIdentifier);
+    if (provider.name === "fake") {
+      await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
+        actor,
+        env: dependencies.env,
+        now: dependencies.now,
+      });
+      auditContext.budgetOutcome = "not_required";
+    } else {
+      assertAiProviderEgressAllowed({
+        requestKind: "inventory_vision",
+        env: dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
+      });
+      stage = "budget";
+      auditContext.budgetOutcome = "blocked";
+      const gateway =
+        typeof dependencies.budgetGateway === "function"
+          ? dependencies.budgetGateway()
+          : dependencies.budgetGateway;
+      budgetSession = await AiProviderBudgetSession.reserve({
+        gateway,
+        actor,
+        clientRequestId: requestId,
+        requestKind: "inventory_vision",
+        locale: input.locale,
+        content: input.image_data_url,
+        env: dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
+      });
+      auditContext.reservedMicroUsd = budgetSession.reservedMicroUsd;
+      auditContext.budgetOutcome = budgetSession.outcome;
+    }
+
+    stage = "provider";
     const result = await provider.recognizeInventoryLabel({
       imageDataUrl: input.image_data_url,
       mimeType: input.mime_type,
@@ -141,20 +175,11 @@ export async function runAiInventoryVisionRecognition({
 
     stage = "protocol";
     if (result.metadata.provider === "openai") {
-      const usage = result.metadata.usage;
-      if (usage?.inputTokens === undefined || usage.outputTokens === undefined) {
-        throw visionProtocolError();
-      }
+      if (!budgetSession) throw aiBudgetUnavailableError();
       auditContext.pricingVersion = AI_PRICING_VERSION;
-      auditContext.estimatedMicroUsd = estimateAiUsageMicroUsd({
-        model: result.metadata.model,
-        usage: {
-          inputTokens: usage.inputTokens,
-          cachedInputTokens: usage.cachedInputTokens ?? 0,
-          cacheWriteTokens: usage.cacheWriteTokens ?? 0,
-          outputTokens: usage.outputTokens,
-        },
-      });
+      await budgetSession.settleCompleted(result.metadata);
+      auditContext.estimatedMicroUsd = budgetSession.estimatedMicroUsd;
+      auditContext.budgetOutcome = budgetSession.outcome;
     } else {
       auditContext.budgetOutcome = "not_required";
     }
@@ -169,7 +194,16 @@ export async function runAiInventoryVisionRecognition({
       generated_at: (dependencies.now ?? (() => new Date()))().toISOString(),
     });
   } catch (caught) {
-    const error = normalizeVisionAssistantError(caught, stage);
+    if (budgetSession) {
+      await budgetSession.settleAfterFailure(caught);
+      auditContext.estimatedMicroUsd = budgetSession.estimatedMicroUsd;
+      auditContext.budgetOutcome = budgetSession.outcome;
+    }
+    const error = normalizeVisionAssistantError(
+      budgetSession?.settlementError ?? caught,
+      stage,
+      dependencies.requestSignal,
+    );
     await writeRequiredAudit({
       actor,
       requestId,
@@ -198,17 +232,39 @@ export async function runAiInventoryVisionRecognition({
 
 function normalizeVisionAssistantError(
   error: unknown,
-  stage: "authorization" | "input" | "provider" | "protocol",
+  stage: "authorization" | "input" | "budget" | "provider" | "protocol",
+  requestSignal?: AbortSignal,
 ) {
   if (error instanceof AiServiceError) return error;
+  if (error instanceof AiProviderBudgetError) {
+    if (error.kind === "quota") {
+      return error.safeCode === "actor_minute_limit_reached"
+        ? aiRequestRateLimitedError()
+        : aiQuotaExhaustedError();
+    }
+    if (error.kind === "authorization") return aiNotAuthorizedError();
+    if (error.kind === "configuration") return visionMisconfiguredError();
+    return aiBudgetUnavailableError();
+  }
   if (stage === "input" || error instanceof AiVisionInputValidationError) {
     return visionInvalidInputError();
   }
+  if (requestSignal?.aborted && stage === "provider") return aiRequestCancelledError();
   if (stage === "provider") {
+    if (error instanceof AiProviderRequestError && error.category === "cancelled") {
+      return aiRequestCancelledError();
+    }
+    if (error instanceof AiProviderRequestError && error.category === "timeout") {
+      return visionProviderTimeoutError();
+    }
     if (isRateLimitedError(error)) return visionProviderRateLimitedError();
     if (isAiProviderTimeoutError(error)) return visionProviderTimeoutError();
+    if (error instanceof AiProviderRequestError && error.category === "protocol") {
+      return visionProtocolError();
+    }
     return visionProviderUnavailableError();
   }
+  if (stage === "budget") return aiBudgetUnavailableError();
   return visionProtocolError();
 }
 
@@ -230,6 +286,7 @@ function auditStatusFor(error: AiServiceError): AiAssistantAuditStatus {
   ) {
     return "rate_limited";
   }
+  if (error.code === "AI_REQUEST_CANCELLED") return "cancelled";
   return "failed";
 }
 

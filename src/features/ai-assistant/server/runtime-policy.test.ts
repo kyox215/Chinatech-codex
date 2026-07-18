@@ -21,6 +21,8 @@ const validLiveConfig = {
   AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE: "30",
   AI_ASSISTANT_QUOTA_TIMEZONE: "Europe/Rome",
   AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET: "test-only-secret-with-at-least-32-characters",
+  AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET:
+    "test-only-fingerprint-secret-with-at-least-32-characters",
 } as const;
 
 describe("AI runtime policy", () => {

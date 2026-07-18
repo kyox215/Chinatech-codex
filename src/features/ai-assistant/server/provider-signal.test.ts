@@ -16,13 +16,13 @@ describe("AI provider signal", () => {
     expect(() => createAiProviderSignal(undefined, 60_001)).toThrow(/deadline/);
   });
 
-  it("recognizes both caller aborts and Node deadline timeouts", async () => {
+  it("recognizes Node deadline timeouts without conflating caller cancellation", async () => {
     const signal = createAiProviderSignal(undefined, 100);
     await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()));
 
     expect(signal.reason).toMatchObject({ name: "TimeoutError" });
     expect(isAiProviderTimeoutError(signal.reason)).toBe(true);
-    expect(isAiProviderTimeoutError(new DOMException("cancelled", "AbortError"))).toBe(true);
+    expect(isAiProviderTimeoutError(new DOMException("cancelled", "AbortError"))).toBe(false);
     expect(isAiProviderTimeoutError(new Error("transport"))).toBe(false);
   });
 });

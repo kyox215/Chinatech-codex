@@ -11,9 +11,32 @@ export type AiProviderBudgetReservation = {
 export type AiProviderBudgetRequestIdentity = {
   storeId: string;
   actorId: string;
+  actorRateFingerprintHmac: string;
   clientRequestId: string;
   requestFingerprintHmac: string;
 };
+
+export type AiProviderBudgetSettlement = {
+  state: "succeeded" | "failed_pre_dispatch" | "held_for_stale_settlement" | "idempotent_replay";
+  estimatedMicroUsd?: bigint;
+};
+
+export class AiProviderBudgetError extends Error {
+  constructor(
+    readonly kind:
+      | "quota"
+      | "authorization"
+      | "configuration"
+      | "dependency"
+      | "protocol"
+      | "overrun",
+    readonly safeCode: string,
+    readonly settlementCommitted = false,
+  ) {
+    super(`AI provider budget failure: ${safeCode}`);
+    this.name = "AiProviderBudgetError";
+  }
+}
 
 export interface AiProviderBudgetGateway {
   readonly durability: "process_local" | "durable";
@@ -33,7 +56,7 @@ export interface AiProviderBudgetGateway {
       estimatedMicroUsd?: bigint;
       providerAttemptCount?: 1;
     },
-  ): Promise<void>;
+  ): Promise<AiProviderBudgetSettlement>;
 }
 
 export function assertDurableAiProviderBudgetGateway(

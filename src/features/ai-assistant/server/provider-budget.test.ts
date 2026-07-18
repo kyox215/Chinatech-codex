@@ -24,11 +24,14 @@ describe("AI provider budget contract", () => {
       reservedMicroUsd: 308n,
       expiresAt: "2026-07-18T12:10:00.000Z",
     }));
-    const settle = vi.fn<AiProviderBudgetGateway["settle"]>(async () => undefined);
+    const settle = vi.fn<AiProviderBudgetGateway["settle"]>(async () => ({
+      state: "failed_pre_dispatch",
+    }));
     const gateway = { durability: "durable", reserve, settle } satisfies AiProviderBudgetGateway;
     const identity = {
       storeId: "store-1",
       actorId: "staff-1",
+      actorRateFingerprintHmac: "b".repeat(43),
       clientRequestId: "client-request-1",
       requestFingerprintHmac: "a".repeat(43),
     };

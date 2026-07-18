@@ -106,6 +106,7 @@ export function InventoryV2VisionDraftCard({
         const [serverResult] = await Promise.allSettled([
           runAiInventoryVisionRecognition(
             {
+              client_request_id: crypto.randomUUID(),
               image_data_url: imageDataUrl,
               mime_type: nextPrepared.mimeType,
               byte_length: nextPrepared.byteLength,
@@ -198,7 +199,10 @@ export function InventoryV2VisionDraftCard({
             <Sparkles className="size-4 text-primary" /> AI 标签识别（可选）
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            照片会先去除元数据；识别结果不会自动写入库存。
+            本地识别不足且门店已批准时，无元数据衍生图可能发送至
+            OpenAI；默认安全监控日志可能保留最多 30 天。
+            请只拍/裁剪规格区域，避开人脸、证件和客户资料；IMEI/SN 请优先本地扫描或手工录入。
+            识别结果不会自动写入库存。
           </p>
         </div>
         {prepared ? (

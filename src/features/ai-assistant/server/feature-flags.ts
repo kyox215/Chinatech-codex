@@ -1,4 +1,5 @@
 import { assertAiLiveBudgetConfiguration } from "./runtime-policy";
+import type { AiAssistantRequestKind } from "./cost-policy";
 
 export type AiAssistantFeatureEnvironment = {
   AI_ASSISTANT_ENABLED?: string;
@@ -8,6 +9,8 @@ export type AiAssistantFeatureEnvironment = {
   AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED?: string;
   AI_ASSISTANT_PROVIDER?: string;
   AI_ASSISTANT_EXTERNAL_DATA_APPROVED?: string;
+  AI_ASSISTANT_ORDER_EXTERNAL_DATA_APPROVED?: string;
+  AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED?: string;
   AI_ASSISTANT_BUDGET_APPROVED?: string;
   AI_ASSISTANT_REQUESTS_PER_STORE_DAY?: string;
   AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE?: string;
@@ -20,8 +23,12 @@ export type AiAssistantFeatureEnvironment = {
   AI_ASSISTANT_PROVIDER_REQUESTS_GLOBAL_DAY?: string;
   AI_ASSISTANT_QUOTA_TIMEZONE?: string;
   AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET?: string;
+  AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET?: string;
   AI_ASSISTANT_STORE_ALLOWLIST?: string;
+  OPENAI_API_KEY?: string;
   OPENAI_AI_ASSISTANT_MODEL?: string;
+  OPENAI_AI_ASSISTANT_ORDER_MODEL?: string;
+  OPENAI_AI_ASSISTANT_VISION_MODEL?: string;
   OPENAI_API_BASE_URL?: string;
 };
 
@@ -60,16 +67,23 @@ export function isAiPublicCustomerAssistantEnabled(
 export function getAiAssistantProviderName(
   env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
 ): AiAssistantProviderName {
-  return env.AI_ASSISTANT_PROVIDER === "openai" ? "openai" : "fake";
+  const configured = env.AI_ASSISTANT_PROVIDER?.trim();
+  if (!configured || configured === "fake") return "fake";
+  if (configured === "openai") return "openai";
+  throw new Error("AI provider 配置无效");
 }
 
 export function getAiAssistantModel(
+  kind: AiAssistantRequestKind,
   env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
 ) {
-  const configured = env.OPENAI_AI_ASSISTANT_MODEL?.trim();
-  if (configured) return configured;
   if (getAiAssistantProviderName(env) === "fake") return "fake-ai-assistant-v1";
-  throw new Error("OpenAI AI 小助手模型尚未配置");
+  const configured =
+    kind === "order_text"
+      ? env.OPENAI_AI_ASSISTANT_ORDER_MODEL?.trim()
+      : env.OPENAI_AI_ASSISTANT_VISION_MODEL?.trim();
+  if (configured) return configured;
+  throw new Error(`OpenAI ${kind} 模型尚未配置`);
 }
 
 export function getAiAssistantApiBaseUrl(
@@ -125,4 +139,27 @@ export function assertOpenAiExternalCallsApproved(
 ) {
   if (getAiAssistantProviderName(env) !== "openai") return;
   assertAiLiveBudgetConfiguration(env);
+  if ((env.OPENAI_API_KEY?.trim().length ?? 0) < 20) {
+    throw new Error("OpenAI API key 尚未安全配置");
+  }
+  getAiAssistantModel("order_text", env);
+  getAiAssistantModel("inventory_vision", env);
+  getAiAssistantApiBaseUrl(env);
+}
+
+export function assertOpenAiRequestDataApproved(
+  kind: AiAssistantRequestKind,
+  env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
+) {
+  if (getAiAssistantProviderName(env) !== "openai") return;
+  if (env.AI_ASSISTANT_EXTERNAL_DATA_APPROVED !== "1") {
+    throw new Error("OpenAI 外部数据处理尚未批准");
+  }
+  const approved =
+    kind === "order_text"
+      ? env.AI_ASSISTANT_ORDER_EXTERNAL_DATA_APPROVED
+      : env.AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED;
+  if (approved !== "1") {
+    throw new Error(`OpenAI ${kind} 数据类别尚未单独批准`);
+  }
 }

@@ -9,5 +9,5 @@ export function createAiProviderSignal(parent: AbortSignal | undefined, timeoutM
 export function isAiProviderTimeoutError(error: unknown) {
   if (!error || typeof error !== "object" || !("name" in error)) return false;
   const name = error.name;
-  return name === "AbortError" || name === "TimeoutError";
+  return name === "TimeoutError";
 }

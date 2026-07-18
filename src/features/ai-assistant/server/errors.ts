@@ -2,6 +2,8 @@ export type AiServiceErrorCode =
   | "AI_DISABLED"
   | "AI_NOT_AUTHORIZED"
   | "AI_INVALID_INPUT"
+  | "AI_SENSITIVE_INPUT"
+  | "AI_REQUEST_CANCELLED"
   | "AI_RATE_LIMITED"
   | "AI_QUOTA_EXHAUSTED"
   | "AI_PROVIDER_PROTOCOL_ERROR"
@@ -10,6 +12,7 @@ export type AiServiceErrorCode =
   | "AI_PROVIDER_TIMEOUT"
   | "AI_DEPENDENCY_UNAVAILABLE"
   | "AI_AUDIT_UNAVAILABLE"
+  | "AI_BUDGET_UNAVAILABLE"
   | "AI_MISCONFIGURED";
 
 export class AiServiceError extends Error {
@@ -94,6 +97,21 @@ export function aiQuotaExhaustedError() {
     429,
     { retryable: false },
   );
+}
+
+export function aiBudgetUnavailableError() {
+  return new AiServiceError(
+    "AI 用量账本暂时不可用，请继续使用手工方式",
+    "AI_BUDGET_UNAVAILABLE",
+    503,
+    { retryable: true },
+  );
+}
+
+export function aiRequestCancelledError() {
+  return new AiServiceError("AI 请求已取消", "AI_REQUEST_CANCELLED", 499, {
+    retryable: true,
+  });
 }
 
 export function aiRequestRateLimitedError() {

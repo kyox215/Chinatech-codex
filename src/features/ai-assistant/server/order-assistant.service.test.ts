@@ -8,7 +8,8 @@ vi.mock("./audit", async (importOriginal) => {
 });
 
 import type { AiOrderToolCall } from "@/features/ai-assistant/model/contracts";
-import type { AiAssistantProvider } from "./provider";
+import { AiProviderRequestError, type AiAssistantProvider } from "./provider";
+import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-budget";
 import { aiQuotaExhaustedError, aiRequestRateLimitedError } from "./errors";
 import { resetAiAssistantLocalRateLimitForTests } from "./request-rate-limit";
 import { FakeAiAssistantProvider } from "@/features/ai-assistant/testing/fake-provider";
@@ -24,6 +25,16 @@ const enabledEnv = {
   AI_ASSISTANT_ENABLED: "1",
   AI_ORDER_READ_TOOLS_ENABLED: "1",
   AI_ASSISTANT_STORE_ALLOWLIST: "store-1",
+} as const;
+
+const liveEnv = {
+  ...enabledEnv,
+  AI_ASSISTANT_PROVIDER: "openai",
+  AI_ASSISTANT_EXTERNAL_DATA_APPROVED: "1",
+  AI_ASSISTANT_ORDER_EXTERNAL_DATA_APPROVED: "1",
+  AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET:
+    "test-only-fingerprint-secret-with-at-least-32-characters",
+  AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET: "test-only-secret-with-at-least-32-characters",
 } as const;
 
 describe("order assistant service", () => {
@@ -191,6 +202,134 @@ describe("order assistant service", () => {
     expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "fake", resolutionPath: "provider" }),
     );
+  });
+
+  it("reserves durably before one OpenAI call and finalizes before repository access", async () => {
+    const orderOfEvents: string[] = [];
+    const provider = openAiProviderFor(searchCall({ paid: "unpaid" }), orderOfEvents);
+    const gateway = durableGateway(orderOfEvents);
+    const consumeQuota = vi.fn();
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        client_request_id: "00000000-0000-4000-8000-000000000101",
+        message: "Combine active and unpaid repair filters",
+        locale: "en",
+      },
+      dependencies: {
+        provider,
+        budgetGateway: gateway,
+        consumeQuota,
+        listOrdersPage: vi.fn(async () => {
+          orderOfEvents.push("repository");
+          return result([], 0);
+        }),
+        getOrder: vi.fn(),
+        env: liveEnv,
+      },
+    });
+
+    expect(response.kind).toBe("search_results");
+    expect(orderOfEvents).toEqual(["reserve", "provider", "settle:completed", "repository"]);
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(gateway.reserve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestKind: "order_text",
+        reservedMicroUsd: 308n,
+        clientRequestId: "00000000-0000-4000-8000-000000000101",
+        actorRateFingerprintHmac: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+        requestFingerprintHmac: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      }),
+    );
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "openai",
+        reservedMicroUsd: 308,
+        estimatedMicroUsd: 14,
+        budgetOutcome: "settled",
+        providerAttemptCount: 1,
+      }),
+    );
+  });
+
+  it("blocks a rejected durable reservation before OpenAI", async () => {
+    const provider = openAiProviderFor(searchCall());
+    const gateway = durableGateway();
+    vi.mocked(gateway.reserve).mockRejectedValueOnce(
+      new AiProviderBudgetError("quota", "monthly_budget_reached"),
+    );
+
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: owner,
+        input: { message: "Combine active repair filters", locale: "en" },
+        dependencies: {
+          provider,
+          budgetGateway: gateway,
+          listOrdersPage: vi.fn(),
+          getOrder: vi.fn(),
+          env: liveEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_QUOTA_EXHAUSTED", status: 429 });
+
+    expect(provider.planOrderQuery).not.toHaveBeenCalled();
+    expect(gateway.settle).not.toHaveBeenCalled();
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ budgetOutcome: "blocked", errorCode: "AI_QUOTA_EXHAUSTED" }),
+    );
+  });
+
+  it("holds a reservation after an unknown dispatch and never releases it", async () => {
+    const provider = openAiProviderFor(searchCall());
+    vi.mocked(provider.planOrderQuery).mockRejectedValueOnce(
+      new AiProviderRequestError("transport", "sent_unknown"),
+    );
+    const gateway = durableGateway();
+
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: owner,
+        input: { message: "Combine active repair filters", locale: "en" },
+        dependencies: {
+          provider,
+          budgetGateway: gateway,
+          listOrdersPage: vi.fn(),
+          getOrder: vi.fn(),
+          env: liveEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_UNAVAILABLE", status: 503 });
+
+    expect(gateway.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "sent_unknown" }),
+    );
+    expect(gateway.settle).not.toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "not_sent" }),
+    );
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ budgetOutcome: "conservative_hold" }),
+    );
+  });
+
+  it("rejects likely customer PII before reserve or OpenAI dispatch", async () => {
+    const provider = openAiProviderFor(searchCall());
+    const gateway = durableGateway();
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: owner,
+        input: { message: "查找 Mario 的未付款工单", locale: "zh-CN" },
+        dependencies: {
+          provider,
+          budgetGateway: gateway,
+          listOrdersPage: vi.fn(),
+          getOrder: vi.fn(),
+          env: liveEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_SENSITIVE_INPUT", status: 400 });
+    expect(gateway.reserve).not.toHaveBeenCalled();
+    expect(provider.planOrderQuery).not.toHaveBeenCalled();
   });
 
   it("runs bounded search through the existing actor-scoped repository and returns minimal cards", async () => {
@@ -514,6 +653,63 @@ function providerFor(toolCall: AiOrderToolCall): AiAssistantProvider {
     })),
     recognizeInventoryLabel: vi.fn(async () => {
       throw new Error("not used in order assistant tests");
+    }),
+  };
+}
+
+function openAiProviderFor(
+  toolCall: AiOrderToolCall,
+  orderOfEvents: string[] = [],
+): AiAssistantProvider {
+  return {
+    name: "openai",
+    planOrderQuery: vi.fn(async () => {
+      orderOfEvents.push("provider");
+      return {
+        toolCall,
+        metadata: {
+          provider: "openai" as const,
+          model: "gpt-5-nano-2025-08-07",
+          requestId: "req_test",
+          usage: {
+            inputTokens: 100,
+            cachedInputTokens: 10,
+            cacheWriteTokens: 0,
+            outputTokens: 20,
+            reasoningTokens: 5,
+            totalTokens: 120,
+          },
+          attempts: 1 as const,
+          latencyMs: 50,
+        },
+      };
+    }),
+    recognizeInventoryLabel: vi.fn(async () => {
+      throw new Error("not used in order assistant tests");
+    }),
+  };
+}
+
+function durableGateway(orderOfEvents: string[] = []): AiProviderBudgetGateway {
+  return {
+    durability: "durable",
+    reserve: vi.fn(async (input) => {
+      orderOfEvents.push("reserve");
+      return {
+        reservationId: "00000000-0000-4000-8000-000000000102",
+        clientRequestId: input.clientRequestId,
+        policyVersion: input.policyVersion,
+        reservedMicroUsd: input.reservedMicroUsd,
+        expiresAt: "2026-07-18T12:10:00.000Z",
+      };
+    }),
+    settle: vi.fn<AiProviderBudgetGateway["settle"]>(async (input) => {
+      orderOfEvents.push(`settle:${input.outcome}`);
+      if (input.outcome === "completed") {
+        return { state: "succeeded", estimatedMicroUsd: 14n };
+      }
+      if (input.outcome === "not_sent") return { state: "failed_pre_dispatch" };
+      return { state: "held_for_stale_settlement" };
     }),
   };
 }

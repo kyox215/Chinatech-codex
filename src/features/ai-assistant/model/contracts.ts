@@ -19,6 +19,7 @@ export type AiAssistantConfidence = z.infer<typeof aiAssistantConfidenceSchema>;
 
 export const aiAssistantRequestSchema = z
   .object({
+    client_request_id: z.string().uuid().optional(),
     message: z.string().trim().min(1, "请输入问题").max(800, "问题不能超过 800 个字符"),
     locale: aiAssistantLocaleSchema.default("zh-CN"),
   })
@@ -199,6 +200,7 @@ export type AiInventoryRecognition = z.infer<typeof aiInventoryRecognitionSchema
 
 export const aiInventoryVisionRequestSchema = z
   .object({
+    client_request_id: z.string().uuid().optional(),
     image_data_url: z
       .string()
       .min(32)
@@ -378,4 +380,20 @@ export const aiInventoryRecognitionJsonSchema = {
     "warnings",
     "label_claim_only",
   ],
+} as const;
+
+/**
+ * Cloud vision is intentionally specification-only. IMEI/SN/barcodes remain a
+ * local scan/manual-entry concern even though the shared review contract can
+ * merge locally extracted identifiers afterwards.
+ */
+export const aiInventoryCloudRecognitionJsonSchema = {
+  ...aiInventoryRecognitionJsonSchema,
+  properties: {
+    ...aiInventoryRecognitionJsonSchema.properties,
+    identifiers: {
+      ...aiInventoryRecognitionJsonSchema.properties.identifiers,
+      maxItems: 0,
+    },
+  },
 } as const;

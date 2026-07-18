@@ -24,8 +24,8 @@ describe("AI assistant provider factory", () => {
     );
   });
 
-  it("still fails closed after configuration gates until the live dependency is approved", () => {
-    expect(() =>
+  it("constructs the live provider only after every exact configuration gate passes", () => {
+    expect(
       getAiAssistantProvider({
         AI_ASSISTANT_PROVIDER: "openai",
         AI_ASSISTANT_EXTERNAL_DATA_APPROVED: "1",
@@ -40,12 +40,12 @@ describe("AI assistant provider factory", () => {
         AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE: "30",
         AI_ASSISTANT_QUOTA_TIMEZONE: "Europe/Rome",
         AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET: "test-only-secret-with-at-least-32-characters",
+        AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET:
+          "test-only-fingerprint-secret-with-at-least-32-characters",
+        OPENAI_API_KEY: "test-only-openai-key-not-a-real-secret",
+        OPENAI_AI_ASSISTANT_ORDER_MODEL: "gpt-5-nano-2025-08-07",
+        OPENAI_AI_ASSISTANT_VISION_MODEL: "gpt-4o-mini-2024-07-18",
       }),
-    ).toThrowError(
-      expect.objectContaining<Partial<AiServiceError>>({
-        code: "AI_MISCONFIGURED",
-        status: 503,
-      }),
-    );
+    ).toEqual(expect.objectContaining({ name: "openai" }));
   });
 });

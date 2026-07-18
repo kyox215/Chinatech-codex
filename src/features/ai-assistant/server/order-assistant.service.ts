@@ -15,20 +15,28 @@ import {
   type WriteAiAssistantAuditInput,
 } from "./audit";
 import { getAiAssistantCapabilities } from "./capabilities";
-import { AI_PRICING_VERSION, estimateAiUsageMicroUsd } from "./cost-policy";
+import { AI_PRICING_VERSION } from "./cost-policy";
+import { assertAiProviderEgressAllowed } from "./egress-policy";
 import {
   AiServiceError,
   aiAuditUnavailableError,
+  aiBudgetUnavailableError,
   aiDependencyUnavailableError,
   aiDisabledError,
   aiNotAuthorizedError,
   aiProtocolError,
+  aiQuotaExhaustedError,
+  aiRequestCancelledError,
+  aiRequestRateLimitedError,
   aiProviderRateLimitedError,
   aiProviderTimeoutError,
   aiProviderUnavailableError,
 } from "./errors";
 import type { AiAssistantFeatureEnvironment } from "./feature-flags";
 import type { AiAssistantProvider } from "./provider";
+import { AiProviderRequestError } from "./provider";
+import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-budget";
+import { AiProviderBudgetSession } from "./provider-budget-lifecycle";
 import { planDeterministicOrderQuery } from "./order-intent-router";
 import { createAiProviderSignal, isAiProviderTimeoutError } from "./provider-signal";
 import { consumeAiAssistantRequestQuota, type ConsumeAiAssistantQuotaInput } from "./quota";
@@ -55,6 +63,7 @@ type OrderAssistantDependencies = {
   now?: () => Date;
   requestSignal?: AbortSignal;
   consumeQuota?: (input: ConsumeAiAssistantQuotaInput) => unknown | Promise<unknown>;
+  budgetGateway?: AiProviderBudgetGateway | (() => AiProviderBudgetGateway);
   consumeRequestRateLimit?: (
     input: ConsumeAiAssistantRequestRateLimitInput,
   ) => unknown | Promise<unknown>;
@@ -69,7 +78,7 @@ export async function runAiOrderAssistantTurn({
   input: AiAssistantRequest;
   dependencies: OrderAssistantDependencies;
 }): Promise<AiOrderAssistantResponse> {
-  const requestId = randomUUID();
+  const requestId = input.client_request_id ?? randomUUID();
   const auditContext: Pick<
     WriteAiAssistantAuditInput,
     | "event"
@@ -87,6 +96,7 @@ export async function runAiOrderAssistantTurn({
     | "providerAttemptCount"
     | "pricingVersion"
     | "estimatedMicroUsd"
+    | "reservedMicroUsd"
     | "budgetOutcome"
     | "safetyIdentifierPresent"
   > = {
@@ -95,7 +105,8 @@ export async function runAiOrderAssistantTurn({
     modelVersion: "not_started",
     requestKind: "order_text",
   };
-  let stage: "authorization" | "provider" | "protocol" | "repository" = "authorization";
+  let stage: "authorization" | "budget" | "provider" | "protocol" | "repository" = "authorization";
+  let budgetSession: AiProviderBudgetSession | undefined;
 
   let response: AiOrderAssistantResponse;
   try {
@@ -124,13 +135,6 @@ export async function runAiOrderAssistantTurn({
       auditContext.budgetOutcome = "not_required";
       auditContext.safetyIdentifierPresent = false;
     } else {
-      await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
-        actor,
-        env: dependencies.env,
-        now: dependencies.now,
-      });
-
-      stage = "provider";
       const provider =
         typeof dependencies.provider === "function"
           ? dependencies.provider()
@@ -141,6 +145,39 @@ export async function runAiOrderAssistantTurn({
       const safetyIdentifier = createAiSafetyIdentifierIfConfigured(actor, dependencies.env);
       auditContext.policyVersion = runtimePolicy.policyVersion;
       auditContext.safetyIdentifierPresent = Boolean(safetyIdentifier);
+      if (provider.name === "fake") {
+        await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
+          actor,
+          env: dependencies.env,
+          now: dependencies.now,
+        });
+        auditContext.budgetOutcome = "not_required";
+      } else {
+        assertAiProviderEgressAllowed({
+          requestKind: "order_text",
+          env: dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
+          orderMessage: input.message,
+        });
+        stage = "budget";
+        auditContext.budgetOutcome = "blocked";
+        const gateway =
+          typeof dependencies.budgetGateway === "function"
+            ? dependencies.budgetGateway()
+            : dependencies.budgetGateway;
+        budgetSession = await AiProviderBudgetSession.reserve({
+          gateway,
+          actor,
+          clientRequestId: requestId,
+          requestKind: "order_text",
+          locale: input.locale,
+          content: input.message,
+          env: dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
+        });
+        auditContext.reservedMicroUsd = budgetSession.reservedMicroUsd;
+        auditContext.budgetOutcome = budgetSession.outcome;
+      }
+
+      stage = "provider";
       const planned = await provider.planOrderQuery({
         message: input.message,
         locale: input.locale,
@@ -161,20 +198,11 @@ export async function runAiOrderAssistantTurn({
       auditContext.latencyBucket = bucketAiAssistantLatency(planned.metadata.latencyMs);
       stage = "protocol";
       if (planned.metadata.provider === "openai") {
-        const usage = planned.metadata.usage;
-        if (usage?.inputTokens === undefined || usage.outputTokens === undefined) {
-          throw aiProtocolError();
-        }
+        if (!budgetSession) throw aiBudgetUnavailableError();
         auditContext.pricingVersion = AI_PRICING_VERSION;
-        auditContext.estimatedMicroUsd = estimateAiUsageMicroUsd({
-          model: planned.metadata.model,
-          usage: {
-            inputTokens: usage.inputTokens,
-            cachedInputTokens: usage.cachedInputTokens ?? 0,
-            cacheWriteTokens: usage.cacheWriteTokens ?? 0,
-            outputTokens: usage.outputTokens,
-          },
-        });
+        await budgetSession.settleCompleted(planned.metadata);
+        auditContext.estimatedMicroUsd = budgetSession.estimatedMicroUsd;
+        auditContext.budgetOutcome = budgetSession.outcome;
       } else {
         auditContext.budgetOutcome = "not_required";
       }
@@ -262,7 +290,16 @@ export async function runAiOrderAssistantTurn({
       }
     }
   } catch (caught) {
-    const error = normalizeOrderAssistantError(caught, stage);
+    if (budgetSession) {
+      await budgetSession.settleAfterFailure(caught);
+      auditContext.estimatedMicroUsd = budgetSession.estimatedMicroUsd;
+      auditContext.budgetOutcome = budgetSession.outcome;
+    }
+    const error = normalizeOrderAssistantError(
+      budgetSession?.settlementError ?? caught,
+      stage,
+      dependencies.requestSignal,
+    );
     await writeRequiredAudit({
       actor,
       requestId,
@@ -290,14 +327,43 @@ export async function runAiOrderAssistantTurn({
 
 function normalizeOrderAssistantError(
   error: unknown,
-  stage: "authorization" | "provider" | "protocol" | "repository",
+  stage: "authorization" | "budget" | "provider" | "protocol" | "repository",
+  requestSignal?: AbortSignal,
 ) {
   if (error instanceof AiServiceError) return error;
+  if (error instanceof AiProviderBudgetError) {
+    if (error.kind === "quota") {
+      return error.safeCode === "actor_minute_limit_reached"
+        ? aiRequestRateLimitedError()
+        : aiQuotaExhaustedError();
+    }
+    if (error.kind === "authorization") return aiNotAuthorizedError();
+    if (error.kind === "configuration") {
+      return new AiServiceError(
+        "AI 服务配置尚未完成，请继续使用手工查询",
+        "AI_MISCONFIGURED",
+        503,
+        { retryable: false },
+      );
+    }
+    return aiBudgetUnavailableError();
+  }
+  if (requestSignal?.aborted && stage === "provider") return aiRequestCancelledError();
   if (stage === "provider") {
+    if (error instanceof AiProviderRequestError && error.category === "cancelled") {
+      return aiRequestCancelledError();
+    }
+    if (error instanceof AiProviderRequestError && error.category === "timeout") {
+      return aiProviderTimeoutError();
+    }
     if (isRateLimitedError(error)) return aiProviderRateLimitedError();
     if (isAiProviderTimeoutError(error)) return aiProviderTimeoutError();
+    if (error instanceof AiProviderRequestError && error.category === "protocol") {
+      return aiProtocolError();
+    }
     return aiProviderUnavailableError();
   }
+  if (stage === "budget") return aiBudgetUnavailableError();
   if (stage === "repository") return aiDependencyUnavailableError();
   return aiProtocolError();
 }
@@ -320,6 +386,7 @@ function auditStatusFor(error: AiServiceError): AiAssistantAuditStatus {
   ) {
     return "rate_limited";
   }
+  if (error.code === "AI_REQUEST_CANCELLED") return "cancelled";
   return "failed";
 }
 
