@@ -664,6 +664,10 @@ export async function getOrder(id: string, _actor?: AuditActor) {
       canManageInternalCosts:
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         (!_actor || _actor.isSystem || can(_actor, "finance:cost_manage")),
+      canAllocatePartsCosts:
+        process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
+        process.env.REPAIRDESK_PARTS_PROCUREMENT_ENABLED === "1" &&
+        (!_actor || _actor.isSystem || can(_actor, "inventory:cost_allocate")),
       blockedReasons: hasFinancialEvidence
         ? { void: "存在收款或定金证据，必须先完成财务冲销/退款" }
         : {},

@@ -2,6 +2,7 @@ import type {
   AuditActor,
   ProfitCenterInput,
   ProfitCenterResult,
+  ProfitBreakdownItem,
   ProfitOrderDrilldownItem,
   ProfitPeriodSummary,
   ProfitTrendPoint,
@@ -13,6 +14,7 @@ import {
   requiredString,
   requireStoreIdFromActor,
 } from "@/server/repairdesk-shared";
+import { isPartsProcurementEnabled } from "@/features/orders/server/order-cost-feature";
 import { assertCanReadProfitCenter } from "./profit-feature";
 
 type Row = Record<string, unknown>;
@@ -143,6 +145,25 @@ function drilldownItem(value: unknown): ProfitOrderDrilldownItem | undefined {
   };
 }
 
+function breakdownItem(value: unknown): ProfitBreakdownItem | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as Row;
+  const key = maybeString(row.key);
+  const label = maybeString(row.label);
+  if (!key || !label) return undefined;
+  return {
+    key,
+    label,
+    order_count: finiteNumber(row.order_count),
+    line_count: finiteNumber(row.line_count),
+    quote_amount: finiteNumber(row.quote_amount),
+    known_cost_amount: finiteNumber(row.known_cost_amount),
+    exact_margin_amount: finiteNumber(row.exact_margin_amount),
+    exact_line_count: finiteNumber(row.exact_line_count),
+    incomplete_line_count: finiteNumber(row.incomplete_line_count),
+  };
+}
+
 export async function getProfitCenter(
   input: ProfitCenterInput,
   actor: AuditActor,
@@ -172,6 +193,29 @@ export async function getProfitCenter(
     !Array.isArray(summary.collection_reference)
       ? (summary.collection_reference as Row)
       : {};
+  let breakdowns: ProfitCenterResult["breakdowns"];
+  if (isPartsProcurementEnabled()) {
+    const breakdownResponse = await getSupabaseAdmin().rpc(
+      "repairdesk_read_profit_breakdowns_rpc",
+      {
+        p_store_id: storeId,
+        p_actor_id: requireActorId(actor),
+        p_start_date: input.start_date,
+        p_end_date: input.end_date,
+      },
+    );
+    const breakdownResult = assertProfitRpcResult(breakdownResponse.data, breakdownResponse.error);
+    breakdowns = {
+      categories: (Array.isArray(breakdownResult.categories)
+        ? breakdownResult.categories
+        : []
+      ).flatMap((item) => breakdownItem(item) ?? []),
+      suppliers: (Array.isArray(breakdownResult.suppliers)
+        ? breakdownResult.suppliers
+        : []
+      ).flatMap((item) => breakdownItem(item) ?? []),
+    };
+  }
 
   return {
     timezone: requiredString(result.timezone) || "Europe/Rome",
@@ -200,5 +244,6 @@ export async function getProfitCenter(
       const parsed = drilldownItem(item);
       return parsed ? [parsed] : [];
     }),
+    ...(breakdowns ? { breakdowns } : {}),
   };
 }

@@ -265,6 +265,27 @@ describe("store repository access request boundaries", () => {
     expect(salesContext.permissions).toMatchObject({ can_manage_order_costs: false });
   });
 
+  it("publishes parts allocation only with both child flag and dedicated grant", async () => {
+    vi.stubEnv("REPAIRDESK_ORDER_COSTS_ENABLED", "1");
+    vi.stubEnv("REPAIRDESK_PARTS_PROCUREMENT_ENABLED", "1");
+    const grantedManager = {
+      ...storeManager,
+      permissionGrants: ["inventory:cost_allocate" as const],
+    };
+    const [ownerContext, managerContext, grantedManagerContext, technicianContext] =
+      await Promise.all([
+        getStoreContext(storeOwner),
+        getStoreContext(storeManager),
+        getStoreContext(grantedManager),
+        getStoreContext({ ...storeTechnician, permissionGrants: ["inventory:cost_allocate"] }),
+      ]);
+
+    expect(ownerContext.permissions).toMatchObject({ canAllocatePartsCosts: true });
+    expect(managerContext.permissions).toMatchObject({ canAllocatePartsCosts: false });
+    expect(grantedManagerContext.permissions).toMatchObject({ canAllocatePartsCosts: true });
+    expect(technicianContext.permissions).toMatchObject({ canAllocatePartsCosts: false });
+  });
+
   it("publishes a structured order-data reason without querying owner identity when disabled", async () => {
     vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "0");
 

@@ -30,6 +30,7 @@ import {
 } from "@/entities/store/model/store-setting-defaults";
 import { ORDER_WARRANTY_OPTIONS, formatWarrantyText } from "@/features/orders/model/order-warranty";
 import { RepairCostDefaultsCard } from "@/features/settings/components/repair-cost-defaults-card";
+import { PartsProcurementCard } from "@/features/settings/components/parts-procurement-card";
 import { SettingsField } from "@/features/settings/components/settings-field";
 import type { SettingsFieldErrors } from "@/features/settings/model/settings-field-errors";
 import {
@@ -47,6 +48,7 @@ export interface RulesSettingsSectionProps {
   canUpdateSettings: boolean;
   activeStoreId?: string;
   canManageOrderCosts?: boolean;
+  canAllocatePartsCosts?: boolean;
   fieldErrors: SettingsFieldErrors;
   onDraftChange: (patch: Partial<StoreSettingsDraftValues["rules"]>) => void;
 }
@@ -57,6 +59,7 @@ export function RulesSettingsSection({
   canUpdateSettings,
   activeStoreId,
   canManageOrderCosts = false,
+  canAllocatePartsCosts = false,
   fieldErrors,
   onDraftChange,
 }: RulesSettingsSectionProps) {
@@ -273,6 +276,9 @@ export function RulesSettingsSection({
       </section>
       {canManageOrderCosts && activeStoreId ? (
         <RepairCostDefaultsCard key={activeStoreId} storeId={activeStoreId} />
+      ) : null}
+      {canAllocatePartsCosts && activeStoreId ? (
+        <PartsProcurementCard key={`parts-${activeStoreId}`} storeId={activeStoreId} />
       ) : null}
     </div>
   );

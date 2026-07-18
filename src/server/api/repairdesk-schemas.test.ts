@@ -33,6 +33,9 @@ import {
   patchOrderInputSchema,
   paymentBodySchema,
   profitCenterReadBodySchema,
+  partCatalogCreateBodySchema,
+  partLotReceiveBodySchema,
+  orderPartAllocateBodySchema,
   publishOrderQuoteInputSchema,
   confirmOrderQuoteSentInputSchema,
   storeInviteLinkCreateBodySchema,
@@ -134,6 +137,62 @@ describe("repairdesk API schemas", () => {
         end_date: "2026-03-01",
       }),
     ).toThrow("日期无效");
+  });
+
+  it("validates traceable procurement catalog, lot and allocation inputs", () => {
+    const store = "00000000-0000-4000-8000-000000000001";
+    const part = "00000000-0000-4000-8000-000000000002";
+    const lot = "00000000-0000-4000-8000-000000000003";
+    const idempotency = "00000000-0000-4000-8000-000000000004";
+    expect(
+      partCatalogCreateBodySchema.parse({
+        expected_store_id: store,
+        sku: " OLED-15 ",
+        name: " 屏幕 ",
+        compatible_models: [],
+        idempotency_key: idempotency,
+      }),
+    ).toMatchObject({ sku: "OLED-15", name: "屏幕" });
+    expect(
+      partLotReceiveBodySchema.parse({
+        expected_store_id: store,
+        part_item_id: part,
+        lot_code: "LOT-1",
+        quantity: 2,
+        original_unit_cost: 15,
+        original_currency_code: "EUR",
+        fx_rate_to_eur: 1,
+        fx_rate_at: "2026-07-18T10:00:00.000Z",
+        fx_rate_source: "store_base",
+        idempotency_key: idempotency,
+      }),
+    ).toMatchObject({ quantity: 2, original_currency_code: "EUR" });
+    expect(
+      orderPartAllocateBodySchema.parse({
+        order_id: part,
+        input: {
+          expected_store_id: store,
+          line_id: part,
+          lot_id: lot,
+          quantity: 1,
+          idempotency_key: idempotency,
+        },
+      }).input.quantity,
+    ).toBe(1);
+    expect(() =>
+      partLotReceiveBodySchema.parse({
+        expected_store_id: store,
+        part_item_id: part,
+        lot_code: "LOT-1",
+        quantity: 0,
+        original_unit_cost: 15,
+        original_currency_code: "eur",
+        fx_rate_to_eur: 1,
+        fx_rate_at: "2026-07-18T10:00:00.000Z",
+        fx_rate_source: "store_base",
+        idempotency_key: idempotency,
+      }),
+    ).toThrow();
   });
 
   it("accepts a strict diagnosis quote publication and exact quote send confirmation", () => {

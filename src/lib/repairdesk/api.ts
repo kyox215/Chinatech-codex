@@ -53,6 +53,11 @@ import type {
   PatchOrderResult,
   ProfitCenterInput,
   ProfitCenterResult,
+  PartsProcurementResult,
+  CreatePartCatalogItemInput,
+  ReceivePartLotInput,
+  AllocateOrderPartInput,
+  ReleaseOrderPartInput,
   PublishOrderQuoteInput,
   PublishOrderQuoteResult,
   ConfirmOrderQuoteSentInput,
@@ -242,6 +247,14 @@ export type {
   PatchOrderResult,
   ProfitCenterInput,
   ProfitCenterResult,
+  PartsProcurementResult,
+  PartCatalogItem,
+  PartPurchaseLot,
+  OrderPartAllocation,
+  CreatePartCatalogItemInput,
+  ReceivePartLotInput,
+  AllocateOrderPartInput,
+  ReleaseOrderPartInput,
   PublishOrderQuoteInput,
   PublishOrderQuoteResult,
   ConfirmOrderQuoteSentInput,
@@ -1197,6 +1210,32 @@ export async function getProfitCenter(
   options?: RepairDeskRequestOptions,
 ): Promise<ProfitCenterResult> {
   return postJson<ProfitCenterResult>("finance/profit-center/read", input, options);
+}
+
+export async function getPartsProcurement(
+  orderId?: string,
+  options?: RepairDeskRequestOptions,
+): Promise<PartsProcurementResult> {
+  return postJson("procurement/parts/read", orderId ? { order_id: orderId } : {}, options);
+}
+
+export async function createPartCatalogItem(input: CreatePartCatalogItemInput) {
+  return postJson<{ id: string; replayed: boolean }>("procurement/parts/create", input);
+}
+
+export async function receivePartLot(input: ReceivePartLotInput) {
+  return postJson<{ id: string; replayed: boolean }>("procurement/lots/receive", input);
+}
+
+export async function allocateOrderPart(orderId: string, input: AllocateOrderPartInput) {
+  return postJson<{ id: string; cost_amount: number; replayed: boolean }>(
+    "procurement/allocations/create",
+    { order_id: orderId, input },
+  );
+}
+
+export async function releaseOrderPart(input: ReleaseOrderPartInput) {
+  return postJson<{ id: string; replayed: boolean }>("procurement/allocations/release", input);
 }
 
 export async function updateOrderLineCosts(

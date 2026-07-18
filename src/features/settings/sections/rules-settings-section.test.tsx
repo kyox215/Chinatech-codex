@@ -94,6 +94,7 @@ describe("RulesSettingsSection", () => {
 
     expect(screen.queryByLabelText("维修项目默认成本")).not.toBeInTheDocument();
     expect(screen.queryByText("成本仅供获授权管理人员查看")).not.toBeInTheDocument();
+    expect(screen.queryByText("配件采购成本与库存")).not.toBeInTheDocument();
   });
 });
 

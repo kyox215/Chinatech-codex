@@ -42,6 +42,7 @@ import { useStoreShellContext } from "@/features/stores/api/use-store-shell-cont
 import { isRepairDeskAuthorizationError } from "@/lib/repairdesk/api";
 import type {
   ProfitCenterInput,
+  ProfitBreakdownItem,
   ProfitOrderDrilldownItem,
   ProfitPeriodSummary,
 } from "@/lib/repairdesk/types";
@@ -302,6 +303,46 @@ function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
   );
 }
 
+function BreakdownTable({ items, empty }: { items: ProfitBreakdownItem[]; empty: string }) {
+  if (items.length === 0)
+    return <p className="py-6 text-center text-xs text-muted-foreground">{empty}</p>;
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>分组</TableHead>
+          <TableHead className="text-right">报价</TableHead>
+          <TableHead className="text-right">已知成本</TableHead>
+          <TableHead className="text-right">完整行毛利</TableHead>
+          <TableHead className="text-right">待补</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((item) => (
+          <TableRow key={item.key}>
+            <TableCell>
+              <span className="font-medium">{item.label}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground">{item.order_count} 单</span>
+            </TableCell>
+            <TableCell className="text-right">
+              <MoneyText amount={item.quote_amount} />
+            </TableCell>
+            <TableCell className="text-right">
+              <MoneyText amount={item.known_cost_amount} />
+            </TableCell>
+            <TableCell
+              className={cn("text-right", item.exact_margin_amount < 0 && "text-destructive")}
+            >
+              <MoneyText amount={item.exact_margin_amount} />
+            </TableCell>
+            <TableCell className="text-right">{item.incomplete_line_count}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 function ProfitLoading() {
   return (
     <div className="space-y-3" aria-label="正在读取维修毛利">
@@ -525,6 +566,31 @@ export function ProfitCenterScreen() {
                 <ProfitTrend data={trend} />
               </CardContent>
             </Card>
+
+            {query.data.breakdowns ? (
+              <Card className="min-w-0 rounded-2xl border-border/70">
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-sm">维修类别与供应商毛利拆分</CardTitle>
+                </CardHeader>
+                <CardContent className="grid min-w-0 gap-4 p-4 pt-2 xl:grid-cols-2">
+                  <div className="min-w-0 overflow-auto rounded-xl border border-border/70">
+                    <p className="border-b border-border/60 px-3 py-2 text-xs font-semibold">
+                      按维修类别
+                    </p>
+                    <BreakdownTable items={query.data.breakdowns.categories} empty="暂无类别数据" />
+                  </div>
+                  <div className="min-w-0 overflow-auto rounded-xl border border-border/70">
+                    <p className="border-b border-border/60 px-3 py-2 text-xs font-semibold">
+                      按采购供应商
+                    </p>
+                    <BreakdownTable
+                      items={query.data.breakdowns.suppliers}
+                      empty="暂无供应商关联数据"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
 
             <Card className="min-w-0 rounded-2xl border-border/70">
               <CardHeader className="p-4 pb-2">

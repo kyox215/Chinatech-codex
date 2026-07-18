@@ -369,11 +369,129 @@ export interface ProfitCenterResult {
   summary: ProfitCenterSummary;
   trend: ProfitTrendPoint[];
   orders: ProfitOrderDrilldownItem[];
+  breakdowns?: ProfitBreakdowns;
 }
 
 export interface ProfitCenterInput {
   start_date: string;
   end_date: string;
+}
+
+export interface ProfitBreakdownItem {
+  key: string;
+  label: string;
+  order_count: number;
+  line_count: number;
+  quote_amount: number;
+  known_cost_amount: number;
+  exact_margin_amount: number;
+  exact_line_count: number;
+  incomplete_line_count: number;
+}
+
+export interface ProfitBreakdowns {
+  categories: ProfitBreakdownItem[];
+  suppliers: ProfitBreakdownItem[];
+}
+
+export interface PartCatalogItem {
+  id: string;
+  sku: string;
+  name: string;
+  catalog_key?: string;
+  compatible_models: string[];
+  active: boolean;
+  weighted_average_unit_cost_eur: number | null;
+  available_quantity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartPurchaseLot {
+  id: string;
+  part_item_id: string;
+  part_sku: string;
+  part_name: string;
+  catalog_key?: string;
+  supplier_id?: string;
+  supplier_name?: string;
+  lot_code: string;
+  supplier_document_ref?: string;
+  received_quantity: number;
+  available_quantity: number;
+  original_unit_cost: number;
+  original_currency_code: string;
+  fx_rate_to_eur: number;
+  fx_rate_at: string;
+  fx_rate_source: string;
+  unit_cost_eur: number;
+  evidence_status: "confirmed" | "reconciled";
+  received_at: string;
+}
+
+export interface OrderPartAllocation {
+  id: string;
+  order_id: string;
+  line_id: string;
+  lot_id: string;
+  part_item_id: string;
+  supplier_id?: string;
+  quantity: number;
+  part_sku: string;
+  part_name: string;
+  supplier_name?: string;
+  unit_cost_eur: number;
+  total_cost_eur: number;
+  state: "allocated" | "released";
+  allocated_at: string;
+  released_at?: string;
+  release_reason?: string;
+}
+
+export interface PartsProcurementResult {
+  items: PartCatalogItem[];
+  lots: PartPurchaseLot[];
+  suppliers: Array<{ id: string; name: string }>;
+  allocations: OrderPartAllocation[];
+}
+
+export interface CreatePartCatalogItemInput {
+  expected_store_id: string;
+  sku: string;
+  name: string;
+  catalog_key?: string;
+  compatible_models: string[];
+  idempotency_key: string;
+}
+
+export interface ReceivePartLotInput {
+  expected_store_id: string;
+  part_item_id: string;
+  supplier_id?: string;
+  lot_code: string;
+  supplier_document_ref?: string;
+  quantity: number;
+  original_unit_cost: number;
+  original_currency_code: string;
+  fx_rate_to_eur: number;
+  fx_rate_at: string;
+  fx_rate_source: string;
+  idempotency_key: string;
+}
+
+export interface AllocateOrderPartInput {
+  expected_store_id: string;
+  line_id: string;
+  lot_id: string;
+  quantity: number;
+  idempotency_key: string;
+}
+
+export interface ReleaseOrderPartInput {
+  expected_store_id: string;
+  allocation_id: string;
+  reason: string;
+  idempotency_key: string;
 }
 
 export interface UpdateOrderLineCostInput {
@@ -919,6 +1037,7 @@ export interface OrderCapabilities {
   canVoid: boolean;
   canReadInternalCosts?: boolean;
   canManageInternalCosts?: boolean;
+  canAllocatePartsCosts?: boolean;
   blockedReasons?: Partial<Record<OrderCapabilityKey, string>>;
   reopenTargets?: Array<{ code: RepairOrderStatus; label: string }>;
 }
@@ -1227,6 +1346,7 @@ export interface RepairDeskOptions {
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
     canReadRepairProfitReports?: boolean;
+    canAllocatePartsCosts?: boolean;
     canExportOrders?: boolean;
     canBatchTransitionOrders?: boolean;
     canAssignOrders?: boolean;
@@ -1589,6 +1709,7 @@ export interface StoreContext {
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
     canReadRepairProfitReports?: boolean;
+    canAllocatePartsCosts?: boolean;
     can_manage_order_costs?: boolean;
     canExportOrders?: boolean;
     canReadStoreSettings?: boolean;

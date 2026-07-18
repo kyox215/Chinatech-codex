@@ -49,6 +49,8 @@ export interface Supplier {
 }
 
 export interface FaultPriceItem {
+  line_id?: string;
+  catalog_key?: string;
   name: string;
   price: number;
   currency_code?: CurrencyCode;
@@ -350,6 +352,8 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
 
   const fault_prices: FaultPriceItem[] = [
     {
+      line_id: `00000000-0000-4000-8001-${String(i * 2 + 1).padStart(12, "0")}`,
+      catalog_key: "display:main",
       name: "屏幕总成",
       price: Math.round(quotation * 0.7),
       currency_code: "EUR",
@@ -357,7 +361,13 @@ export const orders: RepairOrder[] = Array.from({ length: 48 }).map((_, i) => {
     },
   ];
   if (i % 2 === 0)
-    fault_prices.push({ name: "人工", price: Math.round(quotation * 0.3), currency_code: "EUR" });
+    fault_prices.push({
+      line_id: `00000000-0000-4000-8001-${String(i * 2 + 2).padStart(12, "0")}`,
+      catalog_key: "system:main",
+      name: "人工",
+      price: Math.round(quotation * 0.3),
+      currency_code: "EUR",
+    });
 
   return {
     id: `ord_${i + 1}`,

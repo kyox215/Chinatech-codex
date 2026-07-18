@@ -470,6 +470,10 @@ function context(actor?: AuditActor): StoreContext {
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         process.env.REPAIRDESK_PROFIT_REPORTS_ENABLED === "1" &&
         can(scopedActor, "finance:profit_read"),
+      canAllocatePartsCosts:
+        process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
+        process.env.REPAIRDESK_PARTS_PROCUREMENT_ENABLED === "1" &&
+        can(scopedActor, "inventory:cost_allocate"),
       canReadStoreSettings: true,
       canUpdateStoreSettings,
       canConfigureWorkflow: can(scopedActor, "settings:update_workflow"),

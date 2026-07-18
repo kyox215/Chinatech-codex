@@ -9,12 +9,14 @@ import type { OrderLineCostsResult } from "@/lib/repairdesk/types";
 const apiMocks = vi.hoisted(() => ({
   getOrderLineCosts: vi.fn(),
   updateOrderLineCosts: vi.fn(),
+  getPartsProcurement: vi.fn(),
 }));
 
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
   getOrderLineCosts: apiMocks.getOrderLineCosts,
   updateOrderLineCosts: apiMocks.updateOrderLineCosts,
+  getPartsProcurement: apiMocks.getPartsProcurement,
 }));
 
 vi.mock("@/components/unsaved-navigation-guard", () => ({
@@ -70,6 +72,13 @@ describe("OrderInternalCostCard", () => {
     await user.clear(input);
     await user.type(input, "100");
     expect(screen.getByText("成本高于客户报价，请确认")).toBeVisible();
+  });
+
+  it("does not request procurement data without the dedicated allocation capability", async () => {
+    renderCard();
+    await screen.findByLabelText("屏幕 内部成本");
+    expect(apiMocks.getPartsProcurement).not.toHaveBeenCalled();
+    expect(screen.queryByText("配件批次联动")).not.toBeInTheDocument();
   });
 });
 

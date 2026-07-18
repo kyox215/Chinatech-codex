@@ -859,12 +859,12 @@ const updateOrderLineCostItemSchema = z
   });
 
 export const orderLineCostsReadBodySchema = z
-  .object({ id: z.string().uuid("工单标识无效") })
+  .object({ id: z.string().trim().min(1, "工单标识无效").max(120) })
   .strict();
 
 export const orderLineCostsUpdateBodySchema = z
   .object({
-    id: z.string().uuid("工单标识无效"),
+    id: z.string().trim().min(1, "工单标识无效").max(120),
     input: z
       .object({
         expected_store_id: z.string().uuid("店铺标识无效"),
@@ -916,6 +916,68 @@ export const profitCenterReadBodySchema = z
       });
     }
   });
+
+const procurementIdempotencyKeySchema = z.string().uuid("重复操作标识无效");
+const procurementQuantitySchema = z.number().int().min(1).max(100_000);
+
+export const partsProcurementReadBodySchema = z
+  .object({ order_id: z.string().trim().min(1).max(120).optional() })
+  .strict();
+
+export const partCatalogCreateBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    sku: z.string().trim().min(1).max(80),
+    name: z.string().trim().min(1).max(160),
+    catalog_key: catalogKeySchema.optional(),
+    compatible_models: z.array(z.string().trim().min(1).max(120)).max(100),
+    idempotency_key: procurementIdempotencyKeySchema,
+  })
+  .strict();
+
+export const partLotReceiveBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    part_item_id: z.string().uuid("配件标识无效"),
+    supplier_id: z.string().uuid("供应商标识无效").optional(),
+    lot_code: z.string().trim().min(1).max(100),
+    supplier_document_ref: z.string().trim().min(1).max(160).optional(),
+    quantity: procurementQuantitySchema,
+    original_unit_cost: costAmountSchema,
+    original_currency_code: z
+      .string()
+      .trim()
+      .regex(/^[A-Z]{3}$/, "货币代码无效"),
+    fx_rate_to_eur: z.number().finite().positive().max(1_000_000),
+    fx_rate_at: z.string().datetime({ offset: true }),
+    fx_rate_source: z.string().trim().min(1).max(80),
+    idempotency_key: procurementIdempotencyKeySchema,
+  })
+  .strict();
+
+export const orderPartAllocateBodySchema = z
+  .object({
+    order_id: z.string().trim().min(1).max(120),
+    input: z
+      .object({
+        expected_store_id: z.string().uuid("店铺标识无效"),
+        line_id: orderLineIdSchema,
+        lot_id: z.string().uuid("采购批次标识无效"),
+        quantity: procurementQuantitySchema,
+        idempotency_key: procurementIdempotencyKeySchema,
+      })
+      .strict(),
+  })
+  .strict();
+
+export const orderPartReleaseBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    allocation_id: z.string().uuid("分配记录标识无效"),
+    reason: z.string().trim().min(3).max(240),
+    idempotency_key: procurementIdempotencyKeySchema,
+  })
+  .strict();
 
 export const publishOrderQuoteBodySchema = z
   .object({

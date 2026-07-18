@@ -7,11 +7,10 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T11:34:32Z"
+last_checkpoint_at: "2026-07-18T12:25:17Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
-
 # Active Context
 
 ## Current objective
@@ -20,21 +19,20 @@ last_rehydrated_at: null
 
 ## Current state
 
-Stage 02 completed: bounded store-timezone repair profit RPC, permission-hidden /finance UI, expected and delivered quote margins, daily/monthly trends, data-quality coverage and PII-free drilldown passed exact PostgreSQL assertions, 56 focused tests, type/lint/build and six responsive browser widths.
+Stage 03 completed: traceable parts catalog, supplier purchase lots, locked allocation/release, inventory movements and category/supplier Profit Center breakdowns passed exact PostgreSQL, 130 focused tests, lint/type/build and responsive browser verification.
 
 ## Blocking decisions
 
-- Local implementation may continue, but broad production database application remains NO-GO
-  under `.ai-company/memory/OPEN_CONFLICTS.md`: the legacy migration chain still cannot replay
-  from zero, legacy browser-role exposure remains open, and isolated backup/PITR restore proof is
-  absent.
-- Stage 07 must re-fetch `origin/main`, acquire the serialized release lock, prove the exact linked
-  pending set and dry-run, and obtain the required recovery/restore evidence before any migration
-  apply or production deployment. Do not bypass this gate based on local harness success.
+- Production database apply remains NO-GO: historical migration replay still fails before
+  TASK-008 at `20260611102805_repairdesk_remote_schema_compatibility.sql` because
+  `inventory_items.product_channel` is missing.
+- Legacy browser-role table exposure remains open in `OPEN_CONFLICTS.md`.
+- PITR or an isolated restore proof is still absent; Stage 07 must obtain recovery evidence,
+  a fresh linked pending-set dry-run and the production release lock before any apply.
 
 ## Next action
 
-Begin Stage 03 parts procurement and supplier linking; integrate catalog and supplier dimensions into the Profit Center and rerun Stage 02 profit regression before Stage 03 close.
+Begin Stage 04A cost export with owner/authorized-manager permission, bounded filters, streaming generation and zero cost leakage when disabled.
 
 ## Resume protocol
 

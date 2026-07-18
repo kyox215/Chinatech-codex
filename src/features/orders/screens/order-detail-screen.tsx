@@ -135,6 +135,7 @@ import {
 } from "@/features/orders/model/order-edit-save";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
+import { OrderInternalCostCard } from "@/features/orders/components/order-internal-cost-card";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
   useEditOrderOfflineAutosave,
@@ -1283,6 +1284,17 @@ export function OrderDetailScreen({
           className="md:hidden"
         />
       ) : null}
+      {surface === "page" && data.capabilities?.canReadInternalCosts && activeStoreId ? (
+        <div className="md:hidden">
+          <OrderInternalCostCard
+            orderId={order.id}
+            storeId={activeStoreId}
+            faultPrices={order.fault_prices}
+            canManage={Boolean(data.capabilities.canManageInternalCosts)}
+            canAllocatePartsCosts={Boolean(data.capabilities.canAllocatePartsCosts)}
+          />
+        </div>
+      ) : null}
       <div
         className={cn(
           surface === "page" && "hidden md:block",
@@ -1386,6 +1398,7 @@ export function OrderDetailScreen({
               activeStoreId={activeStoreId}
               canReadInternalCosts={Boolean(data.capabilities?.canReadInternalCosts)}
               canManageInternalCosts={Boolean(data.capabilities?.canManageInternalCosts)}
+              canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
               defaultWarrantyMonths={defaultWarrantyMonths}
               onQuickImeiSave={
                 data.capabilities?.canEditIntake

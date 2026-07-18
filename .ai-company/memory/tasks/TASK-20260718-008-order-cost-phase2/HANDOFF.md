@@ -2,7 +2,9 @@
 
 ## Current handoff
 
-- **Status:** no handoff prepared.
-- **Last verified:** 2026-07-18T10:18:13Z
-- **Workspace/branch:** inspect before resuming.
-- **First action:** read `TASK.md` and latest checkpoint, then inspect the repository.
+- **Status:** Stages 00–03 complete; Stage 04A is next.
+- **Last verified:** 2026-07-18 Stage 03 close.
+- **Workspace/branch:** `/private/tmp/repairdesk-order-cost-phase2-20260718` on
+  `codex/order-cost-phase2-20260718`.
+- **First action:** read `04A_COST_EXPORT.md`, implement permission-gated export without
+  changing historical records, then run its independent validation contract.

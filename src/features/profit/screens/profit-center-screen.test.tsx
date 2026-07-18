@@ -86,6 +86,8 @@ describe("ProfitCenterScreen", () => {
     expect(screen.getAllByText("€0.00").length).toBeGreaterThan(0);
     expect(screen.getByText(/未知不按 0 计算/)).toBeVisible();
     expect(screen.getByText(/不是会计净利润/)).toBeVisible();
+    expect(screen.getByText("维修类别与供应商毛利拆分")).toBeVisible();
+    expect(screen.getByText("UTOPYA")).toBeVisible();
     expect(apiMocks.getProfitCenter).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "按月" }));
     expect(screen.getByText("每月毛利趋势")).toBeVisible();
@@ -127,6 +129,34 @@ function fixture(): ProfitCenterResult {
       collection_reference: { amount: 0, entry_count: 0, non_eur_entry_count: 0 },
     },
     trend: [],
+    breakdowns: {
+      categories: [
+        {
+          key: "screen",
+          label: "屏幕",
+          order_count: 1,
+          line_count: 1,
+          quote_amount: 40,
+          known_cost_amount: 0,
+          exact_margin_amount: 40,
+          exact_line_count: 1,
+          incomplete_line_count: 0,
+        },
+      ],
+      suppliers: [
+        {
+          key: "supplier-1",
+          label: "UTOPYA",
+          order_count: 1,
+          line_count: 1,
+          quote_amount: 40,
+          known_cost_amount: 0,
+          exact_margin_amount: 40,
+          exact_line_count: 1,
+          incomplete_line_count: 0,
+        },
+      ],
+    },
     orders: [
       {
         order_id: "order-unknown",

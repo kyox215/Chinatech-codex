@@ -1,6 +1,7 @@
 import type { AuditActor } from "@/lib/repairdesk/types";
 import { ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
+import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
 
 export function isOrderCostsEnabled() {
   return process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1";
@@ -31,10 +32,12 @@ export function isCostMultiCurrencyEnabled() {
 }
 
 export function canManageOrderCosts(actor?: AuditActor) {
+  if (actor?.isSystem && isRepairDeskE2eAuthBypassEnabled()) return isOrderCostsEnabled();
   return isOrderCostsEnabled() && can(actor, "finance:cost_manage");
 }
 
 export function canReadOrderCosts(actor?: AuditActor) {
+  if (actor?.isSystem && isRepairDeskE2eAuthBypassEnabled()) return isOrderCostsEnabled();
   return (
     isOrderCostsEnabled() &&
     (can(actor, "finance:cost_manage") || can(actor, "finance:profit_read"))

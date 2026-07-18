@@ -20,6 +20,7 @@ afterEach(() => {
   delete process.env.REPAIRDESK_COST_EXPORT_ENABLED;
   delete process.env.REPAIRDESK_COST_BACKFILL_ENABLED;
   delete process.env.REPAIRDESK_COST_MULTI_CURRENCY_ENABLED;
+  delete process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP;
 });
 
 describe("order cost feature gate", () => {
@@ -55,6 +56,16 @@ describe("order cost feature gate", () => {
     };
     expect(canReadOrderCosts(sales)).toBe(false);
     expect(canManageOrderCosts(sales)).toBe(false);
+  });
+
+  it("allows the system actor only in the explicit non-production E2E bypass", () => {
+    process.env.REPAIRDESK_ORDER_COSTS_ENABLED = "1";
+    process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP = "1";
+    expect(canReadOrderCosts({ displayName: "System", isSystem: true })).toBe(true);
+    expect(canManageOrderCosts({ displayName: "System", isSystem: true })).toBe(true);
+    delete process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP;
+    expect(canReadOrderCosts({ displayName: "System", isSystem: true })).toBe(false);
+    expect(canManageOrderCosts({ displayName: "System", isSystem: true })).toBe(false);
   });
 
   it("keeps every phase-two child capability fail-closed behind the phase-one flag", () => {

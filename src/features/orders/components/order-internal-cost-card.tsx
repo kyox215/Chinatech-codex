@@ -18,6 +18,7 @@ import {
 } from "@/features/orders/model/order-cost-draft";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { OrderPartsAllocationPanel } from "@/features/orders/components/order-parts-allocation-panel";
 
 interface OrderCostDraftState {
   orderId: string;
@@ -30,11 +31,13 @@ export function OrderInternalCostCard({
   storeId,
   faultPrices,
   canManage,
+  canAllocatePartsCosts = false,
 }: {
   orderId: string;
   storeId: string;
   faultPrices: FaultPriceItem[];
   canManage: boolean;
+  canAllocatePartsCosts?: boolean;
 }) {
   const queryClient = useQueryClient();
   const queryKey = [...ordersKeys.detail(orderId, storeId), "internal-costs"] as const;
@@ -263,7 +266,13 @@ export function OrderInternalCostCard({
                       ? "新建时默认成本快照"
                       : item.source === "manual"
                         ? "手动录入"
-                        : "手动留空"}
+                        : item.source === "purchase_lot"
+                          ? "采购批次自动成本"
+                          : item.source === "supplier_document"
+                            ? "供应商凭证成本"
+                            : item.source === "backfill_estimate"
+                              ? "历史回填成本"
+                              : "手动留空"}
                   </div>
                   {belowCost ? (
                     <div className="text-[9px] font-medium text-status-warn-foreground">
@@ -320,6 +329,9 @@ export function OrderInternalCostCard({
             <Save className="mr-1.5 size-3.5" /> {save.isPending ? "保存中…" : "保存内部成本"}
           </Button>
         </div>
+      ) : null}
+      {canAllocatePartsCosts ? (
+        <OrderPartsAllocationPanel orderId={orderId} storeId={storeId} faultPrices={faultPrices} />
       ) : null}
     </section>
   );

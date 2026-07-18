@@ -119,7 +119,10 @@ import { assertStaffRole, ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
 import { resolveRepairServiceCatalogItem } from "@/entities/order";
 import { applyCreateOrderCostInputs } from "@/features/orders/server/order-cost.repository";
-import { isOrderCostsEnabled } from "@/features/orders/server/order-cost-feature";
+import {
+  isOrderCostsEnabled,
+  isPartsProcurementEnabled,
+} from "@/features/orders/server/order-cost-feature";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
   countOrderQueueGroups,
@@ -609,6 +612,8 @@ export function projectOrderCapabilities(
       isOrderCostsEnabled() &&
       (permitted("finance:profit_read") || permitted("finance:cost_manage")),
     canManageInternalCosts: !voided && isOrderCostsEnabled() && permitted("finance:cost_manage"),
+    canAllocatePartsCosts:
+      !voided && isPartsProcurementEnabled() && permitted("inventory:cost_allocate"),
     blockedReasons,
   };
 }

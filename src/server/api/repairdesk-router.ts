@@ -7,6 +7,21 @@ import { z } from "zod";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
 import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
+import {
+  allocateOrderPart,
+  createPartCatalogItem,
+  getPartsProcurement,
+  receivePartLot,
+  releaseOrderPart,
+} from "@/features/procurement/server/procurement.repository";
+import { assertCanAllocatePartsCosts } from "@/features/procurement/server/procurement-feature";
+import {
+  allocateMockOrderPart,
+  createMockPartCatalogItem,
+  getMockPartsProcurement,
+  receiveMockPartLot,
+  releaseMockOrderPart,
+} from "@/features/procurement/testing/mock-api";
 import { syncRepairDeskOfflineOrderCreate } from "@/features/offline/server/offline-order-create-sync";
 import { statusGroups } from "@/lib/mock/enums";
 import {
@@ -276,6 +291,11 @@ import {
   orderLineCostsReadBodySchema,
   orderLineCostsUpdateBodySchema,
   profitCenterReadBodySchema,
+  partsProcurementReadBodySchema,
+  partCatalogCreateBodySchema,
+  partLotReceiveBodySchema,
+  orderPartAllocateBodySchema,
+  orderPartReleaseBodySchema,
   storeFaultCostDefaultsUpdateBodySchema,
   storeFaultCostDefaultsReadBodySchema,
   publishOrderQuoteBodySchema,
@@ -350,6 +370,7 @@ const supabaseSource = {
   getOrderCostHistory,
   getOrderLineCosts,
   getProfitCenter,
+  getPartsProcurement,
   getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
@@ -412,6 +433,10 @@ const supabaseSource = {
   updateOrder,
   updateOrderLineCosts,
   updateStoreFaultCostDefaults,
+  createPartCatalogItem,
+  receivePartLot,
+  allocateOrderPart,
+  releaseOrderPart,
   voidOrder,
   updateOrderCustody,
   updateOrderWorkflowStatus,
@@ -544,10 +569,19 @@ function mockCostDefaultsForStore(storeId: string) {
 }
 
 function assertMockCostStore(expectedStoreId: string, actor: AuditActor) {
+  if (actor.isSystem && isRepairDeskE2eAuthBypassEnabled()) return expectedStoreId;
   if (!actor.storeId || actor.storeId !== expectedStoreId) {
     throw new CostOperationError("店铺上下文已变化，请刷新后重试", "store_context_changed", 409);
   }
   return actor.storeId;
+}
+
+function mockCostStoreFromActor(actor: AuditActor) {
+  if (actor.storeId) return actor.storeId;
+  if (actor.isSystem && isRepairDeskE2eAuthBypassEnabled()) {
+    return "00000000-0000-4000-8000-000000000001";
+  }
+  throw new Error("缺少当前店铺");
 }
 
 function mockOrderCostKey(storeId: string, orderId: string) {
@@ -569,6 +603,11 @@ async function source() {
   };
   return {
     ...mock,
+    getPartsProcurement: getMockPartsProcurement,
+    createPartCatalogItem: createMockPartCatalogItem,
+    receivePartLot: receiveMockPartLot,
+    allocateOrderPart: allocateMockOrderPart,
+    releaseOrderPart: releaseMockOrderPart,
     createStoreLifecyclePreflight: async (expectedStoreId: string) => ({
       id: randomUUID(),
       store_id: expectedStoreId,
@@ -677,6 +716,7 @@ async function source() {
         canReadOrderFinance: true,
         canReadAggregateFinance: true,
         canReadProfit: true,
+        canAllocatePartsCosts: true,
         canExportOrders: true,
         canBatchTransitionOrders: true,
         canAssignOrders: true,
@@ -685,8 +725,7 @@ async function source() {
     createOrder: async (input: CreateOrderInput, actor: AuditActor) => {
       const result = await mock.createOrder(input, actor);
       if (result.replayed) return result;
-      const storeId = actor.storeId;
-      if (!storeId) throw new Error("缺少当前店铺");
+      const storeId = mockCostStoreFromActor(actor);
       const detail = await mock.getOrder(result.id, actor);
       const defaults = mockCostDefaultsForStore(storeId);
       const defaultsByKey = new Map(
@@ -746,8 +785,7 @@ async function source() {
       return { ...next, currency_code: "EUR" as const };
     },
     getOrderLineCosts: async (id: string, actor: AuditActor) => {
-      const storeId = actor.storeId;
-      if (!storeId) throw new Error("缺少当前店铺");
+      const storeId = mockCostStoreFromActor(actor);
       const stateKey = mockOrderCostKey(storeId, id);
       const saved = mockOrderCostState.get(stateKey);
       if (saved) return saved;
@@ -775,8 +813,7 @@ async function source() {
       return result;
     },
     getOrderCostHistory: async (id: string, actor: AuditActor) => {
-      const storeId = actor.storeId;
-      if (!storeId) throw new Error("缺少当前店铺");
+      const storeId = mockCostStoreFromActor(actor);
       return (
         mockOrderCostHistory.get(mockOrderCostKey(storeId, id)) ?? {
           order_id: id,
@@ -821,6 +858,34 @@ async function source() {
           rework_order_count: 1,
         },
         collection_reference: { amount: 230, entry_count: 3, non_eur_entry_count: 0 },
+      },
+      breakdowns: {
+        categories: [
+          {
+            key: "screen",
+            label: "屏幕",
+            order_count: 2,
+            line_count: 2,
+            quote_amount: 190,
+            known_cost_amount: 30,
+            exact_margin_amount: 160,
+            exact_line_count: 2,
+            incomplete_line_count: 0,
+          },
+        ],
+        suppliers: [
+          {
+            key: "00000000-0000-4000-8000-000000000401",
+            label: "UTOPYA",
+            order_count: 2,
+            line_count: 2,
+            quote_amount: 190,
+            known_cost_amount: 30,
+            exact_margin_amount: 160,
+            exact_line_count: 2,
+            incomplete_line_count: 0,
+          },
+        ],
       },
       trend: [
         {
@@ -1580,6 +1645,47 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
             incomplete_order_count: result.summary.expected.incomplete_order_count,
           },
         });
+        return ok(result);
+      }
+      case "procurement/parts/read": {
+        assertCanAllocatePartsCosts(actor);
+        const { order_id: orderId } = partsProcurementReadBodySchema.parse(body);
+        const result = await api.getPartsProcurement(orderId, actor);
+        await writeAuditLog({
+          actor,
+          action: "read",
+          entityType: "parts_procurement",
+          entityId: orderId ?? actor.storeId ?? "unknown",
+          metadata: {
+            item_count: result.items.length,
+            lot_count: result.lots.length,
+            allocation_count: result.allocations.length,
+          },
+        });
+        return ok(result);
+      }
+      case "procurement/parts/create": {
+        assertCanAllocatePartsCosts(actor);
+        const result = await api.createPartCatalogItem(
+          partCatalogCreateBodySchema.parse(body),
+          actor,
+        );
+        return ok(result);
+      }
+      case "procurement/lots/receive": {
+        assertCanAllocatePartsCosts(actor);
+        const result = await api.receivePartLot(partLotReceiveBodySchema.parse(body), actor);
+        return ok(result);
+      }
+      case "procurement/allocations/create": {
+        assertCanAllocatePartsCosts(actor);
+        const input = orderPartAllocateBodySchema.parse(body);
+        const result = await api.allocateOrderPart(input.order_id, input.input, actor);
+        return ok(result);
+      }
+      case "procurement/allocations/release": {
+        assertCanAllocatePartsCosts(actor);
+        const result = await api.releaseOrderPart(orderPartReleaseBodySchema.parse(body), actor);
         return ok(result);
       }
       case "orders/internal-costs/update": {

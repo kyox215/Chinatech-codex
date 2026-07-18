@@ -126,6 +126,7 @@ export function OrderOverviewTab({
   activeStoreId,
   canReadInternalCosts = false,
   canManageInternalCosts = false,
+  canAllocatePartsCosts = false,
   defaultWarrantyMonths = 6,
   onQuickImeiSave,
   quickImeiPending = false,
@@ -163,6 +164,7 @@ export function OrderOverviewTab({
   activeStoreId?: string;
   canReadInternalCosts?: boolean;
   canManageInternalCosts?: boolean;
+  canAllocatePartsCosts?: boolean;
   defaultWarrantyMonths?: number;
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending?: boolean;
@@ -305,6 +307,7 @@ export function OrderOverviewTab({
           storeId={activeStoreId}
           faultPrices={order.fault_prices}
           canManage={canManageInternalCosts}
+          canAllocatePartsCosts={canAllocatePartsCosts}
         />
       ) : null}
     </motion.div>
