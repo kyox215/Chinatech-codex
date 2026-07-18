@@ -33,6 +33,7 @@ import {
   patchOrderInputSchema,
   paymentBodySchema,
   profitCenterReadBodySchema,
+  costExportBodySchema,
   partCatalogCreateBodySchema,
   partLotReceiveBodySchema,
   orderPartAllocateBodySchema,
@@ -137,6 +138,31 @@ describe("repairdesk API schemas", () => {
         end_date: "2026-03-01",
       }),
     ).toThrow("日期无效");
+  });
+
+  it("bounds cost export dates, filters, and row limit", () => {
+    const valid = {
+      expected_store_id: "00000000-0000-4000-8000-000000000001",
+      start_date: "2026-07-01",
+      end_date: "2026-07-18",
+      statuses: ["ready"],
+      sources: ["manual", "purchase_lot"],
+      limit: 10_000,
+    };
+    expect(costExportBodySchema.parse(valid)).toEqual(valid);
+    expect(() => costExportBodySchema.parse({ ...valid, limit: 10_001 })).toThrow();
+    expect(() =>
+      costExportBodySchema.parse({
+        ...valid,
+        statuses: Array.from({ length: 21 }, (_, index) => `status-${index}`),
+      }),
+    ).toThrow();
+    expect(() =>
+      costExportBodySchema.parse({
+        ...valid,
+        start_date: "2025-01-01",
+      }),
+    ).toThrow("367 天以内");
   });
 
   it("validates traceable procurement catalog, lot and allocation inputs", () => {

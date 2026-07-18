@@ -1,11 +1,12 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
   CircleHelp,
+  Download,
   RefreshCw,
   TrendingDown,
   WalletCards,
@@ -39,7 +40,7 @@ import {
 } from "@/components/ui/table";
 import { profitCenterQueryOptions } from "@/features/profit/api/query-options";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { isRepairDeskAuthorizationError } from "@/lib/repairdesk/api";
+import { exportCostReport, isRepairDeskAuthorizationError } from "@/lib/repairdesk/api";
 import type {
   ProfitCenterInput,
   ProfitBreakdownItem,
@@ -361,16 +362,35 @@ export function ProfitCenterScreen() {
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const canRead = shell.permissions?.canReadRepairProfitReports === true;
+  const canExport = shell.permissions?.canExportRepairCosts === true;
   const initialRange = useMemo(defaultRange, []);
   const [draft, setDraft] = useState(initialRange);
   const [range, setRange] = useState(initialRange);
   const [trendMode, setTrendMode] = useState<"daily" | "monthly">("daily");
+  const [exportNotice, setExportNotice] = useState<string>();
   const rangeInvalid = draft.end_date < draft.start_date;
   const query = useQuery({
     ...profitCenterQueryOptions(range, activeStoreId),
     enabled: Boolean(activeStoreId && canRead),
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
+  });
+  const exportMutation = useMutation({
+    mutationFn: () => {
+      if (!activeStoreId) throw new Error("缺少当前店铺");
+      return exportCostReport({
+        expected_store_id: activeStoreId,
+        start_date: range.start_date,
+        end_date: range.end_date,
+      });
+    },
+    onSuccess: ({ blob, fileName }) => {
+      downloadBlob(blob, fileName);
+      setExportNotice(`${fileName} 已生成并开始下载。`);
+    },
+    onError: (error) => {
+      setExportNotice(error instanceof Error ? error.message : "生成成本导出失败");
+    },
   });
 
   if (!shell.isLoading && !canRead) {
@@ -421,18 +441,39 @@ export function ProfitCenterScreen() {
       subtitle={query.isFetching ? "正在更新经营毛利" : `${range.start_date} 至 ${range.end_date}`}
       eyebrow="工作台 / 财务"
       desktopAction={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void query.refetch()}
-          disabled={query.isFetching || !canRead}
-        >
-          <RefreshCw className={cn("mr-1.5 size-3.5", query.isFetching && "animate-spin")} />
-          刷新
-        </Button>
+        <div className="flex items-center gap-2">
+          {canExport ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportMutation.mutate()}
+              disabled={exportMutation.isPending || !activeStoreId}
+            >
+              <Download className="mr-1.5 size-3.5" />
+              {exportMutation.isPending ? "正在导出" : "导出成本 CSV"}
+            </Button>
+          ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching || !canRead}
+          >
+            <RefreshCw className={cn("mr-1.5 size-3.5", query.isFetching && "animate-spin")} />
+            刷新
+          </Button>
+        </div>
       }
     >
       <div className="min-w-0 space-y-3">
+        {exportNotice ? (
+          <p
+            className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs"
+            role="status"
+          >
+            {exportNotice}
+          </p>
+        ) : null}
         <Card className="rounded-2xl border-border/70">
           <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:p-4">
             <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
@@ -613,4 +654,16 @@ export function ProfitCenterScreen() {
       </div>
     </RepairOsListScaffold>
   );
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.hidden = true;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }

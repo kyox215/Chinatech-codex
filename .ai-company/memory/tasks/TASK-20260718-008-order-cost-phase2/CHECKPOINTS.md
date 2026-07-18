@@ -43,3 +43,10 @@
 - **Next:** Begin Stage 04A cost export with owner/authorized-manager permission, bounded filters, streaming generation and zero cost leakage when disabled.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-18T12:46:39Z — Stage 04A completed: permission-gated PII-minimized formula-safe cost/margin CSV export passed Stage 01-04A disposable PostgreSQL replay, 57 focused tests, targeted store capability test, lint, typecheck, production build and authorized/feature-off browser verification.
+
+- **Phase:** implementation
+- **Completed/current state:** Stage 04A completed: permission-gated PII-minimized formula-safe cost/margin CSV export passed Stage 01-04A disposable PostgreSQL replay, 57 focused tests, targeted store capability test, lint, typecheck, production build and authorized/feature-off browser verification.
+- **Next:** Read 04B_HISTORY_BACKFILL.md; implement preview-first bounded historical cost candidate runs, owner-only apply/revert, idempotency and no automatic production backfill; stop if evidence provenance or rollback cannot be proven.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

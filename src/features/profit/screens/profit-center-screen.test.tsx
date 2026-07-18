@@ -6,18 +6,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProfitCenterResult } from "@/lib/repairdesk/types";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
-const apiMocks = vi.hoisted(() => ({ getProfitCenter: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ getProfitCenter: vi.fn(), exportCostReport: vi.fn() }));
 const shellMocks = vi.hoisted(() => ({
   value: {
     isLoading: false,
     activeStore: { id: "store-1" },
-    permissions: { canReadRepairProfitReports: true },
+    permissions: { canReadRepairProfitReports: true, canExportRepairCosts: false },
   },
 }));
 
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
   getProfitCenter: apiMocks.getProfitCenter,
+  exportCostReport: apiMocks.exportCostReport,
 }));
 vi.mock("@/features/stores/api/use-store-shell-context", () => ({
   useStoreShellContext: () => shellMocks.value,
@@ -42,9 +43,18 @@ beforeEach(() => {
   shellMocks.value = {
     isLoading: false,
     activeStore: { id: "store-1" },
-    permissions: { canReadRepairProfitReports: true },
+    permissions: { canReadRepairProfitReports: true, canExportRepairCosts: false },
   };
   apiMocks.getProfitCenter.mockResolvedValue(fixture());
+  apiMocks.exportCostReport.mockResolvedValue({
+    blob: new Blob(["csv"]),
+    fileName: "repairdesk-cost-margin.csv",
+  });
+  vi.stubGlobal("URL", {
+    createObjectURL: vi.fn(() => "blob:cost-export"),
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -73,8 +83,32 @@ describe("ProfitCenterScreen", () => {
     renderScreen();
 
     expect(screen.getByText("此页面仅对获授权人员开放")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "导出成本 CSV" })).not.toBeInTheDocument();
     expect(screen.queryByText("预计维修毛利")).not.toBeInTheDocument();
     await waitFor(() => expect(apiMocks.getProfitCenter).not.toHaveBeenCalled());
+  });
+
+  it("does not render or request export without the independent capability", async () => {
+    renderScreen();
+    await screen.findByText("预计维修毛利");
+    expect(screen.queryByRole("button", { name: "导出成本 CSV" })).not.toBeInTheDocument();
+    expect(apiMocks.exportCostReport).not.toHaveBeenCalled();
+  });
+
+  it("downloads the applied date range only when export capability is present", async () => {
+    shellMocks.value.permissions.canExportRepairCosts = true;
+    const user = userEvent.setup();
+    renderScreen();
+    await user.click(await screen.findByRole("button", { name: "导出成本 CSV" }));
+    await waitFor(() => expect(apiMocks.exportCostReport).toHaveBeenCalledTimes(1));
+    expect(apiMocks.exportCostReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expected_store_id: "store-1",
+        start_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        end_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent("已生成并开始下载");
   });
 
   it("distinguishes unknown from an explicit zero cost", async () => {

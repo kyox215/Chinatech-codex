@@ -286,6 +286,27 @@ describe("store repository access request boundaries", () => {
     expect(technicianContext.permissions).toMatchObject({ canAllocatePartsCosts: false });
   });
 
+  it("publishes cost export only with the independent child flag and grant", async () => {
+    vi.stubEnv("REPAIRDESK_ORDER_COSTS_ENABLED", "1");
+    vi.stubEnv("REPAIRDESK_COST_EXPORT_ENABLED", "1");
+    const grantedManager = {
+      ...storeManager,
+      permissionGrants: ["finance:profit_read" as const, "finance:cost_export" as const],
+    };
+    const [ownerContext, managerContext, grantedManagerContext, technicianContext] =
+      await Promise.all([
+        getStoreContext(storeOwner),
+        getStoreContext(storeManager),
+        getStoreContext(grantedManager),
+        getStoreContext({ ...storeTechnician, permissionGrants: ["finance:cost_export"] }),
+      ]);
+
+    expect(ownerContext.permissions).toMatchObject({ canExportRepairCosts: true });
+    expect(managerContext.permissions).toMatchObject({ canExportRepairCosts: false });
+    expect(grantedManagerContext.permissions).toMatchObject({ canExportRepairCosts: true });
+    expect(technicianContext.permissions).toMatchObject({ canExportRepairCosts: false });
+  });
+
   it("publishes a structured order-data reason without querying owner identity when disabled", async () => {
     vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "0");
 

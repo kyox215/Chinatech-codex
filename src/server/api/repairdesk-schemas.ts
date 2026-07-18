@@ -917,6 +917,31 @@ export const profitCenterReadBodySchema = z
     }
   });
 
+const costExportFilterSchema = z.array(z.string().trim().min(1).max(80)).max(20).optional();
+
+export const costExportBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    start_date: reportLocalDateSchema,
+    end_date: reportLocalDateSchema,
+    statuses: costExportFilterSchema,
+    sources: costExportFilterSchema,
+    limit: z.number().int().min(1).max(10_000).optional(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    const start = Date.parse(`${input.start_date}T00:00:00Z`);
+    const end = Date.parse(`${input.end_date}T00:00:00Z`);
+    const dayCount = (end - start) / 86_400_000;
+    if (dayCount < 0 || dayCount > 366) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["end_date"],
+        message: "导出日期范围必须在 367 天以内",
+      });
+    }
+  });
+
 const procurementIdempotencyKeySchema = z.string().uuid("重复操作标识无效");
 const procurementQuantitySchema = z.number().int().min(1).max(100_000);
 

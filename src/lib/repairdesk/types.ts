@@ -377,6 +377,33 @@ export interface ProfitCenterInput {
   end_date: string;
 }
 
+export interface CostExportInput extends ProfitCenterInput {
+  expected_store_id: string;
+  statuses?: string[];
+  sources?: string[];
+  limit?: number;
+}
+
+export interface CostExportRow {
+  order_public_no: string;
+  order_created_date: string;
+  order_status: string;
+  line_id: string;
+  catalog_key?: string;
+  line_name: string;
+  quote_amount_eur: number;
+  cost_amount_eur: number | null;
+  cost_source: string;
+  evidence_status: string;
+  original_amount: number | null;
+  original_currency_code?: string;
+  fx_rate_to_eur: number | null;
+  fx_rate_at?: string;
+  fx_rate_source?: string;
+  supplier_name?: string;
+  margin_amount_eur: number | null;
+}
+
 export interface ProfitBreakdownItem {
   key: string;
   label: string;
@@ -1346,6 +1373,7 @@ export interface RepairDeskOptions {
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
     canReadRepairProfitReports?: boolean;
+    canExportRepairCosts?: boolean;
     canAllocatePartsCosts?: boolean;
     canExportOrders?: boolean;
     canBatchTransitionOrders?: boolean;
@@ -1709,6 +1737,7 @@ export interface StoreContext {
     canReadAggregateFinance?: boolean;
     canReadProfit?: boolean;
     canReadRepairProfitReports?: boolean;
+    canExportRepairCosts?: boolean;
     canAllocatePartsCosts?: boolean;
     can_manage_order_costs?: boolean;
     canExportOrders?: boolean;

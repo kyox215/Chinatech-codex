@@ -7,6 +7,8 @@ import { z } from "zod";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
 import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
+import { exportCostReport } from "@/features/profit/server/cost-export.service";
+import { assertCanExportCosts } from "@/features/profit/server/cost-export-feature";
 import {
   allocateOrderPart,
   createPartCatalogItem,
@@ -226,6 +228,8 @@ import type {
   PublishOrderQuoteInput,
   RepairDeskOptions,
   StoreFaultCostDefaultItem,
+  CostExportInput,
+  CostExportRow,
   StoreMemberPermissionUpdateInput,
   SupplierInput,
   UpdateInventoryItemInput,
@@ -291,6 +295,7 @@ import {
   orderLineCostsReadBodySchema,
   orderLineCostsUpdateBodySchema,
   profitCenterReadBodySchema,
+  costExportBodySchema,
   partsProcurementReadBodySchema,
   partCatalogCreateBodySchema,
   partLotReceiveBodySchema,
@@ -370,6 +375,7 @@ const supabaseSource = {
   getOrderCostHistory,
   getOrderLineCosts,
   getProfitCenter,
+  exportCostReport,
   getPartsProcurement,
   getOrderCreateOperationStatus,
   getOrderStats,
@@ -588,6 +594,28 @@ function mockOrderCostKey(storeId: string, orderId: string) {
   return `${storeId}:${orderId}`;
 }
 
+function mockCostExportRow(date: string): CostExportRow {
+  return {
+    order_public_no: "R-DEMO-1041",
+    order_created_date: date,
+    order_status: "delivered",
+    line_id: "00000000-0000-4000-8000-000000000201",
+    catalog_key: "display:main",
+    line_name: "屏幕维修",
+    quote_amount_eur: 140,
+    cost_amount_eur: 30,
+    cost_source: "purchase_lot",
+    evidence_status: "confirmed",
+    original_amount: 30,
+    original_currency_code: "EUR",
+    fx_rate_to_eur: 1,
+    fx_rate_at: `${date}T08:00:00.000Z`,
+    fx_rate_source: "store_base",
+    supplier_name: "UTOPYA",
+    margin_amount_eur: 110,
+  };
+}
+
 async function source() {
   const { isRepairDeskE2eAuthBypassEnabled } = await import("@/shared/lib/e2e-auth-bypass");
   const { hasSupabaseConfig } = await import("@/server/supabase");
@@ -603,6 +631,12 @@ async function source() {
   };
   return {
     ...mock,
+    exportCostReport: async (input: CostExportInput, actor: AuditActor) =>
+      exportCostReport(input, actor, async () => ({
+        timezone: "Europe/Rome",
+        overflow: false,
+        rows: [mockCostExportRow(input.end_date)],
+      })),
     getPartsProcurement: getMockPartsProcurement,
     createPartCatalogItem: createMockPartCatalogItem,
     receivePartLot: receiveMockPartLot,
@@ -1646,6 +1680,11 @@ export async function handleRepairDeskPost(path: string, body: unknown, requestA
           },
         });
         return ok(result);
+      }
+      case "finance/cost-export/download": {
+        assertCanExportCosts(actor);
+        const input = costExportBodySchema.parse(body);
+        return binaryResponse(await api.exportCostReport(input, actor));
       }
       case "procurement/parts/read": {
         assertCanAllocatePartsCosts(actor);

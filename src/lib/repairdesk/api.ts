@@ -53,6 +53,7 @@ import type {
   PatchOrderResult,
   ProfitCenterInput,
   ProfitCenterResult,
+  CostExportInput,
   PartsProcurementResult,
   CreatePartCatalogItemInput,
   ReceivePartLotInput,
@@ -1210,6 +1211,10 @@ export async function getProfitCenter(
   options?: RepairDeskRequestOptions,
 ): Promise<ProfitCenterResult> {
   return postJson<ProfitCenterResult>("finance/profit-center/read", input, options);
+}
+
+export async function exportCostReport(input: CostExportInput) {
+  return requestFile("finance/cost-export/download", input);
 }
 
 export async function getPartsProcurement(

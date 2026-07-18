@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-18T12:25:17Z"
+last_checkpoint_at: "2026-07-18T12:46:39Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,20 +19,20 @@ last_rehydrated_at: null
 
 ## Current state
 
-Stage 03 completed: traceable parts catalog, supplier purchase lots, locked allocation/release, inventory movements and category/supplier Profit Center breakdowns passed exact PostgreSQL, 130 focused tests, lint/type/build and responsive browser verification.
+Stage 04A completed: permission-gated PII-minimized formula-safe cost/margin CSV export passed Stage 01-04A disposable PostgreSQL replay, 57 focused tests, targeted store capability test, lint, typecheck, production build and authorized/feature-off browser verification.
 
 ## Blocking decisions
 
-- Production database apply remains NO-GO: historical migration replay still fails before
-  TASK-008 at `20260611102805_repairdesk_remote_schema_compatibility.sql` because
-  `inventory_items.product_channel` is missing.
-- Legacy browser-role table exposure remains open in `OPEN_CONFLICTS.md`.
-- PITR or an isolated restore proof is still absent; Stage 07 must obtain recovery evidence,
-  a fresh linked pending-set dry-run and the production release lock before any apply.
+- Local Stage 04B work may continue, but production database/release remains NO-GO until the
+  known historical replay failure at `20260611102805_repairdesk_remote_schema_compatibility.sql`
+  (`inventory_items.product_channel` missing) is resolved or formally accepted.
+- Production release also requires closure or explicit acceptance of the legacy browser-role
+  exposure conflict and current PITR/isolated-restore proof. Re-read `OPEN_CONFLICTS.md` and run
+  the Stage 07 fresh linked dry-run and recovery gate; do not infer clearance from local harnesses.
 
 ## Next action
 
-Begin Stage 04A cost export with owner/authorized-manager permission, bounded filters, streaming generation and zero cost leakage when disabled.
+Read 04B_HISTORY_BACKFILL.md; implement preview-first bounded historical cost candidate runs, owner-only apply/revert, idempotency and no automatic production backfill; stop if evidence provenance or rollback cannot be proven.
 
 ## Resume protocol
 
