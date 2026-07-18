@@ -984,8 +984,8 @@ test.describe("settings draft safety", () => {
     await page.getByRole("button", { name: /搜索工单、客户、库存/ }).click();
     const paletteInput = page.getByPlaceholder("输入命令、搜索工单或客户…");
     await expect(paletteInput).toBeVisible();
-    await paletteInput.fill("工单列表");
-    await page.getByRole("option", { name: /工单列表/ }).click();
+    await paletteInput.fill("维修工单");
+    await page.getByRole("option", { name: /维修工单/ }).click();
 
     const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
     await expect(guard).toBeVisible();

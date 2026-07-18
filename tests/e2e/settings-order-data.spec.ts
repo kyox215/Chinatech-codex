@@ -115,7 +115,7 @@ test.describe("settings order-data responsive workflow", () => {
     await selectWorkbook(page, "orders-mobile.xlsx");
     await page.getByRole("button", { name: "生成预览" }).click();
     const preview = page.getByRole("region", { name: "导入预览" });
-    await expect(preview.getByText("ChinaTech", { exact: true })).toBeVisible();
+    await expect(preview.getByText("Demo Repair Store", { exact: true })).toBeVisible();
     await expect(preview.getByText("预览明细：当前显示 10 / 101")).toBeVisible();
     await expect(preview.getByText(/页面最多展开前 100 行/)).toBeVisible();
     await expect(preview.getByText("工单 R0000001")).toBeVisible();
@@ -176,7 +176,7 @@ test.describe("settings order-data responsive workflow", () => {
     await page.getByRole("button", { name: "检查并应用" }).click();
 
     const confirm = page.getByRole("alertdialog", { name: "确认应用工单数据？" });
-    await expect(confirm).toContainText("ChinaTech");
+    await expect(confirm).toContainText("Demo Repair Store");
     await expect(confirm).toContainText("新增行不会自动删除");
     for (const name of ["返回预览", "确认并应用"]) {
       const box = await confirm.getByRole("button", { name }).boundingBox();
@@ -213,7 +213,19 @@ test.describe("settings order-data responsive workflow", () => {
     await page.route("**/api/repairdesk/stores/context", async (route) => {
       const response = await route.fetch();
       const payload = (await response.json()) as {
-        data: { permissions?: Record<string, boolean> };
+        data: {
+          orderDataAccess?: {
+            code: string;
+            can_export: boolean;
+            can_apply: boolean;
+          };
+          permissions?: Record<string, boolean>;
+        };
+      };
+      payload.data.orderDataAccess = {
+        code: "owner_role_required",
+        can_export: false,
+        can_apply: false,
       };
       payload.data.permissions = {
         ...(payload.data.permissions ?? {}),
@@ -226,7 +238,7 @@ test.describe("settings order-data responsive workflow", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoReady(page, "/settings?section=order-data");
     await expect(page.locator('[data-ui="settings-order-data-no-permission"]')).toContainText(
-      "页面未读取或显示相关业务数据",
+      "其他角色仍可按现有权限处理日常工单",
     );
     const accessState = page.locator('[data-ui="settings-order-data-no-permission"]');
     expect(
