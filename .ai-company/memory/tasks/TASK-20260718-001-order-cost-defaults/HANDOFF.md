@@ -2,11 +2,18 @@
 
 ## Current state
 
-Active implementation on an isolated latest-main worktree. No production writes have occurred.
+Closed and released on 2026-07-18. Remote `main`, linked Supabase and Vercel production all contain the order-cost feature and atomic permission-audit hardening.
+
+## Release identity
+
+- Feature commit: `fa6bf5c4`.
+- Final hardening/main SHA: `09b78664652b93ce67b92c3b00a1f0d7ac6f3739`.
+- Applied migrations: `20260718120000`, `20260718121000`.
+- Production deployment: `chinatech-codex-lsw8sbyet-kyox120-9295s-projects.vercel.app` — READY and aliased to `www.chinatech.in`.
 
 ## Resume
 
-Read `TASK.md`, latest checkpoint, `OPEN_CONFLICTS.md`, then inspect the isolated worktree diff and linked migration state before any write.
+No remaining implementation action. If a verified regression appears, first disable `REPAIRDESK_ORDER_COSTS_ENABLED`, redeploy, then inspect task evidence and production logs before a forward fix.
 
 ## Stop conditions
 

@@ -2,17 +2,16 @@
 schema_version: 1
 task_id: "TASK-20260718-001-order-cost-defaults"
 title: "订单内部成本与默认成本权限化实施发布"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2_code_L1_production_owner_approved"
 owner: "IntegrationLead"
-departments:
-  ["Product", "UX", "Frontend", "Backend", "Data", "Security", "QA", "Release", "Documentation"]
+departments: ""
 created_at: "2026-07-18T12:00:00+02:00"
-updated_at: "2026-07-17T22:32:53Z"
+updated_at: "2026-07-18T00:38:32Z"
+closed_at: "2026-07-18T00:38:32Z"
 ---
-
 # Task
 
 ## Owner goal
@@ -72,7 +71,7 @@ updated_at: "2026-07-17T22:32:53Z"
 - Integration Lead：唯一业务代码、迁移、Git、Supabase 与发布写入者。
 - Product/UX、Data/Security、Permissions/QA：先前方案为约束，实施后只读复核。
 - 隔离 worktree：`/private/tmp/repairdesk-order-cost-clean-20260718`。
-- 分支：`codex/order-cost-defaults-clean-20260718`，重放基线 `origin/main@002852f3`。
+- 分支：`codex/order-cost-defaults-clean-20260718`；最终代码提交 `fa6bf5c4`、安全补充提交 `09b78664`，远程 `main` 已快进到 `09b78664`。
 
 ## Change contract
 
@@ -81,3 +80,13 @@ updated_at: "2026-07-17T22:32:53Z"
 - 迁移 additive、无历史回填、RLS 开启，`anon`/`authenticated` 无直接表权限，RPC 仅 `service_role`。
 - 默认功能在数据、权限与接口全部就绪后再开放；发现不兼容时保持界面关闭并做前向修复。
 - 发布采用 migration-first：linked dry-run/apply 与元数据核验完成后，才部署新代码并开启功能开关。
+
+## Final outcome
+
+- 独立成本数据、默认成本快照、稳定维修项目行身份、权限矩阵、专用 API、设置/新建订单/详情 UI 均已交付。
+- `20260718120000_order_cost_defaults.sql` 与 `20260718121000_order_cost_permission_audit_atomic.sql` 已应用到 linked production；本地/远程 migration history 一致。
+- 成员权限变更与审计日志已合并到同一个数据库事务；强制审计失败回滚测试通过。
+- 全量门禁通过：227 个 Vitest 文件 / 1536 项测试、lint、typecheck、agents check、24 路由生产构建。
+- `origin/main`、Vercel production 和生产别名均对应 `09b78664652b93ce67b92c3b00a1f0d7ac6f3739`；生产功能开关已启用。
+- 店主生产冒烟确认默认成本设置、新建订单成本与客户报价分开录入、金额汇总和成本高于报价提示；无登录请求返回 401。
+- 低权限隔离由权限矩阵、伪造授权、StoreContext/API/DB 与条件挂载测试验证；未创建或冒充真实低权限生产账号。
