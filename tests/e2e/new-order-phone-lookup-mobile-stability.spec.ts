@@ -27,7 +27,7 @@ test("new order phone lookup stays anchored after the first mobile digit", async
   const customerSection = page.locator('[data-new-order-section="customer"]');
   await expect(customerSection).toBeVisible();
 
-  await expect(customerSection.locator('input[inputmode="tel"]').first()).toHaveCount(0);
+  await expect(customerSection.locator('input[inputmode="tel"]').first()).toBeHidden();
   const phoneTrigger = customerSection.locator('[data-phone-keypad-trigger="true"]').first();
   await expect(phoneTrigger).toBeVisible();
 

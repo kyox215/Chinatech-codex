@@ -24,7 +24,7 @@ test("new order mobile inputs use virtual phone and money keypads", async ({ pag
   const deviceSection = page.locator('[data-new-order-section="device-info"]');
   const quotationSection = page.locator('[data-new-order-section="quotation"]');
 
-  await expect(customerSection.locator('input[inputmode="tel"]').first()).toHaveCount(0);
+  await expect(customerSection.locator('input[inputmode="tel"]').first()).toBeHidden();
   const phoneTrigger = customerSection.locator('[data-phone-keypad-trigger="true"]').first();
   await expect(phoneTrigger).toBeVisible();
 

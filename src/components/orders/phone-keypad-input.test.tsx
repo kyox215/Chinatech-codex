@@ -19,17 +19,21 @@ function PhoneKeypadHarness() {
 }
 
 describe("PhoneKeypadInput", () => {
-  it("edits phone numbers through the app keypad without rendering a native input", async () => {
+  it("keeps the app keypad on mobile and tablet breakpoints", async () => {
     const user = userEvent.setup();
     const { container } = render(<PhoneKeypadHarness />);
 
-    expect(container.querySelector("input")).toBeNull();
+    const nativeInput = container.querySelector('[data-phone-native-input="true"]');
+    const keypadTrigger = container.querySelector('[data-phone-keypad-trigger="true"]');
+    expect(nativeInput).toHaveClass("hidden", "lg:flex");
+    expect(keypadTrigger).toHaveClass("lg:hidden");
 
-    await user.click(screen.getByRole("button", { name: "客户电话号码" }));
+    await user.click(keypadTrigger as HTMLButtonElement);
     expect(await screen.findByRole("group", { name: "客户电话号码 虚拟数字键盘" })).toBeVisible();
     expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toHaveClass(
       "fixed",
       "justify-center",
+      "lg:hidden",
     );
 
     await user.click(screen.getByRole("button", { name: "+39" }));
@@ -42,5 +46,24 @@ describe("PhoneKeypadInput", () => {
 
     await user.click(screen.getByRole("button", { name: "清空" }));
     expect(screen.getByTestId("value")).toBeEmptyDOMElement();
+  });
+
+  it("uses a native tel input for desktop typing without opening the app keypad", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<PhoneKeypadHarness />);
+    const nativeInput = container.querySelector(
+      '[data-phone-native-input="true"]',
+    ) as HTMLInputElement;
+
+    expect(nativeInput).toHaveAttribute("type", "tel");
+    expect(nativeInput).toHaveAttribute("inputmode", "tel");
+
+    await user.click(nativeInput);
+    await user.type(nativeInput, "+39333a4");
+
+    expect(document.activeElement).toBe(nativeInput);
+    expect(nativeInput).toHaveValue("+393334");
+    expect(screen.getByTestId("value")).toHaveTextContent("+393334");
+    expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, Delete, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
 import { cn } from "@/lib/utils";
 import {
@@ -98,6 +99,28 @@ export function PhoneKeypadInput({
 
   return (
     <>
+      <Input
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        data-phone-native-input="true"
+        aria-label={ariaLabel}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls={ariaControls}
+        aria-expanded={ariaExpanded}
+        aria-activedescendant={ariaActiveDescendant}
+        disabled={disabled}
+        value={normalizePhoneKeypadDraft(value)}
+        placeholder={placeholder}
+        className={cn("hidden min-w-0 font-mono tabular-nums lg:flex", className, triggerClassName)}
+        onChange={(event) => onChange(normalizePhoneKeypadDraft(event.target.value))}
+        onFocus={() => onOpenChange?.(true)}
+        onBlur={() => onOpenChange?.(false)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onOpenChange?.(false);
+        }}
+      />
       <button
         ref={triggerRef}
         type="button"
@@ -108,11 +131,14 @@ export function PhoneKeypadInput({
         aria-activedescendant={ariaActiveDescendant}
         disabled={disabled}
         className={cn(
-          "flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          "flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm lg:hidden",
           className,
           triggerClassName,
         )}
-        onClick={() => setOpenState(!open)}
+        onClick={() => {
+          triggerRef.current?.focus();
+          setOpenState(!open);
+        }}
         onKeyDown={handlePhysicalKey}
       >
         <span
@@ -130,6 +156,7 @@ export function PhoneKeypadInput({
         onOpenChange={setOpenState}
         label={`${ariaLabel} 虚拟数字键盘`}
         triggerRef={triggerRef}
+        className="lg:hidden"
         panelClassName={contentClassName}
       >
         <div data-phone-keypad="true">
