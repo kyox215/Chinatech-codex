@@ -67,4 +67,4 @@
 - 原 checkout 的两个领先提交经 `git cherry -v origin/main main` 均显示 `-`，证明 patch-equivalent；未重放、reset 或删除。
 - `git branch --no-merged origin/main` 仍含旧 preservation/WIP 和未完成任务分支；它们被保留并按任务状态隔离，不作为本次“此前所有已完成改动”漏发证据。
 - Inventory V2 的 `f7df2df8`、`7238123c`、`9465ead4` 已在本次分支基线内；其任务、runbook、截图和默认关闭契约完整。
-- 生产 linked dry-run 仍只列出 Inventory V2 `20260718175622` 与 `20260718181148`，确认本次未应用下一阶段数据库变化。
+- 在本次分支最初关闭时，生产 linked dry-run 只列出 Inventory V2 `20260718175622` 与 `20260718181148`。随后 `origin/main` 并发吸收默认关闭的 AI 成本治理提交；最终 `main@d84dae86` 只读 dry-run 精确列出 AI `20260718174042` 加上述两份 Inventory V2 migration，三份均保持未应用。

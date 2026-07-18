@@ -12,7 +12,7 @@
 
 ## Verified safe stop
 
-- linked production dry-run 仅剩 `20260718175622` 与 `20260718181148` 两份 Inventory V2 migration 待审。
+- 最终 linked production dry-run 仍列出 `20260718175622` 与 `20260718181148` 两份 Inventory V2 migration；并发进入主线的 `20260718174042_ai_assistant_cost_governance_v1.sql` 也保持未应用，三者均未被本任务捆绑执行。
 - Vercel 环境不存在 `INVENTORY_V2_*` 或 `INVENTORY_LEGACY_MUTATIONS_ENABLED` 名称，Web 自动部署不会启用 V2。
 - 下一动作是 runbook 定义的独立 D4 生产激活：恢复证明、精确 dry-run、migration apply、RPC grant、单店 allowlist 和观察窗；本任务未执行。
 
