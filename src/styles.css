@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 @source "../src";
 @import "../node_modules/tw-animate-css/dist/tw-animate.css";
@@ -111,6 +110,7 @@
 
 /* Light theme retained for toggle */
 :root {
+  --repairdesk-styles-ready: 1;
   --radius: 0.625rem;
 
   --background: oklch(0.985 0.003 247);
@@ -237,6 +237,14 @@
 }
 
 @layer base {
+  #repairdesk-style-fallback {
+    display: none !important;
+  }
+
+  #repairdesk-styled-shell {
+    display: contents !important;
+  }
+
   * {
     border-color: var(--color-border);
   }
@@ -245,7 +253,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: var(--font-sans);
+    font-family: var(--repairdesk-font-sans), var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -290,11 +298,12 @@
 
   .font-mono,
   .tabular-nums {
+    font-family: var(--repairdesk-font-mono), var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
 
   .font-display {
-    font-family: var(--font-display);
+    font-family: var(--repairdesk-font-display), var(--font-display);
     letter-spacing: -0.01em;
   }
 }
@@ -460,6 +469,10 @@
   }
 
   body.has-repair-print > :not(.repair-print-sheet) {
+    display: none !important;
+  }
+
+  body.has-repair-print #repairdesk-styled-shell {
     display: none !important;
   }
 
