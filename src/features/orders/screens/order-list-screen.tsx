@@ -10,7 +10,7 @@ import {
   type SetStateAction,
   type SyntheticEvent,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Filter, LoaderCircle, Plus, Printer, Search, X } from "lucide-react";
@@ -197,6 +197,7 @@ export function OrderListScreen() {
   const mobileHeaderCleanupRef = useRef<() => void>(() => undefined);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
@@ -904,8 +905,8 @@ export function OrderListScreen() {
   };
   const handleNewOrderCreated = (id: string) => {
     setNewOrderOpen(false);
-    setDetailOrderId(id);
     invalidate();
+    router.push(`/orders/${id}`);
   };
 
   const stopRowClick = (event: SyntheticEvent) => {
