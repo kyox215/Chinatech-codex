@@ -120,6 +120,8 @@ const invitedActor: AuditActor = {
 
 describe("store repository access request boundaries", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-18T08:00:00.000Z"));
     mocks.supabase.from.mockReset();
     mocks.supabase.rpc.mockReset();
     mocks.supabase.auth.admin.getUserById.mockReset();
@@ -148,7 +150,10 @@ describe("store repository access request boundaries", () => {
     mocks.assertStoreLifecycleActive.mockResolvedValue(undefined);
   });
 
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
 
   it("publishes server-computed settings capabilities without client role inference", async () => {
     const [ownerContext, managerContext, technicianContext, salesContext, viewerContext] =
