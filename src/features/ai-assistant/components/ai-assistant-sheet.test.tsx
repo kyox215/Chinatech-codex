@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiMocks = vi.hoisted(() => ({ runAiOrderAssistantTurn: vi.fn() }));
@@ -10,6 +10,7 @@ vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
 
 import type { AiOrderAssistantResponse } from "@/features/ai-assistant/model/contracts";
 import { AiAssistantSheet } from "./ai-assistant-sheet";
+import { mergeVoiceInputValue } from "./use-ai-assistant-voice-input";
 
 const capabilities = {
   canUseOrderAssistant: true,
@@ -20,11 +21,14 @@ const capabilities = {
 describe("AiAssistantSheet", () => {
   beforeEach(() => {
     apiMocks.runAiOrderAssistantTurn.mockReset();
+    FakeSpeechRecognition.instances = [];
+    clearSpeechRecognition();
     setOnline(true);
   });
 
   afterEach(() => {
     cleanup();
+    clearSpeechRecognition();
     setOnline(true);
   });
 
@@ -148,10 +152,81 @@ describe("AiAssistantSheet", () => {
     expect(screen.getByText("当前账号没有使用权限")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "输入工单查询问题" })).toBeDisabled();
   });
+
+  it("fills the composer from voice without automatically sending a query", async () => {
+    installFakeSpeechRecognition();
+    renderSheet();
+
+    const input = screen.getByRole("textbox", { name: "输入工单查询问题" });
+    fireEvent.change(input, { target: { value: "请" } });
+    const microphone = await screen.findByRole("button", { name: "开始语音输入" });
+    await waitFor(() => expect(microphone).toBeEnabled());
+    fireEvent.click(microphone);
+
+    expect(await screen.findByText("正在听…说完后点击麦克风停止。")).toBeInTheDocument();
+    act(() => FakeSpeechRecognition.latest().emitResult("查找未付款工单"));
+
+    expect(input).toHaveValue("请 查找未付款工单");
+    expect(apiMocks.runAiOrderAssistantTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "停止语音输入" }));
+    expect(await screen.findByText("语音已填入，可编辑后再发送。")).toBeInTheDocument();
+    expect(apiMocks.runAiOrderAssistantTurn).not.toHaveBeenCalled();
+  });
+
+  it("shows an actionable message when microphone permission is denied", async () => {
+    installFakeSpeechRecognition();
+    renderSheet();
+
+    const microphone = await screen.findByRole("button", { name: "开始语音输入" });
+    await waitFor(() => expect(microphone).toBeEnabled());
+    fireEvent.click(microphone);
+    act(() => FakeSpeechRecognition.latest().emitError("not-allowed"));
+
+    expect(
+      await screen.findByText(
+        "未获得麦克风或语音服务权限，请在浏览器设置中允许麦克风，并确认 Siri/听写已开启。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "输入工单查询问题" })).toBeEnabled();
+    expect(apiMocks.runAiOrderAssistantTurn).not.toHaveBeenCalled();
+  });
+
+  it("aborts active recognition when the assistant sheet closes", async () => {
+    installFakeSpeechRecognition();
+    const view = renderSheet();
+    const microphone = await screen.findByRole("button", { name: "开始语音输入" });
+    await waitFor(() => expect(microphone).toBeEnabled());
+    fireEvent.click(microphone);
+    const recognition = FakeSpeechRecognition.latest();
+
+    view.rerender(sheetElement({ open: false }));
+
+    await waitFor(() => expect(recognition.aborted).toBe(true));
+    expect(apiMocks.runAiOrderAssistantTurn).not.toHaveBeenCalled();
+  });
+
+  it("keeps unsupported browsers on the keyboard fallback", async () => {
+    renderSheet();
+
+    expect(await screen.findByRole("button", { name: "当前浏览器不支持语音输入" })).toBeDisabled();
+    expect(screen.getByText("当前浏览器不支持语音输入，请使用键盘输入。")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "输入工单查询问题" })).toBeEnabled();
+  });
+
+  it("caps appended voice text at the existing 800 character boundary", () => {
+    const merged = mergeVoiceInputValue("a".repeat(799), "测试", 800);
+
+    expect(merged.value).toHaveLength(800);
+    expect(merged.truncated).toBe(true);
+  });
 });
 
 function renderSheet(overrides: Partial<React.ComponentProps<typeof AiAssistantSheet>> = {}) {
-  return render(
+  return render(sheetElement(overrides));
+}
+
+function sheetElement(overrides: Partial<React.ComponentProps<typeof AiAssistantSheet>> = {}) {
+  return (
     <AiAssistantSheet
       open
       onOpenChange={vi.fn()}
@@ -161,7 +236,7 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof AiAssistantS
       onRetryCapabilities={vi.fn()}
       storeKey="store-1"
       {...overrides}
-    />,
+    />
   );
 }
 
@@ -195,4 +270,93 @@ function setOnline(value: boolean) {
     configurable: true,
     value,
   });
+}
+
+type FakeRecognitionAlternative = { transcript: string };
+type FakeRecognitionResult = {
+  0: FakeRecognitionAlternative;
+  length: 1;
+  isFinal: true;
+  item: (index: number) => FakeRecognitionAlternative | null;
+};
+type FakeRecognitionResultList = {
+  0: FakeRecognitionResult;
+  length: 1;
+  item: (index: number) => FakeRecognitionResult | null;
+};
+
+class FakeSpeechRecognition {
+  static instances: FakeSpeechRecognition[] = [];
+
+  lang = "";
+  continuous = false;
+  interimResults = false;
+  maxAlternatives = 1;
+  aborted = false;
+  onstart: ((event: Event) => void) | null = null;
+  onresult:
+    | ((event: Event & { resultIndex: number; results: FakeRecognitionResultList }) => void)
+    | null = null;
+  onerror: ((event: Event & { error: string }) => void) | null = null;
+  onend: ((event: Event) => void) | null = null;
+
+  constructor() {
+    FakeSpeechRecognition.instances.push(this);
+  }
+
+  static latest() {
+    const recognition = FakeSpeechRecognition.instances.at(-1);
+    if (!recognition) throw new Error("Expected a speech recognition instance");
+    return recognition;
+  }
+
+  start() {
+    this.onstart?.(new Event("start"));
+  }
+
+  stop() {
+    this.onend?.(new Event("end"));
+  }
+
+  abort() {
+    this.aborted = true;
+    this.onend?.(new Event("end"));
+  }
+
+  emitResult(transcript: string) {
+    const alternative = { transcript };
+    const result: FakeRecognitionResult = {
+      0: alternative,
+      length: 1,
+      isFinal: true,
+      item: (index) => (index === 0 ? alternative : null),
+    };
+    const results: FakeRecognitionResultList = {
+      0: result,
+      length: 1,
+      item: (index) => (index === 0 ? result : null),
+    };
+    this.onresult?.(Object.assign(new Event("result"), { resultIndex: 0, results }));
+  }
+
+  emitError(error: string) {
+    this.onerror?.(Object.assign(new Event("error"), { error }));
+    this.onend?.(new Event("end"));
+  }
+}
+
+function installFakeSpeechRecognition() {
+  Object.defineProperty(window, "webkitSpeechRecognition", {
+    configurable: true,
+    value: FakeSpeechRecognition,
+  });
+}
+
+function clearSpeechRecognition() {
+  const speechWindow = window as Window & {
+    SpeechRecognition?: unknown;
+    webkitSpeechRecognition?: unknown;
+  };
+  delete speechWindow.SpeechRecognition;
+  delete speechWindow.webkitSpeechRecognition;
 }

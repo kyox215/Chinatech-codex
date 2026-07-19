@@ -7,10 +7,12 @@ import {
   Bot,
   Clock3,
   LoaderCircle,
+  Mic,
   SearchX,
   Send,
   ShieldCheck,
   Sparkles,
+  Square,
   UserRound,
   WifiOff,
 } from "lucide-react";
@@ -29,6 +31,7 @@ import type {
   AiAssistantCapabilities,
   AiOrderAssistantResponse,
 } from "@/features/ai-assistant/model/contracts";
+import { useAiAssistantVoiceInput } from "@/features/ai-assistant/components/use-ai-assistant-voice-input";
 import {
   isRepairDeskRequestTimeoutError,
   RepairDeskApiError,
@@ -77,6 +80,16 @@ export function AiAssistantSheet({
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   const requestSequenceRef = useRef(0);
   const lastClientRequestIdRef = useRef<string | undefined>(undefined);
+  const canSubmit = capabilities?.canUseOrderAssistant === true;
+  const voiceInput = useAiAssistantVoiceInput({
+    value: input,
+    onValueChange: setInput,
+    maxLength: 800,
+    disabled:
+      !open || !canSubmit || capabilitiesLoading || capabilitiesError || status === "loading",
+    lang: "zh-CN",
+  });
+  const abortVoiceInput = voiceInput.abort;
 
   useEffect(() => {
     const syncOnlineState = () => setIsOnline(window.navigator.onLine);
@@ -89,6 +102,7 @@ export function AiAssistantSheet({
   }, []);
 
   useEffect(() => {
+    abortVoiceInput();
     controllerRef.current?.abort();
     controllerRef.current = undefined;
     requestSequenceRef.current += 1;
@@ -98,15 +112,16 @@ export function AiAssistantSheet({
     setResponse(undefined);
     setError(undefined);
     lastClientRequestIdRef.current = undefined;
-  }, [storeKey]);
+  }, [abortVoiceInput, storeKey]);
 
   useEffect(() => {
     if (open || !controllerRef.current) return;
+    abortVoiceInput();
     requestSequenceRef.current += 1;
     controllerRef.current.abort();
     controllerRef.current = undefined;
     setStatus("cancelled");
-  }, [open]);
+  }, [abortVoiceInput, open]);
 
   useEffect(
     () => () => {
@@ -115,13 +130,12 @@ export function AiAssistantSheet({
     [],
   );
 
-  const canSubmit = capabilities?.canUseOrderAssistant === true;
-
   const submit = useCallback(
     async (messageOverride?: string, reuseLastRequest = false) => {
       const message = (messageOverride ?? input).trim();
       if (!message || !canSubmit || !isOnline) return;
 
+      abortVoiceInput();
       const sequence = requestSequenceRef.current + 1;
       requestSequenceRef.current = sequence;
       controllerRef.current?.abort();
@@ -158,7 +172,7 @@ export function AiAssistantSheet({
         setStatus("error");
       }
     },
-    [canSubmit, input, isOnline],
+    [abortVoiceInput, canSubmit, input, isOnline],
   );
 
   const cancel = () => {
@@ -168,6 +182,24 @@ export function AiAssistantSheet({
     setStatus("cancelled");
     controller?.abort();
   };
+
+  const voiceButtonLabel =
+    voiceInput.support === "unsupported"
+      ? "当前浏览器不支持语音输入"
+      : voiceInput.phase === "requesting_permission"
+        ? "取消语音输入"
+        : voiceInput.phase === "listening"
+          ? "停止语音输入"
+          : voiceInput.phase === "processing"
+            ? "正在处理语音输入"
+            : "开始语音输入";
+  const voiceStatusMessage =
+    voiceInput.message ??
+    (voiceInput.support === "unsupported"
+      ? "当前浏览器不支持语音输入，请使用键盘输入。"
+      : undefined);
+  const voiceButtonActive =
+    voiceInput.phase === "requesting_permission" || voiceInput.phase === "listening";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -257,11 +289,21 @@ export function AiAssistantSheet({
             void submit();
           }}
         >
-          <p className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
-            复杂且已获门店批准的非敏感问题可能发送至
-            OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。 默认安全监控日志可能保留最多 30
-            天，敏感查询请改用订单页面手工搜索。
-          </p>
+          <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+            <p>
+              复杂且已获门店批准的非敏感问题可能发送至
+              OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。 默认安全监控日志可能保留最多 30
+              天，敏感查询请改用订单页面手工搜索。
+            </p>
+            {voiceInput.support === "supported" ? (
+              <p className="mt-1 flex items-start gap-1.5">
+                <Mic className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                <span>
+                  语音由浏览器/设备语音服务转成文字；RepairDesk 不保存录音，确认文字后再手动发送。
+                </span>
+              </p>
+            ) : null}
+          </div>
           <label htmlFor="ai-assistant-message" className="sr-only">
             输入工单查询问题
           </label>
@@ -271,7 +313,10 @@ export function AiAssistantSheet({
             value={input}
             maxLength={800}
             disabled={!canSubmit || capabilitiesLoading || capabilitiesError}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              if (voiceInput.isActive) abortVoiceInput();
+              setInput(event.target.value);
+            }}
             onKeyDown={(event) => {
               if (event.key !== "Enter" || event.shiftKey) return;
               event.preventDefault();
@@ -280,31 +325,73 @@ export function AiAssistantSheet({
             placeholder="例如：请列出仍在处理且未付款的工单"
             className="min-h-20 resize-none text-base sm:text-sm"
           />
+          {voiceStatusMessage ? (
+            <p
+              role={voiceInput.phase === "error" ? "alert" : "status"}
+              aria-live={voiceInput.phase === "error" ? "assertive" : "polite"}
+              data-ai-voice-status="true"
+              className={
+                voiceInput.phase === "error"
+                  ? "text-[11px] leading-4 text-status-danger-foreground"
+                  : "text-[11px] leading-4 text-muted-foreground"
+              }
+            >
+              {voiceStatusMessage}
+            </p>
+          ) : null}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">
+            <span className="min-w-0 text-[11px] text-muted-foreground">
               {input.length}/800 · 结果来自当前 RepairDesk 数据
             </span>
-            {status === "loading" ? (
+            <div className="flex shrink-0 items-center gap-1.5">
               <Button
-                type="submit"
-                name="assistant-action"
-                value="cancel"
-                variant="outline"
-                size="sm"
+                type="button"
+                size="icon"
+                variant={voiceInput.phase === "listening" ? "destructive" : "outline"}
+                aria-label={voiceButtonLabel}
+                aria-pressed={voiceButtonActive}
+                title={voiceButtonLabel}
+                data-ai-voice-input="true"
+                disabled={
+                  !canSubmit ||
+                  capabilitiesLoading ||
+                  capabilitiesError ||
+                  status === "loading" ||
+                  voiceInput.support !== "supported" ||
+                  voiceInput.phase === "processing"
+                }
+                onClick={voiceInput.toggle}
               >
-                取消
+                {voiceInput.phase === "processing" ? (
+                  <LoaderCircle className="animate-spin" aria-hidden="true" />
+                ) : voiceButtonActive ? (
+                  <Square aria-hidden="true" />
+                ) : (
+                  <Mic aria-hidden="true" />
+                )}
               </Button>
-            ) : (
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!canSubmit || !isOnline || input.trim().length === 0}
-                className="gap-1.5"
-              >
-                <Send className="size-3.5" aria-hidden="true" />
-                发送
-              </Button>
-            )}
+              {status === "loading" ? (
+                <Button
+                  type="submit"
+                  name="assistant-action"
+                  value="cancel"
+                  variant="outline"
+                  size="sm"
+                >
+                  取消
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!canSubmit || !isOnline || input.trim().length === 0}
+                  className="gap-1.5"
+                >
+                  <Send className="size-3.5" aria-hidden="true" />
+                  发送
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </SheetContent>

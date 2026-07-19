@@ -55,6 +55,40 @@ test.describe("staff AI assistant bounded workflow", () => {
     });
   }
 
+  test("mobile voice input fills the composer without sending a query", async ({ page }) => {
+    await installSpeechRecognitionMock(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, "/orders");
+    await page.locator('[data-ai-assistant-trigger="mobile-orders"]').click();
+
+    const sheet = page.locator('[data-ai-assistant-sheet="true"]');
+    const input = page.getByLabel("输入工单查询问题");
+    const microphone = sheet.getByRole("button", { name: "开始语音输入" });
+    await expect(microphone).toBeEnabled();
+    await microphone.click();
+    await expect(sheet.getByText("正在听…说完后点击麦克风停止。", { exact: true })).toBeVisible();
+
+    await page.evaluate(() => {
+      const emitSpeechResult = (
+        window as typeof window & { __emitAiSpeechResult?: (text: string) => void }
+      ).__emitAiSpeechResult;
+      if (!emitSpeechResult) throw new Error("Speech recognition test bridge is unavailable");
+      emitSpeechResult("查找未付款工单");
+    });
+
+    await expect(input).toHaveValue("查找未付款工单");
+    await expect(sheet.locator('a[href^="/orders/"]')).toHaveCount(0);
+    await sheet.getByRole("button", { name: "停止语音输入" }).click();
+    await expect(sheet.getByText("语音已填入，可编辑后再发送。", { exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "发送", exact: true })).toBeEnabled();
+    await expect(sheet.locator('a[href^="/orders/"]')).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+    await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-001-ai-assistant-voice-input/ai-assistant-voice-mobile-390.png",
+    });
+  });
+
   test("cancel preserves input and offline mode never sends a queued request", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.addInitScript(() => {
@@ -177,4 +211,65 @@ async function aiTurnRequestCount(page: Page) {
   return page.evaluate(
     () => (window as typeof window & { __aiTurnRequestCount?: number }).__aiTurnRequestCount ?? 0,
   );
+}
+
+async function installSpeechRecognitionMock(page: Page) {
+  await page.addInitScript(() => {
+    type MockRecognitionResultEvent = Event & {
+      resultIndex: number;
+      results: Array<Array<{ transcript: string }> & { isFinal: boolean }>;
+    };
+
+    class MockSpeechRecognition {
+      lang = "";
+      continuous = false;
+      interimResults = false;
+      maxAlternatives = 1;
+      onstart: ((event: Event) => void) | null = null;
+      onresult: ((event: MockRecognitionResultEvent) => void) | null = null;
+      onerror: ((event: Event & { error: string }) => void) | null = null;
+      onend: ((event: Event) => void) | null = null;
+
+      constructor() {
+        testWindow.__activeAiSpeechRecognition = this;
+      }
+
+      start() {
+        this.onstart?.(new Event("start"));
+      }
+
+      stop() {
+        this.onend?.(new Event("end"));
+      }
+
+      abort() {
+        this.onend?.(new Event("end"));
+      }
+    }
+
+    type SpeechTestWindow = Window & {
+      SpeechRecognition?: typeof MockSpeechRecognition;
+      webkitSpeechRecognition?: typeof MockSpeechRecognition;
+      __activeAiSpeechRecognition?: MockSpeechRecognition;
+      __emitAiSpeechResult?: (text: string) => void;
+    };
+
+    const testWindow = window as SpeechTestWindow;
+    Object.defineProperty(testWindow, "SpeechRecognition", {
+      configurable: true,
+      value: MockSpeechRecognition,
+    });
+    Object.defineProperty(testWindow, "webkitSpeechRecognition", {
+      configurable: true,
+      value: MockSpeechRecognition,
+    });
+    testWindow.__emitAiSpeechResult = (text) => {
+      const recognition = testWindow.__activeAiSpeechRecognition;
+      if (!recognition?.onresult) throw new Error("No active speech recognition session");
+      const result = Object.assign([{ transcript: text }], { isFinal: true });
+      recognition.onresult(
+        Object.assign(new Event("result"), { resultIndex: 0, results: [result] }),
+      );
+    };
+  });
 }
