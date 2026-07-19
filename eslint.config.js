@@ -15,6 +15,7 @@ export default tseslint.config(
       "coverage",
       "playwright-report",
       "test-results",
+      "public/vendor/tesseract",
       "tools/figma/use-figma-create-repairdesk-ui-system.mjs",
       "tools/figma/generated/use-figma-payloads/*.js",
     ],

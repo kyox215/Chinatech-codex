@@ -5,6 +5,7 @@ import {
   AI_INVENTORY_IMAGE_MAX_ORIGINAL_BYTES,
   AiInventoryImageError,
   aiInventoryImageBlobToDataUrl,
+  cropPreparedAiInventoryImage,
   detectAiInventoryImageMime,
   inspectAiInventoryImage,
   isAnimatedAiInventoryImage,
@@ -130,6 +131,61 @@ describe("AI inventory image preparation", () => {
     await expect(operation).rejects.toBeInstanceOf(AiInventoryImageError);
     await expect(operation).rejects.toMatchObject({ code: "derived_too_large" });
     expect(harness.disposeDecoded).toHaveBeenCalledOnce();
+  });
+
+  it("creates a separate metadata-free cloud crop without mutating the full local image", async () => {
+    const harness = runtimeHarness({ width: 1000, height: 500, blobSizes: [24_000] });
+    const fullBlob = new Blob(["full-local-label"], { type: "image/jpeg" });
+    const disposeFull = vi.fn();
+    const cropped = await cropPreparedAiInventoryImage(
+      {
+        blob: fullBlob,
+        mimeType: "image/jpeg",
+        byteLength: fullBlob.size,
+        width: 1000,
+        height: 500,
+        previewUrl: "blob:full-local-label",
+        dispose: disposeFull,
+      },
+      { x: 0.1, y: 0.2, width: 0.5, height: 0.4 },
+      { runtime: harness.runtime },
+    );
+
+    expect(cropped).toMatchObject({ width: 500, height: 200, byteLength: 24_000 });
+    expect(cropped.blob).not.toBe(fullBlob);
+    expect(harness.drawImage).toHaveBeenCalledWith(
+      expect.anything(),
+      100,
+      100,
+      500,
+      200,
+      0,
+      0,
+      500,
+      200,
+    );
+    expect(disposeFull).not.toHaveBeenCalled();
+    expect(harness.disposeDecoded).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an unsafe or empty normalized crop before decoding", async () => {
+    const harness = runtimeHarness({ width: 1000, height: 500 });
+    await expect(
+      cropPreparedAiInventoryImage(
+        {
+          blob: new Blob(["full"], { type: "image/jpeg" }),
+          mimeType: "image/jpeg",
+          byteLength: 4,
+          width: 1000,
+          height: 500,
+          previewUrl: "blob:full",
+          dispose: vi.fn(),
+        },
+        { x: 0.9, y: 0, width: 0.2, height: 0.5 },
+        { runtime: harness.runtime },
+      ),
+    ).rejects.toMatchObject({ code: "dimensions" });
+    expect(harness.decode).not.toHaveBeenCalled();
   });
 
   it("aborts a hanging data URL read at its hard deadline", async () => {

@@ -58,6 +58,13 @@ export type PreparedAiInventoryImage = {
   dispose: () => void;
 };
 
+export type AiInventoryNormalizedCrop = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 type DecodedImage = {
   source: CanvasImageSource;
   width: number;
@@ -132,6 +139,59 @@ export async function prepareAiInventoryImage(
     validateDecodedDimensions(decoded.width, decoded.height);
     validateDecodedDimensionsMatch(inspected.dimensions, decoded);
     const encoded = await encodeMetadataFreeJpeg(decoded, runtime);
+    const previewUrl = runtime.createObjectUrl(encoded.blob);
+    let disposed = false;
+    return {
+      blob: encoded.blob,
+      mimeType: "image/jpeg",
+      byteLength: encoded.blob.size,
+      width: encoded.width,
+      height: encoded.height,
+      previewUrl,
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        runtime.revokeObjectUrl(previewUrl);
+      },
+    };
+  } finally {
+    decoded.dispose();
+  }
+}
+
+/**
+ * Creates a second, metadata-free derivative from a user-reviewed normalized crop.
+ * Callers must only serialize this returned blob for cloud Vision; the full prepared
+ * label remains a local-only artifact.
+ */
+export async function cropPreparedAiInventoryImage(
+  prepared: PreparedAiInventoryImage,
+  crop: AiInventoryNormalizedCrop,
+  options: { signal?: AbortSignal; runtime?: AiInventoryImageRuntime } = {},
+): Promise<PreparedAiInventoryImage> {
+  validateNormalizedCrop(crop);
+  if (options.signal?.aborted) throw createAbortError();
+  const runtime = options.runtime ?? browserImageRuntime;
+  let decoded: DecodedImage;
+  try {
+    decoded = await runtime.decode(
+      new File([prepared.blob], "local-inventory-label.jpg", { type: "image/jpeg" }),
+    );
+  } catch {
+    throw new AiInventoryImageError(
+      "decode_failed",
+      "无法生成规格裁剪，请重新选择图片或继续手工录入。",
+    );
+  }
+
+  try {
+    if (options.signal?.aborted) throw createAbortError();
+    validateDecodedDimensions(decoded.width, decoded.height);
+    if (decoded.width !== prepared.width || decoded.height !== prepared.height) {
+      throw new AiInventoryImageError("dimensions", "规格裁剪尺寸校验失败，请重新选择图片。");
+    }
+    const encoded = await encodeMetadataFreeJpegCrop(decoded, crop, runtime, options.signal);
+    if (options.signal?.aborted) throw createAbortError();
     const previewUrl = runtime.createObjectUrl(encoded.blob);
     let disposed = false;
     return {
@@ -296,6 +356,72 @@ async function encodeMetadataFreeJpeg(decoded: DecodedImage, runtime: AiInventor
   }
 
   throw new AiInventoryImageError("derived_too_large", "图片压缩后仍然过大，请靠近标签重新拍摄。");
+}
+
+async function encodeMetadataFreeJpegCrop(
+  decoded: DecodedImage,
+  crop: AiInventoryNormalizedCrop,
+  runtime: AiInventoryImageRuntime,
+  signal?: AbortSignal,
+) {
+  const sourceX = Math.round(decoded.width * crop.x);
+  const sourceY = Math.round(decoded.height * crop.y);
+  const sourceWidth = Math.max(1, Math.round(decoded.width * crop.width));
+  const sourceHeight = Math.max(1, Math.round(decoded.height * crop.height));
+  let scale = Math.min(1, derivedMaxEdge / Math.max(sourceWidth, sourceHeight));
+  let quality = 0.86;
+
+  for (let attempt = 0; attempt < 7; attempt += 1) {
+    if (signal?.aborted) throw createAbortError();
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    const canvas = runtime.createCanvas(width, height);
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new AiInventoryImageError(
+        "processing_failed",
+        "当前浏览器无法生成规格裁剪，请继续手工录入。",
+      );
+    }
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(
+      decoded.source,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      width,
+      height,
+    );
+    const blob = await canvasToBlob(canvas, quality);
+    if (blob.size > 0 && blob.size <= AI_INVENTORY_IMAGE_MAX_DERIVED_BYTES) {
+      return { blob, width, height };
+    }
+    quality = Math.max(0.55, quality - 0.08);
+    if (attempt >= 2) scale *= 0.78;
+  }
+
+  throw new AiInventoryImageError("derived_too_large", "规格裁剪压缩后仍然过大，请缩小裁剪范围。");
+}
+
+function validateNormalizedCrop(crop: AiInventoryNormalizedCrop) {
+  const values = [crop.x, crop.y, crop.width, crop.height];
+  if (
+    !values.every(Number.isFinite) ||
+    crop.x < 0 ||
+    crop.y < 0 ||
+    crop.width < 0.1 ||
+    crop.height < 0.1 ||
+    crop.x + crop.width > 1.001 ||
+    crop.y + crop.height > 1.001
+  ) {
+    throw new AiInventoryImageError("dimensions", "规格裁剪范围无效，请重新调整后再预览。");
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {

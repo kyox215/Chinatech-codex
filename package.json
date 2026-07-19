@@ -7,9 +7,13 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "prepare:local-ocr": "node scripts/copy-local-ocr-assets.mjs",
+    "predev": "npm run prepare:local-ocr",
     "dev": "WATCHPACK_POLLING=true CHOKIDAR_USEPOLLING=1 next dev",
+    "prebuild": "npm run prepare:local-ocr",
     "build": "next build",
     "build:dev": "next build",
+    "prepreview": "npm run prepare:local-ocr",
     "preview": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -65,7 +69,9 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tanstack/react-query": "^5.83.0",
+    "@tesseract.js-data/eng": "1.0.0",
     "@zxing/browser": "^0.1.5",
+    "@zxing/library": "0.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

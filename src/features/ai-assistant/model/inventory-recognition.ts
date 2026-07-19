@@ -74,7 +74,7 @@ export function buildLocalInventoryRecognition({
   const ram = findCapacity(text, ["RAM"]);
   const storage = findCapacity(text, ["ROM", "STORAGE", "CAPACITY"]);
   const model = findModel(text, brand, color);
-  const { identifiers, warnings } = buildIdentifiers(text, barcodeValues);
+  const { identifiers, warnings, conflicts } = buildIdentifiers(text, barcodeValues);
 
   return aiInventoryRecognitionSchema.parse({
     schema_version: AI_ASSISTANT_CONTRACT_VERSION,
@@ -86,7 +86,7 @@ export function buildLocalInventoryRecognition({
       storage_capacity: localField(storage, storage ? "本地 OCR 存储声明" : null),
     },
     identifiers,
-    conflicts: [],
+    conflicts,
     warnings: unique([
       ...warnings,
       "本地识别仅表示包装标签声明，不能证明盒内设备配置、真伪或所有权。",
@@ -273,7 +273,15 @@ function mergeField(
 function buildIdentifiers(text: string, barcodeValues: readonly string[]) {
   const results: AiInventoryIdentifierCandidate[] = [];
   const warnings: string[] = [];
-  const imeiSlots = { barcode: 0, ocr: 0 };
+  const conflicts: AiInventoryConflict[] = [];
+  const imeiEvidence = new Map<
+    string,
+    {
+      value: string;
+      slot: "imei1" | "imei2" | null;
+      sources: Set<"barcode" | "ocr">;
+    }
+  >();
 
   // Preserve a checksum-valid GTIN as an EAN before the generic barcode
   // extractor has a chance to classify the same numeric value as a serial.
@@ -300,15 +308,15 @@ function buildIdentifiers(text: string, barcodeValues: readonly string[]) {
       const value = normalizeCaptureIdentifier(candidate.value);
       if (!value) continue;
       if (candidate.kind === "imei") {
-        imeiSlots[source] += 1;
-        pushIdentifier(results, {
-          type: imeiSlots[source] === 1 ? "imei1" : "imei2",
-          value,
-          confidence: source === "barcode" ? "high" : "review",
-          evidence: source === "barcode" ? "本地条码与 Luhn 校验" : "本地 OCR 与 Luhn 校验",
-          source,
-          validation: "valid",
-        });
+        const explicitSlot =
+          candidate.label === "IMEI1" ? "imei1" : candidate.label === "IMEI2" ? "imei2" : null;
+        const existing = imeiEvidence.get(value);
+        if (existing) {
+          existing.sources.add(source);
+          if (explicitSlot) existing.slot = explicitSlot;
+        } else {
+          imeiEvidence.set(value, { value, slot: explicitSlot, sources: new Set([source]) });
+        }
       } else if (candidate.kind === "serial") {
         pushIdentifier(results, {
           type: "serial",
@@ -332,7 +340,49 @@ function buildIdentifiers(text: string, barcodeValues: readonly string[]) {
     }
   }
 
-  return { identifiers: results.slice(0, 12), warnings };
+  const usedSlots = new Map<"imei1" | "imei2", string>();
+  const orderedImeiEvidence = [...imeiEvidence.values()].sort((left, right) => {
+    const slotOrder = (slot: "imei1" | "imei2" | null) =>
+      slot === "imei1" ? 0 : slot === "imei2" ? 1 : 2;
+    return slotOrder(left.slot) - slotOrder(right.slot);
+  });
+  for (const evidence of orderedImeiEvidence) {
+    const requestedSlot = evidence.slot;
+    const openSlot = !usedSlots.has("imei1")
+      ? "imei1"
+      : !usedSlots.has("imei2")
+        ? "imei2"
+        : "imei2";
+    const slot = requestedSlot ?? openSlot;
+    const previousValue = usedSlots.get(slot);
+    if (previousValue && previousValue !== evidence.value) {
+      conflicts.push({
+        target: "identifiers",
+        values: [previousValue, evidence.value],
+        sources: [...evidence.sources],
+      });
+      warnings.push(`${slot === "imei1" ? "IMEI 1" : "IMEI 2"} 识别到多个候选，请人工核对。`);
+    } else {
+      usedSlots.set(slot, evidence.value);
+    }
+    const source =
+      evidence.sources.size > 1 ? ("merged" as const) : ([...evidence.sources][0] ?? "ocr");
+    pushIdentifier(results, {
+      type: slot,
+      value: evidence.value,
+      confidence: previousValue && previousValue !== evidence.value ? "review" : "high",
+      evidence:
+        source === "merged"
+          ? "本地条码与 OCR 均通过 Luhn 校验"
+          : source === "barcode"
+            ? "本地条码与 Luhn 校验"
+            : "本地 OCR 与 Luhn 校验",
+      source,
+      validation: "valid",
+    });
+  }
+
+  return { identifiers: results.slice(0, 12), warnings, conflicts };
 }
 
 function pushIdentifier(

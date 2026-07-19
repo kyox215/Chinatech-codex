@@ -21,11 +21,8 @@ const mediaMocks = vi.hoisted(() => ({
   play: vi.fn(),
 }));
 
-const tesseractMocks = vi.hoisted(() => ({
-  createWorker: vi.fn(),
-  recognize: vi.fn(),
-  setParameters: vi.fn(),
-  terminate: vi.fn(),
+const localOcrMocks = vi.hoisted(() => ({
+  recognizeTextWithLocalOcr: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -41,8 +38,8 @@ vi.mock("@zxing/browser", () => ({
   }),
 }));
 
-vi.mock("tesseract.js", () => ({
-  createWorker: tesseractMocks.createWorker,
+vi.mock("@/features/capture/model/local-ocr", () => ({
+  recognizeTextWithLocalOcr: localOcrMocks.recognizeTextWithLocalOcr,
 }));
 
 beforeAll(() => {
@@ -66,18 +63,8 @@ beforeEach(() => {
   zxingMocks.stop.mockReset();
   mediaMocks.play.mockReset();
   mediaMocks.play.mockResolvedValue(undefined);
-  tesseractMocks.createWorker.mockReset();
-  tesseractMocks.recognize.mockReset();
-  tesseractMocks.setParameters.mockReset();
-  tesseractMocks.terminate.mockReset();
-  tesseractMocks.recognize.mockResolvedValue({ data: { text: "" } });
-  tesseractMocks.setParameters.mockResolvedValue(undefined);
-  tesseractMocks.terminate.mockResolvedValue(undefined);
-  tesseractMocks.createWorker.mockResolvedValue({
-    recognize: tesseractMocks.recognize,
-    setParameters: tesseractMocks.setParameters,
-    terminate: tesseractMocks.terminate,
-  });
+  localOcrMocks.recognizeTextWithLocalOcr.mockReset();
+  localOcrMocks.recognizeTextWithLocalOcr.mockResolvedValue("");
   window.localStorage.clear();
   Object.defineProperty(HTMLMediaElement.prototype, "play", {
     configurable: true,
@@ -950,7 +937,7 @@ describe("ImeiScannerField", () => {
     }
   });
 
-  it("uses Tesseract OCR when browser-native OCR is unavailable", async () => {
+  it("uses the bounded same-origin OCR helper when browser-native OCR is unavailable", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
@@ -963,9 +950,9 @@ describe("ImeiScannerField", () => {
 
     zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
     zxingMocks.decodeFromImageElement.mockRejectedValue(new Error("decoder failed internally"));
-    tesseractMocks.recognize.mockResolvedValue({
-      data: { text: "IMEI1 490154203237518\nIMEI2 356938035643809" },
-    });
+    localOcrMocks.recognizeTextWithLocalOcr.mockResolvedValue(
+      "IMEI1 490154203237518\nIMEI2 356938035643809",
+    );
     Object.defineProperty(HTMLImageElement.prototype, "decode", {
       configurable: true,
       value: vi.fn().mockResolvedValue(undefined),
@@ -997,8 +984,10 @@ describe("ImeiScannerField", () => {
           ),
         { timeout: 4000 },
       );
-      expect(tesseractMocks.createWorker).toHaveBeenCalledWith("eng");
-      expect(tesseractMocks.terminate).toHaveBeenCalled();
+      expect(localOcrMocks.recognizeTextWithLocalOcr).toHaveBeenCalledWith(
+        "blob:imei-photo-tesseract",
+        { timeoutMs: 32_000 },
+      );
       expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
     } finally {

@@ -22,6 +22,7 @@ describe("local AI inventory recognition", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     delete (window as Window & { BarcodeDetector?: unknown }).BarcodeDetector;
     delete (window as Window & { TextDetector?: unknown }).TextDetector;
   });
@@ -81,6 +82,62 @@ describe("local AI inventory recognition", () => {
     );
     expect(zxingMocks.BrowserMultiFormatReader).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("uses a terminable ZXing worker when iPhone has no native BarcodeDetector", async () => {
+    const terminate = vi.fn();
+    class SyntheticWorker {
+      onmessage: ((event: MessageEvent<{ id: string; values: string[] }>) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(message: { id: string }) {
+        queueMicrotask(() =>
+          this.onmessage?.({
+            data: { id: message.id, values: ["490154203237518"] },
+          } as MessageEvent<{ id: string; values: string[] }>),
+        );
+      }
+      terminate = terminate;
+    }
+    vi.stubGlobal("Worker", SyntheticWorker);
+    vi.stubGlobal("crypto", { randomUUID: () => "00000000-0000-4000-8000-000000000014" });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+      getImageData: () => ({ data: new Uint8ClampedArray(400) }),
+    } as unknown as CanvasRenderingContext2D);
+    Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", {
+      configurable: true,
+      get: () => 10,
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "naturalHeight", {
+      configurable: true,
+      get: () => 10,
+    });
+    Object.defineProperty(window, "TextDetector", {
+      configurable: true,
+      value: vi.fn(function TextDetectorMock() {
+        return {
+          detect: vi
+            .fn()
+            .mockResolvedValue([
+              { rawValue: "REDMI A7 Pro Black" },
+              { rawValue: "4GB RAM 64GB ROM" },
+            ]),
+        };
+      }),
+    });
+
+    const result = await recognizeAiInventoryImageLocally({ previewUrl: "blob:local-safe" });
+
+    expect(result.identifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "imei1",
+          value: "490154203237518",
+          validation: "valid",
+        }),
+      ]),
+    );
+    expect(terminate).toHaveBeenCalledOnce();
   });
 
   it("degrades to safe warnings when both local detectors fail", async () => {

@@ -3,6 +3,11 @@ import path from "node:path";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import {
+  inventoryLocalImeiValue,
+  makeInventoryLocalLabelFile,
+} from "./support/inventory-local-label-file";
+
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir = process.env.AI_ASSISTANT_EVIDENCE_DIR;
 
@@ -176,6 +181,78 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
 });
 
 test.describe("inventory V2 inline Vision flow remains bounded and optional", () => {
+  test("iPhone-compatible workers read one real synthetic label with same-origin assets only", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "BarcodeDetector", { configurable: true, value: undefined });
+      Object.defineProperty(window, "TextDetector", { configurable: true, value: undefined });
+    });
+    await installInventoryCreateCounter(page);
+    await installVisionRequestCounter(page);
+    const assetRequests: string[] = [];
+    const forbiddenExternalOcrRequests: string[] = [];
+    page.on("request", (request) => {
+      const url = request.url();
+      if (url.includes("/vendor/tesseract/v7.0.0/")) assetRequests.push(url);
+      if (/jsdelivr|projectnaptha|tessdata/i.test(new URL(url).hostname)) {
+        forbiddenExternalOcrRequests.push(url);
+      }
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoV2VisionStep(page);
+
+    await page.getByLabel("选择图片").setInputFiles(await makeInventoryLocalLabelFile());
+
+    await expect(page.getByText(/完整标签未上传/)).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.getByText(new RegExp(`•${inventoryLocalImeiValue.slice(-4)}$`)),
+    ).toBeVisible();
+    expect(await visionRequestCount(page)).toBe(0);
+    expect(await inventoryCreateRequestCount(page)).toBe(0);
+    expect(assetRequests.some((url) => url.endsWith("/worker.min.js"))).toBe(true);
+    expect(assetRequests.some((url) => url.endsWith("/eng.traineddata.gz"))).toBe(true);
+    expect(forbiddenExternalOcrRequests).toEqual([]);
+    await expectNoHorizontalOverflow(page);
+    await saveEvidence(page, "vision-v2-390-real-worker-local-only.png");
+  });
+
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`${viewport.width}px gets specifications and a masked IMEI from one local-only photo`, async ({
+      page,
+    }) => {
+      await installSyntheticLocalDetectors(page);
+      await installInventoryCreateCounter(page);
+      await installVisionRequestCounter(page);
+      await page.setViewportSize(viewport);
+      await gotoV2VisionStep(page);
+
+      await page.getByLabel("选择图片").setInputFiles({
+        name: "synthetic-v2-local-label.png",
+        mimeType: "image/png",
+        buffer: await createSyntheticPng(page),
+      });
+
+      await expect(page.getByText(/完整标签未上传/)).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/•0002$/)).toBeVisible();
+      expect(await visionRequestCount(page)).toBe(0);
+      expect(await inventoryCreateRequestCount(page)).toBe(0);
+      await expectNoHorizontalOverflow(page);
+      await saveEvidence(page, `vision-v2-${viewport.width}-local-spec-imei-review.png`);
+
+      await page.getByRole("button", { name: "确认并应用所选候选" }).click();
+      await visibleNextButton(page).click();
+      await expect(page.getByRole("heading", { name: "填写型号与唯一标识" })).toBeVisible();
+      await expect(page.getByPlaceholder("iPhone 15 Pro")).toHaveValue("A7 Pro");
+      await expect(page.getByPlaceholder("扫描或输入").first()).toHaveValue("990000000000002");
+      expect(await inventoryCreateRequestCount(page)).toBe(0);
+    });
+  }
+
   for (const viewport of [
     { width: 1280, height: 800 },
     { width: 390, height: 844 },
@@ -195,9 +272,16 @@ test.describe("inventory V2 inline Vision flow remains bounded and optional", ()
         buffer: await createSyntheticPng(page),
       });
 
-      await expect(page.getByText("第 3/3 步：正在请求云端识别包装规格…")).toBeVisible();
+      await expect(page.getByText(/请调整并预览只含规格的裁剪/)).toBeVisible();
       await expect(visibleNextButton(page)).toBeEnabled();
-      await expect(page.getByText("AI 仅生成候选，请取消不正确的项目后再确认应用。")).toBeVisible({
+      expect(await visionRequestCount(page)).toBe(0);
+      await page.getByRole("button", { name: "生成发送预览" }).click();
+      await expect(page.getByAltText("将发送给 AI 的规格裁剪预览")).toBeVisible();
+      expect(await visionRequestCount(page)).toBe(0);
+      await page.getByLabel(/我已检查/).check();
+      await page.getByRole("button", { name: "确认并识别规格" }).click();
+      await expect(page.getByText(/正在发送已确认的规格裁剪/)).toBeVisible();
+      await expect(page.getByText(/规格裁剪与本地标识候选已合并/)).toBeVisible({
         timeout: 20_000,
       });
       expect(await visionRequestCount(page)).toBe(1);
@@ -209,6 +293,8 @@ test.describe("inventory V2 inline Vision flow remains bounded and optional", ()
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
       expect(request.image_data_url).toMatch(/^data:image\/jpeg;base64,/);
+      expect(request.width).toBeLessThan(64);
+      expect(request.height).toBeLessThan(32);
       expect(request).not.toHaveProperty("store_id");
       expect(request).not.toHaveProperty("identifiers");
       await expectNoHorizontalOverflow(page);
@@ -239,7 +325,11 @@ test.describe("inventory V2 inline Vision flow remains bounded and optional", ()
       mimeType: "image/png",
       buffer: await createSyntheticPng(page),
     });
-    await expect(page.getByText("第 3/3 步：正在请求云端识别包装规格…")).toBeVisible();
+    await expect(page.getByText(/请调整并预览只含规格的裁剪/)).toBeVisible();
+    await page.getByRole("button", { name: "生成发送预览" }).click();
+    await page.getByLabel(/我已检查/).check();
+    await page.getByRole("button", { name: "确认并识别规格" }).click();
+    await expect(page.getByText(/正在发送已确认的规格裁剪/)).toBeVisible();
     expect(await visionRequestCount(page)).toBe(1);
     await visibleNextButton(page).click();
 
@@ -354,6 +444,8 @@ async function installMockCloudVision(page: Page, delayMs = 0) {
         image_data_url?: string;
         mime_type?: string;
         locale?: string;
+        width?: number;
+        height?: number;
       };
       const testWindow = window as typeof window & {
         __visionRequestCount?: number;
@@ -559,6 +651,8 @@ async function lastVisionRequestPayload(page: Page) {
             image_data_url?: string;
             mime_type?: string;
             locale?: string;
+            width?: number;
+            height?: number;
           };
         }
       ).__lastVisionRequestPayload ?? {},

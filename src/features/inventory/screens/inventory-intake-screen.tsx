@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -37,6 +38,10 @@ import {
 } from "@/features/inventory/components/inventory-v2-vision-draft";
 import { resolveInventoryIntakeRoute } from "@/features/inventory/model/inventory-intake-route";
 import { createInventoryUnitV2InputSchema } from "@/features/inventory/model/inventory-v2-intake-contract";
+import {
+  mergeVisionIdentifiersWithoutOverwrite,
+  preferExistingInventoryValue,
+} from "@/features/inventory/model/inventory-v2-vision-merge";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import { createInventoryUnitV2, listSuppliers, searchCustomers } from "@/lib/repairdesk/api";
@@ -206,15 +211,18 @@ export function InventoryIntakeScreen() {
   function applyVision(vision: InventoryV2VisionDraft) {
     setDraft((current) => ({
       ...current,
-      brand: vision.brand ?? current.brand,
-      model: vision.model ?? current.model,
-      color: vision.color ?? current.color,
-      ram_capacity: vision.ram_capacity ?? current.ram_capacity,
-      storage_capacity: vision.storage_capacity ?? current.storage_capacity,
-      identifiers: vision.identifiers.length ? vision.identifiers : current.identifiers,
+      brand: preferExistingInventoryValue(current.brand, vision.brand),
+      model: preferExistingInventoryValue(current.model, vision.model),
+      color: preferExistingInventoryValue(current.color, vision.color),
+      ram_capacity: preferExistingInventoryValue(current.ram_capacity, vision.ram_capacity),
+      storage_capacity: preferExistingInventoryValue(
+        current.storage_capacity,
+        vision.storage_capacity,
+      ),
+      identifiers: mergeVisionIdentifiersWithoutOverwrite(current.identifiers, vision.identifiers),
       standardization_status: "needs_review",
     }));
-    toast.success("已应用人工确认的 AI 候选");
+    toast.success("已合并确认候选；已有手工内容未被覆盖");
   }
 
   function addIdentifier() {
@@ -515,14 +523,11 @@ export function InventoryIntakeScreen() {
                         </option>
                       ))}
                     </select>
-                    <Input
-                      className={inputClass}
+                    <ImeiScannerField
                       value={identifier.value}
-                      onChange={(event) =>
-                        updateIdentifier(index, { value: event.target.value, source: "manual" })
-                      }
+                      onChange={(value) => updateIdentifier(index, { value, source: "manual" })}
                       placeholder="扫描或输入"
-                      autoCapitalize="characters"
+                      density="compact"
                     />
                     <Button
                       type="button"

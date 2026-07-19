@@ -1,7 +1,8 @@
 # Chinatech AI 图片标签识别单店发布手册
 
-Status: ChinaTech Vision live; 30-minute observation passed; 24-hour review pending
+Status: ChinaTech Vision live; local one-photo IMEI extension release candidate
 Task: `TASK-20260719-001-ai-inventory-live-provider`
+Related extension: `TASK-20260719-008-inventory-imei-one-capture`
 Last verified: 2026-07-19 CEST
 
 ## 当前结论
@@ -11,6 +12,10 @@ Last verified: 2026-07-19 CEST
 本候选已把库存标签识别接到既有原生 `fetch` Responses provider，并保留手工入库：浏览器先解码、去元数据和重编码；服务端再次完整解码单帧、限制像素/边长、旋转、铺白并生成无元数据 JPEG。只有服务端衍生图可以参与请求指纹、预算预留和 OpenAI 调用。识别结果只能成为员工逐字段确认的未保存草稿，成本、售价、来源、IMEI/SN 与正式保存不由云端 AI 完成。
 
 首次手机端尝试曾被前端生命周期清理自取消，界面持续停留在处理中，但请求没有到达 BFF、Supabase reservation 或 OpenAI。`main@50f843dd` 已通过 ref/run-id 生命周期、8 秒 FileReader 和 75 秒全链路 watchdog 修复该根因，并从可选图片路径移除不可抢占的主线程 ZXing 回退。
+
+本次 one-photo 扩展允许员工在 Inventory V2 第 2 步拍一张完整包装标签：浏览器先用原生 Detector，缺失时再用可终止的同源 ZXing Worker 与固定版本同源 Tesseract Worker 读取规格、IMEI、SN 和 EAN。完整照片、完整条码和原始 OCR 文本只存在于浏览器临时内存，不会被序列化、排队或发送。IMEI 默认遮罩显示，通过 Luhn 校验后才可选；同图同时存在 EAN 与 IMEI 时默认以 IMEI 为主标识。任何候选都仍需员工确认，并且只合并进未保存草稿，不覆盖已手工填写的内容。
+
+只有本地规格不完整时才显示第二条路径：员工必须调整规格裁剪、生成独立去元数据预览，并勾选确认预览不含 IMEI、SN、EAN、人物或 PII，应用才会把该裁剪发送给既有 Vision BFF。完整标签 Blob 没有进入该请求路径；离线时本地候选会保留且不会排队上传。该扩展不改变 Supabase schema、预算、provider、模型、门店 allowlist 或每日图片额度。
 
 2026-07-19 的正式 smoke 只发送一张事先目检的合成规格标签，返回 `NOVA / A7 PRO / BLUE / 8 GB / 256 GB`。账本与审计各精确增加 `1`，唯一 provider attempt 成功并按 usage 结算 `5713` micro-USD；open/bad/cross-store 为 `0`，库存基线与事后均为 `4`。没有发送真实图片、客户资料、条码或设备标识符，也没有自动保存库存。30 分钟观察从 reservation `2026-07-19T13:11:21.021029Z` 持续到最终聚合 `2026-07-19T13:42:19.925504Z`，请求/attempt/audit 保持 `1/1/1`，运行错误、未结算、失败、跨店与库存写入均为 `0`，正式域名保持 READY。24 小时仍需只读复核。
 
@@ -35,11 +40,13 @@ Owner 于 2026-07-19 明确批准 Vision 第一轮复用订单文字 D4-v2 的�
 
 ### 图片数据边界
 
-允许：员工主动拍摄或选择、只包含包装标签上品牌、型号、颜色、RAM 与存储容量的紧裁切区域。
+本地允许：员工主动拍摄或选择完整包装标签，用于浏览器内读取品牌、型号、颜色、RAM、存储容量、IMEI、SN 与 EAN。完整标签只能停留在浏览器临时内存；关闭、删除、重新选图、超时或离开步骤时必须终止 Worker 并释放对象 URL。
+
+云端允许：员工主动调整、预览并明确确认、只包含包装标签上品牌、型号、颜色、RAM 与存储容量的紧裁切区域。
 
 禁止：人物或人脸、证件、客户姓名/电话/邮箱、收据或地址、设备屏幕内容、支付资料、维修单、IMEI、SN、EAN/条码以及任何无关背景。IMEI/SN/EAN 只走本地扫描或手工录入；首版云端响应 Schema 强制 `identifiers=[]`。
 
-客户端与服务端都会重编码和去元数据，应用不保存原图，provider 请求使用 `store:false`。首版请求与响应结构不携带标识符字段，但软件不能自动证明员工所选像素中绝对没有 IMEI、SN、EAN、条码或其他禁止内容；因此唯一一次正式 smoke 必须使用事先由员工人工检查、只含虚构品牌/型号/RAM/容量文字的合成规格图。任何真实图片都必须由员工先紧裁切并目视确认数据边界。
+客户端与服务端都会重编码和去元数据，应用不保存原图，provider 请求使用 `store:false`。首版请求与响应结构不携带标识符字段，但软件不能自动证明员工所选像素中绝对没有 IMEI、SN、EAN、条码或其他禁止内容；因此发送按钮前必须人工检查独立的规格裁剪预览。正式 smoke 继续使用事先由员工人工检查、只含虚构品牌/型号/RAM/容量文字的合成规格图。任何真实图片都只能在确认后的规格裁剪符合上述边界时外发。
 
 `store:false` 不等于 Zero Data Retention；默认安全监控可能保留输入/输出最多约 30 天。Owner 仍需确认该边界以及适用的 DPA、法律基础、员工告知、数据区域/跨境与删除流程。
 
@@ -76,6 +83,14 @@ OPENAI_API_BASE_URL=https://api.openai.com/v1
 AI_ASSISTANT_USAGE_RETENTION_DAYS=90
 ```
 
+one-photo 本地识别默认开启，不需要新的 secret。紧急停用 iPhone 的 ZXing/Tesseract 回退时，在 Vercel 设置下列构建时变量并重新部署；原生浏览器 Detector、手工扫描和手工录入仍可使用：
+
+```dotenv
+NEXT_PUBLIC_INVENTORY_LOCAL_IMEI_RECOGNITION=0
+```
+
+重新设为 `1` 或删除该变量并重新部署即可恢复。OCR 运行文件由锁定的 npm 包在 `prebuild` 阶段复制到 `/vendor/tesseract/v7.0.0/`；不得改回 Tesseract 默认 CDN 路径。具体资产合同见 `docs/LOCAL_OCR_ASSETS.md`。
+
 休眠部署和 smoke 前预检期间，生产保持 `AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=0`、`AI_VISION_INTAKE_ENABLED=0`、`AI_DRAFT_APPLY_ENABLED=0`；订单文字任务拥有的 master/order/maintenance/allowlist 状态不得由本任务回退或覆盖。预检通过并记录零用量基线后，才把前三项分别切为 `1`、重新部署，并再次证明 allowlist 只有 Chinatech、`AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED=0`。这次短时开放只授权紧接着执行的一次正式 UI smoke；任一检查不符必须立即 flags-first 回退，不得重试。
 
 Production secrets 只允许从平台 secret store 注入：`OPENAI_API_KEY`、`AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET`、`AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET`、`CRON_SECRET`。它们必须各自独立；API Key 也不得与任一 HMAC secret 相同。不得放入 Git、任务记忆、日志、截图、浏览器 Bundle 或 `NEXT_PUBLIC_*`。
@@ -101,5 +116,7 @@ Production secrets 只允许从平台 secret store 注入：`OPENAI_API_KEY`、`
 3. 必要时回滚 Web exact SHA，但保留既有 v2 policy 与已验证订单文字功能；
 4. 只有共享 provider/预算/权限边界失守时才关闭 `AI_ASSISTANT_ENABLED` 或停用 v2 policy；
 5. 怀疑 secret 暴露时轮换对应 secret，再更新平台并重新部署。
+
+若问题仅发生在 iPhone 本地 IMEI/OCR Worker，不涉及外发、预算或权限边界，优先设置 `NEXT_PUBLIC_INVENTORY_LOCAL_IMEI_RECOGNITION=0` 并重新部署；这会回退到原生 Detector 或手工扫描/录入，不需要数据库回滚。若怀疑完整标签进入网络请求、外部日志或 provider，必须按上面的三项 Vision flags-first 回退处理，并保留证据调查，不能只关闭本地 Worker。
 
 不得用 DROP/DELETE 清理治理账本，也不得用重新创建 Key 代替根因调查。

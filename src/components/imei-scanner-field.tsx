@@ -21,6 +21,7 @@ import {
   type ImeiCandidate,
   type ImeiCaptureSource,
 } from "@/features/capture/model/barcode-parser";
+import { recognizeTextWithLocalOcr } from "@/features/capture/model/local-ocr";
 import { cn } from "@/lib/utils";
 import { imeiKeyboardProps } from "@/shared/lib/mobile-input";
 
@@ -79,7 +80,7 @@ type VideoFrameCaptureOptions = {
 const imeiImageMaxBytes = 8 * 1024 * 1024;
 const imeiBarcodeDecodeTimeoutMs = 2500;
 const imeiFastBarcodeDecodeTimeoutMs = 450;
-const imeiOcrDecodeTimeoutMs = 8500;
+const imeiOcrDecodeTimeoutMs = 32_000;
 const imeiCenterCropRecognitionScale = 1.8;
 const imeiCenterCropScanIntervalMs = 250;
 const imeiCameraAccessPreferenceKey = "repairdesk:imei-camera-access:v1";
@@ -1306,22 +1307,7 @@ async function detectTextFromImageElement(image: HTMLImageElement) {
 }
 
 async function detectTextWithTesseract(image: HTMLImageElement) {
-  const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng");
-  try {
-    const configurableWorker = worker as unknown as {
-      setParameters?: (parameters: Record<string, string>) => Promise<unknown>;
-    };
-    await configurableWorker.setParameters?.({
-      preserve_interword_spaces: "1",
-      tessedit_char_whitelist:
-        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz:/-_. ",
-    });
-    const result = await worker.recognize(image.src);
-    return result.data.text?.trim() ?? "";
-  } finally {
-    await worker.terminate();
-  }
+  return recognizeTextWithLocalOcr(image.src, { timeoutMs: imeiOcrDecodeTimeoutMs });
 }
 
 async function withImageRecognitionTimeout<T>(

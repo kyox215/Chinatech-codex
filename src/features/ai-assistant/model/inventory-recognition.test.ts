@@ -27,10 +27,31 @@ describe("inventory recognition merge", () => {
       storage_capacity: { value: "64 GB", confidence: "review", source: "ocr" },
     });
     expect(recognition.identifiers).toHaveLength(2);
+    expect(recognition.identifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "imei1", value: "990000000000002" }),
+        expect.objectContaining({ type: "imei2", value: "990000000000010" }),
+      ]),
+    );
     expect(recognition.identifiers.every((candidate) => candidate.validation === "valid")).toBe(
       true,
     );
     expect(recognition.label_claim_only).toBe(true);
+  });
+
+  it("preserves explicit IMEI1 and IMEI2 labels even when OCR order is reversed", () => {
+    const recognition = buildLocalInventoryRecognition({
+      ocrText: "IMEI2: 990000000000010\nIMEI1: 990000000000002",
+      barcodeValues: ["990000000000010", "990000000000002"],
+    });
+
+    expect(recognition.identifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "imei1", value: "990000000000002" }),
+        expect.objectContaining({ type: "imei2", value: "990000000000010" }),
+      ]),
+    );
+    expect(recognition.conflicts).toEqual([]);
   });
 
   it("marks invalid IMEI candidates and keeps valid GTIN evidence separate", () => {
