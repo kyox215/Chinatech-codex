@@ -78,8 +78,7 @@ export const detailWorkspace = {
   flatPanelMuted:
     "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 shadow-none sm:p-3",
   compactDetailGrid: "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
-  orderDetailGrid:
-    "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
+  orderDetailGrid: "lg:grid-cols-[minmax(190px,0.9fr)_minmax(300px,1.28fr)_minmax(220px,0.92fr)]",
   orderDetailSecondaryGrid:
     "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
 } as const;

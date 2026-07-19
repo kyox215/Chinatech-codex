@@ -218,14 +218,16 @@ export function OrderOverviewTab({
       </div>
 
       <div className="hidden min-w-0 space-y-2 md:block">
-        <OrderOverviewDesktopContextStrip
-          order={order}
-          supplier={supplier}
-          storeSettings={storeSettings}
-          events={events}
-          workflow={workflow}
-          onShowRecords={onShowRecords}
-        />
+        {surface !== "dialog" ? (
+          <OrderOverviewDesktopContextStrip
+            order={order}
+            supplier={supplier}
+            storeSettings={storeSettings}
+            events={events}
+            workflow={workflow}
+            onShowRecords={onShowRecords}
+          />
+        ) : null}
 
         <div
           data-order-detail-main-grid="true"
@@ -270,38 +272,35 @@ export function OrderOverviewTab({
             surface={surface}
           />
         </div>
-        <div
-          data-order-detail-secondary-grid="true"
-          className={cn(
-            "grid min-w-0 gap-2 md:grid-cols-2",
-            surface === "dialog"
-              ? detailWorkspace.orderDetailSecondaryGrid
-              : "lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
-          )}
-        >
-          <OrderKeyInfoCard
-            order={order}
-            supplier={supplier}
-            surface={surface}
-            className="h-full"
-          />
-          <DesktopOrderPhotosPanel
-            attachments={photoAttachments}
-            uploadPending={photoUploadPending}
-            onCapture={onPhotoCapture}
-            surface={surface}
-            className="h-full"
-          />
-          <DesktopRecordsSummaryPanel
-            events={events}
-            messages={messages}
-            workflow={workflow}
-            surface={surface}
-            onShowRecords={onShowRecords}
-          />
-        </div>
+        {surface !== "dialog" ? (
+          <div
+            data-order-detail-secondary-grid="true"
+            className="grid min-w-0 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]"
+          >
+            <OrderKeyInfoCard
+              order={order}
+              supplier={supplier}
+              surface={surface}
+              className="h-full"
+            />
+            <DesktopOrderPhotosPanel
+              attachments={photoAttachments}
+              uploadPending={photoUploadPending}
+              onCapture={onPhotoCapture}
+              surface={surface}
+              className="h-full"
+            />
+            <DesktopRecordsSummaryPanel
+              events={events}
+              messages={messages}
+              workflow={workflow}
+              surface={surface}
+              onShowRecords={onShowRecords}
+            />
+          </div>
+        ) : null}
       </div>
-      {canReadInternalCosts && activeStoreId ? (
+      {surface !== "dialog" && canReadInternalCosts && activeStoreId ? (
         <OrderInternalCostCard
           orderId={order.id}
           storeId={activeStoreId}
@@ -857,7 +856,7 @@ function OrderOverviewFinancePanel({
   );
 }
 
-function DesktopOrderPhotosPanel({
+export function DesktopOrderPhotosPanel({
   attachments,
   uploadPending,
   onCapture,

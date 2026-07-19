@@ -71,7 +71,7 @@ test.describe("responsive overflow guard", () => {
     const overviewBox = await dialog.boundingBox();
     expect(overviewBox).not.toBeNull();
 
-    await dialog.getByRole("button", { name: "记录", exact: true }).click();
+    await dialog.getByRole("tab", { name: /记录与信息/ }).click();
     await expect(dialog.locator('[data-order-records-workspace="true"]')).toBeVisible();
     await page.waitForTimeout(250);
     const recordsBox = await dialog.boundingBox();

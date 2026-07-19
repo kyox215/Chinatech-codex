@@ -275,85 +275,164 @@ export function OrderHero({
         </div>
 
         <section className="min-w-0">
-          <div className="mb-0.5 flex min-w-0 items-center justify-between gap-2">
-            <div className="min-w-0">
-              <span className="text-[10px] font-medium text-muted-foreground">当前流程</span>
-              <span className="ml-1.5 text-xs font-semibold text-primary">{activeStage.label}</span>
-            </div>
-            <div className="flex min-w-0 items-center justify-end gap-1.5 text-right leading-4">
-              <span className="hidden text-[10px] text-muted-foreground sm:inline">下一步</span>
-              <span
-                className="max-w-[10rem] truncate text-xs font-semibold"
-                title={taskHint ?? guidance.task}
-              >
-                {primaryActionLabel}
-              </span>
-              {missingCount ? (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground">
-                  <AlertTriangle className="size-3" /> 缺 {missingCount}
-                </span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground">
-                  就绪
-                </span>
-              )}
-            </div>
-          </div>
-          <div
-            data-order-stage-rail="true"
-            className="relative min-w-0 overflow-hidden px-1 py-0.5"
-          >
-            <div className="absolute left-6 right-6 top-[11px] h-0.5 rounded-full bg-border/70" />
+          {surface === "dialog" ? (
             <div
-              className="absolute left-6 top-[11px] h-0.5 max-w-[calc(100%-3rem)] rounded-full bg-primary transition-all"
-              style={{ width: `${progressPercent}%` }}
-            />
-            <div className="relative grid gap-1" style={stageGridStyle}>
-              {orderTaskStages.map((stage, index) => {
-                const completed = index < safeCurrentStageIndex;
-                const active = index === safeCurrentStageIndex;
-                const displayStage = active ? activeStage : stage;
-                return (
-                  <div key={stage.key} className="min-w-0 text-center">
-                    <span
-                      className={cn(
-                        "mx-auto grid place-items-center rounded-full border bg-card text-[8px] font-semibold shadow-sm",
-                        "size-4",
-                        completed && "border-primary bg-primary text-primary-foreground",
-                        active &&
-                          "border-primary bg-primary/10 text-primary ring-1 ring-primary/25",
-                        !completed &&
-                          !active &&
-                          "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-muted-foreground",
-                      )}
-                    >
-                      {completed ? <Check className="size-3" /> : index + 1}
-                    </span>
-                    <p
-                      className={cn(
-                        "mt-0.5 truncate text-[8px] leading-[9px] text-muted-foreground",
-                        active && "font-semibold text-primary",
-                      )}
-                    >
-                      {displayStage.label}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {missingItems.length ? (
-            <div data-order-readiness="true" className="mt-1 flex min-w-0 flex-wrap gap-1">
-              {missingItems.map((item) => (
-                <span
-                  key={item.label}
-                  className="truncate rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-warn-foreground"
-                >
-                  缺 {item.label}
+              data-order-progress-compact="true"
+              className="flex h-7 min-w-0 items-center gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2"
+            >
+              <div className="flex min-w-0 shrink items-center gap-1 text-[10px]">
+                <span className="shrink-0 text-muted-foreground">当前</span>
+                <span className="truncate font-semibold text-primary">{activeStage.label}</span>
+              </div>
+              <div
+                data-order-stage-rail="true"
+                role="list"
+                aria-label={`工单进度，当前阶段：${activeStage.label}`}
+                className="relative min-w-[130px] flex-1 px-1"
+              >
+                <div className="absolute left-2 right-2 top-1/2 h-px -translate-y-1/2 rounded-full bg-border/80" />
+                <div
+                  className="absolute left-2 top-1/2 h-0.5 max-w-[calc(100%-1rem)] -translate-y-1/2 rounded-full bg-primary transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+                <div className="relative grid items-center gap-1" style={stageGridStyle}>
+                  {orderTaskStages.map((stage, index) => {
+                    const completed = index < safeCurrentStageIndex;
+                    const active = index === safeCurrentStageIndex;
+                    const displayStage = active ? activeStage : stage;
+                    return (
+                      <span
+                        key={stage.key}
+                        role="listitem"
+                        aria-current={active ? "step" : undefined}
+                        aria-label={`${index + 1}. ${displayStage.label}${completed ? "，已完成" : active ? "，当前阶段" : "，未完成"}`}
+                        title={displayStage.label}
+                        className={cn(
+                          "mx-auto grid size-3.5 place-items-center rounded-full border bg-card text-[7px] font-semibold leading-none shadow-sm",
+                          completed && "border-primary bg-primary text-primary-foreground",
+                          active &&
+                            "border-primary bg-primary/10 text-primary ring-1 ring-primary/25",
+                          !completed &&
+                            !active &&
+                            "border-[var(--border-panel)] bg-[var(--surface-panel)] text-muted-foreground",
+                        )}
+                      >
+                        {completed ? <Check className="size-2.5" aria-hidden="true" /> : index + 1}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex min-w-0 shrink items-center justify-end gap-1 text-right">
+                <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:inline">
+                  下一步
                 </span>
-              ))}
+                <span
+                  className="max-w-[9rem] truncate text-[11px] font-semibold"
+                  title={taskHint ?? guidance.task}
+                >
+                  {primaryActionLabel}
+                </span>
+                {missingCount ? (
+                  <span
+                    data-order-readiness="true"
+                    className="shrink-0 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground"
+                    title={missingItems.map((item) => `缺 ${item.label}`).join("、")}
+                  >
+                    缺 {missingCount}
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground">
+                    就绪
+                  </span>
+                )}
+              </div>
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div className="mb-0.5 flex min-w-0 items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-medium text-muted-foreground">当前流程</span>
+                  <span className="ml-1.5 text-xs font-semibold text-primary">
+                    {activeStage.label}
+                  </span>
+                </div>
+                <div className="flex min-w-0 items-center justify-end gap-1.5 text-right leading-4">
+                  <span className="hidden text-[10px] text-muted-foreground sm:inline">下一步</span>
+                  <span
+                    className="max-w-[10rem] truncate text-xs font-semibold"
+                    title={taskHint ?? guidance.task}
+                  >
+                    {primaryActionLabel}
+                  </span>
+                  {missingCount ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground">
+                      <AlertTriangle className="size-3" /> 缺 {missingCount}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground">
+                      就绪
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div
+                data-order-stage-rail="true"
+                className="relative min-w-0 overflow-hidden px-1 py-0.5"
+              >
+                <div className="absolute left-6 right-6 top-[11px] h-0.5 rounded-full bg-border/70" />
+                <div
+                  className="absolute left-6 top-[11px] h-0.5 max-w-[calc(100%-3rem)] rounded-full bg-primary transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+                <div className="relative grid gap-1" style={stageGridStyle}>
+                  {orderTaskStages.map((stage, index) => {
+                    const completed = index < safeCurrentStageIndex;
+                    const active = index === safeCurrentStageIndex;
+                    const displayStage = active ? activeStage : stage;
+                    return (
+                      <div key={stage.key} className="min-w-0 text-center">
+                        <span
+                          className={cn(
+                            "mx-auto grid place-items-center rounded-full border bg-card text-[8px] font-semibold shadow-sm",
+                            "size-4",
+                            completed && "border-primary bg-primary text-primary-foreground",
+                            active &&
+                              "border-primary bg-primary/10 text-primary ring-1 ring-primary/25",
+                            !completed &&
+                              !active &&
+                              "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-muted-foreground",
+                          )}
+                        >
+                          {completed ? <Check className="size-3" /> : index + 1}
+                        </span>
+                        <p
+                          className={cn(
+                            "mt-0.5 truncate text-[8px] leading-[9px] text-muted-foreground",
+                            active && "font-semibold text-primary",
+                          )}
+                        >
+                          {displayStage.label}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {missingItems.length ? (
+                <div data-order-readiness="true" className="mt-1 flex min-w-0 flex-wrap gap-1">
+                  {missingItems.map((item) => (
+                    <span
+                      key={item.label}
+                      className="truncate rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-warn-foreground"
+                    >
+                      缺 {item.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
         </section>
       </div>
     </div>

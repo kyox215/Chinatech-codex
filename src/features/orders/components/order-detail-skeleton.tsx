@@ -62,7 +62,7 @@ export function OrderDetailSkeleton({
         </div>
       ) : null}
       {surface === "dialog" && onClose ? (
-        <div className="mb-2 flex shrink-0 justify-end">
+        <div className="absolute right-4 top-4 z-10">
           <Button
             type="button"
             variant="outline"
@@ -77,12 +77,25 @@ export function OrderDetailSkeleton({
       ) : null}
 
       <div aria-hidden="true" className="flex min-h-0 flex-1 flex-col gap-2">
-        <Skeleton className="h-28 w-full shrink-0 rounded-xl md:h-32" />
-        <div className="grid min-h-0 flex-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <Skeleton
+          className={cn(
+            "w-full shrink-0 rounded-xl",
+            surface === "dialog" ? "h-20" : "h-28 md:h-32",
+          )}
+        />
+        {surface === "dialog" ? <Skeleton className="h-8 w-full shrink-0 rounded-lg" /> : null}
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 gap-2 md:grid-cols-2 xl:grid-cols-3",
+            surface === "dialog" && "lg:grid-cols-3",
+          )}
+        >
           <Skeleton className="h-44 rounded-xl md:h-52" />
           <Skeleton className="h-44 rounded-xl md:h-52" />
           <Skeleton className="h-48 rounded-xl md:h-52" />
-          <Skeleton className="h-36 rounded-xl md:col-span-2 xl:col-span-3" />
+          {surface !== "dialog" ? (
+            <Skeleton className="h-36 rounded-xl md:col-span-2 xl:col-span-3" />
+          ) : null}
         </div>
         <div className="grid shrink-0 grid-cols-3 gap-2">
           <Skeleton className="h-10 rounded-lg" />

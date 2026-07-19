@@ -87,13 +87,26 @@ test.describe("order desktop UI audit", () => {
         "工单桌面状态卡",
       );
       await expectFirstVisible(detail.locator('[data-order-stage-rail="true"]'), "工单阶段轨道");
+      const compactProgress = detail.locator('[data-order-progress-compact="true"]');
+      await expectFirstVisible(compactProgress, "工单紧凑进度带");
+      expect(
+        await compactProgress.evaluate((element) =>
+          Math.round(element.getBoundingClientRect().height),
+        ),
+        "工单紧凑进度带高度",
+      ).toBeLessThanOrEqual(36);
       if ((await detail.locator('[data-order-readiness="true"]').count()) > 0) {
         await expectFirstVisible(detail.locator('[data-order-readiness="true"]'), "工单就绪检查");
       }
       await expectFirstVisible(
-        detail.locator('[data-order-panel="key-info"]'),
-        "工单关键记录同页信息",
+        detail.locator('[data-order-detail-view-switcher="true"]'),
+        "工单详情视图切换",
       );
+      await expect(detail.getByRole("tab", { name: "概览" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(0);
       await expectFirstVisible(detail.getByText("客户信息"), "工单客户信息卡");
       await expectFirstVisible(detail.getByText("设备与故障"), "工单设备与故障卡");
       await expectFirstVisible(detail.getByText("报价处理"), "工单报价处理卡");
@@ -102,14 +115,30 @@ test.describe("order desktop UI audit", () => {
       await expectFirstVisible(detailMoneyStrip.getByText("总额").first(), "详情金额总额");
       await expectFirstVisible(detailMoneyStrip.getByText("定金").first(), "详情金额定金");
       await expectFirstVisible(detailMoneyStrip.getByText("尾款").first(), "详情金额尾款");
-      await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "工单设备照片卡");
+      await expect(detail.locator('[data-order-panel="photos"]')).toHaveCount(0);
+      await expect(detail.getByRole("tab", { name: "内部成本" })).toHaveCount(0);
+      await expect(detail.locator('[data-order-internal-costs="true"]')).toHaveCount(0);
       await expectFirstVisible(
         detail.locator('[data-order-detail-main-grid="true"]'),
         "工单桌面主网格",
       );
-      await expectFirstVisible(
-        detail.locator('[data-order-detail-secondary-grid="true"]'),
-        "工单桌面第二排摘要网格",
+      await expect(detail.locator('[data-order-detail-secondary-grid="true"]')).toHaveCount(0);
+      const overviewColumns = await detail
+        .locator('[data-order-detail-main-grid="true"]')
+        .evaluate(
+          (element) =>
+            window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
+        );
+      expect(overviewColumns, `工单概览三栏 at ${viewport.width}px`).toBe(3);
+      const overviewDensity = await detail
+        .locator('[data-order-desktop-single-workspace="true"]')
+        .evaluate((workspace) => {
+          const scroller = workspace.parentElement;
+          if (!scroller) return Number.POSITIVE_INFINITY;
+          return scroller.scrollHeight - scroller.clientHeight;
+        });
+      expect(overviewDensity, `工单默认概览纵向滚动差 at ${viewport.width}px`).toBeLessThanOrEqual(
+        1,
       );
       await expectFirstVisible(
         detail.locator('[data-order-action-dock="true"]'),
@@ -122,6 +151,12 @@ test.describe("order desktop UI audit", () => {
         "工单底部动作栏",
       );
       await expectDesktopPanelsReadable(detail, viewport.width);
+      if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
+        await page.screenshot({
+          path: "screenshots/TASK-20260719-003-order-detail-desktop-density-release/desktop-overview-1440.png",
+          fullPage: false,
+        });
+      }
 
       const hero = detail.locator('[data-order-hero="true"]');
       await expectVisibleButtonCount(hero.getByRole("button", { name: "打印" }), 1, "详情打印");
@@ -191,6 +226,11 @@ test.describe("order desktop UI audit", () => {
           await expectFirstVisible(transitionPanel, "桌面内嵌流转面板");
           await expect(page.getByRole("dialog", { name: "状态流转" })).toHaveCount(0);
           await expectNoPageOverflow(page, "/orders transition inline panel", viewport.width);
+          await clickFirstVisible(
+            transitionPanel.getByRole("button", { name: "收起状态流转" }),
+            "收起状态流转",
+          );
+          await expect(transitionPanel).toHaveCount(0);
         } else {
           await expect(page.getByRole("dialog", { name: "客户审批处理" })).toBeVisible();
           await expectFirstVisible(approvalDialog, "桌面审批处理弹窗");
@@ -234,8 +274,27 @@ test.describe("order desktop UI audit", () => {
         0,
         "记录页重复发送通知",
       );
+      await clickFirstVisible(detail.getByRole("tab", { name: /记录与信息/ }), "记录与信息分组");
       await expectDesktopRecordsWorkspace(detail, viewport.width, "/orders dialog records");
       await expectNoPageOverflow(page, "/orders records tab", viewport.width);
+      if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
+        await page.screenshot({
+          path: "screenshots/TASK-20260719-003-order-detail-desktop-density-release/desktop-records-1440.png",
+          fullPage: false,
+        });
+      }
+
+      await clickFirstVisible(hero.getByRole("button", { name: "编辑" }), "记录页进入编辑");
+      await expect(detail.getByRole("tab", { name: "概览" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(0);
+      await clickFirstVisible(hero.getByRole("button", { name: "取消" }), "记录页取消编辑");
+
+      await clickFirstVisible(detail.getByRole("tab", { name: /设备照片/ }), "设备照片分组");
+      await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "工单设备照片卡");
+      await expectNoPageOverflow(page, "/orders photos tab", viewport.width);
 
       await page.keyboard.press("Escape");
       await expect(detail).toHaveCount(0);
@@ -456,13 +515,15 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
     ["finance", "报价处理卡", minPanelWidth],
     ["photos", "设备照片卡", width <= 1024 ? 170 : 180],
   ] as const) {
-    await expectRectInsideViewport(detail.locator(`[data-order-panel="${panel}"]`), label, {
+    const panelLocator = detail.locator(`[data-order-panel="${panel}"]`);
+    if ((await countVisible(panelLocator)) === 0) continue;
+    await expectRectInsideViewport(panelLocator, label, {
       checkVertical: false,
       minWidth,
     });
   }
 
-  if (width >= 1280) {
+  if (width >= 1280 && (await countVisible(detail.locator('[data-order-panel="photos"]'))) > 0) {
     const deviceWidth = await detail
       .locator('[data-order-panel="device"]')
       .evaluate((element) => Math.round(element.getBoundingClientRect().width));
@@ -510,13 +571,21 @@ async function expectInlineEditWorkspace(
     (element) =>
       window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
   );
-  const expectedColumns = width >= 1280 ? 3 : 2;
+  const isDialog =
+    (await detail
+      .locator('[data-order-detail-root="true"][data-order-detail-surface="dialog"]')
+      .count()) > 0;
+  const expectedColumns = isDialog || width >= 1280 ? 3 : 2;
   expect(columns, `${route} main edit grid columns at ${width}px`).toBe(expectedColumns);
   expect(
     await mainGrid.locator('[data-order-panel="photos"]').count(),
     `${route} photos are not squeezed into the main edit grid`,
   ).toBe(0);
-  await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "编辑态设备照片卡");
+  if (isDialog) {
+    await expect(detail.locator('[data-order-panel="photos"]')).toHaveCount(0);
+  } else {
+    await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "编辑态设备照片卡");
+  }
   await expectDesktopPanelsReadable(detail, width);
   await expectNoLocalHorizontalScroll(mainGrid, `${route} main edit grid`);
   await expectNoPageOverflow(page, route, width);
@@ -846,14 +915,32 @@ async function expectDesktopRecordsWorkspace(detail: Locator, width: number, lab
   const records = detail.locator('[data-order-records-workspace="true"]');
   await records.waitFor({ state: "visible", timeout: 5000 });
   await expectFirstVisible(records, `${label} records workspace`);
-  await expectFirstVisible(
-    records.locator('[data-order-records-messages="true"]'),
-    `${label} message log`,
-  );
-  await expectFirstVisible(
-    records.locator('[data-order-records-timeline="true"]'),
-    `${label} timeline log`,
-  );
+  const groupedRecords = records.locator('[data-order-records-group="true"]');
+  if ((await countVisible(groupedRecords)) > 0) {
+    await expectFirstVisible(records.locator('[data-order-panel="key-info"]'), `${label} key info`);
+    await expect(records.locator('[data-order-records-messages="true"]')).toBeHidden();
+    await expect(records.locator('[data-order-records-timeline="true"]')).toBeHidden();
+
+    await clickFirstVisible(records.getByRole("tab", { name: /历史通知/ }), "历史通知分组");
+    await expectFirstVisible(
+      records.locator('[data-order-records-messages="true"]'),
+      `${label} message log`,
+    );
+    await clickFirstVisible(records.getByRole("tab", { name: /时间线/ }), "时间线分组");
+    await expectFirstVisible(
+      records.locator('[data-order-records-timeline="true"]'),
+      `${label} timeline log`,
+    );
+  } else {
+    await expectFirstVisible(
+      records.locator('[data-order-records-messages="true"]'),
+      `${label} message log`,
+    );
+    await expectFirstVisible(
+      records.locator('[data-order-records-timeline="true"]'),
+      `${label} timeline log`,
+    );
+  }
 
   const rowCount = await records.locator('[data-order-record-row="true"]').count();
   expect(rowCount, `${label} timeline rows`).toBeGreaterThanOrEqual(1);
