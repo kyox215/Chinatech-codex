@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getAiAssistantProvider: vi.fn(),
   listOrdersPage: vi.fn(),
   getOrder: vi.fn(),
+  getAiAssistantUsageSummary: vi.fn(),
   writeAiAssistantAudit: vi.fn(),
 }));
 
@@ -38,6 +39,10 @@ vi.mock("@/features/ai-assistant/server/provider-factory", () => ({
   getAiAssistantProvider: mocks.getAiAssistantProvider,
 }));
 
+vi.mock("@/features/ai-assistant/server/usage.repository", () => ({
+  getAiAssistantUsageSummary: mocks.getAiAssistantUsageSummary,
+}));
+
 vi.mock("@/features/ai-assistant/server/audit", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/ai-assistant/server/audit")>()),
   writeAiAssistantAudit: mocks.writeAiAssistantAudit,
@@ -57,6 +62,7 @@ describe("AI assistant BFF routes", () => {
       messages: [],
       attachments: [],
     });
+    mocks.getAiAssistantUsageSummary.mockResolvedValue(usageSummary());
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -85,6 +91,36 @@ describe("AI assistant BFF routes", () => {
     await expect(response.json()).resolves.toMatchObject({
       data: { canUseOrderAssistant: false, reason: "permission_denied" },
     });
+  });
+
+  it("returns only the authenticated store AI usage aggregate with private no-store caching", async () => {
+    mocks.getRequestActor.mockResolvedValue(owner);
+
+    const response = await handleRepairDeskGet("ai/usage");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        timezone: "Europe/Rome",
+        today: { provider_request_count: 2 },
+        last_30_days: { provider_request_count: 12 },
+      },
+    });
+    expect(mocks.getAiAssistantUsageSummary).toHaveBeenCalledWith(owner);
+  });
+
+  it("blocks AI usage aggregates without finance permission before reading the ledger", async () => {
+    mocks.getRequestActor.mockResolvedValue({
+      ...owner,
+      role: "sales",
+      storeRole: "sales",
+    });
+
+    const response = await handleRepairDeskGet("ai/usage");
+
+    expect(response.status).toBe(403);
+    expect(mocks.getAiAssistantUsageSummary).not.toHaveBeenCalled();
   });
 
   it("validates, plans and returns only the minimal server-projected order card", async () => {
@@ -374,6 +410,29 @@ function visionInput() {
     height: 2,
     locale: "zh-CN" as const,
     fixture_key: "synthetic-redmi-a7-pro-box" as const,
+  };
+}
+
+function usageSummary() {
+  const metric = (providerRequestCount: number) => ({
+    provider_request_count: providerRequestCount,
+    input_token_count: 100,
+    cached_input_token_count: 10,
+    output_token_count: 20,
+    settled_cost_microusd: 5,
+    reserved_cost_microusd: 0,
+  });
+  return {
+    generated_at: "2026-07-19T10:00:00.000Z",
+    window_start_at: "2026-06-19T10:00:00.000Z",
+    timezone: "Europe/Rome",
+    today: metric(2),
+    last_30_days: metric(12),
+    today_by_kind: {
+      order_text: { ...metric(2), request_limit: 50 },
+      inventory_vision: { ...metric(0), request_limit: 5 },
+    },
+    source: "repairdesk_usage_ledger" as const,
   };
 }
 

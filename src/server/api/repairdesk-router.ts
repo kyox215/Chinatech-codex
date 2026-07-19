@@ -12,6 +12,8 @@ import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capab
 import { runAiOrderAssistantTurn } from "@/features/ai-assistant/server/order-assistant.service";
 import { getAiAssistantProvider } from "@/features/ai-assistant/server/provider-factory";
 import { getAiProviderBudgetGateway } from "@/features/ai-assistant/server/supabase-provider-budget";
+import { getAiAssistantUsageSummary } from "@/features/ai-assistant/server/usage.repository";
+import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
 import { runAiInventoryVisionRecognition } from "@/features/ai-assistant/server/vision-assistant.service";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
@@ -436,6 +438,7 @@ const supabaseSource = {
   getRepairDeskOptions,
   getStoreContext,
   getStoreSettings,
+  getAiAssistantUsageSummary,
   getStoreFaultCostDefaults,
   listSuppliers,
   importElectronicsCsvPreview,
@@ -686,6 +689,7 @@ async function source() {
   };
   return {
     ...mock,
+    getAiAssistantUsageSummary: async () => getMockAiAssistantUsageSummary(),
     exportCostReport: async (input: CostExportInput, actor: AuditActor) =>
       exportCostReport(input, actor, async () => ({
         timezone: "Europe/Rome",
@@ -1350,6 +1354,9 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
     switch (path) {
       case "onboarding/status":
         return ok(await api.getOnboardingStatus(actor));
+      case "ai/usage":
+        assertRepairDeskPermission(actor, "finance:aggregate_read");
+        return ok(await api.getAiAssistantUsageSummary(actor));
       case "platform/onboarding/requests":
         return ok(await api.listPlatformOnboardingRequests(actor));
       case "order-stats":

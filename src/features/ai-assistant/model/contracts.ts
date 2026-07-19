@@ -14,6 +14,9 @@ export const AI_INVENTORY_RECOGNITION_PROMPT_VERSION = "inventory-label-v1" as c
 export const aiAssistantLocaleSchema = z.enum(["zh-CN", "it-IT", "en"]);
 export type AiAssistantLocale = z.infer<typeof aiAssistantLocaleSchema>;
 
+export const aiAssistantProcessingModeSchema = z.enum(["local", "model"]);
+export type AiAssistantProcessingMode = z.infer<typeof aiAssistantProcessingModeSchema>;
+
 export const aiAssistantConfidenceSchema = z.enum(["high", "review", "unknown"]);
 export type AiAssistantConfidence = z.infer<typeof aiAssistantConfidenceSchema>;
 
@@ -22,6 +25,7 @@ export const aiAssistantRequestSchema = z
     client_request_id: z.string().uuid().optional(),
     message: z.string().trim().min(1, "请输入问题").max(800, "问题不能超过 800 个字符"),
     locale: aiAssistantLocaleSchema.default("zh-CN"),
+    processing_mode: aiAssistantProcessingModeSchema.optional(),
   })
   .strict();
 export type AiAssistantRequest = z.infer<typeof aiAssistantRequestSchema>;
@@ -35,6 +39,41 @@ export const aiAssistantCapabilitiesSchema = z
   })
   .strict();
 export type AiAssistantCapabilities = z.infer<typeof aiAssistantCapabilitiesSchema>;
+
+export const aiAssistantUsageMetricSchema = z
+  .object({
+    provider_request_count: z.number().int().nonnegative(),
+    input_token_count: z.number().int().nonnegative(),
+    cached_input_token_count: z.number().int().nonnegative(),
+    output_token_count: z.number().int().nonnegative(),
+    settled_cost_microusd: z.number().int().nonnegative(),
+    reserved_cost_microusd: z.number().int().nonnegative(),
+  })
+  .strict();
+export type AiAssistantUsageMetric = z.infer<typeof aiAssistantUsageMetricSchema>;
+
+export const aiAssistantUsageKindMetricSchema = aiAssistantUsageMetricSchema
+  .extend({ request_limit: z.number().int().nonnegative().nullable() })
+  .strict();
+export type AiAssistantUsageKindMetric = z.infer<typeof aiAssistantUsageKindMetricSchema>;
+
+export const aiAssistantUsageSummarySchema = z
+  .object({
+    generated_at: z.string().datetime({ offset: true }),
+    window_start_at: z.string().datetime({ offset: true }),
+    timezone: z.string().trim().min(1).max(80),
+    today: aiAssistantUsageMetricSchema,
+    last_30_days: aiAssistantUsageMetricSchema,
+    today_by_kind: z
+      .object({
+        order_text: aiAssistantUsageKindMetricSchema,
+        inventory_vision: aiAssistantUsageKindMetricSchema,
+      })
+      .strict(),
+    source: z.literal("repairdesk_usage_ledger"),
+  })
+  .strict();
+export type AiAssistantUsageSummary = z.infer<typeof aiAssistantUsageSummarySchema>;
 
 export const aiOrderSearchArgumentsSchema = z
   .object({

@@ -2,7 +2,7 @@
 
 Status: order-text v2 smoke passed; Vision release candidate pending independent D4 and serialized release lock
 Owner: Integration Lead / Architecture / DATA / Security
-Last verified: 2026-07-19 CEST, `TASK-20260719-001-ai-inventory-live-provider`
+Last verified: 2026-07-19 CEST, `TASK-20260719-001-ai-inventory-live-provider` and local candidate `TASK-20260719-004-ai-processing-mode-usage`
 
 ## 当前结论
 
@@ -29,6 +29,19 @@ Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预�
 ```
 
 “短窗防滥用限流”与“付费 provider 额度”是两个独立控制：零模型路径不扣付费额度，但仍受 actor/store 每分钟请求限制，防止放大数据库查询。
+
+## 处理方式选择与门店使用量（本地候选）
+
+`TASK-20260719-004-ai-processing-mode-usage` 在工单 AI 输入区增加显式处理方式，默认选择“本地处理”：
+
+- `processing_mode=local` 只执行版本化确定性规则和当前门店 RepairDesk 查询；不能保守识别时返回澄清，不会静默升级到 provider，也不预留大模型预算。
+- `processing_mode=model` 跳过确定性捷径，强制进入既有 provider、外发批准、敏感数据检查、actor 限流、门店/全局预算和聚合审计链路；选择大模型不等于绕过任何 live 门禁。
+- 旧客户端省略 `processing_mode` 时继续使用既有“确定性优先、必要时 provider”行为，避免破坏兼容性。
+- 客户端不能选择模型、价格、额度、Safety ID 或门店；模式只控制是否允许进入既有受控 provider 路径。
+
+设置中心新增只读“AI 使用量”。`GET /api/repairdesk/ai/usage` 不接收门店参数，要求 `finance:aggregate_read`，并从认证 actor 的当前 `storeId` 读取 `ai_assistant_usage_buckets` 的 `store_day` 聚合。响应只包含今天和最近 30 天的大模型请求数、输入/缓存/输出 Token、已结算及预留 micro-USD、今日分类额度和生成时间；不返回 prompt、回复、订单号、客户资料、actor 或请求指纹。本地处理不调用大模型，因此不计入该视图。
+
+该用量视图复用 RepairDesk 的预算结算事实，不调用 OpenAI 组织级 Usage/Costs API，也不需要新增管理员密钥、表或 migration。金额是当前 RepairDesk 价格策略下的美元估算，不是供应商最终账单。此节描述的 UI/API 当前仍是本地候选，未自动推送、部署或修改生产配置。
 
 ## 零模型订单路由
 

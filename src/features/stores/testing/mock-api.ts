@@ -486,6 +486,7 @@ function context(actor?: AuditActor): StoreContext {
       inventoryV2CommandsEnabled: isInventoryV2CommandEnabledForStore(scopedActor.storeId),
       canManageOrderData,
       canApplyOrderData,
+      canReadAggregateFinance: can(scopedActor, "finance:aggregate_read"),
       can_manage_order_costs:
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         can(scopedActor, "finance:cost_manage"),

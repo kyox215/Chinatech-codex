@@ -247,6 +247,99 @@ describe("order assistant service", () => {
     });
   });
 
+  it("keeps an explicit local query off the provider and budget path", async () => {
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const consumeQuota = vi.fn();
+    const listOrdersPage = vi.fn(async () => result([], 0));
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "苹果15", locale: "zh-CN", processing_mode: "local" },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+        consumeQuota,
+      },
+    });
+
+    expect(response.kind).toBe("search_results");
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processingMode: "local",
+        provider: "none",
+        resolutionPath: "deterministic",
+      }),
+    );
+  });
+
+  it("returns an actionable clarification when explicit local mode cannot parse the query", async () => {
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const consumeQuota = vi.fn();
+    const listOrdersPage = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "帮我看看最近有什么需要特别注意的",
+        locale: "zh-CN",
+        processing_mode: "local",
+      },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+        consumeQuota,
+      },
+    });
+
+    expect(response).toMatchObject({
+      kind: "clarification",
+      total: 0,
+      message: expect.stringContaining("切换到“大模型理解”"),
+    });
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(listOrdersPage).not.toHaveBeenCalled();
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processingMode: "local",
+        resolutionPath: "local",
+        toolName: "clarify_order_query",
+      }),
+    );
+  });
+
+  it("forces an explicit model query through the provider even when local rules can parse it", async () => {
+    const provider = providerFor(searchCall({ device_search: "iPhone 15", search: null }));
+    const consumeQuota = vi.fn();
+
+    await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "苹果15", locale: "zh-CN", processing_mode: "model" },
+      dependencies: {
+        provider,
+        listOrdersPage: vi.fn(async () => result([], 0)),
+        getOrder: vi.fn(),
+        env: enabledEnv,
+        consumeQuota,
+      },
+    });
+
+    expect(provider.planOrderQuery).toHaveBeenCalledOnce();
+    expect(consumeQuota).toHaveBeenCalledOnce();
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processingMode: "model",
+        resolutionPath: "provider",
+      }),
+    );
+  });
+
   it("blocks store-wide amount review without aggregate finance permission", async () => {
     const listOrdersPage = vi.fn();
     const restrictedActor = { ...owner, role: "sales" as const, storeRole: "sales" as const };

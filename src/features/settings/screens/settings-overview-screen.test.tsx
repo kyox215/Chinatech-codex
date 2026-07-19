@@ -7,14 +7,14 @@ import { SETTINGS_SECTION_GROUPS } from "@/features/settings/model/settings-sect
 import { SettingsOverviewScreen } from "@/features/settings/screens/settings-overview-screen";
 
 describe("SettingsOverviewScreen", () => {
-  it("renders four groups, nine entries, readonly and blocked semantics", () => {
+  it("renders four groups, ten entries, readonly and blocked semantics", () => {
     renderOverview({ state: "ready", score: 80 });
 
     expect(screen.getByRole("heading", { name: "设置总览" })).toBeVisible();
     for (const label of ["个人与访问", "店铺运营", "业务规则", "输出与数据"]) {
       expect(screen.getByRole("heading", { name: label })).toBeVisible();
     }
-    expect(screen.getByText("8 / 9")).toBeVisible();
+    expect(screen.getByText("9 / 10")).toBeVisible();
     expect(screen.getByText("80% 完整")).toBeVisible();
     expect(screen.getByRole("link", { name: /员工.*只读/ })).toHaveAttribute(
       "href",
@@ -60,7 +60,8 @@ function OverviewHarness({
     <SettingsOverviewScreen
       groups={groups()}
       activeStoreName="Ripara Subito"
-      accessibleSectionCount={8}
+      accessibleSectionCount={9}
+      totalSectionCount={10}
       readiness={readiness}
       searchValue={searchValue}
       onSearchValueChange={setSearchValue}

@@ -16,6 +16,7 @@ export interface SettingsOverviewScreenProps {
   groups: readonly SettingsNavigationGroup[];
   activeStoreName?: string;
   accessibleSectionCount: number;
+  totalSectionCount: number;
   readiness: SettingsOverviewReadiness;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
@@ -26,6 +27,7 @@ export function SettingsOverviewScreen({
   groups,
   activeStoreName,
   accessibleSectionCount,
+  totalSectionCount,
   readiness,
   searchValue,
   onSearchValueChange,
@@ -45,7 +47,10 @@ export function SettingsOverviewScreen({
 
         <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
           <OverviewMetric label="当前店铺" value={activeStoreName || "未选择"} />
-          <OverviewMetric label="可访问功能" value={`${accessibleSectionCount} / 9`} />
+          <OverviewMetric
+            label="可访问功能"
+            value={`${accessibleSectionCount} / ${totalSectionCount}`}
+          />
           <OverviewMetric
             label="店铺资料"
             value={readinessLabel(readiness)}

@@ -12,6 +12,7 @@ const ownerCapabilities = {
   canReviewKioskSessions: true,
   canConfigureWorkflow: true,
   canManageOrderData: true,
+  canReadAggregateFinance: true,
 };
 
 describe("settings query activation", () => {
@@ -25,6 +26,7 @@ describe("settings query activation", () => {
       workflow: false,
       kioskDevices: false,
       kioskSessions: false,
+      aiUsage: false,
       orderData: false,
     });
   });
@@ -36,6 +38,9 @@ describe("settings query activation", () => {
     expect(
       getSettingsQueryActivation({ kind: "section", section: "kiosk" }, ownerCapabilities),
     ).toMatchObject({ kioskDevices: true, kioskSessions: true, storeSettings: false });
+    expect(
+      getSettingsQueryActivation({ kind: "section", section: "ai-usage" }, ownerCapabilities),
+    ).toMatchObject({ aiUsage: true, storeSettings: false });
   });
 
   it("keeps blocked queries disabled", () => {

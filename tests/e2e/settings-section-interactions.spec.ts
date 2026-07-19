@@ -13,6 +13,7 @@ const sections = [
   { key: "rules", label: /默认规则|规则/, heading: "默认规则" },
   { key: "workflow", label: /状态流|状态/, heading: "工单状态流" },
   { key: "notifications", label: /通知与打印|通知/, heading: "输出配置" },
+  { key: "ai-usage", label: /AI 使用量|AI 用量/, heading: "AI 使用量" },
   { key: "order-data", label: /工单数据|数据/, heading: "工单数据文件" },
 ] as const;
 
@@ -130,6 +131,27 @@ test.describe("settings navigation and deep links", () => {
     await page.goForward();
     await expect(page).toHaveURL(/section=store/);
     await expect(page.getByRole("heading", { name: "店铺工作区" })).toBeVisible();
+  });
+});
+
+test.describe("settings AI usage", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("shows current-store model usage without exposing request content", async ({ page }) => {
+    await gotoReady(page, "/settings?section=ai-usage");
+
+    const usage = page.locator('[data-ai-usage-settings="true"]');
+    await expect(usage).toBeVisible();
+    await expect(usage.getByText("83", { exact: true })).toBeVisible();
+    await expect(usage.getByText("72,480", { exact: true })).toBeVisible();
+    await expect(usage.getByText("$0.0264", { exact: true })).toBeVisible();
+    await expect(usage).not.toContainText("prompt");
+    await expectNoPageOverflow(page, "/settings?section=ai-usage 390px");
+    await hideNextDevIndicators(page);
+    await page.screenshot({
+      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-usage-settings-mobile-390.png",
+      fullPage: true,
+    });
   });
 });
 

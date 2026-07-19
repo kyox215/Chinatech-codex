@@ -16,6 +16,7 @@ export type WriteAiAssistantAuditInput = {
   provider: "none" | "fake" | "openai";
   modelVersion: string;
   requestKind?: "order_text" | "inventory_vision";
+  processingMode?: "local" | "model";
   resolutionPath?: "deterministic" | "local" | "provider";
   policyVersion?: string;
   promptVersion: string;
@@ -52,6 +53,7 @@ export async function writeAiAssistantAudit(input: WriteAiAssistantAuditInput) {
       provider: input.provider,
       model_version: input.modelVersion,
       ...(input.requestKind ? { request_kind: input.requestKind } : {}),
+      ...(input.processingMode ? { processing_mode: input.processingMode } : {}),
       ...(input.resolutionPath ? { resolution_path: input.resolutionPath } : {}),
       ...(input.policyVersion ? { policy_version: input.policyVersion } : {}),
       prompt_version: input.promptVersion,

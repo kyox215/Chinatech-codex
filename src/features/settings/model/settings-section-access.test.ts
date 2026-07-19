@@ -62,4 +62,14 @@ describe("settings section access", () => {
       "editable",
     );
   });
+
+  it("makes AI usage a finance-protected readonly section", () => {
+    expect(resolveSettingsSectionAccess("ai-usage", {})).toBe("unavailable");
+    expect(resolveSettingsSectionAccess("ai-usage", { canReadAggregateFinance: false })).toBe(
+      "blocked",
+    );
+    expect(resolveSettingsSectionAccess("ai-usage", { canReadAggregateFinance: true })).toBe(
+      "readonly",
+    );
+  });
 });

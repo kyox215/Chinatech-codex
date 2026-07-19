@@ -35,6 +35,26 @@ describe("AI assistant contracts", () => {
     ).toThrow();
   });
 
+  it("accepts only the two declared processing modes and keeps legacy requests compatible", () => {
+    expect(
+      aiAssistantRequestSchema.parse({
+        message: "苹果15",
+        locale: "zh-CN",
+        processing_mode: "local",
+      }),
+    ).toMatchObject({ processing_mode: "local" });
+    expect(
+      aiAssistantRequestSchema.parse({ message: "苹果15", locale: "zh-CN" }),
+    ).not.toHaveProperty("processing_mode");
+    expect(() =>
+      aiAssistantRequestSchema.parse({
+        message: "苹果15",
+        locale: "zh-CN",
+        processing_mode: "automatic",
+      }),
+    ).toThrow();
+  });
+
   it("keeps every strict JSON-schema object closed and required", () => {
     expect(aiOrderSearchArgumentsJsonSchema.additionalProperties).toBe(false);
     expect(aiOrderSearchArgumentsJsonSchema.required).toEqual(

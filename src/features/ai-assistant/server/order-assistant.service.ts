@@ -91,6 +91,7 @@ export async function runAiOrderAssistantTurn({
     | "outputTokens"
     | "latencyBucket"
     | "requestKind"
+    | "processingMode"
     | "resolutionPath"
     | "policyVersion"
     | "cachedInputTokens"
@@ -106,6 +107,7 @@ export async function runAiOrderAssistantTurn({
     provider: "none",
     modelVersion: "not_started",
     requestKind: "order_text",
+    ...(input.processing_mode ? { processingMode: input.processing_mode } : {}),
   };
   let stage: "authorization" | "budget" | "provider" | "protocol" | "repository" = "authorization";
   let budgetSession: AiProviderBudgetSession | undefined;
@@ -126,7 +128,8 @@ export async function runAiOrderAssistantTurn({
       now: dependencies.now,
     });
 
-    const deterministic = planDeterministicOrderQuery(input);
+    const deterministic =
+      input.processing_mode === "model" ? null : planDeterministicOrderQuery(input);
     let plannedToolCall: unknown;
     if (deterministic) {
       plannedToolCall = deterministic.toolCall;
@@ -134,6 +137,19 @@ export async function runAiOrderAssistantTurn({
       auditContext.modelVersion = deterministic.policyVersion;
       auditContext.policyVersion = deterministic.policyVersion;
       auditContext.resolutionPath = "deterministic";
+      auditContext.budgetOutcome = "not_required";
+      auditContext.safetyIdentifierPresent = false;
+    } else if (input.processing_mode === "local") {
+      plannedToolCall = {
+        name: "clarify_order_query",
+        arguments: {
+          question: localModeClarification(input.locale),
+        },
+      };
+      auditContext.provider = "none";
+      auditContext.modelVersion = "order-local-clarification-v1";
+      auditContext.policyVersion = "order-local-clarification-v1";
+      auditContext.resolutionPath = "local";
       auditContext.budgetOutcome = "not_required";
       auditContext.safetyIdentifierPresent = false;
     } else {
@@ -340,6 +356,16 @@ export async function runAiOrderAssistantTurn({
   });
 
   return response;
+}
+
+function localModeClarification(locale: AiAssistantRequest["locale"]) {
+  if (locale === "it-IT") {
+    return "La modalità locale non riconosce ancora questa richiesta. Aggiungi numero ordine, cliente, dispositivo, pagamento o stato, oppure passa a Comprensione AI.";
+  }
+  if (locale === "en") {
+    return "Local processing does not recognize this request yet. Add an order number, customer, device, payment or status, or switch to Model understanding.";
+  }
+  return "本地处理暂时无法理解这句话。请补充订单号、客户、设备、付款或状态，或者切换到“大模型理解”。";
 }
 
 function normalizeOrderAssistantError(

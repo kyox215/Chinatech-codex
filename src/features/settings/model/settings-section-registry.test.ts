@@ -8,7 +8,7 @@ import {
 } from "@/features/settings/model/settings-section-registry";
 
 describe("settings section registry", () => {
-  it("keeps the approved four-group and nine-section order", () => {
+  it("keeps the approved four-group and ten-section order", () => {
     expect(SETTINGS_SECTION_GROUPS.map((group) => group.key)).toEqual([
       "personal-access",
       "store-operations",
@@ -26,6 +26,7 @@ describe("settings section registry", () => {
       "rules",
       "workflow",
       "notifications",
+      "ai-usage",
       "order-data",
     ]);
   });
@@ -49,5 +50,10 @@ describe("settings section registry", () => {
         group.sections.map((section) => section.key),
       ),
     ).toEqual(["order-data"]);
+    expect(
+      filterSettingsSectionGroups("Token").flatMap((group) =>
+        group.sections.map((section) => section.key),
+      ),
+    ).toEqual(["ai-usage"]);
   });
 });

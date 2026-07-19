@@ -2,6 +2,7 @@ import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type {
   AiAssistantCapabilities,
   AiAssistantRequest,
+  AiAssistantUsageSummary,
   AiInventoryVisionRequest,
   AiInventoryVisionResponse,
   AiOrderAssistantResponse,
@@ -207,7 +208,12 @@ export type RepairDeskRequestOptions = {
 
 const DEFAULT_REPAIRDESK_REQUEST_TIMEOUT_MS = 30_000;
 
-export type { AiAssistantCapabilities, AiAssistantRequest, AiOrderAssistantResponse };
+export type {
+  AiAssistantCapabilities,
+  AiAssistantRequest,
+  AiAssistantUsageSummary,
+  AiOrderAssistantResponse,
+};
 
 export type {
   ApprovedStoreRole,
@@ -839,6 +845,12 @@ export async function getAiAssistantCapabilities(
   options?: RepairDeskRequestOptions,
 ): Promise<AiAssistantCapabilities> {
   return requestJson<AiAssistantCapabilities>("ai/capabilities", {}, options);
+}
+
+export async function getAiAssistantUsageSummary(
+  options?: RepairDeskRequestOptions,
+): Promise<AiAssistantUsageSummary> {
+  return requestJson<AiAssistantUsageSummary>("ai/usage", {}, options);
 }
 
 export async function runAiOrderAssistantTurn(

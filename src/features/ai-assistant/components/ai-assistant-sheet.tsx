@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Bot,
   Clock3,
+  Cpu,
   LoaderCircle,
   Mic,
   SearchX,
@@ -27,8 +28,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type {
   AiAssistantCapabilities,
+  AiAssistantProcessingMode,
   AiOrderAssistantResponse,
 } from "@/features/ai-assistant/model/contracts";
 import { useAiAssistantVoiceInput } from "@/features/ai-assistant/components/use-ai-assistant-voice-input";
@@ -70,6 +73,8 @@ export function AiAssistantSheet({
 }: AiAssistantSheetProps) {
   const [input, setInput] = useState("");
   const [lastQuestion, setLastQuestion] = useState("");
+  const [processingMode, setProcessingMode] = useState<AiAssistantProcessingMode>("local");
+  const [lastProcessingMode, setLastProcessingMode] = useState<AiAssistantProcessingMode>("local");
   const [status, setStatus] = useState<AssistantStatus>("idle");
   const [response, setResponse] = useState<AiOrderAssistantResponse>();
   const [error, setError] = useState<AssistantErrorState>();
@@ -108,6 +113,8 @@ export function AiAssistantSheet({
     requestSequenceRef.current += 1;
     setInput("");
     setLastQuestion("");
+    setProcessingMode("local");
+    setLastProcessingMode("local");
     setStatus("idle");
     setResponse(undefined);
     setError(undefined);
@@ -131,9 +138,14 @@ export function AiAssistantSheet({
   );
 
   const submit = useCallback(
-    async (messageOverride?: string, reuseLastRequest = false) => {
+    async (
+      messageOverride?: string,
+      reuseLastRequest = false,
+      modeOverride?: AiAssistantProcessingMode,
+    ) => {
       const message = (messageOverride ?? input).trim();
       if (!message || !canSubmit || !isOnline) return;
+      const submittedMode = modeOverride ?? processingMode;
 
       abortVoiceInput();
       const sequence = requestSequenceRef.current + 1;
@@ -142,6 +154,7 @@ export function AiAssistantSheet({
       const controller = new AbortController();
       controllerRef.current = controller;
       setLastQuestion(message);
+      setLastProcessingMode(submittedMode);
       setStatus("loading");
       setResponse(undefined);
       setError(undefined);
@@ -153,7 +166,12 @@ export function AiAssistantSheet({
 
       try {
         const result = await runAiOrderAssistantTurn(
-          { client_request_id: clientRequestId, message, locale: "zh-CN" },
+          {
+            client_request_id: clientRequestId,
+            message,
+            locale: "zh-CN",
+            processing_mode: submittedMode,
+          },
           { signal: controller.signal },
         );
         if (requestSequenceRef.current !== sequence) return;
@@ -172,7 +190,7 @@ export function AiAssistantSheet({
         setStatus("error");
       }
     },
-    [abortVoiceInput, canSubmit, input, isOnline],
+    [abortVoiceInput, canSubmit, input, isOnline, processingMode],
   );
 
   const cancel = () => {
@@ -223,7 +241,7 @@ export function AiAssistantSheet({
             RepairDesk AI 小助手
           </SheetTitle>
           <SheetDescription className="text-xs">
-            只读查询当前门店工单；AI 不会修改订单或代替人工确认。
+            选择本地规则或大模型理解，只读查询当前门店工单。
           </SheetDescription>
         </SheetHeader>
 
@@ -257,14 +275,20 @@ export function AiAssistantSheet({
 
               {lastQuestion && status !== "idle" ? (
                 <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-primary px-3 py-2 text-sm text-primary-foreground shadow-[var(--shadow-card)]">
-                  {lastQuestion}
+                  <span className="mb-0.5 block text-[10px] font-medium text-primary-foreground/75">
+                    {lastProcessingMode === "local" ? "本地处理" : "大模型理解"}
+                  </span>
+                  <span>{lastQuestion}</span>
                 </div>
               ) : null}
 
-              {status === "loading" ? <LoadingState /> : null}
+              {status === "loading" ? <LoadingState mode={lastProcessingMode} /> : null}
               {status === "cancelled" ? <CancelledState /> : null}
               {status === "error" && error ? (
-                <ErrorState error={error} onRetry={() => void submit(lastQuestion, true)} />
+                <ErrorState
+                  error={error}
+                  onRetry={() => void submit(lastQuestion, true, lastProcessingMode)}
+                />
               ) : null}
               {status === "result" && response ? (
                 <ResultState response={response} onNavigate={() => onOpenChange(false)} />
@@ -289,12 +313,61 @@ export function AiAssistantSheet({
             void submit();
           }}
         >
+          <fieldset className="space-y-1.5" disabled={status === "loading"}>
+            <div className="flex items-center justify-between gap-2 px-0.5">
+              <legend className="text-[11px] font-semibold text-foreground">处理方式</legend>
+              <span className="text-[10px] text-muted-foreground">每次发送前可切换</span>
+            </div>
+            <ToggleGroup
+              type="single"
+              value={processingMode}
+              aria-label="查询处理方式"
+              data-ai-processing-mode={processingMode}
+              onValueChange={(value) => {
+                if (value === "local" || value === "model") setProcessingMode(value);
+              }}
+              className="grid grid-cols-2 gap-2"
+            >
+              <ToggleGroupItem
+                type="button"
+                value="local"
+                aria-label="使用本地处理"
+                className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
+              >
+                <span className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Cpu className="size-3.5" aria-hidden="true" /> 本地处理
+                </span>
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  固定规则 · 不调用模型
+                </span>
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                type="button"
+                value="model"
+                aria-label="使用大模型理解"
+                className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
+              >
+                <span className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Sparkles className="size-3.5" aria-hidden="true" /> 大模型理解
+                </span>
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  复杂语句 · 计入用量
+                </span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </fieldset>
           <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
-            <p>
-              复杂且已获门店批准的非敏感问题可能发送至
-              OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。 默认安全监控日志可能保留最多 30
-              天，敏感查询请改用订单页面手工搜索。
-            </p>
+            {processingMode === "model" ? (
+              <p>
+                本次文字会在现有门店审批、出站检查和用量限制后发送至
+                OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。安全监控日志可能保留最多 30 天。
+              </p>
+            ) : (
+              <p>
+                本地处理只使用 RepairDesk 固定规则，不会把本次文字发送给大模型，也不产生 Token
+                费用；仍需联网查询当前门店数据。
+              </p>
+            )}
             {voiceInput.support === "supported" ? (
               <p className="mt-1 flex items-start gap-1.5">
                 <Mic className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
@@ -441,12 +514,14 @@ function IdleState({
   );
 }
 
-function LoadingState() {
+function LoadingState({ mode }: { mode: AiAssistantProcessingMode }) {
   return (
     <div className="rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-2 text-sm font-medium">
         <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" />
-        正在理解问题并查询 RepairDesk…
+        {mode === "local"
+          ? "正在本地解析并查询 RepairDesk…"
+          : "正在使用大模型理解并查询 RepairDesk…"}
       </div>
       <p className="mt-1 pl-6 text-xs text-muted-foreground">通常几秒内完成，最多等待 20 秒。</p>
     </div>

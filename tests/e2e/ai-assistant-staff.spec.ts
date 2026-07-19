@@ -93,6 +93,43 @@ test.describe("staff AI assistant bounded workflow", () => {
     });
   });
 
+  test("mobile composer exposes local and model processing before submission", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, "/orders");
+    await page.locator('[data-ai-assistant-trigger="mobile-orders"]').click();
+
+    const sheet = page.locator('[data-ai-assistant-sheet="true"]');
+    const localMode = sheet.getByRole("radio", { name: "使用本地处理" });
+    const modelMode = sheet.getByRole("radio", { name: "使用大模型理解" });
+    await expect(localMode).toHaveAttribute("aria-checked", "true");
+    await expect(sheet.getByText(/不会把本次文字发送给大模型/)).toBeVisible();
+
+    await modelMode.click();
+    await expect(modelMode).toHaveAttribute("aria-checked", "true");
+    await expect(sheet.getByText(/本次文字会.*OpenAI/)).toBeVisible();
+    await page.getByLabel("输入工单查询问题").fill("帮我综合判断需要优先处理的工单");
+
+    const requestPromise = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" && request.url().endsWith("/api/repairdesk/ai/order/turn"),
+    );
+    await hideNextDevIndicators(page);
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-mode-mobile-390.png",
+    });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(modelMode).toHaveAttribute("aria-checked", "true");
+    await expectNoHorizontalOverflow(page);
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-mode-desktop-1280.png",
+    });
+    await sheet.getByRole("button", { name: "发送", exact: true }).click();
+    const request = await requestPromise;
+    expect(request.postDataJSON()).toMatchObject({ processing_mode: "model" });
+    await expect(sheet.getByText("大模型理解", { exact: true }).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("mobile voice input fills the composer without sending a query", async ({ page }) => {
     await installSpeechRecognitionMock(page);
     await page.setViewportSize({ width: 390, height: 844 });
@@ -157,7 +194,7 @@ test.describe("staff AI assistant bounded workflow", () => {
     await input.fill("保留这段查询内容");
     const sheet = page.locator('[data-ai-assistant-sheet="true"]');
     await sheet.getByRole("button", { name: "发送", exact: true }).click();
-    await expect(sheet.getByText("正在理解问题并查询 RepairDesk…")).toBeVisible();
+    await expect(sheet.getByText("正在本地解析并查询 RepairDesk…")).toBeVisible();
     await sheet.getByRole("button", { name: "取消", exact: true }).click();
     await expect(
       page.getByText("已取消本次查询。输入内容仍保留，可修改后重新发送。"),
@@ -243,6 +280,10 @@ async function expectNoHorizontalOverflow(page: Page) {
     viewportWidth: window.innerWidth,
   }));
   expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewportWidth);
+}
+
+async function hideNextDevIndicators(page: Page) {
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
 }
 
 async function aiTurnRequestCount(page: Page) {

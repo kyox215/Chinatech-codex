@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { aiAssistantUsageQueryOptions } from "@/features/ai-assistant/api/query-options";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { OrderDataSection } from "@/features/settings/components/order-data-section";
@@ -53,6 +54,7 @@ import {
   getSettingsFieldErrorId as fieldErrorId,
 } from "@/features/settings/model/settings-field-errors";
 import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
+import { AiUsageSettingsSection } from "@/features/settings/sections/ai-usage-settings-section";
 import { NotificationsSettingsSection } from "@/features/settings/sections/notifications-settings-section";
 import { OrderWorkflowSettingsSection } from "@/features/settings/sections/order-workflow-settings-section";
 import { RulesSettingsSection } from "@/features/settings/sections/rules-settings-section";
@@ -288,6 +290,10 @@ export function SettingsScreen() {
     staleTime: CACHE_TIMES.settings,
     enabled: Boolean(activeStoreId && queryActivation.suppliers),
   });
+  const aiUsageQuery = useQuery({
+    ...aiAssistantUsageQueryOptions(activeStoreId),
+    enabled: Boolean(activeStoreId && queryActivation.aiUsage),
+  });
   const settingsData = settingsQuery.data;
   const [settingsDrafts, setSettingsDrafts] = useState<StoreSettingsDrafts | null>(null);
   const settingsDraftsRef = useRef<StoreSettingsDrafts | null>(null);
@@ -450,6 +456,7 @@ export function SettingsScreen() {
       notifications: false,
       rules: false,
       workflow: workflowSectionDirty,
+      "ai-usage": false,
       "order-data": orderDataSectionDirty,
     };
     return {
@@ -1336,6 +1343,7 @@ export function SettingsScreen() {
   const accessibleSectionCount = navigationGroups
     .flatMap((group) => group.items)
     .filter((item) => item.access === "editable" || item.access === "readonly").length;
+  const totalSectionCount = navigationGroups.flatMap((group) => group.items).length;
   const overviewReadiness =
     settingsCapabilities?.canReadStoreSettings !== true
       ? ({ state: "unavailable" } as const)
@@ -1479,6 +1487,7 @@ export function SettingsScreen() {
             groups={navigationGroups}
             activeStoreName={storeContextQuery.data?.activeStore?.name}
             accessibleSectionCount={accessibleSectionCount}
+            totalSectionCount={totalSectionCount}
             readiness={overviewReadiness}
             searchValue={settingsSearch}
             onSearchValueChange={setSettingsSearch}
@@ -1515,7 +1524,9 @@ export function SettingsScreen() {
               >
                 {selectedSection === "store"
                   ? "当前账号不能修改当前店铺资料，但仍可按账号资格创建新的独立店铺。"
-                  : "当前账号可查看此分组，但不能修改配置。"}
+                  : selectedSection === "ai-usage"
+                    ? "AI 使用量是当前门店的只读汇总，不需要保存。"
+                    : "当前账号可查看此分组，但不能修改配置。"}
               </div>
             ) : null}
 
@@ -1927,6 +1938,14 @@ export function SettingsScreen() {
                     storeName={storeContextQuery.data?.activeStore?.name ?? "当前店铺"}
                     applyEnabled={canApplyOrderData}
                     onDirtyChange={setOrderDataSectionDirty}
+                  />
+                ) : null}
+                {canRenderSelectedSection && selectedSection === "ai-usage" ? (
+                  <AiUsageSettingsSection
+                    usage={aiUsageQuery.data}
+                    isLoading={aiUsageQuery.isLoading}
+                    isError={aiUsageQuery.isError}
+                    onRetry={() => void aiUsageQuery.refetch()}
                   />
                 ) : null}
               </div>

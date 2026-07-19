@@ -1,4 +1,5 @@
 import {
+  Activity,
   FileSpreadsheet,
   GitBranch,
   MessageSquare,
@@ -118,6 +119,16 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
     keywords: ["消息", "签名", "打印", "页脚"],
     icon: MessageSquare,
     href: "/settings?section=notifications",
+  },
+  {
+    key: "ai-usage",
+    group: "output-data",
+    label: "AI 使用量",
+    shortLabel: "AI 用量",
+    description: "大模型请求、Token 与费用估算",
+    keywords: ["OpenAI", "大模型", "Token", "费用", "用量", "额度"],
+    icon: Activity,
+    href: "/settings?section=ai-usage",
   },
   {
     key: "order-data",

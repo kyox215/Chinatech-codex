@@ -48,11 +48,31 @@ describe("AiAssistantSheet", () => {
     expect(request).toMatchObject({
       message: "请列出仍在处理且未付款的工单",
       locale: "zh-CN",
+      processing_mode: "local",
     });
     expect(request.client_request_id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
     expect(options.signal).toMatchObject({ aborted: false });
+  });
+
+  it("lets the user explicitly choose model understanding for the next query", async () => {
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R-MODEL", "order-model"));
+    renderSheet();
+
+    expect(screen.getByRole("radio", { name: "使用本地处理" })).toHaveAttribute("data-state", "on");
+    fireEvent.click(screen.getByRole("radio", { name: "使用大模型理解" }));
+    expect(screen.getByText(/本次文字会.*发送至/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+      target: { value: "帮我综合判断最近要优先处理什么" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("R-MODEL")).toBeInTheDocument();
+    expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ processing_mode: "model" }),
+      expect.any(Object),
+    );
   });
 
   it("reuses the same client request id for an explicit error retry", async () => {
