@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260719-007-fast-app-recovery"
 title: "RepairDesk 网络恢复后 2–3 秒自动进入或受控刷新"
-status: "release_in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["INT", "ARCH", "FE", "UX", "QA"]
 created_at: "2026-07-19T18:01:27Z"
-updated_at: "2026-07-19T20:16:01Z"
+updated_at: "2026-07-19T20:42:11Z"
 ---
 # Task — RepairDesk 快速网络恢复
 
@@ -50,6 +50,10 @@ updated_at: "2026-07-19T20:16:01Z"
 - [x] 390x844 与 1440x900 无横向溢出，按钮高度至少 44px，支持 reduced motion。
 - [x] lint、typecheck、311 个测试文件/2022 项测试和 build 通过。
 - [x] 原恢复矩阵 Chromium 8/8、WebKit 8/8，以及真实 Service Worker v4 矩阵 Chromium 3/3、WebKit 3/3 通过。
+- [x] 候选非强制快进到 `main@1119ef5d`，对应 Vercel 生产部署 `dpl_3RmTx8EKHszdMvMpbeNYG57B21H9` 为 `READY`。
+- [x] `www.chinatech.in` 与 `chinatech.in` 指向该生产部署；恢复探针、SW v4、独立离线页和受保护路由均通过 HTTP 验收。
+- [x] Supabase 本地/远端 91/91 migration 对齐，发布后 dry-run 仍为 `Remote database is up to date`；未重放任何已应用 SQL。
+- [x] 已登录生产会话在 390x844 与 1440x900 正常进入概览，控制台及 Vercel 范围内运行时错误/告警为空。
 
 ## Architecture decision
 
@@ -78,12 +82,14 @@ updated_at: "2026-07-19T20:16:01Z"
 
 ## Active context handling
 
-`.ai-company/memory/ACTIVE_CONTEXT.md` 仍由 `TASK-20260719-001-ai-inventory-live-provider` 的 24 小时观察门占用。本任务不得覆盖该定时任务；恢复记录完整保存在本目录。
+本任务从未写入 `.ai-company/memory/ACTIVE_CONTEXT.md`。实施期间它最初用于独立 Vision 观察，随后并发发布将其更新为已关闭的 `TASK-20260719-007-ai-natural-language-query-v3`；本任务只使用自己的任务目录，不覆盖任何外部任务状态。Vision 24 小时复核仍是独立事项，但不再被描述为当前文件所有者。
 
 ## Rollback
 
-代码级回滚本任务候选提交；无数据库或数据回滚。生产发布后若出现刷新循环、错误隐藏业务 shell、正常页面持续闪现恢复层或登录/草稿异常，应立即回滚 Web 提交。
+代码级在最新 `main` 上前向回退本任务的恢复提交；无数据库或数据回滚。生产发布后若出现刷新循环、错误隐藏业务 shell、正常页面持续闪现恢复层或登录/草稿异常，应立即回退 Web 变更。由于后续 AI 发布已建立在本任务之上，不得直接提升旧的 pre-recovery 部署而连带撤销后续功能。
 
 ## Current state and next action
 
-Owner 已批准发布。最新已核验 `origin/main@25752bd1` 是原候选父提交；快速恢复主提交为 `94243401`，WebKit/SW v4 阻塞关闭提交为 `8fa5b172`，仍不含 migration。生产 linked history 与本地 91 条记录一致，dry-run 为 up to date。最终代码门与独立 QA/ARCH 已通过，下一步：提交本候选 SHA 检查点、再次 fetch 检查无漂移、非强制推送 exact HEAD、确认部署与生产恢复流程，然后写入关闭证据。
+任务已关闭。快速恢复主提交 `94243401`、WebKit/SW v4 阻塞关闭提交 `8fa5b172` 和发布候选记录提交共同组成运行时发布源 `1119ef5d`；对应生产部署 `dpl_3RmTx8EKHszdMvMpbeNYG57B21H9` 已于 `2026-07-19T20:19:14.432Z` 进入 `READY`。随后并发 `main@5c67d451` 仍以该提交为祖先，未修改任何恢复路径，对应当前生产部署 `dpl_BAKzwYuQisiDChY6MN69wRCB2uVH` 也为 `READY`，正式域名仍返回 probe/SW v4。生产数据库发布结果为安全 no-op：91/91 migration 对齐且 dry-run up to date，没有可应用 SQL。正式域名静态资源、已登录手机/电脑概览、浏览器控制台和 Vercel 运行时错误检查均通过。
+
+唯一非阻塞后续是使用真实 iPhone 在下一次自然断网/后台恢复场景观察 BFCache/网络切换；该事项转入 `OPS-BACKLOG-20260719-002`，不扩大为完整 offline-first 承诺。出现刷新循环、会话/草稿丢失、假就绪或恢复后仍卡住时，按 `docs/APP_RECOVERY_RUNBOOK.md` 立即回滚 Web 部署。本任务未修改 `ACTIVE_CONTEXT.md`，也不对其中的并发任务状态主张所有权。

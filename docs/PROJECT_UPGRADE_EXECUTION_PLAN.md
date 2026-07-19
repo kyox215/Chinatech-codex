@@ -1,6 +1,6 @@
 # RepairDesk 升级执行计划
 
-更新时间：2026-06-12
+更新时间：2026-07-19
 
 参考：
 
@@ -20,7 +20,7 @@ RepairOS Compact 标准见 `docs/REPAIROS_COMPACT_ARCHITECTURE.md`。
 
 ## Phase 0：RepairOS Compact 基础重建
 
-状态：进行中
+状态：PWA 恢复基础已上线，其他移动能力继续增强
 
 目标：
 
@@ -47,7 +47,8 @@ RepairOS Compact 标准见 `docs/REPAIROS_COMPACT_ARCHITECTURE.md`。
 - 移动端不显示底部模块导航，页面底部只为快捷操作和 safe area 预留空间。
 - 快捷操作可进入新建工单、客户、库存新增、消息和全局搜索。
 - 浏览器可读取 `/manifest.webmanifest`。
-- 离线导航 fallback 指向 `/offline`。
+- Service Worker 离线导航 fallback 指向不依赖 Next.js 的 `/offline-fallback-v1.html`；联网时的人工说明页保留 `/offline`。
+- 网络恢复使用固定正文探针、CSS + React runtime 双就绪和每 60 秒最多一次受控刷新；运行与回滚见 `docs/APP_RECOVERY_RUNBOOK.md`。
 
 ## Phase 2：扫码、拍照、附件
 

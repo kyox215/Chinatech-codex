@@ -50,6 +50,7 @@ as owner of this file.
 - Customer cards/details render `累计订单额` and `待收` from explicit valid finance facts and keep repair/payment badges orthogonal. Finance-restricted payloads omit KPI/detail values instead of fabricating €0. Order screens project server capabilities, submit changed fields only, and use accessible reason/version/idempotency terminal-action dialogs consistently on desktop and mobile.
 - Unknown order intake uses an explicit reported/unknown choice and does not fabricate a fault-price row. Desktop detail, mobile detail and task page reuse one diagnosis/quote workspace; the preview is bound to the latest quoted event UUID. Opening `wa.me` is client-only, and only the separate employee confirmation action records sent state.
 - Desktop beginner pages use a read-first hierarchy: at most one recommended action is visually primary, list rows avoid inline responsibility/supplier mutation, missing-field chips focus the exact control, and error states never reuse true-empty copy. Navigation and command shortcuts must share the same permission/role projection.
+- Global recovery must keep business DOM hidden until both the CSS marker and React runtime handshake are ready. The Service Worker fallback is a standalone no-Next document; it uses the fixed probe and one-per-60-second reload boundary, preserves all unrelated browser state and exposes a 44px manual recovery action.
 
 ## Interfaces and dependencies
 
@@ -81,6 +82,7 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 | FE-20260713-002 | `buyback-quote-workspace.tsx` now owns a large multi-step workflow and client image-compression helper | Review and regression cost | Frontend + Architecture + QA | split by step/upload model in a dedicated refactor after behavior stabilizes | open |
 | FE-20260713-001 | Settings five-role/error/50+ member browser matrix is incomplete | UI behavior may drift outside representative scenarios | Frontend + QA | after every latest-main integration and before production | open |
 | FE-20260717-001 | New-order submit previously exposed only a disabled “创建中…” button while waiting; first-phase recovery now shows pending/confirming/uncertain messages and blocks repeat submit after timeout | Desktop/mobile duplicate-submit risk is reduced, but full atomic create is still outside UI | Frontend + UX + Backend + QA | keep operation-status recovery; future atomic-create task must preserve equivalent UX | mitigated_first_phase |
+| FE-20260719-002 | Physical iPhone background/BFCache/natural network-switch timing is not directly automated | Device-specific delayed recovery could differ from WebKit production simulation | Frontend + QA + Operations | next real-device observation; `OPS-BACKLOG-20260719-002` | monitoring |
 
 ## Lessons and anti-patterns
 
@@ -123,3 +125,4 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 | 2026-07-19 | Released independent default-collapsed usage and processing disclosures with persistent mode meaning, keyboard semantics and 390px/desktop visual proof | TASK-20260719-005-ai-search-accuracy-collapsible-ui | Integration Lead + UX/Frontend reviewer | production_verified |
 | 2026-07-19 | Superseded the two-disclosure layout with one compact mode/usage row and released inline non-navigating order cards with an explicit order link | TASK-20260719-006-ai-natural-language-order-actions | Integration Lead + UX/Frontend reviewer | production_verified |
 | 2026-07-19 | Added collapsible exact query scope, distinct interpretation states, one zero-result state and partial-result clarity while preserving inline cards | TASK-20260719-007-ai-natural-language-query-v3 | Integration Lead + UX/Frontend reviewer | production_verified |
+| 2026-07-19 | Released CSS/runtime double readiness, dependency-free SW recovery shell and bounded manual/automatic mobile recovery with production responsive proof | TASK-20260719-007-fast-app-recovery | Integration Lead + Architecture/QA reviewers | production_verified_bounded |

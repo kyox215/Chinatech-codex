@@ -1,11 +1,11 @@
 # Handoff — TASK-20260719-007-fast-app-recovery
 
-## Resume state
+## Closed state
 
-- Candidate branch: `codex/app-style-recovery-fast-20260719`.
-- Baseline: `origin/main@25752bd1`.
-- Release code commits: `94243401` + `8fa5b172`; a documentation-only SHA checkpoint follows.
-- Quality state: final source locally verified, including real SW v4 Chromium/WebKit; Owner has authorized production release; preflight database gate is a confirmed no-op.
+- Recovery source: `1119ef5d`; code commits `94243401` + `8fa5b172`.
+- Production: original exact deployment `dpl_3RmTx8EKHszdMvMpbeNYG57B21H9` is `READY`; later descendant `main@5c67d451` / `dpl_BAKzwYuQisiDChY6MN69wRCB2uVH` retains the same recovery paths and is also `READY` on both canonical domains.
+- Database: 91/91 linked migrations paired; post-release dry-run is up to date; no SQL was executed.
+- Quality: full repository gates, Chromium/WebKit recovery matrices, registered-SW matrices, production mobile/desktop smoke and runtime observation passed.
 
 ## Read first
 
@@ -14,14 +14,11 @@
 3. `src/app/layout.tsx`, `src/styles.css`, and `src/components/app-style-recovery.tsx`.
 4. `tests/e2e/app-style-recovery.spec.ts` and `public/sw.js`.
 
-## Next exact release action
+## Follow-up ownership
 
-1. Obtain final read-only ARCH/QA conclusion for the standalone fallback diff.
-2. Commit the exact scoped source, tests, screenshots and task memory; do not broad-stage generated test artifacts.
-3. Immediately before push, fetch and require the recorded `origin/main` to remain an ancestor with no overlapping recovery drift.
-4. Push exact candidate HEAD to `main` without force.
-5. Run the formal linked database command; because dry-run is up to date, it must execute no migration.
-6. Verify the exact production deployment, normal mobile/desktop loading, registered Service Worker v4 path, fallback asset/probe, and recovery behavior; then append closeout evidence.
+1. `OPS-BACKLOG-20260719-002` owns the next real-iPhone natural background/BFCache/network-switch observation.
+2. Do not run synthetic business writes, clear device storage or treat this as full offline-first support.
+3. Do not modify `ACTIVE_CONTEXT.md` from this closed task; current `main` records a separate closed AI natural-language-query V3 task, while Vision follow-up remains independently scheduled.
 
 ## Stop conditions
 

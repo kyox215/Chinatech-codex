@@ -31,6 +31,8 @@
 
 - [TASK-20260719-007-ai-natural-language-query-v3](tasks/TASK-20260719-007-ai-natural-language-query-v3/TASK.md): Closed production V3 release for arbitrary Europe/Rome dates, Apple/iPhone family-safe matching and a closed-world original-message compiler; exact scope is collapsible, model-invented constraints fail closed, and the release adds no migration or live write authority.
 
+- [TASK-20260719-007-fast-app-recovery](tasks/TASK-20260719-007-fast-app-recovery/TASK.md): Closed production recovery release with CSS/runtime double readiness, a dependency-free SW v4 fallback, bounded one-per-60-second refresh, exact `main@1119ef5d` READY deployment, 91/91 Supabase no-op and responsive production evidence; physical-iPhone network-switch observation remains owned backlog.
+
 - [TASK-20260719-005-ai-search-accuracy-collapsible-ui](tasks/TASK-20260719-005-ai-search-accuracy-collapsible-ui/TASK.md): Closed production repair for model-mode device search broadening plus independent collapsible usage and processing disclosures; trusted original-message constraints and a fail-closed result invariant prevent Apple/iPhone 15 queries from returning Samsung cards.
 
 - [TASK-20260719-004-ai-processing-mode-usage](tasks/TASK-20260719-004-ai-processing-mode-usage/TASK.md): Closed production release of explicit local/model order-query processing plus current-store aggregate usage in Settings and the assistant sheet; exact-SHA release is live with no migration, secret, budget, model, allowlist or production-data change.

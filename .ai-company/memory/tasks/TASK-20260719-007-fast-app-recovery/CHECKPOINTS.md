@@ -80,3 +80,17 @@
 - Commit `8fa5b172` (`fix: recover service worker offline shell safely`) records the final v4 blocker closure on top of `94243401`.
 - Combined candidate remains free of Supabase migrations, dependencies, environment files and deployment configuration.
 - Next: commit this SHA checkpoint, fetch `origin/main` immediately, verify ancestor/no-overlap and non-force push the exact resulting HEAD.
+
+## 2026-07-19T20:26:29Z — production release and closeout memory checkpoint
+
+- The isolated release branch was fast-forward compatible with fresh `origin/main@25752bd1`; exact HEAD `1119ef5d` was pushed to `main` without force. A post-push fetch shows `origin/main` equals local HEAD with ahead/behind `0/0`.
+- Vercel Git deployment `dpl_3RmTx8EKHszdMvMpbeNYG57B21H9` reached `READY` for exact Git SHA `1119ef5d` at `2026-07-19T20:19:14.432Z`; aliases include `www.chinatech.in` and `chinatech.in`. `dpl_BeC1n2JbSipLvLbRLgjhWyXY5wZY` / `25752bd1` was the pre-recovery candidate at that instant but is no longer safe to promote after descendant releases; recovery rollback must now be a scoped revert on latest main.
+- Canonical production HTTP checks passed: www probe returned exact `repairdesk-recovery-v1`; naked domain returned 308 to www and then the same token; `/sw.js` serves `repairdesk-shell-v4`; `/offline-fallback-v1.html` is standalone; unauthenticated protected routes return expected auth redirects.
+- The post-publication Supabase gate again listed all 91 local/remote migrations in pairs and `supabase db push --linked --dry-run` returned `Remote database is up to date`. No pending migration existed, so application completed as a deliberate zero-write no-op; no historical SQL was replayed.
+- An existing authorized test session opened production at 390x844 and 1440x900. Both responsive overview layouts rendered; browser warning/error logs were empty. Screenshots contain no customer data.
+- Vercel's scoped one-hour runtime-error query returned none; deployment-scoped error/fatal/warning logs were empty.
+- During closeout another approved publisher advanced `origin/main` by `445b5e81` and `5c67d451`. Release work stopped, then verified `1119ef5d` is an ancestor, the two commits contain zero recovery-path or migration diff, and current production `dpl_BAKzwYuQisiDChY6MN69wRCB2uVH` is READY with the same probe/SW v4 plus empty scoped runtime errors. Closeout documentation must be replayed on that latest main without touching its `ACTIVE_CONTEXT.md`.
+- The closeout commit was rebased onto `5c67d451` with both tasks' memory retained. Latest-main combined gates passed agents/lint/typecheck and 311 files / 2033 tests. The first build attempt failed only because the sandbox could not fetch three Google Fonts; an authorized network-enabled retry compiled, typechecked and generated all 26 pages successfully.
+- Documentation sync updated the active recovery runbook and PWA execution-plan wording. Memory consolidation promoted the double-readiness/standalone-fallback contract while leaving physical-iPhone background/BFCache/network-switch evidence as owned backlog, not as a claimed guarantee.
+- Capability review creates only a C1 candidate for bounded PWA recovery delivery; no permission or autonomy increase is granted.
+- This is the required final `memory-checkpoint` after external writes and before task closure. This task did not modify `ACTIVE_CONTEXT.md`; concurrent `main` recorded the closed AI natural-language-query V3 task there, and this closeout preserves that external state.
