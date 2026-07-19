@@ -19,6 +19,7 @@ PASS for the scoped application release.
 
 - No migration, dependency, environment, model, runtime-policy, pricing, budget, allowlist, feature-flag or Vercel configuration change.
 - Diff secret scan and whitespace check are clean.
+- Production deployment reused the existing Vercel configuration and reached READY at the exact business SHA; both public domains share the deployment, anonymous AI capability access remains 401, and the post-smoke error log query was empty.
 
 ## Residual risk
 

@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260719-005-ai-search-accuracy-collapsible-ui](tasks/TASK-20260719-005-ai-search-accuracy-collapsible-ui/TASK.md): Closed production repair for model-mode device search broadening plus independent collapsible usage and processing disclosures; trusted original-message constraints and a fail-closed result invariant prevent Apple/iPhone 15 queries from returning Samsung cards.
+
 - [TASK-20260719-004-ai-processing-mode-usage](tasks/TASK-20260719-004-ai-processing-mode-usage/TASK.md): Closed production release of explicit local/model order-query processing plus current-store aggregate usage in Settings and the assistant sheet; exact-SHA release is live with no migration, secret, budget, model, allowlist or production-data change.
 
 - [TASK-20260718-014-ai-assistant-live-pilot](tasks/TASK-20260718-014-ai-assistant-live-pilot/TASK.md): Conditional production release of ChinaTech-only employee order text on `ai-runtime-v2`; one-shot HTTP/ledger/audit and 30-minute observation passed. Vision, PII, writes, public AI, other stores and model/budget changes remain new D4 work; 24-hour read-only review and authenticated UI evidence remain open.

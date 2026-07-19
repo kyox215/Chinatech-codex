@@ -16,6 +16,10 @@
 | E-012       | production build  | optimized Next build on latest `origin/main`                                              | `next build --webpack`                                                                                    | 26 routes built successfully           | 2026-07-19T13:01:13Z | IntegrationLead   |
 | E-013       | scope/security    | whitespace, forbidden-file and secret scans                                              | scoped diff review                                                                                        | clean                                  | 2026-07-19T12:52:46Z | IntegrationLead   |
 | E-014       | integration       | concurrent inventory hotfix retained before candidate commit                              | fetch/rebase/lineage check                                                                                | rebased onto `50f843dd` without conflict | 2026-07-19T13:01:32Z | IntegrationLead |
+| E-015       | git release       | approved business candidate reached `origin/main` without force                           | `git push origin HEAD:main`                                                                               | `50f843dd..d9c86ac1`                   | 2026-07-19T13:06:08Z | IntegrationLead |
+| E-016       | deployment        | Vercel production build used the exact business candidate                                 | Vercel deployment API/build logs                                                                          | `dpl_4k8Jt...` READY, SHA `d9c86ac1`   | 2026-07-19T13:08:10Z | IntegrationLead |
+| E-017       | production smoke  | both domains use the same deployment; auth boundary and runtime remain healthy            | Vercel alias inspect, anonymous curl, error-level logs                                                     | both aliases exact; login 200; API 401; no error logs | 2026-07-19T13:11:15Z | IntegrationLead |
+| E-018       | memory closeout   | durable project/department/capability records synchronized conservatively                 | project memory diff                                                                                        | C1 candidate only; no permission upgrade | 2026-07-19T13:13:34Z | IntegrationLead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
@@ -23,3 +27,4 @@ IDs, test reports, screenshots, or concise log references.
 - `2026-07-19T12:28:36Z` `69b85b7313` — TASK.md, PLAN.md, PRD.md, UI_SPEC.md, ARCHITECTURE_DECISION.md; context packet v2 aa57e8f92fb598b07983de0eef31fa2a90cb8776bcd9b35c330230ea11780a99
 - `2026-07-19T12:49:58Z` `cf6fb7f087` — 聚焦 Vitest 174 passed；AI Playwright 11 场景分批全部通过；390px/桌面 5 张任务截图；git diff --check 通过。
 - `2026-07-19T13:01:32Z` — 保留并重放到并发库存视觉热修复 `50f843dd`；合并后 ESLint、TypeScript、309 files / 1997 tests 与 26-route production webpack build 全部通过。
+- `2026-07-19T13:13:34Z` — `d9c86ac1` 非强制推送；Vercel exact-SHA 部署 READY，`www.chinatech.in` 与 `chinatech.in` 同指 `dpl_4k8Jt4wCwCErZqz4m4SN9rfo5xEf`；匿名能力接口 401，错误日志为空。

@@ -33,3 +33,17 @@
 - **Next:** 执行 scoped commit、非强制推送 main、核对 exact-SHA Vercel READY 与生产域名冒烟。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-19T13:14:41Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 大模型设备搜索已通过服务端可信约束和结果防线修复，用量与处理方式已折叠；business SHA d9c86ac1 exact-SHA READY 上线并通过双域名、匿名权限和错误日志冒烟。
+- **Residual risks:** 当前受控设备词典之外的型号仍依赖 provider；本次无现成认证会话，未额外消耗一次生产模型请求。
+- **Follow-up:** 仅在已有脱敏认证会话时复查一次真实模型查询；任何词典、模型、预算、allowlist 或 PII 范围扩展另立审批任务。
+- **Closed by:** IntegrationLead
+## 2026-07-19T13:15:00Z — 任务已关闭：business SHA d9c86ac1 与 Vercel dpl_4k8Jt4wCwCErZqz4m4SN9rfo5xEf exact-SHA READY，双生产域名、匿名权限和错误日志冒烟通过；长期项目/部门/能力记忆已同步。
+
+- **Phase:** implementation
+- **Completed/current state:** 任务已关闭：business SHA d9c86ac1 与 Vercel dpl_4k8Jt4wCwCErZqz4m4SN9rfo5xEf exact-SHA READY，双生产域名、匿名权限和错误日志冒烟通过；长期项目/部门/能力记忆已同步。
+- **Next:** 提交并推送纯文档关闭记录，核验最终 main 与生产部署 SHA；释放集成锁并关闭 Registry run/task。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

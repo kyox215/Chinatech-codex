@@ -2,7 +2,7 @@
 schema_version: 1
 task_id: "TASK-20260719-005-ai-search-accuracy-collapsible-ui"
 title: "修复大模型工单搜索准确性并折叠 AI 助手辅助区域后发布"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L1"
@@ -17,7 +17,8 @@ departments:
   - release
   - documentation
 created_at: "2026-07-19T12:14:12Z"
-updated_at: "2026-07-19T13:04:39Z"
+updated_at: "2026-07-19T13:15:00Z"
+closed_at: "2026-07-19T13:14:41Z"
 ---
 # Task — 修复大模型工单搜索准确性并折叠 AI 助手辅助区域后发布
 
@@ -74,7 +75,7 @@ updated_at: "2026-07-19T13:04:39Z"
 - [x] 390px 与桌面无横向溢出，收起状态明显释放结果和输入空间。
 - [x] 相关 Vitest、Lint、TypeScript、全量测试、生产 build 与目标 Playwright 通过。
 - [x] 任务截图覆盖 390px 收起/展开状态和准确的 Apple 15 结果；不暴露秘密或完整客户 PII。
-- [ ] exact commit 非强制推送到 `origin/main`，生产部署 SHA、远端 `main` 与候选一致，并通过域名冒烟。
+- [x] exact business commit `d9c86ac1` 非强制推送到 `origin/main`；READY 部署 `dpl_4k8Jt4wCwCErZqz4m4SN9rfo5xEf` 的 Git SHA 完全一致，两个生产域名与匿名安全冒烟通过。
 
 ## Facts, assumptions, and unknowns
 

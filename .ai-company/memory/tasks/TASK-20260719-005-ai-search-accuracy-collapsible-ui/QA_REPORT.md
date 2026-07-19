@@ -2,7 +2,7 @@
 
 ## Verdict
 
-PASS for release candidate. Production release verification remains pending.
+PASS for the scoped production release.
 
 ## Verified behavior
 
@@ -23,6 +23,17 @@ PASS for release candidate. Production release verification remains pending.
 - AI Playwright: all 11 scenarios passed across bounded batches.
 - Production webpack build: passed, 26 routes generated.
 - `git diff --check`: clean.
+
+## Production verification
+
+- Business commit `d9c86ac1c3a93782d33e3d22732758894eecadba` was pushed non-force on top of `50f843dd`.
+- Vercel deployment `dpl_4k8Jt4wCwCErZqz4m4SN9rfo5xEf` reported the exact Git SHA and completed its native Turbopack build READY.
+- `www.chinatech.in` and `chinatech.in` both resolve to that deployment; anonymous `/orders` redirects to login and finishes 200, while anonymous AI capabilities returns 401.
+- Error-level runtime log query after smoke returned no entries.
+
+## Residual evidence boundary
+
+No existing authenticated ChinaTech browser session was available in this execution environment, so no paid live model turn was consumed after deployment. The explicit-model phrase is covered by service/repository tests and 11 local browser scenarios; this limitation does not weaken the exact deployment, anonymous authorization or build evidence and is not represented as a live authenticated smoke.
 
 ## Tooling note
 
