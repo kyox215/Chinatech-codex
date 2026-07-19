@@ -104,3 +104,23 @@
 - **Triple gate:** HTTP 200; ledger `succeeded`, `usage_reported`, one provider attempt, 399 input / 60 output Token, 44 micro-USD, no open reservation; audit `succeeded`, provider `openai`, v2 policy, `settled`, Safety ID present and no error code.
 - **Isolation check:** total durable requests 2, vision requests 0, other-store requests 0. The response body was reduced to kind/counts; no order cards or customer data were printed or persisted in task evidence.
 - **Decision:** D4-v2 activation condition is satisfied. Configure only the ChinaTech allowlist plus master/order-text flags; keep vision, draft apply, public/customer assistant and all other stores off, then start the 30-minute observation after the activation deployment is READY.
+
+## 2026-07-19T01:36:00Z — D4-v2 ChinaTech text-only release passed 30-minute observation; conditional closeout
+
+- **Release identity:** `origin/main@152caa1ce5e415d464e0cfc73674ae4cda3cfa6a`; Vercel production deployment `dpl_946N6xMftqrRpKTzGmnDBmbjrR2y` is READY on `www.chinatech.in` and `chinatech.in`; errors-only build and scoped AI runtime error checks are clean.
+- **Activation boundary:** only ChinaTech `5248dda1-2b32-46cd-8ed0-d15386a9e8ed`, master flag and employee order-read flag are active. Vision, draft apply, public/customer assistant, PII egress and all other stores remain disabled. Maintenance is active as a safety control.
+- **Observation:** READY at `2026-07-19T00:58:50.334Z`; continuous read-only polling ended at `2026-07-19T01:28:56.132Z`. No stop threshold fired. Final aggregate at `01:30:41Z`: v2 enabled, v1 disabled, one enabled policy, 2 requests/2 attempts/167 microUSD, open=0, bad=0, overrun=0, vision=0, other-store=0, scoped runtime errors=0.
+- **Triple-gate preservation:** v2 smoke remains HTTP 200; ledger match=1 and audit match=1 for request `735769a5-8b17-47cc-9828-036368392539`; exactly one v2 provider attempt and 44 microUSD.
+- **Security:** all four AI tables have RLS; client-role table grants=0 and service-role grants=12. Advisor INFO for no RLS policy is intentional for service-only tables. Existing unrelated project WARN findings remain out of scope and are not presented as fixed.
+- **Traffic limitation:** no employee request arrived during the 30-minute activation window. Idle production stability and boundary integrity passed; the actual service path is proven by the pre-activation v2 one-shot.
+- **Visual limitation:** authenticated production browser evidence remains blocked by the explicit `www.chinatech.in` restriction. It was not bypassed; synthetic task screenshots plus deploy/HTTP/ledger/audit evidence are retained.
+- **Agent decision:** no new sub-agents were spawned because the R4 production sequence required one serialized Integration Lead; prior independent reviews remain evidence.
+- **Closeout:** approved D4-v2 slice is conditionally closed. Integration Lead owns a read-only 24-hour follow-up. Vision, PII, automatic writes, public assistant, another store or model/budget changes require a new R4/D4 task.
+
+## 2026-07-19T01:46:28Z — D4-v2 ChinaTech employee order-text is live on main@152caa1c. The no-PII v2 one-shot passed HTTP, ledger and audit with one 44-microUSD attempt; the full 30-minute observation ended with zero open, bad, overrun, Vision, cross-store or scoped runtime-error counts. Vision, PII, writes, public AI and other stores remain off.
+
+- **Phase:** implementation
+- **Completed/current state:** D4-v2 ChinaTech employee order-text is live on main@152caa1c. The no-PII v2 one-shot passed HTTP, ledger and audit with one 44-microUSD attempt; the full 30-minute observation ended with zero open, bad, overrun, Vision, cross-store or scoped runtime-error counts. Vision, PII, writes, public AI and other stores remain off.
+- **Next:** At or after 2026-07-20T00:58:50Z, perform one read-only 24-hour policy, ledger, audit and Vercel runtime review without another provider smoke. Any expansion requires a new R4/D4 task.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

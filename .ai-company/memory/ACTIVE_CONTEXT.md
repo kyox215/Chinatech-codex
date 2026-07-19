@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260718-014-ai-assistant-live-pilot"
-status: "in_progress"
-phase: "production-release"
+status: "conditional"
+phase: "post-release-observation"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-19T00:52:23Z"
+last_checkpoint_at: "2026-07-19T01:46:28Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -20,17 +20,17 @@ last_rehydrated_at: null
 
 ## Current state
 
-D4-v2 one-shot passed all three activation gates on `main@ec134a42`: HTTP 200; v2 ledger succeeded with one attempt and 44 micro-USD; audit succeeded; no open reservation, vision request or other-store request. Production is READY on the dormant v2 deployment and all live flags remain off until the controlled ChinaTech activation deployment.
+D4-v2 ChinaTech employee order-text is live on main@152caa1c. The no-PII v2 one-shot passed HTTP, ledger and audit with one 44-microUSD attempt; the full 30-minute observation ended with zero open, bad, overrun, Vision, cross-store or scoped runtime-error counts. Vision, PII, writes, public AI and other stores remain off.
 
 ## Blocking decisions
 
-- Any HTTP, ledger, audit, policy-attestation, isolation, privacy, cost, or deployment failure stops activation and disables v2 if it had been enabled.
-- Vision, PII, automatic writes, public/customer AI, additional stores, changed model/budget and destructive rollback remain outside scope.
-- Production browser/UI verification is blocked by an explicit user restriction against using `www.chinatech.in`; do not bypass it.
+- Vision, PII, automatic writes, public/customer AI, another store, or any model/budget change requires a new R4/D4 task.
+- Authenticated production UI evidence remains blocked by the explicit `www.chinatech.in` site-use restriction; do not bypass it.
+- Any policy, tenant, privacy, budget, ledger, audit or runtime stop threshold requires flags-first rollback and v2 disablement.
 
 ## Next action
 
-Configure only the ChinaTech allowlist plus master/order-text live flags, deploy the checkpointed exact SHA, then observe production for 30 minutes. Keep vision, draft apply, public/customer assistant, PII and all other stores off.
+At or after 2026-07-20T00:58:50Z, perform one read-only 24-hour policy, ledger, audit and Vercel runtime review without another provider smoke. Any expansion requires a new R4/D4 task.
 
 ## Resume protocol
 

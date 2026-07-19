@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260718-014-ai-assistant-live-pilot](tasks/TASK-20260718-014-ai-assistant-live-pilot/TASK.md): Conditional production release of ChinaTech-only employee order text on `ai-runtime-v2`; one-shot HTTP/ledger/audit and 30-minute observation passed. Vision, PII, writes, public AI, other stores and model/budget changes remain new D4 work; 24-hour read-only review and authenticated UI evidence remain open.
+
 - [TASK-20260718-013-inventory-v2-production-canary](tasks/TASK-20260718-013-inventory-v2-production-canary/TASK.md): Closed production recovery-and-canary release for Inventory V2. Four linked migrations are applied; only Chinatech has schema/shadow/commands/UI enabled, V1 mutations remain enabled, rollback-only canary is zero-residual and AI image recognition remains dormant.
 
 - [TASK-20260718-013-cross-session-orchestration-implementation](tasks/TASK-20260718-013-cross-session-orchestration-implementation/TASK.md): Closed Phase 0A cross-session orchestration release with shared Registry identity, immutable Context Packets, fail-closed ACTIVE_CONTEXT compatibility, project declaration and reusable Skill; automation and production authority remain explicitly off.

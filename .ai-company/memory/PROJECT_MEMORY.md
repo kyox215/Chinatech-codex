@@ -18,9 +18,9 @@ Chinatech RepairDesk is a Next.js internal management system for a phone repair 
 migrations and deployed business commit `b8932b2c`. The production slice has append-only cost
 revisions, quote-based operating-margin reporting, supplier/parts lots and allocation, minimized
 CSV export, guarded history backfill and immutable original-currency snapshots. All five Phase 2
- child flags remain absent/off, no production backfill ran, and procurement/backfill tables stayed
- empty. Owner Option B accepts unproven physical restore/RPO/RTO and the pre-existing full-history
- replay failure for this release only; it does not close the independent recovery P0.
+child flags remain absent/off, no production backfill ran, and procurement/backfill tables stayed
+empty. Owner Option B accepts unproven physical restore/RPO/RTO and the pre-existing full-history
+replay failure for this release only; it does not close the independent recovery P0.
 
 2026-07-18 Inventory V2 Chinatech canary: `TASK-20260718-013-inventory-v2-production-canary`
 supersedes the prior production-off statement from `TASK-20260718-011-inventory-product-v2-plan`.
@@ -67,6 +67,7 @@ The mixed original checkout was preserved; reverify the live remote SHA before a
 - Closed `TASK-20260717-004-order-diagnosis-quote-implementation` defines the current intake-to-quote contract: unknown intake creates no fake price, customer report/diagnosis/charge lines remain distinct, technicians diagnose and hand off, and Owner/Manager/Sales publish and confirm notification. Quote and confirmed-send are separate versioned, idempotent, service-role-only atomic RPCs; opening WhatsApp does not write sent state. Migration `20260717213518` and business application `main@6e511c56` are live and postchecked.
 - Conditional `TASK-20260718-009-ai-assistant-implementation` defines the dormant AI Phase 0–2 contract: staff order assistance is limited to server-derived actor/store/RBAC and two read-only tools with server-built cards; inventory label recognition may only populate an employee-reviewed page-memory form draft before the ordinary save path. Parent/child flags, empty store allowlist, zero quota and fake provider fail closed. Production `main@8bef230` is verified READY without AI/OpenAI environment names, key sync, external calls, migration, image/draft persistence or public entry. Any live provider, persistent draft, workflow expansion or public assistant remains a separate R4/D4 task.
 - Conditionally closed `TASK-20260718-011-ai-assistant-cost-governance` released the dormant Phase 3A cost-governance extension on `main@d84dae86` / READY `dpl_8nFPJjX3dY7Xbh9KTxBCdc5wRVfF`. Capability/RBAC and an all-request abuse guard remain ahead of a conservative deterministic order planner; deterministic hits use no provider quota. Complete local label candidates may skip cloud upload but remain reviewed, unsaved packaging claims. `TASK-20260718-013-inventory-v2-production-canary` later applied the durable atomic quota migration as empty, dormant governance infrastructure: policy/bucket/request rows remain zero, OpenAI provider remains fail-closed, and all budget/privacy/key/live AI activation decisions remain separate D4 work.
+- Conditional `TASK-20260718-014-ai-assistant-live-pilot` supersedes only the dormant order-text statement: ChinaTech employee order text is live on `main@152caa1c` / READY `dpl_946N6xMftqrRpKTzGmnDBmbjrR2y` under `ai-runtime-v2`, explicit minimal reasoning, one-attempt durable budget settlement, a USD 50 monthly cap and a ChinaTech-only allowlist. The v2 one-shot passed HTTP/ledger/audit and the 30-minute observation ended with zero open/bad/overrun/Vision/cross-store/runtime-error counts. Vision/photos, PII, writes, public/customer AI, other stores and model/budget changes remain separate R4/D4 work; authenticated production UI proof and the 24-hour read-only review remain open.
 
 ## Authentication, authorization and sensitive data
 

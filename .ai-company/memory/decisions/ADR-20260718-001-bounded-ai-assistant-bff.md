@@ -1,9 +1,9 @@
 # ADR-20260718-001: RepairDesk 有界 AI 小助手采用现有 BFF 与无写工具边界
 
-- Status: proposed / accepted for default-off fake implementation; blocked for live activation
+- Status: accepted for ChinaTech employee order text; Vision/PII/write/public/multi-store activation remains blocked
 - Date: 2026-07-18
 - Decision owners: Integration Lead; Owner retains live-data, dependency, budget and production decisions
-- Related task: `TASK-20260718-009-ai-assistant-implementation`
+- Related tasks: `TASK-20260718-009-ai-assistant-implementation`, `TASK-20260718-011-ai-assistant-cost-governance`, `TASK-20260718-014-ai-assistant-live-pilot`
 - Supersedes: none
 
 ## Context
@@ -92,3 +92,11 @@ Phase 2 使用严格 Structured Output，不注册工具。服务器先安全解
 - 需要模型读取工具结果、多轮状态、流式回答或第三方知识时。
 - Phase 3 持久草稿/多标识符迁移进入执行门时。
 - 公开客户助手单独立项和认证方案批准时。
+
+## 2026-07-19 implementation update
+
+The live implementation uses Option B's native server-side `fetch`, not the initially preferred SDK. The narrow Responses API surface is wrapped behind the same provider interface, injected fetch keeps the protocol independently testable, and no provider retry is permitted. This implementation choice is production-verified for ChinaTech employee order text only.
+
+`ai-runtime-v1` remains disabled after its default-medium reasoning exhausted the 256-token output ceiling. Owner-approved `ai-runtime-v2` versions the remediation with explicit `reasoning.effort=minimal` while preserving model, pricing, token ceilings and budget. The v2 no-PII one-shot passed HTTP, ledger and audit; exact-SHA activation then passed a 30-minute observation.
+
+This update does not authorize Vision/photos, PII, AI writes, a public/customer assistant, another store, provider-managed state or broader tools. Those remain separate R4/D4 decisions.
