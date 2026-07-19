@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["INT", "ARCH", "FE", "UX", "QA"]
 created_at: "2026-07-19T18:01:27Z"
-updated_at: "2026-07-19T20:14:26Z"
+updated_at: "2026-07-19T20:16:01Z"
 ---
 # Task — RepairDesk 快速网络恢复
 
@@ -86,4 +86,4 @@ updated_at: "2026-07-19T20:14:26Z"
 
 ## Current state and next action
 
-Owner 已批准发布。最新已核验 `origin/main@25752bd1` 是原候选父提交；当前隔离 worktree 在 `94243401` 之上新增了 WebKit 真实 SW 阻塞修正、契约/E2E 与发布检查点，仍不含 migration。生产 linked history 与本地 91 条记录一致，dry-run 为 up to date。最终代码门已通过，下一步：独立 QA/ARCH 复核、精确提交、再次 fetch 检查无漂移、非强制推送 exact HEAD、确认部署与生产恢复流程，然后写入关闭证据。
+Owner 已批准发布。最新已核验 `origin/main@25752bd1` 是原候选父提交；快速恢复主提交为 `94243401`，WebKit/SW v4 阻塞关闭提交为 `8fa5b172`，仍不含 migration。生产 linked history 与本地 91 条记录一致，dry-run 为 up to date。最终代码门与独立 QA/ARCH 已通过，下一步：提交本候选 SHA 检查点、再次 fetch 检查无漂移、非强制推送 exact HEAD、确认部署与生产恢复流程，然后写入关闭证据。

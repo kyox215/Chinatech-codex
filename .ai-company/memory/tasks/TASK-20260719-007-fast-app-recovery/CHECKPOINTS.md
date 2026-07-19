@@ -72,3 +72,11 @@
 - `git diff --check` and scoped secret scan are clean; there is still no Supabase, dependency, environment or deployment-config diff.
 - The worktree is intentionally dirty only because final v4 source, tests, screenshots and task evidence are waiting for an exact scoped commit. Do not push old HEAD `94243401` alone.
 - Next external write: stage the explicit intended path list, inspect staged diff, commit, fetch again, require fast-forward/no overlap, then push without force.
+
+## 2026-07-19T20:16:01Z — exact scoped release candidate committed
+
+- Exact staged scope contained 11 intended paths only: v4 SW, standalone fallback, contract/E2E, two no-PII screenshots and this task's evidence files.
+- Staged diff check passed; no unstaged path remained; scoped secret scan returned no match.
+- Commit `8fa5b172` (`fix: recover service worker offline shell safely`) records the final v4 blocker closure on top of `94243401`.
+- Combined candidate remains free of Supabase migrations, dependencies, environment files and deployment configuration.
+- Next: commit this SHA checkpoint, fetch `origin/main` immediately, verify ancestor/no-overlap and non-force push the exact resulting HEAD.

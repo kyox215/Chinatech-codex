@@ -4,6 +4,7 @@
 
 - Candidate branch: `codex/app-style-recovery-fast-20260719`.
 - Baseline: `origin/main@25752bd1`.
+- Release code commits: `94243401` + `8fa5b172`; a documentation-only SHA checkpoint follows.
 - Quality state: final source locally verified, including real SW v4 Chromium/WebKit; Owner has authorized production release; preflight database gate is a confirmed no-op.
 
 ## Read first

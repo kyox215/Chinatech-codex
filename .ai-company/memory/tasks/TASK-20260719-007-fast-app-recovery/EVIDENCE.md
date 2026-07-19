@@ -37,3 +37,4 @@
 | E-033 | persistence | browser state and cache safety | real SW E2E | cookie/localStorage/IndexedDB + unrelated cache retained; session reload state cleared after ready |
 | E-034 | review | final independent release decision | Architecture PASS; Release QA GO | no code blocker; exact commit/fresh-fetch conditions retained |
 | E-035 | quality | post-final-source full gate | final `npm run check` at 20:13Z | agents/lint/typecheck/build PASS; 311 files / 2022 tests PASS |
+| E-036 | git | exact v4 release candidate commit | `8fa5b172` on top of `94243401` | 11 intended paths; staged diff clean; no migration/env/dependency diff |
