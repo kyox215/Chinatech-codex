@@ -34,3 +34,14 @@
 - **Risks/blockers:** cropped-photo egress and Vision activation remain unapproved. The order-text release lock must be released before this task changes Supabase, Vercel, `main`, or the formal domain.
 - **Next:** finish the conflict-free source rebase onto `origin/main@ec134a42`, rerun local release gates, then obtain the exact independent Vision D4 from the Owner before any paid Vision request, push, deploy, env write or activation.
 - **Evidence:** E-014 and `docs/AI_ASSISTANT_VISION_PILOT_RUNBOOK.md`.
+
+## 2026-07-19T01:08:03Z — Vision 候选已重放到 origin/main@152caa1c；agents/lint/typecheck、305 文件 1910 测试与 26 页生产构建通过；图片链路仍零真实调用、零生产写入。批准包改为复用既有 ai-runtime-v2 的 50 美元/月与 20/10/300/30 限额。
+
+- **Phase:** owner-approval-gate
+- **Completed/current state:** Vision 候选已重放到 origin/main@152caa1c；agents/lint/typecheck、305 文件 1910 测试与 26 页生产构建通过；图片链路仍零真实调用、零生产写入。批准包改为复用既有 ai-runtime-v2 的 50 美元/月与 20/10/300/30 限额。
+- **Next:** 等待 TASK-20260718-014 释放生产写锁并取得 Owner 独立 Vision D4；随后刷新 drift、证明既有 v2 policy、推送 main、Vision 休眠部署、执行一次合成无 PII Vision smoke、Chinatech 手机/桌面验收与 30 分钟观察。
+- **Decision:** Reuse immutable ai-runtime-v2 50 USD monthly hard cap and 20 order/day, 10 vision/day, 300 global/day, 30 actor/minute; one additional synthetic Vision smoke only.
+- **Blocker:** Independent Vision photo-egress D4 is not approved; serialized order-text production release lock remains active.
+- **Evidence:**
+  - E-015: base 152caa1c; agents/lint/typecheck pass; Vitest 305/1910; Next build 26 pages; no Vision production call.
+- **Recorded by:** CEO-Orchestrator

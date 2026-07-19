@@ -16,6 +16,9 @@
 | E-012       | diff hygiene     | source diff has no whitespace errors and generated `next-env.d.ts` drift was removed            | `git diff --check`; status review                                                                    | passed                                                                          | 2026-07-19           | Integration Lead |
 | E-013       | release control  | exact Vision D4 packet, staged rollout and stop conditions are documented                       | `docs/AI_ASSISTANT_VISION_PILOT_RUNBOOK.md`                                                          | reuses approved `$50/month` v2 numbers; Vision Production remains NO-GO         | 2026-07-19           | Integration Lead |
 | E-014       | remote drift     | latest main approves order-text v2 but excludes Vision; concurrent release owns Production lock | `origin/main@ec134a42`; `origin/codex/ai-v2-d4-release-20260719@152caa1c`; active task context       | one text smoke reported passed; no Vision authorization or Vision call inferred | 2026-07-19T01:01:26Z | Integration Lead |
+| E-015       | latest rebase    | Vision candidate is a direct child of current main and passes post-rebase release gates         | merge-base check; `npm run agents:check`; `npm run lint`; `npm run typecheck`; `npm run test`; build | base `152caa1c`; agents/lint/types pass; 305/1910 pass; 26-page build passes    | 2026-07-19T01:07:01Z | Integration Lead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
+
+- `2026-07-19T01:08:03Z` `58d267f1d9` — E-015: base 152caa1c; agents/lint/typecheck pass; Vitest 305/1910; Next build 26 pages; no Vision production call.

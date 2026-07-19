@@ -1,12 +1,12 @@
 # RepairDesk AI 小助手成本治理与运行合同
 
-Status: production dormant after halted v1 smoke; v2 + Vision release candidate blocked by new D4
+Status: order-text v2 smoke passed; Vision release candidate pending independent D4 and serialized release lock
 Owner: Integration Lead / Architecture / DATA / Security
 Last verified: 2026-07-19 CEST, `TASK-20260719-001-ai-inventory-live-provider`
 
 ## 当前结论
 
-Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预算网关、请求幂等指纹、外发数据门禁、分布式 actor 限流和保留期维护。生产已经应用 `20260718174042` 与 `20260718223739`；第一次无 PII 订单文字 smoke 留下 1 条已结算请求，`ai-runtime-v1` 已停用且没有开放 reservation。Production secrets 位于平台 secret store，但所有用户可见 AI 旗标仍关闭，Chinatech canary 从未开始。
+Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预算网关、请求幂等指纹、外发数据门禁、分布式 actor 限流和保留期维护。生产已经应用 `20260718174042` 与 `20260718223739`；第一次 v1 无 PII 订单文字 smoke 结算 `123 micro-USD` 后安全停止，第二次已批准的 v2 订单文字 smoke 在单次尝试中以 HTTP 200、账本/审计成功结算 `44 micro-USD`。最新权威检查点无开放 reservation、Vision 请求或其他门店请求；Vision 仍关闭。
 
 实现使用 Node 原生 server-side `fetch`，没有新增 OpenAI SDK 依赖。Platform Key 与 HMAC secrets 未写入代码、任务记忆、日志、测试夹具或截图。本次 Vision 候选没有执行真实 provider 请求；尚未把任何真实图片、OCR、客户资料或设备标识符发送给第三方。
 
@@ -140,6 +140,6 @@ OPENAI_API_KEY=
 
 两条迁移按真实顺序在无持久卷的 PostgreSQL 17 临时容器执行；验证了创建、政策一致性证明、RLS/Grants、相同 client request 幂等、结算、pre-dispatch 金额/次数释放、actor 分钟限流、stale 保守结算、90 天分批清理、活动预留保留和匿名角色拒绝。仓库完整历史迁移的 `supabase db start` 仍会被早期 `product_channel` 基线漂移阻塞；该失败不等于本 migration upgrade 已通过生产 apply 门禁。
 
-远端 migration history 已包含 `20260718174042`、三条 Inventory V2 migration 与 `20260718223739`；不得重放或修改这些历史文件。取得新的 D4 后，只能新增一份使用批准精确数字、初始 `disabled` 的 v2 policy migration/受审 SQL，并在 apply 前核对既有 v1 已停用、请求账本无开放 reservation、远端没有并发 migration drift。
+远端 migration history 已包含 `20260718174042`、三条 Inventory V2 migration 与 `20260718223739`；不得重放或修改这些历史文件。Vision D4 应复用并精确证明既有 `ai-runtime-v2`，不得重建或改写同版本 policy；只有模型、价格、预算或额度发生变化时才允许另开 D4 并创建新的版本化 policy。任何 Vision 写入前仍须核对 v1 已停用、请求账本无开放 reservation、Vision 计数为 0 且远端没有并发 migration drift。
 
 回滚顺序：关闭 paid fallback → 保留 direct/local/manual → 设置 `AI_ASSISTANT_ENABLED=0` → 必要时回退应用 exact SHA。即使未来迁移已经应用，也不紧急 DROP 用量表；先停止新预留并保守结算已有请求。

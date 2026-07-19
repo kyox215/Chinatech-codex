@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["API", "DATA", "INT", "QA", "Release", "SEC", "UI"]
 created_at: "2026-07-19T00:16:17Z"
-updated_at: "2026-07-19T01:01:26Z"
+updated_at: "2026-07-19T01:08:03Z"
 ---
 
 # Task — Chinatech 库存入库 AI 图片标签识别真实接入
@@ -57,17 +57,17 @@ Chinatech 库存入库 AI 图片标签识别真实接入
 
 ## Facts, assumptions, and unknowns
 
-| Item                                                                                                                                  | Type                          | Evidence                                                                        | Status / next action                                   |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Current main-line provider already supports OpenAI Responses for order text and specification-only Vision                             | observed                      | `openai-responses-provider.ts`; `vision-assistant.service.ts`                   | harden rather than replace                             |
-| Existing Production key/secrets and live-provider migrations exist; order-text D4-v2 is approved but explicitly excludes Vision       | verified remote record        | `origin/main@ec134a42`; `TASK-20260718-014-ai-assistant-live-pilot`             | do not infer photo-egress approval                     |
-| The order-text release owns the serialized Production write lock and reports a successful paid v2 text smoke on its checkpoint branch | observed, concurrent          | `origin/codex/ai-v2-d4-release-20260719@152caa1c`                               | wait for lock release; refresh before any Vision write |
-| Earlier Vision candidate contains useful Sharp/tests but required independent API/QA/security hardening                               | verified                      | QA/API/SEC post-diff reviews; stale worktree diff                               | only reviewed increments were ported                   |
-| UI already creates human-confirmed unsaved drafts and locally recognizes identifiers                                                  | observed                      | inventory intake components and E2E                                             | preserve zero-write invariant                          |
-| Exact Vision photo-egress terms and use of the formal-domain test account are not approved                                            | unknown / blocking production | Owner decision required                                                         | local code and fake E2E only                           |
-| Local release candidate is being reconciled onto current `origin/main`                                                                | in progress                   | branch `codex/ai-inventory-vision-integration-20260719`; target base `ec134a42` | complete rebase and rerun gates                        |
-| Exact locked server decoder is `sharp@0.34.5`                                                                                         | verified                      | clean `npm ci`; runtime version; lockfile                                       | production dependency audit returned 0 vulnerabilities |
-| Mocked cloud fallback preserves zero-write behavior on desktop and mobile                                                             | verified                      | 6 Playwright tests; task evidence screenshots                                   | no real provider or inventory create request           |
+| Item                                                                                                                            | Type                          | Evidence                                                                        | Status / next action                                   |
+| ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Current main-line provider already supports OpenAI Responses for order text and specification-only Vision                       | observed                      | `openai-responses-provider.ts`; `vision-assistant.service.ts`                   | harden rather than replace                             |
+| Existing Production key/secrets and live-provider migrations exist; order-text D4-v2 is approved but explicitly excludes Vision | verified remote record        | `origin/main@152caa1c`; `TASK-20260718-014-ai-assistant-live-pilot`             | do not infer photo-egress approval                     |
+| The order-text release owns the serialized Production write lock and reports a successful paid v2 text smoke on current `main`  | verified, concurrent          | `origin/main@152caa1c`; authoritative active context                            | wait for lock release; refresh before any Vision write |
+| Earlier Vision candidate contains useful Sharp/tests but required independent API/QA/security hardening                         | verified                      | QA/API/SEC post-diff reviews; stale worktree diff                               | only reviewed increments were ported                   |
+| UI already creates human-confirmed unsaved drafts and locally recognizes identifiers                                            | observed                      | inventory intake components and E2E                                             | preserve zero-write invariant                          |
+| Exact Vision photo-egress terms and use of the formal-domain test account are not approved                                      | unknown / blocking production | Owner decision required                                                         | local code and fake E2E only                           |
+| Local release candidate is reconciled onto current `origin/main` and passes post-rebase release gates                           | verified                      | branch `codex/ai-inventory-vision-integration-20260719`; base `152caa1c`; E-015 | preserve until Vision D4                               |
+| Exact locked server decoder is `sharp@0.34.5`                                                                                   | verified                      | clean `npm ci`; runtime version; lockfile                                       | production dependency audit returned 0 vulnerabilities |
+| Mocked cloud fallback preserves zero-write behavior on desktop and mobile                                                       | verified                      | 6 Playwright tests; task evidence screenshots                                   | no real provider or inventory create request           |
 
 ## Decision and approval points
 
