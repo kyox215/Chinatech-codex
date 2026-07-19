@@ -1,16 +1,17 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260719-001-ai-inventory-live-provider"
-status: "active"
-phase: "release-candidate-verified"
+status: "conditional"
+phase: "conditional-release-closeout"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-19T12:26:26Z"
+last_checkpoint_at: "2026-07-19T13:44:42Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
+
 # Active Context
 
 ## Current objective
@@ -19,16 +20,15 @@ last_rehydrated_at: null
 
 ## Current state
 
-客户端 effect 自取消根因已修复；方案 A 已落地。focused 5/43、全仓 309/1978、lint/typecheck/agents、26 页构建、audit 0、旧入口 6/6、V2 3/3 与三项独立复核通过。生产 Vision 保持关闭，唯一 smoke 未消耗。
+Chinatech Vision hotfix is on main; one synthetic no-PII production smoke returned five expected fields; request/attempt/audit stayed 1/1/1; 5713 micro-USD settled; inventory stayed 4; 30-minute observation passed with zero open, bad, cross-store or Vercel error events; release conditionally closed.
 
 ## Blocking decisions
 
-- Production Vision must remain disabled until the exact pushed SHA is deployed dormant and live policy/auth/ledger checks show the approved ChinaTech-only zero baseline.
-- The one authorized synthetic no-PII smoke is non-retryable; any `sent_unknown`, provider attempt other than 1, ledger/audit delta other than `+1`, open hold, privacy mismatch or automatic inventory write triggers flags-first rollback.
+- None recorded. Check the task file and `OPEN_CONFLICTS.md` before assuming this remains true.
 
 ## Next action
 
-提交 scoped candidate，重新 fetch 并 fast-forward 推送 main；把三项 Vision 变量明确设为 0 后休眠部署，验证 exact SHA 与零账本，再按 runbook 执行唯一一次事先目检的合成规格图 smoke。
+At or after 2026-07-20T13:11:21.021029Z, perform the read-only 24-hour policy/ledger/audit/runtime review; do not run a second provider smoke.
 
 ## Resume protocol
 

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f8fafc"/>
+  <rect x="72" y="72" width="1056" height="656" rx="34" fill="#ffffff" stroke="#1e293b" stroke-width="6"/>
+  <text x="120" y="155" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#2563eb">SYNTHETIC TEST LABEL</text>
+  <line x1="120" y1="190" x2="1080" y2="190" stroke="#cbd5e1" stroke-width="4"/>
+  <text x="120" y="285" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#0f172a">BRAND: NOVA</text>
+  <text x="120" y="375" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#0f172a">MODEL: A7 PRO</text>
+  <text x="120" y="465" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#0f172a">COLOR: BLUE</text>
+  <text x="120" y="555" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#0f172a">RAM: 8 GB</text>
+  <text x="120" y="645" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#0f172a">STORAGE: 256 GB</text>
+</svg>

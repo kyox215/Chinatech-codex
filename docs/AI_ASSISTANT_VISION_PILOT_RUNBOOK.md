@@ -1,18 +1,18 @@
 # Chinatech AI 图片标签识别单店发布手册
 
-Status: Vision D4 approved; client-stall hotfix verification in progress; Production Vision disabled
+Status: ChinaTech Vision live; 30-minute observation passed; 24-hour review pending
 Task: `TASK-20260719-001-ai-inventory-live-provider`
 Last verified: 2026-07-19 CEST
 
 ## 当前结论
 
-现有 OpenAI Platform Key 已存在；页面显示“当前门店尚未开放图片识别”不是缺少密钥，而是生产的图片外发批准与 Vision 功能旗标仍按设计关闭。订单文字的 D4-v2 已独立批准并由 `TASK-20260718-014-ai-assistant-live-pilot` 串行发布，但其批准文本明确排除 Vision。不得把订单文字批准解释成照片外发批准，也不得通过重新创建或复制 Key 绕过门禁。
+现有 OpenAI Platform Key 一直有效；先前页面显示“当前门店尚未开放图片识别”不是缺少密钥，而是生产图片外发与 Vision 功能旗标按设计关闭。Owner 后续已单独批准 Vision D4，本任务按休眠部署、零基线和 Chinatech-only 三门顺序开放，没有重新创建或复制 Key。
 
 本候选已把库存标签识别接到既有原生 `fetch` Responses provider，并保留手工入库：浏览器先解码、去元数据和重编码；服务端再次完整解码单帧、限制像素/边长、旋转、铺白并生成无元数据 JPEG。只有服务端衍生图可以参与请求指纹、预算预留和 OpenAI 调用。识别结果只能成为员工逐字段确认的未保存草稿，成本、售价、来源、IMEI/SN 与正式保存不由云端 AI 完成。
 
-首次手机端尝试在浏览器生成安全图片后被前端生命周期错误自取消，界面因此持续停留在处理中；请求从未到达 BFF、Supabase reservation 或 OpenAI。事故已通过三项 Vision 开关归零而止损，Vision usage/open/audit 仍为 `0/0/0`，唯一一次获批图片 smoke 尚未消耗。修复候选已用可执行回归锁定该根因，并在可选图片路径移除不可抢占的主线程 ZXing 回退、为 FileReader 与整条客户端链路增加硬超时；正式发布仍须通过本手册后续门禁。
+首次手机端尝试曾被前端生命周期清理自取消，界面持续停留在处理中，但请求没有到达 BFF、Supabase reservation 或 OpenAI。`main@50f843dd` 已通过 ref/run-id 生命周期、8 秒 FileReader 和 75 秒全链路 watchdog 修复该根因，并从可选图片路径移除不可抢占的主线程 ZXing 回退。
 
-截至本手册时间，本 Vision 任务只执行了 fake provider、mocked cloud 和合成图片测试，没有发送真实图片、客户资料或设备标识符，也没有产生 Vision 计费请求。订单文字任务已经消费其独立授权的 v2 smoke；该调用不扩大本任务权限。
+2026-07-19 的正式 smoke 只发送一张事先目检的合成规格标签，返回 `NOVA / A7 PRO / BLUE / 8 GB / 256 GB`。账本与审计各精确增加 `1`，唯一 provider attempt 成功并按 usage 结算 `5713` micro-USD；open/bad/cross-store 为 `0`，库存基线与事后均为 `4`。没有发送真实图片、客户资料、条码或设备标识符，也没有自动保存库存。30 分钟观察从 reservation `2026-07-19T13:11:21.021029Z` 持续到最终聚合 `2026-07-19T13:42:19.925504Z`，请求/attempt/audit 保持 `1/1/1`，运行错误、未结算、失败、跨店与库存写入均为 `0`，正式域名保持 READY。24 小时仍需只读复核。
 
 ## 已批准的发布包
 

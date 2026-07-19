@@ -20,7 +20,7 @@
 
 ## 2026-07-19T00:53:05Z — Vision 本地发布候选已完成：服务端 Sharp 净化、真实 OpenAI provider、Chinatech 单店外发/预算门禁、稳定请求 ID、标识符防御、pre-body 限流、隐私文案与 mocked-cloud E2E 已实施；lint/typecheck/agents、305 文件 1910 测试、Turbopack build、Playwright 6/6、npm audit 0 均通过。生产未修改。
 
-- **Phase:** implementation
+- **Phase:** conditional-release-closeout
 - **Completed/current state:** Vision 本地发布候选已完成：服务端 Sharp 净化、真实 OpenAI provider、Chinatech 单店外发/预算门禁、稳定请求 ID、标识符防御、pre-body 限流、隐私文案与 mocked-cloud E2E 已实施；lint/typecheck/agents、305 文件 1910 测试、Turbopack build、Playwright 6/6、npm audit 0 均通过。生产未修改。
 - **Next:** superseded by the 2026-07-19T01:01:26Z checkpoint below after remote release drift was discovered.
 - **Evidence:** none added by this command; do not infer validation.
@@ -114,6 +114,7 @@
 - **Browser evidence:** legacy inventory Vision passes 6/6 with V2 flags off; `/inventory/new` V2 passes 3/3 with V2 flags on. These configurations are mutually exclusive by product design, so they were validated separately. All flows use synthetic images and mocked cloud, make at most one Vision request and record zero inventory-create requests.
 - **Documentation:** runbook now requires dormant deploy/off, zero baseline, Chinatech-only triple-gate activation, one pre-inspected synthetic UI smoke, exact ledger/audit `+1`, no retry for `sent_unknown`, 75-second/manual-Next stop thresholds and a single-test-operator 30-minute window.
 - **Next:** collect final independent architecture, QA/UX and security/release verdicts; then run scoped diff review, memory checkpoint and fresh remote-drift check before commit/push.
+
 ## 2026-07-19T12:26:26Z — 客户端 effect 自取消根因已修复；方案 A 已落地。focused 5/43、全仓 309/1978、lint/typecheck/agents、26 页构建、audit 0、旧入口 6/6、V2 3/3 与三项独立复核通过。生产 Vision 保持关闭，唯一 smoke 未消耗。
 
 - **Phase:** release-candidate-verified
@@ -124,3 +125,31 @@
 - **Evidence:**
   - E-024..E-033
 - **Recorded by:** Integration-Lead
+
+## 2026-07-19T13:15:29Z — Production Vision one-shot passed; 30-minute observation active
+
+- **Release identity:** hotfix commit `50f843ddb2f5f734708c70144d8860e19d857dbc` is on `main`; dormant deployment `dpl_AXAgvZ9y1XRpgXouwwuYno23TcwD` passed off-state checks; enabled deployment `dpl_Gfqrd7rT2U8vo79qe7DRdD3P4eKm` is READY on `www.chinatech.in` and `chinatech.in`.
+- **Preflight:** exact `ai-runtime-v2` policy; zero Vision usage/open/audit/attempts; ChinaTech inventory baseline `4`; four AI tables have RLS and zero browser-role grants; exact-main linked migration dry-run reports remote up to date; errors-only runtime event count is zero.
+- **Production UI:** authenticated ChinaTech desktop and 390x844 mobile disabled-state checks passed; manual Next reached step 3. After activation the mobile formal UI sent the single pre-inspected synthetic no-PII label and returned exactly `NOVA / A7 PRO / BLUE / 8 GB / 256 GB`.
+- **Durable result:** Vision ledger/audit each increased exactly once; request succeeded and settled from usage, provider attempt count is `1`, cost is `5713` micro-USD, no open/non-success/cross-store request exists, and the privacy-safe audit has no error. `has_safety_identifier=true` records the expected anonymous OpenAI abuse-safety identifier control, not a device/customer identifier.
+- **Zero write:** applying selected candidates changed only the browser draft; the identifier input stayed blank and ChinaTech inventory count remained `4`.
+- **Observation:** database reservation time `2026-07-19T13:11:21.021029Z`; keep the single-operator/no-more-upload window through at least `2026-07-19T13:41:21.021029Z`. Do not close early.
+- **Evidence:** E-034..E-038 and production screenshots in the task evidence directory.
+
+## 2026-07-19T13:42:19Z — 30-minute ChinaTech Vision observation passed
+
+- **Phase:** conditional release closeout.
+- **Window:** durable reservation began at `2026-07-19T13:11:21.021029Z`; the final linked aggregate was taken at `2026-07-19T13:42:19.925504Z`, after the full approved window.
+- **Durable result:** Vision request/attempt/audit remained `1/1/1`; open, non-success, cross-store and audit-non-success counts remained `0`; settled cost remained `5713` micro-USD; ChinaTech inventory remained `4`.
+- **Runtime/deploy:** explicit-project Vercel errors-only query completed with zero events; `www.chinatech.in` remained READY on deployment `dpl_Axoxjvdccawd5dDSPhShGiJs1xgR`.
+- **Decision:** no rollback condition fired. Keep ChinaTech-only Vision and human draft apply enabled within the frozen data boundary. No second provider smoke is permitted.
+- **Residual gate:** at or after `2026-07-20T13:11:21.021029Z`, run one read-only 24-hour policy/ledger/audit/runtime review; this is why closure remains conditional.
+- **Evidence:** E-039; production screenshots and synthetic label in the task evidence directory.
+
+## 2026-07-19T13:44:42Z — Chinatech Vision hotfix is on main; one synthetic no-PII production smoke returned five expected fields; request/attempt/audit stayed 1/1/1; 5713 micro-USD settled; inventory stayed 4; 30-minute observation passed with zero open, bad, cross-store or Vercel error events; release conditionally closed.
+
+- **Phase:** implementation
+- **Completed/current state:** Chinatech Vision hotfix is on main; one synthetic no-PII production smoke returned five expected fields; request/attempt/audit stayed 1/1/1; 5713 micro-USD settled; inventory stayed 4; 30-minute observation passed with zero open, bad, cross-store or Vercel error events; release conditionally closed.
+- **Next:** At or after 2026-07-20T13:11:21.021029Z, perform the read-only 24-hour policy/ledger/audit/runtime review; do not run a second provider smoke.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

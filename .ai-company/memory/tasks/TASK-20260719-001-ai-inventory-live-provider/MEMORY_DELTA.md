@@ -7,12 +7,15 @@
 - **Fact:** desktop/mobile cloud fallback still applies only selected fields to an unsaved draft and issues no inventory-create request. Source: E-009/E-010; status: verified mocked-cloud; owner: UI/QA; review trigger: intake save-flow change.
 - **Fact:** the mobile stall was caused by a React effect cleanup tied to `prepared`, which aborted the current controller after the preview rendered and returned while status remained working. Source: E-022/E-024 and incident record; status: reproduced and fixed; owner: UI/QA; review trigger: Vision operation lifecycle change.
 - **Fact:** final hotfix gates pass 309 files / 1978 tests, 26-page build, production audit 0, legacy E2E 6/6 and V2 E2E 3/3. Source: E-025..E-030; status: verified local candidate; owner: Integration Lead; review trigger: remote drift or release-candidate change.
+- **Fact:** the production ChinaTech Vision one-shot returned the five expected synthetic specification fields, settled one OpenAI attempt for `5713` micro-USD and left usage open/bad/cross-store counts at zero. Source: E-037; status: verified production; owner: Release/Data; scope: approved ChinaTech pilot; review trigger: 30-minute or 24-hour observation anomaly.
+- **Fact:** human apply changed only the browser draft; the identifier input remained blank and ChinaTech inventory count stayed at `4`. Source: E-038; status: verified production; owner: UI/QA; scope: first production smoke; review trigger: intake save-flow or response-schema change.
+- **Fact:** the 30-minute production observation passed from reservation `2026-07-19T13:11:21.021029Z` through final aggregate `2026-07-19T13:42:19.925504Z`: request/attempt/audit stayed `1/1/1`, open/non-success/cross-store/runtime errors stayed `0`, inventory stayed `4`, and the formal domain remained READY. Source: E-039; status: verified production; owner: Release/Data; scope: approved ChinaTech pilot; review trigger: 24-hour review or any anomaly.
 
 ## Candidate department updates
 
 - Architecture / frontend reliability: final PASS; option A landed without new dependency.
 - QA / UX: final local candidate PASS; 390/1280 evidence and manual Next/zero-write invariants verified.
-- Security / release: code PASS and release CONDITIONAL until dormant deploy, zero-ledger preflight and exactly-once smoke complete.
+- Security / release: PASS; dormant deploy, zero-ledger preflight, exactly-once smoke and 30-minute observation conditions are satisfied; 24-hour read-only review remains.
 
 ## Candidate decisions / ADRs
 

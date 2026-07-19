@@ -2,15 +2,16 @@
 schema_version: 1
 task_id: "TASK-20260719-001-ai-inventory-live-provider"
 title: "Chinatech 库存入库 AI 图片标签识别真实接入"
-status: "active"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["API", "DATA", "INT", "QA", "Release", "SEC", "UI"]
 created_at: "2026-07-19T00:16:17Z"
-updated_at: "2026-07-19T12:26:26Z"
+updated_at: "2026-07-19T13:44:42Z"
 ---
+
 # Task — Chinatech 库存入库 AI 图片标签识别真实接入
 
 ## Owner request
@@ -57,7 +58,7 @@ updated_at: "2026-07-19T12:26:26Z"
 - [x] 手机端客户端链路不会因同步本地条码回退或无界 FileReader 永久卡住；每个阶段有明确反馈，超时可恢复并保留手工下一步。
 - [x] 本地识别不可用或超时时只发出一次服务端 Vision 请求，旧请求不能覆盖新选择，且整个流程仍不自动写库存。
 - [x] 完成 focused/full tests、lint、typecheck、build、安全检查及 390/1280 浏览器证据。
-- [ ] 推送最新修复到 `main`，保持 Vision 关闭部署；生产预检通过后才开放唯一一次无 PII smoke，完成 ChinaTech 单店手机/电脑验收与观察。
+- [x] 推送最新修复到 `main`，保持 Vision 关闭部署；生产预检通过后才开放唯一一次无 PII smoke，完成 ChinaTech 单店手机/电脑验收与观察。
 
 ## Facts, assumptions, and unknowns
 
@@ -72,8 +73,10 @@ updated_at: "2026-07-19T12:26:26Z"
 | Local release candidate is reconciled onto the order-text canary closeout and passes release gates                              | verified               | branch `codex/ai-inventory-vision-integration-20260719`; base `a3ae676d`; E-019 | push exact reviewed lineage                            |
 | Exact locked server decoder is `sharp@0.34.5`                                                                                   | verified               | clean `npm ci`; runtime version; lockfile                                       | production dependency audit returned 0 vulnerabilities |
 | Mocked cloud fallback preserves zero-write behavior on desktop and mobile                                                       | verified               | 6 Playwright tests; task evidence screenshots                                   | no real provider or inventory create request           |
-| Prepared-state render aborted the current controller and left V2 status working forever                                        | reproduced             | `inventory-v2-vision-draft.test.tsx`; pre-fix failure and post-fix pass         | exact incident root cause locked                        |
-| Remediated V2 flow preserves manual Next and zero-write behavior at 390px/1280px                                                | verified local         | 3 V2 Playwright tests; `vision-v2-*.png`                                        | mocked provider only; no real Vision call               |
+| Prepared-state render aborted the current controller and left V2 status working forever                                         | reproduced             | `inventory-v2-vision-draft.test.tsx`; pre-fix failure and post-fix pass         | exact incident root cause locked                       |
+| Remediated V2 flow preserves manual Next and zero-write behavior at 390px/1280px                                                | verified local         | 3 V2 Playwright tests; `vision-v2-*.png`                                        | mocked provider only; no real Vision call              |
+| Production one-shot returned the five expected synthetic specification fields with one settled provider attempt                 | verified production    | E-037; linked ledger/audit aggregate; production mobile screenshot              | 30-minute observation passed; 24-hour review pending   |
+| Production human apply leaves identifiers blank and does not create inventory                                                   | verified production    | E-038; before/after count `4`; production DOM/screenshots                       | preserve as release invariant                          |
 
 ## Decision and approval points
 
@@ -103,12 +106,12 @@ updated_at: "2026-07-19T12:26:26Z"
 
 ## Agent execution record
 
-| Canonical task | Department / role | Mode | Final result |
-| --- | --- | --- | --- |
-| `/root` | Integration Lead | sole `integration_write` | implementation, integration and release owner |
-| `/root/vision_arch_review` | Architecture / frontend reliability | read-only | PASS; option A implemented, no architecture blocker |
-| `/root/vision_qa_ux_review` | QA / UX | read-only | PASS for final local candidate; mobile/desktop and manual fallback verified |
-| `/root/vision_security_release_review` | Security / privacy / release | read-only | code PASS; release CONDITIONAL on dormant deploy, zero baseline and exactly-once smoke |
+| Canonical task                         | Department / role                   | Mode                     | Final result                                                                                               |
+| -------------------------------------- | ----------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `/root`                                | Integration Lead                    | sole `integration_write` | implementation, integration and release owner                                                              |
+| `/root/vision_arch_review`             | Architecture / frontend reliability | read-only                | PASS; option A implemented, no architecture blocker                                                        |
+| `/root/vision_qa_ux_review`            | QA / UX                             | read-only                | PASS for final local candidate; mobile/desktop and manual fallback verified                                |
+| `/root/vision_security_release_review` | Security / privacy / release        | read-only                | PASS; dormant deploy, zero baseline, exactly-once smoke and 30-minute observation conditions are satisfied |
 
 ## Definition of done
 
