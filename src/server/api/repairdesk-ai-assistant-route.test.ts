@@ -316,6 +316,7 @@ function searchProvider(): AiAssistantProvider {
           paid: "all" as const,
           overdue: null,
           queue_group: null,
+          financial_review: null,
           page_size: 8,
         },
       },

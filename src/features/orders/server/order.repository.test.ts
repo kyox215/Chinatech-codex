@@ -274,6 +274,49 @@ describe("order repository database pagination", () => {
     mocks.supabase.rpc.mockReset();
   });
 
+  it("filters amount inconsistencies before totals and pagination for an authorized owner", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          orderRow({ id: "consistent", public_no: "R-CONSISTENT" }),
+          orderRow({
+            id: "over_allocated",
+            public_no: "R-OVER",
+            quotation_amount: 100,
+            deposit_amount: 30,
+            balance_amount: 90,
+          }),
+          orderRow({
+            id: "paid_mismatch",
+            public_no: "R-PAID",
+            quotation_amount: 100,
+            deposit_amount: 0,
+            balance_amount: 0,
+            is_paid: false,
+            payment_status: "unpaid",
+          }),
+        ],
+        error: null,
+        count: 3,
+      }),
+    );
+
+    const result = await listOrdersPage(
+      { financialReview: "amount_anomaly", page: 1, pageSize: 10 },
+      actor("owner"),
+    );
+
+    expect(result.total).toBe(2);
+    expect(result.items.map((item) => item.id)).toEqual(["over_allocated", "paid_mismatch"]);
+  });
+
+  it("rejects amount-consistency aggregation before repository access for other roles", async () => {
+    await expect(
+      listOrdersPage({ financialReview: "amount_anomaly" }, actor("sales")),
+    ).rejects.toThrow("当前角色无权查看整店金额复核结果");
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
   it("reads stable chunks before applying status and oldest-created-first page order", async () => {
     const queries: ReturnType<typeof createSupabaseQuery>[] = [];
     mocks.supabase.from.mockImplementation(() => {

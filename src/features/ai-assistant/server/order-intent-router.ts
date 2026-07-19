@@ -4,7 +4,7 @@ import {
   type AiOrderToolCall,
 } from "@/features/ai-assistant/model/contracts";
 
-export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v1" as const;
+export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v2" as const;
 
 export type DeterministicOrderPlan = {
   policyVersion: typeof AI_ORDER_DETERMINISTIC_POLICY_VERSION;
@@ -28,12 +28,20 @@ const lockedSearchPlans = new Map<string, AiOrderToolCall>([
   ["查找未付款工单", searchCall({ paid: "unpaid" })],
   ["查看逾期工单", searchCall({ overdue: "any" })],
   ["搜索正在维修的订单", searchCall({ queue_group: "processing" })],
+  ["有没有什么是金额异常的", searchCall({ financial_review: "amount_anomaly" })],
+  ["查看金额异常工单", searchCall({ financial_review: "amount_anomaly" })],
+  ["查找金额异常工单", searchCall({ financial_review: "amount_anomaly" })],
+  ["有哪些金额不一致的工单", searchCall({ financial_review: "amount_anomaly" })],
   ["find unpaid orders", searchCall({ paid: "unpaid" })],
   ["show overdue orders", searchCall({ overdue: "any" })],
   ["search orders in processing", searchCall({ queue_group: "processing" })],
+  ["show orders with amount anomalies", searchCall({ financial_review: "amount_anomaly" })],
+  ["find orders with inconsistent amounts", searchCall({ financial_review: "amount_anomaly" })],
   ["trova ordini non pagati", searchCall({ paid: "unpaid" })],
   ["mostra ordini in ritardo", searchCall({ overdue: "any" })],
   ["cerca ordini in lavorazione", searchCall({ queue_group: "processing" })],
+  ["mostra ordini con importi anomali", searchCall({ financial_review: "amount_anomaly" })],
+  ["trova ordini con importi incoerenti", searchCall({ financial_review: "amount_anomaly" })],
 ]);
 
 /**
@@ -87,6 +95,7 @@ function searchCall(
       paid: "all",
       overdue: null,
       queue_group: null,
+      financial_review: null,
       page_size: 8,
       ...overrides,
     },

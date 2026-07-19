@@ -20,6 +20,7 @@ export class FakeAiAssistantProvider implements AiAssistantProvider {
     const startedAt = Date.now();
     const deterministic = planDeterministicOrderQuery(input);
     const legacyReference = input.message.match(legacyOrderReferencePattern)?.[1]?.trim();
+    const amountReviewIntent = hasAmountReviewIntent(input.message);
     const toolCall =
       deterministic?.toolCall ??
       (legacyReference
@@ -30,7 +31,7 @@ export class FakeAiAssistantProvider implements AiAssistantProvider {
         : {
             name: "search_orders" as const,
             arguments: {
-              search: extractSearchTerm(input.message),
+              search: amountReviewIntent ? null : extractSearchTerm(input.message),
               view: /历史|归档|archive/i.test(input.message)
                 ? ("archive" as const)
                 : ("active" as const),
@@ -43,6 +44,7 @@ export class FakeAiAssistantProvider implements AiAssistantProvider {
               queue_group: /正在维修|处理中|processing|in lavorazione/i.test(input.message)
                 ? ("processing" as const)
                 : null,
+              financial_review: amountReviewIntent ? ("amount_anomaly" as const) : null,
               page_size: 8,
             },
           });
@@ -115,11 +117,17 @@ function extractSearchTerm(message: string) {
   if (quoted) return quoted;
   const cleaned = message
     .replace(
-      /帮我|请|查询|查找|查看|搜索|工单|订单|维修单|历史|归档|未付款|已付款|正在维修|处理中|超时|逾期/gi,
+      /帮我|请|查询|查找|查看|搜索|工单|订单|维修单|历史|归档|未付款|已付款|正在维修|处理中|超时|逾期|金额异常|金额不一致/gi,
       " ",
     )
     .replace(/(^|\s)的(?=\s|$)/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return cleaned.slice(0, 120) || null;
+}
+
+function hasAmountReviewIntent(message: string) {
+  return /金额.{0,6}(异常|不一致|不对)|amount.{0,12}(anomal|inconsisten)|import[oi].{0,12}(anomal|incoerent)/i.test(
+    message,
+  );
 }

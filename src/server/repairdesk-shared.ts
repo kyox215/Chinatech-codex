@@ -194,6 +194,7 @@ const ORDER_LIST_INDEX_BASE_COLUMNS = `
   status,
   customer_id,
   device_id,
+  quotation_amount,
   deposit_amount,
   balance_amount,
   is_paid,

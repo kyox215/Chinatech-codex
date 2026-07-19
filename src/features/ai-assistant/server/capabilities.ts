@@ -9,7 +9,7 @@ import {
 } from "@/features/ai-assistant/server/feature-flags";
 import type { AuditActor } from "@/lib/repairdesk/types";
 import { can } from "@/server/permissions";
-import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
+import { isRepairDeskE2eSystemActor } from "@/shared/lib/e2e-auth-bypass";
 
 export function getAiAssistantCapabilities(
   actor: AuditActor,
@@ -24,10 +24,7 @@ export function getAiAssistantCapabilities(
     };
   }
 
-  const isE2eSystemActor =
-    actor.isSystem === true &&
-    process.env.NODE_ENV !== "production" &&
-    isRepairDeskE2eAuthBypassEnabled();
+  const isE2eSystemActor = isRepairDeskE2eSystemActor(actor);
   const role = actor.storeRole ?? actor.role;
   const hasScopedMembership = Boolean(actor.activeMembershipId);
   const firstReleaseRoleAllowed = isE2eSystemActor || role !== "viewer";

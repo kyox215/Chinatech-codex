@@ -507,8 +507,10 @@ function ResultState({
       {response.cards.length === 0 && response.kind === "search_results" ? (
         <div className="rounded-2xl border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-4 text-center">
           <SearchX className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
-          <p className="mt-2 text-sm font-medium">没有匹配工单</p>
-          <p className="mt-1 text-xs text-muted-foreground">请补充订单号、客户或设备信息。</p>
+          <p className="mt-2 text-sm font-medium">没有匹配结果</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            上方已说明本次检查范围；可换一种说法或调整查询条件。
+          </p>
         </div>
       ) : null}
 

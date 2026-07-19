@@ -35,6 +35,27 @@ describe("deterministic order intent router", () => {
   });
 
   it.each([
+    "有没有什么是金额异常的",
+    "查看金额异常工单",
+    "有哪些金额不一致的工单",
+    "show orders with amount anomalies",
+    "mostra ordini con importi anomali",
+  ])("routes amount-consistency review locally without a provider: %s", (message) => {
+    expect(planDeterministicOrderQuery({ message, locale: "zh-CN" })?.toolCall).toEqual({
+      name: "search_orders",
+      arguments: {
+        search: null,
+        view: "active",
+        paid: "all",
+        overdue: null,
+        queue_group: null,
+        financial_review: "amount_anomaly",
+        page_size: 8,
+      },
+    });
+  });
+
+  it.each([
     "R2026",
     "990000000000002",
     "+39 333 1234567",

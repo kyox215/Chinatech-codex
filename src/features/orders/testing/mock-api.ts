@@ -55,6 +55,7 @@ import {
   isOrderCancelledForPayment,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
+import { hasOrderAmountAnomaly } from "@/entities/order";
 import {
   countOrderQueueGroups,
   getOrderQueueGroup,
@@ -87,6 +88,7 @@ import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import { ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
+import { isRepairDeskE2eSystemActor } from "@/shared/lib/e2e-auth-bypass";
 import {
   approvalFlowStatusFromLegacyStatus,
   notifyStatusFromLegacyStatus,
@@ -311,8 +313,15 @@ function redactOrderListSecrets(order: OrderListItem): OrderListItem {
 
 export async function listOrders(
   filters: OrderListFilters = {},
-  _actor?: AuditActor,
+  actor?: AuditActor,
 ): Promise<OrderListItem[]> {
+  if (
+    filters.financialReview &&
+    !can(actor, "finance:aggregate_read") &&
+    !isRepairDeskE2eSystemActor(actor)
+  ) {
+    throw new ForbiddenError("当前角色无权查看整店金额复核结果");
+  }
   let result = orders.map(decorate);
   const q = filters.search?.trim().toLowerCase();
   const view = q ? "all" : (filters.view ?? "active");
@@ -391,6 +400,17 @@ export async function listOrders(
           : filters.overdue === "pickup"
             ? o.pickup_overdue
             : o.approval_overdue || o.pickup_overdue),
+    );
+  }
+  if (filters.financialReview === "amount_anomaly") {
+    result = result.filter((order) =>
+      hasOrderAmountAnomaly({
+        quotationAmount: order.quotation_amount,
+        depositAmount: order.deposit_amount,
+        balanceAmount: order.balance_amount,
+        isPaid: order.is_paid,
+        paymentStatus: order.payment_status,
+      }),
     );
   }
   return result.sort(compareOrdersForQueue).map(redactOrderListSecrets);

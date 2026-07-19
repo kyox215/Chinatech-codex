@@ -55,6 +55,27 @@ test.describe("staff AI assistant bounded workflow", () => {
     });
   }
 
+  test("mobile amount-anomaly question uses the finance-review result instead of keyword search", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, "/orders");
+    await page.locator('[data-ai-assistant-trigger="mobile-orders"]').click();
+
+    const sheet = page.locator('[data-ai-assistant-sheet="true"]');
+    await page.getByLabel("输入工单查询问题").fill("有没有什么是金额异常的");
+    await sheet.getByRole("button", { name: "发送", exact: true }).click();
+    await expect(
+      sheet.getByText(/金额状态需要人工核对|未发现报价、定金、尾款或付款状态不一致/),
+    ).toBeVisible();
+    await expect(sheet.getByText("请补充订单号、客户或设备信息。")).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+    await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-002-ai-order-query-understanding/amount-anomaly-mobile-390.png",
+    });
+  });
+
   test("mobile voice input fills the composer without sending a query", async ({ page }) => {
     await installSpeechRecognitionMock(page);
     await page.setViewportSize({ width: 390, height: 844 });

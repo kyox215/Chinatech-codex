@@ -58,4 +58,24 @@ describe("FakeAiAssistantProvider", () => {
     expect(result.recognition.label_claim_only).toBe(true);
     expect(JSON.stringify(result.recognition)).not.toMatch(/cost|price|imei\d{4}/i);
   });
+
+  it("uses the structured amount-review filter instead of searching for an abstract concept", async () => {
+    const result = await provider.planOrderQuery({
+      message: "帮我看一下有没有金额不一致的工单",
+      locale: "zh-CN",
+    });
+
+    expect(result.toolCall).toEqual({
+      name: "search_orders",
+      arguments: {
+        search: null,
+        view: "active",
+        paid: "all",
+        overdue: null,
+        queue_group: null,
+        financial_review: "amount_anomaly",
+        page_size: 8,
+      },
+    });
+  });
 });

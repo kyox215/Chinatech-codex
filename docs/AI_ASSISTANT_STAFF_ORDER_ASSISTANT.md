@@ -4,7 +4,9 @@
 
 - 已登录员工可从桌面 AppBar、手机订单浮动标题或其他手机模块的快捷操作打开 AI Sheet。
 - 助手仅规划 `search_orders` 与 `get_order_summary` 两类只读意图；`actor`、当前门店与权限始终由服务端注入。
-- 完整工单号和三个固定快捷查询在权限与短窗限流后直接解析，命中时不创建 provider、不扣付费额度；姓名、电话、IMEI、部分编号和含糊组合仍交给 planner，绝不猜测。
+- 完整工单号、固定队列查询和明确的“金额异常/金额不一致”表达会在权限与短窗限流后直接解析，命中时不创建 provider、不扣付费额度；姓名、电话、IMEI、部分编号和含糊组合仍交给 planner，绝不猜测。
+- `search_orders.financial_review=amount_anomaly` 只触发 RepairDesk 服务端一致性复核：检查非法/负金额、定金加尾款超过报价、结清标记与尾款矛盾、付款状态与金额口径矛盾。它只表示需要人工核对，不是欺诈或会计结论，也不会自动修改工单。
+- 金额异常列表属于整店财务推断，必须具备 `finance:aggregate_read`；服务层和订单仓库双重拒绝无权限 actor。模型和结果卡均不接收或显示具体金额，空结果会说明实际检查范围，不再误导员工补充订单号、客户或设备。
 - 真实 provider fallback 已实现，但只接受经过独立外发批准且未命中敏感模式的通用筛选文字。邮箱、电话、IMEI、完整 UUID/工单号、引号内容和常见姓名查询会在费用预留及外发前拒绝；完整工单号继续走本地直查。
 - 订单卡由 RepairDesk 业务服务构造。客户姓名会脱敏，且不返回电话、IMEI、财务明细或模型自由生成的订单字段。
 - 会话仅保存在当前页面内；关闭、门店/权限指纹变化或取消操作会中止请求。浏览器生成稳定 `client_request_id`，同一次错误重试不会重复 dispatch/扣费。
@@ -60,6 +62,6 @@ npm run test
 npx next build --webpack
 ```
 
-再运行 `tests/e2e/ai-assistant-staff.spec.ts` 的 fake-provider 流程，覆盖桌面、390/430px、取消、离线、权限拒绝、敏感输入提示和手机快捷入口顺序。真实计费 smoke 必须在 durable 数据库政策启用后，用一条无 PII 的合成查询执行一次；不得绕过预算网关直接调用 provider。
+再运行 `tests/e2e/ai-assistant-staff.spec.ts` 的 fake-provider 流程，覆盖桌面、390/430px、金额异常本地查询、取消、离线、权限拒绝、敏感输入提示和手机快捷入口顺序。真实计费 smoke 必须在 durable 数据库政策启用后，用一条无 PII 的合成查询执行一次；不得绕过预算网关直接调用 provider。
 
 紧急回滚首先设置 `AI_ASSISTANT_ENABLED=0` 并重新部署；如仍有影响，再回退部署。不要通过删除业务表处理应用级故障。API Key 若疑似泄露，应在 provider 控制台轮换，且不得在日志或任务文件记录旧值。

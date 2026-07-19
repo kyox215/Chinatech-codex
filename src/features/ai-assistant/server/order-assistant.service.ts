@@ -47,6 +47,8 @@ import {
 import { getAiModelRuntimePolicy } from "./runtime-policy";
 import { createAiSafetyIdentifierIfConfigured } from "./safety-identifier";
 import { getStatusMeta } from "@/lib/mock/enums";
+import { can } from "@/server/permissions";
+import { isRepairDeskE2eSystemActor } from "@/shared/lib/e2e-auth-bypass";
 import type {
   AuditActor,
   OrderDetail,
@@ -227,6 +229,13 @@ export async function runAiOrderAssistantTurn({
     } else if (parsedCall.data.name === "search_orders") {
       stage = "repository";
       const args = parsedCall.data.arguments;
+      if (
+        args.financial_review &&
+        !can(actor, "finance:aggregate_read") &&
+        !isRepairDeskE2eSystemActor(actor)
+      ) {
+        throw aiNotAuthorizedError();
+      }
       const result = await dependencies.listOrdersPage(
         {
           page: 1,
@@ -236,17 +245,23 @@ export async function runAiOrderAssistantTurn({
           paid: args.paid,
           overdue: args.overdue ?? undefined,
           queueGroups: args.queue_group ? [args.queue_group] : undefined,
+          financialReview: args.financial_review ?? undefined,
         },
         actor,
       );
       const cards = result.items.slice(0, args.page_size).map(toAiOrderCard);
+      const isAmountReview = args.financial_review === "amount_anomaly";
       response = buildResponse({
         requestId,
         kind: "search_results",
         message:
           cards.length === 0
-            ? "RepairDesk 中没有找到符合条件的工单。你可以补充订单号、客户或设备信息。"
-            : `RepairDesk 找到 ${result.total} 条符合条件的工单。`,
+            ? isAmountReview
+              ? "当前可见的活跃工单中，未发现报价、定金、尾款或付款状态不一致的记录。"
+              : "RepairDesk 中没有找到符合条件的工单。你可以补充订单号、客户或设备信息。"
+            : isAmountReview
+              ? `发现 ${result.total} 条金额状态需要人工核对的工单；请打开工单检查报价、定金、尾款和付款记录。`
+              : `RepairDesk 找到 ${result.total} 条符合条件的工单。`,
         cards,
         total: result.total,
         resultTruncated: result.total > cards.length,

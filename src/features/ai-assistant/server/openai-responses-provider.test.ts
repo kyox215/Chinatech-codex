@@ -64,6 +64,18 @@ describe("OpenAI Responses provider", () => {
         expect.objectContaining({ name: "clarify_order_query", strict: true }),
       ]),
     );
+    const searchTool = (body.tools as Array<Record<string, unknown>>).find(
+      (tool) => tool.name === "search_orders",
+    );
+    expect(searchTool).toMatchObject({
+      description: expect.stringContaining("financial_review=amount_anomaly"),
+      parameters: expect.objectContaining({
+        required: expect.arrayContaining(["financial_review"]),
+      }),
+    });
+    expect(body.instructions).toEqual(
+      expect.stringContaining("do not turn them into search keywords"),
+    );
   });
 
   it("sends one bounded image request and rejects cloud identifiers", async () => {
@@ -247,6 +259,7 @@ function orderResponse() {
           paid: "unpaid",
           overdue: null,
           queue_group: null,
+          financial_review: null,
           page_size: 8,
         }),
       },

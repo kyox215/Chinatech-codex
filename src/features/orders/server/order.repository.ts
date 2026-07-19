@@ -117,7 +117,8 @@ import {
 } from "@/server/repairdesk-shared";
 import { assertStaffRole, ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
-import { resolveRepairServiceCatalogItem } from "@/entities/order";
+import { isRepairDeskE2eSystemActor } from "@/shared/lib/e2e-auth-bypass";
+import { hasOrderAmountAnomaly, resolveRepairServiceCatalogItem } from "@/entities/order";
 import { applyCreateOrderCostInputs } from "@/features/orders/server/order-cost.repository";
 import {
   isOrderCostsEnabled,
@@ -213,6 +214,13 @@ function resolveOrderListView(filters: OrderListFilters, actor?: AuditActor) {
 }
 
 function filtersForActor(filters: OrderListFilters, actor?: AuditActor): ActorOrderListFilters {
+  if (
+    filters.financialReview &&
+    !can(actor, "finance:aggregate_read") &&
+    !isRepairDeskE2eSystemActor(actor)
+  ) {
+    throw new ForbiddenError("当前角色无权查看整店金额复核结果");
+  }
   const canReadSuppliers = can(actor, "supplier:read");
   const canBrowseArchive = can(actor, "order:archive_browse");
   const archiveSearchExact = Boolean(
@@ -319,6 +327,17 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
           : filters.overdue === "pickup"
             ? o.pickup_overdue
             : o.approval_overdue || o.pickup_overdue),
+    );
+  }
+  if (filters.financialReview === "amount_anomaly") {
+    result = result.filter((order) =>
+      hasOrderAmountAnomaly({
+        quotationAmount: order.quotation_amount,
+        depositAmount: order.deposit_amount,
+        balanceAmount: order.balance_amount,
+        isPaid: order.is_paid,
+        paymentStatus: order.payment_status,
+      }),
     );
   }
 
@@ -1111,6 +1130,7 @@ export async function listOrdersPage(
     supplierIds: input.supplierIds,
     paid: input.paid,
     overdue: input.overdue,
+    financialReview: input.financialReview,
   };
   const safeFilters = filtersForActor(filters, actor);
   const technicianMembershipId = isTechnicianActor(actor) ? actor?.activeMembershipId : undefined;

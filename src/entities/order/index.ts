@@ -1,4 +1,11 @@
-export { calculateBalance, inferPaidAmount, sumFaultPrices } from "./model/order-calculations";
+export {
+  calculateBalance,
+  getOrderAmountAnomalyReasons,
+  hasOrderAmountAnomaly,
+  inferPaidAmount,
+  sumFaultPrices,
+} from "./model/order-calculations";
+export type { OrderAmountAnomalyReason } from "./model/order-calculations";
 export {
   MAIN_REPAIR_SERVICE_OPTION_KEY,
   findRepairServiceCatalogItemByName,

@@ -147,7 +147,7 @@ describe("order assistant service", () => {
       expect.objectContaining({
         provider: "none",
         resolutionPath: "deterministic",
-        policyVersion: "order-direct-v1",
+        policyVersion: "order-direct-v2",
         requestKind: "order_text",
       }),
     );
@@ -176,6 +176,60 @@ describe("order assistant service", () => {
     expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
       expect.objectContaining({ status: "rate_limited", errorCode: "AI_RATE_LIMITED" }),
     );
+  });
+
+  it("routes the reported amount-anomaly question locally and returns finance-review copy", async () => {
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const listOrdersPage = vi.fn(async () => result([], 0));
+    const consumeQuota = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "有没有什么是金额异常的", locale: "zh-CN" },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+        consumeQuota,
+      },
+    });
+
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        view: "active",
+        financialReview: "amount_anomaly",
+        search: undefined,
+      }),
+      owner,
+    );
+    expect(response).toMatchObject({
+      kind: "search_results",
+      total: 0,
+      message: "当前可见的活跃工单中，未发现报价、定金、尾款或付款状态不一致的记录。",
+    });
+  });
+
+  it("blocks store-wide amount review without aggregate finance permission", async () => {
+    const listOrdersPage = vi.fn();
+    const restrictedActor = { ...owner, role: "sales" as const, storeRole: "sales" as const };
+
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: restrictedActor,
+        input: { message: "有没有什么是金额异常的", locale: "zh-CN" },
+        dependencies: {
+          provider: providerFor(searchCall()),
+          listOrdersPage,
+          getOrder: vi.fn(),
+          env: enabledEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_NOT_AUTHORIZED", status: 403 });
+
+    expect(listOrdersPage).not.toHaveBeenCalled();
   });
 
   it("keeps an ambiguous reference sentence on the provider path without regressing its result", async () => {
@@ -638,6 +692,7 @@ function searchCall(
       paid: "all" as const,
       overdue: null,
       queue_group: null,
+      financial_review: null,
       page_size: 8,
       ...overrides,
     },

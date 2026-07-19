@@ -344,6 +344,7 @@ export const orderListFiltersSchema = z
     supplierIds: z.array(z.string()).optional(),
     paid: z.enum(["all", "paid", "unpaid"]).optional(),
     overdue: z.enum(["approval", "pickup", "any"]).optional(),
+    financialReview: z.enum(["amount_anomaly"]).optional(),
   })
   .passthrough() satisfies z.ZodType<OrderListFilters>;
 

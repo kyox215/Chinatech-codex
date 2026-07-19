@@ -940,6 +940,7 @@ export interface OrderListFilters {
   supplierIds?: string[];
   paid?: "all" | "paid" | "unpaid";
   overdue?: "approval" | "pickup" | "any";
+  financialReview?: "amount_anomaly";
 }
 
 export type OrderListView = "active" | "archive" | "all";

@@ -8,7 +8,7 @@ import {
 } from "./inventory-image-policy";
 
 export const AI_ASSISTANT_CONTRACT_VERSION = "ai-assistant-v1" as const;
-export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v1" as const;
+export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v2" as const;
 export const AI_INVENTORY_RECOGNITION_PROMPT_VERSION = "inventory-label-v1" as const;
 
 export const aiAssistantLocaleSchema = z.enum(["zh-CN", "it-IT", "en"]);
@@ -52,6 +52,7 @@ export const aiOrderSearchArgumentsSchema = z
         "repaired_notified",
       ])
       .nullable(),
+    financial_review: z.enum(["amount_anomaly"]).nullable(),
     page_size: z.number().int().min(1).max(20),
   })
   .strict();
@@ -257,9 +258,15 @@ export const aiOrderSearchArgumentsJsonSchema = {
         null,
       ],
     },
+    financial_review: {
+      type: ["string", "null"],
+      enum: ["amount_anomaly", null],
+      description:
+        "Use amount_anomaly only when the user asks for orders whose quote, deposit, balance, paid flag, or payment status is internally inconsistent.",
+    },
     page_size: { type: "integer", minimum: 1, maximum: 20 },
   },
-  required: ["search", "view", "paid", "overdue", "queue_group", "page_size"],
+  required: ["search", "view", "paid", "overdue", "queue_group", "financial_review", "page_size"],
 } as const;
 
 export const aiOrderSummaryArgumentsJsonSchema = {
