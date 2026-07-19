@@ -245,6 +245,14 @@
     display: contents !important;
   }
 
+  html[data-style-recovery] #repairdesk-style-fallback {
+    display: grid !important;
+  }
+
+  html[data-style-recovery] #repairdesk-styled-shell {
+    display: none !important;
+  }
+
   * {
     border-color: var(--color-border);
   }

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getNextRepairDeskStyleReloadState,
   getRepairDeskStyleRecoveryDecision,
   parseRepairDeskStyleReloadedAt,
-  repairDeskStyleReloadCooldownMs,
+  parseRepairDeskStyleReloadState,
+  repairDeskStyleMaxAutoReloads,
+  repairDeskStyleReloadWindowMs,
 } from "./app-style-recovery";
 
 describe("RepairDesk app style recovery", () => {
@@ -11,7 +14,7 @@ describe("RepairDesk app style recovery", () => {
     expect(
       getRepairDeskStyleRecoveryDecision({
         stylesReady: true,
-        lastReloadedAt: null,
+        reloadState: null,
         now: 10_000,
       }),
     ).toBe("ready");
@@ -21,27 +24,52 @@ describe("RepairDesk app style recovery", () => {
     expect(
       getRepairDeskStyleRecoveryDecision({
         stylesReady: false,
-        lastReloadedAt: null,
+        reloadState: null,
         now: 10_000,
       }),
     ).toBe("reload");
   });
 
-  it("prevents a reload loop while the recovery cooldown is active", () => {
+  it("stops automatic reloads after the per-window limit", () => {
+    const reloadState = {
+      version: 2 as const,
+      windowStartedAt: 10_000,
+      autoReloadCount: repairDeskStyleMaxAutoReloads,
+      lastAutoReloadAt: 10_000,
+    };
     expect(
       getRepairDeskStyleRecoveryDecision({
         stylesReady: false,
-        lastReloadedAt: 10_000,
-        now: 10_000 + repairDeskStyleReloadCooldownMs - 1,
+        reloadState,
+        now: 10_000 + repairDeskStyleReloadWindowMs - 1,
       }),
     ).toBe("wait");
     expect(
       getRepairDeskStyleRecoveryDecision({
         stylesReady: false,
-        lastReloadedAt: 10_000,
-        now: 10_000 + repairDeskStyleReloadCooldownMs,
+        reloadState,
+        now: 10_000 + repairDeskStyleReloadWindowMs,
       }),
     ).toBe("reload");
+  });
+
+  it("allows at most one storage-free reload and then falls back to manual recovery", () => {
+    expect(
+      getRepairDeskStyleRecoveryDecision({
+        stylesReady: false,
+        reloadState: null,
+        storageAvailable: false,
+        navigationWasReloaded: false,
+      }),
+    ).toBe("reload");
+    expect(
+      getRepairDeskStyleRecoveryDecision({
+        stylesReady: false,
+        reloadState: null,
+        storageAvailable: false,
+        navigationWasReloaded: true,
+      }),
+    ).toBe("wait");
   });
 
   it("ignores malformed recovery timestamps", () => {
@@ -49,5 +77,47 @@ describe("RepairDesk app style recovery", () => {
     expect(parseRepairDeskStyleReloadedAt("not-a-time")).toBeNull();
     expect(parseRepairDeskStyleReloadedAt("-1")).toBeNull();
     expect(parseRepairDeskStyleReloadedAt("1234")).toBe(1234);
+  });
+
+  it("parses only valid structured reload state", () => {
+    const state = {
+      version: 2 as const,
+      windowStartedAt: 1_000,
+      autoReloadCount: 1,
+      lastAutoReloadAt: 1_500,
+    };
+    expect(parseRepairDeskStyleReloadState(JSON.stringify(state))).toEqual(state);
+    expect(parseRepairDeskStyleReloadState(null)).toBeNull();
+    expect(parseRepairDeskStyleReloadState("not-json")).toBeNull();
+    expect(
+      parseRepairDeskStyleReloadState(JSON.stringify({ ...state, autoReloadCount: -1 })),
+    ).toBeNull();
+  });
+
+  it("records one attempt and resets an expired or future reload window", () => {
+    expect(getNextRepairDeskStyleReloadState({ reloadState: null, now: 5_000 })).toEqual({
+      version: 2,
+      windowStartedAt: 5_000,
+      autoReloadCount: 1,
+      lastAutoReloadAt: 5_000,
+    });
+
+    const active = {
+      version: 2 as const,
+      windowStartedAt: 5_000,
+      autoReloadCount: 1,
+      lastAutoReloadAt: 5_000,
+    };
+    expect(getNextRepairDeskStyleReloadState({ reloadState: active, now: 6_000 })).toEqual({
+      ...active,
+      autoReloadCount: 2,
+      lastAutoReloadAt: 6_000,
+    });
+    expect(getNextRepairDeskStyleReloadState({ reloadState: active, now: 4_000 })).toEqual({
+      version: 2,
+      windowStartedAt: 4_000,
+      autoReloadCount: 1,
+      lastAutoReloadAt: 4_000,
+    });
   });
 });

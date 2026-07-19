@@ -1,6 +1,17 @@
-const CACHE_NAME = "repairdesk-shell-v2";
+const CACHE_NAME = "repairdesk-shell-v3";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [OFFLINE_URL, "/icons/repairdesk-icon.svg"];
+const NAVIGATION_TIMEOUT_MS = 3_000;
+
+async function fetchNavigation(request) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), NAVIGATION_TIMEOUT_MS);
+  try {
+    return await fetch(request, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -26,7 +37,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    event.respondWith(fetchNavigation(request).catch(() => caches.match(OFFLINE_URL)));
     return;
   }
 

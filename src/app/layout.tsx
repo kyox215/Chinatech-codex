@@ -2,7 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Providers } from "@/app/providers";
 import { AppStyleRecovery } from "@/components/app-style-recovery";
-import { repairDeskCriticalStyleGuard } from "@/shared/lib/app-style-recovery";
+import {
+  repairDeskCriticalStyleGuard,
+  repairDeskStyleRecoveryBootstrap,
+} from "@/shared/lib/app-style-recovery";
 import "@/styles.css";
 
 const repairDeskSans = Inter({
@@ -52,6 +55,20 @@ const repairDeskFallbackSpinnerStyle: React.CSSProperties = {
   borderRadius: 999,
 };
 
+const repairDeskFallbackRetryStyle: React.CSSProperties = {
+  display: "none",
+  minHeight: 44,
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid CanvasText",
+  borderRadius: 12,
+  padding: "10px 18px",
+  background: "CanvasText",
+  color: "Canvas",
+  font: "inherit",
+  cursor: "pointer",
+};
+
 const repairDeskShellStyle: React.CSSProperties = {
   display: "none",
 };
@@ -86,6 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="zh-CN"
       className={`${repairDeskSans.variable} ${repairDeskDisplay.variable} ${repairDeskMono.variable}`}
+      data-style-recovery="booting"
       suppressHydrationWarning
     >
       <head>
@@ -105,12 +123,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <div style={repairDeskFallbackContentStyle}>
             <span aria-hidden="true" style={repairDeskFallbackSpinnerStyle} />
-            <span>正在恢复 RepairDesk…</span>
+            <span id="repairdesk-style-status" suppressHydrationWarning>
+              正在恢复 RepairDesk…
+            </span>
+            <button
+              id="repairdesk-style-retry"
+              type="button"
+              style={repairDeskFallbackRetryStyle}
+              suppressHydrationWarning
+            >
+              立即重试
+            </button>
           </div>
         </div>
         <div id="repairdesk-styled-shell" style={repairDeskShellStyle}>
           <Providers>{children}</Providers>
         </div>
+        <script
+          id="repairdesk-style-recovery-bootstrap"
+          dangerouslySetInnerHTML={{ __html: repairDeskStyleRecoveryBootstrap }}
+        />
         <AppStyleRecovery />
       </body>
     </html>
