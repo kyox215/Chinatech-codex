@@ -39,7 +39,9 @@ Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预�
 - 旧客户端省略 `processing_mode` 时继续使用既有“确定性优先、必要时 provider”行为，避免破坏兼容性。
 - 客户端不能选择模型、价格、额度、Safety ID 或门店；模式只控制是否允许进入既有受控 provider 路径。
 
-设置中心新增只读“AI 使用量”。`GET /api/repairdesk/ai/usage` 不接收门店参数，要求 `finance:aggregate_read`，并从认证 actor 的当前 `storeId` 读取 `ai_assistant_usage_buckets` 的 `store_day` 聚合。响应只包含今天和最近 30 天的大模型请求数、输入/缓存/输出 Token、已结算及预留 micro-USD、今日分类额度和生成时间；不返回 prompt、回复、订单号、客户资料、actor 或请求指纹。本地处理不调用大模型，因此不计入该视图。
+设置中心新增只读“AI 使用量”，AI 对话面板同时显示今日 `order_text` 请求/额度、总 Token 和已结算美元估算。两处复用同一个门店 query key 与聚合接口；大模型提交成功后刷新当前门店缓存，用量读取失败不阻断查询。只有 `finance:aggregate_read` 成员会发起用量请求或看到摘要。
+
+`GET /api/repairdesk/ai/usage` 不接收门店参数，要求 `finance:aggregate_read`，并从认证 actor 的当前 `storeId` 读取 `ai_assistant_usage_buckets` 的 `store_day` 聚合。响应只包含今天和最近 30 天的大模型请求数、输入/缓存/输出 Token、已结算及预留 micro-USD、今日分类额度和生成时间；不返回 prompt、回复、订单号、客户资料、actor 或请求指纹。本地处理不调用大模型，因此不计入该视图。
 
 该用量视图复用 RepairDesk 的预算结算事实，不调用 OpenAI 组织级 Usage/Costs API，也不需要新增管理员密钥、表或 migration。金额是当前 RepairDesk 价格策略下的美元估算，不是供应商最终账单。此节描述的 UI/API 当前仍是本地候选，未自动推送、部署或修改生产配置。
 

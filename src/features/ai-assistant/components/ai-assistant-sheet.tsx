@@ -9,6 +9,7 @@ import {
   Cpu,
   LoaderCircle,
   Mic,
+  RefreshCcw,
   SearchX,
   Send,
   ShieldCheck,
@@ -20,6 +21,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -32,8 +34,13 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type {
   AiAssistantCapabilities,
   AiAssistantProcessingMode,
+  AiAssistantUsageSummary,
   AiOrderAssistantResponse,
 } from "@/features/ai-assistant/model/contracts";
+import {
+  formatAiUsageInteger,
+  formatAiUsageMicroUsd,
+} from "@/features/ai-assistant/model/usage-format";
 import { useAiAssistantVoiceInput } from "@/features/ai-assistant/components/use-ai-assistant-voice-input";
 import {
   isRepairDeskRequestTimeoutError,
@@ -57,6 +64,12 @@ export interface AiAssistantSheetProps {
   capabilitiesLoading: boolean;
   capabilitiesError: boolean;
   onRetryCapabilities: () => void;
+  canReadUsage: boolean;
+  usage?: AiAssistantUsageSummary;
+  usageLoading: boolean;
+  usageError: boolean;
+  onRetryUsage: () => void;
+  onModelUsageChanged: () => void;
   storeKey: string;
 }
 
@@ -69,6 +82,12 @@ export function AiAssistantSheet({
   capabilitiesLoading,
   capabilitiesError,
   onRetryCapabilities,
+  canReadUsage,
+  usage,
+  usageLoading,
+  usageError,
+  onRetryUsage,
+  onModelUsageChanged,
   storeKey,
 }: AiAssistantSheetProps) {
   const [input, setInput] = useState("");
@@ -179,6 +198,7 @@ export function AiAssistantSheet({
         setResponse(result);
         setInput("");
         setStatus("result");
+        if (submittedMode === "model") onModelUsageChanged();
       } catch (caught) {
         if (requestSequenceRef.current !== sequence) return;
         controllerRef.current = undefined;
@@ -190,7 +210,7 @@ export function AiAssistantSheet({
         setStatus("error");
       }
     },
-    [abortVoiceInput, canSubmit, input, isOnline, processingMode],
+    [abortVoiceInput, canSubmit, input, isOnline, onModelUsageChanged, processingMode],
   );
 
   const cancel = () => {
@@ -244,6 +264,15 @@ export function AiAssistantSheet({
             选择本地规则或大模型理解，只读查询当前门店工单。
           </SheetDescription>
         </SheetHeader>
+
+        {canReadUsage ? (
+          <AiChatUsageSummary
+            usage={usage}
+            isLoading={usageLoading}
+            isError={usageError}
+            onRetry={onRetryUsage}
+          />
+        ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--surface-workspace)] px-3 py-3 sm:px-4">
           {!isOnline ? <OfflineState /> : null}
@@ -469,6 +498,115 @@ export function AiAssistantSheet({
         </form>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function AiChatUsageSummary({
+  usage,
+  isLoading,
+  isError,
+  onRetry,
+}: {
+  usage?: AiAssistantUsageSummary;
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+}) {
+  if (isLoading) {
+    return (
+      <section
+        data-ai-chat-usage="loading"
+        aria-label="正在读取今日对话大模型用量"
+        aria-busy="true"
+        className="shrink-0 space-y-2 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-2.5 sm:px-4"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <Skeleton className="h-3.5 w-28" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <div className="grid min-w-0 grid-cols-3 gap-1.5">
+          <Skeleton className="h-11 min-w-0 rounded-lg" />
+          <Skeleton className="h-11 min-w-0 rounded-lg" />
+          <Skeleton className="h-11 min-w-0 rounded-lg" />
+        </div>
+      </section>
+    );
+  }
+
+  if (isError || !usage) {
+    return (
+      <section
+        data-ai-chat-usage="error"
+        role="status"
+        className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-2 sm:px-4"
+      >
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/25 px-2.5 py-2 text-status-warn-foreground">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold">今日用量暂时无法读取</p>
+            <p className="truncate text-[10px]">不影响本地或大模型查询。</p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 shrink-0"
+            onClick={onRetry}
+          >
+            <RefreshCcw className="size-3" aria-hidden="true" /> 重试
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  const metric = usage.today_by_kind.order_text;
+  const totalTokens = metric.input_token_count + metric.output_token_count;
+  const limitLabel =
+    metric.request_limit === null ? "—" : formatAiUsageInteger(metric.request_limit);
+
+  return (
+    <section
+      data-ai-chat-usage="ready"
+      aria-labelledby="ai-chat-usage-title"
+      className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-2.5 sm:px-4"
+    >
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h3 id="ai-chat-usage-title" className="truncate text-[11px] font-semibold text-foreground">
+          今日对话大模型用量
+        </h3>
+        <span className="shrink-0 text-[9px] text-muted-foreground">本地处理不计入</span>
+      </div>
+      <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1.5">
+        <AiChatUsageMetric
+          label="请求 / 上限"
+          value={`${formatAiUsageInteger(metric.provider_request_count)} / ${limitLabel}`}
+        />
+        <AiChatUsageMetric label="Token" value={formatAiUsageInteger(totalTokens)} />
+        <AiChatUsageMetric
+          label="费用估算"
+          value={formatAiUsageMicroUsd(metric.settled_cost_microusd)}
+        />
+      </div>
+      {metric.reserved_cost_microusd > 0 ? (
+        <p className="mt-1 truncate text-[9px] text-muted-foreground">
+          另有 {formatAiUsageMicroUsd(metric.reserved_cost_microusd)} 预留中，未计入已结算估算。
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function AiChatUsageMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
+      <p className="truncate text-[9px] font-medium text-muted-foreground">{label}</p>
+      <p
+        className="mt-0.5 truncate font-mono text-xs font-semibold tabular-nums text-foreground"
+        title={value}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 

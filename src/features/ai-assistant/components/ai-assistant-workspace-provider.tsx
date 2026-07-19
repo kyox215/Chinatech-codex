@@ -9,9 +9,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { aiAssistantCapabilitiesQueryOptions } from "@/features/ai-assistant/api";
+import {
+  aiAssistantCapabilitiesQueryOptions,
+  aiAssistantKeys,
+  aiAssistantUsageQueryOptions,
+} from "@/features/ai-assistant/api";
 import type { AiAssistantCapabilities } from "@/features/ai-assistant/model/contracts";
 import { AiAssistantSheet } from "@/features/ai-assistant/components/ai-assistant-sheet";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -26,6 +30,7 @@ const AiAssistantWorkspaceContext = createContext<AiAssistantWorkspaceContextVal
 
 export function AiAssistantWorkspaceProvider({ children }: { children: ReactNode }) {
   const shell = useStoreShellContext();
+  const queryClient = useQueryClient();
   const activeStoreId = shell.activeStore?.id;
   const [open, setOpen] = useState(false);
   const capabilitiesQuery = useQuery({
@@ -35,12 +40,26 @@ export function AiAssistantWorkspaceProvider({ children }: { children: ReactNode
   });
   const canOpenOrderAssistant =
     capabilitiesQuery.data?.canUseOrderAssistant === true && Boolean(activeStoreId);
+  const canReadAiUsage = shell.permissions?.canReadAggregateFinance === true;
+  const usageQuery = useQuery({
+    ...aiAssistantUsageQueryOptions(activeStoreId),
+    enabled: open && Boolean(activeStoreId) && canReadAiUsage,
+    retry: false,
+  });
 
   useEffect(() => setOpen(false), [shell.authorityFingerprint]);
 
   const openAssistant = useCallback(() => {
     if (canOpenOrderAssistant) setOpen(true);
   }, [canOpenOrderAssistant]);
+
+  const refreshAiUsage = useCallback(() => {
+    if (!activeStoreId || !canReadAiUsage) return;
+    void queryClient.invalidateQueries({
+      queryKey: aiAssistantKeys.usage(activeStoreId),
+      exact: true,
+    });
+  }, [activeStoreId, canReadAiUsage, queryClient]);
 
   const value = useMemo<AiAssistantWorkspaceContextValue>(
     () => ({ capabilities: capabilitiesQuery.data, canOpenOrderAssistant, openAssistant }),
@@ -58,6 +77,12 @@ export function AiAssistantWorkspaceProvider({ children }: { children: ReactNode
         capabilitiesLoading={capabilitiesQuery.isLoading}
         capabilitiesError={capabilitiesQuery.isError}
         onRetryCapabilities={() => void capabilitiesQuery.refetch()}
+        canReadUsage={canReadAiUsage}
+        usage={usageQuery.data}
+        usageLoading={usageQuery.isLoading}
+        usageError={usageQuery.isError}
+        onRetryUsage={() => void usageQuery.refetch()}
+        onModelUsageChanged={refreshAiUsage}
         storeKey={shell.authorityFingerprint}
       />
     </AiAssistantWorkspaceContext.Provider>

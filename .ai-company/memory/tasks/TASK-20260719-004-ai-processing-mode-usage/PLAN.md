@@ -24,6 +24,28 @@
 5. 添加合同、服务、路由、聚合、设置和交互测试。
 6. 完成 lint、typecheck、test、build、390px/桌面截图及关闭检查。
 
+## Plan delta — 对话内用量与生产发布（2026-07-19）
+
+### WP-07 对话内使用量
+
+- 在既有 AI Sheet 内复用 `aiAssistantUsageQueryOptions`，不增加 API 或数据口径。
+- 仅在当前门店能力允许 `finance:aggregate_read` 时查询和展示。
+- 用紧凑卡片展示今日模型请求/额度、总 Token 与已结算美元估算；本地模式明确为零模型调用。
+- 提交成功后只刷新当前门店 usage query；失败只影响用量卡，不阻断对话。
+
+### WP-08 发布前复核
+
+- 覆盖权限、加载、成功、零用量、失败降级、刷新和响应式状态。
+- 运行 lint、typecheck、全量 Vitest、生产 build 与 AI/usage Playwright。
+- 截取 390px、桌面端对话内用量和生产结果；检查无敏感数据、秘密或跨店参数。
+
+### WP-09 推送、部署与观察
+
+- 发布单元为前一候选 `e7d743c1` 加本次对话内用量增量；无 migration、依赖或生产配置变化。
+- 发布前获取并复核 integration lease、远端 `main` lineage、Vercel 项目/目标域与回滚 SHA。
+- 推送 exact commit，验证生产部署绑定该 SHA；冒烟本地/模型选择、苹果 15 相关性、对话用量和设置用量。
+- 异常回滚到部署前 SHA；用量 API 失败时不回滚数据，因为没有数据写入或 schema 变化。
+
 ## Dependencies
 
 - 现有 AI feature gate、provider、egress、budget 和 audit 链路。

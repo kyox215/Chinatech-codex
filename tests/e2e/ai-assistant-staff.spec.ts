@@ -101,6 +101,11 @@ test.describe("staff AI assistant bounded workflow", () => {
     const sheet = page.locator('[data-ai-assistant-sheet="true"]');
     const localMode = sheet.getByRole("radio", { name: "使用本地处理" });
     const modelMode = sheet.getByRole("radio", { name: "使用大模型理解" });
+    const chatUsage = sheet.locator('[data-ai-chat-usage="ready"]');
+    await expect(chatUsage).toBeVisible();
+    await expect(chatUsage).toContainText("6 / 50");
+    await expect(chatUsage).toContainText("4,530");
+    await expect(chatUsage).toContainText("$0.001210");
     await expect(localMode).toHaveAttribute("aria-checked", "true");
     await expect(sheet.getByText(/不会把本次文字发送给大模型/)).toBeVisible();
 
@@ -117,16 +122,26 @@ test.describe("staff AI assistant bounded workflow", () => {
     await sheet.screenshot({
       path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-mode-mobile-390.png",
     });
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-chat-usage-mobile-390.png",
+    });
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect(modelMode).toHaveAttribute("aria-checked", "true");
     await expectNoHorizontalOverflow(page);
     await sheet.screenshot({
       path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-mode-desktop-1280.png",
     });
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-chat-usage-desktop-1280.png",
+    });
+    const usageRefreshPromise = page.waitForResponse(
+      (response) => response.url().endsWith("/api/repairdesk/ai/usage") && response.ok(),
+    );
     await sheet.getByRole("button", { name: "发送", exact: true }).click();
     const request = await requestPromise;
     expect(request.postDataJSON()).toMatchObject({ processing_mode: "model" });
     await expect(sheet.getByText("大模型理解", { exact: true }).first()).toBeVisible();
+    await usageRefreshPromise;
     await expectNoHorizontalOverflow(page);
   });
 

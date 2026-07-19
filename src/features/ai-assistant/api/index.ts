@@ -1,2 +1,2 @@
 export { aiAssistantKeys } from "./query-keys";
-export { aiAssistantCapabilitiesQueryOptions } from "./query-options";
+export { aiAssistantCapabilitiesQueryOptions, aiAssistantUsageQueryOptions } from "./query-options";

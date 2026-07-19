@@ -7,6 +7,10 @@ import type {
   AiAssistantUsageMetric,
   AiAssistantUsageSummary,
 } from "@/features/ai-assistant/model/contracts";
+import {
+  formatAiUsageInteger,
+  formatAiUsageMicroUsd,
+} from "@/features/ai-assistant/model/usage-format";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
 
 export interface AiUsageSettingsSectionProps {
@@ -85,7 +89,7 @@ function UsageContent({ usage }: { usage: AiAssistantUsageSummary }) {
           role="status"
           className="rounded-xl border border-status-warn-foreground/25 bg-status-warn/30 px-3 py-2 text-xs text-status-warn-foreground"
         >
-          当前有 {formatMicroUsd(usage.today.reserved_cost_microusd)}{" "}
+          当前有 {formatAiUsageMicroUsd(usage.today.reserved_cost_microusd)}{" "}
           预留费用尚待结算；已与上方估算费用分开。
         </div>
       ) : null}
@@ -106,20 +110,23 @@ function UsagePeriodCard({ title, metric }: { title: string; metric: AiAssistant
         <Coins className="size-4 text-muted-foreground" aria-hidden="true" />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <UsageMetric label="大模型请求" value={formatInteger(metric.provider_request_count)} />
+        <UsageMetric
+          label="大模型请求"
+          value={formatAiUsageInteger(metric.provider_request_count)}
+        />
         <UsageMetric
           label="输入 Token"
-          value={formatInteger(metric.input_token_count)}
+          value={formatAiUsageInteger(metric.input_token_count)}
           detail={
             metric.cached_input_token_count > 0
-              ? `其中缓存 ${formatInteger(metric.cached_input_token_count)}`
+              ? `其中缓存 ${formatAiUsageInteger(metric.cached_input_token_count)}`
               : undefined
           }
         />
-        <UsageMetric label="输出 Token" value={formatInteger(metric.output_token_count)} />
+        <UsageMetric label="输出 Token" value={formatAiUsageInteger(metric.output_token_count)} />
         <UsageMetric
           label="估算费用"
-          value={formatMicroUsd(metric.settled_cost_microusd)}
+          value={formatAiUsageMicroUsd(metric.settled_cost_microusd)}
           detail="美元 · 已结算"
         />
       </div>
@@ -160,8 +167,8 @@ function UsageKindRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold">{label}</p>
           <p className="text-[10px] tabular-nums text-muted-foreground">
-            {formatInteger(metric.provider_request_count)} /{" "}
-            {limit === null ? "—" : formatInteger(limit)} 次
+            {formatAiUsageInteger(metric.provider_request_count)} /{" "}
+            {limit === null ? "—" : formatAiUsageInteger(limit)} 次
           </p>
         </div>
       </div>
@@ -210,19 +217,6 @@ function UsageErrorState({ onRetry }: { onRetry: () => void }) {
       <span className="mt-0.5 block text-[11px] leading-4">其他设置与 AI 本地处理不受影响。</span>
     </RepairOsBusinessCard>
   );
-}
-
-function formatInteger(value: number) {
-  return new Intl.NumberFormat("zh-CN").format(value);
-}
-
-function formatMicroUsd(value: number) {
-  if (value === 0) return "$0.00";
-  const usd = value / 1_000_000;
-  return `$${usd.toLocaleString("en-US", {
-    minimumFractionDigits: usd < 0.01 ? 6 : 2,
-    maximumFractionDigits: usd < 0.01 ? 6 : 4,
-  })}`;
 }
 
 function formatDateTime(value: string, timeZone: string) {

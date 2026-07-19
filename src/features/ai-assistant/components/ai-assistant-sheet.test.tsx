@@ -9,6 +9,7 @@ vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
 }));
 
 import type { AiOrderAssistantResponse } from "@/features/ai-assistant/model/contracts";
+import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
 import { AiAssistantSheet } from "./ai-assistant-sheet";
 import { mergeVoiceInputValue } from "./use-ai-assistant-voice-input";
 
@@ -34,7 +35,8 @@ describe("AiAssistantSheet", () => {
 
   it("submits a bounded question and renders the minimal order card", async () => {
     apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R2026001", "order-1"));
-    renderSheet();
+    const onModelUsageChanged = vi.fn();
+    renderSheet({ onModelUsageChanged });
 
     fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
       target: { value: "请列出仍在处理且未付款的工单" },
@@ -54,11 +56,13 @@ describe("AiAssistantSheet", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
     expect(options.signal).toMatchObject({ aborted: false });
+    expect(onModelUsageChanged).not.toHaveBeenCalled();
   });
 
   it("lets the user explicitly choose model understanding for the next query", async () => {
     apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R-MODEL", "order-model"));
-    renderSheet();
+    const onModelUsageChanged = vi.fn();
+    renderSheet({ onModelUsageChanged });
 
     expect(screen.getByRole("radio", { name: "使用本地处理" })).toHaveAttribute("data-state", "on");
     fireEvent.click(screen.getByRole("radio", { name: "使用大模型理解" }));
@@ -73,6 +77,48 @@ describe("AiAssistantSheet", () => {
       expect.objectContaining({ processing_mode: "model" }),
       expect.any(Object),
     );
+    expect(onModelUsageChanged).toHaveBeenCalledOnce();
+  });
+
+  it("shows the current-store chat usage summary when aggregate finance is allowed", () => {
+    renderSheet({
+      canReadUsage: true,
+      usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
+    });
+
+    expect(screen.getByRole("heading", { name: "今日对话大模型用量" })).toBeVisible();
+    expect(screen.getByText("6 / 50")).toBeVisible();
+    expect(screen.getByText("4,530")).toBeVisible();
+    expect(screen.getByText("$0.001210")).toBeVisible();
+    expect(screen.getByText("本地处理不计入")).toBeVisible();
+  });
+
+  it("does not expose usage when aggregate finance is not allowed", () => {
+    renderSheet({
+      canReadUsage: false,
+      usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
+    });
+
+    expect(screen.queryByText("今日对话大模型用量")).not.toBeInTheDocument();
+    expect(screen.queryByText("$0.001210")).not.toBeInTheDocument();
+  });
+
+  it("keeps chat usable when the usage summary fails and allows a retry", async () => {
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValue(
+      response("R-USAGE-ERROR", "order-usage-error"),
+    );
+    const onRetryUsage = vi.fn();
+    renderSheet({ canReadUsage: true, usageError: true, onRetryUsage });
+
+    expect(screen.getByText("今日用量暂时无法读取")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /重试/ }));
+    expect(onRetryUsage).toHaveBeenCalledOnce();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+      target: { value: "查找未付款工单" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("R-USAGE-ERROR")).toBeInTheDocument();
   });
 
   it("reuses the same client request id for an explicit error retry", async () => {
@@ -254,6 +300,11 @@ function sheetElement(overrides: Partial<React.ComponentProps<typeof AiAssistant
       capabilitiesLoading={false}
       capabilitiesError={false}
       onRetryCapabilities={vi.fn()}
+      canReadUsage={false}
+      usageLoading={false}
+      usageError={false}
+      onRetryUsage={vi.fn()}
+      onModelUsageChanged={vi.fn()}
       storeKey="store-1"
       {...overrides}
     />
