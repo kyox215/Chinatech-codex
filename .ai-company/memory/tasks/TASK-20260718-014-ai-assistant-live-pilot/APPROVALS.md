@@ -22,3 +22,9 @@
 ## 2026-07-19 D4 decision
 
 Owner approved the exact packet above with `批准 D4`. Approval is bounded to one store (`ChinaTech`, `5248dda1-2b32-46cd-8ed0-d15386a9e8ed`), order-text only, non-PII staff use, the recorded model/pricing policy and caps, one service-path billable smoke, and a 30-minute observation. Vision, automatic writes, public/customer AI, a second store, PII egress, a different model/budget, or destructive database rollback remain outside this approval.
+
+## 2026-07-19 D4-v2 decision
+
+Owner explicitly approved: `批准 D4-v2：复用现有加密密钥，部署 ai-runtime-v2，创建并验证 v2 policy，执行一次额外的无 PII 计费 smoke；仅在 HTTP、账本和审计全部成功后开启 ChinaTech 单店员工订单文字 AI，并观察 30 分钟。Vision、自动写入、公开助手、PII 和其他店铺继续关闭。`
+
+This renewed authority is limited to the versioned minimal-reasoning remediation. The exact model, pricing, 256 output-token ceiling, USD 50 monthly cap, per-store/global/actor limits, timezone, one provider attempt, ChinaTech UUID, and service-path-only smoke remain unchanged. Any failed HTTP, ledger, audit, attestation, isolation, privacy, cost, or deployment gate stops the release with live flags off and the v2 policy disabled. The existing encrypted key may be reused but must not be read or printed.

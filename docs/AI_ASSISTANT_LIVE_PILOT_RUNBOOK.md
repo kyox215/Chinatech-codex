@@ -1,6 +1,6 @@
 # RepairDesk AI 小助手真实 API 试点发布手册
 
-Status: D4 smoke halted and rolled back; production NO-GO pending revised Owner D4
+Status: D4-v2 approved; serialized production release in progress
 Task: `TASK-20260718-014-ai-assistant-live-pilot`
 Last verified: 2026-07-19 CEST
 
@@ -35,7 +35,7 @@ Last verified: 2026-07-19 CEST
 
 ## 生产环境合同
 
-下一版非秘密值提案如下；未获得新的 D4 前不得把 v2 policy 或 live flags 写入生产：
+下一版非秘密值合同如下；D4-v2 已批准，但只能按本手册的串行门禁写入生产：
 
 ```dotenv
 AI_ASSISTANT_PROVIDER=openai

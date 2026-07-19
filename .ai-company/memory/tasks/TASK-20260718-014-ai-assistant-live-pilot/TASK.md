@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["API", "DATA", "DOC", "INT", "QA", "Release", "SEC"]
 created_at: "2026-07-18T21:11:07Z"
-updated_at: "2026-07-19T00:04:49Z"
+updated_at: "2026-07-19T00:25:55Z"
 ---
 
 # Task — RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度
@@ -52,7 +52,7 @@ RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度
 - [x] 订单确定性路径和本地完整识别保持 provider=0；仅保守 fallback 进入付费 provider。
 - [x] OpenAI Responses API 请求使用 store=false、隐私保护 safety_identifier、结构化输出、单次尝试、硬超时和 Token 上限。
 - [x] 密钥仅存在于 ignored 本地 env 与 Vercel encrypted Production secret store；Git、日志、截图和任务记忆中均无明文。
-- [ ] 生产迁移与 secrets 已完成；v1 policy 在失败 smoke 后已停用，ChinaTech canary/live flags 从未激活。v2 policy、第二次 smoke 和 30 分钟观察等待新 D4。
+- [ ] 生产迁移与 secrets 已完成；v1 policy 在失败 smoke 后已停用，ChinaTech canary/live flags 从未激活。Owner 已批准 D4-v2；v2 policy、第二次 smoke、条件激活和 30 分钟观察正在串行执行。
 - [x] agents/lint/typecheck/test/build、定向 provider 合同测试、安全审查、fake E2E、零费用真实 API 鉴权和生产未登录边界冒烟均通过；网页登录态验证受浏览器明确站点禁用限制。
 
 ## Facts, assumptions, and unknowns
@@ -78,7 +78,8 @@ RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度
 - **D4 / approved:** upload Production-only secrets, allowlist ChinaTech only, and enable staff order-text flags; vision/draft/public flags stay off.
 - **D4 / approved:** push, deploy, run one no-PII service-path billable smoke, observe for 30 minutes, and retain or roll back by the written thresholds.
 - **D4 / executed and stopped:** the single smoke was billable and durably settled but failed end to end; rollback threshold fired before canary activation.
-- **New D4 / required:** v2 policy insertion/enablement, Vercel policy-version switch, a second billable smoke, ChinaTech activation, and the 30-minute observation.
+- **D4-v2 / approved 2026-07-19:** reuse the existing encrypted key; deploy `ai-runtime-v2`; create and verify the v2 policy; execute exactly one additional synthetic no-PII billable smoke; activate ChinaTech-only staff order text only after HTTP, ledger, and audit all succeed; observe for 30 minutes.
+- **D4-v2 exclusion boundary:** vision, automatic writes, public/customer assistant, PII egress, and every other store remain disabled.
 - **Boundary:** USD 50/month; 20 order-text calls/store/day; 300 calls/day globally; 30 calls/actor/minute; `Europe/Rome`; one store only.
 
 ## Work packages

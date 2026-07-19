@@ -85,3 +85,13 @@
 - **Production verification:** `www.chinatech.in` remains READY on `main@bc5dfae3` / deployment `dpl_6DLuoHkZ6io6jjqARNPrXVDzzQSV`. Vercel live flags are all `0`, store allowlist is absent, Production policy version remains v1, and the database v1 policy is disabled with zero open reservations.
 - **Boundary:** no v2 Production env/policy mutation, second OpenAI call, canary activation or observation occurred. The owner's dirty root checkout was not edited or cleaned.
 - **Next:** present and await explicit revised D4 approval.
+
+## 2026-07-19T00:25:55Z — D4-v2 approved; serialized release resumed
+
+- **Phase:** approved / production preflight.
+- **Owner authority:** reuse the existing encrypted Production key; deploy `ai-runtime-v2`; create and verify the v2 policy; execute exactly one additional synthetic no-PII billable service-path smoke; activate ChinaTech-only staff order text only if HTTP, durable ledger, and privacy-safe audit all succeed; then observe for 30 minutes.
+- **Frozen exclusions:** vision, automatic writes, public/customer assistant, PII egress, and all other stores remain disabled.
+- **Risk/autonomy:** R4 / L1, serialized writes under one release lock. Any gate failure stops the release and leaves live flags off; the v2 policy is disabled if it had been enabled.
+- **Isolation:** new worktree/branch `codex/ai-v2-d4-release-20260719` from remote safe candidate `3cae265e`; the dirty root checkout and older contaminated AI worktrees are read-only/out of scope.
+- **Agent decision:** no new sub-agents are spawned because production secrets, database policy mutation, billable dispatch, Git push, deploy, and observation must be handled serially by the Integration Lead; prior independent reviews remain evidence only.
+- **Next:** refresh Git/Supabase/Vercel baselines, create a disabled exact-copy v2 policy, deploy dormant v2, enable/attest, and run the one authorized smoke.
