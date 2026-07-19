@@ -1727,6 +1727,9 @@ export interface ActorStoreMembership {
   slug: string;
   role: StoreRole;
   status: StoreMembershipStatus;
+  lifecycle?: StoreLifecycleState;
+  isPrimaryOwner?: boolean;
+  lifecycleAccess?: StoreLifecycleCapability;
 }
 
 export type OrderDataAccessCode =
@@ -1770,6 +1773,7 @@ export type StoreLifecycleBlockerCode =
   | "open_orders"
   | "unsettled_balance"
   | "device_in_custody"
+  | "pending_offline_writes"
   | "open_kiosk_sessions"
   | "pending_invitations"
   | "retention_hold"
@@ -1790,6 +1794,10 @@ export interface StoreLifecyclePreflight {
   state: "eligible" | "blocked";
   counts: Record<string, number>;
   blockers: StoreLifecycleBlocker[];
+  automatic_effects?: {
+    pending_invitations: number;
+    open_kiosk_sessions: number;
+  };
   snapshot_hash: string;
   expires_at: string;
 }
@@ -1845,6 +1853,42 @@ export interface StoreLifecycleMutationResult {
   replayed: boolean;
   lifecycle: StoreLifecycleState;
   store?: ActorStoreMembership;
+  next_active_store_id?: string;
+  active_store_cleared?: boolean;
+}
+
+export type StoreLifecycleAvailabilityCode =
+  | "available"
+  | "feature_disabled"
+  | "store_context_required"
+  | "primary_owner_required"
+  | "mfa_required"
+  | "migration_unavailable"
+  | "enforcement_unhealthy"
+  | "store_unavailable";
+
+export interface StoreLifecycleActionCapability {
+  allowed: boolean;
+  code: StoreLifecycleAvailabilityCode;
+}
+
+export interface StoreLifecycleCapability {
+  store_id?: string;
+  check: StoreLifecycleActionCapability;
+  rename: StoreLifecycleActionCapability;
+  close: StoreLifecycleActionCapability;
+  restore: StoreLifecycleActionCapability;
+}
+
+export interface StoreLifecycleOperationStatus {
+  operation_id: string;
+  store_id: string;
+  kind?: "rename" | "request_close" | "restore";
+  state: "missing" | "running" | "completed" | "failed";
+  lifecycle?: StoreLifecycleState;
+  result_revision?: number;
+  next_active_store_id?: string;
+  active_store_cleared?: boolean;
 }
 
 export interface StoreExportTableManifest {
@@ -1898,6 +1942,9 @@ export interface StoreRestoreProof {
 export interface StoreContext {
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
+  recoveryStores?: ActorStoreMembership[];
+  activeStoreExplicit?: boolean;
+  lifecycleAccess?: StoreLifecycleCapability;
   orderDataAccess?: OrderDataAccessCapability;
   lifecycle?: StoreLifecycleState;
   permissions?: {
@@ -2052,6 +2099,7 @@ export interface AuditActor {
   activeMembershipId?: string;
   permissionGrants?: StorePermissionAction[];
   stores?: ActorStoreMembership[];
+  recoveryStores?: ActorStoreMembership[];
   activeStoreExplicit?: boolean;
   requestIpHash?: string;
   authAssuranceLevel?: "aal1" | "aal2";

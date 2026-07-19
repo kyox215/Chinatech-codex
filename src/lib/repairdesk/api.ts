@@ -150,6 +150,7 @@ import type {
   StoreLifecycleChallengeInput,
   StoreLifecycleChallengeResult,
   StoreLifecycleMutationResult,
+  StoreLifecycleOperationStatus,
   StoreLifecyclePreflight,
   StoreLifecycleState,
   StoreRenameInput,
@@ -730,6 +731,13 @@ export async function getStoreLifecycleState(
   expectedStoreId: string,
 ): Promise<StoreLifecycleState> {
   return postJson<StoreLifecycleState>("stores/lifecycle/state", { expectedStoreId });
+}
+
+export async function getStoreLifecycleOperationStatus(input: {
+  expectedStoreId: string;
+  operationId: string;
+}): Promise<StoreLifecycleOperationStatus> {
+  return postJson<StoreLifecycleOperationStatus>("stores/lifecycle/operation-status", input);
 }
 
 export async function issueStoreLifecycleChallenge(

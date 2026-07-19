@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Check,
+  Copy,
   Link as LinkIcon,
   Mail,
   MessageSquare,
@@ -39,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { SettingsField } from "@/features/settings/components/settings-field";
 import { StoreLifecycleActions } from "@/features/settings/sections/store-lifecycle-actions";
+import { StoreRenameOverlay } from "@/features/settings/sections/store-rename-overlay";
 import type { SettingsFieldErrors } from "@/features/settings/model/settings-field-errors";
 import {
   getSettingsFieldError,
@@ -49,6 +51,7 @@ import type { StoreSettingsReadiness } from "@/features/settings/model/store-set
 import { getStoreOutputDraftProjectionCopy } from "@/features/settings/model/store-output-draft-projection";
 import type {
   ActorStoreMembership,
+  StoreLifecycleCapability,
   StoreLifecyclePreflight,
   StoreRole,
 } from "@/lib/repairdesk/types";
@@ -66,6 +69,7 @@ const storeRoleLabels: Record<StoreRole, string> = {
 
 export interface StoreSettingsSectionContentProps {
   activeStoreId?: string;
+  activeStoreExplicit?: boolean;
   stores: ActorStoreMembership[];
   isContextLoading: boolean;
   isSwitching: boolean;
@@ -82,6 +86,7 @@ export interface StoreSettingsSectionContentProps {
   isLifecyclePreflighting?: boolean;
   lifecyclePreflightError?: string;
   canRunLifecyclePreflight?: boolean;
+  lifecycleAccess?: StoreLifecycleCapability;
   onRunLifecyclePreflight?: () => void;
   draft?: StoreSettingsDraftValues["store"];
   savedReadiness?: StoreSettingsReadiness;
@@ -96,6 +101,7 @@ export interface StoreSettingsSectionContentProps {
 
 export function StoreSettingsSectionContent({
   activeStoreId,
+  activeStoreExplicit = true,
   stores,
   isContextLoading,
   isSwitching,
@@ -112,6 +118,7 @@ export function StoreSettingsSectionContent({
   isLifecyclePreflighting = false,
   lifecyclePreflightError,
   canRunLifecyclePreflight = false,
+  lifecycleAccess,
   onRunLifecyclePreflight = () => undefined,
   draft,
   savedReadiness,
@@ -127,6 +134,7 @@ export function StoreSettingsSectionContent({
     <div data-settings-store-section className="min-w-0 space-y-3">
       <StoreWorkspaceCard
         activeStoreId={activeStoreId}
+        activeStoreExplicit={activeStoreExplicit}
         stores={stores}
         isLoading={isContextLoading}
         isSwitching={isSwitching}
@@ -134,18 +142,12 @@ export function StoreSettingsSectionContent({
         onSwitchStore={onSwitchStore}
       />
 
-      <StoreLifecycleCard
-        store={stores.find((store) => store.id === activeStoreId)}
-        preflight={lifecyclePreflight}
-        isLoading={isLifecyclePreflighting}
-        error={lifecyclePreflightError}
-        canRun={canRunLifecyclePreflight}
-        onRun={onRunLifecyclePreflight}
-      />
-
       {draft ? (
         <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] xl:items-start">
           <StoreProfileCard
+            store={stores.find((store) => store.id === activeStoreId)}
+            lifecycleAccess={lifecycleAccess}
+            hasUnsavedDraft={isDraftDirty}
             draft={draft}
             canUpdateSettings={canUpdateSettings}
             fieldErrors={fieldErrors}
@@ -163,6 +165,22 @@ export function StoreSettingsSectionContent({
         </div>
       ) : null}
 
+      <StoreLifecycleCard
+        store={stores.find((store) => store.id === activeStoreId)}
+        preflight={lifecyclePreflight}
+        isLoading={isLifecyclePreflighting}
+        error={lifecyclePreflightError}
+        canRun={canRunLifecyclePreflight}
+        capability={
+          lifecycleAccess
+            ? canRunLifecyclePreflight
+              ? lifecycleAccess.close
+              : { allowed: false, code: "primary_owner_required" as const }
+            : undefined
+        }
+        onRun={onRunLifecyclePreflight}
+      />
+
       <StoreCreationCard
         isCreating={isCreating}
         error={createError}
@@ -176,24 +194,13 @@ export function StoreSettingsSectionContent({
   );
 }
 
-const lifecycleBlockerLabels: Record<StoreLifecyclePreflight["blockers"][number]["code"], string> =
-  {
-    open_orders: "仍有开放工单",
-    unsettled_balance: "仍有未结余额",
-    device_in_custody: "仍有设备由门店保管",
-    open_kiosk_sessions: "仍有开放的客户 iPad 会话",
-    pending_invitations: "仍有待处理邀请",
-    retention_hold: "数据仍在保留期",
-    legal_hold: "存在法律保留",
-    storage_manifest_unavailable: "Storage 清单尚未完整验证",
-  };
-
 function StoreLifecycleCard({
   store,
   preflight,
   isLoading,
   error,
   canRun,
+  capability,
   onRun,
 }: {
   store?: ActorStoreMembership;
@@ -201,6 +208,7 @@ function StoreLifecycleCard({
   isLoading: boolean;
   error?: string;
   canRun: boolean;
+  capability?: StoreLifecycleCapability["close"];
   onRun: () => void;
 }) {
   return (
@@ -208,78 +216,28 @@ function StoreLifecycleCard({
       <RepairOsSectionHeader
         icon={ShieldCheck}
         iconFrame={false}
-        title="店铺生命周期"
-        description="先做只读预检，再决定完整重命名、可恢复关闭或继续保留。"
+        title="店铺状态与关闭"
+        description="需要停用这家店时，从安全检查开始。关闭不是永久删除，以后仍可恢复。"
       />
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
-          <p className="text-xs font-semibold">安全实施门禁</p>
-          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-            预检只返回脱敏计数和阻断原因，不会重命名、关闭或删除任何数据。永久清除默认关闭。
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-11 w-full sm:w-auto"
-          disabled={!canRun || isLoading}
-          aria-busy={isLoading}
-          onClick={onRun}
-        >
-          {isLoading ? "预检中…" : "运行安全预检"}
-        </Button>
-      </div>
-      {!canRun ? (
-        <p className="text-[11px] leading-4 text-muted-foreground">
-          只有当前店铺的店主可以请求预检；服务端还会再次核对主创建者和精确 UUID。
-        </p>
-      ) : null}
-      {preflight ? (
-        <div
-          role="status"
-          className={cn(
-            "rounded-xl border px-3 py-2.5 text-xs",
-            preflight.state === "eligible"
-              ? "border-status-success-foreground/25 bg-status-success/10"
-              : "border-status-warn-foreground/25 bg-status-warn/10",
-          )}
-        >
-          <p className="font-semibold">
-            {preflight.state === "eligible" ? "当前预检未发现业务阻断" : "当前不能关闭或清除店铺"}
-          </p>
-          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-            店铺 UUID 尾号 {preflight.store_id.slice(-8)} · 生命周期版本{" "}
-            {preflight.lifecycle.revision} · 快照有效至{" "}
-            {new Date(preflight.expires_at).toLocaleTimeString("zh-CN")}
-          </p>
-          {preflight.blockers.length > 0 ? (
-            <ul className="mt-2 space-y-1 text-[11px] leading-4">
-              {preflight.blockers.map((blocker) => (
-                <li key={blocker.code}>
-                  {lifecycleBlockerLabels[blocker.code]}
-                  {blocker.count !== undefined ? `：${blocker.count}` : ""}
-                  {blocker.amount !== undefined ? `（€${blocker.amount.toFixed(2)}）` : ""}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-      {error ? (
-        <div
-          role="alert"
-          className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground"
-        >
-          预检失败：{error}。未执行任何店铺变更。
-        </div>
-      ) : null}
-      {canRun && store ? <StoreLifecycleActions store={store} preflight={preflight} /> : null}
+      {store && capability ? (
+        <StoreLifecycleActions
+          store={store}
+          capability={capability}
+          preflight={preflight}
+          isPreflighting={isLoading}
+          preflightError={error}
+          onRunPreflight={onRun}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">请先选择要管理的店铺。</p>
+      )}
     </section>
   );
 }
 
 function StoreWorkspaceCard({
   activeStoreId,
+  activeStoreExplicit,
   stores,
   isLoading,
   isSwitching,
@@ -287,6 +245,7 @@ function StoreWorkspaceCard({
   onSwitchStore,
 }: {
   activeStoreId?: string;
+  activeStoreExplicit: boolean;
   stores: ActorStoreMembership[];
   isLoading: boolean;
   isSwitching: boolean;
@@ -330,6 +289,22 @@ function StoreWorkspaceCard({
           <p className="text-[11px] leading-4 text-muted-foreground">
             切换店铺会加载该独立工作区的订单、客户、库存和设置；存在未保存草稿时会先确认处理方式。
           </p>
+          {!activeStoreExplicit && activeStoreId ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-status-warn-foreground/25 bg-status-warn/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-5 text-status-warn-foreground">
+                你有多个店铺。请先确认要管理的是当前这家，系统才会显示重命名和关闭功能。
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-10 shrink-0"
+                disabled={isSwitching}
+                onClick={() => onSwitchStore(activeStoreId)}
+              >
+                确认管理这家店
+              </Button>
+            </div>
+          ) : null}
           <p role="status" aria-live="polite" className="sr-only">
             {isSwitching ? "正在切换店铺" : "当前店铺已加载"}
           </p>
@@ -472,16 +447,30 @@ function StoreCreationCard({
 }
 
 function StoreProfileCard({
+  store,
+  lifecycleAccess,
+  hasUnsavedDraft,
   draft,
   canUpdateSettings,
   fieldErrors,
   onDraftChange,
 }: {
+  store?: ActorStoreMembership;
+  lifecycleAccess?: StoreLifecycleCapability;
+  hasUnsavedDraft: boolean;
   draft: StoreSettingsDraftValues["store"];
   canUpdateSettings: boolean;
   fieldErrors: SettingsFieldErrors;
   onDraftChange: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const canShowIdentity = lifecycleAccess?.check.allowed === true && Boolean(store);
+  const copyStoreId = async () => {
+    if (!store) return;
+    await navigator.clipboard.writeText(store.id);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
   return (
     <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
       <RepairOsSectionHeader
@@ -494,13 +483,45 @@ function StoreProfileCard({
           </Badge>
         }
       />
+      {canShowIdentity && store ? (
+        <div className="mb-3 grid gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">系统中的店铺名称</p>
+            <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">店铺唯一编号</p>
+            <p className="mt-1 break-all font-mono text-xs tabular-nums">{store.id}</p>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-10 gap-1.5"
+              onClick={() => void copyStoreId()}
+            >
+              <Copy className="size-3.5" aria-hidden="true" />
+              {copied ? "已复制" : "复制编号"}
+            </Button>
+            {lifecycleAccess ? (
+              <StoreRenameOverlay
+                store={store}
+                capability={lifecycleAccess.rename}
+                hasUnsavedProfileDraft={hasUnsavedDraft}
+              />
+            ) : null}
+          </div>
+          <p role="status" aria-live="polite" className="sr-only">
+            {copied ? "店铺唯一编号已复制" : ""}
+          </p>
+        </div>
+      ) : null}
       {!canUpdateSettings ? (
         <StoreProfileReadOnly draft={draft} />
       ) : (
         <>
           <div className={formLayout.grid}>
             <SettingsField
-              label="店铺名"
+              label="收据和客户消息显示名称"
               htmlFor="store-name"
               error={getSettingsFieldError(fieldErrors, "store_name")}
             >

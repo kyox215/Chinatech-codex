@@ -1237,7 +1237,9 @@ export function SettingsScreen() {
   });
   if (
     storeContextQuery.isError ||
-    (storeContextQuery.isSuccess && !storeContextQuery.data.activeStore)
+    (storeContextQuery.isSuccess &&
+      !storeContextQuery.data.activeStore &&
+      (storeContextQuery.data.recoveryStores?.length ?? 0) === 0)
   ) {
     return (
       <RepairOsListScaffold title="设置" subtitle="读取失败" eyebrow="系统 / 设置">
@@ -1269,6 +1271,34 @@ export function SettingsScreen() {
           <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80">
             请重新加载当前店铺上下文后继续使用设置。
           </span>
+        </RepairOsBusinessCard>
+      </RepairOsListScaffold>
+    );
+  }
+
+  if (
+    storeContextQuery.isSuccess &&
+    !storeContextQuery.data.activeStore &&
+    (storeContextQuery.data.recoveryStores?.length ?? 0) > 0
+  ) {
+    return (
+      <RepairOsListScaffold title="设置" subtitle="没有正在营业的店铺" eyebrow="系统 / 设置">
+        <RepairOsBusinessCard
+          as="div"
+          className="mx-auto mt-16 max-w-md p-4"
+          leading={
+            <span className="grid size-9 place-items-center rounded-lg bg-status-warn/15 text-status-warn-foreground">
+              <Archive className="size-4" />
+            </span>
+          }
+        >
+          <span className="block text-sm font-semibold">这家店已进入可恢复关闭流程</span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+            资料仍然保留。请前往“已关闭店铺”查看状态或恢复营业。
+          </span>
+          <Button asChild type="button" className="mt-3 min-h-11">
+            <Link href="/settings/closed-stores">查看已关闭店铺</Link>
+          </Button>
         </RepairOsBusinessCard>
       </RepairOsListScaffold>
     );
@@ -1592,6 +1622,7 @@ export function SettingsScreen() {
                 {canRenderSelectedSection && selectedSection === "store" ? (
                   <StoreSettingsSectionContent
                     activeStoreId={storeContextQuery.data?.activeStore?.id}
+                    activeStoreExplicit={storeContextQuery.data?.activeStoreExplicit}
                     stores={storeContextQuery.data?.stores ?? []}
                     isContextLoading={storeContextQuery.isLoading}
                     isSwitching={switchStoreMutation.isPending}
@@ -1621,7 +1652,13 @@ export function SettingsScreen() {
                       setNewStoreAddress(value);
                     }}
                     onSwitchStore={(storeId) => {
-                      if (!storeId || storeId === storeContextQuery.data?.activeStore?.id) return;
+                      if (!storeId) return;
+                      if (
+                        storeId === storeContextQuery.data?.activeStore?.id &&
+                        storeContextQuery.data?.activeStoreExplicit
+                      ) {
+                        return;
+                      }
                       const targetStore = storeContextQuery.data?.stores.find(
                         (store) => store.id === storeId,
                       );
@@ -1662,7 +1699,10 @@ export function SettingsScreen() {
                           : "未知错误"
                         : undefined
                     }
-                    canRunLifecyclePreflight={storeContextQuery.data?.activeStore?.role === "owner"}
+                    canRunLifecyclePreflight={
+                      storeContextQuery.data?.lifecycleAccess?.check.allowed === true
+                    }
+                    lifecycleAccess={storeContextQuery.data?.lifecycleAccess}
                     onRunLifecyclePreflight={() => {
                       const request = currentStoreRequestScope();
                       if (!request.requestedStoreId) return;

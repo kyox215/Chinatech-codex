@@ -9,6 +9,7 @@ import type {
   ActorStoreMembership,
   AuditActor,
   StaffProfile,
+  StoreLifecycleState,
   StorePermissionAction,
   StoreMembershipStatus,
   StoreRole,
@@ -95,6 +96,14 @@ export async function getRequestActor(
     ? await resolveActiveStore(memberships)
     : undefined;
   const activeStore = activeStoreResolution?.store;
+  const businessStores = memberships.filter(
+    (store) => !store.lifecycle || store.lifecycle.phase === "active",
+  );
+  const recoveryStores = memberships.filter(
+    (store) =>
+      store.isPrimaryOwner === true &&
+      (store.lifecycle?.phase === "closing" || store.lifecycle?.phase === "archived"),
+  );
   if (!activeStore && !options.allowPendingStore) {
     throw new ForbiddenError("账号尚未加入店铺，请先提交申请并等待平台管理员审批");
   }
@@ -121,7 +130,8 @@ export async function getRequestActor(
     storeRole: activeStore?.role,
     activeMembershipId: activeStore?.membershipId,
     permissionGrants,
-    stores: memberships,
+    stores: businessStores,
+    recoveryStores,
     activeStoreExplicit: activeStoreResolution?.explicit ?? false,
     requestIpHash,
     ...authAssurance,
@@ -240,7 +250,7 @@ async function getActiveStoreMemberships(
 ): Promise<ActorStoreMembership[]> {
   const { data, error } = await admin
     .from("store_memberships")
-    .select("id, store_id, role, status, store:stores(id, name, slug, status)")
+    .select("id, store_id, role, status, store:stores(id, name, slug, status, owner_user_id)")
     .eq("user_id", staff.id)
     .eq("status", "active")
     .order("created_at", { ascending: true });
@@ -249,7 +259,7 @@ async function getActiveStoreMemberships(
     throw new Error(`读取店铺会员关系失败：${error.message}`);
   }
 
-  return ((data ?? []) as StoreMembershipRow[])
+  const memberships = ((data ?? []) as StoreMembershipRow[])
     .map((row): ActorStoreMembership | undefined => {
       const store = Array.isArray(row.store) ? row.store[0] : row.store;
       if (!store || store.status !== "active") return undefined;
@@ -260,9 +270,34 @@ async function getActiveStoreMemberships(
         slug: String(store.slug || "store"),
         role: toStoreRole(row.role),
         status: toMembershipStatus(row.status),
+        isPrimaryOwner: store.owner_user_id === staff.id,
       };
     })
     .filter((store): store is ActorStoreMembership => Boolean(store));
+
+  if (memberships.length === 0) return memberships;
+  const { data: lifecycleRows, error: lifecycleError } = await admin
+    .from("store_lifecycles")
+    .select(
+      "store_id, phase, revision, close_requested_at, access_cutoff_at, archive_eligible_at, archived_at, purge_after, retention_until, legal_hold_until",
+    )
+    .in(
+      "store_id",
+      memberships.map((store) => store.id),
+    );
+  if (lifecycleError && !isLifecycleTableUnavailable(lifecycleError)) {
+    throw new Error(`读取店铺状态失败：${lifecycleError.message}`);
+  }
+  const lifecycleByStore = new Map(
+    ((lifecycleRows ?? []) as Record<string, unknown>[]).map((row) => [
+      String(row.store_id),
+      lifecycleFromRow(row),
+    ]),
+  );
+  return memberships.map((store) => ({
+    ...store,
+    ...(lifecycleByStore.has(store.id) ? { lifecycle: lifecycleByStore.get(store.id) } : {}),
+  }));
 }
 
 async function getActiveStorePermissionGrants(
@@ -290,14 +325,41 @@ async function getActiveStorePermissionGrants(
 async function resolveActiveStore(
   memberships: ActorStoreMembership[],
 ): Promise<{ store: ActorStoreMembership; explicit: boolean } | undefined> {
-  if (memberships.length === 0) return undefined;
+  const available = memberships.filter(
+    (store) => !store.lifecycle || store.lifecycle.phase === "active",
+  );
+  if (available.length === 0) return undefined;
   const cookieStore = await cookies();
   const requestedStoreId = cookieStore.get("repairdesk-store-id")?.value;
-  const requestedStore = memberships.find((store) => store.id === requestedStoreId);
+  const requestedStore = available.find((store) => store.id === requestedStoreId);
   return {
-    store: requestedStore ?? memberships[0],
-    explicit: memberships.length === 1 || Boolean(requestedStore),
+    store: requestedStore ?? available[0],
+    explicit: available.length === 1 || Boolean(requestedStore),
   };
+}
+
+function lifecycleFromRow(row: Record<string, unknown>): StoreLifecycleState {
+  const optionalIso = (key: string) =>
+    typeof row[key] === "string" && row[key] ? { [key]: row[key] as string } : {};
+  return {
+    store_id: String(row.store_id),
+    phase: row.phase as StoreLifecycleState["phase"],
+    revision: Number(row.revision),
+    ...optionalIso("close_requested_at"),
+    ...optionalIso("access_cutoff_at"),
+    ...optionalIso("archive_eligible_at"),
+    ...optionalIso("archived_at"),
+    ...optionalIso("purge_after"),
+    ...optionalIso("retention_until"),
+    ...optionalIso("legal_hold_until"),
+  };
+}
+
+function isLifecycleTableUnavailable(error: { code?: string; message?: string }) {
+  const message = error.message ?? "";
+  return (
+    error.code === "42P01" || (error.code === "PGRST205" && message.includes("store_lifecycles"))
+  );
 }
 
 async function getRequestIpHash() {
@@ -385,4 +447,5 @@ interface StoreRow {
   name?: string;
   slug?: string;
   status?: string;
+  owner_user_id?: string;
 }

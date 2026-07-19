@@ -27,6 +27,7 @@ import type {
   StoreMember,
   StoreMembersResult,
   StoreMembershipStatus,
+  StoreLifecycleCapability,
   OrderDataAccessCapability,
   StorePermissionAction,
   StoreRole,
@@ -61,6 +62,10 @@ import { deliverStoreInvitationEmail } from "@/features/stores/server/store-invi
 import { isVerifiedEmailAuthUser } from "@/server/auth-context";
 import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
 import {
+  isStoreLifecycleEnforcementEnabled,
+  isStoreLifecycleMutationEnabled,
+} from "@/features/stores/server/store-lifecycle-feature-flags";
+import {
   isInventoryV2CommandEnabledForStore,
   isInventoryV2UiEnabledForStore,
 } from "@/features/inventory/server/inventory-v2-feature-flags";
@@ -78,9 +83,19 @@ const EMAIL_INVITE_COOLDOWN_MS = 60 * 1000;
 
 export async function getStoreContext(actor: AuditActor): Promise<StoreContext> {
   const { orderDataAccess, ...permissions } = await storePermissionsFromActor(actor);
+  const lifecycleAccess = await lifecycleCapabilityFromActor(actor);
+  const recoveryStores = await Promise.all(
+    (actor.recoveryStores ?? []).map(async (store) => ({
+      ...store,
+      lifecycleAccess: await recoveryLifecycleCapability(store, actor),
+    })),
+  );
   return {
     activeStore: activeStoreFromActor(actor),
     stores: actor.stores ?? [],
+    recoveryStores,
+    activeStoreExplicit: actor.activeStoreExplicit ?? false,
+    lifecycleAccess,
     orderDataAccess,
     permissions,
   };
@@ -1313,7 +1328,10 @@ async function assertStoreMembership(
   if (!actor.id || actor.isSystem) throw new ForbiddenError();
 
   const localStore = actor.stores?.find((store) => store.id === storeId);
-  if (localStore?.status === "active") return localStore;
+  if (localStore?.status === "active") {
+    await assertStoreLifecycleActive(localStore.id);
+    return localStore;
+  }
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -1329,6 +1347,7 @@ async function assertStoreMembership(
   const row = data as StoreMembershipRow;
   const store = Array.isArray(row.store) ? row.store[0] : row.store;
   if (!store || store.status !== "active") throw new ForbiddenError("店铺不可用");
+  await assertStoreLifecycleActive(storeId);
   return {
     id: requiredString(row.store_id) || requiredString(store.id),
     name: requiredString(store.name),
@@ -1519,7 +1538,7 @@ async function uniqueStoreSlug(supabase: ReturnType<typeof getSupabaseAdmin>, na
   return `${base}-${crypto.randomUUID().slice(0, 8)}`.slice(0, 64).replace(/-+$/g, "");
 }
 
-async function setActiveStoreCookie(storeId: string) {
+export async function setActiveStoreCookie(storeId: string) {
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_STORE_COOKIE, storeId, {
     httpOnly: true,
@@ -1527,6 +1546,11 @@ async function setActiveStoreCookie(storeId: string) {
     path: "/",
     maxAge: STORE_COOKIE_MAX_AGE,
   });
+}
+
+export async function clearActiveStoreCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(ACTIVE_STORE_COOKIE);
 }
 
 async function nextContext(
@@ -1548,8 +1572,103 @@ async function nextContext(
   return {
     activeStore,
     stores: [activeStore, ...stores],
+    recoveryStores: actor.recoveryStores ?? [],
+    activeStoreExplicit: true,
+    lifecycleAccess: await lifecycleCapabilityFromActor(nextActor),
     orderDataAccess,
     permissions,
+  };
+}
+
+async function lifecycleCapabilityFromActor(actor: AuditActor): Promise<StoreLifecycleCapability> {
+  const denied = (code: StoreLifecycleCapability["close"]["code"]) => ({
+    allowed: false,
+    code,
+  });
+  if (!actor.storeId || actor.isSystem) {
+    const unavailable = denied("store_context_required");
+    return { check: unavailable, rename: unavailable, close: unavailable, restore: unavailable };
+  }
+  const ownerAccess = await evaluatePrimaryStoreOwner(actor);
+  if (!ownerAccess.allowed) {
+    const code =
+      ownerAccess.reason === "store_context_required"
+        ? "store_context_required"
+        : ownerAccess.reason === "store_unavailable"
+          ? "store_unavailable"
+          : "primary_owner_required";
+    const unavailable = denied(code);
+    return {
+      store_id: actor.storeId,
+      check: unavailable,
+      rename: unavailable,
+      close: unavailable,
+      restore: unavailable,
+    };
+  }
+
+  const available = { allowed: true, code: "available" as const };
+  const mutationsEnabled = isStoreLifecycleMutationEnabled();
+  const enforcementEnabled = isStoreLifecycleEnforcementEnabled();
+  let mutationCapability: StoreLifecycleCapability["close"];
+  if (!mutationsEnabled) {
+    mutationCapability = denied("feature_disabled");
+  } else if (!enforcementEnabled) {
+    mutationCapability = denied("enforcement_unhealthy");
+  } else {
+    const { data, error } = await getSupabaseAdmin().rpc(
+      "repairdesk_store_lifecycle_contract_version",
+    );
+    mutationCapability = !error && Number(data) >= 2 ? available : denied("migration_unavailable");
+  }
+  return {
+    store_id: actor.storeId,
+    check: available,
+    rename: mutationCapability,
+    close: mutationCapability,
+    restore: denied("store_unavailable"),
+  };
+}
+
+async function recoveryLifecycleCapability(
+  store: ActorStoreMembership,
+  actor: AuditActor,
+): Promise<StoreLifecycleCapability> {
+  const denied = (code: StoreLifecycleCapability["restore"]["code"]) => ({
+    allowed: false,
+    code,
+  });
+  const unavailable = denied("store_unavailable");
+  if (!actor.id || actor.isSystem || store.isPrimaryOwner !== true) {
+    const ownerDenied = denied("primary_owner_required");
+    return {
+      store_id: store.id,
+      check: ownerDenied,
+      rename: ownerDenied,
+      close: ownerDenied,
+      restore: ownerDenied,
+    };
+  }
+  let restore: StoreLifecycleCapability["restore"];
+  if (!isStoreLifecycleMutationEnabled()) {
+    restore = denied("feature_disabled");
+  } else if (!isStoreLifecycleEnforcementEnabled()) {
+    restore = denied("enforcement_unhealthy");
+  } else {
+    const { data, error } = await getSupabaseAdmin().rpc(
+      "repairdesk_store_lifecycle_contract_version",
+    );
+    restore =
+      !error && Number(data) >= 2
+        ? { allowed: true, code: "available" }
+        : denied("migration_unavailable");
+  }
+  return {
+    store_id: store.id,
+    check: { allowed: true, code: "available" },
+    rename: unavailable,
+    close: unavailable,
+    restore,
   };
 }
 

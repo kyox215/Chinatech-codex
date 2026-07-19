@@ -1743,6 +1743,13 @@ export const storeLifecyclePreflightBodySchema = z
   })
   .strict();
 
+export const storeLifecycleOperationStatusBodySchema = z
+  .object({
+    expectedStoreId: z.string().uuid("店铺 id 不正确"),
+    operationId: z.string().uuid("操作 id 不正确"),
+  })
+  .strict();
+
 const lifecycleStoreIdSchema = z.string().uuid("店铺 id 不正确");
 const lifecycleRevisionSchema = z.number().int().min(1, "生命周期版本不正确");
 const lifecycleSha256Schema = z.string().regex(/^[0-9a-f]{64}$/, "预检摘要不正确");

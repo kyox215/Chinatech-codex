@@ -178,7 +178,7 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
     shortTitle: "设置",
     url: "/settings",
     icon: Settings,
-    aliases: ["设置", "店铺", "成员", "权限"],
+    aliases: ["设置", "店铺", "成员", "权限", "关闭店铺", "恢复店铺", "已关闭店铺"],
     primaryAction: {
       id: "invite-members",
       kind: "route",
@@ -312,6 +312,7 @@ export const routeLabels: Record<string, string> = {
   messages: "消息模板",
   platform: "平台审批",
   settings: "设置",
+  "closed-stores": "已关闭店铺",
   account: "个人中心",
   offline: "离线",
   new: "新建",

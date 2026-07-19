@@ -455,6 +455,28 @@ function context(actor?: AuditActor): StoreContext {
   const primaryOwnerUserId = storeMembers(activeStoreId).find(
     (member) => member.role === "owner" && member.status === "active",
   )?.user_id;
+  const isPrimaryOwner =
+    scopedActor.storeRole === "owner" && scopedActor.id === primaryOwnerUserId;
+  const lifecycleCheck = isPrimaryOwner
+    ? ({ allowed: true, code: "available" } as const)
+    : ({ allowed: false, code: "primary_owner_required" } as const);
+  const lifecycleMutation =
+    isPrimaryOwner &&
+    process.env.STORE_LIFECYCLE_ENFORCEMENT_ENABLED === "1" &&
+    process.env.STORE_LIFECYCLE_MUTATIONS_ENABLED === "1"
+      ? ({ allowed: true, code: "available" } as const)
+      : isPrimaryOwner
+        ? ({ allowed: false, code: "feature_disabled" } as const)
+        : lifecycleCheck;
+  const activeStoreWithLifecycle = {
+    ...activeStore,
+    isPrimaryOwner,
+    lifecycle: {
+      store_id: activeStore.id,
+      phase: "active" as const,
+      revision: 1,
+    },
+  };
   const canManageOrderData =
     isOrderDataExportEnabled() &&
     scopedActor.storeRole === "owner" &&
@@ -472,8 +494,19 @@ function context(actor?: AuditActor): StoreContext {
             can_apply: canApplyOrderData,
           };
   return {
-    activeStore,
-    stores: mockStores.map((store) => (store.id === activeStoreId ? activeStore : store)),
+    activeStore: activeStoreWithLifecycle,
+    stores: mockStores.map((store) =>
+      store.id === activeStoreId ? activeStoreWithLifecycle : store,
+    ),
+    recoveryStores: [],
+    activeStoreExplicit: true,
+    lifecycleAccess: {
+      store_id: activeStore.id,
+      check: lifecycleCheck,
+      rename: lifecycleMutation,
+      close: lifecycleMutation,
+      restore: lifecycleMutation,
+    },
     orderDataAccess,
     permissions: {
       canReadSuppliers: can(scopedActor, "supplier:read"),

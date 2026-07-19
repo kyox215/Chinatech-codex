@@ -8,6 +8,9 @@ const purgeSql = read("20260717195519_store_lifecycle_export_purge_framework.sql
 const transitionsSql = read("20260717201728_store_lifecycle_transition_operations.sql");
 const exportRestoreSql = read("20260717201729_store_export_restore_proof.sql");
 const purgeExecutorSql = read("20260717201730_store_purge_executor_control.sql");
+const businessFenceSql = read(
+  "20260720013000_store_lifecycle_business_fence_and_close_recheck.sql",
+);
 
 describe("store lifecycle migrations", () => {
   it("keeps owner lifecycle separate from the platform store status", () => {
@@ -116,6 +119,25 @@ describe("store lifecycle migrations", () => {
     expect(purgeExecutorSql).toContain("insert into public.store_tombstones");
     expect(purgeExecutorSql).toContain("v_export.artifact_sha256");
     expect(purgeExecutorSql).not.toMatch(/grant\s+execute[\s\S]+to\s+(anon|authenticated)/i);
+  });
+
+  it("serializes tenant writes and rechecks live blockers before close", () => {
+    expect(businessFenceSql).toContain("repairdesk_00_initialize_store_lifecycle_trigger");
+    expect(businessFenceSql).toContain(
+      "for each row execute function public.repairdesk_initialize_store_lifecycle()",
+    );
+    expect(businessFenceSql).toContain("repairdesk_store_lifecycle_contract_version");
+    expect(businessFenceSql).toContain("select 2;");
+    expect(businessFenceSql).toContain("repairdesk_enforce_active_store_write");
+    expect(businessFenceSql).toContain("pg_advisory_xact_lock_shared");
+    expect(businessFenceSql).toContain("STORE_LIFECYCLE_CROSS_STORE_WRITE_FORBIDDEN");
+    expect(businessFenceSql).toContain("repairdesk_store_close_blockers");
+    expect(businessFenceSql).toContain("orders.status::text not in ('completed', 'cancelled')");
+    expect(businessFenceSql).toContain("pg_advisory_xact_lock(");
+    expect(businessFenceSql).toContain("v_live_blockers :=");
+    expect(businessFenceSql).toContain("STORE_LIFECYCLE_BLOCKED");
+    expect(businessFenceSql).toContain("preflight.storage_summary");
+    expect(businessFenceSql).not.toMatch(/grant\s+execute[\s\S]+to\s+(anon|authenticated)/i);
   });
 });
 

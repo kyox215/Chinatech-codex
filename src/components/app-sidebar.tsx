@@ -294,6 +294,14 @@ export function AppSidebar() {
                     店铺设置
                   </Link>
                 </DropdownMenuItem>
+                {(shell.recoveryStores?.length ?? 0) > 0 ? (
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings/closed-stores" onClick={handleNav}>
+                      <Store className="size-4" />
+                      已关闭店铺（{shell.recoveryStores?.length ?? 0}）
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={isSigningOut}

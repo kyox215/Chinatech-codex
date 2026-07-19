@@ -295,7 +295,9 @@ describe("SettingsScreen store-bound transient secrets", () => {
       queryClient.setQueryData(storesKeys.context, storeContext("store-b", "Etna Phone Lab"));
     });
 
-    expect(screen.queryByRole("textbox", { name: "店铺名" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "收据和客户消息显示名称" }),
+    ).not.toBeInTheDocument();
     expect(document.querySelector('[data-ui="settings-section-loading"]')).toBeInTheDocument();
 
     await act(async () => {
@@ -303,8 +305,12 @@ describe("SettingsScreen store-bound transient secrets", () => {
       await pendingStoreB.promise;
     });
 
-    expect(await screen.findByRole("textbox", { name: "店铺名" })).toHaveValue("Etna Phone Lab");
-    expect(screen.queryByRole("textbox", { name: "店铺名" })).not.toHaveValue("Ripara Subito");
+    expect(await screen.findByRole("textbox", { name: "收据和客户消息显示名称" })).toHaveValue(
+      "Etna Phone Lab",
+    );
+    expect(screen.queryByRole("textbox", { name: "收据和客户消息显示名称" })).not.toHaveValue(
+      "Ripara Subito",
+    );
   }, 15_000);
 
   it("keeps blocked member deep links from issuing member-domain requests", async () => {
@@ -356,7 +362,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
       </QueryClientProvider>,
     );
 
-    const nameInput = await screen.findByLabelText("店铺名");
+    const nameInput = await screen.findByLabelText("收据和客户消息显示名称");
     await user.clear(nameInput);
     await user.type(nameInput, "Etna Repair Lab");
     const saveBar = document.querySelector<HTMLElement>("[data-settings-save-bar]");
@@ -426,7 +432,9 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     render(settingsTree(queryClient));
 
-    const nameInput = await screen.findByRole("textbox", { name: "店铺名" });
+    const nameInput = await screen.findByRole("textbox", {
+      name: "收据和客户消息显示名称",
+    });
     expect(screen.getByText("当前已就绪")).toBeVisible();
     await user.type(nameInput, " Due");
 
@@ -464,7 +472,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     const view = render(settingsTree(queryClient));
 
-    const storeName = await screen.findByLabelText("店铺名");
+    const storeName = await screen.findByLabelText("收据和客户消息显示名称");
     await user.clear(storeName);
     await user.type(storeName, "Hidden Store Draft");
 
@@ -568,7 +576,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
       </QueryClientProvider>,
     );
 
-    const nameInput = await screen.findByLabelText("店铺名");
+    const nameInput = await screen.findByLabelText("收据和客户消息显示名称");
     await user.clear(nameInput);
     await user.type(nameInput, "Local Draft");
     await act(async () => {
@@ -603,7 +611,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     const view = render(settingsTree(queryClient));
 
-    const nameInput = await screen.findByLabelText("店铺名");
+    const nameInput = await screen.findByLabelText("收据和客户消息显示名称");
     await user.clear(nameInput);
     await user.type(nameInput, "Local Store Name");
     navigationMocks.search = "section=notifications";
@@ -655,7 +663,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     const view = render(settingsTree(queryClient));
 
-    const nameInput = await screen.findByLabelText("店铺名");
+    const nameInput = await screen.findByLabelText("收据和客户消息显示名称");
     await user.clear(nameInput);
     await user.type(nameInput, "Still Dirty Store");
     navigationMocks.search = "section=notifications";
@@ -690,7 +698,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     const view = render(settingsTree(queryClient));
 
-    const nameInput = await screen.findByLabelText("店铺名");
+    const nameInput = await screen.findByLabelText("收据和客户消息显示名称");
     await user.clear(nameInput);
     await user.type(nameInput, "Discarded Store");
     navigationMocks.search = "section=notifications";
@@ -710,7 +718,9 @@ describe("SettingsScreen store-bound transient secrets", () => {
     await waitFor(() => expect(navigationMocks.push).toHaveBeenCalledTimes(1));
     navigationMocks.search = "section=store";
     view.rerender(settingsTree(queryClient));
-    expect(await screen.findByRole("textbox", { name: "店铺名" })).toHaveValue("Ripara Subito");
+    expect(await screen.findByRole("textbox", { name: "收据和客户消息显示名称" })).toHaveValue(
+      "Ripara Subito",
+    );
     navigationMocks.search = "section=notifications";
     view.rerender(settingsTree(queryClient));
     expect(
@@ -732,7 +742,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     render(settingsTree(queryClient));
 
-    const nameInput = await screen.findByLabelText("店铺名");
+    const nameInput = await screen.findByLabelText("收据和客户消息显示名称");
     await user.click(screen.getByLabelText("当前店铺"));
     await user.click(await screen.findByRole("option", { name: "Etna Phone Lab" }));
     await waitFor(() => expect(apiMocks.switchStore).toHaveBeenCalledTimes(1));
@@ -763,7 +773,9 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     render(settingsTree(queryClient));
 
-    const nameInput = await screen.findByRole("textbox", { name: "店铺名" });
+    const nameInput = await screen.findByRole("textbox", {
+      name: "收据和客户消息显示名称",
+    });
     await user.clear(nameInput);
     await user.type(nameInput, "Unsaved Current Store");
     await user.type(screen.getByLabelText("新店铺名称"), "Second Store");

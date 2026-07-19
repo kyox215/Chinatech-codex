@@ -207,6 +207,7 @@ import {
   createStore,
   createStoreLifecyclePreflight,
   getStoreLifecycleState,
+  getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   renameStoreWorkspace,
   requestStoreClose,
@@ -359,6 +360,7 @@ import {
   reopenOrderBodySchema,
   storeCreateBodySchema,
   storeLifecyclePreflightBodySchema,
+  storeLifecycleOperationStatusBodySchema,
   storeLifecycleChallengeBodySchema,
   storeRenameBodySchema,
   storeCloseBodySchema,
@@ -410,6 +412,7 @@ const supabaseSource = {
   createStore,
   createStoreLifecyclePreflight,
   getStoreLifecycleState,
+  getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   renameStoreWorkspace,
   requestStoreClose,
@@ -709,28 +712,43 @@ async function source() {
     receivePartLot: receiveMockPartLot,
     allocateOrderPart: allocateMockOrderPart,
     releaseOrderPart: releaseMockOrderPart,
-    createStoreLifecyclePreflight: async (expectedStoreId: string) => ({
-      id: randomUUID(),
-      store_id: expectedStoreId,
-      store_name: "Mock Store",
-      lifecycle: {
+    createStoreLifecyclePreflight: async (expectedStoreId: string) => {
+      const eligible = process.env.REPAIRDESK_E2E_STORE_LIFECYCLE_ELIGIBLE === "1";
+      return {
+        id: randomUUID(),
         store_id: expectedStoreId,
-        phase: "active" as const,
-        revision: 1,
-      },
-      state: "blocked" as const,
-      counts: { repair_orders: 2, customers: 2 },
-      blockers: [
-        { code: "open_orders" as const, count: 2 },
-        { code: "storage_manifest_unavailable" as const },
-      ],
-      snapshot_hash: "0".repeat(64),
-      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-    }),
+        store_name: "Mock Store",
+        lifecycle: {
+          store_id: expectedStoreId,
+          phase: "active" as const,
+          revision: 1,
+        },
+        state: eligible ? ("eligible" as const) : ("blocked" as const),
+        counts: { repair_orders: eligible ? 0 : 2, customers: 2 },
+        blockers: eligible
+          ? []
+          : [
+              { code: "open_orders" as const, count: 2 },
+              { code: "storage_manifest_unavailable" as const },
+            ],
+        automatic_effects: {
+          pending_invitations: 1,
+          open_kiosk_sessions: 1,
+          active_kiosk_devices: 1,
+        },
+        snapshot_hash: "0".repeat(64),
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      };
+    },
     getStoreLifecycleState: async (expectedStoreId: string) => ({
       store_id: expectedStoreId,
       phase: "active" as const,
       revision: 1,
+    }),
+    getStoreLifecycleOperationStatus: async (expectedStoreId: string, operationId: string) => ({
+      operation_id: operationId,
+      store_id: expectedStoreId,
+      state: "missing" as const,
     }),
     issueStoreLifecycleChallenge: async (input: {
       expectedStoreId: string;
@@ -1351,6 +1369,9 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
     });
     if (path === "ai/capabilities") {
       return ok(getAiAssistantCapabilities(actor));
+    }
+    if (actor.storeId && isStoreLifecycleEnforcementEnabled() && !allowsLifecycleControlGet(path)) {
+      await assertStoreLifecycleActive(actor.storeId);
     }
     const api = await source();
     switch (path) {
@@ -2614,6 +2635,11 @@ export async function handleRepairDeskPost(
         const { expectedStoreId } = storeLifecyclePreflightBodySchema.parse(body);
         return ok(await api.getStoreLifecycleState(expectedStoreId, actor));
       }
+      case "stores/lifecycle/operation-status": {
+        const { expectedStoreId, operationId } =
+          storeLifecycleOperationStatusBodySchema.parse(body);
+        return ok(await api.getStoreLifecycleOperationStatus(expectedStoreId, operationId, actor));
+      }
       case "stores/lifecycle/challenge":
         return ok(
           await api.issueStoreLifecycleChallenge(
@@ -2759,15 +2785,30 @@ export async function handleRepairDeskPost(
 }
 
 function allowsLifecycleControlPost(path: string) {
-  return path === "stores/lifecycle/preflight" || path.startsWith("stores/lifecycle/");
+  return (
+    path === "stores/switch" ||
+    path === "stores/create" ||
+    path === "stores/lifecycle/preflight" ||
+    path.startsWith("stores/lifecycle/")
+  );
+}
+
+function allowsLifecycleControlGet(path: string) {
+  return path === "stores/context" || path === "onboarding/status" || path.startsWith("platform/");
 }
 
 export function allowsPendingStore(path: string, method: "GET" | "POST") {
   if (method === "GET") {
-    return path === "onboarding/status" || path === "platform/onboarding/requests";
+    return (
+      path === "stores/context" ||
+      path === "onboarding/status" ||
+      path === "platform/onboarding/requests"
+    );
   }
   return (
     path === "stores/create" ||
+    path === "stores/switch" ||
+    path.startsWith("stores/lifecycle/") ||
     path === "onboarding/request" ||
     path === "onboarding/request/cancel" ||
     path === "onboarding/invitations/accept" ||

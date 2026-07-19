@@ -4,6 +4,7 @@ import type { AuditActor } from "@/lib/repairdesk/types";
 
 import {
   createStoreLifecyclePreflight,
+  getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   renameStoreWorkspace,
 } from "./store-lifecycle.repository";
@@ -19,13 +20,18 @@ const actor: AuditActor = {
 
 const mocks = vi.hoisted(() => ({
   assertPrimaryStoreOwner: vi.fn(),
+  assertPrimaryStoreOwnerForStore: vi.fn(),
   from: vi.fn(),
   rpc: vi.fn(),
   storageList: vi.fn(),
+  setActiveStoreCookie: vi.fn(),
+  clearActiveStoreCookie: vi.fn(),
+  operationKind: "rename" as "rename" | "request_close" | "restore",
 }));
 
 vi.mock("@/features/stores/server/primary-store-owner", () => ({
   assertPrimaryStoreOwner: mocks.assertPrimaryStoreOwner,
+  assertPrimaryStoreOwnerForStore: mocks.assertPrimaryStoreOwnerForStore,
 }));
 
 vi.mock("@/server/supabase", () => ({
@@ -36,15 +42,30 @@ vi.mock("@/server/supabase", () => ({
   }),
 }));
 
+vi.mock("@/features/stores/server/store.repository", () => ({
+  setActiveStoreCookie: mocks.setActiveStoreCookie,
+  clearActiveStoreCookie: mocks.clearActiveStoreCookie,
+}));
+
 describe("store lifecycle preflight", () => {
   beforeEach(() => {
     mocks.assertPrimaryStoreOwner.mockReset();
     mocks.assertPrimaryStoreOwner.mockResolvedValue({ actorId: actor.id, storeId });
+    mocks.assertPrimaryStoreOwnerForStore.mockReset();
+    mocks.assertPrimaryStoreOwnerForStore.mockResolvedValue({ actorId: actor.id, storeId });
     mocks.from.mockReset();
     mocks.from.mockImplementation((table: string) => new PreflightQuery(table));
     mocks.rpc.mockReset();
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === "repairdesk_store_lifecycle_contract_version"
+        ? { data: 2, error: null }
+        : { data: null, error: null },
+    );
     mocks.storageList.mockReset();
     mocks.storageList.mockResolvedValue({ data: [], error: null });
+    mocks.setActiveStoreCookie.mockReset();
+    mocks.clearActiveStoreCookie.mockReset();
+    mocks.operationKind = "rename";
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -71,7 +92,11 @@ describe("store lifecycle preflight", () => {
     });
     expect(result.snapshot_hash).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.stringify(result)).not.toMatch(/phone|email|customer_name|order_id/i);
-    expect(mocks.storageList).toHaveBeenCalledTimes(3);
+    expect(result.automatic_effects).toEqual({
+      pending_invitations: 0,
+      open_kiosk_sessions: 0,
+    });
+    expect(mocks.storageList).not.toHaveBeenCalled();
   });
 
   it("rejects a body store id that differs from the authenticated active store", async () => {
@@ -83,6 +108,7 @@ describe("store lifecycle preflight", () => {
 
   it("issues a revision-bound one-use rename challenge only after recent AAL2", async () => {
     vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
     const result = await issueStoreLifecycleChallenge(
       { expectedStoreId: storeId, expectedRevision: 7, operationKind: "rename" },
       {
@@ -101,16 +127,38 @@ describe("store lifecycle preflight", () => {
     expect(result.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it("fails closed when mutations are enabled before lifecycle enforcement", async () => {
+    vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "0");
+
+    await expect(
+      issueStoreLifecycleChallenge(
+        { expectedStoreId: storeId, expectedRevision: 7, operationKind: "rename" },
+        {
+          ...actor,
+          authAssuranceLevel: "aal2",
+          recentAuthAt: new Date().toISOString(),
+        },
+      ),
+    ).rejects.toThrow("店铺保护尚未准备完成");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it("calls the atomic rename RPC with the authenticated primary owner and exact revision", async () => {
     vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
-    mocks.rpc.mockResolvedValue({
-      data: {
-        operation_id: "00000000-0000-4000-8000-000000000401",
-        store_name: "Chinatech Floridia",
-        replayed: false,
-      },
-      error: null,
-    });
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === "repairdesk_store_lifecycle_contract_version"
+        ? { data: 2, error: null }
+        : {
+            data: {
+              operation_id: "00000000-0000-4000-8000-000000000401",
+              store_name: "Chinatech Floridia",
+              replayed: false,
+            },
+            error: null,
+          },
+    );
 
     const result = await renameStoreWorkspace(
       {
@@ -138,6 +186,64 @@ describe("store lifecycle preflight", () => {
       lifecycle: { store_id: storeId, phase: "active", revision: 7 },
       store: { id: storeId, name: "Chinatech Floridia" },
     });
+  });
+
+  it("projects only the original lifecycle operation status and current phase", async () => {
+    const result = await getStoreLifecycleOperationStatus(
+      storeId,
+      "00000000-0000-4000-8000-000000000401",
+      actor,
+    );
+
+    expect(mocks.assertPrimaryStoreOwnerForStore).toHaveBeenCalledWith(storeId, actor);
+    expect(result).toEqual({
+      operation_id: "00000000-0000-4000-8000-000000000401",
+      store_id: storeId,
+      kind: "rename",
+      state: "completed",
+      result_revision: 8,
+      lifecycle: { store_id: storeId, phase: "active", revision: 7 },
+    });
+  });
+
+  it("repairs the active-store cookie when a completed close status is reconciled", async () => {
+    const nextStoreId = "00000000-0000-4000-8000-000000000002";
+    mocks.operationKind = "request_close";
+
+    const result = await getStoreLifecycleOperationStatus(
+      storeId,
+      "00000000-0000-4000-8000-000000000401",
+      {
+        ...actor,
+        stores: [
+          { id: storeId, name: "ChinaTech", slug: "chinatech", role: "owner", status: "active" },
+          {
+            id: nextStoreId,
+            name: "ChinaTech Siracusa",
+            slug: "siracusa",
+            role: "owner",
+            status: "active",
+          },
+        ],
+      },
+    );
+
+    expect(mocks.setActiveStoreCookie).toHaveBeenCalledWith(nextStoreId);
+    expect(result.next_active_store_id).toBe(nextStoreId);
+    expect(result.active_store_cleared).toBeUndefined();
+  });
+
+  it("repairs the active-store cookie when a completed restore status is reconciled", async () => {
+    mocks.operationKind = "restore";
+
+    const result = await getStoreLifecycleOperationStatus(
+      storeId,
+      "00000000-0000-4000-8000-000000000401",
+      actor,
+    );
+
+    expect(mocks.setActiveStoreCookie).toHaveBeenCalledWith(storeId);
+    expect(result.next_active_store_id).toBe(storeId);
   });
 });
 
@@ -206,6 +312,19 @@ class PreflightQuery implements PromiseLike<QueryResult> {
     if (this.table === "store_lifecycles") {
       return {
         data: { store_id: storeId, phase: "active", revision: 7 },
+        count: null,
+        error: null,
+      };
+    }
+    if (this.table === "store_lifecycle_operations") {
+      return {
+        data: {
+          operation_id: "00000000-0000-4000-8000-000000000401",
+          store_id: storeId,
+          kind: mocks.operationKind,
+          state: "completed",
+          result_revision: 8,
+        },
         count: null,
         error: null,
       };

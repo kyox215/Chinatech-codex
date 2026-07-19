@@ -39,7 +39,7 @@ export function useStoreShellContext({
   const storeContextQuery = useQuery({
     queryKey: storesKeys.context,
     queryFn: ({ signal }) => getStoreContext({ signal }),
-    enabled: hasActiveStore,
+    enabled: onboardingQuery.isSuccess,
     retry: false,
     // This hook is mounted by many screens; only the top-level bridge owns polling.
     staleTime: monitorAuthority ? 15_000 : CACHE_TIMES.shell,
@@ -78,7 +78,7 @@ export function useStoreShellContext({
     ...shellContext,
     retry: async () => {
       await onboardingQuery.refetch();
-      if (hasActiveStore) await storeContextQuery.refetch();
+      if (onboardingQuery.isSuccess) await storeContextQuery.refetch();
     },
   };
 }
