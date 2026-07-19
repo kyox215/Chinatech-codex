@@ -38,3 +38,12 @@
 - Artifact rollback: promote the previous READY production deployment.
 - Forward fix: restore the prior contract/service/UI commit and redeploy.
 - Data rollback: not applicable; this release has no migration or production data write.
+
+## Actual release
+
+- Business commit: `445b5e8117fd5bd8fcad33eb4ea120a5688e1816` (`feat(ai): harden natural-language order queries`).
+- Integration: non-force `HEAD:main`; remote exact-SHA check passed.
+- Vercel: `dpl_9e2FqCMMyfKuRiyHVHcbUzm7NVSc`, `READY`, production target, exact business SHA.
+- Production aliases: `www.chinatech.in`, `chinatech.in` and the linked Vercel aliases.
+- Smoke: login/manifest reachable; anonymous AI endpoints remain 401; post-release error/fatal scan is empty.
+- Closeout documentation is a follow-up no-runtime-diff commit; its deployment may replace the exact artifact on the aliases without changing application code.

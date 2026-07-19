@@ -27,3 +27,19 @@
 - The single AI query commit rebased cleanly onto `origin/main@1119ef5d`.
 - On the rebased candidate, lint, typecheck, 311 files / 2,033 tests and Webpack production build all passed; worktree is clean and exactly one commit ahead.
 - Next: one final fetch/fast-forward assertion, non-force push `HEAD:main`, then exact-SHA Vercel and production smoke verification.
+
+## 2026-07-19T20:26:45Z — Production release and closeout
+
+- Scoped business commit `445b5e8117fd5bd8fcad33eb4ea120a5688e1816` was pushed non-force to `main`; remote identity was verified.
+- Git-linked production deployment `dpl_9e2FqCMMyfKuRiyHVHcbUzm7NVSc` reached `READY` with the exact business SHA and both production aliases.
+- Public login/manifest smoke passed; anonymous AI capabilities and order-turn endpoints remained 401; no provider call or customer data was used.
+- The deployment error/fatal scan returned zero entries.
+- Durable project/department rules and capability evidence were synchronized without raising permission or autonomy. The root dirty checkout remains untouched.
+- Task is closed. Any inline write activation, provider/model/budget change, database change, new data source or broader store rollout remains a new approval-gated task.
+
+## 2026-07-19T20:29:58Z — Final memory checkpoint
+
+- Revalidated the closeout diff with `git diff --check`; only task/project/department memory and capability-governance Markdown files are pending.
+- Runtime application code remains exactly the already verified business release `445b5e8117fd5bd8fcad33eb4ea120a5688e1816`.
+- The remaining commit is documentation-only and must be pushed non-force after a fresh remote drift check; its Git-linked deployment must reach READY before final handoff.
+- Recovery boundary: do not edit the root dirty checkout, do not enable inline writes, and do not add database/provider/config changes under this closed task.

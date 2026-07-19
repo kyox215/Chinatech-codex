@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260719-007-ai-natural-language-query-v3"
 title: "AI 自然语言订单查询 V3 准确性、任意日期与范围上线"
-status: "in_progress"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["integration", "product", "architecture", "data", "api", "frontend", "ux", "qa", "security", "release", "documentation"]
 created_at: "2026-07-19T19:09:28Z"
-updated_at: "2026-07-19T20:20:03Z"
+updated_at: "2026-07-19T20:26:45Z"
 ---
 
 # Task — AI 自然语言订单查询 V3
@@ -60,7 +60,7 @@ updated_at: "2026-07-19T20:20:03Z"
 - [x] 现有门店隔离、RBAC、PII 出站、限额、审计和 inline-write-off 边界不退化。
 - [x] lint、typecheck、相关测试、全量测试、Webpack build 和目标 E2E 通过。
 - [x] 390/430/768/1280 无横向溢出，提供脱敏截图。
-- [ ] scoped commit 推送 main；Vercel exact SHA READY、正式域名绑定和只读生产 smoke 通过。
+- [x] scoped commit 推送 main；Vercel exact SHA READY、正式域名绑定和只读生产 smoke 通过。
 
 ## Facts / assumptions / unknowns
 

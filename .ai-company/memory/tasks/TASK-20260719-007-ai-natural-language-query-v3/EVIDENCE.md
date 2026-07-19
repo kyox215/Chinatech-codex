@@ -19,3 +19,8 @@
 | E-014 | E2E environment note | serial full-file dev runs showed repeatable Next dev hydration stalls at store-context wait; the affected core scenarios pass in isolated workers and production build passes; production-mode E2E bypass is intentionally disabled by source policy | CONDITIONAL / tooling only | 2026-07-19T20:13:30Z |
 | E-015 | remote rebase | candidate rebased without conflict from `25752bd1` onto `origin/main@1119ef5d`; final diff remains one scoped commit and clean | PASS | 2026-07-19T20:20:03Z |
 | E-016 | post-rebase build | final rebased candidate compiled, typechecked and generated 26 static pages with Webpack | PASS | 2026-07-19T20:20:03Z |
+| E-017 | main integration | non-force push completed; `origin/main` resolves exactly to business commit `445b5e8117fd5bd8fcad33eb4ea120a5688e1816` | PASS | 2026-07-19T20:26:45Z |
+| E-018 | exact deployment | Vercel deployment `dpl_9e2FqCMMyfKuRiyHVHcbUzm7NVSc` is `READY`, target `production`, with exact Git SHA `445b5e8117fd5bd8fcad33eb4ea120a5688e1816` and aliases `www.chinatech.in` / `chinatech.in` | PASS | 2026-07-19T20:26:45Z |
+| E-019 | production smoke | `www` and bare-domain login routes return 200; manifest returns 200; anonymous capabilities and order-turn calls return 401; exact deployment login returns 200 | PASS | 2026-07-19T20:26:45Z |
+| E-020 | production observation | error/fatal log scan for the exact deployment over the post-release 15-minute window returned zero entries; no provider call or customer data used | PASS | 2026-07-19T20:26:45Z |
+| E-021 | closeout governance | CEO report, memory change set, capability review, department memory, project memory and rollback record synchronized; no authority upgrade granted | PASS | 2026-07-19T20:26:45Z |

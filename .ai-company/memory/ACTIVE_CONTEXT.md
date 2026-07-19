@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260719-007-ai-natural-language-query-v3"
-status: "in_progress"
-phase: "release"
+status: "closed"
+phase: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-19T20:20:03Z"
+last_checkpoint_at: "2026-07-19T20:29:58Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -20,7 +20,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-任意日期、closed-world 语义编译、设备边界和可折叠可解释 UI 已完成；最新 main 基线上 lint、typecheck、2,033 tests、Webpack build、核心 E2E 和响应式截图已通过。当前进入 exact-SHA 发布阶段。
+任意日期、closed-world 语义编译、设备边界和可折叠可解释 UI 已完成并生产上线。业务提交 `445b5e8117fd5bd8fcad33eb4ea120a5688e1816` 已在 `main`，Vercel exact-SHA 部署 `dpl_9e2FqCMMyfKuRiyHVHcbUzm7NVSc` 为 READY；主域名、匿名权限边界和错误日志检查通过。
 
 ## Blocking decisions
 
@@ -28,7 +28,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-冻结并提交本任务差异，fetch/rebase 门禁后非强制推送 `HEAD:main`，验证 Vercel exact-SHA READY、生产域名和无 PII 冒烟。
+无。本任务已关闭；新的数据源、生产写操作、模型/预算/密钥或多门店扩展必须建立独立任务并重新审批。
 
 ## Resume protocol
 
