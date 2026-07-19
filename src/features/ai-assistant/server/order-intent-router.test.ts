@@ -58,6 +58,7 @@ describe("deterministic order intent router", () => {
 
   it.each([
     ["苹果15", "iPhone 15"],
+    ["有没有苹果15系列的单子", "iPhone 15"],
     ["查找苹果 15 Pro 工单", "iPhone 15 pro"],
     ["find iPhone15 orders", "iPhone 15"],
     ["trova Samsung A12", "Samsung a12"],

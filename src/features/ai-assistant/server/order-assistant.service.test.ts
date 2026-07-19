@@ -340,6 +340,145 @@ describe("order assistant service", () => {
     );
   });
 
+  it.each([
+    ["empty filters", searchCall()],
+    ["generic number search", searchCall({ search: "15" })],
+    ["conflicting device", searchCall({ device_search: "Samsung A52" })],
+    ["mixed generic and device fields", searchCall({ search: "15", device_search: "Samsung A12" })],
+  ])("enforces the original Apple 15 constraint over model %s", async (_case, toolCall) => {
+    const selected = order({ device_label: "Apple iPhone 15 Pro" });
+    const provider = providerFor(toolCall);
+    const listOrdersPage = vi.fn(async () => result([selected], 1));
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "有没有苹果15系列的单子",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: {
+        provider,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+      },
+    });
+
+    expect(provider.planOrderQuery).toHaveBeenCalledOnce();
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: undefined,
+        deviceSearch: "iPhone 15",
+      }),
+      owner,
+    );
+    expect(response).toMatchObject({
+      total: 1,
+      cards: [expect.objectContaining({ device_label: "Apple iPhone 15 Pro" })],
+    });
+  });
+
+  it("preserves model-planned non-device filters while correcting the device constraint", async () => {
+    const listOrdersPage = vi.fn(async () => result([], 0));
+
+    await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "苹果15且未付款的单子",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: {
+        provider: providerFor(searchCall({ search: "15", device_search: null, paid: "unpaid" })),
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+      },
+    });
+
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paid: "unpaid",
+        search: undefined,
+        deviceSearch: "iPhone 15",
+      }),
+      owner,
+    );
+  });
+
+  it.each([
+    {
+      name: "clarification",
+      call: {
+        name: "clarify_order_query" as const,
+        arguments: { question: "请补充设备" },
+      },
+    },
+    {
+      name: "order summary",
+      call: {
+        name: "get_order_summary" as const,
+        arguments: { order_reference: "R2026001" },
+      },
+    },
+  ])("converts a model $name into a bounded device search", async ({ call }) => {
+    const listOrdersPage = vi.fn(async () => result([], 0));
+    const getOrder = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "有没有苹果15系列的单子",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: {
+        provider: providerFor(call),
+        listOrdersPage,
+        getOrder,
+        env: enabledEnv,
+      },
+    });
+
+    expect(response.kind).toBe("search_results");
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceSearch: "iPhone 15", search: undefined }),
+      owner,
+    );
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the repository violates the effective device constraint", async () => {
+    const unrelated = order({ device_label: "Samsung A52" });
+
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: owner,
+        input: {
+          message: "有没有苹果15系列的单子",
+          locale: "zh-CN",
+          processing_mode: "model",
+        },
+        dependencies: {
+          provider: providerFor(searchCall()),
+          listOrdersPage: vi.fn(async () => result([unrelated], 1)),
+          getOrder: vi.fn(),
+          env: enabledEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_PROTOCOL_ERROR", status: 502 });
+
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "order_tool",
+        toolName: "search_orders",
+        status: "failed",
+        errorCode: "AI_PROVIDER_PROTOCOL_ERROR",
+      }),
+    );
+  });
+
   it("blocks store-wide amount review without aggregate finance permission", async () => {
     const listOrdersPage = vi.fn();
     const restrictedActor = { ...owner, role: "sales" as const, storeRole: "sales" as const };
@@ -383,6 +522,42 @@ describe("order assistant service", () => {
     expect(response).toMatchObject({ kind: "order_summary", total: 1 });
     expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "fake", resolutionPath: "provider" }),
+    );
+  });
+
+  it("reserves, calls, and settles OpenAI once while correcting a device plan", async () => {
+    const orderOfEvents: string[] = [];
+    const provider = openAiProviderFor(searchCall(), orderOfEvents);
+    const gateway = durableGateway(orderOfEvents);
+    const listOrdersPage = vi.fn(async () => {
+      orderOfEvents.push("repository");
+      return result([], 0);
+    });
+
+    await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        client_request_id: "00000000-0000-4000-8000-000000000111",
+        message: "有没有苹果15系列的单子",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: {
+        provider,
+        budgetGateway: gateway,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: liveEnv,
+      },
+    });
+
+    expect(orderOfEvents).toEqual(["reserve", "provider", "settle:completed", "repository"]);
+    expect(provider.planOrderQuery).toHaveBeenCalledOnce();
+    expect(gateway.reserve).toHaveBeenCalledOnce();
+    expect(gateway.settle).toHaveBeenCalledOnce();
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceSearch: "iPhone 15", search: undefined }),
+      owner,
     );
   });
 

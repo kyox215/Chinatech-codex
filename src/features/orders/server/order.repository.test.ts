@@ -338,9 +338,29 @@ describe("order repository database pagination", () => {
               serial_or_imei: "351500000000000",
             },
           }),
+          orderRow({
+            id: "apple_14",
+            public_no: "R-APPLE-14",
+            device: {
+              id: "device_apple_14",
+              customer_id: "customer_1",
+              brand: "Apple",
+              model: "iPhone 14",
+            },
+          }),
+          orderRow({
+            id: "samsung_a52",
+            public_no: "R-SAMSUNG-A52",
+            device: {
+              id: "device_samsung_a52",
+              customer_id: "customer_1",
+              brand: "Samsung",
+              model: "A52",
+            },
+          }),
         ],
         error: null,
-        count: 2,
+        count: 4,
       }),
     );
 

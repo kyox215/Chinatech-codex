@@ -269,6 +269,7 @@ function orderPlannerInstructions(locale: AiAssistantLocale) {
     "For amount anomalies or inconsistent money states, use search_orders with financial_review=amount_anomaly and search=null.",
     "For a device brand/model query, use device_search, preserve brand and model together, and set search=null.",
     "Never reduce a device phrase such as 苹果15 or Apple iPhone 15 to a short number such as 15.",
+    "Never emit an unconstrained search_orders call when the user supplied a concrete device brand and model.",
     "Use search only when the user supplies a concrete order or customer term.",
     "Use clarification when the request cannot be represented safely.",
     `Write clarification text in locale ${locale}.`,

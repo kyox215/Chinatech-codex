@@ -93,6 +93,33 @@ test.describe("staff AI assistant bounded workflow", () => {
     });
   });
 
+  test("mobile model mode keeps the full Apple 15 phrase bounded to matching devices", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, "/orders");
+    await page.locator('[data-ai-assistant-trigger="mobile-orders"]').click();
+
+    const sheet = page.locator('[data-ai-assistant-sheet="true"]');
+    const processingTrigger = sheet.getByRole("button", { name: "展开处理方式详情" });
+    await processingTrigger.click();
+    await sheet.getByRole("radio", { name: "使用大模型理解" }).click();
+    await sheet.getByRole("button", { name: "收起处理方式详情" }).click();
+    await expect(sheet.getByRole("button", { name: "展开处理方式详情" })).toContainText(
+      "发送至 OpenAI · 计入用量",
+    );
+
+    await page.getByLabel("输入工单查询问题").fill("有没有苹果15系列的单子");
+    await sheet.getByRole("button", { name: "发送", exact: true }).click();
+    await expect(sheet.getByText(/iPhone 15/i).first()).toBeVisible();
+    await expect(sheet.getByText(/SAMSUNG A12|SAMSUNG A52/i)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+    await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/apple-15-model-collapsed-mobile-390.png",
+    });
+  });
+
   test("mobile composer exposes local and model processing before submission", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoReady(page, "/orders");
@@ -102,37 +129,54 @@ test.describe("staff AI assistant bounded workflow", () => {
     const localMode = sheet.getByRole("radio", { name: "使用本地处理" });
     const modelMode = sheet.getByRole("radio", { name: "使用大模型理解" });
     const chatUsage = sheet.locator('[data-ai-chat-usage="ready"]');
+    const usageTrigger = sheet.getByRole("button", { name: "展开今日大模型用量" });
+    const processingTrigger = sheet.getByRole("button", { name: "展开处理方式详情" });
     await expect(chatUsage).toBeVisible();
-    await expect(chatUsage).toContainText("6 / 50");
-    await expect(chatUsage).toContainText("4,530");
-    await expect(chatUsage).toContainText("$0.001210");
+    await expect(usageTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(usageTrigger).toContainText("6 / 50 · 4,530 Token · $0.001210");
+    await expect(processingTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(processingTrigger).toContainText("本地处理");
+    await expect(processingTrigger).toContainText("不调用模型");
+    await hideNextDevIndicators(page);
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/disclosures-collapsed-mobile-390.png",
+    });
+
+    await usageTrigger.click();
+    await processingTrigger.click();
+    await expect(sheet.getByText("6 / 50", { exact: true })).toBeVisible();
+    await expect(sheet.getByText("4,530", { exact: true })).toBeVisible();
+    await expect(sheet.getByText("$0.001210", { exact: true })).toBeVisible();
     await expect(localMode).toHaveAttribute("aria-checked", "true");
     await expect(sheet.getByText(/不会把本次文字发送给大模型/)).toBeVisible();
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/disclosures-expanded-mobile-390.png",
+    });
 
     await modelMode.click();
     await expect(modelMode).toHaveAttribute("aria-checked", "true");
     await expect(sheet.getByText(/本次文字会.*OpenAI/)).toBeVisible();
+    await sheet.getByRole("button", { name: "收起处理方式详情" }).click();
+    await sheet.getByRole("button", { name: "收起今日大模型用量" }).click();
+    await expect(sheet.getByRole("button", { name: "展开处理方式详情" })).toContainText(
+      "发送至 OpenAI · 计入用量",
+    );
     await page.getByLabel("输入工单查询问题").fill("帮我综合判断需要优先处理的工单");
 
     const requestPromise = page.waitForRequest(
       (request) =>
         request.method() === "POST" && request.url().endsWith("/api/repairdesk/ai/order/turn"),
     );
-    await hideNextDevIndicators(page);
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-mode-mobile-390.png",
-    });
-    await sheet.screenshot({
-      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-chat-usage-mobile-390.png",
+      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/model-selected-collapsed-mobile-390.png",
     });
     await page.setViewportSize({ width: 1280, height: 800 });
-    await expect(modelMode).toHaveAttribute("aria-checked", "true");
+    await expect(sheet.getByRole("button", { name: "展开处理方式详情" })).toContainText(
+      "大模型理解",
+    );
     await expectNoHorizontalOverflow(page);
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-mode-desktop-1280.png",
-    });
-    await sheet.screenshot({
-      path: "screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-chat-usage-desktop-1280.png",
+      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/model-selected-collapsed-desktop-1280.png",
     });
     const usageRefreshPromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/repairdesk/ai/usage") && response.ok(),

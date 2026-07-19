@@ -7,7 +7,9 @@ import {
   type AiAssistantRequest,
   type AiOrderAssistantResponse,
   type AiOrderCard,
+  type AiOrderToolCall,
 } from "@/features/ai-assistant/model/contracts";
+import { deviceLabelMatchesSearch, parseDeviceSearchIntent } from "@/entities/order";
 import {
   writeAiAssistantAudit,
   bucketAiAssistantLatency,
@@ -127,6 +129,7 @@ export async function runAiOrderAssistantTurn({
       env: dependencies.env,
       now: dependencies.now,
     });
+    const trustedDeviceSearch = parseDeviceSearchIntent(input.message);
 
     const deterministic =
       input.processing_mode === "model" ? null : planDeterministicOrderQuery(input);
@@ -229,22 +232,23 @@ export async function runAiOrderAssistantTurn({
     stage = "protocol";
     const parsedCall = aiOrderToolCallSchema.safeParse(plannedToolCall);
     if (!parsedCall.success) throw aiProtocolError();
+    const effectiveCall = reconcileTrustedDeviceSearch(parsedCall.data, trustedDeviceSearch);
     auditContext.event = "order_tool";
-    auditContext.toolName = parsedCall.data.name;
+    auditContext.toolName = effectiveCall.name;
 
-    if (parsedCall.data.name === "clarify_order_query") {
+    if (effectiveCall.name === "clarify_order_query") {
       response = buildResponse({
         requestId,
         kind: "clarification",
-        message: parsedCall.data.arguments.question,
+        message: effectiveCall.arguments.question,
         cards: [],
         total: 0,
         resultTruncated: false,
         now: dependencies.now,
       });
-    } else if (parsedCall.data.name === "search_orders") {
+    } else if (effectiveCall.name === "search_orders") {
       stage = "repository";
-      const args = parsedCall.data.arguments;
+      const args = effectiveCall.arguments;
       if (args.device_search && args.search) throw aiProtocolError();
       if (
         args.financial_review &&
@@ -267,6 +271,15 @@ export async function runAiOrderAssistantTurn({
         },
         actor,
       );
+      const effectiveDeviceSearch = args.device_search;
+      if (
+        effectiveDeviceSearch &&
+        result.items.some(
+          (item) => !deviceLabelMatchesSearch(item.device_label, effectiveDeviceSearch),
+        )
+      ) {
+        throw aiProtocolError();
+      }
       const cards = result.items.slice(0, args.page_size).map(toAiOrderCard);
       const isAmountReview = args.financial_review === "amount_anomaly";
       response = buildResponse({
@@ -287,7 +300,7 @@ export async function runAiOrderAssistantTurn({
       });
     } else {
       stage = "repository";
-      const reference = parsedCall.data.arguments.order_reference.trim();
+      const reference = effectiveCall.arguments.order_reference.trim();
       const matches = await dependencies.listOrdersPage(
         { page: 1, pageSize: 20, search: reference, view: "all" },
         actor,
@@ -356,6 +369,36 @@ export async function runAiOrderAssistantTurn({
   });
 
   return response;
+}
+
+function reconcileTrustedDeviceSearch(
+  call: AiOrderToolCall,
+  trustedDeviceSearch: string | null,
+): AiOrderToolCall {
+  if (!trustedDeviceSearch) return call;
+  if (call.name === "search_orders") {
+    return aiOrderToolCallSchema.parse({
+      ...call,
+      arguments: {
+        ...call.arguments,
+        search: null,
+        device_search: trustedDeviceSearch,
+      },
+    });
+  }
+  return aiOrderToolCallSchema.parse({
+    name: "search_orders",
+    arguments: {
+      search: null,
+      device_search: trustedDeviceSearch,
+      view: "active",
+      paid: "all",
+      overdue: null,
+      queue_group: null,
+      financial_review: null,
+      page_size: 8,
+    },
+  });
 }
 
 function localModeClarification(locale: AiAssistantRequest["locale"]) {

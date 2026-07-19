@@ -64,6 +64,10 @@ describe("AiAssistantSheet", () => {
     const onModelUsageChanged = vi.fn();
     renderSheet({ onModelUsageChanged });
 
+    const processingTrigger = screen.getByRole("button", { name: "展开处理方式详情" });
+    expect(processingTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(processingTrigger).toHaveAttribute("aria-controls");
+    fireEvent.click(processingTrigger);
     expect(screen.getByRole("radio", { name: "使用本地处理" })).toHaveAttribute("data-state", "on");
     fireEvent.click(screen.getByRole("radio", { name: "使用大模型理解" }));
     expect(screen.getByText(/本次文字会.*发送至/)).toBeInTheDocument();
@@ -78,15 +82,35 @@ describe("AiAssistantSheet", () => {
       expect.any(Object),
     );
     expect(onModelUsageChanged).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "展开处理方式详情" })).toHaveTextContent(
+      "大模型理解发送至 OpenAI · 计入用量",
+    );
   });
 
-  it("shows the current-store chat usage summary when aggregate finance is allowed", () => {
+  it("keeps usage and processing details collapsed by default with accessible summaries", () => {
     renderSheet({
       canReadUsage: true,
       usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
     });
 
-    expect(screen.getByRole("heading", { name: "今日对话大模型用量" })).toBeVisible();
+    const usageTrigger = screen.getByRole("button", { name: "展开今日大模型用量" });
+    const processingTrigger = screen.getByRole("button", { name: "展开处理方式详情" });
+    expect(usageTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(usageTrigger).toHaveAttribute("aria-controls");
+    expect(usageTrigger).toHaveTextContent("6 / 50 · 4,530 Token · $0.001210");
+    expect(processingTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(processingTrigger).toHaveTextContent("本地处理不调用模型");
+    expect(screen.queryByText("请求 / 上限")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "使用本地处理" })).not.toBeInTheDocument();
+  });
+
+  it("shows the current-store chat usage details when aggregate finance is allowed", () => {
+    renderSheet({
+      canReadUsage: true,
+      usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "展开今日大模型用量" }));
     expect(screen.getByText("6 / 50")).toBeVisible();
     expect(screen.getByText("4,530")).toBeVisible();
     expect(screen.getByText("$0.001210")).toBeVisible();
@@ -99,7 +123,7 @@ describe("AiAssistantSheet", () => {
       usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
     });
 
-    expect(screen.queryByText("今日对话大模型用量")).not.toBeInTheDocument();
+    expect(screen.queryByText("今日大模型用量")).not.toBeInTheDocument();
     expect(screen.queryByText("$0.001210")).not.toBeInTheDocument();
   });
 
@@ -110,6 +134,9 @@ describe("AiAssistantSheet", () => {
     const onRetryUsage = vi.fn();
     renderSheet({ canReadUsage: true, usageError: true, onRetryUsage });
 
+    const trigger = screen.getByRole("button", { name: "展开今日大模型用量" });
+    expect(trigger).toHaveTextContent("读取失败");
+    fireEvent.click(trigger);
     expect(screen.getByText("今日用量暂时无法读取")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /重试/ }));
     expect(onRetryUsage).toHaveBeenCalledOnce();
@@ -217,6 +244,11 @@ describe("AiAssistantSheet", () => {
 
     expect(screen.getByText("当前账号没有使用权限")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "输入工单查询问题" })).toBeDisabled();
+    const processingTrigger = screen.getByRole("button", { name: "展开处理方式详情" });
+    expect(processingTrigger).toHaveTextContent("当前不可用");
+    fireEvent.click(processingTrigger);
+    expect(screen.getByRole("radio", { name: "使用本地处理" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "使用大模型理解" })).toBeDisabled();
   });
 
   it("fills the composer from voice without automatically sending a query", async () => {

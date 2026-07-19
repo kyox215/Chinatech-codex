@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Bot,
+  ChevronDown,
   Clock3,
   Cpu,
   LoaderCircle,
@@ -21,6 +22,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
@@ -48,6 +50,7 @@ import {
   runAiOrderAssistantTurn,
 } from "@/lib/repairdesk/api";
 import { brandGradientStyle } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 
 type AssistantStatus = "idle" | "loading" | "result" | "error" | "cancelled";
 
@@ -94,6 +97,8 @@ export function AiAssistantSheet({
   const [lastQuestion, setLastQuestion] = useState("");
   const [processingMode, setProcessingMode] = useState<AiAssistantProcessingMode>("local");
   const [lastProcessingMode, setLastProcessingMode] = useState<AiAssistantProcessingMode>("local");
+  const [usageDetailsOpen, setUsageDetailsOpen] = useState(false);
+  const [processingDetailsOpen, setProcessingDetailsOpen] = useState(false);
   const [status, setStatus] = useState<AssistantStatus>("idle");
   const [response, setResponse] = useState<AiOrderAssistantResponse>();
   const [error, setError] = useState<AssistantErrorState>();
@@ -134,11 +139,19 @@ export function AiAssistantSheet({
     setLastQuestion("");
     setProcessingMode("local");
     setLastProcessingMode("local");
+    setUsageDetailsOpen(false);
+    setProcessingDetailsOpen(false);
     setStatus("idle");
     setResponse(undefined);
     setError(undefined);
     lastClientRequestIdRef.current = undefined;
   }, [abortVoiceInput, storeKey]);
+
+  useEffect(() => {
+    if (open) return;
+    setUsageDetailsOpen(false);
+    setProcessingDetailsOpen(false);
+  }, [open]);
 
   useEffect(() => {
     if (open || !controllerRef.current) return;
@@ -174,6 +187,7 @@ export function AiAssistantSheet({
       controllerRef.current = controller;
       setLastQuestion(message);
       setLastProcessingMode(submittedMode);
+      setProcessingDetailsOpen(false);
       setStatus("loading");
       setResponse(undefined);
       setError(undefined);
@@ -271,6 +285,8 @@ export function AiAssistantSheet({
             isLoading={usageLoading}
             isError={usageError}
             onRetry={onRetryUsage}
+            open={usageDetailsOpen}
+            onOpenChange={setUsageDetailsOpen}
           />
         ) : null}
 
@@ -342,70 +358,17 @@ export function AiAssistantSheet({
             void submit();
           }}
         >
-          <fieldset className="space-y-1.5" disabled={status === "loading"}>
-            <div className="flex items-center justify-between gap-2 px-0.5">
-              <legend className="text-[11px] font-semibold text-foreground">处理方式</legend>
-              <span className="text-[10px] text-muted-foreground">每次发送前可切换</span>
-            </div>
-            <ToggleGroup
-              type="single"
-              value={processingMode}
-              aria-label="查询处理方式"
-              data-ai-processing-mode={processingMode}
-              onValueChange={(value) => {
-                if (value === "local" || value === "model") setProcessingMode(value);
-              }}
-              className="grid grid-cols-2 gap-2"
-            >
-              <ToggleGroupItem
-                type="button"
-                value="local"
-                aria-label="使用本地处理"
-                className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
-              >
-                <span className="flex items-center gap-1.5 text-xs font-semibold">
-                  <Cpu className="size-3.5" aria-hidden="true" /> 本地处理
-                </span>
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  固定规则 · 不调用模型
-                </span>
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                type="button"
-                value="model"
-                aria-label="使用大模型理解"
-                className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
-              >
-                <span className="flex items-center gap-1.5 text-xs font-semibold">
-                  <Sparkles className="size-3.5" aria-hidden="true" /> 大模型理解
-                </span>
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  复杂语句 · 计入用量
-                </span>
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </fieldset>
-          <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
-            {processingMode === "model" ? (
-              <p>
-                本次文字会在现有门店审批、出站检查和用量限制后发送至
-                OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。安全监控日志可能保留最多 30 天。
-              </p>
-            ) : (
-              <p>
-                本地处理只使用 RepairDesk 固定规则，不会把本次文字发送给大模型，也不产生 Token
-                费用；仍需联网查询当前门店数据。
-              </p>
-            )}
-            {voiceInput.support === "supported" ? (
-              <p className="mt-1 flex items-start gap-1.5">
-                <Mic className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                <span>
-                  语音由浏览器/设备语音服务转成文字；RepairDesk 不保存录音，确认文字后再手动发送。
-                </span>
-              </p>
-            ) : null}
-          </div>
+          <AiProcessingDisclosure
+            open={processingDetailsOpen}
+            onOpenChange={setProcessingDetailsOpen}
+            processingMode={processingMode}
+            onProcessingModeChange={setProcessingMode}
+            canSubmit={canSubmit}
+            capabilitiesLoading={capabilitiesLoading}
+            capabilitiesError={capabilitiesError}
+            isSubmitting={status === "loading"}
+            voiceSupported={voiceInput.support === "supported"}
+          />
           <label htmlFor="ai-assistant-message" className="sr-only">
             输入工单查询问题
           </label>
@@ -506,11 +469,15 @@ function AiChatUsageSummary({
   isLoading,
   isError,
   onRetry,
+  open,
+  onOpenChange,
 }: {
   usage?: AiAssistantUsageSummary;
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   if (isLoading) {
     return (
@@ -518,17 +485,18 @@ function AiChatUsageSummary({
         data-ai-chat-usage="loading"
         aria-label="正在读取今日对话大模型用量"
         aria-busy="true"
-        className="shrink-0 space-y-2 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-2.5 sm:px-4"
+        className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]"
       >
-        <div className="flex items-center justify-between gap-2">
-          <Skeleton className="h-3.5 w-28" />
-          <Skeleton className="h-3 w-20" />
-        </div>
-        <div className="grid min-w-0 grid-cols-3 gap-1.5">
-          <Skeleton className="h-11 min-w-0 rounded-lg" />
-          <Skeleton className="h-11 min-w-0 rounded-lg" />
-          <Skeleton className="h-11 min-w-0 rounded-lg" />
-        </div>
+        <Collapsible open={open} onOpenChange={onOpenChange}>
+          <UsageDisclosureTrigger open={open} summary="读取中…" />
+          <CollapsibleContent className="border-t border-[var(--border-panel)] px-3 py-2.5 sm:px-4">
+            <div className="grid min-w-0 grid-cols-3 gap-1.5">
+              <Skeleton className="h-11 min-w-0 rounded-lg" />
+              <Skeleton className="h-11 min-w-0 rounded-lg" />
+              <Skeleton className="h-11 min-w-0 rounded-lg" />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </section>
     );
   }
@@ -537,24 +505,28 @@ function AiChatUsageSummary({
     return (
       <section
         data-ai-chat-usage="error"
-        role="status"
-        className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-2 sm:px-4"
+        className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]"
       >
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/25 px-2.5 py-2 text-status-warn-foreground">
-          <div className="min-w-0">
-            <p className="truncate text-xs font-semibold">今日用量暂时无法读取</p>
-            <p className="truncate text-[10px]">不影响本地或大模型查询。</p>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 shrink-0"
-            onClick={onRetry}
-          >
-            <RefreshCcw className="size-3" aria-hidden="true" /> 重试
-          </Button>
-        </div>
+        <Collapsible open={open} onOpenChange={onOpenChange}>
+          <UsageDisclosureTrigger open={open} summary="读取失败" isError />
+          <CollapsibleContent className="border-t border-[var(--border-panel)] px-3 py-2 sm:px-4">
+            <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/25 px-2.5 py-2 text-status-warn-foreground">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold">今日用量暂时无法读取</p>
+                <p className="truncate text-[10px]">不影响本地或大模型查询。</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0"
+                onClick={onRetry}
+              >
+                <RefreshCcw className="size-3" aria-hidden="true" /> 重试
+              </Button>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </section>
     );
   }
@@ -567,32 +539,209 @@ function AiChatUsageSummary({
   return (
     <section
       data-ai-chat-usage="ready"
-      aria-labelledby="ai-chat-usage-title"
-      className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-2.5 sm:px-4"
+      className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]"
     >
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <h3 id="ai-chat-usage-title" className="truncate text-[11px] font-semibold text-foreground">
-          今日对话大模型用量
-        </h3>
-        <span className="shrink-0 text-[9px] text-muted-foreground">本地处理不计入</span>
-      </div>
-      <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1.5">
-        <AiChatUsageMetric
-          label="请求 / 上限"
-          value={`${formatAiUsageInteger(metric.provider_request_count)} / ${limitLabel}`}
+      <Collapsible open={open} onOpenChange={onOpenChange}>
+        <UsageDisclosureTrigger
+          open={open}
+          summary={`${formatAiUsageInteger(metric.provider_request_count)} / ${limitLabel} · ${formatAiUsageInteger(totalTokens)} Token · ${formatAiUsageMicroUsd(metric.settled_cost_microusd)}`}
         />
-        <AiChatUsageMetric label="Token" value={formatAiUsageInteger(totalTokens)} />
-        <AiChatUsageMetric
-          label="费用估算"
-          value={formatAiUsageMicroUsd(metric.settled_cost_microusd)}
-        />
-      </div>
-      {metric.reserved_cost_microusd > 0 ? (
-        <p className="mt-1 truncate text-[9px] text-muted-foreground">
-          另有 {formatAiUsageMicroUsd(metric.reserved_cost_microusd)} 预留中，未计入已结算估算。
-        </p>
-      ) : null}
+        <CollapsibleContent className="border-t border-[var(--border-panel)] px-3 py-2.5 sm:px-4">
+          <div className="grid min-w-0 grid-cols-3 gap-1.5">
+            <AiChatUsageMetric
+              label="请求 / 上限"
+              value={`${formatAiUsageInteger(metric.provider_request_count)} / ${limitLabel}`}
+            />
+            <AiChatUsageMetric label="Token" value={formatAiUsageInteger(totalTokens)} />
+            <AiChatUsageMetric
+              label="费用估算"
+              value={formatAiUsageMicroUsd(metric.settled_cost_microusd)}
+            />
+          </div>
+          <p className="mt-1 truncate text-[9px] text-muted-foreground">
+            本地处理不计入
+            {metric.reserved_cost_microusd > 0
+              ? ` · 另有 ${formatAiUsageMicroUsd(metric.reserved_cost_microusd)} 预留中`
+              : ""}
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
     </section>
+  );
+}
+
+function UsageDisclosureTrigger({
+  open,
+  summary,
+  isError = false,
+}: {
+  open: boolean;
+  summary: string;
+  isError?: boolean;
+}) {
+  return (
+    <CollapsibleTrigger asChild>
+      <button
+        type="button"
+        aria-label={`${open ? "收起" : "展开"}今日大模型用量`}
+        className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4"
+      >
+        <span className="shrink-0 text-[11px] font-semibold text-foreground">今日大模型用量</span>
+        <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={cn(
+            "min-w-0 flex-1 truncate text-right font-mono text-[10px] tabular-nums text-muted-foreground",
+            isError && "font-sans text-status-warn-foreground",
+          )}
+          title={summary}
+        >
+          {summary}
+        </span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
+          aria-hidden="true"
+        />
+      </button>
+    </CollapsibleTrigger>
+  );
+}
+
+function AiProcessingDisclosure({
+  open,
+  onOpenChange,
+  processingMode,
+  onProcessingModeChange,
+  canSubmit,
+  capabilitiesLoading,
+  capabilitiesError,
+  isSubmitting,
+  voiceSupported,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  processingMode: AiAssistantProcessingMode;
+  onProcessingModeChange: (mode: AiAssistantProcessingMode) => void;
+  canSubmit: boolean;
+  capabilitiesLoading: boolean;
+  capabilitiesError: boolean;
+  isSubmitting: boolean;
+  voiceSupported: boolean;
+}) {
+  const modeLabel = processingMode === "local" ? "本地处理" : "大模型理解";
+  const modeSummary = capabilitiesLoading
+    ? "正在确认权限"
+    : capabilitiesError || !canSubmit
+      ? "当前不可用"
+      : processingMode === "local"
+        ? isSubmitting
+          ? "不调用模型 · 查询中"
+          : "不调用模型"
+        : isSubmitting
+          ? "发送至 OpenAI · 查询中"
+          : "发送至 OpenAI · 计入用量";
+
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={onOpenChange}
+      className="rounded-xl border border-[var(--border-panel)] bg-card"
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          aria-label={`${open ? "收起" : "展开"}处理方式详情`}
+          className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="shrink-0 text-[11px] font-semibold text-foreground">处理方式</span>
+          <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-foreground">
+            {processingMode === "local" ? (
+              <Cpu className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Sparkles className="size-3.5" aria-hidden="true" />
+            )}
+            {modeLabel}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-right text-[10px] text-muted-foreground">
+            {modeSummary}
+          </span>
+          <ChevronDown
+            className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
+            aria-hidden="true"
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-2 border-t border-[var(--border-panel)] px-2.5 py-2.5">
+        <fieldset
+          className="space-y-1.5"
+          disabled={isSubmitting || !canSubmit || capabilitiesLoading || capabilitiesError}
+        >
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <legend className="text-[11px] font-semibold text-foreground">选择处理方式</legend>
+            <span className="text-[10px] text-muted-foreground">每次发送前可切换</span>
+          </div>
+          <ToggleGroup
+            type="single"
+            value={processingMode}
+            aria-label="查询处理方式"
+            data-ai-processing-mode={processingMode}
+            onValueChange={(value) => {
+              if (value === "local" || value === "model") onProcessingModeChange(value);
+            }}
+            className="grid grid-cols-2 gap-2"
+          >
+            <ToggleGroupItem
+              type="button"
+              value="local"
+              aria-label="使用本地处理"
+              className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
+            >
+              <span className="flex items-center gap-1.5 text-xs font-semibold">
+                <Cpu className="size-3.5" aria-hidden="true" /> 本地处理
+              </span>
+              <span className="text-[10px] font-normal text-muted-foreground">
+                固定规则 · 不调用模型
+              </span>
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              type="button"
+              value="model"
+              aria-label="使用大模型理解"
+              className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
+            >
+              <span className="flex items-center gap-1.5 text-xs font-semibold">
+                <Sparkles className="size-3.5" aria-hidden="true" /> 大模型理解
+              </span>
+              <span className="text-[10px] font-normal text-muted-foreground">
+                复杂语句 · 计入用量
+              </span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </fieldset>
+        <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+          {processingMode === "model" ? (
+            <p>
+              本次文字会在现有门店审批、出站检查和用量限制后发送至
+              OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。安全监控日志可能保留最多 30 天。
+            </p>
+          ) : (
+            <p>
+              本地处理只使用 RepairDesk 固定规则，不会把本次文字发送给大模型，也不产生 Token
+              费用；仍需联网查询当前门店数据。
+            </p>
+          )}
+          {voiceSupported ? (
+            <p className="mt-1 flex items-start gap-1.5">
+              <Mic className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+              <span>
+                语音由浏览器/设备语音服务转成文字；RepairDesk 不保存录音，确认文字后再手动发送。
+              </span>
+            </p>
+          ) : null}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

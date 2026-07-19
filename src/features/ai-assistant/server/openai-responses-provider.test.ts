@@ -77,6 +77,9 @@ describe("OpenAI Responses provider", () => {
       expect.stringContaining("do not turn them into search keywords"),
     );
     expect(body.instructions).toEqual(expect.stringContaining("Never reduce a device phrase"));
+    expect(body.instructions).toEqual(
+      expect.stringContaining("Never emit an unconstrained search_orders"),
+    );
   });
 
   it("sends one bounded image request and rejects cloud identifiers", async () => {

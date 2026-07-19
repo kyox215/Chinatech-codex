@@ -8,7 +8,7 @@ import {
 } from "./inventory-image-policy";
 
 export const AI_ASSISTANT_CONTRACT_VERSION = "ai-assistant-v1" as const;
-export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v3" as const;
+export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v4" as const;
 export const AI_INVENTORY_RECOGNITION_PROMPT_VERSION = "inventory-label-v1" as const;
 
 export const aiAssistantLocaleSchema = z.enum(["zh-CN", "it-IT", "en"]);

@@ -2,7 +2,7 @@
 
 Status: order-text v2 smoke passed; Vision release candidate pending independent D4 and serialized release lock
 Owner: Integration Lead / Architecture / DATA / Security
-Last verified: 2026-07-19 CEST, `TASK-20260719-001-ai-inventory-live-provider` and local candidate `TASK-20260719-004-ai-processing-mode-usage`
+Last verified: 2026-07-19 CEST, `TASK-20260719-001-ai-inventory-live-provider`, released `TASK-20260719-004-ai-processing-mode-usage`, and local candidate `TASK-20260719-005-ai-search-accuracy-collapsible-ui`
 
 ## 当前结论
 
@@ -38,12 +38,13 @@ Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预�
 - `processing_mode=model` 跳过确定性捷径，强制进入既有 provider、外发批准、敏感数据检查、actor 限流、门店/全局预算和聚合审计链路；选择大模型不等于绕过任何 live 门禁。
 - 旧客户端省略 `processing_mode` 时继续使用既有“确定性优先、必要时 provider”行为，避免破坏兼容性。
 - 客户端不能选择模型、价格、额度、Safety ID 或门店；模式只控制是否允许进入既有受控 provider 路径。
+- 明确设备原句在 model 模式下也会经过服务端语义守卫：provider 仍只调用/预留/结算一次，但其空、数字化或冲突设备计划会被原句中受控的品牌+型号约束校正；仓储返回值若违反有效设备约束则整体失败关闭，不把错误卡片或错误总数展示给员工。
 
-设置中心新增只读“AI 使用量”，AI 对话面板同时显示今日 `order_text` 请求/额度、总 Token 和已结算美元估算。两处复用同一个门店 query key 与聚合接口；大模型提交成功后刷新当前门店缓存，用量读取失败不阻断查询。只有 `finance:aggregate_read` 成员会发起用量请求或看到摘要。
+设置中心提供只读“AI 使用量”，AI 对话面板同时显示今日 `order_text` 请求/额度、总 Token 和已结算美元估算。两处复用同一个门店 query key 与聚合接口；大模型提交成功后刷新当前门店缓存，用量读取失败不阻断查询。只有 `finance:aggregate_read` 成员会发起用量请求或看到摘要。对话内用量和处理方式详情默认收起，当前模式及大模型外发/计费含义仍常显。
 
 `GET /api/repairdesk/ai/usage` 不接收门店参数，要求 `finance:aggregate_read`，并从认证 actor 的当前 `storeId` 读取 `ai_assistant_usage_buckets` 的 `store_day` 聚合。响应只包含今天和最近 30 天的大模型请求数、输入/缓存/输出 Token、已结算及预留 micro-USD、今日分类额度和生成时间；不返回 prompt、回复、订单号、客户资料、actor 或请求指纹。本地处理不调用大模型，因此不计入该视图。
 
-该用量视图复用 RepairDesk 的预算结算事实，不调用 OpenAI 组织级 Usage/Costs API，也不需要新增管理员密钥、表或 migration。金额是当前 RepairDesk 价格策略下的美元估算，不是供应商最终账单。此节描述的 UI/API 当前仍是本地候选，未自动推送、部署或修改生产配置。
+该用量视图复用 RepairDesk 的预算结算事实，不调用 OpenAI 组织级 Usage/Costs API，也不需要新增管理员密钥、表或 migration。金额是当前 RepairDesk 价格策略下的美元估算，不是供应商最终账单。模式选择与用量 API/UI 已随 `TASK-20260719-004` 发布；默认折叠和设备语义守卫属于 `TASK-20260719-005` 的应用代码候选，不修改生产配置、模型、密钥、预算或数据库。
 
 ## 零模型订单路由
 
