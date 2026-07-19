@@ -29,5 +29,13 @@
   fresh-server groups. Source: retained Playwright failure traces plus aggregate green reruns.
   Status: tooling limitation, not a product exception. Review trigger: E2E runner isolation change.
 
+## Consolidation result
+
+- Consolidated the verified query semantics, compact UI contract, dormant action boundary and
+  release identity into project plus Architecture/Backend/Data/Frontend/QA/Security/Operations
+  memory on 2026-07-19.
+- Registered `CAP-AI-NLQ-ACTION-20260719` as C1 candidate evidence only. No permission, production
+  write authority or autonomy level was raised.
+
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.

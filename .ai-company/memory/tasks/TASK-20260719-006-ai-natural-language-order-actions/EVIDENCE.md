@@ -12,6 +12,11 @@
 | E-008 | visual | compact usage control, applied filters, inline details and explicit link render at mobile/desktop widths | `screenshots/TASK-20260719-006-ai-natural-language-order-actions/` | five verified synthetic-data screenshots | 2026-07-19T17:06:00Z | Integration Lead |
 | E-009 | security | no production key or private-key pattern entered the scoped diff/task files | scoped diff/untracked secret-pattern scan | no matches | 2026-07-19T17:16:00Z | Integration Lead |
 | E-010 | data | release adds no database migration | scoped Git status/diff | no `supabase/migrations` changes | 2026-07-19T17:16:00Z | Integration Lead |
+| E-011 | git | scoped implementation reached remote main without force | `git push origin HEAD:main`; `git rev-parse origin/main` | `6aa8199a3d74a2841dc3b7bf57e78bfd504682db` | 2026-07-19T17:20:00Z | Integration Lead |
+| E-012 | deploy | Vercel built the exact business commit and marked it production READY | deployment `dpl_FjoBwRCaMKfiNoHofdi3jDNeYqgU`; build log | target production; branch main; commit `6aa8199`; aliases include `chinatech.in` and `www.chinatech.in` | 2026-07-19T17:23:00Z | Integration Lead |
+| E-013 | smoke | canonical production surface and action route fail safely without authentication | `HEAD /`, `HEAD /orders`, anonymous capabilities GET and action POST | canonical redirects/auth redirects; both APIs return structured 401; action POST performs no write | 2026-07-19T17:24:00Z | Integration Lead |
+| E-014 | configuration | production inline action remains disabled without reading any secret/value | production environment variable-name listing | `AI_ORDER_INLINE_ACTIONS_ENABLED` absent; existing AI variable names only | 2026-07-19T17:25:00Z | Integration Lead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
+- `2026-07-19T17:30:22Z` `05ab7cf3b4` — main@6aa8199a3d74a2841dc3b7bf57e78bfd504682db；dpl_FjoBwRCaMKfiNoHofdi3jDNeYqgU READY；311文件/2017测试；11/11 E2E；5张截图；agents:check、lint、typecheck、webpack build通过。

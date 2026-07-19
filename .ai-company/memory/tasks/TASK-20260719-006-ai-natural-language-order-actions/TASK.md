@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260719-006-ai-natural-language-order-actions"
 title: "AI 自然语言订单查询与对话内安全操作上线"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["architecture", "backend", "data", "documentation", "frontend", "product", "qa", "release", "security"]
 created_at: "2026-07-19T16:04:24Z"
-updated_at: "2026-07-19T17:16:00Z"
+updated_at: "2026-07-19T17:30:34Z"
+closed_at: "2026-07-19T17:30:34Z"
 ---
 # Task — AI 自然语言订单查询与对话内安全操作上线
 
@@ -59,8 +60,8 @@ AI 自然语言订单查询与对话内安全操作上线
 - [x] 自然语言查询覆盖相对时间、设备系列、维修项目、流程、付款和配件状态，并显示服务端实际采用的条件。
 - [x] 结果卡默认不导航，只有明确点击打开订单才跳转。
 - [x] 对话内受限写操作经过服务端权限、预览确认、版本校验、幂等和审计；生产旗标保持关闭。
-- [ ] 相关单元、集成、E2E、响应式、权限、安全、构建和生产冒烟通过。
-- [ ] 范围内变更非强制推送 main，生产应用部署 exact SHA 并可回滚。
+- [x] 相关单元、集成、E2E、响应式、权限、安全、构建和生产冒烟通过。
+- [x] 范围内变更非强制推送 main，生产应用部署 exact SHA 并可回滚。
 
 ## Facts, assumptions, and unknowns
 
