@@ -33,7 +33,21 @@
 ### Visual evidence
 
 - `screenshots/TASK-20260719-001-style-recovery-incident/mobile-complete-style-loss-protected.png`: 390x844, every author stylesheet node removed, only the fixed recovery overlay visible.
+- `screenshots/TASK-20260719-001-style-recovery-incident/production-mobile-normal-362e4c3d.png`: real production Orders page at 390x844 after deployment; normal styled shell visible and fallback hidden.
+- `screenshots/TASK-20260719-001-style-recovery-incident/production-desktop-normal-362e4c3d.png`: real production Orders page at 1440x900 after deployment; normal styled shell visible and fallback hidden.
 
 ### Release evidence
 
-Pending.
+- Git commit: `362e4c3d7624793718fa65b7c96d84fac481c61d`, fast-forwarded to `main` from `635b7288b9dbdc83171a28818e8ce2bd4094aee5`.
+- Vercel: deployment `dpl_3A6RVWswPoUgJueqmYiqJq1jHWRR`, URL `chinatech-codex-9egm8h10f-kyox120-9295s-projects.vercel.app`, target production, state `READY`.
+- Alias proof: `www.chinatech.in` and `chinatech.in` both point to that deployment.
+- Runtime HTML: HTTP 200; `repairdesk-critical-style-guard` exists; fallback has `position:fixed`, maximum z-index and grid layout inline; shell has inline `display:none`.
+- Production Chromium: PASS 4/4.
+- Production WebKit: PASS 4/4.
+
+### Documentation and memory review
+
+- Updated: task, incident, checkpoint, evidence and closeout records in this task archive.
+- Not applicable: public API, schema, migration, configuration and operating runbooks are unchanged.
+- Not promoted: one incident does not justify a global policy, department-memory change or capability/autonomy upgrade.
+- `ACTIVE_CONTEXT.md` intentionally remains owned by the concurrent R4 AI inventory release and was not overwritten.

@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260719-001-style-recovery-incident"
 title: "无样式页面恢复保护二次事故加固"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["frontend", "design", "qa", "release", "documentation"]
 created_at: "2026-07-19T09:45:00+02:00"
-updated_at: "2026-07-19T09:45:00+02:00"
+updated_at: "2026-07-19T10:08:43+02:00"
+closed_at: "2026-07-19T10:08:43+02:00"
 ---
 
 # Task — 无样式页面恢复保护二次事故加固
@@ -22,17 +23,20 @@ updated_at: "2026-07-19T09:45:00+02:00"
 - Data/security: no evidence of data loss, permission bypass, secret exposure or database impact.
 - Incident Commander and single writer: Integration Lead.
 
-## Verified facts
+## Verified facts and resolution
 
 - The new screenshot has no `正在恢复 RepairDesk…` fallback text, which is consistent with a document opened before the first recovery guard was deployed.
-- Current production HTML includes `repairdesk-critical-style-guard`, `repairdesk-style-fallback`, `repairdesk-styled-shell` and the fallback text.
-- Current production commit `635b7288b9dbdc83171a28818e8ce2bd4094aee5` is Vercel `READY`.
-- Current fallback and shell have no inline `style`; both still depend on author stylesheet rules.
+- The previous fallback and shell had no inline `style`; both still depended on the same author style layer they were meant to recover.
+- Production commit `362e4c3d7624793718fa65b7c96d84fac481c61d` adds independent inline presentation for the fallback and shell.
+- Vercel deployment `dpl_3A6RVWswPoUgJueqmYiqJq1jHWRR` is `READY` and owns both `www.chinatech.in` and `chinatech.in`.
+- Public HTML is HTTP 200 and contains the critical guard, fallback copy, fixed fallback inline style and shell `style="display:none"`.
+- Production Chromium and WebKit each pass all four recovery scenarios on mobile and desktop viewports.
 
-## Hypotheses to test
+## Findings
 
-1. Mobile Chrome restored a pre-fix root document; client-side navigation changed Settings to Orders without fetching a new root layout.
-2. Mobile restoration discarded or temporarily failed the complete author style layer, including the critical `<head>` style.
+1. The screenshot is strongly consistent with mobile Chrome restoring a pre-fix root document; no server-side release can retroactively alter an already-open document, so that tab requires one manual refresh.
+2. The remaining structural defect was reproduced: removing the complete author style layer from the previous implementation exposed the business shell.
+3. The new inline fallback closes that structural defect without forcing navigation or risking unsaved form input.
 
 ## Scope and change contract
 
