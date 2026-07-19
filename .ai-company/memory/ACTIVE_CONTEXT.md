@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-19T00:25:55Z"
+last_checkpoint_at: "2026-07-19T00:52:23Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -20,7 +20,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-D4-v2 is explicitly approved. Original D4 settled one 123 micro-USD request but stopped on HTTP/audit failure; ChinaTech was never activated, all Production live flags remain off, `ai-runtime-v1` is disabled and no reservation is open. The safe `ai-runtime-v2` candidate adds only explicit GPT-5 nano minimal reasoning and is isolated on `codex/ai-v2-d4-release-20260719` under one production release lock. Production remains READY on `main@bc5dfae3` until the dormant v2 deployment gate.
+D4-v2 one-shot passed all three activation gates on `main@ec134a42`: HTTP 200; v2 ledger succeeded with one attempt and 44 micro-USD; audit succeeded; no open reservation, vision request or other-store request. Production is READY on the dormant v2 deployment and all live flags remain off until the controlled ChinaTech activation deployment.
 
 ## Blocking decisions
 
@@ -30,7 +30,7 @@ D4-v2 is explicitly approved. Original D4 settled one 123 micro-USD request but 
 
 ## Next action
 
-Refresh Supabase/Vercel production baselines, insert a disabled exact-copy v2 policy, then deploy v2 with every live flag still off before attestation and the one authorized service-path smoke.
+Configure only the ChinaTech allowlist plus master/order-text live flags, deploy the checkpointed exact SHA, then observe production for 30 minutes. Keep vision, draft apply, public/customer assistant, PII and all other stores off.
 
 ## Resume protocol
 

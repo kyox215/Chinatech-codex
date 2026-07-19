@@ -1,6 +1,6 @@
 # RepairDesk AI 小助手真实 API 试点发布手册
 
-Status: D4-v2 approved; serialized production release in progress
+Status: D4-v2 one-shot passed; ChinaTech text-only activation in progress
 Task: `TASK-20260718-014-ai-assistant-live-pilot`
 Last verified: 2026-07-19 CEST
 

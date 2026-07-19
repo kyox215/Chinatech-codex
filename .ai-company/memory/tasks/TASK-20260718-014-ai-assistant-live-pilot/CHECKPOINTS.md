@@ -95,3 +95,12 @@
 - **Isolation:** new worktree/branch `codex/ai-v2-d4-release-20260719` from remote safe candidate `3cae265e`; the dirty root checkout and older contaminated AI worktrees are read-only/out of scope.
 - **Agent decision:** no new sub-agents are spawned because production secrets, database policy mutation, billable dispatch, Git push, deploy, and observation must be handled serially by the Integration Lead; prior independent reviews remain evidence only.
 - **Next:** refresh Git/Supabase/Vercel baselines, create a disabled exact-copy v2 policy, deploy dormant v2, enable/attest, and run the one authorized smoke.
+
+## 2026-07-19T00:52:23Z — v2 one-shot smoke passed; activation gate open
+
+- **Production version:** `main@ec134a42`; Vercel deployment `dpl_2BzBqbpx9bWJwBYQhYEKMVmdW4hA` is READY on both production aliases with all live flags still off during smoke.
+- **Policy:** `ai-runtime-v2` was copied exactly from disabled v1 except version/timestamps, then enabled atomically only after `policy_ready` attestation; open reservations were zero.
+- **Billable authority consumed:** exactly one new provider dispatch occurred through `handleRepairDeskPost("ai/order/turn")` with synthetic no-PII text and no retry. Earlier local Node 20/runner failures occurred before service dispatch and were proven by unchanged ledger/audit counts.
+- **Triple gate:** HTTP 200; ledger `succeeded`, `usage_reported`, one provider attempt, 399 input / 60 output Token, 44 micro-USD, no open reservation; audit `succeeded`, provider `openai`, v2 policy, `settled`, Safety ID present and no error code.
+- **Isolation check:** total durable requests 2, vision requests 0, other-store requests 0. The response body was reduced to kind/counts; no order cards or customer data were printed or persisted in task evidence.
+- **Decision:** D4-v2 activation condition is satisfied. Configure only the ChinaTech allowlist plus master/order-text flags; keep vision, draft apply, public/customer assistant and all other stores off, then start the 30-minute observation after the activation deployment is READY.
