@@ -58,3 +58,22 @@
 - **Next:** Await explicit Owner D4 approval for ChinaTech-only canary, USD 50 monthly cap, non-PII order text with vision off, migration 20260718223739, Production secrets/flags, push/deploy, one service-path billable smoke, 30-minute observation and rollback thresholds.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-18T23:54:27Z — D4 smoke stopped; safe rollback complete; v2 remediation in progress
+
+- **Phase:** production release stop / remediation gate.
+- **Completed/current state:** rebased onto `origin/main@9c52a4a7`, reran gates, applied only `20260718223739`, verified 4 private tables/6 RPCs/RLS/grants/advisors, seeded and attested `ai-runtime-v1`, uploaded encrypted Production secrets and dormant values, pushed `main`, and deployed exact `bc5dfae3` after fixing the cron middleware path. Deployment `dpl_6DLuoHkZ6io6jjqARNPrXVDzzQSV` is READY and owns the production aliases. All AI live flags stayed off.
+- **Smoke result:** the one D4-authorized non-PII service-path request reserved 308 micro-USD and settled 123 micro-USD from 399 input / 256 output Token with exactly one provider attempt. Ledger state is `succeeded`, settlement basis is `usage_reported`, Safety ID and audit are present, but the service returned `502 AI_PROVIDER_PROTOCOL_ERROR`; the audit status is `failed`.
+- **Stop/rollback:** ChinaTech allowlist and live flags were never activated. `ai-runtime-v1` was changed from enabled to disabled after the stop threshold fired. No reservation remains open and no second OpenAI call occurred.
+- **Root cause:** official OpenAI guidance plus the exact 256-token ceiling support that GPT-5 nano default medium reasoning exhausted `max_output_tokens=256` before producing the required function call. Browser-authenticated production UI verification is independently blocked by an explicit user site-use restriction for `www.chinatech.in`; it was not bypassed.
+- **Remediation:** local `ai-runtime-v2` candidate adds only `reasoning.effort=minimal`; model, pricing, max tokens and budget remain unchanged. Agents check, lint, typecheck, focused 7 files / 47 tests, full 304 files / 1,894 tests, Webpack production build, Prettier, diff check and exact-key scan across 3,770 files all pass.
+- **Decision:** the original D4 is exhausted because its one billable smoke was consumed. A new D4 is required before v2 policy insertion/enablement, Vercel policy-version mutation, a second billable smoke, ChinaTech activation or observation.
+- **Next:** validate the final diff, checkpoint, commit and push only the isolated remediation branch, then present the revised D4 packet. Keep production dormant and v1 disabled.
+
+## 2026-07-19T00:01:06Z — Original D4 executed through one non-PII billable smoke: ledger settled 123 micro-USD with one attempt, but service returned AI_PROVIDER_PROTOCOL_ERROR. ChinaTech was never activated; all Production AI flags remain off; ai-runtime-v1 is disabled; no open reservation. Local ai-runtime-v2 adds explicit GPT-5 nano minimal reasoning and passes agents/lint/typecheck, focused 47 tests, full 1894 tests, Webpack build, formatting/diff and exact-key scan.
+
+- **Phase:** implementation
+- **Completed/current state:** Original D4 executed through one non-PII billable smoke: ledger settled 123 micro-USD with one attempt, but service returned AI_PROVIDER_PROTOCOL_ERROR. ChinaTech was never activated; all Production AI flags remain off; ai-runtime-v1 is disabled; no open reservation. Local ai-runtime-v2 adds explicit GPT-5 nano minimal reasoning and passes agents/lint/typecheck, focused 47 tests, full 1894 tests, Webpack build, formatting/diff and exact-key scan.
+- **Next:** Validate checkpoint diff, commit and push only the isolated remediation branch. Do not deploy v2, seed/enable v2 policy, run another OpenAI generation, activate ChinaTech or begin observation until a new Owner D4 is explicit.
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

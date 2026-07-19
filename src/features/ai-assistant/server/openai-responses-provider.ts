@@ -54,12 +54,14 @@ export class OpenAiResponsesProvider implements AiAssistantProvider {
     assertSafetyIdentifier(input.safetyIdentifier);
     if (input.message.trim().length < 1 || input.message.length > 800) throw configurationError();
     const policy = getAiModelRuntimePolicy("order_text");
+    if (policy.reasoningEffort !== "minimal") throw configurationError();
     const metadataAndResponse = await this.createResponse(
       {
         model: this.options.orderModel,
         store: false,
         safety_identifier: input.safetyIdentifier,
         max_output_tokens: policy.maxOutputTokens,
+        reasoning: { effort: policy.reasoningEffort },
         parallel_tool_calls: false,
         tool_choice: "required",
         instructions: orderPlannerInstructions(input.locale),

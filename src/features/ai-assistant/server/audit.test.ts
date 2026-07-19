@@ -32,7 +32,7 @@ describe("AI assistant audit allowlist", () => {
       outputTokens: 30,
       requestKind: "inventory_vision",
       resolutionPath: "provider",
-      policyVersion: "ai-runtime-v1",
+      policyVersion: "ai-runtime-v2",
       providerAttemptCount: 1,
       pricingVersion: "openai-pricing-test",
       estimatedMicroUsd: 12,

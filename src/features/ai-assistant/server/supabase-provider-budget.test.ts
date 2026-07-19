@@ -11,7 +11,7 @@ const liveEnv = {
   AI_ASSISTANT_EXTERNAL_DATA_APPROVED: "1",
   AI_ASSISTANT_BUDGET_APPROVED: "1",
   AI_ASSISTANT_DURABLE_QUOTA_BACKEND: "supabase-v1",
-  AI_ASSISTANT_POLICY_VERSION: "ai-runtime-v1",
+  AI_ASSISTANT_POLICY_VERSION: "ai-runtime-v2",
   AI_ASSISTANT_PRICING_VERSION: "openai-pricing-2026-07-18",
   AI_ASSISTANT_MONTHLY_BUDGET_MICRO_USD: "50000000",
   AI_ASSISTANT_ORDER_TEXT_PER_STORE_DAY: "20",
@@ -75,7 +75,7 @@ describe("Supabase AI provider budget gateway", () => {
     const reservation = await gateway.reserve({
       ...identity,
       requestKind: "order_text",
-      policyVersion: "ai-runtime-v1",
+      policyVersion: "ai-runtime-v2",
       pricingVersion: "openai-pricing-2026-07-18",
       model: "gpt-5-nano-2025-08-07",
       reservedMicroUsd: 308n,
@@ -112,7 +112,7 @@ describe("Supabase AI provider budget gateway", () => {
       gateway.reserve({
         ...identity,
         requestKind: "order_text",
-        policyVersion: "ai-runtime-v1",
+        policyVersion: "ai-runtime-v2",
         pricingVersion: "openai-pricing-2026-07-18",
         model: "gpt-5-nano-2025-08-07",
         reservedMicroUsd: 308n,
@@ -152,7 +152,7 @@ describe("Supabase AI provider budget gateway", () => {
 
   it("builds the exact deployment-to-database policy attestation", () => {
     expect(buildPolicyAttestation(liveEnv)).toMatchObject({
-      policy_version: "ai-runtime-v1",
+      policy_version: "ai-runtime-v2",
       pricing_version: "openai-pricing-2026-07-18",
       quota_timezone: "Europe/Rome",
       order_text_max_reservation_microusd: 308,

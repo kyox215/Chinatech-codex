@@ -30,6 +30,7 @@ describe("AI runtime policy", () => {
     expect(getAiModelRuntimePolicy("order_text")).toMatchObject({
       model: "gpt-5-nano-2025-08-07",
       maxOutputTokens: 256,
+      reasoningEffort: "minimal",
       providerDeadlineMs: 8_000,
       maxAttempts: 1,
       fallbackEnabled: false,
@@ -37,6 +38,7 @@ describe("AI runtime policy", () => {
     expect(getAiModelRuntimePolicy("inventory_vision")).toMatchObject({
       model: "gpt-4o-mini-2024-07-18",
       imageDetail: "high",
+      reasoningEffort: null,
       maxAttempts: 1,
     });
   });

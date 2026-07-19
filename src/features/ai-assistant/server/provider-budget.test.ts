@@ -20,7 +20,7 @@ describe("AI provider budget contract", () => {
     const reserve = vi.fn<AiProviderBudgetGateway["reserve"]>(async () => ({
       reservationId: "reservation-1",
       clientRequestId: "client-request-1",
-      policyVersion: "ai-runtime-v1",
+      policyVersion: "ai-runtime-v2",
       reservedMicroUsd: 308n,
       expiresAt: "2026-07-18T12:10:00.000Z",
     }));
@@ -39,7 +39,7 @@ describe("AI provider budget contract", () => {
     await gateway.reserve({
       ...identity,
       requestKind: "order_text",
-      policyVersion: "ai-runtime-v1",
+      policyVersion: "ai-runtime-v2",
       pricingVersion: "openai-pricing-2026-07-18",
       model: "gpt-5-nano-2025-08-07",
       reservedMicroUsd: 308n,

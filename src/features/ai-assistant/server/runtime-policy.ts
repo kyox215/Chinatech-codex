@@ -1,7 +1,7 @@
 import { AI_PRICING_VERSION, type AiAssistantRequestKind, type AiPricedModel } from "./cost-policy";
 import type { AiAssistantFeatureEnvironment } from "./feature-flags";
 
-export const AI_RUNTIME_POLICY_VERSION = "ai-runtime-v1" as const;
+export const AI_RUNTIME_POLICY_VERSION = "ai-runtime-v2" as const;
 export const AI_DURABLE_QUOTA_BACKEND = "supabase-v1" as const;
 
 export type AiModelRuntimePolicy = {
@@ -14,6 +14,7 @@ export type AiModelRuntimePolicy = {
   providerDeadlineMs: number;
   maxAttempts: 1;
   fallbackEnabled: false;
+  reasoningEffort: "minimal" | null;
   imageDetail?: "high";
 };
 
@@ -28,6 +29,7 @@ const policies = {
     providerDeadlineMs: 8_000,
     maxAttempts: 1,
     fallbackEnabled: false,
+    reasoningEffort: "minimal",
   },
   inventory_vision: {
     policyVersion: AI_RUNTIME_POLICY_VERSION,
@@ -40,6 +42,7 @@ const policies = {
     maxAttempts: 1,
     fallbackEnabled: false,
     imageDetail: "high",
+    reasoningEffort: null,
   },
 } as const satisfies Record<AiAssistantRequestKind, AiModelRuntimePolicy>;
 

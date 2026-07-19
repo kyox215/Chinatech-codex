@@ -50,6 +50,7 @@ describe("OpenAI Responses provider", () => {
       store: false,
       safety_identifier: safetyIdentifier,
       max_output_tokens: 256,
+      reasoning: { effort: "minimal" },
       tool_choice: "required",
       parallel_tool_calls: false,
     });
