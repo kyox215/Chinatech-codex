@@ -19,3 +19,10 @@
 ## Active context exception
 
 项目根工作区存在另一项并行任务的未提交 `ACTIVE_CONTEXT.md`。为避免覆盖用户/其他任务状态，本检查点只写入任务本地目录；发布后继续以本任务 `TASK.md` 与本文件作为恢复入口。
+
+## 2026-07-19T23:35:00Z — 生产首轮烟测后调整工作台高度
+
+- **Phase:** production-correction
+- **Observed:** `main@5942a9de` 的 Vercel 部署 Ready；生产真实订单在 1437×771 视口下所有列宽约束正确，但较长的设备保管交接摘要让默认概览出现 25px 内部滚动。
+- **Decision:** 桌面工作台高度上限由 680px 调整为 720px；宽度、列布局和业务行为不变。
+- **Next:** 重新运行布局回归和构建，提交修正，等待新 exact-SHA Ready 后复测生产滚动差。
