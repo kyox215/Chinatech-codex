@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["API", "DATA", "DOC", "INT", "QA", "Release", "SEC"]
 created_at: "2026-07-18T21:11:07Z"
-updated_at: "2026-07-19T00:01:06Z"
+updated_at: "2026-07-19T00:04:49Z"
 ---
 
 # Task — RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度

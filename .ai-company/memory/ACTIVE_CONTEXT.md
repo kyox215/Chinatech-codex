@@ -20,7 +20,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-Original D4 executed through one non-PII billable smoke: ledger settled 123 micro-USD with one attempt, but service returned `AI_PROVIDER_PROTOCOL_ERROR`. ChinaTech was never activated; all Production AI flags remain off; `ai-runtime-v1` is disabled; no open reservation. Local `ai-runtime-v2` adds explicit GPT-5 nano minimal reasoning and passes agents/lint/typecheck, focused 47 tests, full 1,894 tests, Webpack build, formatting/diff and exact-key scan.
+Original D4 executed through one non-PII billable smoke: ledger settled 123 micro-USD with one attempt, but service returned `AI_PROVIDER_PROTOCOL_ERROR`. ChinaTech was never activated; all Production AI flags remain off; `ai-runtime-v1` is disabled; no open reservation. `ai-runtime-v2` adds explicit GPT-5 nano minimal reasoning, passes agents/lint/typecheck, focused 47 tests, full 1,894 tests, Webpack build, formatting/diff and exact-key scan, and is pushed only to the isolated branch in code commit `94133d0b`. Production remains READY on `main@bc5dfae3`.
 
 ## Blocking decisions
 
@@ -30,7 +30,7 @@ Original D4 executed through one non-PII billable smoke: ledger settled 123 micr
 
 ## Next action
 
-Validate checkpoint diff, commit and push only the isolated remediation branch. Do not deploy v2, seed/enable v2 policy, run another OpenAI generation, activate ChinaTech or begin observation until a new Owner D4 is explicit.
+Present the revised D4 packet and wait. Do not deploy v2, seed/enable v2 policy, run another OpenAI generation, activate ChinaTech or begin observation until a new Owner D4 is explicit.
 
 ## Resume protocol
 

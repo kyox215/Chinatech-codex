@@ -77,3 +77,11 @@
 - **Next:** Validate checkpoint diff, commit and push only the isolated remediation branch. Do not deploy v2, seed/enable v2 policy, run another OpenAI generation, activate ChinaTech or begin observation until a new Owner D4 is explicit.
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-19T00:04:49Z — v2 remediation pushed; revised D4 gate ready
+
+- **Phase:** remediation approval gate.
+- **Completed/current state:** final diff and memory checkpoint were validated. The versioned minimal-reasoning remediation is committed as `94133d0b` and pushed only to `origin/codex/ai-live-pilot-20260718`.
+- **Production verification:** `www.chinatech.in` remains READY on `main@bc5dfae3` / deployment `dpl_6DLuoHkZ6io6jjqARNPrXVDzzQSV`. Vercel live flags are all `0`, store allowlist is absent, Production policy version remains v1, and the database v1 policy is disabled with zero open reservations.
+- **Boundary:** no v2 Production env/policy mutation, second OpenAI call, canary activation or observation occurred. The owner's dirty root checkout was not edited or cleaned.
+- **Next:** present and await explicit revised D4 approval.
