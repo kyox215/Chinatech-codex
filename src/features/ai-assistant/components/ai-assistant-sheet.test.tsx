@@ -31,12 +31,14 @@ describe("AiAssistantSheet", () => {
     FakeSpeechRecognition.instances = [];
     clearSpeechRecognition();
     setOnline(true);
+    document.documentElement.lang = "zh-CN";
   });
 
   afterEach(() => {
     cleanup();
     clearSpeechRecognition();
     setOnline(true);
+    document.documentElement.lang = "zh-CN";
   });
 
   it("submits a bounded question and renders the minimal order card", async () => {
@@ -62,6 +64,62 @@ describe("AiAssistantSheet", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
     expect(options.signal).toMatchObject({ aborted: false });
+    expect(onModelUsageChanged).not.toHaveBeenCalled();
+  });
+
+  it("uses the current interface language for the query", async () => {
+    document.documentElement.lang = "it-IT";
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R-IT", "order-it"));
+    renderSheet();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+      target: { value: "mostra iPhone 15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    await screen.findByText("R-IT");
+    expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: "it-IT" }),
+      expect.any(Object),
+    );
+  });
+
+  it("continues loading in place without replacing earlier cards or changing model usage", async () => {
+    const first = response("R-PAGE-1", "order-page-1");
+    first.total = 2;
+    first.result_truncated = true;
+    first.has_more = true;
+    first.continuation_token = "continuation-token-with-more-than-32-characters";
+    const second = response("R-PAGE-2", "order-page-2");
+    second.request_id = "00000000-0000-4000-8000-000000000002";
+    second.total = 2;
+    second.page = 2;
+    second.has_more = false;
+    second.continuation_token = null;
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    const onModelUsageChanged = vi.fn();
+    renderSheet({ onModelUsageChanged });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+      target: { value: "苹果15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    fireEvent.click(await screen.findByRole("button", { name: /继续加载/ }));
+
+    expect(await screen.findByText("R-PAGE-2")).toBeInTheDocument();
+    expect(screen.getByText("R-PAGE-1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /继续加载/ })).not.toBeInTheDocument();
+    expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledTimes(2);
+    const firstRequest = apiMocks.runAiOrderAssistantTurn.mock.calls[0]![0];
+    const secondRequest = apiMocks.runAiOrderAssistantTurn.mock.calls[1]![0];
+    expect(secondRequest).toMatchObject({
+      message: "苹果15",
+      locale: "zh-CN",
+      processing_mode: "local",
+      page: 2,
+      continuation_token: first.continuation_token,
+    });
+    expect(secondRequest.client_request_id).not.toBe(firstRequest.client_request_id);
     expect(onModelUsageChanged).not.toHaveBeenCalled();
   });
 
@@ -447,7 +505,7 @@ function sheetElement(overrides: Partial<React.ComponentProps<typeof AiAssistant
 function response(publicNo: string, id: string): AiOrderAssistantResponse {
   return {
     request_id: "00000000-0000-4000-8000-000000000001",
-    contract_version: "ai-order-assistant-v3",
+    contract_version: "ai-order-assistant-v4",
     kind: "search_results",
     message: "RepairDesk 找到 1 条符合条件的工单。",
     interpretation_status: "confirmed",
@@ -478,6 +536,10 @@ function response(publicNo: string, id: string): AiOrderAssistantResponse {
     ],
     total: 1,
     result_truncated: false,
+    page: 1,
+    page_size: 8,
+    has_more: false,
+    continuation_token: null,
     generated_at: "2026-07-18T12:00:00.000Z",
     source: "repairdesk",
   };

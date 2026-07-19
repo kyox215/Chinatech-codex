@@ -89,6 +89,12 @@ Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预�
 - `provider-signal.ts` 合并浏览器/路由取消和固定 provider deadline；provider interface 已接收 `AbortSignal`。
 - 请求一旦可能已发送，超时或断线不能按 0 退款；必须按预留上限结算或进入对账持有。
 
+## 订单续页与计费边界
+
+- Order Query V4 首轮只在员工明确选择大模型且没有安全本地直达时预留并结算一次 provider 请求。结果续页不会重新规划，也不会创建新的 provider reservation。
+- 服务端使用既有 `AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET` 对受验证查询计划、10 分钟期限和 actor/store HMAC 作用域执行 AES-GCM 加密密封与 HMAC 签名；浏览器无法读取查询词，原始 actor/store ID、订单结果和模型证据引用不会进入令牌，经过验证的查询计划只存在于认证密文中。秘密轮换会让旧令牌立即失效。
+- 续页仍计入应用短窗请求限流并重新执行认证、RBAC、门店隔离和 repository 查询；它不增加 `provider_request_count`、Token 或 micro-USD。若 secret 缺失、令牌过期、篡改或作用域改变，续页失败关闭，不回退为重新调用模型。
+
 ## Durable quota migration 链
 
 已经应用且不得改写的 Phase 3A 基线：

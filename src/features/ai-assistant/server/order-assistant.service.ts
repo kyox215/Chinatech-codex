@@ -47,6 +47,14 @@ import {
   planDeterministicOrderQuery,
 } from "./order-intent-router";
 import {
+  createAiOrderContinuationToken,
+  verifyAiOrderContinuationToken,
+} from "./order-continuation";
+import {
+  compileEvidenceBackedProviderConstraints,
+  stripOrderSearchEvidence,
+} from "./order-query-evidence";
+import {
   AI_ORDER_QUERY_TIME_ZONE,
   hasUnresolvedOrderDateExpression,
   redactValidatedOrderDateTokensForEgress,
@@ -116,6 +124,9 @@ export async function runAiOrderAssistantTurn({
     | "reservedMicroUsd"
     | "budgetOutcome"
     | "safetyIdentifierPresent"
+    | "acceptedFieldCount"
+    | "changedFieldCount"
+    | "rejectedFieldCount"
   > = {
     event: "order_plan",
     provider: "none",
@@ -141,16 +152,40 @@ export async function runAiOrderAssistantTurn({
       env: dependencies.env,
       now: dependencies.now,
     });
-    const trustedSearchConstraints = extractTrustedOrderSearchConstraints(input.message);
-    const unresolvedDateExpression = hasUnresolvedOrderDateExpression(input.message);
-
+    const requestedPage = input.page ?? 1;
+    const continuationCall = input.continuation_token
+      ? verifyAiOrderContinuationToken({
+          actor,
+          token: input.continuation_token,
+          secret: (dependencies.env ?? (process.env as AiAssistantFeatureEnvironment))
+            .AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET,
+          now: dependencies.now?.(),
+        })
+      : null;
+    const trustedSearchConstraints = continuationCall
+      ? {}
+      : extractTrustedOrderSearchConstraints(input.message);
+    const unresolvedDateExpression = continuationCall
+      ? false
+      : hasUnresolvedOrderDateExpression(input.message);
+    const localCandidate = continuationCall ? null : planDeterministicOrderQuery(input);
     const deterministic =
-      input.processing_mode === "model" || unresolvedDateExpression
+      unresolvedDateExpression ||
+      (input.processing_mode === "model" && localCandidate?.toolCall.name !== "get_order_summary")
         ? null
-        : planDeterministicOrderQuery(input);
+        : localCandidate;
     let authoritativeSafetyPlan = false;
     let plannedToolCall: unknown;
-    if (unresolvedDateExpression) {
+    if (continuationCall) {
+      authoritativeSafetyPlan = true;
+      plannedToolCall = continuationCall;
+      auditContext.provider = "none";
+      auditContext.modelVersion = "order-continuation-v1";
+      auditContext.policyVersion = "order-continuation-v1";
+      auditContext.resolutionPath = "local";
+      auditContext.budgetOutcome = "not_required";
+      auditContext.safetyIdentifierPresent = false;
+    } else if (unresolvedDateExpression) {
       authoritativeSafetyPlan = true;
       plannedToolCall = {
         name: "clarify_order_query",
@@ -268,9 +303,19 @@ export async function runAiOrderAssistantTurn({
               parsedCall.data.name === "clarify_order_query"
                 ? ("needs_confirmation" as const)
                 : ("confirmed" as const),
+            acceptedFieldCount: 0,
+            changedFieldCount: 0,
+            rejectedFieldCount: 0,
           }
-        : reconcileTrustedSearchConstraints(parsedCall.data, trustedSearchConstraints);
+        : reconcileTrustedSearchConstraints(
+            parsedCall.data,
+            trustedSearchConstraints,
+            input.message,
+          );
     const effectiveCall = reconciliation.toolCall;
+    auditContext.acceptedFieldCount = reconciliation.acceptedFieldCount;
+    auditContext.changedFieldCount = reconciliation.changedFieldCount;
+    auditContext.rejectedFieldCount = reconciliation.rejectedFieldCount;
     auditContext.event = "order_tool";
     auditContext.toolName = effectiveCall.name;
 
@@ -307,7 +352,7 @@ export async function runAiOrderAssistantTurn({
       }
       const result = await dependencies.listOrdersPage(
         {
-          page: 1,
+          page: requestedPage,
           pageSize: args.page_size,
           search: args.search ?? undefined,
           deviceSearch: args.device_search ?? undefined,
@@ -351,6 +396,18 @@ export async function runAiOrderAssistantTurn({
       const isAmountReview = args.financial_review === "amount_anomaly";
       const isQuotedServiceReview = Boolean(args.service_group);
       const isPartsNeeded = args.parts_status === "needed";
+      const moreResultsExist =
+        result.page < result.pageCount ||
+        result.total > (result.page - 1) * result.pageSize + cards.length;
+      const continuationToken = moreResultsExist
+        ? createAiOrderContinuationToken({
+            actor,
+            toolCall: effectiveCall,
+            secret: (dependencies.env ?? (process.env as AiAssistantFeatureEnvironment))
+              .AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET,
+            now: dependencies.now?.(),
+          })
+        : null;
       response = buildResponse({
         requestId,
         kind: "search_results",
@@ -370,7 +427,11 @@ export async function runAiOrderAssistantTurn({
         cards,
         appliedFilters,
         total: result.total,
-        resultTruncated: result.total > cards.length,
+        resultTruncated: moreResultsExist,
+        page: result.page,
+        pageSize: result.pageSize,
+        hasMore: moreResultsExist && Boolean(continuationToken),
+        continuationToken,
         now: dependencies.now,
       });
     } else {
@@ -461,38 +522,89 @@ export async function runAiOrderAssistantTurn({
 function reconcileTrustedSearchConstraints(
   call: AiOrderToolCall,
   trusted: Partial<Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]>,
+  message: string,
 ): {
   toolCall: AiOrderToolCall;
   interpretationStatus: AiOrderInterpretationStatus;
+  acceptedFieldCount: number;
+  changedFieldCount: number;
+  rejectedFieldCount: number;
 } {
-  if (Object.keys(trusted).length === 0) {
-    if (call.name === "clarify_order_query") {
-      return { toolCall: call, interpretationStatus: "needs_confirmation" };
-    }
+  const compilation =
+    call.name === "search_orders"
+      ? compileEvidenceBackedProviderConstraints(message, call.arguments)
+      : { constraints: {}, acceptedFields: [], rejectedFields: [] };
+  const merged = {
+    ...compilation.constraints,
+    ...trusted,
+  } as Partial<Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]>;
+  if (merged.device_search) merged.search = null;
+  if (
+    merged.date_filter ||
+    merged.completed_only ||
+    merged.service_group ||
+    merged.view === "archive" ||
+    merged.view === "all"
+  ) {
+    merged.view = merged.view === "archive" ? "archive" : "all";
+  }
+
+  if (!hasExecutableOrderConstraint(merged)) {
+    const clarification =
+      call.name === "clarify_order_query"
+        ? call
+        : aiOrderToolCallSchema.parse({
+            name: "clarify_order_query",
+            arguments: {
+              question:
+                "我还不能可靠确认这句话对应的订单条件，因此没有执行查询。请补充设备、日期、付款、流程或配件状态。",
+            },
+          });
     return {
-      toolCall: aiOrderToolCallSchema.parse({
-        name: "clarify_order_query",
-        arguments: {
-          question:
-            "我还不能可靠确认这句话对应的订单条件，因此没有执行查询。请补充设备、日期、付款、流程或配件状态。",
-        },
-      }),
+      toolCall: clarification,
       interpretationStatus: "needs_confirmation",
+      acceptedFieldCount: compilation.acceptedFields.length,
+      changedFieldCount: call.name === "clarify_order_query" ? 0 : 1,
+      rejectedFieldCount: compilation.rejectedFields.length,
     };
   }
 
-  const authoritative = aiOrderToolCallSchema.parse(searchCall(trusted));
+  const authoritative = aiOrderToolCallSchema.parse(searchCall(merged));
+  if (authoritative.name !== "search_orders") throw new Error("invalid authoritative AI search");
   const providerMatched =
     call.name === "search_orders" &&
-    JSON.stringify(call.arguments) === JSON.stringify(authoritative.arguments);
+    JSON.stringify({ ...stripOrderSearchEvidence(call.arguments), page_size: 8 }) ===
+      JSON.stringify(stripOrderSearchEvidence(authoritative.arguments));
+  const changedFieldCount = providerMatched ? 0 : Math.max(1, compilation.rejectedFields.length);
   return {
     toolCall: authoritative,
     interpretationStatus: providerMatched
-      ? trusted.view
-        ? "confirmed"
-        : "defaulted"
+      ? authoritative.arguments.view === "active"
+        ? "defaulted"
+        : "confirmed"
       : "corrected",
+    acceptedFieldCount: compilation.acceptedFields.length,
+    changedFieldCount,
+    rejectedFieldCount: compilation.rejectedFields.length,
   };
+}
+
+function hasExecutableOrderConstraint(
+  constraints: Partial<Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]>,
+) {
+  return Boolean(
+    constraints.search ||
+    constraints.device_search ||
+    (constraints.view && constraints.view !== "active") ||
+    (constraints.paid && constraints.paid !== "all") ||
+    constraints.overdue ||
+    constraints.queue_group ||
+    constraints.financial_review ||
+    constraints.date_filter ||
+    constraints.service_group ||
+    constraints.completed_only ||
+    constraints.parts_status,
+  );
 }
 
 function localModeClarification(locale: AiAssistantRequest["locale"]) {
@@ -611,6 +723,10 @@ function buildResponse({
   appliedFilters,
   total,
   resultTruncated,
+  page = 1,
+  pageSize = 8,
+  hasMore = false,
+  continuationToken = null,
   now = () => new Date(),
 }: {
   requestId: string;
@@ -621,6 +737,10 @@ function buildResponse({
   appliedFilters: AiOrderAppliedFilter[];
   total: number;
   resultTruncated: boolean;
+  page?: number;
+  pageSize?: number;
+  hasMore?: boolean;
+  continuationToken?: string | null;
   now?: () => Date;
 }): AiOrderAssistantResponse {
   return {
@@ -633,6 +753,10 @@ function buildResponse({
     cards,
     total,
     result_truncated: resultTruncated,
+    page,
+    page_size: pageSize,
+    has_more: hasMore,
+    continuation_token: continuationToken,
     generated_at: now().toISOString(),
     source: "repairdesk",
   };

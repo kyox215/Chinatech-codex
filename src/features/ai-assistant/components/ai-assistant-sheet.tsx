@@ -31,6 +31,7 @@ import type {
   AiAssistantUsageSummary,
   AiOrderAssistantResponse,
 } from "@/features/ai-assistant/model/contracts";
+import { currentAiAssistantLocale } from "@/features/ai-assistant/model/locale";
 import { AiOrderResultCard } from "@/features/ai-assistant/components/ai-order-result-card";
 import { AiProcessingUsageDisclosure } from "@/features/ai-assistant/components/ai-processing-usage-disclosure";
 import { useAiAssistantVoiceInput } from "@/features/ai-assistant/components/use-ai-assistant-voice-input";
@@ -87,10 +88,13 @@ export function AiAssistantSheet({
   const [lastQuestion, setLastQuestion] = useState("");
   const [processingMode, setProcessingMode] = useState<AiAssistantProcessingMode>("local");
   const [lastProcessingMode, setLastProcessingMode] = useState<AiAssistantProcessingMode>("local");
+  const [locale] = useState(currentAiAssistantLocale);
   const [controlDetailsOpen, setControlDetailsOpen] = useState(false);
   const [status, setStatus] = useState<AssistantStatus>("idle");
   const [response, setResponse] = useState<AiOrderAssistantResponse>();
   const [error, setError] = useState<AssistantErrorState>();
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string>();
   const [isOnline, setIsOnline] = useState(
     () => typeof navigator === "undefined" || navigator.onLine,
   );
@@ -105,7 +109,7 @@ export function AiAssistantSheet({
     maxLength: 800,
     disabled:
       !open || !canSubmit || capabilitiesLoading || capabilitiesError || status === "loading",
-    lang: "zh-CN",
+    lang: locale,
   });
   const abortVoiceInput = voiceInput.abort;
 
@@ -132,6 +136,8 @@ export function AiAssistantSheet({
     setStatus("idle");
     setResponse(undefined);
     setError(undefined);
+    setIsLoadingMore(false);
+    setLoadMoreError(undefined);
     lastClientRequestIdRef.current = undefined;
   }, [abortVoiceInput, storeKey]);
 
@@ -147,6 +153,7 @@ export function AiAssistantSheet({
     controllerRef.current.abort();
     controllerRef.current = undefined;
     setStatus("cancelled");
+    setIsLoadingMore(false);
   }, [abortVoiceInput, open]);
 
   useEffect(
@@ -178,6 +185,8 @@ export function AiAssistantSheet({
       setStatus("loading");
       setResponse(undefined);
       setError(undefined);
+      setIsLoadingMore(false);
+      setLoadMoreError(undefined);
       const clientRequestId =
         reuseLastRequest && lastClientRequestIdRef.current
           ? lastClientRequestIdRef.current
@@ -189,7 +198,7 @@ export function AiAssistantSheet({
           {
             client_request_id: clientRequestId,
             message,
-            locale: "zh-CN",
+            locale,
             processing_mode: submittedMode,
           },
           { signal: controller.signal },
@@ -211,14 +220,62 @@ export function AiAssistantSheet({
         setStatus("error");
       }
     },
-    [abortVoiceInput, canSubmit, input, isOnline, onModelUsageChanged, processingMode],
+    [abortVoiceInput, canSubmit, input, isOnline, locale, onModelUsageChanged, processingMode],
   );
+
+  const loadMore = useCallback(async () => {
+    const current = response;
+    if (
+      !current ||
+      !current.has_more ||
+      !current.continuation_token ||
+      isLoadingMore ||
+      !canSubmit ||
+      !isOnline ||
+      !lastQuestion
+    ) {
+      return;
+    }
+
+    const sequence = requestSequenceRef.current + 1;
+    requestSequenceRef.current = sequence;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setIsLoadingMore(true);
+    setLoadMoreError(undefined);
+
+    try {
+      const next = await runAiOrderAssistantTurn(
+        {
+          client_request_id: crypto.randomUUID(),
+          message: lastQuestion,
+          locale,
+          processing_mode: lastProcessingMode,
+          page: current.page + 1,
+          continuation_token: current.continuation_token,
+        },
+        { signal: controller.signal },
+      );
+      if (requestSequenceRef.current !== sequence) return;
+      controllerRef.current = undefined;
+      setResponse((previous) => mergeAssistantPages(previous, next));
+      setIsLoadingMore(false);
+    } catch (caught) {
+      if (requestSequenceRef.current !== sequence) return;
+      controllerRef.current = undefined;
+      setIsLoadingMore(false);
+      if (isAbortError(caught)) return;
+      setLoadMoreError(toAssistantError(caught).message);
+    }
+  }, [canSubmit, isLoadingMore, isOnline, lastProcessingMode, lastQuestion, locale, response]);
 
   const cancel = () => {
     const controller = controllerRef.current;
     requestSequenceRef.current += 1;
     controllerRef.current = undefined;
     setStatus("cancelled");
+    setIsLoadingMore(false);
     controller?.abort();
   };
 
@@ -320,6 +377,9 @@ export function AiAssistantSheet({
                     setInput(lastQuestion);
                     requestAnimationFrame(() => messageInputRef.current?.focus());
                   }}
+                  onLoadMore={() => void loadMore()}
+                  isLoadingMore={isLoadingMore}
+                  loadMoreError={loadMoreError}
                   onCardUpdated={(updatedCard) =>
                     setResponse((current) =>
                       current
@@ -552,12 +612,18 @@ function ResultState({
   response,
   onNavigate,
   onAdjustQuery,
+  onLoadMore,
+  isLoadingMore,
+  loadMoreError,
   isOnline,
   onCardUpdated,
 }: {
   response: AiOrderAssistantResponse;
   onNavigate: () => void;
   onAdjustQuery: () => void;
+  onLoadMore: () => void;
+  isLoadingMore: boolean;
+  loadMoreError?: string;
   isOnline: boolean;
   onCardUpdated: (card: AiOrderAssistantResponse["cards"][number]) => void;
 }) {
@@ -601,29 +667,43 @@ function ResultState({
 
         {response.applied_filters.length > 0 ? (
           <Collapsible open={scopeOpen} onOpenChange={setScopeOpen} className="mt-2">
-            <CollapsibleTrigger asChild>
-              <button
+            <div className="flex min-w-0 gap-1.5">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={scopeOpen ? "收起查询范围" : "展开查询范围"}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-semibold text-muted-foreground">
+                      已核对查询范围
+                    </span>
+                    <span className="block truncate text-xs text-foreground" title={scopeSummary}>
+                      {scopeSummary}
+                      {response.applied_filters.length > 3
+                        ? ` · +${response.applied_filters.length - 3}`
+                        : null}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 shrink-0 transition-transform",
+                      scopeOpen && "rotate-180",
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              </CollapsibleTrigger>
+              <Button
                 type="button"
-                className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={scopeOpen ? "收起查询范围" : "展开查询范围"}
+                variant="outline"
+                size="sm"
+                className="h-auto min-h-11 shrink-0 px-3"
+                onClick={onAdjustQuery}
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[10px] font-semibold text-muted-foreground">
-                    已核对查询范围
-                  </span>
-                  <span className="block truncate text-xs text-foreground" title={scopeSummary}>
-                    {scopeSummary}
-                    {response.applied_filters.length > 3
-                      ? ` · +${response.applied_filters.length - 3}`
-                      : null}
-                  </span>
-                </span>
-                <ChevronDown
-                  className={cn("size-4 shrink-0 transition-transform", scopeOpen && "rotate-180")}
-                  aria-hidden="true"
-                />
-              </button>
-            </CollapsibleTrigger>
+                修改
+              </Button>
+            </div>
             <CollapsibleContent>
               <section
                 aria-label="系统实际采用的查询条件"
@@ -656,15 +736,6 @@ function ResultState({
             <p className="min-w-0 flex-1 text-xs text-muted-foreground">
               已按上方范围完成查询，没有用近似条件替代原意。
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-11"
-              onClick={onAdjustQuery}
-            >
-              修改查询
-            </Button>
           </div>
         ) : null}
       </div>
@@ -678,6 +749,35 @@ function ResultState({
           onCardUpdated={onCardUpdated}
         />
       ))}
+
+      {response.has_more && response.continuation_token ? (
+        <div className="rounded-xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]">
+          {loadMoreError ? (
+            <p role="alert" className="mb-2 text-xs leading-5 text-status-danger-foreground">
+              {loadMoreError}
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full gap-2"
+            data-ai-assistant-load-more="true"
+            disabled={!isOnline || isLoadingMore}
+            onClick={onLoadMore}
+          >
+            {isLoadingMore ? (
+              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            {isLoadingMore
+              ? "正在加载下一批…"
+              : `继续加载（已显示 ${response.cards.length} / ${response.total}）`}
+          </Button>
+        </div>
+      ) : response.result_truncated ? (
+        <p className="rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-xs text-muted-foreground">
+          当前安全会话无法继续加载；请缩小查询范围后重试。
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -688,6 +788,23 @@ function interpretationStatusLabel(status: AiOrderAssistantResponse["interpretat
   if (status === "needs_confirmation") return "需要确认后再查询";
   if (status === "permission_limited") return "已按当前权限限制范围";
   return "已确认查询条件";
+}
+
+function mergeAssistantPages(
+  previous: AiOrderAssistantResponse | undefined,
+  next: AiOrderAssistantResponse,
+): AiOrderAssistantResponse {
+  if (
+    !previous ||
+    previous.kind !== "search_results" ||
+    next.kind !== "search_results" ||
+    next.page <= previous.page
+  ) {
+    return next;
+  }
+  const cards = new Map(previous.cards.map((card) => [card.id, card]));
+  for (const card of next.cards) cards.set(card.id, card);
+  return { ...next, cards: [...cards.values()] };
 }
 
 function filterSourceLabel(source: AiOrderAssistantResponse["applied_filters"][number]["source"]) {

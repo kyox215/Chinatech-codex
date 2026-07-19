@@ -56,6 +56,29 @@ describe("AI assistant contracts", () => {
     ).toThrow();
   });
 
+  it("requires a bounded continuation token for every page after the first", () => {
+    const continuationToken = "signed-continuation-token-with-more-than-32-characters";
+    expect(
+      aiAssistantRequestSchema.parse({
+        message: "苹果15",
+        locale: "zh-CN",
+        page: 2,
+        continuation_token: continuationToken,
+      }),
+    ).toMatchObject({ page: 2, continuation_token: continuationToken });
+    expect(() =>
+      aiAssistantRequestSchema.parse({ message: "苹果15", locale: "zh-CN", page: 2 }),
+    ).toThrow();
+    expect(() =>
+      aiAssistantRequestSchema.parse({
+        message: "苹果15",
+        locale: "zh-CN",
+        page: 1,
+        continuation_token: continuationToken,
+      }),
+    ).toThrow();
+  });
+
   it("keeps every strict JSON-schema object closed and required", () => {
     expect(aiOrderSearchArgumentsJsonSchema.additionalProperties).toBe(false);
     expect(aiOrderSearchArgumentsJsonSchema.required).toEqual(

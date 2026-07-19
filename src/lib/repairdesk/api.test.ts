@@ -77,7 +77,7 @@ describe("repairdesk api client", () => {
           JSON.stringify({
             data: {
               request_id: "00000000-0000-4000-8000-000000000001",
-              contract_version: "ai-order-assistant-v3",
+              contract_version: "ai-order-assistant-v4",
               interpretation_status: "confirmed",
               kind: "clarification",
               message: "请补充订单号",
@@ -85,6 +85,10 @@ describe("repairdesk api client", () => {
               cards: [],
               total: 0,
               result_truncated: false,
+              page: 1,
+              page_size: 8,
+              has_more: false,
+              continuation_token: null,
               generated_at: "2026-07-18T12:00:00.000Z",
               source: "repairdesk",
             },

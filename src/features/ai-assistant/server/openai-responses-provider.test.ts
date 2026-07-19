@@ -22,7 +22,11 @@ describe("OpenAI Responses provider", () => {
 
     expect(result.toolCall).toMatchObject({
       name: "search_orders",
-      arguments: { view: "active", paid: "unpaid" },
+      arguments: {
+        view: "active",
+        paid: "unpaid",
+        evidence: [{ field: "paid", quote: "unpaid" }],
+      },
     });
     expect(result.metadata).toMatchObject({
       provider: "openai",
@@ -70,7 +74,7 @@ describe("OpenAI Responses provider", () => {
     expect(searchTool).toMatchObject({
       description: expect.stringContaining("device_search"),
       parameters: expect.objectContaining({
-        required: expect.arrayContaining(["device_search", "financial_review"]),
+        required: expect.arrayContaining(["device_search", "financial_review", "evidence"]),
       }),
     });
     expect(body.instructions).toEqual(
@@ -80,6 +84,7 @@ describe("OpenAI Responses provider", () => {
     expect(body.instructions).toEqual(
       expect.stringContaining("Never emit an unconstrained search_orders"),
     );
+    expect(body.instructions).toEqual(expect.stringContaining("shortest exact quote"));
   });
 
   it("sends one bounded image request and rejects cloud identifiers", async () => {
@@ -269,6 +274,7 @@ function orderResponse() {
           service_group: null,
           completed_only: false,
           parts_status: null,
+          evidence: [{ field: "paid", quote: "unpaid" }],
           page_size: 8,
         }),
       },

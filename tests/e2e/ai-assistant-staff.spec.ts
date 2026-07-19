@@ -29,6 +29,59 @@ test.describe("staff AI assistant bounded workflow", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("mobile keeps prior cards while a signed continuation loads the next page", async ({
+    page,
+  }) => {
+    const continuationToken = "e2e-signed-continuation-token-with-more-than-32-characters";
+    const requests: Array<Record<string, unknown>> = [];
+    await page.route("**/api/repairdesk/ai/order/turn", async (route) => {
+      const body = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+      requests.push(body);
+      const isContinuation = body.page === 2;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: assistantPageResponse({
+            requestId: isContinuation
+              ? "00000000-0000-4000-8000-000000000402"
+              : "00000000-0000-4000-8000-000000000401",
+            orderId: isContinuation ? "order-page-2" : "order-page-1",
+            publicNo: isContinuation ? "R-PAGE-2" : "R-PAGE-1",
+            page: isContinuation ? 2 : 1,
+            hasMore: !isContinuation,
+            continuationToken: isContinuation ? null : continuationToken,
+          }),
+        }),
+      });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, "/orders");
+    await page.locator('[data-ai-assistant-trigger="mobile-orders"]').click();
+
+    const sheet = page.locator('[data-ai-assistant-sheet="true"]');
+    const input = page.getByLabel("输入工单查询问题");
+    await input.fill("全部日期的苹果15");
+    await sheet.getByRole("button", { name: "发送", exact: true }).click();
+    await expect(sheet.getByText("R-PAGE-1")).toBeVisible();
+    await sheet.getByRole("button", { name: /继续加载/ }).click();
+
+    await expect(sheet.getByText("R-PAGE-1")).toBeVisible();
+    await expect(sheet.getByText("R-PAGE-2")).toBeVisible();
+    expect(requests[1]).toMatchObject({
+      page: 2,
+      continuation_token: continuationToken,
+      message: "全部日期的苹果15",
+    });
+    await sheet.getByRole("button", { name: "修改", exact: true }).click();
+    await expect(input).toHaveValue("全部日期的苹果15");
+    await expectNoHorizontalOverflow(page);
+    await hideNextDevIndicators(page);
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260720-001-ai-order-query-v4-release/continuation-mobile-390.png",
+    });
+  });
+
   for (const viewport of [
     { width: 390, height: 844 },
     { width: 430, height: 932 },
@@ -130,7 +183,7 @@ test.describe("staff AI assistant bounded workflow", () => {
     await expectNoHorizontalOverflow(page);
     await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-007-ai-natural-language-query-v3/apple-15-model-collapsed-mobile-390.png",
+      path: "screenshots/TASK-20260720-001-ai-order-query-v4-release/apple-15-model-collapsed-mobile-390.png",
     });
   });
 
@@ -357,6 +410,70 @@ async function aiTurnRequestCount(page: Page) {
   return page.evaluate(
     () => (window as typeof window & { __aiTurnRequestCount?: number }).__aiTurnRequestCount ?? 0,
   );
+}
+
+function assistantPageResponse({
+  requestId,
+  orderId,
+  publicNo,
+  page,
+  hasMore,
+  continuationToken,
+}: {
+  requestId: string;
+  orderId: string;
+  publicNo: string;
+  page: number;
+  hasMore: boolean;
+  continuationToken: string | null;
+}) {
+  return {
+    request_id: requestId,
+    contract_version: "ai-order-assistant-v4",
+    kind: "search_results",
+    interpretation_status: "confirmed",
+    message: "RepairDesk 找到 2 条符合条件的工单。",
+    applied_filters: [
+      {
+        key: "device",
+        label: "设备",
+        value: "iPhone 15",
+        evidence: "exact",
+        source: "user_explicit",
+      },
+      {
+        key: "date",
+        label: "时间",
+        value: "全部日期（创建时间 · Europe/Rome）",
+        evidence: "exact",
+        source: "user_explicit",
+      },
+    ],
+    cards: [
+      {
+        id: orderId,
+        public_no: publicNo,
+        customer_hint: "M*** R***",
+        device_label: "Apple iPhone 15 Pro",
+        status: "new",
+        status_label: "新工单",
+        updated_at: "2026-07-20T10:00:00.000Z",
+        completed_at: null,
+        parts_status: null,
+        matched_reasons: ["iPhone 15", "全部日期"],
+        allowed_actions: [],
+        href: `/orders/${orderId}`,
+      },
+    ],
+    total: 2,
+    result_truncated: hasMore,
+    page,
+    page_size: 1,
+    has_more: hasMore,
+    continuation_token: continuationToken,
+    generated_at: "2026-07-20T10:00:00.000Z",
+    source: "repairdesk",
+  };
 }
 
 async function installSpeechRecognitionMock(page: Page) {

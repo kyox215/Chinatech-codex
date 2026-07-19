@@ -77,7 +77,7 @@ AI_ASSISTANT_STORE_ALLOWLIST=5248dda1-2b32-46cd-8ed0-d15386a9e8ed
 AI_ASSISTANT_MAINTENANCE_ENABLED=1
 ```
 
-`AI_ORDER_INLINE_ACTIONS_ENABLED=0` 是本轮 Order Query V2 上线的硬门禁。查询结果可在对话内展开，并只通过明确链接打开订单；生产不会出现或执行“标记已订件”。启用该旗标属于新的 D4 生产写决策，不包含在当前 ChinaTech 只读文字 canary 批准内。
+`AI_ORDER_INLINE_ACTIONS_ENABLED=0` 是 Order Query V4 的硬门禁。查询结果可在对话内展开和连续加载，并只通过明确链接打开订单；生产不会出现或执行“标记已订件”。续页复用既有请求指纹 secret 的短时加密密封与签名，不改变模型、预算、配额、数据批准或数据库政策。启用写旗标仍属于新的 D4 生产写决策，不包含在当前 ChinaTech 只读文字 canary 批准内。
 
 ## v2 已执行发布顺序
 

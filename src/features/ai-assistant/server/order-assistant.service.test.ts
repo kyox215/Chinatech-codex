@@ -128,7 +128,11 @@ describe("order assistant service", () => {
 
     const response = await runAiOrderAssistantTurn({
       actor: owner,
-      input: { message: "请查工单 R2026001", locale: "zh-CN" },
+      input: {
+        message: "请查工单 R2026001",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
       dependencies: {
         provider: providerFactory,
         listOrdersPage: vi.fn(async () => result([selected], 1)),
@@ -147,7 +151,7 @@ describe("order assistant service", () => {
       expect.objectContaining({
         provider: "none",
         resolutionPath: "deterministic",
-        policyVersion: "order-direct-v5",
+        policyVersion: "order-direct-v6",
         requestKind: "order_text",
       }),
     );
@@ -550,6 +554,116 @@ describe("order assistant service", () => {
         resolutionPath: "provider",
       }),
     );
+  });
+
+  it("executes a model-only synonym only when an exact evidence quote validates it", async () => {
+    const provider = providerFor(
+      searchCall({
+        paid: "unpaid",
+        evidence: [{ field: "paid", quote: "尾款还没结清" }],
+      }),
+    );
+    const listOrdersPage = vi.fn(async () => result([], 0));
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "找出尾款还没结清的维修单",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: { provider, listOrdersPage, getOrder: vi.fn(), env: enabledEnv },
+    });
+
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({ paid: "unpaid", page: 1 }),
+      owner,
+    );
+    expect(response.interpretation_status).toBe("defaulted");
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        acceptedFieldCount: 1,
+        rejectedFieldCount: 0,
+        changedFieldCount: 0,
+      }),
+    );
+  });
+
+  it("does not query when a model-only constraint lacks valid source evidence", async () => {
+    const provider = providerFor(searchCall({ paid: "unpaid" }));
+    const listOrdersPage = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "找出尾款还没结清的维修单",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: { provider, listOrdersPage, getOrder: vi.fn(), env: enabledEnv },
+    });
+
+    expect(response).toMatchObject({
+      kind: "clarification",
+      interpretation_status: "needs_confirmation",
+      total: 0,
+    });
+    expect(listOrdersPage).not.toHaveBeenCalled();
+  });
+
+  it("loads a signed continuation page without invoking the provider or paid quota", async () => {
+    const firstOrder = order({ id: "order-1", public_no: "R2026001" });
+    const secondOrder = order({ id: "order-2", public_no: "R2026002" });
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const consumeQuota = vi.fn();
+    const listOrdersPage = vi.fn(async (input) => ({
+      ...result(input.page === 2 ? [secondOrder] : [firstOrder], 9),
+      page: input.page ?? 1,
+      pageSize: 8,
+      pageCount: 2,
+    }));
+
+    const first = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "查找未付款工单", locale: "zh-CN", processing_mode: "local" },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: liveEnv,
+        consumeQuota,
+      },
+    });
+    expect(first).toMatchObject({ page: 1, page_size: 8, has_more: true });
+    expect(first.continuation_token).toBeTruthy();
+
+    const second = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "查找未付款工单",
+        locale: "zh-CN",
+        processing_mode: "model",
+        page: 2,
+        continuation_token: first.continuation_token!,
+      },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: liveEnv,
+        consumeQuota,
+      },
+    });
+
+    expect(second).toMatchObject({
+      page: 2,
+      has_more: false,
+      continuation_token: null,
+      cards: [expect.objectContaining({ public_no: "R2026002" })],
+    });
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(listOrdersPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }), owner);
   });
 
   it.each([

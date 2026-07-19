@@ -6,7 +6,7 @@ import {
 import { parseDeviceSearchIntent } from "@/entities/order";
 import { hasUnresolvedOrderDateExpression, parseTrustedOrderDateFilter } from "./order-query-date";
 
-export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v5" as const;
+export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v6" as const;
 
 export type DeterministicOrderPlan = {
   policyVersion: typeof AI_ORDER_DETERMINISTIC_POLICY_VERSION;
@@ -169,11 +169,15 @@ function parseTrustedDeviceSearch(value: string) {
 
   const withoutNaturalLanguageModifiers = value
     .replace(
-      /上(?:个)?(?:星期|周)|本周|这周|这个星期|上月|上个月|本月|这个月|这一个月|今年这个月(?:内)?|上季度|本季度|去年|今年|昨天|今天|last\s+week|this\s+week|last\s+month|this\s+month|last\s+quarter|this\s+quarter|last\s+year|this\s+year|yesterday|today|settimana\s+scorsa|questa\s+settimana|mese\s+scorso|questo\s+mese|trimestre\s+scorso|questo\s+trimestre|anno\s+scorso|quest['’]?anno|ieri|oggi/gi,
+      /上(?:个)?(?:星期|周)|本周|这周|这个星期|上月|上个月|本月|这个月|这一个月|今年这个月(?:内)?|上季度|本季度|去年|今年|昨天|今天|不限日期|不限时间|全部日期|所有日期|从开店到现在|last\s+week|this\s+week|last\s+month|this\s+month|last\s+quarter|this\s+quarter|last\s+year|this\s+year|yesterday|today|all\s+time|all\s+dates|settimana\s+scorsa|questa\s+settimana|mese\s+scorso|questo\s+mese|trimestre\s+scorso|questo\s+trimestre|anno\s+scorso|quest['’]?anno|ieri|oggi|senza\s+limiti\s+di\s+data/gi,
       " ",
     )
     .replace(
       /(?:最近|近|过去|過去|前)?\s*(?:半|[零〇一二两兩三四五六七八九十百\d]+)\s*(?:天|日|周|星期|个?月|個?月|年)(?:内|內|以内|以內)?/gi,
+      " ",
+    )
+    .replace(
+      /(?:last|past)\s+\d{1,3}\s+(?:days?|weeks?|months?|years?)|(?:negli\s+)?ultim[ei]\s+\d{1,3}\s+(?:giorni|settimane|mesi|anni)/gi,
       " ",
     )
     .replace(

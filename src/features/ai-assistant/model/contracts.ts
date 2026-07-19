@@ -8,8 +8,8 @@ import {
 } from "./inventory-image-policy";
 
 export const AI_ASSISTANT_CONTRACT_VERSION = "ai-assistant-v1" as const;
-export const AI_ORDER_ASSISTANT_CONTRACT_VERSION = "ai-order-assistant-v3" as const;
-export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v6" as const;
+export const AI_ORDER_ASSISTANT_CONTRACT_VERSION = "ai-order-assistant-v4" as const;
+export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v7" as const;
 export const AI_INVENTORY_RECOGNITION_PROMPT_VERSION = "inventory-label-v1" as const;
 
 export const aiAssistantLocaleSchema = z.enum(["zh-CN", "it-IT", "en"]);
@@ -27,8 +27,27 @@ export const aiAssistantRequestSchema = z
     message: z.string().trim().min(1, "请输入问题").max(800, "问题不能超过 800 个字符"),
     locale: aiAssistantLocaleSchema.default("zh-CN"),
     processing_mode: aiAssistantProcessingModeSchema.optional(),
+    page: z.number().int().min(1).max(500).optional(),
+    continuation_token: z.string().trim().min(32).max(2048).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const page = value.page ?? 1;
+    if (page > 1 && !value.continuation_token) {
+      context.addIssue({
+        code: "custom",
+        path: ["continuation_token"],
+        message: "继续加载需要有效的查询令牌",
+      });
+    }
+    if (value.continuation_token && page < 2) {
+      context.addIssue({
+        code: "custom",
+        path: ["page"],
+        message: "继续加载页码必须大于 1",
+      });
+    }
+  });
 export type AiAssistantRequest = z.infer<typeof aiAssistantRequestSchema>;
 
 export const aiAssistantCapabilitiesSchema = z
@@ -156,6 +175,29 @@ function isRealCalendarDate(value: string) {
   );
 }
 
+export const aiOrderConstraintEvidenceFieldSchema = z.enum([
+  "search",
+  "device_search",
+  "view",
+  "paid",
+  "overdue",
+  "queue_group",
+  "financial_review",
+  "date_filter",
+  "service_group",
+  "completed_only",
+  "parts_status",
+]);
+export type AiOrderConstraintEvidenceField = z.infer<typeof aiOrderConstraintEvidenceFieldSchema>;
+
+export const aiOrderConstraintEvidenceSchema = z
+  .object({
+    field: aiOrderConstraintEvidenceFieldSchema,
+    quote: z.string().trim().min(1).max(80),
+  })
+  .strict();
+export type AiOrderConstraintEvidence = z.infer<typeof aiOrderConstraintEvidenceSchema>;
+
 export const aiOrderSearchArgumentsSchema = z
   .object({
     search: z.string().trim().max(120).nullable(),
@@ -193,6 +235,7 @@ export const aiOrderSearchArgumentsSchema = z
       .nullable(),
     completed_only: z.boolean(),
     parts_status: z.enum(["needed", "ordered", "arrived", "out_of_stock"]).nullable(),
+    evidence: z.array(aiOrderConstraintEvidenceSchema).max(12).optional(),
     page_size: z.number().int().min(1).max(20),
   })
   .strict();
@@ -295,6 +338,10 @@ export const aiOrderAssistantResponseSchema = z
     cards: z.array(aiOrderCardSchema).max(20),
     total: z.number().int().nonnegative(),
     result_truncated: z.boolean(),
+    page: z.number().int().min(1).max(500),
+    page_size: z.number().int().min(1).max(20),
+    has_more: z.boolean(),
+    continuation_token: z.string().trim().min(32).max(2048).nullable(),
     generated_at: z.string().datetime({ offset: true }),
     source: z.literal("repairdesk"),
   })
@@ -571,6 +618,36 @@ export const aiOrderSearchArgumentsJsonSchema = {
       description:
         "Current order-level parts marker. needed means the stored marker only; it does not imply a supplier purchase order exists.",
     },
+    evidence: {
+      type: "array",
+      maxItems: 12,
+      description:
+        "For every non-default constraint, include the shortest exact quote from the user message that supports that field. The server independently validates each quote before execution.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          field: {
+            type: "string",
+            enum: [
+              "search",
+              "device_search",
+              "view",
+              "paid",
+              "overdue",
+              "queue_group",
+              "financial_review",
+              "date_filter",
+              "service_group",
+              "completed_only",
+              "parts_status",
+            ],
+          },
+          quote: { type: "string", minLength: 1, maxLength: 80 },
+        },
+        required: ["field", "quote"],
+      },
+    },
     page_size: { type: "integer", minimum: 1, maximum: 20 },
   },
   required: [
@@ -585,6 +662,7 @@ export const aiOrderSearchArgumentsJsonSchema = {
     "service_group",
     "completed_only",
     "parts_status",
+    "evidence",
     "page_size",
   ],
 } as const;
