@@ -2,9 +2,9 @@
 
 ## Current handoff
 
-- **Status:** local release candidate verified on current `origin/main@152caa1c`. Production remains gated by independent Vision D4 and the concurrent order-text release lock.
-- **Last verified:** 2026-07-19T01:07:01Z.
-- **Workspace/branch:** `/private/tmp/repairdesk-ai-vision-integration-20260719.b8l4rg/worktree`; `codex/ai-inventory-vision-integration-20260719`; base `origin/main@152caa1c`.
+- **Status:** Vision D4 approved; local release candidate verified and Production preflight passed. Release is active under one serialized writer.
+- **Last verified:** 2026-07-19T05:47:33Z.
+- **Workspace/branch:** `/private/tmp/repairdesk-ai-vision-integration-20260719.b8l4rg/worktree`; `codex/ai-inventory-vision-integration-20260719`; base order closeout `a3ae676d` over `origin/main@152caa1c`.
 - **Validation:** post-rebase agents/lint/typecheck passed; full Vitest 305/1910 and Turbopack build passed. Earlier same-candidate Playwright 6/6, npm production audit 0 and screenshot evidence remain valid because the intervening main commit changed only order release records.
-- **Production state:** this Vision task has made no real Vision call, policy/env mutation, `main` push, deployment or flag activation. A separate serialized order-text task changed Production and reports one successful text smoke; its approval explicitly excludes Vision.
-- **First action:** read `TASK.md`, this handoff and `docs/AI_ASSISTANT_VISION_PILOT_RUNBOOK.md`; refresh remote/Production state and confirm the order-text release lock is clear; require exact Vision D4 before any Production mutation.
+- **Production state:** order text is live. Preflight has 5 settled order requests, open/bad/Vision/cross-store counts all zero, v2 enabled, v1 disabled, Vision audit count zero and private AI tables. No Vision provider call or Vision env/deploy mutation has occurred.
+- **First action:** validate/commit this approval checkpoint, push the exact lineage to `main`, deploy with Vision flags off, then attest and execute only the authorized synthetic Vision smoke.

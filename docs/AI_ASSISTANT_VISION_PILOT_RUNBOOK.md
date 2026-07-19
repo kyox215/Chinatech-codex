@@ -1,6 +1,6 @@
 # Chinatech AI 图片标签识别单店发布手册
 
-Status: local release candidate verified; Vision Production NO-GO pending independent Owner D4 and serialized release lock
+Status: Vision D4 approved; serialized Production release in progress
 Task: `TASK-20260719-001-ai-inventory-live-provider`
 Last verified: 2026-07-19 CEST
 
@@ -12,9 +12,9 @@ Last verified: 2026-07-19 CEST
 
 截至本手册时间，本 Vision 任务只执行了 fake provider、mocked cloud 和合成图片测试，没有发送真实图片、客户资料或设备标识符，也没有产生 Vision 计费请求或修改生产环境。订单文字任务已经消费其独立授权的 v2 smoke；该调用不扩大本任务权限。
 
-## 建议批准包（尚未批准）
+## 已批准的发布包
 
-为避免创建与已批准 v2 policy 不一致的新政策，Vision 第一轮建议复用订单文字 D4-v2 的同一套合并硬预算，并单独批准照片范围：
+Owner 于 2026-07-19 明确批准 Vision 第一轮复用订单文字 D4-v2 的同一套合并硬预算，并单独批准下列照片范围：
 
 | 项目                |                                              建议值 |
 | ------------------- | --------------------------------------------------: |
@@ -39,9 +39,9 @@ Last verified: 2026-07-19 CEST
 
 客户端与服务端都会重编码和去元数据，应用不保存原图，provider 请求使用 `store:false`。这不等于 Zero Data Retention；默认安全监控可能保留输入/输出最多约 30 天。Owner 仍需确认该边界以及适用的 DPA、法律基础、员工告知、数据区域/跨境与删除流程。
 
-## Owner D4 批准文本
+## Owner D4 批准记录
 
-只有 Owner 明确回复以下完整边界或等价的逐项确认，才可进入生产：
+Owner 已回复等价批准，生产只能按以下冻结边界执行：
 
 > 批准 Vision D4：仅 Chinatech；复用 ai-runtime-v2 已批准的 OpenAI API 合并硬预算 50 美元/月、订单文字 20 次/日、库存图片 10 次/日、全局 300 次/日、每员工 30 次/分钟；只允许外发裁剪后的包装规格标签，禁止人物、证件、客户资料、收据/地址、设备屏幕和 IMEI/SN/EAN；允许 1 次合成无 PII 的图片计费 smoke；通过后只开启 Chinatech 图片识别和人工草稿应用，保留既有订单文字 AI，观察 30 分钟并在 24 小时复核；允许使用测试账号在 `www.chinatech.in` 完成手机和电脑端验收。禁止自动库存写入、客户公开 AI、第二门店和自动重试。
 

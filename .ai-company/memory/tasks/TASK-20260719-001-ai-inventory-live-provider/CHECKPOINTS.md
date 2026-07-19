@@ -45,3 +45,31 @@
 - **Evidence:**
   - E-015: base 152caa1c; agents/lint/typecheck pass; Vitest 305/1910; Next build 26 pages; no Vision production call.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-19T05:47:33Z — Vision D4 approved; production preflight passed
+
+- **Phase:** approved / serialized production release.
+- **Owner authority:** ChinaTech only; reuse immutable `ai-runtime-v2` `$50/month` shared hard cap and its existing 20 order/day, 10 Vision/day, 300 global/day and 30 actor/minute limits; cropped packaging labels only; exactly one synthetic no-PII Vision smoke; authenticated phone/desktop verification on `www.chinatech.in`.
+- **Frozen exclusions:** people, IDs, customer data, receipts/addresses, device screens, IMEI/SN/EAN, automatic inventory writes, public/customer AI, other stores, retries and any model/budget expansion.
+- **Release lock:** order-text canary completed a clean 30-minute observation in closeout `a3ae676d`; the Vision candidate is rebased onto that record under one writer.
+- **Preflight:** Production is READY on `main@152caa1c`; `ai-runtime-v2` is enabled with 5 settled order requests and zero open/bad/Vision/cross-store requests; Vision audit count is zero; four AI tables have RLS and no anon/authenticated table privileges; scoped Vercel runtime errors are zero.
+- **Next:** commit approval evidence, push exact lineage to `main`, deploy with Vision flags off, attest v2 and execute the single approved Vision smoke.
+
+## 2026-07-19T05:49:36Z — Owner 已批准 ChinaTech Vision D4；订单文字 canary 已完成 30 分钟观察并释放写锁；Vision 候选已重放到 a3ae676d。生产预检：v2 enabled、5 次文字请求、open/bad/Vision/跨店均为 0、Vision audit 为 0、AI 表 4/4 RLS 且客户端无表权限、Vercel runtime errors 为 0。
+
+- **Phase:** production-release
+- **Completed/current state:** Owner 已批准 ChinaTech Vision D4；订单文字 canary 已完成 30 分钟观察并释放写锁；Vision 候选已重放到 a3ae676d。生产预检：v2 enabled、5 次文字请求、open/bad/Vision/跨店均为 0、Vision audit 为 0、AI 表 4/4 RLS 且客户端无表权限、Vercel runtime errors 为 0。
+- **Next:** 提交批准证据，推送 exact lineage 到 main；保持 Vision flags off 部署；证明 v2 policy 后执行唯一一次合成无 PII Vision smoke。
+- **Decision:** Only ChinaTech cropped packaging labels; reuse ai-runtime-v2 50 USD hard cap and 20/10/300/30 quotas; one synthetic Vision smoke; formal-domain phone/desktop verification.
+- **Evidence:**
+  - E-016 Owner D4; E-017 order release lock closed; E-018 live Supabase/Vercel preflight.
+- **Recorded by:** CEO-Orchestrator
+
+## 2026-07-19T05:58:55Z — Exact post-closeout release candidate gates passed
+
+- **Phase:** production-release.
+- **Candidate:** branch `codex/ai-inventory-vision-integration-20260719` is based on order canary closeout `a3ae676d` and contains the reviewed Vision implementation plus approval evidence.
+- **Gates:** agents/lint/typecheck passed; Vitest 305 files / 1910 tests passed; Next 16.2.6 production build generated 26 static pages; isolated desktop/mobile mocked-cloud Playwright passed 6/6 with zero inventory-create requests; exact `sharp@0.34.5`; production npm audit returned 0 vulnerabilities; refined key and generated-client-bundle scans returned no matches; `git diff --check` passed.
+- **Test configuration note:** the valid browser gate explicitly enabled the local fake-provider Vision capability flags; the earlier flags-off local run was not treated as product evidence.
+- **Next:** commit the exact evidence, recheck remote drift, then push the reviewed fast-forward lineage to `main` and deploy dormant.
+- **Evidence:** E-019.

@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260718-014-ai-assistant-live-pilot"
-status: "conditional"
-phase: "post-release-observation"
+current_task_id: "TASK-20260719-001-ai-inventory-live-provider"
+status: "active"
+phase: "production-release"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-19T01:46:28Z"
+last_checkpoint_at: "2026-07-19T05:49:36Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -16,25 +16,25 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**RepairDesk AI 小助手 Phase 3B 单店真实 OpenAI API 灰度**
+**Chinatech 库存入库 AI 图片标签识别真实接入**
 
 ## Current state
 
-D4-v2 ChinaTech employee order-text is live on main@152caa1c. The no-PII v2 one-shot passed HTTP, ledger and audit with one 44-microUSD attempt; the full 30-minute observation ended with zero open, bad, overrun, Vision, cross-store or scoped runtime-error counts. Vision, PII, writes, public AI and other stores remain off.
+Owner 已批准 ChinaTech Vision D4；订单文字 canary 已完成 30 分钟观察并释放写锁；Vision 候选已重放到 a3ae676d。生产预检：v2 enabled、5 次文字请求、open/bad/Vision/跨店均为 0、Vision audit 为 0、AI 表 4/4 RLS 且客户端无表权限、Vercel runtime errors 为 0。
 
 ## Blocking decisions
 
-- Vision, PII, automatic writes, public/customer AI, another store, or any model/budget change requires a new R4/D4 task.
-- Authenticated production UI evidence remains blocked by the explicit `www.chinatech.in` site-use restriction; do not bypass it.
-- Any policy, tenant, privacy, budget, ledger, audit or runtime stop threshold requires flags-first rollback and v2 disablement.
+- Authority is exactly one synthetic no-PII cropped packaging-label Vision smoke, ChinaTech-only activation, and authenticated phone/desktop verification on `www.chinatech.in`.
+- People, IDs, customer data, receipts/addresses, device screens, IMEI/SN/EAN, automatic inventory writes, public AI, another store, retries, or a model/budget change remain prohibited.
+- Any policy, tenant, privacy, budget, ledger, audit, identifier, runtime or manual-fallback stop threshold keeps Vision flags off or triggers flags-first Vision rollback.
 
 ## Next action
 
-At or after 2026-07-20T00:58:50Z, perform one read-only 24-hour policy, ledger, audit and Vercel runtime review without another provider smoke. Any expansion requires a new R4/D4 task.
+提交批准证据，推送 exact lineage 到 main；保持 Vision flags off 部署；证明 v2 policy 后执行唯一一次合成无 PII Vision smoke。
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260718-014-ai-assistant-live-pilot/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260719-001-ai-inventory-live-provider/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.
