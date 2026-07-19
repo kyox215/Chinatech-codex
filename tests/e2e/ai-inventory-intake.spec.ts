@@ -111,6 +111,68 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
     await page.waitForTimeout(150);
     expect(await visionRequestCount(page)).toBe(countAfterCancel);
   });
+
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`${viewport.width}px falls back to mocked cloud vision and still requires an unsaved human draft`, async ({
+      page,
+    }) => {
+      await installIncompleteLocalDetectors(page);
+      await installInventoryCreateCounter(page);
+      await installMockCloudVision(page);
+      await page.setViewportSize(viewport);
+      await gotoReady(page, "/inventory");
+      await expectVisionCapability(page);
+      const intakeDialog = await openInventoryIntakeWithAi(page);
+      await intakeDialog.getByRole("button", { name: "拍照识别" }).click();
+      let dialog = page.getByRole("dialog", { name: "AI 拍照识别入库资料" });
+
+      await dialog.getByLabel("从相册选择设备标签照片").setInputFiles({
+        name: "synthetic-cloud-fallback-label.png",
+        mimeType: "image/png",
+        buffer: await createSyntheticPng(page),
+      });
+
+      await expect(dialog.getByLabel("型号识别值")).toHaveValue("A7 Pro", {
+        timeout: 20_000,
+      });
+      await expect(dialog.getByText("云端规格候选，必须人工核对。")).toBeVisible();
+      await expect(dialog.getByText(/未识别到可用 IMEI、序列号或 EAN/)).toBeVisible();
+      expect(await visionRequestCount(page)).toBe(1);
+
+      const request = await lastVisionRequestPayload(page);
+      expect(request).toMatchObject({
+        mime_type: "image/jpeg",
+        locale: "zh-CN",
+      });
+      expect(request.client_request_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+      expect(request.image_data_url).toMatch(/^data:image\/jpeg;base64,/);
+      expect(request).not.toHaveProperty("store_id");
+      await expectDialogFits(dialog, viewport.width, viewport.height);
+      await expectNoHorizontalOverflow(page);
+      await saveEvidence(page, `ai-inventory-cloud-${viewport.width}-review.png`);
+
+      await dialog.getByRole("button", { name: "品牌：接受建议" }).click();
+      await dialog.getByRole("button", { name: "型号：接受建议" }).click();
+      await dialog.getByRole("button", { name: "颜色：接受建议" }).click();
+      await dialog.getByRole("button", { name: "存储容量：接受建议" }).click();
+      await dialog.getByRole("button", { name: /应用 \d+ 个确认字段/ }).click();
+
+      dialog = page.getByRole("dialog", { name: "新增库存商品" });
+      await expect(dialog.getByLabel(/品牌/)).toHaveValue("Redmi");
+      await expect(dialog.getByLabel(/型号/)).toHaveValue("A7 Pro");
+      await expect(dialog.getByLabel("容量")).toHaveValue("256 GB");
+      await expect(dialog.getByLabel("IMEI/序列号")).toHaveValue("");
+      await expect(dialog.getByLabel("入库成本")).toHaveValue("");
+      await expect(dialog.getByLabel("标价")).toHaveValue("");
+      expect(await inventoryCreateRequestCount(page)).toBe(0);
+      await saveEvidence(page, `ai-inventory-cloud-${viewport.width}-applied-unsaved.png`);
+    });
+  }
 });
 
 async function installSyntheticLocalDetectors(page: Page) {
@@ -202,15 +264,82 @@ async function installVisionRequestCounter(page: Page) {
   });
 }
 
+async function installMockCloudVision(page: Page) {
+  await page.addInitScript(() => {
+    type VisionRequestPayload = {
+      client_request_id?: string;
+      image_data_url?: string;
+      mime_type?: string;
+      locale?: string;
+    };
+    const testWindow = window as typeof window & {
+      __visionRequestCount?: number;
+      __lastVisionRequestPayload?: VisionRequestPayload;
+    };
+    const originalFetch = window.fetch.bind(window);
+    testWindow.__visionRequestCount = 0;
+    window.fetch = async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (!new URL(url, window.location.origin).pathname.endsWith("/ai/vision/extract")) {
+        return originalFetch(input, init);
+      }
+
+      testWindow.__visionRequestCount = (testWindow.__visionRequestCount ?? 0) + 1;
+      if (typeof init?.body === "string") {
+        testWindow.__lastVisionRequestPayload = JSON.parse(init.body) as VisionRequestPayload;
+      }
+      const field = (value: string) => ({
+        value,
+        confidence: "review",
+        evidence: "mocked package label",
+        source: "vision",
+      });
+      return new Response(
+        JSON.stringify({
+          data: {
+            contract_version: "ai-assistant-v1",
+            recognition: {
+              schema_version: "ai-assistant-v1",
+              fields: {
+                brand: field("Redmi"),
+                model: field("A7 Pro"),
+                color: field("Blue"),
+                ram_capacity: field("8 GB"),
+                storage_capacity: field("256 GB"),
+              },
+              identifiers: [],
+              conflicts: [],
+              warnings: ["云端规格候选，必须人工核对。"],
+              label_claim_only: true,
+            },
+            provider: "openai",
+            model_version: "gpt-4o-mini-2024-07-18",
+            generated_at: "2026-07-19T02:00:00.000Z",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    };
+  });
+}
+
 async function gotoReady(page: Page, route: string) {
   await page.goto(route, { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-  await expect(
-    page
-      .getByRole("button", { name: /新增商品/ })
-      .filter({ visible: true })
-      .first(),
-  ).toBeEnabled({ timeout: 20_000 });
+  const addButton = page
+    .getByRole("button", { name: /新增商品/ })
+    .filter({ visible: true })
+    .first();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await expect(addButton).toBeEnabled({ timeout: 20_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+    }
+  }
 }
 
 async function clickFirstVisible(locator: Locator) {
@@ -294,6 +423,22 @@ async function inventoryCreateRequestCount(page: Page) {
 async function visionRequestCount(page: Page) {
   return page.evaluate(
     () => (window as typeof window & { __visionRequestCount?: number }).__visionRequestCount ?? 0,
+  );
+}
+
+async function lastVisionRequestPayload(page: Page) {
+  return page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          __lastVisionRequestPayload?: {
+            client_request_id?: string;
+            image_data_url?: string;
+            mime_type?: string;
+            locale?: string;
+          };
+        }
+      ).__lastVisionRequestPayload ?? {},
   );
 }
 

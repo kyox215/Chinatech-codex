@@ -16,6 +16,7 @@ function requestFingerprint(
     actor,
     clientRequestId: "00000000-0000-4000-8000-000000000003",
     requestKind: "order_text",
+    model: "gpt-5-nano-2025-08-07",
     locale: "en",
     content: "Show active unpaid repairs",
     secret,
@@ -33,12 +34,13 @@ describe("AI request fingerprints", () => {
     expect(first).not.toContain(secret);
   });
 
-  it("binds store, actor, client request, kind, locale and content", () => {
+  it("binds store, actor, client request, kind, model, locale and content", () => {
     const baseline = requestFingerprint();
     expect(
       requestFingerprint({ clientRequestId: "00000000-0000-4000-8000-000000000004" }),
     ).not.toBe(baseline);
     expect(requestFingerprint({ requestKind: "inventory_vision" })).not.toBe(baseline);
+    expect(requestFingerprint({ model: "gpt-4o-mini-2024-07-18" })).not.toBe(baseline);
     expect(requestFingerprint({ locale: "it-IT" })).not.toBe(baseline);
     expect(requestFingerprint({ content: "Show completed repairs" })).not.toBe(baseline);
     expect(

@@ -1427,6 +1427,7 @@ export async function handleRepairDeskPost(
   body: unknown,
   requestActor?: AuditActor,
   requestSignal?: AbortSignal,
+  requestContext: { aiVisionRateLimitConsumed?: boolean } = {},
 ) {
   try {
     const actor = requestActor ?? (await getRepairDeskPostActor(path));
@@ -1439,6 +1440,7 @@ export async function handleRepairDeskPost(
             provider: getAiAssistantProvider,
             budgetGateway: getAiProviderBudgetGateway,
             requestSignal,
+            requestRateLimitAlreadyConsumed: requestContext.aiVisionRateLimitConsumed,
           },
         }),
       );

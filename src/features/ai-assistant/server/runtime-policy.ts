@@ -3,6 +3,11 @@ import type { AiAssistantFeatureEnvironment } from "./feature-flags";
 
 export const AI_RUNTIME_POLICY_VERSION = "ai-runtime-v2" as const;
 export const AI_DURABLE_QUOTA_BACKEND = "supabase-v1" as const;
+export const AI_PILOT_MAX_MONTHLY_BUDGET_MICRO_USD = 50_000_000;
+export const AI_PILOT_MAX_ORDER_TEXT_PER_STORE_DAY = 20;
+export const AI_PILOT_MAX_INVENTORY_VISION_PER_STORE_DAY = 10;
+export const AI_PILOT_MAX_PROVIDER_REQUESTS_GLOBAL_DAY = 300;
+export const AI_PILOT_MAX_REQUESTS_PER_ACTOR_MINUTE = 30;
 
 export type AiModelRuntimePolicy = {
   policyVersion: typeof AI_RUNTIME_POLICY_VERSION;
@@ -66,11 +71,31 @@ export function assertAiLiveBudgetConfiguration(env: AiAssistantFeatureEnvironme
   if (env.AI_ASSISTANT_PRICING_VERSION !== AI_PRICING_VERSION) {
     throw new Error("OpenAI pricing 版本不匹配");
   }
-  requirePositiveInteger(env.AI_ASSISTANT_MONTHLY_BUDGET_MICRO_USD, "月度预算");
-  requirePositiveInteger(env.AI_ASSISTANT_ORDER_TEXT_PER_STORE_DAY, "文字日额度");
-  requirePositiveInteger(env.AI_ASSISTANT_INVENTORY_VISION_PER_STORE_DAY, "图片日额度");
-  requirePositiveInteger(env.AI_ASSISTANT_PROVIDER_REQUESTS_GLOBAL_DAY, "全局日额度");
-  requirePositiveInteger(env.AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE, "请求短窗额度");
+  requireAtMost(
+    env.AI_ASSISTANT_MONTHLY_BUDGET_MICRO_USD,
+    "月度预算",
+    AI_PILOT_MAX_MONTHLY_BUDGET_MICRO_USD,
+  );
+  requireAtMost(
+    env.AI_ASSISTANT_ORDER_TEXT_PER_STORE_DAY,
+    "文字日额度",
+    AI_PILOT_MAX_ORDER_TEXT_PER_STORE_DAY,
+  );
+  requireAtMost(
+    env.AI_ASSISTANT_INVENTORY_VISION_PER_STORE_DAY,
+    "图片日额度",
+    AI_PILOT_MAX_INVENTORY_VISION_PER_STORE_DAY,
+  );
+  requireAtMost(
+    env.AI_ASSISTANT_PROVIDER_REQUESTS_GLOBAL_DAY,
+    "全局日额度",
+    AI_PILOT_MAX_PROVIDER_REQUESTS_GLOBAL_DAY,
+  );
+  requireAtMost(
+    env.AI_ASSISTANT_REQUESTS_PER_ACTOR_MINUTE,
+    "请求短窗额度",
+    AI_PILOT_MAX_REQUESTS_PER_ACTOR_MINUTE,
+  );
   requireIanaTimeZone(env.AI_ASSISTANT_QUOTA_TIMEZONE);
   if ((env.AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET?.trim().length ?? 0) < 32) {
     throw new Error("OpenAI safety identifier secret 尚未安全配置");
@@ -78,12 +103,18 @@ export function assertAiLiveBudgetConfiguration(env: AiAssistantFeatureEnvironme
   if ((env.AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET?.trim().length ?? 0) < 32) {
     throw new Error("OpenAI request fingerprint secret 尚未安全配置");
   }
+  if (
+    env.AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET?.trim() ===
+    env.AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET?.trim()
+  ) {
+    throw new Error("OpenAI HMAC secrets 必须相互独立");
+  }
 }
 
-function requirePositiveInteger(value: string | undefined, label: string) {
+function requireAtMost(value: string | undefined, label: string, maximum: number) {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new Error(`${label}配置无效`);
-  return parsed;
+  if (parsed > maximum) throw new Error(`${label}超过试点硬上限`);
 }
 
 function requireIanaTimeZone(value: string | undefined) {

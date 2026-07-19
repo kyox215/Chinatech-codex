@@ -352,7 +352,7 @@ function visionProvider(): AiAssistantProvider {
         identifiers: [],
         conflicts: [],
         warnings: ["仅为合成标签声明"],
-        label_claim_only: true,
+        label_claim_only: true as const,
       },
       metadata: { provider: "fake" as const, model: "fake-vision-test", latencyMs: 4 },
     })),
@@ -364,6 +364,7 @@ function visionInput() {
     0xff, 0xd8, 0xff, 0xc0, 0x00, 0x07, 0x08, 0x00, 0x02, 0x00, 0x03, 0xff, 0xd9,
   ]);
   return {
+    client_request_id: "00000000-0000-4000-8000-000000000202",
     image_data_url: `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`,
     mime_type: "image/jpeg" as const,
     byte_length: bytes.length,

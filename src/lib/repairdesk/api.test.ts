@@ -146,6 +146,7 @@ describe("repairdesk api client", () => {
     vi.stubGlobal("fetch", fetchMock);
     const controller = new AbortController();
     const input = {
+      client_request_id: "00000000-0000-4000-8000-000000000201",
       image_data_url: "data:image/jpeg;base64,/9j/wAA=",
       mime_type: "image/jpeg" as const,
       byte_length: 5,

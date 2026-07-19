@@ -5,6 +5,7 @@ import {
   buildLocalInventoryRecognition,
   isLocalInventoryRecognitionSufficient,
   mergeInventoryRecognitions,
+  normalizeProviderInventoryRecognition,
 } from "./inventory-recognition";
 
 describe("inventory recognition merge", () => {
@@ -75,6 +76,57 @@ describe("inventory recognition merge", () => {
     expect(isLocalInventoryRecognitionSufficient(complete)).toBe(true);
     expect(isLocalInventoryRecognitionSufficient(incomplete)).toBe(false);
     expect(isLocalInventoryRecognitionSufficient(invalid)).toBe(false);
+  });
+
+  it("rejects an invalid 15-digit IMEI even when the provider disguises it as a serial", () => {
+    const provider = recognition({ brand: "Redmi", storage: "64 GB" });
+    provider.identifiers = [
+      {
+        type: "serial",
+        value: "123456789012345",
+        confidence: "high",
+        evidence: "visible label",
+        source: "vision",
+        validation: "not_applicable",
+      },
+    ];
+
+    const normalized = normalizeProviderInventoryRecognition(provider);
+    expect(normalized.identifiers).toEqual([
+      expect.objectContaining({
+        type: "unknown",
+        value: "123456789012345",
+        confidence: "review",
+        validation: "invalid",
+      }),
+    ]);
+    expect(normalized.fields.brand).toMatchObject({ confidence: "review", source: "vision" });
+  });
+
+  it("lets deterministic invalid evidence override a same-value not-applicable claim", () => {
+    const vision = recognition({ brand: "Redmi", storage: "64 GB" });
+    vision.identifiers = [
+      {
+        type: "serial",
+        value: "123456789012345",
+        confidence: "review",
+        evidence: "AI serial claim",
+        source: "vision",
+        validation: "not_applicable",
+      },
+    ];
+    const local = buildLocalInventoryRecognition({ ocrText: "IMEI 123456789012345" });
+    const merged = mergeInventoryRecognitions(vision, local);
+
+    expect(merged.identifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          value: "123456789012345",
+          type: "unknown",
+          validation: "invalid",
+        }),
+      ]),
+    );
   });
 });
 

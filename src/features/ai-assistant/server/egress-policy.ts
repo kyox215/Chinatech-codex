@@ -1,7 +1,9 @@
 import type { AiAssistantRequestKind } from "./cost-policy";
 import { AiServiceError } from "./errors";
 import {
+  AI_CHINATECH_PILOT_STORE_ID,
   assertOpenAiRequestDataApproved,
+  getAiAssistantStoreAllowlist,
   type AiAssistantFeatureEnvironment,
 } from "./feature-flags";
 
@@ -19,10 +21,12 @@ export function assertAiProviderEgressAllowed({
   requestKind,
   env,
   orderMessage,
+  storeId,
 }: {
   requestKind: AiAssistantRequestKind;
   env: AiAssistantFeatureEnvironment;
   orderMessage?: string;
+  storeId?: string | null;
 }) {
   try {
     assertOpenAiRequestDataApproved(requestKind, env);
@@ -33,6 +37,18 @@ export function assertAiProviderEgressAllowed({
       503,
       { retryable: false },
     );
+  }
+  if (requestKind === "inventory_vision") {
+    const allowlist = getAiAssistantStoreAllowlist(env);
+    if (
+      storeId !== AI_CHINATECH_PILOT_STORE_ID ||
+      allowlist.length !== 1 ||
+      allowlist[0] !== AI_CHINATECH_PILOT_STORE_ID
+    ) {
+      throw new AiServiceError("AI 图片识别只允许 Chinatech 单店试点", "AI_MISCONFIGURED", 503, {
+        retryable: false,
+      });
+    }
   }
   if (
     requestKind === "order_text" &&

@@ -193,14 +193,14 @@ export const aiInventoryRecognitionSchema = z
     identifiers: z.array(aiInventoryIdentifierCandidateSchema).max(12),
     conflicts: z.array(aiInventoryConflictSchema).max(12),
     warnings: z.array(z.string().trim().min(1).max(240)).max(12),
-    label_claim_only: z.boolean(),
+    label_claim_only: z.literal(true),
   })
   .strict();
 export type AiInventoryRecognition = z.infer<typeof aiInventoryRecognitionSchema>;
 
 export const aiInventoryVisionRequestSchema = z
   .object({
-    client_request_id: z.string().uuid().optional(),
+    client_request_id: z.string().uuid(),
     image_data_url: z
       .string()
       .min(32)
@@ -370,7 +370,7 @@ export const aiInventoryRecognitionJsonSchema = {
       maxItems: 12,
       items: { type: "string", minLength: 1, maxLength: 240 },
     },
-    label_claim_only: { type: "boolean" },
+    label_claim_only: { type: "boolean", const: true },
   },
   required: [
     "schema_version",

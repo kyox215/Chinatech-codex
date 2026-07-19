@@ -356,6 +356,14 @@ function normalizeOrderAssistantError(
     if (error instanceof AiProviderRequestError && error.category === "timeout") {
       return aiProviderTimeoutError();
     }
+    if (error instanceof AiProviderRequestError && error.category === "configuration") {
+      return new AiServiceError(
+        "AI 服务配置尚未完成，请继续使用手工查询",
+        "AI_MISCONFIGURED",
+        503,
+        { retryable: false },
+      );
+    }
     if (isRateLimitedError(error)) return aiProviderRateLimitedError();
     if (isAiProviderTimeoutError(error)) return aiProviderTimeoutError();
     if (error instanceof AiProviderRequestError && error.category === "protocol") {

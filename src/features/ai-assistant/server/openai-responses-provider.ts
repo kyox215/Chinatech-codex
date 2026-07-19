@@ -75,6 +75,7 @@ export class OpenAiResponsesProvider implements AiAssistantProvider {
       },
       this.options.orderModel,
       input.signal,
+      undefined,
     );
 
     try {
@@ -98,6 +99,7 @@ export class OpenAiResponsesProvider implements AiAssistantProvider {
 
   async recognizeInventoryLabel(input: AiInventoryRecognitionInput) {
     assertSafetyIdentifier(input.safetyIdentifier);
+    if (!isUuid(input.clientRequestId)) throw configurationError();
     const expectedPrefix = `data:${input.mimeType};base64,`;
     if (!input.imageDataUrl.startsWith(expectedPrefix)) throw configurationError();
     const policy = getAiModelRuntimePolicy("inventory_vision");
@@ -136,6 +138,7 @@ export class OpenAiResponsesProvider implements AiAssistantProvider {
       },
       this.options.visionModel,
       input.signal,
+      input.clientRequestId,
     );
 
     try {
@@ -152,6 +155,7 @@ export class OpenAiResponsesProvider implements AiAssistantProvider {
     requestBody: JsonRecord,
     expectedModel: string,
     signal: AbortSignal | undefined,
+    clientRequestId: string | undefined,
   ): Promise<{ response: JsonRecord & { output: unknown[] }; metadata: OpenAiMetadata }> {
     let serialized: string;
     try {
@@ -163,12 +167,14 @@ export class OpenAiResponsesProvider implements AiAssistantProvider {
     const startedAt = this.now();
     let response: Response;
     try {
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${this.options.apiKey}`,
+        "Content-Type": "application/json",
+      };
+      if (clientRequestId) headers["X-Client-Request-Id"] = clientRequestId;
       response = await this.fetchImplementation(`${this.options.apiBaseUrl}/responses`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.options.apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers,
         body: serialized,
         cache: "no-store",
         redirect: "error",
@@ -191,7 +197,10 @@ export class OpenAiResponsesProvider implements AiAssistantProvider {
     const latencyMs = Math.max(0, this.now() - startedAt);
     const headerRequestId = response.headers.get("x-request-id")?.trim();
     if (!response.ok) {
-      throw new AiProviderRequestError("http", "sent_unknown", {
+      const category = [400, 401, 403, 404, 422].includes(response.status)
+        ? "configuration"
+        : "http";
+      throw new AiProviderRequestError(category, "sent_unknown", {
         status: response.status,
       });
     }
@@ -376,6 +385,10 @@ function requiredNonNegativeInteger(value: unknown) {
 function optionalNonNegativeInteger(value: unknown) {
   if (value === undefined || value === null) return 0;
   return requiredNonNegativeInteger(value);
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function assertSafetyIdentifier(value: string | undefined): asserts value is string {

@@ -53,6 +53,7 @@ function requestFor(
 ): AiInventoryVisionRequest {
   const mimeType = overrides.mime_type ?? "image/jpeg";
   return {
+    client_request_id: "00000000-0000-4000-8000-000000000204",
     image_data_url: `data:${mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
     mime_type: mimeType,
     byte_length: bytes.length,

@@ -16,6 +16,8 @@ ChinaTech 激活部署为 `main@152caa1c` / Vercel `dpl_946N6xMftqrRpKTzGmnDBmbj
 
 第一轮 canary 只开放员工订单文字，且只允许不含 PII/设备标识符的通用筛选；`AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=0`、`AI_VISION_INTAKE_ENABLED=0` 必须继续保持。照片外发需在有可证明的裁切/数据范围和独立隐私决定后另开 D4。
 
+2026-07-19 已准备独立的 Vision 安全候选和批准包，但尚未改变 Vision 生产状态。D4-v2 明确排除照片外发；Vision 必须取得独立 D4，并复用本手册已批准的 `$50/月` v2 共享政策数字，除非 Owner 另行批准新的版本化 policy。Vision 任务不得与本任务的生产写锁、smoke 或观察并发。
+
 ## 原 D4 决策记录（已执行至停止条件）
 
 1. **Canary 门店**：只读生产查询已确认 7 家 active 店铺；建议唯一 canary 为 `ChinaTech`（`5248dda1-2b32-46cd-8ed0-d15386a9e8ed`）。Owner 仍需确认选择，不得自动扩到其余 6 店。

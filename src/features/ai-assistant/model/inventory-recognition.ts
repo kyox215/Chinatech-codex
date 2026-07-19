@@ -10,6 +10,7 @@ import {
 } from "./contracts";
 import {
   extractImeiCandidates,
+  isValidImei,
   normalizeCaptureIdentifier,
 } from "@/features/capture/model/barcode-parser";
 
@@ -92,6 +93,102 @@ export function buildLocalInventoryRecognition({
     ]),
     label_claim_only: true,
   });
+}
+
+/**
+ * Provider output is untrusted label evidence. Recompute any identifier-shaped
+ * value on the server and downgrade provider fields to human-review status.
+ * The initial cloud schema forbids identifiers, but this remains a defense for
+ * fake fixtures, future schema changes and merge callers.
+ */
+export function normalizeProviderInventoryRecognition(
+  recognition: AiInventoryRecognition,
+): AiInventoryRecognition {
+  const identifiers: AiInventoryIdentifierCandidate[] = [];
+  for (const candidate of recognition.identifiers) {
+    const normalized = normalizeProviderIdentifier(candidate);
+    if (normalized.value) pushIdentifier(identifiers, normalized);
+  }
+  const fields = Object.fromEntries(
+    fieldNames.map((name) => {
+      const candidate = recognition.fields[name];
+      return [
+        name,
+        {
+          ...candidate,
+          confidence: candidate.value ? ("review" as const) : ("unknown" as const),
+          evidence: candidate.value ? "AI 读取的包装标签候选，需人工核对" : null,
+          source: candidate.value ? ("vision" as const) : ("unknown" as const),
+        },
+      ];
+    }),
+  ) as AiInventoryRecognition["fields"];
+  const invalidIdentifierPresent = identifiers.some(
+    (candidate) => candidate.validation === "invalid",
+  );
+
+  return aiInventoryRecognitionSchema.parse({
+    ...recognition,
+    fields,
+    identifiers: identifiers.slice(0, 12),
+    warnings: unique([
+      "AI 仅根据包装标签生成候选，所有字段必须人工核对。",
+      ...(invalidIdentifierPresent ? ["部分标识符未通过服务端校验，已阻止应用。"] : []),
+      ...recognition.warnings,
+    ]).slice(0, 12),
+    label_claim_only: true,
+  });
+}
+
+function normalizeProviderIdentifier(
+  candidate: AiInventoryIdentifierCandidate,
+): AiInventoryIdentifierCandidate {
+  const value = normalizeCaptureIdentifier(candidate.value);
+  const providerEvidence = {
+    ...candidate,
+    value,
+    confidence: "review" as const,
+    source: "vision" as const,
+  };
+
+  if (/^\d{15}$/.test(value)) {
+    const valid = isValidImei(value);
+    return {
+      ...providerEvidence,
+      type: valid ? (candidate.type === "imei2" ? "imei2" : "imei1") : "unknown",
+      evidence: valid
+        ? "服务端已通过 IMEI Luhn 校验，仍需核对标签"
+        : "15 位数字未通过 IMEI Luhn 校验，不能应用",
+      validation: valid ? "valid" : "invalid",
+    };
+  }
+
+  if (/^\d{8}$|^\d{12,14}$/.test(value)) {
+    const valid = isValidGtin(value);
+    return {
+      ...providerEvidence,
+      type: valid ? "ean" : "unknown",
+      evidence: valid
+        ? "服务端已通过 GTIN 校验，仍需核对标签"
+        : "数字候选未通过 GTIN 校验，不能应用",
+      validation: valid ? "valid" : "invalid",
+    };
+  }
+
+  if (["imei1", "imei2", "ean", "unknown"].includes(candidate.type)) {
+    return {
+      ...providerEvidence,
+      type: "unknown",
+      evidence: "标识符结构或类型无法验证，不能应用",
+      validation: "invalid",
+    };
+  }
+
+  return {
+    ...providerEvidence,
+    evidence: "AI 读取的标签候选，需人工核对",
+    validation: "not_applicable",
+  };
 }
 
 export function mergeInventoryRecognitions(
@@ -248,16 +345,23 @@ function pushIdentifier(
     return;
   }
   existing.source = existing.source === candidate.source ? existing.source : "merged";
-  existing.confidence =
-    existing.validation === "valid" || candidate.validation === "valid" ? "high" : "review";
-  if (
-    (existing.type === "unknown" && candidate.type !== "unknown") ||
-    (existing.type === "serial" && candidate.type === "ean")
+  if (candidate.validation === "valid" && existing.validation !== "valid") {
+    existing.type = candidate.type;
+    existing.validation = "valid";
+    existing.evidence = candidate.evidence;
+  } else if (candidate.validation === "invalid" && existing.validation === "not_applicable") {
+    existing.type = candidate.type;
+    existing.validation = "invalid";
+    existing.evidence = candidate.evidence;
+  } else if (
+    existing.validation === candidate.validation &&
+    ((existing.type === "unknown" && candidate.type !== "unknown") ||
+      (existing.type === "serial" && candidate.type === "ean"))
   ) {
     existing.type = candidate.type;
   }
-  if (candidate.validation === "valid") existing.validation = "valid";
-  existing.evidence = "多类本地证据识别到同一标识符";
+  existing.confidence = existing.validation === "valid" ? "high" : "review";
+  if (!existing.evidence) existing.evidence = "多类证据识别到同一标识符";
 }
 
 function mergeIdentifiers(

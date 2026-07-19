@@ -5,6 +5,7 @@ import { OpenAiResponsesProvider } from "./openai-responses-provider";
 import { AiProviderRequestError } from "./provider";
 
 const safetyIdentifier = `u1_${"a".repeat(43)}`;
+const clientRequestId = "00000000-0000-4000-8000-000000000001";
 
 describe("OpenAI Responses provider", () => {
   it("sends exactly one private strict function-call request for order planning", async () => {
@@ -69,6 +70,7 @@ describe("OpenAI Responses provider", () => {
     const fetchMock = vi.fn(async () => jsonResponse(visionResponse()));
     const provider = createProvider(fetchMock);
     const result = await provider.recognizeInventoryLabel({
+      clientRequestId,
       imageDataUrl: "data:image/jpeg;base64,/9j/2Q==",
       mimeType: "image/jpeg",
       locale: "zh-CN",
@@ -102,7 +104,38 @@ describe("OpenAI Responses provider", () => {
       name: "repairdesk_inventory_label",
       strict: true,
     });
+    expect(visionCalls[0]?.[1]?.headers).toMatchObject({
+      "X-Client-Request-Id": clientRequestId,
+    });
   });
+
+  it.each([400, 401, 403, 404, 422])(
+    "classifies provider HTTP %s as a non-retryable configuration failure after dispatch",
+    async (status) => {
+      const provider = createProvider(
+        vi.fn(
+          async () =>
+            new Response('{"error":"redacted"}', {
+              status,
+              headers: { "content-type": "application/json" },
+            }),
+        ),
+      );
+      await expect(
+        provider.recognizeInventoryLabel({
+          clientRequestId,
+          imageDataUrl: "data:image/jpeg;base64,/9j/2Q==",
+          mimeType: "image/jpeg",
+          locale: "zh-CN",
+          safetyIdentifier,
+        }),
+      ).rejects.toMatchObject({
+        category: "configuration",
+        dispatchState: "sent_unknown",
+        status,
+      });
+    },
+  );
 
   it("marks HTTP and transport failures as sent-unknown without leaking the provider body", async () => {
     const httpProvider = createProvider(

@@ -11,6 +11,7 @@ export function createAiRequestFingerprint({
   actor,
   clientRequestId,
   requestKind,
+  model,
   locale,
   content,
   secret,
@@ -18,6 +19,7 @@ export function createAiRequestFingerprint({
   actor: AuditActor;
   clientRequestId: string;
   requestKind: AiAssistantRequestKind;
+  model: string;
   locale: AiAssistantLocale;
   content: string;
   secret: string;
@@ -33,6 +35,7 @@ export function createAiRequestFingerprint({
         identity.actorId,
         clientRequestId,
         requestKind,
+        model,
         locale,
         contentDigest,
       ].join(":"),

@@ -46,6 +46,7 @@ describe("FakeAiAssistantProvider", () => {
 
   it("keeps the synthetic label fixture free of identifiers and price guesses", async () => {
     const result = await provider.recognizeInventoryLabel({
+      clientRequestId: "00000000-0000-4000-8000-000000000001",
       imageDataUrl: "data:image/jpeg;base64,ZmFrZQ==",
       mimeType: "image/jpeg",
       locale: "zh-CN",

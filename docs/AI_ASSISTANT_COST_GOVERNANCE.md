@@ -1,14 +1,16 @@
 # RepairDesk AI 小助手成本治理与运行合同
 
-Status: Phase 3B locally implemented and verified; production paid pilot blocked by D4
+Status: production dormant after halted v1 smoke; v2 + Vision release candidate blocked by new D4
 Owner: Integration Lead / Architecture / DATA / Security
-Last verified: 2026-07-18 CEST, `TASK-20260718-014-ai-assistant-live-pilot`
+Last verified: 2026-07-19 CEST, `TASK-20260719-001-ai-inventory-live-provider`
 
 ## 当前结论
 
-Phase 3B 已在隔离分支实现真实 OpenAI Responses API 适配器、Supabase durable 预算网关、请求幂等指纹、外发数据门禁、分布式 actor 限流和保留期维护。生产已经包含并应用 Phase 3A 的 dormant 治理 migration，但 2026-07-18 的只读核验确认 policy、bucket、request 三张表均为 0 行；本阶段新增的 live-provider upgrade migration 尚未应用。生产仍必须保持全部 AI 旗标关闭、provider 为 `fake` 或缺省；预算政策尚未启用、Vercel secrets 尚未上传，因此不能发出 OpenAI 请求。
+Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预算网关、请求幂等指纹、外发数据门禁、分布式 actor 限流和保留期维护。生产已经应用 `20260718174042` 与 `20260718223739`；第一次无 PII 订单文字 smoke 留下 1 条已结算请求，`ai-runtime-v1` 已停用且没有开放 reservation。Production secrets 位于平台 secret store，但所有用户可见 AI 旗标仍关闭，Chinatech canary 从未开始。
 
-实现使用 Node 原生 server-side `fetch`，没有新增 OpenAI SDK 依赖。新 Platform Key 只保存在被 Git 忽略的本机环境文件中，未写入代码、任务记忆、日志、测试夹具或截图。尚未把真实消息、图片、OCR、订单号或标识符发送给第三方。
+实现使用 Node 原生 server-side `fetch`，没有新增 OpenAI SDK 依赖。Platform Key 与 HMAC secrets 未写入代码、任务记忆、日志、测试夹具或截图。本次 Vision 候选没有执行真实 provider 请求；尚未把任何真实图片、OCR、客户资料或设备标识符发送给第三方。
+
+2026-07-19 的 Vision 发布候选在最新 `ai-runtime-v2` 基线上新增 server-side Sharp 信任边界、稳定 client UUID、净化图片 + 精确模型请求指纹、Chinatech-only 图片外发、读大请求体前 capability/短窗限流、provider 配置错误失败关闭与云端标识符重校验。它已通过合成图片与 mocked cloud 验证，但仍是本地候选；生产当前状态以 `docs/AI_ASSISTANT_LIVE_PILOT_RUNBOOK.md` 为准。Vision D4 建议复用已批准的 `$50/月` v2 共享政策，照片外发仍需独立批准，详见 `docs/AI_ASSISTANT_VISION_PILOT_RUNBOOK.md`。
 
 ## 请求顺序
 
@@ -19,6 +21,7 @@ Phase 3B 已在隔离分支实现真实 OpenAI Responses API 适配器、Supabas
    ├─ 精确订单号或锁定快捷短语：直接访问 actor/store-scoped repository
    ├─ 完整本地标签候选：进入人工复核，不生成 data URL，不请求云端
    └─ 不能保守判断：才进入 provider fallback 候选
+→ 图片 fallback 在服务端完整解码单帧、限制像素/边长并重编码无元数据 JPEG
 → durable provider 预算预留（live 前必需）
 → 单次、有限时 provider 调用
 → usage 结算 / 未知状态保守持有
@@ -42,7 +45,7 @@ Phase 3B 已在隔离分支实现真实 OpenAI Responses API 适配器、Supabas
 
 权威实现：`inventory-recognition.ts` 与 `inventory-intake-dialog.tsx`。
 
-图片先完成既有安全处理和本地 BarcodeDetector/ZXing/TextDetector。只有品牌、型号、RAM、存储四个关键标签字段全部存在、无冲突且无无效标识符证据时，才认为本地候选足够；此时不创建 Base64 data URL，也不调用 `/ai/vision/extract`。结果仍只是待人工复核的包装标签声明，员工不点击普通 `保存商品` 就不会产生库存写入。
+图片先完成既有浏览器安全处理和本地 BarcodeDetector/ZXing/TextDetector。只有品牌、型号、RAM、存储四个关键标签字段全部存在、无冲突且无无效标识符证据时，才认为本地候选足够；此时不创建 Base64 data URL，也不调用 `/ai/vision/extract`。需要 cloud fallback 时，服务端把浏览器衍生图再次视为不可信输入：完整解码静态单帧、限制 16 MP、应用方向、铺白、最长边压至 2048、重新编码 JPEG 并默认丢弃 EXIF/ICC/XMP。预算指纹绑定这份服务端衍生图与精确模型，provider 只接收该衍生图。结果仍只是待人工复核的包装标签声明，员工不点击普通 `保存商品` 就不会产生库存写入。
 
 不支持 TextDetector 的浏览器通常仍会进入 fallback 候选；“本地识别率 70%”只是需要真实门店清晰标签集校准的目标，当前不能作为生产承诺。
 
@@ -75,7 +78,7 @@ Phase 3B 已在隔离分支实现真实 OpenAI Responses API 适配器、Supabas
 已经应用且不得改写的 Phase 3A 基线：
 `supabase/migrations/20260718174042_ai_assistant_cost_governance_v1.sql`。
 
-本阶段待 D4 批准的 additive upgrade：
+已经应用且不得改写的 additive upgrade：
 `supabase/migrations/20260718223739_ai_assistant_live_provider_v1.sql`。
 
 基线创建 policy、aggregate bucket、request ledger 与四个 dormant RPC；upgrade 在确认三张治理表仍为空后，新增 actor 短窗桶、请求关联列、policy attestation、维护 RPC，以及带 actor HMAC 的 reserve 签名。两条迁移都不插入 policy，也不会自动启用付费调用。
@@ -131,12 +134,12 @@ OPENAI_API_KEY=
 
 ## 数值提案与批准边界
 
-当前仅建议：每店每天 `20 order_text + 10 inventory_vision` provider fallback、全局每天 300 次、每 actor 每分钟 30 次、API 净用量每月 `$50`。按 10 家店每天都用满这组上限，当前价格快照的保守估算约 `$0.8731/天`、`$26.193/30天`，仍以 `$50` 硬停覆盖波动。ChatGPT/Codex Plus/Pro 订阅不抵扣 OpenAI Platform API 用量。这些数字没有写入 enabled policy，仍需 Owner 批准。
+订单文字 D4-v2 已批准每店每天 `20 order_text + 10 inventory_vision`、全局 300 次、每 actor 每分钟 30 次、每月 `$50` 的共享政策数值，但其数据范围明确保持 Vision off。Vision 候选复用这些数值以避免不可变 policy 漂移；这不构成照片外发批准。ChatGPT/Codex Plus/Pro 订阅不抵扣 OpenAI Platform API 用量；Vision 仍需 Owner 明确确认同一月度硬停与图片数据边界。
 
 ## 验证与回滚
 
 两条迁移按真实顺序在无持久卷的 PostgreSQL 17 临时容器执行；验证了创建、政策一致性证明、RLS/Grants、相同 client request 幂等、结算、pre-dispatch 金额/次数释放、actor 分钟限流、stale 保守结算、90 天分批清理、活动预留保留和匿名角色拒绝。仓库完整历史迁移的 `supabase db start` 仍会被早期 `product_channel` 基线漂移阻塞；该失败不等于本 migration upgrade 已通过生产 apply 门禁。
 
-远端 migration history 已包含 `20260718174042` 以及其后的三条 Inventory V2 migration；不得重放或修改这些历史文件。若取得 D4，生产 apply 只允许发布新的 `20260718223739_ai_assistant_live_provider_v1.sql`，并在 apply 前再次证明治理表为空、远端没有新的并发 migration drift。
+远端 migration history 已包含 `20260718174042`、三条 Inventory V2 migration 与 `20260718223739`；不得重放或修改这些历史文件。取得新的 D4 后，只能新增一份使用批准精确数字、初始 `disabled` 的 v2 policy migration/受审 SQL，并在 apply 前核对既有 v1 已停用、请求账本无开放 reservation、远端没有并发 migration drift。
 
 回滚顺序：关闭 paid fallback → 保留 direct/local/manual → 设置 `AI_ASSISTANT_ENABLED=0` → 必要时回退应用 exact SHA。即使未来迁移已经应用，也不紧急 DROP 用量表；先停止新预留并保守结算已有请求。

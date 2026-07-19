@@ -33,6 +33,7 @@ export type AiAssistantFeatureEnvironment = {
 };
 
 export type AiAssistantProviderName = "fake" | "openai";
+export const AI_CHINATECH_PILOT_STORE_ID = "5248dda1-2b32-46cd-8ed0-d15386a9e8ed";
 
 export function isAiAssistantEnabled(
   env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
@@ -127,11 +128,14 @@ export function isAiAssistantStoreEnabled(
   env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
 ) {
   if (!storeId || !isAiAssistantEnabled(env)) return false;
+  return getAiAssistantStoreAllowlist(env).includes(storeId);
+}
+
+export function getAiAssistantStoreAllowlist(env: AiAssistantFeatureEnvironment) {
   return (env.AI_ASSISTANT_STORE_ALLOWLIST ?? "")
     .split(",")
     .map((value) => value.trim())
-    .filter(Boolean)
-    .includes(storeId);
+    .filter(Boolean);
 }
 
 export function assertOpenAiExternalCallsApproved(
@@ -141,6 +145,14 @@ export function assertOpenAiExternalCallsApproved(
   assertAiLiveBudgetConfiguration(env);
   if ((env.OPENAI_API_KEY?.trim().length ?? 0) < 20) {
     throw new Error("OpenAI API key 尚未安全配置");
+  }
+  const secrets = [
+    env.OPENAI_API_KEY?.trim(),
+    env.AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET?.trim(),
+    env.AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET?.trim(),
+  ];
+  if (new Set(secrets).size !== secrets.length) {
+    throw new Error("OpenAI API 与 HMAC secrets 必须相互独立");
   }
   getAiAssistantModel("order_text", env);
   getAiAssistantModel("inventory_vision", env);

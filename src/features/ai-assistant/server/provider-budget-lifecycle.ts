@@ -75,6 +75,7 @@ export class AiProviderBudgetSession {
         actor,
         clientRequestId,
         requestKind,
+        model: policy.model,
         locale,
         content,
         secret,

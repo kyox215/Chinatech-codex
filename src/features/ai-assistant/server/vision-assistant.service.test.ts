@@ -19,12 +19,14 @@ import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-
 import { aiQuotaExhaustedError } from "./errors";
 import { runAiInventoryVisionRecognition } from "./vision-assistant.service";
 import { resetAiAssistantLocalRateLimitForTests } from "./request-rate-limit";
+import { AI_CHINATECH_PILOT_STORE_ID } from "./feature-flags";
+import type { SanitizedAiInventoryImage } from "./vision-image-sanitizer";
 import type { AuditActor } from "@/lib/repairdesk/types";
 
 const enabledEnv = {
   AI_ASSISTANT_ENABLED: "1",
   AI_VISION_INTAKE_ENABLED: "1",
-  AI_ASSISTANT_STORE_ALLOWLIST: "store-1",
+  AI_ASSISTANT_STORE_ALLOWLIST: AI_CHINATECH_PILOT_STORE_ID,
 } as const;
 
 const liveVisionEnv = {
@@ -80,6 +82,16 @@ describe("inventory vision assistant service", () => {
     expect(provider.recognizeInventoryLabel).not.toHaveBeenCalled();
   });
 
+  it("does not consume the service limiter twice when the route gated before body read", async () => {
+    const consumeRequestRateLimit = vi.fn();
+    await run({
+      provider: providerFor(),
+      consumeRequestRateLimit,
+      requestRateLimitAlreadyConsumed: true,
+    });
+    expect(consumeRequestRateLimit).not.toHaveBeenCalled();
+  });
+
   it("validates and returns only strict fake-provider recognition output", async () => {
     const provider = providerFor();
     const response = await run({ provider, now: () => new Date("2026-07-18T12:00:00.000Z") });
@@ -91,7 +103,11 @@ describe("inventory vision assistant service", () => {
       recognition: { fields: { model: { value: "A7 Pro" } }, label_claim_only: true },
     });
     expect(provider.recognizeInventoryLabel).toHaveBeenCalledWith(
-      expect.objectContaining({ mimeType: "image/jpeg", locale: "zh-CN" }),
+      expect.objectContaining({
+        clientRequestId: "00000000-0000-4000-8000-000000000102",
+        mimeType: "image/jpeg",
+        locale: "zh-CN",
+      }),
     );
     expect(mocks.writeAiAssistantAudit).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -175,14 +191,23 @@ describe("inventory vision assistant service", () => {
     const gateway = durableGateway(events);
     const input = { ...validInput(), client_request_id: "00000000-0000-4000-8000-000000000103" };
 
-    const response = await run({ provider, gateway, env: liveVisionEnv, input });
+    const response = await run({
+      provider,
+      gateway,
+      env: liveVisionEnv,
+      input,
+      sanitizeImage: async (request) => {
+        events.push("sanitize");
+        return sanitizedImage(request);
+      },
+    });
 
     expect(response).toMatchObject({
       provider: "openai",
       model_version: "gpt-4o-mini-2024-07-18",
       recognition: { identifiers: [], label_claim_only: true },
     });
-    expect(events).toEqual(["reserve", "provider", "settle:completed"]);
+    expect(events).toEqual(["sanitize", "reserve", "provider", "settle:completed"]);
     expect(gateway.reserve).toHaveBeenCalledWith(
       expect.objectContaining({
         clientRequestId: input.client_request_id,
@@ -190,6 +215,30 @@ describe("inventory vision assistant service", () => {
         reservedMicroUsd: 8115n,
       }),
     );
+    expect(gateway.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "completed", estimatedMicroUsd: 27n }),
+    );
+  });
+
+  it("rejects cloud identifiers even after a billable response has been safely settled", async () => {
+    const cloudRecognition = recognition();
+    cloudRecognition.identifiers = [
+      {
+        type: "serial",
+        value: "SERIAL-FROM-CLOUD",
+        confidence: "review",
+        evidence: "cloud label",
+        source: "vision",
+        validation: "not_applicable",
+      },
+    ];
+    const provider = openAiProviderFor([], cloudRecognition);
+    const gateway = durableGateway();
+
+    await expect(run({ provider, gateway, env: liveVisionEnv })).rejects.toMatchObject({
+      code: "AI_PROVIDER_PROTOCOL_ERROR",
+      status: 502,
+    });
     expect(gateway.settle).toHaveBeenCalledWith(
       expect.objectContaining({ outcome: "completed", estimatedMicroUsd: 27n }),
     );
@@ -230,7 +279,7 @@ describe("inventory vision assistant service", () => {
     );
     await expect(
       run({ provider: notSentProvider, gateway: notSentGateway, env: liveVisionEnv }),
-    ).rejects.toMatchObject({ code: "AI_PROVIDER_UNAVAILABLE" });
+    ).rejects.toMatchObject({ code: "AI_MISCONFIGURED", details: { retryable: false } });
     expect(notSentGateway.settle).toHaveBeenCalledWith(
       expect.objectContaining({ outcome: "not_sent" }),
     );
@@ -254,7 +303,7 @@ const owner: AuditActor = {
   displayName: "Owner",
   role: "owner",
   storeRole: "owner",
-  storeId: "store-1",
+  storeId: AI_CHINATECH_PILOT_STORE_ID,
   activeMembershipId: "membership-owner",
 };
 
@@ -266,6 +315,9 @@ function run({
   consumeQuota,
   gateway,
   now,
+  sanitizeImage,
+  requestRateLimitAlreadyConsumed,
+  consumeRequestRateLimit,
 }: {
   provider: AiAssistantProvider;
   actor?: AuditActor;
@@ -274,15 +326,35 @@ function run({
   consumeQuota?: () => unknown;
   gateway?: AiProviderBudgetGateway;
   now?: () => Date;
+  sanitizeImage?: (input: AiInventoryVisionRequest) => Promise<SanitizedAiInventoryImage>;
+  requestRateLimitAlreadyConsumed?: boolean;
+  consumeRequestRateLimit?: () => unknown;
 }) {
+  const resolvedSanitizer =
+    sanitizeImage ??
+    (provider.name === "openai"
+      ? async (request: AiInventoryVisionRequest) => sanitizedImage(request)
+      : undefined);
   return runAiInventoryVisionRecognition({
     actor,
     input,
-    dependencies: { provider, env, consumeQuota, budgetGateway: gateway, now },
+    dependencies: {
+      provider,
+      env,
+      consumeQuota,
+      budgetGateway: gateway,
+      now,
+      sanitizeImage: resolvedSanitizer,
+      requestRateLimitAlreadyConsumed,
+      consumeRequestRateLimit,
+    },
   });
 }
 
-function openAiProviderFor(orderOfEvents: string[] = []): AiAssistantProvider {
+function openAiProviderFor(
+  orderOfEvents: string[] = [],
+  providerRecognition: AiInventoryRecognition = recognition(),
+): AiAssistantProvider {
   return {
     name: "openai",
     planOrderQuery: vi.fn(async () => {
@@ -291,7 +363,7 @@ function openAiProviderFor(orderOfEvents: string[] = []): AiAssistantProvider {
     recognizeInventoryLabel: vi.fn(async () => {
       orderOfEvents.push("provider");
       return {
-        recognition: recognition(),
+        recognition: providerRecognition,
         metadata: {
           provider: "openai" as const,
           model: "gpt-4o-mini-2024-07-18",
@@ -375,6 +447,7 @@ function recognition(): AiInventoryRecognition {
 function validInput(): AiInventoryVisionRequest {
   const bytes = jpeg(3, 2);
   return {
+    client_request_id: "00000000-0000-4000-8000-000000000102",
     image_data_url: `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`,
     mime_type: "image/jpeg",
     byte_length: bytes.length,
@@ -382,6 +455,18 @@ function validInput(): AiInventoryVisionRequest {
     height: 2,
     locale: "zh-CN",
     fixture_key: "synthetic-redmi-a7-pro-box",
+  };
+}
+
+function sanitizedImage(input: AiInventoryVisionRequest): SanitizedAiInventoryImage {
+  const bytes = Buffer.from(input.image_data_url.split(",")[1] ?? "", "base64");
+  return {
+    bytes,
+    dataUrl: `data:image/jpeg;base64,${bytes.toString("base64")}`,
+    mimeType: "image/jpeg",
+    byteLength: bytes.length,
+    width: input.width,
+    height: input.height,
   };
 }
 

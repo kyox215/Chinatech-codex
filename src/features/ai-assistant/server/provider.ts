@@ -70,6 +70,7 @@ export type AiOrderPlannerInput = {
 };
 
 export type AiInventoryRecognitionInput = {
+  clientRequestId: string;
   imageDataUrl: string;
   mimeType: "image/jpeg" | "image/png" | "image/webp";
   locale: AiAssistantLocale;

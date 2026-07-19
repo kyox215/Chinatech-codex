@@ -593,13 +593,14 @@ export function InventoryIntakeDialog({
                 </Notice>
               ) : null}
               <Notice tone="info" icon={Sparkles}>
-                仅接受 4 MiB 内的静态 JPG、PNG、WebP；浏览器会安全解码、去除元数据并重编码后再识别。
+                仅接受 4 MiB 内的静态
+                JPG、PNG、WebP；浏览器和服务端都会完整解码、去除元数据并重编码，原图不写入库存。
               </Notice>
               <Notice tone="warning" icon={AlertTriangle}>
                 本地识别不足且门店已批准时，衍生图可能发送至 OpenAI；默认安全监控日志可能保留最多 30
                 天。
-                请只保留品牌、型号、内存/容量规格区域，避开人脸、证件、客户资料和设备标识；IMEI/SN
-                请使用本地扫描或手工录入。
+                请只保留品牌、型号、内存/容量规格区域，禁止拍摄人物/人脸、证件、客户资料、收据/地址、设备屏幕内容或设备标识；IMEI/SN
+                只使用本地扫描或手工录入，不发送到云端识别。
               </Notice>
 
               <div className="flex min-w-0 flex-wrap gap-2">

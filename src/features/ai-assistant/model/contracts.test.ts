@@ -23,6 +23,7 @@ describe("AI assistant contracts", () => {
     ).toThrow();
     expect(() =>
       aiInventoryVisionRequestSchema.parse({
+        client_request_id: "00000000-0000-4000-8000-000000000203",
         image_data_url: "data:image/jpeg;base64,/9j/wAA=",
         mime_type: "image/jpeg",
         byte_length: 5,

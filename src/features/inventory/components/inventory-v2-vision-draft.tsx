@@ -201,8 +201,8 @@ export function InventoryV2VisionDraftCard({
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             本地识别不足且门店已批准时，无元数据衍生图可能发送至
             OpenAI；默认安全监控日志可能保留最多 30 天。
-            请只拍/裁剪规格区域，避开人脸、证件和客户资料；IMEI/SN 请优先本地扫描或手工录入。
-            识别结果不会自动写入库存。
+            浏览器和服务端都会完整解码、去元数据并重编码；请只拍/裁剪规格区域，禁止拍摄人物/人脸、证件、客户资料、收据/地址、设备屏幕内容或设备标识。IMEI/SN
+            只使用本地扫描或手工录入，不发送到云端。 识别结果不会自动写入库存。
           </p>
         </div>
         {prepared ? (

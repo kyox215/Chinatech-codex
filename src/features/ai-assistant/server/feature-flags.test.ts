@@ -86,6 +86,12 @@ describe("AI assistant feature flags", () => {
       }),
     ).toThrow("durable quota");
     expect(() => assertOpenAiExternalCallsApproved(completeLiveBudgetConfig)).not.toThrow();
+    expect(() =>
+      assertOpenAiExternalCallsApproved({
+        ...completeLiveBudgetConfig,
+        OPENAI_API_KEY: completeLiveBudgetConfig.AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET,
+      }),
+    ).toThrow(/相互独立/);
   });
 
   it("only permits official HTTPS API hosts", () => {

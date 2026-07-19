@@ -12,6 +12,9 @@ import {
 import { ForbiddenError, UnauthorizedError } from "@/server/auth-context";
 import { BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
 import { AI_INVENTORY_VISION_REQUEST_MAX_BYTES } from "@/features/ai-assistant/model/inventory-image-policy";
+import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
+import { AiServiceError } from "@/features/ai-assistant/server/errors";
+import { consumeAiAssistantRequestRateLimit } from "@/features/ai-assistant/server/request-rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -114,6 +117,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   let preauthenticatedActor;
+  let aiVisionRateLimitConsumed = false;
   if (
     path === "orders/data/import/preview" ||
     path === "ai/order/turn" ||
@@ -131,6 +135,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  if (path === "ai/vision/extract" && preauthenticatedActor) {
+    const capabilities = getAiAssistantCapabilities(preauthenticatedActor);
+    if (!capabilities.canUseVisionIntake) {
+      const permissionDenied = capabilities.reason === "permission_denied";
+      return privateError(
+        permissionDenied ? "当前账号不能使用这项 AI 功能" : "AI 小助手当前未开放",
+        permissionDenied ? 403 : 404,
+      );
+    }
+    try {
+      consumeAiAssistantRequestRateLimit({ actor: preauthenticatedActor });
+      aiVisionRateLimitConsumed = true;
+    } catch (error) {
+      if (error instanceof AiServiceError) return privateError(error.message, error.status);
+      return privateError("AI 请求频率检查暂时不可用", 503);
+    }
+  }
+
   let body: unknown;
   try {
     body =
@@ -145,5 +167,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     return privateError("请求内容无法读取，请重试", 400);
   }
-  return handleRepairDeskPost(path, body, preauthenticatedActor, request.signal);
+  return handleRepairDeskPost(path, body, preauthenticatedActor, request.signal, {
+    aiVisionRateLimitConsumed,
+  });
 }

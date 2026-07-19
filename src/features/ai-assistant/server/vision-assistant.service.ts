@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import {
   AI_ASSISTANT_CONTRACT_VERSION,
   AI_INVENTORY_RECOGNITION_PROMPT_VERSION,
@@ -8,6 +6,7 @@ import {
   type AiInventoryVisionRequest,
   type AiInventoryVisionResponse,
 } from "@/features/ai-assistant/model/contracts";
+import { normalizeProviderInventoryRecognition } from "@/features/ai-assistant/model/inventory-recognition";
 import {
   bucketAiAssistantInputBytes,
   bucketAiAssistantLatency,
@@ -41,6 +40,10 @@ import {
 import { getAiModelRuntimePolicy } from "./runtime-policy";
 import { createAiSafetyIdentifierIfConfigured } from "./safety-identifier";
 import { AiVisionInputValidationError, validateAiInventoryVisionInput } from "./vision-input";
+import {
+  sanitizeAiInventoryImageForProvider,
+  type SanitizedAiInventoryImage,
+} from "./vision-image-sanitizer";
 import type { AuditActor } from "@/lib/repairdesk/types";
 
 type VisionAssistantDependencies = {
@@ -53,6 +56,8 @@ type VisionAssistantDependencies = {
   consumeRequestRateLimit?: (
     input: ConsumeAiAssistantRequestRateLimitInput,
   ) => unknown | Promise<unknown>;
+  requestRateLimitAlreadyConsumed?: boolean;
+  sanitizeImage?: (input: AiInventoryVisionRequest) => Promise<SanitizedAiInventoryImage>;
 };
 
 export async function runAiInventoryVisionRecognition({
@@ -64,7 +69,7 @@ export async function runAiInventoryVisionRecognition({
   input: AiInventoryVisionRequest;
   dependencies: VisionAssistantDependencies;
 }): Promise<AiInventoryVisionResponse> {
-  const requestId = input.client_request_id ?? randomUUID();
+  const requestId = input.client_request_id;
   const auditContext: Pick<
     WriteAiAssistantAuditInput,
     | "event"
@@ -108,11 +113,13 @@ export async function runAiInventoryVisionRecognition({
       throw aiNotAuthorizedError();
     }
 
-    await (dependencies.consumeRequestRateLimit ?? consumeAiAssistantRequestRateLimit)({
-      actor,
-      env: dependencies.env,
-      now: dependencies.now,
-    });
+    if (!dependencies.requestRateLimitAlreadyConsumed) {
+      await (dependencies.consumeRequestRateLimit ?? consumeAiAssistantRequestRateLimit)({
+        actor,
+        env: dependencies.env,
+        now: dependencies.now,
+      });
+    }
 
     stage = "input";
     validateAiInventoryVisionInput(input);
@@ -124,6 +131,10 @@ export async function runAiInventoryVisionRecognition({
     const safetyIdentifier = createAiSafetyIdentifierIfConfigured(actor, dependencies.env);
     auditContext.policyVersion = runtimePolicy.policyVersion;
     auditContext.safetyIdentifierPresent = Boolean(safetyIdentifier);
+    let providerImage = {
+      dataUrl: input.image_data_url,
+      mimeType: input.mime_type,
+    };
     if (provider.name === "fake") {
       await (dependencies.consumeQuota ?? consumeAiAssistantRequestQuota)({
         actor,
@@ -135,7 +146,13 @@ export async function runAiInventoryVisionRecognition({
       assertAiProviderEgressAllowed({
         requestKind: "inventory_vision",
         env: dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
+        storeId: actor.storeId,
       });
+      stage = "input";
+      const sanitized = await (dependencies.sanitizeImage ?? sanitizeAiInventoryImageForProvider)(
+        input,
+      );
+      providerImage = { dataUrl: sanitized.dataUrl, mimeType: sanitized.mimeType };
       stage = "budget";
       auditContext.budgetOutcome = "blocked";
       const gateway =
@@ -148,7 +165,7 @@ export async function runAiInventoryVisionRecognition({
         clientRequestId: requestId,
         requestKind: "inventory_vision",
         locale: input.locale,
-        content: input.image_data_url,
+        content: sanitized.dataUrl,
         env: dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
       });
       auditContext.reservedMicroUsd = budgetSession.reservedMicroUsd;
@@ -157,8 +174,9 @@ export async function runAiInventoryVisionRecognition({
 
     stage = "provider";
     const result = await provider.recognizeInventoryLabel({
-      imageDataUrl: input.image_data_url,
-      mimeType: input.mime_type,
+      clientRequestId: requestId,
+      imageDataUrl: providerImage.dataUrl,
+      mimeType: providerImage.mimeType,
       locale: input.locale,
       safetyIdentifier,
       signal: createAiProviderSignal(dependencies.requestSignal, runtimePolicy.providerDeadlineMs),
@@ -185,10 +203,17 @@ export async function runAiInventoryVisionRecognition({
     }
     const recognition = aiInventoryRecognitionSchema.safeParse(result.recognition);
     if (!recognition.success) throw visionProtocolError();
+    if (result.metadata.provider === "openai" && recognition.data.identifiers.length > 0) {
+      throw visionProtocolError();
+    }
+    const normalizedRecognition =
+      result.metadata.provider === "openai"
+        ? normalizeProviderInventoryRecognition(recognition.data)
+        : recognition.data;
     response = aiInventoryVisionResponseSchema.parse({
       request_id: requestId,
       contract_version: AI_ASSISTANT_CONTRACT_VERSION,
-      recognition: recognition.data,
+      recognition: normalizedRecognition,
       provider: result.metadata.provider,
       model_version: result.metadata.model,
       generated_at: (dependencies.now ?? (() => new Date()))().toISOString(),
@@ -256,6 +281,9 @@ function normalizeVisionAssistantError(
     }
     if (error instanceof AiProviderRequestError && error.category === "timeout") {
       return visionProviderTimeoutError();
+    }
+    if (error instanceof AiProviderRequestError && error.category === "configuration") {
+      return visionMisconfiguredError();
     }
     if (isRateLimitedError(error)) return visionProviderRateLimitedError();
     if (isAiProviderTimeoutError(error)) return visionProviderTimeoutError();

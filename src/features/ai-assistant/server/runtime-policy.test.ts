@@ -49,4 +49,26 @@ describe("AI runtime policy", () => {
       expect(() => assertAiLiveBudgetConfiguration({ ...validLiveConfig, [key]: "" })).toThrow();
     }
   });
+
+  it("enforces compiled pilot ceilings and independent HMAC secrets", () => {
+    expect(() =>
+      assertAiLiveBudgetConfiguration({
+        ...validLiveConfig,
+        AI_ASSISTANT_MONTHLY_BUDGET_MICRO_USD: "50000001",
+      }),
+    ).toThrow(/硬上限/);
+    expect(() =>
+      assertAiLiveBudgetConfiguration({
+        ...validLiveConfig,
+        AI_ASSISTANT_INVENTORY_VISION_PER_STORE_DAY: "11",
+      }),
+    ).toThrow(/硬上限/);
+    expect(() =>
+      assertAiLiveBudgetConfiguration({
+        ...validLiveConfig,
+        AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET:
+          validLiveConfig.AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET,
+      }),
+    ).toThrow(/相互独立/);
+  });
 });

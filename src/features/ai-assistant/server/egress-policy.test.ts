@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AiAssistantFeatureEnvironment } from "./feature-flags";
+import { AI_CHINATECH_PILOT_STORE_ID } from "./feature-flags";
 import { assertAiProviderEgressAllowed } from "./egress-policy";
 
 const liveTextEnv = {
@@ -70,8 +71,23 @@ describe("AI provider egress policy", () => {
           AI_ASSISTANT_PROVIDER: "openai",
           AI_ASSISTANT_EXTERNAL_DATA_APPROVED: "1",
           AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED: "1",
+          AI_ASSISTANT_STORE_ALLOWLIST: AI_CHINATECH_PILOT_STORE_ID,
         },
+        storeId: AI_CHINATECH_PILOT_STORE_ID,
       }),
     ).not.toThrow();
+
+    expect(() =>
+      assertAiProviderEgressAllowed({
+        requestKind: "inventory_vision",
+        env: {
+          AI_ASSISTANT_PROVIDER: "openai",
+          AI_ASSISTANT_EXTERNAL_DATA_APPROVED: "1",
+          AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED: "1",
+          AI_ASSISTANT_STORE_ALLOWLIST: `${AI_CHINATECH_PILOT_STORE_ID},other-store`,
+        },
+        storeId: AI_CHINATECH_PILOT_STORE_ID,
+      }),
+    ).toThrow(expect.objectContaining({ code: "AI_MISCONFIGURED" }));
   });
 });
