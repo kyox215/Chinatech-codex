@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   AI_INVENTORY_IMAGE_MAX_DERIVED_BYTES,
   AI_INVENTORY_IMAGE_MAX_ORIGINAL_BYTES,
   AiInventoryImageError,
+  aiInventoryImageBlobToDataUrl,
   detectAiInventoryImageMime,
   inspectAiInventoryImage,
   isAnimatedAiInventoryImage,
@@ -14,7 +15,12 @@ import {
 const pngSignature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 describe("AI inventory image preparation", () => {
-  beforeEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("accepts only matching JPEG, PNG and WebP magic signatures", async () => {
     const jpegBytes = jpegFile(2, 2);
@@ -124,6 +130,58 @@ describe("AI inventory image preparation", () => {
     await expect(operation).rejects.toBeInstanceOf(AiInventoryImageError);
     await expect(operation).rejects.toMatchObject({ code: "derived_too_large" });
     expect(harness.disposeDecoded).toHaveBeenCalledOnce();
+  });
+
+  it("aborts a hanging data URL read at its hard deadline", async () => {
+    const abort = vi.fn();
+    class HangingFileReader {
+      static readonly LOADING = 1;
+      readyState = 1;
+      result: string | ArrayBuffer | null = null;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      readAsDataURL() {}
+      abort() {
+        abort();
+        this.readyState = 2;
+        this.onabort?.();
+      }
+    }
+    vi.stubGlobal("FileReader", HangingFileReader);
+
+    await expect(
+      aiInventoryImageBlobToDataUrl(new Blob(["safe"], { type: "image/jpeg" }), {
+        timeoutMs: 5,
+      }),
+    ).rejects.toMatchObject({
+      code: "processing_failed",
+      message: "图片读取超时，请重试或继续手工录入。",
+    });
+    expect(abort).toHaveBeenCalledOnce();
+  });
+
+  it("does not start a data URL read after caller cancellation", async () => {
+    const readAsDataURL = vi.fn();
+    class IdleFileReader {
+      readyState = 0;
+      result: string | ArrayBuffer | null = null;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      readAsDataURL = readAsDataURL;
+      abort() {}
+    }
+    vi.stubGlobal("FileReader", IdleFileReader);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      aiInventoryImageBlobToDataUrl(new Blob(["safe"], { type: "image/jpeg" }), {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(readAsDataURL).not.toHaveBeenCalled();
   });
 });
 

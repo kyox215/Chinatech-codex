@@ -99,7 +99,7 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
       mimeType: "image/png",
       buffer: await createSyntheticPng(page),
     });
-    await expect(dialog.getByText("正在进行本地识别，必要时请求视觉服务…")).toBeVisible();
+    await expect(dialog.getByText("第 3/3 步：正在请求云端识别包装规格…")).toBeVisible();
     await dialog.getByRole("button", { name: "取消识别" }).click();
     await expect(dialog.getByText(/已取消识别，照片不会排队上传/)).toBeVisible();
     const countAfterCancel = await visionRequestCount(page);
@@ -175,6 +175,84 @@ test.describe("AI inventory intake remains an editable unsaved draft", () => {
   }
 });
 
+test.describe("inventory V2 inline Vision flow remains bounded and optional", () => {
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`${viewport.width}px completes one mocked cloud fallback without creating inventory`, async ({
+      page,
+    }) => {
+      await installIncompleteLocalDetectors(page);
+      await installInventoryCreateCounter(page);
+      await installMockCloudVision(page, 500);
+      await page.setViewportSize(viewport);
+      await gotoV2VisionStep(page);
+
+      await page.getByLabel("选择图片").setInputFiles({
+        name: "synthetic-v2-cloud-label.png",
+        mimeType: "image/png",
+        buffer: await createSyntheticPng(page),
+      });
+
+      await expect(page.getByText("第 3/3 步：正在请求云端识别包装规格…")).toBeVisible();
+      await expect(visibleNextButton(page)).toBeEnabled();
+      await expect(page.getByText("AI 仅生成候选，请取消不正确的项目后再确认应用。")).toBeVisible({
+        timeout: 20_000,
+      });
+      expect(await visionRequestCount(page)).toBe(1);
+      expect(await inventoryCreateRequestCount(page)).toBe(0);
+
+      const request = await lastVisionRequestPayload(page);
+      expect(request).toMatchObject({ mime_type: "image/jpeg", locale: "zh-CN" });
+      expect(request.client_request_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+      expect(request.image_data_url).toMatch(/^data:image\/jpeg;base64,/);
+      expect(request).not.toHaveProperty("store_id");
+      expect(request).not.toHaveProperty("identifiers");
+      await expectNoHorizontalOverflow(page);
+      await saveEvidence(page, `vision-v2-${viewport.width}-cloud-ready.png`);
+
+      await page.getByRole("button", { name: "确认并应用所选候选" }).click();
+      await expect(page.getByText(/已把人工确认的候选带入草稿，尚未入库/)).toBeVisible();
+      await visibleNextButton(page).click();
+      await expect(page.getByRole("heading", { name: "填写型号与唯一标识" })).toBeVisible();
+      await expect(page.getByPlaceholder("Apple")).toHaveValue("Redmi");
+      await expect(page.getByPlaceholder("iPhone 15 Pro")).toHaveValue("A7 Pro");
+      await expect(page.getByPlaceholder("256 GB")).toHaveValue("256 GB");
+      expect(await inventoryCreateRequestCount(page)).toBe(0);
+      await expectNoHorizontalOverflow(page);
+      await saveEvidence(page, `vision-v2-${viewport.width}-applied-unsaved.png`);
+    });
+  }
+
+  test("390px can leave a pending Vision request for the manual next step", async ({ page }) => {
+    await installIncompleteLocalDetectors(page);
+    await installInventoryCreateCounter(page);
+    await installHangingCloudVision(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoV2VisionStep(page);
+
+    await page.getByLabel("选择图片").setInputFiles({
+      name: "synthetic-v2-manual-fallback.png",
+      mimeType: "image/png",
+      buffer: await createSyntheticPng(page),
+    });
+    await expect(page.getByText("第 3/3 步：正在请求云端识别包装规格…")).toBeVisible();
+    expect(await visionRequestCount(page)).toBe(1);
+    await visibleNextButton(page).click();
+
+    await expect(page.getByRole("heading", { name: "填写型号与唯一标识" })).toBeVisible();
+    await expect(page.getByPlaceholder("Apple")).toBeVisible();
+    await page.waitForTimeout(150);
+    expect(await visionRequestCount(page)).toBe(1);
+    expect(await inventoryCreateRequestCount(page)).toBe(0);
+    await expectNoHorizontalOverflow(page);
+    await saveEvidence(page, "vision-v2-390-manual-next.png");
+  });
+});
+
 async function installSyntheticLocalDetectors(page: Page) {
   await page.addInitScript(() => {
     Object.defineProperty(window, "BarcodeDetector", {
@@ -240,7 +318,11 @@ async function installInventoryCreateCounter(page: Page) {
     testWindow.__inventoryCreateRequestCount = 0;
     window.fetch = (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      if (new URL(url, window.location.origin).pathname.endsWith("/inventory/intake/create")) {
+      const pathname = new URL(url, window.location.origin).pathname;
+      if (
+        pathname.endsWith("/inventory/intake/create") ||
+        pathname.endsWith("/inventory/v2/intake/create")
+      ) {
         testWindow.__inventoryCreateRequestCount =
           (testWindow.__inventoryCreateRequestCount ?? 0) + 1;
       }
@@ -264,63 +346,104 @@ async function installVisionRequestCounter(page: Page) {
   });
 }
 
-async function installMockCloudVision(page: Page) {
+async function installMockCloudVision(page: Page, delayMs = 0) {
+  await page.addInitScript(
+    (options: { delayMs: number }) => {
+      type VisionRequestPayload = {
+        client_request_id?: string;
+        image_data_url?: string;
+        mime_type?: string;
+        locale?: string;
+      };
+      const testWindow = window as typeof window & {
+        __visionRequestCount?: number;
+        __lastVisionRequestPayload?: VisionRequestPayload;
+      };
+      const originalFetch = window.fetch.bind(window);
+      testWindow.__visionRequestCount = 0;
+      window.fetch = async (input, init) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (!new URL(url, window.location.origin).pathname.endsWith("/ai/vision/extract")) {
+          return originalFetch(input, init);
+        }
+
+        testWindow.__visionRequestCount = (testWindow.__visionRequestCount ?? 0) + 1;
+        if (typeof init?.body === "string") {
+          testWindow.__lastVisionRequestPayload = JSON.parse(init.body) as VisionRequestPayload;
+        }
+        if (options.delayMs > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, options.delayMs));
+        }
+        const field = (value: string) => ({
+          value,
+          confidence: "review",
+          evidence: "mocked package label",
+          source: "vision",
+        });
+        return new Response(
+          JSON.stringify({
+            data: {
+              contract_version: "ai-assistant-v1",
+              recognition: {
+                schema_version: "ai-assistant-v1",
+                fields: {
+                  brand: field("Redmi"),
+                  model: field("A7 Pro"),
+                  color: field("Blue"),
+                  ram_capacity: field("8 GB"),
+                  storage_capacity: field("256 GB"),
+                },
+                identifiers: [],
+                conflicts: [],
+                warnings: ["云端规格候选，必须人工核对。"],
+                label_claim_only: true,
+              },
+              provider: "openai",
+              model_version: "gpt-4o-mini-2024-07-18",
+              generated_at: "2026-07-19T02:00:00.000Z",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      };
+    },
+    { delayMs },
+  );
+}
+
+async function installHangingCloudVision(page: Page) {
   await page.addInitScript(() => {
-    type VisionRequestPayload = {
-      client_request_id?: string;
-      image_data_url?: string;
-      mime_type?: string;
-      locale?: string;
-    };
-    const testWindow = window as typeof window & {
-      __visionRequestCount?: number;
-      __lastVisionRequestPayload?: VisionRequestPayload;
-    };
+    const testWindow = window as typeof window & { __visionRequestCount?: number };
     const originalFetch = window.fetch.bind(window);
     testWindow.__visionRequestCount = 0;
-    window.fetch = async (input, init) => {
+    window.fetch = (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (!new URL(url, window.location.origin).pathname.endsWith("/ai/vision/extract")) {
         return originalFetch(input, init);
       }
-
       testWindow.__visionRequestCount = (testWindow.__visionRequestCount ?? 0) + 1;
-      if (typeof init?.body === "string") {
-        testWindow.__lastVisionRequestPayload = JSON.parse(init.body) as VisionRequestPayload;
-      }
-      const field = (value: string) => ({
-        value,
-        confidence: "review",
-        evidence: "mocked package label",
-        source: "vision",
+      return new Promise<Response>((_resolve, reject) => {
+        const abort = () => reject(new DOMException("Aborted", "AbortError"));
+        if (init?.signal?.aborted) abort();
+        else init?.signal?.addEventListener("abort", abort, { once: true });
       });
-      return new Response(
-        JSON.stringify({
-          data: {
-            contract_version: "ai-assistant-v1",
-            recognition: {
-              schema_version: "ai-assistant-v1",
-              fields: {
-                brand: field("Redmi"),
-                model: field("A7 Pro"),
-                color: field("Blue"),
-                ram_capacity: field("8 GB"),
-                storage_capacity: field("256 GB"),
-              },
-              identifiers: [],
-              conflicts: [],
-              warnings: ["云端规格候选，必须人工核对。"],
-              label_claim_only: true,
-            },
-            provider: "openai",
-            model_version: "gpt-4o-mini-2024-07-18",
-            generated_at: "2026-07-19T02:00:00.000Z",
-          },
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
     };
   });
+}
+
+async function gotoV2VisionStep(page: Page) {
+  await page.goto("/inventory/new", { waitUntil: "domcontentloaded" });
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await expect(visibleNextButton(page)).toBeEnabled({ timeout: 20_000 });
+  await visibleNextButton(page).click();
+  await expect(page.getByRole("heading", { name: "AI 标签识别（可选）" })).toBeVisible({
+    timeout: 20_000,
+  });
+}
+
+function visibleNextButton(page: Page) {
+  return page.getByRole("button", { name: "下一步" }).filter({ visible: true }).first();
 }
 
 async function gotoReady(page: Page, route: string) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Camera, CheckCircle2, ImagePlus, Loader2, Sparkles, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import type {
   AiInventoryRecognition,
 } from "@/features/ai-assistant/model/contracts";
 import {
+  AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS,
   aiInventoryImageBlobToDataUrl,
   prepareAiInventoryImage,
   type PreparedAiInventoryImage,
@@ -32,6 +33,7 @@ const fieldLabels: Record<AiInventoryFieldName, string> = {
   ram_capacity: "内存",
   storage_capacity: "容量",
 };
+type VisionDraftStatus = "idle" | "preparing" | "local" | "cloud" | "ready" | "error";
 
 export type InventoryV2VisionDraft = Partial<Record<AiInventoryFieldName, string>> & {
   identifiers: InventoryV2IdentifierInput[];
@@ -48,17 +50,47 @@ export function InventoryV2VisionDraftCard({
   const [recognition, setRecognition] = useState<AiInventoryRecognition | null>(null);
   const [selectedFields, setSelectedFields] = useState<AiInventoryFieldName[]>([]);
   const [selectedIdentifiers, setSelectedIdentifiers] = useState<number[]>([]);
-  const [status, setStatus] = useState<"idle" | "working" | "ready" | "error">("idle");
+  const [status, setStatus] = useState<VisionDraftStatus>("idle");
   const [message, setMessage] = useState("");
+  const preparedRef = useRef<PreparedAiInventoryImage | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const runIdRef = useRef(0);
+  const isWorking = status === "preparing" || status === "local" || status === "cloud";
+
+  const stopRecognition = useCallback(() => {
+    runIdRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
+  const replacePrepared = useCallback((next: PreparedAiInventoryImage | null) => {
+    preparedRef.current?.dispose();
+    preparedRef.current = next;
+    setPrepared(next);
+  }, []);
+
+  const resetRecognition = useCallback(() => {
+    stopRecognition();
+    replacePrepared(null);
+    setRecognition(null);
+    setSelectedFields([]);
+    setSelectedIdentifiers([]);
+    setStatus("idle");
+    setMessage("");
+  }, [replacePrepared, stopRecognition]);
 
   useEffect(
     () => () => {
-      abortRef.current?.abort();
-      prepared?.dispose();
+      stopRecognition();
+      preparedRef.current?.dispose();
+      preparedRef.current = null;
     },
-    [prepared],
+    [stopRecognition],
   );
+
+  useEffect(() => {
+    if (!enabled) resetRecognition();
+  }, [enabled, resetRecognition]);
 
   const validIdentifiers = useMemo(
     () =>
@@ -79,30 +111,47 @@ export function InventoryV2VisionDraftCard({
       setMessage("当前离线，不会上传照片。请继续手工录入。");
       return;
     }
-    abortRef.current?.abort();
-    prepared?.dispose();
+    stopRecognition();
+    replacePrepared(null);
+    const runId = runIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
-    setPrepared(null);
     setRecognition(null);
-    setStatus("working");
-    setMessage("正在移除照片元数据并识别标签…");
+    setSelectedFields([]);
+    setSelectedIdentifiers([]);
+    setStatus("preparing");
+    setMessage("第 1/3 步：正在生成安全图片并移除元数据…");
+    const isCurrent = () =>
+      runId === runIdRef.current && abortRef.current === controller && !controller.signal.aborted;
+    const pipelineTimeoutId = window.setTimeout(() => {
+      if (!isCurrent()) return;
+      controller.abort();
+      setStatus("error");
+      setMessage("图片处理超时，已安全停止。你可以重新选择图片，或直接下一步手工录入。");
+    }, AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
     try {
       const nextPrepared = await prepareAiInventoryImage(file);
-      if (controller.signal.aborted) {
+      if (!isCurrent()) {
         nextPrepared.dispose();
         return;
       }
-      setPrepared(nextPrepared);
+      replacePrepared(nextPrepared);
+      setStatus("local");
+      setMessage("第 2/3 步：正在本地检查标签候选…");
       const [localResult] = await Promise.allSettled([
         recognizeAiInventoryImageLocally(nextPrepared, { signal: controller.signal }),
       ]);
-      if (controller.signal.aborted) return;
+      if (!isCurrent()) return;
       const local = localResult.status === "fulfilled" ? localResult.value : null;
       const localOnly = Boolean(local && isLocalInventoryRecognitionSufficient(local));
       let server: AiInventoryRecognition | null = null;
       if (!localOnly) {
-        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob);
+        setStatus("cloud");
+        setMessage("第 3/3 步：正在请求云端识别包装规格…");
+        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob, {
+          signal: controller.signal,
+        });
+        if (!isCurrent()) return;
         const [serverResult] = await Promise.allSettled([
           runAiInventoryVisionRecognition(
             {
@@ -117,10 +166,13 @@ export function InventoryV2VisionDraftCard({
             { signal: controller.signal },
           ),
         ]);
-        if (controller.signal.aborted) return;
+        if (!isCurrent()) return;
         server = serverResult.status === "fulfilled" ? serverResult.value.recognition : null;
       }
-      if (!local && !server) throw new Error("识别服务暂不可用");
+      const localHasCandidates = Boolean(local && hasRecognitionCandidates(local));
+      if (!server && !localOnly && !localHasCandidates) {
+        throw new Error("图片识别未完成，请重新选择图片，或直接下一步手工录入。");
+      }
       const merged =
         local && server ? mergeInventoryRecognitions(server, local) : (server ?? local)!;
       setRecognition(merged);
@@ -137,26 +189,22 @@ export function InventoryV2VisionDraftCard({
       setMessage(
         localOnly
           ? "本地候选已足够，本次未上传至云端视觉服务；请复核后再应用。"
-          : "AI 仅生成候选，请取消不正确的项目后再确认应用。",
+          : !server
+            ? "云端识别未完成，仅显示本地候选；请核对，或直接下一步手工录入。"
+            : "AI 仅生成候选，请取消不正确的项目后再确认应用。",
       );
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (!isCurrent()) return;
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "图片识别失败，请手工录入。");
     } finally {
+      window.clearTimeout(pipelineTimeoutId);
       if (abortRef.current === controller) abortRef.current = null;
     }
   }
 
   function clear() {
-    abortRef.current?.abort();
-    prepared?.dispose();
-    setPrepared(null);
-    setRecognition(null);
-    setSelectedFields([]);
-    setSelectedIdentifiers([]);
-    setStatus("idle");
-    setMessage("");
+    resetRecognition();
   }
 
   function applySelected() {
@@ -175,7 +223,7 @@ export function InventoryV2VisionDraftCard({
         primary: index === 0,
       }));
     onApply(draft);
-    setMessage("已应用人工确认的候选；价格、成本和来源不会由 AI 填写。");
+    setMessage("已把人工确认的候选带入草稿，尚未入库；价格、成本和来源不会由 AI 填写。");
   }
 
   if (!enabled) {
@@ -192,7 +240,7 @@ export function InventoryV2VisionDraftCard({
   }
 
   return (
-    <section className={cn(repairOs.mobileInfoCard, "space-y-3 p-3 sm:p-4")}>
+    <section className={cn(repairOs.mobileInfoCard, "space-y-3 p-3 sm:p-4")} aria-busy={isWorking}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -221,6 +269,7 @@ export function InventoryV2VisionDraftCard({
               type="file"
               accept={acceptedImages}
               capture="environment"
+              disabled={isWorking}
               onChange={handleFile}
             />
           </label>
@@ -228,21 +277,30 @@ export function InventoryV2VisionDraftCard({
         <Button type="button" variant="outline" className="h-11 gap-2" asChild>
           <label>
             <ImagePlus className="size-4" /> 选择图片
-            <input className="sr-only" type="file" accept={acceptedImages} onChange={handleFile} />
+            <input
+              className="sr-only"
+              type="file"
+              accept={acceptedImages}
+              disabled={isWorking}
+              onChange={handleFile}
+            />
           </label>
         </Button>
       </div>
 
       {status !== "idle" ? (
-        <div className="flex gap-2 rounded-xl bg-[var(--surface-panel-muted)] p-2.5 text-xs leading-5">
-          {status === "working" ? (
-            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
-          ) : null}
+        <div
+          className="flex min-w-0 gap-2 rounded-xl bg-[var(--surface-panel-muted)] p-2.5 text-xs leading-5"
+          role={status === "error" ? "alert" : "status"}
+          aria-live={status === "error" ? "assertive" : "polite"}
+          aria-atomic="true"
+        >
+          {isWorking ? <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" /> : null}
           {status === "ready" ? (
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-status-success-foreground" />
           ) : null}
           {status === "error" ? <X className="mt-0.5 size-4 shrink-0 text-destructive" /> : null}
-          <span>{message}</span>
+          <span className="min-w-0 break-words">{message}</span>
         </div>
       ) : null}
 
@@ -310,5 +368,14 @@ export function InventoryV2VisionDraftCard({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function hasRecognitionCandidates(recognition: AiInventoryRecognition) {
+  return (
+    fields.some((field) => Boolean(recognition.fields[field].value?.trim())) ||
+    recognition.identifiers.some(
+      (candidate) => candidate.type !== "unknown" && candidate.validation !== "invalid",
+    )
   );
 }

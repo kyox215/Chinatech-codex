@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,7 @@ import {
   AI_ASSISTANT_CONTRACT_VERSION,
   type AiInventoryRecognition,
 } from "@/features/ai-assistant/model/contracts";
+import { AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS } from "@/features/ai-assistant/model/inventory-image";
 
 const apiMocks = vi.hoisted(() => ({ runAiInventoryVisionRecognition: vi.fn() }));
 const imageMocks = vi.hoisted(() => ({
@@ -52,9 +53,130 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+  vi.useRealTimers();
+  cleanup();
+});
 
 describe("InventoryV2VisionDraftCard local-first privacy boundary", () => {
+  it("does not abort the active recognition when the prepared preview renders", async () => {
+    let activeSignal: AbortSignal | undefined;
+    let releaseLocal: ((recognition: AiInventoryRecognition) => void) | undefined;
+    let releaseDataUrl: ((value: string) => void) | undefined;
+    localMocks.recognizeAiInventoryImageLocally.mockImplementation(
+      (_prepared: unknown, options: { signal?: AbortSignal }) => {
+        activeSignal = options.signal;
+        return new Promise<AiInventoryRecognition>((resolve) => {
+          releaseLocal = resolve;
+        });
+      },
+    );
+    imageMocks.aiInventoryImageBlobToDataUrl.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          releaseDataUrl = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    render(<InventoryV2VisionDraftCard enabled onApply={vi.fn()} />);
+
+    await user.upload(
+      screen.getByLabelText("选择图片"),
+      new File(["synthetic"], "delayed-local-label.jpg", { type: "image/jpeg" }),
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("删除照片")).toBeInTheDocument());
+    expect(screen.getByText("第 2/3 步：正在本地检查标签候选…")).toBeInTheDocument();
+    expect(activeSignal?.aborted).toBe(false);
+    releaseLocal?.(incompleteRecognition());
+    expect(await screen.findByText("第 3/3 步：正在请求云端识别包装规格…")).toBeInTheDocument();
+    releaseDataUrl?.("data:image/jpeg;base64,/9j/wAA=");
+    await waitFor(() => expect(apiMocks.runAiInventoryVisionRecognition).toHaveBeenCalledOnce());
+  });
+
+  it("ends the busy state at the whole-pipeline deadline and preserves manual fallback", async () => {
+    vi.useFakeTimers();
+    imageMocks.prepareAiInventoryImage.mockReturnValue(new Promise(() => {}));
+    render(<InventoryV2VisionDraftCard enabled onApply={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("选择图片"), {
+      target: {
+        files: [new File(["synthetic"], "hanging-label.jpg", { type: "image/jpeg" })],
+      },
+    });
+    expect(screen.getByText("第 1/3 步：正在生成安全图片并移除元数据…")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
+    });
+
+    expect(
+      screen.getByText("图片处理超时，已安全停止。你可以重新选择图片，或直接下一步手工录入。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByLabelText("选择图片")).not.toBeDisabled();
+    expect(apiMocks.runAiInventoryVisionRecognition).not.toHaveBeenCalled();
+  });
+
+  it("ignores a cleared operation when its delayed local result arrives after a new file", async () => {
+    let firstSignal: AbortSignal | undefined;
+    let releaseFirst: ((recognition: AiInventoryRecognition) => void) | undefined;
+    localMocks.recognizeAiInventoryImageLocally
+      .mockImplementationOnce((_prepared: unknown, options: { signal?: AbortSignal }) => {
+        firstSignal = options.signal;
+        return new Promise<AiInventoryRecognition>((resolve) => {
+          releaseFirst = resolve;
+        });
+      })
+      .mockResolvedValueOnce(incompleteRecognition());
+    const user = userEvent.setup();
+    render(<InventoryV2VisionDraftCard enabled onApply={vi.fn()} />);
+
+    await user.upload(
+      screen.getByLabelText("选择图片"),
+      new File(["first"], "first-label.jpg", { type: "image/jpeg" }),
+    );
+    await waitFor(() => expect(screen.getByLabelText("删除照片")).toBeInTheDocument());
+    await user.click(screen.getByLabelText("删除照片"));
+    expect(firstSignal?.aborted).toBe(true);
+
+    await user.upload(
+      screen.getByLabelText("选择图片"),
+      new File(["second"], "second-label.jpg", { type: "image/jpeg" }),
+    );
+    expect(
+      await screen.findByText("AI 仅生成候选，请取消不正确的项目后再确认应用。"),
+    ).toBeInTheDocument();
+    await act(async () => {
+      releaseFirst?.(completeRecognition());
+      await Promise.resolve();
+    });
+
+    expect(apiMocks.runAiInventoryVisionRecognition).toHaveBeenCalledOnce();
+    expect(screen.getByText("型号：").parentElement).toHaveTextContent("A7 Pro");
+  });
+
+  it("shows an actionable error instead of an empty success when cloud fallback fails", async () => {
+    localMocks.recognizeAiInventoryImageLocally.mockResolvedValue(emptyRecognition());
+    apiMocks.runAiInventoryVisionRecognition.mockRejectedValue(
+      new Error("private provider detail"),
+    );
+    const user = userEvent.setup();
+    render(<InventoryV2VisionDraftCard enabled onApply={vi.fn()} />);
+
+    await user.upload(
+      screen.getByLabelText("选择图片"),
+      new File(["synthetic"], "empty-local-label.jpg", { type: "image/jpeg" }),
+    );
+
+    expect(
+      await screen.findByText("图片识别未完成，请重新选择图片，或直接下一步手工录入。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(apiMocks.runAiInventoryVisionRecognition).toHaveBeenCalledOnce();
+    expect(screen.queryByText("AI 仅生成候选，请取消不正确的项目后再确认应用。")).toBeNull();
+  });
+
   it("keeps complete local recognition on-device without encoding or calling the server", async () => {
     localMocks.recognizeAiInventoryImageLocally.mockResolvedValue(completeRecognition());
     const user = userEvent.setup();
@@ -136,6 +258,29 @@ function incompleteRecognition(): AiInventoryRecognition {
     identifiers: [],
     conflicts: [],
     warnings: ["synthetic incomplete local label"],
+    label_claim_only: true,
+  };
+}
+
+function emptyRecognition(): AiInventoryRecognition {
+  const missing = {
+    value: null,
+    confidence: "unknown" as const,
+    evidence: null,
+    source: "unknown" as const,
+  };
+  return {
+    schema_version: AI_ASSISTANT_CONTRACT_VERSION,
+    fields: {
+      brand: missing,
+      model: missing,
+      color: missing,
+      ram_capacity: missing,
+      storage_capacity: missing,
+    },
+    identifiers: [],
+    conflicts: [],
+    warnings: ["synthetic empty local label"],
     label_claim_only: true,
   };
 }

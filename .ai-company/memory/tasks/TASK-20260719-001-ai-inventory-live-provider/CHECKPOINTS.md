@@ -73,3 +73,54 @@
 - **Test configuration note:** the valid browser gate explicitly enabled the local fake-provider Vision capability flags; the earlier flags-off local run was not treated as product evidence.
 - **Next:** commit the exact evidence, recheck remote drift, then push the reviewed fast-forward lineage to `main` and deploy dormant.
 - **Evidence:** E-019.
+
+## 2026-07-19T08:01:48Z — Vision test entrance enabled; awaiting one manual upload
+
+- **Phase:** production-release / manual smoke handoff.
+- **Completed/current state:** only the approved ChinaTech Vision gates were enabled; the authenticated desktop and 390x844 mobile entry were visible; Vision usage/open/audit remained `0/0/0`.
+- **Next:** one manual cropped no-PII label upload; no retry.
+- **Evidence:** E-021.
+
+## 2026-07-19T11:12:25Z — Mobile Vision client stall contained
+
+- **Phase:** incident response / contained.
+- **Completed/current state:** the mobile flow stalled after safe-image preparation and before HTTP. Supabase usage/open/audit remained `0/0/0`; Vercel had no Vision route request; all three Vision gates were disabled.
+- **Decision:** flags-first rollback; preserve manual intake; no second upload.
+- **Risks:** synchronous ZXing is the leading but not yet reproduced cause; unbounded FileReader remains a secondary candidate.
+- **Evidence:** E-022 and `INCIDENT-20260719-VISION-CLIENT-STALL.md`.
+
+## 2026-07-19T11:40:21Z — Owner resumed full remediation and release
+
+- **Phase:** client-stall remediation / planned.
+- **Owner authority:** plan, implement, validate, push `main`, deploy and complete the already approved ChinaTech-only exactly-once no-PII smoke.
+- **Baseline:** clean isolated branch `codex/vision-client-stall-hotfix-20260719` at `origin/main@041a4e0f`; root dirty worktree remains untouched.
+- **Plan:** `REMEDIATION_PLAN.md`; one Integration Lead writer plus three independent read-only architecture, QA/UX and security/release reviews.
+- **Stop condition:** Vision remains off until remediation and every preflight gate pass.
+- **Next:** lock the client failure with tests, integrate the smallest safe fix and complete review/verification.
+
+## 2026-07-19T12:10:10Z — Client self-abort root cause fixed; V2 browser evidence passed
+
+- **Phase:** client-stall remediation / verification.
+- **Confirmed root cause:** the V2 card cleanup effect depended on `prepared`; the prepared-state render aborted the current controller and the handler returned while status remained working. A regression test failed before the fix and passes after ref-based disposal plus unmount/explicit-reset cleanup.
+- **Completed:** both production Vision callers now have bounded FileReader conversion and a 75-second whole-pipeline watchdog; the optional photo path no longer invokes main-thread ZXing; preparation/local/cloud stages are explicit and accessible; stale runs cannot overwrite a newer image; manual Next and zero automatic inventory writes remain intact.
+- **Evidence:** focused Vitest 5 files / 43 tests passed; V2 Playwright 3/3 passed at 390x844 and 1280x800 with mocked cloud, exactly one request per flow, zero create requests and five inspected `vision-v2-*.png` screenshots.
+- **Decision:** production Vision stays off. The single formal smoke must use a pre-inspected synthetic specifications-only image because re-encoding and schema controls cannot prove selected pixels contain no prohibited text.
+- **Next:** finish runbook/task synchronization, full repository gates and final independent security/release review; then recheck remote drift before any push.
+
+## 2026-07-19T12:19:51Z — Final local quality, browser and security gates passed
+
+- **Phase:** release-candidate verification.
+- **Completed:** final candidate passes agents/lint/typecheck; repository Vitest passes 309 files / 1978 tests; Next 16.2.6 production build succeeds with 26 static pages; production npm audit reports 0 vulnerabilities; Sharp resolves exactly to 0.34.5; refined changed-source key scan and generated client bundle secret-name scan return no matches; `git diff --check` passes.
+- **Browser evidence:** legacy inventory Vision passes 6/6 with V2 flags off; `/inventory/new` V2 passes 3/3 with V2 flags on. These configurations are mutually exclusive by product design, so they were validated separately. All flows use synthetic images and mocked cloud, make at most one Vision request and record zero inventory-create requests.
+- **Documentation:** runbook now requires dormant deploy/off, zero baseline, Chinatech-only triple-gate activation, one pre-inspected synthetic UI smoke, exact ledger/audit `+1`, no retry for `sent_unknown`, 75-second/manual-Next stop thresholds and a single-test-operator 30-minute window.
+- **Next:** collect final independent architecture, QA/UX and security/release verdicts; then run scoped diff review, memory checkpoint and fresh remote-drift check before commit/push.
+## 2026-07-19T12:26:26Z — 客户端 effect 自取消根因已修复；方案 A 已落地。focused 5/43、全仓 309/1978、lint/typecheck/agents、26 页构建、audit 0、旧入口 6/6、V2 3/3 与三项独立复核通过。生产 Vision 保持关闭，唯一 smoke 未消耗。
+
+- **Phase:** release-candidate-verified
+- **Completed/current state:** 客户端 effect 自取消根因已修复；方案 A 已落地。focused 5/43、全仓 309/1978、lint/typecheck/agents、26 页构建、audit 0、旧入口 6/6、V2 3/3 与三项独立复核通过。生产 Vision 保持关闭，唯一 smoke 未消耗。
+- **Next:** 提交 scoped candidate，重新 fetch 并 fast-forward 推送 main；把三项 Vision 变量明确设为 0 后休眠部署，验证 exact SHA 与零账本，再按 runbook 执行唯一一次事先目检的合成规格图 smoke。
+- **Decision:** 采用 ref/run-id、native-only optional detector、8 秒 FileReader 与 75 秒全链路 watchdog；发布按 off deploy -> zero baseline -> ChinaTech triple gate -> one UI smoke -> exact +1/no retry。
+- **Blocker:** Production release remains conditional on dormant deployment, zero-ledger preflight and exactly-once smoke; any mismatch triggers flags-first rollback.
+- **Evidence:**
+  - E-024..E-033
+- **Recorded by:** Integration-Lead

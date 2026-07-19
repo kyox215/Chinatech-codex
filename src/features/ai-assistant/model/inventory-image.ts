@@ -25,6 +25,8 @@ export {
 } from "./inventory-image-format";
 
 const derivedMaxEdge = 2048;
+export const AI_INVENTORY_IMAGE_DATA_URL_TIMEOUT_MS = 8_000;
+export const AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS = 75_000;
 export type AiInventoryImageErrorCode =
   | "empty"
   | "too_large"
@@ -164,17 +166,83 @@ function validateDecodedDimensionsMatch(
   }
 }
 
-export function aiInventoryImageBlobToDataUrl(blob: Blob) {
+export function aiInventoryImageBlobToDataUrl(
+  blob: Blob,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
+    const timeoutMs = Math.max(
+      1,
+      Math.min(options.timeoutMs ?? AI_INVENTORY_IMAGE_DATA_URL_TIMEOUT_MS, 60_000),
+    );
+    let settled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const cleanup = () => {
+      if (timeoutId !== null) clearTimeout(timeoutId);
+      options.signal?.removeEventListener("abort", handleSignalAbort);
+      reader.onload = null;
+      reader.onerror = null;
+      reader.onabort = null;
+    };
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    };
+    const abortReader = () => {
+      if (reader.readyState !== 1) return;
+      try {
+        reader.abort();
+      } catch {
+        // The Promise has already settled with a safe timeout/abort result.
+      }
+    };
+    const handleSignalAbort = () => {
+      finish(() => reject(createAbortError()));
+      abortReader();
+    };
     reader.onload = () => {
       const value = typeof reader.result === "string" ? reader.result : "";
-      if (value.startsWith("data:image/jpeg;base64,")) resolve(value);
-      else reject(new AiInventoryImageError("processing_failed", "图片编码失败，请重试。"));
+      if (value.startsWith("data:image/jpeg;base64,")) {
+        finish(() => resolve(value));
+      } else {
+        finish(() =>
+          reject(new AiInventoryImageError("processing_failed", "图片编码失败，请重试。")),
+        );
+      }
     };
     reader.onerror = () =>
-      reject(new AiInventoryImageError("processing_failed", "图片读取失败，请重试。"));
-    reader.readAsDataURL(blob);
+      finish(() =>
+        reject(new AiInventoryImageError("processing_failed", "图片读取失败，请重试。")),
+      );
+    reader.onabort = () =>
+      finish(() =>
+        reject(
+          new AiInventoryImageError("processing_failed", "图片读取已取消，请重试或继续手工录入。"),
+        ),
+      );
+    options.signal?.addEventListener("abort", handleSignalAbort, { once: true });
+    if (options.signal?.aborted) {
+      handleSignalAbort();
+      return;
+    }
+    timeoutId = setTimeout(() => {
+      finish(() =>
+        reject(
+          new AiInventoryImageError("processing_failed", "图片读取超时，请重试或继续手工录入。"),
+        ),
+      );
+      abortReader();
+    }, timeoutMs);
+    try {
+      reader.readAsDataURL(blob);
+    } catch {
+      finish(() =>
+        reject(new AiInventoryImageError("processing_failed", "图片读取失败，请重试。")),
+      );
+    }
   });
 }
 
@@ -248,6 +316,10 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
       quality,
     );
   });
+}
+
+function createAbortError() {
+  return new DOMException("The operation was aborted.", "AbortError");
 }
 
 const browserImageRuntime: AiInventoryImageRuntime = {

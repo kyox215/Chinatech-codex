@@ -1,6 +1,6 @@
 # Chinatech AI 图片标签识别单店发布手册
 
-Status: Vision D4 approved; serialized Production release in progress
+Status: Vision D4 approved; client-stall hotfix verification in progress; Production Vision disabled
 Task: `TASK-20260719-001-ai-inventory-live-provider`
 Last verified: 2026-07-19 CEST
 
@@ -10,7 +10,9 @@ Last verified: 2026-07-19 CEST
 
 本候选已把库存标签识别接到既有原生 `fetch` Responses provider，并保留手工入库：浏览器先解码、去元数据和重编码；服务端再次完整解码单帧、限制像素/边长、旋转、铺白并生成无元数据 JPEG。只有服务端衍生图可以参与请求指纹、预算预留和 OpenAI 调用。识别结果只能成为员工逐字段确认的未保存草稿，成本、售价、来源、IMEI/SN 与正式保存不由云端 AI 完成。
 
-截至本手册时间，本 Vision 任务只执行了 fake provider、mocked cloud 和合成图片测试，没有发送真实图片、客户资料或设备标识符，也没有产生 Vision 计费请求或修改生产环境。订单文字任务已经消费其独立授权的 v2 smoke；该调用不扩大本任务权限。
+首次手机端尝试在浏览器生成安全图片后被前端生命周期错误自取消，界面因此持续停留在处理中；请求从未到达 BFF、Supabase reservation 或 OpenAI。事故已通过三项 Vision 开关归零而止损，Vision usage/open/audit 仍为 `0/0/0`，唯一一次获批图片 smoke 尚未消耗。修复候选已用可执行回归锁定该根因，并在可选图片路径移除不可抢占的主线程 ZXing 回退、为 FileReader 与整条客户端链路增加硬超时；正式发布仍须通过本手册后续门禁。
+
+截至本手册时间，本 Vision 任务只执行了 fake provider、mocked cloud 和合成图片测试，没有发送真实图片、客户资料或设备标识符，也没有产生 Vision 计费请求。订单文字任务已经消费其独立授权的 v2 smoke；该调用不扩大本任务权限。
 
 ## 已批准的发布包
 
@@ -37,7 +39,9 @@ Owner 于 2026-07-19 明确批准 Vision 第一轮复用订单文字 D4-v2 的�
 
 禁止：人物或人脸、证件、客户姓名/电话/邮箱、收据或地址、设备屏幕内容、支付资料、维修单、IMEI、SN、EAN/条码以及任何无关背景。IMEI/SN/EAN 只走本地扫描或手工录入；首版云端响应 Schema 强制 `identifiers=[]`。
 
-客户端与服务端都会重编码和去元数据，应用不保存原图，provider 请求使用 `store:false`。这不等于 Zero Data Retention；默认安全监控可能保留输入/输出最多约 30 天。Owner 仍需确认该边界以及适用的 DPA、法律基础、员工告知、数据区域/跨境与删除流程。
+客户端与服务端都会重编码和去元数据，应用不保存原图，provider 请求使用 `store:false`。首版请求与响应结构不携带标识符字段，但软件不能自动证明员工所选像素中绝对没有 IMEI、SN、EAN、条码或其他禁止内容；因此唯一一次正式 smoke 必须使用事先由员工人工检查、只含虚构品牌/型号/RAM/容量文字的合成规格图。任何真实图片都必须由员工先紧裁切并目视确认数据边界。
+
+`store:false` 不等于 Zero Data Retention；默认安全监控可能保留输入/输出最多约 30 天。Owner 仍需确认该边界以及适用的 DPA、法律基础、员工告知、数据区域/跨境与删除流程。
 
 ## Owner D4 批准记录
 
@@ -72,24 +76,25 @@ OPENAI_API_BASE_URL=https://api.openai.com/v1
 AI_ASSISTANT_USAGE_RETENTION_DAYS=90
 ```
 
-Vision smoke 前，生产仍保持 `AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=0`、`AI_VISION_INTAKE_ENABLED=0`、`AI_DRAFT_APPLY_ENABLED=0`；订单文字任务拥有的 master/order/maintenance/allowlist 状态不得由本任务回退或覆盖。Vision smoke 通过后，只把前三项分别切为 `1`，并再次证明 allowlist 只有 Chinatech、`AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED=0`。
+休眠部署和 smoke 前预检期间，生产保持 `AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=0`、`AI_VISION_INTAKE_ENABLED=0`、`AI_DRAFT_APPLY_ENABLED=0`；订单文字任务拥有的 master/order/maintenance/allowlist 状态不得由本任务回退或覆盖。预检通过并记录零用量基线后，才把前三项分别切为 `1`、重新部署，并再次证明 allowlist 只有 Chinatech、`AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED=0`。这次短时开放只授权紧接着执行的一次正式 UI smoke；任一检查不符必须立即 flags-first 回退，不得重试。
 
 Production secrets 只允许从平台 secret store 注入：`OPENAI_API_KEY`、`AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET`、`AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET`、`CRON_SECRET`。它们必须各自独立；API Key 也不得与任一 HMAC secret 相同。不得放入 Git、任务记忆、日志、截图、浏览器 Bundle 或 `NEXT_PUBLIC_*`。
 
 ## 发布顺序
 
-1. 记录独立 Vision D4；等待订单文字 `TASK-20260718-014` 释放生产写锁并完成/停止其观察，不并发修改 Supabase、Vercel、`main` 或正式域名。
-2. 刷新 `origin/main`、生产部署、v2 policy、开放 reservation、Vercel flags 和 Chinatech allowlist；要求 v2 精确 attestation 通过、Vision 请求数仍为 0。不得改写已应用 migration 或重建 policy。
-3. 将本候选重放到最新 `main`，重跑质量门后推送 exact reviewed SHA；部署时维持 Vision 外发、Vision intake 与 draft apply 三项为 `0`，保留订单文字现状。
-4. 通过正式服务路径执行一次且仅一次合成无 PII、无标识符、紧裁切包装规格图片 smoke。禁止直连 provider、真实客户数据或自动重试。
-5. smoke 必须同时满足 HTTP 200、严格 Schema、`identifiers=[]`、provider attempt `1`、ledger `succeeded`、usage 已结算、audit `succeeded`、无敏感日志；任一失败保持 Vision flags off 并结束 Vision 发布，不影响已验证的订单文字功能。
-6. smoke 通过后，allowlist 仍只能是 Chinatech UUID；只启用 `AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=1`、`AI_VISION_INTAKE_ENABLED=1`、`AI_DRAFT_APPLY_ENABLED=1`。Public AI 与其他门店保持关闭。
-7. 正式域名验证桌面和手机：本地足够时零云调用；本地不足时一次云调用；结果逐字段确认；应用后仍未保存；价格/成本/来源/标识符未被云端填入；取消、离线、超时和额度耗尽均保留手工入库。
-8. 观察 30 分钟，核对请求数、错误/取消、预留/结算/hold、Token、micro-USD、延迟桶、审计可用性与零自动库存写入。24 小时复核后只决定保留或关闭；第二店或扩大范围需新 D4。
+1. 核对独立 Vision D4 和订单文字 `TASK-20260718-014` 已释放生产写锁；不并发修改 Supabase、Vercel、`main` 或正式域名。
+2. 刷新 `origin/main`、生产部署、v2 policy、开放 reservation、Vercel flags 和 Chinatech allowlist；要求 v2 精确 attestation 通过、Vision usage/open/audit 仍为 `0/0/0`。不得改写已应用 migration 或重建 policy。
+3. 将本候选重放到最新 `main`，重跑质量、安全与构建门后推送 exact reviewed SHA；部署时维持 Vision 外发、Vision intake 与 draft apply 三项为 `0`，保留订单文字现状。
+4. 验证休眠部署的 exact SHA、正式域名、登录、手工入库、运行日志和零 Vision 基线；准备一张事先人工检查过、仅含虚构包装规格文字、无标识符/PII/无关背景的合成 smoke 图，并记录基线时间与 ledger 计数。
+5. 仅在前四步全部通过后，把 `AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED`、`AI_VISION_INTAKE_ENABLED`、`AI_DRAFT_APPLY_ENABLED` 切为 `1` 并重新部署；再次确认 Chinatech-only allowlist 和 Public AI 关闭。
+6. 进入单一测试操作者维护窗口：只允许指定测试账号使用 Vision，其他员工继续手工入库；立即通过正式 UI 执行一次且仅一次合成无 PII 规格图 smoke。禁止直连 provider、真实客户数据、第二次上传或自动重试。
+7. smoke 必须同时满足 HTTP 200、严格 Schema、`identifiers=[]`、provider attempt `1`、Vision ledger/audit 相对基线都精确增加 `1`、ledger `succeeded`、usage 已结算、audit `succeeded`、无敏感日志且零自动库存写入。`sent_unknown`、任何 delta 不是 `+1` 或任一其他检查不符，都必须立即关闭三项 Vision 开关并结束发布；保守结算已有 reservation，不得把未知/失败转成第二次付费尝试。
+8. smoke 通过后保持 Chinatech-only 三项开关；在产生真实调用的平台检查候选复核与未保存草稿，在另一平台只验证入口、手工下一步、响应式布局和禁用/失败状态，避免消耗第二次 provider 请求。
+9. 观察 30 分钟期间继续维持单一测试操作者窗口，不允许新的 Vision 上传；核对请求数仍为基线 `+1`、错误/取消、预留/结算/hold、Token、micro-USD、延迟桶、审计可用性与零自动库存写入。观察通过后才允许 Chinatech 员工在批准范围内使用。24 小时复核后只决定保留或关闭；第二店或扩大范围需新 D4。
 
 ## 立即停止与回滚
 
-出现跨店/越权、禁止图片内容外发、日志出现图片/正文/secret、未预留 dispatch、政策 attestation 不一致、重复 provider 尝试、未收敛 hold、预算越界、严格 Schema 失败或手工入库不可用时，立即：
+出现跨店/越权、禁止图片内容外发、日志出现图片/正文/secret、未预留 dispatch、政策 attestation 不一致、重复 provider 尝试、Vision ledger/audit delta 不是精确 `+1`、`sent_unknown`、未收敛 hold、预算越界、严格 Schema 失败、客户端处理超过 75 秒 watchdog、手工“下一步”受阻或手工入库不可用时，立即：
 
 1. `AI_VISION_INTAKE_ENABLED=0`、`AI_DRAFT_APPLY_ENABLED=0`、`AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=0` 并重新部署；
 2. 保守结算已有 Vision reservation，不删除账本；

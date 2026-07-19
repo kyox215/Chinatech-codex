@@ -2,9 +2,9 @@
 
 ## Current handoff
 
-- **Status:** Vision D4 approved; local release candidate verified and Production preflight passed. Release is active under one serialized writer.
-- **Last verified:** 2026-07-19T05:47:33Z.
-- **Workspace/branch:** `/private/tmp/repairdesk-ai-vision-integration-20260719.b8l4rg/worktree`; `codex/ai-inventory-vision-integration-20260719`; base order closeout `a3ae676d` over `origin/main@152caa1c`.
-- **Validation:** post-rebase agents/lint/typecheck passed; full Vitest 305/1910 and Turbopack build passed. Earlier same-candidate Playwright 6/6, npm production audit 0 and screenshot evidence remain valid because the intervening main commit changed only order release records.
-- **Production state:** order text is live. Preflight has 5 settled order requests, open/bad/Vision/cross-store counts all zero, v2 enabled, v1 disabled, Vision audit count zero and private AI tables. No Vision provider call or Vision env/deploy mutation has occurred.
-- **First action:** validate/commit this approval checkpoint, push the exact lineage to `main`, deploy with Vision flags off, then attest and execute only the authorized synthetic Vision smoke.
+- **Status:** client-stall hotfix passes final local architecture, QA/UX and security code review; Production Vision remains contained pending dormant deploy and live preflight.
+- **Last verified:** 2026-07-19T12:19:51Z.
+- **Workspace/branch:** `/private/tmp/repairdesk-vision-client-stall-hotfix-20260719`; `codex/vision-client-stall-hotfix-20260719`; clean base and current `origin/main@041a4e0f`.
+- **Validation:** agents/lint/typecheck pass; Vitest 309 files / 1978 tests; Next build 26 pages; npm production audit 0; Sharp 0.34.5; refined secret/client-bundle scans clean; legacy Playwright 6/6 with V2 off and V2 Playwright 3/3 with V2 on; five new screenshots inspected.
+- **Production state:** order text remains live. The failed mobile Vision attempt never reached BFF/Supabase/OpenAI, so Vision usage/open/audit remained `0/0/0` and the authorized smoke is unconsumed. Three Vision variable names exist in Vercel Production and were set to `0` at incident containment; reassert exact `0` before the dormant deployment rather than relying on stale value assumptions.
+- **First action:** run the required memory checkpoint, commit the scoped candidate, re-fetch and fast-forward push to `main`; verify the exact SHA deploys with all three Vision gates off before any live zero-ledger preflight or smoke.

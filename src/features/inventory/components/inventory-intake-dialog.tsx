@@ -45,6 +45,7 @@ import {
   type AiInventoryRecognition,
 } from "@/features/ai-assistant/model/contracts";
 import {
+  AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS,
   aiInventoryImageBlobToDataUrl,
   prepareAiInventoryImage,
   type PreparedAiInventoryImage,
@@ -92,7 +93,14 @@ const dialogFooterClass = cn(
   "shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-3 sm:px-4",
 );
 
-type AiIntakeStatus = "idle" | "preparing" | "recognizing" | "result" | "cancelled" | "error";
+type AiIntakeStatus =
+  | "idle"
+  | "preparing"
+  | "recognizing"
+  | "cloud"
+  | "result"
+  | "cancelled"
+  | "error";
 
 export function InventoryIntakeDialog({
   open,
@@ -259,6 +267,12 @@ export function InventoryIntakeDialog({
       const runId = runIdRef.current;
       const controller = new AbortController();
       abortRef.current = controller;
+      const pipelineTimeoutId = window.setTimeout(() => {
+        if (controller.signal.aborted || runId !== runIdRef.current) return;
+        controller.abort();
+        setStatus("error");
+        setErrorMessage("图片处理超时，已安全停止。请重新选择照片，或返回手工表单继续录入。");
+      }, AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
 
       try {
         const nextPrepared = await prepareAiInventoryImage(file);
@@ -291,7 +305,11 @@ export function InventoryIntakeDialog({
           return;
         }
 
-        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob);
+        setStatus("cloud");
+        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || runId !== runIdRef.current) return;
         const serverResult = await Promise.allSettled([
           runAiInventoryVisionRecognition(
             {
@@ -311,7 +329,9 @@ export function InventoryIntakeDialog({
 
         const vision =
           serverResult[0]?.status === "fulfilled" ? serverResult[0].value.recognition : null;
-        if (!local && !vision) throw new Error("recognition unavailable");
+        if (!vision && (!local || recognitionCandidateCount(local) === 0)) {
+          throw new Error("recognition unavailable");
+        }
         const merged = withFallbackWarnings(
           local && vision ? mergeInventoryRecognitions(vision, local) : (vision ?? local)!,
           { localFailed: !local, serverFailed: !vision, serverSkipped: false },
@@ -328,6 +348,7 @@ export function InventoryIntakeDialog({
             : "图片识别未完成，请重试或继续手工录入。",
         );
       } finally {
+        window.clearTimeout(pipelineTimeoutId);
         if (abortRef.current === controller) abortRef.current = null;
       }
     },
@@ -611,6 +632,12 @@ export function InventoryIntakeDialog({
                   capture="environment"
                   className="sr-only"
                   aria-label="使用相机拍摄设备标签"
+                  disabled={
+                    !isOnline ||
+                    status === "preparing" ||
+                    status === "recognizing" ||
+                    status === "cloud"
+                  }
                   onChange={handleFileInput}
                 />
                 <input
@@ -619,6 +646,12 @@ export function InventoryIntakeDialog({
                   accept={imageAccept}
                   className="sr-only"
                   aria-label="从相册选择设备标签照片"
+                  disabled={
+                    !isOnline ||
+                    status === "preparing" ||
+                    status === "recognizing" ||
+                    status === "cloud"
+                  }
                   onChange={handleFileInput}
                 />
                 <Button
@@ -626,7 +659,12 @@ export function InventoryIntakeDialog({
                   type="button"
                   size="sm"
                   className="gap-1.5"
-                  disabled={!isOnline || status === "preparing" || status === "recognizing"}
+                  disabled={
+                    !isOnline ||
+                    status === "preparing" ||
+                    status === "recognizing" ||
+                    status === "cloud"
+                  }
                   onClick={() => cameraInputRef.current?.click()}
                 >
                   <Camera className="size-3.5" />
@@ -637,7 +675,12 @@ export function InventoryIntakeDialog({
                   variant="outline"
                   size="sm"
                   className="gap-1.5"
-                  disabled={!isOnline || status === "preparing" || status === "recognizing"}
+                  disabled={
+                    !isOnline ||
+                    status === "preparing" ||
+                    status === "recognizing" ||
+                    status === "cloud"
+                  }
                   onClick={() => uploadInputRef.current?.click()}
                 >
                   <ImagePlus className="size-3.5" />
@@ -671,16 +714,20 @@ export function InventoryIntakeDialog({
                 </div>
               ) : null}
 
-              {status === "preparing" || status === "recognizing" ? (
+              {status === "preparing" || status === "recognizing" || status === "cloud" ? (
                 <div
                   className="rounded-xl border border-status-info-foreground/20 bg-status-info/10 px-3 py-3"
                   role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
                 >
                   <p className="flex items-center gap-2 text-sm font-semibold text-status-info-foreground">
                     <Loader2 className="size-4 animate-spin" />
                     {status === "preparing"
-                      ? "正在安全处理图片…"
-                      : "正在进行本地识别，必要时请求视觉服务…"}
+                      ? "第 1/3 步：正在生成安全图片…"
+                      : status === "recognizing"
+                        ? "第 2/3 步：正在本地检查标签…"
+                        : "第 3/3 步：正在请求云端识别包装规格…"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     关闭或取消后不会在后台排队上传。

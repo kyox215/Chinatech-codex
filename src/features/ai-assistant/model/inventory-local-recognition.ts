@@ -75,30 +75,26 @@ async function loadImage(src: string, signal?: AbortSignal) {
 
 async function detectBarcodeValues(image: HTMLImageElement) {
   const NativeDetector = (window as RecognitionWindow).BarcodeDetector;
-  if (NativeDetector) {
+  if (!NativeDetector) throw new Error("native barcode detector unavailable");
+  try {
+    let detector: NativeBarcodeDetector;
     try {
-      let detector: NativeBarcodeDetector;
-      try {
-        detector = new NativeDetector({
-          formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "data_matrix"],
-        });
-      } catch {
-        detector = new NativeDetector();
-      }
-      const values = (await detector.detect(image))
-        .map((result) => result.rawValue?.trim() ?? "")
-        .filter(Boolean);
-      if (values.length > 0) return unique(values);
+      detector = new NativeDetector({
+        formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "data_matrix"],
+      });
     } catch {
-      // The bundled ZXing path remains the deterministic fallback.
+      detector = new NativeDetector();
     }
+    const values = (await detector.detect(image))
+      .map((result) => result.rawValue?.trim() ?? "")
+      .filter(Boolean);
+    return unique(values);
+  } catch {
+    // The inventory-label photo path must remain preemptible. Dedicated camera
+    // scanners keep their own ZXing flow; this optional local pass degrades to
+    // scan/manual entry when the browser-native detector is unavailable.
+    throw new Error("native barcode detector unavailable");
   }
-
-  const { BrowserMultiFormatReader } = await import("@zxing/browser");
-  const reader = new BrowserMultiFormatReader();
-  const result = await reader.decodeFromImageElement(image);
-  const value = result.getText().trim();
-  return value ? [value] : [];
 }
 
 async function detectOcrText(image: HTMLImageElement) {

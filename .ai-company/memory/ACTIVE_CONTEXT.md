@@ -2,16 +2,15 @@
 schema_version: 1
 current_task_id: "TASK-20260719-001-ai-inventory-live-provider"
 status: "active"
-phase: "production-release"
+phase: "release-candidate-verified"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
-last_checkpoint_at: "2026-07-19T05:49:36Z"
+last_checkpoint_at: "2026-07-19T12:26:26Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
-
 # Active Context
 
 ## Current objective
@@ -20,17 +19,16 @@ last_rehydrated_at: null
 
 ## Current state
 
-Owner 已批准 ChinaTech Vision D4；订单文字 canary 已完成 30 分钟观察并释放写锁；Vision 候选已重放到 a3ae676d。生产预检：v2 enabled、5 次文字请求、open/bad/Vision/跨店均为 0、Vision audit 为 0、AI 表 4/4 RLS 且客户端无表权限、Vercel runtime errors 为 0。
+客户端 effect 自取消根因已修复；方案 A 已落地。focused 5/43、全仓 309/1978、lint/typecheck/agents、26 页构建、audit 0、旧入口 6/6、V2 3/3 与三项独立复核通过。生产 Vision 保持关闭，唯一 smoke 未消耗。
 
 ## Blocking decisions
 
-- Authority is exactly one synthetic no-PII cropped packaging-label Vision smoke, ChinaTech-only activation, and authenticated phone/desktop verification on `www.chinatech.in`.
-- People, IDs, customer data, receipts/addresses, device screens, IMEI/SN/EAN, automatic inventory writes, public AI, another store, retries, or a model/budget change remain prohibited.
-- Any policy, tenant, privacy, budget, ledger, audit, identifier, runtime or manual-fallback stop threshold keeps Vision flags off or triggers flags-first Vision rollback.
+- Production Vision must remain disabled until the exact pushed SHA is deployed dormant and live policy/auth/ledger checks show the approved ChinaTech-only zero baseline.
+- The one authorized synthetic no-PII smoke is non-retryable; any `sent_unknown`, provider attempt other than 1, ledger/audit delta other than `+1`, open hold, privacy mismatch or automatic inventory write triggers flags-first rollback.
 
 ## Next action
 
-提交批准证据，推送 exact lineage 到 main；保持 Vision flags off 部署；证明 v2 policy 后执行唯一一次合成无 PII Vision smoke。
+提交 scoped candidate，重新 fetch 并 fast-forward 推送 main；把三项 Vision 变量明确设为 0 后休眠部署，验证 exact SHA 与零账本，再按 runbook 执行唯一一次事先目检的合成规格图 smoke。
 
 ## Resume protocol
 

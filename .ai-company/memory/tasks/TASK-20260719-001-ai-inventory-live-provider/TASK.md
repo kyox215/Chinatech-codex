@@ -9,14 +9,13 @@ autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["API", "DATA", "INT", "QA", "Release", "SEC", "UI"]
 created_at: "2026-07-19T00:16:17Z"
-updated_at: "2026-07-19T05:58:55Z"
+updated_at: "2026-07-19T12:26:26Z"
 ---
-
 # Task — Chinatech 库存入库 AI 图片标签识别真实接入
 
 ## Owner request
 
-Chinatech 库存入库 AI 图片标签识别真实接入
+完成 Chinatech Vision 客户端卡死修复、全链路验证、推送 main、休眠部署与唯一一次单店灰度。
 
 ## Business value
 
@@ -29,9 +28,11 @@ Chinatech 库存入库 AI 图片标签识别真实接入
 - Keep the existing native-fetch OpenAI Responses provider, exact snapshot model, `store:false`, strict structured output, single dispatch, hard timeout and usage capture.
 - Require a stable client request UUID and bind the durable budget fingerprint to the server-sanitized image and exact model.
 - Enforce capability, Chinatech-only rollout, independent image-egress approval, exact DB/environment policy attestation, reservation-before-dispatch and conservative settlement.
-- Preserve local OCR/barcode recognition, human review, unsaved draft application and manual/offline fallback on mobile and desktop.
+- Preserve local OCR and browser-native barcode recognition, human review, unsaved draft application and the dedicated scan/manual identifier path on mobile and desktop.
 - Address architecture/security review findings: pre-body capability/rate gate, non-retryable provider configuration errors, compiled pilot ceilings and mutually distinct secrets.
 - Validate with focused/full tests, production build, runtime dependency audit, secret/client-bundle scan, mocked cloud-fallback E2E and visual evidence.
+- Remediate the mobile client stall without adding dependencies: bound or remove non-preemptible main-thread barcode work from this optional Vision path, bound Blob-to-data-URL conversion, add a whole-pipeline watchdog and show distinct preparation/local/cloud stages.
+- Preserve a one-tap manual Next path and an actionable timeout/error state; a stale completion must never overwrite a newer upload or cleared image.
 
 ## Scope out
 
@@ -53,7 +54,10 @@ Chinatech 库存入库 AI 图片标签识别真实接入
 - [x] 识别结果仅形成需人工确认的未保存草稿，错误、离线或 AI 关闭时手工入库保持可用。
 - [x] 完成全量测试、安全检查、移动/桌面 mocked-cloud E2E 与截图。
 - [x] Owner 明确批准复用 `$50/月` v2 合并硬预算、图片数据边界、一次合成图片计费 smoke 与正式域名测试账号验收。
-- [ ] 订单文字发布锁释放且 Vision D4 获批后，复核/证明既有 v2 policy，推送 `main`、Vision 休眠部署、完成一次 Vision smoke、Chinatech 单店灰度与观察。
+- [x] 手机端客户端链路不会因同步本地条码回退或无界 FileReader 永久卡住；每个阶段有明确反馈，超时可恢复并保留手工下一步。
+- [x] 本地识别不可用或超时时只发出一次服务端 Vision 请求，旧请求不能覆盖新选择，且整个流程仍不自动写库存。
+- [x] 完成 focused/full tests、lint、typecheck、build、安全检查及 390/1280 浏览器证据。
+- [ ] 推送最新修复到 `main`，保持 Vision 关闭部署；生产预检通过后才开放唯一一次无 PII smoke，完成 ChinaTech 单店手机/电脑验收与观察。
 
 ## Facts, assumptions, and unknowns
 
@@ -68,6 +72,8 @@ Chinatech 库存入库 AI 图片标签识别真实接入
 | Local release candidate is reconciled onto the order-text canary closeout and passes release gates                              | verified               | branch `codex/ai-inventory-vision-integration-20260719`; base `a3ae676d`; E-019 | push exact reviewed lineage                            |
 | Exact locked server decoder is `sharp@0.34.5`                                                                                   | verified               | clean `npm ci`; runtime version; lockfile                                       | production dependency audit returned 0 vulnerabilities |
 | Mocked cloud fallback preserves zero-write behavior on desktop and mobile                                                       | verified               | 6 Playwright tests; task evidence screenshots                                   | no real provider or inventory create request           |
+| Prepared-state render aborted the current controller and left V2 status working forever                                        | reproduced             | `inventory-v2-vision-draft.test.tsx`; pre-fix failure and post-fix pass         | exact incident root cause locked                        |
+| Remediated V2 flow preserves manual Next and zero-write behavior at 390px/1280px                                                | verified local         | 3 V2 Playwright tests; `vision-v2-*.png`                                        | mocked provider only; no real Vision call               |
 
 ## Decision and approval points
 
@@ -78,12 +84,31 @@ Chinatech 库存入库 AI 图片标签识别真实接入
 
 ## Work packages
 
-1. Latest-baseline reconciliation and Plan Delta.
-2. Server sanitizer, idempotency, provider/error and budget hardening.
-3. Pre-body abuse gate and privacy/UI copy.
-4. Focused/full automated validation, mocked cloud E2E and screenshots.
-5. Exact budget/privacy approval packet.
-6. Approved production release, one-store smoke, observation and rollback-or-retain decision.
+1. Restore the incident record and reconcile onto latest `origin/main` in a clean isolated worktree.
+2. Reproduce or lock the client hang with executable tests and stage-level observability.
+3. Implement the smallest main-thread-safe local-recognition fallback, bounded Blob conversion, whole-pipeline watchdog and stage-specific UI.
+4. Run focused tests, full lint/typecheck/test/build, dependency/security scans and no-auto-write checks.
+5. Verify mobile and desktop loading/error/manual/cloud-review states with screenshots and overflow assertions.
+6. Complete independent architecture, QA/UX and security/release reviews; resolve every blocker/major finding.
+7. Sync the incident, runbook, task memory and final evidence; recheck remote drift and push the scoped commit to `main`.
+8. Deploy latest main with Vision disabled, run production policy/ledger/runtime preflight, then open only the approved ChinaTech test gate for one no-PII smoke, verify audit/cost/result and observe or roll back flags-first.
+
+## Agent plan
+
+- Integration Lead: `integration_write`; sole writer, final integration, commit, push, deploy and production verification.
+- Architecture / frontend reliability reviewer: real read-only sub-agent; inspect the client call chain and compare minimal remediation options.
+- QA / UX reviewer: real read-only sub-agent; define reproducible regression coverage, mobile/desktop states and screenshot matrix.
+- Security / privacy / release reviewer: real read-only sub-agent; verify no identifier egress, budget/tenant gates, release sequencing and rollback thresholds.
+- Sub-agents may not edit, stage, commit, push, deploy, access secrets or mutate production data.
+
+## Agent execution record
+
+| Canonical task | Department / role | Mode | Final result |
+| --- | --- | --- | --- |
+| `/root` | Integration Lead | sole `integration_write` | implementation, integration and release owner |
+| `/root/vision_arch_review` | Architecture / frontend reliability | read-only | PASS; option A implemented, no architecture blocker |
+| `/root/vision_qa_ux_review` | QA / UX | read-only | PASS for final local candidate; mobile/desktop and manual fallback verified |
+| `/root/vision_security_release_review` | Security / privacy / release | read-only | code PASS; release CONDITIONAL on dormant deploy, zero baseline and exactly-once smoke |
 
 ## Definition of done
 
