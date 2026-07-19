@@ -239,7 +239,7 @@ const orderPlannerTools = [
     type: "function",
     name: "search_orders",
     description:
-      "Search the current authorized RepairDesk store using bounded structured filters. Use financial_review=amount_anomaly for inconsistent quote/deposit/balance/paid states. Use search only for a concrete order, customer, or device term; never put abstract concepts such as anomaly, problem, statistics, or reason into search.",
+      "Search the current authorized RepairDesk store using bounded structured filters. Use device_search for a concrete device brand and model, preserving both (for example Apple iPhone 15, never just 15). Use financial_review=amount_anomaly for inconsistent quote/deposit/balance/paid states. Use search only for a concrete order or customer term; never put abstract concepts into search.",
     strict: true,
     parameters: aiOrderSearchArgumentsJsonSchema,
   },
@@ -267,7 +267,9 @@ function orderPlannerInstructions(locale: AiAssistantLocale) {
     "Never invent an order reference or broaden the requested store scope.",
     "Represent business concepts with supplied structured filters; do not turn them into search keywords.",
     "For amount anomalies or inconsistent money states, use search_orders with financial_review=amount_anomaly and search=null.",
-    "Use search only when the user supplies a concrete order, customer, or device term.",
+    "For a device brand/model query, use device_search, preserve brand and model together, and set search=null.",
+    "Never reduce a device phrase such as 苹果15 or Apple iPhone 15 to a short number such as 15.",
+    "Use search only when the user supplies a concrete order or customer term.",
     "Use clarification when the request cannot be represented safely.",
     `Write clarification text in locale ${locale}.`,
   ].join(" ");

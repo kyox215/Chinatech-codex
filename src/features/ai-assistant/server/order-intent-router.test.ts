@@ -45,11 +45,33 @@ describe("deterministic order intent router", () => {
       name: "search_orders",
       arguments: {
         search: null,
+        device_search: null,
         view: "active",
         paid: "all",
         overdue: null,
         queue_group: null,
         financial_review: "amount_anomaly",
+        page_size: 8,
+      },
+    });
+  });
+
+  it.each([
+    ["苹果15", "iPhone 15"],
+    ["查找苹果 15 Pro 工单", "iPhone 15 pro"],
+    ["find iPhone15 orders", "iPhone 15"],
+    ["trova Samsung A12", "Samsung a12"],
+  ])("routes a concrete device query locally without a provider: %s", (message, deviceSearch) => {
+    expect(planDeterministicOrderQuery({ message, locale: "zh-CN" })?.toolCall).toEqual({
+      name: "search_orders",
+      arguments: {
+        search: null,
+        device_search: deviceSearch,
+        view: "active",
+        paid: "all",
+        overdue: null,
+        queue_group: null,
+        financial_review: null,
         page_size: 8,
       },
     });

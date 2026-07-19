@@ -76,6 +76,23 @@ test.describe("staff AI assistant bounded workflow", () => {
     });
   });
 
+  test("mobile Apple 15 query excludes unrelated Samsung device results", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, "/orders");
+    await page.locator('[data-ai-assistant-trigger="mobile-orders"]').click();
+
+    const sheet = page.locator('[data-ai-assistant-sheet="true"]');
+    await page.getByLabel("输入工单查询问题").fill("苹果15");
+    await sheet.getByRole("button", { name: "发送", exact: true }).click();
+    await expect(sheet.getByText(/iPhone 15/i).first()).toBeVisible();
+    await expect(sheet.getByText(/SAMSUNG A12/i)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+    await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+    await sheet.screenshot({
+      path: "screenshots/TASK-20260719-003-ai-device-search-relevance/apple-15-mobile-390.png",
+    });
+  });
+
   test("mobile voice input fills the composer without sending a query", async ({ page }) => {
     await installSpeechRecognitionMock(page);
     await page.setViewportSize({ width: 390, height: 844 });

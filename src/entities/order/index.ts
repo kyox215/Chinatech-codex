@@ -7,6 +7,11 @@ export {
 } from "./model/order-calculations";
 export type { OrderAmountAnomalyReason } from "./model/order-calculations";
 export {
+  deviceLabelMatchesSearch,
+  normalizeDeviceSearchKey,
+  parseDeviceSearchIntent,
+} from "./model/order-device-search";
+export {
   MAIN_REPAIR_SERVICE_OPTION_KEY,
   findRepairServiceCatalogItemByName,
   getRepairServiceCatalogItem,

@@ -312,6 +312,7 @@ function searchProvider(): AiAssistantProvider {
         name: "search_orders" as const,
         arguments: {
           search: null,
+          device_search: null,
           view: "active" as const,
           paid: "all" as const,
           overdue: null,

@@ -118,7 +118,11 @@ import {
 import { assertStaffRole, ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
 import { isRepairDeskE2eSystemActor } from "@/shared/lib/e2e-auth-bypass";
-import { hasOrderAmountAnomaly, resolveRepairServiceCatalogItem } from "@/entities/order";
+import {
+  deviceLabelMatchesSearch,
+  hasOrderAmountAnomaly,
+  resolveRepairServiceCatalogItem,
+} from "@/entities/order";
 import { applyCreateOrderCostInputs } from "@/features/orders/server/order-cost.repository";
 import {
   isOrderCostsEnabled,
@@ -264,6 +268,10 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
         o.device_label.toLowerCase().includes(q)
       );
     });
+  }
+  const deviceSearch = filters.deviceSearch?.trim();
+  if (deviceSearch) {
+    result = result.filter((order) => deviceLabelMatchesSearch(order.device_label, deviceSearch));
   }
   if (filters.statuses?.length) {
     result = result.filter((o) => filters.statuses!.includes(o.status));
@@ -1117,6 +1125,7 @@ export async function listOrdersPage(
   const { page, pageSize } = normalizePageInput(input);
   const filters: OrderListFilters = {
     search: input.search,
+    deviceSearch: input.deviceSearch,
     view: input.view,
     statuses: input.statuses,
     workflowStatuses: input.workflowStatuses,

@@ -229,6 +229,7 @@ export async function runAiOrderAssistantTurn({
     } else if (parsedCall.data.name === "search_orders") {
       stage = "repository";
       const args = parsedCall.data.arguments;
+      if (args.device_search && args.search) throw aiProtocolError();
       if (
         args.financial_review &&
         !can(actor, "finance:aggregate_read") &&
@@ -241,6 +242,7 @@ export async function runAiOrderAssistantTurn({
           page: 1,
           pageSize: args.page_size,
           search: args.search ?? undefined,
+          deviceSearch: args.device_search ?? undefined,
           view: args.view,
           paid: args.paid,
           overdue: args.overdue ?? undefined,

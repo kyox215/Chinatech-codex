@@ -69,11 +69,30 @@ describe("FakeAiAssistantProvider", () => {
       name: "search_orders",
       arguments: {
         search: null,
+        device_search: null,
         view: "active",
         paid: "all",
         overdue: null,
         queue_group: null,
         financial_review: "amount_anomaly",
+        page_size: 8,
+      },
+    });
+  });
+
+  it("preserves the Apple brand and model in the device-only search field", async () => {
+    const result = await provider.planOrderQuery({ message: "苹果15", locale: "zh-CN" });
+
+    expect(result.toolCall).toEqual({
+      name: "search_orders",
+      arguments: {
+        search: null,
+        device_search: "iPhone 15",
+        view: "active",
+        paid: "all",
+        overdue: null,
+        queue_group: null,
+        financial_review: null,
         page_size: 8,
       },
     });

@@ -320,6 +320,7 @@ export const customerIdBodySchema = z.object({
 export const orderListFiltersSchema = z
   .object({
     search: optionalText,
+    deviceSearch: optionalText,
     view: z.enum(["active", "archive", "all"]).optional(),
     statuses: z.array(repairOrderStatusSchema).optional(),
     workflowStatuses: z.array(canonicalWorkflowStatusSchema).optional(),

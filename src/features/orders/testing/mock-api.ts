@@ -55,7 +55,7 @@ import {
   isOrderCancelledForPayment,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
-import { hasOrderAmountAnomaly } from "@/entities/order";
+import { deviceLabelMatchesSearch, hasOrderAmountAnomaly } from "@/entities/order";
 import {
   countOrderQueueGroups,
   getOrderQueueGroup,
@@ -337,6 +337,10 @@ export async function listOrders(
         o.device_imei.toLowerCase().includes(q) ||
         o.device_label.toLowerCase().includes(q),
     );
+  }
+  const deviceSearch = filters.deviceSearch?.trim();
+  if (deviceSearch) {
+    result = result.filter((order) => deviceLabelMatchesSearch(order.device_label, deviceSearch));
   }
   if (filters.statuses?.length) {
     result = result.filter((o) => filters.statuses!.includes(o.status));

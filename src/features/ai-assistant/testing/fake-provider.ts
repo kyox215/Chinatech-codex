@@ -3,6 +3,7 @@ import {
   aiInventoryRecognitionSchema,
   aiOrderToolCallSchema,
 } from "@/features/ai-assistant/model/contracts";
+import { parseDeviceSearchIntent } from "@/entities/order";
 import type {
   AiAssistantProvider,
   AiInventoryRecognitionInput,
@@ -21,6 +22,7 @@ export class FakeAiAssistantProvider implements AiAssistantProvider {
     const deterministic = planDeterministicOrderQuery(input);
     const legacyReference = input.message.match(legacyOrderReferencePattern)?.[1]?.trim();
     const amountReviewIntent = hasAmountReviewIntent(input.message);
+    const deviceSearchIntent = parseDeviceSearchIntent(input.message);
     const toolCall =
       deterministic?.toolCall ??
       (legacyReference
@@ -31,7 +33,9 @@ export class FakeAiAssistantProvider implements AiAssistantProvider {
         : {
             name: "search_orders" as const,
             arguments: {
-              search: amountReviewIntent ? null : extractSearchTerm(input.message),
+              search:
+                amountReviewIntent || deviceSearchIntent ? null : extractSearchTerm(input.message),
+              device_search: deviceSearchIntent,
               view: /历史|归档|archive/i.test(input.message)
                 ? ("archive" as const)
                 : ("active" as const),

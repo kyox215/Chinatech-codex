@@ -927,6 +927,7 @@ export interface OrderApprovalDecisionResult {
 
 export interface OrderListFilters {
   search?: string;
+  deviceSearch?: string;
   view?: OrderListView;
   statuses?: RepairOrderStatus[];
   workflowStatuses?: OrderWorkflowStatusCode[];

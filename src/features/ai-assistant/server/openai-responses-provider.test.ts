@@ -68,14 +68,15 @@ describe("OpenAI Responses provider", () => {
       (tool) => tool.name === "search_orders",
     );
     expect(searchTool).toMatchObject({
-      description: expect.stringContaining("financial_review=amount_anomaly"),
+      description: expect.stringContaining("device_search"),
       parameters: expect.objectContaining({
-        required: expect.arrayContaining(["financial_review"]),
+        required: expect.arrayContaining(["device_search", "financial_review"]),
       }),
     });
     expect(body.instructions).toEqual(
       expect.stringContaining("do not turn them into search keywords"),
     );
+    expect(body.instructions).toEqual(expect.stringContaining("Never reduce a device phrase"));
   });
 
   it("sends one bounded image request and rejects cloud identifiers", async () => {
@@ -255,6 +256,7 @@ function orderResponse() {
         call_id: "call_test",
         arguments: JSON.stringify({
           search: null,
+          device_search: null,
           view: "active",
           paid: "unpaid",
           overdue: null,

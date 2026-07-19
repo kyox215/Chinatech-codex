@@ -3,8 +3,9 @@ import {
   type AiAssistantLocale,
   type AiOrderToolCall,
 } from "@/features/ai-assistant/model/contracts";
+import { parseDeviceSearchIntent } from "@/entities/order";
 
-export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v2" as const;
+export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v3" as const;
 
 export type DeterministicOrderPlan = {
   policyVersion: typeof AI_ORDER_DETERMINISTIC_POLICY_VERSION;
@@ -64,6 +65,14 @@ export function planDeterministicOrderQuery({
     };
   }
 
+  const deviceSearch = parseDeviceSearchIntent(message);
+  if (deviceSearch) {
+    return {
+      policyVersion: AI_ORDER_DETERMINISTIC_POLICY_VERSION,
+      toolCall: aiOrderToolCallSchema.parse(searchCall({ device_search: deviceSearch })),
+    };
+  }
+
   const reference = message.normalize("NFKC").match(referenceUtterancePattern)?.[1];
   if (!reference) return null;
   return {
@@ -91,6 +100,7 @@ function searchCall(
     name: "search_orders",
     arguments: {
       search: null,
+      device_search: null,
       view: "active",
       paid: "all",
       overdue: null,

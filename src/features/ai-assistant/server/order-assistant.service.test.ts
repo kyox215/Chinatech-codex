@@ -147,7 +147,7 @@ describe("order assistant service", () => {
       expect.objectContaining({
         provider: "none",
         resolutionPath: "deterministic",
-        policyVersion: "order-direct-v2",
+        policyVersion: "order-direct-v3",
         requestKind: "order_text",
       }),
     );
@@ -209,6 +209,41 @@ describe("order assistant service", () => {
       kind: "search_results",
       total: 0,
       message: "当前可见的活跃工单中，未发现报价、定金、尾款或付款状态不一致的记录。",
+    });
+  });
+
+  it("routes the reported Apple 15 query locally through device-only search", async () => {
+    const selected = order({ device_label: "Apple iPhone 15 Pro" });
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const listOrdersPage = vi.fn(async () => result([selected], 1));
+    const consumeQuota = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "苹果15", locale: "zh-CN" },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+        consumeQuota,
+      },
+    });
+
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        view: "active",
+        search: undefined,
+        deviceSearch: "iPhone 15",
+      }),
+      owner,
+    );
+    expect(response).toMatchObject({
+      kind: "search_results",
+      total: 1,
+      cards: [expect.objectContaining({ device_label: "Apple iPhone 15 Pro" })],
     });
   });
 
@@ -493,6 +528,25 @@ describe("order assistant service", () => {
     );
   });
 
+  it("rejects provider plans that mix device-only and generic search terms", async () => {
+    const listOrdersPage = vi.fn();
+
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: owner,
+        input: { message: "查找某个设备", locale: "zh-CN" },
+        dependencies: {
+          provider: providerFor(searchCall({ search: "15", device_search: "iPhone 15" })),
+          listOrdersPage,
+          getOrder: vi.fn(),
+          env: enabledEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_PROVIDER_PROTOCOL_ERROR", status: 502 });
+
+    expect(listOrdersPage).not.toHaveBeenCalled();
+  });
+
   it("resolves an exact public number then reads the detail with the same actor", async () => {
     const selected = order();
     const getOrder = vi.fn(async () => detail(selected));
@@ -688,6 +742,7 @@ function searchCall(
     name: "search_orders" as const,
     arguments: {
       search: null,
+      device_search: null,
       view: "active" as const,
       paid: "all" as const,
       overdue: null,

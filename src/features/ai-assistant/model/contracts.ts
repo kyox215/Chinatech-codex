@@ -8,7 +8,7 @@ import {
 } from "./inventory-image-policy";
 
 export const AI_ASSISTANT_CONTRACT_VERSION = "ai-assistant-v1" as const;
-export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v2" as const;
+export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v3" as const;
 export const AI_INVENTORY_RECOGNITION_PROMPT_VERSION = "inventory-label-v1" as const;
 
 export const aiAssistantLocaleSchema = z.enum(["zh-CN", "it-IT", "en"]);
@@ -39,6 +39,7 @@ export type AiAssistantCapabilities = z.infer<typeof aiAssistantCapabilitiesSche
 export const aiOrderSearchArgumentsSchema = z
   .object({
     search: z.string().trim().max(120).nullable(),
+    device_search: z.string().trim().max(80).nullable(),
     view: z.enum(["active", "archive", "all"]),
     paid: z.enum(["all", "paid", "unpaid"]),
     overdue: z.enum(["approval", "pickup", "any"]).nullable(),
@@ -243,6 +244,12 @@ export const aiOrderSearchArgumentsJsonSchema = {
   additionalProperties: false,
   properties: {
     search: { type: ["string", "null"], maxLength: 120 },
+    device_search: {
+      type: ["string", "null"],
+      maxLength: 80,
+      description:
+        "Use for a concrete device brand and model. Preserve both parts exactly enough to identify the device; never reduce Apple iPhone 15 to the number 15. Set search=null when this is used.",
+    },
     view: { type: "string", enum: ["active", "archive", "all"] },
     paid: { type: "string", enum: ["all", "paid", "unpaid"] },
     overdue: { type: ["string", "null"], enum: ["approval", "pickup", "any", null] },
@@ -266,7 +273,16 @@ export const aiOrderSearchArgumentsJsonSchema = {
     },
     page_size: { type: "integer", minimum: 1, maximum: 20 },
   },
-  required: ["search", "view", "paid", "overdue", "queue_group", "financial_review", "page_size"],
+  required: [
+    "search",
+    "device_search",
+    "view",
+    "paid",
+    "overdue",
+    "queue_group",
+    "financial_review",
+    "page_size",
+  ],
 } as const;
 
 export const aiOrderSummaryArgumentsJsonSchema = {

@@ -310,6 +310,50 @@ describe("order repository database pagination", () => {
     expect(result.items.map((item) => item.id)).toEqual(["over_allocated", "paid_mismatch"]);
   });
 
+  it("matches a device query only against device labels, not phone or IMEI digits", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          orderRow({
+            id: "apple_15",
+            public_no: "R-APPLE-15",
+            customer_phone: "+39 333 000 0000",
+            device: {
+              id: "device_apple_15",
+              customer_id: "customer_1",
+              brand: "Apple",
+              model: "iPhone 15 Pro",
+              serial_or_imei: "490154203237518",
+            },
+          }),
+          orderRow({
+            id: "samsung_a12",
+            public_no: "R-SAMSUNG-A12",
+            customer_phone: "+39 315 000 0000",
+            device: {
+              id: "device_samsung_a12",
+              customer_id: "customer_1",
+              brand: "Samsung",
+              model: "A12",
+              serial_or_imei: "351500000000000",
+            },
+          }),
+        ],
+        error: null,
+        count: 2,
+      }),
+    );
+
+    const result = await listOrdersPage(
+      { deviceSearch: "iPhone 15", page: 1, pageSize: 10 },
+      actor("owner"),
+    );
+
+    expect(result.total).toBe(1);
+    expect(result.items.map((item) => item.id)).toEqual(["apple_15"]);
+    expect(result.items[0]?.device_label).toBe("Apple iPhone 15 Pro");
+  });
+
   it("rejects amount-consistency aggregation before repository access for other roles", async () => {
     await expect(
       listOrdersPage({ financialReview: "amount_anomaly" }, actor("sales")),
