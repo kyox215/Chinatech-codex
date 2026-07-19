@@ -25,6 +25,37 @@ const repairDeskMono = JetBrains_Mono({
   preload: false,
 });
 
+const repairDeskFallbackStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 2_147_483_647,
+  display: "grid",
+  placeItems: "center",
+  background: "Canvas",
+  color: "CanvasText",
+  font: '600 15px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+};
+
+const repairDeskFallbackContentStyle: React.CSSProperties = {
+  display: "grid",
+  justifyItems: "center",
+  gap: 12,
+  padding: 24,
+  textAlign: "center",
+};
+
+const repairDeskFallbackSpinnerStyle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  border: "3px solid GrayText",
+  borderTopColor: "currentColor",
+  borderRadius: 999,
+};
+
+const repairDeskShellStyle: React.CSSProperties = {
+  display: "none",
+};
+
 export const metadata: Metadata = {
   title: {
     default: "RepairDesk — 维修工单后台",
@@ -66,13 +97,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <div id="repairdesk-style-fallback" role="status" aria-live="polite">
-          <div>
-            <span aria-hidden="true" />
+        <div
+          id="repairdesk-style-fallback"
+          role="status"
+          aria-live="polite"
+          style={repairDeskFallbackStyle}
+        >
+          <div style={repairDeskFallbackContentStyle}>
+            <span aria-hidden="true" style={repairDeskFallbackSpinnerStyle} />
             <span>正在恢复 RepairDesk…</span>
           </div>
         </div>
-        <div id="repairdesk-styled-shell">
+        <div id="repairdesk-styled-shell" style={repairDeskShellStyle}>
           <Providers>{children}</Providers>
         </div>
         <AppStyleRecovery />

@@ -52,6 +52,45 @@ test("never exposes raw markup on mobile or desktop when the global stylesheet f
   await expect(shell).toBeHidden();
 });
 
+test("keeps raw markup hidden when the complete author style layer disappears", async ({
+  page,
+}) => {
+  await page.addInitScript((reloadKey) => {
+    window.sessionStorage.setItem(reloadKey, String(Date.now()));
+  }, repairDeskStyleReloadedAtKey);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+
+  const fallback = page.locator("#repairdesk-style-fallback");
+  const shell = page.locator("#repairdesk-styled-shell");
+  await expect(fallback).toBeHidden();
+  await expect(shell).toBeVisible();
+
+  await page.evaluate(() => {
+    document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => node.remove());
+  });
+
+  await expect(fallback).toBeVisible();
+  await expect(fallback).toContainText("正在恢复 RepairDesk");
+  await expect(shell).toBeHidden();
+  await expect
+    .poll(() =>
+      fallback.evaluate((element) => ({
+        display: window.getComputedStyle(element).display,
+        position: window.getComputedStyle(element).position,
+      })),
+    )
+    .toEqual({ display: "grid", position: "fixed" });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(fallback).toBeVisible();
+  await expect(shell).toBeHidden();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(fallback).toBeVisible();
+  await expect(shell).toBeHidden();
+});
+
 test("automatically reloads once after a stylesheet failure without entering a loop", async ({
   page,
 }) => {
