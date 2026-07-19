@@ -37,7 +37,7 @@
 
 - Hotfix 候选通过 309 files / 1978 tests、26-page build、lint、typecheck、agents check、production audit `0`、Sharp `0.34.5`、legacy Playwright `6/6` 和 V2 Playwright `3/3`。
 - 三名真实只读子 Agent 分别完成 Architecture、QA/UX、Security/Privacy/Release 复核；源码候选无未解决 blocker。最终集成、生产操作、Git 和关闭判断由 Integration Lead 串行完成。
-- `main` 后续订单搜索提交没有改变 Vision 专属文件；最终证据提交会重放到最新 `origin/main` 并再次运行聚焦回归。
+- `main` 后续订单搜索提交没有改变 Vision 专属文件；关闭证据 `2e7ebc1e7fdb1f329570153999c175004579ef58` 已线性重放到最新 `origin/main`，5 个聚焦文件 / 43 项测试再次通过，并以快进方式推送。
 
 ## 视觉证据
 
