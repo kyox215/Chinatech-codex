@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["product", "architecture", "backend", "security", "qa", "documentation"]
 created_at: "2026-07-19T08:58:00Z"
-updated_at: "2026-07-19T09:18:35Z"
+updated_at: "2026-07-19T09:19:26Z"
 ---
 # Task — 修复 AI 设备型号查询返回无关工单
 
