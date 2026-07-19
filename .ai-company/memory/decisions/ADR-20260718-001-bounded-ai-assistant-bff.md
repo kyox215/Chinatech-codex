@@ -1,9 +1,9 @@
 # ADR-20260718-001: RepairDesk 有界 AI 小助手采用现有 BFF 与无写工具边界
 
-- Status: accepted for ChinaTech employee order text; Vision/PII/write/public/multi-store activation remains blocked
+- Status: accepted for ChinaTech employee order text and reviewed-crop inventory Vision; full-label/identifier egress, broader PII, writes, public and multi-store activation remain blocked
 - Date: 2026-07-18
 - Decision owners: Integration Lead; Owner retains live-data, dependency, budget and production decisions
-- Related tasks: `TASK-20260718-009-ai-assistant-implementation`, `TASK-20260718-011-ai-assistant-cost-governance`, `TASK-20260718-014-ai-assistant-live-pilot`
+- Related tasks: `TASK-20260718-009-ai-assistant-implementation`, `TASK-20260718-011-ai-assistant-cost-governance`, `TASK-20260718-014-ai-assistant-live-pilot`, `TASK-20260719-008-inventory-imei-one-capture`
 - Supersedes: none
 
 ## Context
@@ -49,7 +49,7 @@ Phase 1 采用“模型只规划、服务器直接回答”模式：
 - MVP 不把订单工具结果回传模型，因此不把客户/订单事实再次发送给供应商。
 - 不注册任何写工具、SQL、Web、MCP、Files、Conversations 或 background mode。
 
-Phase 2 使用严格 Structured Output，不注册工具。服务器先安全解码/定向/清元数据/重编码，再合并本地条码、OCR、Luhn 与视觉候选。AI 只产生候选；员工明确复核后才应用到页面内存表单，正式保存仍走现有库存服务。
+Phase 2 使用严格 Structured Output，不注册工具。完整标签先在浏览器以原生 Detector 或同源固定 ZXing/Tesseract Worker 读取条码、OCR、Luhn 与规格候选；完整图片、原始 OCR 和标识符不会进入 BFF。只有员工调整、预览并明确确认的独立规格裁剪才由服务器安全解码/定向/清元数据/重编码后进入 Vision。AI 只产生候选；员工明确复核后才应用到页面内存表单，正式保存仍走现有库存服务。
 
 ## Consequences
 
@@ -99,4 +99,6 @@ The live implementation uses Option B's native server-side `fetch`, not the init
 
 `ai-runtime-v1` remains disabled after its default-medium reasoning exhausted the 256-token output ceiling. Owner-approved `ai-runtime-v2` versions the remediation with explicit `reasoning.effort=minimal` while preserving model, pricing, token ceilings and budget. The v2 no-PII one-shot passed HTTP, ledger and audit; exact-SHA activation then passed a 30-minute observation.
 
-This update does not authorize Vision/photos, PII, AI writes, a public/customer assistant, another store, provider-managed state or broader tools. Those remain separate R4/D4 decisions.
+Owner subsequently approved a separate Chinatech-only Vision D4. `TASK-20260719-008-inventory-imei-one-capture` production-verifies the stricter split: a complete package label and IMEI/SN/EAN remain local in terminable same-origin Workers, while only a distinct metadata-free specifications crop may reach the existing BFF after explicit employee confirmation. Candidates remain page-memory drafts, and no schema, policy, quota, model, allowlist or write authority changed.
+
+This update does not authorize full-label or identifier egress, broader PII, AI writes, a public/customer assistant, another store, provider-managed state or broader tools. Those remain separate R4/D4 decisions. Authenticated Chinatech UI smoke is still required before describing the one-photo path as fully production-accepted; the current authorized account belongs only to `xutech` and was not used to bypass tenant membership.

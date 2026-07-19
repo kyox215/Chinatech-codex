@@ -1,6 +1,6 @@
 # Chinatech AI 图片标签识别单店发布手册
 
-Status: ChinaTech Vision live; local one-photo IMEI extension release candidate
+Status: ChinaTech Vision live; local one-photo IMEI extension deployed, authenticated Chinatech smoke pending
 Task: `TASK-20260719-001-ai-inventory-live-provider`
 Related extension: `TASK-20260719-008-inventory-imei-one-capture`
 Last verified: 2026-07-19 CEST
@@ -9,13 +9,15 @@ Last verified: 2026-07-19 CEST
 
 现有 OpenAI Platform Key 一直有效；先前页面显示“当前门店尚未开放图片识别”不是缺少密钥，而是生产图片外发与 Vision 功能旗标按设计关闭。Owner 后续已单独批准 Vision D4，本任务按休眠部署、零基线和 Chinatech-only 三门顺序开放，没有重新创建或复制 Key。
 
-本候选已把库存标签识别接到既有原生 `fetch` Responses provider，并保留手工入库：浏览器先解码、去元数据和重编码；服务端再次完整解码单帧、限制像素/边长、旋转、铺白并生成无元数据 JPEG。只有服务端衍生图可以参与请求指纹、预算预留和 OpenAI 调用。识别结果只能成为员工逐字段确认的未保存草稿，成本、售价、来源、IMEI/SN 与正式保存不由云端 AI 完成。
+现有正式功能已把库存标签识别接到既有原生 `fetch` Responses provider，并保留手工入库：浏览器先解码、去元数据和重编码；服务端再次完整解码单帧、限制像素/边长、旋转、铺白并生成无元数据 JPEG。只有服务端衍生图可以参与请求指纹、预算预留和 OpenAI 调用。识别结果只能成为员工逐字段确认的未保存草稿，成本、售价、来源、IMEI/SN 与正式保存不由云端 AI 完成。
 
 首次手机端尝试曾被前端生命周期清理自取消，界面持续停留在处理中，但请求没有到达 BFF、Supabase reservation 或 OpenAI。`main@50f843dd` 已通过 ref/run-id 生命周期、8 秒 FileReader 和 75 秒全链路 watchdog 修复该根因，并从可选图片路径移除不可抢占的主线程 ZXing 回退。
 
-本次 one-photo 扩展允许员工在 Inventory V2 第 2 步拍一张完整包装标签：浏览器先用原生 Detector，缺失时再用可终止的同源 ZXing Worker 与固定版本同源 Tesseract Worker 读取规格、IMEI、SN 和 EAN。完整照片、完整条码和原始 OCR 文本只存在于浏览器临时内存，不会被序列化、排队或发送。IMEI 默认遮罩显示，通过 Luhn 校验后才可选；同图同时存在 EAN 与 IMEI 时默认以 IMEI 为主标识。任何候选都仍需员工确认，并且只合并进未保存草稿，不覆盖已手工填写的内容。
+`main@facb79b984de5ffdc596210cd9ba33883343053e` 已部署本次 one-photo 扩展。员工可在 Inventory V2 第 2 步拍一张完整包装标签：浏览器先用原生 Detector，缺失时再用可终止的同源 ZXing Worker 与固定版本同源 Tesseract Worker 读取规格、IMEI、SN 和 EAN。完整照片、完整条码和原始 OCR 文本只存在于浏览器临时内存，不会被序列化、排队或发送。IMEI 默认遮罩显示，通过 Luhn 校验后才可选；同图同时存在 EAN 与 IMEI 时默认以 IMEI 为主标识。任何候选都仍需员工确认，并且只合并进未保存草稿，不覆盖已手工填写的内容。
 
 只有本地规格不完整时才显示第二条路径：员工必须调整规格裁剪、生成独立去元数据预览，并勾选确认预览不含 IMEI、SN、EAN、人物或 PII，应用才会把该裁剪发送给既有 Vision BFF。完整标签 Blob 没有进入该请求路径；离线时本地候选会保留且不会排队上传。该扩展不改变 Supabase schema、预算、provider、模型、门店 allowlist 或每日图片额度。
+
+发布证据：正式部署 `dpl_3HZsEL9XraLy1McLeaTxHCwsxpKs` 为 `READY`；五项同源 OCR 资产均 HTTP 200，英语模型哈希与锁定来源一致；Supabase 91/91 对齐且本次 `db push` 为 up-to-date no-op；发布窗口 Vision reservation 与库存 intake 写入均为零。现有获授权测试账号只属于 `xutech`，生产页正确阻止其进入 Chinatech-only V2，但正式 Chinatech 登录态手机/电脑 smoke 尚未执行。后续必须使用有 Chinatech membership 的账号；不得为补证据扩大 allowlist 或冒充门店。
 
 2026-07-19 的正式 smoke 只发送一张事先目检的合成规格标签，返回 `NOVA / A7 PRO / BLUE / 8 GB / 256 GB`。账本与审计各精确增加 `1`，唯一 provider attempt 成功并按 usage 结算 `5713` micro-USD；open/bad/cross-store 为 `0`，库存基线与事后均为 `4`。没有发送真实图片、客户资料、条码或设备标识符，也没有自动保存库存。30 分钟观察从 reservation `2026-07-19T13:11:21.021029Z` 持续到最终聚合 `2026-07-19T13:42:19.925504Z`，请求/attempt/audit 保持 `1/1/1`，运行错误、未结算、失败、跨店与库存写入均为 `0`，正式域名保持 READY。24 小时仍需只读复核。
 

@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260719-008-inventory-imei-one-capture"
 title: "Inventory V2 单张包装标签本地识别 IMEI"
-status: "release_ready"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["INT", "ARCH", "FE", "UX", "SEC", "QA", "OPS", "DATA"]
 created_at: "2026-07-19T21:00:00Z"
-updated_at: "2026-07-19T21:54:10Z"
+updated_at: "2026-07-19T22:14:30Z"
 ---
 
 # Task — Inventory V2 单张标签识别 IMEI
@@ -47,9 +47,9 @@ updated_at: "2026-07-19T21:54:10Z"
 - [x] 离线、超时、取消和云端 pending 都能直接进入手工下一步，不排队上传。
 - [x] 390x844 与 1280x800 无横向溢出，流程与现有 RepairOS 风格一致。
 - [x] lint、typecheck、全量 test、build、diff、安全和依赖检查全部通过。
-- [ ] fresh fetch 后非强制推送 exact reviewed SHA 到 `main`，Vercel 正式部署 READY。
-- [ ] Supabase migration history/dry-run 证明无待应用 SQL；本次数据库应用为安全 no-op。
-- [ ] 正式域名手机与电脑端无 PII smoke、零 Vision 外发、零库存写入通过。
+- [x] fresh fetch 后非强制推送 exact reviewed SHA 到 `main`，Vercel 正式部署 READY。
+- [x] Supabase migration history/dry-run 证明无待应用 SQL；本次数据库应用为安全 no-op。
+- [ ] 正式域名 Chinatech 登录态手机与电脑端无 PII smoke。当前获授权测试账号只属于 `xutech`，已证明非 Chinatech 门店不会进入 V2，但不得冒充 Chinatech 验收；发布后 Vision reservation 与库存写入均为零。
 
 ## Frozen production boundary
 
@@ -70,4 +70,6 @@ No spawn。Owner 本次没有明确要求子代理/多代理；当前运行规�
 
 ## Current state
 
-隔离 worktree 基于 `origin/main@b8a1b6ba`。最终源码 lint/typecheck 通过，全量 Vitest 313 files / 2044 tests 通过，production build 26 pages 通过，Inventory V2 专项 Playwright 6/6 通过，npm production audit 为 0 vulnerabilities。diff/security/architecture/UX/release 自审结论 GO；fresh fetch、exact commit、数据库 dry-run、推送/部署和生产 smoke 尚待完成。
+任务以有条件发布状态关闭。业务源码提交 `facb79b984de5ffdc596210cd9ba33883343053e` 已经 fresh fetch 后非强制推送到 `main`，Vercel 正式部署 `dpl_3HZsEL9XraLy1McLeaTxHCwsxpKs` 为 `READY` 并服务 `www.chinatech.in` / `chinatech.in`。Supabase 项目 `xluzcoduqsdvjoouqhkc` 的本地/远端 migration 91/91 对齐，dry-run 与正式 `db push` 都返回 `Remote database is up to date`，因此本次数据库应用是零写入 no-op。生产 OCR 五项同源资产均 HTTP 200，英语模型哈希与锁定来源一致；发布后 Vision reservation 和库存 intake 写入都是零，生产日志 fatal/error/warning/5xx 均为零。
+
+唯一未闭环项是正式 Chinatech 登录态功能 smoke：当前获授权测试会话只属于 `xutech`，页面正确回退旧入库入口并证明 Chinatech-only 隔离，但不能据此声称 Chinatech V2 已登录验收。后续仅需让该测试账号获得 Chinatech membership，或使用已授权的 Chinatech 员工账号，再以一张无 PII 合成标签执行本地-only 手机/电脑 smoke；不得扩大 allowlist、不得发送完整标签、不得写库存。该证据缺口不影响代码部署和数据库 no-op 结论，但阻止“完整生产 UI 验收通过”的表述。

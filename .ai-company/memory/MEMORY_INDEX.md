@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260719-008-inventory-imei-one-capture](tasks/TASK-20260719-008-inventory-imei-one-capture/TASK.md): Conditional production release of Chinatech-only one-photo local specification/IMEI recognition. Complete labels and identifiers remain local, only an explicitly reviewed specifications crop may use the existing Vision BFF, `main@facb79b9` is READY, and Supabase application was a 91/91 zero-write no-op. Authenticated Chinatech UI smoke remains open because the authorized test account belongs only to `xutech`.
+
 - [TASK-20260719-007-ai-natural-language-query-v3](tasks/TASK-20260719-007-ai-natural-language-query-v3/TASK.md): Closed production V3 release for arbitrary Europe/Rome dates, Apple/iPhone family-safe matching and a closed-world original-message compiler; exact scope is collapsible, model-invented constraints fail closed, and the release adds no migration or live write authority.
 
 - [TASK-20260719-007-fast-app-recovery](tasks/TASK-20260719-007-fast-app-recovery/TASK.md): Closed production recovery release with CSS/runtime double readiness, a dependency-free SW v4 fallback, bounded one-per-60-second refresh, exact `main@1119ef5d` READY deployment, 91/91 Supabase no-op and responsive production evidence; physical-iPhone network-switch observation remains owned backlog.

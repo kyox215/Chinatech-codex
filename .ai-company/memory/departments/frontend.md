@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-07-18
+last_verified_at: 2026-07-19
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -51,6 +51,7 @@ as owner of this file.
 - Unknown order intake uses an explicit reported/unknown choice and does not fabricate a fault-price row. Desktop detail, mobile detail and task page reuse one diagnosis/quote workspace; the preview is bound to the latest quoted event UUID. Opening `wa.me` is client-only, and only the separate employee confirmation action records sent state.
 - Desktop beginner pages use a read-first hierarchy: at most one recommended action is visually primary, list rows avoid inline responsibility/supplier mutation, missing-field chips focus the exact control, and error states never reuse true-empty copy. Navigation and command shortcuts must share the same permission/role projection.
 - Global recovery must keep business DOM hidden until both the CSS marker and React runtime handshake are ready. The Service Worker fallback is a standalone no-Next document; it uses the fixed probe and one-per-60-second reload boundary, preserves all unrelated browser state and exposes a 44px manual recovery action.
+- Inventory V2 label assistance is an optional one-photo progressive path: local same-origin barcode/OCR Workers produce masked, validated and selectable identifier candidates; IMEI outranks EAN as the default phone identifier. Applying candidates never overwrites manual fields or a manual primary identifier, and scan/manual next remains available during offline, timeout, cancellation or cloud pending states.
 
 ## Interfaces and dependencies
 
@@ -61,10 +62,10 @@ independent child flags are off. Low-permission behavior remains the pre-cost UI
 
 Verified custody contract: Frontend keeps repair type, accessories, custody and unlock credentials independent. New order begins with no custody selection and requires an explicit choice; switching to/from customer-held preserves the entered unlock method/value; detail changes use a dedicated online Sheet/Dialog action with version and reason where required.
 
-| Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
-|---|---|---|---|---|---|
-| TBD | TBD | TBD | TBD | — | unknown |
-| Customer/order UI projection | Backend | Render explicit finance facts and server capabilities; never infer role or missing finance as zero | Hide restricted values/actions; surface stale/retryable terminal errors without optimistic partial success | TASK-20260716-003-customer-finance-order-correction-plan E-016..E-020 | verified |
+| Provides / consumes          | Counterparty | Contract                                                                                           | Failure handling                                                                                           | Evidence                                                              | Status   |
+| ---------------------------- | ------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------- |
+| TBD                          | TBD          | TBD                                                                                                | TBD                                                                                                        | —                                                                     | unknown  |
+| Customer/order UI projection | Backend      | Render explicit finance facts and server capabilities; never infer role or missing finance as zero | Hide restricted values/actions; surface stale/retryable terminal errors without optimistic partial success | TASK-20260716-003-customer-finance-order-correction-plan E-016..E-020 | verified |
 
 ## SOPs and checklists
 
@@ -73,16 +74,16 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 
 ## Risks, debt, and open questions
 
-| ID | Risk/debt/question | Impact | Owner | Target/review | Status |
-|---|---|---|---|---|---|
-| FE-20260619-001 | `src/routes/orders.index.tsx` was live through order-list screen | UI refactor risk | Frontend + Architecture | resolved by TASK-20260619-025 | closed |
-| FE-20260619-002 | Duplicate `* 2.*` component/screen files exist | Search/import/tooling noise | Frontend + QA | duplicate cleanup task | open |
-| FE-20260619-003 | Stale UI duplicates may be mistaken for alternate approved designs | UI consistency risk | Frontend + Design | before deleting or reusing UI duplicates | open |
-| FE-20260620-001 | Order detail screen remains large and contains both desktop/mobile transition surfaces | Review cost and regression risk | Frontend + QA | future order detail split task | open |
-| FE-20260713-002 | `buyback-quote-workspace.tsx` now owns a large multi-step workflow and client image-compression helper | Review and regression cost | Frontend + Architecture + QA | split by step/upload model in a dedicated refactor after behavior stabilizes | open |
-| FE-20260713-001 | Settings five-role/error/50+ member browser matrix is incomplete | UI behavior may drift outside representative scenarios | Frontend + QA | after every latest-main integration and before production | open |
+| ID              | Risk/debt/question                                                                                                                                                                              | Impact                                                                                      | Owner                        | Target/review                                                                         | Status                |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------- | --------------------- |
+| FE-20260619-001 | `src/routes/orders.index.tsx` was live through order-list screen                                                                                                                                | UI refactor risk                                                                            | Frontend + Architecture      | resolved by TASK-20260619-025                                                         | closed                |
+| FE-20260619-002 | Duplicate `* 2.*` component/screen files exist                                                                                                                                                  | Search/import/tooling noise                                                                 | Frontend + QA                | duplicate cleanup task                                                                | open                  |
+| FE-20260619-003 | Stale UI duplicates may be mistaken for alternate approved designs                                                                                                                              | UI consistency risk                                                                         | Frontend + Design            | before deleting or reusing UI duplicates                                              | open                  |
+| FE-20260620-001 | Order detail screen remains large and contains both desktop/mobile transition surfaces                                                                                                          | Review cost and regression risk                                                             | Frontend + QA                | future order detail split task                                                        | open                  |
+| FE-20260713-002 | `buyback-quote-workspace.tsx` now owns a large multi-step workflow and client image-compression helper                                                                                          | Review and regression cost                                                                  | Frontend + Architecture + QA | split by step/upload model in a dedicated refactor after behavior stabilizes          | open                  |
+| FE-20260713-001 | Settings five-role/error/50+ member browser matrix is incomplete                                                                                                                                | UI behavior may drift outside representative scenarios                                      | Frontend + QA                | after every latest-main integration and before production                             | open                  |
 | FE-20260717-001 | New-order submit previously exposed only a disabled “创建中…” button while waiting; first-phase recovery now shows pending/confirming/uncertain messages and blocks repeat submit after timeout | Desktop/mobile duplicate-submit risk is reduced, but full atomic create is still outside UI | Frontend + UX + Backend + QA | keep operation-status recovery; future atomic-create task must preserve equivalent UX | mitigated_first_phase |
-| FE-20260719-002 | Physical iPhone background/BFCache/natural network-switch timing is not directly automated | Device-specific delayed recovery could differ from WebKit production simulation | Frontend + QA + Operations | next real-device observation; `OPS-BACKLOG-20260719-002` | monitoring |
+| FE-20260719-002 | Physical iPhone background/BFCache/natural network-switch timing is not directly automated                                                                                                      | Device-specific delayed recovery could differ from WebKit production simulation             | Frontend + QA + Operations   | next real-device observation; `OPS-BACKLOG-20260719-002`                              | monitoring            |
 
 ## Lessons and anti-patterns
 
@@ -91,38 +92,38 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 
 ## Capability and tool notes
 
-| Agent/Skill | Current evidence | Capability | Permission | Limitation |
-|---|---|---|---|---|
-| TBD | none | C0/C1 | task-specific | not evaluated |
+| Agent/Skill | Current evidence | Capability | Permission    | Limitation    |
+| ----------- | ---------------- | ---------- | ------------- | ------------- |
+| TBD         | none             | C0/C1      | task-specific | not evaluated |
 
 ## Memory change log
 
-| Date | Change | Source/task | Author/reviewer | Status |
-|---|---|---|---|---|
-| 2026-06-19 | Initial RepairDesk frontend baseline synchronized | TASK-20260619-003 | Integration Lead | active |
-| 2026-06-19 | Added stale UI duplicate cleanup boundary | TASK-20260619-005 | Integration Lead | active |
-| 2026-06-20 | Recorded inline desktop order-detail status transition panel and target E2E proof | TASK-20260620-001 | Integration Lead | active |
-| 2026-06-20 | Recorded legacy `src/routes/*` delete-ready classification and no-reuse frontend boundary | TASK-20260620-002 | Integration Lead | active |
-| 2026-06-20 | Recorded legacy route deletion preflight boundary: delete only classified files after approval | TASK-20260620-003 | Integration Lead | active |
-| 2026-07-07 | Recorded RepairOS list/management page rule removing duplicate page-body module title blocks | TASK-20260707-005 | Integration Lead | active |
-| 2026-07-12 | Recorded verified nested mobile modality, pointer-lock regression, and control-semantics rules | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |
-| 2026-07-12 | Added initial authority-hydration shell-stability rule while preserving later permission-change reset | TASK-20260712-002-mobile-interaction-click-reliability | Integration Lead | active |
-| 2026-07-13 | Added active custody queue groups and responsive list contract | TASK-20260712-005-order-custody-archive | Integration Lead | active |
-| 2026-07-13 | Replaced custody buckets with six explicit active stages and a non-scrolling two-column mobile selector | TASK-20260713-001-order-active-status-homepage | Integration Lead + UX/QA reviewers | active |
-| 2026-07-13 | Added debounced order-search feedback, grouped result sections and consistent intake/status date presentation | TASK-20260713-002-order-search-grouped-results | Integration Lead | active |
-| 2026-07-13 | Added verified six-step buyback, role handoff, legal/signature and bounded evidence-upload UI | TASK-20260712-005-buyback-guided-evidence | Integration Lead + UX/security reviewers | active |
-| 2026-07-14 | Projected the production feature-off as a four-step all-role quote-only UI with historical evidence read-only | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + UX/QA reviewers | active |
-| 2026-07-16 | Added Dashboard quick-start, handoff card, truthful filtered-sample and permission-revocation UI rules | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + UX/QA reviewers | active |
-| 2026-07-16 | Superseded fixed two-column Orders selector with compact responsive queues and explicit pending/error/offline/latest-intent states | TASK-20260716-002-orders-mobile-filter-loading-plan | Integration Lead + UX/QA reviewers | active |
-| 2026-07-16 | Added explicit customer finance labels, dual repair/payment states and capability-driven terminal-action UI | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + UX/QA reviewers | active |
-| 2026-07-13 | Recorded nine-section Settings capability, store-bound transient, touch-target and visual-evidence contracts | TASK-20260712-004-settings-center-master-plan | Integration Lead + WP08 reviewers | local_verified |
-| 2026-07-17 | Recorded shared desktop/mobile order-create pending and ambiguous-success recovery gap | TASK-20260717-163954-task | Integration Lead | verified_debt |
-| 2026-07-17 | Added first-phase online create recovery UX: operation id, confirming/uncertain state, repeat-submit block and desktop/mobile screenshots | TASK-20260717-165957-task | Integration Lead | mitigated_first_phase |
-| 2026-07-17 | Added explicit unknown intake and reusable responsive diagnosis/quote/confirmed-send UI contract | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
-| 2026-07-17 | Added read-first desktop hierarchy, exact missing-field focus, shared shortcut permissions and custody credential retention | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + UX/QA reviewers | verified |
-| 2026-07-18 | Recorded canonical order-create success navigation for both page and list-Dialog entry points | TASK-20260718-095500-order-create-navigation-release | Integration Lead | production_verified |
-| 2026-07-18 | Recorded responsive cost/profit/procurement/backfill/currency UI and production dormant-state behavior | TASK-20260718-008-order-cost-phase2 | Integration Lead + UX/QA reviewers | scoped_verified_option_b |
-| 2026-07-19 | Released independent default-collapsed usage and processing disclosures with persistent mode meaning, keyboard semantics and 390px/desktop visual proof | TASK-20260719-005-ai-search-accuracy-collapsible-ui | Integration Lead + UX/Frontend reviewer | production_verified |
-| 2026-07-19 | Superseded the two-disclosure layout with one compact mode/usage row and released inline non-navigating order cards with an explicit order link | TASK-20260719-006-ai-natural-language-order-actions | Integration Lead + UX/Frontend reviewer | production_verified |
-| 2026-07-19 | Added collapsible exact query scope, distinct interpretation states, one zero-result state and partial-result clarity while preserving inline cards | TASK-20260719-007-ai-natural-language-query-v3 | Integration Lead + UX/Frontend reviewer | production_verified |
-| 2026-07-19 | Released CSS/runtime double readiness, dependency-free SW recovery shell and bounded manual/automatic mobile recovery with production responsive proof | TASK-20260719-007-fast-app-recovery | Integration Lead + Architecture/QA reviewers | production_verified_bounded |
+| Date       | Change                                                                                                                                                  | Source/task                                              | Author/reviewer                              | Status                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------- | --------------------------- |
+| 2026-06-19 | Initial RepairDesk frontend baseline synchronized                                                                                                       | TASK-20260619-003                                        | Integration Lead                             | active                      |
+| 2026-06-19 | Added stale UI duplicate cleanup boundary                                                                                                               | TASK-20260619-005                                        | Integration Lead                             | active                      |
+| 2026-06-20 | Recorded inline desktop order-detail status transition panel and target E2E proof                                                                       | TASK-20260620-001                                        | Integration Lead                             | active                      |
+| 2026-06-20 | Recorded legacy `src/routes/*` delete-ready classification and no-reuse frontend boundary                                                               | TASK-20260620-002                                        | Integration Lead                             | active                      |
+| 2026-06-20 | Recorded legacy route deletion preflight boundary: delete only classified files after approval                                                          | TASK-20260620-003                                        | Integration Lead                             | active                      |
+| 2026-07-07 | Recorded RepairOS list/management page rule removing duplicate page-body module title blocks                                                            | TASK-20260707-005                                        | Integration Lead                             | active                      |
+| 2026-07-12 | Recorded verified nested mobile modality, pointer-lock regression, and control-semantics rules                                                          | TASK-20260712-002-mobile-interaction-click-reliability   | Integration Lead                             | active                      |
+| 2026-07-12 | Added initial authority-hydration shell-stability rule while preserving later permission-change reset                                                   | TASK-20260712-002-mobile-interaction-click-reliability   | Integration Lead                             | active                      |
+| 2026-07-13 | Added active custody queue groups and responsive list contract                                                                                          | TASK-20260712-005-order-custody-archive                  | Integration Lead                             | active                      |
+| 2026-07-13 | Replaced custody buckets with six explicit active stages and a non-scrolling two-column mobile selector                                                 | TASK-20260713-001-order-active-status-homepage           | Integration Lead + UX/QA reviewers           | active                      |
+| 2026-07-13 | Added debounced order-search feedback, grouped result sections and consistent intake/status date presentation                                           | TASK-20260713-002-order-search-grouped-results           | Integration Lead                             | active                      |
+| 2026-07-13 | Added verified six-step buyback, role handoff, legal/signature and bounded evidence-upload UI                                                           | TASK-20260712-005-buyback-guided-evidence                | Integration Lead + UX/security reviewers     | active                      |
+| 2026-07-14 | Projected the production feature-off as a four-step all-role quote-only UI with historical evidence read-only                                           | TASK-20260714-001-buyback-sensitive-evidence-feature-off | Integration Lead + UX/QA reviewers           | active                      |
+| 2026-07-16 | Added Dashboard quick-start, handoff card, truthful filtered-sample and permission-revocation UI rules                                                  | TASK-20260716-001-dashboard-handoff-priority             | Integration Lead + UX/QA reviewers           | active                      |
+| 2026-07-16 | Superseded fixed two-column Orders selector with compact responsive queues and explicit pending/error/offline/latest-intent states                      | TASK-20260716-002-orders-mobile-filter-loading-plan      | Integration Lead + UX/QA reviewers           | active                      |
+| 2026-07-16 | Added explicit customer finance labels, dual repair/payment states and capability-driven terminal-action UI                                             | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + UX/QA reviewers           | active                      |
+| 2026-07-13 | Recorded nine-section Settings capability, store-bound transient, touch-target and visual-evidence contracts                                            | TASK-20260712-004-settings-center-master-plan            | Integration Lead + WP08 reviewers            | local_verified              |
+| 2026-07-17 | Recorded shared desktop/mobile order-create pending and ambiguous-success recovery gap                                                                  | TASK-20260717-163954-task                                | Integration Lead                             | verified_debt               |
+| 2026-07-17 | Added first-phase online create recovery UX: operation id, confirming/uncertain state, repeat-submit block and desktop/mobile screenshots               | TASK-20260717-165957-task                                | Integration Lead                             | mitigated_first_phase       |
+| 2026-07-17 | Added explicit unknown intake and reusable responsive diagnosis/quote/confirmed-send UI contract                                                        | TASK-20260717-004-order-diagnosis-quote-implementation   | Integration Lead + FLOW/UX/QA reviewers      | active                      |
+| 2026-07-17 | Added read-first desktop hierarchy, exact missing-field focus, shared shortcut permissions and custody credential retention                             | TASK-20260717-008-desktop-novice-ui-implementation       | Integration Lead + UX/QA reviewers           | verified                    |
+| 2026-07-18 | Recorded canonical order-create success navigation for both page and list-Dialog entry points                                                           | TASK-20260718-095500-order-create-navigation-release     | Integration Lead                             | production_verified         |
+| 2026-07-18 | Recorded responsive cost/profit/procurement/backfill/currency UI and production dormant-state behavior                                                  | TASK-20260718-008-order-cost-phase2                      | Integration Lead + UX/QA reviewers           | scoped_verified_option_b    |
+| 2026-07-19 | Released independent default-collapsed usage and processing disclosures with persistent mode meaning, keyboard semantics and 390px/desktop visual proof | TASK-20260719-005-ai-search-accuracy-collapsible-ui      | Integration Lead + UX/Frontend reviewer      | production_verified         |
+| 2026-07-19 | Superseded the two-disclosure layout with one compact mode/usage row and released inline non-navigating order cards with an explicit order link         | TASK-20260719-006-ai-natural-language-order-actions      | Integration Lead + UX/Frontend reviewer      | production_verified         |
+| 2026-07-19 | Added collapsible exact query scope, distinct interpretation states, one zero-result state and partial-result clarity while preserving inline cards     | TASK-20260719-007-ai-natural-language-query-v3           | Integration Lead + UX/Frontend reviewer      | production_verified         |
+| 2026-07-19 | Released CSS/runtime double readiness, dependency-free SW recovery shell and bounded manual/automatic mobile recovery with production responsive proof  | TASK-20260719-007-fast-app-recovery                      | Integration Lead + Architecture/QA reviewers | production_verified_bounded |

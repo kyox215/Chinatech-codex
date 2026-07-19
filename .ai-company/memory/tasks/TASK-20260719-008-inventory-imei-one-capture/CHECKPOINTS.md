@@ -31,3 +31,17 @@
 - Release review GO for an exact scoped commit, fresh fetch, non-force push and exact Vercel deployment. Stop on main movement with overlap, pending/unknown migration, non-READY deployment, unexpected Vision request, identifier network egress or inventory write.
 - Build note: the first sandboxed build could not fetch the repository's existing Google Fonts; an approved network-enabled retry on the same final source compiled, typechecked and generated all pages.
 - This is the required `memory-checkpoint` before Git/Vercel/Supabase external writes. Root dirty checkout and unrelated task memory remain untouched.
+
+## 2026-07-19T22:09:47Z — production release and conditional close checkpoint
+
+- Fresh fetch showed no overlapping `main` movement. Scoped business commit `facb79b984de5ffdc596210cd9ba33883343053e` was pushed non-force; post-push `origin/main` matched exactly with ahead/behind `0/0`.
+- Vercel production deployment `dpl_3HZsEL9XraLy1McLeaTxHCwsxpKs` reached `READY` from that exact Git SHA. `www.chinatech.in` and `chinatech.in` were aliases. Near-release fatal/error/warning/5xx counts were all zero.
+- All five same-origin Tesseract runtime asset URLs returned HTTP 200. Production `eng.traineddata.gz` SHA-256 equals locked npm source `45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91`.
+- Linked Supabase project `xluzcoduqsdvjoouqhkc` reported 91/91 local/remote migrations paired through `20260718223739`. Both dry-run and authorized `db push` returned `Remote database is up to date`; no SQL was invented, replayed or applied.
+- Read-only production counts since `2026-07-19T21:59:00Z` are Vision reservations `0` and Inventory V2 intake writes `0`. This proves the release itself did not consume the image budget or write inventory.
+- The authorized production browser account belongs only to `xutech`. At `/inventory/new`, the app correctly showed the legacy `新增库存商品` path instead of Chinatech-only V2. Console error/warning checks were empty; 390 and 1280 evidence is saved as `production-xutech-tenant-gate-390.png` and `production-xutech-tenant-gate-1280.png`.
+- The account has no Chinatech membership, so no authenticated Chinatech V2 smoke was attempted. We did not expand the allowlist, alter membership, impersonate a store or send another provider request. This is a hard evidence limitation, not a product failure.
+- Closure is therefore conditional: code, deployment, assets, tenant isolation, zero-use/no-write and database no-op pass; Chinatech mobile/desktop logged-in smoke remains a bounded follow-up requiring an authorized Chinatech session.
+- Follow-up procedure: use an existing authorized Chinatech employee account or explicitly add the test account to Chinatech, select one synthetic no-PII label, verify local IMEI/spec candidates on mobile and desktop, and stop before formal inventory save. Any cloud-crop check remains a separate approved one-shot and must never send the full label.
+- The closeout diff was revalidated after repository-state reminders: it contains only task/runbook/ADR/project/department/capability memory, `git diff --check` is clean, and `npm run agents:check` passes. No business source, migration, environment or deployment configuration is part of this closeout diff.
+- This is the final post-release and pre-closeout-push `memory-checkpoint`; it supersedes the pre-release pending state without claiming unperformed Chinatech UI evidence.
