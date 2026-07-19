@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,8 +9,19 @@ import {
   parseRepairDeskStyleReloadedAt,
   parseRepairDeskStyleReloadState,
   repairDeskStyleMaxAutoReloads,
+  repairDeskStyleRecoveryPollDelayMs,
+  repairDeskStyleRecoveryProbePath,
+  repairDeskStyleRecoveryProbeTimeoutMs,
+  repairDeskStyleRecoveryProbeToken,
+  repairDeskStyleReloadStateKey,
   repairDeskStyleReloadWindowMs,
 } from "./app-style-recovery";
+
+const offlineFallbackHtml = readFileSync(
+  resolve(process.cwd(), "public/offline-fallback-v1.html"),
+  "utf8",
+);
+const serviceWorkerSource = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
 describe("RepairDesk app style recovery", () => {
   it("keeps the application visible when the global stylesheet marker is present", () => {
@@ -119,5 +133,41 @@ describe("RepairDesk app style recovery", () => {
       autoReloadCount: 1,
       lastAutoReloadAt: 4_000,
     });
+  });
+
+  it("keeps the standalone offline shell dependency-free and aligned with recovery constants", () => {
+    expect(offlineFallbackHtml).not.toMatch(
+      /\/_next\/|<script[^>]+\bsrc=|<link[^>]+\brel=["']stylesheet|<img[^>]+\bsrc=|@font-face|\binnerHTML\b|\beval\s*\(/i,
+    );
+    expect(offlineFallbackHtml).toContain('data-repairdesk-offline-fallback="v1"');
+    expect(offlineFallbackHtml).toContain("min-height: 44px");
+    expect(offlineFallbackHtml).toContain("prefers-reduced-motion: reduce");
+    expect(offlineFallbackHtml).toContain("default-src 'none'");
+    expect(offlineFallbackHtml).toContain(`probePath: "${repairDeskStyleRecoveryProbePath}"`);
+    expect(offlineFallbackHtml).toContain(`probeToken: "${repairDeskStyleRecoveryProbeToken}"`);
+    expect(offlineFallbackHtml).toContain(`reloadStateKey: "${repairDeskStyleReloadStateKey}"`);
+    expect(offlineFallbackHtml).toContain(`maxAutoReloads: ${repairDeskStyleMaxAutoReloads}`);
+    expect(offlineFallbackHtml).toContain(`pollDelayMs: ${repairDeskStyleRecoveryPollDelayMs}`);
+    expect(offlineFallbackHtml).toContain(
+      `probeTimeoutMs: ${repairDeskStyleRecoveryProbeTimeoutMs}`,
+    );
+    expect(offlineFallbackHtml).toContain(`reloadWindowMs: ${repairDeskStyleReloadWindowMs}`);
+
+    const inlineScript = offlineFallbackHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    expect(inlineScript).toBeTruthy();
+    expect(() => new Function(inlineScript ?? "")).not.toThrow();
+  });
+
+  it("limits the Service Worker fallback to GET navigation and preserves unrelated caches", () => {
+    expect(serviceWorkerSource).toContain('const CACHE_NAME = "repairdesk-shell-v4"');
+    expect(serviceWorkerSource).toContain(
+      'const OFFLINE_FALLBACK_URL = "/offline-fallback-v1.html"',
+    );
+    expect(serviceWorkerSource).toContain(
+      'request.mode === "navigate" && request.method === "GET"',
+    );
+    expect(serviceWorkerSource).toContain('key.startsWith("repairdesk-shell-")');
+    expect(serviceWorkerSource).toContain("status: 503");
+    expect(serviceWorkerSource).not.toContain('const OFFLINE_URL = "/offline"');
   });
 });

@@ -30,3 +30,45 @@
 - Both independent reviewers returned final PASS for a local candidate commit. They did not modify files or authorize push/deploy.
 - Residual release checks: real iPhone background/BFCache/network-switch behavior and registered Service Worker path remain production-smoke items; automatic refresh can still affect unsaved input, bounded to the unusable global shell and once per 60 seconds.
 - Release state remains unchanged: not pushed and not deployed. `ACTIVE_CONTEXT.md` remains untouched because the concurrent Vision observation owns it.
+
+## 2026-07-19T19:35:21Z — Owner release approval and production preflight checkpoint
+
+- Owner explicitly approved executing the plan, pushing to `main`, and applying Supabase/migrations.
+- Release phase is classified T3 / R4 / L1 because it changes the customer-visible production deployment and crosses the database application gate.
+- Fresh `git fetch --prune` confirms `origin/main@25752bd1`; candidate `94243401` is its direct child, worktree clean, and contains no `supabase/` or migration path.
+- Root checkout remains ahead 2 / behind 108 with extensive unrelated state; it is excluded from all staging, commits and pushes.
+- Supabase target was independently verified as `ChinaTech_date` / `xluzcoduqsdvjoouqhkc`, status `ACTIVE_HEALTHY`, PostgreSQL 17.
+- `supabase migration list --linked` shows all 91 local/remote timestamps paired through `20260718223739`.
+- `supabase db push --linked --dry-run` returned `Remote database is up to date`; no migration is eligible for application and historical SQL must not be replayed.
+- Supabase advisors contain pre-existing security/performance warnings; this candidate changes no database object, so warnings are recorded as baseline and remain outside this scoped Web reliability release.
+- Stop conditions: any movement of `origin/main`, unexpected pending migration, failed final quality gate, non-fast-forward push, failed production deployment, reload loop, false-ready shell, or loss of login/session state.
+- Rollback: revert the exact Web commit and restore the previous READY deployment; no database rollback is expected because the database step is a no-op.
+- `ACTIVE_CONTEXT.md` remains under the Vision 24-hour observation task and will not be overwritten; this release boundary must be noted in that later read-only review.
+
+## 2026-07-19T20:10:32Z — real Service Worker blocker closed and final pre-push checkpoint
+
+- Release QA required a production-build smoke with Service Worker registration enabled because the original 8-case recovery spec intentionally blocks Service Workers.
+- The first v3 smoke reproduced a real blocker: the cached Next `/offline` document could become CSS/runtime ready and stop probing after connectivity returned.
+- A static marker correction fixed Chromium, but controlled WebKit testing exposed a deeper iPhone/Safari behavior: failed Next module loads from the offline document were not retried after the first recovery reload, leaving `runtimeReady=false`.
+- Plan delta: replaced the Next `/offline` navigation fallback with standalone `/offline-fallback-v1.html`. It has inline system-color CSS and a classic inline controller only; it contains no `/_next/`, external script/style/font/image, manifest, dynamic import, business data or PII.
+- The standalone controller shares the exact probe path/token, state version, session key, 750ms poll/timeout, 60-second window and one-auto-reload limit with the main bootstrap. It pauses while hidden, responds to online/pageshow/focus/visibility/resume, and exposes a 44px manual action.
+- Service Worker cache is now `repairdesk-shell-v4`; only GET navigation receives the fallback, cache miss returns explicit 503, and activation deletes only older `repairdesk-shell-*` caches while preserving unrelated business caches.
+- A controllable local connection-drop proxy was used because Playwright WebKit's `context.setOffline(true)` navigation fails internally before the Service Worker can handle it. The proxy destroys the origin connection while leaving the browser online, then independently enables full or probe-only reachability.
+- Real SW production results: Chromium 3/3 PASS and WebKit 3/3 PASS. Both engines proved final `stylesReady=1`, `runtimeReady=true`, one recovery navigation within 3 seconds, zero Next assets from the standalone shell, v2/v3-to-v4 cleanup, fallback cached, unrelated cache retained, and cookie/localStorage/IndexedDB retained.
+- Both engines also proved no loop when the probe succeeds but the application navigation still fails, including with sessionStorage disabled: one navigation only, then manual recovery.
+- Post-fix original recovery matrix: Chromium 8/8 PASS and WebKit 8/8 PASS.
+- Final full gate: agents/lint/typecheck PASS; Vitest 311 files / 2022 tests PASS; production build PASS; SW syntax, fallback dependency scan and `git diff --check` PASS.
+- Visual evidence added for recovered mobile production build in both engines; no customer data is present.
+- Remaining production-only validation: exact Vercel SHA Ready, production SW v4/probe HTTP checks, mobile/desktop normal smoke, and real iPhone background/BFCache/network-switch observation. Any loop, false-ready shell, session loss or >3-second no-action remains an immediate rollback condition.
+- Database state is unchanged: 91/91 migrations aligned and dry-run up to date; database execution must remain a successful no-op.
+- This is the required `memory-checkpoint` before external Git/deploy writes. `ACTIVE_CONTEXT.md` remains owned by the Vision 24-hour observation task.
+
+## 2026-07-19T20:14:26Z — final independent GO and post-source quality checkpoint
+
+- Final source was minimized after the v4 implementation; no main-bootstrap behavior remains beyond the already reviewed `94243401` candidate.
+- A new full `npm run check` completed after the last source change: agent rules, lint, typecheck, 311 Vitest files / 2022 tests and production build all PASS.
+- Independent Architecture review returned PASS for the current standalone fallback, GET-only SW behavior, reload-loop boundary and cache scope.
+- Independent Release QA returned GO for exact scoped commit, non-force main push and deployment, conditional on a final fresh fetch and successful production smoke.
+- `git diff --check` and scoped secret scan are clean; there is still no Supabase, dependency, environment or deployment-config diff.
+- The worktree is intentionally dirty only because final v4 source, tests, screenshots and task evidence are waiting for an exact scoped commit. Do not push old HEAD `94243401` alone.
+- Next external write: stage the explicit intended path list, inspect staged diff, commit, fetch again, require fast-forward/no overlap, then push without force.

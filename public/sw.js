@@ -1,6 +1,6 @@
-const CACHE_NAME = "repairdesk-shell-v3";
-const OFFLINE_URL = "/offline";
-const STATIC_ASSETS = [OFFLINE_URL, "/icons/repairdesk-icon.svg"];
+const CACHE_NAME = "repairdesk-shell-v4";
+const OFFLINE_FALLBACK_URL = "/offline-fallback-v1.html";
+const STATIC_ASSETS = [OFFLINE_FALLBACK_URL];
 const NAVIGATION_TIMEOUT_MS = 3_000;
 
 async function fetchNavigation(request) {
@@ -11,6 +11,16 @@ async function fetchNavigation(request) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function getOfflineNavigationResponse() {
+  return (
+    (await caches.match(OFFLINE_FALLBACK_URL)) ||
+    new Response("RepairDesk is offline", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    })
+  );
 }
 
 self.addEventListener("install", (event) => {
@@ -27,7 +37,11 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("repairdesk-shell-") && key !== CACHE_NAME)
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   );
@@ -36,8 +50,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  if (request.mode === "navigate") {
-    event.respondWith(fetchNavigation(request).catch(() => caches.match(OFFLINE_URL)));
+  if (request.mode === "navigate" && request.method === "GET") {
+    event.respondWith(fetchNavigation(request).catch(() => getOfflineNavigationResponse()));
     return;
   }
 

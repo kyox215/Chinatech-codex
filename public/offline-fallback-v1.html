@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN" data-repairdesk-offline-fallback="v1">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; connect-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
+    <title>正在恢复 RepairDesk</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+      body {
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        background: Canvas;
+        color: CanvasText;
+      }
+      #repairdesk-style-fallback {
+        display: grid;
+        justify-items: center;
+        gap: 12px;
+        max-width: min(360px, calc(100vw - 48px));
+        padding: 24px;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+      #repairdesk-style-fallback span[aria-hidden="true"] {
+        width: 32px;
+        height: 32px;
+        border: 3px solid GrayText;
+        border-top-color: currentColor;
+        border-radius: 999px;
+        animation: repairdesk-offline-spin 0.8s linear infinite;
+      }
+      #repairdesk-style-status {
+        margin: 0;
+      }
+      #repairdesk-style-retry {
+        display: none;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid CanvasText;
+        border-radius: 12px;
+        padding: 10px 18px;
+        background: CanvasText;
+        color: Canvas;
+        font: inherit;
+        cursor: pointer;
+      }
+      #repairdesk-style-retry:focus-visible {
+        outline: 3px solid Highlight;
+        outline-offset: 3px;
+      }
+      #repairdesk-style-retry:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+      @keyframes repairdesk-offline-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #repairdesk-style-fallback span[aria-hidden="true"] {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="repairdesk-style-fallback" role="status" aria-live="polite">
+      <span aria-hidden="true"></span>
+      <p id="repairdesk-style-status">网络暂不可用，RepairDesk 正在自动重试…</p>
+      <button id="repairdesk-style-retry" type="button">立即重试</button>
+    </main>
+    <script>
+      (() => {
+        const config = {
+          fallbackPath: "/offline-fallback-v1.html",
+          maxAutoReloads: 1,
+          pollDelayMs: 750,
+          probePath: "/recovery-probe.txt",
+          probeTimeoutMs: 750,
+          probeToken: "repairdesk-recovery-v1",
+          reloadStateKey: "repairdesk:style-recovery:reload-state-v2",
+          reloadWindowMs: 60000,
+          stateVersion: 2,
+        };
+        const status = document.getElementById("repairdesk-style-status");
+        const retry = document.getElementById("repairdesk-style-retry");
+        let controller;
+        let inFlight = false;
+        let stopped = false;
+        let timer;
+
+        const navigationWasReloaded = () => {
+          try {
+            const entry = performance.getEntriesByType("navigation")[0];
+            if (entry && entry.type === "reload") return true;
+            return Boolean(performance.navigation && performance.navigation.type === 1);
+          } catch {
+            return false;
+          }
+        };
+
+        const stateIsActive = (state, now) =>
+          Boolean(
+            state &&
+            now >= state.windowStartedAt &&
+            now - state.windowStartedAt < config.reloadWindowMs,
+          );
+
+        const readReloadState = () => {
+          try {
+            const raw = window.sessionStorage.getItem(config.reloadStateKey);
+            if (!raw) return { available: true, state: null };
+            const parsed = JSON.parse(raw);
+            const valid =
+              parsed &&
+              parsed.version === config.stateVersion &&
+              Number.isFinite(parsed.windowStartedAt) &&
+              Number.isInteger(parsed.autoReloadCount) &&
+              parsed.autoReloadCount >= 0 &&
+              Number.isFinite(parsed.lastAutoReloadAt);
+            return { available: true, state: valid ? parsed : null };
+          } catch {
+            return { available: false, state: null };
+          }
+        };
+
+        const recordAutoReload = () => {
+          const now = Date.now();
+          const stored = readReloadState();
+          if (!stored.available) return !navigationWasReloaded();
+          if (
+            stateIsActive(stored.state, now) &&
+            stored.state.autoReloadCount >= config.maxAutoReloads
+          ) {
+            return false;
+          }
+          const nextState = stateIsActive(stored.state, now)
+            ? {
+                ...stored.state,
+                autoReloadCount: stored.state.autoReloadCount + 1,
+                lastAutoReloadAt: now,
+              }
+            : {
+                version: config.stateVersion,
+                windowStartedAt: now,
+                autoReloadCount: 1,
+                lastAutoReloadAt: now,
+              };
+          try {
+            window.sessionStorage.setItem(config.reloadStateKey, JSON.stringify(nextState));
+            return true;
+          } catch {
+            return !navigationWasReloaded();
+          }
+        };
+
+        const showManualRecovery = (message) => {
+          if (status) status.textContent = message;
+          if (retry) retry.style.display = "inline-flex";
+        };
+
+        const probeReachability = async () => {
+          controller = new AbortController();
+          const timeout = window.setTimeout(() => controller.abort(), config.probeTimeoutMs);
+          try {
+            const url = new URL(config.probePath, window.location.href);
+            url.searchParams.set("repairdesk_recovery", String(Date.now()));
+            const response = await window.fetch(url, {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal: controller.signal,
+            });
+            return response.ok && (await response.text()).trim() === config.probeToken;
+          } catch {
+            return false;
+          } finally {
+            window.clearTimeout(timeout);
+            controller = undefined;
+          }
+        };
+
+        const schedule = (delay = config.pollDelayMs) => {
+          if (stopped || document.visibilityState === "hidden") return;
+          if (timer !== undefined) window.clearTimeout(timer);
+          timer = window.setTimeout(attemptRecovery, delay);
+        };
+
+        async function attemptRecovery() {
+          if (stopped || inFlight || document.visibilityState === "hidden") return;
+          inFlight = true;
+          if (status) status.textContent = "正在恢复 RepairDesk…";
+          try {
+            const reachable = await probeReachability();
+            if (!reachable) {
+              if (status) status.textContent = "网络暂不可用，RepairDesk 正在自动重试…";
+              return;
+            }
+            if (!recordAutoReload()) {
+              stopped = true;
+              showManualRecovery("连接已恢复，RepairDesk 未完成启动，请立即重试。");
+              return;
+            }
+            stopped = true;
+            if (status) status.textContent = "网络已恢复，正在重新进入 RepairDesk…";
+            window.setTimeout(() => window.location.reload(), 60);
+          } finally {
+            inFlight = false;
+            if (!stopped) schedule();
+          }
+        }
+
+        const wake = () => schedule(0);
+        retry?.addEventListener("click", () => {
+          if (window.location.pathname === config.fallbackPath) {
+            window.location.replace("/offline");
+            return;
+          }
+          if (retry.disabled) return;
+          retry.disabled = true;
+          if (status) status.textContent = "正在重新加载 RepairDesk…";
+          window.setTimeout(() => window.location.reload(), 60);
+        });
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") wake();
+          else {
+            if (timer !== undefined) window.clearTimeout(timer);
+            if (controller) controller.abort();
+          }
+        });
+        document.addEventListener("resume", wake);
+        window.addEventListener("online", wake);
+        window.addEventListener("pageshow", wake);
+        window.addEventListener("focus", wake);
+
+        if (window.location.pathname === config.fallbackPath) {
+          stopped = true;
+          showManualRecovery("这是 RepairDesk 离线恢复页，请返回离线说明。");
+          if (retry) retry.textContent = "返回离线说明";
+          return;
+        }
+
+        window.setTimeout(() => showManualRecovery("仍在恢复中，你也可以立即重试。"), 2500);
+        schedule(200);
+      })();
+    </script>
+  </body>
+</html>

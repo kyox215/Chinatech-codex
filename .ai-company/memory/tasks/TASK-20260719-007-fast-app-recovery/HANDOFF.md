@@ -4,7 +4,7 @@
 
 - Candidate branch: `codex/app-style-recovery-fast-20260719`.
 - Baseline: `origin/main@25752bd1`.
-- Quality state: locally verified; production release not authorized or performed.
+- Quality state: final source locally verified, including real SW v4 Chromium/WebKit; Owner has authorized production release; preflight database gate is a confirmed no-op.
 
 ## Read first
 
@@ -13,14 +13,15 @@
 3. `src/app/layout.tsx`, `src/styles.css`, and `src/components/app-style-recovery.tsx`.
 4. `tests/e2e/app-style-recovery.spec.ts` and `public/sw.js`.
 
-## Next exact action after Owner release approval
+## Next exact release action
 
-1. `git fetch origin --prune` and compare current `origin/main` with baseline.
-2. Stop if any recovery file has overlapping drift; review and re-integrate instead of force applying.
-3. Rebase/cherry-pick the scoped candidate onto latest main in a clean worktree.
-4. Rerun typecheck, targeted Chromium/WebKit production E2E and build.
-5. Push without force, verify Vercel Ready, then reproduce the real mobile offline/foreground recovery path.
+1. Obtain final read-only ARCH/QA conclusion for the standalone fallback diff.
+2. Commit the exact scoped source, tests, screenshots and task memory; do not broad-stage generated test artifacts.
+3. Immediately before push, fetch and require the recorded `origin/main` to remain an ancestor with no overlapping recovery drift.
+4. Push exact candidate HEAD to `main` without force.
+5. Run the formal linked database command; because dry-run is up to date, it must execute no migration.
+6. Verify the exact production deployment, normal mobile/desktop loading, registered Service Worker v4 path, fallback asset/probe, and recovery behavior; then append closeout evidence.
 
 ## Stop conditions
 
-- Reload loop, false-ready shell, affected login/session state, unexpected Service Worker cache scope, overlapping main drift or any request to clear business data.
+- Reload loop, false-ready shell, affected login/session/IndexedDB/outbox state, unexpected Service Worker cache scope, overlapping main drift or any request to clear business data.
