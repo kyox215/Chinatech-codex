@@ -2,7 +2,7 @@
 
 ## Conclusion
 
-The Owner approved the scoped production release. The combined candidate is implementation-complete and quality-gated; inline chat usage is now included. Push/deployment and production smoke are the remaining release steps. No production configuration, secret, schema, migration, or production data change is part of this release.
+The Owner-approved scoped release is live. Feature commit `f91327cab19367b745e66cd8c98d12fad4506adf` reached `origin/main`, Vercel deployment `dpl_6LZ4gT89EkTCXqP7LAbLhy6aP3YA` is READY, and both production aliases were explicitly verified against that deployment. Inline chat usage, the local/model choice, Settings usage, and Apple 15 search isolation are included. No production configuration, secret, schema, migration, allowlist, budget, model, or production data change occurred.
 
 ## Acceptance matrix
 
@@ -31,6 +31,8 @@ The Owner approved the scoped production release. The combined candidate is impl
 - Targeted Playwright — PASS, 2/2: processing-mode payload/visual flow and current-store usage/settings flow.
 - AI assistant Playwright regression — PASS, 10/10 scenarios with explicit test feature flags, including Apple 15 relevance, processing payload, usage refresh and 390/430px overflow.
 - Manual in-app browser verification — model selection submitted successfully, usage page returned mock aggregate data, and browser error logs were empty.
+- Vercel production build — PASS with Turbopack on the exact feature SHA.
+- Production smoke — PASS for `/settings?section=ai-usage`, the current-store aggregate API, responsive 390px rendering, domain alias mapping, and empty browser/error-level log checks.
 
 ## Visual evidence
 
@@ -39,8 +41,18 @@ The Owner approved the scoped production release. The combined candidate is impl
 - `screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-chat-usage-mobile-390.png` — inline current-store usage at 390px.
 - `screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-chat-usage-desktop-1280.png` — inline current-store usage in the desktop sheet.
 - `screenshots/TASK-20260719-004-ai-processing-mode-usage/ai-usage-settings-mobile-390.png` — current-store AI usage dashboard.
+- `screenshots/TASK-20260719-004-ai-processing-mode-usage/production-ai-usage-settings-mobile-390.png` — live production Settings usage view at 390px.
 
-All screenshot data is synthetic E2E data; no production PII or secrets are present.
+The E2E screenshots use synthetic data. The production screenshot contains only zero-valued current-store aggregates and exposes no customer PII, secret, prompt, response, order identifier, or staff identity.
+
+## Production release evidence
+
+- Local candidate and `origin/main` matched `f91327cab19367b745e66cd8c98d12fad4506adf` after the non-force push.
+- Exact feature deployment: `dpl_6LZ4gT89EkTCXqP7LAbLhy6aP3YA`, URL `https://chinatech-codex-elf080o43-kyox120-9295s-projects.vercel.app`, state READY.
+- Vercel metadata reported `gitSource.sha=f91327cab19367b745e66cd8c98d12fad4506adf` and commit message `feat(ai): show usage in assistant chat`.
+- An older queued deployment for `7d817067` completed after the new build and temporarily reclaimed the production aliases. The release gate detected the race, explicitly promoted the exact feature deployment, and re-inspected `www.chinatech.in`; both production aliases then resolved to `dpl_6LZ4gT89EkTCXqP7LAbLhy6aP3YA`.
+- Production `/settings?section=ai-usage` rendered the current-store zero state at 390px. `GET /api/repairdesk/ai/usage` returned the privacy-safe aggregate with source `repairdesk_usage_ledger`; browser console warnings/errors and deployment error-level logs were empty.
+- The authenticated production session belongs to `xutech`, whose capability response is correctly `canUseOrderAssistant=false` with `rollout_not_enabled`; therefore the inline chat trigger is intentionally not mounted for that non-pilot store. No allowlist or active-store change was made to manufacture a production screenshot. Exact-SHA unit/E2E evidence and the committed mobile/desktop screenshots cover the inline UI.
 
 ## Security and data review
 
@@ -59,13 +71,19 @@ All screenshot data is synthetic E2E data; no production PII or secrets are pres
 | Product/support     | AI composer and Settings copy          | Updated in code; local is default and both inline/settings usage are read-only              |
 | Developers/security | `docs/AI_ASSISTANT_COST_GOVERNANCE.md` | Updated with mode semantics, API permission/scope and estimate caveat                       |
 | Database/operations | Existing cost-governance document      | No schema/runbook change; existing ledger is reused                                         |
-| Release owner       | This task evidence and checkpoint      | Owner approved the scoped push/deploy; exact-SHA production evidence remains to be appended |
+| Release owner       | This task evidence and checkpoint      | Exact feature SHA, READY deployment, alias promotion, production smoke and rollback are recorded |
 
-No other public API, migration, environment template, installation guide, or operational runbook requires an update for this candidate.
+No other public API, migration, environment template, installation guide, or operational runbook requires an update for this release.
+
+## Memory, department and capability closeout
+
+- Project memory and the task index record the durable product/security contract; `docs/AI_ASSISTANT_COST_GOVERNANCE.md` remains the detailed authority.
+- No department charter, permission boundary, SOP or ownership interface changed, so duplicating this feature into individual department memory files would add drift rather than a new durable rule.
+- This is one successful scoped release, not evidence for increased autonomy. `CAP-INT-001`, `CAP-QA-001` and the existing AI capability records keep their current levels and review triggers; no capability promotion was made.
 
 ## Rollback
 
-Revert the scoped candidate commit. Because there is no migration or production mutation, rollback is code-only; existing usage ledger data remains untouched.
+Revert the scoped release to pre-release `main@7d817067` and promote its READY deployment. Because there is no migration or production mutation, rollback is code-only; existing usage ledger data remains untouched.
 
 - `2026-07-19T10:10:23Z` `541e1aea4b` — lint 与 typecheck 通过；Vitest 308 文件、1966 项通过。
 - `2026-07-19T10:10:23Z` `ae278e42e9` — Webpack 生产构建通过；Turbopack 仅因隔离 worktree 的 node_modules 外部软链接受限。

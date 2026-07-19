@@ -35,3 +35,17 @@
 - **Evidence:**
   - lint/typecheck/build 通过；Vitest 309 文件 1972 项；AI Playwright 10/10；390px/1280px 对话用量截图已视觉复核。
 - **Recorded by:** IntegrationLead
+
+## 2026-07-19T11:18:00Z — AI 查询模式和当前门店使用量已完成 exact-SHA 生产发布与冒烟。
+
+- **Phase:** production-released
+- **Completed/current state:** `main@f91327ca` 已由 Vercel exact-SHA 构建并显式提升到 `www.chinatech.in` / `chinatech.in`；设置用量页、聚合 API、移动响应式、日志和域名映射通过生产复核。
+- **Next:** 提交关闭证据，复核最终远端/部署状态，运行严格治理门禁与 memory checkpoint，关闭 Registry task/run/lease。
+- **Decision:** 保持现有 Chinatech-only AI pilot；当前 `xutech` 生产会话按 `rollout_not_enabled` 隐藏入口，不修改 allowlist 以制造截图。
+- **Blocker:** 无发布阻塞；生产会话不是 Chinatech pilot，因此对话内卡片的最终视觉证据来自 exact-SHA E2E 和本地 390px/桌面截图。
+- **Evidence:**
+  - Vercel deployment `dpl_6LZ4gT89EkTCXqP7LAbLhy6aP3YA` READY，Git SHA 为 `f91327cab19367b745e66cd8c98d12fad4506adf`。
+  - 检测到旧 queued build 抢占域名后已显式 promote exact deployment，并重新 inspect 确认两个生产 alias 正确。
+  - 生产设置用量页和 `repairdesk_usage_ledger` 聚合接口通过；浏览器 console 与 error-level deployment logs 为空。
+  - 无 migration、密钥、模型、预算、allowlist、生产配置或生产数据变更。
+- **Recorded by:** IntegrationLead

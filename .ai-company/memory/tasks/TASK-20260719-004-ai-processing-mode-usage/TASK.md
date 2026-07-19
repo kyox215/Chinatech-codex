@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260719-004-ai-processing-mode-usage"
 title: "AI 查询处理方式选择与门店使用量"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["product", "architecture", "frontend", "backend", "security", "qa", "documentation"]
 created_at: "2026-07-19T09:30:38Z"
-updated_at: "2026-07-19T11:00:59Z"
+updated_at: "2026-07-19T11:18:00Z"
 ---
 # Task — AI 查询处理方式选择与门店使用量
 
@@ -69,14 +69,15 @@ updated_at: "2026-07-19T11:00:59Z"
 - [x] 对话面板在 390px 与桌面端显示今日模型请求、额度、Token 和费用估算，无横向溢出。
 - [x] 无财务聚合权限时不显示摘要且不请求用量 API；读取失败时 AI 查询仍可使用。
 - [x] 对话提交成功后刷新当前门店用量，设置页与对话页口径一致。
-- [ ] 最终 diff、安全、全量质量门禁、浏览器截图、生产冒烟和观察通过。
-- [ ] exact commit 已推送并部署到生产，远端 `main`、部署 SHA 和本地候选一致。
+- [x] 最终 diff、安全、全量质量门禁、浏览器截图、生产冒烟和观察通过。
+- [x] exact commit 已推送并部署到生产，远端 `main`、部署 SHA 和本地候选一致。
 
 ## Delivery state
 
-- Owner 已批准在补齐对话内使用量后 push/deploy；当前进入实现与发布门禁。
-- 未新增 migration，未修改密钥、生产配置或生产数据。
-- 生产发布前应在目标环境复核现有 AI live 门禁与 `finance:aggregate_read` 权限投影。
+- 业务候选 `f91327cab19367b745e66cd8c98d12fad4506adf` 已非强制推送到 `origin/main`，并由 Vercel Git deployment `dpl_6LZ4gT89EkTCXqP7LAbLhy6aP3YA` 成功构建为 READY。
+- `www.chinatech.in` 与 `chinatech.in` 已显式提升并复核指向上述 exact-SHA deployment；构建后的 error-level 日志扫描为空。
+- 生产当前登录的 `xutech` 门店不是 AI pilot allowlist，服务端正确返回 `rollout_not_enabled` 并隐藏对话入口；同一生产版本的设置用量页和聚合 API 已实测通过，对话内状态由 exact-SHA 10/10 浏览器回归及 390px/桌面截图覆盖。
+- 未新增 migration，未修改密钥、模型、预算、AI allowlist、生产配置或生产数据。
 
 ## Risk and authority
 
@@ -86,4 +87,4 @@ updated_at: "2026-07-19T11:00:59Z"
 
 ## Rollback
 
-回退本任务的请求字段、路由分支、设置分组、聚合读取和测试提交；无数据库、数据、密钥或配置回滚。
+将应用代码回退到本次发布前的 `main@7d817067`，并重新提升对应 READY deployment；无数据库、数据、密钥或配置回滚。

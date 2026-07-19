@@ -4,7 +4,7 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-18 CEST
+- Last verified: 2026-07-19 CEST
 
 ## Product and business overview
 
@@ -68,6 +68,7 @@ The mixed original checkout was preserved; reverify the live remote SHA before a
 - Conditional `TASK-20260718-009-ai-assistant-implementation` defines the dormant AI Phase 0–2 contract: staff order assistance is limited to server-derived actor/store/RBAC and two read-only tools with server-built cards; inventory label recognition may only populate an employee-reviewed page-memory form draft before the ordinary save path. Parent/child flags, empty store allowlist, zero quota and fake provider fail closed. Production `main@8bef230` is verified READY without AI/OpenAI environment names, key sync, external calls, migration, image/draft persistence or public entry. Any live provider, persistent draft, workflow expansion or public assistant remains a separate R4/D4 task.
 - Conditionally closed `TASK-20260718-011-ai-assistant-cost-governance` released the dormant Phase 3A cost-governance extension on `main@d84dae86` / READY `dpl_8nFPJjX3dY7Xbh9KTxBCdc5wRVfF`. Capability/RBAC and an all-request abuse guard remain ahead of a conservative deterministic order planner; deterministic hits use no provider quota. Complete local label candidates may skip cloud upload but remain reviewed, unsaved packaging claims. `TASK-20260718-013-inventory-v2-production-canary` later applied the durable atomic quota migration as empty, dormant governance infrastructure: policy/bucket/request rows remain zero, OpenAI provider remains fail-closed, and all budget/privacy/key/live AI activation decisions remain separate D4 work.
 - Conditional `TASK-20260718-014-ai-assistant-live-pilot` supersedes only the dormant order-text statement: ChinaTech employee order text is live on `main@152caa1c` / READY `dpl_946N6xMftqrRpKTzGmnDBmbjrR2y` under `ai-runtime-v2`, explicit minimal reasoning, one-attempt durable budget settlement, a USD 50 monthly cap and a ChinaTech-only allowlist. The v2 one-shot passed HTTP/ledger/audit and the 30-minute observation ended with zero open/bad/overrun/Vision/cross-store/runtime-error counts. Vision/photos, PII, writes, public/customer AI, other stores and model/budget changes remain separate R4/D4 work; authenticated production UI proof and the 24-hour read-only review remain open.
+- Closed `TASK-20260719-004-ai-processing-mode-usage` gives eligible staff an explicit default-local versus controlled-model choice and gives `finance:aggregate_read` users current-store aggregate usage in both Settings and the assistant sheet. Local mode never silently upgrades, model mode retains the existing provider/privacy/quota/budget/audit gates, and clients cannot choose store/model/key/price/budget. The production release reused the existing ledger with no migration or configuration change; non-pilot stores remain fail-closed and do not mount the assistant.
 
 ## Authentication, authorization and sensitive data
 
