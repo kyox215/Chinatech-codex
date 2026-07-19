@@ -26,3 +26,14 @@
 - **Observed:** `main@5942a9de` 的 Vercel 部署 Ready；生产真实订单在 1437×771 视口下所有列宽约束正确，但较长的设备保管交接摘要让默认概览出现 25px 内部滚动。
 - **Decision:** 桌面工作台高度上限由 680px 调整为 720px；宽度、列布局和业务行为不变。
 - **Next:** 重新运行布局回归和构建，提交修正，等待新 exact-SHA Ready 后复测生产滚动差。
+
+## 2026-07-19T23:47:24Z — 最终生产验证通过并关闭任务
+
+- **Phase:** closed
+- **Outcome:** 订单详情桌面工作台整体重排已部署，真实默认概览滚动差为 0，进度、金额、三列概览、记录分组和底部操作区均按限宽规则生效。
+- **Release:** `main@5d32dee6e5a61fb0c2bd68f114ea509a1aa0ccaa`; Vercel `dpl_AKAaD6MSXnMU4Ftw7ntFRxbg4MZG` Ready，别名包含 `chinatech.in` 和 `www.chinatech.in`。
+- **Production evidence:** 1437×771 视口下弹窗 1040×720、概览滚动差 0、设备卡/底栏间距 23px、进度 662px、保管 780px、客户 260px、设备 406px、报价 290px、切换组 390px、底栏 512px；记录工作区 920px；时间线切换成功；控制台错误和近 15 分钟 `/orders` 运行时错误均为 0。
+- **Residual risk:** 极端长文本和大批时间线仍会在当前分组内部滚动；这是保持主页面紧凑的一致降级方式。
+- **Memory:** 可复用布局候选保留在任务 `MEMORY_DELTA.md`；未提升为公司/部门正式规则，未修改权限或能力等级。
+- **Active context:** 因根工作区存在另一并行任务的未提交上下文，本任务未覆盖 `ACTIVE_CONTEXT.md`，以任务目录作为恢复档案。
+- **Closed by:** RepairDesk Integration Lead

@@ -7,3 +7,6 @@
 - Overview screenshot: `screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-overview-1440.png`.
 - Records screenshot: `screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-records-1440.png`.
 - Validation at checkpoint: agents config passed; full lint passed; typecheck passed; 314 Vitest files / 2046 tests passed; production build passed; Playwright layout suite 5/5 passed.
+- Production release commit: `5d32dee6e5a61fb0c2bd68f114ea509a1aa0ccaa` on `main`.
+- Production deployment: `dpl_AKAaD6MSXnMU4Ftw7ntFRxbg4MZG` Ready with `chinatech.in` and `www.chinatech.in` aliases.
+- Final production smoke: overview scroll delta 0; no action money duplication; records/timeline tabs switched read-only; browser console errors 0; Vercel `/orders` runtime errors in the last 15 minutes 0.

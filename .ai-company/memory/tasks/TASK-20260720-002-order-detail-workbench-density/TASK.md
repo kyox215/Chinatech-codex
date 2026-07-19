@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260720-002-order-detail-workbench-density"
 title: "订单详情桌面工作台整体空间优化"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FE", "UX", "QA", "RELEASE"]
 created_at: "2026-07-20T00:30:00+02:00"
-updated_at: "2026-07-19T23:24:30Z"
+updated_at: "2026-07-19T23:47:24Z"
+closed_at: "2026-07-19T23:47:24Z"
 ---
 
 # Task
