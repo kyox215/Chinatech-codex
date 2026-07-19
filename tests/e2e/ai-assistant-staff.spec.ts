@@ -86,8 +86,9 @@ test.describe("staff AI assistant bounded workflow", () => {
     await sheet.getByRole("button", { name: "发送", exact: true }).click();
     await expect(sheet.getByText(/iPhone 15/i).first()).toBeVisible();
     await expect(sheet.getByText(/SAMSUNG A12/i)).toHaveCount(0);
+    await sheet.getByRole("button", { name: "展开查询范围" }).click();
     await expect(sheet.getByRole("region", { name: "系统实际采用的查询条件" })).toContainText(
-      "设备：iPhone 15",
+      "iPhone 15",
     );
 
     const urlBeforeDetails = page.url();
@@ -116,10 +117,10 @@ test.describe("staff AI assistant bounded workflow", () => {
     const sheet = page.locator('[data-ai-assistant-sheet="true"]');
     const processingTrigger = sheet.getByRole("button", { name: "展开处理方式和用量" });
     await processingTrigger.click();
-    await sheet.getByRole("radio", { name: "使用大模型理解" }).click();
+    await sheet.getByRole("radio", { name: "使用大模型辅助" }).click();
     await sheet.getByRole("button", { name: "收起处理方式和用量" }).click();
     await expect(sheet.getByRole("button", { name: "展开处理方式和用量" })).toContainText(
-      "大模型理解",
+      "大模型辅助",
     );
 
     await page.getByLabel("输入工单查询问题").fill("有没有苹果15系列的单子");
@@ -129,7 +130,7 @@ test.describe("staff AI assistant bounded workflow", () => {
     await expectNoHorizontalOverflow(page);
     await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/apple-15-model-collapsed-mobile-390.png",
+      path: "screenshots/TASK-20260719-007-ai-natural-language-query-v3/apple-15-model-collapsed-mobile-390.png",
     });
   });
 
@@ -140,7 +141,7 @@ test.describe("staff AI assistant bounded workflow", () => {
 
     const sheet = page.locator('[data-ai-assistant-sheet="true"]');
     const localMode = sheet.getByRole("radio", { name: "使用本地处理" });
-    const modelMode = sheet.getByRole("radio", { name: "使用大模型理解" });
+    const modelMode = sheet.getByRole("radio", { name: "使用大模型辅助" });
     const processingTrigger = sheet.getByRole("button", { name: "展开处理方式和用量" });
     await expect(processingTrigger).toHaveAttribute("aria-expanded", "false");
     await expect(processingTrigger).toContainText("本地处理");
@@ -165,7 +166,7 @@ test.describe("staff AI assistant bounded workflow", () => {
     await expect(sheet.getByText(/本次文字会.*OpenAI/)).toBeVisible();
     await sheet.getByRole("button", { name: "收起处理方式和用量" }).click();
     await expect(sheet.getByRole("button", { name: "展开处理方式和用量" })).toContainText(
-      "大模型理解",
+      "大模型辅助",
     );
     await page.getByLabel("输入工单查询问题").fill("帮我综合判断需要优先处理的工单");
 
@@ -178,7 +179,7 @@ test.describe("staff AI assistant bounded workflow", () => {
     });
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect(sheet.getByRole("button", { name: "展开处理方式和用量" })).toContainText(
-      "大模型理解",
+      "大模型辅助",
     );
     await expectNoHorizontalOverflow(page);
     await sheet.screenshot({
@@ -190,7 +191,7 @@ test.describe("staff AI assistant bounded workflow", () => {
     await sheet.getByRole("button", { name: "发送", exact: true }).click();
     const request = await requestPromise;
     expect(request.postDataJSON()).toMatchObject({ processing_mode: "model" });
-    await expect(sheet.getByText("大模型理解", { exact: true }).first()).toBeVisible();
+    await expect(sheet.getByText("大模型辅助", { exact: true }).first()).toBeVisible();
     await usageRefreshPromise;
     await expectNoHorizontalOverflow(page);
   });

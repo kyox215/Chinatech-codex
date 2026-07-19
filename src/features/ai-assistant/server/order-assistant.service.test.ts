@@ -147,7 +147,7 @@ describe("order assistant service", () => {
       expect.objectContaining({
         provider: "none",
         resolutionPath: "deterministic",
-        policyVersion: "order-direct-v4",
+        policyVersion: "order-direct-v5",
         requestKind: "order_text",
       }),
     );
@@ -208,7 +208,7 @@ describe("order assistant service", () => {
     expect(response).toMatchObject({
       kind: "search_results",
       total: 0,
-      message: "当前可见的活跃工单中，未发现报价、定金、尾款或付款状态不一致的记录。",
+      message: "当前查询范围内未发现报价、定金、尾款或付款状态不一致的记录。",
     });
   });
 
@@ -286,7 +286,11 @@ describe("order assistant service", () => {
     expect(response.applied_filters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "设备", value: "Samsung a12", evidence: "exact" }),
-        expect.objectContaining({ label: "时间", value: "本月（完成时间）" }),
+        expect.objectContaining({
+          label: "时间",
+          value: "2026-07-01—2026-07-31（完成时间 · Europe/Rome）",
+          evidence: "exact",
+        }),
         expect.objectContaining({
           label: "维修项目",
           value: "屏幕（依据报价项目）",
@@ -295,6 +299,117 @@ describe("order assistant service", () => {
       ]),
     );
     expect(response.message).toContain("不代表系统已确认实际更换");
+  });
+
+  it("treats the user sentence as authoritative when the model invents unrelated filters", async () => {
+    const selected = order({ device_label: "Apple iPhone 15 Pro" });
+    const listOrdersPage = vi.fn(async () => result([selected], 1));
+    const provider = providerFor(
+      searchCall({
+        search: null,
+        device_search: "Samsung a12",
+        view: "active",
+        paid: "unpaid",
+        financial_review: "amount_anomaly",
+        date_filter: { expression: "previous_calendar_month", field: "updated_at" },
+      }),
+    );
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "检查半年内所有的苹果15系列的手机",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: {
+        provider,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+        now: () => new Date("2026-07-19T12:00:00.000Z"),
+      },
+    });
+
+    expect(provider.planOrderQuery).toHaveBeenCalledOnce();
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: undefined,
+        deviceSearch: "iPhone 15",
+        view: "all",
+        paid: "all",
+        financialReview: undefined,
+        dateField: "created_at",
+        dateFrom: "2026-01-19",
+        dateTo: "2026-07-19",
+      }),
+      owner,
+    );
+    expect(response).toMatchObject({
+      interpretation_status: "corrected",
+      total: 1,
+    });
+    expect(response.applied_filters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "设备", value: "iPhone 15" }),
+        expect.objectContaining({
+          label: "时间",
+          value: "2026-01-19—2026-07-19（创建时间 · Europe/Rome）",
+        }),
+      ]),
+    );
+    expect(response.applied_filters).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: "finance" })]),
+    );
+  });
+
+  it("asks for a valid date without calling the provider or repository", async () => {
+    const providerFactory = vi.fn(() => providerFor(searchCall({ device_search: "iPhone 15" })));
+    const listOrdersPage = vi.fn();
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "苹果15 2026-02-30",
+        locale: "zh-CN",
+        processing_mode: "model",
+      },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+      },
+    });
+
+    expect(response).toMatchObject({
+      kind: "clarification",
+      interpretation_status: "needs_confirmation",
+      total: 0,
+    });
+    expect(response.message).toContain("日期无效或存在歧义");
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(listOrdersPage).not.toHaveBeenCalled();
+  });
+
+  it("does not silently narrow an archive query when archive permission is missing", async () => {
+    const restrictedActor = { ...owner, role: "sales" as const, storeRole: "sales" as const };
+    const listOrdersPage = vi.fn();
+
+    await expect(
+      runAiOrderAssistantTurn({
+        actor: restrictedActor,
+        input: { message: "上个月苹果15", locale: "zh-CN", processing_mode: "local" },
+        dependencies: {
+          provider: providerFor(searchCall()),
+          listOrdersPage,
+          getOrder: vi.fn(),
+          env: enabledEnv,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "AI_NOT_AUTHORIZED", status: 403 });
+
+    expect(listOrdersPage).not.toHaveBeenCalled();
   });
 
   it("treats today's parts wording as the current stored needed queue", async () => {
@@ -397,7 +512,7 @@ describe("order assistant service", () => {
     expect(response).toMatchObject({
       kind: "clarification",
       total: 0,
-      message: expect.stringContaining("切换到“大模型理解”"),
+      message: expect.stringContaining("切换到“大模型辅助”"),
     });
     expect(providerFactory).not.toHaveBeenCalled();
     expect(consumeQuota).not.toHaveBeenCalled();
@@ -596,7 +711,7 @@ describe("order assistant service", () => {
     expect(listOrdersPage).not.toHaveBeenCalled();
   });
 
-  it("keeps an ambiguous reference sentence on the provider path without regressing its result", async () => {
+  it("keeps an ambiguous reference sentence on the provider path but does not trust an ungrounded result", async () => {
     const selected = order();
     const provider = new FakeAiAssistantProvider();
     const providerSpy = vi.spyOn(provider, "planOrderQuery");
@@ -616,7 +731,11 @@ describe("order assistant service", () => {
 
     expect(providerSpy).toHaveBeenCalledOnce();
     expect(consumeQuota).toHaveBeenCalledOnce();
-    expect(response).toMatchObject({ kind: "order_summary", total: 1 });
+    expect(response).toMatchObject({
+      kind: "clarification",
+      interpretation_status: "needs_confirmation",
+      total: 0,
+    });
     expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "fake", resolutionPath: "provider" }),
     );
@@ -893,22 +1012,25 @@ describe("order assistant service", () => {
     );
   });
 
-  it("rejects provider plans that mix device-only and generic search terms", async () => {
+  it("does not execute an ungrounded provider plan that mixes device and generic search", async () => {
     const listOrdersPage = vi.fn();
 
-    await expect(
-      runAiOrderAssistantTurn({
-        actor: owner,
-        input: { message: "查找某个设备", locale: "zh-CN" },
-        dependencies: {
-          provider: providerFor(searchCall({ search: "15", device_search: "iPhone 15" })),
-          listOrdersPage,
-          getOrder: vi.fn(),
-          env: enabledEnv,
-        },
-      }),
-    ).rejects.toMatchObject({ code: "AI_PROVIDER_PROTOCOL_ERROR", status: 502 });
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "查找某个设备", locale: "zh-CN" },
+      dependencies: {
+        provider: providerFor(searchCall({ search: "15", device_search: "iPhone 15" })),
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+      },
+    });
 
+    expect(response).toMatchObject({
+      kind: "clarification",
+      interpretation_status: "needs_confirmation",
+      total: 0,
+    });
     expect(listOrdersPage).not.toHaveBeenCalled();
   });
 
@@ -934,8 +1056,11 @@ describe("order assistant service", () => {
     expect(response).toMatchObject({ kind: "order_summary", total: 1 });
   });
 
-  it("does not guess when an order reference matches multiple non-exact results", async () => {
+  it("does not execute a provider lookup for a partial order reference", async () => {
     const getOrder = vi.fn();
+    const listOrdersPage = vi.fn(async () =>
+      result([order(), order({ id: "order-2", public_no: "R2026002" })], 2),
+    );
     const response = await runAiOrderAssistantTurn({
       actor: owner,
       input: { message: "R2026", locale: "zh-CN" },
@@ -944,16 +1069,15 @@ describe("order assistant service", () => {
           name: "get_order_summary",
           arguments: { order_reference: "R2026" },
         }),
-        listOrdersPage: vi.fn(async () =>
-          result([order(), order({ id: "order-2", public_no: "R2026002" })], 2),
-        ),
+        listOrdersPage,
         getOrder,
         env: enabledEnv,
       },
     });
 
     expect(getOrder).not.toHaveBeenCalled();
-    expect(response).toMatchObject({ kind: "search_results", total: 2 });
+    expect(listOrdersPage).not.toHaveBeenCalled();
+    expect(response).toMatchObject({ kind: "clarification", total: 0 });
   });
 
   it("maps provider failures to a safe unavailable envelope and failed audit", async () => {
@@ -1040,7 +1164,7 @@ describe("order assistant service", () => {
     await expect(
       runAiOrderAssistantTurn({
         actor: owner,
-        input: { message: "查询订单", locale: "zh-CN" },
+        input: { message: "苹果15", locale: "zh-CN", processing_mode: "local" },
         dependencies: {
           provider: providerFor(searchCall()),
           listOrdersPage: vi.fn(async () => {

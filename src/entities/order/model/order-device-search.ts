@@ -19,7 +19,7 @@ const deviceBrandAliases: readonly DeviceBrandAlias[] = [
 ];
 
 const chineseQueryPrefix =
-  /^(?:(?:帮我|幫我|请|請|麻烦|麻煩)\s*)?(?:(?:查一下|查查|查询|查詢|查找|查看|搜索|搜尋|找找|找)\s*|(?:有没有|有沒有|是否有|有无|有無)\s*)/;
+  /^(?:(?:帮我|幫我|请|請|麻烦|麻煩)\s*)?(?:(?:检查|檢查|检索|檢索|筛选|篩選|统计|統計|列出|查一下|查查|查询|查詢|查找|查看|搜索|搜尋|找找|找)\s*|(?:有没有|有沒有|是否有|有无|有無)\s*)/;
 const latinQueryPrefix =
   /^(?:please\s+)?(?:find|show|search(?:\s+for)?|look\s+up|cerca|trova|mostra)\s+/;
 const chineseQuerySuffix =
@@ -92,12 +92,18 @@ function parseDeviceSearchClause(message: string): string | null {
 
 export function deviceLabelMatchesSearch(deviceLabel: string, search: string) {
   const queryKey = normalizeDeviceSearchKey(search);
-  return queryKey.length > 0 && normalizeDeviceSearchKey(deviceLabel).includes(queryKey);
+  if (!queryKey) return false;
+  const labelKey = normalizeDeviceSearchKey(deviceLabel);
+  const matchIndex = labelKey.indexOf(queryKey);
+  if (matchIndex < 0) return false;
+  const nextCharacter = labelKey[matchIndex + queryKey.length] ?? "";
+  return !(/\d$/.test(queryKey) && /^\d/.test(nextCharacter));
 }
 
 export function normalizeDeviceSearchKey(value: string) {
   return value
     .normalize("NFKC")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
+    .replace(/[^a-z0-9]+/g, "")
+    .replace(/^appleiphone/, "iphone");
 }

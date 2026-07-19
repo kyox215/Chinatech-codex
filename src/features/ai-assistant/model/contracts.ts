@@ -8,8 +8,8 @@ import {
 } from "./inventory-image-policy";
 
 export const AI_ASSISTANT_CONTRACT_VERSION = "ai-assistant-v1" as const;
-export const AI_ORDER_ASSISTANT_CONTRACT_VERSION = "ai-order-assistant-v2" as const;
-export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v5" as const;
+export const AI_ORDER_ASSISTANT_CONTRACT_VERSION = "ai-order-assistant-v3" as const;
+export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v6" as const;
 export const AI_INVENTORY_RECOGNITION_PROMPT_VERSION = "inventory-label-v1" as const;
 
 export const aiAssistantLocaleSchema = z.enum(["zh-CN", "it-IT", "en"]);
@@ -77,6 +77,85 @@ export const aiAssistantUsageSummarySchema = z
   .strict();
 export type AiAssistantUsageSummary = z.infer<typeof aiAssistantUsageSummarySchema>;
 
+const aiOrderDateFieldSchema = z.enum(["created_at", "updated_at", "completed_at"]);
+const aiOrderCalendarDateExpressionSchema = z.enum([
+  "all_time",
+  "today",
+  "yesterday",
+  "current_calendar_week",
+  "previous_calendar_week",
+  "current_calendar_month",
+  "previous_calendar_month",
+  "current_calendar_quarter",
+  "previous_calendar_quarter",
+  "current_calendar_year",
+  "previous_calendar_year",
+]);
+const aiOrderCalendarDateFilterSchema = z
+  .object({
+    expression: aiOrderCalendarDateExpressionSchema,
+    field: aiOrderDateFieldSchema,
+  })
+  .strict();
+const aiOrderRollingDateFilterSchema = z
+  .object({
+    expression: z.literal("rolling_period"),
+    field: aiOrderDateFieldSchema,
+    amount: z.number().int().min(1).max(120),
+    unit: z.enum(["day", "week", "month", "year"]),
+  })
+  .strict();
+const calendarDateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const aiOrderAbsoluteDateFilterSchema = z
+  .object({
+    expression: z.literal("absolute_range"),
+    field: aiOrderDateFieldSchema,
+    from: calendarDateStringSchema.nullable(),
+    to: calendarDateStringSchema.nullable(),
+  })
+  .strict();
+
+export const aiOrderDateFilterSchema = z
+  .discriminatedUnion("expression", [
+    aiOrderCalendarDateFilterSchema,
+    aiOrderRollingDateFilterSchema,
+    aiOrderAbsoluteDateFilterSchema,
+  ])
+  .superRefine((value, context) => {
+    if (value.expression !== "absolute_range") return;
+    if (!value.from && !value.to) {
+      context.addIssue({ code: "custom", path: ["from"], message: "日期范围不能为空" });
+    }
+    for (const [key, date] of [
+      ["from", value.from],
+      ["to", value.to],
+    ] as const) {
+      if (date && !isRealCalendarDate(date)) {
+        context.addIssue({ code: "custom", path: [key], message: "日期无效" });
+      }
+    }
+    if (value.from && value.to && value.from > value.to) {
+      context.addIssue({ code: "custom", path: ["to"], message: "结束日期不能早于开始日期" });
+    }
+  });
+export type AiOrderDateFilter = z.infer<typeof aiOrderDateFilterSchema>;
+
+function isRealCalendarDate(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  return (
+    year >= 1900 &&
+    year <= 2199 &&
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() + 1 === month &&
+    date.getUTCDate() === day
+  );
+}
+
 export const aiOrderSearchArgumentsSchema = z
   .object({
     search: z.string().trim().max(120).nullable(),
@@ -95,20 +174,7 @@ export const aiOrderSearchArgumentsSchema = z
       ])
       .nullable(),
     financial_review: z.enum(["amount_anomaly"]).nullable(),
-    date_filter: z
-      .object({
-        expression: z.enum([
-          "today",
-          "current_calendar_week",
-          "previous_calendar_week",
-          "current_calendar_month",
-          "previous_calendar_month",
-          "current_calendar_year",
-        ]),
-        field: z.enum(["created_at", "updated_at", "completed_at"]),
-      })
-      .strict()
-      .nullable(),
+    date_filter: aiOrderDateFilterSchema.nullable(),
     service_group: z
       .enum([
         "display",
@@ -171,9 +237,19 @@ export const aiOrderAppliedFilterSchema = z
     label: z.string().trim().min(1).max(80),
     value: z.string().trim().min(1).max(120),
     evidence: z.enum(["exact", "quoted", "order_level"]),
+    source: z.enum(["user_explicit", "system_default", "server_derived"]),
   })
   .strict();
 export type AiOrderAppliedFilter = z.infer<typeof aiOrderAppliedFilterSchema>;
+
+export const aiOrderInterpretationStatusSchema = z.enum([
+  "confirmed",
+  "defaulted",
+  "corrected",
+  "needs_confirmation",
+  "permission_limited",
+]);
+export type AiOrderInterpretationStatus = z.infer<typeof aiOrderInterpretationStatusSchema>;
 
 export const aiOrderInlineActionKindSchema = z.enum(["mark_parts_ordered"]);
 export type AiOrderInlineActionKind = z.infer<typeof aiOrderInlineActionKindSchema>;
@@ -213,6 +289,7 @@ export const aiOrderAssistantResponseSchema = z
     request_id: z.string().uuid(),
     contract_version: z.literal(AI_ORDER_ASSISTANT_CONTRACT_VERSION),
     kind: z.enum(["search_results", "order_summary", "clarification"]),
+    interpretation_status: aiOrderInterpretationStatusSchema,
     message: z.string(),
     applied_filters: z.array(aiOrderAppliedFilterSchema).max(12),
     cards: z.array(aiOrderCardSchema).max(20),
@@ -404,12 +481,17 @@ export const aiOrderSearchArgumentsJsonSchema = {
             expression: {
               type: "string",
               enum: [
+                "all_time",
                 "today",
+                "yesterday",
                 "current_calendar_week",
                 "previous_calendar_week",
                 "current_calendar_month",
                 "previous_calendar_month",
+                "current_calendar_quarter",
+                "previous_calendar_quarter",
                 "current_calendar_year",
+                "previous_calendar_year",
               ],
             },
             field: {
@@ -419,10 +501,44 @@ export const aiOrderSearchArgumentsJsonSchema = {
           },
           required: ["expression", "field"],
         },
+        {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            expression: { type: "string", const: "rolling_period" },
+            field: {
+              type: "string",
+              enum: ["created_at", "updated_at", "completed_at"],
+            },
+            amount: { type: "integer", minimum: 1, maximum: 120 },
+            unit: { type: "string", enum: ["day", "week", "month", "year"] },
+          },
+          required: ["expression", "field", "amount", "unit"],
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            expression: { type: "string", const: "absolute_range" },
+            field: {
+              type: "string",
+              enum: ["created_at", "updated_at", "completed_at"],
+            },
+            from: {
+              type: ["string", "null"],
+              pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+            },
+            to: {
+              type: ["string", "null"],
+              pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+            },
+          },
+          required: ["expression", "field", "from", "to"],
+        },
         { type: "null" },
       ],
       description:
-        "Use a symbolic calendar expression. The trusted server resolves it in the store timezone; never calculate UTC timestamps. Use completed_at only for explicitly completed/repaired-finished requests.",
+        "Use a symbolic calendar expression, a rolling period, or an explicit local calendar range. The trusted server validates it against the user's text and resolves it in the store timezone; never calculate UTC timestamps. Never replace an unsupported period with a different one.",
     },
     service_group: {
       type: ["string", "null"],

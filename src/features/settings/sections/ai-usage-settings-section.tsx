@@ -56,7 +56,7 @@ function UsageContent({ usage }: { usage: AiAssistantUsageSummary }) {
           <DatabaseZap className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
           <p className="mt-2 text-sm font-semibold">最近 30 天尚无大模型用量</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            选择“大模型理解”并完成请求后，用量会显示在这里。
+            选择“大模型辅助”并完成请求后，用量会显示在这里。
           </p>
         </div>
       ) : null}

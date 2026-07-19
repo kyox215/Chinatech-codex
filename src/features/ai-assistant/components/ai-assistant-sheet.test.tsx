@@ -80,6 +80,39 @@ describe("AiAssistantSheet", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it("keeps confirmed result scope compact and opens corrected scope for review", async () => {
+    const confirmed = response("R-CONFIRMED", "order-confirmed");
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValueOnce(confirmed);
+    const view = renderSheet();
+    const input = screen.getByRole("textbox", { name: "输入工单查询问题" });
+    fireEvent.change(input, { target: { value: "苹果15" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByRole("button", { name: "展开查询范围" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(
+      screen.queryByRole("region", { name: "系统实际采用的查询条件" }),
+    ).not.toBeInTheDocument();
+
+    const corrected = response("R-CORRECTED", "order-corrected");
+    corrected.request_id = "00000000-0000-4000-8000-000000000002";
+    corrected.interpretation_status = "corrected";
+    corrected.applied_filters[0]!.source = "server_derived";
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValueOnce(corrected);
+    fireEvent.change(input, { target: { value: "检查半年内所有的苹果15系列" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("已按原句修正模型偏差")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "收起查询范围" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByText(/系统核对/)).toBeInTheDocument();
+    view.unmount();
+  });
+
   it("requires explicit confirmation before a server-authorized inline action", async () => {
     const actionable = response("R-ACTION", "order-action");
     actionable.cards[0]!.parts_status = "needed";
@@ -138,7 +171,7 @@ describe("AiAssistantSheet", () => {
     expect(processingTrigger).toHaveAttribute("aria-controls");
     fireEvent.click(processingTrigger);
     expect(screen.getByRole("radio", { name: "使用本地处理" })).toHaveAttribute("data-state", "on");
-    fireEvent.click(screen.getByRole("radio", { name: "使用大模型理解" }));
+    fireEvent.click(screen.getByRole("radio", { name: "使用大模型辅助" }));
     expect(screen.getByText(/本次文字会.*发送至/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
       target: { value: "帮我综合判断最近要优先处理什么" },
@@ -152,7 +185,7 @@ describe("AiAssistantSheet", () => {
     );
     expect(onModelUsageChanged).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: "展开处理方式和用量" })).toHaveTextContent(
-      "大模型理解发送至 OpenAI",
+      "大模型辅助发送至 OpenAI",
     );
   });
 
@@ -316,7 +349,7 @@ describe("AiAssistantSheet", () => {
     expect(processingTrigger).toHaveTextContent("当前不可用");
     fireEvent.click(processingTrigger);
     expect(screen.getByRole("radio", { name: "使用本地处理" })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: "使用大模型理解" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "使用大模型辅助" })).toBeDisabled();
   });
 
   it("fills the composer from voice without automatically sending a query", async () => {
@@ -414,10 +447,19 @@ function sheetElement(overrides: Partial<React.ComponentProps<typeof AiAssistant
 function response(publicNo: string, id: string): AiOrderAssistantResponse {
   return {
     request_id: "00000000-0000-4000-8000-000000000001",
-    contract_version: "ai-order-assistant-v2",
+    contract_version: "ai-order-assistant-v3",
     kind: "search_results",
     message: "RepairDesk 找到 1 条符合条件的工单。",
-    applied_filters: [{ key: "device", label: "设备", value: "Redmi A7 Pro", evidence: "exact" }],
+    interpretation_status: "confirmed",
+    applied_filters: [
+      {
+        key: "device",
+        label: "设备",
+        value: "Redmi A7 Pro",
+        evidence: "exact",
+        source: "user_explicit",
+      },
+    ],
     cards: [
       {
         id,

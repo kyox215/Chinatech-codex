@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Bot,
+  ChevronDown,
   LoaderCircle,
   Mic,
   SearchX,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Sheet,
   SheetContent,
@@ -260,7 +262,7 @@ export function AiAssistantSheet({
             RepairDesk AI 小助手
           </SheetTitle>
           <SheetDescription className="text-xs">
-            自然语言查询当前门店工单；只有明确点击按钮才会打开订单或提交受限操作。
+            先核对系统实际采用的范围；只有点击按钮才会打开订单或提交受限操作。
           </SheetDescription>
         </SheetHeader>
 
@@ -295,7 +297,7 @@ export function AiAssistantSheet({
               {lastQuestion && status !== "idle" ? (
                 <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-primary px-3 py-2 text-sm text-primary-foreground shadow-[var(--shadow-card)]">
                   <span className="mb-0.5 block text-[10px] font-medium text-primary-foreground/75">
-                    {lastProcessingMode === "local" ? "本地处理" : "大模型理解"}
+                    处理方式 · {lastProcessingMode === "local" ? "本地处理" : "大模型辅助"}
                   </span>
                   <span>{lastQuestion}</span>
                 </div>
@@ -314,6 +316,10 @@ export function AiAssistantSheet({
                   response={response}
                   isOnline={isOnline}
                   onNavigate={() => onOpenChange(false)}
+                  onAdjustQuery={() => {
+                    setInput(lastQuestion);
+                    requestAnimationFrame(() => messageInputRef.current?.focus());
+                  }}
                   onCardUpdated={(updatedCard) =>
                     setResponse((current) =>
                       current
@@ -508,7 +514,7 @@ function LoadingState({ mode }: { mode: AiAssistantProcessingMode }) {
         <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" />
         {mode === "local"
           ? "正在本地解析并查询 RepairDesk…"
-          : "正在使用大模型理解并查询 RepairDesk…"}
+          : "正在使用大模型辅助解析并由系统核对查询条件…"}
       </div>
       <p className="mt-1 pl-6 text-xs text-muted-foreground">通常几秒内完成，最多等待 20 秒。</p>
     </div>
@@ -545,18 +551,34 @@ function ErrorState({ error, onRetry }: { error: AssistantErrorState; onRetry: (
 function ResultState({
   response,
   onNavigate,
+  onAdjustQuery,
   isOnline,
   onCardUpdated,
 }: {
   response: AiOrderAssistantResponse;
   onNavigate: () => void;
+  onAdjustQuery: () => void;
   isOnline: boolean;
   onCardUpdated: (card: AiOrderAssistantResponse["cards"][number]) => void;
 }) {
+  const shouldStartOpen =
+    response.cards.length === 0 ||
+    response.interpretation_status === "corrected" ||
+    response.interpretation_status === "defaulted" ||
+    response.interpretation_status === "permission_limited";
+  const [scopeOpen, setScopeOpen] = useState(shouldStartOpen);
+  useEffect(() => setScopeOpen(shouldStartOpen), [response.request_id, shouldStartOpen]);
+  const scopeSummary = response.applied_filters
+    .slice(0, 3)
+    .map((filter) => filter.value)
+    .join(" · ");
+  const interpretationLabel = interpretationStatusLabel(response.interpretation_status);
+
   return (
     <div className="space-y-2">
       <p className="sr-only" role="status" aria-live="polite">
-        找到 {response.cards.length} 张工单，采用 {response.applied_filters.length} 个查询条件。
+        共找到 {response.total} 条工单，当前显示 {response.cards.length} 条，采用{" "}
+        {response.applied_filters.length} 个查询条件。
       </p>
       <div className="rounded-2xl rounded-tl-md border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)]">
         <div className="flex items-start gap-2">
@@ -564,44 +586,88 @@ function ResultState({
             <Bot className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold text-primary">{interpretationLabel}</p>
             <p className="text-sm leading-5">{response.message}</p>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              {response.result_truncated ? "仅显示部分结果 · " : null}
+              {response.result_truncated
+                ? `显示 ${response.cards.length} / 共 ${response.total} 条 · `
+                : response.kind === "search_results"
+                  ? `共 ${response.total} 条 · `
+                  : null}
               RepairDesk 实时查询
             </p>
           </div>
         </div>
-      </div>
 
-      {response.applied_filters.length > 0 ? (
-        <section
-          aria-label="系统实际采用的查询条件"
-          className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2"
-        >
-          <p className="text-[10px] font-semibold text-muted-foreground">实际采用条件</p>
-          <ul className="mt-1.5 flex flex-wrap gap-1.5">
-            {response.applied_filters.map((filter) => (
-              <li
-                key={`${filter.key}-${filter.value}`}
-                className="rounded-md border border-[var(--border-panel)] bg-card px-2 py-1 text-[10px] leading-4 text-foreground"
+        {response.applied_filters.length > 0 ? (
+          <Collapsible open={scopeOpen} onOpenChange={setScopeOpen} className="mt-2">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={scopeOpen ? "收起查询范围" : "展开查询范围"}
               >
-                <span className="font-semibold">{filter.label}：</span>
-                {filter.value}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-semibold text-muted-foreground">
+                    已核对查询范围
+                  </span>
+                  <span className="block truncate text-xs text-foreground" title={scopeSummary}>
+                    {scopeSummary}
+                    {response.applied_filters.length > 3
+                      ? ` · +${response.applied_filters.length - 3}`
+                      : null}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={cn("size-4 shrink-0 transition-transform", scopeOpen && "rotate-180")}
+                  aria-hidden="true"
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <section
+                aria-label="系统实际采用的查询条件"
+                className="mt-1.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2"
+              >
+                <dl className="space-y-1.5">
+                  {response.applied_filters.map((filter) => (
+                    <div
+                      key={`${filter.key}-${filter.value}`}
+                      className="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-2 text-[10px] leading-4"
+                    >
+                      <dt className="font-semibold text-muted-foreground">{filter.label}</dt>
+                      <dd className="min-w-0 break-words text-foreground">
+                        {filter.value}
+                        <span className="ml-1 text-muted-foreground">
+                          · {filterSourceLabel(filter.source)}
+                        </span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
 
-      {response.cards.length === 0 && response.kind === "search_results" ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-4 text-center">
-          <SearchX className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
-          <p className="mt-2 text-sm font-medium">没有匹配结果</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            上方已说明本次检查范围；可换一种说法或调整查询条件。
-          </p>
-        </div>
-      ) : null}
+        {response.cards.length === 0 && response.kind === "search_results" ? (
+          <div className="mt-3 flex items-center gap-2 border-t border-[var(--border-panel)] pt-3">
+            <SearchX className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+              已按上方范围完成查询，没有用近似条件替代原意。
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-11"
+              onClick={onAdjustQuery}
+            >
+              修改查询
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {response.cards.map((card) => (
         <AiOrderResultCard
@@ -614,6 +680,20 @@ function ResultState({
       ))}
     </div>
   );
+}
+
+function interpretationStatusLabel(status: AiOrderAssistantResponse["interpretation_status"]) {
+  if (status === "corrected") return "已按原句修正模型偏差";
+  if (status === "defaulted") return "已采用安全默认范围";
+  if (status === "needs_confirmation") return "需要确认后再查询";
+  if (status === "permission_limited") return "已按当前权限限制范围";
+  return "已确认查询条件";
+}
+
+function filterSourceLabel(source: AiOrderAssistantResponse["applied_filters"][number]["source"]) {
+  if (source === "user_explicit") return "用户明确";
+  if (source === "server_derived") return "系统核对";
+  return "系统默认";
 }
 
 function OfflineState() {

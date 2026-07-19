@@ -48,7 +48,7 @@ export function AiProcessingUsageDisclosure({
   usageError: boolean;
   onRetryUsage: () => void;
 }) {
-  const modeLabel = processingMode === "local" ? "本地处理" : "大模型理解";
+  const modeLabel = processingMode === "local" ? "本地处理" : "大模型辅助";
   const metric = usage?.today_by_kind.order_text;
   const summary = compactSummary({
     processingMode,
@@ -128,7 +128,7 @@ export function AiProcessingUsageDisclosure({
             <ModeToggle
               value="model"
               icon={<Sparkles className="size-3.5" />}
-              label="大模型理解"
+              label="大模型辅助"
               hint="复杂语句 · 计入用量"
             />
           </ToggleGroup>

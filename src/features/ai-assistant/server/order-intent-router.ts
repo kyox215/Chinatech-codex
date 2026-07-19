@@ -4,8 +4,9 @@ import {
   type AiOrderToolCall,
 } from "@/features/ai-assistant/model/contracts";
 import { parseDeviceSearchIntent } from "@/entities/order";
+import { hasUnresolvedOrderDateExpression, parseTrustedOrderDateFilter } from "./order-query-date";
 
-export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v4" as const;
+export const AI_ORDER_DETERMINISTIC_POLICY_VERSION = "order-direct-v5" as const;
 
 export type DeterministicOrderPlan = {
   policyVersion: typeof AI_ORDER_DETERMINISTIC_POLICY_VERSION;
@@ -78,13 +79,19 @@ export function planDeterministicOrderQuery({
     };
   }
 
+  if (hasUnresolvedOrderDateExpression(message)) return null;
+
   const trusted = extractTrustedOrderSearchConstraints(message);
   const hasHighConfidenceNaturalQuery = Boolean(
     trusted.device_search ||
     trusted.date_filter ||
-    trusted.service_group ||
+    trusted.financial_review ||
+    trusted.overdue ||
+    trusted.queue_group ||
     trusted.parts_status ||
-    trusted.completed_only,
+    trusted.service_group ||
+    trusted.completed_only ||
+    trusted.view,
   );
   if (!hasHighConfidenceNaturalQuery) return null;
   return {
@@ -134,19 +141,21 @@ export function extractTrustedOrderSearchConstraints(message: string): Partial<S
     );
   if (completedOnly) constraints.completed_only = true;
 
-  const dateExpression = trustedDateExpression(normalized, partsStatus === "needed");
-  if (dateExpression) {
-    constraints.date_filter = {
-      expression: dateExpression,
-      field: completedOnly ? "completed_at" : "created_at",
-    };
+  const dateField = trustedDateField(normalized, completedOnly);
+  const dateFilter = parseTrustedOrderDateFilter(normalized, dateField);
+  const isCurrentPartsWorkQueue =
+    partsStatus === "needed" &&
+    dateFilter?.expression === "today" &&
+    !/今天(?:新增|创建|建立|开的)|created\s+today|creat[oaie]\s+oggi/i.test(normalized);
+  if (dateFilter && !isCurrentPartsWorkQueue) {
+    constraints.date_filter = dateFilter;
   }
 
   if (
     constraints.date_filter ||
     constraints.completed_only ||
     constraints.service_group ||
-    /历史|归档|所有工单|all\s+orders|archive|storico|archivio/i.test(normalized)
+    hasExplicitAllOrderScope(normalized)
   ) {
     constraints.view = "all";
   }
@@ -160,10 +169,31 @@ function parseTrustedDeviceSearch(value: string) {
 
   const withoutNaturalLanguageModifiers = value
     .replace(
-      /上(?:个)?(?:星期|周)|本周|这周|这个星期|上月|上个月|本月|这个月|这一个月|今年这个月(?:内)?|今年|今天|last\s+week|this\s+week|last\s+month|this\s+month|this\s+year|today|settimana\s+scorsa|questa\s+settimana|mese\s+scorso|questo\s+mese|quest['’]?anno|oggi/gi,
+      /上(?:个)?(?:星期|周)|本周|这周|这个星期|上月|上个月|本月|这个月|这一个月|今年这个月(?:内)?|上季度|本季度|去年|今年|昨天|今天|last\s+week|this\s+week|last\s+month|this\s+month|last\s+quarter|this\s+quarter|last\s+year|this\s+year|yesterday|today|settimana\s+scorsa|questa\s+settimana|mese\s+scorso|questo\s+mese|trimestre\s+scorso|questo\s+trimestre|anno\s+scorso|quest['’]?anno|ieri|oggi/gi,
       " ",
     )
-    .replace(/有什么(?:是)?|有哪些(?:是)?|有没有|有沒有|是否有|请列出|請列出/g, " ")
+    .replace(
+      /(?:最近|近|过去|過去|前)?\s*(?:半|[零〇一二两兩三四五六七八九十百\d]+)\s*(?:天|日|周|星期|个?月|個?月|年)(?:内|內|以内|以內)?/gi,
+      " ",
+    )
+    .replace(
+      /\d{4}年\d{1,2}月\d{1,2}日?|\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.]\d{4}\b/g,
+      " ",
+    )
+    .replace(
+      /\b(?:19\d{2}|20\d{2}|21\d{2})\s*年(?:\s*(?:1[0-2]|0?[1-9])\s*月|\s*第?\s*[1-4一二三四]\s*(?:季度|季))?|\b(?:19\d{2}|20\d{2}|21\d{2})(?:[-/](?:1[0-2]|0?[1-9])|\s*Q\s*[1-4])/gi,
+      " ",
+    )
+    .replace(
+      /从|自|到|至|截至|截止|之前|以前|之后|以后|以来|\b(?:from|to|between|and|before|after|since|through)\b/gi,
+      " ",
+    )
+    .replace(
+      /有什么(?:是)?|有哪些(?:是)?|有没有|有沒有|是否有|请列出|請列出|检查|檢查|检索|檢索|筛选|篩選/g,
+      " ",
+    )
+    .replace(/所有(?:的)?|全部(?:的)?|全部日期|所有日期/g, " ")
+    .replace(/^\s*的\s*/, "")
     .replace(/的(?=\s*[,，、;；]|\s*$)/g, "")
     .replace(
       /(?:处理过|处理完|已完成|完成的|修好|修过|换过|更换过|completed|finished|riparat[oaie]|completat[oaie]).*$/i,
@@ -174,35 +204,21 @@ function parseTrustedDeviceSearch(value: string) {
   return parseDeviceSearchIntent(withoutNaturalLanguageModifiers);
 }
 
-function trustedDateExpression(
+function trustedDateField(
   value: string,
-  isCurrentPartsWorkQueue: boolean,
-): NonNullable<SearchArguments["date_filter"]>["expression"] | null {
-  if (/上(?:个)?(?:星期|周)|last\s+week|settimana\s+scorsa/i.test(value)) {
-    return "previous_calendar_week";
+  completedOnly: boolean,
+): NonNullable<SearchArguments["date_filter"]>["field"] {
+  if (/更新|变更|变化|updated|aggiornat/i.test(value)) return "updated_at";
+  if (completedOnly || /完成时间|修好时间|completed\s+at|data\s+di\s+completamento/i.test(value)) {
+    return "completed_at";
   }
-  if (/本周|这周|这个星期|this\s+week|questa\s+settimana/i.test(value)) {
-    return "current_calendar_week";
-  }
-  if (/上月|上个月|last\s+month|mese\s+scorso/i.test(value)) {
-    return "previous_calendar_month";
-  }
-  if (/本月|这个月|这一个月|今年这个月|this\s+month|questo\s+mese/i.test(value)) {
-    return "current_calendar_month";
-  }
-  if (/今年|this\s+year|quest['’]?anno/i.test(value)) return "current_calendar_year";
-  if (/今天|today|oggi/i.test(value)) {
-    // “今天需要我下单的” describes the current work queue, not orders
-    // created today. Only an explicit “今天新增/创建” should add a date.
-    if (
-      isCurrentPartsWorkQueue &&
-      !/今天(?:新增|创建|开的)|created\s+today|creat[oaie]\s+oggi/i.test(value)
-    ) {
-      return null;
-    }
-    return "today";
-  }
-  return null;
+  return "created_at";
+}
+
+export function hasExplicitAllOrderScope(value: string) {
+  return /历史|归档|所有(?:的)?(?:工单|工單|订单|訂單|维修单|維修單)?|全部(?:的)?(?:工单|工單|订单|訂單|维修单|維修單|日期|时间)?|从开店到现在|all\s+orders|all\s+time|archive|storico|archivio/i.test(
+    value,
+  );
 }
 
 function trustedPartsStatus(value: string): SearchArguments["parts_status"] {

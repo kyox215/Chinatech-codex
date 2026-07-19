@@ -138,7 +138,7 @@ describe("AI assistant BFF routes", () => {
 
     const response = await handleRepairDeskPost(
       "ai/order/turn",
-      { message: "查询订单", locale: "zh-CN" },
+      { message: "查询未付款订单", locale: "zh-CN", processing_mode: "model" },
       owner,
     );
     const body = await response.json();
@@ -160,7 +160,7 @@ describe("AI assistant BFF routes", () => {
       updated_at: "2026-07-16T09:00:00.000Z",
       completed_at: null,
       parts_status: null,
-      matched_reasons: [],
+      matched_reasons: ["活跃工单", "未付款"],
       allowed_actions: [],
       href: "/orders/order-sensitive",
     });
@@ -246,7 +246,7 @@ describe("AI assistant BFF routes", () => {
   it("returns the disabled envelope before provider construction or data access", async () => {
     const response = await handleRepairDeskPost(
       "ai/order/turn",
-      { message: "查询订单", locale: "zh-CN" },
+      { message: "查找未付款工单", locale: "zh-CN" },
       owner,
     );
 
@@ -285,7 +285,7 @@ describe("AI assistant BFF routes", () => {
 
     const response = await handleRepairDeskPost(
       "ai/order/turn",
-      { message: "查询订单", locale: "zh-CN" },
+      { message: "查找未付款工单", locale: "zh-CN" },
       owner,
     );
     const body = await response.json();

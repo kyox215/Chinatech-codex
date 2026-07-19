@@ -8,6 +8,7 @@ import {
   type AiOrderAssistantResponse,
   type AiOrderAppliedFilter,
   type AiOrderCard,
+  type AiOrderInterpretationStatus,
   type AiOrderToolCall,
 } from "@/features/ai-assistant/model/contracts";
 import { deviceLabelMatchesSearch } from "@/entities/order";
@@ -42,9 +43,15 @@ import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-
 import { AiProviderBudgetSession } from "./provider-budget-lifecycle";
 import {
   extractTrustedOrderSearchConstraints,
+  hasExplicitAllOrderScope,
   planDeterministicOrderQuery,
 } from "./order-intent-router";
-import { AI_ORDER_QUERY_TIME_ZONE, resolveOrderDateFilter } from "./order-query-date";
+import {
+  AI_ORDER_QUERY_TIME_ZONE,
+  hasUnresolvedOrderDateExpression,
+  redactValidatedOrderDateTokensForEgress,
+  resolveOrderDateFilter,
+} from "./order-query-date";
 import { createAiProviderSignal, isAiProviderTimeoutError } from "./provider-signal";
 import { consumeAiAssistantRequestQuota, type ConsumeAiAssistantQuotaInput } from "./quota";
 import {
@@ -135,11 +142,27 @@ export async function runAiOrderAssistantTurn({
       now: dependencies.now,
     });
     const trustedSearchConstraints = extractTrustedOrderSearchConstraints(input.message);
+    const unresolvedDateExpression = hasUnresolvedOrderDateExpression(input.message);
 
     const deterministic =
-      input.processing_mode === "model" ? null : planDeterministicOrderQuery(input);
+      input.processing_mode === "model" || unresolvedDateExpression
+        ? null
+        : planDeterministicOrderQuery(input);
+    let authoritativeSafetyPlan = false;
     let plannedToolCall: unknown;
-    if (deterministic) {
+    if (unresolvedDateExpression) {
+      authoritativeSafetyPlan = true;
+      plannedToolCall = {
+        name: "clarify_order_query",
+        arguments: { question: unresolvedDateClarification(input.locale) },
+      };
+      auditContext.provider = "none";
+      auditContext.modelVersion = "order-date-clarification-v1";
+      auditContext.policyVersion = "order-date-clarification-v1";
+      auditContext.resolutionPath = "deterministic";
+      auditContext.budgetOutcome = "not_required";
+      auditContext.safetyIdentifierPresent = false;
+    } else if (deterministic) {
       plannedToolCall = deterministic.toolCall;
       auditContext.provider = "none";
       auditContext.modelVersion = deterministic.policyVersion;
@@ -182,7 +205,7 @@ export async function runAiOrderAssistantTurn({
         assertAiProviderEgressAllowed({
           requestKind: "order_text",
           env: dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
-          orderMessage: input.message,
+          orderMessage: redactValidatedOrderDateTokensForEgress(input.message),
         });
         stage = "budget";
         auditContext.budgetOutcome = "blocked";
@@ -237,10 +260,17 @@ export async function runAiOrderAssistantTurn({
     stage = "protocol";
     const parsedCall = aiOrderToolCallSchema.safeParse(plannedToolCall);
     if (!parsedCall.success) throw aiProtocolError();
-    const effectiveCall = reconcileTrustedSearchConstraints(
-      parsedCall.data,
-      trustedSearchConstraints,
-    );
+    const reconciliation =
+      deterministic || authoritativeSafetyPlan
+        ? {
+            toolCall: parsedCall.data,
+            interpretationStatus:
+              parsedCall.data.name === "clarify_order_query"
+                ? ("needs_confirmation" as const)
+                : ("confirmed" as const),
+          }
+        : reconcileTrustedSearchConstraints(parsedCall.data, trustedSearchConstraints);
+    const effectiveCall = reconciliation.toolCall;
     auditContext.event = "order_tool";
     auditContext.toolName = effectiveCall.name;
 
@@ -248,6 +278,7 @@ export async function runAiOrderAssistantTurn({
       response = buildResponse({
         requestId,
         kind: "clarification",
+        interpretationStatus: "needs_confirmation",
         message: effectiveCall.arguments.question,
         cards: [],
         appliedFilters: [],
@@ -267,6 +298,13 @@ export async function runAiOrderAssistantTurn({
       ) {
         throw aiNotAuthorizedError();
       }
+      if (
+        args.view !== "active" &&
+        !can(actor, "order:archive_browse") &&
+        !isRepairDeskE2eSystemActor(actor)
+      ) {
+        throw aiNotAuthorizedError();
+      }
       const result = await dependencies.listOrdersPage(
         {
           page: 1,
@@ -280,9 +318,12 @@ export async function runAiOrderAssistantTurn({
           financialReview: args.financial_review ?? undefined,
           partsStatuses: args.parts_status ? [args.parts_status] : undefined,
           dateField: resolvedDate?.field,
-          dateFrom: resolvedDate?.from,
-          dateTo: resolvedDate?.to,
-          dateTimeZone: resolvedDate ? AI_ORDER_QUERY_TIME_ZONE : undefined,
+          dateFrom: resolvedDate?.from ?? undefined,
+          dateTo: resolvedDate?.to ?? undefined,
+          dateTimeZone:
+            resolvedDate && (resolvedDate.from || resolvedDate.to)
+              ? AI_ORDER_QUERY_TIME_ZONE
+              : undefined,
           repairServiceGroups: args.service_group ? [args.service_group] : undefined,
           completedOnly: args.completed_only,
           sortDateField: resolvedDate?.field ?? (args.completed_only ? "completed_at" : undefined),
@@ -298,7 +339,9 @@ export async function runAiOrderAssistantTurn({
       ) {
         throw aiProtocolError();
       }
-      const appliedFilters = buildAppliedFilters(args, resolvedDate);
+      const appliedFilters = buildAppliedFilters(args, resolvedDate, {
+        explicitView: hasExplicitAllOrderScope(input.message),
+      });
       const cards = result.items.slice(0, args.page_size).map((order) =>
         toAiOrderCard(order, {
           appliedFilters,
@@ -311,13 +354,14 @@ export async function runAiOrderAssistantTurn({
       response = buildResponse({
         requestId,
         kind: "search_results",
+        interpretationStatus: reconciliation.interpretationStatus,
         message:
           cards.length === 0
             ? isAmountReview
-              ? "当前可见的活跃工单中，未发现报价、定金、尾款或付款状态不一致的记录。"
+              ? "当前查询范围内未发现报价、定金、尾款或付款状态不一致的记录。"
               : isPartsNeeded
                 ? "当前没有已标记为待订件的工单。该结果只依据订单级配件标记，可能不包含尚未记录的采购需求。"
-                : "RepairDesk 中没有找到符合条件的工单。你可以补充订单号、客户或设备信息。"
+                : "没有符合这些已确认条件的工单。"
             : isAmountReview
               ? `发现 ${result.total} 条金额状态需要人工核对的工单；请打开工单检查报价、定金、尾款和付款记录。`
               : isQuotedServiceReview
@@ -342,6 +386,7 @@ export async function runAiOrderAssistantTurn({
         response = buildResponse({
           requestId,
           kind: cards.length > 0 ? "search_results" : "clarification",
+          interpretationStatus: cards.length > 0 ? "confirmed" : "needs_confirmation",
           message:
             cards.length > 0
               ? "找到多条可能的工单，请选择一条查看详情。"
@@ -359,6 +404,7 @@ export async function runAiOrderAssistantTurn({
         response = buildResponse({
           requestId,
           kind: "order_summary",
+          interpretationStatus: "confirmed",
           message: `这是 RepairDesk 中 ${detail.order.public_no} 的当前状态。`,
           cards: [toAiOrderCard(detail.order)],
           appliedFilters: [
@@ -367,6 +413,7 @@ export async function runAiOrderAssistantTurn({
               label: "工单",
               value: detail.order.public_no,
               evidence: "exact",
+              source: "user_explicit",
             },
           ],
           total: 1,
@@ -414,33 +461,58 @@ export async function runAiOrderAssistantTurn({
 function reconcileTrustedSearchConstraints(
   call: AiOrderToolCall,
   trusted: Partial<Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]>,
-): AiOrderToolCall {
-  if (Object.keys(trusted).length === 0) return call;
-  const enforced = {
-    ...trusted,
-    view: trusted.view ?? ("active" as const),
-  };
-  if (call.name === "search_orders") {
-    return aiOrderToolCallSchema.parse({
-      ...call,
-      arguments: {
-        ...call.arguments,
-        ...enforced,
-        ...(trusted.device_search ? { search: null } : {}),
-      },
-    });
+): {
+  toolCall: AiOrderToolCall;
+  interpretationStatus: AiOrderInterpretationStatus;
+} {
+  if (Object.keys(trusted).length === 0) {
+    if (call.name === "clarify_order_query") {
+      return { toolCall: call, interpretationStatus: "needs_confirmation" };
+    }
+    return {
+      toolCall: aiOrderToolCallSchema.parse({
+        name: "clarify_order_query",
+        arguments: {
+          question:
+            "我还不能可靠确认这句话对应的订单条件，因此没有执行查询。请补充设备、日期、付款、流程或配件状态。",
+        },
+      }),
+      interpretationStatus: "needs_confirmation",
+    };
   }
-  return aiOrderToolCallSchema.parse(searchCall(enforced));
+
+  const authoritative = aiOrderToolCallSchema.parse(searchCall(trusted));
+  const providerMatched =
+    call.name === "search_orders" &&
+    JSON.stringify(call.arguments) === JSON.stringify(authoritative.arguments);
+  return {
+    toolCall: authoritative,
+    interpretationStatus: providerMatched
+      ? trusted.view
+        ? "confirmed"
+        : "defaulted"
+      : "corrected",
+  };
 }
 
 function localModeClarification(locale: AiAssistantRequest["locale"]) {
   if (locale === "it-IT") {
-    return "La modalità locale non riconosce ancora questa richiesta. Aggiungi numero ordine, cliente, dispositivo, pagamento o stato, oppure passa a Comprensione AI.";
+    return "La modalità locale non riconosce ancora questa richiesta. Aggiungi numero ordine, cliente, dispositivo, pagamento o stato, oppure passa ad Assistenza AI.";
   }
   if (locale === "en") {
-    return "Local processing does not recognize this request yet. Add an order number, customer, device, payment or status, or switch to Model understanding.";
+    return "Local processing does not recognize this request yet. Add an order number, customer, device, payment or status, or switch to Model assistance.";
   }
-  return "本地处理暂时无法理解这句话。请补充订单号、客户、设备、付款或状态，或者切换到“大模型理解”。";
+  return "本地处理暂时无法理解这句话。请补充订单号、客户、设备、付款或状态，或者切换到“大模型辅助”。";
+}
+
+function unresolvedDateClarification(locale: AiAssistantRequest["locale"]) {
+  if (locale === "it-IT") {
+    return "Non ho eseguito la ricerca perché la data è invalida o ambigua. Usa una data completa come 2026-07-19 oppure un intervallo con inizio e fine.";
+  }
+  if (locale === "en") {
+    return "I did not run the search because the date is invalid or ambiguous. Use a complete date such as 2026-07-19, or provide a start and end date.";
+  }
+  return "这次没有执行查询，因为日期无效或存在歧义。请使用 2026-07-19 这样的完整日期，或补充明确的开始和结束日期。";
 }
 
 function normalizeOrderAssistantError(
@@ -533,6 +605,7 @@ async function writeRequiredAudit(input: WriteAiAssistantAuditInput) {
 function buildResponse({
   requestId,
   kind,
+  interpretationStatus,
   message,
   cards,
   appliedFilters,
@@ -542,6 +615,7 @@ function buildResponse({
 }: {
   requestId: string;
   kind: AiOrderAssistantResponse["kind"];
+  interpretationStatus: AiOrderInterpretationStatus;
   message: string;
   cards: AiOrderCard[];
   appliedFilters: AiOrderAppliedFilter[];
@@ -553,6 +627,7 @@ function buildResponse({
     request_id: requestId,
     contract_version: AI_ORDER_ASSISTANT_CONTRACT_VERSION,
     kind,
+    interpretation_status: interpretationStatus,
     message,
     applied_filters: appliedFilters,
     cards,
@@ -613,21 +688,57 @@ function searchCall(
 function buildAppliedFilters(
   args: Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"],
   resolvedDate: ReturnType<typeof resolveOrderDateFilter>,
+  options: { explicitView: boolean },
 ): AiOrderAppliedFilter[] {
-  const filters: AiOrderAppliedFilter[] = [];
+  const filters: AiOrderAppliedFilter[] = [
+    {
+      key: "scope",
+      label: "范围",
+      value: orderViewLabel(args.view),
+      evidence: "exact",
+      source: options.explicitView
+        ? "user_explicit"
+        : args.view === "active"
+          ? "system_default"
+          : "server_derived",
+    },
+  ];
   if (args.device_search) {
-    filters.push({ key: "device", label: "设备", value: args.device_search, evidence: "exact" });
+    filters.push({
+      key: "device",
+      label: "设备",
+      value: args.device_search,
+      evidence: "exact",
+      source: "user_explicit",
+    });
   }
   if (resolvedDate) {
+    const exactRange =
+      resolvedDate.from && resolvedDate.to
+        ? resolvedDate.from === resolvedDate.to
+          ? resolvedDate.from
+          : `${resolvedDate.from}—${resolvedDate.to}`
+        : resolvedDate.from
+          ? `${resolvedDate.from}起`
+          : resolvedDate.to
+            ? `截至${resolvedDate.to}`
+            : "全部日期";
     filters.push({
       key: "date",
       label: "时间",
-      value: `${resolvedDate.periodLabel}（${resolvedDate.fieldLabel}）`,
+      value: `${exactRange}（${resolvedDate.fieldLabel} · ${resolvedDate.timeZone}）`,
       evidence: "exact",
+      source: "user_explicit",
     });
   }
   if (args.completed_only) {
-    filters.push({ key: "completed", label: "流程", value: "已完成", evidence: "exact" });
+    filters.push({
+      key: "completed",
+      label: "流程",
+      value: "已完成",
+      evidence: "exact",
+      source: "user_explicit",
+    });
   }
   if (args.service_group) {
     filters.push({
@@ -635,6 +746,7 @@ function buildAppliedFilters(
       label: "维修项目",
       value: `${serviceGroupLabel(args.service_group)}（依据报价项目）`,
       evidence: "quoted",
+      source: "user_explicit",
     });
   }
   if (args.parts_status) {
@@ -643,6 +755,7 @@ function buildAppliedFilters(
       label: "配件",
       value: `${partsStatusLabel(args.parts_status)}（订单级标记）`,
       evidence: "order_level",
+      source: "user_explicit",
     });
   }
   if (args.paid !== "all") {
@@ -651,6 +764,7 @@ function buildAppliedFilters(
       label: "付款",
       value: args.paid === "paid" ? "已付款" : "未付款",
       evidence: "exact",
+      source: "user_explicit",
     });
   }
   if (args.queue_group) {
@@ -659,15 +773,36 @@ function buildAppliedFilters(
       label: "队列",
       value: queueGroupLabel(args.queue_group),
       evidence: "exact",
+      source: "user_explicit",
     });
   }
   if (args.overdue) {
-    filters.push({ key: "overdue", label: "时效", value: "已逾期", evidence: "exact" });
+    filters.push({
+      key: "overdue",
+      label: "时效",
+      value: "已逾期",
+      evidence: "exact",
+      source: "user_explicit",
+    });
   }
   if (args.financial_review) {
-    filters.push({ key: "finance", label: "复核", value: "金额状态异常", evidence: "exact" });
+    filters.push({
+      key: "finance",
+      label: "复核",
+      value: "金额状态异常",
+      evidence: "exact",
+      source: "user_explicit",
+    });
   }
   return filters;
+}
+
+function orderViewLabel(
+  view: Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]["view"],
+) {
+  if (view === "all") return "全部工单";
+  if (view === "archive") return "归档工单";
+  return "活跃工单";
 }
 
 function allowedInlineActions(

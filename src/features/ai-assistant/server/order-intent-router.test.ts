@@ -138,4 +138,61 @@ describe("deterministic order intent router", () => {
       arguments: { parts_status: "needed", date_filter: null },
     });
   });
+
+  it("compiles the reported half-year Apple 15 sentence without adding finance or status filters", () => {
+    expect(
+      planDeterministicOrderQuery({
+        message: "检查半年内所有的苹果15系列的手机",
+        locale: "zh-CN",
+      })?.toolCall,
+    ).toEqual({
+      name: "search_orders",
+      arguments: {
+        search: null,
+        device_search: "iPhone 15",
+        view: "all",
+        paid: "all",
+        overdue: null,
+        queue_group: null,
+        financial_review: null,
+        date_filter: {
+          expression: "rolling_period",
+          amount: 6,
+          unit: "month",
+          field: "created_at",
+        },
+        service_group: null,
+        completed_only: false,
+        parts_status: null,
+        page_size: 8,
+      },
+    });
+  });
+
+  it("refuses to execute a device-only fallback when a date expression is invalid", () => {
+    expect(
+      planDeterministicOrderQuery({ message: "苹果15 2026-02-30", locale: "zh-CN" }),
+    ).toBeNull();
+  });
+
+  it("keeps an arbitrary month range and device together", () => {
+    expect(
+      planDeterministicOrderQuery({
+        message: "2024年2月到2025年3月的苹果15系列订单",
+        locale: "zh-CN",
+      })?.toolCall,
+    ).toMatchObject({
+      name: "search_orders",
+      arguments: {
+        device_search: "iPhone 15",
+        view: "all",
+        date_filter: {
+          expression: "absolute_range",
+          field: "created_at",
+          from: "2024-02-01",
+          to: "2025-03-31",
+        },
+      },
+    });
+  });
 });
