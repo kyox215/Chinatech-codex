@@ -61,7 +61,7 @@ export const overlayShell = {
   detailWorkspace:
     "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   orderDetailWorkspace:
-    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[min(680px,calc(100svh-32px))] sm:max-h-[calc(100svh-32px)] sm:w-[min(1040px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   formWorkspace:
     "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
 } as const;
@@ -78,7 +78,10 @@ export const detailWorkspace = {
   flatPanelMuted:
     "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 shadow-none sm:p-3",
   compactDetailGrid: "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
-  orderDetailGrid: "lg:grid-cols-[minmax(190px,0.9fr)_minmax(300px,1.28fr)_minmax(220px,0.92fr)]",
+  orderDetailContent: "mx-auto w-full min-w-0 max-w-[1000px]",
+  orderDetailReadable: "mx-auto w-full min-w-0 max-w-[920px]",
+  orderDetailGrid:
+    "items-start lg:grid-cols-[minmax(210px,260px)_minmax(340px,1fr)_minmax(240px,290px)]",
   orderDetailSecondaryGrid:
     "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
 } as const;

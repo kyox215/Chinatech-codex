@@ -22,7 +22,7 @@ export function OrderDetailSkeleton({
         surface === "page"
           ? cn(
               repairOs.mobileFloatingPage,
-              "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1200px] md:px-6",
+              "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1100px] md:px-6",
             )
           : cn(detailWorkspace.root, "flex h-full flex-col p-2 sm:p-3"),
       )}
@@ -77,27 +77,34 @@ export function OrderDetailSkeleton({
       ) : null}
 
       <div aria-hidden="true" className="flex min-h-0 flex-1 flex-col gap-2">
+        {surface === "dialog" ? (
+          <Skeleton className="mx-auto h-11 w-full max-w-[780px] shrink-0 rounded-xl" />
+        ) : null}
         <Skeleton
           className={cn(
-            "w-full shrink-0 rounded-xl",
-            surface === "dialog" ? "h-20" : "h-28 md:h-32",
+            "mx-auto w-full shrink-0 rounded-xl",
+            surface === "dialog" ? "h-24 max-w-[1000px]" : "h-28 max-w-[1000px] md:h-32",
           )}
         />
-        {surface === "dialog" ? <Skeleton className="h-8 w-full shrink-0 rounded-lg" /> : null}
+        {surface === "dialog" ? (
+          <Skeleton className="mx-auto h-8 w-80 max-w-full shrink-0 rounded-lg" />
+        ) : null}
         <div
           className={cn(
-            "grid min-h-0 flex-1 gap-2 md:grid-cols-2 xl:grid-cols-3",
-            surface === "dialog" && "lg:grid-cols-3",
+            "mx-auto grid min-h-0 w-full flex-1 items-start gap-2 md:grid-cols-2",
+            surface === "dialog"
+              ? cn(detailWorkspace.orderDetailContent, detailWorkspace.orderDetailGrid)
+              : "max-w-[1000px] xl:grid-cols-3",
           )}
         >
-          <Skeleton className="h-44 rounded-xl md:h-52" />
-          <Skeleton className="h-44 rounded-xl md:h-52" />
-          <Skeleton className="h-48 rounded-xl md:h-52" />
+          <Skeleton className="h-40 rounded-xl md:h-44" />
+          <Skeleton className="h-52 rounded-xl" />
+          <Skeleton className="h-44 rounded-xl" />
           {surface !== "dialog" ? (
             <Skeleton className="h-36 rounded-xl md:col-span-2 xl:col-span-3" />
           ) : null}
         </div>
-        <div className="grid shrink-0 grid-cols-3 gap-2">
+        <div className="ml-auto grid w-[min(470px,100%)] shrink-0 grid-cols-3 gap-1.5">
           <Skeleton className="h-10 rounded-lg" />
           <Skeleton className="h-10 rounded-lg" />
           <Skeleton className="h-10 rounded-lg" />

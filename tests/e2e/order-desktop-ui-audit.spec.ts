@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
+const layoutOnly = process.env.REPAIRDESK_E2E_ORDER_LAYOUT_ONLY === "1";
 
 const desktopQueueViewports = [
   { width: 1024, height: 768 },
@@ -95,6 +96,12 @@ test.describe("order desktop UI audit", () => {
         ),
         "工单紧凑进度带高度",
       ).toBeLessThanOrEqual(36);
+      expect(
+        await compactProgress.evaluate((element) =>
+          Math.round(element.getBoundingClientRect().width),
+        ),
+        "工单紧凑进度带宽度",
+      ).toBeLessThanOrEqual(710);
       if ((await detail.locator('[data-order-readiness="true"]').count()) > 0) {
         await expectFirstVisible(detail.locator('[data-order-readiness="true"]'), "工单就绪检查");
       }
@@ -110,7 +117,9 @@ test.describe("order desktop UI audit", () => {
       await expectFirstVisible(detail.getByText("客户信息"), "工单客户信息卡");
       await expectFirstVisible(detail.getByText("设备与故障"), "工单设备与故障卡");
       await expectFirstVisible(detail.getByText("报价处理"), "工单报价处理卡");
-      const detailMoneyStrip = detail.locator('[data-order-workspace-money-strip="true"]');
+      const headerFinance = detail.locator('[data-order-header-finance="true"]');
+      await expectFirstVisible(headerFinance, "工单顶部金额分区");
+      const detailMoneyStrip = headerFinance.locator('[data-order-workspace-money-strip="true"]');
       await expectFirstVisible(detailMoneyStrip, "工单详情统一金额条");
       await expectFirstVisible(detailMoneyStrip.getByText("总额").first(), "详情金额总额");
       await expectFirstVisible(detailMoneyStrip.getByText("定金").first(), "详情金额定金");
@@ -144,6 +153,11 @@ test.describe("order desktop UI audit", () => {
         detail.locator('[data-order-action-dock="true"]'),
         "工单详情桌面动作工作区",
       );
+      await expectFirstVisible(
+        detail.locator('[data-order-action-settlement="true"]'),
+        "工单底部结算状态",
+      );
+      await expect(detail.locator('[data-order-action-money-strip="true"]')).toHaveCount(0);
       await expect(detail.locator('[data-mobile-order-page="true"]')).toHaveCount(0);
       await expectRectInsideViewport(detail.locator('[data-order-hero="true"]'), "工单顶部状态卡");
       await expectRectInsideViewport(
@@ -153,9 +167,25 @@ test.describe("order desktop UI audit", () => {
       await expectDesktopPanelsReadable(detail, viewport.width);
       if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
         await page.screenshot({
-          path: "screenshots/TASK-20260719-003-order-detail-desktop-density-release/desktop-overview-1440.png",
+          path: "screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-overview-1440.png",
           fullPage: false,
         });
+      }
+
+      if (layoutOnly) {
+        await clickFirstVisible(detail.getByRole("tab", { name: /记录与信息/ }), "记录与信息分组");
+        await expectDesktopRecordsWorkspace(detail, viewport.width, "/orders dialog records");
+        await expectNoPageOverflow(page, "/orders records tab", viewport.width);
+        if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
+          await page.screenshot({
+            path: "screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-records-1440.png",
+            fullPage: false,
+          });
+        }
+        await clickFirstVisible(detail.getByRole("tab", { name: /设备照片/ }), "设备照片分组");
+        await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "工单设备照片卡");
+        await expectNoPageOverflow(page, "/orders photos tab", viewport.width);
+        return;
       }
 
       const hero = detail.locator('[data-order-hero="true"]');
@@ -279,7 +309,7 @@ test.describe("order desktop UI audit", () => {
       await expectNoPageOverflow(page, "/orders records tab", viewport.width);
       if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
         await page.screenshot({
-          path: "screenshots/TASK-20260719-003-order-detail-desktop-density-release/desktop-records-1440.png",
+          path: "screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-records-1440.png",
           fullPage: false,
         });
       }
@@ -477,7 +507,7 @@ async function expectDesktopQueueGrid(locator: Locator, label: string, width: nu
 }
 
 function detailDialogWidthBounds(width: number) {
-  const expectedWidth = Math.min(1400, width - 32);
+  const expectedWidth = Math.min(1040, width - 32);
   return { minWidth: expectedWidth - 1, maxWidth: expectedWidth + 1 };
 }
 
@@ -521,6 +551,39 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
       checkVertical: false,
       minWidth,
     });
+  }
+
+  if ((await detail.getAttribute("data-order-detail-surface")) === "dialog") {
+    const customerWidth = await detail
+      .locator('[data-order-panel="customer"]')
+      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+    const deviceWidth = await detail
+      .locator('[data-order-panel="device"]')
+      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+    const financeWidth = await detail
+      .locator('[data-order-panel="finance"]')
+      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+    expect(customerWidth, `客户信息卡避免横向拉伸 at ${width}px`).toBeLessThanOrEqual(262);
+    expect(deviceWidth, `设备信息卡保持主工作列 at ${width}px`).toBeLessThanOrEqual(450);
+    expect(financeWidth, `报价处理卡避免横向拉伸 at ${width}px`).toBeLessThanOrEqual(292);
+
+    const tabsWidth = await detail
+      .locator('[data-order-detail-view-switcher="true"]')
+      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+    expect(tabsWidth, `工单详情分组切换避免整行铺满 at ${width}px`).toBeLessThanOrEqual(620);
+
+    const custody = detail.locator('[data-order-device-custody="true"]');
+    if ((await countVisible(custody)) > 0) {
+      const custodyWidth = await custody.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      );
+      expect(custodyWidth, `设备保管卡避免整行铺满 at ${width}px`).toBeLessThanOrEqual(782);
+    }
+
+    const dockWidth = await detail
+      .locator('[data-order-action-dock="true"] > div')
+      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+    expect(dockWidth, `底部操作区避免整行铺满 at ${width}px`).toBeLessThanOrEqual(570);
   }
 
   if (width >= 1280 && (await countVisible(detail.locator('[data-order-panel="photos"]'))) > 0) {
@@ -794,9 +857,14 @@ async function expectDirectDesktopDetailPage(page: Page, width: number) {
   );
   await expectFirstVisible(detail.locator('[data-order-action-dock="true"]'), "直达详情动作工作区");
   await expectFirstVisible(
-    detail.locator('[data-order-action-money-strip="true"]'),
+    detail.locator('[data-order-panel="finance"] [data-order-workspace-money-strip="true"]'),
     "直达详情金额摘要条",
   );
+  await expectFirstVisible(
+    detail.locator('[data-order-action-settlement="true"]'),
+    "直达详情底部结算状态",
+  );
+  await expect(detail.locator('[data-order-action-money-strip="true"]')).toHaveCount(0);
   await expectDirectDetailDockAligned(detail, width);
   await expect(detail.locator('[data-mobile-order-page="true"]')).toBeHidden();
   await expectFirstVisible(

@@ -194,7 +194,10 @@ export function OrderOverviewTab({
   const repairEdit = canEditRepair ? edit : null;
 
   return (
-    <motion.div variants={fadeUp} className="min-w-0">
+    <motion.div
+      variants={fadeUp}
+      className={cn("min-w-0", surface !== "page" && detailWorkspace.orderDetailContent)}
+    >
       <div className="min-w-0 space-y-2 md:hidden">
         <MobileCoreInfoPanel
           order={order}
@@ -232,7 +235,7 @@ export function OrderOverviewTab({
         <div
           data-order-detail-main-grid="true"
           className={cn(
-            "grid min-w-0 gap-2 md:grid-cols-2",
+            "grid min-w-0 items-start gap-2 md:grid-cols-2",
             surface === "dialog"
               ? detailWorkspace.orderDetailGrid
               : "lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
@@ -469,57 +472,48 @@ export function OrderDetailActionDock({
     >
       <div
         className={cn(
-          "mx-auto min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]/95 p-2 shadow-[var(--shadow-overlay)] backdrop-blur-xl",
-          surface === "dialog" ? "w-full" : "w-full max-w-[1200px]",
+          "min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]/95 p-1.5 shadow-[var(--shadow-overlay)] backdrop-blur-xl",
+          surface === "dialog"
+            ? "ml-auto w-fit max-w-full"
+            : "ml-auto w-fit max-w-[calc(100vw-16px)]",
         )}
       >
-        <div className="grid min-w-0 gap-1.5 min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(290px,auto)] min-[1200px]:items-center">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
           <div
-            data-order-action-money-strip="true"
-            className="grid min-w-0 gap-1.5 overflow-hidden rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1 sm:grid-cols-[minmax(0,1fr)_minmax(140px,auto)]"
+            data-order-action-settlement="true"
+            className="flex min-h-9 min-w-[180px] max-w-[260px] items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 px-2 text-[10px] text-muted-foreground"
           >
             {financeRedacted ? (
-              <div className="flex min-h-10 items-center rounded-md bg-card px-3 text-xs font-medium text-muted-foreground sm:col-span-2">
-                金额与结算状态受限
-              </div>
+              <span className="truncate font-medium">金额与结算状态受限</span>
             ) : (
               <>
-                <OrderWorkspaceMoneyStrip
-                  total={display.quotation}
-                  deposit={display.deposit}
-                  balance={display.balance}
-                  compact
-                  cancelled={cancelled}
-                />
-                <div className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-card px-2 py-1 text-[11px] text-muted-foreground">
-                  <span className="inline-flex min-w-0 items-center gap-1">
-                    {cancelled ? (
-                      "已取消 · 余额不计入待收"
-                    ) : display.isPaid ? (
-                      <>
-                        <CheckCircle2 className="size-3 text-status-success-foreground" />
-                        已结清
-                      </>
-                    ) : (
-                      "未结清"
-                    )}
-                  </span>
-                  <span className="truncate">
-                    {isEditing
-                      ? "报价草稿待保存"
-                      : `项目 ${order.fault_prices.length} · ${
-                          order.approval_status === "approved"
-                            ? "审批通过"
-                            : order.approval_status === "rejected"
-                              ? "审批拒绝"
-                              : "审批待确认"
-                        }`}
-                  </span>
-                </div>
+                <span className="inline-flex min-w-0 items-center gap-1 font-medium">
+                  {cancelled ? (
+                    "已取消"
+                  ) : display.isPaid ? (
+                    <>
+                      <CheckCircle2 className="size-3 text-status-success-foreground" />
+                      已结清
+                    </>
+                  ) : (
+                    "未结清"
+                  )}
+                </span>
+                <span className="truncate">
+                  {isEditing
+                    ? "报价草稿待保存"
+                    : `项目 ${order.fault_prices.length} · ${
+                        order.approval_status === "approved"
+                          ? "审批通过"
+                          : order.approval_status === "rejected"
+                            ? "审批拒绝"
+                            : "审批待确认"
+                      }`}
+                </span>
               </>
             )}
           </div>
-          <div className="grid min-w-0 grid-cols-3 gap-1.5">
+          <div className="grid min-w-[270px] grid-cols-3 gap-1.5">
             <Button
               type="button"
               size="sm"
@@ -579,6 +573,57 @@ export function OrderDetailActionDock({
         </div>
       </div>
     </div>
+  );
+}
+
+export function OrderDetailHeaderFinanceSummary({
+  order,
+  isEditing,
+  financeDraft,
+}: {
+  order: OrderDetail["order"];
+  isEditing: boolean;
+  financeDraft: FinanceDraftState;
+}) {
+  const cancelled = isOrderCancelledForPayment(order);
+  const paidAmount = inferOrderPaidAmount(order);
+  const normalizedDraft = useMemo(
+    () => normalizeFinanceDraft(financeDraft, paidAmount),
+    [financeDraft, paidAmount],
+  );
+  const display = isEditing
+    ? {
+        quotation: normalizedDraft.quotation,
+        deposit: normalizedDraft.deposit,
+        balance: normalizedDraft.balance,
+      }
+    : {
+        quotation: order.quotation_amount,
+        deposit: order.deposit_amount,
+        balance: order.balance_amount,
+      };
+
+  return (
+    <section
+      data-order-header-finance="true"
+      aria-label="工单金额摘要"
+      className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1"
+    >
+      {order.finance_redacted ? (
+        <div className="grid h-9 place-items-center rounded-md bg-card px-2 text-[10px] font-medium text-muted-foreground">
+          金额与结算状态受限
+        </div>
+      ) : (
+        <OrderWorkspaceMoneyStrip
+          total={display.quotation}
+          deposit={display.deposit}
+          balance={display.balance}
+          compact
+          cancelled={cancelled}
+          itemClassName="!px-1.5"
+        />
+      )}
+    </section>
   );
 }
 
@@ -799,7 +844,7 @@ function OrderOverviewFinancePanel({
           <div className="grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">
             金额受限
           </div>
-        ) : (
+        ) : dense ? null : (
           <OrderWorkspaceMoneyStrip
             total={display.quotation}
             deposit={display.deposit}

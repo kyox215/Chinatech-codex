@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -60,6 +61,7 @@ export function OrderHero({
   nextActionLabel,
   taskHint,
   approvalDecisionAvailable = false,
+  financeSummary,
 }: {
   order: OrderDetail["order"];
   onPrint: () => void;
@@ -81,6 +83,7 @@ export function OrderHero({
   nextActionLabel?: string;
   taskHint?: string;
   approvalDecisionAvailable?: boolean;
+  financeSummary?: ReactNode;
 }) {
   const sideBadges = getOrderSideStatusBadges(order);
   const guidance = getOrderTaskGuidance(order);
@@ -274,7 +277,14 @@ export function OrderHero({
           {heroActions}
         </div>
 
-        <section className="min-w-0">
+        <section
+          className={cn(
+            "min-w-0",
+            surface === "dialog" &&
+              financeSummary &&
+              "grid items-center gap-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(250px,290px)]",
+          )}
+        >
           {surface === "dialog" ? (
             <div
               data-order-progress-compact="true"
@@ -433,6 +443,11 @@ export function OrderHero({
               ) : null}
             </>
           )}
+          {surface === "dialog" && financeSummary ? (
+            <div className="min-w-0 border-l border-[var(--border-panel)] pl-1.5">
+              {financeSummary}
+            </div>
+          ) : null}
         </section>
       </div>
     </div>

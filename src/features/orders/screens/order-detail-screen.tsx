@@ -145,6 +145,7 @@ import {
 import {
   DesktopOrderPhotosPanel,
   OrderDetailActionDock,
+  OrderDetailHeaderFinanceSummary,
   OrderKeyInfoCard,
   OrderOverviewTab,
 } from "@/features/orders/components/order-overview-tab";
@@ -1123,7 +1124,7 @@ export function OrderDetailScreen({
     { key: "timeline", label: `时间线 ${events.length}` },
   ];
   const renderCustodyPanel = () => (
-    <>
+    <div className={cn("min-w-0", surface === "dialog" && "mx-auto w-full max-w-[780px]")}>
       {cancelled && custodyStatus === DEVICE_CUSTODY_WITH_SHOP && !order.delivered_at ? (
         <section
           className={cn(
@@ -1179,7 +1180,7 @@ export function OrderDetailScreen({
         }}
         className="mb-2"
       />
-    </>
+    </div>
   );
 
   return (
@@ -1189,7 +1190,7 @@ export function OrderDetailScreen({
       className={cn(
         "relative min-w-0 max-w-full overflow-x-clip",
         surface === "page"
-          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1200px] md:px-6"
+          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1100px] md:px-6"
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
@@ -1340,7 +1341,7 @@ export function OrderDetailScreen({
             "flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5 md:p-3",
         )}
       >
-        <div className="relative z-20">
+        <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
           <OrderHero
             order={order}
             onPrint={() => canPrintCustomerDocument && window.print()}
@@ -1374,13 +1375,22 @@ export function OrderDetailScreen({
                   : undefined
             }
             approvalDecisionAvailable={canDecideApproval}
+            financeSummary={
+              surface === "dialog" ? (
+                <OrderDetailHeaderFinanceSummary
+                  order={order}
+                  isEditing={isEditing}
+                  financeDraft={financeDraft}
+                />
+              ) : undefined
+            }
           />
         </div>
 
         {surface === "dialog" ? (
           <div
             data-order-detail-view-switcher="true"
-            className="relative z-10 mb-2 flex min-w-0 items-center gap-2"
+            className="relative z-10 mx-auto mb-2 flex w-fit max-w-full min-w-0 items-center gap-2"
           >
             <OrderDetailTabs
               tabs={isEditing ? desktopDetailTabs.slice(0, 1) : desktopDetailTabs}
@@ -1388,7 +1398,7 @@ export function OrderDetailScreen({
               onChange={changeDesktopDetailView}
               ariaLabel="工单详情内容"
               idPrefix="order-detail-workspace"
-              className="!m-0 min-w-0 flex-1"
+              className="!m-0 min-w-0"
             />
             {canOpenDiagnosisQuote ? (
               <Button
@@ -1449,7 +1459,7 @@ export function OrderDetailScreen({
                 aria-labelledby={
                   surface === "dialog" ? "order-detail-workspace-tab-overview" : undefined
                 }
-                className="min-w-0"
+                className={cn("min-w-0", detailWorkspace.orderDetailContent)}
               >
                 <OrderOverviewTab
                   order={order}
@@ -1511,7 +1521,7 @@ export function OrderDetailScreen({
                     id="order-detail-workspace-panel-records"
                     role="tabpanel"
                     aria-labelledby="order-detail-workspace-tab-records"
-                    className="min-w-0"
+                    className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
                   >
                     <OrderRecordsWorkspace
                       order={order}
@@ -1546,7 +1556,7 @@ export function OrderDetailScreen({
                     id="order-detail-workspace-panel-photos"
                     role="tabpanel"
                     aria-labelledby="order-detail-workspace-tab-photos"
-                    className="min-w-0"
+                    className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
                   >
                     <DesktopOrderPhotosPanel
                       attachments={photoAttachments}
@@ -1563,7 +1573,7 @@ export function OrderDetailScreen({
                     role="tabpanel"
                     aria-labelledby="order-detail-workspace-tab-costs"
                     hidden={safeDesktopDetailView !== "costs"}
-                    className="min-w-0"
+                    className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
                   >
                     <OrderInternalCostCard
                       orderId={order.id}
@@ -1576,7 +1586,7 @@ export function OrderDetailScreen({
                 ) : null}
               </>
             ) : (
-              <div className="scroll-mt-24">
+              <div className={cn("scroll-mt-24", detailWorkspace.orderDetailReadable)}>
                 <OrderRecordsWorkspace
                   order={order}
                   supplier={supplier}
@@ -2210,9 +2220,12 @@ function OrderRecordsWorkspace({
       variants={fadeUp}
       data-order-records-workspace="true"
       className={cn(
-        "grid min-w-0 gap-2 sm:gap-3",
+        "grid min-w-0 items-start gap-2 sm:gap-3",
         surface === "dialog"
-          ? "lg:grid-cols-[minmax(240px,0.78fr)_minmax(0,1.22fr)]"
+          ? cn(
+              detailWorkspace.orderDetailReadable,
+              "lg:grid-cols-[minmax(240px,0.78fr)_minmax(0,1.22fr)]",
+            )
           : "lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]",
       )}
     >
@@ -2220,7 +2233,7 @@ function OrderRecordsWorkspace({
         <div
           data-order-responsibility-row="true"
           className={cn(
-            "grid min-w-0 gap-2 sm:gap-3 lg:col-span-2",
+            "grid min-w-0 items-start gap-2 sm:gap-3 lg:col-span-2 lg:max-w-[680px]",
             showAssignee && showSupplier ? "md:grid-cols-2" : "grid-cols-1",
           )}
         >

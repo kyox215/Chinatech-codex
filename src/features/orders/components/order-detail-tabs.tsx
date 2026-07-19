@@ -47,7 +47,10 @@ export function OrderDetailTabs<T extends string>({
   return (
     <div
       data-order-detail-tabs="true"
-      className={cn("relative z-10 mb-3 mt-1.5 min-w-0 max-w-full sm:mb-3 sm:mt-2", className)}
+      className={cn(
+        "relative z-10 mb-3 mt-1.5 w-fit min-w-0 max-w-full sm:mb-3 sm:mt-2",
+        className,
+      )}
     >
       <div
         role="tablist"
