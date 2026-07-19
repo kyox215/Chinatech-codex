@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260719-003-order-detail-desktop-density-release"
 title: "工单详情桌面进度与记录分组优化发布"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FE", "UX", "QA", "RELEASE"]
 created_at: "2026-07-19T21:20:00+02:00"
-updated_at: "2026-07-19T22:10:59Z"
+updated_at: "2026-07-19T22:18:24Z"
+closed_at: "2026-07-19T22:18:24Z"
 ---
 # Task
 
