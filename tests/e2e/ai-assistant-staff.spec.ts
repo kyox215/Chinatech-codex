@@ -86,10 +86,23 @@ test.describe("staff AI assistant bounded workflow", () => {
     await sheet.getByRole("button", { name: "发送", exact: true }).click();
     await expect(sheet.getByText(/iPhone 15/i).first()).toBeVisible();
     await expect(sheet.getByText(/SAMSUNG A12/i)).toHaveCount(0);
+    await expect(sheet.getByRole("region", { name: "系统实际采用的查询条件" })).toContainText(
+      "设备：iPhone 15",
+    );
+
+    const urlBeforeDetails = page.url();
+    const firstCard = sheet.locator("article[data-ai-order-card]").first();
+    await firstCard.getByRole("button", { name: "查看当前页内详情" }).click();
+    await expect(firstCard.getByText("配件标记", { exact: true })).toBeVisible();
+    expect(page.url()).toBe(urlBeforeDetails);
+    await expect(firstCard.getByRole("link", { name: /打开订单/ })).toHaveAttribute(
+      "href",
+      /^\/orders\//,
+    );
     await expectNoHorizontalOverflow(page);
     await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-003-ai-device-search-relevance/apple-15-mobile-390.png",
+      path: "screenshots/TASK-20260719-006-ai-natural-language-order-actions/apple-15-filters-inline-card-mobile-390.png",
     });
   });
 
@@ -101,12 +114,12 @@ test.describe("staff AI assistant bounded workflow", () => {
     await page.locator('[data-ai-assistant-trigger="mobile-orders"]').click();
 
     const sheet = page.locator('[data-ai-assistant-sheet="true"]');
-    const processingTrigger = sheet.getByRole("button", { name: "展开处理方式详情" });
+    const processingTrigger = sheet.getByRole("button", { name: "展开处理方式和用量" });
     await processingTrigger.click();
     await sheet.getByRole("radio", { name: "使用大模型理解" }).click();
-    await sheet.getByRole("button", { name: "收起处理方式详情" }).click();
-    await expect(sheet.getByRole("button", { name: "展开处理方式详情" })).toContainText(
-      "发送至 OpenAI · 计入用量",
+    await sheet.getByRole("button", { name: "收起处理方式和用量" }).click();
+    await expect(sheet.getByRole("button", { name: "展开处理方式和用量" })).toContainText(
+      "大模型理解",
     );
 
     await page.getByLabel("输入工单查询问题").fill("有没有苹果15系列的单子");
@@ -128,21 +141,15 @@ test.describe("staff AI assistant bounded workflow", () => {
     const sheet = page.locator('[data-ai-assistant-sheet="true"]');
     const localMode = sheet.getByRole("radio", { name: "使用本地处理" });
     const modelMode = sheet.getByRole("radio", { name: "使用大模型理解" });
-    const chatUsage = sheet.locator('[data-ai-chat-usage="ready"]');
-    const usageTrigger = sheet.getByRole("button", { name: "展开今日大模型用量" });
-    const processingTrigger = sheet.getByRole("button", { name: "展开处理方式详情" });
-    await expect(chatUsage).toBeVisible();
-    await expect(usageTrigger).toHaveAttribute("aria-expanded", "false");
-    await expect(usageTrigger).toContainText("6 / 50 · 4,530 Token · $0.001210");
+    const processingTrigger = sheet.getByRole("button", { name: "展开处理方式和用量" });
     await expect(processingTrigger).toHaveAttribute("aria-expanded", "false");
     await expect(processingTrigger).toContainText("本地处理");
-    await expect(processingTrigger).toContainText("不调用模型");
+    await expect(processingTrigger).toContainText("本次不计入 · 今日 6/50");
     await hideNextDevIndicators(page);
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/disclosures-collapsed-mobile-390.png",
+      path: "screenshots/TASK-20260719-006-ai-natural-language-order-actions/processing-usage-collapsed-mobile-390.png",
     });
 
-    await usageTrigger.click();
     await processingTrigger.click();
     await expect(sheet.getByText("6 / 50", { exact: true })).toBeVisible();
     await expect(sheet.getByText("4,530", { exact: true })).toBeVisible();
@@ -150,16 +157,15 @@ test.describe("staff AI assistant bounded workflow", () => {
     await expect(localMode).toHaveAttribute("aria-checked", "true");
     await expect(sheet.getByText(/不会把本次文字发送给大模型/)).toBeVisible();
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/disclosures-expanded-mobile-390.png",
+      path: "screenshots/TASK-20260719-006-ai-natural-language-order-actions/processing-usage-expanded-mobile-390.png",
     });
 
     await modelMode.click();
     await expect(modelMode).toHaveAttribute("aria-checked", "true");
     await expect(sheet.getByText(/本次文字会.*OpenAI/)).toBeVisible();
-    await sheet.getByRole("button", { name: "收起处理方式详情" }).click();
-    await sheet.getByRole("button", { name: "收起今日大模型用量" }).click();
-    await expect(sheet.getByRole("button", { name: "展开处理方式详情" })).toContainText(
-      "发送至 OpenAI · 计入用量",
+    await sheet.getByRole("button", { name: "收起处理方式和用量" }).click();
+    await expect(sheet.getByRole("button", { name: "展开处理方式和用量" })).toContainText(
+      "大模型理解",
     );
     await page.getByLabel("输入工单查询问题").fill("帮我综合判断需要优先处理的工单");
 
@@ -168,15 +174,15 @@ test.describe("staff AI assistant bounded workflow", () => {
         request.method() === "POST" && request.url().endsWith("/api/repairdesk/ai/order/turn"),
     );
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/model-selected-collapsed-mobile-390.png",
+      path: "screenshots/TASK-20260719-006-ai-natural-language-order-actions/model-selected-collapsed-mobile-390.png",
     });
     await page.setViewportSize({ width: 1280, height: 800 });
-    await expect(sheet.getByRole("button", { name: "展开处理方式详情" })).toContainText(
+    await expect(sheet.getByRole("button", { name: "展开处理方式和用量" })).toContainText(
       "大模型理解",
     );
     await expectNoHorizontalOverflow(page);
     await sheet.screenshot({
-      path: "screenshots/TASK-20260719-005-ai-search-accuracy-collapsible-ui/model-selected-collapsed-desktop-1280.png",
+      path: "screenshots/TASK-20260719-006-ai-natural-language-order-actions/model-selected-collapsed-desktop-1280.png",
     });
     const usageRefreshPromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/repairdesk/ai/usage") && response.ok(),
@@ -278,6 +284,7 @@ test.describe("staff AI assistant bounded workflow", () => {
         body: JSON.stringify({
           data: {
             canUseOrderAssistant: false,
+            canUseOrderInlineActions: false,
             canUseVisionIntake: false,
             canApplyInventoryDraft: false,
             reason: "permission_denied",

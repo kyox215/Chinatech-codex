@@ -7,9 +7,11 @@ import { z } from "zod";
 import {
   aiAssistantRequestSchema,
   aiInventoryVisionRequestSchema,
+  aiOrderInlineActionRequestSchema,
 } from "@/features/ai-assistant/model/contracts";
 import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
 import { runAiOrderAssistantTurn } from "@/features/ai-assistant/server/order-assistant.service";
+import { runAiOrderInlineAction } from "@/features/ai-assistant/server/order-inline-action.service";
 import { getAiAssistantProvider } from "@/features/ai-assistant/server/provider-factory";
 import { getAiProviderBudgetGateway } from "@/features/ai-assistant/server/supabase-provider-budget";
 import { getAiAssistantUsageSummary } from "@/features/ai-assistant/server/usage.repository";
@@ -1468,6 +1470,27 @@ export async function handleRepairDeskPost(
             },
           }),
         );
+      case "ai/order/action": {
+        const input = aiOrderInlineActionRequestSchema.parse(body);
+        const result = await runAiOrderInlineAction({
+          actor,
+          input,
+          dependencies: {
+            getOrder: api.getOrder,
+            transitionOrder: api.transitionOrder,
+          },
+        });
+        await writeAuditLog({
+          actor,
+          action: "ai_inline_action",
+          entityType: "repair_order",
+          entityId: input.order_id,
+          after: { action: result.action },
+          metadata: { source: "ai_assistant", confirmed: true },
+        });
+        queueRealtimeBroadcast(actor, realtimeBroadcasts.orderTransitioned);
+        return ok(result);
+      }
       case "orders/data/template": {
         const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
         return binaryResponse(await downloadOrderDataTemplate({ expectedStoreId, actor }));

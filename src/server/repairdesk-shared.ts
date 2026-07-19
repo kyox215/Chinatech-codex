@@ -204,6 +204,7 @@ const ORDER_LIST_INDEX_BASE_COLUMNS = `
   pause_reason,
   supplier_id,
   contact_phones,
+  fault_prices,
   device_snapshot,
   completed_at,
   created_at,

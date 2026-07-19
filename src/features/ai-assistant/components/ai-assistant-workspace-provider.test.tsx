@@ -59,6 +59,7 @@ describe("AiAssistantWorkspaceProvider usage scope", () => {
     mocks.getAiAssistantUsageSummary.mockReset();
     mocks.getAiAssistantCapabilities.mockResolvedValue({
       canUseOrderAssistant: true,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
     });

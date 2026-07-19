@@ -4,6 +4,7 @@ import type { AiAssistantRequestKind } from "./cost-policy";
 export type AiAssistantFeatureEnvironment = {
   AI_ASSISTANT_ENABLED?: string;
   AI_ORDER_READ_TOOLS_ENABLED?: string;
+  AI_ORDER_INLINE_ACTIONS_ENABLED?: string;
   AI_VISION_INTAKE_ENABLED?: string;
   AI_DRAFT_APPLY_ENABLED?: string;
   AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED?: string;
@@ -45,6 +46,12 @@ export function isAiOrderReadToolsEnabled(
   env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
 ) {
   return isAiAssistantEnabled(env) && env.AI_ORDER_READ_TOOLS_ENABLED === "1";
+}
+
+export function isAiOrderInlineActionsEnabled(
+  env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
+) {
+  return isAiOrderReadToolsEnabled(env) && env.AI_ORDER_INLINE_ACTIONS_ENABLED === "1";
 }
 
 export function isAiVisionIntakeEnabled(

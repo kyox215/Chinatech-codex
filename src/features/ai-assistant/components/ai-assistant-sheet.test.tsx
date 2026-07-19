@@ -1,11 +1,15 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const apiMocks = vi.hoisted(() => ({ runAiOrderAssistantTurn: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  runAiOrderAssistantTurn: vi.fn(),
+  runAiOrderInlineAction: vi.fn(),
+}));
 
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
   runAiOrderAssistantTurn: apiMocks.runAiOrderAssistantTurn,
+  runAiOrderInlineAction: apiMocks.runAiOrderInlineAction,
 }));
 
 import type { AiOrderAssistantResponse } from "@/features/ai-assistant/model/contracts";
@@ -15,6 +19,7 @@ import { mergeVoiceInputValue } from "./use-ai-assistant-voice-input";
 
 const capabilities = {
   canUseOrderAssistant: true,
+  canUseOrderInlineActions: false,
   canUseVisionIntake: false,
   canApplyInventoryDraft: false,
 } as const;
@@ -22,6 +27,7 @@ const capabilities = {
 describe("AiAssistantSheet", () => {
   beforeEach(() => {
     apiMocks.runAiOrderAssistantTurn.mockReset();
+    apiMocks.runAiOrderInlineAction.mockReset();
     FakeSpeechRecognition.instances = [];
     clearSpeechRecognition();
     setOnline(true);
@@ -59,12 +65,75 @@ describe("AiAssistantSheet", () => {
     expect(onModelUsageChanged).not.toHaveBeenCalled();
   });
 
+  it("keeps the card body in place and navigates only from the explicit order link", async () => {
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R-NAV", "order-nav"));
+    const onOpenChange = vi.fn();
+    renderSheet({ onOpenChange });
+    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+      target: { value: "苹果15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    fireEvent.click(await screen.findByText("R-NAV"));
+    expect(onOpenChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "打开订单 R-NAV" }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("requires explicit confirmation before a server-authorized inline action", async () => {
+    const actionable = response("R-ACTION", "order-action");
+    actionable.cards[0]!.parts_status = "needed";
+    actionable.cards[0]!.allowed_actions = [
+      {
+        action: "mark_parts_ordered",
+        label: "标记已订件",
+        description: "仅在已向供应商完成下单后记录状态。",
+        requires_confirmation: true,
+      },
+    ];
+    apiMocks.runAiOrderAssistantTurn.mockResolvedValue(actionable);
+    apiMocks.runAiOrderInlineAction.mockResolvedValue({
+      ok: true,
+      action: "mark_parts_ordered",
+      message: "已记录为配件已订。此操作不会向供应商下单、付款或分配库存。",
+      card: {
+        ...actionable.cards[0]!,
+        status: "parts",
+        status_label: "配件",
+        parts_status: "ordered",
+        updated_at: "2026-07-19T12:00:00.000Z",
+        allowed_actions: [],
+      },
+    });
+    renderSheet({ capabilities: { ...capabilities, canUseOrderInlineActions: true } });
+    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+      target: { value: "今天有哪些待订配件" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "标记已订件" }));
+    expect(apiMocks.runAiOrderInlineAction).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("不会创建供应商订单");
+    fireEvent.click(screen.getByRole("button", { name: "确认标记已订件" }));
+
+    expect(await screen.findByText(/已记录为配件已订/)).toBeInTheDocument();
+    expect(apiMocks.runAiOrderInlineAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_id: "order-action",
+        action: "mark_parts_ordered",
+        confirm_public_no: "R-ACTION",
+        expected_updated_at: "2026-07-18T12:00:00.000Z",
+        idempotency_key: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+      }),
+    );
+  });
+
   it("lets the user explicitly choose model understanding for the next query", async () => {
     apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R-MODEL", "order-model"));
     const onModelUsageChanged = vi.fn();
     renderSheet({ onModelUsageChanged });
 
-    const processingTrigger = screen.getByRole("button", { name: "展开处理方式详情" });
+    const processingTrigger = screen.getByRole("button", { name: "展开处理方式和用量" });
     expect(processingTrigger).toHaveAttribute("aria-expanded", "false");
     expect(processingTrigger).toHaveAttribute("aria-controls");
     fireEvent.click(processingTrigger);
@@ -82,24 +151,22 @@ describe("AiAssistantSheet", () => {
       expect.any(Object),
     );
     expect(onModelUsageChanged).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "展开处理方式详情" })).toHaveTextContent(
-      "大模型理解发送至 OpenAI · 计入用量",
+    expect(screen.getByRole("button", { name: "展开处理方式和用量" })).toHaveTextContent(
+      "大模型理解发送至 OpenAI",
     );
   });
 
-  it("keeps usage and processing details collapsed by default with accessible summaries", () => {
+  it("keeps one combined processing and usage control collapsed by default", () => {
     renderSheet({
       canReadUsage: true,
       usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
     });
 
-    const usageTrigger = screen.getByRole("button", { name: "展开今日大模型用量" });
-    const processingTrigger = screen.getByRole("button", { name: "展开处理方式详情" });
-    expect(usageTrigger).toHaveAttribute("aria-expanded", "false");
-    expect(usageTrigger).toHaveAttribute("aria-controls");
-    expect(usageTrigger).toHaveTextContent("6 / 50 · 4,530 Token · $0.001210");
-    expect(processingTrigger).toHaveAttribute("aria-expanded", "false");
-    expect(processingTrigger).toHaveTextContent("本地处理不调用模型");
+    const trigger = screen.getByRole("button", { name: "展开处理方式和用量" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveAttribute("aria-controls");
+    expect(trigger).toHaveTextContent("本地处理本次不计入 · 今日 6/50");
+    expect(screen.queryByRole("button", { name: "展开今日大模型用量" })).not.toBeInTheDocument();
     expect(screen.queryByText("请求 / 上限")).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "使用本地处理" })).not.toBeInTheDocument();
   });
@@ -110,7 +177,7 @@ describe("AiAssistantSheet", () => {
       usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "展开今日大模型用量" }));
+    fireEvent.click(screen.getByRole("button", { name: "展开处理方式和用量" }));
     expect(screen.getByText("6 / 50")).toBeVisible();
     expect(screen.getByText("4,530")).toBeVisible();
     expect(screen.getByText("$0.001210")).toBeVisible();
@@ -123,7 +190,7 @@ describe("AiAssistantSheet", () => {
       usage: getMockAiAssistantUsageSummary(new Date("2026-07-19T10:00:00.000Z")),
     });
 
-    expect(screen.queryByText("今日大模型用量")).not.toBeInTheDocument();
+    expect(screen.queryByText("请求 / 上限")).not.toBeInTheDocument();
     expect(screen.queryByText("$0.001210")).not.toBeInTheDocument();
   });
 
@@ -134,8 +201,8 @@ describe("AiAssistantSheet", () => {
     const onRetryUsage = vi.fn();
     renderSheet({ canReadUsage: true, usageError: true, onRetryUsage });
 
-    const trigger = screen.getByRole("button", { name: "展开今日大模型用量" });
-    expect(trigger).toHaveTextContent("读取失败");
+    const trigger = screen.getByRole("button", { name: "展开处理方式和用量" });
+    expect(trigger).toHaveTextContent("用量暂不可用");
     fireEvent.click(trigger);
     expect(screen.getByText("今日用量暂时无法读取")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /重试/ }));
@@ -236,6 +303,7 @@ describe("AiAssistantSheet", () => {
     renderSheet({
       capabilities: {
         canUseOrderAssistant: false,
+        canUseOrderInlineActions: false,
         canUseVisionIntake: false,
         canApplyInventoryDraft: false,
         reason: "permission_denied",
@@ -244,7 +312,7 @@ describe("AiAssistantSheet", () => {
 
     expect(screen.getByText("当前账号没有使用权限")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "输入工单查询问题" })).toBeDisabled();
-    const processingTrigger = screen.getByRole("button", { name: "展开处理方式详情" });
+    const processingTrigger = screen.getByRole("button", { name: "展开处理方式和用量" });
     expect(processingTrigger).toHaveTextContent("当前不可用");
     fireEvent.click(processingTrigger);
     expect(screen.getByRole("radio", { name: "使用本地处理" })).toBeDisabled();
@@ -346,9 +414,10 @@ function sheetElement(overrides: Partial<React.ComponentProps<typeof AiAssistant
 function response(publicNo: string, id: string): AiOrderAssistantResponse {
   return {
     request_id: "00000000-0000-4000-8000-000000000001",
-    contract_version: "ai-assistant-v1",
+    contract_version: "ai-order-assistant-v2",
     kind: "search_results",
     message: "RepairDesk 找到 1 条符合条件的工单。",
+    applied_filters: [{ key: "device", label: "设备", value: "Redmi A7 Pro", evidence: "exact" }],
     cards: [
       {
         id,
@@ -358,6 +427,10 @@ function response(publicNo: string, id: string): AiOrderAssistantResponse {
         status: "intake",
         status_label: "接待",
         updated_at: "2026-07-18T12:00:00.000Z",
+        completed_at: null,
+        parts_status: null,
+        matched_reasons: ["Redmi A7 Pro"],
+        allowed_actions: [],
         href: `/orders/${id}`,
       },
     ],

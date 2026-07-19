@@ -49,6 +49,10 @@ export class FakeAiAssistantProvider implements AiAssistantProvider {
                 ? ("processing" as const)
                 : null,
               financial_review: amountReviewIntent ? ("amount_anomaly" as const) : null,
+              date_filter: null,
+              service_group: null,
+              completed_only: false,
+              parts_status: null,
               page_size: 8,
             },
           });

@@ -374,6 +374,59 @@ describe("order repository database pagination", () => {
     expect(result.items[0]?.device_label).toBe("Apple iPhone 15 Pro");
   });
 
+  it("combines store-calendar date, quote-service evidence, completion, and order-level parts filters", async () => {
+    mocks.supabase.from.mockImplementation(() =>
+      createSupabaseQuery({
+        data: [
+          orderRow({
+            id: "matching",
+            completed_at: "2026-07-05T22:30:00.000Z",
+            parts_status: "needed",
+            fault_prices: [{ name: "屏幕", price: 120, catalog_key: "display:main" }],
+          }),
+          orderRow({
+            id: "wrong_month",
+            completed_at: "2026-06-30T21:30:00.000Z",
+            parts_status: "needed",
+            fault_prices: [{ name: "屏幕", price: 120, catalog_key: "display:main" }],
+          }),
+          orderRow({
+            id: "wrong_service",
+            completed_at: "2026-07-08T10:00:00.000Z",
+            parts_status: "needed",
+            fault_prices: [{ name: "电池", price: 80, catalog_key: "battery:main" }],
+          }),
+          orderRow({
+            id: "wrong_parts",
+            completed_at: "2026-07-08T10:00:00.000Z",
+            parts_status: "ordered",
+            fault_prices: [{ name: "屏幕", price: 120, catalog_key: "display:main" }],
+          }),
+        ],
+        error: null,
+        count: 4,
+      }),
+    );
+
+    const result = await listOrdersPage(
+      {
+        view: "all",
+        dateField: "completed_at",
+        dateFrom: "2026-07-01",
+        dateTo: "2026-07-31",
+        dateTimeZone: "Europe/Rome",
+        repairServiceGroups: ["display"],
+        completedOnly: true,
+        partsStatuses: ["needed"],
+        sortDateField: "completed_at",
+      },
+      actor("owner"),
+    );
+
+    expect(result.total).toBe(1);
+    expect(result.items.map((item) => item.id)).toEqual(["matching"]);
+  });
+
   it("rejects amount-consistency aggregation before repository access for other roles", async () => {
     await expect(
       listOrdersPage({ financialReview: "amount_anomaly" }, actor("sales")),

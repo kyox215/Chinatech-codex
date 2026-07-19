@@ -39,6 +39,7 @@ describe("RepairDesk attachment route request envelope", () => {
     vi.clearAllMocks();
     mocks.getAiAssistantCapabilities.mockReturnValue({
       canUseOrderAssistant: false,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: true,
       canApplyInventoryDraft: false,
     });
@@ -151,6 +152,7 @@ describe("RepairDesk attachment route request envelope", () => {
     });
     mocks.getAiAssistantCapabilities.mockReturnValueOnce({
       canUseOrderAssistant: false,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
       reason: "feature_off",
@@ -195,5 +197,29 @@ describe("RepairDesk attachment route request envelope", () => {
     expect(mocks.getRepairDeskPostActor).toHaveBeenCalledWith("ai/vision/extract");
     expect(mocks.consumeAiAssistantRequestRateLimit).toHaveBeenCalledOnce();
     expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
+  });
+
+  it("enforces streamed limits for text turns and inline actions without content-length", async () => {
+    for (const testCase of [
+      { path: ["ai", "order", "turn"], body: `{"message":"${"A".repeat(4_200)}"}` },
+      { path: ["ai", "order", "action"], body: `{"order_id":"${"A".repeat(2_100)}"}` },
+    ]) {
+      const request = new NextRequest(
+        `http://localhost/api/repairdesk/${testCase.path.join("/")}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: testCase.body,
+        },
+      );
+      request.headers.delete("content-length");
+
+      const response = await POST(request, { params: Promise.resolve({ path: testCase.path }) });
+
+      expect(response.status).toBe(413);
+      expect(mocks.getRepairDeskPostActor).toHaveBeenCalledWith(testCase.path.join("/"));
+      expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
+      mocks.getRepairDeskPostActor.mockClear();
+    }
   });
 });

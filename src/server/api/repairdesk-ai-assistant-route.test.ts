@@ -10,8 +10,10 @@ const mocks = vi.hoisted(() => ({
   getAiAssistantProvider: vi.fn(),
   listOrdersPage: vi.fn(),
   getOrder: vi.fn(),
+  transitionOrder: vi.fn(),
   getAiAssistantUsageSummary: vi.fn(),
   writeAiAssistantAudit: vi.fn(),
+  writeAuditLog: vi.fn(),
 }));
 
 vi.mock("@/server/auth-context", async (importOriginal) => ({
@@ -33,6 +35,12 @@ vi.mock("@/features/orders/server/order.service", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/orders/server/order.service")>()),
   listOrdersPage: mocks.listOrdersPage,
   getOrder: mocks.getOrder,
+  transitionOrder: mocks.transitionOrder,
+}));
+
+vi.mock("@/server/audit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/audit")>()),
+  writeAuditLog: mocks.writeAuditLog,
 }));
 
 vi.mock("@/features/ai-assistant/server/provider-factory", () => ({
@@ -62,6 +70,7 @@ describe("AI assistant BFF routes", () => {
       messages: [],
       attachments: [],
     });
+    mocks.transitionOrder.mockResolvedValue({ ok: true });
     mocks.getAiAssistantUsageSummary.mockResolvedValue(usageSummary());
   });
 
@@ -75,6 +84,7 @@ describe("AI assistant BFF routes", () => {
     await expect(response.json()).resolves.toEqual({
       data: {
         canUseOrderAssistant: false,
+        canUseOrderInlineActions: false,
         canUseVisionIntake: false,
         canApplyInventoryDraft: false,
         reason: "feature_off",
@@ -148,10 +158,75 @@ describe("AI assistant BFF routes", () => {
       status: "intake",
       status_label: expect.any(String),
       updated_at: "2026-07-16T09:00:00.000Z",
+      completed_at: null,
+      parts_status: null,
+      matched_reasons: [],
+      allowed_actions: [],
       href: "/orders/order-sensitive",
     });
     expect(JSON.stringify(body)).not.toContain("SECRET-SENTINEL");
     expect(JSON.stringify(body)).not.toContain("999");
+  });
+
+  it("audits a confirmed inline action without placing customer data in audit metadata", async () => {
+    enableOrderAssistant();
+    vi.stubEnv("AI_ORDER_INLINE_ACTIONS_ENABLED", "1");
+    const current = {
+      ...sensitiveOrder(),
+      id: "order-action",
+      public_no: "R-ACTION",
+      status: "diagnosing" as const,
+      workflow_status: "diagnosis" as const,
+      parts_status: "needed" as const,
+    };
+    const updated = {
+      ...current,
+      status: "parts_ordered" as const,
+      workflow_status: "parts" as const,
+      parts_status: "ordered" as const,
+      updated_at: "2026-07-16T10:00:00.000Z",
+    };
+    mocks.getOrder
+      .mockResolvedValueOnce({ order: current, capabilities: { canTransition: true } })
+      .mockResolvedValueOnce({ order: updated, capabilities: { canTransition: true } });
+
+    const response = await handleRepairDeskPost(
+      "ai/order/action",
+      {
+        order_id: current.id,
+        action: "mark_parts_ordered",
+        confirm_public_no: current.public_no,
+        expected_updated_at: current.updated_at,
+        idempotency_key: "00000000-0000-4000-8000-000000000301",
+      },
+      owner,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.transitionOrder).toHaveBeenCalledWith(
+      current.id,
+      "parts_ordered",
+      expect.objectContaining({
+        expectedUpdatedAt: current.updated_at,
+        idempotencyKey: "00000000-0000-4000-8000-000000000301",
+        operator: owner,
+      }),
+    );
+    expect(mocks.writeAuditLog).toHaveBeenCalledWith({
+      actor: owner,
+      action: "ai_inline_action",
+      entityType: "repair_order",
+      entityId: current.id,
+      after: { action: "mark_parts_ordered" },
+      metadata: { source: "ai_assistant", confirmed: true },
+    });
+    expect(body.data.card).toMatchObject({
+      id: current.id,
+      parts_status: "ordered",
+      allowed_actions: [],
+    });
+    expect(JSON.stringify(mocks.writeAuditLog.mock.calls)).not.toContain("SECRET-SENTINEL");
   });
 
   it("rejects undeclared request scope before provider or repository execution", async () => {
@@ -354,6 +429,10 @@ function searchProvider(): AiAssistantProvider {
           overdue: null,
           queue_group: null,
           financial_review: null,
+          date_filter: null,
+          service_group: null,
+          completed_only: false,
+          parts_status: null,
           page_size: 8,
         },
       },

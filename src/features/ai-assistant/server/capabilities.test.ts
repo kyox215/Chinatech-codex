@@ -18,6 +18,7 @@ describe("AI assistant capability projection", () => {
   it("fails closed when the parent feature flag is absent", () => {
     expect(getAiAssistantCapabilities(actor("owner"), {})).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
       reason: "feature_off",
@@ -27,6 +28,7 @@ describe("AI assistant capability projection", () => {
   it("does not expose first-release AI capabilities to viewers", () => {
     expect(getAiAssistantCapabilities(actor("viewer"), enabled)).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
       reason: "permission_denied",
@@ -49,6 +51,7 @@ describe("AI assistant capability projection", () => {
   it("projects enabled owner capabilities without granting anything beyond RBAC", () => {
     expect(getAiAssistantCapabilities(actor("owner"), enabled)).toEqual({
       canUseOrderAssistant: true,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: true,
       canApplyInventoryDraft: true,
     });
@@ -62,6 +65,7 @@ describe("AI assistant capability projection", () => {
       }),
     ).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
       reason: "rollout_not_enabled",
@@ -76,6 +80,7 @@ describe("AI assistant capability projection", () => {
       }),
     ).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
       reason: "rollout_not_enabled",
@@ -88,6 +93,16 @@ describe("AI assistant capability projection", () => {
 
     vi.stubEnv("REPAIRDESK_E2E_BUSINESS_DESKTOP", "1");
     expect(getAiAssistantCapabilities(systemActor, enabled).canUseOrderAssistant).toBe(true);
+  });
+
+  it("keeps inline actions behind a separate owner-only flag", () => {
+    const actionEnv = { ...enabled, AI_ORDER_INLINE_ACTIONS_ENABLED: "1" };
+    expect(getAiAssistantCapabilities(actor("owner"), actionEnv).canUseOrderInlineActions).toBe(
+      true,
+    );
+    expect(getAiAssistantCapabilities(actor("manager"), actionEnv).canUseOrderInlineActions).toBe(
+      false,
+    );
   });
 
   it("never grants the E2E system actor in production", () => {

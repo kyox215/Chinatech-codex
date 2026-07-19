@@ -13,7 +13,10 @@ export type AiServiceErrorCode =
   | "AI_DEPENDENCY_UNAVAILABLE"
   | "AI_AUDIT_UNAVAILABLE"
   | "AI_BUDGET_UNAVAILABLE"
-  | "AI_MISCONFIGURED";
+  | "AI_MISCONFIGURED"
+  | "AI_ACTION_CONFIRMATION_MISMATCH"
+  | "AI_ACTION_STALE_ORDER"
+  | "AI_ACTION_NOT_AVAILABLE";
 
 export class AiServiceError extends Error {
   constructor(

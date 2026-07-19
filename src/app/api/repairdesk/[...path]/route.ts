@@ -25,6 +25,7 @@ type RouteContext = {
 
 const ORDER_DATA_MULTIPART_MAX_BYTES = 4_400_000;
 const AI_ORDER_TURN_MAX_BYTES = 4_096;
+const AI_ORDER_ACTION_MAX_BYTES = 2_048;
 const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
 
 function privateError(error: string, status: number) {
@@ -95,6 +96,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return privateError("AI 查询请求过大，请缩短问题后重试", 413);
   }
   if (
+    path === "ai/order/action" &&
+    Number.isFinite(contentLength) &&
+    contentLength > AI_ORDER_ACTION_MAX_BYTES
+  ) {
+    return privateError("AI 订单操作请求过大，请刷新后重试", 413);
+  }
+  if (
     path === "ai/vision/extract" &&
     Number.isFinite(contentLength) &&
     contentLength > AI_INVENTORY_VISION_REQUEST_MAX_BYTES
@@ -121,6 +129,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (
     path === "orders/data/import/preview" ||
     path === "ai/order/turn" ||
+    path === "ai/order/action" ||
     path === "ai/vision/extract"
   ) {
     try {
@@ -160,10 +169,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ? await request.formData().catch(() => new FormData())
         : path === "ai/vision/extract"
           ? await readJsonWithLimit(request, AI_INVENTORY_VISION_REQUEST_MAX_BYTES)
-          : await readJson(request);
+          : path === "ai/order/turn"
+            ? await readJsonWithLimit(request, AI_ORDER_TURN_MAX_BYTES)
+            : path === "ai/order/action"
+              ? await readJsonWithLimit(request, AI_ORDER_ACTION_MAX_BYTES)
+              : await readJson(request);
   } catch (error) {
     if (error instanceof RequestPayloadTooLargeError) {
-      return privateError("AI 图片请求过大，请重新裁剪标签后重试", 413);
+      return privateError(
+        path === "ai/vision/extract"
+          ? "AI 图片请求过大，请重新裁剪标签后重试"
+          : path === "ai/order/action"
+            ? "AI 订单操作请求过大，请刷新后重试"
+            : "AI 查询请求过大，请缩短问题后重试",
+        413,
+      );
     }
     return privateError("请求内容无法读取，请重试", 400);
   }

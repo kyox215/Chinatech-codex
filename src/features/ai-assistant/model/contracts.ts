@@ -8,7 +8,8 @@ import {
 } from "./inventory-image-policy";
 
 export const AI_ASSISTANT_CONTRACT_VERSION = "ai-assistant-v1" as const;
-export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v4" as const;
+export const AI_ORDER_ASSISTANT_CONTRACT_VERSION = "ai-order-assistant-v2" as const;
+export const AI_ORDER_PLANNER_PROMPT_VERSION = "order-planner-v5" as const;
 export const AI_INVENTORY_RECOGNITION_PROMPT_VERSION = "inventory-label-v1" as const;
 
 export const aiAssistantLocaleSchema = z.enum(["zh-CN", "it-IT", "en"]);
@@ -33,6 +34,7 @@ export type AiAssistantRequest = z.infer<typeof aiAssistantRequestSchema>;
 export const aiAssistantCapabilitiesSchema = z
   .object({
     canUseOrderAssistant: z.boolean(),
+    canUseOrderInlineActions: z.boolean(),
     canUseVisionIntake: z.boolean(),
     canApplyInventoryDraft: z.boolean(),
     reason: z.enum(["feature_off", "permission_denied", "rollout_not_enabled"]).optional(),
@@ -93,6 +95,38 @@ export const aiOrderSearchArgumentsSchema = z
       ])
       .nullable(),
     financial_review: z.enum(["amount_anomaly"]).nullable(),
+    date_filter: z
+      .object({
+        expression: z.enum([
+          "today",
+          "current_calendar_week",
+          "previous_calendar_week",
+          "current_calendar_month",
+          "previous_calendar_month",
+          "current_calendar_year",
+        ]),
+        field: z.enum(["created_at", "updated_at", "completed_at"]),
+      })
+      .strict()
+      .nullable(),
+    service_group: z
+      .enum([
+        "display",
+        "battery",
+        "charging",
+        "camera",
+        "liquid",
+        "mainboard",
+        "system",
+        "back-cover",
+        "face",
+        "speaker",
+        "microphone",
+        "button",
+      ])
+      .nullable(),
+    completed_only: z.boolean(),
+    parts_status: z.enum(["needed", "ordered", "arrived", "out_of_stock"]).nullable(),
     page_size: z.number().int().min(1).max(20),
   })
   .strict();
@@ -131,6 +165,29 @@ export const aiOrderToolCallSchema = z.discriminatedUnion("name", [
 ]);
 export type AiOrderToolCall = z.infer<typeof aiOrderToolCallSchema>;
 
+export const aiOrderAppliedFilterSchema = z
+  .object({
+    key: z.string().trim().min(1).max(48),
+    label: z.string().trim().min(1).max(80),
+    value: z.string().trim().min(1).max(120),
+    evidence: z.enum(["exact", "quoted", "order_level"]),
+  })
+  .strict();
+export type AiOrderAppliedFilter = z.infer<typeof aiOrderAppliedFilterSchema>;
+
+export const aiOrderInlineActionKindSchema = z.enum(["mark_parts_ordered"]);
+export type AiOrderInlineActionKind = z.infer<typeof aiOrderInlineActionKindSchema>;
+
+export const aiOrderInlineActionCandidateSchema = z
+  .object({
+    action: aiOrderInlineActionKindSchema,
+    label: z.string().trim().min(1).max(60),
+    description: z.string().trim().min(1).max(240),
+    requires_confirmation: z.literal(true),
+  })
+  .strict();
+export type AiOrderInlineActionCandidate = z.infer<typeof aiOrderInlineActionCandidateSchema>;
+
 export const aiOrderCardSchema = z
   .object({
     id: z.string().min(1),
@@ -140,6 +197,12 @@ export const aiOrderCardSchema = z
     status: z.string(),
     status_label: z.string(),
     updated_at: z.string(),
+    completed_at: z.string().nullable(),
+    parts_status: z
+      .enum(["not_required", "needed", "ordered", "arrived", "out_of_stock"])
+      .nullable(),
+    matched_reasons: z.array(z.string().trim().min(1).max(120)).max(8),
+    allowed_actions: z.array(aiOrderInlineActionCandidateSchema).max(3),
     href: z.string().startsWith("/orders/"),
   })
   .strict();
@@ -148,9 +211,10 @@ export type AiOrderCard = z.infer<typeof aiOrderCardSchema>;
 export const aiOrderAssistantResponseSchema = z
   .object({
     request_id: z.string().uuid(),
-    contract_version: z.literal(AI_ASSISTANT_CONTRACT_VERSION),
+    contract_version: z.literal(AI_ORDER_ASSISTANT_CONTRACT_VERSION),
     kind: z.enum(["search_results", "order_summary", "clarification"]),
     message: z.string(),
+    applied_filters: z.array(aiOrderAppliedFilterSchema).max(12),
     cards: z.array(aiOrderCardSchema).max(20),
     total: z.number().int().nonnegative(),
     result_truncated: z.boolean(),
@@ -159,6 +223,27 @@ export const aiOrderAssistantResponseSchema = z
   })
   .strict();
 export type AiOrderAssistantResponse = z.infer<typeof aiOrderAssistantResponseSchema>;
+
+export const aiOrderInlineActionRequestSchema = z
+  .object({
+    order_id: z.string().trim().min(1).max(128),
+    action: aiOrderInlineActionKindSchema,
+    confirm_public_no: z.string().trim().min(1).max(80),
+    expected_updated_at: z.string().datetime({ offset: true }),
+    idempotency_key: z.string().uuid(),
+  })
+  .strict();
+export type AiOrderInlineActionRequest = z.infer<typeof aiOrderInlineActionRequestSchema>;
+
+export const aiOrderInlineActionResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    action: aiOrderInlineActionKindSchema,
+    message: z.string().trim().min(1).max(240),
+    card: aiOrderCardSchema,
+  })
+  .strict();
+export type AiOrderInlineActionResponse = z.infer<typeof aiOrderInlineActionResponseSchema>;
 
 export const aiInventoryFieldNameSchema = z.enum([
   "brand",
@@ -310,6 +395,66 @@ export const aiOrderSearchArgumentsJsonSchema = {
       description:
         "Use amount_anomaly only when the user asks for orders whose quote, deposit, balance, paid flag, or payment status is internally inconsistent.",
     },
+    date_filter: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            expression: {
+              type: "string",
+              enum: [
+                "today",
+                "current_calendar_week",
+                "previous_calendar_week",
+                "current_calendar_month",
+                "previous_calendar_month",
+                "current_calendar_year",
+              ],
+            },
+            field: {
+              type: "string",
+              enum: ["created_at", "updated_at", "completed_at"],
+            },
+          },
+          required: ["expression", "field"],
+        },
+        { type: "null" },
+      ],
+      description:
+        "Use a symbolic calendar expression. The trusted server resolves it in the store timezone; never calculate UTC timestamps. Use completed_at only for explicitly completed/repaired-finished requests.",
+    },
+    service_group: {
+      type: ["string", "null"],
+      enum: [
+        "display",
+        "battery",
+        "charging",
+        "camera",
+        "liquid",
+        "mainboard",
+        "system",
+        "back-cover",
+        "face",
+        "speaker",
+        "microphone",
+        "button",
+        null,
+      ],
+      description:
+        "Matches a recorded quote/service catalog group only. It is not proof that the physical repair was performed.",
+    },
+    completed_only: {
+      type: "boolean",
+      description:
+        "True only when the user explicitly asks for completed, repaired-finished, or historical performed work. This combines completion evidence with any quoted service-group evidence.",
+    },
+    parts_status: {
+      type: ["string", "null"],
+      enum: ["needed", "ordered", "arrived", "out_of_stock", null],
+      description:
+        "Current order-level parts marker. needed means the stored marker only; it does not imply a supplier purchase order exists.",
+    },
     page_size: { type: "integer", minimum: 1, maximum: 20 },
   },
   required: [
@@ -320,6 +465,10 @@ export const aiOrderSearchArgumentsJsonSchema = {
     "overdue",
     "queue_group",
     "financial_review",
+    "date_filter",
+    "service_group",
+    "completed_only",
+    "parts_status",
     "page_size",
   ],
 } as const;

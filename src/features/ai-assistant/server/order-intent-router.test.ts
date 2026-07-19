@@ -51,6 +51,10 @@ describe("deterministic order intent router", () => {
         overdue: null,
         queue_group: null,
         financial_review: "amount_anomaly",
+        date_filter: null,
+        service_group: null,
+        completed_only: false,
+        parts_status: null,
         page_size: 8,
       },
     });
@@ -73,6 +77,10 @@ describe("deterministic order intent router", () => {
         overdue: null,
         queue_group: null,
         financial_review: null,
+        date_filter: null,
+        service_group: null,
+        completed_only: false,
+        parts_status: null,
         page_size: 8,
       },
     });
@@ -83,10 +91,51 @@ describe("deterministic order intent router", () => {
     "990000000000002",
     "+39 333 1234567",
     "查找 Mario 的未付款工单",
-    "查询未付款订单",
     "R2026001 或 R2026002",
     "订单 R2026001 状态怎么样",
   ])("falls through instead of guessing: %s", (message) => {
     expect(planDeterministicOrderQuery({ message, locale: "zh-CN" })).toBeNull();
+  });
+
+  it("combines device, previous calendar week, and server-owned created date", () => {
+    expect(
+      planDeterministicOrderQuery({ message: "上个星期有什么是苹果13系列", locale: "zh-CN" })
+        ?.toolCall,
+    ).toMatchObject({
+      name: "search_orders",
+      arguments: {
+        device_search: "iPhone 13",
+        view: "all",
+        date_filter: { expression: "previous_calendar_week", field: "created_at" },
+      },
+    });
+  });
+
+  it("qualifies completed screen work as quote evidence instead of performed proof", () => {
+    expect(
+      planDeterministicOrderQuery({
+        message: "今年这个月内有什么是三星 A12 的，处理过的，换过屏幕的",
+        locale: "zh-CN",
+      })?.toolCall,
+    ).toMatchObject({
+      name: "search_orders",
+      arguments: {
+        device_search: "Samsung a12",
+        view: "all",
+        completed_only: true,
+        service_group: "display",
+        date_filter: { expression: "current_calendar_month", field: "completed_at" },
+      },
+    });
+  });
+
+  it("treats today's parts-to-order wording as the current needed queue", () => {
+    expect(
+      planDeterministicOrderQuery({ message: "今天有哪些还未订配件需要我下单", locale: "zh-CN" })
+        ?.toolCall,
+    ).toMatchObject({
+      name: "search_orders",
+      arguments: { parts_status: "needed", date_filter: null },
+    });
   });
 });

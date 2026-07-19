@@ -942,7 +942,30 @@ export interface OrderListFilters {
   paid?: "all" | "paid" | "unpaid";
   overdue?: "approval" | "pickup" | "any";
   financialReview?: "amount_anomaly";
+  dateField?: OrderQueryDateField;
+  dateFrom?: string;
+  dateTo?: string;
+  dateTimeZone?: string;
+  repairServiceGroups?: OrderRepairServiceGroup[];
+  completedOnly?: boolean;
+  sortDateField?: OrderQueryDateField;
 }
+
+export type OrderQueryDateField = "created_at" | "updated_at" | "completed_at";
+
+export type OrderRepairServiceGroup =
+  | "display"
+  | "battery"
+  | "charging"
+  | "camera"
+  | "liquid"
+  | "mainboard"
+  | "system"
+  | "back-cover"
+  | "face"
+  | "speaker"
+  | "microphone"
+  | "button";
 
 export type OrderListView = "active" | "archive" | "all";
 export type OrderQueueGroup =

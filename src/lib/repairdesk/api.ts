@@ -3,6 +3,8 @@ import type {
   AiAssistantCapabilities,
   AiAssistantRequest,
   AiAssistantUsageSummary,
+  AiOrderInlineActionRequest,
+  AiOrderInlineActionResponse,
   AiInventoryVisionRequest,
   AiInventoryVisionResponse,
   AiOrderAssistantResponse,
@@ -858,6 +860,16 @@ export async function runAiOrderAssistantTurn(
   options: RepairDeskRequestOptions = {},
 ): Promise<AiOrderAssistantResponse> {
   return postJson<AiOrderAssistantResponse>("ai/order/turn", input, {
+    ...options,
+    timeoutMs: options.timeoutMs ?? 20_000,
+  });
+}
+
+export async function runAiOrderInlineAction(
+  input: AiOrderInlineActionRequest,
+  options: RepairDeskRequestOptions = {},
+): Promise<AiOrderInlineActionResponse> {
+  return postJson<AiOrderInlineActionResponse>("ai/order/action", input, {
     ...options,
     timeoutMs: options.timeoutMs ?? 20_000,
   });

@@ -1,29 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Bot,
-  ChevronDown,
-  Clock3,
-  Cpu,
   LoaderCircle,
   Mic,
-  RefreshCcw,
   SearchX,
   Send,
   ShieldCheck,
   Sparkles,
   Square,
-  UserRound,
   WifiOff,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -32,17 +23,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type {
   AiAssistantCapabilities,
   AiAssistantProcessingMode,
   AiAssistantUsageSummary,
   AiOrderAssistantResponse,
 } from "@/features/ai-assistant/model/contracts";
-import {
-  formatAiUsageInteger,
-  formatAiUsageMicroUsd,
-} from "@/features/ai-assistant/model/usage-format";
+import { AiOrderResultCard } from "@/features/ai-assistant/components/ai-order-result-card";
+import { AiProcessingUsageDisclosure } from "@/features/ai-assistant/components/ai-processing-usage-disclosure";
 import { useAiAssistantVoiceInput } from "@/features/ai-assistant/components/use-ai-assistant-voice-input";
 import {
   isRepairDeskRequestTimeoutError,
@@ -97,8 +85,7 @@ export function AiAssistantSheet({
   const [lastQuestion, setLastQuestion] = useState("");
   const [processingMode, setProcessingMode] = useState<AiAssistantProcessingMode>("local");
   const [lastProcessingMode, setLastProcessingMode] = useState<AiAssistantProcessingMode>("local");
-  const [usageDetailsOpen, setUsageDetailsOpen] = useState(false);
-  const [processingDetailsOpen, setProcessingDetailsOpen] = useState(false);
+  const [controlDetailsOpen, setControlDetailsOpen] = useState(false);
   const [status, setStatus] = useState<AssistantStatus>("idle");
   const [response, setResponse] = useState<AiOrderAssistantResponse>();
   const [error, setError] = useState<AssistantErrorState>();
@@ -139,8 +126,7 @@ export function AiAssistantSheet({
     setLastQuestion("");
     setProcessingMode("local");
     setLastProcessingMode("local");
-    setUsageDetailsOpen(false);
-    setProcessingDetailsOpen(false);
+    setControlDetailsOpen(false);
     setStatus("idle");
     setResponse(undefined);
     setError(undefined);
@@ -149,8 +135,7 @@ export function AiAssistantSheet({
 
   useEffect(() => {
     if (open) return;
-    setUsageDetailsOpen(false);
-    setProcessingDetailsOpen(false);
+    setControlDetailsOpen(false);
   }, [open]);
 
   useEffect(() => {
@@ -187,7 +172,7 @@ export function AiAssistantSheet({
       controllerRef.current = controller;
       setLastQuestion(message);
       setLastProcessingMode(submittedMode);
-      setProcessingDetailsOpen(false);
+      setControlDetailsOpen(false);
       setStatus("loading");
       setResponse(undefined);
       setError(undefined);
@@ -275,20 +260,9 @@ export function AiAssistantSheet({
             RepairDesk AI 小助手
           </SheetTitle>
           <SheetDescription className="text-xs">
-            选择本地规则或大模型理解，只读查询当前门店工单。
+            自然语言查询当前门店工单；只有明确点击按钮才会打开订单或提交受限操作。
           </SheetDescription>
         </SheetHeader>
-
-        {canReadUsage ? (
-          <AiChatUsageSummary
-            usage={usage}
-            isLoading={usageLoading}
-            isError={usageError}
-            onRetry={onRetryUsage}
-            open={usageDetailsOpen}
-            onOpenChange={setUsageDetailsOpen}
-          />
-        ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--surface-workspace)] px-3 py-3 sm:px-4">
           {!isOnline ? <OfflineState /> : null}
@@ -313,7 +287,7 @@ export function AiAssistantSheet({
           ) : !canSubmit ? (
             <CapabilityUnavailableState reason={capabilities?.reason} />
           ) : (
-            <div className="space-y-3" aria-live="polite">
+            <div className="space-y-3">
               {status === "idle" ? (
                 <IdleState online={isOnline} onSuggestion={(value) => void submit(value)} />
               ) : null}
@@ -336,7 +310,23 @@ export function AiAssistantSheet({
                 />
               ) : null}
               {status === "result" && response ? (
-                <ResultState response={response} onNavigate={() => onOpenChange(false)} />
+                <ResultState
+                  response={response}
+                  isOnline={isOnline}
+                  onNavigate={() => onOpenChange(false)}
+                  onCardUpdated={(updatedCard) =>
+                    setResponse((current) =>
+                      current
+                        ? {
+                            ...current,
+                            cards: current.cards.map((card) =>
+                              card.id === updatedCard.id ? updatedCard : card,
+                            ),
+                          }
+                        : current,
+                    )
+                  }
+                />
               ) : null}
             </div>
           )}
@@ -358,9 +348,9 @@ export function AiAssistantSheet({
             void submit();
           }}
         >
-          <AiProcessingDisclosure
-            open={processingDetailsOpen}
-            onOpenChange={setProcessingDetailsOpen}
+          <AiProcessingUsageDisclosure
+            open={controlDetailsOpen}
+            onOpenChange={setControlDetailsOpen}
             processingMode={processingMode}
             onProcessingModeChange={setProcessingMode}
             canSubmit={canSubmit}
@@ -368,6 +358,11 @@ export function AiAssistantSheet({
             capabilitiesError={capabilitiesError}
             isSubmitting={status === "loading"}
             voiceSupported={voiceInput.support === "supported"}
+            canReadUsage={canReadUsage}
+            usage={usage}
+            usageLoading={usageLoading}
+            usageError={usageError}
+            onRetryUsage={onRetryUsage}
           />
           <label htmlFor="ai-assistant-message" className="sr-only">
             输入工单查询问题
@@ -464,301 +459,6 @@ export function AiAssistantSheet({
   );
 }
 
-function AiChatUsageSummary({
-  usage,
-  isLoading,
-  isError,
-  onRetry,
-  open,
-  onOpenChange,
-}: {
-  usage?: AiAssistantUsageSummary;
-  isLoading: boolean;
-  isError: boolean;
-  onRetry: () => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  if (isLoading) {
-    return (
-      <section
-        data-ai-chat-usage="loading"
-        aria-label="正在读取今日对话大模型用量"
-        aria-busy="true"
-        className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]"
-      >
-        <Collapsible open={open} onOpenChange={onOpenChange}>
-          <UsageDisclosureTrigger open={open} summary="读取中…" />
-          <CollapsibleContent className="border-t border-[var(--border-panel)] px-3 py-2.5 sm:px-4">
-            <div className="grid min-w-0 grid-cols-3 gap-1.5">
-              <Skeleton className="h-11 min-w-0 rounded-lg" />
-              <Skeleton className="h-11 min-w-0 rounded-lg" />
-              <Skeleton className="h-11 min-w-0 rounded-lg" />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </section>
-    );
-  }
-
-  if (isError || !usage) {
-    return (
-      <section
-        data-ai-chat-usage="error"
-        className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]"
-      >
-        <Collapsible open={open} onOpenChange={onOpenChange}>
-          <UsageDisclosureTrigger open={open} summary="读取失败" isError />
-          <CollapsibleContent className="border-t border-[var(--border-panel)] px-3 py-2 sm:px-4">
-            <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/25 px-2.5 py-2 text-status-warn-foreground">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold">今日用量暂时无法读取</p>
-                <p className="truncate text-[10px]">不影响本地或大模型查询。</p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 shrink-0"
-                onClick={onRetry}
-              >
-                <RefreshCcw className="size-3" aria-hidden="true" /> 重试
-              </Button>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </section>
-    );
-  }
-
-  const metric = usage.today_by_kind.order_text;
-  const totalTokens = metric.input_token_count + metric.output_token_count;
-  const limitLabel =
-    metric.request_limit === null ? "—" : formatAiUsageInteger(metric.request_limit);
-
-  return (
-    <section
-      data-ai-chat-usage="ready"
-      className="shrink-0 border-b border-[var(--border-panel)] bg-[var(--surface-workspace-strong)]"
-    >
-      <Collapsible open={open} onOpenChange={onOpenChange}>
-        <UsageDisclosureTrigger
-          open={open}
-          summary={`${formatAiUsageInteger(metric.provider_request_count)} / ${limitLabel} · ${formatAiUsageInteger(totalTokens)} Token · ${formatAiUsageMicroUsd(metric.settled_cost_microusd)}`}
-        />
-        <CollapsibleContent className="border-t border-[var(--border-panel)] px-3 py-2.5 sm:px-4">
-          <div className="grid min-w-0 grid-cols-3 gap-1.5">
-            <AiChatUsageMetric
-              label="请求 / 上限"
-              value={`${formatAiUsageInteger(metric.provider_request_count)} / ${limitLabel}`}
-            />
-            <AiChatUsageMetric label="Token" value={formatAiUsageInteger(totalTokens)} />
-            <AiChatUsageMetric
-              label="费用估算"
-              value={formatAiUsageMicroUsd(metric.settled_cost_microusd)}
-            />
-          </div>
-          <p className="mt-1 truncate text-[9px] text-muted-foreground">
-            本地处理不计入
-            {metric.reserved_cost_microusd > 0
-              ? ` · 另有 ${formatAiUsageMicroUsd(metric.reserved_cost_microusd)} 预留中`
-              : ""}
-          </p>
-        </CollapsibleContent>
-      </Collapsible>
-    </section>
-  );
-}
-
-function UsageDisclosureTrigger({
-  open,
-  summary,
-  isError = false,
-}: {
-  open: boolean;
-  summary: string;
-  isError?: boolean;
-}) {
-  return (
-    <CollapsibleTrigger asChild>
-      <button
-        type="button"
-        aria-label={`${open ? "收起" : "展开"}今日大模型用量`}
-        className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4"
-      >
-        <span className="shrink-0 text-[11px] font-semibold text-foreground">今日大模型用量</span>
-        <span
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={cn(
-            "min-w-0 flex-1 truncate text-right font-mono text-[10px] tabular-nums text-muted-foreground",
-            isError && "font-sans text-status-warn-foreground",
-          )}
-          title={summary}
-        >
-          {summary}
-        </span>
-        <ChevronDown
-          className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
-          aria-hidden="true"
-        />
-      </button>
-    </CollapsibleTrigger>
-  );
-}
-
-function AiProcessingDisclosure({
-  open,
-  onOpenChange,
-  processingMode,
-  onProcessingModeChange,
-  canSubmit,
-  capabilitiesLoading,
-  capabilitiesError,
-  isSubmitting,
-  voiceSupported,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  processingMode: AiAssistantProcessingMode;
-  onProcessingModeChange: (mode: AiAssistantProcessingMode) => void;
-  canSubmit: boolean;
-  capabilitiesLoading: boolean;
-  capabilitiesError: boolean;
-  isSubmitting: boolean;
-  voiceSupported: boolean;
-}) {
-  const modeLabel = processingMode === "local" ? "本地处理" : "大模型理解";
-  const modeSummary = capabilitiesLoading
-    ? "正在确认权限"
-    : capabilitiesError || !canSubmit
-      ? "当前不可用"
-      : processingMode === "local"
-        ? isSubmitting
-          ? "不调用模型 · 查询中"
-          : "不调用模型"
-        : isSubmitting
-          ? "发送至 OpenAI · 查询中"
-          : "发送至 OpenAI · 计入用量";
-
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={onOpenChange}
-      className="rounded-xl border border-[var(--border-panel)] bg-card"
-    >
-      <CollapsibleTrigger asChild>
-        <button
-          type="button"
-          aria-label={`${open ? "收起" : "展开"}处理方式详情`}
-          className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span className="shrink-0 text-[11px] font-semibold text-foreground">处理方式</span>
-          <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-foreground">
-            {processingMode === "local" ? (
-              <Cpu className="size-3.5" aria-hidden="true" />
-            ) : (
-              <Sparkles className="size-3.5" aria-hidden="true" />
-            )}
-            {modeLabel}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-right text-[10px] text-muted-foreground">
-            {modeSummary}
-          </span>
-          <ChevronDown
-            className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
-            aria-hidden="true"
-          />
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-2 border-t border-[var(--border-panel)] px-2.5 py-2.5">
-        <fieldset
-          className="space-y-1.5"
-          disabled={isSubmitting || !canSubmit || capabilitiesLoading || capabilitiesError}
-        >
-          <div className="flex items-center justify-between gap-2 px-0.5">
-            <legend className="text-[11px] font-semibold text-foreground">选择处理方式</legend>
-            <span className="text-[10px] text-muted-foreground">每次发送前可切换</span>
-          </div>
-          <ToggleGroup
-            type="single"
-            value={processingMode}
-            aria-label="查询处理方式"
-            data-ai-processing-mode={processingMode}
-            onValueChange={(value) => {
-              if (value === "local" || value === "model") onProcessingModeChange(value);
-            }}
-            className="grid grid-cols-2 gap-2"
-          >
-            <ToggleGroupItem
-              type="button"
-              value="local"
-              aria-label="使用本地处理"
-              className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
-            >
-              <span className="flex items-center gap-1.5 text-xs font-semibold">
-                <Cpu className="size-3.5" aria-hidden="true" /> 本地处理
-              </span>
-              <span className="text-[10px] font-normal text-muted-foreground">
-                固定规则 · 不调用模型
-              </span>
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              type="button"
-              value="model"
-              aria-label="使用大模型理解"
-              className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
-            >
-              <span className="flex items-center gap-1.5 text-xs font-semibold">
-                <Sparkles className="size-3.5" aria-hidden="true" /> 大模型理解
-              </span>
-              <span className="text-[10px] font-normal text-muted-foreground">
-                复杂语句 · 计入用量
-              </span>
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </fieldset>
-        <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
-          {processingMode === "model" ? (
-            <p>
-              本次文字会在现有门店审批、出站检查和用量限制后发送至
-              OpenAI；请勿输入电话、邮箱、IMEI、证件或银行卡信息。安全监控日志可能保留最多 30 天。
-            </p>
-          ) : (
-            <p>
-              本地处理只使用 RepairDesk 固定规则，不会把本次文字发送给大模型，也不产生 Token
-              费用；仍需联网查询当前门店数据。
-            </p>
-          )}
-          {voiceSupported ? (
-            <p className="mt-1 flex items-start gap-1.5">
-              <Mic className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-              <span>
-                语音由浏览器/设备语音服务转成文字；RepairDesk 不保存录音，确认文字后再手动发送。
-              </span>
-            </p>
-          ) : null}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-function AiChatUsageMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
-      <p className="truncate text-[9px] font-medium text-muted-foreground">{label}</p>
-      <p
-        className="mt-0.5 truncate font-mono text-xs font-semibold tabular-nums text-foreground"
-        title={value}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function IdleState({
   online,
   onSuggestion,
@@ -845,12 +545,19 @@ function ErrorState({ error, onRetry }: { error: AssistantErrorState; onRetry: (
 function ResultState({
   response,
   onNavigate,
+  isOnline,
+  onCardUpdated,
 }: {
   response: AiOrderAssistantResponse;
   onNavigate: () => void;
+  isOnline: boolean;
+  onCardUpdated: (card: AiOrderAssistantResponse["cards"][number]) => void;
 }) {
   return (
     <div className="space-y-2">
+      <p className="sr-only" role="status" aria-live="polite">
+        找到 {response.cards.length} 张工单，采用 {response.applied_filters.length} 个查询条件。
+      </p>
       <div className="rounded-2xl rounded-tl-md border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)]">
         <div className="flex items-start gap-2">
           <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -866,6 +573,26 @@ function ResultState({
         </div>
       </div>
 
+      {response.applied_filters.length > 0 ? (
+        <section
+          aria-label="系统实际采用的查询条件"
+          className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2"
+        >
+          <p className="text-[10px] font-semibold text-muted-foreground">实际采用条件</p>
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {response.applied_filters.map((filter) => (
+              <li
+                key={`${filter.key}-${filter.value}`}
+                className="rounded-md border border-[var(--border-panel)] bg-card px-2 py-1 text-[10px] leading-4 text-foreground"
+              >
+                <span className="font-semibold">{filter.label}：</span>
+                {filter.value}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {response.cards.length === 0 && response.kind === "search_results" ? (
         <div className="rounded-2xl border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-4 text-center">
           <SearchX className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
@@ -877,32 +604,13 @@ function ResultState({
       ) : null}
 
       {response.cards.map((card) => (
-        <Link
+        <AiOrderResultCard
           key={card.id}
-          href={card.href}
-          onClick={onNavigate}
-          className="block rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <div className="flex min-w-0 items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate font-mono text-sm font-semibold">{card.public_no}</p>
-              <p className="mt-0.5 truncate text-sm">{card.device_label}</p>
-            </div>
-            <Badge variant="secondary" className="max-w-28 shrink-0 truncate">
-              {card.status_label}
-            </Badge>
-          </div>
-          <div className="mt-2 grid min-w-0 grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-            <span className="flex min-w-0 items-center gap-1">
-              <UserRound className="size-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">{card.customer_hint}</span>
-            </span>
-            <span className="flex min-w-0 items-center justify-end gap-1 text-right">
-              <Clock3 className="size-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">{formatUpdatedAt(card.updated_at)}</span>
-            </span>
-          </div>
-        </Link>
+          card={card}
+          isOnline={isOnline}
+          onOpenOrder={onNavigate}
+          onCardUpdated={onCardUpdated}
+        />
       ))}
     </div>
   );
@@ -1021,15 +729,4 @@ function toAssistantError(error: unknown): AssistantErrorState {
 
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
-}
-
-function formatUpdatedAt(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "更新时间未知";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
 }

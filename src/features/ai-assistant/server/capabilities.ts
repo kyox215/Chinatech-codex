@@ -3,6 +3,7 @@ import {
   isAiAssistantEnabled,
   isAiAssistantStoreEnabled,
   isAiDraftApplyEnabled,
+  isAiOrderInlineActionsEnabled,
   isAiOrderReadToolsEnabled,
   isAiVisionIntakeEnabled,
   type AiAssistantFeatureEnvironment,
@@ -18,6 +19,7 @@ export function getAiAssistantCapabilities(
   if (!isAiAssistantEnabled(env)) {
     return {
       canUseOrderAssistant: false,
+      canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
       reason: "feature_off",
@@ -43,9 +45,15 @@ export function getAiAssistantCapabilities(
     canCreateInventory &&
     isAiVisionIntakeEnabled(env);
   const canApplyInventoryDraft = canUseVisionIntake && isAiDraftApplyEnabled(env);
+  const canUseOrderInlineActions =
+    canUseOrderAssistant &&
+    isAiOrderInlineActionsEnabled(env) &&
+    (isE2eSystemActor || role === "owner") &&
+    (isE2eSystemActor || can(actor, "order:transition", { scopeSatisfied: hasScopedMembership }));
 
   return {
     canUseOrderAssistant,
+    canUseOrderInlineActions,
     canUseVisionIntake,
     canApplyInventoryDraft,
     ...(!canUseOrderAssistant && !canUseVisionIntake

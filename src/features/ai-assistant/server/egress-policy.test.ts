@@ -27,6 +27,12 @@ describe("AI provider egress policy", () => {
       "Show R202600123",
       "Find Mario's orders",
       'Search for "Mario Rossi"',
+      "查找张伟的订单",
+      "客户张伟上个月的维修单",
+      "Mostra ordini di Mario Rossi",
+      "Trova riparazioni per Giuseppe Bianchi",
+      "客户住在 Viale Vittorio Veneto 7",
+      "Trova ordini in Via Roma 12",
     ]) {
       expect(() =>
         assertAiProviderEgressAllowed({
@@ -35,6 +41,21 @@ describe("AI provider egress policy", () => {
           orderMessage,
         }),
       ).toThrow(expect.objectContaining({ code: "AI_SENSITIVE_INPUT", status: 400 }));
+    }
+
+    for (const safeMessage of [
+      "查找未付款的订单",
+      "上个星期有什么苹果13系列",
+      "本月完成且报价含屏幕项目的三星 A12",
+      "今天有哪些待订配件",
+    ]) {
+      expect(() =>
+        assertAiProviderEgressAllowed({
+          requestKind: "order_text",
+          env: liveTextEnv,
+          orderMessage: safeMessage,
+        }),
+      ).not.toThrow();
     }
   });
 

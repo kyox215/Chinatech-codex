@@ -1,15 +1,16 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  AI_ASSISTANT_CONTRACT_VERSION,
+  AI_ORDER_ASSISTANT_CONTRACT_VERSION,
   AI_ORDER_PLANNER_PROMPT_VERSION,
   aiOrderToolCallSchema,
   type AiAssistantRequest,
   type AiOrderAssistantResponse,
+  type AiOrderAppliedFilter,
   type AiOrderCard,
   type AiOrderToolCall,
 } from "@/features/ai-assistant/model/contracts";
-import { deviceLabelMatchesSearch, parseDeviceSearchIntent } from "@/entities/order";
+import { deviceLabelMatchesSearch } from "@/entities/order";
 import {
   writeAiAssistantAudit,
   bucketAiAssistantLatency,
@@ -39,7 +40,11 @@ import type { AiAssistantProvider } from "./provider";
 import { AiProviderRequestError } from "./provider";
 import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-budget";
 import { AiProviderBudgetSession } from "./provider-budget-lifecycle";
-import { planDeterministicOrderQuery } from "./order-intent-router";
+import {
+  extractTrustedOrderSearchConstraints,
+  planDeterministicOrderQuery,
+} from "./order-intent-router";
+import { AI_ORDER_QUERY_TIME_ZONE, resolveOrderDateFilter } from "./order-query-date";
 import { createAiProviderSignal, isAiProviderTimeoutError } from "./provider-signal";
 import { consumeAiAssistantRequestQuota, type ConsumeAiAssistantQuotaInput } from "./quota";
 import {
@@ -129,7 +134,7 @@ export async function runAiOrderAssistantTurn({
       env: dependencies.env,
       now: dependencies.now,
     });
-    const trustedDeviceSearch = parseDeviceSearchIntent(input.message);
+    const trustedSearchConstraints = extractTrustedOrderSearchConstraints(input.message);
 
     const deterministic =
       input.processing_mode === "model" ? null : planDeterministicOrderQuery(input);
@@ -232,7 +237,10 @@ export async function runAiOrderAssistantTurn({
     stage = "protocol";
     const parsedCall = aiOrderToolCallSchema.safeParse(plannedToolCall);
     if (!parsedCall.success) throw aiProtocolError();
-    const effectiveCall = reconcileTrustedDeviceSearch(parsedCall.data, trustedDeviceSearch);
+    const effectiveCall = reconcileTrustedSearchConstraints(
+      parsedCall.data,
+      trustedSearchConstraints,
+    );
     auditContext.event = "order_tool";
     auditContext.toolName = effectiveCall.name;
 
@@ -242,6 +250,7 @@ export async function runAiOrderAssistantTurn({
         kind: "clarification",
         message: effectiveCall.arguments.question,
         cards: [],
+        appliedFilters: [],
         total: 0,
         resultTruncated: false,
         now: dependencies.now,
@@ -249,6 +258,7 @@ export async function runAiOrderAssistantTurn({
     } else if (effectiveCall.name === "search_orders") {
       stage = "repository";
       const args = effectiveCall.arguments;
+      const resolvedDate = resolveOrderDateFilter(args.date_filter, dependencies.now?.());
       if (args.device_search && args.search) throw aiProtocolError();
       if (
         args.financial_review &&
@@ -268,6 +278,14 @@ export async function runAiOrderAssistantTurn({
           overdue: args.overdue ?? undefined,
           queueGroups: args.queue_group ? [args.queue_group] : undefined,
           financialReview: args.financial_review ?? undefined,
+          partsStatuses: args.parts_status ? [args.parts_status] : undefined,
+          dateField: resolvedDate?.field,
+          dateFrom: resolvedDate?.from,
+          dateTo: resolvedDate?.to,
+          dateTimeZone: resolvedDate ? AI_ORDER_QUERY_TIME_ZONE : undefined,
+          repairServiceGroups: args.service_group ? [args.service_group] : undefined,
+          completedOnly: args.completed_only,
+          sortDateField: resolvedDate?.field ?? (args.completed_only ? "completed_at" : undefined),
         },
         actor,
       );
@@ -280,8 +298,16 @@ export async function runAiOrderAssistantTurn({
       ) {
         throw aiProtocolError();
       }
-      const cards = result.items.slice(0, args.page_size).map(toAiOrderCard);
+      const appliedFilters = buildAppliedFilters(args, resolvedDate);
+      const cards = result.items.slice(0, args.page_size).map((order) =>
+        toAiOrderCard(order, {
+          appliedFilters,
+          canUseInlineActions: capabilities.canUseOrderInlineActions,
+        }),
+      );
       const isAmountReview = args.financial_review === "amount_anomaly";
+      const isQuotedServiceReview = Boolean(args.service_group);
+      const isPartsNeeded = args.parts_status === "needed";
       response = buildResponse({
         requestId,
         kind: "search_results",
@@ -289,11 +315,16 @@ export async function runAiOrderAssistantTurn({
           cards.length === 0
             ? isAmountReview
               ? "当前可见的活跃工单中，未发现报价、定金、尾款或付款状态不一致的记录。"
-              : "RepairDesk 中没有找到符合条件的工单。你可以补充订单号、客户或设备信息。"
+              : isPartsNeeded
+                ? "当前没有已标记为待订件的工单。该结果只依据订单级配件标记，可能不包含尚未记录的采购需求。"
+                : "RepairDesk 中没有找到符合条件的工单。你可以补充订单号、客户或设备信息。"
             : isAmountReview
               ? `发现 ${result.total} 条金额状态需要人工核对的工单；请打开工单检查报价、定金、尾款和付款记录。`
-              : `RepairDesk 找到 ${result.total} 条符合条件的工单。`,
+              : isQuotedServiceReview
+                ? `找到 ${result.total} 条符合条件的工单。维修项目依据报价记录匹配，不代表系统已确认实际更换。`
+                : `RepairDesk 找到 ${result.total} 条符合条件的工单。`,
         cards,
+        appliedFilters,
         total: result.total,
         resultTruncated: result.total > cards.length,
         now: dependencies.now,
@@ -307,7 +338,7 @@ export async function runAiOrderAssistantTurn({
       );
       const exact = findExactOrder(matches.items, reference);
       if (!exact && matches.items.length !== 1) {
-        const cards = matches.items.slice(0, 8).map(toAiOrderCard);
+        const cards = matches.items.slice(0, 8).map((order) => toAiOrderCard(order));
         response = buildResponse({
           requestId,
           kind: cards.length > 0 ? "search_results" : "clarification",
@@ -316,6 +347,7 @@ export async function runAiOrderAssistantTurn({
               ? "找到多条可能的工单，请选择一条查看详情。"
               : "没有找到这个工单，请核对订单号或补充客户、设备信息。",
           cards,
+          appliedFilters: [],
           total: matches.total,
           resultTruncated: matches.total > cards.length,
           now: dependencies.now,
@@ -329,6 +361,14 @@ export async function runAiOrderAssistantTurn({
           kind: "order_summary",
           message: `这是 RepairDesk 中 ${detail.order.public_no} 的当前状态。`,
           cards: [toAiOrderCard(detail.order)],
+          appliedFilters: [
+            {
+              key: "order_reference",
+              label: "工单",
+              value: detail.order.public_no,
+              evidence: "exact",
+            },
+          ],
           total: 1,
           resultTruncated: false,
           now: dependencies.now,
@@ -352,7 +392,7 @@ export async function runAiOrderAssistantTurn({
       status: auditStatusFor(error),
       errorCode: error.code,
       promptVersion: AI_ORDER_PLANNER_PROMPT_VERSION,
-      schemaVersion: AI_ASSISTANT_CONTRACT_VERSION,
+      schemaVersion: AI_ORDER_ASSISTANT_CONTRACT_VERSION,
       ...auditContext,
     });
     throw error;
@@ -363,7 +403,7 @@ export async function runAiOrderAssistantTurn({
     requestId,
     status: "succeeded",
     promptVersion: AI_ORDER_PLANNER_PROMPT_VERSION,
-    schemaVersion: AI_ASSISTANT_CONTRACT_VERSION,
+    schemaVersion: AI_ORDER_ASSISTANT_CONTRACT_VERSION,
     resultCount: response.cards.length,
     ...auditContext,
   });
@@ -371,34 +411,26 @@ export async function runAiOrderAssistantTurn({
   return response;
 }
 
-function reconcileTrustedDeviceSearch(
+function reconcileTrustedSearchConstraints(
   call: AiOrderToolCall,
-  trustedDeviceSearch: string | null,
+  trusted: Partial<Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]>,
 ): AiOrderToolCall {
-  if (!trustedDeviceSearch) return call;
+  if (Object.keys(trusted).length === 0) return call;
+  const enforced = {
+    ...trusted,
+    view: trusted.view ?? ("active" as const),
+  };
   if (call.name === "search_orders") {
     return aiOrderToolCallSchema.parse({
       ...call,
       arguments: {
         ...call.arguments,
-        search: null,
-        device_search: trustedDeviceSearch,
+        ...enforced,
+        ...(trusted.device_search ? { search: null } : {}),
       },
     });
   }
-  return aiOrderToolCallSchema.parse({
-    name: "search_orders",
-    arguments: {
-      search: null,
-      device_search: trustedDeviceSearch,
-      view: "active",
-      paid: "all",
-      overdue: null,
-      queue_group: null,
-      financial_review: null,
-      page_size: 8,
-    },
-  });
+  return aiOrderToolCallSchema.parse(searchCall(enforced));
 }
 
 function localModeClarification(locale: AiAssistantRequest["locale"]) {
@@ -503,6 +535,7 @@ function buildResponse({
   kind,
   message,
   cards,
+  appliedFilters,
   total,
   resultTruncated,
   now = () => new Date(),
@@ -511,15 +544,17 @@ function buildResponse({
   kind: AiOrderAssistantResponse["kind"];
   message: string;
   cards: AiOrderCard[];
+  appliedFilters: AiOrderAppliedFilter[];
   total: number;
   resultTruncated: boolean;
   now?: () => Date;
 }): AiOrderAssistantResponse {
   return {
     request_id: requestId,
-    contract_version: AI_ASSISTANT_CONTRACT_VERSION,
+    contract_version: AI_ORDER_ASSISTANT_CONTRACT_VERSION,
     kind,
     message,
+    applied_filters: appliedFilters,
     cards,
     total,
     result_truncated: resultTruncated,
@@ -528,7 +563,13 @@ function buildResponse({
   };
 }
 
-export function toAiOrderCard(order: OrderListItem): AiOrderCard {
+export function toAiOrderCard(
+  order: OrderListItem,
+  options: {
+    appliedFilters?: AiOrderAppliedFilter[];
+    canUseInlineActions?: boolean;
+  } = {},
+): AiOrderCard {
   const displayStatus = order.workflow_status ?? order.status;
   return {
     id: order.id,
@@ -538,8 +579,167 @@ export function toAiOrderCard(order: OrderListItem): AiOrderCard {
     status: displayStatus,
     status_label: getStatusMeta(displayStatus).label,
     updated_at: order.updated_at,
+    completed_at: order.completed_at ?? null,
+    parts_status: order.parts_status ?? null,
+    matched_reasons: (options.appliedFilters ?? []).map((filter) => filter.value).slice(0, 8),
+    allowed_actions: allowedInlineActions(order, Boolean(options.canUseInlineActions)),
     href: `/orders/${encodeURIComponent(order.id)}`,
   };
+}
+
+function searchCall(
+  overrides: Partial<Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]>,
+): AiOrderToolCall {
+  return {
+    name: "search_orders",
+    arguments: {
+      search: null,
+      device_search: null,
+      view: "active",
+      paid: "all",
+      overdue: null,
+      queue_group: null,
+      financial_review: null,
+      date_filter: null,
+      service_group: null,
+      completed_only: false,
+      parts_status: null,
+      page_size: 8,
+      ...overrides,
+    },
+  };
+}
+
+function buildAppliedFilters(
+  args: Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"],
+  resolvedDate: ReturnType<typeof resolveOrderDateFilter>,
+): AiOrderAppliedFilter[] {
+  const filters: AiOrderAppliedFilter[] = [];
+  if (args.device_search) {
+    filters.push({ key: "device", label: "设备", value: args.device_search, evidence: "exact" });
+  }
+  if (resolvedDate) {
+    filters.push({
+      key: "date",
+      label: "时间",
+      value: `${resolvedDate.periodLabel}（${resolvedDate.fieldLabel}）`,
+      evidence: "exact",
+    });
+  }
+  if (args.completed_only) {
+    filters.push({ key: "completed", label: "流程", value: "已完成", evidence: "exact" });
+  }
+  if (args.service_group) {
+    filters.push({
+      key: "service",
+      label: "维修项目",
+      value: `${serviceGroupLabel(args.service_group)}（依据报价项目）`,
+      evidence: "quoted",
+    });
+  }
+  if (args.parts_status) {
+    filters.push({
+      key: "parts",
+      label: "配件",
+      value: `${partsStatusLabel(args.parts_status)}（订单级标记）`,
+      evidence: "order_level",
+    });
+  }
+  if (args.paid !== "all") {
+    filters.push({
+      key: "payment",
+      label: "付款",
+      value: args.paid === "paid" ? "已付款" : "未付款",
+      evidence: "exact",
+    });
+  }
+  if (args.queue_group) {
+    filters.push({
+      key: "queue",
+      label: "队列",
+      value: queueGroupLabel(args.queue_group),
+      evidence: "exact",
+    });
+  }
+  if (args.overdue) {
+    filters.push({ key: "overdue", label: "时效", value: "已逾期", evidence: "exact" });
+  }
+  if (args.financial_review) {
+    filters.push({ key: "finance", label: "复核", value: "金额状态异常", evidence: "exact" });
+  }
+  return filters;
+}
+
+function allowedInlineActions(
+  order: OrderListItem,
+  enabled: boolean,
+): AiOrderCard["allowed_actions"] {
+  if (!enabled || order.parts_status !== "needed") return [];
+  if (
+    order.record_state === "voided" ||
+    Boolean(order.deleted_at) ||
+    order.status === "completed" ||
+    order.status === "cancelled" ||
+    order.workflow_status === "closed"
+  ) {
+    return [];
+  }
+  return [
+    {
+      action: "mark_parts_ordered",
+      label: "标记已订件",
+      description: "仅在您已向供应商完成下单后记录状态；RepairDesk 不会自动采购或付款。",
+      requires_confirmation: true,
+    },
+  ];
+}
+
+function serviceGroupLabel(
+  value: NonNullable<
+    Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]["service_group"]
+  >,
+) {
+  return (
+    {
+      display: "屏幕",
+      battery: "电池",
+      charging: "尾插",
+      camera: "摄像头",
+      liquid: "进水",
+      mainboard: "主板",
+      system: "系统",
+      "back-cover": "后盖",
+      face: "面容/指纹",
+      speaker: "扬声器",
+      microphone: "麦克风",
+      button: "按键",
+    } as const
+  )[value];
+}
+
+function partsStatusLabel(
+  value: NonNullable<
+    Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]["parts_status"]
+  >,
+) {
+  return { needed: "待订件", ordered: "配件已订", arrived: "配件已到", out_of_stock: "缺货" }[
+    value
+  ];
+}
+
+function queueGroupLabel(
+  value: NonNullable<
+    Extract<AiOrderToolCall, { name: "search_orders" }>["arguments"]["queue_group"]
+  >,
+) {
+  return {
+    processing: "处理中",
+    ordered: "配件已订",
+    arrived: "配件已到",
+    arrived_notified: "到货已通知",
+    repaired: "已维修",
+    repaired_notified: "已维修并通知",
+  }[value];
 }
 
 export function maskCustomerName(value: string) {

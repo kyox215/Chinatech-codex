@@ -8,6 +8,7 @@ import {
   isAiAssistantEnabled,
   isAiAssistantStoreEnabled,
   isAiDraftApplyEnabled,
+  isAiOrderInlineActionsEnabled,
   isAiOrderReadToolsEnabled,
   isAiPublicCustomerAssistantEnabled,
   isAiVisionIntakeEnabled,
@@ -40,6 +41,7 @@ describe("AI assistant feature flags", () => {
   it("fails closed for every capability", () => {
     expect(isAiAssistantEnabled({})).toBe(false);
     expect(isAiOrderReadToolsEnabled({ AI_ORDER_READ_TOOLS_ENABLED: "1" })).toBe(false);
+    expect(isAiOrderInlineActionsEnabled({ AI_ORDER_INLINE_ACTIONS_ENABLED: "1" })).toBe(false);
     expect(isAiVisionIntakeEnabled({ AI_VISION_INTAKE_ENABLED: "1" })).toBe(false);
     expect(isAiDraftApplyEnabled({ AI_DRAFT_APPLY_ENABLED: "1" })).toBe(false);
     expect(isAiPublicCustomerAssistantEnabled({ AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED: "1" })).toBe(
@@ -57,6 +59,13 @@ describe("AI assistant feature flags", () => {
   it("requires parent flags before child capabilities", () => {
     const enabled = { AI_ASSISTANT_ENABLED: "1" };
     expect(isAiOrderReadToolsEnabled({ ...enabled, AI_ORDER_READ_TOOLS_ENABLED: "1" })).toBe(true);
+    expect(
+      isAiOrderInlineActionsEnabled({
+        ...enabled,
+        AI_ORDER_READ_TOOLS_ENABLED: "1",
+        AI_ORDER_INLINE_ACTIONS_ENABLED: "1",
+      }),
+    ).toBe(true);
     expect(isAiVisionIntakeEnabled({ ...enabled, AI_VISION_INTAKE_ENABLED: "1" })).toBe(true);
     expect(
       isAiDraftApplyEnabled({

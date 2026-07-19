@@ -75,6 +75,10 @@ describe("FakeAiAssistantProvider", () => {
         overdue: null,
         queue_group: null,
         financial_review: "amount_anomaly",
+        date_filter: null,
+        service_group: null,
+        completed_only: false,
+        parts_status: null,
         page_size: 8,
       },
     });
@@ -93,6 +97,10 @@ describe("FakeAiAssistantProvider", () => {
         overdue: null,
         queue_group: null,
         financial_review: null,
+        date_filter: null,
+        service_group: null,
+        completed_only: false,
+        parts_status: null,
         page_size: 8,
       },
     });

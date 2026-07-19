@@ -147,7 +147,7 @@ describe("order assistant service", () => {
       expect.objectContaining({
         provider: "none",
         resolutionPath: "deterministic",
-        policyVersion: "order-direct-v3",
+        policyVersion: "order-direct-v4",
         requestKind: "order_text",
       }),
     );
@@ -245,6 +245,103 @@ describe("order assistant service", () => {
       total: 1,
       cards: [expect.objectContaining({ device_label: "Apple iPhone 15 Pro" })],
     });
+  });
+
+  it("resolves a combined month, device, completed, and quoted-screen query on the server", async () => {
+    const selected = order({
+      device_label: "Samsung A12",
+      completed_at: "2026-07-10T12:00:00.000Z",
+      fault_prices: [{ name: "屏幕", price: 120, catalog_key: "display:main" }],
+    });
+    const listOrdersPage = vi.fn(async () => result([selected], 1));
+
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: {
+        message: "今年这个月内有什么是三星 A12 的，处理过的，换过屏幕的",
+        locale: "zh-CN",
+        processing_mode: "local",
+      },
+      dependencies: {
+        provider: providerFor(searchCall()),
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+        now: () => new Date("2026-07-19T12:00:00.000Z"),
+      },
+    });
+
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceSearch: "Samsung a12",
+        view: "all",
+        dateField: "completed_at",
+        dateFrom: "2026-07-01",
+        dateTo: "2026-07-31",
+        repairServiceGroups: ["display"],
+        completedOnly: true,
+      }),
+      owner,
+    );
+    expect(response.applied_filters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "设备", value: "Samsung a12", evidence: "exact" }),
+        expect.objectContaining({ label: "时间", value: "本月（完成时间）" }),
+        expect.objectContaining({
+          label: "维修项目",
+          value: "屏幕（依据报价项目）",
+          evidence: "quoted",
+        }),
+      ]),
+    );
+    expect(response.message).toContain("不代表系统已确认实际更换");
+  });
+
+  it("treats today's parts wording as the current stored needed queue", async () => {
+    const listOrdersPage = vi.fn(async () => result([], 0));
+    const response = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "今天有哪些还未订配件需要我下单", locale: "zh-CN" },
+      dependencies: {
+        provider: providerFor(searchCall()),
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: enabledEnv,
+      },
+    });
+
+    expect(listOrdersPage).toHaveBeenCalledWith(
+      expect.objectContaining({ partsStatuses: ["needed"], dateFrom: undefined }),
+      owner,
+    );
+    expect(response.message).toContain("订单级配件标记");
+  });
+
+  it("emits a server-authorized action candidate only behind the owner write flag", async () => {
+    const needed = order({ parts_status: "needed" });
+    const common = {
+      provider: providerFor(searchCall({ parts_status: "needed" })),
+      listOrdersPage: vi.fn(async () => result([needed], 1)),
+      getOrder: vi.fn(),
+    };
+    const disabled = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "待订配件", locale: "zh-CN" },
+      dependencies: { ...common, env: enabledEnv },
+    });
+    const enabled = await runAiOrderAssistantTurn({
+      actor: owner,
+      input: { message: "待订配件", locale: "zh-CN" },
+      dependencies: {
+        ...common,
+        env: { ...enabledEnv, AI_ORDER_INLINE_ACTIONS_ENABLED: "1" },
+      },
+    });
+
+    expect(disabled.cards[0]?.allowed_actions).toEqual([]);
+    expect(enabled.cards[0]?.allowed_actions).toEqual([
+      expect.objectContaining({ action: "mark_parts_ordered", requires_confirmation: true }),
+    ]);
   });
 
   it("keeps an explicit local query off the provider and budget path", async () => {
@@ -1016,6 +1113,10 @@ function searchCall(
       overdue: null,
       queue_group: null,
       financial_review: null,
+      date_filter: null,
+      service_group: null,
+      completed_only: false,
+      parts_status: null,
       page_size: 8,
       ...overrides,
     },

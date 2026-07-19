@@ -349,7 +349,59 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
     );
   }
 
+  if (filters.completedOnly) {
+    result = result.filter((order) => Boolean(order.completed_at));
+  }
+
+  if (filters.repairServiceGroups?.length) {
+    const groups = new Set<string>(filters.repairServiceGroups);
+    result = result.filter((order) =>
+      order.fault_prices.some((line) => {
+        const catalog = resolveRepairServiceCatalogItem({
+          catalogKey: line.catalog_key,
+          name: line.name,
+        });
+        return Boolean(catalog && groups.has(catalog.groupKey));
+      }),
+    );
+  }
+
+  if (filters.dateField && (filters.dateFrom || filters.dateTo)) {
+    const timeZone = filters.dateTimeZone?.trim() || "Europe/Rome";
+    result = result.filter((order) => {
+      const value = order[filters.dateField!];
+      if (!value) return false;
+      const localDate = toOrderLocalCalendarDate(value, timeZone);
+      return (
+        (!filters.dateFrom || localDate >= filters.dateFrom) &&
+        (!filters.dateTo || localDate <= filters.dateTo)
+      );
+    });
+  }
+
+  if (filters.sortDateField) {
+    const field = filters.sortDateField;
+    return result.sort((left, right) => {
+      const byDate = String(right[field] ?? "").localeCompare(String(left[field] ?? ""));
+      return byDate || compareOrdersForQueue(left, right);
+    });
+  }
   return result.sort(compareOrdersForQueue);
+}
+
+function toOrderLocalCalendarDate(value: string, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const byType = new Map(parts.map((part) => [part.type, part.value]));
+  const year = byType.get("year");
+  const month = byType.get("month");
+  const day = byType.get("day");
+  if (!year || !month || !day) throw new Error("工单日期无法按门店时区解析");
+  return `${year}-${month}-${day}`;
 }
 
 function createWorkflowCounts(): Record<OrderWorkflowStatusCode | "all", number> {
@@ -1140,6 +1192,13 @@ export async function listOrdersPage(
     paid: input.paid,
     overdue: input.overdue,
     financialReview: input.financialReview,
+    dateField: input.dateField,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    dateTimeZone: input.dateTimeZone,
+    repairServiceGroups: input.repairServiceGroups,
+    completedOnly: input.completedOnly,
+    sortDateField: input.sortDateField,
   };
   const safeFilters = filtersForActor(filters, actor);
   const technicianMembershipId = isTechnicianActor(actor) ? actor?.activeMembershipId : undefined;
