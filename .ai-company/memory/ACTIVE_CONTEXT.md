@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-20T18:59:37Z"
+last_checkpoint_at: "2026-07-20T19:07:00Z"
 checkpoint_required: true
 last_rehydrated_at: null
 ---
@@ -20,17 +20,17 @@ last_rehydrated_at: null
 
 ## Current state
 
-本任务从远端 `main` 的 `19f420717709991ed9f055124bdb9eb08934bcdd` 建立独立工作树。产品规划已由 Owner 批准；三名只读部门 Agent 正在复核 DATA/架构、SEC/隐私和 QA/UX。尚未应用生产迁移或发布本任务代码。
+本任务从远端 `main` 的 `19f420717709991ed9f055124bdb9eb08934bcdd` 建立独立工作树。产品规划已由 Owner 批准；三名只读部门 Agent 已完成或正在完成 DATA/架构、SEC/隐私和 QA/UX 复核。生产已应用但 main 缺失的 AI 账本热修复 `20260720065246` 正作为强制前置整合；尚未应用智能 QR migration 或发布本任务功能。
 
 ## Blocking decisions
 
 - Owner 已明确批准推送和应用；无需再次请求普通发布授权。
-- 生产 Supabase 的 migration history 与 `db push --dry-run` 是硬门禁；任何历史漂移或未审 migration 都会停止数据库 apply。
+- 生产 Supabase 的 migration history 与 `db push --dry-run` 是硬门禁；智能 QR migration 创建和应用前必须把已验证的 `20260720065246` 完整分支整合并重新证明 parity。
 - 公开客户投影、同店员工授权、QR 打印准备和完整质量门禁必须通过后才能发布。
 
 ## Next action
 
-完成 linked migration gate，整合三路只读审查，实施 hash-only token 表、公开/员工 API、`/r` 页面与异步打印 QR，再运行完整验证和序列化生产发布。
+完成前置热修复分支 merge，确认 linked migration list/dry-run up to date，实施 hash-only token 表、公开/员工 API、`/r` 页面与异步打印 QR，再运行完整验证和序列化生产发布。
 
 ## Resume protocol
 

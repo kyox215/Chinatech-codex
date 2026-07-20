@@ -4,16 +4,16 @@ Last updated: 2026-07-20
 
 ## Current release boundary
 
-P0-P5 has a verified implementation path. Its first six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc`, and implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `main` on 2026-07-18. A seventh forward-only migration now defines lifecycle contract v2, the database writer fence and live close-blocker recheck. It must pass a new linked dry-run and apply with all flags off before browser mutations can be enabled. This does **not** authorize a production store mutation, worker activation or permanent purge.
+P0-P5 has a verified implementation path. Its first six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc`, and implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `main` on 2026-07-18. The seventh forward-only migration defines lifecycle contract v2, the database writer fence and live close-blocker recheck and is now present in production history. That generic fence exposed a mixed-scope compatibility defect in the AI usage bucket table; the eighth forward repair is now production-applied and passed catalog/ACL/aggregate checks, a single order-text canary and 15 minutes of observation. This does **not** authorize a production store mutation, worker activation or permanent purge.
 
-| Phase | Implemented and locally verified                                                                                                                                                         | Production gate still required                                                                             |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| P0    | Primary-owner-only immutable UUID preflight; PII-free row counts, financial/custody/Kiosk/invitation blockers, Storage summary, revision-bound snapshot                                  | Re-run against the exact linked project and target UUID                                                    |
-| P1    | Structured order-data access reason codes and Settings explanation                                                                                                                       | Keep order-data export/apply permissions and flags unchanged unless separately approved                    |
-| P2    | Recent TOTP/AAL2 challenge issuer, one-use challenge, primary-owner-only atomic full workspace rename, revision CAS, idempotency, audit, Settings UI                                     | `STORE_LIFECYCLE_MUTATIONS_ENABLED` remains off until migration and release approval                       |
-| P3    | Atomic close, one-hour drain, archive finalizer, restore, invitation/Kiosk revocation, ordinary API/Kiosk/invite/offline write gates, Settings UI                                        | Enforcement flag remains off; run linked gate tests before enabling                                        |
-| P4    | Catalog-driven database and UUID-prefixed Storage export, deterministic DB/Storage/artifact hashes, encrypted sink contract, isolated restore comparison and durable proof               | Select and approve the real encrypted sink/KMS, retention, access logging and isolated restore environment |
-| P5    | Approval-locked schedule, leased/resumable worker, Storage-first deletion, FK ordering and cycle break, checkpoints/retry, other-tenant guard, zero residual proof and non-PII tombstone | Purge scheduling and worker flags remain off; exact target and second irreversible approval are mandatory  |
+| Phase | Implemented and locally verified                                                                                                                                                            | Production gate still required                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| P0    | Primary-owner-only immutable UUID preflight; PII-free row counts, financial/custody/Kiosk/invitation blockers, Storage summary, revision-bound snapshot                                     | Re-run against the exact linked project and target UUID                                                    |
+| P1    | Structured order-data access reason codes and Settings explanation                                                                                                                          | Keep order-data export/apply permissions and flags unchanged unless separately approved                    |
+| P2    | Recent TOTP/AAL2 challenge issuer, one-use challenge, primary-owner-only atomic full workspace rename, revision CAS, idempotency, audit, Settings UI                                        | `STORE_LIFECYCLE_MUTATIONS_ENABLED` remains off until migration and release approval                       |
+| P3    | Atomic close, one-hour drain, archive finalizer, restore, invitation/Kiosk revocation, ordinary API/Kiosk/invite/offline write gates, Settings UI, and verified AI-reservation close barrier | Keep lifecycle mutations off until separately approved; recheck reservations before any live close        |
+| P4    | Catalog-driven database and UUID-prefixed Storage export, deterministic DB/Storage/artifact hashes, encrypted sink contract, isolated restore comparison and durable proof                  | Select and approve the real encrypted sink/KMS, retention, access logging and isolated restore environment |
+| P5    | Approval-locked schedule, leased/resumable worker, Storage-first deletion, FK ordering and cycle break, checkpoints/retry, other-tenant guard, zero residual proof and non-PII tombstone    | Purge scheduling and worker flags remain off; exact target and second irreversible approval are mandatory  |
 
 There is deliberately no browser permanent-delete button. The browser can rename, request reversible close and restore only when the mutation flag is enabled and recent TOTP succeeds. Export and purge run through service workers.
 
@@ -28,6 +28,7 @@ Applied after linked dry-run approval, in this exact order:
 5. `20260717201729_store_export_restore_proof.sql`
 6. `20260717201730_store_purge_executor_control.sql`
 7. `20260720013000_store_lifecycle_business_fence_and_close_recheck.sql`
+8. `20260720065246_ai_usage_bucket_store_fence_hotfix.sql` — production-applied and postchecked
 
 The chain is additive until a separately approved purge job reaches its final worker steps. The sixth migration contains deletion RPCs, but they are callable only by `service_role`, require an approved/leased job and remain unreachable while purge flags are off.
 
@@ -58,6 +59,8 @@ Release order is migration first with every flag off, then application deploy wi
 Recoverable close is blocked while preflight reports open orders, unsettled balance or shop custody. Pending invitations and open Kiosk sessions are shown as automatic close effects and are revoked inside the close transaction, rather than asking a beginner to resolve them manually. Legal/retention holds and complete Storage proof remain gates for export/purge, not for reversible close.
 
 The owner confirms the final eight hex characters shown beside the full “店铺唯一编号”; the application sends the already-bound current workspace name for backward RPC compatibility instead of asking the user to type it again. Ordinary tenant writes take a shared per-store transaction lock. The atomic close RPC takes the exclusive lock, waits for in-flight writes, rechecks live order/balance/custody blockers, consumes the preflight-bound AAL2 challenge, moves `active -> closing`, sets an immediate access cutoff and a minimum one-hour archive time, and revokes invitations, invite links, Kiosk sessions, device tokens and pairing codes.
+
+After migration `20260720065246`, the same exclusive lock also checks the private AI request ledger before leaving `active`. Any `state='reserved'` request, including an expired request not yet swept, returns the existing `STORE_LIFECYCLE_BLOCKED` contract with a PII-free `{"ai_usage_reserved":true}` detail and rolls back the complete close transaction. The operator must wait for finalize, pre-dispatch release or stale settlement, then repeat a fresh preflight/close attempt. The close flow must never force-delete or ignore an unresolved reservation.
 
 During `closing` and `archived`:
 
@@ -118,6 +121,14 @@ Final local quality evidence:
 - `npm audit --omit=dev --json`: 0 production vulnerabilities.
 - mobile Settings Playwright flow: passed at 390x844, with no horizontal overflow; evidence is `screenshots/store-lifecycle-actions-mobile.png`.
 
+AI fence forward-repair evidence (`TASK-20260720-006`):
+
+- PostgreSQL 17 applied the two existing AI governance migrations and `20260720065246` twice, then passed real order/vision reserve, finalize, release, stale settlement, global identity and lifecycle assertions.
+- Two database sessions covered both lock orders: reserve-first kept lifecycle `active/revision 1` and rejected close; close-first committed `closing/revision 2` and rejected reserve with no global/store/actor/request half-write.
+- Production preflight found zero open reservations, zero non-active-store reservations and zero expired reservations.
+- Owner approved and linked apply added exactly `20260720065246`; both expected trigger bindings, function ACLs, RLS and browser grants passed postcheck, and the final dry-run reports the remote database is up to date.
+- One non-PII order-text canary returned HTTP 200 with one provider attempt and `130 micro-USD` settlement; 15 minutes / 16 polls remained at zero open, bad, cross-store, reserved, overrun and runtime-error thresholds.
+
 The disposable validation database and transaction script were removed after the rollback proof.
 
 Production post-apply checks: 7 stores / 7 active lifecycle rows / 0 missing; 0 lifecycle tables without RLS; 0 browser table or function grants; 26 lifecycle functions; 1 initialization trigger; 0 export/purge jobs; 0 non-UUID purge `store_id` tables; 0 unhandled RESTRICT/NO ACTION edges; linked public-schema error-level lint passed.
@@ -128,9 +139,11 @@ Before any production apply:
 
 1. Confirm the exact Supabase project ref and current Git commit/branch.
 2. Compare linked migration history and run a linked dry-run.
-3. Review the exact new migration, all seven migration-history entries, grants, RLS, trigger coverage and function owners.
-4. Apply with all lifecycle flags off.
-5. Verify lifecycle backfill:
+3. Review the seven existing lifecycle migration-history entries plus the exact new repair, grants, RLS, trigger coverage and function owners.
+4. For the AI compatibility repair, confirm `reserved=0`, non-active-store `reserved=0` and expired `reserved=0`; obtain Owner approval for exactly `20260720065246`, then apply without changing lifecycle or AI flags.
+5. Verify the AI usage-bucket trigger is bound to `repairdesk_enforce_ai_usage_bucket_store_write`, the lifecycle transition trigger is bound to `repairdesk_block_store_transition_with_reserved_ai_usage`, and neither trigger function is executable by `anon` or `authenticated`.
+6. Apply other lifecycle changes with all lifecycle flags off.
+7. Verify lifecycle backfill:
 
 ```sql
 select phase, count(*) from public.store_lifecycles group by phase;
@@ -141,11 +154,11 @@ left join public.store_lifecycles lifecycle on lifecycle.store_id = store_row.id
 where lifecycle.store_id is null;
 ```
 
-6. Confirm `anon`/`authenticated` have no control-table grants and lifecycle/purge RPC execution is `service_role` only.
-7. Enable enforcement first and exercise browser GET/POST, direct database, invite, Kiosk, offline and background rejection paths while mutations remain off.
-8. Only after enforcement proof, enable mutations on a disposable non-production store and run P0, rename, close, context switch, unknown-result lookup and restore.
-9. Configure and test a real encrypted sink and isolated restore before enabling export proof for a real target.
-10. Require a new exact Owner approval before scheduling any purge.
+8. Confirm `anon`/`authenticated` have no control-table grants and lifecycle/purge RPC execution is `service_role` only.
+9. Enable enforcement first and exercise browser GET/POST, direct database, invite, Kiosk, offline and background rejection paths while mutations remain off.
+10. Only after enforcement proof, enable mutations on a disposable non-production store and run P0, rename, close, context switch, unknown-result lookup and restore.
+11. Configure and test a real encrypted sink and isolated restore before enabling export proof for a real target.
+12. Require a new exact Owner approval before scheduling any purge.
 
 ## Target warning
 
