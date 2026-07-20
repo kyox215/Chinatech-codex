@@ -268,6 +268,12 @@ Device custody and unlock credentials are independent facts. Browser roles still
 
 `TASK-20260717-employee-invite-registration` is the current authority for employee email invitations. Supabase Invite/Magic Link establishes a verified session only; the current Auth email must match an active, unexpired, non-owner business invitation and the service-role-only RPC must accept it atomically before any store access exists. Email GET pages never consume one-time tokens. Hosted Auth changes must preserve live MFA/OTP/redirect configuration. See `docs/EMPLOYEE_INVITE_REGISTRATION_RUNBOOK.md`.
 
+## Customer repair status smart QR
+
+`TASK-20260720-003-smart-print-qr` and `docs/CUSTOMER_REPAIR_STATUS_QR.md` are the production authority for printed customer repair-status QR behavior. Every standard or batch ticket receives one fixed-origin `/r#<opaque-token>` link; only the SHA-256 digest persists and the public projection excludes customer identity, contact, device identifiers, diagnosis/notes, finance, internal IDs and attachments. Authorized staff resolve the same token only after server-side actor/store/order checks. Issue/rotation/audit and revoke/audit are service-role-only atomic UUID RPCs with same-store FK, order locking, one-unrevoked-link invariant and lifecycle-revision invalidation.
+
+Production migration `20260720190759` and feature application `main@24190b26` are live. Public requests are no-store/noindex, rate limited by atomic IP/global prechecks plus a live-token bucket, and production trusts only Vercel's normalized forwarding header. Rollback disables `CUSTOMER_STATUS_QR_ENABLED` and promotes the prior compatible deployment while retaining additive link/audit history. Physical Safari + HP paper output and phone scan remain a device-specific owner check, not a software-release claim.
+
 ## Review triggers
 
 - New architecture, UI standard, Supabase schema, security, payment, messaging, or customer data rule.

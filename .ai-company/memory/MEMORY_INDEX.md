@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260720-003-smart-print-qr](tasks/TASK-20260720-003-smart-print-qr/TASK.md): Closed production release restoring one smart QR per standard/batch repair ticket, with privacy-minimized customer status, authorized staff resolution, UUID-bound atomic link lifecycle, abuse controls, exact database/main/Vercel proof and fail-closed print preparation. Physical Safari + HP + phone scan remains the owner device check.
+
 - [TASK-20260720-006-ai-ledger-fence-hotfix](tasks/TASK-20260720-006-ai-ledger-fence-hotfix/TASK.md): Production repair is live and observed: exact migration `20260720065246`, one non-PII order-text canary at 130 micro-USD and 15 minutes / 16 zero-threshold polls passed. Closeout is conditional only because the remote hotfix branch must still enter `main` before the next database release.
 
 - [TASK-20260720-001-customer-simple-workbench](tasks/TASK-20260720-001-customer-simple-workbench/TASK.md): Closed production customer workbench simplification with four URL-backed list groups, five stable detail groups, desktop/mobile/tablet density, two-step external messaging, browser-field minimization, three independent reviews, 8/8 responsive E2E and authenticated production smoke. Application release is live; linked database application remains NO-GO.

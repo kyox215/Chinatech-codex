@@ -36,3 +36,14 @@
 - **Correction:** link `order_id`, issue JSON recordset casts and revoke RPC parameter/signature now use UUID end to end. The SQL text test explicitly asserts UUID.
 - **Recovery evidence:** a clean PostgreSQL 17 fixture with UUID order IDs applied the full migration. Two concurrent issue sessions left one unrevoked link and two audits; forced audit failure rolled back; revoke+audit, RLS/grants and combined limiter invariants passed.
 - **Next:** rerun focused/full code gates and linked dry-run, amend the unpublished commit, then retry only `20260720190759`.
+
+## 2026-07-20T21:00:19Z — Production release closed
+
+- **Phase:** released and production verified.
+- **Database:** corrected migration 20260720190759 applied; linked history aligns and live catalog/ACL/RLS/index/function postchecks pass.
+- **Application:** origin/main includes feature commit 24190b26a9a23994fc90c3c5b2e07c4337a35865; exact Vercel deployment dpl_J8AFvJEJTb9D9zikWizy42s79Dv5 is READY on both production aliases.
+- **Configuration:** Production feature flag and rate-limit secret are present and encrypted; no secret value was printed, committed or copied into evidence.
+- **Smoke:** /r returns 200 with the required security headers; invalid public token returns 404; unauthenticated issue/staff-resolve return 401; scoped production error scan is empty.
+- **Residual:** physical Safari + HP preview/paper print + phone scan remains an owner device check; batch size 50 was not browser-stressed and remains P2.
+- **Rollback:** turn off CUSTOMER_STATUS_QR_ENABLED and promote the prior compatible Vercel deployment; keep the additive database history.
+- **State:** task closed. No production data mutation beyond the additive reviewed schema occurred.

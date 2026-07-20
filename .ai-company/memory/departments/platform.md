@@ -34,6 +34,7 @@ as owner of this file.
 - `TASK-20260717-007-store-lifecycle-implementation` verified that `origin/main` includes implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` and that linked Supabase project `xluzcoduqsdvjoouqhkc` contains the six migrations. The five runtime flags remain off; this release included no direct feature activation or store mutation.
 
 - `TASK-20260720-001-customer-simple-workbench` production-verifies Vercel deployment `dpl_9HagYhzCkwCeGE4rf1UEjHypTjm5` as Ready with authenticated desktop and 390px mobile smoke. The application-only release performed no database write; the linked Supabase migration-history mismatch remains a hard database NO-GO.
+- `TASK-20260720-003-smart-print-qr` production-verifies Supabase migration `20260720190759`, application `main@24190b26` and READY Vercel deployment `dpl_J8AFvJEJTb9D9zikWizy42s79Dv5` on both production aliases. Encrypted Production variables enable the feature and HMAC-derived limiter identity without storing their values in repository evidence. Public/header/auth-boundary smoke and scoped error-log checks passed. Flags-first rollback keeps the additive database history.
 
 ## Interfaces and dependencies
 
@@ -76,3 +77,4 @@ as owner of this file.
 | 2026-07-17 | Recorded Owner-linked exact-SHA Vercel production release, contained identity failure, auth-boundary smoke and clean runtime observation | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + release reviewers | scoped_verified |
 | 2026-07-17 | Recorded DB-first custody release, official Vercel queue incident handling, exact-SHA CLI deployment and clean runtime smoke | TASK-20260716-005-device-custody-status-implementation | Integration Lead + release reviewers | scoped_verified |
 | 2026-07-20 | Recorded the Ready customer-workbench deployment, authenticated desktop/mobile smoke, direct-main integration and unchanged database boundary | TASK-20260720-001-customer-simple-workbench | Integration Lead + release reviewers | production_verified_app_only |
+| 2026-07-20 | Recorded UUID migration apply, encrypted feature configuration, exact feature-SHA READY deployment, public/auth smoke and flags-first rollback | TASK-20260720-003-smart-print-qr | Integration Lead + release reviewers | production_verified |

@@ -1,6 +1,6 @@
 # Customer Repair Status QR
 
-Status: active
+Status: production
 Owner: Integration Lead + Security
 Last verified: 2026-07-20 CEST
 

@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260720-003-smart-print-qr"
 title: "打印单双用途智能 QR 与客户进度入口"
-status: "release_ready"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "DATA", "SEC", "UX", "FE", "API", "QA", "INT"]
 created_at: "2026-07-20T18:59:37Z"
-updated_at: "2026-07-20T20:41:49Z"
+updated_at: "2026-07-20T21:00:19Z"
+closed_at: "2026-07-20T21:00:19Z"
 ---
 
 # Owner goal
@@ -87,3 +88,11 @@ updated_at: "2026-07-20T20:41:49Z"
 - Use synthetic order data only.
 - Capture desktop/mobile public status states plus standard/batch print PDFs and print-media screenshots.
 - Production screenshots must not contain real customer PII, tokens, credentials or internal UUIDs.
+
+# Closeout
+
+- Feature application commit: 24190b26a9a23994fc90c3c5b2e07c4337a35865 on origin/main.
+- Production database migration 20260720190759 is applied and postchecked.
+- Exact feature deployment dpl_J8AFvJEJTb9D9zikWizy42s79Dv5 is READY on both production aliases.
+- Production public, invalid-token and unauthenticated staff boundaries passed with no scoped runtime errors.
+- Remaining owner check is device-specific Safari + HP print preview/paper output + phone scan; it is not a software release blocker.
