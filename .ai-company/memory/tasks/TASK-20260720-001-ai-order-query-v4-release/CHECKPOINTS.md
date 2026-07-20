@@ -29,3 +29,13 @@
 - **Agent decision:** no sub-agent spawn because the platform-level rule requires an explicit sub-agent request; implementation and reviews were performed by the Integration Lead.
 - **Risks/blockers:** no product blocker. `origin/main` advanced by one disjoint order-detail commit, so rebase and post-rebase gates are required under the integration lease.
 - **Next:** acquire integration lease, commit/rebase, validate exact diff, push `main`, deploy exact SHA and run production smoke/observation.
+
+## 2026-07-19T23:56:23Z — Production release and closeout checkpoint
+
+- **Phase:** production-released and ready to close.
+- **Completed:** integration lease held; two concurrent order-detail releases preserved through clean rebases; business commit `321834c87cfe75a64159f17c4e8cc9a4d0797d4d` non-force pushed to `main`; Vercel `dpl_5UigWH51jjD2HmgTh58GpLLNfQ8X` reached READY at the exact SHA and owns both production aliases.
+- **Production smoke:** `www` and bare login 200; manifest 200; exact deployment login 200; anonymous capabilities and order-turn 401; error/fatal/5xx log scans empty. No authenticated customer record or billable provider call was used.
+- **Boundaries preserved:** no migration, SQL, data write, feature/env/secret/model/budget/allowlist change; inline actions and public AI remain off.
+- **Rollback:** promote prior READY deployment `dpl_81tzbecdBxBKrjZwSeApdSuQAGBq` and revert `321834c8`; no data rollback is required.
+- **Residual risk:** natural-language ontology remains intentionally finite; authenticated production UI was not opened to avoid exposing customer data. Local masked screenshots plus exact-SHA production boundary smoke are the visual/release evidence.
+- **Next:** commit and push this documentation-only closeout, confirm the final deployment state, close orchestration registry records and release the lease.

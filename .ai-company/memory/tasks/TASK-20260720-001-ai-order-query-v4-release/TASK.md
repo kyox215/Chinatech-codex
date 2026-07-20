@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260720-001-ai-order-query-v4-release"
 title: "AI 自然语言订单查询 V4 第一发布包"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "鹤祥"
 departments: ["API", "ARCH", "DOC", "FE", "FLOW", "INT", "QA", "SEC"]
 created_at: "2026-07-19T22:39:43Z"
-updated_at: "2026-07-19T23:40:42Z"
+updated_at: "2026-07-19T23:56:23Z"
 ---
 
 # Task — AI 自然语言订单查询 V4 第一发布包
@@ -59,18 +59,19 @@ AI 自然语言订单查询 V4 第一发布包
 - [x] 查询结果可在当前对话连续加载；续页绑定同一 actor/store/计划且不再次调用 provider 或扣付费额度。
 - [x] 每批与累计数量、实际范围、精确日期和条件来源可见；只有显式点击才跳转订单。
 - [x] 生产写操作、公共客户 AI、模型预算、密钥和数据库结构保持不变。
-- [ ] lint、typecheck、test、build、目标 E2E、安全审查和生产 smoke 通过后才关闭。
+- [x] lint、typecheck、test、build、目标 E2E、安全审查和生产 smoke 通过后才关闭。
 
 ## Facts, assumptions, and unknowns
 
-| Item                                                            | Type                    | Evidence                                                         | Status / next action          |
-| --------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------------- | ----------------------------- |
-| V3 model plan is rebuilt entirely from local trusted extraction | observed                | `order-assistant.service.ts:461-495`                             | root cause confirmed          |
-| UI request locale is hard-coded `zh-CN`                         | observed                | `ai-assistant-sheet.tsx:192`                                     | replace with bounded resolver |
-| Search always requests page 1                                   | observed                | `order-assistant.service.ts:308-331`                             | add signed continuation       |
-| Structured Outputs validates shape, not business truth          | external fact           | official OpenAI Structured Outputs guide                         | keep server semantic compiler |
-| Existing production key and HMAC secret configuration           | observed without values | server env presence gate                                         | reuse; never expose           |
-| Database changes needed                                         | observed false          | current `OrderListPageInput` already supports page/filter inputs | no migration                  |
+| Item                                                             | Type                    | Evidence                                                          | Status / next action            |
+| ---------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------- | ------------------------------- |
+| V3 model plan was rebuilt entirely from local trusted extraction | observed                | `order-assistant.service.ts`                                      | resolved by evidence compiler   |
+| UI request locale was hard-coded `zh-CN`                         | observed                | `ai-assistant-sheet.tsx`                                          | resolved by locale resolver     |
+| Search previously always requested page 1                        | observed                | `order-assistant.service.ts`                                      | resolved by sealed continuation |
+| Structured Outputs validates shape, not business truth           | external fact           | official OpenAI Structured Outputs guide                          | keep server semantic compiler   |
+| Existing production key and HMAC secret configuration            | observed without values | server env presence gate                                          | reuse; never expose             |
+| Database changes needed                                          | observed false          | current `OrderListPageInput` already supports page/filter inputs  | no migration                    |
+| Production release                                               | observed                | `origin/main@321834c8`; Vercel `dpl_5UigWH51jjD2HmgTh58GpLLNfQ8X` | READY and smoke passed          |
 
 ## Decision and approval points
 

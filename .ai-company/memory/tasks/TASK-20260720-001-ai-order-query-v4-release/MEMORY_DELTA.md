@@ -2,8 +2,8 @@
 
 ## Candidate project facts
 
-- **Fact:** Order Query V4 uses evidence-backed model candidates, local trusted precedence and provider-free signed/encrypted continuation. **Source:** E-008/E-013. **Status:** implemented, pending production verification. **Owner:** RepairDesk Integration Lead. **Scope:** staff order assistant only. **Review trigger:** contract, provider, RBAC, repository or continuation-secret changes.
-- **Fact:** The release evaluation corpus is `order-query-eval-v1` with 417 zh/it/en cases. **Source:** E-009. **Status:** verified locally. **Owner:** QA. **Scope:** order-query parsing and evidence compilation. **Review trigger:** new locale, ontology, date expression or prompt version.
+- **Fact:** Order Query V4 uses evidence-backed model candidates, local trusted precedence and provider-free signed/encrypted continuation. **Source:** E-008/E-013/E-017. **Status:** production verified at `321834c8`. **Owner:** RepairDesk Integration Lead. **Scope:** staff order assistant only. **Review trigger:** contract, provider, RBAC, repository or continuation-secret changes.
+- **Fact:** The release evaluation corpus is `order-query-eval-v1` with 417 zh/it/en cases. **Source:** E-009/E-012. **Status:** release-gate verified. **Owner:** QA. **Scope:** order-query parsing and evidence compilation. **Review trigger:** new locale, ontology, date expression or prompt version.
 
 ## Candidate department updates
 
