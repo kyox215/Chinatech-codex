@@ -34,3 +34,22 @@ All screenshots use the repository mock/E2E fixture and contain no production cr
 - No API, database, migration, permission, payment, workflow, or mobile-detail files changed.
 - Rollback is a single task commit revert; no data rollback is required.
 
+## Production release evidence
+
+- Git production commit: `8dc70c7ccd87a8bde77ff113f334e288068b771b`.
+- Vercel deployment: `dpl_G4X3EwapfxHPdkcnhyHEsbCt1oDK`.
+- Final state: `READY`, target `production`, `aliasError: null`.
+- Active aliases: `chinatech.in`, `www.chinatech.in`.
+- `/orders` runtime errors during the 15-minute release window: none.
+- Authenticated production smoke:
+  - order-detail root width: `998px`;
+  - viewport horizontal overflow: `0px`;
+  - overview three-card top spread: `0px`;
+  - overview three-card bottom spread: `0px`;
+  - responsibility cards: `454px` each with width/top/bottom spread `0px`;
+  - control row and record group: shared `920px` boundary with left/right spread `0px`;
+  - key-information fields: two aligned columns of `447px`;
+  - timeline: three rows, shared `920px` boundary, dialog overflow `0px`;
+  - browser console warnings/errors: `0`.
+
+Production screenshots were not persisted because the authenticated page contains customer information. The committed mock/E2E screenshots are the visual closeout evidence and contain no real customer PII.

@@ -2,13 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260720-004-order-detail-alignment-polish"
 title: "订单详情桌面对齐与布局秩序优化"
-status: "verified"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["INT", "UX", "FE", "QA"]
 created_at: "2026-07-20T00:00:00+02:00"
+closed_at: "2026-07-20T02:55:15+02:00"
 ---
 
 # Owner goal
@@ -63,5 +64,6 @@ created_at: "2026-07-20T00:00:00+02:00"
 
 # Current phase
 
-- Implementation and quality gates are complete.
-- Next action: push the rebased task branch, integrate to `main`, observe the exact production deployment, and run a production `/orders` smoke check before closing.
+- Closed after implementation, full quality gates, production deployment, runtime observation, and authenticated read-only `/orders` smoke verification.
+- Production commit: `8dc70c7ccd87a8bde77ff113f334e288068b771b`.
+- Production deployment: `dpl_G4X3EwapfxHPdkcnhyHEsbCt1oDK` (`READY`).
