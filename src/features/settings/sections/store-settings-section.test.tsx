@@ -42,7 +42,9 @@ describe("StoreSettingsSectionContent", () => {
     const onCreateStore = vi.fn();
     const view = renderStore({ onDraftChange, onCreateStore });
 
-    fireEvent.change(screen.getByLabelText("店铺名"), { target: { value: "Repair Lab Due" } });
+    fireEvent.change(screen.getByLabelText("收据和客户消息显示名称"), {
+      target: { value: "Repair Lab Due" },
+    });
     expect(onDraftChange).toHaveBeenCalledWith({ store_name: "Repair Lab Due" });
     fireEvent.change(screen.getByLabelText("客户门户域名"), {
       target: { value: "https://repair.example.test" },

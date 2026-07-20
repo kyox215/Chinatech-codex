@@ -1,6 +1,7 @@
 import type { StoreLifecyclePhase } from "@/lib/repairdesk/types";
 import { ForbiddenError } from "@/server/auth-context";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { isStoreLifecycleEnforcementEnabled } from "./store-lifecycle-feature-flags";
 
 export async function readStoreLifecyclePhase(storeId: string): Promise<StoreLifecyclePhase> {
   const { data, error } = await getSupabaseAdmin()
@@ -9,7 +10,12 @@ export async function readStoreLifecyclePhase(storeId: string): Promise<StoreLif
     .eq("store_id", storeId)
     .maybeSingle();
   if (error) {
-    if (isLifecycleTableUnavailable(error)) return "active";
+    if (isLifecycleTableUnavailable(error) && !isStoreLifecycleEnforcementEnabled()) {
+      return "active";
+    }
+    if (isLifecycleTableUnavailable(error)) {
+      throw new ForbiddenError("店铺写入保护尚未准备完成，当前操作不可用");
+    }
     throw new Error(`读取店铺生命周期失败：${error.message}`);
   }
   return data?.phase === "active" ||

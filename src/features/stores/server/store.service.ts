@@ -22,6 +22,7 @@ export {
   createStoreLifecyclePreflight,
   finalizeDueStoreArchive,
   getStoreLifecycleState,
+  getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   prepareStoreExport,
   renameStoreWorkspace,

@@ -54,23 +54,25 @@ import {
 } from "./repairdesk-router";
 
 describe("repairdesk router pending-store access", () => {
-  it("allows only POST stores/create under stores", () => {
+  it("allows identity, switch, create, and lifecycle recovery routes without an active store", () => {
     expect(allowsPendingStore("stores/create", "POST")).toBe(true);
     expect(allowsPendingStore("stores/create", "GET")).toBe(false);
-    expect(allowsPendingStore("stores/context", "GET")).toBe(false);
+    expect(allowsPendingStore("stores/context", "GET")).toBe(true);
     expect(allowsPendingStore("stores/members", "GET")).toBe(false);
     expect(allowsPendingStore("stores/members/update-role", "POST")).toBe(false);
     expect(allowsPendingStore("stores/members/disable", "POST")).toBe(false);
     expect(allowsPendingStore("stores/members/restore", "POST")).toBe(false);
     expect(allowsPendingStore("stores/access-requests", "GET")).toBe(false);
-    expect(allowsPendingStore("stores/switch", "POST")).toBe(false);
+    expect(allowsPendingStore("stores/switch", "POST")).toBe(true);
+    expect(allowsPendingStore("stores/lifecycle/state", "POST")).toBe(true);
+    expect(allowsPendingStore("stores/lifecycle/challenge", "POST")).toBe(true);
+    expect(allowsPendingStore("stores/lifecycle/restore", "POST")).toBe(true);
   });
 
   it("does not allow public store discovery endpoints before active store", () => {
     for (const path of [
       "stores/list",
       "stores/search",
-      "stores/context",
       "stores/members",
       "stores/access-requests",
       "onboarding/stores",
@@ -78,6 +80,7 @@ describe("repairdesk router pending-store access", () => {
       expect(allowsPendingStore(path, "GET")).toBe(false);
       expect(allowsPendingStore(path, "POST")).toBe(false);
     }
+    expect(allowsPendingStore("stores/context", "GET")).toBe(true);
   });
 
   it("uses an exact allowlist for setup endpoints before active store", () => {

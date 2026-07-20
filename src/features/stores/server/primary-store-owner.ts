@@ -50,3 +50,27 @@ export async function assertPrimaryStoreOwner(actor: AuditActor) {
   }
   return { actorId: access.actorId, storeId: access.storeId };
 }
+
+export async function assertPrimaryStoreOwnerForStore(expectedStoreId: string, actor: AuditActor) {
+  if (!actor.id || actor.isSystem) {
+    throw new ForbiddenError("需要登录店铺主账号后才能继续");
+  }
+  const membership = [...(actor.stores ?? []), ...(actor.recoveryStores ?? [])].find(
+    (store) => store.id === expectedStoreId,
+  );
+  if (!membership || membership.status !== "active" || membership.role !== "owner") {
+    throw new ForbiddenError("只有这家店铺的主账号可以执行此操作");
+  }
+
+  const { data, error } = await getSupabaseAdmin()
+    .from("stores")
+    .select("id, owner_user_id, status")
+    .eq("id", expectedStoreId)
+    .maybeSingle();
+  if (error) throw new Error(`读取店铺所有者失败：${error.message}`);
+  if (!data || data.status !== "active") throw new ForbiddenError("店铺不可用");
+  if (!data.owner_user_id || data.owner_user_id !== actor.id) {
+    throw new ForbiddenError("只有这家店铺的主账号可以执行此操作");
+  }
+  return { actorId: actor.id, storeId: expectedStoreId };
+}

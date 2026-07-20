@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
 
-import { assertPrimaryStoreOwner } from "@/features/stores/server/primary-store-owner";
+import {
+  assertPrimaryStoreOwner,
+  assertPrimaryStoreOwnerForStore,
+} from "@/features/stores/server/primary-store-owner";
+import {
+  clearActiveStoreCookie,
+  setActiveStoreCookie,
+} from "@/features/stores/server/store.repository";
 import type {
   AuditActor,
   StoreCloseInput,
@@ -10,6 +17,7 @@ import type {
   StoreLifecycleChallengeResult,
   StoreLifecycleBlocker,
   StoreLifecycleMutationResult,
+  StoreLifecycleOperationStatus,
   StoreLifecyclePreflight,
   StoreLifecycleState,
   StorePurgeScheduleInput,
@@ -20,7 +28,7 @@ import { ForbiddenError } from "@/server/auth-context";
 import { type DbRecord, fail, requiredString } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
 import {
-  isStoreLifecycleMutationEnabled,
+  isStoreLifecycleMutationSafeEnabled,
   isStoreLifecyclePurgeSchedulingEnabled,
 } from "./store-lifecycle-feature-flags";
 import { assertRecentLifecycleAal2 } from "./store-lifecycle-auth";
@@ -100,17 +108,19 @@ export async function createStoreLifecyclePreflight(
     });
   }
   if (custody > 0) blockers.push({ code: "device_in_custody", count: custody });
-  if (openKiosk > 0) blockers.push({ code: "open_kiosk_sessions", count: openKiosk });
-  if (pendingInvites > 0) blockers.push({ code: "pending_invitations", count: pendingInvites });
-  if (lifecycle.retention_until && new Date(lifecycle.retention_until).getTime() > Date.now()) {
-    blockers.push({ code: "retention_hold" });
+  const storage =
+    lifecycle.phase === "archived"
+      ? await buildStorageSummary(supabase, expectedStoreId)
+      : { complete: true, buckets: [] };
+  if (lifecycle.phase === "archived") {
+    if (lifecycle.retention_until && new Date(lifecycle.retention_until).getTime() > Date.now()) {
+      blockers.push({ code: "retention_hold" });
+    }
+    if (lifecycle.legal_hold_until && new Date(lifecycle.legal_hold_until).getTime() > Date.now()) {
+      blockers.push({ code: "legal_hold" });
+    }
+    if (!storage.complete) blockers.push({ code: "storage_manifest_unavailable" });
   }
-  if (lifecycle.legal_hold_until && new Date(lifecycle.legal_hold_until).getTime() > Date.now()) {
-    blockers.push({ code: "legal_hold" });
-  }
-
-  const storage = await buildStorageSummary(supabase, expectedStoreId);
-  if (!storage.complete) blockers.push({ code: "storage_manifest_unavailable" });
 
   const id = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + PREFLIGHT_TTL_MS).toISOString();
@@ -154,6 +164,10 @@ export async function createStoreLifecyclePreflight(
     state,
     counts,
     blockers,
+    automatic_effects: {
+      pending_invitations: pendingInvites,
+      open_kiosk_sessions: openKiosk,
+    },
     snapshot_hash: snapshotHash,
     expires_at: expiresAt,
   };
@@ -163,11 +177,59 @@ export async function getStoreLifecycleState(
   expectedStoreId: string,
   actor: AuditActor,
 ): Promise<StoreLifecycleState> {
-  const owner = await assertPrimaryStoreOwner(actor);
-  if (owner.storeId !== expectedStoreId) {
-    throw new ForbiddenError("店铺上下文已经变化，请重新选择店铺");
-  }
+  await assertPrimaryStoreOwnerForStore(expectedStoreId, actor);
   return readStoreLifecycle(getSupabaseAdmin(), expectedStoreId);
+}
+
+export async function getStoreLifecycleOperationStatus(
+  expectedStoreId: string,
+  operationId: string,
+  actor: AuditActor,
+): Promise<StoreLifecycleOperationStatus> {
+  await assertPrimaryStoreOwnerForStore(expectedStoreId, actor);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("store_lifecycle_operations")
+    .select("operation_id, store_id, kind, state, result_revision")
+    .eq("operation_id", operationId)
+    .eq("store_id", expectedStoreId)
+    .maybeSingle();
+  fail(error, "核对店铺操作结果失败");
+  if (!data) {
+    return { operation_id: operationId, store_id: expectedStoreId, state: "missing" };
+  }
+  const row = data as DbRecord;
+  const state = requiredString(row.state);
+  const kind = requiredString(row.kind);
+  const projectedState =
+    state === "completed" ? "completed" : state === "failed" ? "failed" : "running";
+  const result: StoreLifecycleOperationStatus = {
+    operation_id: operationId,
+    store_id: expectedStoreId,
+    ...(kind === "rename" || kind === "request_close" || kind === "restore" ? { kind } : {}),
+    state: projectedState,
+    ...(typeof row.result_revision === "number" ? { result_revision: row.result_revision } : {}),
+    ...(projectedState === "completed"
+      ? { lifecycle: await readStoreLifecycle(supabase, expectedStoreId) }
+      : {}),
+  };
+  if (projectedState === "completed" && kind === "restore") {
+    await setActiveStoreCookie(expectedStoreId);
+    result.next_active_store_id = expectedStoreId;
+  } else if (projectedState === "completed" && kind === "request_close") {
+    const nextStore = (actor.stores ?? []).find(
+      (store) =>
+        store.id !== expectedStoreId && (!store.lifecycle || store.lifecycle.phase === "active"),
+    );
+    if (nextStore) {
+      await setActiveStoreCookie(nextStore.id);
+      result.next_active_store_id = nextStore.id;
+    } else {
+      await clearActiveStoreCookie();
+      result.active_store_cleared = true;
+    }
+  }
+  return result;
 }
 
 export async function readStoreLifecycle(
@@ -202,8 +264,11 @@ export async function issueStoreLifecycleChallenge(
   input: StoreLifecycleChallengeInput,
   actor: AuditActor,
 ): Promise<StoreLifecycleChallengeResult> {
-  assertLifecycleMutationsEnabled();
-  const owner = await assertPrimaryStoreOwner(actor);
+  await assertLifecycleMutationsEnabled();
+  const owner =
+    input.operationKind === "restore"
+      ? await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor)
+      : await assertPrimaryStoreOwner(actor);
   if (owner.storeId !== input.expectedStoreId) {
     throw new ForbiddenError("店铺上下文已经变化，请重新选择店铺");
   }
@@ -289,7 +354,7 @@ export async function restoreStoreWorkspace(
   input: StoreRestoreInput,
   actor: AuditActor,
 ): Promise<StoreLifecycleMutationResult> {
-  return executeOwnerLifecycleRpc("repairdesk_restore_store_rpc", input, actor, {});
+  return executeOwnerLifecycleRpc("repairdesk_restore_store_rpc", input, actor, {}, true);
 }
 
 export async function scheduleStorePurge(
@@ -299,6 +364,7 @@ export async function scheduleStorePurge(
   if (!isStoreLifecyclePurgeSchedulingEnabled()) {
     throw new ForbiddenError("店铺永久清除排程未启用");
   }
+  await assertLifecycleMutationsEnabled();
   const owner = await assertPrimaryStoreOwner(actor);
   if (owner.storeId !== input.expectedStoreId) {
     throw new ForbiddenError("店铺上下文已经变化，请重新选择店铺");
@@ -330,7 +396,7 @@ export async function prepareStoreExport(
   input: StoreExportPrepareInput,
   actor: AuditActor,
 ): Promise<StoreExportPrepareResult> {
-  assertLifecycleMutationsEnabled();
+  await assertLifecycleMutationsEnabled();
   const owner = await assertPrimaryStoreOwner(actor);
   if (owner.storeId !== input.expectedStoreId) {
     throw new ForbiddenError("店铺上下文已经变化，请重新选择店铺");
@@ -371,7 +437,7 @@ export async function finalizeDueStoreArchive(input: {
   operationId: string;
   workerId: string;
 }) {
-  assertLifecycleMutationsEnabled();
+  await assertLifecycleMutationsEnabled();
   const { data, error } = await getSupabaseAdmin().rpc("repairdesk_finalize_store_archive_rpc", {
     p_store_id: input.storeId,
     p_operation_id: input.operationId,
@@ -390,9 +456,12 @@ async function executeOwnerLifecycleRpc(
   input: StoreRenameInput | StoreCloseInput | StoreRestoreInput,
   actor: AuditActor,
   extra: Record<string, unknown>,
+  allowRecoveryTarget = false,
 ): Promise<StoreLifecycleMutationResult> {
-  assertLifecycleMutationsEnabled();
-  const owner = await assertPrimaryStoreOwner(actor);
+  await assertLifecycleMutationsEnabled();
+  const owner = allowRecoveryTarget
+    ? await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor)
+    : await assertPrimaryStoreOwner(actor);
   if (owner.storeId !== input.expectedStoreId) {
     throw new ForbiddenError("店铺上下文已经变化，请重新选择店铺");
   }
@@ -408,7 +477,7 @@ async function executeOwnerLifecycleRpc(
   if (error) throw lifecycleRpcError(error);
   const result = (data ?? {}) as DbRecord;
   const lifecycle = await readStoreLifecycle(supabase, owner.storeId);
-  return {
+  const response: StoreLifecycleMutationResult = {
     operation_id: requiredString(result.operation_id) || input.operationId,
     replayed: result.replayed === true,
     lifecycle,
@@ -424,6 +493,23 @@ async function executeOwnerLifecycleRpc(
         }
       : {}),
   };
+  if (rpcName === "repairdesk_request_store_close_rpc") {
+    const nextStore = (actor.stores ?? []).find(
+      (store) =>
+        store.id !== owner.storeId && (!store.lifecycle || store.lifecycle.phase === "active"),
+    );
+    if (nextStore) {
+      await setActiveStoreCookie(nextStore.id);
+      response.next_active_store_id = nextStore.id;
+    } else {
+      await clearActiveStoreCookie();
+      response.active_store_cleared = true;
+    }
+  } else if (rpcName === "repairdesk_restore_store_rpc") {
+    await setActiveStoreCookie(owner.storeId);
+    response.next_active_store_id = owner.storeId;
+  }
+  return response;
 }
 
 async function assertEligiblePreflight(
@@ -443,9 +529,15 @@ async function assertEligiblePreflight(
   if (!data) throw new Error("店铺安全预检已失效或仍有阻断，请重新预检");
 }
 
-function assertLifecycleMutationsEnabled() {
-  if (!isStoreLifecycleMutationEnabled()) {
-    throw new ForbiddenError("店铺生命周期变更尚未在当前环境开放");
+async function assertLifecycleMutationsEnabled() {
+  if (!isStoreLifecycleMutationSafeEnabled()) {
+    throw new ForbiddenError("店铺保护尚未准备完成，当前不能修改店铺状态");
+  }
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "repairdesk_store_lifecycle_contract_version",
+  );
+  if (error || Number(data) < 2) {
+    throw new ForbiddenError("店铺保护尚未安装完成，当前不能修改店铺状态");
   }
 }
 
@@ -462,6 +554,9 @@ function lifecycleRpcError(error: { message?: string }) {
   }
   if (message.includes("STORE_LIFECYCLE_IDEMPOTENCY_CONFLICT")) {
     return new Error("操作编号已用于不同请求，请重新开始");
+  }
+  if (message.includes("STORE_LIFECYCLE_OPERATION_IN_PROGRESS")) {
+    return new Error("操作正在服务器处理中，请核对原操作结果，不要重复提交");
   }
   if (message.includes("STORE_LIFECYCLE_BLOCKED")) {
     return new Error("店铺仍有安全阻断，无法进入关闭流程");

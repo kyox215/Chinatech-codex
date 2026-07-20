@@ -384,7 +384,7 @@ describe("store repository access request boundaries", () => {
     });
   });
 
-  it("publishes a structured order-data reason without querying owner identity when disabled", async () => {
+  it("publishes a structured order-data reason while lifecycle capability still checks ownership", async () => {
     vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "0");
 
     const context = await getStoreContext(storeOwner);
@@ -394,7 +394,7 @@ describe("store repository access request boundaries", () => {
       can_export: false,
       can_apply: false,
     });
-    expect(mocks.evaluatePrimaryStoreOwner).not.toHaveBeenCalled();
+    expect(mocks.evaluatePrimaryStoreOwner).toHaveBeenCalledWith(storeOwner);
   });
 
   it("blocks member restoration and access approval before database reads when lifecycle is inactive", async () => {

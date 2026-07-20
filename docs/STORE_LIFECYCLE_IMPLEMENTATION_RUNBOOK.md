@@ -1,19 +1,19 @@
 # Store Lifecycle P0-P5 Implementation Runbook
 
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 ## Current release boundary
 
-P0-P5 has a verified implementation path. Its six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc`, and implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `main` on 2026-07-18. All lifecycle feature flags remain off. This does **not** authorize a production store mutation, feature-flag change, worker activation or permanent purge.
+P0-P5 has a verified implementation path. Its first six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc`, and implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `main` on 2026-07-18. A seventh forward-only migration now defines lifecycle contract v2, the database writer fence and live close-blocker recheck. It must pass a new linked dry-run and apply with all flags off before browser mutations can be enabled. This does **not** authorize a production store mutation, worker activation or permanent purge.
 
-| Phase | Implemented and locally verified | Production gate still required |
-|---|---|---|
-| P0 | Primary-owner-only immutable UUID preflight; PII-free row counts, financial/custody/Kiosk/invitation blockers, Storage summary, revision-bound snapshot | Re-run against the exact linked project and target UUID |
-| P1 | Structured order-data access reason codes and Settings explanation | Keep order-data export/apply permissions and flags unchanged unless separately approved |
-| P2 | Recent TOTP/AAL2 challenge issuer, one-use challenge, primary-owner-only atomic full workspace rename, revision CAS, idempotency, audit, Settings UI | `STORE_LIFECYCLE_MUTATIONS_ENABLED` remains off until migration and release approval |
-| P3 | Atomic close, one-hour drain, archive finalizer, restore, invitation/Kiosk revocation, ordinary API/Kiosk/invite/offline write gates, Settings UI | Enforcement flag remains off; run linked gate tests before enabling |
-| P4 | Catalog-driven database and UUID-prefixed Storage export, deterministic DB/Storage/artifact hashes, encrypted sink contract, isolated restore comparison and durable proof | Select and approve the real encrypted sink/KMS, retention, access logging and isolated restore environment |
-| P5 | Approval-locked schedule, leased/resumable worker, Storage-first deletion, FK ordering and cycle break, checkpoints/retry, other-tenant guard, zero residual proof and non-PII tombstone | Purge scheduling and worker flags remain off; exact target and second irreversible approval are mandatory |
+| Phase | Implemented and locally verified                                                                                                                                                         | Production gate still required                                                                             |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| P0    | Primary-owner-only immutable UUID preflight; PII-free row counts, financial/custody/Kiosk/invitation blockers, Storage summary, revision-bound snapshot                                  | Re-run against the exact linked project and target UUID                                                    |
+| P1    | Structured order-data access reason codes and Settings explanation                                                                                                                       | Keep order-data export/apply permissions and flags unchanged unless separately approved                    |
+| P2    | Recent TOTP/AAL2 challenge issuer, one-use challenge, primary-owner-only atomic full workspace rename, revision CAS, idempotency, audit, Settings UI                                     | `STORE_LIFECYCLE_MUTATIONS_ENABLED` remains off until migration and release approval                       |
+| P3    | Atomic close, one-hour drain, archive finalizer, restore, invitation/Kiosk revocation, ordinary API/Kiosk/invite/offline write gates, Settings UI                                        | Enforcement flag remains off; run linked gate tests before enabling                                        |
+| P4    | Catalog-driven database and UUID-prefixed Storage export, deterministic DB/Storage/artifact hashes, encrypted sink contract, isolated restore comparison and durable proof               | Select and approve the real encrypted sink/KMS, retention, access logging and isolated restore environment |
+| P5    | Approval-locked schedule, leased/resumable worker, Storage-first deletion, FK ordering and cycle break, checkpoints/retry, other-tenant guard, zero residual proof and non-PII tombstone | Purge scheduling and worker flags remain off; exact target and second irreversible approval are mandatory  |
 
 There is deliberately no browser permanent-delete button. The browser can rename, request reversible close and restore only when the mutation flag is enabled and recent TOTP succeeds. Export and purge run through service workers.
 
@@ -27,6 +27,7 @@ Applied after linked dry-run approval, in this exact order:
 4. `20260717201728_store_lifecycle_transition_operations.sql`
 5. `20260717201729_store_export_restore_proof.sql`
 6. `20260717201730_store_purge_executor_control.sql`
+7. `20260720013000_store_lifecycle_business_fence_and_close_recheck.sql`
 
 The chain is additive until a separately approved purge job reaches its final worker steps. The sixth migration contains deletion RPCs, but they are callable only by `service_role`, require an approved/leased job and remain unreachable while purge flags are off.
 
@@ -40,7 +41,7 @@ All flags use exact value `1`; unset, `0`, `true`, or any other value is off.
 - `STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED`: permits second-approval purge scheduling.
 - `STORE_LIFECYCLE_PURGE_WORKER_ENABLED`: permits the destructive background worker.
 
-Release order is migration first with every flag off, then read-only verification, mutation test-store rollout, enforcement rollout, export proof, and only later a separately approved purge rollout. Never enable all flags at once.
+Release order is migration first with every flag off, then application deploy with every flag off, read-only verification, **enforcement rollout**, active-store regression and closing-store rejection proof, and only then mutation rollout on a disposable test store. The application also refuses mutations unless both flags are on and the database reports lifecycle contract version 2. Export proof and purge remain separate later approvals. Never enable all flags at once.
 
 ## P2 rename flow
 
@@ -54,9 +55,9 @@ Release order is migration first with every flag off, then read-only verificatio
 
 ## P3 close, archive and restore flow
 
-Close is blocked while preflight reports open orders, unsettled balance, shop custody, open Kiosk sessions, pending invitations, legal/retention hold, or incomplete Storage summary.
+Recoverable close is blocked while preflight reports open orders, unsettled balance or shop custody. Pending invitations and open Kiosk sessions are shown as automatic close effects and are revoked inside the close transaction, rather than asking a beginner to resolve them manually. Legal/retention holds and complete Storage proof remain gates for export/purge, not for reversible close.
 
-The owner must enter the exact workspace name and final eight hex characters of the UUID. The atomic close RPC consumes the preflight-bound AAL2 challenge, moves `active -> closing`, sets an immediate access cutoff and a minimum one-hour archive time, and revokes invitations, invite links, Kiosk sessions, device tokens and pairing codes.
+The owner confirms the final eight hex characters shown beside the full “店铺唯一编号”; the application sends the already-bound current workspace name for backward RPC compatibility instead of asking the user to type it again. Ordinary tenant writes take a shared per-store transaction lock. The atomic close RPC takes the exclusive lock, waits for in-flight writes, rechecks live order/balance/custody blockers, consumes the preflight-bound AAL2 challenge, moves `active -> closing`, sets an immediate access cutoff and a minimum one-hour archive time, and revokes invitations, invite links, Kiosk sessions, device tokens and pairing codes.
 
 During `closing` and `archived`:
 
@@ -127,7 +128,7 @@ Before any production apply:
 
 1. Confirm the exact Supabase project ref and current Git commit/branch.
 2. Compare linked migration history and run a linked dry-run.
-3. Review all six statements, grants, RLS and function owners.
+3. Review the exact new migration, all seven migration-history entries, grants, RLS, trigger coverage and function owners.
 4. Apply with all lifecycle flags off.
 5. Verify lifecycle backfill:
 
@@ -141,8 +142,8 @@ where lifecycle.store_id is null;
 ```
 
 6. Confirm `anon`/`authenticated` have no control-table grants and lifecycle/purge RPC execution is `service_role` only.
-7. Run P0 and rename/close/restore on a disposable non-production store.
-8. Exercise browser, invite, Kiosk, offline and background rejection paths before enabling enforcement.
+7. Enable enforcement first and exercise browser GET/POST, direct database, invite, Kiosk, offline and background rejection paths while mutations remain off.
+8. Only after enforcement proof, enable mutations on a disposable non-production store and run P0, rename, close, context switch, unknown-result lookup and restore.
 9. Configure and test a real encrypted sink and isolated restore before enabling export proof for a real target.
 10. Require a new exact Owner approval before scheduling any purge.
 
@@ -156,4 +157,5 @@ The earlier read-only preflight for the label `china tech noto` used a UUID endi
 - Rename rollback is a forward audited rename.
 - Close/archive rollback is the formal restore RPC; revoked credentials are reissued, never revived.
 - Stop export/purge workers by turning off their exact flags and preserve job/checkpoint evidence.
+- The v2 generic writer fence intentionally does not include a purge-worker bypass. Keep purge scheduling and purge worker flags off until a separately reviewed forward migration adds a lease-bound bypass.
 - Once a purge deletes Storage or rows, there is no business rollback. Recovery depends on the already verified encrypted export, so a production purge is always a separate R4 approval.

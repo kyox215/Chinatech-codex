@@ -5,6 +5,7 @@ export type StoreShellStatus =
   | "ready"
   | "degraded"
   | "platform_admin"
+  | "recovery_only"
   | "onboarding_required"
   | "error";
 
@@ -16,6 +17,7 @@ export interface StoreShellContextSnapshot {
   permissions?: StoreContext["permissions"];
   authorityFingerprint: string;
   stores: ActorStoreMembership[];
+  recoveryStores?: ActorStoreMembership[];
   isPlatformAdmin: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
@@ -52,8 +54,9 @@ export function resolveStoreShellContext({
   const stores = authorityLost
     ? []
     : normalizeStores(activeStore, storeContext?.stores, onboardingStatus?.stores);
+  const recoveryStores = authorityLost ? [] : (storeContext?.recoveryStores ?? []);
   const isPlatformAdmin = Boolean(onboardingStatus?.isPlatformAdmin);
-  const hasUsableIdentity = Boolean(activeStore || isPlatformAdmin);
+  const hasUsableIdentity = Boolean(activeStore || isPlatformAdmin || recoveryStores.length > 0);
   const isInitialLoading = !authorityLost && onboardingLoading && !hasUsableIdentity;
   const isRefreshing = Boolean(
     !authorityLost &&
@@ -74,12 +77,14 @@ export function resolveStoreShellContext({
     isLoading: isInitialLoading,
     isError,
     isDegraded,
+    hasRecoveryStores: recoveryStores.length > 0,
   });
   const copy = getStoreShellStatusCopy(status);
   const authorityFingerprint = createAuthorityFingerprint({
     userId: onboardingStatus?.userId,
     activeStore,
     permissions: authorityLost ? undefined : storeContext?.permissions,
+    recoveryStores,
   });
 
   return {
@@ -90,6 +95,7 @@ export function resolveStoreShellContext({
     permissions: authorityLost ? undefined : storeContext?.permissions,
     authorityFingerprint,
     stores,
+    recoveryStores,
     isPlatformAdmin,
     isLoading: isInitialLoading,
     isRefreshing,
@@ -106,10 +112,12 @@ export function createAuthorityFingerprint({
   userId,
   activeStore,
   permissions,
+  recoveryStores = [],
 }: {
   userId?: string;
   activeStore?: ActorStoreMembership;
   permissions?: StoreContext["permissions"];
+  recoveryStores?: ActorStoreMembership[];
 }) {
   const permissionBits = Object.entries(permissions ?? {})
     .sort(([left], [right]) => left.localeCompare(right))
@@ -120,6 +128,17 @@ export function createAuthorityFingerprint({
     activeStore?.id ?? "no-store",
     activeStore?.membershipId ?? "no-membership",
     activeStore?.role ?? "no-role",
+    ...(recoveryStores.length > 0
+      ? [
+          recoveryStores
+            .map(
+              (store) =>
+                `${store.id}:${store.lifecycle?.phase ?? "unknown"}:${store.lifecycle?.revision ?? 0}`,
+            )
+            .sort()
+            .join(","),
+        ]
+      : []),
     permissionBits || "no-permissions",
   ].join("|");
 }
@@ -151,16 +170,19 @@ function getStoreShellStatus({
   isLoading,
   isError,
   isDegraded,
+  hasRecoveryStores,
 }: {
   activeStore?: ActorStoreMembership;
   isPlatformAdmin: boolean;
   isLoading: boolean;
   isError: boolean;
   isDegraded: boolean;
+  hasRecoveryStores: boolean;
 }): StoreShellStatus {
   if (isLoading) return "loading";
   if (isError) return "error";
   if (activeStore) return isDegraded ? "degraded" : "ready";
+  if (hasRecoveryStores) return "recovery_only";
   if (isPlatformAdmin) return "platform_admin";
   return "onboarding_required";
 }
@@ -189,6 +211,11 @@ function getStoreShellStatusCopy(status: StoreShellStatus): {
       return {
         label: "平台管理员",
         description: "当前账号可进入平台审批，但尚未选择具体店铺。",
+      };
+    case "recovery_only":
+      return {
+        label: "店铺已关闭",
+        description: "当前没有营业中的店铺，可前往已关闭店铺恢复。",
       };
     case "onboarding_required":
       return {

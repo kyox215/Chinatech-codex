@@ -96,6 +96,14 @@ export function CommandPalette({
               <action.icon className="mr-2 size-4" /> {action.label}
             </CommandItem>
           ))}
+          {(shell.recoveryStores?.length ?? 0) > 0 ? (
+            <CommandItem
+              value="已关闭店铺 恢复店铺 closed restore"
+              onSelect={() => go("/settings/closed-stores")}
+            >
+              <Wrench className="mr-2 size-4" /> 已关闭店铺
+            </CommandItem>
+          ) : null}
         </CommandGroup>
         {data.length > 0 && (
           <>
