@@ -9,7 +9,7 @@ autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["API", "DATA", "DOC", "FE", "FLOW", "QA", "SEC", "UX"]
 created_at: "2026-07-20T21:04:03Z"
-updated_at: "2026-07-20T23:16:39Z"
+updated_at: "2026-07-20T23:17:55Z"
 ---
 # Task — 空测试店铺永久删除与用户自助删除流程
 

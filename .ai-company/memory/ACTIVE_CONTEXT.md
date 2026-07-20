@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260720-003-store-self-service-purge"
 status: "active"
-phase: "validation"
+phase: "review"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-20T23:16:39Z"
+last_checkpoint_at: "2026-07-20T23:17:55Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-已重放到 origin/main a9856421；提交 abbf3c16 通过 lint、typecheck、24 项针对性测试、2163 项全量测试与联网生产构建；独立 DATA/SEC/QA 允许仅推送功能分支，main 合并有条件，生产迁移/部署/删除继续 NO-GO。
+功能分支已以非强制方式推送到 origin/codex/store-self-service-purge，远端与本地均为 943d77c0；未合并 main、未部署、未应用迁移、未执行删除。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-将检查点合并进功能提交并以非强制方式推送 codex/store-self-service-purge；不合并 main，不部署，不应用迁移。
+保持生产 NO-GO；如继续进入 main 审查，先完成 disposable DB 双会话证明、加密 sink、隔离恢复、runner 与桌面/移动可视证据，并单独取得生产阶段批准。
 
 ## Resume protocol
 

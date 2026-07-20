@@ -23,6 +23,8 @@
 | E-019 | Post-rebase full regression | `npm run test` | 331 files and 2163 tests passed; existing jsdom navigation notice remained non-fatal |
 | E-020 | Post-rebase build | `npm run build` | sandbox run failed only on blocked Google Fonts fetch; approved network rerun compiled, typechecked and generated all routes successfully |
 | E-021 | Independent release review | DATA/SEC and QA read-only reviews | feature-branch push PASS; main merge CONDITIONAL; production migration/deploy/delete FAIL/NO-GO |
+| E-022 | GitHub feature branch | `git push -u origin codex/store-self-service-purge`; local/remote ref comparison | non-force push succeeded at `943d77c0`; local and remote ahead/behind `0/0` |
 
 No production mutation, migration apply, deployment, flag change, close, archive, export, purge or delete has occurred in this task yet.
 - `2026-07-20T23:16:39Z` `3be09e9df3` — E-016 to E-021
+- `2026-07-20T23:17:55Z` `582874d294` — remote branch origin/codex/store-self-service-purge at 943d77c0; local/remote ahead-behind 0/0

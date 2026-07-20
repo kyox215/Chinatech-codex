@@ -39,3 +39,13 @@
 - **Evidence:**
   - E-016 to E-021
 - **Recorded by:** IntegrationLead
+## 2026-07-20T23:17:55Z — 功能分支已以非强制方式推送到 origin/codex/store-self-service-purge，远端与本地均为 943d77c0；未合并 main、未部署、未应用迁移、未执行删除。
+
+- **Phase:** review
+- **Completed/current state:** 功能分支已以非强制方式推送到 origin/codex/store-self-service-purge，远端与本地均为 943d77c0；未合并 main、未部署、未应用迁移、未执行删除。
+- **Next:** 保持生产 NO-GO；如继续进入 main 审查，先完成 disposable DB 双会话证明、加密 sink、隔离恢复、runner 与桌面/移动可视证据，并单独取得生产阶段批准。
+- **Decision:** 本轮仅完成审查/备份分支推送，不创建生产发布授权。
+- **Blocker:** main 合并与生产仍受数据库实跑、恢复证明、runner、可视证据及新鲜 AAL2 门禁阻塞。
+- **Evidence:**
+  - remote branch origin/codex/store-self-service-purge at 943d77c0; local/remote ahead-behind 0/0
+- **Recorded by:** IntegrationLead
