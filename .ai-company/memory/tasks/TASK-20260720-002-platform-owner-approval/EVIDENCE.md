@@ -58,4 +58,26 @@ IDs, test reports, screenshots, or concise log references.
 - Node 24 ESLint: exit 0.
 - Node 24 TypeScript `--noEmit`: exit 0.
 - Node 24 Next.js production build: compiled successfully, TypeScript passed, 27 static pages generated.
+
+## Production release — 2026-07-20
+
+- Final application commit: `5260c102adb480e529134cec49fd4577c8b6fae8`, fast-forwarded to `origin/main` after absorbing non-overlapping remote movement.
+- Final exact-SHA rerun: 329 files / 2154 tests passed sequentially; lint, typecheck and Node 24 production build passed.
+- Vercel deployment `dpl_9CDwZTBS9ybzxgR5f1if6jYKgiBb` reached READY for both production domains with the exact commit metadata.
+- Authenticated Owner smoke: `/platform` displayed platform administrator authority and an empty approval queue without error.
+- Anonymous smoke: `/platform` redirected to `/login?next=%2Fplatform`; the queue API returned 401 with `private, no-store` caching.
+- Visual evidence: `/Users/kyox215/.codex/visualizations/2026/07/20/019f814d-3ec8-78d0-b3db-39f374b84ac6/platform-owner-production.png`.
+- App-first observation: at least 15 minutes READY with no scoped Vercel runtime error before database apply.
+- Apply-time aggregate: active/valid Owner `1/1`, invalid active identity `0`, invalid decisions `0`, legacy pending `0`, collisions `0`, blocking locks `0`; related exact rows were `1` and `2`.
+- Backup/recovery gate: live organization plan was Pro, project was healthy on PostgreSQL `17.6.1.063`; official scheduled daily physical backups apply. No PITR claim was made.
+- `npx supabase db push --linked --yes` applied only `20260720231500_platform_owner_single_authority.sql`.
+- Post-apply history included `20260720231500`; final dry-run reported the remote database up to date.
+- Post-apply catalog: one validated constraint, two enabled triggers, two hardened functions, exactly one valid Owner and zero invalid decisions.
+- Related PostgreSQL entries were normal `LOG` only; Vercel remained free of scoped runtime errors during the immediate five-minute post-apply observation.
+
+## Residuals
+
+- AAL2/recent-MFA enforcement for platform decisions is not included and requires a separate Owner decision.
+- The recommended 30-minute post-database observation was only observed for five minutes in this task; Operations owns the remaining observation.
 - `2026-07-20T21:50:55Z` `001d9dbb6d` — PostgreSQL replay validated constraint, triggers, function ACLs, non-owner denial, review_scope bypass denial, owner approval, and transactional removal order. Final rerun: 329 files and 2152 tests passed; lint/typecheck exit 0; 27-page build passed.
+- `2026-07-20T22:26:47Z` `2a0e7746e5` — main@5260c102; Vercel dpl_9CDwZTBS9ybzxgR5f1if6jYKgiBb READY; migration 20260720231500 applied and dry-run up to date; Owner smoke screenshot; 329 files/2154 tests; catalog/ACL/log postchecks green.

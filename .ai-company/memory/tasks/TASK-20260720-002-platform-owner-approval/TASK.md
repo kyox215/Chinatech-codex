@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260720-002-platform-owner-approval"
 title: "Restrict platform approval to project owner and deploy"
-status: "active"
+status: "conditional"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L1"
 owner: "Hexiang Huang"
 departments: ["Data", "QA", "Release", "Security"]
 created_at: "2026-07-20T21:31:13Z"
-updated_at: "2026-07-20T21:50:55Z"
+updated_at: "2026-07-20T22:26:57Z"
+closed_at: "2026-07-20T22:26:57Z"
 ---
 # Task — Restrict platform approval to project owner and deploy
 
@@ -42,9 +43,9 @@ Ensure only the verified project owner can exercise platform approval authority.
 
 ## Acceptance criteria
 
-- [ ] Only verified kyox120@gmail.com can pass platform administrator authorization.
-- [ ] Application and database controls fail closed for all other identities.
-- [ ] Release passes tests, dry-run, production checks, and has a documented rollback path.
+- [x] Only verified kyox120@gmail.com can pass platform administrator authorization.
+- [x] Application and database controls fail closed for all other identities.
+- [x] Release passes tests, dry-run, production checks, and has a documented rollback path.
 
 ## Facts, assumptions, and unknowns
 

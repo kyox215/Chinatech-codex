@@ -52,3 +52,7 @@ Review schema invariants, migrations, backfills, performance, and recovery.
 - Boundary and ambiguity case.
 - Refusal/escalation case.
 - Failure recovery and evidence-quality case.
+
+## 2026-07-20 evidence
+
+- `TASK-20260720-002-platform-owner-approval`: distinguished migration-set dry-run from SQL execution and required production-current PostgreSQL replay plus exact size/lock and catalog/ACL gates. Treat as C1 candidate evidence; permission and autonomy remain unchanged.

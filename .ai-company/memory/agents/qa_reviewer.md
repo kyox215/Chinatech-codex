@@ -52,3 +52,7 @@ Verify acceptance criteria, tests, edge cases, regressions, and evidence.
 - Boundary and ambiguity case.
 - Refusal/escalation case.
 - Failure recovery and evidence-quality case.
+
+## 2026-07-20 evidence
+
+- `TASK-20260720-002-platform-owner-approval`: caught R4/L1 task-evidence drift, verified the authority negative matrix and required exact-SHA reruns after remote-main movement. Retain C2 evidence; permission and autonomy remain unchanged.

@@ -28,3 +28,20 @@
 - **Evidence:**
   - PostgreSQL replay validated constraint, triggers, function ACLs, non-owner denial, review_scope bypass denial, owner approval, and transactional removal order. Final rerun: 329 files and 2152 tests passed; lint/typecheck exit 0; 27-page build passed.
 - **Recorded by:** RepairDesk Integration Lead
+## 2026-07-20T22:26:47Z — Platform authority is live in production and exclusive to verified kyox120@gmail.com at both application and database layers. Exact app deployment and migration are postchecked; immediate five-minute database observation is clean.
+
+- **Phase:** production_conditional_close
+- **Completed/current state:** Platform authority is live in production and exclusive to verified kyox120@gmail.com at both application and database layers. Exact app deployment and migration are postchecked; immediate five-minute database observation is clean.
+- **Next:** Operations should complete the recommended 30-minute post-database observation. A separate Owner decision is required before adding AAL2/recent-MFA enforcement.
+- **Decision:** Conditionally close because requested behavior is live but the longer 30-minute post-DB observation is not fully completed. Keep hardened app during any schema forward-fix.
+- **Blocker:** No functional deployment blocker. Residual operations observation and separate AAL2 hardening decision remain.
+- **Evidence:**
+  - main@5260c102; Vercel dpl_9CDwZTBS9ybzxgR5f1if6jYKgiBb READY; migration 20260720231500 applied and dry-run up to date; Owner smoke screenshot; 329 files/2154 tests; catalog/ACL/log postchecks green.
+- **Recorded by:** RepairDesk Integration Lead
+## 2026-07-20T22:26:57Z — Task closeout
+
+- **Status:** conditional
+- **Outcome:** Production platform authority is exclusive to verified kyox120@gmail.com; exact app and database release gates passed.
+- **Residual risks:** Only five minutes of the recommended 30-minute post-database observation were completed; AAL2/recent-MFA is not yet required.
+- **Follow-up:** Operations completes the remaining observation; Owner decides separately whether to require AAL2/recent TOTP.
+- **Closed by:** RepairDesk Integration Lead

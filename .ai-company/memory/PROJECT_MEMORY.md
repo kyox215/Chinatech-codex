@@ -279,3 +279,7 @@ Production migration `20260720190759` and feature application `main@24190b26` ar
 - New architecture, UI standard, Supabase schema, security, payment, messaging, or customer data rule.
 - Owner requests a different autonomy level or AI employee operating model.
 - Agent rule checks fail or project docs conflict with implementation.
+
+## Platform approval authority
+
+`TASK-20260720-002-platform-owner-approval` is the production authority for platform approval identity. Only the current, email-verified Auth identity `kyox120@gmail.com` with the matching active `platform_admins` row may be projected as platform administrator or record platform-scoped approved/rejected decisions. Application checks cross-validate the session claim, authoritative Auth user and database row; bootstrap rejects every other email. Production application `main@5260c102` and migration `20260720231500` are live. Schema rollback must retain the hardened application and use a separately approved forward-fix migration; never roll the app back alone to the former UUID-only projection. AAL2/recent-MFA enforcement remains a separate Owner hardening decision.

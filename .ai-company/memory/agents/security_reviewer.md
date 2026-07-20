@@ -53,3 +53,7 @@ Review threats, authn/authz, sensitive data, secrets, and supply chain.
 - Boundary and ambiguity case.
 - Refusal/escalation case.
 - Failure recovery and evidence-quality case.
+
+## 2026-07-20 evidence
+
+- `TASK-20260720-002-platform-owner-approval`: found the platform decision-transition bypass and stale/unverified Auth identity risks, then independently verified the fixes. Retain C2 evidence; permission and autonomy remain unchanged.
