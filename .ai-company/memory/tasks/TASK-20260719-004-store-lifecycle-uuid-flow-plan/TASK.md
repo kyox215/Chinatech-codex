@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260719-004-store-lifecycle-uuid-flow-plan"
 title: "店铺生命周期 UUID、关闭与恢复流程"
-status: "implementation_complete_release_pending"
+status: "complete"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["ARCH", "DATA", "FLOW", "UX", "SECURITY", "QA"]
 created_at: "2026-07-19T21:49:25Z"
-updated_at: "2026-07-20T01:49:00Z"
+updated_at: "2026-07-20T00:18:00Z"
 ---
 # Task — 店铺生命周期 UUID 与关闭流程完整规划
 
@@ -55,7 +55,7 @@ Plan Delta：Owner 要求流程和页面尽量让小白也能看懂、会操作�
 - [x] Owner 批准并完成 Must WP-00 至 WP-06 实施。
 - [x] 新数据库围栏通过 26 项隔离 schema pgTAP 验证。
 - [x] 小白三步关闭、独立重命名、关闭后恢复页和网络未知结果对账已实现。
-- [ ] 提交、推送、linked migration、部署与生产只读核验完成后关闭任务。
+- [x] 提交、推送、linked migration、部署与生产只读核验完成。
 
 ## Current facts
 
@@ -79,4 +79,4 @@ Plan Delta：Owner 要求流程和页面尽量让小白也能看懂、会操作�
 
 ## Release boundary
 
-迁移和代码可以在所有 lifecycle flags 关闭时应用；只允许发布和只读核验。生产关闭、恢复、永久清除及开启 mutation/purge flags 仍需独立批准与可牺牲店铺演练。
+迁移和代码已应用。Production 仅启用 enforcement；mutation、export worker、purge worker 和 purge scheduling 保持关闭。生产关闭、恢复、永久清除及开启 mutation/purge flags 仍需独立批准与可牺牲店铺演练。
