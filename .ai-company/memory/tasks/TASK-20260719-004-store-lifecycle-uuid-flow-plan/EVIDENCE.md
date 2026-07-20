@@ -53,6 +53,18 @@
 - `STORE_LIFECYCLE_ENFORCEMENT_ENABLED`, `STORE_LIFECYCLE_MUTATIONS_ENABLED`, export worker, purge worker and purge scheduling variables are absent in Production, therefore off.
 - Final latest-main gates: lint pass, typecheck pass, production build pass, Playwright 1/1 pass, clean worktree/diff check pending immediately before push.
 
+## Production release result
+
+- GitHub PR: `https://github.com/kyox215/Chinatech-codex/pull/1`; merged commit `471a2b45df6c0664b29ceea786cedb659ffcd624`.
+- Supabase migration `20260720013000` is recorded remotely; contract version 2.
+- Writer fence coverage: 57 expected / 57 installed / 0 missing.
+- Close RPC privileges: anon false, authenticated false, service_role true.
+- Production state after migration: 0 non-active stores.
+- Current Vercel production deployment: `dpl_9HagYhzCkwCeGE4rf1UEjHypTjm5`, Ready, custom aliases `https://www.chinatech.in` and `https://chinatech.in`.
+- Final staged flag state: enforcement on; mutation/export/purge flags off.
+- Production HTTP smoke: Store settings and closed-store routes both return expected unauthenticated 307 redirects, with no 5xx.
+- No production lifecycle mutation was used as a smoke test.
+
 ## Git/workspace
 
 - `git fetch --prune` succeeded before planning.

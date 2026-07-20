@@ -34,3 +34,16 @@
 - **Risks/blockers:** Production migration/app deployment and post-apply grants/trigger checks remain pending. Purge remains NO-GO. Do not describe the default-timeout full suite as clean; retain the exact timeout caveat in release reporting.
 - **Shared context note:** `ACTIVE_CONTEXT.md` is owned by another concurrent task and remains untouched; this task-specific checkpoint is authoritative.
 - **Recorded by:** IntegrationLead
+
+## 2026-07-20T00:18:00Z — Production release completed with mutations disabled
+
+- **Phase:** released / closed.
+- **Git:** Feature commit `6453d49f385f0cf60b3c5aafe4e1f3f5e59c895b` was pushed, PR #1 passed the Vercel check and was squash-merged to `main` as `471a2b45df6c0664b29ceea786cedb659ffcd624`.
+- **Database:** Linked migration `20260720013000_store_lifecycle_business_fence_and_close_recheck` applied successfully. Post-apply contract version is 2; all 57 expected business tables have lifecycle fence triggers; no store is non-active; close RPC execute is false for anon/authenticated and true for service_role.
+- **Deployment:** Enforcement was applied by redeploy, then current `main` (including the later formatting-only lifecycle commit) deployed as `dpl_9HagYhzCkwCeGE4rf1UEjHypTjm5`, became Ready and was aliased to `https://www.chinatech.in`.
+- **Flags:** Production `STORE_LIFECYCLE_ENFORCEMENT_ENABLED=1`. Mutation, export worker, purge worker and purge scheduling variables are absent/off.
+- **Smoke:** Anonymous `/settings?section=store` and `/settings/closed-stores` return the expected 307 login redirect, not 5xx. No real store preflight, rename, close, restore, archive, export or purge was run.
+- **Validation:** lint pass; typecheck pass; production build pass; Playwright 1/1; production-schema-clone pgTAP 26/26; Vitest 2095/2095 with 10-second ceiling; isolated resource-sensitive order picker 5/5 at default ceiling.
+- **Residual risk:** Mutations remain intentionally unavailable until a separate production canary on a disposable store proves owner MFA, close, recovery context and restore. Existing Supabase security advisor warnings predate this migration and were not expanded into this task.
+- **Cleanup:** Temporary clone database `store_lifecycle_v2_20260720` and `/private/tmp/repairdesk-store-lifecycle-schema.sql` were removed.
+- **Recorded by:** IntegrationLead
