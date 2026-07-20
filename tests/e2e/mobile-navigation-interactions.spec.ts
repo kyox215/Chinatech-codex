@@ -38,14 +38,16 @@ test.describe("mobile navigation interaction reliability", () => {
       await expectCenterHitsControl(accountMenuTrigger);
       await tapCenter(page, accountMenuTrigger);
 
-      const accountLink = page.locator('[role="menu"] a[href="/account"]');
-      await expect(accountLink).toHaveCount(1);
-      await expect(accountLink).toBeVisible();
-      await tapCenter(page, accountLink);
+      const settingsLink = page.locator('[role="menu"] a[href="/settings"]');
+      await expect(settingsLink).toHaveCount(1);
+      await expect(page.locator('[role="menu"] a[href="/account"]')).toHaveCount(0);
+      await expect(page.locator('[role="menu"] a[href="/platform"]')).toHaveCount(0);
+      await expect(settingsLink).toBeVisible();
+      await tapCenter(page, settingsLink);
 
-      await expect(page).toHaveURL(/\/account$/);
-      await expect(page.getByRole("heading", { name: "账号资料" })).toBeVisible();
-      await expect(page.locator('[data-app-bar-context="true"]')).toHaveText("个人中心");
+      await expect(page).toHaveURL(/\/settings$/);
+      await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible();
+      await expect(page.locator('[data-app-bar-context="true"]')).toHaveText("设置");
       await expect(navigationDialog).toBeHidden();
 
       expect(
@@ -81,6 +83,7 @@ test.describe("mobile navigation interaction reliability", () => {
         });
       }
 
+      await gotoWithStableStoreShell(page, "/account");
       const displayName = page.getByLabel("显示名称", { exact: true });
       await expect(displayName).toBeVisible();
       await expectCenterHitsControl(displayName);

@@ -14,7 +14,6 @@ import {
   LogOut,
   Store,
   Settings,
-  ShieldCheck,
   UserCircle,
 } from "lucide-react";
 
@@ -52,7 +51,7 @@ import { indicatorSpring } from "@/lib/motion";
 import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
 import {
   canShowWorkspaceNavItem,
-  getWorkspaceNavItems,
+  getSidebarNavItems,
   isActiveNavItem,
 } from "@/shared/config/navigation";
 import { cn } from "@/lib/utils";
@@ -67,7 +66,7 @@ export function AppSidebar() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const shell = useStoreShellContext();
   const { isMobile, setOpenMobile } = useSidebar();
-  const nav = getWorkspaceNavItems(shell.isPlatformAdmin).filter((item) =>
+  const nav = getSidebarNavItems(shell.isPlatformAdmin).filter((item) =>
     canShowWorkspaceNavItem(item, shell.permissions),
   );
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
@@ -270,28 +269,11 @@ export function AppSidebar() {
                 ) : (
                   <DropdownMenuItem disabled>暂无可用店铺</DropdownMenuItem>
                 )}
-                {shell.isPlatformAdmin ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/platform" onClick={handleNav}>
-                        <ShieldCheck className="size-4" />
-                        平台审批
-                      </Link>
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/account" onClick={handleNav}>
-                    <UserCircle className="size-4" />
-                    个人中心
-                  </Link>
-                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings" onClick={handleNav}>
                     <Settings className="size-4" />
-                    店铺设置
+                    设置
                   </Link>
                 </DropdownMenuItem>
                 {(shell.recoveryStores?.length ?? 0) > 0 ? (

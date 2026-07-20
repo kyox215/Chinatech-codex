@@ -270,7 +270,7 @@ export function SettingsScreen() {
     queryFn: ({ signal }) => getOnboardingStatus({ signal }),
     staleTime: CACHE_TIMES.shell,
     retry: false,
-    enabled: queryActivation.account,
+    enabled: queryActivation.account || view.kind === "overview",
   });
   const kioskDevicesQuery = useQuery({
     queryKey: kioskKeys.devices(activeStoreId),
@@ -1515,6 +1515,7 @@ export function SettingsScreen() {
         {selectedSection === null ? (
           <SettingsOverviewScreen
             groups={navigationGroups}
+            isPlatformAdmin={accountQuery.data?.isPlatformAdmin === true}
             activeStoreName={storeContextQuery.data?.activeStore?.name}
             accessibleSectionCount={accessibleSectionCount}
             totalSectionCount={totalSectionCount}

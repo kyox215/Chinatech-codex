@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canShowWorkspaceNavItem,
+  getSidebarNavItems,
   getShellCommandActions,
   getWorkspaceNavItems,
   routeLabels,
@@ -17,6 +18,16 @@ describe("workspace navigation", () => {
       commandLabel: "维修工单",
     });
     expect(routeLabels.orders).toBe("维修工单");
+  });
+
+  it("keeps settings destinations out of the workspace sidebar", () => {
+    expect(getSidebarNavItems(false).map((item) => item.id)).not.toEqual(
+      expect.arrayContaining(["messages", "platform", "settings"]),
+    );
+    expect(getSidebarNavItems(true).map((item) => item.id)).not.toEqual(
+      expect.arrayContaining(["messages", "platform", "settings"]),
+    );
+    expect(getSidebarNavItems(true).map((item) => item.id)).toContain("finance");
   });
 
   it("hides inventory, messages, and repair profit when the store context denies them", () => {

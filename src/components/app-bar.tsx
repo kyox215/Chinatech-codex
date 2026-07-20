@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { ScanLine, Search, ShieldCheck, Sparkles, Store } from "lucide-react";
+import { ScanLine, Search, Sparkles, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -138,16 +138,6 @@ export function AppBar({
         <ThemeToggle className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 
         <RealtimeSyncIndicator className="hidden md:inline-flex" />
-
-        {shell.isPlatformAdmin ? (
-          <Link
-            href="/platform"
-            className="hidden h-9 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground xl:inline-flex"
-          >
-            <ShieldCheck className="size-3.5 text-primary" />
-            <span className="font-medium">平台</span>
-          </Link>
-        ) : null}
 
         <Link
           href="/settings"

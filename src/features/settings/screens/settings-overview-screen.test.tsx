@@ -8,7 +8,7 @@ import { SettingsOverviewScreen } from "@/features/settings/screens/settings-ove
 
 describe("SettingsOverviewScreen", () => {
   it("renders four groups, ten entries, readonly and blocked semantics", () => {
-    renderOverview({ state: "ready", score: 80 });
+    renderOverview({ state: "ready", score: 80 }, true);
 
     expect(screen.getByRole("heading", { name: "设置总览" })).toBeVisible();
     for (const label of ["个人与访问", "店铺运营", "业务规则", "输出与数据"]) {
@@ -21,6 +21,14 @@ describe("SettingsOverviewScreen", () => {
       "/settings?section=members",
     );
     expect(screen.queryByRole("link", { name: /工单数据/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /消息模板/ })).toHaveAttribute("href", "/messages");
+    expect(screen.getByRole("link", { name: /平台审批/ })).toHaveAttribute("href", "/platform");
+  });
+
+  it("hides platform approval for non-platform administrators", () => {
+    renderOverview({ state: "ready", score: 100 });
+    expect(screen.getByRole("link", { name: /消息模板/ })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /平台审批/ })).not.toBeInTheDocument();
   });
 
   it.each([
@@ -46,19 +54,23 @@ describe("SettingsOverviewScreen", () => {
 
 function renderOverview(
   readiness: React.ComponentProps<typeof SettingsOverviewScreen>["readiness"],
+  isPlatformAdmin = false,
 ) {
-  return render(<OverviewHarness readiness={readiness} />);
+  return render(<OverviewHarness readiness={readiness} isPlatformAdmin={isPlatformAdmin} />);
 }
 
 function OverviewHarness({
   readiness,
+  isPlatformAdmin,
 }: {
   readiness: React.ComponentProps<typeof SettingsOverviewScreen>["readiness"];
+  isPlatformAdmin: boolean;
 }) {
   const [searchValue, setSearchValue] = useState("");
   return (
     <SettingsOverviewScreen
       groups={groups()}
+      isPlatformAdmin={isPlatformAdmin}
       activeStoreName="Ripara Subito"
       accessibleSectionCount={9}
       totalSectionCount={10}

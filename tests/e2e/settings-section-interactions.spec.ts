@@ -43,6 +43,10 @@ test.describe("settings overview responsive shell", () => {
       });
       await expect(page.locator("[data-settings-overview]")).toBeVisible();
       await expect(page.locator("[data-settings-content]")).toBeVisible();
+      await expect(page.getByRole("link", { name: /消息模板/ })).toHaveAttribute(
+        "href",
+        "/messages",
+      );
       await expectNoPageOverflow(page, `/settings ${viewport.width}px`);
 
       const rail = page.locator("[data-settings-rail]");

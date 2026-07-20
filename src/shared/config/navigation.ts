@@ -241,6 +241,14 @@ export function getWorkspaceNavItems(isPlatformAdmin: boolean) {
   ];
 }
 
+const settingsCenterModuleIds = new Set<RepairDeskModuleId>(["messages", "platform", "settings"]);
+
+export function getSidebarNavItems(isPlatformAdmin: boolean) {
+  return getWorkspaceNavItems(isPlatformAdmin).filter(
+    (item) => !settingsCenterModuleIds.has(item.id),
+  );
+}
+
 export function canShowWorkspaceNavItem(
   item: RepairDeskNavItem,
   permissions?: RepairDeskNavigationPermissions,
