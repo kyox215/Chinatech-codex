@@ -4,6 +4,7 @@ const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const layoutOnly = process.env.REPAIRDESK_E2E_ORDER_LAYOUT_ONLY === "1";
+const taskScreenshotDir = "screenshots/TASK-20260720-004-order-detail-alignment-polish";
 
 const desktopQueueViewports = [
   { width: 1024, height: 768 },
@@ -167,7 +168,7 @@ test.describe("order desktop UI audit", () => {
       await expectDesktopPanelsReadable(detail, viewport.width);
       if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
         await page.screenshot({
-          path: "screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-overview-1440.png",
+          path: `${taskScreenshotDir}/desktop-overview-1440.png`,
           fullPage: false,
         });
       }
@@ -178,13 +179,19 @@ test.describe("order desktop UI audit", () => {
         await expectNoPageOverflow(page, "/orders records tab", viewport.width);
         if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
           await page.screenshot({
-            path: "screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-records-1440.png",
+            path: `${taskScreenshotDir}/desktop-records-1440.png`,
             fullPage: false,
           });
         }
         await clickFirstVisible(detail.getByRole("tab", { name: /设备照片/ }), "设备照片分组");
         await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "工单设备照片卡");
         await expectNoPageOverflow(page, "/orders photos tab", viewport.width);
+        if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
+          await page.screenshot({
+            path: `${taskScreenshotDir}/desktop-photos-1440.png`,
+            fullPage: false,
+          });
+        }
         return;
       }
 
@@ -309,7 +316,7 @@ test.describe("order desktop UI audit", () => {
       await expectNoPageOverflow(page, "/orders records tab", viewport.width);
       if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
         await page.screenshot({
-          path: "screenshots/TASK-20260720-002-order-detail-workbench-density/desktop-records-1440.png",
+          path: `${taskScreenshotDir}/desktop-records-1440.png`,
           fullPage: false,
         });
       }
@@ -553,7 +560,7 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
     });
   }
 
-  if ((await detail.getAttribute("data-order-detail-surface")) === "dialog") {
+  if ((await getOrderDetailSurface(detail)) === "dialog") {
     const customerWidth = await detail
       .locator('[data-order-panel="customer"]')
       .evaluate((element) => Math.round(element.getBoundingClientRect().width));
@@ -566,6 +573,36 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
     expect(customerWidth, `客户信息卡避免横向拉伸 at ${width}px`).toBeLessThanOrEqual(262);
     expect(deviceWidth, `设备信息卡保持主工作列 at ${width}px`).toBeLessThanOrEqual(450);
     expect(financeWidth, `报价处理卡避免横向拉伸 at ${width}px`).toBeLessThanOrEqual(292);
+
+    const overviewBoxes = await detail
+      .locator(
+        '[data-order-detail-main-grid="true"] > [data-order-panel="customer"], [data-order-detail-main-grid="true"] > [data-order-panel="device"], [data-order-detail-main-grid="true"] > [data-order-panel="finance"]',
+      )
+      .evaluateAll((elements) =>
+        elements
+          .filter((element) => {
+            const style = window.getComputedStyle(element);
+            return style.display !== "none" && style.visibility !== "hidden";
+          })
+          .map((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              top: Math.round(rect.top),
+              bottom: Math.round(rect.bottom),
+            };
+          }),
+      );
+    expect(overviewBoxes, `工单概览卡数量 at ${width}px`).toHaveLength(3);
+    expect(
+      Math.max(...overviewBoxes.map((box) => box.top)) -
+        Math.min(...overviewBoxes.map((box) => box.top)),
+      `工单概览卡顶部对齐 at ${width}px`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.max(...overviewBoxes.map((box) => box.bottom)) -
+        Math.min(...overviewBoxes.map((box) => box.bottom)),
+      `工单概览卡底部对齐 at ${width}px`,
+    ).toBeLessThanOrEqual(1);
 
     const tabsWidth = await detail
       .locator('[data-order-detail-view-switcher="true"]')
@@ -983,9 +1020,18 @@ async function expectDesktopRecordsWorkspace(detail: Locator, width: number, lab
   const records = detail.locator('[data-order-records-workspace="true"]');
   await records.waitFor({ state: "visible", timeout: 5000 });
   await expectFirstVisible(records, `${label} records workspace`);
+  const isDialog = (await getOrderDetailSurface(detail)) === "dialog";
+  const controls = records.locator('[data-order-records-controls="true"]');
   const groupedRecords = records.locator('[data-order-records-group="true"]');
   if ((await countVisible(groupedRecords)) > 0) {
     await expectFirstVisible(records.locator('[data-order-panel="key-info"]'), `${label} key info`);
+    const keyInfoColumns = await records
+      .locator('[data-order-key-info-grid="true"]')
+      .evaluate(
+        (element) =>
+          window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
+      );
+    expect(keyInfoColumns, `${label} key info columns`).toBe(2);
     await expect(records.locator('[data-order-records-messages="true"]')).toBeHidden();
     await expect(records.locator('[data-order-records-timeline="true"]')).toBeHidden();
 
@@ -1013,6 +1059,98 @@ async function expectDesktopRecordsWorkspace(detail: Locator, width: number, lab
   const rowCount = await records.locator('[data-order-record-row="true"]').count();
   expect(rowCount, `${label} timeline rows`).toBeGreaterThanOrEqual(1);
 
+  if (isDialog) {
+    const scrollDelta = await records.evaluate((element) => {
+      const workspace = element.closest<HTMLElement>(
+        '[data-order-desktop-single-workspace="true"]',
+      );
+      const scroller = workspace?.parentElement;
+      if (!scroller) return Number.POSITIVE_INFINITY;
+      return Math.round(scroller.scrollHeight - scroller.clientHeight);
+    });
+    expect(scrollDelta, `${label} negligible records scroll delta`).toBeLessThanOrEqual(12);
+  }
+
+  if (isDialog && (await countVisible(controls)) > 0) {
+    const alignment = await records.evaluate((element) => {
+      const controlRow = element.querySelector<HTMLElement>('[data-order-records-controls="true"]');
+      const group = element.querySelector<HTMLElement>('[data-order-records-group="true"]');
+      const timeline = element.querySelector<HTMLElement>('[data-order-records-timeline="true"]');
+      const cards = Array.from(
+        element.querySelectorAll<HTMLElement>("[data-order-record-control-card]"),
+      ).filter((card) => window.getComputedStyle(card).display !== "none");
+      const controlRect = controlRow?.getBoundingClientRect();
+      const groupRect = group?.getBoundingClientRect();
+      const timelineRect = timeline?.getBoundingClientRect();
+      return {
+        controls: controlRect
+          ? {
+              left: Math.round(controlRect.left),
+              right: Math.round(controlRect.right),
+              width: Math.round(controlRect.width),
+            }
+          : null,
+        group: groupRect
+          ? {
+              left: Math.round(groupRect.left),
+              right: Math.round(groupRect.right),
+              width: Math.round(groupRect.width),
+            }
+          : null,
+        timeline: timelineRect
+          ? {
+              left: Math.round(timelineRect.left),
+              right: Math.round(timelineRect.right),
+              width: Math.round(timelineRect.width),
+            }
+          : null,
+        cards: cards.map((card) => {
+          const rect = card.getBoundingClientRect();
+          return {
+            top: Math.round(rect.top),
+            bottom: Math.round(rect.bottom),
+            width: Math.round(rect.width),
+          };
+        }),
+      };
+    });
+    expect(alignment.controls, `${label} responsibility controls`).not.toBeNull();
+    expect(alignment.group, `${label} grouped records`).not.toBeNull();
+    expect(alignment.timeline, `${label} timeline panel`).not.toBeNull();
+    if (alignment.controls && alignment.group && alignment.timeline) {
+      expect(
+        Math.abs(alignment.controls.left - alignment.group.left),
+        `${label} left column line`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(alignment.controls.right - alignment.group.right),
+        `${label} right column line`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(alignment.timeline.left - alignment.group.left),
+        `${label} timeline left line`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(alignment.timeline.right - alignment.group.right),
+        `${label} timeline right line`,
+      ).toBeLessThanOrEqual(1);
+    }
+    if (alignment.cards.length === 2) {
+      expect(
+        Math.abs(alignment.cards[0]!.width - alignment.cards[1]!.width),
+        `${label} control card widths`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(alignment.cards[0]!.top - alignment.cards[1]!.top),
+        `${label} control card tops`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(alignment.cards[0]!.bottom - alignment.cards[1]!.bottom),
+        `${label} control card bottoms`,
+      ).toBeLessThanOrEqual(1);
+    }
+  }
+
   const layout = await records.evaluate((element) => {
     const columns = window
       .getComputedStyle(element)
@@ -1027,12 +1165,27 @@ async function expectDesktopRecordsWorkspace(detail: Locator, width: number, lab
       viewportWidth: window.innerWidth,
     };
   });
-  expect(layout.columns, `${label} desktop record columns at ${width}px`).toBeGreaterThanOrEqual(2);
+  if (isDialog) {
+    expect(layout.columns, `${label} dialog record columns at ${width}px`).toBe(1);
+  } else {
+    expect(layout.columns, `${label} desktop record columns at ${width}px`).toBeGreaterThanOrEqual(
+      2,
+    );
+  }
   expect(layout.left, `${label} left overflow`).toBeGreaterThanOrEqual(-1);
   expect(layout.right, `${label} right overflow`).toBeLessThanOrEqual(layout.viewportWidth + 1);
   expect(layout.width, `${label} readable width`).toBeGreaterThanOrEqual(
     Math.min(700, width - 160),
   );
+}
+
+async function getOrderDetailSurface(detail: Locator) {
+  return detail.evaluate((element) => {
+    const root = element.matches('[data-order-detail-root="true"]')
+      ? element
+      : element.querySelector('[data-order-detail-root="true"]');
+    return root?.getAttribute("data-order-detail-surface") ?? null;
+  });
 }
 
 async function expectRectInsideViewport(

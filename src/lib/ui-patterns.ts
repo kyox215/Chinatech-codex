@@ -80,8 +80,10 @@ export const detailWorkspace = {
   compactDetailGrid: "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
   orderDetailContent: "mx-auto w-full min-w-0 max-w-[1000px]",
   orderDetailReadable: "mx-auto w-full min-w-0 max-w-[920px]",
+  orderDetailControlGrid:
+    "grid min-w-0 items-stretch gap-2 sm:gap-3 md:grid-cols-[repeat(2,minmax(0,1fr))]",
   orderDetailGrid:
-    "items-start lg:grid-cols-[minmax(210px,260px)_minmax(340px,1fr)_minmax(240px,290px)]",
+    "items-stretch lg:grid-cols-[minmax(210px,260px)_minmax(340px,1fr)_minmax(240px,290px)]",
   orderDetailSecondaryGrid:
     "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
 } as const;

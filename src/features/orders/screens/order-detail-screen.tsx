@@ -2220,21 +2220,21 @@ function OrderRecordsWorkspace({
       variants={fadeUp}
       data-order-records-workspace="true"
       className={cn(
-        "grid min-w-0 items-start gap-2 sm:gap-3",
+        "grid min-w-0 items-start gap-2",
         surface === "dialog"
-          ? cn(
-              detailWorkspace.orderDetailReadable,
-              "lg:grid-cols-[minmax(240px,0.78fr)_minmax(0,1.22fr)]",
-            )
-          : "lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]",
+          ? cn(detailWorkspace.orderDetailReadable, "grid-cols-1")
+          : "sm:gap-3 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]",
       )}
     >
       {showAssignee || showSupplier ? (
         <div
           data-order-responsibility-row="true"
+          data-order-records-controls="true"
           className={cn(
-            "grid min-w-0 items-start gap-2 sm:gap-3 lg:col-span-2 lg:max-w-[680px]",
-            showAssignee && showSupplier ? "md:grid-cols-2" : "grid-cols-1",
+            showAssignee && showSupplier
+              ? detailWorkspace.orderDetailControlGrid
+              : "grid min-w-0 grid-cols-1 items-stretch gap-2 sm:gap-3",
+            surface !== "dialog" && "lg:col-span-2",
           )}
         >
           {onAssigneeChange ? (
@@ -2256,14 +2256,14 @@ function OrderRecordsWorkspace({
         </div>
       ) : null}
       {surface === "dialog" && tabs && activeView && onViewChange ? (
-        <div data-order-records-group="true" className="min-w-0 lg:col-span-2">
+        <div data-order-records-group="true" className="grid min-w-0 content-start gap-2">
           <OrderDetailTabs
             tabs={tabs}
             activeTab={activeView}
             onChange={onViewChange}
             ariaLabel="记录与信息分类"
             idPrefix="order-records-group"
-            className="!mb-2 !mt-0"
+            className="!m-0"
           />
           <section
             id="order-records-group-panel-key-info"
@@ -2320,28 +2320,38 @@ function OrderAssigneeCard({
   onChange: (membershipId: string | null) => void;
 }) {
   return (
-    <section className="rounded-lg border border-border/70 bg-card px-3 py-2.5 shadow-sm">
-      <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
-        <UserRound className="size-3.5 text-primary" />
-        负责人
+    <section
+      data-order-record-control-card="assignee"
+      className={cn(detailWorkspace.densePanel, "flex h-full flex-col")}
+    >
+      <div className="min-w-0">
+        <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+          <UserRound className="size-3.5 shrink-0 text-primary" />
+          <span className="truncate">负责人</span>
+        </h3>
+        <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
+          选择当前工单的处理负责人。
+        </p>
       </div>
-      <Select
-        value={order.assignee_membership_id ?? "unassigned"}
-        onValueChange={(value) => onChange(value === "unassigned" ? null : value)}
-        disabled={pending}
-      >
-        <SelectTrigger className="h-8 rounded-md text-xs">
-          <SelectValue placeholder={order.technician_name || "未分配"} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="unassigned">未分配</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.id} value={option.id}>
-              {option.display_name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="mt-auto pt-2">
+        <Select
+          value={order.assignee_membership_id ?? "unassigned"}
+          onValueChange={(value) => onChange(value === "unassigned" ? null : value)}
+          disabled={pending}
+        >
+          <SelectTrigger className="h-8 rounded-md text-xs">
+            <SelectValue placeholder={order.technician_name || "未分配"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unassigned">未分配</SelectItem>
+            {options.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {option.display_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </section>
   );
 }
@@ -2358,20 +2368,24 @@ function OrderPartsSupplierCard({
   onChange?: (supplierId: string | null) => void;
 }) {
   return (
-    <section data-order-parts-supplier-card="true" className={detailWorkspace.flatPanel}>
+    <section
+      data-order-parts-supplier-card="true"
+      data-order-record-control-card="supplier"
+      className={cn(detailWorkspace.densePanel, "flex h-full flex-col")}
+    >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
-            <PackageSearch className="size-3.5 text-primary" />
+            <PackageSearch className="size-3.5 shrink-0 text-primary" />
             <span className="truncate">配件供应商</span>
           </h3>
           <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
-            仅使用当前店铺设置中的供应商。
+            选择当前工单使用的门店供应商。
           </p>
         </div>
       </div>
       {onChange ? (
-        <div className="mt-2">
+        <div className="mt-auto pt-2">
           <OrderSupplierPicker
             supplier={supplier}
             suppliers={suppliers}
@@ -2382,9 +2396,11 @@ function OrderPartsSupplierCard({
           />
         </div>
       ) : supplier ? (
-        <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
-          <PackageSearch className="size-3 shrink-0" />
-          <span className="truncate">{supplier.short_name || supplier.name}</span>
+        <div className="mt-auto min-w-0 pt-2">
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+            <PackageSearch className="size-3 shrink-0" />
+            <span className="truncate">{supplier.short_name || supplier.name}</span>
+          </span>
         </div>
       ) : null}
     </section>

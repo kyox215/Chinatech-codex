@@ -235,7 +235,7 @@ export function OrderOverviewTab({
         <div
           data-order-detail-main-grid="true"
           className={cn(
-            "grid min-w-0 items-start gap-2 md:grid-cols-2",
+            "grid min-w-0 items-stretch gap-2 md:grid-cols-2",
             surface === "dialog"
               ? detailWorkspace.orderDetailGrid
               : "lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
@@ -641,7 +641,13 @@ export function OrderKeyInfoCard({
   return (
     <DetailPanel surface={surface} className={className} dataPanel="key-info">
       <h3 className="mb-2 text-sm font-semibold sm:mb-3">关键信息</h3>
-      <dl className="grid min-w-0 gap-1 text-xs sm:gap-1.5">
+      <dl
+        data-order-key-info-grid="true"
+        className={cn(
+          "grid min-w-0 gap-1 text-xs sm:gap-1.5",
+          surface === "dialog" && "sm:grid-cols-2 sm:gap-x-2",
+        )}
+      >
         <Row label="创建时间" value={new Date(order.created_at).toLocaleString("zh-CN")} />
         <Row
           label="完成时间"
