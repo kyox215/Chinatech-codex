@@ -3,11 +3,15 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import {
+  isPlatformOwnerEmail,
+  PLATFORM_OWNER_EMAIL,
+} from "../src/shared/config/platform-authority";
 
 export const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 export const DEFAULT_STORE_NAME = "ChinaTech";
 export const DEFAULT_STORE_SLUG = "chinatech-default";
-export const DEFAULT_ADMIN_EMAIL = "kyox120@gmail.com";
+export const DEFAULT_ADMIN_EMAIL = PLATFORM_OWNER_EMAIL;
 export const DEFAULT_DISPLAY_NAME = "最高管理员";
 
 export interface OwnerAdminConfig {
@@ -62,10 +66,17 @@ export function resolveBootstrapConfig(env: MutableEnv = process.env): OwnerAdmi
     throw new Error("Set ADMIN_PASSWORD before running db:ensure-owner-admin.");
   }
 
+  const email = normalizeEmail(env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL);
+  if (!isPlatformOwnerEmail(email)) {
+    throw new Error(
+      `ADMIN_EMAIL must be ${PLATFORM_OWNER_EMAIL}; no other platform admin is allowed.`,
+    );
+  }
+
   return {
     supabaseUrl,
     serviceRoleKey,
-    email: normalizeEmail(env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL),
+    email,
     password,
     displayName: (env.ADMIN_DISPLAY_NAME ?? DEFAULT_DISPLAY_NAME).trim() || DEFAULT_DISPLAY_NAME,
     storeId: env.ADMIN_STORE_ID ?? DEFAULT_STORE_ID,
@@ -76,6 +87,9 @@ export async function ensureOwnerAdmin(
   supabase: SupabaseClient,
   config: OwnerAdminConfig,
 ): Promise<OwnerAdminResult> {
+  if (!isPlatformOwnerEmail(config.email)) {
+    throw new Error(`Platform administrator must be ${PLATFORM_OWNER_EMAIL}.`);
+  }
   const effectiveConfig = {
     ...config,
     storeId: await resolveTargetStoreId(supabase, config),

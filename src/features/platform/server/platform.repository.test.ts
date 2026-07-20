@@ -31,7 +31,7 @@ vi.mock("@/features/stores/server/store-provisioning", () => provisioningMocks);
 
 const platformActor: AuditActor = {
   id: "platform_1",
-  email: "admin@example.com",
+  email: "kyox120@gmail.com",
   emailVerified: true,
   displayName: "Platform Admin",
   isPlatformAdmin: true,
@@ -49,6 +49,22 @@ describe("platform repository onboarding boundaries", () => {
     mocks.supabase.from.mockReset();
     provisioningMocks.deleteProvisionedStoreDefaults.mockReset();
     provisioningMocks.provisionStoreDefaults.mockReset();
+  });
+
+  it("rejects a non-owner email even when the actor carries a platform-admin flag", async () => {
+    await expect(
+      listPlatformOnboardingRequests({ ...platformActor, email: "admin@example.com" }),
+    ).rejects.toThrow("只有项目负责人可以处理平台审批");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects the owner email until the authenticated email is verified", async () => {
+    await expect(
+      listPlatformOnboardingRequests({ ...platformActor, emailVerified: false }),
+    ).rejects.toThrow("只有项目负责人可以处理平台审批");
+
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
   it("lists only platform-scoped pending requests", async () => {

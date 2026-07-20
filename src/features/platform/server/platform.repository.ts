@@ -25,6 +25,7 @@ import { type DbRecord, fail, maybeString, requiredString } from "@/server/repai
 import { resolveStaffDisplayName } from "@/server/staff-display-name";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { normalizeOptionalE164Phone } from "@/shared/lib/phone";
+import { isPlatformOwnerEmail } from "@/shared/config/platform-authority";
 
 const JOIN_REQUEST_WINDOW_MS = 15 * 60 * 1000;
 const JOIN_REQUEST_LIMIT = 5;
@@ -611,7 +612,13 @@ function assertLoggedIn(actor: AuditActor) {
 
 function assertPlatformAdmin(actor: AuditActor) {
   assertLoggedIn(actor);
-  if (!actor.isPlatformAdmin) throw new ForbiddenError("只有平台管理员可以处理注册申请");
+  if (
+    !actor.isPlatformAdmin ||
+    actor.emailVerified !== true ||
+    !isPlatformOwnerEmail(actor.email)
+  ) {
+    throw new ForbiddenError("只有项目负责人可以处理平台审批");
+  }
 }
 
 function sanitizeDisplayName(value: string) {

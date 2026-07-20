@@ -15,6 +15,7 @@ import type {
   StoreRole,
 } from "@/lib/repairdesk/types";
 import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
+import { isPlatformOwnerEmail, PLATFORM_OWNER_EMAIL } from "@/shared/config/platform-authority";
 
 export class UnauthorizedError extends Error {
   constructor(message = "未登录或登录已过期") {
@@ -90,7 +91,11 @@ export async function getRequestActor(
   });
   if (staff.status !== "active") throw new ForbiddenError("当前员工账号已停用");
 
-  const isPlatformAdmin = await isActivePlatformAdmin(admin, staff);
+  const isPlatformAdmin = await isActivePlatformAdmin(admin, {
+    userId: staff.id,
+    authenticatedEmail: email,
+    emailVerified,
+  });
   const memberships = await getActiveStoreMemberships(admin, staff);
   const activeStoreResolution = memberships.length
     ? await resolveActiveStore(memberships)
@@ -226,14 +231,33 @@ async function ensureStaffProfile({
   return inserted as StaffProfile;
 }
 
-async function isActivePlatformAdmin(
+export async function isActivePlatformAdmin(
   admin: ReturnType<typeof getSupabaseAdmin>,
-  staff: StaffProfile,
+  identity: {
+    userId: string;
+    authenticatedEmail?: string;
+    emailVerified: boolean;
+  },
 ) {
+  if (!identity.emailVerified || !isPlatformOwnerEmail(identity.authenticatedEmail)) return false;
+  const { data: authUserResult, error: authUserError } = await admin.auth.admin.getUserById(
+    identity.userId,
+  );
+  if (authUserError) {
+    throw new Error(`读取平台负责人身份失败：${authUserError.message}`);
+  }
+  if (
+    !authUserResult.user ||
+    !isPlatformOwnerEmail(authUserResult.user.email) ||
+    !isVerifiedEmailAuthUser(authUserResult.user)
+  ) {
+    return false;
+  }
   const { data, error } = await admin
     .from("platform_admins")
     .select("user_id, status")
-    .eq("user_id", staff.id)
+    .eq("user_id", identity.userId)
+    .eq("email", PLATFORM_OWNER_EMAIL)
     .eq("status", "active")
     .maybeSingle();
 

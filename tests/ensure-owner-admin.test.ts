@@ -6,6 +6,7 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_DISPLAY_NAME,
   DEFAULT_STORE_ID,
+  ensureOwnerAdmin,
   loadEnvFile,
   resolveBootstrapConfig,
 } from "../scripts/ensure-owner-admin";
@@ -34,6 +35,32 @@ describe("ensure-owner-admin bootstrap config", () => {
     expect(config.email).toBe(DEFAULT_ADMIN_EMAIL);
     expect(config.displayName).toBe(DEFAULT_DISPLAY_NAME);
     expect(config.storeId).toBe(DEFAULT_STORE_ID);
+  });
+
+  it("refuses to bootstrap any other email as the platform administrator", () => {
+    expect(() =>
+      resolveBootstrapConfig({
+        SUPABASE_URL: "https://example.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role",
+        ADMIN_PASSWORD: "secret",
+        ADMIN_EMAIL: "another-admin@example.com",
+      }),
+    ).toThrow(`ADMIN_EMAIL must be ${DEFAULT_ADMIN_EMAIL}`);
+  });
+
+  it("refuses a non-owner email when the bootstrap function is called directly", async () => {
+    const supabase = {} as Parameters<typeof ensureOwnerAdmin>[0];
+
+    await expect(
+      ensureOwnerAdmin(supabase, {
+        supabaseUrl: "https://example.supabase.co",
+        serviceRoleKey: "service-role",
+        password: "secret",
+        displayName: "Unexpected Admin",
+        storeId: DEFAULT_STORE_ID,
+        email: "another-admin@example.com",
+      }),
+    ).rejects.toThrow(`Platform administrator must be ${DEFAULT_ADMIN_EMAIL}`);
   });
 
   it("loads env files without overriding existing values", () => {
