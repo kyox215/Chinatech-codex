@@ -153,6 +153,10 @@ import type {
   StoreLifecycleOperationStatus,
   StoreLifecyclePreflight,
   StoreLifecycleState,
+  StorePurgeCancelInput,
+  StorePurgeConfirmInput,
+  StorePurgeRequest,
+  StorePurgeRequestInput,
   StoreRenameInput,
   StoreRestoreInput,
   StoreMemberDecisionInput,
@@ -382,6 +386,10 @@ export type {
   StoreLifecycleMutationResult,
   StoreLifecyclePreflight,
   StoreLifecycleState,
+  StorePurgeCancelInput,
+  StorePurgeConfirmInput,
+  StorePurgeRequest,
+  StorePurgeRequestInput,
   StoreRenameInput,
   StoreRestoreInput,
   StoreMember,
@@ -762,6 +770,30 @@ export async function restoreStoreWorkspace(
   input: StoreRestoreInput,
 ): Promise<StoreLifecycleMutationResult> {
   return postJson<StoreLifecycleMutationResult>("stores/lifecycle/restore", input);
+}
+
+export async function getStorePurgeRequest(
+  expectedStoreId: string,
+): Promise<StorePurgeRequest | null> {
+  return postJson<StorePurgeRequest | null>("stores/lifecycle/purge-request", {
+    expectedStoreId,
+  });
+}
+
+export async function requestStorePurge(input: StorePurgeRequestInput): Promise<StorePurgeRequest> {
+  return postJson<StorePurgeRequest>("stores/lifecycle/request-purge", input);
+}
+
+export async function cancelStorePurgeRequest(
+  input: StorePurgeCancelInput,
+): Promise<StorePurgeRequest> {
+  return postJson<StorePurgeRequest>("stores/lifecycle/cancel-purge", input);
+}
+
+export async function confirmStorePurgeRequest(
+  input: StorePurgeConfirmInput,
+): Promise<StorePurgeRequest> {
+  return postJson<StorePurgeRequest>("stores/lifecycle/confirm-purge", input);
 }
 
 export async function inviteStoreMember(input: StoreInviteInput): Promise<StoreMembersResult> {

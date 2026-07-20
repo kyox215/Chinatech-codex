@@ -280,7 +280,7 @@ export function AppSidebar() {
                   <DropdownMenuItem asChild>
                     <Link href="/settings/closed-stores" onClick={handleNav}>
                       <Store className="size-4" />
-                      已关闭店铺（{shell.recoveryStores?.length ?? 0}）
+                      已关闭与删除（{shell.recoveryStores?.length ?? 0}）
                     </Link>
                   </DropdownMenuItem>
                 ) : null}

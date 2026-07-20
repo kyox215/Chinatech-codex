@@ -107,7 +107,11 @@ export async function getRequestActor(
   const recoveryStores = memberships.filter(
     (store) =>
       store.isPrimaryOwner === true &&
-      (store.lifecycle?.phase === "closing" || store.lifecycle?.phase === "archived"),
+      (store.lifecycle?.phase === "closing" ||
+        store.lifecycle?.phase === "archived" ||
+        store.lifecycle?.phase === "purge_scheduled" ||
+        store.lifecycle?.phase === "purging" ||
+        store.lifecycle?.phase === "purge_failed"),
   );
   if (!activeStore && !options.allowPendingStore) {
     throw new ForbiddenError("账号尚未加入店铺，请先提交申请并等待平台管理员审批");

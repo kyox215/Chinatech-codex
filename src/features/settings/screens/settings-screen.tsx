@@ -1294,10 +1294,10 @@ export function SettingsScreen() {
         >
           <span className="block text-sm font-semibold">这家店已进入可恢复关闭流程</span>
           <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-            资料仍然保留。请前往“已关闭店铺”查看状态或恢复营业。
+            资料仍然保留。请前往“已关闭与删除”查看状态、恢复营业或申请永久删除。
           </span>
           <Button asChild type="button" className="mt-3 min-h-11">
-            <Link href="/settings/closed-stores">查看已关闭店铺</Link>
+            <Link href="/settings/closed-stores">查看已关闭与删除</Link>
           </Button>
         </RepairOsBusinessCard>
       </RepairOsListScaffold>

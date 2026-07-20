@@ -1,12 +1,16 @@
 export {
+  cancelStorePurgeRequest,
+  confirmStorePurgeRequest,
   createStoreLifecyclePreflight,
   finalizeDueStoreArchive,
+  getStorePurgeRequest,
   getStoreLifecycleState,
   getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   prepareStoreExport,
   renameStoreWorkspace,
   requestStoreClose,
+  requestStorePurge,
   restoreStoreWorkspace,
   scheduleStorePurge,
 } from "./store-lifecycle.repository";

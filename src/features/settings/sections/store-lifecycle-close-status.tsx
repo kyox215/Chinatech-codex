@@ -85,10 +85,10 @@ export function PersistentCloseResult({
         icon={CheckCircle2}
         tone="success"
         title="店铺已进入关闭流程"
-        description="资料仍然保留，可以在“已关闭店铺”中恢复。"
+        description="资料仍然保留，可以在“已关闭与删除”中恢复或申请永久删除。"
       >
         <Button asChild type="button">
-          <Link href="/settings/closed-stores">查看已关闭店铺</Link>
+          <Link href="/settings/closed-stores">查看已关闭与删除</Link>
         </Button>
       </StepCard>
     );
@@ -109,7 +109,7 @@ export function PersistentCloseResult({
         核对原操作
       </Button>
       <Button asChild type="button" variant="ghost">
-        <Link href="/settings/closed-stores">查看已关闭店铺</Link>
+        <Link href="/settings/closed-stores">查看已关闭与删除</Link>
       </Button>
     </StepCard>
   );

@@ -78,13 +78,13 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       return (await listStoreStorageObjects(job.storeId, STORAGE_OBJECT_SAFETY_LIMIT)).length;
     },
     async prepareDatabaseDelete(job, workerId) {
-      await rpc("repairdesk_prepare_store_purge_database_rpc", {
+      await rpc("repairdesk_prepare_store_purge_database_v3_rpc", {
         p_job_id: job.id,
         p_worker_id: workerId,
       });
     },
     async deleteTableBatch(job, workerId, tableName, limit) {
-      const data = await rpc("repairdesk_purge_store_table_batch_rpc", {
+      const data = await rpc("repairdesk_purge_store_table_batch_v3_rpc", {
         p_job_id: job.id,
         p_worker_id: workerId,
         p_table_name: tableName,
@@ -114,7 +114,7 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       });
     },
     async complete(input) {
-      const data = await rpc("repairdesk_complete_store_purge_rpc", {
+      const data = await rpc("repairdesk_complete_store_purge_v3_rpc", {
         p_job_id: input.jobId,
         p_worker_id: input.workerId,
         p_zero_residual_proof_sha256: input.zeroResidualProofSha256,

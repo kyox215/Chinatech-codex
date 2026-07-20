@@ -77,6 +77,9 @@ import type {
   StoreLifecycleChallengeInput,
   StoreRenameInput,
   StoreRestoreInput,
+  StorePurgeCancelInput,
+  StorePurgeConfirmInput,
+  StorePurgeRequestInput,
   StoreMemberDecisionInput,
   StoreMemberPermissionUpdateInput,
   StoreMemberRoleUpdateInput,
@@ -1769,13 +1772,23 @@ export const storeLifecycleChallengeBodySchema = z
   .object({
     expectedStoreId: lifecycleStoreIdSchema,
     expectedRevision: lifecycleRevisionSchema,
-    operationKind: z.enum(["rename", "request_close", "restore", "schedule_purge"]),
+    operationKind: z.enum([
+      "rename",
+      "request_close",
+      "restore",
+      "schedule_purge",
+      "request_purge",
+      "confirm_purge",
+    ]),
     preflightSnapshotHash: lifecycleSha256Schema.optional(),
   })
   .strict()
   .superRefine((input, context) => {
     if (
-      (input.operationKind === "request_close" || input.operationKind === "schedule_purge") &&
+      (input.operationKind === "request_close" ||
+        input.operationKind === "schedule_purge" ||
+        input.operationKind === "request_purge" ||
+        input.operationKind === "confirm_purge") &&
       !input.preflightSnapshotHash
     ) {
       context.addIssue({
@@ -1809,6 +1822,28 @@ export const storeCloseBodySchema = storeLifecycleMutationBase
 
 export const storeRestoreBodySchema =
   storeLifecycleMutationBase.strict() satisfies z.ZodType<StoreRestoreInput>;
+
+export const storePurgeRequestBodySchema = z
+  .object({
+    expectedStoreId: lifecycleStoreIdSchema,
+    expectedRevision: lifecycleRevisionSchema,
+    reauthChallengeId: z.string().uuid("安全挑战 id 不正确"),
+    preflightSnapshotHash: lifecycleSha256Schema,
+    confirmationStoreName: z.string().min(2).max(80),
+    confirmationStoreIdSuffix: z.string().regex(/^[0-9a-f]{8}$/i, "店铺 UUID 尾号不正确"),
+  })
+  .strict() satisfies z.ZodType<StorePurgeRequestInput>;
+
+export const storePurgeCancelBodySchema = z
+  .object({
+    expectedStoreId: lifecycleStoreIdSchema,
+    requestId: z.string().uuid("删除申请 id 不正确"),
+  })
+  .strict() satisfies z.ZodType<StorePurgeCancelInput>;
+
+export const storePurgeConfirmBodySchema = storePurgeRequestBodySchema
+  .extend({ requestId: z.string().uuid("删除申请 id 不正确") })
+  .strict() satisfies z.ZodType<StorePurgeConfirmInput>;
 
 export const storeInviteInputSchema = z
   .object({

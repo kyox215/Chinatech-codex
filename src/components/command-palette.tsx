@@ -112,10 +112,10 @@ export function CommandPalette({
           ))}
           {(shell.recoveryStores?.length ?? 0) > 0 ? (
             <CommandItem
-              value="已关闭店铺 恢复店铺 closed restore"
+              value="已关闭与删除 恢复店铺 永久删除 closed restore delete purge"
               onSelect={() => void go("/settings/closed-stores")}
             >
-              <Wrench className="mr-2 size-4" /> 已关闭店铺
+              <Wrench className="mr-2 size-4" /> 已关闭与删除
             </CommandItem>
           ) : null}
         </CommandGroup>

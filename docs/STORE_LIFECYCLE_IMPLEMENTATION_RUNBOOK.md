@@ -15,7 +15,7 @@ P0-P5 has a verified implementation path. Its first six additive migrations were
 | P4    | Catalog-driven database and UUID-prefixed Storage export, deterministic DB/Storage/artifact hashes, encrypted sink contract, isolated restore comparison and durable proof                  | Select and approve the real encrypted sink/KMS, retention, access logging and isolated restore environment |
 | P5    | Approval-locked schedule, leased/resumable worker, Storage-first deletion, FK ordering and cycle break, checkpoints/retry, other-tenant guard, zero residual proof and non-PII tombstone    | Purge scheduling and worker flags remain off; exact target and second irreversible approval are mandatory  |
 
-There is deliberately no browser permanent-delete button. The browser can rename, request reversible close and restore only when the mutation flag is enabled and recent TOTP succeeds. Export and purge run through service workers.
+The browser never deletes tenant data directly. Contract v3 adds owner-facing request, status, cancellation and final-confirmation controls under **已关闭与删除**. The first AAL2 confirmation creates a server-owned request and export job, at least 24 hours remain cancellable, and a distinct fresh AAL2 confirmation is accepted only after a current preflight and isolated `restore_verified` proof. Export and destructive purge still run only through service workers.
 
 ## Migration order
 
@@ -29,8 +29,9 @@ Applied after linked dry-run approval, in this exact order:
 6. `20260717201730_store_purge_executor_control.sql`
 7. `20260720013000_store_lifecycle_business_fence_and_close_recheck.sql`
 8. `20260720065246_ai_usage_bucket_store_fence_hotfix.sql` — production-applied and postchecked
+9. `20260720211230_store_self_service_purge_safety.sql` — contract v3; pending production approval/apply
 
-The chain is additive until a separately approved purge job reaches its final worker steps. The sixth migration contains deletion RPCs, but they are callable only by `service_role`, require an approved/leased job and remain unreachable while purge flags are off.
+The chain is additive until a separately approved purge job reaches its final worker steps. The sixth migration contains deletion RPCs; the contract-v3 forward migration adds a service-owned request ledger and lease-bound writer-fence bypass. All destructive RPCs remain `service_role` only and unreachable while purge flags are off.
 
 ## Feature flags
 
@@ -42,7 +43,7 @@ All flags use exact value `1`; unset, `0`, `true`, or any other value is off.
 - `STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED`: permits second-approval purge scheduling.
 - `STORE_LIFECYCLE_PURGE_WORKER_ENABLED`: permits the destructive background worker.
 
-Release order is migration first with every flag off, then application deploy with every flag off, read-only verification, **enforcement rollout**, active-store regression and closing-store rejection proof, and only then mutation rollout on a disposable test store. The application also refuses mutations unless both flags are on and the database reports lifecycle contract version 2. Export proof and purge remain separate later approvals. Never enable all flags at once.
+Release order is migration first with every flag off, then application deploy with every flag off, read-only verification, **enforcement rollout**, active-store regression and closing-store rejection proof, and only then mutation rollout on a disposable test store. Rename/close/restore require contract version 2; self-service purge request/scheduling requires contract version 3. Export proof and purge remain separate later approvals. Never enable all flags at once.
 
 ## P2 rename flow
 
@@ -170,5 +171,5 @@ The earlier read-only preflight for the label `china tech noto` used a UUID endi
 - Rename rollback is a forward audited rename.
 - Close/archive rollback is the formal restore RPC; revoked credentials are reissued, never revived.
 - Stop export/purge workers by turning off their exact flags and preserve job/checkpoint evidence.
-- The v2 generic writer fence intentionally does not include a purge-worker bypass. Keep purge scheduling and purge worker flags off until a separately reviewed forward migration adds a lease-bound bypass.
+- Contract v3 adds the missing bypass, bound to the exact store UUID, job UUID, worker ID, destructive-step marker and unexpired lease. Keep purge scheduling and worker flags off until that forward migration, application code and disposable-store proof have all passed independent review.
 - Once a purge deletes Storage or rows, there is no business rollback. Recovery depends on the already verified encrypted export, so a production purge is always a separate R4 approval.

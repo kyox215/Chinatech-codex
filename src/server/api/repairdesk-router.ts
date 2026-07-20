@@ -206,11 +206,15 @@ import {
   createStoreInviteLink,
   createStore,
   createStoreLifecyclePreflight,
+  cancelStorePurgeRequest,
+  confirmStorePurgeRequest,
+  getStorePurgeRequest,
   getStoreLifecycleState,
   getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   renameStoreWorkspace,
   requestStoreClose,
+  requestStorePurge,
   restoreStoreWorkspace,
   getStoreContext,
   disableStoreMember,
@@ -365,6 +369,9 @@ import {
   storeRenameBodySchema,
   storeCloseBodySchema,
   storeRestoreBodySchema,
+  storePurgeCancelBodySchema,
+  storePurgeConfirmBodySchema,
+  storePurgeRequestBodySchema,
   storeInviteBodySchema,
   storeInviteLinkCreateBodySchema,
   storeInviteLinkDecisionBodySchema,
@@ -411,11 +418,15 @@ const supabaseSource = {
   createSupplier,
   createStore,
   createStoreLifecyclePreflight,
+  cancelStorePurgeRequest,
+  confirmStorePurgeRequest,
+  getStorePurgeRequest,
   getStoreLifecycleState,
   getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   renameStoreWorkspace,
   requestStoreClose,
+  requestStorePurge,
   restoreStoreWorkspace,
   createStoreInviteLink,
   decideOrderApproval,
@@ -753,7 +764,13 @@ async function source() {
     issueStoreLifecycleChallenge: async (input: {
       expectedStoreId: string;
       expectedRevision: number;
-      operationKind: "rename" | "request_close" | "restore" | "schedule_purge";
+      operationKind:
+        | "rename"
+        | "request_close"
+        | "restore"
+        | "schedule_purge"
+        | "request_purge"
+        | "confirm_purge";
     }) => ({
       id: randomUUID(),
       store_id: input.expectedStoreId,
@@ -811,6 +828,37 @@ async function source() {
         phase: "active" as const,
         revision: input.expectedRevision + 1,
       },
+    }),
+    getStorePurgeRequest: async () => null,
+    requestStorePurge: async (input: { expectedStoreId: string; expectedRevision: number }) => ({
+      request_id: randomUUID(),
+      store_id: input.expectedStoreId,
+      state: "cooling" as const,
+      requested_at: new Date().toISOString(),
+      cooling_until: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      export_job_id: randomUUID(),
+      export_state: "pending" as const,
+    }),
+    cancelStorePurgeRequest: async (input: { expectedStoreId: string; requestId: string }) => ({
+      request_id: input.requestId,
+      store_id: input.expectedStoreId,
+      state: "cancelled" as const,
+      requested_at: "",
+      cooling_until: "",
+      export_job_id: "",
+      cancelled_at: new Date().toISOString(),
+    }),
+    confirmStorePurgeRequest: async (input: { expectedStoreId: string; requestId: string }) => ({
+      request_id: input.requestId,
+      store_id: input.expectedStoreId,
+      state: "scheduled" as const,
+      requested_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      cooling_until: new Date().toISOString(),
+      export_job_id: randomUUID(),
+      export_state: "restore_verified" as const,
+      purge_job_id: randomUUID(),
+      purge_after: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      destructive_step_started: false,
     }),
     archiveSupplier: async (id: string, actor: AuditActor) => archiveMockSupplier(id, actor),
     createSupplier: async (input: SupplierInput, actor: AuditActor) =>
@@ -2653,6 +2701,18 @@ export async function handleRepairDeskPost(
         return ok(await api.requestStoreClose(storeCloseBodySchema.parse(body), actor));
       case "stores/lifecycle/restore":
         return ok(await api.restoreStoreWorkspace(storeRestoreBodySchema.parse(body), actor));
+      case "stores/lifecycle/purge-request": {
+        const { expectedStoreId } = storeLifecyclePreflightBodySchema.parse(body);
+        return ok(await api.getStorePurgeRequest(expectedStoreId, actor));
+      }
+      case "stores/lifecycle/request-purge":
+        return ok(await api.requestStorePurge(storePurgeRequestBodySchema.parse(body), actor));
+      case "stores/lifecycle/cancel-purge":
+        return ok(await api.cancelStorePurgeRequest(storePurgeCancelBodySchema.parse(body), actor));
+      case "stores/lifecycle/confirm-purge":
+        return ok(
+          await api.confirmStorePurgeRequest(storePurgeConfirmBodySchema.parse(body), actor),
+        );
       case "stores/invite-member": {
         const { input } = storeInviteBodySchema.parse(body);
         assertMemberInvitePermission(actor);

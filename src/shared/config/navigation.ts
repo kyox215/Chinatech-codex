@@ -320,7 +320,7 @@ export const routeLabels: Record<string, string> = {
   messages: "消息模板",
   platform: "平台审批",
   settings: "设置",
-  "closed-stores": "已关闭店铺",
+  "closed-stores": "已关闭与删除",
   account: "个人中心",
   offline: "离线",
   new: "新建",

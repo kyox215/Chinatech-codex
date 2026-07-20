@@ -64,6 +64,7 @@ import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifec
 import {
   isStoreLifecycleEnforcementEnabled,
   isStoreLifecycleMutationEnabled,
+  isStoreLifecyclePurgeSchedulingEnabled,
 } from "@/features/stores/server/store-lifecycle-feature-flags";
 import {
   isInventoryV2CommandEnabledForStore,
@@ -1587,7 +1588,13 @@ async function lifecycleCapabilityFromActor(actor: AuditActor): Promise<StoreLif
   });
   if (!actor.storeId || actor.isSystem) {
     const unavailable = denied("store_context_required");
-    return { check: unavailable, rename: unavailable, close: unavailable, restore: unavailable };
+    return {
+      check: unavailable,
+      rename: unavailable,
+      close: unavailable,
+      restore: unavailable,
+      purge: unavailable,
+    };
   }
   const ownerAccess = await evaluatePrimaryStoreOwner(actor);
   if (!ownerAccess.allowed) {
@@ -1604,6 +1611,7 @@ async function lifecycleCapabilityFromActor(actor: AuditActor): Promise<StoreLif
       rename: unavailable,
       close: unavailable,
       restore: unavailable,
+      purge: unavailable,
     };
   }
 
@@ -1627,6 +1635,7 @@ async function lifecycleCapabilityFromActor(actor: AuditActor): Promise<StoreLif
     rename: mutationCapability,
     close: mutationCapability,
     restore: denied("store_unavailable"),
+    purge: denied("store_unavailable"),
   };
 }
 
@@ -1647,10 +1656,13 @@ async function recoveryLifecycleCapability(
       rename: ownerDenied,
       close: ownerDenied,
       restore: ownerDenied,
+      purge: ownerDenied,
     };
   }
   let restore: StoreLifecycleCapability["restore"];
-  if (!isStoreLifecycleMutationEnabled()) {
+  if (store.lifecycle?.phase !== "closing" && store.lifecycle?.phase !== "archived") {
+    restore = denied("store_unavailable");
+  } else if (!isStoreLifecycleMutationEnabled()) {
     restore = denied("feature_disabled");
   } else if (!isStoreLifecycleEnforcementEnabled()) {
     restore = denied("enforcement_unhealthy");
@@ -1663,12 +1675,27 @@ async function recoveryLifecycleCapability(
         ? { allowed: true, code: "available" }
         : denied("migration_unavailable");
   }
+  let purge: StoreLifecycleCapability["purge"];
+  if (!isStoreLifecyclePurgeSchedulingEnabled()) {
+    purge = denied("feature_disabled");
+  } else if (!isStoreLifecycleMutationEnabled() || !isStoreLifecycleEnforcementEnabled()) {
+    purge = denied("enforcement_unhealthy");
+  } else {
+    const { data, error } = await getSupabaseAdmin().rpc(
+      "repairdesk_store_lifecycle_contract_version",
+    );
+    purge =
+      !error && Number(data) >= 3
+        ? { allowed: true, code: "available" }
+        : denied("migration_unavailable");
+  }
   return {
     store_id: store.id,
     check: { allowed: true, code: "available" },
     rename: unavailable,
     close: unavailable,
     restore,
+    purge,
   };
 }
 

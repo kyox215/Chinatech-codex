@@ -1809,7 +1809,13 @@ export interface StoreLifecycleMutationInput {
   reauthChallengeId: string;
 }
 
-export type StoreLifecycleChallengeKind = "rename" | "request_close" | "restore" | "schedule_purge";
+export type StoreLifecycleChallengeKind =
+  | "rename"
+  | "request_close"
+  | "restore"
+  | "schedule_purge"
+  | "request_purge"
+  | "confirm_purge";
 
 export interface StoreLifecycleChallengeInput {
   expectedStoreId: string;
@@ -1848,6 +1854,49 @@ export interface StorePurgeScheduleInput extends StoreLifecycleMutationInput {
   purgeAfter: string;
 }
 
+export type StorePurgeRequestState =
+  | "cooling"
+  | "preparing_export"
+  | "ready_for_confirmation"
+  | "scheduled"
+  | "cancelled"
+  | "purging"
+  | "failed"
+  | "completed";
+
+export interface StorePurgeRequest {
+  request_id: string;
+  store_id: string;
+  state: StorePurgeRequestState;
+  requested_at: string;
+  cooling_until: string;
+  export_job_id: string;
+  export_state?: "pending" | "exporting" | "completed" | "restore_verified" | "failed";
+  purge_job_id?: string;
+  purge_after?: string;
+  destructive_step_started?: boolean;
+  cancelled_at?: string;
+  failure_code?: string;
+}
+
+export interface StorePurgeRequestInput {
+  expectedStoreId: string;
+  expectedRevision: number;
+  reauthChallengeId: string;
+  preflightSnapshotHash: string;
+  confirmationStoreName: string;
+  confirmationStoreIdSuffix: string;
+}
+
+export interface StorePurgeCancelInput {
+  expectedStoreId: string;
+  requestId: string;
+}
+
+export interface StorePurgeConfirmInput extends StorePurgeRequestInput {
+  requestId: string;
+}
+
 export interface StoreLifecycleMutationResult {
   operation_id: string;
   replayed: boolean;
@@ -1878,6 +1927,7 @@ export interface StoreLifecycleCapability {
   rename: StoreLifecycleActionCapability;
   close: StoreLifecycleActionCapability;
   restore: StoreLifecycleActionCapability;
+  purge: StoreLifecycleActionCapability;
 }
 
 export interface StoreLifecycleOperationStatus {

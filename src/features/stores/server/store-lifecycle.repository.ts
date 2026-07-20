@@ -20,6 +20,10 @@ import type {
   StoreLifecycleOperationStatus,
   StoreLifecyclePreflight,
   StoreLifecycleState,
+  StorePurgeCancelInput,
+  StorePurgeConfirmInput,
+  StorePurgeRequest,
+  StorePurgeRequestInput,
   StorePurgeScheduleInput,
   StoreRenameInput,
   StoreRestoreInput,
@@ -55,7 +59,7 @@ export async function createStoreLifecyclePreflight(
   expectedStoreId: string,
   actor: AuditActor,
 ): Promise<StoreLifecyclePreflight> {
-  const owner = await assertPrimaryStoreOwner(actor);
+  const owner = await assertPrimaryStoreOwnerForStore(expectedStoreId, actor);
   if (owner.storeId !== expectedStoreId) {
     throw new ForbiddenError("店铺上下文已经变化，请重新选择店铺");
   }
@@ -66,33 +70,46 @@ export async function createStoreLifecyclePreflight(
     throw new ForbiddenError("当前店铺状态不允许生成新的安全预检");
   }
 
-  const [storeResult, countEntries, openOrders, balances, custody, openKiosk, pendingInvites] =
-    await Promise.all([
-      supabase
-        .from("stores")
-        .select("id, name, status")
-        .eq("id", expectedStoreId)
-        .eq("status", "active")
-        .maybeSingle(),
-      Promise.all(
-        COUNT_TABLES.map(
-          async (table) => [table, await countStoreRows(supabase, table, expectedStoreId)] as const,
-        ),
+  const [
+    storeResult,
+    countEntries,
+    fullCountsResult,
+    openOrders,
+    balances,
+    custody,
+    openKiosk,
+    pendingInvites,
+  ] = await Promise.all([
+    supabase
+      .from("stores")
+      .select("id, name, status")
+      .eq("id", expectedStoreId)
+      .eq("status", "active")
+      .maybeSingle(),
+    Promise.all(
+      COUNT_TABLES.map(
+        async (table) => [table, await countStoreRows(supabase, table, expectedStoreId)] as const,
       ),
-      countOpenOrders(supabase, expectedStoreId),
-      readUnsettledBalance(supabase, expectedStoreId),
-      countRowsWithFilter(supabase, "repair_orders", expectedStoreId, (query) =>
-        query.eq("device_custody_status", "with_shop"),
-      ),
-      countRowsWithFilter(supabase, "customer_kiosk_sessions", expectedStoreId, (query) =>
-        query.in("status", ["queued", "active", "submitted", "returned"]),
-      ),
-      readPendingInviteCount(supabase, expectedStoreId),
-    ]);
+    ),
+    supabase.rpc("repairdesk_store_row_counts", { p_store_id: expectedStoreId }),
+    countOpenOrders(supabase, expectedStoreId),
+    readUnsettledBalance(supabase, expectedStoreId),
+    countRowsWithFilter(supabase, "repair_orders", expectedStoreId, (query) =>
+      query.eq("device_custody_status", "with_shop"),
+    ),
+    countRowsWithFilter(supabase, "customer_kiosk_sessions", expectedStoreId, (query) =>
+      query.in("status", ["queued", "active", "submitted", "returned"]),
+    ),
+    readPendingInviteCount(supabase, expectedStoreId),
+  ]);
   fail(storeResult.error, "读取店铺预检身份失败");
+  fail(fullCountsResult.error, "读取店铺完整数据计数失败");
   if (!storeResult.data) throw new ForbiddenError("店铺不存在或不可用");
 
-  const counts = Object.fromEntries(countEntries);
+  const counts = {
+    ...((fullCountsResult.data ?? {}) as Record<string, number>),
+    ...Object.fromEntries(countEntries),
+  };
   counts.open_orders = openOrders;
   counts.devices_in_custody = custody;
   counts.open_kiosk_sessions = openKiosk;
@@ -265,10 +282,9 @@ export async function issueStoreLifecycleChallenge(
   actor: AuditActor,
 ): Promise<StoreLifecycleChallengeResult> {
   await assertLifecycleMutationsEnabled();
-  const owner =
-    input.operationKind === "restore"
-      ? await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor)
-      : await assertPrimaryStoreOwner(actor);
+  const owner = ["restore", "request_purge", "confirm_purge"].includes(input.operationKind)
+    ? await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor)
+    : await assertPrimaryStoreOwner(actor);
   if (owner.storeId !== input.expectedStoreId) {
     throw new ForbiddenError("店铺上下文已经变化，请重新选择店铺");
   }
@@ -284,10 +300,17 @@ export async function issueStoreLifecycleChallenge(
     (input.operationKind === "request_close" && lifecycle.phase === "active") ||
     (input.operationKind === "restore" &&
       (lifecycle.phase === "closing" || lifecycle.phase === "archived")) ||
-    (input.operationKind === "schedule_purge" && lifecycle.phase === "archived");
+    ((input.operationKind === "schedule_purge" || input.operationKind === "request_purge") &&
+      lifecycle.phase === "archived") ||
+    (input.operationKind === "confirm_purge" && lifecycle.phase === "archived");
   if (!allowed) throw new ForbiddenError("当前店铺状态不允许执行此操作");
 
-  if (input.operationKind === "request_close" || input.operationKind === "schedule_purge") {
+  if (
+    input.operationKind === "request_close" ||
+    input.operationKind === "schedule_purge" ||
+    input.operationKind === "request_purge" ||
+    input.operationKind === "confirm_purge"
+  ) {
     if (!input.preflightSnapshotHash) throw new Error("关闭店铺前需要有效安全预检");
     await assertEligiblePreflight(supabase, {
       storeId: owner.storeId,
@@ -355,6 +378,180 @@ export async function restoreStoreWorkspace(
   actor: AuditActor,
 ): Promise<StoreLifecycleMutationResult> {
   return executeOwnerLifecycleRpc("repairdesk_restore_store_rpc", input, actor, {}, true);
+}
+
+export async function getStorePurgeRequest(
+  expectedStoreId: string,
+  actor: AuditActor,
+): Promise<StorePurgeRequest | null> {
+  await assertPrimaryStoreOwnerForStore(expectedStoreId, actor);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("store_purge_requests")
+    .select(
+      "id, store_id, state, requested_at, cooling_until, export_job_id, purge_job_id, cancelled_at",
+    )
+    .eq("store_id", expectedStoreId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  fail(error, "读取永久删除申请失败");
+  if (!data) return null;
+  const row = data as DbRecord;
+  const exportJobId = requiredString(row.export_job_id);
+  const purgeJobId = requiredString(row.purge_job_id);
+  const [{ data: exportJob, error: exportError }, { data: purgeJob, error: purgeError }] =
+    await Promise.all([
+      supabase
+        .from("store_export_jobs")
+        .select("state, error_code")
+        .eq("id", exportJobId)
+        .maybeSingle(),
+      purgeJobId
+        ? supabase
+            .from("store_purge_jobs")
+            .select("state, purge_after, destructive_step_started, last_error_code")
+            .eq("id", purgeJobId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+  fail(exportError, "读取永久删除导出状态失败");
+  fail(purgeError, "读取永久删除任务状态失败");
+  const exportRow = (exportJob ?? {}) as DbRecord;
+  const purgeRow = (purgeJob ?? {}) as DbRecord;
+  const storedState = requiredString(row.state) as StorePurgeRequest["state"];
+  const exportState = requiredString(exportRow.state) as StorePurgeRequest["export_state"];
+  const coolingComplete = new Date(requiredString(row.cooling_until)).getTime() <= Date.now();
+  const derivedState: StorePurgeRequest["state"] =
+    storedState === "cooling" && exportState === "failed"
+      ? "failed"
+      : storedState === "cooling" && exportState === "restore_verified" && coolingComplete
+        ? "ready_for_confirmation"
+        : storedState === "cooling" && coolingComplete
+          ? "preparing_export"
+          : storedState;
+  return {
+    request_id: requiredString(row.id),
+    store_id: requiredString(row.store_id),
+    state: derivedState,
+    requested_at: requiredString(row.requested_at),
+    cooling_until: requiredString(row.cooling_until),
+    export_job_id: exportJobId,
+    ...(exportState ? { export_state: exportState } : {}),
+    ...(purgeJobId ? { purge_job_id: purgeJobId } : {}),
+    ...(requiredString(purgeRow.purge_after)
+      ? { purge_after: requiredString(purgeRow.purge_after) }
+      : {}),
+    ...(typeof purgeRow.destructive_step_started === "boolean"
+      ? { destructive_step_started: purgeRow.destructive_step_started }
+      : {}),
+    ...(requiredString(row.cancelled_at) ? { cancelled_at: requiredString(row.cancelled_at) } : {}),
+    ...(requiredString(purgeRow.last_error_code) || requiredString(exportRow.error_code)
+      ? {
+          failure_code:
+            requiredString(purgeRow.last_error_code) || requiredString(exportRow.error_code),
+        }
+      : {}),
+  };
+}
+
+export async function requestStorePurge(
+  input: StorePurgeRequestInput,
+  actor: AuditActor,
+): Promise<StorePurgeRequest> {
+  if (!isStoreLifecyclePurgeSchedulingEnabled()) {
+    throw new ForbiddenError("店铺永久删除申请暂未启用");
+  }
+  await assertLifecycleMutationsEnabled();
+  const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_request_store_purge_rpc", {
+    p_store_id: owner.storeId,
+    p_actor_id: owner.actorId,
+    p_expected_revision: input.expectedRevision,
+    p_challenge_id: input.reauthChallengeId,
+    p_preflight_snapshot_hash: input.preflightSnapshotHash,
+    p_confirmation_store_name: input.confirmationStoreName,
+    p_confirmation_store_id_suffix: input.confirmationStoreIdSuffix,
+  });
+  if (error) throw lifecycleRpcError(error);
+  const result = (data ?? {}) as DbRecord;
+  return {
+    request_id: requiredString(result.request_id),
+    store_id: requiredString(result.store_id),
+    state: requiredString(result.state) as StorePurgeRequest["state"],
+    requested_at: requiredString(result.requested_at),
+    cooling_until: requiredString(result.cooling_until),
+    export_job_id: requiredString(result.export_job_id),
+    export_state: "pending",
+  };
+}
+
+export async function cancelStorePurgeRequest(
+  input: StorePurgeCancelInput,
+  actor: AuditActor,
+): Promise<StorePurgeRequest> {
+  if (!isStoreLifecyclePurgeSchedulingEnabled()) {
+    throw new ForbiddenError("店铺永久删除申请暂未启用");
+  }
+  await assertLifecycleMutationsEnabled();
+  const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "repairdesk_cancel_store_purge_request_rpc",
+    {
+      p_store_id: owner.storeId,
+      p_actor_id: owner.actorId,
+      p_request_id: input.requestId,
+    },
+  );
+  if (error) throw lifecycleRpcError(error);
+  const result = (data ?? {}) as DbRecord;
+  return {
+    request_id: requiredString(result.request_id),
+    store_id: requiredString(result.store_id),
+    state: "cancelled",
+    requested_at: "",
+    cooling_until: "",
+    export_job_id: "",
+    cancelled_at: requiredString(result.cancelled_at),
+  };
+}
+
+export async function confirmStorePurgeRequest(
+  input: StorePurgeConfirmInput,
+  actor: AuditActor,
+): Promise<StorePurgeRequest> {
+  if (!isStoreLifecyclePurgeSchedulingEnabled()) {
+    throw new ForbiddenError("店铺永久删除申请暂未启用");
+  }
+  await assertLifecycleMutationsEnabled();
+  const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "repairdesk_confirm_store_purge_request_rpc",
+    {
+      p_store_id: owner.storeId,
+      p_actor_id: owner.actorId,
+      p_request_id: input.requestId,
+      p_expected_revision: input.expectedRevision,
+      p_challenge_id: input.reauthChallengeId,
+      p_preflight_snapshot_hash: input.preflightSnapshotHash,
+      p_confirmation_store_name: input.confirmationStoreName,
+      p_confirmation_store_id_suffix: input.confirmationStoreIdSuffix,
+    },
+  );
+  if (error) throw lifecycleRpcError(error);
+  const result = (data ?? {}) as DbRecord;
+  return {
+    request_id: requiredString(result.request_id),
+    store_id: requiredString(result.store_id),
+    state: "scheduled",
+    requested_at: requiredString(result.requested_at),
+    cooling_until: requiredString(result.cooling_until),
+    export_job_id: requiredString(result.export_job_id),
+    export_state: "restore_verified",
+    purge_job_id: requiredString(result.purge_job_id),
+    purge_after: requiredString(result.purge_after),
+    destructive_step_started: false,
+  };
 }
 
 export async function scheduleStorePurge(

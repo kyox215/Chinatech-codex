@@ -505,6 +505,10 @@ function context(actor?: AuditActor): StoreContext {
       rename: lifecycleMutation,
       close: lifecycleMutation,
       restore: lifecycleMutation,
+      purge:
+        process.env.STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED === "1"
+          ? lifecycleMutation
+          : ({ allowed: false, code: "feature_disabled" } as const),
     },
     orderDataAccess,
     permissions: {
