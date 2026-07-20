@@ -28,3 +28,12 @@
 - **Rollback:** previous READY production `https://chinatech-codex-21k1mhy9q-kyox120-9295s-projects.vercel.app`; git rollback is explicit revert, never force push.
 - **Next:** final fetch, exact stage/commit/push to main, wait exact Vercel SHA READY, canonical/auth/error smoke, then keep task observing for real Safari/HP evidence.
 - **Stop:** remote non-fast-forward, staged scope drift, deployment ERROR/non-matching SHA, auth bypass, canonical 500, or print/intake regression.
+
+## 2026-07-20T14:02:00Z — Production applied; physical observation remains
+
+- **Phase:** release candidate → production observing.
+- **Git:** `d03f8445f7b36f849804841b5c1054cde6a7b210` committed and non-force pushed to `origin/main` from the isolated worktree.
+- **Deploy:** Git-triggered Vercel Production `https://chinatech-codex-da9hj4yey-kyox120-9295s-projects.vercel.app` is READY; build log confirms branch `main`, commit `d03f844`; canonical aliases are `www.chinatech.in` and `chinatech.in`.
+- **Smoke:** login 200; bare domain canonicalizes with 308; unauthenticated order, task and session/prefill new-order routes return 307 to login; error-level deployment logs contain no entries.
+- **Rollback:** previous READY production remains `https://chinatech-codex-21k1mhy9q-kyox120-9295s-projects.vercel.app`; code rollback is an explicit revert, never force push.
+- **Residual:** task remains observing until real Safari native preview plus HP paper and second Safari quick-intake entry are confirmed; automated WebKit/PDF proof must not be represented as the physical printer result.

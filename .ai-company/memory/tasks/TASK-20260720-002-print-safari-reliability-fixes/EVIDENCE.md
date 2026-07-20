@@ -12,10 +12,14 @@
 | E-008 | full gate | Lint/type/full unit/build | lint PASS; typecheck PASS; 321 files/2108 tests PASS; production build PASS | PASS |
 | E-009 | security | Production E2E bypass flags absent | Vercel production env-name listing contains neither `REPAIRDESK_E2E_ORDER_AUDIT` nor `REPAIRDESK_E2E_BUSINESS_DESKTOP` | PASS |
 | E-010 | release | Pre-release rollback target | current READY production `https://chinatech-codex-21k1mhy9q-kyox120-9295s-projects.vercel.app` | RECORDED |
+| E-011 | release | Scoped fix is on remote main | commit `d03f8445f7b36f849804841b5c1054cde6a7b210`; non-force push `0a0ec0f5..d03f8445 HEAD -> main` | PASS |
+| E-012 | deploy | Exact Git deployment is production READY | build log: `Branch: main, Commit: d03f844`; deployment `https://chinatech-codex-da9hj4yey-kyox120-9295s-projects.vercel.app`; status READY | PASS |
+| E-013 | smoke | Canonical, auth boundary and runtime errors | `www.chinatech.in/login` 200; `/orders`, `/orders/nonexistent/task`, `/orders/new?...` 307 to login; bare domain 308 to www; deployment error logs empty | PASS |
 
 ## Current gate
 
-- Automated candidate gate: PASS.
+- Automated candidate and production deployment gate: PASS.
+- Release state: production observing at commit `d03f8445f7b36f849804841b5c1054cde6a7b210`.
 - Physical-device gate: pending owner-side Safari native dialog/HP paper confirmation after production. Automated WebKit and Chromium PDF evidence does not operate the actual HP printer.
 - Database migration/apply: N/A; no schema or data changes.
 

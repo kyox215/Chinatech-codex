@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260720-002-print-safari-reliability-fixes"
 title: "打印与 Safari 快速接单可靠性修复发布"
-status: "in_progress"
+status: "observing"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "UX", "FE", "QA", "SEC", "INT"]
 created_at: "2026-07-20T13:16:04Z"
-updated_at: "2026-07-20T13:39:00Z"
+updated_at: "2026-07-20T14:02:00Z"
 ---
 
 # Owner goal
