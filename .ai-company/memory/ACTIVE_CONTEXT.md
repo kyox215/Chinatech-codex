@@ -2,13 +2,13 @@
 schema_version: 1
 current_task_id: "TASK-20260720-003-smart-print-qr"
 status: "active"
-phase: "implementing_gated_discovery"
+phase: "release_ready_pre_apply"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-20T19:07:00Z"
-checkpoint_required: true
+last_checkpoint_at: "2026-07-20T20:48:18Z"
+checkpoint_required: false
 last_rehydrated_at: null
 ---
 
@@ -20,17 +20,17 @@ last_rehydrated_at: null
 
 ## Current state
 
-本任务从远端 `main` 的 `19f420717709991ed9f055124bdb9eb08934bcdd` 建立独立工作树。产品规划已由 Owner 批准；三名只读部门 Agent 已完成或正在完成 DATA/架构、SEC/隐私和 QA/UX 复核。生产已应用但 main 缺失的 AI 账本热修复 `20260720065246` 正作为强制前置整合；尚未应用智能 QR migration 或发布本任务功能。
+智能 QR 发布候选已完成。首个生产 migration apply 因 link `order_id text` 与生产订单 UUID 不匹配，被 PostgreSQL 在首条建表语句安全拒绝；migration 未登记、功能开关仍关闭、应用未推送，无客户影响。迁移现已改为 UUID 并在全新 PostgreSQL 17 UUID fixture 中重放通过，包括并发签发、单 active、audit rollback、revoke、RLS/grants 与组合限流。尚未重试生产 migration、启用开关、推送或完成 Vercel smoke。
 
 ## Blocking decisions
 
 - Owner 已明确批准推送和应用；无需再次请求普通发布授权。
-- 生产 Supabase 的 migration history 与 `db push --dry-run` 是硬门禁；智能 QR migration 创建和应用前必须把已验证的 `20260720065246` 完整分支整合并重新证明 parity。
-- 公开客户投影、同店员工授权、QR 打印准备和完整质量门禁必须通过后才能发布。
+- 应用生产前再次 fetch main，并重复 migration list/dry-run；只允许 `20260720190759`。
+- 数据库、Git、Vercel 必须串行；任何非快进、额外 migration、部署 ERROR 或生产 HTTP 500 都停止并进入恢复。
 
 ## Next action
 
-完成前置热修复分支 merge，确认 linked migration list/dry-run up to date，实施 hash-only token 表、公开/员工 API、`/r` 页面与异步打印 QR，再运行完整验证和序列化生产发布。
+完成 UUID 修正后的代码门禁与 linked dry-run，amend 尚未推送的提交；仅在 dry-run 仍只含 `20260720190759` 时重试并验证数据库，然后非强推 `main`、启用开关、等待精确 SHA 的 Vercel production READY 后执行 smoke。
 
 ## Resume protocol
 

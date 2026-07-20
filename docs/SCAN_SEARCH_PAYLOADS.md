@@ -2,7 +2,7 @@
 
 Status: active
 Owner: Frontend + Integration Lead
-Last reviewed: 2026-07-10 CEST
+Last reviewed: 2026-07-20 CEST
 
 This document defines the first supported QR/barcode payloads for RepairDesk scan search.
 
@@ -15,15 +15,16 @@ This document defines the first supported QR/barcode payloads for RepairDesk sca
 
 ## Supported Payloads
 
-| Entity         | Preferred payload                                       | URL form                                     | Result                                                                 |
-| -------------- | ------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
-| Order task     | existing print QR `/orders/{orderId}/task`              | `https://example.test/orders/{orderId}/task` | Open internal task page, or search the scanned id on the current page. |
-| Order detail   | `order:{orderId}`                                       | `/orders/{orderId}`                          | Open order, or search the scanned value.                               |
-| Customer       | `customer:{customerId}`                                 | `/customers/{customerId}`                    | Open customer, or search the scanned value.                            |
-| Inventory item | `inventory:{itemId}`                                    | `/inventory?item={itemId}`                   | Open focused inventory item, or search the scanned value.              |
-| Buyback record | `buyback:{recordId}`                                    | `/buyback?id={recordId}`                     | Open/focus buyback record when available, or search the scanned value. |
-| IMEI           | `imei:{imei}` or raw IMEI barcode                       | none                                         | Search current module or route to module search from global scan.      |
-| Serial         | `serial:{serial}` / `sn:{serial}` or raw serial barcode | none                                         | Search current module or route to module search from global scan.      |
+| Entity         | Preferred payload                                       | URL form                                    | Result                                                                                                       |
+| -------------- | ------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Repair ticket  | smart print link `/r#<opaque-token>`                    | `https://www.chinatech.in/r#<opaque-token>` | Show the customer-safe repair status; authorized staff can resolve the same token to the internal task page. |
+| Order task     | internal navigation only `/orders/{orderId}/task`       | `/orders/{orderId}/task`                    | Open an authenticated internal task page; this form is not printed.                                          |
+| Order detail   | `order:{orderId}`                                       | `/orders/{orderId}`                         | Open order, or search the scanned value.                                                                     |
+| Customer       | `customer:{customerId}`                                 | `/customers/{customerId}`                   | Open customer, or search the scanned value.                                                                  |
+| Inventory item | `inventory:{itemId}`                                    | `/inventory?item={itemId}`                  | Open focused inventory item, or search the scanned value.                                                    |
+| Buyback record | `buyback:{recordId}`                                    | `/buyback?id={recordId}`                    | Open/focus buyback record when available, or search the scanned value.                                       |
+| IMEI           | `imei:{imei}` or raw IMEI barcode                       | none                                        | Search current module or route to module search from global scan.                                            |
+| Serial         | `serial:{serial}` / `sn:{serial}` or raw serial barcode | none                                        | Search current module or route to module search from global scan.                                            |
 
 ## Route Query Semantics
 
@@ -34,8 +35,16 @@ This document defines the first supported QR/barcode payloads for RepairDesk sca
 - `/inventory?item=itemId` focuses an inventory record when present; otherwise the value becomes the inventory search term with an operator-visible fallback notice.
 - `/buyback?id=recordId` focuses a buyback record when present; otherwise the value becomes the buyback search term.
 
-## Future Approval Points
+## Smart Repair Ticket QR
 
-- Public customer-facing repair status QR codes require a separate privacy/security review.
-- Short-code tables, database indexes, migrations, and public lookup routes require owner approval before production application.
+- Printed repair tickets contain exactly one `/r#<opaque-token>` QR per order. The token is random, does not encode an order ID or customer data, and remains in the URL fragment so it is not sent in the initial HTTP request URL.
+- `/r` is a public, shell-free status page. It removes the fragment from browser history immediately, then exchanges the token through a private `no-store` POST request.
+- The public response is a fixed customer-safe projection. It never returns customer identity, IMEI/serial, diagnosis, internal notes, technician data, attachments, finance, costs, unlock data or internal UUIDs.
+- The same page offers an employee entry. The server returns an internal task route only after authentication, active-store checks and the normal order-detail/technician-assignment permission check.
+- Printed smart links are resolved by the server. Do not add client-side decoding, order identifiers, internal paths or PII to the QR payload.
+- The authoritative implementation and operations contract is [CUSTOMER_REPAIR_STATUS_QR.md](./CUSTOMER_REPAIR_STATUS_QR.md).
+
+## Approval Points
+
+- Changes to the public projection, token lifetime, canonical public origin, permission rules, database schema or public lookup routes require owner approval plus privacy/security review.
 - External OCR or paid recognition services require a separate vendor/privacy decision.

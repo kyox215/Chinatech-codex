@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Pencil,
   Printer,
+  QrCode,
   Save,
   Store,
   UserRound,
@@ -44,6 +45,8 @@ export function OrderHero({
   order,
   onPrint,
   printDisabled = false,
+  onRevokeCustomerStatusLinks,
+  customerStatusRevokePending = false,
   onCancel,
   canCancel = false,
   onEdit,
@@ -66,6 +69,8 @@ export function OrderHero({
   order: OrderDetail["order"];
   onPrint: () => void;
   printDisabled?: boolean;
+  onRevokeCustomerStatusLinks?: () => void;
+  customerStatusRevokePending?: boolean;
   onCancel: () => void;
   canCancel?: boolean;
   onEdit?: () => void;
@@ -145,6 +150,15 @@ export function OrderHero({
           >
             复制链接
           </DropdownMenuItem>
+          {onRevokeCustomerStatusLinks ? (
+            <DropdownMenuItem
+              disabled={customerStatusRevokePending}
+              onClick={onRevokeCustomerStatusLinks}
+            >
+              <QrCode className="mr-2 size-3.5" />
+              {customerStatusRevokePending ? "正在停用二维码" : "停用已打印二维码"}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"

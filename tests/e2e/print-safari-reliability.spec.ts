@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidenceDir = "screenshots/TASK-20260720-002-print-safari-reliability-fixes";
+const evidenceDir = "screenshots/TASK-20260720-003-smart-print-qr";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for print/Safari checks.");
 
@@ -18,6 +18,22 @@ test("print media isolates the customer document and the task page reuses it", a
       testWindow.__repairDeskPrintCalls = (testWindow.__repairDeskPrintCalls ?? 0) + 1;
     };
   });
+  await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
+    const body = route.request().postDataJSON() as { order_ids?: string[] };
+    const orderIds = Array.isArray(body.order_ids) ? body.order_ids : [];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Cache-Control": "private, no-store" },
+      body: JSON.stringify({
+        links: orderIds.map((orderId, index) => ({
+          order_id: orderId,
+          url: `https://www.chinatech.in/r#${String(index + 1).padStart(43, "A")}`,
+          expires_at: "2027-12-31T23:59:59.000Z",
+        })),
+      }),
+    });
+  });
 
   await gotoReady(page, "/orders");
   await ensureOutputIdentityReady(page);
@@ -29,10 +45,13 @@ test("print media isolates the customer document and the task page reuses it", a
   await expect(page.getByText(/已选\s+2\s+条/)).toBeVisible();
   await page.getByRole("button", { name: "打印", exact: true }).last().click();
   await expect(page.locator("body > .repair-print-sheet .repair-print-page")).toHaveCount(2);
+  await expect(
+    page.locator('body > .repair-print-sheet [data-customer-status-qr="true"]'),
+  ).toHaveCount(2);
   await page.emulateMedia({ media: "print" });
   if (browserName === "chromium") {
     const batchPdf = await page.pdf({
-      path: `${evidenceDir}/repair-order-batch-two.pdf`,
+      path: `${evidenceDir}/repair-order-batch-two-smart-qr.pdf`,
       printBackground: true,
       preferCSSPageSize: true,
     });
@@ -48,7 +67,10 @@ test("print media isolates the customer document and the task page reuses it", a
   const detail = page.getByRole("dialog", { name: "工单详情" });
   await expect(detail).toBeVisible();
   const printSheet = page.locator("body > .repair-print-sheet");
+  await expect(printSheet).toHaveCount(0);
+  await detail.getByRole("button", { name: "打印", exact: true }).click();
   await expect(printSheet).toHaveCount(1);
+  await expect(printSheet.locator('[data-customer-status-qr="true"]')).toHaveCount(1);
   await expect(printSheet).not.toContainText("SCAN TASK");
   await expect(printSheet).not.toContainText("Link scheda");
 
@@ -64,7 +86,7 @@ test("print media isolates the customer document and the task page reuses it", a
       fallback: display("#repairdesk-style-fallback"),
       sheet: display(".repair-print-sheet"),
       pageOverflow: pageElement ? window.getComputedStyle(pageElement).overflow : "missing",
-      taskQrCount: document.querySelectorAll(".repair-print-task-qr").length,
+      customerStatusQrCount: document.querySelectorAll(".repair-print-status-qr").length,
     };
   });
   expect(printState).toEqual({
@@ -72,7 +94,7 @@ test("print media isolates the customer document and the task page reuses it", a
     fallback: "none",
     sheet: "block",
     pageOverflow: "visible",
-    taskQrCount: 0,
+    customerStatusQrCount: 1,
   });
 
   await page.screenshot({
@@ -82,11 +104,16 @@ test("print media isolates the customer document and the task page reuses it", a
 
   if (browserName === "chromium") {
     const pdf = await page.pdf({
-      path: `${evidenceDir}/repair-order-standard.pdf`,
+      path: `${evidenceDir}/repair-order-standard-smart-qr.pdf`,
       printBackground: true,
       preferCSSPageSize: true,
     });
     expect(readPdfPageCount(pdf)).toBe(1);
+
+    await page.emulateMedia({ media: "screen" });
+    await detail.getByRole("button", { name: "打印", exact: true }).click();
+    await expect(printSheet.locator('[data-customer-status-qr="true"]')).toHaveCount(1);
+    await page.emulateMedia({ media: "print" });
 
     await page.evaluate(() => {
       const left = document.querySelector<HTMLElement>(".repair-print-left");
@@ -108,7 +135,7 @@ test("print media isolates the customer document and the task page reuses it", a
       "END OF LONG PRINTABLE CONTENT",
     );
     const longPdf = await page.pdf({
-      path: `${evidenceDir}/repair-order-long-content.pdf`,
+      path: `${evidenceDir}/repair-order-long-content-smart-qr.pdf`,
       printBackground: true,
       preferCSSPageSize: true,
     });
@@ -124,16 +151,177 @@ test("print media isolates the customer document and the task page reuses it", a
   await gotoReady(page, `${directHref}/task`);
   const taskRoot = page.locator('[data-order-task-root="true"]');
   await expect(taskRoot).toBeVisible();
-  await expect(page.locator("body > .repair-print-sheet")).toHaveCount(1);
+  await expect(page.locator("body > .repair-print-sheet")).toHaveCount(0);
   const printButton = page.getByRole("button", { name: "打印客户工单" });
   await expect(printButton).toBeEnabled();
+  const beforeTaskPrintCount = await printCallCount(page);
   await printButton.click();
-  await expect.poll(() => printCallCount(page)).toBe(1);
+  await expect(
+    page.locator('body > .repair-print-sheet [data-customer-status-qr="true"]'),
+  ).toHaveCount(1);
+  await expect.poll(() => printCallCount(page)).toBe(beforeTaskPrintCount + 1);
 
   await page.emulateMedia({ media: "print" });
   await expect(page.locator("#repairdesk-styled-shell")).toHaveCSS("display", "none");
   await expect(page.locator(".repair-print-sheet")).toHaveCSS("display", "block");
   expect(await taskRoot.evaluate((element) => element.getClientRects().length)).toBe(0);
+});
+
+test("public customer status keeps the fragment token out of URLs and app shell", async ({
+  page,
+  browserName,
+}) => {
+  const validToken = "S".repeat(43);
+  const invalidToken = "X".repeat(43);
+  const slowToken = "D".repeat(43);
+  const fastToken = "F".repeat(43);
+  const rateLimitedToken = "R".repeat(43);
+  const requestUrls: string[] = [];
+  const requestBodies: string[] = [];
+  let staffResolveAuthenticated = false;
+  await page.route("**/api/repairdesk/customer-status-links/staff-resolve", async (route) => {
+    if (!staffResolveAuthenticated) {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { message: "未登录或登录已过期" } }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ task_path: "/orders" }),
+    });
+  });
+  await page.route("**/api/public/order-status", async (route) => {
+    requestUrls.push(route.request().url());
+    requestBodies.push(route.request().postData() ?? "");
+    const body = route.request().postDataJSON() as { token?: string };
+    if (body.token === rateLimitedToken) {
+      await route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        headers: { "Cache-Control": "private, no-store", "Retry-After": "45" },
+        body: JSON.stringify({
+          error: { code: "RATE_LIMITED", message: "Richieste troppo frequenti." },
+        }),
+      });
+      return;
+    }
+    if (![validToken, slowToken, fastToken].includes(body.token ?? "")) {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+        body: JSON.stringify({
+          error: {
+            code: "LINK_UNAVAILABLE",
+            message: "Questo link non è disponibile. Contatta il negozio per assistenza.",
+          },
+        }),
+      });
+      return;
+    }
+    if (body.token === slowToken) await new Promise((resolve) => setTimeout(resolve, 450));
+    const isFast = body.token === fastToken;
+    const isSlow = body.token === slowToken;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      body: JSON.stringify({
+        status: {
+          store: { name: "ZYG HOME Riparazioni", phone: "+39 0931 000000" },
+          order: {
+            public_no: isFast ? "R-FAST" : isSlow ? "R-SLOW" : "R2027001",
+            device: "Apple iPhone",
+            stage: "repair",
+            stage_label: "Riparazione in corso",
+            progress_percent: 72,
+            last_updated_at: "2026-07-20T12:00:00.000Z",
+            next_action: "Attendi il completamento della riparazione.",
+          },
+        },
+      }),
+    });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const publicPageResponse = await page.goto(`/r#${validToken}`, {
+    waitUntil: "domcontentloaded",
+  });
+  const customerPageCacheControl = publicPageResponse?.headers()["cache-control"] ?? "";
+  if (process.env.REPAIRDESK_E2E_PRODUCTION_BUILD === "1") {
+    expect(customerPageCacheControl).toContain("no-store");
+  } else {
+    expect(customerPageCacheControl).toMatch(/no-store|no-cache/);
+  }
+  expect(publicPageResponse?.headers()["content-security-policy"]).toContain(
+    "frame-ancestors 'none'",
+  );
+  expect(publicPageResponse?.headers()["x-frame-options"]).toBe("DENY");
+  await expect(page.getByText("Riparazione in corso")).toBeVisible();
+  await expect(page.getByText("R2027001")).toBeVisible();
+  await expect(page.getByText("ZYG HOME Riparazioni")).toHaveCount(2);
+  await expect(page.locator('[data-sidebar="sidebar"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "搜索工单、客户、库存…" })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("");
+  expect(requestUrls.every((url) => !url.includes(validToken))).toBe(true);
+  expect(requestBodies.some((body) => body.includes(validToken))).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: `${evidenceDir}/public-status-success-${browserName}-390.png`,
+    fullPage: true,
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: `${evidenceDir}/public-status-success-${browserName}-1440.png`,
+    fullPage: true,
+  });
+
+  await page.getByRole("button", { name: "Accesso personale" }).click();
+  await expect(page).toHaveURL(/\/login\?next=%2Fr%3Fstaff%3D1/);
+  staffResolveAuthenticated = true;
+  await page.goto("/r?staff=1", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/orders$/);
+
+  await page.goto(`/r#${validToken}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("R2027001")).toBeVisible();
+  await page.evaluate((slow) => {
+    window.location.hash = slow;
+  }, slowToken);
+  await expect(page.getByText("Caricamento dello stato…")).toBeVisible();
+  await page.evaluate((fast) => {
+    window.location.hash = fast;
+  }, fastToken);
+  await expect(page.getByText("R-FAST")).toBeVisible();
+  await page.waitForTimeout(550);
+  await expect(page.getByText("R-SLOW")).toHaveCount(0);
+
+  await page.goto(`/r#${rateLimitedToken}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Connessione non disponibile")).toBeVisible();
+  await expect(page.getByText("Riprova tra circa 45 secondi.")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: `${evidenceDir}/public-status-rate-limited-${browserName}-390.png`,
+    fullPage: true,
+  });
+
+  await page.goto(`/r#${invalidToken}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Link non disponibile")).toBeVisible();
+  expect(requestUrls.every((url) => !url.includes(invalidToken))).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: `${evidenceDir}/public-status-unavailable-${browserName}-390.png`,
+    fullPage: true,
+  });
 });
 
 for (const viewport of [

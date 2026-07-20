@@ -16,6 +16,7 @@ export async function updateSession(request: NextRequest) {
   const isRepairDeskApi = pathname.startsWith("/api/repairdesk");
   const isAiUsageMaintenanceCron = pathname === "/api/cron/ai-usage-maintenance";
   const isKioskRoute = pathname === "/kiosk" || pathname.startsWith("/api/kiosk");
+  const isCustomerStatusPublicRoute = pathname === "/r" || pathname === "/api/public/order-status";
   const isLoginPage = pathname === "/login";
   const isForgotPasswordPage = pathname === "/forgot-password";
   const isResetPasswordPage = pathname === "/reset-password";
@@ -42,7 +43,7 @@ export async function updateSession(request: NextRequest) {
   const hasPasswordRecoveryCookie = request.cookies.get(PASSWORD_RECOVERY_COOKIE)?.value === "1";
 
   if (isRepairDeskE2eAuthBypassEnabled()) {
-    return NextResponse.next({ request });
+    return applyCustomerStatusPageHeaders(NextResponse.next({ request }), pathname);
   }
 
   // This server-to-server route performs its own constant-time CRON_SECRET
@@ -53,7 +54,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.next({ request });
+    return applyCustomerStatusPageHeaders(NextResponse.next({ request }), pathname);
   }
 
   let response = NextResponse.next({
@@ -99,7 +100,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(forgotUrl);
   }
 
-  if (!isPublicAsset && !isRepairDeskApi && !isAuthPage && !isKioskRoute && !isAuthenticated) {
+  if (
+    !isPublicAsset &&
+    !isRepairDeskApi &&
+    !isAuthPage &&
+    !isKioskRoute &&
+    !isCustomerStatusPublicRoute &&
+    !isAuthenticated
+  ) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
@@ -116,8 +124,9 @@ export async function updateSession(request: NextRequest) {
   if (isLoginPage && isAuthenticated && !isPasswordUpdatePage) {
     const nextPath = request.nextUrl.searchParams.get("next") || "/";
     const target = request.nextUrl.clone();
-    target.pathname = nextPath.startsWith("/") ? nextPath : "/";
-    target.search = "";
+    const safeNext = resolveSafeNextUrl(nextPath, request.nextUrl.origin);
+    target.pathname = safeNext.pathname;
+    target.search = safeNext.search;
     return NextResponse.redirect(target);
   }
 
@@ -126,5 +135,31 @@ export async function updateSession(request: NextRequest) {
     response.headers.set("Referrer-Policy", "no-referrer");
   }
 
+  return applyCustomerStatusPageHeaders(response, pathname);
+}
+
+function applyCustomerStatusPageHeaders(response: NextResponse, pathname: string) {
+  if (pathname !== "/r") return response;
+  response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+  response.headers.set(
+    "Content-Security-Policy",
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  );
+  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   return response;
+}
+
+function resolveSafeNextUrl(nextPath: string, origin: string) {
+  if (!nextPath.startsWith("/") || nextPath.startsWith("//")) return new URL("/", origin);
+  try {
+    const target = new URL(nextPath, origin);
+    return target.origin === origin ? target : new URL("/", origin);
+  } catch {
+    return new URL("/", origin);
+  }
 }

@@ -655,34 +655,36 @@
     padding-top: 1.1mm;
   }
 
-  .repair-print-task-qr {
+  .repair-print-status-qr {
     display: grid;
     grid-template-columns: 24mm minmax(0, 1fr);
     gap: 2mm;
     align-items: center;
     border-bottom: 1px solid #ddd;
     padding: 1.4mm 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
-  .repair-print-task-qr svg {
+  .repair-print-status-qr svg {
     width: 22mm;
     height: 22mm;
   }
 
-  .repair-print-task-qr h3 {
+  .repair-print-status-qr h3 {
     margin: 0;
     font-size: 7pt;
     font-weight: 800;
     letter-spacing: 0;
   }
 
-  .repair-print-task-qr p {
+  .repair-print-status-qr p {
     margin: 0.6mm 0;
     color: #444;
     font-size: 5.8pt;
   }
 
-  .repair-print-task-qr strong {
+  .repair-print-status-qr strong {
     display: block;
     font-size: 7pt;
     overflow-wrap: anywhere;

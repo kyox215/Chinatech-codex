@@ -117,6 +117,7 @@ import {
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
+import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -202,6 +203,7 @@ export function OrderListScreen() {
   });
   const [selected, setSelected] = useState<string[]>([]);
   const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
+  const [customerStatusUrls, setCustomerStatusUrls] = useState<Record<string, string>>({});
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderSessionKey, setNewOrderSessionKey] = useState(0);
@@ -358,7 +360,10 @@ export function OrderListScreen() {
     [shell.activeStore, storeSettings, storeSettingsQuery.isError, storeSettingsQuery.isLoading],
   );
   const requestPrint = usePrintLifecycle(
-    () => setPrintOrders([]),
+    () => {
+      setPrintOrders([]);
+      setCustomerStatusUrls({});
+    },
     (error) => toast.error(error.message),
   );
 
@@ -906,7 +911,7 @@ export function OrderListScreen() {
     return () => window.removeEventListener(REPAIRDESK_NEW_ORDER_EVENT, openNewOrder);
   }, [openNewOrder]);
 
-  const printRows = (rows: OrderListItem[]) => {
+  const printRows = async (rows: OrderListItem[]) => {
     if (!rows.length) {
       toast.error("没有可打印的工单");
       return;
@@ -915,7 +920,15 @@ export function OrderListScreen() {
       toast.error(storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印");
       return;
     }
-    const outcome = requestPrint(() => setPrintOrders(rows));
+    const outcome = await requestPrint(async () => {
+      const links = await issueCustomerStatusLinks(rows.map((order) => order.id));
+      const nextUrls = Object.fromEntries(links.map((link) => [link.order_id, link.url]));
+      if (rows.some((order) => !nextUrls[order.id])) {
+        throw new Error("部分工单的客户查询二维码未准备完成");
+      }
+      setCustomerStatusUrls(nextUrls);
+      setPrintOrders(rows);
+    });
     if (outcome === "busy") toast.info("打印预览已打开，请先完成或取消当前打印");
   };
   const openDetail = (id: string) => {
@@ -1406,7 +1419,7 @@ export function OrderListScreen() {
                                       : previous.filter((id) => id !== order.id),
                                   )
                                 }
-                                onPrint={() => printRows([order])}
+                                onPrint={() => void printRows([order])}
                                 canPrint={canExportOrders}
                                 onStopInteraction={stopRowClick}
                                 suppliers={visibleSuppliers}
@@ -1518,7 +1531,9 @@ export function OrderListScreen() {
                   size="sm"
                   variant="outline"
                   className="gap-1.5"
-                  onClick={() => printRows(data.filter((order) => selected.includes(order.id)))}
+                  onClick={() =>
+                    void printRows(data.filter((order) => selected.includes(order.id)))
+                  }
                 >
                   <Printer className="size-3.5" /> 打印
                 </Button>
@@ -1531,6 +1546,7 @@ export function OrderListScreen() {
         orders={printOrders}
         storeSettings={storeSettings}
         activeStore={shell.activeStore}
+        customerStatusUrls={customerStatusUrls}
       />
       <Dialog open={newOrderOpen} onOpenChange={setNewOrderOpen}>
         <DialogContent showCloseButton={false} className={componentOverlay.formWorkspace}>

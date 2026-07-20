@@ -118,6 +118,11 @@ import {
   RepairOrderPrintSheet,
   canPrintRepairOrderCustomerDocument,
 } from "@/features/orders/components/repair-order-print-sheet";
+import {
+  issueCustomerStatusLinks,
+  revokeCustomerStatusLinks,
+} from "@/features/customer-status/api/customer-status-client";
+import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
 import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
 import { orderDetailQueryOptions } from "@/features/orders/api/query-options";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
@@ -298,10 +303,24 @@ export function OrderDetailScreen({
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
   const [mobileFinanceEditing, setMobileFinanceEditing] = useState(false);
   const [mobileFinanceSaveError, setMobileFinanceSaveError] = useState("");
+  const [customerStatusUrl, setCustomerStatusUrl] = useState("");
+  const [printPreparing, setPrintPreparing] = useState(false);
+  const [customerStatusRevokePending, setCustomerStatusRevokePending] = useState(false);
   const [financeDraft, setFinanceDraft] = useState<FinanceDraftState>(() =>
     createFinanceDraftState([], 0),
   );
   const editSaveInFlightRef = useRef(false);
+  const requestPrint = usePrintLifecycle(
+    () => {
+      setCustomerStatusUrl("");
+      setPrintPreparing(false);
+    },
+    (error) => {
+      setCustomerStatusUrl("");
+      setPrintPreparing(false);
+      toast.error(error.message);
+    },
+  );
 
   const closeCustodyOverlay = useCallback(() => {
     setCustodyDialogTarget(null);
@@ -1019,6 +1038,41 @@ export function OrderDetailScreen({
     order,
     storeOutputIdentity.canOutput,
   );
+  const printCustomerDocument = async () => {
+    if (!canPrintCustomerDocument) {
+      toast.error(storeOutputIdentity.blockReason ?? "客户工单尚未准备好");
+      return;
+    }
+    const outcome = await requestPrint(async () => {
+      setPrintPreparing(true);
+      try {
+        const links = await issueCustomerStatusLinks([order.id]);
+        const link = links.find((item) => item.order_id === order.id);
+        if (!link?.url) throw new Error("客户查询二维码签发结果不完整");
+        setCustomerStatusUrl(link.url);
+      } finally {
+        setPrintPreparing(false);
+      }
+    });
+    if (outcome === "busy") toast.info("打印内容正在准备或预览已打开");
+  };
+  const canRevokeCustomerStatusLinks = !isVoided && shell.activeStore?.role === "owner";
+  const revokePrintedCustomerStatusLinks = async () => {
+    if (!canRevokeCustomerStatusLinks || customerStatusRevokePending) return;
+    if (!window.confirm("停用这张工单此前打印的所有客户查询二维码？下次打印会生成新二维码。")) {
+      return;
+    }
+    setCustomerStatusRevokePending(true);
+    try {
+      const revokedCount = await revokeCustomerStatusLinks(order.id);
+      setCustomerStatusUrl("");
+      toast.success(revokedCount > 0 ? `已停用 ${revokedCount} 个二维码` : "当前没有有效二维码");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "无法停用客户查询二维码");
+    } finally {
+      setCustomerStatusRevokePending(false);
+    }
+  };
   const canNotify = !isVoided && !cancelled && !order.customer_contact_redacted;
   const canPromoteNotification =
     canNotify && order.contact_phones.some((phone) => phone.replace(/\D/g, "").length >= 6);
@@ -1291,8 +1345,12 @@ export function OrderDetailScreen({
           whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
           onPay={() => setPayOpen(true)}
           paymentDisabled={!canCollectPayment}
-          onPrint={() => canPrintCustomerDocument && window.print()}
-          printDisabled={!canPrintCustomerDocument}
+          onPrint={() => void printCustomerDocument()}
+          printDisabled={!canPrintCustomerDocument || printPreparing}
+          onRevokeCustomerStatusLinks={
+            canRevokeCustomerStatusLinks ? () => void revokePrintedCustomerStatusLinks() : undefined
+          }
+          customerStatusRevokePending={customerStatusRevokePending}
           onCancel={() => setCancelOpen(true)}
           canCancel={canCancelOrder}
           onRequestKioskSignature={
@@ -1344,8 +1402,14 @@ export function OrderDetailScreen({
         <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
           <OrderHero
             order={order}
-            onPrint={() => canPrintCustomerDocument && window.print()}
-            printDisabled={!canPrintCustomerDocument}
+            onPrint={() => void printCustomerDocument()}
+            printDisabled={!canPrintCustomerDocument || printPreparing}
+            onRevokeCustomerStatusLinks={
+              canRevokeCustomerStatusLinks
+                ? () => void revokePrintedCustomerStatusLinks()
+                : undefined
+            }
+            customerStatusRevokePending={customerStatusRevokePending}
             onCancel={() => setCancelOpen(true)}
             canCancel={canCancelOrder}
             onEdit={
@@ -1786,6 +1850,7 @@ export function OrderDetailScreen({
         data={data}
         storeSettings={storeSettings}
         activeStore={shell.activeStore}
+        customerStatusUrl={customerStatusUrl}
       />
     </div>
   );
@@ -2908,6 +2973,8 @@ function MobileOrderDetailView({
   paymentDisabled,
   onPrint,
   printDisabled,
+  onRevokeCustomerStatusLinks,
+  customerStatusRevokePending,
   onCancel,
   canCancel,
   onRequestKioskSignature,
@@ -2958,6 +3025,8 @@ function MobileOrderDetailView({
   paymentDisabled: boolean;
   onPrint: () => void;
   printDisabled: boolean;
+  onRevokeCustomerStatusLinks?: () => void;
+  customerStatusRevokePending: boolean;
   onCancel: () => void;
   canCancel: boolean;
   onRequestKioskSignature?: () => void;
@@ -3072,6 +3141,8 @@ function MobileOrderDetailView({
         onHeightChange={handleFloatingHeaderHeight}
         onPrint={onPrint}
         printDisabled={printDisabled}
+        onRevokeCustomerStatusLinks={onRevokeCustomerStatusLinks}
+        customerStatusRevokePending={customerStatusRevokePending}
         onCancel={onCancel}
         canCancel={canCancel}
       />
@@ -4725,6 +4796,8 @@ function MobileStickyWorkflowHeader({
   onHeightChange,
   onPrint,
   printDisabled,
+  onRevokeCustomerStatusLinks,
+  customerStatusRevokePending,
   onCancel,
   canCancel,
 }: {
@@ -4736,6 +4809,8 @@ function MobileStickyWorkflowHeader({
   onHeightChange?: (height: number) => void;
   onPrint: () => void;
   printDisabled: boolean;
+  onRevokeCustomerStatusLinks?: () => void;
+  customerStatusRevokePending: boolean;
   onCancel: () => void;
   canCancel: boolean;
 }) {
@@ -4807,6 +4882,15 @@ function MobileStickyWorkflowHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {onRevokeCustomerStatusLinks ? (
+                  <DropdownMenuItem
+                    disabled={customerStatusRevokePending}
+                    onClick={onRevokeCustomerStatusLinks}
+                  >
+                    <ScanLine className="mr-2 size-3.5" />
+                    {customerStatusRevokePending ? "正在停用二维码" : "停用已打印二维码"}
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   disabled={!canCancel}

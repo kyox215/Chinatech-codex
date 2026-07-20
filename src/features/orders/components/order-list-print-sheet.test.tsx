@@ -13,6 +13,9 @@ describe("OrderListPrintSheet store identity", () => {
       <OrderListPrintSheet
         orders={[decorate(orders[0])]}
         activeStore={{ id: "store-partner", name: "ZYG HOME Demo" }}
+        customerStatusUrls={{
+          [orders[0].id]: "https://www.chinatech.in/r#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        }}
         storeSettings={{
           store_id: "store-partner",
           store_name: "ZYG HOME Demo",
@@ -32,5 +35,24 @@ describe("OrderListPrintSheet store identity", () => {
     expect(document.body).not.toHaveTextContent("Viale Vittorio Veneto");
     expect(document.body).not.toHaveTextContent("SCAN TASK");
     expect(document.body.innerHTML).not.toContain("/task");
+    expect(document.querySelectorAll('[data-customer-status-qr="true"]')).toHaveLength(1);
+    expect(document.body).toHaveTextContent("STATO RIPARAZIONE");
+  });
+
+  it("fails closed when any printed order is missing a customer status URL", () => {
+    render(
+      <OrderListPrintSheet
+        orders={[decorate(orders[0])]}
+        activeStore={{ id: "store-partner", name: "ZYG HOME Demo" }}
+        storeSettings={{
+          store_id: "store-partner",
+          store_name: "ZYG HOME Demo",
+          store_address: "Via Demo 12, Siracusa",
+        }}
+        customerStatusUrls={{}}
+      />,
+    );
+
+    expect(document.querySelector(".repair-print-sheet")).toBeNull();
   });
 });

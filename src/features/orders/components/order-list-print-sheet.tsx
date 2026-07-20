@@ -1,3 +1,5 @@
+import { QRCodeSVG } from "qrcode.react";
+
 import type { OrderListItem } from "@/lib/repairdesk/api";
 import type { StoreSettings } from "@/lib/repairdesk/types";
 import {
@@ -18,15 +20,19 @@ export function OrderListPrintSheet({
   orders,
   storeSettings,
   activeStore,
+  customerStatusUrls,
 }: {
   orders: OrderListItem[];
   storeSettings?: Partial<StoreSettings> | null;
   activeStore?: { id?: string; name?: string } | null;
+  customerStatusUrls?: Record<string, string>;
 }) {
   if (!orders.length) return null;
 
   const storeProfile = buildStorePrintProfile(storeSettings, activeStore);
-  if (!storeProfile.canOutput) return null;
+  if (!storeProfile.canOutput || orders.some((order) => !customerStatusUrls?.[order.id])) {
+    return null;
+  }
 
   return (
     <PrintPortal paperMode="a4-portrait-half">
@@ -102,6 +108,21 @@ export function OrderListPrintSheet({
                 <h2>RIEPILOGO SERVIZIO</h2>
                 <p>Documento generato dal gestionale {storeProfile.storeName}</p>
               </header>
+
+              <section className="repair-print-status-qr" data-customer-status-qr="true">
+                <QRCodeSVG
+                  value={customerStatusUrls?.[order.id] ?? ""}
+                  level="M"
+                  marginSize={4}
+                  title={`Stato riparazione ${order.public_no}`}
+                  aria-label={`QR per controllare lo stato dell'ordine ${order.public_no}`}
+                />
+                <div>
+                  <h3>STATO RIPARAZIONE</h3>
+                  <p>Scansiona per controllare l&apos;avanzamento.</p>
+                  <strong>{order.public_no}</strong>
+                </div>
+              </section>
 
               <PrintSection title="Importi (EUR)">
                 {order.finance_redacted ? (

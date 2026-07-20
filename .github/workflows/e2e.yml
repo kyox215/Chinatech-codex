@@ -70,4 +70,4 @@ jobs:
           path: |
             playwright-report
             test-results
-            screenshots/TASK-20260720-002-print-safari-reliability-fixes
+            screenshots/TASK-20260720-003-smart-print-qr

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef } from "react";
 
 const PRINT_CLEANUP_FALLBACK_MS = 30_000;
 
-export type PrintRequestOutcome = "started" | "busy";
+export type PrintRequestOutcome = "started" | "busy" | "failed";
+export type PrintPrepare = () => void | Promise<void>;
 
 export function usePrintLifecycle(onComplete?: () => void, onError?: (error: Error) => void) {
   const activeRef = useRef(false);
@@ -47,10 +48,18 @@ export function usePrintLifecycle(onComplete?: () => void, onError?: (error: Err
   }, [clearScheduledWork, complete]);
 
   return useCallback(
-    (prepare?: () => void): PrintRequestOutcome => {
+    async (prepare?: PrintPrepare): Promise<PrintRequestOutcome> => {
       if (activeRef.current) return "busy";
       activeRef.current = true;
-      prepare?.();
+      try {
+        await prepare?.();
+      } catch (cause) {
+        const error = cause instanceof Error ? cause : new Error("无法准备打印内容");
+        complete();
+        onErrorRef.current?.(error);
+        return "failed";
+      }
+      if (!activeRef.current) return "failed";
 
       const firstFrame = window.requestAnimationFrame(() => {
         const secondFrame = window.requestAnimationFrame(() => {

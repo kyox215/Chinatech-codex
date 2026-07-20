@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260720-003-smart-print-qr"
 title: "打印单双用途智能 QR 与客户进度入口"
-status: "active"
+status: "release_ready"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "DATA", "SEC", "UX", "FE", "API", "QA", "INT"]
 created_at: "2026-07-20T18:59:37Z"
-updated_at: "2026-07-20T18:59:37Z"
+updated_at: "2026-07-20T20:41:49Z"
 ---
 
 # Owner goal

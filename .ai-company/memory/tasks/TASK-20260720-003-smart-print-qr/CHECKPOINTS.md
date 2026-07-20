@@ -17,3 +17,22 @@
 - **Decision:** integrate the complete two-commit hotfix branch before creating the smart-QR migration, then rerun linked list/dry-run. Do not use `migration repair`, `--include-all`, manual history edits or reapply the live SQL.
 - **Reason:** the hotfix handoff explicitly marks its branch as mandatory input to the next database release; this is a prerequisite integration, not a new database write.
 - **Next:** checkpoint the current task contract, merge the hotfix branch, preserve this task as ACTIVE_CONTEXT, then prove linked dry-run is up to date.
+
+## 2026-07-20T20:41:49Z — Release candidate passed code, database and independent review gates
+
+- **Phase:** implementation complete → release ready; production has not yet received migration `20260720190759` or this application commit.
+- **Database evidence:** linked history aligns through `20260720065246`; dry-run lists only `20260720190759`. The final migration passed a clean PostgreSQL 17 replay. Two concurrent issue sessions produced two historical rows but exactly one unrevoked row and two audits; a forced audit failure rolled the new link back; revoke+audit and combined IP/global limiter invariants passed.
+- **Quality evidence:** lint PASS, typecheck PASS, full Vitest 326 files / 2138 tests PASS, final production build PASS. Chromium and WebKit feature workflows passed; standard/batch/long PDFs are 1/2/2 pages.
+- **Independent reviews:** DATA/Architecture PASS, Security PASS, QA/UX conditional PASS with no software P0/P1; only the physical Safari + HP + phone scan remains device-specific.
+- **Key decisions:** issue/revoke are service-role-only atomic RPCs with ordered order locks, audit in the same transaction and a partial unique index. The front-door limiter atomically prevents both one-IP global exhaustion and global-saturation IP-row growth. Production Vercel trusts only `x-vercel-forwarded-for` and otherwise uses the bounded `unknown` bucket.
+- **Residual risk:** real multi-IP abuse remains an observability/firewall concern; no raw bearer token, customer PII or credential is stored in task evidence.
+- **Next:** re-fetch remote main, repeat linked list/dry-run, apply only `20260720190759`, verify database objects, commit/push exact scope, enable the feature flag, wait for exact Vercel deployment READY, then smoke and close.
+
+## 2026-07-20T20:48:18Z — Production migration attempt safely rejected; UUID contract corrected
+
+- **Incident:** the first `supabase db push --linked` reached only `20260720190759` but PostgreSQL rejected the initial table definition with SQLSTATE `42804`: link `order_id text` was incompatible with production `repair_orders.id uuid`.
+- **Impact:** no customer impact. The feature flag remained absent/off, application commit was not pushed, the table was not created and `supabase migration list --linked` confirms `20260720190759` was not recorded remotely.
+- **Root cause:** the local migration replay fixture incorrectly modeled `repair_orders.id` as text, so it proved transaction/permission behavior without matching the production column type.
+- **Correction:** link `order_id`, issue JSON recordset casts and revoke RPC parameter/signature now use UUID end to end. The SQL text test explicitly asserts UUID.
+- **Recovery evidence:** a clean PostgreSQL 17 fixture with UUID order IDs applied the full migration. Two concurrent issue sessions left one unrevoked link and two audits; forced audit failure rolled back; revoke+audit, RLS/grants and combined limiter invariants passed.
+- **Next:** rerun focused/full code gates and linked dry-run, amend the unpublished commit, then retry only `20260720190759`.

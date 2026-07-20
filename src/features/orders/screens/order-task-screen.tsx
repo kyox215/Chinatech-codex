@@ -46,6 +46,7 @@ import {
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
 import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
@@ -96,7 +97,19 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const [transitionAction, setTransitionAction] = useState<WorkflowNextAction | null>(null);
   const [transitionReason, setTransitionReason] = useState("");
   const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
-  const requestPrint = usePrintLifecycle(undefined, (error) => toast.error(error.message));
+  const [customerStatusUrl, setCustomerStatusUrl] = useState("");
+  const [printPreparing, setPrintPreparing] = useState(false);
+  const requestPrint = usePrintLifecycle(
+    () => {
+      setCustomerStatusUrl("");
+      setPrintPreparing(false);
+    },
+    (error) => {
+      setCustomerStatusUrl("");
+      setPrintPreparing(false);
+      toast.error(error.message);
+    },
+  );
 
   useEffect(() => {
     document.body.dataset.orderDetailActive = "true";
@@ -148,6 +161,24 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const canPrintCustomerDocument = Boolean(
     order && canPrintRepairOrderCustomerDocument(order, storeOutputIdentity.canOutput),
   );
+  const printCustomerDocument = async () => {
+    if (!order || !canPrintCustomerDocument) {
+      toast.error(storeOutputIdentity.blockReason ?? "客户工单尚未准备好");
+      return;
+    }
+    const outcome = await requestPrint(async () => {
+      setPrintPreparing(true);
+      try {
+        const links = await issueCustomerStatusLinks([order.id]);
+        const link = links.find((item) => item.order_id === order.id);
+        if (!link?.url) throw new Error("客户查询二维码签发结果不完整");
+        setCustomerStatusUrl(link.url);
+      } finally {
+        setPrintPreparing(false);
+      }
+    });
+    if (outcome === "busy") toast.info("打印内容正在准备或预览已打开");
+  };
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const workflowStatus = order ? getOrderWorkflowStatus(order) : "intake";
   const guidance = order ? getOrderTaskGuidance(order) : null;
@@ -348,14 +379,9 @@ export function OrderTaskScreen({ id }: { id: string }) {
           size="icon"
           className="size-10 rounded-full md:size-8 md:rounded-lg"
           aria-label="打印客户工单"
-          disabled={!canPrintCustomerDocument}
-          onClick={() => {
-            if (!canPrintCustomerDocument) {
-              toast.error(storeOutputIdentity.blockReason ?? "客户工单尚未准备好");
-              return;
-            }
-            requestPrint();
-          }}
+          disabled={!canPrintCustomerDocument || printPreparing}
+          aria-busy={printPreparing}
+          onClick={() => void printCustomerDocument()}
         >
           <Printer className="size-4" />
         </Button>
@@ -611,6 +637,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
         data={data}
         storeSettings={storeSettings}
         activeStore={shell.activeStore}
+        customerStatusUrl={customerStatusUrl}
       />
     </main>
   );

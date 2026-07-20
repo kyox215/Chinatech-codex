@@ -42,7 +42,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     pathname === "/register/complete" ||
     pathname === "/invite/complete" ||
     pathname.startsWith("/auth/confirm") ||
-    pathname === "/kiosk"
+    pathname === "/kiosk" ||
+    pathname === "/r"
   ) {
     return (
       <QueryClientProvider client={queryClient}>
