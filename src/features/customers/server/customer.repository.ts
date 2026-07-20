@@ -523,6 +523,24 @@ export function projectCustomerAggregateFinance(
   return { ...visible, finance_redacted: true };
 }
 
+export function projectCustomerListBrowserFields(customer: CustomerListItem): CustomerListItem {
+  const {
+    phone_raw: _phoneRaw,
+    contact_phones: _contactPhones,
+    consent_marketing: _consentMarketing,
+    consent_sms: _consentSms,
+    preferred_channel: _preferredChannel,
+    language: _language,
+    notes: _notes,
+    marketing_notes: _marketingNotes,
+    last_contacted_at: _lastContactedAt,
+    blacklisted_at: _blacklistedAt,
+    device_search_text: _deviceSearchText,
+    ...visible
+  } = customer;
+  return visible as CustomerListItem;
+}
+
 function filterCustomers(customers: CustomerListItem[], filters: CustomerListFilters = {}) {
   let result = customers;
   const query = filters.search?.trim().toLowerCase();
@@ -706,7 +724,7 @@ export async function listCustomers(
 
   return {
     customers: filterCustomers(items, visibleFilters).map((customer) =>
-      projectCustomerAggregateFinance(customer, actor),
+      projectCustomerListBrowserFields(projectCustomerAggregateFinance(customer, actor)),
     ),
     tags,
     stats,
@@ -833,7 +851,9 @@ function normalizeCustomerPageResult(
   const page = Math.max(1, Number(result.page ?? fallbackPage));
   return {
     items: result.items.map((item) =>
-      projectCustomerAggregateFinance(normalizeCustomerAggregateFacts(item), actor),
+      projectCustomerListBrowserFields(
+        projectCustomerAggregateFinance(normalizeCustomerAggregateFacts(item), actor),
+      ),
     ),
     total,
     page,

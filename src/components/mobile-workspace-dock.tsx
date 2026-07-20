@@ -188,7 +188,8 @@ function MobileWorkspaceDockContent({
 export function shouldHideMobileWorkspaceDock(pathname: string) {
   const isSettingsRoute = pathname === "/settings" || pathname.startsWith("/settings/");
   const isOrdersList = pathname === "/orders";
+  const isCustomerDetail = /^\/customers\/[^/]+$/.test(pathname);
   const isMobileWorkspaceRoute =
     isOrdersList || pathname === "/orders/new" || /^\/orders\/[^/]+(?:\/task)?$/.test(pathname);
-  return pathname === "/" || isSettingsRoute || isMobileWorkspaceRoute;
+  return pathname === "/" || isSettingsRoute || isMobileWorkspaceRoute || isCustomerDetail;
 }

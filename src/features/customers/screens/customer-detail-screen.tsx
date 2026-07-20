@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
@@ -89,6 +91,7 @@ export function CustomerDetailScreen({
   onClose?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [tab, setTab] = useState<CustomerDetailTabKey>("overview");
@@ -124,11 +127,12 @@ export function CustomerDetailScreen({
     ],
   );
 
-  const { data, error, isError, isFetching, isLoading, refetch } = useQuery({
+  const { data, isError, isFetching, isLoading, refetch } = useQuery({
     queryKey: customersKeys.detail(id, activeStoreId),
     queryFn: ({ signal }) => getCustomerDetail(id, { signal }),
     staleTime: CACHE_TIMES.detail,
     retry: 1,
+    enabled: Boolean(activeStoreId),
   });
 
   const customerBaseUrl = useMemo(
@@ -160,10 +164,7 @@ export function CustomerDetailScreen({
   }, [data?.customer.id]);
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: customersKeys.detail(id) });
-    queryClient.invalidateQueries({ queryKey: customersKeys.devices(id) });
-    queryClient.invalidateQueries({ queryKey: [...customersKeys.all, "intake-search"] });
-    queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: customersKeys.all });
     queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
   };
 
@@ -174,7 +175,7 @@ export function CustomerDetailScreen({
       setEditOpen(false);
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("客户保存失败，请重试"),
   });
 
   const upsertDevice = useMutation({
@@ -185,7 +186,7 @@ export function CustomerDetailScreen({
       setEditingDevice(undefined);
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("设备保存失败，请重试"),
   });
 
   const deleteDevice = useMutation({
@@ -194,7 +195,7 @@ export function CustomerDetailScreen({
       toast.success("设备已删除");
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("设备删除失败，请重试"),
   });
 
   const followup = useMutation({
@@ -204,7 +205,7 @@ export function CustomerDetailScreen({
       setFollowupOpen(false);
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("待办保存失败，请重试"),
   });
 
   const completeFollowup = useMutation({
@@ -213,7 +214,7 @@ export function CustomerDetailScreen({
       toast.success("客户待办已完成");
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("待办更新失败，请重试"),
   });
 
   const message = useMutation({
@@ -223,7 +224,7 @@ export function CustomerDetailScreen({
       setMessageOpen(false);
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("联系记录保存失败，请重试"),
   });
 
   const tags = useMutation({
@@ -233,10 +234,13 @@ export function CustomerDetailScreen({
       setTagsOpen(false);
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("标签保存失败，请重试"),
   });
 
-  const queryErrorMessage = error instanceof Error ? error.message : "客户详情加载失败";
+  const goBackToCustomers = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/customers");
+  };
 
   if (isLoading) {
     return (
@@ -270,23 +274,13 @@ export function CustomerDetailScreen({
 
   if (isError && !data) {
     return (
-      <CustomerDetailLoadError
-        message={queryErrorMessage}
-        onRetry={() => void refetch()}
-        surface={surface}
-        onClose={onClose}
-      />
+      <CustomerDetailLoadError onRetry={() => void refetch()} surface={surface} onClose={onClose} />
     );
   }
 
   if (!data) {
     return (
-      <CustomerDetailLoadError
-        message="未找到这个客户档案。"
-        onRetry={() => void refetch()}
-        surface={surface}
-        onClose={onClose}
-      />
+      <CustomerDetailLoadError onRetry={() => void refetch()} surface={surface} onClose={onClose} />
     );
   }
 
@@ -357,9 +351,9 @@ export function CustomerDetailScreen({
         "w-full min-w-0 max-w-full overflow-x-hidden",
         surface === "page"
           ? cn(
-              "mx-auto max-w-[430px] px-2 md:max-w-7xl md:px-5",
+              "mx-auto max-w-[430px] px-2",
               repairOs.mobileFloatingPage,
-              "md:space-y-3 md:pb-8 md:pt-5",
+              "md:!max-w-2xl md:!pb-20 md:!pt-[var(--repair-os-mobile-floating-offset,calc(env(safe-area-inset-top)+10.75rem))] md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
             )
           : cn(detailWorkspace.root, "flex h-full min-h-0 flex-col"),
       )}
@@ -369,11 +363,10 @@ export function CustomerDetailScreen({
         <CustomerMobileFloatingHeader
           headerRef={mobileHeaderRef}
           data={data}
-          onMessage={() => setMessageOpen(true)}
-          onFollowup={() => {
-            setFollowupOrderId(undefined);
-            setFollowupOpen(true);
-          }}
+          tabs={tabs}
+          activeTab={tab}
+          onTabChange={setTab}
+          onBack={goBackToCustomers}
           onEdit={() => setEditOpen(true)}
         />
       ) : null}
@@ -405,14 +398,14 @@ export function CustomerDetailScreen({
           }
           trailingClassName="justify-self-end"
         >
-          <span className="block min-w-0 truncate">客户详情刷新失败：{queryErrorMessage}</span>
+          <span className="block min-w-0 truncate">更新没有成功，当前仍显示上次内容。</span>
         </RepairOsBusinessCard>
       ) : null}
 
       <div
         className={cn(
           surface === "page"
-            ? "hidden md:block"
+            ? "hidden lg:block"
             : "shrink-0 p-2 pb-0 sm:p-3 sm:pb-0 md:p-4 md:pb-0",
         )}
       >
@@ -426,8 +419,20 @@ export function CustomerDetailScreen({
         />
       </div>
 
-      <div className={cn(surface === "dialog" && "shrink-0 px-2 sm:px-3 md:px-4")}>
-        <CustomerDetailTabs tabs={tabs} activeTab={tab} onChange={setTab} />
+      <div
+        className={cn(
+          surface === "dialog"
+            ? "shrink-0 px-2 sm:px-3 md:px-4"
+            : "hidden lg:sticky lg:top-14 lg:z-20 lg:block lg:bg-background/95 lg:pt-2 lg:backdrop-blur",
+        )}
+      >
+        <CustomerDetailTabs
+          tabs={tabs}
+          activeTab={tab}
+          onChange={setTab}
+          idPrefix="customer-detail-main"
+          panelIdPrefix="customer-detail"
+        />
       </div>
 
       <div
@@ -438,14 +443,28 @@ export function CustomerDetailScreen({
             : "",
         )}
       >
-        <div className="min-w-0">{detailPanel}</div>
+        <div
+          id={`customer-detail-panel-${tab}`}
+          role="tabpanel"
+          aria-label={tabs.find((item) => item.key === tab)?.label}
+          className="min-w-0"
+        >
+          {detailPanel}
+        </div>
         <CustomerDesktopSummaryRail
           data={data}
           onMessage={() => setMessageOpen(true)}
           onFollowup={openCustomerFollowup}
-          onEdit={() => setEditOpen(true)}
         />
       </div>
+
+      {surface === "page" ? (
+        <CustomerMobileActionBar
+          customerId={customer.id}
+          onMessage={() => setMessageOpen(true)}
+          onFollowup={openCustomerFollowup}
+        />
+      ) : null}
 
       <CustomerEditDialog
         open={editOpen}
@@ -501,29 +520,47 @@ export function CustomerDetailScreen({
 
 function CustomerMobileFloatingHeader({
   data,
-  onMessage,
-  onFollowup,
+  tabs,
+  activeTab,
+  onTabChange,
+  onBack,
   onEdit,
   headerRef,
 }: {
   data: CustomerDetail;
-  onMessage: () => void;
-  onFollowup: () => void;
+  tabs: ReturnType<typeof buildCustomerDetailTabs>;
+  activeTab: CustomerDetailTabKey;
+  onTabChange: (tab: CustomerDetailTabKey) => void;
+  onBack: () => void;
   onEdit: () => void;
   headerRef: RefObject<HTMLDivElement | null>;
 }) {
   const { customer, stats } = data;
   const summary = getCustomerDetailWorkSummary(data);
-  const openFollowups = data.followups.filter((followup) => followup.status === "open").length;
+  const { isMobile, state: sidebarState } = useSidebar();
+  const workspaceInset = isMobile
+    ? undefined
+    : sidebarState === "collapsed"
+      ? "var(--sidebar-width-icon)"
+      : "var(--sidebar-width)";
 
   return (
-    <div ref={headerRef} className={cn(repairOs.mobileFloatingHeaderShell, "md:hidden")}>
-      <section className={repairOs.mobileFloatingHeaderCard}>
+    <div
+      ref={headerRef}
+      className={cn(repairOs.mobileFloatingHeaderShell, "md:!block lg:!hidden")}
+      style={workspaceInset ? { left: workspaceInset } : undefined}
+    >
+      <section className={cn(repairOs.mobileFloatingHeaderCard, "md:max-w-2xl")}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
-            <Link href="/customers" aria-label="返回客户">
-              <ArrowLeft className="size-4" />
-            </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 rounded-lg"
+            aria-label="返回客户列表"
+            onClick={onBack}
+          >
+            <ArrowLeft className="size-4" />
           </Button>
           <div className="min-w-0 text-center">
             <p className="truncate text-xs font-semibold leading-4">客户详情</p>
@@ -571,58 +608,72 @@ function CustomerMobileFloatingHeader({
             />
           </div>
 
-          <div className="mt-1.5 grid grid-cols-3 gap-1 text-center">
-            <CustomerMobileMetric label="设备" value={data.devices.length} />
-            <CustomerMobileMetric label="工单" value={data.orders.length} />
-            <CustomerMobileMetric label="待办" value={openFollowups} />
-          </div>
-
-          <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-            <Button
-              asChild
-              size="sm"
-              className={cn("h-8 gap-1 rounded-lg text-[11px]", controls.brandButton)}
-              style={brandGradientStyle}
-            >
-              <Link href={`/orders/new?customerId=${customer.id}`}>
-                <Wrench className="size-3.5" /> 工单
-              </Link>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1 rounded-lg bg-card text-[11px]"
-              onClick={onMessage}
-            >
-              <Send className="size-3.5" /> 消息
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1 rounded-lg bg-card text-[11px]"
-              onClick={onFollowup}
-            >
-              <Bell className="size-3.5" /> 待办
-            </Button>
-          </div>
+          <CustomerDetailTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onChange={onTabChange}
+            idPrefix="customer-detail-mobile"
+            panelIdPrefix="customer-detail"
+            className="mb-0 mt-1.5"
+          />
         </div>
       </section>
     </div>
   );
 }
 
-function CustomerMobileMetric({ label, value }: { label: string; value: number }) {
+function CustomerMobileActionBar({
+  customerId,
+  onMessage,
+  onFollowup,
+}: {
+  customerId: string;
+  onMessage: () => void;
+  onFollowup: () => void;
+}) {
+  const { isMobile, state: sidebarState } = useSidebar();
+  const workspaceInset = isMobile
+    ? undefined
+    : sidebarState === "collapsed"
+      ? "var(--sidebar-width-icon)"
+      : "var(--sidebar-width)";
+
   return (
-    <RepairOsInfoTile
-      label={label}
-      value={value}
-      frame="plain"
-      className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-1.5 py-1"
-      labelClassName="text-[9px]"
-      valueClassName="truncate font-mono text-[11px] font-semibold leading-4 tabular-nums"
-    />
+    <div
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur transition-[left] lg:hidden"
+      style={workspaceInset ? { left: workspaceInset } : undefined}
+    >
+      <div className="mx-auto grid max-w-2xl grid-cols-3 gap-2">
+        <Button
+          asChild
+          size="sm"
+          className={cn("h-10 gap-1.5", controls.brandButton)}
+          style={brandGradientStyle}
+        >
+          <Link href={`/orders/new?customerId=${customerId}`}>
+            <Wrench className="size-4" /> 新建工单
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-10 gap-1.5 bg-card"
+          onClick={onMessage}
+        >
+          <Send className="size-4" /> 发消息
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-10 gap-1.5 bg-card"
+          onClick={onFollowup}
+        >
+          <Bell className="size-4" /> 加待办
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -630,12 +681,10 @@ function CustomerDesktopSummaryRail({
   data,
   onMessage,
   onFollowup,
-  onEdit,
 }: {
   data: CustomerDetail;
   onMessage: () => void;
   onFollowup: () => void;
-  onEdit: () => void;
 }) {
   const { customer, stats } = data;
   const summary = getCustomerDetailWorkSummary(data);
@@ -644,32 +693,11 @@ function CustomerDesktopSummaryRail({
   return (
     <aside className="hidden min-w-0 xl:block">
       <section className={cn(repairOs.adminSection, "sticky top-4 space-y-3 p-3")}>
-        <div className="min-w-0">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-            客户工作栏
-          </p>
-          <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold">{customer.name}</h2>
-              <PhoneText
-                value={customer.phone_e164}
-                className="mt-0.5 block truncate text-[11px]"
-              />
-            </div>
-            <CustomerStatusBadges
-              compact
-              customer={{
-                active_order_count: stats.active_order_count ?? 0,
-                outstanding_amount: stats.outstanding_amount ?? stats.unpaid_amount,
-                unpaid_amount: stats.unpaid_amount,
-                finance_redacted: stats.finance_redacted,
-              }}
-              className="max-w-[10rem] justify-end"
-            />
-          </div>
-        </div>
+        <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+          客户工作栏
+        </p>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <CustomerRailMetric label="设备" value={stats.device_count} />
           <CustomerRailMetric
             label="历史 / 有效"
@@ -718,15 +746,6 @@ function CustomerDesktopSummaryRail({
           >
             <Bell className="size-3.5" /> 待办
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onEdit}
-          >
-            <Edit3 className="size-3.5" /> 编辑
-          </Button>
         </div>
 
         <div className="min-w-0 border-t border-[var(--border-panel)] pt-3">
@@ -752,12 +771,10 @@ function CustomerRailMetric({ label, value }: { label: string; value: ReactNode 
 }
 
 function CustomerDetailLoadError({
-  message,
   onRetry,
   surface,
   onClose,
 }: {
-  message: string;
   onRetry: () => void;
   surface: CustomerDetailSurface;
   onClose?: () => void;
@@ -783,7 +800,7 @@ function CustomerDetailLoadError({
       >
         <span className="block text-sm font-semibold text-foreground">客户详情加载失败</span>
         <span className="mt-1 block break-words text-xs leading-5 text-muted-foreground">
-          {message}
+          请检查网络后重新加载，已有客户资料不会受影响。
         </span>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {surface === "dialog" && onClose ? (

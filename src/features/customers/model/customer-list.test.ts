@@ -4,15 +4,20 @@ import type { CustomerStats } from "@/lib/repairdesk/types";
 
 import {
   buildCustomerDetailTabs,
-  buildCustomerWorkFilterChips,
+  applyCustomerQuickGroup,
+  buildCustomerQuickGroupChips,
+  clampCustomerPageAfterLoad,
   getCustomerDetailWorkSummary,
   getCustomerActiveFilterCount,
   getCustomerDetailHref,
   getCustomerListSubtitle,
   getCustomerPageRange,
+  getCustomerQuickGroup,
   getCustomerWorkSummary,
   normalizeCustomerWorkFilter,
+  parseCustomerListUrlState,
   sanitizeCustomerListFilters,
+  serializeCustomerListUrlState,
 } from "./customer-list";
 
 const stats: CustomerStats = {
@@ -27,12 +32,11 @@ const stats: CustomerStats = {
 
 describe("customer list helpers", () => {
   it("builds repair-focused work filter chips from stats", () => {
-    expect(buildCustomerWorkFilterChips(stats)).toEqual([
+    expect(buildCustomerQuickGroupChips(stats)).toEqual([
       { value: "all", label: "全部", shortLabel: "全", count: 20 },
-      { value: "active", label: "在修", shortLabel: "修", count: 4 },
-      { value: "unpaid", label: "有待收", shortLabel: "款", count: 3 },
-      { value: "with_devices", label: "有设备", shortLabel: "设", count: 12 },
-      { value: "repeat", label: "老客户", shortLabel: "老", count: 6 },
+      { value: "active", label: "处理中", shortLabel: "修", count: 4 },
+      { value: "unpaid", label: "待收款", shortLabel: "款", count: 3 },
+      { value: "followup", label: "要跟进", shortLabel: "跟", count: 2 },
     ]);
   });
 
@@ -49,9 +53,49 @@ describe("customer list helpers", () => {
       search: "Mario",
       tagIds: ["vip", "repair"],
       work: "unpaid",
+      marketing: "blocked",
+      followup: "overdue",
     });
-    expect(getCustomerActiveFilterCount(filters)).toBe(3);
-    expect(getCustomerListSubtitle(filters, 7)).toBe("有待收 · 共 7 位");
+    expect(getCustomerActiveFilterCount(filters)).toBe(4);
+    expect(getCustomerListSubtitle(filters, 7)).toBe("要跟进 · 共 7 位");
+  });
+
+  it("maps the four simple groups to server filters", () => {
+    expect(applyCustomerQuickGroup({}, "active")).toMatchObject({
+      work: "active",
+      followup: "all",
+    });
+    expect(applyCustomerQuickGroup({}, "unpaid")).toMatchObject({
+      work: "unpaid",
+      followup: "all",
+    });
+    const followup = applyCustomerQuickGroup({ tagIds: ["vip"] }, "followup");
+    expect(followup).toMatchObject({ work: "all", followup: "due", tagIds: ["vip"] });
+    expect(getCustomerQuickGroup(followup)).toBe("followup");
+  });
+
+  it("round-trips allowlisted list URL state", () => {
+    const params = serializeCustomerListUrlState({
+      search: "Mario",
+      filters: {
+        work: "with_devices",
+        followup: "overdue",
+        marketing: "allowed",
+        tagIds: ["vip", "repair"],
+      },
+      page: 3,
+    });
+    const restored = parseCustomerListUrlState(params);
+    expect(restored).toEqual({
+      search: "Mario",
+      filters: {
+        work: "with_devices",
+        followup: "overdue",
+        marketing: "allowed",
+        tagIds: ["vip", "repair"],
+      },
+      page: 3,
+    });
   });
 
   it("falls back to all customers when the work filter is absent or invalid", () => {
@@ -79,6 +123,15 @@ describe("customer list helpers", () => {
       start: 61,
       end: 62,
     });
+  });
+
+  it("does not collapse a restored page before real data loads", () => {
+    expect(
+      clampCustomerPageAfterLoad({ page: 3, pageCount: undefined, isPlaceholderData: false }),
+    ).toBe(3);
+    expect(clampCustomerPageAfterLoad({ page: 3, pageCount: 1, isPlaceholderData: true })).toBe(3);
+    expect(clampCustomerPageAfterLoad({ page: 3, pageCount: 5, isPlaceholderData: false })).toBe(3);
+    expect(clampCustomerPageAfterLoad({ page: 6, pageCount: 5, isPlaceholderData: false })).toBe(5);
   });
 
   it("builds encoded customer detail links", () => {
@@ -192,7 +245,7 @@ describe("customer list helpers", () => {
       { key: "overview", label: "总览" },
       { key: "orders", label: "工单", count: 3 },
       { key: "devices", label: "设备", count: 2 },
-      { key: "followups", label: "跟进", count: 4 },
+      { key: "followups", label: "跟进", count: 1 },
       { key: "profile", label: "资料", count: 1 },
     ]);
   });

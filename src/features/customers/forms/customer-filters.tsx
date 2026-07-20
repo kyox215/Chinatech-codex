@@ -4,14 +4,12 @@ import { Tags } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { customerWorkFilterOptions } from "@/features/customers/model/customer-list";
 import type { CustomerListFilters, CustomerTag } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 
 export function CustomerFilters({
   filters,
   tags,
-  financeRedacted = false,
   onChange,
   onClose,
 }: {
@@ -28,25 +26,60 @@ export function CustomerFilters({
       : [...current, tagId];
     onChange({ ...filters, tagIds: next });
   };
+  const advancedWork =
+    filters.work === "with_devices" || filters.work === "repeat" ? filters.work : "all";
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-4 py-3">
         <div className="flex items-center gap-2 font-semibold">
-          <Tags className="size-4" /> 客户工作筛选
+          <Tags className="size-4" /> 更多筛选
         </div>
         <p className="mt-1 text-xs leading-4 text-muted-foreground">
-          按维修店当前处理优先级筛客户，标签只作为辅助条件。
+          这里只放不常用的条件。常用的“处理中、待收款、要跟进”请直接点列表顶部。
         </p>
       </div>
       <div className="flex-1 space-y-6 overflow-y-auto p-4">
         <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">处理状态</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">客户记录</div>
           <CustomerSegmented
-            value={filters.work ?? "all"}
-            options={customerWorkFilterOptions
-              .filter((option) => option.value !== "unpaid" || !financeRedacted)
-              .map((option) => [option.value, option.label])}
+            label="客户记录"
+            value={advancedWork}
+            options={[
+              ["all", "不限"],
+              ["with_devices", "有设备"],
+              ["repeat", "老客户"],
+            ]}
             onChange={(work) => onChange({ ...filters, work: work as CustomerListFilters["work"] })}
+          />
+        </section>
+        <section>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">跟进时间</div>
+          <CustomerSegmented
+            label="跟进时间"
+            value={filters.followup ?? "all"}
+            options={[
+              ["all", "不限"],
+              ["due", "今天前要跟进"],
+              ["overdue", "已经过期"],
+            ]}
+            onChange={(followup) =>
+              onChange({ ...filters, followup: followup as CustomerListFilters["followup"] })
+            }
+          />
+        </section>
+        <section>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">联系许可</div>
+          <CustomerSegmented
+            label="联系许可"
+            value={filters.marketing ?? "all"}
+            options={[
+              ["all", "不限"],
+              ["allowed", "允许联系"],
+              ["blocked", "勿主动联系"],
+            ]}
+            onChange={(marketing) =>
+              onChange({ ...filters, marketing: marketing as CustomerListFilters["marketing"] })
+            }
           />
         </section>
         <section>
@@ -74,7 +107,22 @@ export function CustomerFilters({
           </div>
         </section>
       </div>
-      <div className="border-t p-3">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-t p-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            onChange({
+              ...filters,
+              work: filters.work === "active" || filters.work === "unpaid" ? filters.work : "all",
+              followup: filters.followup === "due" ? "due" : "all",
+              marketing: "all",
+              tagIds: [],
+            })
+          }
+        >
+          清除更多条件
+        </Button>
         <Button className="w-full" onClick={onClose}>
           应用筛选
         </Button>
@@ -84,21 +132,24 @@ export function CustomerFilters({
 }
 
 export function CustomerSegmented({
+  label,
   value,
   options,
   onChange,
 }: {
+  label: string;
   value: string;
   options: [string, string][];
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1.5" aria-label={label}>
       {options.map(([key, label]) => (
         <button
           key={key}
           type="button"
           onClick={() => onChange(key)}
+          aria-pressed={value === key}
           className={cn(
             "rounded-md border px-2 py-1 text-xs",
             value === key

@@ -103,7 +103,7 @@ Migration order:
 
 1. Infrastructure: feature folders, query key factories, zod API router, tests, Storybook, CI.
 2. Orders: split list/detail/new-order screens into hero, tabs, forms, dialogs, print sheet, approval dialog, and payment dialog.
-3. Customers: split list/detail screens into customer hero, device tab, order tab, message tab, marketing tab, follow-up tab.
+3. Customers: split list/detail screens into customer hero plus five stable groups: overview, orders, devices, follow-ups (including messages/timeline), and profile.
 4. Data layer: move legacy repository functions from `src/server/repairdesk-repository.ts` into feature repositories.
 5. Mock layer: split `src/lib/mock/api.ts` into feature-specific testing handlers/builders.
 

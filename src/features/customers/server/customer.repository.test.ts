@@ -90,6 +90,12 @@ describe("customer repository tenant write boundaries", () => {
       total_spent: 70,
       unpaid_amount: 70,
     });
+    expect(result.items[0]).not.toHaveProperty("phone_raw");
+    expect(result.items[0]).not.toHaveProperty("contact_phones");
+    expect(result.items[0]).not.toHaveProperty("consent_marketing");
+    expect(result.items[0]).not.toHaveProperty("notes");
+    expect(result.items[0]).not.toHaveProperty("marketing_notes");
+    expect(result.items[0]).not.toHaveProperty("device_search_text");
     expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 

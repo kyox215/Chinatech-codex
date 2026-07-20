@@ -62,7 +62,6 @@ export function CustomerHero({
                 {customer.email}
               </span>
             )}
-            <span>{customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}</span>
           </div>
         </div>
         <div className={pageHeader.actions}>
@@ -82,8 +81,15 @@ export function CustomerHero({
           <Button size="sm" variant="outline" className="h-8 gap-1.5 sm:h-9" onClick={onFollowup}>
             <Bell className="size-4" /> 添加待办
           </Button>
-          <Button size="sm" variant="outline" className="h-8 gap-1.5 sm:h-9" onClick={onEdit}>
-            <Edit3 className="size-4" /> 编辑客户
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="size-8 sm:size-9"
+            onClick={onEdit}
+            aria-label="编辑客户资料"
+          >
+            <Edit3 className="size-4" />
           </Button>
           {onClose ? (
             <Button

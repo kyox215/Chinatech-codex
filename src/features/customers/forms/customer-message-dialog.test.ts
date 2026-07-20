@@ -14,6 +14,8 @@ describe("customer message identity", () => {
 
     expect(message).toContain("Etna Phone Lab");
     expect(message).toContain("Etna Phone Lab · Assistenza");
+    expect(message).not.toContain("Area assistenza:");
+    expect(message).not.toContain(`/customers/${customers[0].id}`);
     expect(message).not.toMatch(/ChinaTech|Chinatech|Floridia|Viale Vittorio Veneto/i);
   });
 

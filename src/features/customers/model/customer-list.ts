@@ -9,12 +9,19 @@ import type {
 import { isCustomerOrderClosed } from "./customer-order-state";
 
 export type CustomerWorkFilter = NonNullable<CustomerListFilters["work"]>;
+export type CustomerQuickGroup = "all" | "active" | "unpaid" | "followup";
 
-export interface CustomerWorkFilterChip {
-  value: CustomerWorkFilter;
+export interface CustomerQuickGroupChip {
+  value: CustomerQuickGroup;
   label: string;
   shortLabel: string;
   count: number;
+}
+
+export interface CustomerListUrlState {
+  search: string;
+  filters: CustomerListFilters;
+  page: number;
 }
 
 export interface CustomerPageRange {
@@ -67,6 +74,18 @@ export const customerWorkFilterOptions: Array<{
   { value: "repeat", label: "老客户", shortLabel: "老", statKey: "repeat" },
 ];
 
+export const customerQuickGroupOptions: Array<{
+  value: CustomerQuickGroup;
+  label: string;
+  shortLabel: string;
+  statKey: keyof Pick<CustomerStats, "total" | "activeRepairs" | "unpaid" | "dueFollowups">;
+}> = [
+  { value: "all", label: "全部", shortLabel: "全", statKey: "total" },
+  { value: "active", label: "处理中", shortLabel: "修", statKey: "activeRepairs" },
+  { value: "unpaid", label: "待收款", shortLabel: "款", statKey: "unpaid" },
+  { value: "followup", label: "要跟进", shortLabel: "跟", statKey: "dueFollowups" },
+];
+
 export const defaultCustomerForm: CustomerCreateInput = {
   name: "",
   phone_e164: "",
@@ -83,10 +102,18 @@ export const defaultCustomerForm: CustomerCreateInput = {
 
 export function sanitizeCustomerListFilters(filters: CustomerListFilters): CustomerListFilters {
   const tagIds = filters.tagIds?.filter(Boolean);
+  const marketing = ["all", "allowed", "blocked"].includes(filters.marketing ?? "")
+    ? filters.marketing
+    : "all";
+  const followup = ["all", "due", "overdue"].includes(filters.followup ?? "")
+    ? filters.followup
+    : "all";
   return {
     ...(filters.search?.trim() ? { search: filters.search.trim() } : {}),
     ...(tagIds?.length ? { tagIds } : {}),
     work: normalizeCustomerWorkFilter(filters.work),
+    marketing,
+    followup,
   };
 }
 
@@ -99,10 +126,10 @@ export function getCustomerWorkFilterLabel(work: CustomerListFilters["work"]) {
   return customerWorkFilterOptions.find((option) => option.value === value)?.label ?? "全部";
 }
 
-export function buildCustomerWorkFilterChips(
+export function buildCustomerQuickGroupChips(
   stats: CustomerStats | undefined,
-): CustomerWorkFilterChip[] {
-  return customerWorkFilterOptions
+): CustomerQuickGroupChip[] {
+  return customerQuickGroupOptions
     .filter((option) => option.value !== "unpaid" || !stats?.financeRedacted)
     .map((option) => ({
       value: option.value,
@@ -112,14 +139,89 @@ export function buildCustomerWorkFilterChips(
     }));
 }
 
+export function getCustomerQuickGroup(filters: CustomerListFilters): CustomerQuickGroup {
+  if (filters.followup === "due" || filters.followup === "overdue") return "followup";
+  if (filters.work === "active") return "active";
+  if (filters.work === "unpaid") return "unpaid";
+  if (!filters.work || filters.work === "all") return "all";
+  return "all";
+}
+
+export function applyCustomerQuickGroup(
+  filters: CustomerListFilters,
+  group: CustomerQuickGroup,
+): CustomerListFilters {
+  const next: CustomerListFilters = { ...filters, work: "all", followup: "all" };
+  if (group === "active") next.work = "active";
+  if (group === "unpaid") next.work = "unpaid";
+  if (group === "followup") next.followup = "due";
+  return sanitizeCustomerListFilters(next);
+}
+
 export function getCustomerActiveFilterCount(filters: CustomerListFilters) {
   const tagCount = filters.tagIds?.filter(Boolean).length ?? 0;
-  const workCount = normalizeCustomerWorkFilter(filters.work) === "all" ? 0 : 1;
-  return tagCount + workCount;
+  const workCount = filters.work === "with_devices" || filters.work === "repeat" ? 1 : 0;
+  const marketingCount = filters.marketing && filters.marketing !== "all" ? 1 : 0;
+  const followupCount = filters.followup === "overdue" ? 1 : 0;
+  return tagCount + workCount + marketingCount + followupCount;
 }
 
 export function getCustomerListSubtitle(filters: CustomerListFilters, total: number) {
-  return `${getCustomerWorkFilterLabel(filters.work)} · 共 ${Math.max(0, total)} 位`;
+  const quickGroup = getCustomerQuickGroup(filters);
+  const groupLabel = quickGroup
+    ? customerQuickGroupOptions.find((option) => option.value === quickGroup)?.label
+    : getCustomerWorkFilterLabel(filters.work);
+  return `${groupLabel ?? "全部"} · 共 ${Math.max(0, total)} 位`;
+}
+
+export function parseCustomerListUrlState(params: { get: (key: string) => string | null }) {
+  const group = params.get("group");
+  let filters: CustomerListFilters = { work: "all", followup: "all", marketing: "all" };
+  if (group === "active" || group === "unpaid" || group === "followup") {
+    filters = applyCustomerQuickGroup(filters, group);
+  }
+
+  const advancedWork = params.get("work");
+  if (advancedWork === "with_devices" || advancedWork === "repeat") {
+    filters.work = advancedWork;
+  }
+  const followup = params.get("followup");
+  if (followup === "due" || followup === "overdue") filters.followup = followup;
+  const marketing = params.get("marketing");
+  if (marketing === "allowed" || marketing === "blocked") filters.marketing = marketing;
+  const tagIds = (params.get("tags") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (tagIds.length) filters.tagIds = [...new Set(tagIds)];
+
+  const rawPage = Number(params.get("page") ?? 1);
+  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+  return {
+    search: params.get("q")?.trim() ?? "",
+    filters: sanitizeCustomerListFilters(filters),
+    page,
+  } satisfies CustomerListUrlState;
+}
+
+export function serializeCustomerListUrlState(state: CustomerListUrlState) {
+  const params = new URLSearchParams();
+  const filters = sanitizeCustomerListFilters(state.filters);
+  const search = state.search.trim();
+  if (search) params.set("q", search);
+
+  const group = getCustomerQuickGroup(filters);
+  if (group && group !== "all") params.set("group", group);
+  if (filters.work === "with_devices" || filters.work === "repeat") {
+    params.set("work", filters.work);
+  }
+  if (filters.followup === "overdue") params.set("followup", "overdue");
+  if (filters.marketing && filters.marketing !== "all") {
+    params.set("marketing", filters.marketing);
+  }
+  if (filters.tagIds?.length) params.set("tags", [...new Set(filters.tagIds)].join(","));
+  if (state.page > 1) params.set("page", String(Math.floor(state.page)));
+  return params;
 }
 
 export function getCustomerDetailHref(customerId: string) {
@@ -135,8 +237,20 @@ export function getCustomerWorkSummary(
     | "valid_order_count"
     | "device_count"
     | "finance_redacted"
+    | "next_followup_at"
   >,
 ): CustomerWorkSummary {
+  const followupAt = customer.next_followup_at
+    ? new Date(customer.next_followup_at).getTime()
+    : Number.NaN;
+  if (Number.isFinite(followupAt) && followupAt <= Date.now()) {
+    return {
+      label: "要跟进",
+      detail: "客户跟进已经到时间",
+      actionLabel: "联系客户并记录结果",
+      tone: "warning",
+    };
+  }
   if (customer.active_order_count > 0) {
     return {
       label: `在修 ${customer.active_order_count}`,
@@ -221,11 +335,12 @@ export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWork
     order_count: data.stats.order_count,
     valid_order_count: data.stats.valid_order_count,
     device_count: data.stats.device_count,
+    next_followup_at: data.stats.next_followup_at,
   });
 }
 
 export function buildCustomerDetailTabs(data: CustomerDetail): CustomerDetailTabMeta[] {
-  const followupCount = data.followups.length + data.interactions.length;
+  const followupCount = data.followups.filter((followup) => followup.status === "open").length;
 
   return [
     { key: "overview", label: "总览" },
@@ -258,6 +373,19 @@ export function getCustomerPageRange({
     start,
     end,
   };
+}
+
+export function clampCustomerPageAfterLoad({
+  page,
+  pageCount,
+  isPlaceholderData,
+}: {
+  page: number;
+  pageCount?: number;
+  isPlaceholderData: boolean;
+}) {
+  if (pageCount === undefined || isPlaceholderData) return page;
+  return Math.min(Math.max(1, page), Math.max(1, pageCount));
 }
 
 export function formatCustomerDate(value: string) {
