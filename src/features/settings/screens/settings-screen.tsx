@@ -1662,7 +1662,7 @@ export function SettingsScreen() {
                       const targetStore = storeContextQuery.data?.stores.find(
                         (store) => store.id === storeId,
                       );
-                      runGuardedTransition({
+                      void runGuardedTransition({
                         kind: "store-switch",
                         label: `切换到 ${targetStore?.name ?? "其他店铺"}`,
                         run: () => switchStoreMutation.mutateAsync(storeId),
@@ -1671,7 +1671,7 @@ export function SettingsScreen() {
                     onCreateStore={() => {
                       const name = newStoreName.trim();
                       if (name.length < 2) return;
-                      runGuardedTransition({
+                      void runGuardedTransition({
                         kind: "store-create",
                         label: `创建店铺 ${name}`,
                         run: () =>

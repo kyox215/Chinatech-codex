@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import {
   AlertDialog,
@@ -45,9 +46,18 @@ export interface GuardedTransition {
   run: () => void | Promise<unknown>;
 }
 
+export type GuardedTransitionStartOutcome =
+  | { status: "executed" }
+  | { status: "prompted" }
+  | {
+      status: "ignored";
+      reason: "transition-pending" | "guard-closing" | "source-busy";
+    }
+  | { status: "failed"; error: Error };
+
 interface NavigationGuardContextValue {
   registerGuard: (source: NavigationGuardSource) => () => void;
-  runGuardedTransition: (transition: GuardedTransition) => void;
+  runGuardedTransition: (transition: GuardedTransition) => Promise<GuardedTransitionStartOutcome>;
 }
 
 interface PendingTransition {
@@ -62,6 +72,9 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const sourcesRef = useRef(new Map<string, NavigationGuardSource>());
   const pendingRef = useRef<PendingTransition | null>(null);
+  const guardDialogRef = useRef<HTMLDivElement>(null);
+  const closingRef = useRef(false);
+  const closeSequenceRef = useRef(0);
   const [pending, setPending] = useState<PendingTransition | null>(null);
   const [isResolving, setIsResolving] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -71,29 +84,88 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     return sources.find((source) => source.isDirty());
   }, []);
 
-  const cancelPending = useCallback((focus = true) => {
-    const current = pendingRef.current;
-    pendingRef.current = null;
-    setPending(null);
-    setIsResolving(false);
-    if (focus) queueMicrotask(() => current?.source.focusFallback?.());
+  const executeTransition = useCallback(async (transition: GuardedTransition) => {
+    try {
+      await Promise.resolve().then(transition.run);
+      return { status: "executed" } as const;
+    } catch (cause) {
+      const error = cause instanceof Error ? cause : new Error("导航操作失败");
+      console.error("[navigation-guard] transition failed", error);
+      toast.error(error.message || "导航操作失败，请重试");
+      return { status: "failed", error } as const;
+    }
   }, []);
 
+  const closeGuardDialog = useCallback(
+    async ({
+      current,
+      transition,
+      focusFallback,
+    }: {
+      current: PendingTransition;
+      transition?: GuardedTransition;
+      focusFallback?: boolean;
+    }) => {
+      if (pendingRef.current !== current) return;
+      const closingDialog = guardDialogRef.current;
+      const sequence = closeSequenceRef.current + 1;
+      closeSequenceRef.current = sequence;
+      closingRef.current = true;
+      pendingRef.current = null;
+      setPending(null);
+      setIsResolving(false);
+
+      const detached = await waitForGuardDialogToClose(closingDialog);
+      if (closeSequenceRef.current !== sequence) return;
+      if (!detached) {
+        closingRef.current = false;
+        toast.error("导航确认层未能安全关闭，请重试");
+        console.error("[navigation-guard] dialog remained attached; transition cancelled");
+        return;
+      }
+      releaseStaleBodyPointerLock();
+      if (!transition) {
+        closingRef.current = false;
+        if (focusFallback) queueMicrotask(() => current.source.focusFallback?.());
+        return;
+      }
+      await nextAnimationFrame();
+      releaseStaleBodyPointerLock();
+
+      const outcome = await executeTransition(transition);
+      if (closeSequenceRef.current === sequence) closingRef.current = false;
+      return outcome;
+    },
+    [executeTransition],
+  );
+
+  const cancelPending = useCallback(
+    (focus = true) => {
+      const current = pendingRef.current;
+      if (!current) return;
+      void closeGuardDialog({ current, focusFallback: focus });
+    },
+    [closeGuardDialog],
+  );
+
   const runGuardedTransition = useCallback(
-    (transition: GuardedTransition) => {
-      if (pendingRef.current) return;
+    async (transition: GuardedTransition): Promise<GuardedTransitionStartOutcome> => {
+      if (closingRef.current) return { status: "ignored", reason: "guard-closing" };
+      if (pendingRef.current) return { status: "ignored", reason: "transition-pending" };
       const source = getDirtySource();
       if (!source) {
-        void Promise.resolve()
-          .then(transition.run)
-          .catch(() => undefined);
-        return;
+        return executeTransition(transition);
+      }
+      if (source.isBusy()) {
+        toast.info(`${source.label()}正在处理中，请稍候再试`);
+        return { status: "ignored", reason: "source-busy" };
       }
       const next = { source, transition };
       pendingRef.current = next;
       setPending(next);
+      return { status: "prompted" };
     },
-    [getDirtySource],
+    [executeTransition, getDirtySource],
   );
 
   const registerGuard = useCallback(
@@ -108,14 +180,6 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     [cancelPending],
   );
 
-  const completeTransition = useCallback(async (current: PendingTransition) => {
-    if (pendingRef.current !== current) return;
-    pendingRef.current = null;
-    setPending(null);
-    setIsResolving(false);
-    await Promise.resolve(current.transition.run()).catch(() => undefined);
-  }, []);
-
   const continueOrCompleteTransition = useCallback(
     async (current: PendingTransition) => {
       const nextSource = getDirtySource();
@@ -126,9 +190,9 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
         setIsResolving(false);
         return;
       }
-      await completeTransition(current);
+      await closeGuardDialog({ current, transition: current.transition });
     },
-    [completeTransition, getDirtySource],
+    [closeGuardDialog, getDirtySource],
   );
 
   const resolveWithSave = useCallback(async () => {
@@ -138,23 +202,21 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     let resolution: NavigationGuardResolution;
     try {
       resolution = await current.source.save();
-    } catch {
-      cancelPending(false);
-      queueMicrotask(() => current.source.focusFallback?.());
+    } catch (cause) {
+      const error = cause instanceof Error ? cause : new Error("保存失败");
+      toast.error(error.message);
+      await closeGuardDialog({ current, focusFallback: true });
       return;
     }
     await Promise.resolve();
     if (resolution.status === "blocked" || current.source.isDirty()) {
       const focus = resolution.status === "blocked" ? resolution.focus : undefined;
-      cancelPending(false);
-      queueMicrotask(() => {
-        if (focus) focus();
-        else current.source.focusFallback?.();
-      });
+      await closeGuardDialog({ current });
+      queueMicrotask(() => (focus ? focus() : current.source.focusFallback?.()));
       return;
     }
     await continueOrCompleteTransition(current);
-  }, [cancelPending, continueOrCompleteTransition, isResolving]);
+  }, [closeGuardDialog, continueOrCompleteTransition, isResolving]);
 
   const resolveWithDiscard = useCallback(async () => {
     const current = pendingRef.current;
@@ -163,23 +225,21 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     let resolution: NavigationGuardResolution;
     try {
       resolution = await current.source.discard();
-    } catch {
-      cancelPending(false);
-      queueMicrotask(() => current.source.focusFallback?.());
+    } catch (cause) {
+      const error = cause instanceof Error ? cause : new Error("放弃修改失败");
+      toast.error(error.message);
+      await closeGuardDialog({ current, focusFallback: true });
       return;
     }
     await Promise.resolve();
     if (resolution.status === "blocked" || current.source.isDirty()) {
       const focus = resolution.status === "blocked" ? resolution.focus : undefined;
-      cancelPending(false);
-      queueMicrotask(() => {
-        if (focus) focus();
-        else current.source.focusFallback?.();
-      });
+      await closeGuardDialog({ current });
+      queueMicrotask(() => (focus ? focus() : current.source.focusFallback?.()));
       return;
     }
     await continueOrCompleteTransition(current);
-  }, [cancelPending, continueOrCompleteTransition, isResolving]);
+  }, [closeGuardDialog, continueOrCompleteTransition, isResolving]);
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -217,7 +277,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       }
       const href = `${url.pathname}${url.search}${url.hash}`;
       const scroll = anchor.dataset.navigationScroll !== "preserve";
-      runGuardedTransition({
+      void runGuardedTransition({
         kind: "route",
         label: anchor.textContent?.trim() || href,
         run: () => router.push(href, { scroll }),
@@ -236,25 +296,6 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [getDirtySource]);
-
-  useEffect(() => {
-    if (pending) return;
-    let secondFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => {
-        const openModal = document.querySelector(
-          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
-        );
-        if (!openModal && document.body.style.pointerEvents === "none") {
-          document.body.style.removeProperty("pointer-events");
-        }
-      });
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame) cancelAnimationFrame(secondFrame);
-    };
-  }, [pending]);
 
   useEffect(() => {
     const history = window.history;
@@ -292,15 +333,16 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
         event.stopImmediatePropagation();
         const transition = restoring;
         restoring = null;
-        queueMicrotask(() =>
-          runGuardedTransition({
-            kind: "history",
-            label: "浏览器历史",
-            run: () => {
-              bypassNextPop = true;
-              history.go(transition.delta);
-            },
-          }),
+        queueMicrotask(
+          () =>
+            void runGuardedTransition({
+              kind: "history",
+              label: "浏览器历史",
+              run: () => {
+                bypassNextPop = true;
+                history.go(transition.delta);
+              },
+            }),
         );
         return;
       }
@@ -338,6 +380,8 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
         }}
       >
         <AlertDialogContent
+          ref={guardDialogRef}
+          data-navigation-guard-dialog="true"
           aria-busy={isResolving}
           onEscapeKeyDown={(event) => {
             if (isResolving) event.preventDefault();
@@ -397,6 +441,44 @@ export function useNavigationGuard() {
   const context = useContext(NavigationGuardContext);
   if (!context) throw new Error("useNavigationGuard must be used inside NavigationGuardProvider");
   return context;
+}
+
+function waitForGuardDialogToClose(node: HTMLElement | null) {
+  if (!node?.isConnected) return Promise.resolve(true);
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (detached: boolean) => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      window.clearTimeout(fallback);
+      resolve(detached);
+    };
+    const observer = new MutationObserver(() => {
+      if (!node.isConnected) finish(true);
+    });
+    const fallback = window.setTimeout(() => finish(!node.isConnected), 500);
+    observer.observe(document.body, { childList: true, subtree: true });
+    if (!node.isConnected) finish(true);
+  });
+}
+
+function nextAnimationFrame() {
+  return new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+}
+
+function releaseStaleBodyPointerLock() {
+  const openBlockingLayer = document.querySelector(
+    [
+      '[role="dialog"][data-state="open"]',
+      '[role="alertdialog"][data-state="open"]',
+      '[role="menu"][data-state="open"]',
+      '[role="listbox"][data-state="open"]',
+    ].join(", "),
+  );
+  if (!openBlockingLayer && document.body.style.pointerEvents === "none") {
+    document.body.style.removeProperty("pointer-events");
+  }
 }
 
 function readHistoryPoint(state: unknown) {

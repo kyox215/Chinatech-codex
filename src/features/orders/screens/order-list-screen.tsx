@@ -116,6 +116,7 @@ import {
 } from "@/features/preload/model/order-detail-preload";
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
+import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -203,6 +204,7 @@ export function OrderListScreen() {
   const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [newOrderSessionKey, setNewOrderSessionKey] = useState(0);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const mobileHeaderCleanupRef = useRef<() => void>(() => undefined);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
@@ -354,6 +356,10 @@ export function OrderListScreen() {
             : "ready",
       }),
     [shell.activeStore, storeSettings, storeSettingsQuery.isError, storeSettingsQuery.isLoading],
+  );
+  const requestPrint = usePrintLifecycle(
+    () => setPrintOrders([]),
+    (error) => toast.error(error.message),
   );
 
   const options = orderOptions ?? emptyOrderOptions;
@@ -886,17 +892,19 @@ export function OrderListScreen() {
     setPage(listResult.pageCount);
   }, [listResult, page]);
 
-  useEffect(() => {
-    const cleanupPrint = () => setPrintOrders([]);
-    window.addEventListener("afterprint", cleanupPrint);
-    return () => window.removeEventListener("afterprint", cleanupPrint);
-  }, []);
+  const openNewOrder = useCallback(() => {
+    if (newOrderOpen) {
+      toast.info("接单窗口已打开");
+      return;
+    }
+    setNewOrderSessionKey((current) => current + 1);
+    setNewOrderOpen(true);
+  }, [newOrderOpen]);
 
   useEffect(() => {
-    const openNewOrder = () => setNewOrderOpen(true);
     window.addEventListener(REPAIRDESK_NEW_ORDER_EVENT, openNewOrder);
     return () => window.removeEventListener(REPAIRDESK_NEW_ORDER_EVENT, openNewOrder);
-  }, []);
+  }, [openNewOrder]);
 
   const printRows = (rows: OrderListItem[]) => {
     if (!rows.length) {
@@ -907,8 +915,8 @@ export function OrderListScreen() {
       toast.error(storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印");
       return;
     }
-    setPrintOrders(rows);
-    window.requestAnimationFrame(() => window.print());
+    const outcome = requestPrint(() => setPrintOrders(rows));
+    if (outcome === "busy") toast.info("打印预览已打开，请先完成或取消当前打印");
   };
   const openDetail = (id: string) => {
     scheduleOrderDetailPrefetch(id, "intent");
@@ -1013,7 +1021,7 @@ export function OrderListScreen() {
         pendingLabel={activePendingListIntent?.label}
         totalOrders={totalOrders}
         onGroupChange={handleStatusGroupChange}
-        onCreateOrder={() => setNewOrderOpen(true)}
+        onCreateOrder={openNewOrder}
         aiAction={
           aiAssistant.canOpenOrderAssistant ? (
             <Button
@@ -1212,7 +1220,7 @@ export function OrderListScreen() {
             size="sm"
             className={cn("hidden h-9 gap-1.5 lg:inline-flex", controls.brandButton)}
             style={brandGradientStyle}
-            onClick={() => setNewOrderOpen(true)}
+            onClick={openNewOrder}
           >
             <Plus className="size-3.5" /> 新建工单
           </Button>
@@ -1531,6 +1539,7 @@ export function OrderListScreen() {
             <DialogDescription>在弹窗中填写客户、设备、故障与报价信息。</DialogDescription>
           </DialogHeader>
           <NewOrderScreen
+            key={newOrderSessionKey}
             surface="dialog"
             onCancel={() => setNewOrderOpen(false)}
             onCreated={handleNewOrderCreated}

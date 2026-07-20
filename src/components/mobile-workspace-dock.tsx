@@ -28,6 +28,10 @@ import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 import { cn } from "@/lib/utils";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { useAiAssistantWorkspace } from "@/features/ai-assistant";
+import {
+  buildNewOrderHref,
+  createNewOrderSessionId,
+} from "@/features/orders/model/new-order-intent";
 
 interface MobileWorkspaceDockProps {
   onOpenCommand: () => void;
@@ -70,12 +74,20 @@ function MobileWorkspaceDockContent({
   const runAction = (action: (typeof actions)[number]) => {
     runRepairDeskShellAction(action, {
       pathname,
-      push: (href) =>
-        runGuardedTransition({
+      push: (href) => {
+        const target =
+          href === "/orders/new"
+            ? buildNewOrderHref({ source: "mobile", sessionId: createNewOrderSessionId() })
+            : href;
+        return runGuardedTransition({
           kind: "route",
           label: action.label,
-          run: () => router.push(href),
-        }),
+          run: () => router.push(target),
+        }).then((outcome) => {
+          if (outcome.status === "ignored" || outcome.status === "failed") setOpen(true);
+          return outcome;
+        });
+      },
       close: () => setOpen(false),
       openCommand: onOpenCommand,
       openScanner: () => setScannerOpen(true),

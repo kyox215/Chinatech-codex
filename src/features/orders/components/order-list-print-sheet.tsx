@@ -1,6 +1,5 @@
 import type { OrderListItem } from "@/lib/repairdesk/api";
 import type { StoreSettings } from "@/lib/repairdesk/types";
-import { QRCodeSVG } from "qrcode.react";
 import {
   formatEuro,
   formatItalianDateTime,
@@ -11,7 +10,6 @@ import {
   translateFaultName,
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
-import { getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 import { buildStorePrintProfile } from "@/features/print/model/store-print-profile";
@@ -105,19 +103,6 @@ export function OrderListPrintSheet({
                 <p>Documento generato dal gestionale {storeProfile.storeName}</p>
               </header>
 
-              <section className="repair-print-task-qr">
-                <QRCodeSVG
-                  value={getOrderTaskUrl(order.id, getPrintOrigin())}
-                  size={92}
-                  marginSize={2}
-                />
-                <div>
-                  <h3>SCAN TASK</h3>
-                  <p>Scansiona per aprire la scheda operativa interna.</p>
-                  <strong>{order.public_no}</strong>
-                </div>
-              </section>
-
               <PrintSection title="Importi (EUR)">
                 {order.finance_redacted ? (
                   <PrintLine label="Accesso" value="Importi riservati" />
@@ -172,10 +157,6 @@ export function OrderListPrintSheet({
       </section>
     </PrintPortal>
   );
-}
-
-function getPrintOrigin() {
-  return undefined;
 }
 
 function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {

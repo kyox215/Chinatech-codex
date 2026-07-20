@@ -253,6 +253,13 @@
     display: none !important;
   }
 
+  @media print {
+    body.has-repair-print > #repairdesk-style-fallback,
+    body.has-repair-print > #repairdesk-styled-shell {
+      display: none !important;
+    }
+  }
+
   * {
     border-color: var(--color-border);
   }
@@ -499,12 +506,13 @@
     display: grid;
     box-sizing: border-box;
     width: var(--repair-print-page-width);
-    height: var(--repair-print-page-height);
+    min-height: var(--repair-print-page-height);
+    height: auto;
     grid-template-columns: 1fr 1fr;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid #d4d4d4;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: auto;
+    break-inside: auto;
     page-break-after: always;
     break-after: page;
   }

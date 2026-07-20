@@ -20,6 +20,10 @@ import {
   getWorkspaceNavItems,
 } from "@/shared/config/navigation";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
+import {
+  buildNewOrderHref,
+  createNewOrderSessionId,
+} from "@/features/orders/model/new-order-intent";
 
 export function CommandPalette({
   open,
@@ -40,18 +44,28 @@ export function CommandPalette({
   });
   const data = orderPage?.items ?? [];
 
-  const go = (to: string) => {
+  const go = async (to: string) => {
     onOpenChange(false);
-    runGuardedTransition({ kind: "route", label: to, run: () => router.push(to) });
+    const href =
+      to === "/orders/new"
+        ? buildNewOrderHref({ source: "command", sessionId: createNewOrderSessionId() })
+        : to;
+    const outcome = await runGuardedTransition({
+      kind: "route",
+      label: href,
+      run: () => router.push(href),
+    });
+    if (outcome.status === "ignored" || outcome.status === "failed") onOpenChange(true);
   };
 
-  const goOrder = (id: string) => {
+  const goOrder = async (id: string) => {
     onOpenChange(false);
-    runGuardedTransition({
+    const outcome = await runGuardedTransition({
       kind: "route",
       label: "打开工单",
       run: () => router.push(`/orders/${id}`),
     });
+    if (outcome.status === "ignored" || outcome.status === "failed") onOpenChange(true);
   };
 
   const toggleTheme = () => {
@@ -79,7 +93,7 @@ export function CommandPalette({
               value={[item.commandLabel ?? item.title, item.title, ...(item.aliases ?? [])].join(
                 " ",
               )}
-              onSelect={() => go(item.url)}
+              onSelect={() => void go(item.url)}
             >
               <item.icon className="mr-2 size-4" /> {item.commandLabel ?? item.title}
             </CommandItem>
@@ -91,7 +105,7 @@ export function CommandPalette({
             <CommandItem
               key={action.id}
               value={`${action.label} ${action.shortLabel ?? ""} ${action.description}`}
-              onSelect={() => action.href && go(action.href)}
+              onSelect={() => action.href && void go(action.href)}
             >
               <action.icon className="mr-2 size-4" /> {action.label}
             </CommandItem>
@@ -99,7 +113,7 @@ export function CommandPalette({
           {(shell.recoveryStores?.length ?? 0) > 0 ? (
             <CommandItem
               value="已关闭店铺 恢复店铺 closed restore"
-              onSelect={() => go("/settings/closed-stores")}
+              onSelect={() => void go("/settings/closed-stores")}
             >
               <Wrench className="mr-2 size-4" /> 已关闭店铺
             </CommandItem>
@@ -113,7 +127,7 @@ export function CommandPalette({
                 <CommandItem
                   key={o.id}
                   value={`${o.public_no} ${o.customer_name} ${o.device_label}`}
-                  onSelect={() => goOrder(o.id)}
+                  onSelect={() => void goOrder(o.id)}
                 >
                   <Wrench className="mr-2 size-4 opacity-60" />
                   <span className="shrink-0 font-mono text-xs text-primary">{o.public_no}</span>

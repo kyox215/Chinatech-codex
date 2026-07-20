@@ -30,5 +30,7 @@ describe("OrderListPrintSheet store identity", () => {
     expect(document.body).not.toHaveTextContent("ChinaTech");
     expect(document.body).not.toHaveTextContent("Floridia");
     expect(document.body).not.toHaveTextContent("Viale Vittorio Veneto");
+    expect(document.body).not.toHaveTextContent("SCAN TASK");
+    expect(document.body.innerHTML).not.toContain("/task");
   });
 });

@@ -87,7 +87,7 @@ export function ScanSearchSheet({ open, onOpenChange, scope, onSearch }: ScanSea
     if (action.kind === "search") {
       createScanSearchIntent(action.scope, action.searchValue);
     }
-    runGuardedTransition({
+    void runGuardedTransition({
       kind: "route",
       label: action.label,
       run: () => {

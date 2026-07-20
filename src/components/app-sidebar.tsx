@@ -252,7 +252,7 @@ export function AppSidebar() {
                       disabled={switchStoreMutation.isPending || store.id === shell.activeStore?.id}
                       onSelect={() => {
                         if (store.id === shell.activeStore?.id) return;
-                        runGuardedTransition({
+                        void runGuardedTransition({
                           kind: "store-switch",
                           label: `切换到 ${store.name}`,
                           run: () => switchStoreMutation.mutateAsync(store.id),
@@ -308,7 +308,7 @@ export function AppSidebar() {
                   className="text-destructive focus:text-destructive"
                   onSelect={(event) => {
                     event.preventDefault();
-                    runGuardedTransition({
+                    void runGuardedTransition({
                       kind: "sign-out",
                       label: "退出登录",
                       run: handleSignOut,

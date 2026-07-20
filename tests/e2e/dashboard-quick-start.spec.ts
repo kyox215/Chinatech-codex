@@ -54,7 +54,7 @@ for (const viewport of viewports) {
     await expectNoPageOverflow(page);
 
     await intake.click();
-    await expect(page).toHaveURL(/\/orders\/new$/);
+    await expect(page).toHaveURL(/\/orders\/new\?.*intakeSession=/);
     await expect(page.locator('[data-new-order-root="true"]')).toBeVisible();
 
     await gotoReady(page, "/");

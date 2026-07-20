@@ -47,13 +47,20 @@ describe("NavigationGuardProvider", () => {
   it("discards once before an imperative transition and blocks double targets", async () => {
     const user = userEvent.setup();
     const discard = vi.fn();
-    const first = vi.fn();
+    let transitionState: { guardConnected: boolean; pointerEvents: string } | undefined;
+    const first = vi.fn(() => {
+      transitionState = {
+        guardConnected: Boolean(document.querySelector('[data-navigation-guard-dialog="true"]')),
+        pointerEvents: document.body.style.pointerEvents,
+      };
+    });
     const second = vi.fn();
+    const secondOutcome = vi.fn();
     render(
       <NavigationGuardProvider>
         <GuardHarness onDiscard={discard} />
         <TransitionButton label="第一个" run={first} />
-        <TransitionButton label="第二个" run={second} />
+        <TransitionButton label="第二个" run={second} onOutcome={secondOutcome} />
       </NavigationGuardProvider>,
     );
 
@@ -61,8 +68,15 @@ describe("NavigationGuardProvider", () => {
     const secondButton = screen.getByRole("button", { name: "第二个" });
     await user.click(firstButton);
     fireEvent.click(secondButton);
+    await waitFor(() =>
+      expect(secondOutcome).toHaveBeenCalledWith({
+        status: "ignored",
+        reason: "transition-pending",
+      }),
+    );
     await user.click(screen.getByRole("button", { name: "放弃修改" }));
     await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
+    expect(transitionState).toEqual({ guardConnected: false, pointerEvents: "" });
     expect(second).not.toHaveBeenCalled();
     expect(discard).toHaveBeenCalledTimes(1);
   });
@@ -89,15 +103,54 @@ describe("NavigationGuardProvider", () => {
 
   it("runs clean imperative transitions without opening a dialog", async () => {
     const run = vi.fn();
+    const onOutcome = vi.fn();
     render(
       <NavigationGuardProvider>
         <GuardHarness initialDirty={false} />
-        <TransitionButton label="直接前往" run={run} />
+        <TransitionButton label="直接前往" run={run} onOutcome={onOutcome} />
       </NavigationGuardProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "直接前往" }));
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onOutcome).toHaveBeenCalledWith({ status: "executed" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("returns an observable busy outcome without opening an unusable dialog", async () => {
+    const onOutcome = vi.fn();
+    render(
+      <NavigationGuardProvider>
+        <GuardHarness busy />
+        <TransitionButton label="忙碌时前往" run={vi.fn()} onOutcome={onOutcome} />
+      </NavigationGuardProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "忙碌时前往" }));
+    await waitFor(() =>
+      expect(onOutcome).toHaveBeenCalledWith({ status: "ignored", reason: "source-busy" }),
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("returns a failed outcome instead of swallowing transition errors", async () => {
+    const onOutcome = vi.fn();
+    const error = new Error("route failed");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(
+      <NavigationGuardProvider>
+        <GuardHarness initialDirty={false} />
+        <TransitionButton
+          label="失败导航"
+          run={() => Promise.reject(error)}
+          onOutcome={onOutcome}
+        />
+      </NavigationGuardProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "失败导航" }));
+    await waitFor(() => expect(onOutcome).toHaveBeenCalledWith({ status: "failed", error }));
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it("keeps a blocked resolution focus target without calling the fallback", async () => {
@@ -172,7 +225,7 @@ describe("NavigationGuardProvider", () => {
 
     await user.click(screen.getByRole("button", { name: "保存并继续" }));
     await waitFor(() => expect(firstSave).toHaveBeenCalledTimes(1));
-    expect(navigationMocks.push).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(navigationMocks.push).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -180,12 +233,14 @@ function GuardHarness({
   id,
   label = "店铺资料分组",
   initialDirty = true,
+  busy = false,
   onSave,
   onDiscard,
 }: {
   id?: string;
   label?: string;
   initialDirty?: boolean;
+  busy?: boolean;
   onSave?: () => void;
   onDiscard?: () => void;
 }) {
@@ -194,7 +249,7 @@ function GuardHarness({
     <UnsavedSettingsGuard
       id={id}
       dirty={dirty}
-      busy={false}
+      busy={busy}
       label={label}
       onSave={async () => {
         onSave?.();
@@ -210,10 +265,23 @@ function GuardHarness({
   );
 }
 
-function TransitionButton({ label, run }: { label: string; run: () => void }) {
+function TransitionButton({
+  label,
+  run,
+  onOutcome,
+}: {
+  label: string;
+  run: () => void | Promise<unknown>;
+  onOutcome?: (outcome: unknown) => void;
+}) {
   const { runGuardedTransition } = useNavigationGuard();
   return (
-    <button type="button" onClick={() => runGuardedTransition({ kind: "route", label, run })}>
+    <button
+      type="button"
+      onClick={() => {
+        void runGuardedTransition({ kind: "route", label, run }).then(onOutcome);
+      }}
+    >
       {label}
     </button>
   );

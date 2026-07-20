@@ -39,7 +39,14 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderWorkflowProgress } from "@/features/orders/components/order-workflow-progress";
+import {
+  RepairOrderPrintSheet,
+  canPrintRepairOrderCustomerDocument,
+} from "@/features/orders/components/repair-order-print-sheet";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
+import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
@@ -89,6 +96,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const [transitionAction, setTransitionAction] = useState<WorkflowNextAction | null>(null);
   const [transitionReason, setTransitionReason] = useState("");
   const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
+  const requestPrint = usePrintLifecycle(undefined, (error) => toast.error(error.message));
 
   useEffect(() => {
     document.body.dataset.orderDetailActive = "true";
@@ -107,6 +115,24 @@ export function OrderTaskScreen({ id }: { id: string }) {
     queryFn: ({ signal }) => listOrderWorkflow({ signal }),
     staleTime: CACHE_TIMES.workflow,
   });
+  const storeSettingsQuery = useQuery({
+    ...storeSettingsQueryOptions(activeStoreId),
+    enabled: Boolean(activeStoreId),
+  });
+  const storeSettings = storeSettingsQuery.data;
+  const storeOutputIdentity = useMemo(
+    () =>
+      resolveStoreOutputIdentity({
+        activeStore: shell.activeStore,
+        settings: storeSettings,
+        settingsState: storeSettingsQuery.isLoading
+          ? "loading"
+          : storeSettingsQuery.isError
+            ? "error"
+            : "ready",
+      }),
+    [shell.activeStore, storeSettings, storeSettingsQuery.isError, storeSettingsQuery.isLoading],
+  );
   const canCreateKioskSession = data?.capabilities?.canCreateKioskSession === true;
   const { data: kioskDevices = [] } = useQuery({
     queryKey: kioskKeys.availableDevices(activeStoreId, id),
@@ -119,6 +145,9 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const cancelled = order ? isOrderCancelledForPayment(order) : false;
   const canTransition = data?.capabilities?.canTransition === true;
   const voided = order?.record_state === "voided" || Boolean(order?.deleted_at);
+  const canPrintCustomerDocument = Boolean(
+    order && canPrintRepairOrderCustomerDocument(order, storeOutputIdentity.canOutput),
+  );
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const workflowStatus = order ? getOrderWorkflowStatus(order) : "intake";
   const guidance = order ? getOrderTaskGuidance(order) : null;
@@ -318,9 +347,15 @@ export function OrderTaskScreen({ id }: { id: string }) {
           variant="outline"
           size="icon"
           className="size-10 rounded-full md:size-8 md:rounded-lg"
-          aria-label="打印工单"
-          disabled={voided}
-          onClick={() => !voided && window.print()}
+          aria-label="打印客户工单"
+          disabled={!canPrintCustomerDocument}
+          onClick={() => {
+            if (!canPrintCustomerDocument) {
+              toast.error(storeOutputIdentity.blockReason ?? "客户工单尚未准备好");
+              return;
+            }
+            requestPrint();
+          }}
         >
           <Printer className="size-4" />
         </Button>
@@ -572,6 +607,11 @@ export function OrderTaskScreen({ id }: { id: string }) {
           onPublish={(input) => quotePublish.mutateAsync(input)}
         />
       ) : null}
+      <RepairOrderPrintSheet
+        data={data}
+        storeSettings={storeSettings}
+        activeStore={shell.activeStore}
+      />
     </main>
   );
 }

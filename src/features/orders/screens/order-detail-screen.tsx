@@ -1784,7 +1784,6 @@ export function OrderDetailScreen({
       ) : null}
       <RepairOrderPrintSheet
         data={data}
-        orderUrl={orderUrl}
         storeSettings={storeSettings}
         activeStore={shell.activeStore}
       />

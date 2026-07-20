@@ -1,10 +1,18 @@
+"use client";
+
+import type { MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight, ClipboardPlus, Recycle, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import {
+  buildNewOrderHref,
+  createNewOrderSessionId,
+} from "@/features/orders/model/new-order-intent";
 
 const quickStartActions = [
   {
@@ -33,6 +41,14 @@ const quickStartActions = [
 }>;
 
 export function DashboardDesktopQuickStart() {
+  const router = useRouter();
+  const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    router.push(buildNewOrderHref({ source: "dashboard", sessionId: createNewOrderSessionId() }));
+  };
   return (
     <div
       data-ui="dashboard-quick-start-desktop"
@@ -54,6 +70,7 @@ export function DashboardDesktopQuickStart() {
         >
           <Link
             href={action.href}
+            onClick={action.id === "new-order" ? startNewOrder : undefined}
             data-dashboard-quick-start={action.id}
             aria-label={`${action.label}，${action.description}`}
           >
@@ -67,6 +84,14 @@ export function DashboardDesktopQuickStart() {
 }
 
 export function DashboardMobileQuickStart() {
+  const router = useRouter();
+  const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    router.push(buildNewOrderHref({ source: "dashboard", sessionId: createNewOrderSessionId() }));
+  };
   return (
     <section
       data-ui="dashboard-quick-start-mobile"
@@ -78,6 +103,7 @@ export function DashboardMobileQuickStart() {
           <Link
             key={action.id}
             href={action.href}
+            onClick={action.id === "new-order" ? startNewOrder : undefined}
             data-dashboard-quick-start={action.id}
             aria-label={`${action.label}，${action.description}`}
             className="block min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

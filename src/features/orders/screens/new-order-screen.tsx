@@ -87,6 +87,7 @@ import {
   issueDescriptionForIntake,
   resolveIntakeQuoteDraft,
 } from "@/features/orders/model/order-diagnosis-quote";
+import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { detailWorkspace, layoutGuards, repairOs } from "@/lib/ui-patterns";
@@ -96,10 +97,12 @@ export function NewOrderScreen({
   surface = "page",
   onCreated,
   onCancel,
+  prefill,
 }: {
   surface?: "page" | "dialog";
   onCreated?: (id: string) => void;
   onCancel?: () => void;
+  prefill?: NewOrderPrefill;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -108,7 +111,6 @@ export function NewOrderScreen({
   const [costDrafts, setCostDrafts] = useState<Record<string, NewOrderCostDraft>>({});
   const [isOnline, setIsOnline] = useState(true);
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
-  const [queryPrefilled, setQueryPrefilled] = useState(false);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
   const [createRecovery, setCreateRecovery] = useState<NewOrderCreateRecoveryState>({
     state: "idle",
@@ -325,11 +327,8 @@ export function NewOrderScreen({
   );
 
   useEffect(() => {
-    if (queryPrefilled) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const customerId = params.get("customerId");
-    const prefillIdentifier = params.get("imei") ?? params.get("serial") ?? "";
+    const customerId = prefill?.customerId;
+    const prefillIdentifier = prefill?.identifier ?? "";
 
     const applyPrefillIdentifier = () => {
       if (!prefillIdentifier) return;
@@ -340,15 +339,14 @@ export function NewOrderScreen({
 
     if (!customerId) {
       applyPrefillIdentifier();
-      setQueryPrefilled(true);
       return;
     }
 
-    let active = true;
-    const preferredDeviceId = params.get("deviceId") ?? undefined;
-    getCustomerDetail(customerId)
+    const controller = new AbortController();
+    const preferredDeviceId = prefill?.deviceId;
+    getCustomerDetail(customerId, { signal: controller.signal })
       .then((detail) => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         const candidates = buildHistoryDevicesFromDetail(detail);
         const selectedDevice = preferredDeviceId
           ? candidates.find((device) => device.device_id === preferredDeviceId)
@@ -387,15 +385,14 @@ export function NewOrderScreen({
         );
         applyPrefillIdentifier();
       })
-      .catch((error: Error) => toast.error(error.message))
-      .finally(() => {
-        if (active) setQueryPrefilled(true);
+      .catch((error: Error) => {
+        if (!controller.signal.aborted && error.name !== "AbortError") toast.error(error.message);
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
-  }, [queryPrefilled]);
+  }, [prefill?.customerId, prefill?.deviceId, prefill?.identifier, prefill?.key]);
 
   const completeOnlineOrderCreated = useCallback(
     (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {

@@ -1,5 +1,4 @@
 import type * as React from "react";
-import { QRCodeSVG } from "qrcode.react";
 
 import type { OrderDetail } from "@/lib/repairdesk/api";
 import type { StoreSettings } from "@/lib/repairdesk/types";
@@ -14,19 +13,16 @@ import {
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
-import { getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 import { buildStorePrintProfile } from "@/features/print/model/store-print-profile";
 
 export function RepairOrderPrintSheet({
   data,
-  orderUrl,
   storeSettings,
   activeStore,
 }: {
   data: OrderDetail;
-  orderUrl: string;
   storeSettings?: Partial<StoreSettings> | null;
   activeStore?: { id?: string; name?: string } | null;
 }) {
@@ -49,7 +45,6 @@ export function RepairOrderPrintSheet({
   const faultRows = order.fault_prices.length
     ? order.fault_prices
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
-  const taskUrl = getOrderTaskUrl(order.id, getPrintOrigin(orderUrl));
 
   if (!canPrintRepairOrderCustomerDocument(order, storeProfile.canOutput)) return null;
 
@@ -149,7 +144,6 @@ export function RepairOrderPrintSheet({
                 label="Accessori consegnati"
                 value={translatePrintableText(order.accessory_notes) || "-"}
               />
-              {orderUrl && <PrintLine label="Link scheda" value={orderUrl} />}
             </PrintSection>
           </div>
 
@@ -159,15 +153,6 @@ export function RepairOrderPrintSheet({
               <p>{storeProfile.storeName}</p>
               <p>{storeProfile.storeSummaryLine}</p>
             </header>
-
-            <section className="repair-print-task-qr">
-              <QRCodeSVG value={taskUrl} size={92} marginSize={2} />
-              <div>
-                <h3>SCAN TASK</h3>
-                <p>Scansiona per aprire la scheda operativa interna.</p>
-                <strong>{order.public_no}</strong>
-              </div>
-            </section>
 
             <section className="repair-print-warranty">
               <h3>Termini di garanzia</h3>
@@ -220,14 +205,6 @@ export function canPrintRepairOrderCustomerDocument(
   storeCanOutput: boolean,
 ) {
   return storeCanOutput && order.record_state !== "voided" && !order.deleted_at;
-}
-
-function getPrintOrigin(value: string) {
-  try {
-    return new URL(value).origin;
-  } catch {
-    return undefined;
-  }
 }
 
 function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {
