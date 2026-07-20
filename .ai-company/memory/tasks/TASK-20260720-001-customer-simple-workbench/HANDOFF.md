@@ -2,7 +2,7 @@
 
 ## Current state
 
-Customer simple workbench implementation is complete and verified locally. No database file was added and no production data was changed.
+Customer simple workbench is released to `main`, Vercel production is Ready, and authenticated desktop/mobile smoke checks passed. No task database file was added and no production data was changed by this task.
 
 ## Release manifest
 
@@ -11,13 +11,11 @@ Customer simple workbench implementation is complete and verified locally. No da
 - Customer responsive E2E spec.
 - Responsive/architecture documentation and this task memory.
 
-## Remaining
+## Follow-up only
 
-1. Read-only department final review.
-2. Fresh `git fetch --prune` and reconcile main.
-3. Scoped commit and direct `HEAD:main` push if main is unchanged/fast-forward safe.
-4. Vercel production deployment verification and sanitized smoke.
-5. Update this packet with final commit/deployment evidence and conditional closeout.
+1. Replace the customer-list sensitive-field blacklist with an explicit browser DTO whitelist before adding new list fields.
+2. Unify the “要跟进” chip count and filter time boundary when database migration history is reproducible again.
+3. Recover exact SQL provenance for the 19 remote-only migrations before any future linked database apply.
 
 ## Hard blocker retained
 

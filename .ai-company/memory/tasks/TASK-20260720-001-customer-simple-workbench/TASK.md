@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260720-001-customer-simple-workbench"
 title: "客户功能与桌面移动端简洁工作台"
-status: "release_pending"
+status: "closed"
 task_class: "T3"
 risk_level: "R4"
 autonomy_level: "L2"
 owner: "鹤祥"
 departments: ["FLOW", "UX", "DATA", "QA", "SEC", "RELEASE"]
 created_at: "2026-07-20T00:35:00+02:00"
-updated_at: "2026-07-20T02:03:00+02:00"
+updated_at: "2026-07-20T02:22:00+02:00"
+closed_at: "2026-07-20T02:22:00+02:00"
 ---
 
 # Task — 客户功能与桌面移动端简洁工作台
@@ -56,7 +57,7 @@ updated_at: "2026-07-20T02:03:00+02:00"
 - [x] 列表响应去除不需要的敏感字段。
 - [x] 六档响应式 E2E、全量单测、Lint、类型与生产构建通过。
 - [x] 独立部门终审通过；无 P0/P1，DATA 仅批准 app-only 发布。
-- [ ] 推送 main、生产部署与线上 smoke 通过。
+- [x] 推送 main、生产部署与线上桌面/移动 smoke 通过。
 
 ## Rollback
 

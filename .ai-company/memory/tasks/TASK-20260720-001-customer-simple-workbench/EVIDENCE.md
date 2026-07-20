@@ -14,8 +14,8 @@
 - 客户响应式 E2E：8/8 passed；覆盖 390、430、768、1024、1440、1920。
 - Full lint: passed。
 - Full typecheck: passed。
-- Full tests with constrained workers: 315 files / 2051 tests passed。
-- Production build: passed；26 routes generated/validated。
+- Latest-main full tests with constrained workers: 319 files / 2102 tests passed。
+- Latest-main production build: passed；27 routes generated/validated。
 - `git diff --check`: passed。
 
 ## Independent review
@@ -43,3 +43,15 @@
 - `supabase migration list --linked`: 远端存在 19 个本地缺失版本。
 - `supabase db push --linked --dry-run --include-all`: 失败，原因是远端迁移版本在本地目录不存在。
 - 结论：数据库应用 NO-GO；不得创建、修复或应用本任务迁移。无迁移应用代码仍可独立发布。
+
+## Release evidence
+
+- Feature commit: `329e658a feat(customers): simplify responsive workbench`。
+- Main gate formatting commit: `0012b046 chore: fix store lifecycle formatting`。
+- GitHub: `origin/main` fast-forwarded to `0012b046`。
+- Vercel production deployment: `dpl_9HagYhzCkwCeGE4rf1UEjHypTjm5`，status `Ready`。
+- Deployment URL: `https://chinatech-codex-ibffma7hk-kyox120-9295s-projects.vercel.app`。
+- Custom domain authenticated smoke: `https://www.chinatech.in/customers`。
+- Desktop smoke: four groups, group URL state, table, five detail tabs, three primary actions, no horizontal overflow, no console errors。
+- Mobile 390px smoke: cards, five detail tabs, three bottom actions, global quick dock absent, no horizontal overflow, no console errors。
+- Chrome viewport override was reset and the claimed user tab was restored to its original Orders page after verification。
