@@ -7,5 +7,30 @@
 
 ## Verification results
 
-Pending implementation and validation.
+- `npm run agents:check`: PASS.
+- `npm run lint`: PASS after rebasing the latest `main` formatting fix.
+- `npm run typecheck`: PASS.
+- `npm run test`: PASS, 319 files / 2102 tests.
+- `npm run build -- --webpack`: PASS with approved network access for configured Google Fonts.
+- `REPAIRDESK_E2E_ORDER_LAYOUT_ONLY=1` Playwright matrix: PASS, 5/5 at 1024, 1280, 1440, 1536, and 1600 pixels.
+- Automated UI assertions cover:
+  - overview card top/bottom alignment;
+  - equal responsibility-card width and height;
+  - responsibility row, secondary record group, and timeline shared left/right column lines;
+  - two-column key-information grid;
+  - no page-level horizontal overflow;
+  - negligible records workspace overflow for the three-entry fixture.
+
+## Visual evidence
+
+- `screenshots/TASK-20260720-004-order-detail-alignment-polish/desktop-overview-1440.png`
+- `screenshots/TASK-20260720-004-order-detail-alignment-polish/desktop-records-1440.png`
+- `screenshots/TASK-20260720-004-order-detail-alignment-polish/desktop-photos-1440.png`
+
+All screenshots use the repository mock/E2E fixture and contain no production credentials or real customer PII.
+
+## Scope evidence
+
+- No API, database, migration, permission, payment, workflow, or mobile-detail files changed.
+- Rollback is a single task commit revert; no data rollback is required.
 

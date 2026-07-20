@@ -2,7 +2,7 @@
 schema_version: 1
 task_id: "TASK-20260720-004-order-detail-alignment-polish"
 title: "订单详情桌面对齐与布局秩序优化"
-status: "in_progress"
+status: "verified"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
@@ -61,3 +61,7 @@ created_at: "2026-07-20T00:00:00+02:00"
 
 回滚本任务提交即可恢复现有订单详情布局；无数据迁移或不可逆副作用。
 
+# Current phase
+
+- Implementation and quality gates are complete.
+- Next action: push the rebased task branch, integrate to `main`, observe the exact production deployment, and run a production `/orders` smoke check before closing.
