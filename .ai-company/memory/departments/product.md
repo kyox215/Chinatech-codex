@@ -39,6 +39,8 @@ as owner of this file.
 - Employee email verification and store authorization are separate product gates. A Supabase Invite/Magic Link may verify and sign in the employee, but store data remains unavailable until the employee explicitly accepts a matching, active, unexpired non-owner business invitation.
 - `TASK-20260717-007-store-lifecycle-implementation` shipped the P0-P5 store lifecycle control plane on 2026-07-18. Rename, close/archive, restore, export and purge remain separate explicit actions bound to immutable store UUIDs; all five runtime flags remain off and no real store lifecycle action occurred during release.
 
+- `TASK-20260720-001-customer-simple-workbench` makes the customer area a novice-facing workbench: the list prioritizes four plain-language work groups and the detail view keeps five stable sections. Opening WhatsApp or SMS starts contact but never counts as contact evidence until the employee explicitly confirms it was sent.
+
 ## Interfaces and dependencies
 
 The production order-cost contract from `TASK-20260718-008-order-cost-phase2` defines repair
@@ -93,3 +95,4 @@ procurement evidence only.
 | 2026-07-17 | Superseded custody credential clearing and recorded one-recommended-action desktop beginner rules | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + FLOW/UX/QA reviewers | verified |
 | 2026-07-17 | Recorded the new/existing employee email invitation, explicit acceptance and delivery-state product contract | TASK-20260717-employee-invite-registration | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified |
 | 2026-07-18 | Promoted the internal-cost, operating-margin, procurement, guarded-backfill and currency-snapshot product contract to dormant production schema | TASK-20260718-008-order-cost-phase2 | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified_option_b |
+| 2026-07-20 | Released the novice customer workbench and retained explicit employee confirmation as the boundary for recording outbound contact | TASK-20260720-001-customer-simple-workbench | Integration Lead + FLOW/UX reviewers | production_verified |

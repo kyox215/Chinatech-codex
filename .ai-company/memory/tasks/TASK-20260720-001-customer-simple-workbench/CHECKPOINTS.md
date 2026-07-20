@@ -29,3 +29,13 @@
 - Visual evidence: four sanitized local screenshots retained in the visualization artifact directory.
 - Database: unchanged by this task; linked migration history remains NO-GO.
 - Recovery: revert `329e658a` and redeploy the prior main if an app rollback is required; no data rollback exists.
+
+## CP-04 — Memory consolidated and ready to close
+
+- Time: 2026-07-20T02:30:45+02:00
+- Baseline: `fde156f0`; customer implementation, release evidence and production verification are already on `main`.
+- Memory state: verified UI, product, data-minimization, QA, security and platform rules are synchronized; capability remains C1 candidate with no authority increase.
+- Open follow-ups: typed customer browser DTO allowlist and one server-owned time boundary for the `要跟进` count remain proposed debt.
+- Database: no task database write occurred; linked migration history remains NO-GO.
+- Safe next action: commit this documentation-only checkpoint with `[skip ci]`, fetch/rebase current `origin/main`, push, then confirm a clean synchronized worktree.
+- Recovery: revert only the memory-consolidation commit if its wording is later superseded; the released application remains unaffected.

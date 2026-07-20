@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260720-001-customer-simple-workbench](tasks/TASK-20260720-001-customer-simple-workbench/TASK.md): Closed production customer workbench simplification with four URL-backed list groups, five stable detail groups, desktop/mobile/tablet density, two-step external messaging, browser-field minimization, three independent reviews, 8/8 responsive E2E and authenticated production smoke. Application release is live; linked database application remains NO-GO.
+
 - [TASK-20260719-008-inventory-imei-one-capture](tasks/TASK-20260719-008-inventory-imei-one-capture/TASK.md): Conditional production release of Chinatech-only one-photo local specification/IMEI recognition. Complete labels and identifiers remain local, only an explicitly reviewed specifications crop may use the existing Vision BFF, `main@facb79b9` is READY, and Supabase application was a 91/91 zero-write no-op. Authenticated Chinatech UI smoke remains open because the authorized test account belongs only to `xutech`.
 
 - [TASK-20260719-007-ai-natural-language-query-v3](tasks/TASK-20260719-007-ai-natural-language-query-v3/TASK.md): Closed production V3 release for arbitrary Europe/Rome dates, Apple/iPhone family-safe matching and a closed-world original-message compiler; exact scope is collapsible, model-invented constraints fail closed, and the release adds no migration or live write authority.

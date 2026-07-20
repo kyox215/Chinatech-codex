@@ -53,6 +53,8 @@ as owner of this file.
 - Global recovery must keep business DOM hidden until both the CSS marker and React runtime handshake are ready. The Service Worker fallback is a standalone no-Next document; it uses the fixed probe and one-per-60-second reload boundary, preserves all unrelated browser state and exposes a 44px manual recovery action.
 - Inventory V2 label assistance is an optional one-photo progressive path: local same-origin barcode/OCR Workers produce masked, validated and selectable identifier candidates; IMEI outranks EAN as the default phone identifier. Applying candidates never overwrites manual fields or a manual primary identifier, and scan/manual next remains available during offline, timeout, cancellation or cloud pending states.
 
+- `TASK-20260720-001-customer-simple-workbench` production-verifies the beginner customer workbench: four URL-backed list groups, five stable detail groups, sidebar-aware fixed controls below `lg`, and page clamping only after real data replaces placeholder data.
+
 ## Interfaces and dependencies
 
 `TASK-20260718-008-order-cost-phase2` verifies the cost UI boundary: authorized management gets
@@ -127,3 +129,4 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 | 2026-07-19 | Superseded the two-disclosure layout with one compact mode/usage row and released inline non-navigating order cards with an explicit order link         | TASK-20260719-006-ai-natural-language-order-actions      | Integration Lead + UX/Frontend reviewer      | production_verified         |
 | 2026-07-19 | Added collapsible exact query scope, distinct interpretation states, one zero-result state and partial-result clarity while preserving inline cards     | TASK-20260719-007-ai-natural-language-query-v3           | Integration Lead + UX/Frontend reviewer      | production_verified         |
 | 2026-07-19 | Released CSS/runtime double readiness, dependency-free SW recovery shell and bounded manual/automatic mobile recovery with production responsive proof  | TASK-20260719-007-fast-app-recovery                      | Integration Lead + Architecture/QA reviewers | production_verified_bounded |
+| 2026-07-20 | Released four customer list groups, five detail groups, URL restoration and sidebar-aware fixed mobile/tablet controls with six-width responsive proof | TASK-20260720-001-customer-simple-workbench              | Integration Lead + FLOW/UX/QA reviewers       | production_verified         |

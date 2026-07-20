@@ -33,6 +33,8 @@ as owner of this file.
 - `TASK-20260716-005-device-custody-status-implementation` scoped-verified Vercel deployment `dpl_9ovqtzqJ9ZuAnNd852skDYFtC7Gv`: exact SHA `452f89855e83aa4104bc2945e0ca087bbffca77c`, Next.js 16.2.6 Turbopack/TypeScript build, production aliases, anonymous login/API boundary and zero exact-deployment error/fatal/5xx logs. During the official Git-linked deployment incident, cancel only redundant queued copies and retain one clean-worktree CLI deployment; never treat queue delay as code failure.
 - `TASK-20260717-007-store-lifecycle-implementation` verified that `origin/main` includes implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` and that linked Supabase project `xluzcoduqsdvjoouqhkc` contains the six migrations. The five runtime flags remain off; this release included no direct feature activation or store mutation.
 
+- `TASK-20260720-001-customer-simple-workbench` production-verifies Vercel deployment `dpl_9HagYhzCkwCeGE4rf1UEjHypTjm5` as Ready with authenticated desktop and 390px mobile smoke. The application-only release performed no database write; the linked Supabase migration-history mismatch remains a hard database NO-GO.
+
 ## Interfaces and dependencies
 
 | Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
@@ -73,3 +75,4 @@ as owner of this file.
 | 2026-07-13 | Recorded owner-approved direct-main code release after agents/lint/typecheck, 898 tests, Webpack build, responsive browser matrix and independent QA/UX PASS; no DB or manual deployment action included | TASK-20260713-002-order-search-grouped-results | Integration Lead | release_approved |
 | 2026-07-17 | Recorded Owner-linked exact-SHA Vercel production release, contained identity failure, auth-boundary smoke and clean runtime observation | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + release reviewers | scoped_verified |
 | 2026-07-17 | Recorded DB-first custody release, official Vercel queue incident handling, exact-SHA CLI deployment and clean runtime smoke | TASK-20260716-005-device-custody-status-implementation | Integration Lead + release reviewers | scoped_verified |
+| 2026-07-20 | Recorded the Ready customer-workbench deployment, authenticated desktop/mobile smoke, direct-main integration and unchanged database boundary | TASK-20260720-001-customer-simple-workbench | Integration Lead + release reviewers | production_verified_app_only |
