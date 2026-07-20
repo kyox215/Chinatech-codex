@@ -1,12 +1,29 @@
 # RepairDesk AI 小助手真实 API 试点发布手册
 
-Status: ChinaTech staff order text live; 30-minute canary passed; 24-hour follow-up pending
+Status: ChinaTech staff order text configured live; provider path fail-closed pending ledger-fence repair
 Task: `TASK-20260718-014-ai-assistant-live-pilot`
-Last verified: 2026-07-19 03:36 CEST
+Last verified: 2026-07-20 CEST, incident task `TASK-20260720-006-ai-ledger-fence-hotfix`
 
 ## 当前结论
 
-真实 OpenAI adapter、durable Supabase 预算网关、数据外发门禁、HMAC 幂等/短窗限流、审计和维护任务已经部署到生产。当前只开放 ChinaTech 单店员工订单文字 AI：`AI_ASSISTANT_ENABLED=1`、`AI_ORDER_READ_TOOLS_ENABLED=1`，allowlist 只有 `5248dda1-2b32-46cd-8ed0-d15386a9e8ed`。Vision、draft apply、public/customer assistant、PII 外发和其他店铺仍关闭。
+真实 OpenAI adapter、durable Supabase 预算网关、数据外发门禁、HMAC 幂等/短窗限流、审计和维护任务已经部署到生产。ChinaTech 单店员工订单文字 AI 仍按既有配置开放：`AI_ASSISTANT_ENABLED=1`、`AI_ORDER_READ_TOOLS_ENABLED=1`，allowlist 只有 `5248dda1-2b32-46cd-8ed0-d15386a9e8ed`；但 2026-07-20 起付费 provider 路径在预算预留前安全停止，当前不能把“配置已开启”描述成“查询可用”。Vision、draft apply、public/customer assistant、PII 外发和其他店铺仍关闭。
+
+## 2026-07-20 用量账本围栏事故与待应用修复
+
+生产迁移 `20260720013000_store_lifecycle_business_fence_and_close_recheck.sql` 把通用门店生命周期触发器绑定到所有含 `store_id` 的业务表。`ai_assistant_usage_buckets` 是混合范围表：`store_day` 必须有门店，而 `global_day/global_month` 按原始约束必须使用空 `store_id`。通用触发器把合法全局桶误判为 `STORE_LIFECYCLE_STORE_REQUIRED`，因此预算预留在调用 OpenAI 前失败关闭。
+
+事故窗口内订单接口的 503、数据库错误和审计数量一致；失败审计均为 `model_version=not_started`，且没有新增 usage request，所以失败查询没有产生 provider 调用或费用。生产聚合预检同时确认 `reserved=0`、非活动门店 `reserved=0`、过期 `reserved=0`，没有待人工清理的遗留预留。
+
+前向修复候选为 `20260720065246_ai_usage_bucket_store_fence_hotfix.sql`，它不会改写已应用迁移、额度、价格、模型、RLS 或 grants：
+
+- 保留原触发器名称，但只在 AI 混合桶表调用专用函数；仅 `global_day/global_month + request_kind=all` 可为空门店。
+- 冻结全局桶 identity 并禁止全局桶删除；门店桶继续取得共享门店锁，并要求门店状态和生命周期均为 active。
+- lifecycle 离开 active 前取得同键排他锁；只要存在未结算 provider reservation，就以现有 `STORE_LIFECYCLE_BLOCKED` 合同回滚整笔关店。
+- PostgreSQL 17 已验证迁移连续应用两次、订单/视觉 reserve 与结算、release、stale settlement、closing-store 零半写，以及 reserve-first / close-first 两种并发顺序。
+
+当前候选尚未应用生产。只读 linked history 已对齐到 `20260720013000`，dry-run 只列出 `20260720065246`。Owner 已批准该精确迁移的 scoped commit/push 与生产应用；不得借本事故顺带修改 flags、policy、secret、Vision、Vercel 应用或其他数据库对象。
+
+应用后的首轮验证必须先做零费用目录检查：迁移历史、两个 trigger 绑定、客户端函数权限和 `reserved` 聚合。随后只允许一次不含 PII 的订单文字 smoke；必须 HTTP 200、request 最终 `succeeded`、仅增加一次请求并且不再出现 `AI_BUDGET_UNAVAILABLE`。观察至少 15 分钟；任何 503、账本不收敛、重复计费或权限漂移都立即关闭 paid fallback。回滚采用新的补偿迁移或关闭 AI flags；不得删除账本或修改 migration history。
 
 原 D4 唯一一次无 PII 计费 smoke 已执行：预算先预留 `308 micro-USD`，随后按真实 usage 结算 `123 micro-USD`（399 input / 256 output Token，约 `$0.000123`），Safety ID、单次 provider attempt、审计和账本都正常。服务最终返回 `AI_PROVIDER_PROTOCOL_ERROR`，因此没有开启 ChinaTech canary，并立即把 `ai-runtime-v1` policy 回滚为 `disabled`。当前 AI 请求账本保留 1 条已结算记录；不存在未结算 reservation。
 

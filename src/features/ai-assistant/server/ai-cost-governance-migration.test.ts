@@ -11,8 +11,13 @@ const liveProviderMigrationPath = resolve(
   process.cwd(),
   "supabase/migrations/20260718223739_ai_assistant_live_provider_v1.sql",
 );
+const lifecycleFenceHotfixMigrationPath = resolve(
+  process.cwd(),
+  "supabase/migrations/20260720065246_ai_usage_bucket_store_fence_hotfix.sql",
+);
 const dormantSql = readFileSync(dormantMigrationPath, "utf8");
 const liveProviderSql = readFileSync(liveProviderMigrationPath, "utf8");
+const lifecycleFenceHotfixSql = readFileSync(lifecycleFenceHotfixMigrationPath, "utf8");
 const sql = `${dormantSql}\n${liveProviderSql}`;
 
 describe("AI cost governance migration chain", () => {
@@ -151,5 +156,85 @@ describe("AI cost governance migration chain", () => {
     expect(actorRateTable).toBeTruthy();
     expect(actorRateTable).toMatch(/actor_fingerprint_hmac text not null/);
     expect(actorRateTable).not.toMatch(/\n\s+(?:actor_id|email|phone|name|prompt|image)\s/i);
+  });
+
+  it("keeps valid global quota buckets storeless without weakening store lifecycle fences", () => {
+    expect(dormantSql).toContain(
+      "scope in ('global_day', 'global_month') and store_id is null and request_kind = 'all'",
+    );
+    expect(lifecycleFenceHotfixSql).toContain(
+      "create or replace function public.repairdesk_enforce_ai_usage_bucket_store_write()",
+    );
+    expect(lifecycleFenceHotfixSql).toContain("v_scope not in ('global_day', 'global_month')");
+    expect(lifecycleFenceHotfixSql).toContain("v_request_kind is distinct from 'all'");
+    expect(lifecycleFenceHotfixSql).toContain("AI_USAGE_BUCKET_TRIGGER_MISBOUND");
+    expect(lifecycleFenceHotfixSql).toContain("AI_USAGE_BUCKET_IDENTITY_CHANGE_FORBIDDEN");
+    expect(lifecycleFenceHotfixSql).toContain("AI_USAGE_BUCKET_GLOBAL_DELETE_FORBIDDEN");
+    for (const identityField of [
+      "id",
+      "policy_version",
+      "scope",
+      "request_kind",
+      "store_id",
+      "period_start_at",
+      "period_end_at",
+      "quota_timezone",
+      "created_at",
+    ]) {
+      expect(lifecycleFenceHotfixSql).toContain(
+        `old.${identityField} is distinct from new.${identityField}`,
+      );
+    }
+    expect(lifecycleFenceHotfixSql).toContain("STORE_LIFECYCLE_STORE_REQUIRED");
+    expect(lifecycleFenceHotfixSql).toContain("STORE_LIFECYCLE_CROSS_STORE_WRITE_FORBIDDEN");
+    expect(lifecycleFenceHotfixSql).toContain("pg_advisory_xact_lock_shared");
+    expect(lifecycleFenceHotfixSql).toContain("v_store_status is distinct from 'active'");
+    expect(lifecycleFenceHotfixSql).toContain("v_lifecycle_phase is distinct from 'active'");
+    expect(lifecycleFenceHotfixSql).toContain("STORE_LIFECYCLE_WRITE_BLOCKED");
+    expect(lifecycleFenceHotfixSql).toContain(
+      "drop trigger if exists repairdesk_lifecycle_fence_ai_assistant_usage_buckets",
+    );
+    expect(lifecycleFenceHotfixSql).toContain(
+      "execute function public.repairdesk_enforce_ai_usage_bucket_store_write()",
+    );
+  });
+
+  it("serializes store closing with unresolved provider reservations", () => {
+    expect(lifecycleFenceHotfixSql).toContain(
+      "create or replace function public.repairdesk_block_store_transition_with_reserved_ai_usage()",
+    );
+    expect(lifecycleFenceHotfixSql).toContain(
+      "old.phase::text = 'active' and new.phase::text is distinct from 'active'",
+    );
+    expect(lifecycleFenceHotfixSql).toContain("pg_advisory_xact_lock(");
+    expect(lifecycleFenceHotfixSql).toContain("request_row.state = 'reserved'");
+    expect(lifecycleFenceHotfixSql).toContain("message = 'STORE_LIFECYCLE_BLOCKED'");
+    expect(lifecycleFenceHotfixSql).toContain("detail = '{\"ai_usage_reserved\":true}'");
+    expect(lifecycleFenceHotfixSql).toContain(
+      "drop trigger if exists repairdesk_00_reserved_ai_usage_transition_fence",
+    );
+    expect(lifecycleFenceHotfixSql).toContain("before update of phase on public.store_lifecycles");
+    expect(lifecycleFenceHotfixSql).toContain(
+      "execute function public.repairdesk_block_store_transition_with_reserved_ai_usage()",
+    );
+  });
+
+  it("keeps the AI usage bucket fence private and migration-safe", () => {
+    expect(lifecycleFenceHotfixSql).toContain("begin;");
+    expect(lifecycleFenceHotfixSql).toContain("set local lock_timeout = '5s';");
+    expect(lifecycleFenceHotfixSql).toContain("commit;");
+    expect(lifecycleFenceHotfixSql).not.toMatch(/drop\s+(?:table|column|schema)/i);
+    expect(lifecycleFenceHotfixSql).not.toMatch(/alter\s+table[\s\S]*disable\s+trigger/i);
+    expect(lifecycleFenceHotfixSql).not.toMatch(/grant\s+execute/i);
+    for (const functionName of [
+      "repairdesk_enforce_ai_usage_bucket_store_write",
+      "repairdesk_block_store_transition_with_reserved_ai_usage",
+    ]) {
+      for (const role of ["public", "anon", "authenticated"]) {
+        expect(lifecycleFenceHotfixSql).toMatch(
+          new RegExp(`revoke all on function public\\.${functionName}\\(\\)\\s+from ${role}`, "i"),
+        );
+      }
+    }
   });
 });
