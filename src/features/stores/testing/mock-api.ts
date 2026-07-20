@@ -455,8 +455,7 @@ function context(actor?: AuditActor): StoreContext {
   const primaryOwnerUserId = storeMembers(activeStoreId).find(
     (member) => member.role === "owner" && member.status === "active",
   )?.user_id;
-  const isPrimaryOwner =
-    scopedActor.storeRole === "owner" && scopedActor.id === primaryOwnerUserId;
+  const isPrimaryOwner = scopedActor.storeRole === "owner" && scopedActor.id === primaryOwnerUserId;
   const lifecycleCheck = isPrimaryOwner
     ? ({ allowed: true, code: "available" } as const)
     : ({ allowed: false, code: "primary_owner_required" } as const);
