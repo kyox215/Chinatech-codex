@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260720-006-ai-ledger-fence-hotfix](tasks/TASK-20260720-006-ai-ledger-fence-hotfix/TASK.md): Production repair is live and observed: exact migration `20260720065246`, one non-PII order-text canary at 130 micro-USD and 15 minutes / 16 zero-threshold polls passed. Closeout is conditional only because the remote hotfix branch must still enter `main` before the next database release.
+
 - [TASK-20260720-001-customer-simple-workbench](tasks/TASK-20260720-001-customer-simple-workbench/TASK.md): Closed production customer workbench simplification with four URL-backed list groups, five stable detail groups, desktop/mobile/tablet density, two-step external messaging, browser-field minimization, three independent reviews, 8/8 responsive E2E and authenticated production smoke. Application release is live; linked database application remains NO-GO.
 
 - [TASK-20260719-008-inventory-imei-one-capture](tasks/TASK-20260719-008-inventory-imei-one-capture/TASK.md): Conditional production release of Chinatech-only one-photo local specification/IMEI recognition. Complete labels and identifiers remain local, only an explicitly reviewed specifications crop may use the existing Vision BFF, `main@facb79b9` is READY, and Supabase application was a 91/91 zero-write no-op. Authenticated Chinatech UI smoke remains open because the authorized test account belongs only to `xutech`.

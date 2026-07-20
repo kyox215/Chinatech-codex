@@ -33,3 +33,16 @@
 - **Scope:** scoped Git commit/push and exactly one linked production migration are approved. No Vercel deploy, PR merge, other migration, Vision smoke, flag/policy/model/secret/quota change or lifecycle mutation is authorized.
 - **Stop conditions:** any remote-base drift, migration-hash drift, extra pending migration, nonzero reservation, concurrent release/lifecycle mutation, lock timeout or post-apply invariant failure.
 - **Next:** commit and push the isolated candidate branch; repeat dry-run; apply only the named migration; run zero-cost postchecks, one non-PII order-text canary and a minimum 15-minute observation.
+
+## 2026-07-20T12:59:08Z — Production hotfix released and observed
+
+- **Phase:** released and observed; conditional governance closeout.
+- **Git evidence:** scoped commit `bbdb98c1a51232db2003decafb78532c940cebf3` was pushed non-force to `origin/codex/ai-ledger-fence-hotfix-20260720`; the dirty primary checkout and `origin/main@0a0ec0f5` were not changed.
+- **Database evidence:** linked apply added only `20260720065246`; migration history, both expected trigger bindings, function ACLs, table RLS/browser grants and 0 / 0 / 0 reservation aggregates passed. Post-observation dry-run reports the remote database is up to date.
+- **Canary evidence:** exactly one synthetic non-PII order-text service request, ID `961f26bf-5e56-44a8-90da-c19ebe794a63`, returned HTTP 200 and settled once at `130 micro-USD` with one provider attempt, three consistent bucket scopes and a successful privacy-safe audit.
+- **Observation evidence:** 15 minutes / 16 polls ended at `2026-07-20T12:54:57.951982Z`; open, bad, cross-store, reserved, overrun, observation-window bad audit and Vercel runtime-error thresholds all stayed zero. No rollback or containment was needed.
+- **Scope preserved:** no Vercel deploy, Vision smoke, flag/policy/model/secret/quota change, lifecycle mutation, customer communication, data backfill or deletion occurred.
+- **Closeout status:** production functionality is restored. Task is `conditional` only until the two scoped branch commits are merged or cherry-picked into `main`; this must happen before the next database release. PR merge was not approved and GitHub CLI is not authenticated.
+- **Residual risks:** future `stores.status active→suspended` needs an equivalent reservation guard before enabling a writer; expired unswept reservations intentionally block close; full historical migration replay drift remains outside this repair.
+- **Visual evidence:** this was a database-trigger hotfix with no page/UI change. No related task page exists to screenshot; migration/catalog/canary/observation evidence substitutes for a fabricated UI image.
+- **Next:** create the final documentation/memory commit and push it to the same hotfix branch; separately integrate the branch into `main` before any later DB migration.

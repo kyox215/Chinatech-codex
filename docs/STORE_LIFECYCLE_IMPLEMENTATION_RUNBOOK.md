@@ -4,14 +4,14 @@ Last updated: 2026-07-20
 
 ## Current release boundary
 
-P0-P5 has a verified implementation path. Its first six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc`, and implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `main` on 2026-07-18. The seventh forward-only migration defines lifecycle contract v2, the database writer fence and live close-blocker recheck and is now present in production history. That generic fence exposed a mixed-scope compatibility defect in the AI usage bucket table; an eighth forward repair is locally verified and explicitly approved, but not yet production-applied. This does **not** authorize a production store mutation, worker activation or permanent purge.
+P0-P5 has a verified implementation path. Its first six additive migrations were applied to linked project `xluzcoduqsdvjoouqhkc`, and implementation commit `55cb7ab5a928b67daf4856e80486f2ccec5fbd59` was fast-forward pushed to `main` on 2026-07-18. The seventh forward-only migration defines lifecycle contract v2, the database writer fence and live close-blocker recheck and is now present in production history. That generic fence exposed a mixed-scope compatibility defect in the AI usage bucket table; the eighth forward repair is now production-applied and passed catalog/ACL/aggregate checks, a single order-text canary and 15 minutes of observation. This does **not** authorize a production store mutation, worker activation or permanent purge.
 
 | Phase | Implemented and locally verified                                                                                                                                                            | Production gate still required                                                                             |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | P0    | Primary-owner-only immutable UUID preflight; PII-free row counts, financial/custody/Kiosk/invitation blockers, Storage summary, revision-bound snapshot                                     | Re-run against the exact linked project and target UUID                                                    |
 | P1    | Structured order-data access reason codes and Settings explanation                                                                                                                          | Keep order-data export/apply permissions and flags unchanged unless separately approved                    |
 | P2    | Recent TOTP/AAL2 challenge issuer, one-use challenge, primary-owner-only atomic full workspace rename, revision CAS, idempotency, audit, Settings UI                                        | `STORE_LIFECYCLE_MUTATIONS_ENABLED` remains off until migration and release approval                       |
-| P3    | Atomic close, one-hour drain, archive finalizer, restore, invitation/Kiosk revocation, ordinary API/Kiosk/invite/offline write gates, Settings UI, and pending AI-reservation close barrier | Apply and verify the exact AI fence repair before relying on the reservation close barrier                 |
+| P3    | Atomic close, one-hour drain, archive finalizer, restore, invitation/Kiosk revocation, ordinary API/Kiosk/invite/offline write gates, Settings UI, and verified AI-reservation close barrier | Keep lifecycle mutations off until separately approved; recheck reservations before any live close        |
 | P4    | Catalog-driven database and UUID-prefixed Storage export, deterministic DB/Storage/artifact hashes, encrypted sink contract, isolated restore comparison and durable proof                  | Select and approve the real encrypted sink/KMS, retention, access logging and isolated restore environment |
 | P5    | Approval-locked schedule, leased/resumable worker, Storage-first deletion, FK ordering and cycle break, checkpoints/retry, other-tenant guard, zero residual proof and non-PII tombstone    | Purge scheduling and worker flags remain off; exact target and second irreversible approval are mandatory  |
 
@@ -28,7 +28,7 @@ Applied after linked dry-run approval, in this exact order:
 5. `20260717201729_store_export_restore_proof.sql`
 6. `20260717201730_store_purge_executor_control.sql`
 7. `20260720013000_store_lifecycle_business_fence_and_close_recheck.sql`
-8. `20260720065246_ai_usage_bucket_store_fence_hotfix.sql` — locally verified forward repair; not yet applied
+8. `20260720065246_ai_usage_bucket_store_fence_hotfix.sql` — production-applied and postchecked
 
 The chain is additive until a separately approved purge job reaches its final worker steps. The sixth migration contains deletion RPCs, but they are callable only by `service_role`, require an approved/leased job and remain unreachable while purge flags are off.
 
@@ -125,8 +125,9 @@ AI fence forward-repair evidence (`TASK-20260720-006`):
 
 - PostgreSQL 17 applied the two existing AI governance migrations and `20260720065246` twice, then passed real order/vision reserve, finalize, release, stale settlement, global identity and lifecycle assertions.
 - Two database sessions covered both lock orders: reserve-first kept lifecycle `active/revision 1` and rejected close; close-first committed `closing/revision 2` and rejected reserve with no global/store/actor/request half-write.
-- Production read-only preflight found zero open reservations, zero non-active-store reservations and zero expired reservations.
-- Linked history aligns through `20260720013000`; dry-run lists only `20260720065246`. These checks do not authorize apply.
+- Production preflight found zero open reservations, zero non-active-store reservations and zero expired reservations.
+- Owner approved and linked apply added exactly `20260720065246`; both expected trigger bindings, function ACLs, RLS and browser grants passed postcheck, and the final dry-run reports the remote database is up to date.
+- One non-PII order-text canary returned HTTP 200 with one provider attempt and `130 micro-USD` settlement; 15 minutes / 16 polls remained at zero open, bad, cross-store, reserved, overrun and runtime-error thresholds.
 
 The disposable validation database and transaction script were removed after the rollback proof.
 

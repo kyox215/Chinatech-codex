@@ -53,6 +53,9 @@
 ## Release record
 
 - Owner approval: received for the exact scoped Git delivery and migration `20260720065246`.
-- Git commit/push: not executed.
-- Production migration: not applied.
-- Canary/observation: not started.
+- Git commit/push: release commit `bbdb98c1a51232db2003decafb78532c940cebf3` pushed non-force to `origin/codex/ai-ledger-fence-hotfix-20260720`; primary checkout and `main` preserved.
+- Production migration: exactly `20260720065246` applied successfully to `xluzcoduqsdvjoouqhkc`; catalog, bindings, ACL, RLS, browser grants and reservation aggregates passed; final dry-run reports up to date.
+- Canary: exactly one synthetic non-PII order-text service request (`961f26bf-5e56-44a8-90da-c19ebe794a63`) returned HTTP 200, used one provider attempt and settled at `130 micro-USD`; audit and all three bucket scopes are consistent.
+- Observation: 15 minutes / 16 polls completed at `2026-07-20T12:54:57.951982Z` with zero open, bad, cross-store, reserved, overrun, window-bad-audit and Vercel runtime errors. No rollback was required.
+- Application release: none required or performed. Existing production Vercel deployment remains unchanged.
+- Follow-up: integrate the full hotfix branch into `main` before the next database release; PR merge was not part of this approval.

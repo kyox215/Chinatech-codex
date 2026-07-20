@@ -1,6 +1,6 @@
 # RepairDesk AI 小助手成本治理与运行合同
 
-Status: order-text provider path fail-closed pending ledger-fence repair; Vision remains off
+Status: order-text provider path restored after verified ledger-fence hotfix; Vision remains off
 Owner: Integration Lead / Architecture / DATA / Security
 Last verified: 2026-07-20 CEST, `TASK-20260720-006-ai-ledger-fence-hotfix`
 
@@ -8,7 +8,7 @@ Last verified: 2026-07-20 CEST, `TASK-20260720-006-ai-ledger-fence-hotfix`
 
 Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预算网关、请求幂等指纹、外发数据门禁、分布式 actor 限流和保留期维护。生产已经应用 `20260718174042` 与 `20260718223739`；第一次 v1 无 PII 订单文字 smoke 结算 `123 micro-USD` 后安全停止，第二次已批准的 v2 订单文字 smoke 在单次尝试中以 HTTP 200、账本/审计成功结算 `44 micro-USD`。最新权威检查点无开放 reservation、Vision 请求或其他门店请求；Vision 仍关闭。
 
-2026-07-20 的生产生命周期 writer fence 与全局 AI 桶的合法空门店设计发生冲突：`global_day/global_month` 在 provider dispatch 前被通用触发器以 `STORE_LIFECYCLE_STORE_REQUIRED` 拒绝。订单文字和未来 Vision 共享同一 durable reserve 网关，因此付费路径当前统一失败关闭；失败窗口没有 OpenAI 调用或新增费用。前向候选 `20260720065246_ai_usage_bucket_store_fence_hotfix.sql` 以表专用触发器恢复全局桶，并用同一 per-store advisory lock 阻止在 provider reservation 未结算时关闭门店。候选已通过 PostgreSQL 17 行为/并发测试和全量应用门禁，Owner 已批准精确 scoped commit/push 与生产迁移；当前仍未应用生产，发布与验证边界以 `docs/AI_ASSISTANT_LIVE_PILOT_RUNBOOK.md` 的事故章节为准。
+2026-07-20 的生产生命周期 writer fence 与全局 AI 桶的合法空门店设计发生冲突：`global_day/global_month` 在 provider dispatch 前被通用触发器以 `STORE_LIFECYCLE_STORE_REQUIRED` 拒绝。订单文字和未来 Vision 共享同一 durable reserve 网关，因此事故窗口内付费路径统一失败关闭；失败窗口没有 OpenAI 调用或新增费用。前向迁移 `20260720065246_ai_usage_bucket_store_fence_hotfix.sql` 已应用到生产：它以表专用触发器恢复全局桶，并用同一 per-store advisory lock 阻止在 provider reservation 未结算时关闭门店。迁移通过目录、ACL、RLS 和聚合后检；随后唯一一次无 PII 订单文字 canary 以 HTTP 200、单次 provider attempt、账本/审计成功和 `130 micro-USD` 结算，15 分钟 16 次轮询保持 0 open、0 bad、0 cross-store、0 reserved、0 overrun 和 0 Vercel runtime error。发布与验证边界以 `docs/AI_ASSISTANT_LIVE_PILOT_RUNBOOK.md` 的事故章节为准。
 
 实现使用 Node 原生 server-side `fetch`，没有新增 OpenAI SDK 依赖。Platform Key 与 HMAC secrets 未写入代码、任务记忆、日志、测试夹具或截图。本次 Vision 候选没有执行真实 provider 请求；尚未把任何真实图片、OCR、客户资料或设备标识符发送给第三方。
 
@@ -105,7 +105,7 @@ Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预�
 已经应用且不得改写的 additive upgrade：
 `supabase/migrations/20260718223739_ai_assistant_live_provider_v1.sql`。
 
-已验证、待 Owner 单独批准应用的前向兼容修复：
+已经应用且不得改写的前向兼容修复：
 `supabase/migrations/20260720065246_ai_usage_bucket_store_fence_hotfix.sql`。它不改变 policy、pricing、额度、模型、RLS 或客户端 grants；只替换混合桶表的 writer fence，并把未结算 AI reservation 纳入 lifecycle active→非 active 的事务门禁。
 
 基线创建 policy、aggregate bucket、request ledger 与四个 dormant RPC；upgrade 在确认三张治理表仍为空后，新增 actor 短窗桶、请求关联列、policy attestation、维护 RPC，以及带 actor HMAC 的 reserve 签名。两条迁移都不插入 policy，也不会自动启用付费调用。
@@ -165,8 +165,8 @@ OPENAI_API_KEY=
 
 ## 验证与回滚
 
-两条既有治理迁移与待应用围栏修复按真实顺序在无持久卷的 PostgreSQL 17 临时容器执行，修复迁移又连续重放一次；验证了创建、政策一致性证明、RLS/Grants、相同 client request 幂等、订单与视觉结算、pre-dispatch 金额/次数释放、actor 分钟限流、stale 保守结算、活动预留保留、匿名角色拒绝、全局桶 identity 防篡改和 closing-store 零半写。两个独立数据库会话分别证明 reserve-first 时 close 回滚，以及 close-first 时 reserve 整笔回滚。仓库完整历史迁移的 `supabase db start` 仍可能受早期基线漂移影响；本任务使用的是精确最小 schema + 当前三条 AI/lifecycle 迁移行为链，不能把它冒充完整历史可重放证明。
+两条既有治理迁移与围栏修复按真实顺序在无持久卷的 PostgreSQL 17 临时容器执行，修复迁移又连续重放一次；验证了创建、政策一致性证明、RLS/Grants、相同 client request 幂等、订单与视觉结算、pre-dispatch 金额/次数释放、actor 分钟限流、stale 保守结算、活动预留保留、匿名角色拒绝、全局桶 identity 防篡改和 closing-store 零半写。两个独立数据库会话分别证明 reserve-first 时 close 回滚，以及 close-first 时 reserve 整笔回滚。仓库完整历史迁移的 `supabase db start` 仍可能受早期基线漂移影响；本任务使用的是精确最小 schema + 当前三条 AI/lifecycle 迁移行为链，不能把它冒充完整历史可重放证明。
 
-远端 migration history 已包含 `20260718174042`、三条 Inventory V2 migration、`20260718223739` 和后续 store-lifecycle migration `20260720013000`；不得重放或修改这些历史文件。只读 dry-run 当前只列出 `20260720065246`，但不构成生产应用授权。Vision D4 应复用并精确证明既有 `ai-runtime-v2`，不得重建或改写同版本 policy；只有模型、价格、预算或额度发生变化时才允许另开 D4 并创建新的版本化 policy。任何 Vision 写入前仍须核对 v1 已停用、请求账本无开放 reservation、Vision 计数为 0 且远端没有并发 migration drift。
+远端 migration history 已包含 `20260718174042`、三条 Inventory V2 migration、`20260718223739`、store-lifecycle migration `20260720013000` 和围栏修复 `20260720065246`；不得重放或修改这些历史文件。热修复后的 linked dry-run 返回远端已是最新。Vision D4 应复用并精确证明既有 `ai-runtime-v2`，不得重建或改写同版本 policy；只有模型、价格、预算或额度发生变化时才允许另开 D4 并创建新的版本化 policy。任何 Vision 写入前仍须核对 v1 已停用、请求账本无开放 reservation、Vision 计数为 0 且远端没有并发 migration drift。
 
 回滚顺序：关闭 paid fallback → 保留 direct/local/manual → 设置 `AI_ASSISTANT_ENABLED=0` → 必要时回退应用 exact SHA。即使未来迁移已经应用，也不紧急 DROP 用量表；先停止新预留并保守结算已有请求。

@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260720-006-ai-ledger-fence-hotfix"
 title: "AI 用量账本门店围栏热修复"
-status: "active"
+status: "conditional"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L1"
 owner: "IntegrationLead"
 departments: ["DATA", "INT", "QA", "SEC"]
 created_at: "2026-07-20T06:48:24Z"
-updated_at: "2026-07-20T12:27:58Z"
+updated_at: "2026-07-20T12:59:08Z"
+closed_at: "2026-07-20T12:59:08Z"
 ---
 
 # Task — AI 用量账本门店围栏热修复
@@ -63,6 +64,8 @@ AI 用量账本门店围栏热修复
 - [x] AI 全局日/月桶允许合法空 store_id，其他空 store_id 仍拒绝。
 - [x] 活动门店费用预留/结算可用，关闭门店仍被拒绝。
 - [x] 订单与视觉模型账本测试及全量门禁通过。
+- [x] 精确迁移已生产应用，目录/ACL/RLS/聚合后检通过。
+- [x] 唯一无 PII 订单文字 canary 与至少 15 分钟观察通过。
 
 ## Facts, assumptions, and unknowns
 
@@ -83,6 +86,10 @@ AI 用量账本门店围栏热修复
   by the Owner on 2026-07-20. This does not approve a Vercel deploy, PR merge,
   another migration, Vision smoke, flag/policy/model/secret/quota change, or
   lifecycle mutation.
+- Production apply, one non-PII order-text canary and the 15-minute observation
+  completed successfully. Functional recovery is live. Closeout is conditional
+  only because the remote hotfix branch has not been merged into `main`; the
+  migration must be integrated before any later database release.
 
 ## Work packages
 
@@ -127,3 +134,14 @@ AI 用量账本门店围栏热修复
 - Required QA/security/data/release gates are satisfied or formally accepted.
 - Documentation and formal memory are synchronized.
 - Residual risks have owners and deadlines.
+
+## Closeout status
+
+- **Production outcome:** released and observed; no containment or rollback was
+  required.
+- **Conditional governance item:** commits on
+  `origin/codex/ai-ledger-fence-hotfix-20260720` must be merged or cherry-picked
+  into `main` before the next database migration. PR creation/merge was outside
+  the approved action and local GitHub CLI authentication is unavailable.
+- **Unchanged boundaries:** no Vercel deploy, Vision smoke, flag, model, policy,
+  secret, quota, lifecycle mutation, customer communication or data rewrite.

@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260720-006-ai-ledger-fence-hotfix"
-status: "active"
-phase: "production_release_authorized"
+status: "conditional"
+phase: "released_observed"
 task_class: "T2"
 risk_level: "R3"
 autonomy_level: "L1"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-20T12:27:58Z"
+last_checkpoint_at: "2026-07-20T12:59:08Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -20,15 +20,16 @@ last_rehydrated_at: null
 
 ## Current state
 
-Owner approved exact hotfix `20260720065246`. Forward migration, PostgreSQL 17 behavior/concurrency coverage, full repository gates, refreshed linked history/dry-run, zero-reservation preflight, no-concurrent-release check, documentation and DATA/SEC/QA reviews are complete. No production write has occurred yet.
+Owner-approved migration `20260720065246` is production-applied. Catalog/ACL/RLS/aggregate postchecks, exactly one non-PII order-text canary and 15 minutes / 16 observation polls passed; no rollback or containment was required. Release files are on `origin/codex/ai-ledger-fence-hotfix-20260720`, while `main` still lacks the migration.
 
 ## Blocking decisions
 
-- No approval blocker remains for the exact scoped Git delivery and production migration `20260720065246`; stop on any pre-apply drift, unexpected pending migration, active release/lifecycle mutation, or nonzero reservation count.
+- No functional production blocker remains.
+- Repository governance remains conditional: integrate the full hotfix branch into `main` before any later database release. PR/merge authorization was outside the completed release scope.
 
 ## Next action
 
-Create and push the scoped candidate commit, re-run the exact linked dry-run, apply only migration `20260720065246`, then execute catalog/ACL/aggregate checks, one non-PII order-text smoke and at least 15 minutes of observation.
+Merge or cherry-pick the complete hotfix branch into `main` before the next database release, then confirm linked dry-run remains up to date. Do not reapply or repair the already-live migration.
 
 ## Resume protocol
 
